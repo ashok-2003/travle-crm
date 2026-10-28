@@ -39,8 +39,9 @@ the rest. `src/worker-jobs.ts` lists what it runs:
 
 It also relays the outbox every second, and logs as the api does (below). Like the api, it refuses to start when the
 environment isn't valid, the database role is wrong, the bucket can't be used or a listener or schedule can't be
-registered. Stop it with SIGTERM: it stops relaying, lets running jobs finish (up to 30 seconds), closes its pools and
-exits 0. Run more copies to go faster: pg-boss gives each job to one of them.
+registered. Stop it with SIGTERM: it stops relaying, lets running jobs finish (up to 30 seconds, or 2 minutes where
+`JOBS_POLLING_SECONDS` is set), closes its pools and exits 0. Run more copies to go faster: pg-boss gives each job to
+one of them.
 
 ## The log
 
@@ -93,16 +94,22 @@ into an organization as `app_runtime` (`OrganizationStepRefusedError`: the grant
 `docs/deploy-checklist.md`), as well as for everything the api refuses. It runs no listeners and relays nothing: the
 worker does. One instance is enough; keep it running for the demo reset.
 
+With `CONSOLE_JOBS=off` it serves its pages and runs none of these jobs: its pg-boss only sends, as the api's does, so
+an idle console asks the database nothing. What it queues meanwhile (a purge, an export) waits until it runs with its
+jobs again, and each schedule sends one run for what it missed. The two small servers' nights run it so
+(`docs/runbook.md`, "Working hours and night bursts").
+
 It stops on SIGTERM like the api, but its jobs can run long, so the drain may cut one short: pg-boss waits 30 seconds
-for running jobs, then the pools close under whatever is still running. Both long jobs are safe to cut. A purge is one
-transaction, which rolls back, and pg-boss runs it again once the attempt's time is up. An export cut midway restarts
-only after its attempt's 2-hour limit (`EXPORT_JOB_SECONDS`), when pg-boss counts the attempt failed and retries it.
-Give the console at least 30 seconds between SIGTERM and a hard kill.
+(2 minutes where `JOBS_POLLING_SECONDS` is set) for running jobs, then the pools close under whatever is still running.
+Both long jobs are safe to cut. A purge is one transaction, which rolls back, and pg-boss runs it again once the
+attempt's time is up. An export cut midway restarts only after its attempt's 2-hour limit (`EXPORT_JOB_SECONDS`), when
+pg-boss counts the attempt failed and retries it. Give the console at least that long between SIGTERM and a hard kill.
 
 | Variable                 | Required | Default | Meaning                                                                        |
 | ------------------------ | -------- | ------- | ------------------------------------------------------------------------------ |
 | `DATABASE_PLATFORM_URL`  | yes      |         | Postgres as the `app_platform` role; never the api's or the worker's           |
 | `CONSOLE_PORT`           | no       | `3002`  |                                                                                |
+| `CONSOLE_JOBS`           | no       | `on`    | `off`: serves the console's pages and runs no jobs (above)                     |
 | `DEMO_ORGANIZATION_CODE` | no       | no demo | the demo's sign-in code; both `DEMO_` variables or neither                     |
 | `DEMO_PASSWORD`          | no       |         | every demo account's password (12 characters or more): `asha`, `ravi`, `meena` |
 

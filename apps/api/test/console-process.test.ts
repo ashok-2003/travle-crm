@@ -1,12 +1,14 @@
 // The console's own process, started as a deploy starts it: it reads its settings, checks the platform role, starts
-// pg-boss and the platform's jobs, answers /health and the console's tRPC on CONSOLE_PORT, and exits 0 on SIGTERM; a
-// connection that isn't the platform role stops it at start-up. Its one-off command for the first super admin starts
-// the same way and prints the temporary password alone on stdout. Real Postgres and MinIO; SMTP is never reached.
+// pg-boss and the platform's jobs (none with CONSOLE_JOBS off), answers /health and the console's tRPC on CONSOLE_PORT,
+// and exits 0 on SIGTERM; a connection that isn't the platform role stops it at start-up. Its one-off command for the
+// first super admin starts the same way and prints the temporary password alone on stdout. Real Postgres and MinIO;
+// SMTP is never reached.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer, type AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { createIsolatedDatabase } from "@travel-crm/db/testing";
+import { createPgBossJobs } from "@travel-crm/integrations/jobs";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { testEnvironmentVariables } from "./support/environment.js";
 import { startMinio, type TestMinio } from "./support/minio.js";
@@ -103,6 +105,38 @@ describe("the console process", () => {
     }
     expect(await running.exited).toBe(0);
   });
+
+  it(
+    "with CONSOLE_JOBS off, serves its pages and registers no job, so an idle console asks nothing",
+    { timeout: 120_000 },
+    async () => {
+      // A database of its own, where no console has registered its schedules yet.
+      const database = await createIsolatedDatabase(inject("dbUrls"));
+      const port = await freePort();
+      const running = startConsole(port, {
+        CONSOLE_JOBS: "off",
+        DATABASE_URL: database.urls.runtime,
+        DATABASE_PLATFORM_URL: database.urls.platform,
+      });
+      const jobs = createPgBossJobs({ connectionString: database.urls.runtime, sendOnly: true });
+      try {
+        for (let attempt = 0; attempt < 600 && !running.output().includes("console listening"); attempt += 1) {
+          if (running.hasExited()) throw new Error(`the console exited early:\n${running.output()}`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        expect(running.output()).toContain(`"msg":"console listening, its jobs off"`);
+        expect((await fetch(`http://127.0.0.1:${String(port)}/health`)).status).toBe(200);
+        expect((await fetch(`http://127.0.0.1:${String(port)}/api/platform/trpc/whoAmI`)).status).toBe(401);
+        await jobs.start();
+        expect(await jobs.schedules()).toEqual([]);
+      } finally {
+        running.stop();
+        await jobs.stop();
+      }
+      expect(await running.exited).toBe(0);
+      await database.drop();
+    },
+  );
 
   it("refuses to start on a connection that isn't the platform role", { timeout: 90_000 }, async () => {
     const running = startConsole(await freePort(), { DATABASE_PLATFORM_URL: inject("dbUrls").migrator });

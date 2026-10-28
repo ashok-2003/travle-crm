@@ -49,18 +49,58 @@ describe("pg-boss's own loops", () => {
     expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 45 })).not.toThrow();
   });
 
-  it("starts a send-only instance with no supervision, no schedules and its queue cache read once a day", () => {
+  it("starts a send-only instance with no supervision, no schedules, no registry heartbeat and its queue cache read once a day", () => {
     const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
     expect(pgBossOptionsOf({ ...settings, sendOnly: true })).toMatchObject({
       supervise: false,
       schedule: false,
+      // pg-boss's instance registry (getInstances, monitoring only) would write a heartbeat every 30 seconds.
+      registerInstance: false,
       queueCacheIntervalSeconds: 86_400,
     });
     // pg-boss accepts the longest queue cache interval it allows.
     expect(() => createPgBossJobs({ ...settings, sendOnly: true })).not.toThrow();
-    // Every other instance keeps pg-boss's own loops.
+    // Every other instance keeps pg-boss's own loops and its registry.
     const working = pgBossOptionsOf(settings);
-    for (const loop of ["supervise", "schedule", "queueCacheIntervalSeconds"]) {
+    for (const loop of ["supervise", "schedule", "registerInstance", "queueCacheIntervalSeconds"]) {
+      expect(working, loop).not.toHaveProperty(loop);
+    }
+  });
+
+  it("hands slower housekeeping to pg-boss, which accepts it up to its 24 hours", () => {
+    const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
+    const quiet = {
+      ...settings,
+      flowIntervalSeconds: 3600,
+      superviseIntervalSeconds: 300,
+      monitorIntervalSeconds: 300,
+      queueCacheIntervalSeconds: 600,
+      cronMonitorIntervalSeconds: 45,
+      instanceHeartbeatSeconds: 300,
+    };
+    expect(pgBossOptionsOf(quiet)).toMatchObject({
+      flowIntervalSeconds: 3600,
+      superviseIntervalSeconds: 300,
+      monitorIntervalSeconds: 300,
+      queueCacheIntervalSeconds: 600,
+      cronMonitorIntervalSeconds: 45,
+      instanceHeartbeatSeconds: 300,
+    });
+    expect(() => createPgBossJobs(quiet)).not.toThrow();
+    expect(() => createPgBossJobs({ ...settings, instanceHeartbeatSeconds: 3601 })).toThrow(
+      /instanceHeartbeatSeconds must be an integer from 1 to 3600/,
+    );
+    expect(() => createPgBossJobs({ ...settings, superviseIntervalSeconds: 86_401 })).toThrow(
+      /superviseIntervalSeconds cannot exceed 24 hours/,
+    );
+    expect(() => createPgBossJobs({ ...settings, cronMonitorIntervalSeconds: 46 })).toThrow(
+      /cronMonitorIntervalSeconds must be between 1 and 45 seconds/,
+    );
+    // Send-only still reads its cache of queues once a day, whatever the others say.
+    expect(pgBossOptionsOf({ ...quiet, sendOnly: true })).toMatchObject({ queueCacheIntervalSeconds: 86_400 });
+    // Unset, pg-boss keeps its own timings.
+    const working = pgBossOptionsOf(settings);
+    for (const loop of ["flowIntervalSeconds", "superviseIntervalSeconds", "monitorIntervalSeconds"]) {
       expect(working, loop).not.toHaveProperty(loop);
     }
   });
@@ -475,6 +515,36 @@ describe("pg-boss jobs", () => {
       expect(stopped.entries.filter((entry) => entry.level === "warn" || entry.level === "error")).toEqual([]);
     } finally {
       await stopping.stop().catch(() => undefined);
+    }
+  });
+
+  it("waits only as long as its stop timeout for a running handler: the job runs again later", async () => {
+    const stopping = createPgBossJobs({
+      connectionString: urls.runtime,
+      maxConnections: 2,
+      pollingIntervalSeconds: 0.5,
+      stopTimeoutSeconds: 1,
+      logger: createMemoryLogger(),
+    });
+    await stopping.start();
+    let started = false;
+    let finished = false;
+    try {
+      await stopping.work("probe.slower", async () => {
+        started = true;
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        finished = true;
+      });
+      await stopping.send("probe.slower", {});
+      await eventually(() => started);
+      const stoppingAt = Date.now();
+      await stopping.stop();
+      expect(Date.now() - stoppingAt).toBeLessThan(3500);
+      expect(finished).toBe(false);
+    } finally {
+      await stopping.stop().catch(() => undefined);
+      // Let the cut-short handler end before the next test.
+      await eventually(() => finished, 10_000);
     }
   });
 });

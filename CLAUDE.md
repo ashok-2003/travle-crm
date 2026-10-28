@@ -28,7 +28,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 | `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)  |
 | `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)       |
 | `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)         |
-| `pnpm scripts:test`                            | the compose helper's test: each checkout's project name (CI)    |
+| `pnpm scripts:test`                            | the scripts' tests: compose project names, working hours (CI)   |
 | `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`    |
 | `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                  |
 
