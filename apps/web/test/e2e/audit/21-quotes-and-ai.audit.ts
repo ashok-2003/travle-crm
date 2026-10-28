@@ -5,7 +5,14 @@ import { saveBusinessProfile } from "../support/documents";
 import { expect, signInToConsole, test } from "../support/console";
 import { signInByEmail } from "../support/fixtures";
 import { addLeadThroughApi, callApi, leadInput } from "../support/leads";
-import { connectNumber, inAgency, newCustomerNumber, openNewChat } from "../support/whatsapp";
+import {
+  connectNumber,
+  customerMessage,
+  deliverWhatsapp,
+  inAgency,
+  newCustomerNumber,
+  openNewChat,
+} from "../support/whatsapp";
 import { screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -109,6 +116,13 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   await page.getByRole("menuitem", { name: "Lost" }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await shoot(page, "lost-reason");
+  await page.keyboard.press("Escape");
+  await page.goto("/dashboard");
+  await expect(page.getByRole("region", { name: "Key figures" })).toBeVisible();
+  await shoot(page, "home-final");
+  await page.goto("/reports");
+  await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
+  await shoot(page, "reports-final");
 });
 
 test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, browser, superAdmin, agency }) => {
@@ -136,8 +150,14 @@ test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, 
       "Reply in Hinglish, warm and short. Always ask for the travel dates and the number of travellers. Never offer a discount.",
     );
   await shoot(owner, "settings-ai");
-  await owner.getByRole("button", { name: "Save" }).click();
+  await owner.getByRole("button", { name: "Save", exact: true }).click();
   await expect(owner.getByText("AI settings saved")).toBeVisible();
+  await owner.getByRole("button", { name: "Add text" }).click();
+  await owner.getByLabel("Title").fill("Kerala 5N");
+  await owner.getByLabel("Details").fill("Kerala 5 nights is ₹18,500 per person, hotels and breakfast included.");
+  await owner.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(owner.getByText("Kerala 5N")).toBeVisible();
+  await shoot(owner, "settings-ai-knowledge");
 
   await owner.goto("/inbox");
   await owner
@@ -148,4 +168,21 @@ test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, 
   await panel.getByRole("button", { name: "Suggest reply" }).click();
   await expect(panel.getByText("Drafted by AI")).toBeVisible();
   await shoot(owner, "composer-suggestion");
+
+  expect(
+    await deliverWhatsapp([
+      customerMessage({
+        to: business,
+        customerNumber: customer,
+        name: "Rahul Mehta",
+        text: "What is the price for four?",
+      }),
+    ]),
+  ).toBe(200);
+  const leadId = await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).id);
+  await expect(async () => {
+    await owner.goto(`/leads/${leadId}`);
+    await expect(owner.getByRole("heading", { name: "AI's guess" })).toBeVisible({ timeout: 4_000 });
+  }).toPass({ timeout: 90_000 });
+  await shoot(owner, "lead-ai-guess");
 });

@@ -149,25 +149,6 @@ const TWO_FACTOR_SHOTS = [
   { name: "theme-broadcasts", screen: "Inbox, Broadcasts", as: owner },
   { name: "theme-settings-whatsapp", screen: "Settings, WhatsApp", as: owner },
   { name: "theme-console", screen: "A console page", as: superAdmin },
-  // Quotes, money and Suggest reply (2026-10-28).
-  { name: "quote-editor", screen: "A draft quote: its plan, priced lines, GST and place of supply", as: owner },
-  {
-    name: "quote-customer-link",
-    screen: "The customer's link: the plan, the price and Accept",
-    as: "the customer, signed out",
-  },
-  {
-    name: "quote-payments",
-    screen: "An accepted quote: its read-only notice, the payments due and received",
-    as: owner,
-  },
-  { name: "quote-invoice", screen: "A paid quote with its tax invoice issued", as: owner },
-  { name: "finance", screen: "Finance: profit, bookings and costs", as: owner },
-  { name: "reports", screen: "Reports: the key figures, the funnel and the team", as: owner },
-  { name: "home-hot-leads", screen: "Home: the hot leads to call now", as: owner },
-  { name: "lost-reason", screen: "Marking a lead Lost asks why", as: owner },
-  { name: "settings-ai", screen: "Settings, AI: the switch and the instructions", as: owner },
-  { name: "composer-suggestion", screen: "A chat's reply box with the AI's draft, marked Drafted by AI", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -567,6 +548,10 @@ export const SHOTS = [
   { name: "home-hot-leads", screen: "Home: the hot leads to call now", as: owner },
   { name: "lost-reason", screen: "Marking a lead Lost asks why", as: owner },
   { name: "settings-ai", screen: "Settings, AI: the switch and the instructions", as: owner },
+  { name: "settings-ai-knowledge", screen: "Settings, AI: what the AI knows", as: owner },
+  { name: "lead-ai-guess", screen: "A lead page with the AI's guess in the AI's tint", as: owner },
+  { name: "home-final", screen: "Home, the owner's layout in our style", as: owner },
+  { name: "reports-final", screen: "Reports with the lead flow charts that left Home", as: owner },
   { name: "composer-suggestion", screen: "A chat's reply box with the AI's draft, marked Drafted by AI", as: owner },
 ] as const satisfies readonly Shot[];
 
