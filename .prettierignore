@@ -9,3 +9,5 @@ coverage/
 apps/web/public/sw.js
 apps/web/test-results/
 apps/web/playwright-report/
+# Screenshots a builder takes for a review (shots/): not part of the code.
+shots/

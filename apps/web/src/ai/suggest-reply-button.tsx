@@ -37,7 +37,11 @@ export function SuggestReplyButton({
         onClick={() => {
           suggest.mutate(
             { conversationId },
-            { onSuccess: (reply) => { onDraft({ id: reply.draftId, text: reply.text }); } },
+            {
+              onSuccess: (reply) => {
+                onDraft({ id: reply.draftId, text: reply.text });
+              },
+            },
           );
         }}
       >
