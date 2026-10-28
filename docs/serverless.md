@@ -1,8 +1,9 @@
 # The serverless pilot: Neon, Render and Vercel
 
 How the product runs for the pilot on free plans, and how to set it up, step by step. It stands in until a VM is
-rented; then `docs/runbook.md` applies (its scripts run on any Ubuntu VM: EC2, Compute Engine, Oracle). What any
-deploy must get right is in `docs/deploy-checklist.md`.
+rented; then `docs/runbook.md` applies (its scripts run on any Ubuntu VM: EC2, Compute Engine, Oracle). Its "Two small
+servers (api and console)" replaces only Render, with two free Oracle servers that never sleep, and keeps everything
+else here. What any deploy must get right is in `docs/deploy-checklist.md`.
 
 ## What runs where
 
@@ -26,7 +27,9 @@ cookies stay first-party and the api needs no CORS.
   that during working hours.
 - **Background work runs only while the api is awake.** The worker shares its container, so invites and notifications
   go out while someone uses the app. The nightly jobs (the console's subscription records, file sweeps, rate-limit
-  clean-up) run only if their service happens to be awake. That's safe: access is worked out on every request anyway.
+  clean-up) run on time only if their service happens to be awake; a run missed while it slept is sent once when it
+  next wakes, so the demo's 02:00 reset may happen in the day when the console wasn't woken for it (step 9). That's
+  safe: access is worked out on every request anyway.
 - **Background work starts up to a few minutes late.** Render's Hobby workspace includes only 5 GB of outbound traffic a
   month, and the processes' queries to Neon count as Render's "service-initiated" traffic. With pg-boss polling about
   40 queues every 2 seconds, October 2026 used 5.41 GB that way against 104 MB of pages. Over 5 GB Render bills $0.15 a

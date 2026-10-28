@@ -1,8 +1,10 @@
 # The server's reverse proxy (docker-compose.server.yml): docker/Caddyfile with HTTPS. It routes as a deploy's load
 # balancer does (docs/deploy-checklist.md): the console's api to the console, the api's paths to the api, every other
-# path to the web app. Caddy, with no trusted proxies of its own, replaces X-Forwarded-For with the one address the
-# request came from, whatever the request said, so the api's rate limits need no AUTH_TRUSTED_PROXIES. It writes no
-# access log, so a password reset's token (in its path) is never kept.
+# path to the web app. On the two small servers (SERVER_ROLE `api` or `console`, docs/runbook.md) each routes only its
+# own paths and answers 404 to the rest: the web app's host hands each server its paths. Caddy, with no trusted proxies
+# of its own, replaces X-Forwarded-For with the one address the request came from, whatever the request said, so the
+# api's rate limits need no AUTH_TRUSTED_PROXIES. It writes no access log, so a password reset's token (in its path) is
+# never kept.
 {
 	# The ACME account's address: expiry warnings, and ZeroSSL's account when Let's Encrypt refuses.
 	email {$ACME_EMAIL}
@@ -13,12 +15,8 @@
 	}
 }
 
-# The one address (APP_HOST in the server's settings). Plain http on 80 redirects here.
-{$APP_HOST} {
-	# Caddy tries the most specific path first, so the console's /api/platform/* never reaches the api.
-	handle /api/platform/* {
-		reverse_proxy console:3002
-	}
+# The api's paths, and /health for the uptime monitor: the api's {"status":"ok"}.
+(api-paths) {
 	handle /api/* {
 		reverse_proxy api:3001
 	}
@@ -28,11 +26,48 @@
 	handle /webhooks/* {
 		reverse_proxy api:3001
 	}
-	# For the uptime monitor: the api's {"status":"ok"}.
 	handle /health {
 		reverse_proxy api:3001
 	}
+}
+
+# One server: everything. Caddy tries the most specific path first, so the console's /api/platform/* never reaches
+# the api.
+(routes-all) {
+	handle /api/platform/* {
+		reverse_proxy console:3002
+	}
+	import api-paths
 	handle {
 		reverse_proxy web:3000
 	}
+}
+
+# The api's small server: the api's paths. /api/platform/* is the console's, on the other server.
+(routes-api) {
+	handle /api/platform/* {
+		respond 404
+	}
+	import api-paths
+	handle {
+		respond 404
+	}
+}
+
+# The console's small server: the console's paths, and /health for the uptime monitor (the console's own).
+(routes-console) {
+	handle /api/platform/* {
+		reverse_proxy console:3002
+	}
+	handle /health {
+		reverse_proxy console:3002
+	}
+	handle {
+		respond 404
+	}
+}
+
+# The one address (APP_HOST in the server's settings). Plain http on 80 redirects here.
+{$APP_HOST} {
+	import routes-{$SERVER_ROLE:all}
 }
