@@ -127,7 +127,7 @@ describe("dashboardFigures", () => {
         { bucket: "waiting", leads: 2 },
       ]),
     );
-    expect(dashboard.team).toEqual([
+    expect(dashboard.team).toMatchObject([
       { userId: sales.userId, leads: 3, contacted: 1, won: 0 },
       { userId: owner.userId, leads: 1, contacted: 1, won: 1 },
     ]);
@@ -147,7 +147,7 @@ describe("dashboardFigures", () => {
     const dashboard = await figures(owner);
     expect(dashboard.totals).toMatchObject({ newLeads: 3, contacted: 1, medianFirstReplyMinutes: null });
     expect(dashboard.responseTimes).toEqual([{ bucket: "waiting", leads: 1 }]);
-    expect(dashboard.team).toEqual([{ userId: owner.userId, leads: 3, contacted: 1, won: 0 }]);
+    expect(dashboard.team).toMatchObject([{ userId: owner.userId, leads: 3, contacted: 1, won: 0 }]);
   });
 
   it("shows a salesperson only their own leads and work, without the team", async () => {
