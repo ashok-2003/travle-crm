@@ -28,11 +28,12 @@ export interface ObjectStorage {
     expiresInSeconds: number,
   ): Promise<PresignedUpload>;
   /**
-   * A URL that downloads the file and saves it under fileName; with `inline`, one the browser may open in place (only for
-   * a file that is safe to show: a photo, a video, a voice note, a PDF).
+   * A URL that downloads the file and saves it under fileName. With `inline`, one the browser may open in place, which needs the
+   * file's `contentType` from our own record: the adapter refuses (RangeError) any type that is not a photo, video, voice note
+   * or PDF, so an SVG or an HTML page is only ever saved, and it tells the browser that type, not the object's own.
    */
   presignDownload(
-    object: { key: string; fileName: string; inline?: boolean },
+    object: { key: string; fileName: string; inline?: boolean; contentType?: string },
     expiresInSeconds: number,
   ): Promise<string>;
   /** Stores a file the server made itself, such as a rendered PDF. */

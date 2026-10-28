@@ -69,7 +69,7 @@ function assertReady(row: AttachmentRow): void {
 async function presign(storage: ObjectStorage, row: AttachmentRow, inline = false): Promise<DownloadLink> {
   const expiresAt = new Date(Date.now() + DOWNLOAD_URL_SECONDS * 1000);
   const url = await storage.presignDownload(
-    { key: storageKeyOf(row), fileName: row.fileName, inline },
+    { key: storageKeyOf(row), fileName: row.fileName, inline, ...(inline ? { contentType: row.contentType } : {}) },
     DOWNLOAD_URL_SECONDS,
   );
   return { url, expiresAt };

@@ -35,6 +35,30 @@ describe("memory storage", () => {
   it("makes a download link that opens in place only when asked", async () => {
     const storage = createMemoryStorage();
     expect(await storage.presignDownload({ key: "doc", fileName: "a.pdf" }, 60)).not.toContain("inline=1");
-    expect(await storage.presignDownload({ key: "doc", fileName: "a.pdf", inline: true }, 60)).toContain("inline=1");
+    expect(
+      await storage.presignDownload(
+        { key: "doc", fileName: "a.pdf", inline: true, contentType: "application/pdf" },
+        60,
+      ),
+    ).toContain("inline=1");
+  });
+
+  it("refuses an in-place link for a type a browser would run, or one it was not told", async () => {
+    const storage = createMemoryStorage();
+    for (const contentType of ["image/svg+xml", "text/html", "application/xml", "text/xml", "application/javascript"]) {
+      await expect(
+        storage.presignDownload({ key: "doc", fileName: "a.bin", inline: true, contentType }, 60),
+        contentType,
+      ).rejects.toBeInstanceOf(RangeError);
+    }
+    await expect(storage.presignDownload({ key: "doc", fileName: "a.pdf", inline: true }, 60)).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    for (const contentType of ["image/png", "image/jpeg", "video/mp4", "audio/ogg", "application/pdf"]) {
+      await expect(
+        storage.presignDownload({ key: "doc", fileName: "a", inline: true, contentType }, 60),
+        contentType,
+      ).resolves.toContain("inline=1");
+    }
   });
 });
