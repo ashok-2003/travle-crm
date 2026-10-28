@@ -99,6 +99,7 @@ export async function sendToLead(
         clientToken: input.clientToken,
         sentBy: null,
         mayStartChat: true,
+        origin: "automation",
       },
       now,
     );
