@@ -55,6 +55,8 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
 EOF
+# sshd -t needs its runtime directory, which Ubuntu 24.04's socket-started ssh makes only while sshd runs.
+install -d -m 0755 /run/sshd
 sshd -t
 systemctl reload ssh
 
