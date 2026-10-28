@@ -1,0 +1,12 @@
+{
+  "title": "Your invitation",
+  "opening": "Opening your invitation…",
+  "settingUp": "Setting up {company}…",
+  "moment": "Your workspace is being made ready. This takes a moment.",
+  "joinedTitle": "{company} is already set up",
+  "joinedDescription": "Sign in with your organization code {code} and your password.",
+  "signIn": "Sign in",
+  "failed": "We couldn't open your invitation just now. Check your connection and try again.",
+  "tryAgain": "Try again",
+  "closed": "This invitation link isn't valid any more. Ask the person who sent it for a new one."
+}

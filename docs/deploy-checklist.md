@@ -106,49 +106,50 @@ Checked at start-up by `apps/api/src/environment.ts` (with `service-variables.ts
 process refuses to start on a missing or wrong one, naming it. ● needed, ○ optional, blank: never given to it.
 Secrets come from the platform's secret manager as environment variables, never in an image (spec 12.3).
 
-| Variable                                                          | api | worker | console | migrate | Secret |
-| ----------------------------------------------------------------- | --- | ------ | ------- | ------- | ------ |
-| `DATABASE_URL` (as `app_runtime`)                                 | ●   | ●      | ●       |         | yes    |
-| `DATABASE_PLATFORM_URL` (as `app_platform`)                       |     |        | ●       |         | yes    |
-| `DATABASE_MIGRATOR_URL` (as `app_migrator`)                       |     |        |         | ●       | yes    |
-| `DATABASE_POOL_SIZE`                                              | ○   | ○      | ○       |         |        |
-| `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host)  | ○   | ○      | ○       |         |        |
-| `BETTER_AUTH_SECRET`: one value for all three                     | ●   | ●      | ●       |         | yes    |
-| `BETTER_AUTH_URL`, `APP_URL`: both the app's https address        | ●   | ●      | ●       |         |        |
-| `TRUSTED_ORIGINS`                                                 | ○   | ○      | ○       |         |        |
-| `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                      | ○   | ○      | ○       |         |        |
-| `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting)   | ●   | ●      | ●       |         |        |
-| `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`)   | ●   | ●      | ●       |         |        |
-| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)    | ●   | ●      | ●       |         | yes    |
-| `SMTP_HOST`, `EMAIL_FROM_ADDRESS` (`SMTP_PORT`, `SMTP_SECURE`)    | ●   | ●      | ●       |         |        |
-| `SMTP_USER`, `SMTP_PASSWORD`                                      | ○   | ○      | ○       |         | yes    |
-| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                               | ●   | ●      | ●       |         |        |
-| `VAPID_PRIVATE_KEY`: the public key's pair (below)                | ●   | ●      | ●       |         | yes    |
-| `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below)  | ●   | ●      |         |         | yes    |
-| `SHEETS_HASH_KEY`: 32+ characters, never changed (below)          | ●   | ●      | ●       |         | yes    |
-| `META_APP_ID`: the Meta app's id (Meta lead ads, below)           | ○   | ○      |         |         |        |
-| `META_APP_SECRET`: signs webhooks, exchanges logins               | ○   | ○      |         |         | yes    |
-| `META_WEBHOOK_VERIFY_TOKEN`: 32+ random characters                | ○   | ○      |         |         | yes    |
-| `META_LOGIN_CONFIG_ID`: the Facebook Login for Business config    | ○   | ○      |         |         |        |
-| `META_TOKEN_KEY`: seals Pages' tokens; base64 of 32 bytes, a list | ○   | ○      |         |         | yes    |
-| `META_GRAPH_TEST_SERVER_URL`: tests only, refused in production   | ○   | ○      |         |         |        |
-| `MSG91_AUTHKEY`: the MSG91 account's API key (WhatsApp, below)    | ○   | ○      | ○       |         | yes    |
-| `MSG91_WEBHOOK_TOKEN`: 32+ random characters; the webhook's path  | ○   | ○      | ○       |         | yes    |
-| `MSG91_WEBHOOK_KEY`: 32+ random characters; the header's value    | ○   | ○      | ○       |         | yes    |
-| `MSG91_TEST_SERVER_URL`: tests only, refused in production        | ○   | ○      | ○       |         |        |
-| `AI_API_KEY`: the AI provider's key; unset, the AI agent is off   | ○   | ○      |         |         | yes    |
-| `AI_BASE_URL`: an OpenAI-compatible API (OpenRouter's by default) | ○   | ○      |         |         |        |
-| `AI_CHAT_MODELS`, `AI_FAST_MODELS`: comma-separated, in order     | ○   | ○      |         |         |        |
-| `AI_ZERO_RETENTION`: OpenRouter's no-data routing (`true`)        | ○   | ○      |         |         |        |
-| `LOG_LEVEL`: debug, info, warn or error (`info`)                  | ○   | ○      | ○       |         |        |
-| `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)     | ○   | ○      | ○       |         | yes    |
-| `AXIOM_URL`: only for Axiom's EU region                           | ○   | ○      | ○       |         |        |
-| `PUBLIC_FORM_PROXY_HOPS`: 1 to 5; unset behind Caddy (Hosting)    | ○   |        |         |         |        |
-| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`: both or neither     | ○   |        |         |         | yes    |
-| `TURNSTILE_VERIFY_URL`: tests only, refused in production         | ○   |        |         |         |        |
-| `PORT` (3001)                                                     | ○   |        |         |         |        |
-| `CONSOLE_PORT` (3002)                                             |     |        | ○       |         |        |
-| `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither        |     |        | ○       |         | yes    |
+| Variable                                                                                            | api | worker | console | migrate | Secret |
+| --------------------------------------------------------------------------------------------------- | --- | ------ | ------- | ------- | ------ |
+| `DATABASE_URL` (as `app_runtime`)                                                                   | ●   | ●      | ●       |         | yes    |
+| `DATABASE_PLATFORM_URL` (as `app_platform`)                                                         |     |        | ●       |         | yes    |
+| `DATABASE_MIGRATOR_URL` (as `app_migrator`)                                                         |     |        |         | ●       | yes    |
+| `DATABASE_POOL_SIZE`                                                                                | ○   | ○      | ○       |         |        |
+| `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host)                                    | ○   | ○      | ○       |         |        |
+| `BETTER_AUTH_SECRET`: one value for all three                                                       | ●   | ●      | ●       |         | yes    |
+| `BETTER_AUTH_URL`, `APP_URL`: both the app's https address                                          | ●   | ●      | ●       |         |        |
+| `TRUSTED_ORIGINS`                                                                                   | ○   | ○      | ○       |         |        |
+| `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                                                        | ○   | ○      | ○       |         |        |
+| `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting)                                     | ●   | ●      | ●       |         |        |
+| `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`)                                     | ●   | ●      | ●       |         |        |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)                                      | ●   | ●      | ●       |         | yes    |
+| `SMTP_HOST`, `EMAIL_FROM_ADDRESS` (`SMTP_PORT`, `SMTP_SECURE`)                                      | ●   | ●      | ●       |         |        |
+| `SMTP_USER`, `SMTP_PASSWORD`                                                                        | ○   | ○      | ○       |         | yes    |
+| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                                                                 | ●   | ●      | ●       |         |        |
+| `VAPID_PRIVATE_KEY`: the public key's pair (below)                                                  | ●   | ●      | ●       |         | yes    |
+| `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below)                                    | ●   | ●      |         |         | yes    |
+| `SHEETS_HASH_KEY`: 32+ characters, never changed (below)                                            | ●   | ●      | ●       |         | yes    |
+| `META_APP_ID`: the Meta app's id (Meta lead ads, below)                                             | ○   | ○      |         |         |        |
+| `META_APP_SECRET`: signs webhooks, exchanges logins                                                 | ○   | ○      |         |         | yes    |
+| `META_WEBHOOK_VERIFY_TOKEN`: 32+ random characters                                                  | ○   | ○      |         |         | yes    |
+| `META_LOGIN_CONFIG_ID`: the Facebook Login for Business config                                      | ○   | ○      |         |         |        |
+| `META_TOKEN_KEY`: seals Pages' tokens; base64 of 32 bytes, a list                                   | ○   | ○      |         |         | yes    |
+| `META_GRAPH_TEST_SERVER_URL`: tests only, refused in production                                     | ○   | ○      |         |         |        |
+| `MSG91_AUTHKEY`: the MSG91 account's API key (WhatsApp, below)                                      | ○   | ○      | ○       |         | yes    |
+| `MSG91_WEBHOOK_TOKEN`: 32+ random characters; the webhook's path                                    | ○   | ○      | ○       |         | yes    |
+| `MSG91_WEBHOOK_KEY`: 32+ random characters; the header's value                                      | ○   | ○      | ○       |         | yes    |
+| `MSG91_TEST_SERVER_URL`: tests only, refused in production                                          | ○   | ○      | ○       |         |        |
+| `AI_API_KEY`: the AI provider's key; unset, the AI agent is off                                     | ○   | ○      |         |         | yes    |
+| `AI_BASE_URL`: an OpenAI-compatible API (OpenRouter's by default)                                   | ○   | ○      |         |         |        |
+| `AI_CHAT_MODELS`, `AI_FAST_MODELS`: comma-separated, in order                                       | ○   | ○      |         |         |        |
+| `AI_ZERO_RETENTION`: OpenRouter's no-data routing (`true`)                                          | ○   | ○      |         |         |        |
+| `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
+| `LOG_LEVEL`: debug, info, warn or error (`info`)                                                    | ○   | ○      | ○       |         |        |
+| `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)                                       | ○   | ○      | ○       |         | yes    |
+| `AXIOM_URL`: only for Axiom's EU region                                                             | ○   | ○      | ○       |         |        |
+| `PUBLIC_FORM_PROXY_HOPS`: 1 to 5; unset behind Caddy (Hosting)                                      | ○   |        |         |         |        |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`: both or neither                                       | ○   |        |         |         | yes    |
+| `TURNSTILE_VERIFY_URL`: tests only, refused in production                                           | ○   |        |         |         |        |
+| `PORT` (3001)                                                                                       | ○   |        |         |         |        |
+| `CONSOLE_PORT` (3002)                                                                               |     |        | ○       |         |        |
+| `DEMO_ORGANIZATION_CODE`, `DEMO_PASSWORD`: both or neither                                          |     |        | ○       |         | yes    |
 
 - **`NODE_ENV`** is `production` when unset, and production refuses http addresses, an off rate limit and a weak
   secret. Never set it to `development` in a deploy.
@@ -250,15 +251,15 @@ Secrets come from the platform's secret manager as environment variables, never 
 
 ## Routing at the load balancer (ADRs 0018, 0019)
 
-| Path                            | Goes to       | Why                                                       |
-| ------------------------------- | ------------- | --------------------------------------------------------- |
-| `/api/platform/*`               | console, 3002 | the console's tRPC; this rule goes before the next one    |
-| `/api/*`                        | api, 3001     | Better Auth's sign-in and the organization app's tRPC     |
-| `/p/*`                          | api, 3001     | share links                                               |
-| `/webhooks/*`                   | api, 3001     | the webhook intake (Meta's and MSG91's callbacks)         |
-| `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)    |
-| `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)       |
-| everything else                 | web, 3000     | the app's pages, build files, manifest and service worker |
+| Path                            | Goes to       | Why                                                                         |
+| ------------------------------- | ------------- | --------------------------------------------------------------------------- |
+| `/api/platform/*`               | console, 3002 | the console's tRPC and the invite links' public route; before the next rule |
+| `/api/*`                        | api, 3001     | Better Auth's sign-in and the organization app's tRPC                       |
+| `/p/*`                          | api, 3001     | share links                                                                 |
+| `/webhooks/*`                   | api, 3001     | the webhook intake (Meta's and MSG91's callbacks)                           |
+| `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)                      |
+| `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)                         |
+| everything else                 | web, 3000     | the app's pages, build files, manifest and service worker                   |
 
 - **One address for everything** (spec 3): the app's https origin is `BETTER_AUTH_URL` and `APP_URL`, so cookies
   stay first-party and the api needs no CORS. Share links (`/p/*`) and the webhook intake (`/webhooks/*`) are the

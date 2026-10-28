@@ -208,7 +208,8 @@
       "job": "Job",
       "member": "Member",
       "traveller": "Traveller",
-      "person": "Customer"
+      "person": "Customer",
+      "vip_invite": "Invite"
     },
     "actions": {
       "organization": {
@@ -263,6 +264,11 @@
       },
       "demo": {
         "reset": "Rebuilt the demo organization"
+      },
+      "invite": {
+        "created": "Made an invite",
+        "cancelled": "Cancelled an invite",
+        "joined": "An invited company joined"
       }
     }
   },

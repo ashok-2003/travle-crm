@@ -160,4 +160,10 @@ export const serviceVariables = {
     ),
   /** OpenRouter only: route to providers that keep no data (true by default). Its free models need false. */
   AI_ZERO_RETENTION: z.stringbool().default(true),
+  /**
+   * What a million input and output tokens cost, in paise, for the console's usage analytics (both or neither); a free
+   * model costs 0. Unset, the console shows no AI cost.
+   */
+  AI_PRICE_INPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
+  AI_PRICE_OUTPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
 };

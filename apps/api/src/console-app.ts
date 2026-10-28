@@ -1,21 +1,35 @@
 // The platform console's HTTP app (spec 7), served by the console process: a health check, and the console's tRPC at
 // /api/platform/trpc, which the load balancer (and the web app's development server) routes here. Platform staff sign
 // in through the api's /api/auth like everyone else; the console reads the same session cookie. It logs as the api
-// does: unexpected errors only, by names and codes.
+// does: unexpected errors only, by names and codes. And the invite program's one public route: opening an invite's
+// link makes the company's organization (only the platform role may), rate-limited by the client's address.
 import { trpcServer } from "@hono/trpc-server";
 import { createPlatformContext, platformRouter } from "@travel-crm/api/platform";
-import type { PlatformServices } from "@travel-crm/domain/platform";
+import { openVipInvite, type PlatformServices } from "@travel-crm/domain/platform";
+import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
 import { apiErrorHandler } from "./error-handler.js";
+import { rateLimit } from "./rate-limit.js";
 import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js";
 import { requireTrustedJson } from "./trusted-origin.js";
 
 /** No console call needs a bigger body. */
 const BODY_LIMIT = 64 * 1024;
+/** An invite's token: 24 random bytes, base64url. */
+const INVITE_TOKEN = /^[A-Za-z0-9_-]{32,64}$/;
 
-export function createConsoleApp(services: PlatformServices, logger: Logger): Hono<RequestLogEnv> {
+export interface ConsolePublicRoutes {
+  rateLimiter: RateLimiter;
+  clientAddress: (request: Request) => string | null;
+}
+
+export function createConsoleApp(
+  services: PlatformServices,
+  logger: Logger,
+  publicRoutes?: ConsolePublicRoutes,
+): Hono<RequestLogEnv> {
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
   app.onError(apiErrorHandler(logger));
@@ -25,6 +39,28 @@ export function createConsoleApp(services: PlatformServices, logger: Logger): Ho
   // a sleeping service wakes for a call that comes that way, not for a pinger's call to its own address
   // (docs/serverless.md, step 9).
   app.get("/api/platform/health", (c) => c.json({ status: "ok" }));
+
+  // An invite's link opened, from the web app's /vip/<token> page (same origin, JSON): a few tries a minute per address.
+  if (publicRoutes !== undefined) {
+    app.post(
+      "/api/platform/public/vip/:token",
+      requireTrustedJson(services.identity),
+      limitBody(1024),
+      rateLimit({
+        limiter: publicRoutes.rateLimiter,
+        name: "vip-invite",
+        limit: 20,
+        windowSeconds: 60,
+        clientAddress: publicRoutes.clientAddress,
+        logger,
+      }),
+      async (c) => {
+        const token = c.req.param("token");
+        if (!INVITE_TOKEN.test(token)) return c.json({ state: "closed" });
+        return c.json(await openVipInvite(services, token));
+      },
+    );
+  }
 
   // The same rules as the api's tRPC: posts (every call, queries included) come from the web app as JSON, and bodies
   // are small.

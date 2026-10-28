@@ -11,7 +11,9 @@
     "more": "More",
     "signOut": "Sign out",
     "homeShort": "Home",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "invites": "Invites",
+    "usage": "Usage"
   },
   "levels": {
     "support": "Support",

@@ -94,3 +94,49 @@ model PlatformExportFile {
   @@id([exportId, attachmentId])
   @@map("platform_export_file")
 }
+
+/// An invite to the invite-only program (the owner, 2026-10-28): one company, its owner, the plan and trial it starts
+/// on, and the link's token. Opening the link makes the company's organization at once and signs its owner in; every
+/// opening is counted. The platform's: no organization_id, so it outlives a purge; the runtime role has no rights on it.
+model VipInvite {
+  id                   String          @id @default(uuid(7)) @db.Uuid
+  /// The link's secret: /vip/<token>. Kept so the console can copy the link again; only the platform role reads it.
+  token                String          @unique
+  companyName          String          @map("company_name")
+  ownerName            String          @map("owner_name")
+  ownerPhone           String?         @map("owner_phone")
+  ownerEmail           String?         @map("owner_email")
+  city                 String?
+  gstStateCode         String          @default("07") @map("gst_state_code")
+  planId               String          @map("plan_id") @db.Uuid
+  /// monthly or yearly (CHECK vip_invite_billing_cycle_value).
+  billingCycle         String          @default("monthly") @map("billing_cycle")
+  trialDays            Int             @default(30) @map("trial_days")
+  /// The platform admin who made it.
+  createdBy            String          @map("created_by") @db.Uuid
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  firstOpenedAt        DateTime?       @map("first_opened_at") @db.Timestamptz(6)
+  lastOpenedAt         DateTime?       @map("last_opened_at") @db.Timestamptz(6)
+  openCount            Int             @default(0) @map("open_count")
+  /// The organization the first opening made (no key: it may be purged), and its owner.
+  joinedOrganizationId String?         @map("joined_organization_id") @db.Uuid
+  joinedAt             DateTime?       @map("joined_at") @db.Timestamptz(6)
+  ownerUserId          String?         @map("owner_user_id") @db.Uuid
+  cancelledAt          DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  plan                 Plan            @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  opens                VipInviteOpen[]
+
+  @@index([createdAt(sort: Desc)], map: "vip_invite_created")
+  @@map("vip_invite")
+}
+
+/// One opening of an invite's link: when, nothing else.
+model VipInviteOpen {
+  id       String    @id @default(uuid(7)) @db.Uuid
+  inviteId String    @map("invite_id") @db.Uuid
+  openedAt DateTime  @default(now()) @map("opened_at") @db.Timestamptz(6)
+  invite   VipInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([inviteId, openedAt(sort: Desc)], map: "vip_invite_open_invite")
+  @@map("vip_invite_open")
+}

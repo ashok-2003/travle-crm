@@ -1,0 +1,9 @@
+{
+  "vipBadge": "Invite-only program",
+  "vipTitle": "Welcome, {name}. {company} is in.",
+  "vipDescription": "We've invited only a few growing companies to this exclusive program, and {company} is one of them. Your own {product} is ready: your workspace, your team and your leads, set up for you.",
+  "vipGift": "Your {days} days of {product}, our AI sales execution platform, start today, free. No card, nothing to fill in.",
+  "title": "Welcome to {product}, {name}",
+  "description": "Everything your team needs to win more bookings: every enquiry in one place, an AI that answers and follows up, and a clear view of what to do next. Here's a quick look.",
+  "start": "Let's start"
+}

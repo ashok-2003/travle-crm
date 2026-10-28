@@ -5,10 +5,12 @@ import { listPlatformLog } from "@travel-crm/domain/platform";
 import { staffProcedure } from "./procedures.js";
 import { dataProtectionRouter } from "./routers/data-protection.js";
 import { dashboardRouter, jobsRouter } from "./routers/operations.js";
+import { invitesRouter } from "./routers/invites.js";
 import { organizationsRouter } from "./routers/organizations.js";
 import { plansRouter } from "./routers/plans.js";
 import { platformStaffRouter } from "./routers/platform-staff.js";
 import { subscriptionsRouter } from "./routers/subscriptions.js";
+import { usageRouter } from "./routers/usage.js";
 import { whatsappRouter } from "./routers/whatsapp.js";
 import { platformT } from "./trpc.js";
 
@@ -25,6 +27,8 @@ export const platformRouter = platformT.router({
   jobs: jobsRouter,
   whatsapp: whatsappRouter,
   platformStaff: platformStaffRouter,
+  invites: invitesRouter,
+  usage: usageRouter,
   log: platformT.router({
     /** What platform staff and the platform's jobs did, newest first. */
     list: staffProcedure

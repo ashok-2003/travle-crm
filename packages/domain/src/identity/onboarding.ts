@@ -8,7 +8,7 @@ import { publishEvent } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
 import { hasChosenPassword } from "./password-emails.js";
 import { isPlaceholderEmail } from "./sign-in-names.js";
-import { insertStaffAccount, type CreatedStaff } from "./staff-accounts.js";
+import { insertStaffAccount, TEMPORARY_PASSWORD_STAMP, type CreatedStaff } from "./staff-accounts.js";
 import { OWNER_ROLE_KEY } from "./starter-roles.js";
 
 export interface NewOrganization {
@@ -106,4 +106,59 @@ export async function requestInvite(tx: IdentityTx, actor: Actor, memberId: stri
     payload: staffInvitedEvent.parse({ memberId: member.id, userId: member.userId }),
   });
   await recordAudit(tx, actor, { action: "staff.invited", entityType: "member", entityId: member.id });
+}
+
+/** The invite program's Owner signs in with the organization's code and this username. */
+export const INVITED_OWNER_USERNAME = "owner";
+
+/**
+ * The invite program's first Owner (the owner, 2026-10-28), in the transaction's organization: signs in with the code
+ * and "owner" and a password the platform made, which their invite link signs them in with, so they type nothing. The
+ * account carries the temporary stamp until they choose their own. Their email, when given and free, is theirs to sign
+ * in with too; else they get a placeholder. Recorded as "staff.created" by `actor`.
+ */
+export async function addInvitedOwner(
+  tx: IdentityTx,
+  actor: Actor,
+  owner: { name: string; email: string | null; phone: string | null; passwordHash: string },
+): Promise<CreatedStaff> {
+  const email = owner.email?.toLowerCase() ?? null;
+  const free =
+    email !== null && (await tx.user.findFirst({ where: { email }, select: { id: true } })) === null ? email : null;
+  const created = await insertStaffAccount(tx, {
+    organizationId: actor.organizationId,
+    name: owner.name,
+    ...(free === null ? {} : { email: free }),
+    username: INVITED_OWNER_USERNAME,
+    roleKey: OWNER_ROLE_KEY,
+    passwordHash: owner.passwordHash,
+    mustChangePassword: false,
+    ...(owner.phone === null ? {} : { phone: owner.phone }),
+    actor,
+  });
+  await tx.account.updateMany({
+    where: { userId: created.userId, providerId: "credential" },
+    data: { updatedAt: TEMPORARY_PASSWORD_STAMP },
+  });
+  return created;
+}
+
+/**
+ * A new one-time password for an invited Owner who hasn't chosen their own yet, so their link signs them in again;
+ * false once they have (their own password is never touched).
+ */
+export async function renewInvitedOwnerPassword(
+  tx: IdentityTx,
+  organizationId: string,
+  userId: string,
+  passwordHash: string,
+): Promise<boolean> {
+  // The member table has no row-level security, so the organization is filtered here.
+  const member = await tx.member.findFirst({ where: { userId, organizationId }, select: { id: true } });
+  if (member === null) return false;
+  const renewed = await tx.account.updateMany({
+    where: { userId, providerId: "credential", updatedAt: TEMPORARY_PASSWORD_STAMP },
+    data: { password: passwordHash, updatedAt: TEMPORARY_PASSWORD_STAMP },
+  });
+  return renewed.count === 1;
 }
