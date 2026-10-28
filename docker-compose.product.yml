@@ -41,6 +41,13 @@ x-api-environment: &api-environment
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
   AI_SUGGEST_MODELS: ${AI_SUGGEST_MODELS:-}
   AI_SCORE_MODELS: ${AI_SCORE_MODELS:-}
+  # The same AI on any OpenAI-compatible endpoint, called directly (Google's Gemini is
+  # https://generativelanguage.googleapis.com/v1beta/openai): with AI_API_KEY set these replace the OpenRouter ones above.
+  AI_BASE_URL: ${AI_BASE_URL:-}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_CHAT_MODELS: ${AI_CHAT_MODELS:-}
+  AI_FAST_MODELS: ${AI_FAST_MODELS:-}
+  AI_ZERO_RETENTION: ${AI_ZERO_RETENTION:-}
   # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
   # webhook block and check a number.
   MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}

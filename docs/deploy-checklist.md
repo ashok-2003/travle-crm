@@ -140,6 +140,10 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `MSG91_TEST_SERVER_URL`: tests only, refused in production                                          | ○   | ○      | ○       |         |        |
 | `OPENROUTER_API_KEY`: the AI (below); unset: off                                                    | ○   | ○      |         |         | yes    |
 | `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS`: OpenRouter slugs (below)                                    | ○   | ○      |         |         |        |
+| `AI_API_KEY`: the AI on any OpenAI-compatible endpoint (below); replaces `OPENROUTER_API_KEY`       | ○   | ○      |         |         | yes    |
+| `AI_BASE_URL`: its address (Google's Gemini direct; https in production)                            | ○   | ○      |         |         |        |
+| `AI_CHAT_MODELS`: its models, comma-separated; needed with `AI_API_KEY`                             | ○   | ○      |         |         |        |
+| `AI_FAST_MODELS`: the ones that only score leads (the chat ones when blank)                         | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                                                    | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)                                       | ○   | ○      | ○       |         | yes    |
@@ -242,6 +246,13 @@ Secrets come from the platform's secret manager as environment variables, never 
     in Settings, AI. A member asks for each draft; it reads the chat's last 12 messages, the lead's first name and trip
     facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 500
     suggestions an agency a month (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
+  - **Called directly on another endpoint** (the owner, 2026-10-29): `AI_API_KEY` with `AI_BASE_URL` (for Google's Gemini,
+    `https://generativelanguage.googleapis.com/v1beta/openai`; OpenRouter's when unset) and `AI_CHAT_MODELS` (and optionally
+    `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the
+    process stops if the key has no chat models, if the others come without the key, or if the base URL is not https in
+    production. OpenRouter's `provider` zero-data-retention field is sent only to OpenRouter, so a direct endpoint keeps what
+    its own terms say (Google's free tier may use prompts: keep billing on for the project). `docker-compose.server.yml`
+    passes all of them to the api, the worker and the console.
   - Existing plans get no AI: edit each plan in the console to add the module.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and

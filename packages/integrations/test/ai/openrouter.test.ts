@@ -1,7 +1,7 @@
 // The OpenRouter adapter: zero-data-retention routing on every request, OpenRouter's address only, a feature's models
 // tried in order, and the key sent as a header and nowhere else.
 import { describe, expect, it } from "vitest";
-import { createOpenRouterModel, openRouterBaseUrl } from "../../src/ai/index.js";
+import { aiBaseUrl, createOpenRouterModel, isOpenRouterUrl } from "../../src/ai/index.js";
 
 const KEY = "sk-or-secret-key-1234567890";
 const messages = [{ role: "user" as const, content: "Hello" }];
@@ -44,24 +44,47 @@ describe("the OpenRouter adapter", () => {
     expect((call.init.headers as Record<string, string>).authorization).toBe(`Bearer ${KEY}`);
   });
 
-  it("refuses any base URL that is not OpenRouter's", () => {
-    for (const url of [
-      "https://api.openai.com/v1",
-      "http://openrouter.ai/api/v1",
-      "https://openrouter.ai.evil.example/v1",
-      "https://user:pass@openrouter.ai/api/v1",
-      "not a url",
-    ]) {
-      expect(() => openRouterBaseUrl(url)).toThrow();
-      expect(() =>
-        createOpenRouterModel({
-          apiKey: KEY,
-          models: { suggest_reply: ["a"], score_lead: ["s"], autopilot: [], learn: [] },
-          baseUrl: url,
-        }),
-      ).toThrow();
+  it("sends OpenRouter's provider field to OpenRouter alone, never to Google's or any other endpoint", async () => {
+    const models = { suggest_reply: ["gemini-2.5-flash"], score_lead: [], autopilot: [], learn: [] };
+    const google = fakeFetch(answer("From Gemini", "gemini-2.5-flash"));
+    const gemini = createOpenRouterModel({
+      apiKey: KEY,
+      models,
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      fetch: google.fetcher,
+    });
+    expect(await gemini.complete({ feature: "suggest_reply", messages, json: true, user: "org-1" })).toMatchObject({
+      ok: true,
+    });
+    const call = google.calls[0];
+    if (call === undefined) throw new Error("no request was sent");
+    expect(call.url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+    expect(bodyOf(call)).not.toHaveProperty("provider");
+    expect(bodyOf(call)).toMatchObject({ model: "gemini-2.5-flash", response_format: { type: "json_object" } });
+    // An address that only looks like OpenRouter's gets nothing of it either, and OpenRouter's own can turn it off.
+    for (const url of ["https://openrouter.ai.evil.example/v1", "http://openrouter.ai/api/v1"]) {
+      const other = fakeFetch(answer("x", "m"));
+      await createOpenRouterModel({ apiKey: KEY, models, baseUrl: url, fetch: other.fetcher }).complete({
+        feature: "suggest_reply",
+        messages,
+      });
+      expect(bodyOf(other.calls[0] ?? call)).not.toHaveProperty("provider");
     }
-    expect(openRouterBaseUrl("https://openrouter.ai/api/v1/")).toBe("https://openrouter.ai/api/v1");
+    const off = fakeFetch(answer("x", "m"));
+    await createOpenRouterModel({ apiKey: KEY, models, zeroRetention: false, fetch: off.fetcher }).complete({
+      feature: "suggest_reply",
+      messages,
+    });
+    expect(bodyOf(off.calls[0] ?? call)).not.toHaveProperty("provider");
+  });
+
+  it("refuses an address that is no http(s) URL or holds credentials", () => {
+    for (const url of ["not a url", "ftp://example.com/v1", "https://user:pass@example.com/v1"]) {
+      expect(() => aiBaseUrl(url)).toThrow();
+    }
+    expect(aiBaseUrl("https://openrouter.ai/api/v1/")).toBe("https://openrouter.ai/api/v1");
+    expect(isOpenRouterUrl("https://openrouter.ai/api/v1")).toBe(true);
+    expect(isOpenRouterUrl("https://openrouter.ai.evil.example/v1")).toBe(false);
   });
 
   it("tries the next model when one is rate limited, and says so when none answers", async () => {

@@ -1,11 +1,22 @@
-// The AI model Suggest reply drafts with (ADR 0029), built once per process: OpenRouter with its zero-data-retention routing,
-// from the key and the models in the environment. Null when no key is set: the feature then says the AI isn't set up. The
-// journeys' fake (AI_TEST_SERVER_URL, never in production) receives the adapter's calls in OpenRouter's place; the adapter
-// itself still refuses any address but OpenRouter's, so only the transport is swapped.
+// The AI model the features call (ADR 0029), built once per process: from AI_API_KEY with AI_BASE_URL and the models when
+// those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), else OpenRouter with its zero-data-retention
+// routing from OPENROUTER_API_KEY. Null when no key is set: the features then say the AI isn't set up. The journeys' fake
+// (AI_TEST_SERVER_URL, never in production) receives OpenRouter's calls in its place.
 import { createOpenRouterModel, OPENROUTER_BASE_URL, type AiModel } from "@travel-crm/integrations/ai";
 import type { Environment } from "./environment.js";
 
 export function createAiModel(environment: Environment): AiModel | null {
+  if (environment.AI_API_KEY !== undefined) {
+    const chat = environment.AI_CHAT_MODELS ?? [];
+    const fast = environment.AI_FAST_MODELS ?? chat;
+    return createOpenRouterModel({
+      apiKey: environment.AI_API_KEY,
+      // The chat models write for customers and read chats; the fast ones only score leads.
+      models: { suggest_reply: chat, autopilot: chat, learn: chat, score_lead: fast },
+      ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
+      ...(environment.AI_ZERO_RETENTION === undefined ? {} : { zeroRetention: environment.AI_ZERO_RETENTION }),
+    });
+  }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;
   const testServer = environment.AI_TEST_SERVER_URL;
