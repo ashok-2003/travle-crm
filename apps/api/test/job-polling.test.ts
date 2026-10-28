@@ -1,9 +1,10 @@
 // JOBS_POLLING_SECONDS sets how often the worker looks for work, to spare a metered network (docs/serverless.md): each
 // queue's poll, pg-boss's scheduled sends (at most 45 s, pg-boss's limit) and the outbox relay's idle wait. Unset, every
-// process keeps pg-boss's and the relay's own timings.
+// process keeps pg-boss's and the relay's own timings. Whatever it says, the api only sends jobs, so its pg-boss runs none
+// of its own loops and an idle api asks the database nothing.
 import { describe, expect, it } from "vitest";
 import { loadEnvironment } from "../src/environment.js";
-import { jobQueuePollingOf, relayPollingOf } from "../src/job-polling.js";
+import { jobQueuePollingOf, jobQueueRoleOf, relayPollingOf } from "../src/job-polling.js";
 import { testEnvironmentVariables } from "./support/environment.js";
 
 const environmentWith = (value: string) => loadEnvironment(testEnvironmentVariables({ JOBS_POLLING_SECONDS: value }));
@@ -44,5 +45,13 @@ describe("JOBS_POLLING_SECONDS", () => {
     for (const value of ["0", "601", "1.5", "two minutes"]) {
       expect(() => environmentWith(value), value).toThrow(/JOBS_POLLING_SECONDS/);
     }
+  });
+});
+
+describe("each process's job queue", () => {
+  it("only sends from the api, which supervises nothing and keeps no schedules; the worker and the console work", () => {
+    expect(jobQueueRoleOf("api")).toEqual({ sendOnly: true });
+    expect(jobQueueRoleOf("worker")).toEqual({});
+    expect(jobQueueRoleOf("console")).toEqual({});
   });
 });
