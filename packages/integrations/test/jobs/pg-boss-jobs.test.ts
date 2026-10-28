@@ -39,6 +39,16 @@ describeJobAdapter("pg-boss", async () => {
   };
 });
 
+describe("pg-boss's own loops", () => {
+  it("hands the scheduled sends' check interval to pg-boss, which holds it to 1 to 45 seconds", () => {
+    const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
+    expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 46 })).toThrow(
+      /cronWorkerIntervalSeconds must be between 1 and 45 seconds/,
+    );
+    expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 45 })).not.toThrow();
+  });
+});
+
 describe("pg-boss jobs", () => {
   const urls: DbUrls = inject("dbUrls");
   // Uncensored: the lines are exactly what the adapter passed, so these tests are the adapter's contract with the privacy
