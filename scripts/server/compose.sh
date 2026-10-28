@@ -18,6 +18,12 @@ if [ -z "${RELEASE:-}" ] && [ -f "$release_file" ]; then
 fi
 # Before the first deploy there is no release: `ps` and `logs` still work.
 export RELEASE="${RELEASE:-none}"
+# Whether the console runs its jobs: the working hours' night turns them off (scripts/server/work-hours.sh), and every
+# `compose.sh up` keeps what they set. The environment's first, so a one-off run can say otherwise.
+if [ -z "${CONSOLE_JOBS:-}" ] && [ -f "$console_jobs_file" ]; then
+  CONSOLE_JOBS="$(cat "$console_jobs_file")"
+fi
+export CONSOLE_JOBS="${CONSOLE_JOBS:-on}"
 role="$(server_role)"
 case "$role" in
   all) profiles=(api-host console-host web) ;;

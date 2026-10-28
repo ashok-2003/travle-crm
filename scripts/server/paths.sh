@@ -10,6 +10,9 @@ settings_file="${TRAVEL_CRM_SETTINGS:-$server_root/production.env}"
 # The release (commit) running now, and the one before it, for a rollback.
 release_file="$server_root/release"
 previous_release_file="$server_root/release.previous"
+# Whether the console runs its jobs now, `on` or `off` (scripts/server/work-hours.sh writes it; compose.sh hands it to
+# the console as CONSOLE_JOBS). Missing: on. TRAVEL_CRM_CONSOLE_JOBS names another file, for work-hours.sh's test.
+console_jobs_file="${TRAVEL_CRM_CONSOLE_JOBS:-/etc/travel-crm/console-jobs}"
 
 # Whether the settings point the database at the server's own Postgres (the host `postgres`) rather than a managed one.
 uses_local_database() {

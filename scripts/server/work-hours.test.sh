@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# `pnpm scripts:test`: the working hours' plan (scripts/server/work-hours.sh), sourced, with its plan in a file of the
-# test's own: the first version's one line reads as those hours with the default night bursts; a plan written reads back
-# the same; a minute is in the hours, in a burst (across midnight too) or in neither; and a burst that runs into the
-# hours, a burst of the wrong length or a time that isn't one is refused. No root, systemd or Docker: nothing is started.
+# `pnpm scripts:test`: the working hours (scripts/server/work-hours.sh), sourced, with a plan, a settings file, a
+# console-mode file and a compose command of the test's own: the first version's one line reads as those hours with the
+# default night bursts; a plan written reads back the same; a minute is in the hours, in a burst (across midnight too)
+# or in neither; a burst that runs into the hours or a time that isn't one is refused; and the day's and the night's
+# states run what each server's role calls for. No root, systemd or Docker: the compose command only records.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
@@ -10,6 +11,12 @@ source scripts/docker/support.sh
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 export WORK_HOURS_PLAN="$work/work-hours"
+export TRAVEL_CRM_SETTINGS="$work/production.env"
+export TRAVEL_CRM_CONSOLE_JOBS="$work/console-jobs"
+# What the states ask Compose for, a line each.
+export WORK_HOURS_COMPOSE="$work/compose"
+printf '#!/usr/bin/env bash\necho "$*" >>"%s"\n' "$work/compose.log" >"$WORK_HOURS_COMPOSE"
+chmod +x "$WORK_HOURS_COMPOSE"
 # shellcheck source=scripts/server/work-hours.sh
 source scripts/server/work-hours.sh
 
@@ -80,6 +87,62 @@ bursts=18:30
 refused "a burst that starts in the hours" check_bursts_outside_hours
 bursts=19:00
 check "a burst from the hours' end" check_bursts_outside_hours
+hours_start=09:00
+hours_end=09:30
+bursts=08:50
+burst_minutes=60
+refused "a burst that spans short hours" check_bursts_outside_hours
 refused "a time that isn't one" valid_time 24:00
 refused "a time without its leading zero" valid_time 9:00
 check "a time" valid_time 07:00
+
+# What each state runs, by the server's role. `asked` is what Compose was asked for since the last look.
+asked() {
+  paste -s -d '|' "$work/compose.log" 2>/dev/null || true
+  rm -f "$work/compose.log"
+}
+console_mode() { cat "$TRAVEL_CRM_CONSOLE_JOBS" 2>/dev/null || echo unset; }
+role() {
+  echo "SERVER_ROLE='$1'" >"$TRAVEL_CRM_SETTINGS"
+  rm -f "$TRAVEL_CRM_CONSOLE_JOBS" "$work/compose.log"
+}
+
+role api
+day_state >/dev/null
+check "the api's server, by day: the worker runs" [ "$(asked)" = "up --detach --no-deps worker" ]
+night_state >/dev/null
+check "the api's server, at night: the worker stops" [ "$(asked)" = "stop worker" ]
+check "and it keeps no console mode" [ "$(console_mode)" = unset ]
+
+role console
+day_state >/dev/null
+check "the console's server, by day: the console runs with its jobs" \
+  [ "$(asked) $(console_mode)" = "up --detach --no-deps console on" ]
+night_state >/dev/null
+check "the console's server, at night: the console runs, its jobs off" \
+  [ "$(asked) $(console_mode)" = "up --detach --no-deps console off" ]
+
+role all
+day_state >/dev/null
+check "one server, by day: both run, the console with its jobs" \
+  [ "$(asked) $(console_mode)" = "up --detach --no-deps worker console on" ]
+night_state >/dev/null
+check "one server, at night: the worker stops, the console runs, its jobs off" \
+  [ "$(asked) $(console_mode)" = "stop worker|up --detach --no-deps console off" ]
+
+# The state the time calls for, with the default plan.
+role console
+hours_start=09:00
+hours_end=19:00
+bursts=22:00,01:00,04:00,07:00
+burst_minutes=10
+state_at() {
+  WORK_HOURS_NOW="$1" apply_state >/dev/null
+  console_mode
+}
+check "at 10:00, the day's state" [ "$(state_at 10:00)" = on ]
+check "at 22:05, a burst's: the day's" [ "$(state_at 22:05)" = on ]
+check "at 23:00, the night's" [ "$(state_at 23:00)" = off ]
+check "at 08:30, still the night's" [ "$(state_at 08:30)" = off ]
+hours_start=""
+check "with no plan, the day's at any time" [ "$(state_at 03:00)" = on ]
