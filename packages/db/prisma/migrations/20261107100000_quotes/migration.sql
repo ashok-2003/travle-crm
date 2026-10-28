@@ -152,9 +152,10 @@ ALTER TABLE "quote_settings"
 REVOKE DELETE ON TABLE "quote", "quote_payment", "quote_settings" FROM app_runtime;
 
 -- Quotations and receipts are numbered apart from invoices, so no agency may choose their prefixes for its invoices.
+-- NOT VALID: a live agency that already chose QT or RCT must not fail the deploy; every new or changed prefix is checked.
 ALTER TABLE "organization_profile" DROP CONSTRAINT organization_profile_invoice_prefix_not_reserved;
 ALTER TABLE "organization_profile"
-  ADD CONSTRAINT organization_profile_invoice_prefix_not_reserved CHECK (invoice_prefix NOT IN ('SMPL', 'DOC', 'QT', 'RCT'));
+  ADD CONSTRAINT organization_profile_invoice_prefix_not_reserved CHECK (invoice_prefix NOT IN ('SMPL', 'DOC', 'QT', 'RCT')) NOT VALID;
 
 -- Organization isolation (see app_enable_org_rls in the init migration).
 SELECT app_enable_org_rls('quote');
