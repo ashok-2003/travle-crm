@@ -67,7 +67,7 @@ export async function moneySummaryOf(
 /** Each lead owner's sales in the period: the quotes accepted in it, before GST, for the team's leaderboard. */
 export async function salesByOwner(tx: OrgTx, period: { from: Date; to: Date }): Promise<Map<string, number>> {
   const rows = await tx.quote.findMany({
-    where: { status: "accepted", acceptedAt: { gte: period.from, lt: period.to } },
+    where: { status: "accepted", acceptedAt: { gte: period.from, lt: period.to }, lead: { deletedAt: null } },
     select: { subtotalPaise: true, lead: { select: { ownerUserId: true } } },
   });
   const sales = new Map<string, number>();

@@ -75,7 +75,8 @@ export async function dashboardFigures(
     team: insights.team.map((row) => ({
       ...row,
       overdue: overdue.get(row.userId) ?? 0,
-      salesPaise: sales.get(row.userId) ?? 0,
+      // What each sold is money: shown to whoever may read the money reports.
+      salesPaise: access.permissions.has("money:view_reports") ? (sales.get(row.userId) ?? 0) : 0,
     })),
   };
 }

@@ -3,10 +3,11 @@
 import { reportInput, salesReport, staffReport, staffReportInput } from "@travel-crm/contracts/reports";
 import { salesReportOf, staffReportOf } from "@travel-crm/domain/reports";
 import { memberNames } from "../member-names.js";
-import { orgProcedure } from "../procedures.js";
+import { freshProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
-const viewer = orgProcedure.requires("leads:view");
+// Money and what staff did are read from the database, never the five-minute session cache (an exports-grade read).
+const viewer = freshProcedure.requires("leads:view");
 
 export const reportsRouter = router({
   overview: viewer

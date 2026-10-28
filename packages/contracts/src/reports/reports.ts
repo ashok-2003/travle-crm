@@ -61,6 +61,8 @@ export const teamRow = z.object({
 export type TeamRow = z.infer<typeof teamRow>;
 
 export const salesReport = z.object({
+  /** False when the member may not see money: every amount is then 0 and the screen shows none. */
+  showsMoney: z.boolean(),
   scope: z.enum(["own", "all"]),
   from: calendarDate,
   to: calendarDate,
@@ -90,18 +92,22 @@ export const activityEntry = z.object({
 });
 
 export const staffReport = z.object({
+  /** False when the member may not see money: sales and collections are then 0 and the screen shows none. */
+  showsMoney: z.boolean(),
   from: calendarDate,
   to: calendarDate,
   person: teamRow,
-  /** The agency's middle figures, to compare against. */
-  teamAverage: z.object({
-    conversionPercent: z.number().nullable(),
-    medianFirstReplyMinutes: z.number().nullable(),
-    salesPaise: paise,
-  }),
+  /** The agency's middle figures, to compare against; null for a member who sees only their own leads. */
+  teamAverage: z
+    .object({
+      conversionPercent: z.number().nullable(),
+      medianFirstReplyMinutes: z.number().nullable(),
+      salesPaise: paise,
+    })
+    .nullable(),
   /** Each day of the period: messages sent, notes, tasks done, leads won. */
   perDay: z.array(z.object({ day: calendarDate, messages: count, notes: count, tasksDone: count, won: count })),
-  /** What they did last, newest first, from the audit log. */
+  /** What they did last, newest first, from the audit log: empty without audit:view. */
   activity: z.array(activityEntry),
   /** When they last did anything; null for never. */
   lastActiveAt: z.iso.datetime().nullable(),

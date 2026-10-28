@@ -61,11 +61,12 @@ export async function figuresOf(tx: OrgTx, ownerUserId: string | null, period: R
       count(*) FILTER (WHERE q.status = 'accepted'
         AND q.accepted_at >= ${period.from}::timestamptz AND q.accepted_at < ${period.to}::timestamptz)::int AS accepted
     FROM quote q JOIN lead ON lead.id = q.lead_id
-    WHERE q.deleted_at IS NULL ${owner}`);
+    WHERE q.deleted_at IS NULL AND lead.deleted_at IS NULL ${owner}`);
   const [paid] = await tx.$queryRaw<{ collected: bigint }[]>(sql`
     SELECT coalesce(sum(p.amount_paise), 0)::bigint AS collected
     FROM quote_payment p JOIN quote q ON q.id = p.quote_id JOIN lead ON lead.id = q.lead_id
-    WHERE p.voided_at IS NULL AND p.received_on >= ${period.firstDay}::date AND p.received_on <= ${period.lastDay}::date
+    WHERE p.voided_at IS NULL AND q.deleted_at IS NULL AND lead.deleted_at IS NULL
+      AND p.received_on >= ${period.firstDay}::date AND p.received_on <= ${period.lastDay}::date
       ${owner}`);
   return {
     newLeads: leads?.newLeads ?? 0,

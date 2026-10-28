@@ -17,7 +17,7 @@ export async function breakdownsOf(
   tx: OrgTx,
   ownerUserId: string | null,
   period: ReportPeriod,
-): Promise<Omit<SalesReport, "scope" | "from" | "to" | "figures" | "previous" | "team">> {
+): Promise<Omit<SalesReport, "showsMoney" | "scope" | "from" | "to" | "figures" | "previous" | "team">> {
   const cohort = cohortOf(ownerUserId, period);
   const owner = ownerOf(ownerUserId);
   const zone = period.timeZone;
@@ -57,7 +57,7 @@ export async function breakdownsOf(
   const salesMonths = await tx.$queryRaw<{ month: string; sales: bigint }[]>(sql`
     SELECT to_char(q.accepted_at AT TIME ZONE ${zone}, 'YYYY-MM') AS month, sum(q.subtotal_paise)::bigint AS sales
     FROM quote q JOIN lead ON lead.id = q.lead_id
-    WHERE q.deleted_at IS NULL AND q.status = 'accepted' ${owner}
+    WHERE q.deleted_at IS NULL AND lead.deleted_at IS NULL AND q.status = 'accepted' ${owner}
       AND q.accepted_at AT TIME ZONE ${zone} >= ${monthStart} AND q.accepted_at < ${period.to}::timestamptz
     GROUP BY 1`);
   const [last] = await tx.$queryRaw<{ month: string }[]>(sql`
@@ -73,7 +73,7 @@ export async function breakdownsOf(
   const [pipeline] = await tx.$queryRaw<{ total: bigint; quotes: number }[]>(sql`
     SELECT coalesce(sum(q.total_paise), 0)::bigint AS total, count(*)::int AS quotes
     FROM quote q JOIN lead ON lead.id = q.lead_id
-    WHERE q.deleted_at IS NULL AND q.status = 'sent' AND lead.stage IN ('new', 'contacted', 'quote_sent', 'booking_requested')
+    WHERE q.deleted_at IS NULL AND lead.deleted_at IS NULL AND q.status = 'sent' AND lead.stage IN ('new', 'contacted', 'quote_sent', 'booking_requested')
       ${owner}`);
 
   const isSource = (value: string): value is LeadSource => (leadSources as readonly string[]).includes(value);

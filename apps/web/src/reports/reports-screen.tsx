@@ -90,7 +90,7 @@ export function ReportsScreen() {
           </TabsContent>
           {data.scope === "all" && (
             <TabsContent value="team" className="pt-4">
-              <TeamReportTable team={data.team} />
+              <TeamReportTable team={data.team} showsMoney={data.showsMoney} />
             </TabsContent>
           )}
           <TabsContent value="timing" className="pt-4">

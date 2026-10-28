@@ -45,26 +45,28 @@ export function MonthsCard({ report }: { report: SalesReport }) {
             </BarChart>
           </ChartContainer>
         </figure>
-        <figure className="flex flex-col gap-2">
-          <figcaption className="text-label text-muted-foreground">{t("sales")}</figcaption>
-          <ChartContainer config={sales} className="aspect-auto h-56 w-full" role="img" aria-label={t("sales")}>
-            <BarChart data={data} margin={{ left: 8, right: 8, top: 8 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                width={64}
-                tickFormatter={(value: number) => rupees(Math.round(value * 100))}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent formatter={(value) => rupees(Math.round(Number(value) * 100))} />}
-              />
-              <Bar dataKey="salesRupees" fill="var(--color-salesRupees)" radius={4} isAnimationActive={false} />
-            </BarChart>
-          </ChartContainer>
-        </figure>
+        {report.showsMoney && (
+          <figure className="flex flex-col gap-2">
+            <figcaption className="text-label text-muted-foreground">{t("sales")}</figcaption>
+            <ChartContainer config={sales} className="aspect-auto h-56 w-full" role="img" aria-label={t("sales")}>
+              <BarChart data={data} margin={{ left: 8, right: 8, top: 8 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  width={64}
+                  tickFormatter={(value: number) => rupees(Math.round(value * 100))}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent formatter={(value) => rupees(Math.round(Number(value) * 100))} />}
+                />
+                <Bar dataKey="salesRupees" fill="var(--color-salesRupees)" radius={4} isAnimationActive={false} />
+              </BarChart>
+            </ChartContainer>
+          </figure>
+        )}
         <table className="sr-only">
           <caption>{t("title")}</caption>
           <tbody>
@@ -73,7 +75,7 @@ export function MonthsCard({ report }: { report: SalesReport }) {
                 <th scope="row">{monthOf(month.month)}</th>
                 <td>{formatCount(month.leads)}</td>
                 <td>{formatCount(month.won)}</td>
-                <td>{rupees(month.salesPaise)}</td>
+                {report.showsMoney && <td>{rupees(month.salesPaise)}</td>}
               </tr>
             ))}
           </tbody>
