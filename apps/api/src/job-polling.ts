@@ -16,6 +16,7 @@ const LONGEST_CRON_WORKER_INTERVAL_SECONDS = 45;
  * - supervision (a job past its time failed for a retry, old jobs deleted) and the queues' statistics every 5 minutes,
  *   and the cache of queues every 10 (a miss reads the database at once): every minute by default;
  * - the schedules' watchdog every 45 seconds, as seldom as pg-boss allows (30 by default);
+ * - the instance registry's heartbeat (monitoring only) every 5 minutes, not every 30 seconds;
  * - and running jobs get 2 minutes to finish when the process stops, since the working hours stop it every day.
  */
 const QUIET_HOUSEKEEPING = {
@@ -24,6 +25,7 @@ const QUIET_HOUSEKEEPING = {
   monitorIntervalSeconds: 300,
   queueCacheIntervalSeconds: 600,
   cronMonitorIntervalSeconds: 45,
+  instanceHeartbeatSeconds: 300,
   stopTimeoutSeconds: 120,
 } as const satisfies Partial<PgBossJobsSettings>;
 

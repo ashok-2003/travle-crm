@@ -18,6 +18,7 @@ const quietHousekeeping = {
   monitorIntervalSeconds: 300,
   queueCacheIntervalSeconds: 600,
   cronMonitorIntervalSeconds: 45,
+  instanceHeartbeatSeconds: 300,
   stopTimeoutSeconds: 120,
 };
 
