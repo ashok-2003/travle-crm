@@ -101,7 +101,8 @@ export async function startProcess<T>(
 /**
  * How long the drain after an error nothing handled may take: past pg-boss's 30 seconds for running jobs, with room to
  * close the pools. After an uncaught exception Node calls the process's state undefined, so a drain that hangs (a
- * stuck pool, a keep-alive the server won't close) must not leave it up and serving nothing.
+ * stuck pool, a keep-alive the server won't close) must not leave it up and serving nothing. Where JOBS_POLLING_SECONDS
+ * gives running jobs 2 minutes, this cuts one short sooner; pg-boss runs it again later.
  */
 const DRAIN_LIMIT_MS = 45_000;
 

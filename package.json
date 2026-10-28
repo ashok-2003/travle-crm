@@ -28,7 +28,7 @@
     "product:up": "scripts/dev/compose.sh --product up --detach --build --wait && scripts/dev/compose.sh --product run --rm --no-deps console demo",
     "product:down": "scripts/dev/compose.sh --product down",
     "product:smoke": "scripts/docker/smoke-product.sh",
-    "scripts:test": "scripts/dev/compose.test.sh",
+    "scripts:test": "scripts/dev/compose.test.sh && scripts/server/work-hours.test.sh",
     "lighthouse": "STORAGE_ORIGIN=${STORAGE_ORIGIN:-http://localhost:59000} turbo run build --filter=@travel-crm/web && pnpm --filter @travel-crm/web lighthouse",
     "migrations:check": "scripts/ci/check-migrations.sh",
     "workflows:lint": "scripts/ci/lint-workflows.sh"

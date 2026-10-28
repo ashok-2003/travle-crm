@@ -96,7 +96,8 @@ export function googleSheetsOf(environment: Environment, logger: Logger): Google
 
 /**
  * `logger` is the process's structured log: pg-boss's problems and job lines go there, as ids, codes and timings.
- * `processName` is the process they're for: the api's job queue only sends (jobQueueRoleOf); unnamed, it works.
+ * `processName` is the process they're for: the api's job queue only sends, and the console's with CONSOLE_JOBS off
+ * (jobQueueRoleOf); unnamed, it works.
  */
 export function createServices(
   environment: Environment,
@@ -150,7 +151,7 @@ export function createServices(
     connectionString: environment.DATABASE_URL,
     logger,
     ...jobQueuePollingOf(environment),
-    ...jobQueueRoleOf(processName),
+    ...jobQueueRoleOf(processName, environment),
   });
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,

@@ -164,8 +164,10 @@ services:
       timeout: 3s
       retries: 30
 
-  # The worker and the console let running jobs finish for up to 30 seconds on SIGTERM (docs/deploy-checklist.md).
-  # On the two small servers both run in working hours only (scripts/server/work-hours.sh).
+  # The worker and the console let running jobs finish on SIGTERM (docs/deploy-checklist.md): for up to 30 seconds, or
+  # 2 minutes where JOBS_POLLING_SECONDS is set (apps/api/src/job-polling.ts), since the working hours and the night
+  # bursts stop them on the two small servers every day (scripts/server/work-hours.sh). The grace is the longer, plus
+  # room to close the pools.
   worker:
     <<: *api-image
     profiles: [api-host]
@@ -173,7 +175,7 @@ services:
     restart: unless-stopped
     environment: *api-environment
     depends_on: *api-depends-on
-    stop_grace_period: 35s
+    stop_grace_period: 130s
 
   # The only service with the platform role's URL. No DEMO_* settings: the demo agency never runs beside real ones. The
   # api's server has no DATABASE_PLATFORM_URL at all, so it isn't required here: the console refuses to start without it.
@@ -182,10 +184,13 @@ services:
     profiles: [console-host]
     command: ["console"]
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: 130s
     environment:
       <<: *api-environment
       DATABASE_PLATFORM_URL: ${DATABASE_PLATFORM_URL:-}
+      # Whether it runs its jobs, or only serves its pages: off in the working hours' night (scripts/server/work-hours.sh,
+      # through compose.sh).
+      CONSOLE_JOBS: ${CONSOLE_JOBS:-on}
       # The console never holds the service accounts (the image drops them too).
       GOOGLE_SHEETS_SERVICE_ACCOUNTS: ""
       META_APP_ID: ""

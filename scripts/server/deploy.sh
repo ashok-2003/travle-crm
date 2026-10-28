@@ -6,7 +6,8 @@
 #   sudo /srv/travel-crm/app/scripts/server/deploy.sh
 # On the two small servers (SERVER_ROLE `api` or `console`) only the api's image runs, release.sh brings it ready made
 # (they're too small to build it), the migrations run only where DATABASE_MIGRATOR_URL is set, and after the smoke
-# check the working hours stop the worker or the console again if it's outside them (scripts/server/work-hours.sh).
+# check the working hours put the worker and the console's jobs back as the time calls for: stopped, or off, at night
+# outside a burst (scripts/server/work-hours.sh).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/paths.sh
@@ -85,6 +86,7 @@ app_host="$(sed -n -E "s/^APP_HOST='(.*)'\$/\1/p" "$settings_file")"
 # The address people use (APP_URL), which the api's sign-in takes requests from; this server's own when blank.
 app_url="$(sed -n -E "s/^APP_URL='(.*)'\$/\1/p" "$settings_file")"
 SERVER_ROLE="$role" ORIGIN="${app_url:-https://$app_host}" scripts/server/smoke.sh "https://$app_host" --local
-# The smoke check needs the worker or the console up, whatever the time: outside the working hours they stop again.
+# The smoke check needs the worker or the console up, whatever the time. Then the working hours write their timers for
+# this release's script and put each back as the time calls for (the night's state outside the hours and the bursts).
 scripts/server/work-hours.sh apply
 echo "Release $release is live at https://$app_host"

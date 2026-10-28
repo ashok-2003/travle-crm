@@ -94,6 +94,12 @@ const environmentSchema = z
      * sends (at most every 45 s). Unset, pg-boss's 2 s and the relay's 1 s. A metered network sets more (docs/serverless.md).
      */
     JOBS_POLLING_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(600).optional()),
+    /**
+     * Whether the console runs its jobs (on by default). Off, it serves its pages with a pg-boss that only sends, so an
+     * idle console queries nothing: the two small servers' nights (docs/runbook.md, "Working hours and night bursts").
+     * The console's alone; here because its services are built from this environment.
+     */
+    CONSOLE_JOBS: emptyAsUnset(z.stringbool().default(true)),
     /** Signs and encrypts cookies and two-factor secrets. Generate with `openssl rand -base64 32`. */
     BETTER_AUTH_SECRET: z.string().min(32, "must be at least 32 characters"),
     /** Where browsers reach the api, e.g. https://app.example.in. */
