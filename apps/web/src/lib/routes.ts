@@ -51,6 +51,8 @@ export const routes = {
   websiteForm: "/settings/lead-sources/website-form",
   /** How quotes are paid (the agency's UPI id) and taxed. */
   quoteSettings: "/settings/quotes",
+  /** Suggest reply's switch and the agency's instructions to the AI. */
+  aiSettings: "/settings/ai",
   /** The agency's WhatsApp number and its state. */
   whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */

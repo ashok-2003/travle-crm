@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "title": "AI",
+    "intro": "Suggest reply writes a draft answer in a WhatsApp chat for your staff to read, change and send. It never sends anything itself.",
+    "loadFailed": "The AI settings didn't load.",
+    "retry": "Try again",
+    "loading": "Loading the AI settings",
+    "notReady": "The AI isn't set up on this server yet, so no suggestion can be made. Your platform's administrator adds the OpenRouter key.",
+    "switchTitle": "Suggest reply",
+    "switchIntro": "When it is on, a Suggest reply button appears in each chat for your staff. The chat's last messages, the lead's trip details, your trip details and quick replies, and the instructions below are sent to the AI service that writes the draft, which keeps nothing. First name only: never a phone number or email.",
+    "on": "Let my staff ask the AI for a suggested reply",
+    "usage": "{used} of {limit} suggestions used this month.",
+    "instructionsTitle": "What the AI should know",
+    "instructionsIntro": "Your tone, your language, what you usually offer, and what it must never say. It also uses your trip details and quick replies.",
+    "instructions": "Instructions for the AI",
+    "instructionsPlaceholder": "Reply in Hinglish, warm and short. Always ask for the travel dates and the number of travellers. Never offer a discount.",
+    "instructionsHint": "Up to 1,500 characters. Don't write secrets here: your staff and the AI service read it.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "AI settings saved"
+  },
+  "suggest": {
+    "button": "Suggest reply",
+    "drafting": "Drafting…",
+    "draftedByAi": "Drafted by AI",
+    "draftedHint": "Read it, change it, then send."
+  }
+}

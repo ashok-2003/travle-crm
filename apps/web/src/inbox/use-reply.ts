@@ -67,12 +67,13 @@ export function useReply(conversationId: string, onSent: () => void) {
   });
   const error = sendText.error ?? sendFile.error;
   return {
-    sendText: (text: string, replyToMessageId?: string) => {
+    sendText: (text: string, replyToMessageId?: string, aiDraftId?: string) => {
       sendText.mutate({
         conversationId,
         clientToken: token,
         text,
         ...(replyToMessageId === undefined ? {} : { replyToMessageId }),
+        ...(aiDraftId === undefined ? {} : { aiDraftId }),
       });
     },
     sendFile: (file: File, caption: string | undefined, replyToMessageId?: string) => {

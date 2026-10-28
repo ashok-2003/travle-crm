@@ -223,7 +223,8 @@
       "installment-added": "Added a payment due on a quote",
       "installment-removed": "Removed a payment due on a quote",
       "payment-recorded": "Recorded a payment",
-      "payment-voided": "Voided a payment"
+      "payment-voided": "Voided a payment",
+      "replaced": "Replaced a quote with a new version"
     },
     "quote-settings": {
       "changed": "Changed how quotes are paid and taxed"
@@ -240,6 +241,12 @@
     "quote-package": {
       "saved": "Saved a quote package",
       "deleted": "Deleted a quote package"
+    },
+    "ai-settings": {
+      "changed": "Changed the AI settings"
+    },
+    "ai": {
+      "draft-sent": "Sent a reply drafted by AI"
     }
   },
   "fields": {
@@ -307,7 +314,12 @@
     "category": "Category",
     "paidOn": "Paid on",
     "spentOn": "Spent on",
-    "lostReason": "Why it was lost"
+    "lostReason": "Why it was lost",
+    "instructionsLength": "Instructions' length",
+    "changedByMember": "Changed before sending",
+    "enabled": "On",
+    "model": "Model",
+    "messageId": "Message"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -330,6 +342,8 @@
     "quote_settings": "Quote settings",
     "trip_kit": "A trip's details",
     "agency_expense": "A running cost",
-    "quote_template": "A quote package"
+    "quote_template": "A quote package",
+    "ai_settings": "The AI settings",
+    "ai_draft": "An AI draft"
   }
 }

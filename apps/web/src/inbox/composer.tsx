@@ -23,6 +23,8 @@ import { useWideScreen } from "@/lib/use-wide-screen";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
+import { AiDraftNote, SuggestReplyButton, type AiDraft } from "@/ai/suggest-reply-button";
+import { useSuggestReplyAvailable } from "@/ai/use-ai";
 import { AttachedFile } from "./attached-file";
 import { useDroppedFile } from "./chat-drop";
 import { usePendingSend } from "./pending-sends";
@@ -54,6 +56,9 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
     setTextState(next);
     keepTabValue(draftKey(header.id), next);
   };
+  // The AI's draft the box began as (Suggest reply): kept for the audit when the reply is sent, whatever the person changes.
+  const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
+  const canSuggest = useSuggestReplyAvailable();
   const [file, setFile] = useState<File | null>(null);
   const [fileProblem, setFileProblem] = useState<"fileType" | "fileSize" | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -63,6 +68,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const replying = useReplying();
   const reply = useReply(conversationId, () => {
     setText("");
+    setAiDraft(null);
     setFile(null);
     replying.clear();
   });
@@ -72,6 +78,8 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const sending = usePendingSend(conversationId);
   const quick = useQuickReplyPicker(header, text, setText, box);
   const words = text.trim();
+  // Still the AI's own words: shown as drafted by AI until the person changes a letter.
+  const stillAiWords = aiDraft !== null && words === aiDraft.text.trim();
   const recording = voice.phase === "recording" || voice.phase === "limit";
   const insertEmoji = (emoji: string) => {
     const field = box.current;
@@ -104,7 +112,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const submit = () => {
     if (!canSend) return;
     const quoted = replying.message?.id;
-    if (file === null) reply.sendText(words, quoted);
+    if (file === null) reply.sendText(words, quoted, aiDraft?.id);
     else reply.sendFile(file, words === "" ? undefined : words, quoted);
   };
   const choose = (chosen: File | undefined) => {
@@ -151,6 +159,18 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
           onCancel={replying.clear}
         />
       )}
+      {canSuggest && !recording && (
+        <SuggestReplyButton
+          conversationId={conversationId}
+          disabled={reply.pending || !access.allowed || file !== null}
+          onDraft={(draft) => {
+            setAiDraft(draft);
+            setText(draft.text);
+            requestAnimationFrame(() => box.current?.focus());
+          }}
+        />
+      )}
+      {stillAiWords && <AiDraftNote />}
       {fileProblem !== null && <p className="text-label text-destructive">{t(`composer.${fileProblem}`)}</p>}
       {file !== null && (
         <AttachedFile
@@ -220,6 +240,8 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
                   disabled={!access.allowed}
                   onChange={(event) => {
                     setText(event.target.value);
+                    // Cleared altogether: whatever is written next is the person's own.
+                    if (event.target.value.trim() === "") setAiDraft(null);
                     signalTyping();
                     quick.typedSomething();
                   }}
