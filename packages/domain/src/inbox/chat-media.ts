@@ -14,7 +14,8 @@ import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { mediaLinkFor } from "./chat-actions.js";
-import { chatMessagesOf, visibleConversation } from "./views.js";
+import { chatMessagesOf } from "./chat-messages.js";
+import { visibleConversation } from "./views.js";
 
 export async function listChatMedia(
   dependencies: { db: Database; files: Files },

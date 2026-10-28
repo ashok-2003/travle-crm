@@ -121,10 +121,10 @@ export {
   inboxStatusOf,
   leadChatOf,
   listConversations,
-  listMessages,
   visibleConversation,
   visibleMessage,
 } from "./views.js";
+export { listMessages } from "./chat-messages.js";
 export { retryMessage } from "./retry.js";
 export { assertTemplateAllowed, queueTemplate, renderTemplate, startChatForLead } from "./template-send.js";
 export {
