@@ -9,6 +9,7 @@ import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   addKnowledge,
+  aiAllowed,
   aiDocumentListener,
   confirmDocument,
   deleteKnowledge,
@@ -160,6 +161,28 @@ describe("the AI, step one", () => {
       expect(kept).toEqual([]);
     });
 
+    it("keeps the piece when its file can't be removed, so a retry still finds it", async () => {
+      const { organizationId, owner } = await agency();
+      const slot = await requestDocument({ db: test.db, files: test.files }, owner, {
+        title: "Brochure",
+        fileName: "b.txt",
+        contentType: "text/plain",
+        sizeBytes: 5,
+      });
+      const failing = {
+        ...test.files,
+        remove: () => Promise.reject(new Error("storage is down")),
+      } as typeof test.files;
+      await expect(deleteKnowledge({ db: test.db, files: failing }, owner, slot.knowledgeId)).rejects.toThrow(
+        "storage is down",
+      );
+      expect((await test.db.forOrg(organizationId, (tx) => listKnowledge(tx))).map((item) => item.id)).toContain(
+        slot.knowledgeId,
+      );
+      await deleteKnowledge({ db: test.db, files: test.files }, owner, slot.knowledgeId);
+      expect(await test.db.forOrg(organizationId, (tx) => listKnowledge(tx))).toEqual([]);
+    });
+
     it("marks a document failed when it has no words to read", async () => {
       const { organizationId, owner } = await agency();
       const slot = await requestDocument({ db: test.db, files: test.files }, owner, {
@@ -297,5 +320,34 @@ describe("the AI, step one", () => {
       );
       expect(await inOrg((tx) => tx.leadAiInsight.count({ where: { leadId: lead.id } }))).toBe(0);
     });
+  });
+
+  describe("the lifecycle", () => {
+    it("refuses a read-only agency too: a lapsed agency costs no AI", () => {
+      expect(aiAllowed(entitlements("active"))).toBe(true);
+      expect(aiAllowed(entitlements("trial"))).toBe(true);
+      for (const status of ["read_only", "suspended", "cancelled"] as const)
+        expect(aiAllowed(entitlements(status))).toBe(false);
+    });
+  });
+
+  it("erases the drafts of a chat found by the customer's phone, though the chat names no person", async () => {
+    const { inOrg, organizationId, chat, owner, model, lead } = await agency();
+    model.answer("Draft");
+    const draft = await suggestReply(
+      test.db,
+      model,
+      owner,
+      { conversationId: chat.id },
+      { agencyName: "x", now: testNow },
+    );
+    await inOrg((tx) => tx.whatsappConversation.update({ where: { id: chat.id }, data: { personId: null } }));
+    const person = await inOrg((tx) =>
+      tx.lead.findUniqueOrThrow({ where: { id: lead.id }, select: { personId: true } }),
+    );
+    await platformDb.transaction((tx) =>
+      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: person.personId }, testNow),
+    );
+    expect(await inOrg((tx) => tx.aiDraft.count({ where: { id: draft.draftId } }))).toBe(0);
   });
 });

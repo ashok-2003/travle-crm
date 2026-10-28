@@ -79,16 +79,11 @@ export async function deleteKnowledge(
   access: MemberAccess,
   knowledgeId: string,
 ): Promise<void> {
-  const row = await db.forOrg(access.organizationId, async (tx) => {
-    const found = await tx.aiKnowledge.findUnique({
-      where: { id: knowledgeId },
-      select: { id: true, attachmentId: true, body: true },
-    });
-    if (found === null) throw notFound();
-    await tx.aiKnowledge.update({ where: { id: found.id }, data: softDeleted(access.userId) });
-    await audit(tx, access, "ai.knowledge-deleted", found.id, found.body.length);
-    return found;
-  });
+  const row = await db.forOrg(access.organizationId, (tx) =>
+    tx.aiKnowledge.findUnique({ where: { id: knowledgeId }, select: { id: true, attachmentId: true, body: true } }),
+  );
+  if (row === null) throw notFound();
+  // The file goes first: if storage fails the row is still there, and the person can try again.
   if (row.attachmentId !== null) {
     await files.remove(access, {
       recordType: AI_KNOWLEDGE_RECORD_TYPE,
@@ -96,6 +91,10 @@ export async function deleteKnowledge(
       attachmentId: row.attachmentId,
     });
   }
+  await db.forOrg(access.organizationId, async (tx) => {
+    await tx.aiKnowledge.update({ where: { id: row.id }, data: softDeleted(access.userId) });
+    await audit(tx, access, "ai.knowledge-deleted", row.id, row.body.length);
+  });
 }
 
 /** Step one of a document: its row (reading) and where the browser puts the file. */
