@@ -7,7 +7,8 @@ import { IndianRupeeIcon, PlusIcon, ZapIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { ScheduleButton } from "./schedule-button";
 import { TemplateTool } from "./template-tool";
@@ -29,24 +30,34 @@ function Tools({ layout, ...props }: ToolsProps & { layout: "row" | "list" }) {
   const t = useTranslations("inbox.chat.composer");
   const { conversationId, disabled, words, hasFile, windowOpenUntil, onQuickReplies, onPayment, onScheduled } = props;
   const list = layout === "list";
-  const labelled = (label: string, icon: ReactNode, onClick: () => void) => (
-    <Button
-      type="button"
-      variant="ghost"
-      className={cn("text-muted-foreground", list && "justify-start gap-2")}
-      size={list ? "default" : "icon"}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {icon}
-      {list && label}
-    </Button>
-  );
+  const labelled = (label: string, icon: ReactNode, onClick: () => void) => {
+    const button = (
+      <Button
+        type="button"
+        variant="ghost"
+        className={cn("text-muted-foreground", list && "w-full justify-start gap-2 px-2.5")}
+        size={list ? "default" : "icon"}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {icon}
+        {list && label}
+      </Button>
+    );
+    if (list) return button;
+    // An icon alone says its name in a tooltip, with a mouse and for the keyboard's focus.
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    );
+  };
   return (
     <>
-      <TemplateTool conversationId={conversationId} disabled={disabled} />
-      <SendDetailsTool conversationId={conversationId} disabled={disabled} />
+      <TemplateTool conversationId={conversationId} disabled={disabled} listed={list} />
+      <SendDetailsTool conversationId={conversationId} disabled={disabled} listed={list} />
       {labelled(t("quickReplies"), <ZapIcon aria-hidden="true" />, onQuickReplies)}
       {labelled(t("paymentDetails"), <IndianRupeeIcon aria-hidden="true" />, onPayment)}
       {words !== "" && !hasFile && (
@@ -66,9 +77,11 @@ function Tools({ layout, ...props }: ToolsProps & { layout: "row" | "list" }) {
 export function ToolsRow(props: ToolsProps) {
   const t = useTranslations("inbox.chat.composer");
   return (
-    <div className="flex flex-wrap items-center gap-0.5" role="toolbar" aria-label={t("tools")}>
-      <Tools layout="row" {...props} />
-    </div>
+    <TooltipProvider>
+      <div className="flex flex-wrap items-center gap-0.5" role="toolbar" aria-label={t("tools")}>
+        <Tools layout="row" {...props} />
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -95,12 +108,15 @@ export function ToolsSheet(props: ToolsProps) {
           <PlusIcon aria-hidden="true" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="max-h-[90dvh] rounded-t-xl pb-[env(safe-area-inset-bottom)]">
-        <SheetHeader>
+      <SheetContent
+        side="bottom"
+        className="max-h-[90dvh] rounded-t-xl pb-[env(safe-area-inset-bottom)]"
+        aria-describedby={undefined}
+      >
+        <SheetHeader className="pb-0">
           <SheetTitle>{t("tools")}</SheetTitle>
-          <SheetDescription className="sr-only">{t("toolsDescription")}</SheetDescription>
         </SheetHeader>
-        <div className="flex flex-col gap-0.5 p-2 [&>button]:justify-start" role="toolbar" aria-label={t("tools")}>
+        <div className="flex flex-col gap-0.5 p-2" role="toolbar" aria-label={t("tools")}>
           <Tools
             layout="list"
             {...props}

@@ -103,14 +103,13 @@
       },
       "quickReplies": "Quick replies",
       "noQuickReplies": "No quick reply has that shortcut. Add quick replies in Settings, WhatsApp.",
-      "paymentDetails": "Put the payment details in the message",
+      "paymentDetails": "Payment details",
       "noPaymentDetails": "No payment details yet. In Settings, WhatsApp, add a quick reply with the shortcut \"payment\" holding your UPI id and bank details.",
       "tools": "Message tools",
       "templates": "Templates",
       "uploading": "Sending {percent}%",
       "cancelUpload": "Cancel",
-      "dropHere": "Drop the file to attach it",
-      "toolsDescription": "Templates, trip details, quick replies and payment details for this chat."
+      "dropHere": "Drop the file to attach it"
     },
     "formerMember": "A former member",
     "failure": {

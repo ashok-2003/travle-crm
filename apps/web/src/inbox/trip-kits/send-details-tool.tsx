@@ -16,10 +16,20 @@ import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useSendTripKit, useTripKits } from "./use-trip-kits";
 
-export function SendDetailsTool({ conversationId, disabled }: { conversationId: string; disabled: boolean }) {
+export function SendDetailsTool({
+  conversationId,
+  disabled,
+  listed = false,
+}: {
+  conversationId: string;
+  disabled: boolean;
+  /** Drawn as a line of a list (the phone's tools sheet), not as a button in a row. */
+  listed?: boolean;
+}) {
   const t = useTranslations("inbox.tripKits.send");
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -95,7 +105,7 @@ export function SendDetailsTool({ conversationId, disabled }: { conversationId: 
         ref={button}
         type="button"
         variant="ghost"
-        className="shrink-0 gap-1.5 px-2.5 text-muted-foreground"
+        className={cn("shrink-0 gap-1.5 px-2.5 text-muted-foreground", listed && "w-full justify-start gap-2")}
         disabled={disabled}
         onClick={() => {
           send.reset();
