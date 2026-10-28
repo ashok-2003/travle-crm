@@ -14,7 +14,10 @@ export type { PgBossJobsSettings } from "./pg-boss-options.js";
 
 export interface PgBossJobs extends JobQueue, JobRunner, JobAdministration {
   start(): Promise<void>;
-  /** Stops taking jobs, waits up to 30 seconds for running handlers to finish, and closes the pool. */
+  /**
+   * Stops taking jobs, waits for running handlers to finish (up to 30 seconds, or the settings' stopTimeoutSeconds), and
+   * closes the pool. A handler still running then is cut short; pg-boss runs its job again once its time is up.
+   */
   stop(): Promise<void>;
 }
 
@@ -83,7 +86,7 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     start: async () => {
       await boss.start();
     },
-    stop: () => boss.stop({ graceful: true, timeout: 30_000 }),
+    stop: () => boss.stop({ graceful: true, timeout: (settings.stopTimeoutSeconds ?? 30) * 1000 }),
 
     async send(queue, data, options = {}) {
       if (options.id !== undefined) assertJobId(options.id);
