@@ -369,6 +369,10 @@ describe("pg-boss jobs", () => {
       );
     } finally {
       await listing.stop();
+      // The malformed job is not left in the shared job table, where a list of every failed job would report it again.
+      await db.withoutOrg(
+        (tx) => tx.$executeRaw`DELETE FROM pgboss.job WHERE name IN ('probe.malformed', 'probe.malformed-good')`,
+      );
     }
   });
 
