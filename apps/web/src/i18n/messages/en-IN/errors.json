@@ -189,6 +189,7 @@
     "TEMPLATE_EXISTS": "A template with this name and language exists already.",
     "TEMPLATE_REFUSED": "WhatsApp's partner didn't take this template. Check it and try again.",
     "TEMPLATE_NOT_EDITABLE": "Only a rejected template written here can be edited.",
+    "MEDIA_CURSOR_NOT_FOUND": "That place in the photos is not in this chat. Open the photos again.",
     "NOT_FAILED": "Only a message that was not sent can be tried again.",
     "NO_PERSON_YET": "This number has no person in your CRM yet.",
     "BROADCAST_NO_RECIPIENTS": "No chat would receive this broadcast. Check the tags, and who has agreed to WhatsApp messages.",

@@ -19,6 +19,14 @@ const photo = (n: number) =>
     occurredAt: `2026-10-26T10:0${String(n)}:00.000Z`,
   });
 
+const links = (numbers: number[]) =>
+  Object.fromEntries(
+    numbers.map((n) => [
+      id(n),
+      { url: `https://files.example/${id(n)}`, fileName: "p.jpg", contentType: "image/jpeg", sizeBytes: 100 },
+    ]),
+  );
+
 describe("the media gallery", () => {
   beforeEach(() => {
     screenIs("wide");
@@ -28,25 +36,29 @@ describe("the media gallery", () => {
   });
 
   const handlers = {
-    "inbox.mediaUrl": (input: unknown) => ({
-      url: `https://files.example/${(input as { messageId: string }).messageId}`,
-      fileName: "p.jpg",
-      contentType: "image/jpeg",
-      sizeBytes: 100,
-    }),
     "inbox.media": (input: unknown) =>
       (input as { before?: string }).before === undefined
-        ? { items: [photo(3), photo(2)], nextCursor: id(2), people: {}, unread: null }
-        : { items: [photo(1)], nextCursor: null, people: {}, unread: null },
+        ? { items: [photo(3), photo(2)], nextCursor: id(2), people: {}, unread: null, links: links([3, 2]) }
+        : { items: [photo(1)], nextCursor: null, people: {}, unread: null, links: links([1]) },
   };
 
   it("shows the photos newest first and opens the viewer on the one tapped", async () => {
-    answerApi(handlers);
+    const api = answerApi({
+      ...handlers,
+      "inbox.mediaUrl": (input: unknown) => ({
+        url: `https://files.example/${(input as { messageId: string }).messageId}`,
+        fileName: "p.jpg",
+        contentType: "image/jpeg",
+        sizeBytes: 100,
+      }),
+    });
     renderWithApi(<MediaGallery conversationId={chatId} customerName="Rahul Mehta" />, newQueryClient());
     const grid = await screen.findByRole("list", { name: "Photos and videos" });
     expect(within(grid).getAllByRole("button", { name: "Open the photo" })).toHaveLength(2);
     const [, older] = within(grid).getAllByRole("button", { name: "Open the photo" });
     if (older === undefined) throw new Error("no second photo");
+    // The page's pictures came with their links: no call was made for any one of them.
+    expect(api.of("inbox.mediaUrl").length).toBeLessThanOrEqual(1);
     await userEvent.click(older);
     const viewer = await screen.findByRole("dialog");
     expect(within(viewer).getByText(/1 of 2/)).toBeInTheDocument();
@@ -63,7 +75,7 @@ describe("the media gallery", () => {
   });
 
   it("says so when the chat has no photos", async () => {
-    answerApi({ "inbox.media": { items: [], nextCursor: null, people: {}, unread: null } });
+    answerApi({ "inbox.media": { items: [], nextCursor: null, people: {}, unread: null, links: {} } });
     renderWithApi(<MediaGallery conversationId={chatId} customerName="Rahul Mehta" />, newQueryClient());
     expect(await screen.findByText("No photos or videos in this chat yet.")).toBeInTheDocument();
   });

@@ -206,3 +206,7 @@ export const mediaLink = z.object({
   sizeBytes: z.int().nonnegative(),
 });
 export type MediaLink = z.infer<typeof mediaLink>;
+
+/** The gallery's page: the messages, and a link to each one's file, signed in the same pass (one call, not one per picture). */
+export const chatMediaPage = chatMessagePage.extend({ links: z.record(recordId, mediaLink) });
+export type ChatMediaPage = z.infer<typeof chatMediaPage>;
