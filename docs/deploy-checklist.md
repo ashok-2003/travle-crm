@@ -47,8 +47,8 @@ logs, and what is still open.
   never reads a file. Imports and exports add no environment variable.
 - **Routing.** The load balancer sends `/api/platform/*` to the console and everything else under `/api` to the api.
   The console can be locked down further (an IP allow-list) without touching the api.
-- **Stopping.** Each process drains on SIGTERM; the console waits 30 seconds for its jobs, so allow it that long
-  before a hard kill (`apps/api/README.md`).
+- **Stopping.** Each process drains on SIGTERM; the console waits 30 seconds for its jobs (2 minutes where
+  `JOBS_POLLING_SECONDS` is set), so allow it that long before a hard kill (`apps/api/README.md`).
 
 ## Sign-in behind the load balancer (ADR 0006)
 
@@ -114,6 +114,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `DATABASE_POOL_SIZE`                                              | ○   | ○      | ○       |         |        |
 | `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host)  | ○   | ○      | ○       |         |        |
 | `JOBS_POLLING_SECONDS`: checks for work less often (metered host) | ○   | ○      | ○       |         |        |
+| `CONSOLE_JOBS`: `off` serves the console's pages, runs no jobs    |     |        | ○       |         |        |
 | `BETTER_AUTH_SECRET`: one value for all three                     | ●   | ●      | ●       |         | yes    |
 | `BETTER_AUTH_URL`, `APP_URL`: both the app's https address        | ●   | ●      | ●       |         |        |
 | `TRUSTED_ORIGINS`                                                 | ○   | ○      | ○       |         |        |
@@ -282,9 +283,13 @@ Secrets come from the platform's secret manager as environment variables, never 
 | Service | Health check                                | On SIGTERM                                                             |
 | ------- | ------------------------------------------- | ---------------------------------------------------------------------- |
 | api     | `GET /health` on 3001: `{ "status": "ok" }` | finishes open requests, closes its pools, exits 0                      |
-| console | `GET /health` on 3002                       | the same, letting running jobs finish for up to 30 seconds             |
+| console | `GET /health` on 3002                       | the same, letting running jobs finish for up to 30 seconds (below)     |
 | worker  | none (no port): the platform watches it     | stops relaying, lets running jobs finish for up to 30 seconds, exits 0 |
-| web     | `GET /sign-in` on 3000 (a static page)      | Next.js closes its server and exits 143                                |
+
+Where `JOBS_POLLING_SECONDS` is set, the worker and the console wait up to 2 minutes instead: the two small servers'
+working hours stop them every day (`docs/runbook.md`, "Working hours and night bursts"). A job still running then is
+cut short and runs again later, as pg-boss retries it.
+| web | `GET /sign-in` on 3000 (a static page) | Next.js closes its server and exits 143 |
 
 - **A start that fails exits 1** before the health check can pass: a wrong role, a bucket it can't use, pg-boss, and
   for the console the platform role's grant. A broken deploy never turns healthy.
