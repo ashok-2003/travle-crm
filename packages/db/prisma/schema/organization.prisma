@@ -94,6 +94,8 @@ model Organization {
   leadSignals                 LeadSignal[]
   aiSettings                  AiSettings?
   aiUsage                     AiUsage[]
+  aiKnowledge                 AiKnowledge[]
+  leadAiInsights              LeadAiInsight[]
   aiDrafts                    AiDraft[]
   quoteTemplates              QuoteTemplate[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]

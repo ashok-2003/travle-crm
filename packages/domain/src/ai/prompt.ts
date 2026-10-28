@@ -20,6 +20,8 @@ export interface PromptFacts {
   firstName: string | null;
   /** The lead's facts as short lines ("Destination: Manali"). */
   lead: readonly string[];
+  /** What the agency told its AI to know: packages, prices, policies. */
+  knowledge: readonly { title: string; body: string }[];
   tripKits: readonly { name: string; message: string }[];
   quickReplies: readonly { title: string; body: string }[];
   /** The chat, oldest first. */
@@ -37,6 +39,11 @@ export function promptOf(facts: PromptFacts): AiMessage[] {
       ? ""
       : `The agency's instructions:\n<data>${fenced(cut(facts.instructions, 1500))}</data>`,
     facts.lead.length === 0 ? "" : `What is known about this enquiry:\n<data>${fenced(facts.lead.join("\n"))}</data>`,
+    facts.knowledge.length === 0
+      ? ""
+      : `What the agency knows and offers (packages, prices, policies: the only prices you may quote):\n<data>${fenced(
+          facts.knowledge.map((piece) => `## ${piece.title}\n${piece.body}`).join("\n\n"),
+        )}</data>`,
     facts.tripKits.length === 0
       ? ""
       : `The agency's ready trip details (use them only if they fit):\n<data>${fenced(

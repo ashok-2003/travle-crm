@@ -44,8 +44,22 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
           body: JSON.parse(await readBody(request)) as unknown,
         });
         response.setHeader("content-type", "application/json");
+        // A call that asks for JSON is a lead's scoring: answered with a guess; any other is a suggested reply.
+        const scoring =
+          (requests.at(-1)?.body as { response_format?: unknown } | undefined)?.response_format !== undefined;
+        const content = scoring
+          ? JSON.stringify({
+              score: 78,
+              label: "hot",
+              reasons: ["Asked about a Kerala package for four"],
+              fake: false,
+              fakeReason: "",
+              nextStep: "Call today and offer the Kerala 5-night package.",
+              facts: { destination: "Kerala", when: "December", travellers: "4 adults", budget: null },
+            })
+          : next;
         response.end(
-          JSON.stringify({ model: "fake/model", choices: [{ message: { content: next }, finish_reason: "stop" }] }),
+          JSON.stringify({ model: "fake/model", choices: [{ message: { content }, finish_reason: "stop" }] }),
         );
         return;
       }

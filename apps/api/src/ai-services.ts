@@ -11,7 +11,7 @@ export function createAiModel(environment: Environment): AiModel | null {
   const testServer = environment.AI_TEST_SERVER_URL;
   return createOpenRouterModel({
     apiKey,
-    models: { suggest_reply: environment.AI_SUGGEST_MODELS },
+    models: { suggest_reply: environment.AI_SUGGEST_MODELS, score_lead: environment.AI_SCORE_MODELS },
     ...(testServer === undefined
       ? {}
       : {

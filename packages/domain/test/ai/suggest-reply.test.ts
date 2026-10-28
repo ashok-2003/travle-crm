@@ -4,13 +4,7 @@
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  MONTHLY_SUGGESTION_LIMIT,
-  aiSettingsOf,
-  recordDraftSent,
-  saveAiSettings,
-  suggestReply,
-} from "../../src/ai/index.js";
+import { MONTHLY_AI_LIMIT, aiSettingsOf, recordDraftSent, saveAiSettings, suggestReply } from "../../src/ai/index.js";
 import { createQuickReply } from "../../src/inbox/index.js";
 import { monthStartOf } from "../../src/inbox/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -70,7 +64,7 @@ describe("suggest reply", () => {
     expect(await reasonOf(ask())).toBe("AI_OFF");
     expect(model.requests).toHaveLength(0);
     const settings = await inOrg((tx) => aiSettingsOf(tx, { organizationId, providerReady: true, now: testNow }));
-    expect(settings).toMatchObject({ enabled: false, usedThisMonth: 0, monthlyLimit: MONTHLY_SUGGESTION_LIMIT });
+    expect(settings).toMatchObject({ enabled: false, usedThisMonth: 0, monthlyLimit: MONTHLY_AI_LIMIT });
     expect(owner.userId).toBeDefined();
   });
 
@@ -92,7 +86,7 @@ describe("suggest reply", () => {
     model.answer('"Namaste Rahul! For 4 adults in December, may I know your departure city?"');
     const draft = await ask();
     expect(draft.text).toBe("Namaste Rahul! For 4 adults in December, may I know your departure city?");
-    expect(draft).toMatchObject({ usedThisMonth: 1, monthlyLimit: MONTHLY_SUGGESTION_LIMIT });
+    expect(draft).toMatchObject({ usedThisMonth: 1, monthlyLimit: MONTHLY_AI_LIMIT });
 
     const [request] = model.requests;
     expect(request).toMatchObject({ feature: "suggest_reply", user: organizationId });
@@ -121,19 +115,19 @@ describe("suggest reply", () => {
     await turnOn();
     await inOrg((tx) =>
       tx.aiUsage.create({
-        data: { month: monthStartOf(testNow, "Asia/Kolkata"), suggestions: MONTHLY_SUGGESTION_LIMIT },
+        data: { month: monthStartOf(testNow, "Asia/Kolkata"), calls: MONTHLY_AI_LIMIT },
       }),
     );
     expect(await reasonOf(ask())).toBe("AI_MONTH_LIMIT");
     expect(model.requests).toHaveLength(0);
 
-    await inOrg((tx) => tx.aiUsage.updateMany({ data: { suggestions: 10 } }));
+    await inOrg((tx) => tx.aiUsage.updateMany({ data: { calls: 10 } }));
     model.answer({ ok: false, reason: "unavailable" });
     expect(await reasonOf(ask())).toBe("AI_UNAVAILABLE");
-    expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).suggestions).toBe(10);
+    expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(10);
     model.answer({ ok: false, reason: "rate_limited" });
     expect(await reasonOf(ask())).toBe("AI_BUSY");
-    expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).suggestions).toBe(10);
+    expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(10);
   });
 
   it("never passes the limit when two suggestions are asked for at once", async () => {
@@ -141,13 +135,13 @@ describe("suggest reply", () => {
     await turnOn();
     await inOrg((tx) =>
       tx.aiUsage.create({
-        data: { month: monthStartOf(testNow, "Asia/Kolkata"), suggestions: MONTHLY_SUGGESTION_LIMIT - 1 },
+        data: { month: monthStartOf(testNow, "Asia/Kolkata"), calls: MONTHLY_AI_LIMIT - 1 },
       }),
     );
     model.answer("One", "Two");
     const results = await Promise.allSettled([ask(), ask()]);
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).suggestions).toBe(MONTHLY_SUGGESTION_LIMIT);
+    expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(MONTHLY_AI_LIMIT);
   });
 
   describe("a reply sent from a draft", () => {

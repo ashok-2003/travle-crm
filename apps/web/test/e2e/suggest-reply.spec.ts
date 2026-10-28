@@ -4,7 +4,15 @@
 // support/fake-openrouter.ts: nothing here reaches OpenRouter.
 import { expect, signInToConsole, test } from "./support/console";
 import { signInByEmail } from "./support/fixtures";
-import { connectNumber, inAgency, newCustomerNumber, openNewChat, sentTo } from "./support/whatsapp";
+import {
+  connectNumber,
+  customerMessage,
+  deliverWhatsapp,
+  inAgency,
+  newCustomerNumber,
+  openNewChat,
+  sentTo,
+} from "./support/whatsapp";
 
 const fakeOpenRouter = () => process.env.E2E_AI_URL ?? "";
 
@@ -29,10 +37,16 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   // The Owner turns it on in Settings, AI, with an instruction.
   await owner.goto("/settings/ai");
   await expect(owner.getByRole("heading", { level: 1, name: "AI" })).toBeVisible();
-  await owner.getByLabel("Let my staff ask the AI for a suggested reply").click();
+  await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
   await owner.getByLabel("Instructions for the AI").fill("Reply warm and short. Never offer a discount.");
-  await owner.getByRole("button", { name: "Save" }).click();
+  await owner.getByRole("button", { name: "Save", exact: true }).click();
   await expect(owner.getByText("AI settings saved")).toBeVisible();
+  // What the agency tells its AI to know.
+  await owner.getByRole("button", { name: "Add text" }).click();
+  await owner.getByLabel("Title").fill("Kerala 5N");
+  await owner.getByLabel("Details").fill("Kerala 5 nights is ₹18,500 per person, hotels and breakfast included.");
+  await owner.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(owner.getByText("Kerala 5N")).toBeVisible();
 
   // The draft lands in the box, marked as the AI's, and nothing has been sent.
   await owner.goto("/inbox");
@@ -56,6 +70,7 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   const prompt = request?.body.messages.map((message) => message.content).join("\n") ?? "";
   expect(prompt).toContain("Never offer a discount.");
   expect(prompt).toContain("Kerala package for 4");
+  expect(prompt).toContain("Kerala 5 nights is ₹18,500 per person");
   expect(prompt).not.toContain(customer);
 
   // The person changes it: it is no longer marked, and what they send is what they wrote.
@@ -76,4 +91,24 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   );
   expect(entries).toHaveLength(1);
   expect(entries[0]?.after).toMatchObject({ changedByMember: true });
+
+  // The customer writes again, with the AI on: after a short wait the lead carries the AI's guess, shown as one.
+  expect(
+    await deliverWhatsapp([
+      customerMessage({
+        to: business,
+        customerNumber: customer,
+        name: "Rahul Mehta",
+        text: "What is the price for four?",
+      }),
+    ]),
+  ).toBe(200);
+  const leadId = await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).id);
+  await expect(async () => {
+    await owner.goto(`/leads/${leadId}`);
+    await expect(owner.getByRole("heading", { name: "AI's guess" })).toBeVisible({ timeout: 4_000 });
+  }).toPass({ timeout: 90_000 });
+  await expect(owner.getByText("Call today and offer the Kerala 5-night package.")).toBeVisible();
+  // It never moved the lead's stage.
+  expect(await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).stage)).toBe("new");
 });

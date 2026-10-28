@@ -63,6 +63,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
               model,
               messages: request.messages,
               max_tokens: request.maxTokens ?? 500,
+              ...(request.json === true ? { response_format: { type: "json_object" } } : {}),
               ...(request.user === undefined ? {} : { user: request.user }),
               // Zero data retention on every request, and only providers that honour all the parameters sent.
               provider: { zdr: true, require_parameters: true },

@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useWriteAccess } from "@/subscription/write-access";
+import { KnowledgeSection } from "./knowledge-section";
 import { useAiSettings, useSaveAiSettings } from "./use-ai";
 
 function SettingsForm({ saved }: { saved: AiSettings }) {
@@ -95,7 +96,10 @@ export function AiSettingsScreen() {
       <BackToSettings />
       <PageHeader title={t("title")} intro={t("intro")} />
       {settings.data ? (
-        <SettingsForm key={String(settings.dataUpdatedAt)} saved={settings.data} />
+        <>
+          <SettingsForm key={String(settings.dataUpdatedAt)} saved={settings.data} />
+          <KnowledgeSection />
+        </>
       ) : settings.isError ? (
         <ErrorState
           message={t("loadFailed")}

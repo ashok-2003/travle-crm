@@ -147,6 +147,24 @@ export const serviceVariables = {
       )
       .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
   ),
+  /** The models lead scoring tries, in order (OpenRouter slugs, each with a zero-data-retention endpoint). */
+  AI_SCORE_MODELS: emptyAsUnset(
+    z
+      .string()
+      .transform((text) =>
+        text
+          .split(",")
+          .map((model) => model.trim())
+          .filter((model) => model !== ""),
+      )
+      .pipe(
+        z
+          .array(z.string().regex(/^[\w.-]+\/[\w.:-]+$/, "must be OpenRouter model slugs like google/gemini-2.5-flash"))
+          .min(1)
+          .max(5),
+      )
+      .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
+  ),
   /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */
   AI_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake MSG91 (development and tests only; refused in production). */

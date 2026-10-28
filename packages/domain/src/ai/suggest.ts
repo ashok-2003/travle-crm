@@ -10,9 +10,10 @@ import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { listQuickReplies, tripKitWords, visibleConversation } from "../inbox/index.js";
 import { DomainError } from "../kernel/index.js";
+import { knowledgeWords } from "./knowledge.js";
 import { promptOf, type PromptFacts } from "./prompt.js";
 import { aiEnabled } from "./settings.js";
-import { MONTHLY_SUGGESTION_LIMIT, releaseSuggestion, reserveSuggestion, usedThisMonth } from "./usage.js";
+import { MONTHLY_AI_LIMIT, releaseAiCall, reserveAiCall, usedThisMonth } from "./usage.js";
 
 const CHAT_MESSAGES = 12;
 const MAX_REPLY_CHARS = 1500;
@@ -71,7 +72,7 @@ async function prepare(
   // The member's own scope: a chat they may not see is "not found".
   const chat = await visibleConversation(tx, access, input.conversationId);
   const timeZone = await organizationTimeZone(tx, access.organizationId);
-  if (!(await reserveSuggestion(tx, context.now, timeZone))) {
+  if (!(await reserveAiCall(tx, context.now, timeZone))) {
     throw err("AI_MONTH_LIMIT", "This agency has used this month's AI suggestions", "LIMIT_REACHED");
   }
   const recent = await tx.whatsappMessage.findMany({
@@ -81,11 +82,11 @@ async function prepare(
     select: { direction: true, body: true, caption: true },
   });
   const settings = await tx.aiSettings.findFirstOrThrow({ select: { instructions: true } });
-  const [quickReplies, tripKits, lead] = await Promise.all([
-    listQuickReplies(tx),
-    tripKitWords(tx),
-    leadFacts(tx, access, chat.personId),
-  ]);
+  // One step at a time: they share the transaction's connection.
+  const quickReplies = await listQuickReplies(tx);
+  const tripKits = await tripKitWords(tx);
+  const lead = await leadFacts(tx, access, chat.personId);
+  const knowledge = await knowledgeWords(tx);
   const firstName = chat.person?.name.split(/\s+/)[0] ?? null;
   return {
     timeZone,
@@ -94,6 +95,7 @@ async function prepare(
       instructions: settings.instructions,
       firstName: firstName === "" ? null : firstName,
       lead,
+      knowledge,
       tripKits,
       quickReplies: quickReplies.slice(0, 20).map((reply) => ({ title: reply.title, body: reply.body })),
       chat: recent
@@ -127,7 +129,7 @@ export async function suggestReply(
     user: organizationId,
   });
   if (!result.ok) {
-    await db.forOrg(organizationId, (tx) => releaseSuggestion(tx, context.now, prepared.timeZone));
+    await db.forOrg(organizationId, (tx) => releaseAiCall(tx, context.now, prepared.timeZone));
     throw result.reason === "rate_limited"
       ? err("AI_BUSY", "The AI is busy right now")
       : result.reason === "not_configured"
@@ -151,5 +153,5 @@ export async function suggestReply(
     });
     return { draftId: draft.id, usedThisMonth: await usedThisMonth(tx, context.now, prepared.timeZone) };
   });
-  return { ...saved, text, monthlyLimit: MONTHLY_SUGGESTION_LIMIT };
+  return { ...saved, text, monthlyLimit: MONTHLY_AI_LIMIT };
 }

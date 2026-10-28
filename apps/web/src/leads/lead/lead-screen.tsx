@@ -21,6 +21,7 @@ import { refusalOf } from "@/data/api-error";
 import { useElementHeight } from "@/lib/use-element-height";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
 import { LeadQuotesCard } from "@/quotes/lead-quotes-card";
+import { LeadInsight } from "@/ai/insight-card";
 import { LeadSalesCard } from "@/sales/lead-sales-card";
 import { isOnPlan } from "@/shell/navigation";
 import { useSubscription } from "@/subscription/use-subscription";
@@ -52,6 +53,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
     <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
       <div className="flex flex-col gap-6">
         <LeadSalesCard leadId={lead.id} />
+        <LeadInsight leadId={lead.id} />
         <WorkCard lead={lead} />
         <PersonCard lead={lead} />
         <TripCard lead={lead} />

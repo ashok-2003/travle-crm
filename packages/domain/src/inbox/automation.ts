@@ -79,7 +79,7 @@ const auditView = (settings: InboxAutomation) => ({
 const minuteText = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
-/** Whether an answer could fit any message at all: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
+/** Whether anything could act on a customer's message: the welcome or away message is on, a keyword answer is, a trip's keywords, or the agency's AI. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   const settings = await automationOf(tx);
   if (
@@ -89,6 +89,8 @@ export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
     return true;
   }
   if ((await tx.inboxKeywordReply.count({ where: { enabled: true } })) > 0) return true;
+  // An agency that has switched the AI on has its leads scored when their customers write (the ai module's listener).
+  if ((await tx.aiSettings.findFirst({ select: { enabled: true } }))?.enabled === true) return true;
   return (await tx.tripKit.count({ where: { autoSend: true, keywords: { isEmpty: false } } })) > 0;
 }
 

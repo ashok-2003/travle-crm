@@ -3,7 +3,7 @@
 // the in-memory one tests script. Domain code never sees a vendor's SDK or URL.
 
 /** The features that call the model; each has its own list of models in the settings. */
-export const aiFeatures = ["suggest_reply"] as const;
+export const aiFeatures = ["suggest_reply", "score_lead"] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 
 export interface AiMessage {
@@ -14,6 +14,8 @@ export interface AiMessage {
 export interface AiRequest {
   feature: AiFeature;
   messages: readonly AiMessage[];
+  /** Ask for a JSON object; the caller still validates it. */
+  json?: boolean;
   maxTokens?: number;
   /** An opaque id for the provider's per-user tracking: the organization's id, never personal data. */
   user?: string;

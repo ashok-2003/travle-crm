@@ -246,7 +246,10 @@
       "changed": "Changed the AI settings"
     },
     "ai": {
-      "draft-sent": "Sent a reply drafted by AI"
+      "draft-sent": "Sent a reply drafted by AI",
+      "knowledge-added": "Added to what the AI knows",
+      "knowledge-changed": "Changed what the AI knows",
+      "knowledge-deleted": "Removed from what the AI knows"
     }
   },
   "fields": {
@@ -319,7 +322,8 @@
     "changedByMember": "Changed before sending",
     "enabled": "On",
     "model": "Model",
-    "messageId": "Message"
+    "messageId": "Message",
+    "length": "Length"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -344,6 +348,7 @@
     "agency_expense": "A running cost",
     "quote_template": "A quote package",
     "ai_settings": "The AI settings",
-    "ai_draft": "An AI draft"
+    "ai_draft": "An AI draft",
+    "ai_knowledge": "A piece of what the AI knows"
   }
 }

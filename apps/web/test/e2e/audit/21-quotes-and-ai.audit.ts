@@ -129,7 +129,7 @@ test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, 
 
   await owner.goto("/settings/ai");
   await expect(owner.getByRole("heading", { level: 1, name: "AI" })).toBeVisible();
-  await owner.getByLabel("Let my staff ask the AI for a suggested reply").click();
+  await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
   await owner
     .getByLabel("Instructions for the AI")
     .fill(

@@ -24,7 +24,11 @@ const bodyOf = (call: { init: RequestInit }) =>
 describe("the OpenRouter adapter", () => {
   it("asks for zero data retention on every request, with the key in the header only", async () => {
     const { fetcher, calls } = fakeFetch(answer("Hi there"));
-    const model = createOpenRouterModel({ apiKey: KEY, models: { suggest_reply: ["a/one"] }, fetch: fetcher });
+    const model = createOpenRouterModel({
+      apiKey: KEY,
+      models: { suggest_reply: ["a/one"], score_lead: ["s/one"] },
+      fetch: fetcher,
+    });
     expect(await model.complete({ feature: "suggest_reply", messages, user: "org-1" })).toEqual({
       ok: true,
       text: "Hi there",
@@ -47,7 +51,9 @@ describe("the OpenRouter adapter", () => {
       "not a url",
     ]) {
       expect(() => openRouterBaseUrl(url)).toThrow();
-      expect(() => createOpenRouterModel({ apiKey: KEY, models: { suggest_reply: ["a"] }, baseUrl: url })).toThrow();
+      expect(() =>
+        createOpenRouterModel({ apiKey: KEY, models: { suggest_reply: ["a"], score_lead: ["s"] }, baseUrl: url }),
+      ).toThrow();
     }
     expect(openRouterBaseUrl("https://openrouter.ai/api/v1/")).toBe("https://openrouter.ai/api/v1");
   });
@@ -56,7 +62,7 @@ describe("the OpenRouter adapter", () => {
     const first = fakeFetch(new Response("", { status: 429 }), answer("From the fallback", "b/two"));
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [] },
       fetch: first.fetcher,
     });
     expect(await model.complete({ feature: "suggest_reply", messages })).toMatchObject({ ok: true, model: "b/two" });
@@ -65,7 +71,7 @@ describe("the OpenRouter adapter", () => {
     const none = fakeFetch(new Response("", { status: 429 }), new Response("", { status: 503 }));
     const limited = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [] },
       fetch: none.fetcher,
     });
     expect(await limited.complete({ feature: "suggest_reply", messages })).toEqual({
@@ -76,7 +82,11 @@ describe("the OpenRouter adapter", () => {
 
   it("says unavailable for a failure, and never leaks the key in what it returns", async () => {
     const { fetcher } = fakeFetch(new Error(`connect failed for ${KEY}`));
-    const model = createOpenRouterModel({ apiKey: KEY, models: { suggest_reply: ["a/one"] }, fetch: fetcher });
+    const model = createOpenRouterModel({
+      apiKey: KEY,
+      models: { suggest_reply: ["a/one"], score_lead: ["s/one"] },
+      fetch: fetcher,
+    });
     const result = await model.complete({ feature: "suggest_reply", messages });
     expect(result).toEqual({ ok: false, reason: "unavailable" });
     expect(JSON.stringify(result)).not.toContain(KEY);
@@ -85,8 +95,8 @@ describe("the OpenRouter adapter", () => {
   it("is not configured without a key or a model, and sends nothing", async () => {
     const { fetcher, calls } = fakeFetch();
     for (const options of [
-      { apiKey: "", models: { suggest_reply: ["a"] } },
-      { apiKey: KEY, models: { suggest_reply: [] } },
+      { apiKey: "", models: { suggest_reply: ["a"], score_lead: ["s"] } },
+      { apiKey: KEY, models: { suggest_reply: [], score_lead: [] } },
     ]) {
       const model = createOpenRouterModel({ ...options, fetch: fetcher });
       expect(await model.complete({ feature: "suggest_reply", messages })).toEqual({

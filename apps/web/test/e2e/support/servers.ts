@@ -255,6 +255,9 @@ export async function startServers({
       ...sheets,
       ...metaVariables(meta.url),
       ...whatsappVariables(msg91.url),
+      // The AI (ADR 0029): the api asks it for a suggested reply and the worker for a lead's guess; both go to the fake.
+      OPENROUTER_API_KEY: OPENROUTER_E2E_KEY,
+      AI_TEST_SERVER_URL: ai.url,
     };
     const tsx = path.join(apiDirectory, "node_modules/.bin/tsx");
     await reserved.release();
@@ -268,9 +271,6 @@ export async function startServers({
       TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
       TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       TURNSTILE_VERIFY_URL: turnstile.verifyUrl,
-      // Suggest reply (ADR 0029): the api alone asks the AI, and its calls go to the fake.
-      OPENROUTER_API_KEY: OPENROUTER_E2E_KEY,
-      AI_TEST_SERVER_URL: ai.url,
     };
     const api = start(tsx, ["src/server.ts"], { cwd: apiDirectory, env: formEnvironment });
     const worker = start(tsx, ["src/worker.ts"], { cwd: apiDirectory, env: apiEnvironment });

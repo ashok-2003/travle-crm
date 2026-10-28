@@ -1,15 +1,15 @@
 {
   "settings": {
     "title": "AI",
-    "intro": "Suggest reply writes a draft answer in a WhatsApp chat for your staff to read, change and send. It never sends anything itself.",
+    "intro": "Suggest reply writes a draft answer in a WhatsApp chat for your staff to read, change and send, and the AI guesses how each lead will go. It never sends anything itself and never moves a lead.",
     "loadFailed": "The AI settings didn't load.",
     "retry": "Try again",
     "loading": "Loading the AI settings",
     "notReady": "The AI isn't set up on this server yet, so no suggestion can be made. Your platform's administrator adds the OpenRouter key.",
-    "switchTitle": "Suggest reply",
-    "switchIntro": "When it is on, a Suggest reply button appears in each chat for your staff. The chat's last messages, the lead's trip details, your trip details and quick replies, and the instructions below are sent to the AI service that writes the draft, which keeps nothing. First name only: never a phone number or email.",
-    "on": "Let my staff ask the AI for a suggested reply",
-    "usage": "{used} of {limit} suggestions used this month.",
+    "switchTitle": "Use the AI",
+    "switchIntro": "When it is on, a Suggest reply button appears in each chat for your staff, and the AI reads a lead's chat to guess how likely it is to book. The chat's last messages, the lead's trip details, your knowledge, trip details and quick replies, and the instructions below are sent to the AI service, which keeps nothing. First name only: never a phone number or email.",
+    "on": "Let the AI draft replies and guess how leads will go",
+    "usage": "{used} of {limit} AI calls used this month, by every AI feature.",
     "instructionsTitle": "What the AI should know",
     "instructionsIntro": "Your tone, your language, what you usually offer, and what it must never say. It also uses your trip details and quick replies.",
     "instructions": "Instructions for the AI",
@@ -24,5 +24,62 @@
     "drafting": "Drafting…",
     "draftedByAi": "Drafted by AI",
     "draftedHint": "Read it, change it, then send."
+  },
+  "knowledge": {
+    "title": "What the AI knows",
+    "description": "Your packages, prices, inclusions, dates, payment details and policies. The AI quotes only from these (and your trip details and quick replies), and tells your team when something isn't here.",
+    "add": "Add text",
+    "upload": "Upload a PDF or text file",
+    "uploading": "Uploading…",
+    "uploaded": "Uploaded. The AI is reading it.",
+    "fileType": "Choose a PDF or a .txt file.",
+    "fileSize": "The file is over 5 MB.",
+    "empty": "Nothing yet. Add your packages and prices so the AI can answer about them.",
+    "alsoKnown": "Your trips' details and your quick replies are known too, without adding them here.",
+    "document": "Document",
+    "characters": "{count, plural, one {# character} other {# characters}}",
+    "status": {
+      "ready": "Ready",
+      "reading": "Reading",
+      "failed": "Couldn't read"
+    },
+    "use": "Use {title}",
+    "remove": "Remove {title}",
+    "removeTitle": "Remove {title}?",
+    "removeDescription": "The AI won't know it any more, and a document's file is deleted.",
+    "removeAction": "Remove",
+    "addTitle": "Add what the AI knows",
+    "editTitle": "Change what the AI knows",
+    "dialogDescription": "Write it as you would tell a new salesperson: the package, what's included, the price and its basis.",
+    "titleLabel": "Title",
+    "bodyLabel": "Details",
+    "bodyPlaceholder": "Kerala 5N/6D: Munnar 2N, Thekkady 1N, Alleppey houseboat 1N, Kovalam 1N. ₹18,500 per person on twin sharing, hotels, breakfast, cab and sightseeing included. Flights extra.",
+    "bodyHint": "Up to 60,000 characters.",
+    "save": "Save",
+    "saved": "Saved"
+  },
+  "insight": {
+    "title": "AI's guess",
+    "info": "The AI's reading of this lead from its chat: how likely it books in the next two weeks, why, and what to do next. A guess to help you choose who to call first, never a decision: it never changes the lead's stage.",
+    "updated": "Updated {when}",
+    "chance": "Chance to book",
+    "percent": "{score}%",
+    "labels": {
+      "hot": "Hot",
+      "warm": "Warm",
+      "cold": "Cold"
+    },
+    "fake": "Looks fake",
+    "fakeTitle": "This lead looks fake",
+    "fakeHint": "Spam, a test or a wrong number, by the AI's reading.",
+    "nextStep": "Next step",
+    "why": "Why",
+    "facts": {
+      "destination": "Destination",
+      "when": "When",
+      "travellers": "Travellers",
+      "budget": "Budget"
+    },
+    "unknown": "Not said yet"
   }
 }

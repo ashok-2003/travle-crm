@@ -40,4 +40,32 @@ describe("Suggest reply's request checks", () => {
     expect(await checked(manager.caller.ai.settings())).not.toBe("MISSING_PERMISSION");
     expect(manager.reads.sessions).toBeGreaterThan(0);
   });
+
+  it("refuses a suspended or cancelled agency every AI call, and read-only ones a change", async () => {
+    const plan = ["ai", "inbox", "crm"] as const;
+    const granted = ["ai:suggest", "ai:manage", "inbox:view", "inbox:reply", "leads:view"];
+    for (const [status, reason] of [
+      ["suspended", "ORGANIZATION_SUSPENDED"],
+      ["cancelled", "ORGANIZATION_CANCELLED"],
+    ] as const) {
+      const { caller } = callerFor({ status, modules: [...plan], granted });
+      expect(await checked(caller.ai.suggestReply({ conversationId: crypto.randomUUID() }))).toBe(reason);
+      expect(await checked(caller.ai.leadInsight({ leadId: crypto.randomUUID() }))).toBe(reason);
+    }
+    const readOnly = callerFor({ status: "read_only", modules: [...plan], granted }).caller.ai;
+    expect(await checked(readOnly.suggestReply({ conversationId: crypto.randomUUID() }))).toBe(
+      "ORGANIZATION_READ_ONLY",
+    );
+  });
+
+  it("lets only ai:manage change what the AI knows, and ai:suggest with leads:view read a lead's guess", async () => {
+    const plan = ["ai", "inbox", "crm"] as const;
+    const seller = callerFor({ modules: [...plan], granted: ["ai:suggest", "leads:view"] }).caller.ai;
+    expect(await checked(seller.knowledge())).toBe("MISSING_PERMISSION");
+    expect(await checked(seller.addKnowledge({ title: "x", body: "y" }))).toBe("MISSING_PERMISSION");
+    const noLeads = callerFor({ modules: [...plan], granted: ["ai:suggest"] }).caller.ai;
+    expect(await checked(noLeads.leadInsight({ leadId: crypto.randomUUID() }))).toBe("MISSING_PERMISSION");
+    const off = callerFor({ modules: ["crm"], granted: ["ai:suggest", "leads:view"] }).caller.ai;
+    expect(await checked(off.leadInsight({ leadId: crypto.randomUUID() }))).toBe("MODULE_NOT_ON_PLAN");
+  });
 });

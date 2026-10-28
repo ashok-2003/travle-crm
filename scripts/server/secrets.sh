@@ -127,6 +127,7 @@ MSG91_WEBHOOK_KEY=''
 # separated, each with a zero-data-retention endpoint); blank leaves it off, and `check` does not ask for them.
 OPENROUTER_API_KEY=''
 AI_SUGGEST_MODELS=''
+AI_SCORE_MODELS=''
 
 # Logs (docs/runbook.md, "Reading logs" and "Turn on Axiom"). LOG_LEVEL is debug, info, warn or error (blank: info).
 # The token and dataset ship every log line to Axiom too; blank leaves it off, and `check` does not ask for them.

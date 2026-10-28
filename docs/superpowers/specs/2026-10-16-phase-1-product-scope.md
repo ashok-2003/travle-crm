@@ -432,12 +432,18 @@ to 7 where they differ.
 - **Kept from sales execution.** Hot leads (a quote opened again, or a buying word in a chat; the owner is alerted with fixed
   words, never the customer's), lost reasons, broadcasts to lost or won leads, ready packages and quote options, reports
   and each staff member's performance.
-- **AI: Suggest reply only, off by default.** The AI drafts a reply in a chat for staff to read, change and send; it never
-  sends by itself, and a reply sent from a draft is audited as drafted by AI, sent by the member. An agency has it when
-  its plan includes the AI module and its Owner or Admin turns it on in Settings, AI. It reads the chat's last messages, the
-  lead's first name and trip facts, the agency's trip details and quick replies and its written instructions; requests
-  go through OpenRouter with zero data retention. Everything else the AI work offered (autopilot, nudges, scoring and
-  insight, the voice copied from chat exports, nightly learning, PDF knowledge) is out.
+- **AI, in two steps (decided later on 2026-10-28), off by default.** Step 1, in this release: Suggest reply (the AI drafts a
+  reply in a chat for staff to read, change and send; it never sends by itself, and a reply sent from a draft is audited as
+  drafted by AI, sent by the member); what the agency tells its AI to know (typed words, or a PDF's or text file's; deleting
+  one deletes its file); and the AI's guess of how each lead will go (hot, warm or cold, a next step, a fake check), only for
+  agencies with the AI on, shown as "AI's guess" in the AI's violet tint, at most once for each burst of the customer's
+  messages, never moving a stage, erased with the customer. An agency has it when its plan includes the `ai` module and its
+  Owner or Admin turns it on in Settings, AI; no AI for a suspended or cancelled agency; one monthly limit of AI calls per
+  agency, shared by every feature; when the provider is down the person is told. Requests go through OpenRouter with zero data
+  retention. Step 2, the next release: the autopilot (the AI answering chats by itself, never denying being an AI when
+  sincerely asked), nudges, writing-style learning from the staff member's own messages only, and nightly learning, each
+  erased with the customer, honouring STOP in every chat, marked and audited in the chat, and tried on a real number with the
+  pilot agency first.
 - **Home and sidebar: his layout in our style.** Home has the greeting with the date, New lead and Pipeline, the hot leads
   card first (Call buttons, reason pills), one key-figures strip (the dashboard's component: no icon per figure, an info
   hint on each, no red for a normal count) with only what Today doesn't show: chats waiting, hot leads, and money to come
