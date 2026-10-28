@@ -8,7 +8,7 @@
 // its end into view, so a new note that makes it taller never makes it jump. A lead that doesn't exist, was removed
 // or is someone else's (out of the member's scope) is "not found" alike (R26), so nothing says another's lead exists;
 // any other failure says so with Try again.
-import { isOpenStage, type LeadDetail } from "@travel-crm/contracts/crm";
+import { type LeadDetail } from "@travel-crm/contracts/crm";
 import { SearchXIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -51,7 +51,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
       <div className="flex flex-col gap-6">
-        <LeadSalesCard leadId={lead.id} open={isOpenStage(lead.stage)} />
+        <LeadSalesCard leadId={lead.id} />
         <WorkCard lead={lead} />
         <PersonCard lead={lead} />
         <TripCard lead={lead} />

@@ -1,15 +1,12 @@
 // The hot leads to call now (sales execution): open leads the member may see that opened their quote or asked to book in
-// the last seven days, that travel within the agency's days, or whose budget for everyone is at or over its mark. Each
-// gets a score from its reasons (a quote opened again counts more), hottest first, 25 at most.
+// the last seven days. Each gets a score from its reasons (a quote opened again counts more), hottest first, 25 at most.
 import { openLeadStages } from "@travel-crm/contracts/crm";
-import { hotLeadList, type HotLead, type HotReason, type SalesAutomation } from "@travel-crm/contracts/sales";
+import { hotLeadList, type HotLead, type HotReason } from "@travel-crm/contracts/sales";
 import type { OrgTx } from "@travel-crm/db";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
-import { addDays, parseCalendarDate } from "../kernel/index.js";
 
 const WEEK = 7 * 24 * 3_600_000;
-const weights: Record<HotReason, number> = { quote_opened: 40, asked_price: 30, travel_soon: 20, big_budget: 10 };
-const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
+const weights: Record<HotReason, number> = { quote_opened: 40, asked_price: 30 };
 
 interface Heat {
   score: number;
@@ -18,14 +15,7 @@ interface Heat {
 }
 
 /** Every open lead in scope with a reason to be hot, and how hot. */
-async function heatOf(
-  tx: OrgTx,
-  access: MemberAccess,
-  settings: SalesAutomation,
-  now: Date,
-  today: string,
-  only?: string,
-): Promise<Map<string, Heat>> {
+async function heatOf(tx: OrgTx, access: MemberAccess, now: Date, only?: string): Promise<Map<string, Heat>> {
   const open = { stage: { in: [...openLeadStages] }, ...scopeFilter(access, "leads:view", "ownerUserId") };
   const lead = only === undefined ? open : { ...open, id: only };
   const heat = new Map<string, Heat>();
@@ -45,43 +35,13 @@ async function heatOf(
     const reason = signal.kind === "quote_opened" ? "quote_opened" : "asked_price";
     add(signal.leadId, reason, signal.at, heat.get(signal.leadId)?.reasons.has(reason) === true ? 5 : 0);
   }
-  if (settings.hotTravelDays > 0) {
-    const soon = await tx.lead.findMany({
-      where: {
-        ...lead,
-        travelKind: "dates",
-        travelStart: { gte: asDate(today), lte: asDate(addDays(parseCalendarDate(today), settings.hotTravelDays)) },
-      },
-      select: { id: true },
-      take: 500,
-    });
-    for (const row of soon) add(row.id, "travel_soon");
-  }
-  if (settings.hotBudgetPaise !== null) {
-    const mark = settings.hotBudgetPaise;
-    const budgets = await tx.lead.findMany({
-      where: { ...lead, budgetPaise: { not: null } },
-      select: { id: true, budgetPaise: true, budgetBasis: true, adults: true, childrenAges: true },
-      take: 1000,
-    });
-    for (const row of budgets) {
-      const people = Math.max(1, (row.adults ?? 0) + row.childrenAges.length);
-      const total = Number(row.budgetPaise ?? 0n) * (row.budgetBasis === "per_person" ? people : 1);
-      if (total >= mark) add(row.id, "big_budget");
-    }
-  }
   return heat;
 }
 
 const reasonOrder = Object.keys(weights) as HotReason[];
 
-export async function hotLeadsOf(
-  tx: OrgTx,
-  access: MemberAccess,
-  settings: SalesAutomation,
-  context: { now: Date; today: string },
-): Promise<HotLead[]> {
-  const heat = await heatOf(tx, access, settings, context.now, context.today);
+export async function hotLeadsOf(tx: OrgTx, access: MemberAccess, context: { now: Date }): Promise<HotLead[]> {
+  const heat = await heatOf(tx, access, context.now);
   const top = [...heat.entries()]
     .sort(([, a], [, b]) => b.score - a.score || (b.lastSignalAt?.getTime() ?? 0) - (a.lastSignalAt?.getTime() ?? 0))
     .slice(0, 25);
@@ -132,9 +92,8 @@ export async function hotLeadsOf(
 export async function leadHeatOf(
   tx: OrgTx,
   access: MemberAccess,
-  settings: SalesAutomation,
-  context: { now: Date; today: string; leadId: string },
+  context: { now: Date; leadId: string },
 ): Promise<{ score: number; reasons: HotReason[] }> {
-  const entry = (await heatOf(tx, access, settings, context.now, context.today, context.leadId)).get(context.leadId);
+  const entry = (await heatOf(tx, access, context.now, context.leadId)).get(context.leadId);
   return { score: entry?.score ?? 0, reasons: reasonOrder.filter((reason) => entry?.reasons.has(reason) === true) };
 }

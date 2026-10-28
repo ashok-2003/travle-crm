@@ -237,9 +237,6 @@
       "added": "Added a running cost",
       "voided": "Voided a running cost"
     },
-    "sales-automation": {
-      "changed": "Changed the sales automation"
-    },
     "quote-package": {
       "saved": "Saved a quote package",
       "deleted": "Deleted a quote package"
@@ -310,9 +307,6 @@
     "category": "Category",
     "paidOn": "Paid on",
     "spentOn": "Spent on",
-    "speed": "Reply to new leads",
-    "followUps": "Follow-ups",
-    "reminders": "Payment reminders",
     "lostReason": "Why it was lost"
   },
   "recordTypes": {
@@ -336,7 +330,6 @@
     "quote_settings": "Quote settings",
     "trip_kit": "A trip's details",
     "agency_expense": "A running cost",
-    "sales_automation": "Sales automation",
     "quote_template": "A quote package"
   }
 }

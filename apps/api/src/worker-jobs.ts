@@ -60,13 +60,7 @@ import {
   WHATSAPP_TEMPLATES_QUEUE,
 } from "@travel-crm/domain/inbox";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
-import {
-  customerWroteListener,
-  greetNewLeadListener,
-  quoteOpenedListener,
-  runSalesDueWork,
-  SALES_DUE_WORK_QUEUE,
-} from "@travel-crm/domain/sales";
+import { customerWroteListener, quoteOpenedListener } from "@travel-crm/domain/sales";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
 import {
@@ -198,21 +192,6 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           baselineFingerprints: leadSheetBaselineFingerprints(db, sheets.hashes),
         };
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
-  // Sales execution: the agency's name and the lead owner's for the WhatsApp blanks, in the agency's own time.
-  const salesJobs = {
-    db,
-    appUrl,
-    logger,
-    timeZone: async (organizationId: string) =>
-      (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
-    names: async (organizationId: string, ownerUserId: string | null) => {
-      const [organization, owners] = await Promise.all([
-        identity.organizationProfile(organizationId),
-        ownerUserId === null ? Promise.resolve([]) : identity.memberContacts(organizationId, [ownerUserId]),
-      ]);
-      return { agencyName: organization?.name ?? "our team", agentName: owners[0]?.name ?? null };
-    },
-  };
   // The Meta lead ads' side: the route, the notices, the checks and the import of a form's earlier leads, only when Meta is set up.
   const { meta = null } = dependencies;
   const metaJobs = meta === null ? null : metaProcessDependencies(meta.dependencies, { identity, subscriptions });
@@ -251,9 +230,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         timeZone: async (organizationId) =>
           (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
       }),
-      // Sales execution: a new lead's first WhatsApp and follow-ups, and what makes a lead hot (a quote opened, a buying
-      // word), its owner told to call.
-      greetNewLeadListener(salesJobs),
+      // Sales execution: what makes a lead hot (a quote opened, a buying word), its owner told to call.
       quoteOpenedListener(),
       customerWroteListener(),
       // A trip's details, sent by themselves when a customer's message holds one of its keywords (once a chat).
@@ -383,15 +360,6 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               timeZone: "Asia/Kolkata",
               handle: async () => {
                 await runDueWork({ db, logger }, new Date());
-              },
-            },
-            {
-              // Sales execution: follow-ups whose day has come, and payment reminders, between 10:00 and 20:00.
-              queue: SALES_DUE_WORK_QUEUE,
-              cron: "* * * * *",
-              timeZone: "Asia/Kolkata",
-              handle: async () => {
-                await runSalesDueWork(salesJobs, new Date());
               },
             },
             {
