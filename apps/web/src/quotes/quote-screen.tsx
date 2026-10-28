@@ -77,6 +77,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
       <div className="flex flex-wrap gap-2">
         {mayEdit && live && (
           <Button
+            variant="send"
             disabled={changes.share.isPending}
             onClick={() => {
               share((url) => {

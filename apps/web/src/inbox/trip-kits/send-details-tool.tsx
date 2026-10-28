@@ -73,6 +73,7 @@ export function SendDetailsTool({
             </ItemContent>
             <ItemActions>
               <Button
+                variant="send"
                 disabled={send.isPending || (kit.message === "" && kit.files.length === 0)}
                 aria-label={t("sendNamed", { name: kit.name })}
                 onClick={() => {

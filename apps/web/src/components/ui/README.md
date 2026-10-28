@@ -32,7 +32,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - `button.tsx`: pill shape (`rounded-full`), primary hover is `action-pressed`; outline has the input border; ghost is
   blue text; destructive is an ink outline with red text. A `quiet` variant of our own (feedback round 1): ink words
   that take the ghost's blue tint on hover, for a choice whose own content carries colour (the stage bar's steps, where
-  link blue would hide the stages' colours); One Action Colour still holds, as the blue comes on hover.
+  link blue would hide the stages' colours); a `send` variant of our own (owner, 2026-10-28): the brand's green fill with
+  white words, for the buttons that send to a customer on WhatsApp and nothing else, so a send looks unlike every blue
+  in-app button; One Action Colour still holds, as the blue comes on hover.
 - `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill. `textarea.tsx` (which
   `input-group` brings) likewise (6px, canvas fill, 16px text at every width), at least 64px high.
 - `popover.tsx`: the registry's shadow, with a hairline border instead of its ring.

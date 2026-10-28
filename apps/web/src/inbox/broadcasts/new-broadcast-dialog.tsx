@@ -97,6 +97,7 @@ export function NewBroadcastDialog({
               {t("back")}
             </Button>
             <Button
+              variant="send"
               disabled={preview.willSend === 0 || create.isPending}
               onClick={() => {
                 create.mutate({ requestId, ...input });

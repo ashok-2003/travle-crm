@@ -272,6 +272,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
             ) : (
               <Button
                 type="submit"
+                variant="send"
                 size="icon"
                 className="shrink-0 rounded-full"
                 disabled={!canSend}
