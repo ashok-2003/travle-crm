@@ -452,3 +452,49 @@ to 7 where they differ.
   name and a Your account link, and has Quotes, Reports and Finance (Reports and Finance only for the money permission)
   and the Today and Inbox counts. The dashboard's charts moved to Reports: the period chips, new leads by day, where they
   came from, where they are now, time to first reply, top destinations and the team table.
+
+## 10. Accepted risks, 2026-10-29
+
+The owner's decision on 2026-10-29 was to take Ayush's behaviour for the automatic WhatsApps and the per-chat voice, with the
+safety fixes we kept (below). The risks are accepted for now and revisited after the pilot tests these features. What we kept
+that Ayush did not have: the automatic messages are marked as automation, a lead's follow-ups switch is audited, a customer's
+erasure takes the run and every touch and the AI's state and memory of their chats; the AI is off until an Owner or Admin
+turns it on (autopilot and learning both default off), every AI call counts against the agency's monthly limit, no AI runs
+for a plan without it or a subscription that is read-only, suspended or cancelled, every message the AI sends is marked and
+audited, and the AI never replies to a chat whose customer wrote STOP or withdrew consent, a chat with no person linked too.
+Where the list below says Ayush's own, it is as he built it.
+
+later. We will record it right now." Each risk below is accepted for now and revisited after the pilot tests these
+features.
+
+1. **Automatic consent for every enquirer.** The "contact enquirers" setting records WhatsApp consent for every new lead
+   (Meta ads, website, Google Sheets, Excel imports, including old contacts) and the automatic greeting, follow-ups and
+   reminders message them.
+   - **Risk:** people who never agreed report spam. Meta lowers the number's quality rating and can restrict or block
+     it. All agencies send through one MSG91 account, so one agency's reports can affect others.
+   - It records consent nobody gave (India's DPDP Act; WhatsApp Business policy asks for opt-in).
+   - The owner's view: a lead who left their number wants to be contacted, and agencies normally do this.
+2. **STOP, then writing again.** After a customer sends STOP, their consent is withdrawn. If they later write again
+   (say "any update?"), the next payment reminder silently marks them as agreed again, and automatic messages resume.
+   - **Risk:** writing again is not the same as opting back in to reminders and marketing.
+   - The owner's view: this is right; a customer who writes again is open to contact.
+3. **AI lead scoring on by default** (Ayush's setting) for every agency once the key is set. Every agency's customer
+   chats go to Google Gemini. Gemini is called directly (not OpenRouter), so there is no zero-retention routing, and on
+   the free tier Google may use prompts. Keep billing on for the Google project.
+4. **Autopilot writes as a named staff member** ("a customer should not be able to tell"). It still says it is an AI
+   assistant when sincerely asked.
+5. **Writing-style learning.** A chat export sends both sides of a real chat (the customer's messages too) to the AI
+   provider. Any inbox replier can upload one.
+6. **Erasure gaps.** The agency voice (verbatim messages) and the nightly lessons are not erased when a customer asks
+   to be deleted.
+7. **AI cost.** There is no monthly cap per agency, only Ayush's per-chat daily cap and his per-minute nudge rate.
+   Suspended or cancelled agencies still get AI.
+8. **Prices from the AI.** "Quote prices only from the knowledge" is a prompt instruction. Nothing checks the reply's
+   numbers before the autopilot sends it.
+9. **The invite link** (recorded 2026-10-28). Anyone holding an invite link can get into that agency until the owner
+   sets a password. The link doesn't expire. Two-factor is off.
+
+**Background list** (fixed after the push, without changing what users see unless the owner agrees): erasure of voice,
+lessons and cadence data; a monthly AI cap; the lifecycle check; the enrolment filter; the claimTouch race; audits;
+retention of page_visit; the invite-link hardening; a WhatsApp opt-in question on Meta lead forms.
+
