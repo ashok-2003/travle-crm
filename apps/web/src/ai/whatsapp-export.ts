@@ -51,6 +51,22 @@ export function sendersOf(messages: ExportedMessage[]): { name: string; count: n
 }
 
 /**
+ * One chat's export for its own voice: the latest lines of both sides in order, the chosen person's marked as theirs. The
+ * other side's words go too (the AI reads what the two talked about); the agency-wide style never sends them.
+ */
+export function conversationOf(messages: ExportedMessage[], sender: string): { own: boolean; text: string }[] {
+  const chosen: { own: boolean; text: string }[] = [];
+  let left = MAX_VOICE_SAMPLE_CHARACTERS;
+  for (const message of [...messages].reverse()) {
+    const text = message.text.slice(0, 1000);
+    if (text.length > left || chosen.length >= 1500) break;
+    chosen.unshift({ own: message.sender === sender, text });
+    left -= text.length;
+  }
+  return chosen;
+}
+
+/**
  * The chosen person's own latest messages, oldest first, within what one request may carry. Everything the other side
  * wrote is dropped here, in the browser, before anything is sent.
  */

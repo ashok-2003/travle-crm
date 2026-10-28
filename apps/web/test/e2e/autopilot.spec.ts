@@ -29,7 +29,9 @@ test("an Owner turns the autopilot on, the AI answers a customer by itself, mark
 
   // Off by default: the customer's message got no answer from the AI.
   await owner.waitForTimeout(8_000);
-  expect((await sentTo(customer)).filter((message) => (message.text ?? "").includes('Kerala 5 nights'))).toHaveLength(0);
+  expect((await sentTo(customer)).filter((message) => (message.text ?? "").includes("Kerala 5 nights"))).toHaveLength(
+    0,
+  );
 
   // The Owner turns the AI on, then the autopilot, in Settings, AI.
   await owner.goto("/settings/ai");
@@ -57,7 +59,7 @@ test("an Owner turns the autopilot on, the AI answers a customer by itself, mark
   ).toBe(200);
   await expect(async () => {
     const sent = await sentTo(customer);
-    expect(sent.some((message) => (message.text ?? "").includes('Kerala 5 nights is Rs 18,500'))).toBe(true);
+    expect(sent.some((message) => (message.text ?? "").includes("Kerala 5 nights is Rs 18,500"))).toBe(true);
   }).toPass({ timeout: 90_000 });
 
   // In the chat the message is marked as the AI's, and the audit log has it.
@@ -87,7 +89,7 @@ test("an Owner turns the autopilot on, the AI answers a customer by itself, mark
   ).toBe(200);
   await owner.waitForTimeout(10_000);
   expect(
-    (await sentTo(customer)).filter((message) => (message.text ?? "").includes('Kerala 5 nights is Rs 18,500')),
+    (await sentTo(customer)).filter((message) => (message.text ?? "").includes("Kerala 5 nights is Rs 18,500")),
   ).toHaveLength(1);
   await owner.close();
 });

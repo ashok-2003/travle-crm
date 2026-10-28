@@ -170,6 +170,14 @@ model AiChat {
   /// What it flagged for the team while it kept answering ("wants to book"), and when.
   attentionReason String?              @map("attention_reason")
   attentionAt     DateTime?            @map("attention_at") @db.Timestamptz(6)
+  /// The way of talking the AI copies in this chat alone, over the agency's (from an imported chat export).
+  voiceName       String?              @map("voice_name")
+  voiceProfile    String?              @map("voice_profile")
+  voiceExamples   String[]             @default([]) @map("voice_examples")
+  /// What the imported chat says the two talked about before: topics, plans, likes, how they are with each other.
+  voiceContext    String?              @map("voice_context")
+  /// The imported chat's last messages, both sides, oldest first: [{ "own": boolean, "text": string }].
+  voiceHistory    Json                 @default("[]") @map("voice_history")
   /// When the team gave the chat back to the AI: their messages before it no longer keep it waiting.
   resumedAt       DateTime?            @map("resumed_at") @db.Timestamptz(6)
   /// default (the agency's), sales or natural (CHECK ai_chat_persona_value).

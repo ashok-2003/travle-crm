@@ -24,6 +24,7 @@ import { AutopilotSection } from "./autopilot-section";
 import { KnowledgeSection } from "./knowledge-section";
 import { LearningsSection } from "./learnings-section";
 import { useAiSettings, useAutopilot, useSaveAiSettings } from "./use-ai";
+import { TestSection } from "./test-section";
 import { VoiceSection } from "./voice-section";
 
 function SettingsForm({ saved }: { saved: AiSettings }) {
@@ -101,6 +102,7 @@ function AutopilotParts({ aiOn }: { aiOn: boolean }) {
       <AutopilotSection key={String(autopilot.dataUpdatedAt)} saved={autopilot.data} aiOn={aiOn} />
       <LearningsSection learnedAt={autopilot.data.learnedAt} learning={autopilot.data.learning} />
       <VoiceSection voice={autopilot.data.voice} />
+      <TestSection />
     </>
   );
 }

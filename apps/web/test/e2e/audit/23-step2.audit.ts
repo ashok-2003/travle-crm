@@ -52,9 +52,9 @@ test("Sales automation, the autopilot and a chat with an AI message", async ({ p
     ]),
   ).toBe(200);
   await expect(async () => {
-    expect((await sentTo(customer)).some((message) => (message.text ?? "").includes('Kerala 5 nights is Rs 18,500'))).toBe(
-      true,
-    );
+    expect(
+      (await sentTo(customer)).some((message) => (message.text ?? "").includes("Kerala 5 nights is Rs 18,500")),
+    ).toBe(true);
   }).toPass({ timeout: 90_000 });
   await owner.goto("/inbox");
   await owner

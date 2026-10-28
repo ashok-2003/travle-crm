@@ -10,7 +10,7 @@ import { DomainError } from "../kernel/index.js";
 import { agentAnswers } from "./agent.js";
 import { autopilotOf } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
-import { agencyVoiceOf } from "./voice.js";
+import { chatVoiceOf } from "./chat-voice.js";
 
 /** After this long a turn still marked is one the worker never finished (it stopped): the inbox stops showing it. */
 const TURN_STALE_MS = 3 * 60_000;
@@ -28,7 +28,7 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
   if (chat === null) throw notFound();
   const settings = await autopilotOf(tx);
   const state = await tx.aiChat.findFirst({ where: { conversationId } });
-  const voice = await agencyVoiceOf(tx);
+  const voice = await chatVoiceOf(tx, conversationId);
   const mode = state?.mode === "on" || state?.mode === "off" ? state.mode : "default";
   const answering = available && agentAnswers(mode, settings.autopilot) && state?.handedOffAt == null;
   // A turn the worker left behind (it stopped mid-way) is no turn after a few minutes.
@@ -51,7 +51,17 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
     personPausedUntil: answering
       ? ((await personAnsweringUntil(tx, conversationId, new Date()))?.toISOString() ?? null)
       : null,
-    voice: voice === null ? null : { name: voice.name, profile: voice.profile, examples: voice.examples.length },
+    voice:
+      voice === null
+        ? null
+        : {
+            name: voice.name,
+            profile: voice.profile,
+            examples: voice.examples.length,
+            own: voice.own,
+            context: voice.context ?? null,
+            history: voice.history?.length ?? 0,
+          },
     persona: state?.persona === "sales" || state?.persona === "natural" ? state.persona : "default",
     agentName: settings.agentName,
     available,

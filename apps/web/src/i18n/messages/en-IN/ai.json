@@ -178,7 +178,29 @@
     "whoHint": "Choose your own team member, not the customer.",
     "learn": "Learn their way of talking",
     "learning": "Reading…",
-    "learned": "The AI has learned it"
+    "learned": "The AI has learned it",
+    "chatTitle": "This chat's way of talking",
+    "chatIntro": "Give the AI an export of this chat and choose whose way of talking to copy here: it reads both sides, so it also remembers what the two talked about, and it wins over the agency's way of talking in this chat. The whole chat's words go to the AI service.",
+    "upload": "Upload this chat (.txt)",
+    "replace": "Upload another chat",
+    "notAnExport": "This file doesn't look like a WhatsApp chat export. Export it from WhatsApp, without media.",
+    "dialogTitle": "Who should the AI be?",
+    "dialogDescription": "{count, plural, one {# message read.} other {# messages read.}}",
+    "readsAll": "The AI reads everyone's messages in this chat",
+    "personCount": "{name}: {count, plural, one {# message} other {# messages}}",
+    "whose": "Now choose who the AI talks as",
+    "tooFew": "Too few messages to learn from",
+    "becomes": "The AI writes as {name}, and talks to {other} the way {name} does",
+    "theOther": "the others",
+    "talkingLike": "Talking like {name}",
+    "inherited": "Talking like {name}, as in every chat",
+    "howTheyTalk": "How {name} talks",
+    "context": "What they talked about",
+    "remembered": "{count, plural, one {Reads # message of this chat before every reply.} other {Reads the last # messages of this chat, both sides, before every reply.}}",
+    "chatLearn": "Learn {name}'s way of talking",
+    "chatLearning": "Reading the whole chat…",
+    "chatLearned": "The AI now talks like {name} in this chat",
+    "chatRemove": "Remove"
   },
   "overview": {
     "title": "The last day",
@@ -210,5 +232,15 @@
       "on": "On",
       "off": "Off"
     }
+  },
+  "test": {
+    "title": "Try it",
+    "description": "Ask what a customer might, and see what the AI would answer from what it knows and has learned. Nothing is sent.",
+    "question": "A customer's question",
+    "placeholder": "Kerala ka 5 din ka package kitne ka hai?",
+    "ask": "Ask",
+    "noAnswer": "(no answer)",
+    "handoff": "It would hand the chat to your team: {reason}",
+    "noReason": "a person is needed"
   }
 }
