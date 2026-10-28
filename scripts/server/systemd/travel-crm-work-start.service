@@ -1,0 +1,10 @@
+# Starts the background work (the worker, or the console) when the working hours begin, from travel-crm-work-start.timer.
+# Installed by scripts/server/work-hours.sh. Its log: journalctl -u travel-crm-work-start
+[Unit]
+Description=travel-crm working hours: start the background work
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/travel-crm/app/scripts/server/work-hours.sh start
