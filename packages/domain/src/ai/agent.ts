@@ -9,6 +9,7 @@ import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import { queueSystemText, whatsappConsentOf, windowIsOpen } from "../inbox/index.js";
 import { applyAnswer, type ChatFacts } from "./answer-effects.js";
+import { personAnsweringUntil } from "./person-pause.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
 import { agentPrompt, type TurnKind } from "./prompt.js";
@@ -17,8 +18,6 @@ import { chatVoiceOf, naturalIn } from "./voice.js";
 
 export { AI_HANDOFF_KIND } from "./answer-effects.js";
 export { agentPrompt, type TurnKind } from "./prompt.js";
-/** A person who wrote in the chat this recently is answering it: the agent keeps quiet. */
-const PERSON_ANSWERING_MS = 30 * 60_000;
 
 export interface AgentDependencies {
   db: Database;
@@ -103,16 +102,7 @@ async function mayWrite(
   if (state?.repliesOn?.getTime() === today.getTime() && state.repliesCount >= settings.maxRepliesPerDay)
     return "day_limit";
   if (chat.personId !== null && (await whatsappConsentOf(tx, chat.personId)).state === "withdrawn") return "opted_out";
-  const person = await tx.whatsappMessage.findFirst({
-    where: {
-      conversationId: chat.id,
-      direction: "out",
-      origin: { in: ["staff_crm", "staff_phone"] },
-      occurredAt: { gt: new Date(now.getTime() - PERSON_ANSWERING_MS) },
-    },
-    select: { id: true },
-  });
-  return person === null ? null : "person_answering";
+  return (await personAnsweringUntil(tx, chat.id, now)) === null ? null : "person_answering";
 }
 
 /**

@@ -6,10 +6,12 @@ import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
+import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
 import { agentAnswers, agentPrompt, cleanReply, parseAnswer } from "./agent.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
+import { personAnsweringUntil } from "./person-pause.js";
 import { agencyVoiceOf, chatVoiceOf, naturalIn } from "./voice.js";
 import { aiSettingsOf } from "./settings.js";
 
@@ -23,6 +25,9 @@ export interface AiAssistDependencies {
 const TURN_STALE_MS = 3 * 60_000;
 /** What the agent flagged shows in the chat this long. */
 const ATTENTION_SHOWN_MS = 24 * 3_600_000;
+
+/** Published when someone gives a chat back to the AI: the worker queues its turn at once. */
+export const AI_CHAT_RESUMED_EVENT = "ai.chat-resumed";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 const notConfigured = () =>
@@ -106,6 +111,9 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, configured: bo
       state?.attentionAt != null && Date.now() - state.attentionAt.getTime() < ATTENTION_SHOWN_MS
         ? (state.attentionReason ?? null)
         : null,
+    personPausedUntil: answering
+      ? ((await personAnsweringUntil(tx, conversationId, new Date()))?.toISOString() ?? null)
+      : null,
     agentName: settings.agentName,
     voice:
       voice === null
@@ -147,11 +155,15 @@ export async function setChatMode(
     where: { id: state.id },
     data: {
       mode: input.mode,
-      ...(input.mode === "on" ? { handedOffAt: null, handoffReason: null } : {}),
+      ...(input.mode === "on" ? { handedOffAt: null, handoffReason: null, resumedAt: new Date() } : {}),
       // Taken over: the flag is answered, and the agent's planned follow-up is the person's to make.
       ...(input.mode === "off" ? { attentionAt: null, attentionReason: null, followUpAt: null } : {}),
     },
   });
+  // Turned on: it answers what waits, now.
+  if (input.mode === "on") {
+    await publishEvent(tx, { type: AI_CHAT_RESUMED_EVENT, payload: { conversationId: input.conversationId } });
+  }
   await recordAudit(tx, access, {
     action: "ai.chat-mode-changed",
     entityType: "whatsapp_conversation",
@@ -161,10 +173,17 @@ export async function setChatMode(
   });
 }
 
-/** A handed-over chat goes back to the agent. */
+/**
+ * A chat goes back to the agent ("Let AI answer now"): a hand-over ends, the team's earlier messages stop keeping it
+ * waiting, and it answers the customer's last message at once.
+ */
 export async function resumeChat(tx: OrgTx, access: MemberAccess, conversationId: string): Promise<void> {
   const state = await chatState(tx, access.organizationId, conversationId);
-  await tx.aiChat.update({ where: { id: state.id }, data: { handedOffAt: null, handoffReason: null } });
+  await tx.aiChat.update({
+    where: { id: state.id },
+    data: { handedOffAt: null, handoffReason: null, resumedAt: new Date() },
+  });
+  await publishEvent(tx, { type: AI_CHAT_RESUMED_EVENT, payload: { conversationId } });
   await recordAudit(tx, access, {
     action: "ai.chat-resumed",
     entityType: "whatsapp_conversation",

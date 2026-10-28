@@ -2,7 +2,7 @@
 // messages reads as one, and only the newest is answered), ten chats at a time; each minute, the follow-ups the agent
 // planned that are due go out while the window is open; each night, every agency's AI learns from its chats; and an
 // uploaded document's words are read into what the agent knows.
-import { aiDocumentAddedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
+import { aiChatResumedEvent, aiDocumentAddedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import type { Database } from "@travel-crm/db";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
@@ -12,8 +12,10 @@ import type { Files } from "../files/index.js";
 import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
 import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
+import { AI_CHAT_RESUMED_EVENT } from "./chat.js";
 import { AI_DOCUMENT_ADDED_EVENT } from "./knowledge.js";
 import { learnFromChats, type LearnDependencies } from "./learning.js";
+import { personAnsweringUntil } from "./person-pause.js";
 import { aiSettingsOf } from "./settings.js";
 
 export const AI_REPLY_QUEUE = "ai.reply";
@@ -41,7 +43,11 @@ export function aiCustomerWroteListener(dependencies: { queue: JobQueue }): Even
           where: { conversationId },
           select: { mode: true, handedOffAt: true },
         });
-        const answers = agentAnswers(state?.mode, settings.autopilot) && state?.handedOffAt == null;
+        // A person answering keeps the AI waiting: no "typing" for a turn that writes nothing.
+        const answers =
+          agentAnswers(state?.mode, settings.autopilot) &&
+          state?.handedOffAt == null &&
+          (await personAnsweringUntil(tx, conversationId, new Date())) === null;
         // The inbox says at once that the agent has the message, before it waits for the customer's next line.
         if (answers) {
           await tx.aiChat.upsert({
@@ -62,6 +68,34 @@ export function aiCustomerWroteListener(dependencies: { queue: JobQueue }): Even
         },
         { startAfter: new Date(Date.now() + SETTLE_MS), id: event.payload.messageId },
       );
+    },
+  });
+}
+
+/** A chat given back to the AI: its turn for the customer's last message is queued at once, if one waits. */
+export function aiChatResumedListener(dependencies: { queue: JobQueue }): EventListener {
+  return defineListener({
+    name: "ai.chat-resumed",
+    eventType: AI_CHAT_RESUMED_EVENT,
+    payload: aiChatResumedEvent,
+    handle: async (event, context) => {
+      const { conversationId } = event.payload;
+      const newest = await context.forOrg(async (tx) => {
+        const message = await tx.whatsappMessage.findFirst({
+          where: { conversationId, direction: "in" },
+          orderBy: { occurredAt: "desc" },
+          select: { id: true },
+        });
+        if (message === null) return null;
+        await tx.aiChat.updateMany({ where: { conversationId }, data: { turnState: "queued", turnAt: new Date() } });
+        return message;
+      });
+      if (newest === null) return;
+      await dependencies.queue.send(AI_REPLY_QUEUE, {
+        organizationId: event.organizationId,
+        conversationId,
+        messageId: newest.id,
+      });
     },
   });
 }

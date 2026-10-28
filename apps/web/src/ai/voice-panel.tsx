@@ -5,7 +5,7 @@
 // they talk and, for one chat, what the two talked about. For the agency (every chat) or one chat, where it wins over the agency's. Shows whose way of talking is
 // in use, how they talk as the AI read it, and removes it.
 import type { AiVoice } from "@travel-crm/contracts/ai";
-import { MessageCircleHeartIcon, UploadIcon } from "lucide-react";
+import { MessageCircleHeartIcon, UploadIcon, UsersIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -163,7 +163,22 @@ export function VoicePanel({
           </Button>
         }
       >
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
+          {/* Everyone's messages are read; the choice below is only who the AI becomes. */}
+          <Item variant="muted" size="sm">
+            <ItemMedia variant="icon">
+              <UsersIcon aria-hidden="true" className="text-primary" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{t("readsAll")}</ItemTitle>
+              <ItemDescription className="line-clamp-none">
+                {senders
+                  .slice(0, 8)
+                  .map((sender) => t("personCount", { name: sender.name, count: sender.count }))
+                  .join(" · ")}
+              </ItemDescription>
+            </ItemContent>
+          </Item>
           <ChoiceGroup
             legend={t("whose")}
             value={chosen}
@@ -171,7 +186,13 @@ export function VoicePanel({
             options={senders.slice(0, 8).map((sender) => ({
               value: sender.name,
               label: sender.name,
-              description: sender.count < FEWEST ? t("tooFew") : t("messageCount", { count: sender.count }),
+              description:
+                sender.count < FEWEST
+                  ? t("tooFew")
+                  : t("becomes", {
+                      name: sender.name,
+                      other: senders.find((one) => one.name !== sender.name)?.name ?? t("theOther"),
+                    }),
             }))}
           />
           <RefusalAlert error={learn.error} />

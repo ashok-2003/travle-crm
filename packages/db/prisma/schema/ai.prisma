@@ -112,6 +112,8 @@ model AiChat {
   voiceContext   String?              @map("voice_context")
   /// The imported chat's last messages, both sides, oldest first: [{ "own": boolean, "text": string }].
   voiceHistory   Json                 @default("[]") @map("voice_history")
+  /// When the team gave the chat back to the AI: their messages before it no longer keep it waiting.
+  resumedAt      DateTime?            @map("resumed_at") @db.Timestamptz(6)
   /// default (the agency's), sales or natural (CHECK ai_chat_persona_value).
   persona        String               @default("default")
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)

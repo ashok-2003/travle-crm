@@ -6,6 +6,7 @@ import type { Database } from "@travel-crm/db";
 import {
   AI_LEARN_QUEUE,
   AI_NUDGES_QUEUE,
+  aiChatResumedListener,
   aiCustomerWroteListener,
   aiDocumentListener,
   aiReplyHandler,
@@ -286,7 +287,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // The AI agent's knowledge: an uploaded document's words are read whether or not a model is set.
       aiDocumentListener({ db, files, readText: (bytes, contentType) => documentText(bytes, contentType) }),
       // The AI agent's turn after a customer writes, queued a few seconds on.
-      ...(aiJobs === null ? [] : [aiCustomerWroteListener(aiJobs)]),
+      // A chat given back to the AI ("Let AI answer now"): its turn for the waiting message, at once.
+      ...(aiJobs === null ? [] : [aiCustomerWroteListener(aiJobs), aiChatResumedListener(aiJobs)]),
       // A broadcast's waiting recipients go out here, a batch at a time (sales inbox spec 6).
       broadcastListener({
         timeZone: async (organizationId) =>

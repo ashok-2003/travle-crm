@@ -33,6 +33,7 @@ export {
   AI_LEARN_QUEUE,
   AI_NUDGES_QUEUE,
   AI_REPLY_QUEUE,
+  aiChatResumedListener,
   aiCustomerWroteListener,
   aiDocumentListener,
   aiReplyHandler,

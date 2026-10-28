@@ -138,6 +138,8 @@ export const chatAi = z.object({
   followUpReason: z.string().nullable(),
   /** What it flagged for the team while it kept answering ("wants to book"), recently. */
   attention: z.string().nullable(),
+  /** Until when it waits because someone on the team wrote in the chat; null when it isn't waiting. */
+  personPausedUntil: z.iso.datetime().nullable(),
   /** The way of talking it copies in this chat: this chat's own, else the agency's. */
   voice: z
     .object({
@@ -166,6 +168,8 @@ export const suggestedReply = z.object({ text: z.string() });
 export const testAiInput = z.strictObject({ question: text(1000).min(1) });
 export const testAiAnswer = z.object({ answer: z.string(), handoff: z.boolean(), reason: z.string() });
 
+/** ai.chat-resumed: someone gave a chat back to the AI; it answers the customer's last message now. */
+export const aiChatResumedEvent = z.strictObject({ conversationId: recordId });
 /** ai.document-added: a document's file is stored; the worker reads its words. */
 export const aiDocumentAddedEvent = z.strictObject({ knowledgeId: recordId });
 /** The ai.reply job: the agent's turn after a customer's message, a few seconds later so a burst reads as one. */
