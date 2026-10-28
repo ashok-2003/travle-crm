@@ -11,7 +11,7 @@ import { coveredInstallments } from "../quotes/index.js";
 import { createShareLink } from "../share-links/index.js";
 import { runFollowUpsFor, workingMoment, type CadenceDependencies } from "./cadence.js";
 import { fillParams, leadFacts } from "./fill-params.js";
-import { claimTouch, recordTouch, releaseTouch, sendToLead, touchTaken } from "./send.js";
+import { claimTouch, recordTouch, sendToLead } from "./send.js";
 import { salesAutomationOf } from "./settings.js";
 
 export const PAYMENT_DUE_KIND = "sales.payment-due";
@@ -100,7 +100,7 @@ export async function runRemindersFor(
     if (!settings.reminderEnabled) return null;
     const due = await dueReminders(tx, today, settings.reminderDaysBefore);
     const fresh: DueReminder[] = [];
-    for (const reminder of due) if (!(await touchTaken(tx, reminder.key))) fresh.push(reminder);
+    for (const reminder of due) if (await claimTouch(tx, reminder)) fresh.push(reminder);
     return { settings, due: fresh.slice(0, 20) };
   });
   if (plan === null) return 0;
@@ -110,7 +110,7 @@ export async function runRemindersFor(
     if (facts === null) continue;
     const names = await dependencies.names(organizationId, facts.ownerUserId);
     await db.forOrg(organizationId, async (tx) => {
-      if (!(await claimTouch(tx, { kind: "reminder", key: reminder.key, leadId: reminder.leadId }))) return;
+      if (!(await claimTouch(tx, reminder))) return;
       const actor = systemActor(organizationId);
       const shared = await createShareLink(
         tx,
@@ -140,16 +140,14 @@ export async function runRemindersFor(
             payment: { amountPaise: reminder.amountPaise, dueOn: reminder.dueOn, link },
           }),
           sessionText: `${words}\n\n${names.agencyName}`,
+          agreed: plan.settings.contactEnquirers,
           clientToken: reminder.key,
         },
         now,
       );
       // A reminder that can't go now is tried in the next minute; one that never can is recorded and left.
-      if (result.kind === "later") {
-        await releaseTouch(tx, reminder.key);
-        return;
-      }
-      await recordTouch(tx, reminder, result);
+      if (result.kind === "later") return;
+      await recordTouch(tx, { kind: "reminder", key: reminder.key, leadId: reminder.leadId }, result);
       if (result.kind === "sent") sent += 1;
       if (reminder.ownerUserId !== null) {
         await notify(tx, actor, {

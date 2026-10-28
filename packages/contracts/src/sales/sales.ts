@@ -37,6 +37,7 @@ export const salesAutomationFields = {
   speedEnabled: z.boolean(),
   speedTemplateId: recordId.nullable(),
   speedParams: z.array(templateParam).max(10),
+  contactEnquirers: z.boolean(),
   followEnabled: z.boolean(),
   followSteps: z.array(followStep).max(MAX_FOLLOW_STEPS),
   reminderEnabled: z.boolean(),

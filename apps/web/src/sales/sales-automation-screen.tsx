@@ -89,7 +89,7 @@ function AutomationForm({ saved }: { saved: SalesAutomation }) {
   const change = (patch: Partial<SalesAutomation>) => {
     setSettings((current) => ({ ...current, ...patch }));
   };
-  const ids = { days: useId(), travel: useId(), keywords: useId(), budget: useId() };
+  const ids = { contact: useId(), days: useId(), travel: useId(), keywords: useId(), budget: useId() };
 
   const submit = () => {
     setProblem(null);
@@ -137,7 +137,20 @@ function AutomationForm({ saved }: { saved: SalesAutomation }) {
             change({ speedTemplateId: templateId, speedParams: params });
           }}
         />
-        <p className="text-caption text-muted-foreground">{t("speed.consentHint")}</p>
+        <div className="flex items-start gap-3">
+          <Switch
+            id={ids.contact}
+            checked={settings.contactEnquirers}
+            disabled={busy}
+            onCheckedChange={(on) => {
+              change({ contactEnquirers: on });
+            }}
+          />
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={ids.contact}>{t("speed.consent")}</Label>
+            <p className="text-caption text-muted-foreground">{t("speed.consentHint")}</p>
+          </div>
+        </div>
       </Section>
 
       <Section

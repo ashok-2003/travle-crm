@@ -7,11 +7,10 @@
 import { isOpenStage, leadStage } from "@travel-crm/contracts/crm";
 import type { LeadCadenceView } from "@travel-crm/contracts/sales";
 import type { Database, OrgTx } from "@travel-crm/db";
-import { recordAudit } from "../audit/index.js";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError, addDays, calendarDateIn, instantAt, parseTimeOfDay } from "../kernel/index.js";
 import { fillParams, leadFacts, type FillContext } from "./fill-params.js";
-import { claimTouch, recordTouch, releaseTouch, sendToLead } from "./send.js";
+import { claimTouch, recordTouch, sendToLead } from "./send.js";
 import { salesAutomationOf } from "./settings.js";
 
 const DAY = 24 * 3_600_000;
@@ -62,9 +61,7 @@ export async function greetNewLead(
       where: { id: input.leadId },
       select: { source: true, createdAt: true, person: { select: { phoneE164: true } } },
     });
-    // Only a lead that arrived by itself is enrolled: one a person typed in was spoken to by that person, and a WhatsApp
-    // lead is already talking.
-    if (lead === null || !ARRIVED_BY_THEMSELVES.has(lead.source) || lead.person.phoneE164 === null) return null;
+    if (lead === null || lead.source === "whatsapp" || lead.person.phoneE164 === null) return null;
     if (settings.followEnabled && settings.followSteps[0] !== undefined) {
       await tx.leadCadence.createMany({
         data: [
@@ -77,7 +74,7 @@ export async function greetNewLead(
         skipDuplicates: true,
       });
     }
-    const greet = settings.speedEnabled && settings.speedTemplateId !== null;
+    const greet = settings.speedEnabled && settings.speedTemplateId !== null && ARRIVED_BY_THEMSELVES.has(lead.source);
     return greet ? settings : null;
   });
   if (plan === null) return;
@@ -94,12 +91,12 @@ export async function greetNewLead(
         leadId: input.leadId,
         templateId: plan.speedTemplateId,
         params: fillParams(plan.speedParams, facts, names),
+        agreed: plan.contactEnquirers,
         clientToken: touch.key,
       },
       now,
     );
-    if (result.kind === "later") await releaseTouch(tx, touch.key);
-    else await recordTouch(tx, touch, result);
+    await recordTouch(tx, touch, result);
   });
 }
 
@@ -162,23 +159,19 @@ async function followUp(
           leadId: due.leadId,
           templateId: checked.step.templateId,
           params: fillParams(checked.step.params, facts, names),
+          agreed: checked.settings.contactEnquirers,
           clientToken: touch.key,
         },
         now,
       );
       if (result.kind === "later") {
-        await releaseTouch(tx, touch.key);
         const later = workingMoment(new Date(now.getTime() + 3_600_000), timeZone);
         await tx.leadCadence.update({ where: { id: due.id }, data: { nextAt: later } });
         return;
       }
       await recordTouch(tx, touch, result);
       if (result.kind === "never") {
-        await end(
-          tx,
-          "stopped",
-          result.reason === "opted_out" || result.reason === "no_consent" ? "opted_out" : "cant_send",
-        );
+        await end(tx, "stopped", result.reason === "NO_CONSENT_FOR_TEMPLATE" ? "opted_out" : "cant_send");
         return;
       }
     }
@@ -283,24 +276,12 @@ export async function setFollowUps(
         data: { state: "active", stopReason: null, stoppedBy: null, enrolledAt: now, nextAt },
       });
     }
-    await recordAudit(tx, access, {
-      action: "sales.follow-ups-changed",
-      entityType: "lead",
-      entityId: input.leadId,
-      after: { followUps: "on" },
-    });
     return;
   }
   if (row?.state === "active") {
     await tx.leadCadence.update({
       where: { id: row.id },
       data: { state: "stopped", stopReason: "by_hand", stoppedBy: access.userId },
-    });
-    await recordAudit(tx, access, {
-      action: "sales.follow-ups-changed",
-      entityType: "lead",
-      entityId: input.leadId,
-      after: { followUps: "off" },
     });
   }
 }

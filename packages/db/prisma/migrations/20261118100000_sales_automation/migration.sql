@@ -7,6 +7,7 @@ CREATE TABLE "sales_automation" (
     "speed_enabled" BOOLEAN NOT NULL DEFAULT false,
     "speed_template_id" UUID,
     "speed_params" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "contact_enquirers" BOOLEAN NOT NULL DEFAULT false,
     "follow_enabled" BOOLEAN NOT NULL DEFAULT false,
     "follow_steps" JSONB NOT NULL DEFAULT '[]',
     "reminder_enabled" BOOLEAN NOT NULL DEFAULT false,
@@ -91,15 +92,14 @@ ALTER TABLE "sales_automation"
 ALTER TABLE "lead_cadence"
   ADD CONSTRAINT lead_cadence_state_value CHECK (state IN ('active', 'done', 'stopped')),
   ADD CONSTRAINT lead_cadence_step_positive CHECK (step >= 0);
--- A touch is claimed first ('pending': its unique key is the lock against a second run), then its outcome is written.
 ALTER TABLE "sales_touch"
   ADD CONSTRAINT sales_touch_kind_value CHECK (kind IN ('speed', 'follow', 'reminder')),
-  ADD CONSTRAINT sales_touch_outcome_value CHECK (outcome IN ('pending', 'sent', 'skipped'));
+  ADD CONSTRAINT sales_touch_outcome_value CHECK (outcome IN ('sent', 'skipped'));
 
--- Settings are replaced and a cadence is stopped, never deleted by the runtime role. A touch is claimed, then written, and
--- a claim that can only go later is released, so the runtime role may update and delete touches. Erasure and purge,
--- the platform's, delete the rest.
-REVOKE DELETE ON TABLE "sales_automation", "lead_cadence" FROM app_runtime;
+-- Settings are replaced, a cadence is stopped, touches are a log: the runtime role deletes none of them and changes no touch.
+-- Erasure and purge, the platform's, do.
+REVOKE DELETE ON TABLE "sales_automation", "lead_cadence", "sales_touch" FROM app_runtime;
+REVOKE UPDATE ON TABLE "sales_touch" FROM app_runtime;
 
 -- Organization isolation (see app_enable_org_rls in the init migration).
 SELECT app_enable_org_rls('sales_automation');

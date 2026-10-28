@@ -94,7 +94,7 @@ describe("hot leads", () => {
     expect(await inOrg((tx) => tx.leadSignal.count({ where: { leadId: lead.id } }))).toBe(0);
   });
 
-  it("hears a buying word in an agency with no automation at all, and the automatic answers never run for it", async () => {
+  it("hears a buying word in an agency with no automation at all (the AI's and the hot-lead listeners wake for every agency)", async () => {
     const connection = await aConnectedAgency(test);
     const { organizationId } = connection;
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
@@ -105,7 +105,7 @@ describe("hot leads", () => {
     );
     const events = await inOrg(async (tx) => (await tx.outboxEvent.findMany()).map((event) => event.type));
     expect(events).toContain("whatsapp.text-received");
-    expect(events).not.toContain("whatsapp.customer-wrote");
+    expect(events).toContain("whatsapp.customer-wrote");
     const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
     const row = await inOrg((tx) => tx.outboxEvent.findFirstOrThrow({ where: { type: "whatsapp.text-received" } }));
     const lead = await inOrg((tx) =>

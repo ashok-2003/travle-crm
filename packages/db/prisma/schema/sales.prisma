@@ -13,6 +13,8 @@ model SalesAutomation {
   /// What fills each blank of the template: a field key (name, destination...) or "text:<words>".
   speedParams        String[]     @default([]) @map("speed_params")
   /// The nudges to a lead who has not written back: [{ days, templateId, params }], in order.
+  /// The agency's word that someone who enquires with their number agreed to hear back on WhatsApp.
+  contactEnquirers   Boolean      @default(false) @map("contact_enquirers")
   followEnabled      Boolean      @default(false) @map("follow_enabled")
   followSteps        Json         @default("[]") @map("follow_steps")
   /// A payment due on an accepted quote: a reminder some days before, and once the day after it is missed.

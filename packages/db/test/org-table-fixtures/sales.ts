@@ -23,6 +23,7 @@ export const fixtures: OrgTableFixtures = {
   },
   sales_touch: {
     create: (tx) => tx.salesTouch.create({ data: { kind: "speed", key: `speed:${randomUUID()}`, outcome: "sent" } }),
+    appendOnly: true,
   },
   lead_signal: {
     create: async (tx) =>
