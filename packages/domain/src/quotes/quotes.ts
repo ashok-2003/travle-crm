@@ -1,5 +1,6 @@
-// Writing quotes (step 3, P0): a member makes one for a lead they may see, changes it, sends, marks it accepted or
-// declined, or deletes it. Totals are worked out here from its lines, never taken from the browser; every change is
+// Writing quotes (step 3, P0): a member makes one for a lead they may see, changes it while it is a draft, sends, marks
+// it accepted or declined, makes a new version of a sent one, or deletes it. A sent quote keeps its prices (spec 4.3).
+// Totals are worked out here from its lines, never taken from the browser; every change is
 // audited and counted (version), so its PDF is issued again only when it changed. Sending moves the lead to Quote sent,
 // accepting to Booking requested, forward only.
 import type {
@@ -16,7 +17,15 @@ import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage, getLead } from "../crm/index.js";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { findQuoteInScope, quoteColumns, toDetail, toSummary } from "./quote-rows.js";
+import {
+  assertDraft,
+  copyOf,
+  findQuoteForChange,
+  findQuoteInScope,
+  quoteColumns,
+  toDetail,
+  toSummary,
+} from "./quote-rows.js";
 import { quoteMoney } from "./totals.js";
 
 /** What every quote write needs from outside: the agency's GST state (its profile), and the one time of the change. */
@@ -86,7 +95,8 @@ export async function updateQuote(
   input: UpdateQuoteInput,
   context: QuoteContext,
 ): Promise<QuoteDetail> {
-  const before = await findQuoteInScope(tx, access, input.quoteId);
+  const before = await findQuoteForChange(tx, access, input.quoteId);
+  assertDraft(before);
   const after = await tx.quote.update({
     where: { id: before.id },
     data: { ...columnsOf(input, context), version: { increment: 1 } },
@@ -102,14 +112,21 @@ export async function updateQuote(
   return toDetail(await findQuoteInScope(tx, access, before.id));
 }
 
+/** What each status may move to by hand: a draft is sent, a sent quote is accepted or declined, nothing else moves. */
+const allowedMoves: Record<string, readonly string[]> = { draft: ["sent"], sent: ["accepted", "declined"] };
+
 export async function setQuoteStatus(
   tx: OrgTx,
   access: MemberAccess,
   input: SetQuoteStatusInput,
   now: Date,
 ): Promise<QuoteDetail> {
-  const before = await findQuoteInScope(tx, access, input.quoteId);
+  const before = await findQuoteForChange(tx, access, input.quoteId);
   if (before.status !== input.status) {
+    if (!(allowedMoves[before.status] ?? []).includes(input.status)) {
+      throw new DomainError("CONFLICT", "QUOTE_STATUS_LOCKED", "This quote can't be moved to that status");
+    }
+    if (input.status === "sent") assertInstallmentsAddUp(before);
     await tx.quote.update({
       where: { id: before.id },
       data: {
@@ -134,9 +151,56 @@ export async function setQuoteStatus(
   return toDetail(await findQuoteInScope(tx, access, before.id));
 }
 
+/** The payments due, when there are any, add up to the total: what the customer reads is what they can pay. */
+function assertInstallmentsAddUp(quote: { installments: { amountPaise: bigint }[]; totalPaise: bigint }): void {
+  if (quote.installments.length === 0) return;
+  const due = quote.installments.reduce((total, row) => total + row.amountPaise, 0n);
+  if (due !== quote.totalPaise) {
+    throw new DomainError("CONFLICT", "INSTALLMENTS_MISMATCH", "The payments due must add up to the quote's total");
+  }
+}
+
+/**
+ * Makes a new version of a sent (or declined) quote: a draft copy to change, which replaces it. The old quote keeps its
+ * prices, and its link says it was replaced. An accepted quote is the booking and is not replaced.
+ */
+export async function newQuoteVersion(
+  tx: OrgTx,
+  access: MemberAccess,
+  quoteId: string,
+  context: QuoteContext,
+): Promise<QuoteDetail> {
+  const old = await findQuoteForChange(tx, access, quoteId);
+  if (old.status !== "sent" && old.status !== "declined") {
+    throw new DomainError(
+      "CONFLICT",
+      "QUOTE_NOT_REPLACEABLE",
+      "Only a quote that was sent or declined can have a new version",
+    );
+  }
+  const draft = await createQuote(tx, access, copyOf(old), context);
+  await tx.quoteInstallment.createMany({
+    data: old.installments.map((due) => ({
+      quoteId: draft.id,
+      label: due.label,
+      amountPaise: due.amountPaise,
+      dueOn: due.dueOn,
+    })),
+  });
+  await tx.quote.update({ where: { id: old.id }, data: { status: "replaced", replacedById: draft.id } });
+  await recordAudit(tx, access, {
+    action: "quote.replaced",
+    entityType: "quote",
+    entityId: old.id,
+    before: { status: old.status },
+    after: { status: "replaced", replacedById: draft.id },
+  });
+  return getQuote(tx, access, draft.id);
+}
+
 /** Gone from every list. A quote with money recorded on it stays: void the payments first. */
 export async function deleteQuote(tx: OrgTx, access: MemberAccess, quoteId: string): Promise<void> {
-  const quote = await findQuoteInScope(tx, access, quoteId);
+  const quote = await findQuoteForChange(tx, access, quoteId);
   if (quote.payments.length > 0) {
     throw new DomainError("CONFLICT", "QUOTE_HAS_PAYMENTS", "This quote has payments recorded on it");
   }

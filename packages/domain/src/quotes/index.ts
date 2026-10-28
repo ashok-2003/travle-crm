@@ -18,6 +18,7 @@ export {
   getQuote,
   listLeadQuotes,
   listQuotes,
+  newQuoteVersion,
   setQuoteStatus,
   updateQuote,
   type QuoteContext,

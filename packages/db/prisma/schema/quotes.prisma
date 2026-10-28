@@ -26,8 +26,10 @@ model Quote {
   subtotalPaise      BigInt             @default(0) @map("subtotal_paise")
   taxPaise           BigInt             @default(0) @map("tax_paise")
   totalPaise         BigInt             @default(0) @map("total_paise")
-  /// draft, sent, accepted or declined (CHECK quote_status_value).
+  /// draft, sent, accepted, declined or replaced (CHECK quote_status_value). Only a draft is edited: a sent quote keeps its prices.
   status             String             @default("draft")
+  /// The draft that took this quote's place ("Make a new version"); its link then says so. Set with status replaced.
+  replacedById       String?            @map("replaced_by_id") @db.Uuid
   sentAt             DateTime?          @map("sent_at") @db.Timestamptz(6)
   acceptedAt         DateTime?          @map("accepted_at") @db.Timestamptz(6)
   /// The name the customer typed when accepting on the link; null when staff marked it.
@@ -46,6 +48,9 @@ model Quote {
   lead               Lead               @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   pdfDocument        IssuedDocument?    @relation("QuotePdf", fields: [organizationId, pdfDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   invoiceDocument    IssuedDocument?    @relation("QuoteInvoice", fields: [organizationId, invoiceDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  /// Not RESTRICT: the purge deletes a table's rows in one statement, and a restricting key to a row of the same table would stop it.
+  replacedBy         Quote?             @relation("QuoteReplacement", fields: [organizationId, replacedById], references: [organizationId, id], onDelete: NoAction, onUpdate: Restrict)
+  replaces           Quote[]            @relation("QuoteReplacement")
   installments       QuoteInstallment[]
   payments           QuotePayment[]
   costs              TripCost[]
@@ -82,6 +87,12 @@ model QuotePayment {
   /// upi, bank, cash, card or other (CHECK quote_payment_method_value).
   method            String
   reference         String          @default("")
+  /// The browser's id for this recording, so a double tap or a retry records it once (null for none).
+  requestId         String?         @map("request_id") @db.Uuid
+  /// What this payment changed when it was the first on the quote, so voiding it puts both back: the quote's status
+  /// (sent) and the lead's stage before. Null when it changed nothing.
+  quoteStatusBefore String?         @map("quote_status_before")
+  leadStageBefore   String?         @map("lead_stage_before")
   recordedBy        String?         @map("recorded_by") @db.Uuid
   receiptDocumentId String?         @map("receipt_document_id") @db.Uuid
   voidedAt          DateTime?       @map("voided_at") @db.Timestamptz(6)
@@ -92,6 +103,7 @@ model QuotePayment {
   receiptDocument   IssuedDocument? @relation("PaymentReceipt", fields: [organizationId, receiptDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([organizationId, id])
+  @@unique([organizationId, requestId], map: "quote_payment_request_once")
   @@index([organizationId, quoteId], map: "quote_payment_quote")
   @@map("quote_payment")
 }

@@ -12,9 +12,9 @@ import { recordAudit } from "../audit/index.js";
 import { getLead } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
+import { copyOf, daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
 import { createQuote, type QuoteContext } from "./quotes.js";
-import { createQuoteInput, quoteTaxRate } from "@travel-crm/contracts/quotes";
+import { quoteTaxRate } from "@travel-crm/contracts/quotes";
 
 const taken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
 
@@ -119,23 +119,11 @@ export async function duplicateQuote(
 ): Promise<QuoteDetail> {
   const quote = await findQuoteInScope(tx, access, quoteId);
   const options = await tx.quote.count({ where: { leadId: quote.leadId } });
+  const copy = copyOf(quote);
   return createQuote(
     tx,
     access,
-    {
-      leadId: quote.leadId,
-      title: `${quote.title.replace(/ \(option \d+\)$/, "")} (option ${String(options + 1)})`.slice(0, 120),
-      startDate: quote.startDate === null ? null : quote.startDate.toISOString().slice(0, 10),
-      adults: quote.adults,
-      children: quote.children,
-      days: daysOf(quote),
-      items: itemsOf(quote),
-      inclusions: quote.inclusions,
-      exclusions: quote.exclusions,
-      notes: quote.notes,
-      taxRateBasisPoints: quoteTaxRate.catch(500).parse(quote.taxRateBasisPoints),
-      placeOfSupply: createQuoteInput.shape.placeOfSupply.catch(null).parse(quote.placeOfSupply),
-    },
+    { ...copy, title: `${quote.title.replace(/ \(option \d+\)$/, "")} (option ${String(options + 1)})`.slice(0, 120) },
     context,
   );
 }

@@ -1,9 +1,9 @@
 // A quote's money (step 3, P0): each line's quantity times its price, GST on their sum as one tour operator's supply
 // (SAC 998555) at the quote's rate, CGST and SGST within the agency's state or IGST outside it; and how much of what is
-// due the payments received cover, in the order it falls due.
+// due the payments received cover, in the order it falls due. A taxed quote needs the agency's GST state saved.
 import type { QuoteItem } from "@travel-crm/contracts/quotes";
 import { isGstStateCode } from "@travel-crm/contracts/kernel";
-import { indiaGst, money, multiply, sum, type TaxComponent } from "../kernel/index.js";
+import { DomainError, indiaGst, money, multiply, sum, type TaxComponent } from "../kernel/index.js";
 
 /** Tour operator services. */
 export const TOUR_OPERATOR_SAC = "998555";
@@ -23,8 +23,16 @@ export function quoteMoney(
   placeOfSupply: string | null,
 ): QuoteMoney {
   const subtotal = sum(items.map((item) => multiply(money(item.unitPricePaise), item.quantity)));
-  if (taxRateBasisPoints === 0 || subtotal.amountPaise === 0 || !isGstStateCode(supplierStateCode)) {
+  if (taxRateBasisPoints === 0 || subtotal.amountPaise === 0) {
     return { subtotalPaise: subtotal.amountPaise, taxPaise: 0, totalPaise: subtotal.amountPaise, components: [] };
+  }
+  // Without the agency's GST state the tax can't be worked out: a quote with no tax by silence would undercharge.
+  if (!isGstStateCode(supplierStateCode)) {
+    throw new DomainError(
+      "CONFLICT",
+      "GST_STATE_REQUIRED",
+      "Save your GST state in the business details before you quote with tax",
+    );
   }
   const place = placeOfSupply ?? supplierStateCode;
   const breakdown = indiaGst.compute({

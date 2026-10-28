@@ -10,13 +10,16 @@ import { Hono } from "hono";
  * Shows a shared record of one type, e.g. redirects to an issued document's PDF. `notice` says what the customer just
  * did on the page (an action's answer), for it to say so.
  */
-export type ShareLinkResolver = (opened: OpenedShareLink, notice: "accepted" | null) => Promise<Response>;
+export type ShareLinkResolver = (opened: OpenedShareLink, notice: ShareLinkNotice | null) => Promise<Response>;
+
+/** What a page tells the customer about what they just did: it was recorded, or it was refused (the page says why). */
+export type ShareLinkNotice = "accepted" | "refused";
 
 /** What a customer does on a shared record's page (a POST of its form): what to tell them, or nothing. */
 export type ShareLinkAction = (
   opened: OpenedShareLink,
   form: Readonly<Record<string, string | undefined>>,
-) => Promise<"accepted" | undefined>;
+) => Promise<ShareLinkNotice | undefined>;
 
 export interface ShareLinkRouteOptions {
   /** findShareLink from @travel-crm/domain/share-links, bound to the database: checks the link, records nothing. */
@@ -176,7 +179,8 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
     if (!resolve) return errorPage("LINK_NOT_FOUND");
     let response: Response;
     try {
-      response = await resolve(opened, c.req.query("done") === "accepted" ? "accepted" : null);
+      const done = c.req.query("done");
+      response = await resolve(opened, done === "accepted" || done === "refused" ? done : null);
     } catch (error) {
       // A resolver says "not found" (or "not ready yet") the same way the link itself does.
       if (error instanceof DomainError && error.code === "NOT_FOUND") {
@@ -209,11 +213,12 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
     const body = await c.req.parseBody();
     const form: Record<string, string | undefined> = {};
     for (const [key, value] of Object.entries(body)) if (typeof value === "string") form[key] = value.slice(0, 500);
-    let done: string | undefined;
+    let done: ShareLinkNotice | undefined;
     try {
       done = await act(opened, form);
     } catch (error) {
-      if (error instanceof DomainError) return c.redirect(`/p/${encodeURIComponent(token)}`, 303);
+      // A refusal (declined, replaced, not sent) goes back to the page, which says why from the quote's own state.
+      if (error instanceof DomainError) return c.redirect(`/p/${encodeURIComponent(token)}?done=refused`, 303);
       throw error;
     }
     const target = `/p/${encodeURIComponent(token)}${done === undefined ? "" : `?done=${done}`}`;

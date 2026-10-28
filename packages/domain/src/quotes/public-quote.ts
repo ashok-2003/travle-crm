@@ -1,6 +1,7 @@
 // A quote as its customer sees it at /p/<token> (step 3, P0): the plan, the price, what is due and how to pay the agency
 // by UPI; and accepting it there with their name, which the system records as the customer's (publicActor) and which
-// moves the lead to Booking requested. A declined quote can't be accepted; accepting twice changes nothing.
+// moves the lead to Booking requested. A declined, replaced or unsent quote can't be accepted; accepting twice changes
+// nothing. A replaced quote's link says so, with no prices.
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage } from "../crm/index.js";
@@ -120,6 +121,8 @@ export async function acceptQuoteFromLink(
   input: { organizationId: string; quoteId: string; name: string; optionId?: string | undefined },
   now: Date,
 ): Promise<void> {
+  // Locked, so a customer's double tap, and a payment recorded at the same moment, take their turns.
+  await tx.$queryRaw`SELECT id FROM quote WHERE id = ${input.quoteId}::uuid AND deleted_at IS NULL FOR UPDATE`;
   const opened = await findQuoteForSystem(tx, input.quoteId);
   // An option must be one sent to the same customer for the same enquiry; anything else is the opened quote.
   const chosen =
@@ -132,6 +135,10 @@ export async function acceptQuoteFromLink(
   const quote = chosen ?? opened;
   if (quote.status === "accepted") return;
   if (quote.status === "declined") throw new DomainError("CONFLICT", "QUOTE_DECLINED", "This quote was declined");
+  if (quote.status === "replaced") {
+    throw new DomainError("CONFLICT", "QUOTE_REPLACED", "This quote was replaced by a new version");
+  }
+  if (quote.status === "draft") throw new DomainError("CONFLICT", "QUOTE_NOT_SENT", "This quote was not sent yet");
   const name = input.name.trim().slice(0, 120);
   if (name === "") throw new DomainError("VALIDATION", "NAME_REQUIRED", "Type your name to accept");
   const actor = publicActor(input.organizationId);

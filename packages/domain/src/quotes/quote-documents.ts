@@ -11,7 +11,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { issueDocument } from "../documents/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError, formatMoney, money, type TaxComponent } from "../kernel/index.js";
-import { dayOf, daysOf, findQuoteInScope, itemsOf, paidOf } from "./quote-rows.js";
+import { dayOf, daysOf, findQuoteForChange, findQuoteInScope, itemsOf, paidOf } from "./quote-rows.js";
 import { quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 
 type Branding = IssueDocumentInput["branding"];
@@ -92,7 +92,7 @@ async function issue(tx: OrgTx, access: MemberAccess, input: IssueDocumentInput,
 
 /** The quotation's PDF as the quote stands; the one issued before, when nothing changed since. */
 export async function issueQuotePdf(tx: OrgTx, access: MemberAccess, quoteId: string, context: DocumentContext) {
-  const quote = await findQuoteInScope(tx, access, quoteId);
+  const quote = await findQuoteForChange(tx, access, quoteId);
   if (quote.pdfDocumentId !== null && quote.pdfVersion === quote.version) {
     const kept = await tx.issuedDocument.findUniqueOrThrow({
       where: { id: quote.pdfDocumentId },
@@ -127,7 +127,8 @@ export async function issueQuotePdf(tx: OrgTx, access: MemberAccess, quoteId: st
 
 /** The tax invoice of an accepted quote, issued once: a second call gives the same one. */
 export async function issueQuoteInvoice(tx: OrgTx, access: MemberAccess, quoteId: string, context: DocumentContext) {
-  const quote = await findQuoteInScope(tx, access, quoteId);
+  // The quote's row is locked, so a second tap waits and then finds the invoice the first one issued.
+  const quote = await findQuoteForChange(tx, access, quoteId);
   if (quote.invoiceDocumentId !== null) {
     const kept = await tx.issuedDocument.findUniqueOrThrow({
       where: { id: quote.invoiceDocumentId },
@@ -137,6 +138,14 @@ export async function issueQuoteInvoice(tx: OrgTx, access: MemberAccess, quoteId
   }
   if (quote.status !== "accepted") {
     throw new DomainError("CONFLICT", "QUOTE_NOT_ACCEPTED", "Only an accepted quote is invoiced");
+  }
+  // A taxed invoice is the agency's own tax document: it needs its GSTIN (and its GST state, which the totals check).
+  if (Number(quote.taxPaise) > 0 && (context.gstin === null || context.gstin === "")) {
+    throw new DomainError(
+      "CONFLICT",
+      "GSTIN_REQUIRED",
+      "Save your GSTIN in the business details before you issue an invoice with tax",
+    );
   }
   const paid = paidOf(quote);
   const total = Number(quote.totalPaise);
@@ -153,7 +162,7 @@ export async function issueQuoteInvoice(tx: OrgTx, access: MemberAccess, quoteId
     {
       template: "sample",
       content: {
-        title: "Tax invoice",
+        title: context.gstin === null || context.gstin === "" ? "Invoice" : "Tax invoice",
         recipient: recipientOf(quote),
         rows: priceRows(quote),
         totals: [
@@ -200,14 +209,20 @@ export async function issuePaymentReceipt(
       receiptDocumentId: true,
     },
   });
-  if (payment?.voidedAt !== null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-  const quote = await findQuoteInScope(tx, access, payment.quoteId);
-  if (payment.receiptDocumentId !== null) {
+  if (payment === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  const quote = await findQuoteForChange(tx, access, payment.quoteId);
+  // Read again under the lock: a void or another receipt that was ahead of this tap has changed the payment.
+  const current = await tx.quotePayment.findUniqueOrThrow({
+    where: { id: payment.id },
+    select: { voidedAt: true, receiptDocumentId: true },
+  });
+  if (current.voidedAt !== null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  if (current.receiptDocumentId !== null) {
     const kept = await tx.issuedDocument.findUniqueOrThrow({
-      where: { id: payment.receiptDocumentId },
+      where: { id: current.receiptDocumentId },
       select: { number: true },
     });
-    return { documentId: payment.receiptDocumentId, number: kept.number };
+    return { documentId: current.receiptDocumentId, number: kept.number };
   }
   const paid = paidOf(quote);
   const total = Number(quote.totalPaise);

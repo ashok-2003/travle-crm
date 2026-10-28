@@ -71,10 +71,12 @@ export function quoteOpenedListener(): EventListener {
           select: {
             leadId: true,
             title: true,
+            status: true,
             lead: { select: { ownerUserId: true, person: { select: { name: true } } } },
           },
         });
-        if (quote === null) return;
+        // A replaced quote is no longer on offer: opening its old link says so, and is no sign of interest.
+        if (quote === null || quote.status === "replaced") return;
         await tx.leadSignal.createMany({
           data: [
             { leadId: quote.leadId, kind: "quote_opened", sourceKey: `open:${event.payload.openId}`, at: new Date() },

@@ -1,5 +1,6 @@
 // The money on the dashboard (step 3, P0, reports): quotes accepted in a period and their worth, payments received in
-// it, and now, what accepted quotes still have to be paid and how much of it is overdue. The member's own leads' quotes,
+// it, and now, what accepted quotes still have to be paid and how much of it is overdue (a payment due today is not yet
+// overdue). The member's own leads' quotes,
 // or the agency's for a role that sees all. Live sums under row-level security.
 import type { MoneySummary } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
@@ -45,11 +46,11 @@ export async function moneySummaryOf(
       quote.installments.map((due) => ({ amountPaise: Number(due.amountPaise), dueOn: dayOf(due.dueOn) })),
       paid,
     );
-    const late = dues.filter((due) => !due.paid && due.dueOn <= period.today);
+    const late = dues.filter((due) => !due.paid && due.dueOn < period.today);
     if (late.length > 0) {
       overdueCount += 1;
-      // What is late is due by today less what was paid beyond the instalments already covered.
-      const dueByToday = dues.filter((due) => due.dueOn <= period.today).reduce((sum, due) => sum + due.amountPaise, 0);
+      // What is late is due before today less what was paid beyond the instalments already covered.
+      const dueByToday = dues.filter((due) => due.dueOn < period.today).reduce((sum, due) => sum + due.amountPaise, 0);
       overduePaise += Math.max(0, dueByToday - paid);
     }
   }

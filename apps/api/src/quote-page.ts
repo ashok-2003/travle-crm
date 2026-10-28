@@ -4,6 +4,7 @@
 import { brand } from "@travel-crm/brand";
 import { formatMoney, money } from "@travel-crm/domain/kernel";
 import type { PublicQuote } from "@travel-crm/domain/quotes";
+import type { ShareLinkNotice } from "./share-link-route.js";
 
 const SYSTEM_FONTS = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
@@ -16,8 +17,17 @@ const paragraphs = (text: string) => escapeHtml(text).replaceAll("\n", "<br>");
 const dayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const dayOf = (day: string) => escapeHtml(dayWords.format(new Date(`${day}T00:00:00Z`)));
 
-export function quotePage(quote: PublicQuote, agencyName: string, notice: "accepted" | null): Response {
+/** Why an acceptance wasn't recorded, from the quote as it stands now. */
+function refusalWords(quote: PublicQuote, agencyName: string): string {
+  if (quote.status === "declined") return `${agencyName} marked this quote as declined. Ask them to send a new one.`;
+  if (quote.status === "replaced")
+    return `${agencyName} replaced this quote with a new version. Ask them for the new link.`;
+  return `This quote can't be accepted right now. Ask ${agencyName} to check it.`;
+}
+
+export function quotePage(quote: PublicQuote, agencyName: string, notice: ShareLinkNotice | null): Response {
   const { colours } = brand;
+  if (quote.status === "replaced") return replacedPage(quote, agencyName);
   const accepted = quote.status === "accepted";
   const travellers = [
     quote.adults > 0 ? `${String(quote.adults)} adult${quote.adults === 1 ? "" : "s"}` : "",
@@ -90,6 +100,7 @@ fieldset{border:0;padding:0;margin:0}legend{font-weight:600;margin-bottom:.25rem
 <header><p>${escapeHtml(agencyName)} · Quote for ${escapeHtml(quote.customerName)}</p><h1>${escapeHtml(quote.title)}</h1>
 <p>${[quote.startDate === null ? "" : `From ${dayOf(quote.startDate)}`, escapeHtml(travellers)].filter(Boolean).join(" · ")}</p></header>
 ${notice === "accepted" ? `<section class="notice"><h2>Thank you, your acceptance is recorded</h2></section>` : ""}
+${notice === "refused" ? `<section class="notice"><h2>We couldn't record your acceptance</h2><p>${escapeHtml(refusalWords(quote, agencyName))}</p></section>` : ""}
 ${optionList}
 ${section("Your trip, day by day", days === "" ? "" : `<ol>${days}</ol>`)}
 ${section("Price", `<table><tbody>${items}<tr><td>Subtotal</td><td class="n">${rupees(quote.subtotalPaise)}</td></tr>${quote.taxPaise > 0 ? `<tr><td>GST ${String(quote.taxRateBasisPoints / 100)}%</td><td class="n">${rupees(quote.taxPaise)}</td></tr>` : ""}</tbody><tfoot><tr><td>Total</td><td class="n">${rupees(quote.totalPaise)}</td></tr>${quote.paidPaise > 0 ? `<tr><td>Paid</td><td class="n">${rupees(quote.paidPaise)}</td></tr><tr><td>Balance</td><td class="n">${rupees(quote.balancePaise)}</td></tr>` : ""}</tfoot></table>`)}
@@ -108,6 +119,35 @@ ${accept}
       "Content-Type": "text/html; charset=utf-8",
       "Content-Security-Policy":
         "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    },
+  });
+}
+
+/** A replaced quote's link says so and shows nothing of the old prices. */
+function replacedPage(quote: PublicQuote, agencyName: string): Response {
+  const { colours } = brand;
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${escapeHtml(quote.title)} · ${escapeHtml(agencyName)}</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:${colours.canvas};color:${colours.ink};font-family:${SYSTEM_FONTS}}
+main{max-width:28rem;padding:2rem 1.5rem}
+h1{font-weight:500;font-size:1.6rem;margin:0 0 .5rem}
+p{color:${colours.muted};line-height:1.5;margin:0}
+</style>
+</head>
+<body><main><h1>This quote was replaced</h1><p>${escapeHtml(agencyName)} made a new version of "${escapeHtml(quote.title)}". Ask them for its link.</p></main></body>
+</html>`;
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy":
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     },
   });
 }

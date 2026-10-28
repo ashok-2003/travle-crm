@@ -18,6 +18,7 @@ CREATE TABLE "quote" (
     "tax_paise" BIGINT NOT NULL DEFAULT 0,
     "total_paise" BIGINT NOT NULL DEFAULT 0,
     "status" TEXT NOT NULL DEFAULT 'draft',
+    "replaced_by_id" UUID,
     "sent_at" TIMESTAMPTZ(6),
     "accepted_at" TIMESTAMPTZ(6),
     "accepted_name" TEXT,
@@ -56,6 +57,9 @@ CREATE TABLE "quote_payment" (
     "received_on" DATE NOT NULL,
     "method" TEXT NOT NULL,
     "reference" TEXT NOT NULL DEFAULT '',
+    "request_id" UUID,
+    "quote_status_before" TEXT,
+    "lead_stage_before" TEXT,
     "recorded_by" UUID,
     "receipt_document_id" UUID,
     "voided_at" TIMESTAMPTZ(6),
@@ -96,6 +100,9 @@ CREATE INDEX "quote_payment_quote" ON "quote_payment"("organization_id", "quote_
 -- CreateIndex
 CREATE UNIQUE INDEX "quote_payment_organization_id_id_key" ON "quote_payment"("organization_id", "id");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "quote_payment_request_once" ON "quote_payment"("organization_id", "request_id");
+
 -- AddForeignKey
 ALTER TABLE "quote" ADD CONSTRAINT "quote_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
@@ -107,6 +114,9 @@ ALTER TABLE "quote" ADD CONSTRAINT "quote_organization_id_pdf_document_id_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "quote" ADD CONSTRAINT "quote_organization_id_invoice_document_id_fkey" FOREIGN KEY ("organization_id", "invoice_document_id") REFERENCES "issued_document"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "quote" ADD CONSTRAINT "quote_organization_id_replaced_by_id_fkey" FOREIGN KEY ("organization_id", "replaced_by_id") REFERENCES "quote"("organization_id", "id") ON DELETE NO ACTION ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "quote_installment" ADD CONSTRAINT "quote_installment_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -134,7 +144,8 @@ ALTER TABLE "quote"
   ADD CONSTRAINT quote_days_array CHECK (jsonb_typeof(days) = 'array'),
   ADD CONSTRAINT quote_items_array CHECK (jsonb_typeof(items) = 'array'),
   ADD CONSTRAINT quote_tax_rate_value CHECK (tax_rate_basis_points IN (0, 500, 1800)),
-  ADD CONSTRAINT quote_status_value CHECK (status IN ('draft', 'sent', 'accepted', 'declined')),
+  ADD CONSTRAINT quote_status_value CHECK (status IN ('draft', 'sent', 'accepted', 'declined', 'replaced')),
+  ADD CONSTRAINT quote_replaced_by CHECK ((status = 'replaced') = (replaced_by_id IS NOT NULL)),
   ADD CONSTRAINT quote_amounts CHECK (subtotal_paise >= 0 AND tax_paise >= 0 AND total_paise = subtotal_paise + tax_paise),
   ADD CONSTRAINT quote_version_positive CHECK (version >= 1);
 ALTER TABLE "quote_installment"

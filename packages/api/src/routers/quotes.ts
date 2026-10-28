@@ -47,6 +47,7 @@ import {
   listLeadQuotes,
   listQuotes,
   moneySummaryOf,
+  newQuoteVersion,
   QUOTE_RECORD_TYPE,
   quoteSettingsOf,
   recordPayment,
@@ -68,7 +69,9 @@ type MemberContext = Pick<Context, "db" | "files" | "identity" | "profiles"> & {
 const viewer = orgProcedure.requires("quotes:view");
 const maker = orgProcedure.requires("quotes:create");
 const editor = orgProcedure.requires("quotes:edit");
+// What changes a quote or its money is read from the database, never the five-minute session cache.
 const moneyEditor = freshProcedure.requires("quotes:edit");
+const paymentRecorder = freshProcedure.requires("quotes:record_payments");
 
 /** What every quote write needs: the agency's GST state, from its business details. */
 async function quoteContext(ctx: MemberContext) {
@@ -129,7 +132,7 @@ export const quotesRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => createQuote(tx, ctx.member, input, context));
     }),
 
-  update: editor
+  update: moneyEditor
     .input(updateQuoteInput)
     .output(quoteDetail)
     .mutation(async ({ ctx, input }) => {
@@ -183,21 +186,21 @@ export const quotesRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => removeInstallment(tx, ctx.member, input.installmentId)),
     ),
 
-  recordPayment: moneyEditor
+  recordPayment: paymentRecorder
     .input(recordPaymentInput)
     .output(z.object({ paymentId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => recordPayment(tx, ctx.member, input, new Date())),
     ),
 
-  /** A payment recorded by mistake is voided, never deleted. It takes money off the quote, so like recording it. */
-  voidPayment: moneyEditor
+  /** A payment recorded by mistake is voided, never deleted (and not once its receipt is issued). */
+  voidPayment: paymentRecorder
     .input(paymentIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => voidPayment(tx, ctx.member, input.paymentId, new Date())),
     ),
 
-  issuePdf: editor
+  issuePdf: moneyEditor
     .input(quoteIdInput)
     .output(quoteDocument)
     .mutation(async ({ ctx, input }) => {
@@ -205,7 +208,7 @@ export const quotesRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => issueQuotePdf(tx, ctx.member, input.quoteId, context));
     }),
 
-  issueInvoice: moneyEditor
+  issueInvoice: paymentRecorder
     .input(quoteIdInput)
     .output(quoteDocument)
     .mutation(async ({ ctx, input }) => {
@@ -215,7 +218,7 @@ export const quotesRouter = router({
       );
     }),
 
-  issueReceipt: moneyEditor
+  issueReceipt: paymentRecorder
     .input(paymentIdInput)
     .output(quoteDocument)
     .mutation(async ({ ctx, input }) => {
@@ -268,6 +271,16 @@ export const quotesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const context = await quoteContext(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => quoteFromPackage(tx, ctx.member, input, context));
+    }),
+
+  /** A sent quote keeps its prices: a new version is a draft copy that replaces it, and its link says so. */
+  newVersion: freshProcedure
+    .requires("quotes:create", "quotes:edit")
+    .input(quoteIdInput)
+    .output(quoteDetail)
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => newQuoteVersion(tx, ctx.member, input.quoteId, context));
     }),
 
   /** Another option of the quote, which the customer's link shows beside it. */
