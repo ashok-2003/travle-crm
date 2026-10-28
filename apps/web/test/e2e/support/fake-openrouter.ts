@@ -44,20 +44,32 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
           body: JSON.parse(await readBody(request)) as unknown,
         });
         response.setHeader("content-type", "application/json");
-        // A call that asks for JSON is a lead's scoring: answered with a guess; any other is a suggested reply.
+        // The autopilot's call (its prompt says it is the agency's sales agent) is answered with its JSON; any other call that
+        // asks for JSON is a lead's scoring, answered with a guess; the rest are suggested replies.
+        const messages = (requests.at(-1)?.body as { messages?: { content: string }[] } | undefined)?.messages ?? [];
+        const autopilot = messages[0]?.content.includes("WhatsApp travel sales agent") === true;
         const scoring =
           (requests.at(-1)?.body as { response_format?: unknown } | undefined)?.response_format !== undefined;
-        const content = scoring
+        const content = autopilot
           ? JSON.stringify({
-              score: 78,
-              label: "hot",
-              reasons: ["Asked about a Kerala package for four"],
-              fake: false,
-              fakeReason: "",
-              nextStep: "Call today and offer the Kerala 5-night package.",
-              facts: { destination: "Kerala", when: "December", travellers: "4 adults", budget: null },
+              reply: "Namaste! Kerala 5 nights is Rs 18,500 per person. Which dates are you planning?",
+              handoff: false,
+              handoffReason: "",
+              attention: "",
+              memory: "Wants Kerala for 4.",
+              followUp: { needed: false, inHours: 4, why: "" },
             })
-          : next;
+          : scoring
+            ? JSON.stringify({
+                score: 78,
+                label: "hot",
+                reasons: ["Asked about a Kerala package for four"],
+                fake: false,
+                fakeReason: "",
+                nextStep: "Call today and offer the Kerala 5-night package.",
+                facts: { destination: "Kerala", when: "December", travellers: "4 adults", budget: null },
+              })
+            : next;
         response.end(
           JSON.stringify({ model: "fake/model", choices: [{ message: { content }, finish_reason: "stop" }] }),
         );
