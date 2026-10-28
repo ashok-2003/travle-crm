@@ -103,7 +103,8 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3 py-4">
-        <div className="flex items-center gap-1 pl-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:pl-0">
+        {/* The bell and the fold button wear the sidebar's ink, not the action blue, on the green. */}
+        <div className="flex items-center gap-1 pl-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:pl-0 [&_button]:text-sidebar-foreground [&_button]:hover:bg-sidebar-accent [&_button]:hover:text-sidebar-accent-foreground">
           <OrgMark className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden" />
           <FoldedOrgMark />
           <NotificationBell opensAs="popover" />

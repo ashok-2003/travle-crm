@@ -129,6 +129,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
         )}
         {mayCreate && mayEdit && (quote.status === "sent" || quote.status === "declined") && (
           <Button
+            variant="outline"
             disabled={changes.newVersion.isPending}
             onClick={() => {
               changes.newVersion.mutate(

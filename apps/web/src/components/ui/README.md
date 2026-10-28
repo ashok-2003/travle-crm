@@ -51,7 +51,7 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   sheet's Close words are the `common.close` message.
 - `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own
   label says what is happening, and a status inside a button would join its name.
-- `sidebar.tsx`: 232px wide; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
+- `sidebar.tsx`: 232px wide; its separators take `data-horizontal:w-auto`, so `mx-2` no longer pushes them past the edge; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
   current page). It asks `lib/use-wide-screen.ts` whether the screen is a phone instead of shadcn's `use-mobile` hook,
   and has five small lint fixes. It has no Ctrl/Cmd+B shortcut: the keys stay the browser's (bookmarks, bold), and the
   agency's sidebar folds to its icons with `SidebarTrigger` alone. Folded, it is 60px wide (`--sidebar-width-icon`)
