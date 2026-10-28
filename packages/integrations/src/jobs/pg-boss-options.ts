@@ -26,12 +26,15 @@ export interface PgBossJobsSettings {
   monitorIntervalSeconds?: number;
   /** Seconds between reads of pg-boss's cache of queues (a miss reads the database at once): default 60. */
   queueCacheIntervalSeconds?: number;
+  /** Seconds between the heartbeats of pg-boss's instance registry (getInstances, for monitoring): 1 to 3600, default 30. */
+  instanceHeartbeatSeconds?: number;
   /** Seconds stop() waits for running handlers before it closes the pool under them (default 30). */
   stopTimeoutSeconds?: number;
   /**
-   * The instance only sends jobs: it supervises no queue, keeps no schedule and reads its cache of queues once a day,
-   * so it queries nothing while idle. The instances that work the queues (the worker's, the console's) keep supervising
-   * and scheduling. Its own `work()` and `schedule()` still work, but nothing sends a schedule's jobs on its behalf.
+   * The instance only sends jobs: it supervises no queue, keeps no schedule, stays out of pg-boss's instance registry
+   * (whose heartbeat writes every 30 seconds) and reads its cache of queues once a day, so it queries nothing while
+   * idle. The instances that work the queues (the worker's, the console's) keep supervising, scheduling and their
+   * registry row. Its own `work()` and `schedule()` still work, but nothing sends a schedule's jobs on its behalf.
    */
   sendOnly?: boolean;
   /** How the queues this instance creates retry failed jobs. Tests shorten it; production keeps the default. */
@@ -77,9 +80,17 @@ export function pgBossOptionsOf(settings: PgBossJobsSettings): ConstructorOption
     ...(settings.queueCacheIntervalSeconds === undefined
       ? {}
       : { queueCacheIntervalSeconds: settings.queueCacheIntervalSeconds }),
+    ...(settings.instanceHeartbeatSeconds === undefined
+      ? {}
+      : { instanceHeartbeatSeconds: settings.instanceHeartbeatSeconds }),
     // Last, so a send-only instance reads its cache of queues once a day whatever else it is given.
     ...(settings.sendOnly === true
-      ? { supervise: false, schedule: false, queueCacheIntervalSeconds: LONGEST_QUEUE_CACHE_INTERVAL_SECONDS }
+      ? {
+          supervise: false,
+          schedule: false,
+          registerInstance: false,
+          queueCacheIntervalSeconds: LONGEST_QUEUE_CACHE_INTERVAL_SECONDS,
+        }
       : {}),
   };
 }

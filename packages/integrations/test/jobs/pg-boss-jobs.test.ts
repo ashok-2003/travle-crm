@@ -49,18 +49,20 @@ describe("pg-boss's own loops", () => {
     expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 45 })).not.toThrow();
   });
 
-  it("starts a send-only instance with no supervision, no schedules and its queue cache read once a day", () => {
+  it("starts a send-only instance with no supervision, no schedules, no registry heartbeat and its queue cache read once a day", () => {
     const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
     expect(pgBossOptionsOf({ ...settings, sendOnly: true })).toMatchObject({
       supervise: false,
       schedule: false,
+      // pg-boss's instance registry (getInstances, monitoring only) would write a heartbeat every 30 seconds.
+      registerInstance: false,
       queueCacheIntervalSeconds: 86_400,
     });
     // pg-boss accepts the longest queue cache interval it allows.
     expect(() => createPgBossJobs({ ...settings, sendOnly: true })).not.toThrow();
-    // Every other instance keeps pg-boss's own loops.
+    // Every other instance keeps pg-boss's own loops and its registry.
     const working = pgBossOptionsOf(settings);
-    for (const loop of ["supervise", "schedule", "queueCacheIntervalSeconds"]) {
+    for (const loop of ["supervise", "schedule", "registerInstance", "queueCacheIntervalSeconds"]) {
       expect(working, loop).not.toHaveProperty(loop);
     }
   });
@@ -74,6 +76,7 @@ describe("pg-boss's own loops", () => {
       monitorIntervalSeconds: 300,
       queueCacheIntervalSeconds: 600,
       cronMonitorIntervalSeconds: 45,
+      instanceHeartbeatSeconds: 300,
     };
     expect(pgBossOptionsOf(quiet)).toMatchObject({
       flowIntervalSeconds: 3600,
@@ -81,8 +84,12 @@ describe("pg-boss's own loops", () => {
       monitorIntervalSeconds: 300,
       queueCacheIntervalSeconds: 600,
       cronMonitorIntervalSeconds: 45,
+      instanceHeartbeatSeconds: 300,
     });
     expect(() => createPgBossJobs(quiet)).not.toThrow();
+    expect(() => createPgBossJobs({ ...settings, instanceHeartbeatSeconds: 3601 })).toThrow(
+      /instanceHeartbeatSeconds must be an integer from 1 to 3600/,
+    );
     expect(() => createPgBossJobs({ ...settings, superviseIntervalSeconds: 86_401 })).toThrow(
       /superviseIntervalSeconds cannot exceed 24 hours/,
     );
