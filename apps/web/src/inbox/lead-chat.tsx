@@ -87,7 +87,7 @@ export function LeadChat({ leadId }: { leadId: string }) {
           </>
         ) : (
           <>
-            <ChatPanel conversationId={conversationId} variant="lead" />
+            <ChatPanel key={conversationId} conversationId={conversationId} variant="lead" />
             <TextLink href={inboxRoute(conversationId)}>{t("open")}</TextLink>
           </>
         )}

@@ -136,7 +136,7 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
         {/* On a phone a chat covers the screen, its top bar and bottom bar included, as WhatsApp's does. */}
         {conversationId !== null && (
           <div className="fixed inset-0 z-(--z-overlay) flex flex-col bg-background">
-            <ChatPanel conversationId={conversationId} variant="page" />
+            <ChatPanel key={conversationId} conversationId={conversationId} variant="page" />
           </div>
         )}
       </>,
