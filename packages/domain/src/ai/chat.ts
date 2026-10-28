@@ -9,7 +9,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
 import { agentAnswers, agentPrompt, cleanReply, parseAnswer } from "./agent.js";
-import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
+import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { agencyVoiceOf, chatVoiceOf, naturalIn } from "./voice.js";
@@ -244,7 +244,7 @@ export async function suggestReply(
           natural: prepared.natural,
         }),
       },
-      ...prepared.history.messages,
+      asTranscript(prepared.history.messages, "reply"),
     ],
   });
   if (!result.ok) throw unavailable();

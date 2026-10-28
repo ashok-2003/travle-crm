@@ -10,7 +10,7 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import { queueSystemText, whatsappConsentOf, windowIsOpen } from "../inbox/index.js";
 import { applyAnswer, type ChatFacts } from "./answer-effects.js";
 import { personAnsweringUntil } from "./person-pause.js";
-import { chatHistory, knowledgePack, leadFactsFor } from "./context.js";
+import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
 import { agentPrompt, type TurnKind } from "./prompt.js";
 import { aiSettingsOf, type AiSettingsRow } from "./settings.js";
@@ -26,13 +26,24 @@ export interface AgentDependencies {
   agencyName: (organizationId: string) => Promise<string>;
 }
 
-/** The model's answer as JSON, read leniently: a code fence or words around the object are dropped. */
+/**
+ * The model's answer, read leniently: the JSON object (words or a code fence around it are dropped, and a reply under
+ * another name, "message" or "text", is still the reply); or, when a model answered in plain words instead, those words
+ * as the reply, so the customer is never left unanswered.
+ */
 export function parseAnswer(text: string): AgentAnswer | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
-  if (start === -1 || end <= start) return null;
+  if (start === -1 || end <= start) {
+    const words = text.trim();
+    return words === "" || words.length > 1500 ? null : agentAnswer.parse({ reply: words });
+  }
   try {
-    return agentAnswer.parse(JSON.parse(text.slice(start, end + 1)));
+    const parsed: unknown = JSON.parse(text.slice(start, end + 1));
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const named = parsed as Record<string, unknown>;
+    const reply = named.reply ?? named.message ?? named.text ?? named.answer;
+    return agentAnswer.parse({ ...named, reply });
   } catch {
     return null;
   }
@@ -157,7 +168,7 @@ export async function runAgentTurn(
         natural: prepared.natural,
       }),
     },
-    ...prepared.history.messages,
+    asTranscript(prepared.history.messages, prepared.kind),
   ];
   const ask = async () => {
     const result = await ai.complete({

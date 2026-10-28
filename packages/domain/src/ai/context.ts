@@ -138,3 +138,21 @@ export async function leadFactsFor(tx: OrgTx, personId: string | null) {
   ].filter((line): line is string => line !== null);
   return { leadId: lead.id, words: known.join("\n") };
 }
+
+const askFor = {
+  reply: "Write your answer to the customer's last message now",
+  nudge: "The customer has gone quiet: write your one follow-up now",
+  insight: "Judge the lead now, with an empty reply",
+} as const;
+
+/**
+ * The chat as one transcript for the model, ending with what to do: given as turns, a model that sees only plain-text
+ * replies before it tends to answer in plain text too, and forget the JSON it must give.
+ */
+export function asTranscript(messages: AiMessage[], kind: keyof typeof askFor): AiMessage {
+  const lines = messages.map((message) => `${message.role === "user" ? "Customer" : "You"}: ${message.content}`);
+  return {
+    role: "user",
+    content: `The chat so far, oldest first ("You" is us):\n${lines.join("\n")}\n\n${askFor[kind]}, as the ONE JSON object your instructions describe, and nothing else.`,
+  };
+}
