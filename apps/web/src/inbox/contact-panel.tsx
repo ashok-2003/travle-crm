@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatAvatar } from "./chat-avatar";
 import { ChatTags } from "./chat-tags";
 import { MediaGallery } from "./media/media-gallery";
+import { ChatAiCard } from "@/ai/chat-ai-card";
 import { StartLeadButton } from "./start-lead-button";
 
 function LeadParts({ leadId }: { leadId: string }) {
@@ -92,6 +93,7 @@ export function ContactPanel({ header, onClose }: { header: ConversationHeader; 
               <h3 className="text-label font-medium text-muted-foreground">{t("tags")}</h3>
               <ChatTags header={header} />
             </section>
+            <ChatAiCard conversationId={header.id} />
             {header.lead?.open === true ? (
               <LeadParts leadId={header.lead.id} />
             ) : (

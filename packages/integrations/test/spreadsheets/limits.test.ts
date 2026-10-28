@@ -53,7 +53,9 @@ describe("reading within limits", () => {
     const workbook = millionRowWorkbook();
     const started = performance.now();
     expect(await reasonOf(workbook, xlsxLimits)).toBe("too_many_rows");
-    expect(performance.now() - started).toBeLessThan(3000);
+    // Refusing means counting the sheet's row records, not reading its cells (which takes minutes for a million rows): a
+    // wall-clock bound, so it is three seconds on a laptop and ten on a shared CI runner, which was seen taking 3.3.
+    expect(performance.now() - started).toBeLessThan(process.env.CI === undefined ? 3000 : 10_000);
   });
 
   it("refuses a far row or column that would make the reader pad millions of empty cells", async () => {

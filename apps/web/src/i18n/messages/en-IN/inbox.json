@@ -73,6 +73,7 @@
     },
     "phoneApp": "From the phone",
     "automatic": "Automatic reply",
+    "sentByAi": "Sent by the AI",
     "retry": "Try again",
     "messages": "Messages",
     "windowNever": "They haven't written to this number. Start the chat with a template.",

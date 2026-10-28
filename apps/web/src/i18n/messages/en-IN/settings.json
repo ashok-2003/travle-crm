@@ -44,7 +44,9 @@
     "quotes": "Quotes and payments",
     "quotesHint": "Your UPI id, the usual GST rate and the terms under every quote",
     "ai": "AI",
-    "aiHint": "Suggest reply: turn it on and tell the AI how you talk to customers"
+    "aiHint": "Suggest reply: turn it on and tell the AI how you talk to customers",
+    "salesAutomation": "Sales automation",
+    "salesAutomationHint": "Reply to new leads in a minute, follow-ups, payment reminders, hot leads"
   },
   "destinations": {
     "title": "Destinations",

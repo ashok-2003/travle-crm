@@ -42,6 +42,7 @@ const photo = (id: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
   id,
   direction: "in",
   origin: "customer",
+  byAi: false,
   kind: "image",
   body: null,
   caption: null,

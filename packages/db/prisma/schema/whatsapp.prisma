@@ -91,6 +91,7 @@ model WhatsappConversation {
   tripKitSends   TripKitSend[]
   broadcasts     WhatsappBroadcastRecipient[]
   aiDrafts       AiDraft[]
+  aiChats        AiChat[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, connectionId, phoneE164], map: "whatsapp_conversation_phone")

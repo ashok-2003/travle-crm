@@ -128,7 +128,13 @@ export {
 } from "./views.js";
 export { listMessages } from "./chat-messages.js";
 export { retryMessage } from "./retry.js";
-export { assertTemplateAllowed, queueTemplate, renderTemplate, startChatForLead } from "./template-send.js";
+export {
+  assertTemplateAllowed,
+  queueCheckedTemplate,
+  queueTemplate,
+  renderTemplate,
+  startChatForLead,
+} from "./template-send.js";
 export {
   archiveTemplate,
   createTemplate,
@@ -138,5 +144,12 @@ export {
   syncTemplates,
   type TemplateDependencies,
 } from "./templates.js";
-export { isOptOutText, recordWhatsappOptOut, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
+export {
+  chatOptedOut,
+  isOptOutText,
+  recordWhatsappOptOut,
+  whatsappConsentOf,
+  type WhatsappConsent,
+} from "./whatsapp-consent.js";
 export { NEEDS_ATTENTION_KIND } from "./attention.js";
+export { queueSystemText, type SystemSendResult } from "./system-send.js";

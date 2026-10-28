@@ -224,7 +224,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         from: textOf(body.integrated_number),
         contentType: textOf(body.content_type),
         text: textOrNull(body.text),
-        url: textOrNull(body.url),
+        url: textOrNull(body.attachment_url ?? body.url),
         caption: textOrNull(body.caption),
         fileName: textOrNull(body.filename),
         voice: body.voice === true,

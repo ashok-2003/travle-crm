@@ -239,6 +239,12 @@
       "added": "Added a running cost",
       "voided": "Voided a running cost"
     },
+    "sales-automation": {
+      "changed": "Changed the sales automation"
+    },
+    "sales": {
+      "follow-ups-changed": "Turned a lead's follow-ups on or off"
+    },
     "quote-package": {
       "saved": "Saved a quote package",
       "deleted": "Deleted a quote package"
@@ -250,7 +256,18 @@
       "draft-sent": "Sent a reply drafted by AI",
       "knowledge-added": "Added to what the AI knows",
       "knowledge-changed": "Changed what the AI knows",
-      "knowledge-deleted": "Removed from what the AI knows"
+      "knowledge-deleted": "Removed from what the AI knows",
+      "message-sent": "The AI sent a reply by itself",
+      "voice-learned": "Gave the AI a way of talking to copy",
+      "voice-removed": "Removed the AI's way of talking",
+      "learned": "Asked the AI to learn from the chats",
+      "learning-changed": "Turned an AI lesson on, off or away",
+      "chat-mode-changed": "Turned the AI on or off in a chat",
+      "chat-resumed": "Gave a chat back to the AI",
+      "chat-persona-changed": "Changed what the AI is for in a chat"
+    },
+    "ai-autopilot": {
+      "changed": "Changed the AI's autopilot settings"
     }
   },
   "fields": {
@@ -318,13 +335,25 @@
     "category": "Category",
     "paidOn": "Paid on",
     "spentOn": "Spent on",
+    "speed": "Reply to new leads",
+    "followUps": "Follow-ups",
+    "reminders": "Payment reminders",
     "lostReason": "Why it was lost",
     "instructionsLength": "Instructions' length",
     "changedByMember": "Changed before sending",
     "enabled": "On",
     "model": "Model",
     "messageId": "Message",
-    "length": "Length"
+    "length": "Length",
+    "autopilot": "Autopilot",
+    "learning": "Learning",
+    "persona": "What the AI is for",
+    "handoff": "Hand-over",
+    "mode": "AI in this chat",
+    "messages": "Messages",
+    "added": "Added",
+    "updated": "Updated",
+    "state": "State"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -347,9 +376,13 @@
     "quote_settings": "Quote settings",
     "trip_kit": "A trip's details",
     "agency_expense": "A running cost",
+    "sales_automation": "Sales automation",
     "quote_template": "A quote package",
     "ai_settings": "The AI settings",
     "ai_draft": "An AI draft",
-    "ai_knowledge": "A piece of what the AI knows"
+    "ai_knowledge": "A piece of what the AI knows",
+    "ai_autopilot": "The AI's autopilot",
+    "ai_learning": "An AI lesson",
+    "whatsapp_message": "A message"
   }
 }

@@ -67,6 +67,7 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
     id: row.id,
     direction: row.direction,
     origin: row.origin,
+    byAi: row.origin === "automation" && row.clientToken?.startsWith("ai:") === true,
     kind: whatsappMessageKind.catch("unsupported").parse(row.kind),
     body: row.body,
     caption: row.caption,

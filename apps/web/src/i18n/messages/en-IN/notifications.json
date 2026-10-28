@@ -109,6 +109,10 @@
       "salesHotLead": {
         "label": "A lead is hot: they opened the quote again or asked to book",
         "hint": "So you call while they are deciding."
+      },
+      "salesPaymentDue": {
+        "label": "A customer's payment is due or missed",
+        "hint": "We remind them on WhatsApp too, when Sales automation's reminders are on."
       }
     },
     "loading": "Loading your choices",

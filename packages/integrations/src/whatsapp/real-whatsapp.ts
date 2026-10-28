@@ -147,11 +147,14 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
   return {
     sendText: (number, to, textBody, textOptions) =>
       send({ ...base(number, to), content_type: "text", text: textBody, ...replyContext(textOptions?.replyTo) }),
+    // MSG91 takes a file as `attachment_url` (its own document for the session send, checked 2026-10-26: image and video
+    // with `attachment_url` and `caption`); a document also names its file. A short-lived link MSG91 fetches the file from.
+    // SPIKE(S4): confirmed by Ayush's live use of it on a real MSG91 account (2026-10-28).
     sendMedia: (number, to, media: WhatsAppMediaToSend) =>
       send({
         ...base(number, to),
         content_type: media.kind,
-        url: media.url,
+        attachment_url: media.url,
         ...(media.caption === undefined ? {} : { caption: media.caption }),
         ...(media.fileName === undefined ? {} : { filename: media.fileName }),
         // SPIKE(S4): Meta's `voice` flag for Ogg Opus audio; the name MSG91 gives it is not confirmed.

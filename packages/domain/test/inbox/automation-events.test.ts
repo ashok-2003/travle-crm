@@ -19,10 +19,10 @@ describe("waking the automatic answers", () => {
   const writes = (connection: Awaited<ReturnType<typeof aConnectedAgency>>, text: string) =>
     deliver(test, fromCustomer(connection, { customerNumber: freshPhone().replace("+", ""), text }));
 
-  it("publishes nothing for an agency with no automatic answer set up", async () => {
+  it("publishes for an agency with no automatic answer set up too: sales execution and the AI listen for every agency", async () => {
     const connection = await aConnectedAgency(test);
     await writes(connection, "Hello");
-    expect(await woken(connection.organizationId)).toBe(0);
+    expect(await woken(connection.organizationId)).toBe(1);
   });
 
   it("publishes for a message an answer could fit, but not for STOP", async () => {
