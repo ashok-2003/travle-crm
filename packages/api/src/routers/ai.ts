@@ -11,7 +11,11 @@ import {
   autopilotSettings,
   chatAi,
   conversationAiInput,
+  clearChatVoiceInput,
+  learnChatVoiceInput,
   learnVoiceInput,
+  testAiAnswer,
+  testAiInput,
   saveAutopilotInput,
   setAiLearningInput,
   setChatAiInput,
@@ -37,7 +41,10 @@ import {
   aiSettingsOf,
   autopilotSettingsOf,
   chatAiOf,
+  clearChatVoice,
   clearVoice,
+  learnChatVoice,
+  testAnswer,
   learnNow,
   learnVoice,
   listLearnings,
@@ -245,4 +252,35 @@ export const aiRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => setChatPersona(tx, ctx.member, input)),
     ),
+
+  /** Learns the way of talking in one chat from its imported export (both sides: the other side's words go too). */
+  learnChatVoice: freshProcedure
+    .requires("ai:suggest", "inbox:view", "inbox:reply")
+    .input(learnChatVoiceInput)
+    .output(aiVoice)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.ai?.configured)
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      return learnChatVoice({ db: ctx.db, ai: ctx.ai }, ctx.member, input, new Date());
+    }),
+
+  clearChatVoice: freshProcedure
+    .requires("ai:suggest", "inbox:view", "inbox:reply")
+    .input(clearChatVoiceInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => clearChatVoice(tx, ctx.member, input.conversationId)),
+    ),
+
+  /** The test box: what the AI would answer a question from the agency's knowledge alone. */
+  test: freshProcedure
+    .requires("ai:manage")
+    .input(testAiInput)
+    .output(testAiAnswer)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.ai?.configured)
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      const agencyName = async (organizationId: string) =>
+        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
+      return testAnswer({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input.question, new Date());
+    }),
 });

@@ -82,7 +82,8 @@ export const chatAi = z.object({
   attention: z.string().nullable(),
   /** Until when it waits because someone on the team wrote in the chat; null when it isn't waiting. */
   personPausedUntil: z.iso.datetime().nullable(),
-  voice: aiVoice.nullable(),
+  /** The way of talking it copies here: this chat's own (with what the two talked about), else the agency's. */
+  voice: aiVoice.extend({ own: z.boolean(), context: z.string().nullable(), history: z.int() }).nullable(),
   persona: z.enum(["default", ...aiPersonas]),
   /** The name it writes as ("Riya"), else empty. */
   agentName: z.string(),
@@ -165,11 +166,33 @@ export const learnVoiceInput = z.strictObject({
     .refine((all) => all.reduce((sum, one) => sum + one.length, 0) <= MAX_VOICE_SAMPLE_CHARACTERS),
 });
 export type LearnVoiceInput = z.infer<typeof learnVoiceInput>;
-/** What the style-reader must answer (JSON). */
+/**
+ * Learn the way of talking in ONE chat from an imported WhatsApp export of it (the owner, 2026-10-29: Ayush's per-chat voice):
+ * the chat in order, both sides, `own` marking the chosen person's messages. It sends what the other side wrote too, so the AI
+ * knows what the two talked about; the agency-wide style (learnVoiceInput) never does.
+ */
+export const learnChatVoiceInput = z.strictObject({
+  conversationId: recordId,
+  personName: text(80).min(1),
+  messages: z
+    .array(z.strictObject({ own: z.boolean(), text: z.string().trim().min(1).max(1000) }))
+    .max(1500)
+    .refine((all) => all.filter((one) => one.own).length >= 5, { message: "At least 5 of their messages" })
+    .refine((all) => all.reduce((sum, one) => sum + one.text.length, 0) <= MAX_VOICE_SAMPLE_CHARACTERS),
+});
+export type LearnChatVoiceInput = z.infer<typeof learnChatVoiceInput>;
+export const clearChatVoiceInput = z.strictObject({ conversationId: recordId });
+
+/** What the style-reader must answer (JSON); the context only for a chat's export. */
 export const voiceAnswer = z.object({
   profile: z.string().min(1).max(4000),
   examples: z.array(z.string().max(500)).max(40).catch([]),
+  context: z.string().max(4000).catch(""),
 });
+
+/** A question to try the AI on, from the agency's knowledge alone, before turning it on (Settings, AI). */
+export const testAiInput = z.strictObject({ question: text(1000).min(1) });
+export const testAiAnswer = z.object({ answer: z.string(), handoff: z.boolean(), reason: z.string() });
 
 /** The AI's last day at a glance, for the AI screen's head. */
 export const aiOverview = z.object({

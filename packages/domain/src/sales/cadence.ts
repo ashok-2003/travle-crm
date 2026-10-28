@@ -7,6 +7,7 @@
 import { isOpenStage, leadStage } from "@travel-crm/contracts/crm";
 import type { LeadCadenceView } from "@travel-crm/contracts/sales";
 import type { Database, OrgTx } from "@travel-crm/db";
+import { recordAudit } from "../audit/index.js";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError, addDays, calendarDateIn, instantAt, parseTimeOfDay } from "../kernel/index.js";
 import { fillParams, leadFacts, type FillContext } from "./fill-params.js";
@@ -276,12 +277,24 @@ export async function setFollowUps(
         data: { state: "active", stopReason: null, stoppedBy: null, enrolledAt: now, nextAt },
       });
     }
+    await recordAudit(tx, access, {
+      action: "sales.follow-ups-changed",
+      entityType: "lead",
+      entityId: input.leadId,
+      after: { followUps: "on" },
+    });
     return;
   }
   if (row?.state === "active") {
     await tx.leadCadence.update({
       where: { id: row.id },
       data: { state: "stopped", stopReason: "by_hand", stoppedBy: access.userId },
+    });
+    await recordAudit(tx, access, {
+      action: "sales.follow-ups-changed",
+      entityType: "lead",
+      entityId: input.leadId,
+      after: { followUps: "off" },
     });
   }
 }

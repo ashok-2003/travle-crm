@@ -177,10 +177,23 @@ const environmentSchema = z
     if (environment.MSG91_TEST_SERVER_URL !== undefined && whatsappSet.length === 0) {
       problem("MSG91_TEST_SERVER_URL", "is only for use with the WhatsApp settings");
     }
+    // The AI's endpoint, key and models come together: a key needs its chat models, and the others need the key.
+    if (environment.AI_API_KEY !== undefined && environment.AI_CHAT_MODELS === undefined) {
+      problem("AI_CHAT_MODELS", "is needed with AI_API_KEY");
+    }
+    for (const name of ["AI_BASE_URL", "AI_CHAT_MODELS", "AI_FAST_MODELS"] as const) {
+      if (environment[name] !== undefined && environment.AI_API_KEY === undefined) {
+        problem(name, "is only for use with AI_API_KEY");
+      }
+    }
     if (environment.AI_TEST_SERVER_URL !== undefined && environment.OPENROUTER_API_KEY === undefined) {
       problem("AI_TEST_SERVER_URL", "is only for use with OPENROUTER_API_KEY");
     }
     if (developmentLike(environment.NODE_ENV)) return;
+    // The AI key and the customers' words go in every request: over https only.
+    if (environment.AI_BASE_URL !== undefined && !environment.AI_BASE_URL.startsWith("https://")) {
+      problem("AI_BASE_URL", "must be an https address in production");
+    }
     if (environment.AI_TEST_SERVER_URL !== undefined) {
       problem("AI_TEST_SERVER_URL", "is for development and tests only: unset it in production");
     }

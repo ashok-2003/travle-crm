@@ -130,6 +130,31 @@ export function useLearnVoice() {
   return useMutation(trpc.ai.learnVoice.mutationOptions({ onSuccess: useLearningsChange() }));
 }
 
+export function useLearnChatVoice() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.ai.learnChatVoice.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.ai.chatAi.pathKey() }),
+    }),
+  );
+}
+
+export function useClearChatVoice() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.ai.clearChatVoice.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.ai.chatAi.pathKey() }),
+    }),
+  );
+}
+
+export function useTestAi() {
+  const trpc = useTRPC();
+  return useMutation(trpc.ai.test.mutationOptions());
+}
+
 export function useClearVoice() {
   const trpc = useTRPC();
   return useMutation(trpc.ai.clearVoice.mutationOptions({ onSuccess: useLearningsChange() }));

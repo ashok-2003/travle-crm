@@ -12,6 +12,22 @@ function emptyAsUnset<Schema extends z.ZodType>(schema: Schema) {
   return z.preprocess((value) => (value === "" ? undefined : value), schema);
 }
 
+/** Model names, comma-separated, as a provider spells them ("gemini-2.5-flash", "google/gemini-2.5-flash"). */
+const modelList = z
+  .string()
+  .transform((text) =>
+    text
+      .split(",")
+      .map((model) => model.trim())
+      .filter((model) => model !== ""),
+  )
+  .pipe(
+    z
+      .array(z.string().regex(/^[\w./:-]+$/, "must be model names, comma separated"))
+      .min(1)
+      .max(5),
+  );
+
 export const serviceVariables = {
   /** Where people open the web app: links in emails and pushes point there, and password resets come back to it. */
   APP_URL: httpUrl.default("http://localhost:3000"),
@@ -165,6 +181,18 @@ export const serviceVariables = {
       )
       .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
   ),
+  /**
+   * The same AI on any OpenAI-compatible endpoint, called directly (the owner, 2026-10-29): AI_BASE_URL (OpenRouter's when
+   * unset; Google's Gemini is https://generativelanguage.googleapis.com/v1beta/openai), AI_API_KEY and the models, comma
+   * separated and tried in order: AI_CHAT_MODELS write and score for every feature, AI_FAST_MODELS only score leads (the
+   * chat ones when unset). With AI_API_KEY set they replace OPENROUTER_API_KEY and its model lists. OpenRouter's own
+   * zero-data-retention routing is sent to OpenRouter alone; AI_ZERO_RETENTION=false turns it off there (free models).
+   */
+  AI_BASE_URL: emptyAsUnset(httpUrl.optional()),
+  AI_API_KEY: emptyAsUnset(z.string().min(8, "must be the AI provider's API key").optional()),
+  AI_CHAT_MODELS: emptyAsUnset(modelList.optional()),
+  AI_FAST_MODELS: emptyAsUnset(modelList.optional()),
+  AI_ZERO_RETENTION: emptyAsUnset(z.stringbool().optional()),
   /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */
   AI_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake MSG91 (development and tests only; refused in production). */

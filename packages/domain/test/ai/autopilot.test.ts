@@ -10,7 +10,9 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   AI_TOKEN_PREFIX,
   MONTHLY_AI_LIMIT,
+  learnChatVoice,
   learnVoice,
+  testAnswer,
   runAgentTurn,
   saveAiSettings,
   saveAutopilot,
@@ -250,5 +252,59 @@ describe("the autopilot", () => {
     expect(sent).not.toContain("Them");
     const row = await on.inOrg((tx) => tx.aiAutopilot.findFirstOrThrow());
     expect(row).toMatchObject({ voiceName: "Asha", voiceExamples: ["hn bhai ho jayega"] });
+  });
+
+  it("copies one chat's own way of talking, with what the two said before, over the agency's, and asks nothing else of it", async () => {
+    const on = await agency({ autopilot: true });
+    on.model.answer(
+      JSON.stringify({
+        profile: "Short Hinglish, no full stops.",
+        examples: ["hn bhai ho jayega"],
+        context: "Rahul is planning Kerala with his family for December.",
+      }),
+    );
+    const messages = [
+      { own: false, text: "Bhai Kerala ka plan hai December mein" },
+      { own: true, text: "hn bhai ho jayega" },
+      { own: true, text: "kal bhej dunga" },
+      { own: true, text: "ok done" },
+      { own: true, text: "theek hai ji" },
+      { own: true, text: "thnx bro" },
+    ];
+    const voice = await learnChatVoice(
+      { db: test.db, ai: on.model },
+      on.owner,
+      { conversationId: on.chat.id, personName: "Asha", messages },
+      turnAt,
+    );
+    expect(voice).toEqual({ name: "Asha", profile: "Short Hinglish, no full stops.", examples: 1 });
+    on.model.answer(reply());
+    expect(await on.turn()).toBe("replied");
+    const prompt =
+      on.model.requests
+        .at(-1)
+        ?.messages.map((message) => message.content)
+        .join("\n") ?? "";
+    expect(prompt).toContain("Short Hinglish, no full stops.");
+    expect(prompt).toContain("Rahul is planning Kerala with his family");
+    expect(prompt).toContain("Them: Bhai Kerala ka plan hai December mein");
+  });
+
+  it("answers a test question from the knowledge alone, spending one call and sending nothing", async () => {
+    const on = await agency();
+    await on.inOrg((tx) =>
+      tx.aiKnowledge.create({ data: { title: "Kerala 5N", body: "Kerala 5 nights is Rs 18,500." } }),
+    );
+    on.model.answer(reply("Kerala 5 nights is Rs 18,500 per person."));
+    const answered = await testAnswer(
+      { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
+      on.owner,
+      "How much is Kerala?",
+      turnAt,
+    );
+    expect(answered).toMatchObject({ answer: "Kerala 5 nights is Rs 18,500 per person.", handoff: false });
+    expect(JSON.stringify(on.model.requests[0]?.messages)).toContain("Kerala 5 nights is Rs 18,500.");
+    expect(await on.inOrg((tx) => tx.whatsappMessage.count({ where: { direction: "out" } }))).toBe(0);
+    expect((await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(1);
   });
 });

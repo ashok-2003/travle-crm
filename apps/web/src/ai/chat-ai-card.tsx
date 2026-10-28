@@ -14,6 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatDayTime } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { ChatVoicePanel } from "./chat-voice-panel";
 import { useChatAi, useResumeChatAi, useSetChatAi } from "./use-ai";
 
 const modes = ["default", "on", "off"] as const;
@@ -114,6 +115,7 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
         </ToggleGroup>
       </div>
       <RefusalAlert error={setMode.error ?? resume.error} />
+      <ChatVoicePanel conversationId={conversationId} voice={state.voice} disabled={busy} />
     </section>
   );
 }

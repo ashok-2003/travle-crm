@@ -23,7 +23,8 @@ import { activeLessons } from "./learning-store.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { aiEnabled } from "./settings.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
-import { agencyVoiceOf, naturalIn } from "./voice.js";
+import { chatVoiceOf } from "./chat-voice.js";
+import { naturalIn } from "./voice.js";
 
 export { AI_HANDOFF_KIND } from "./agent-effects.js";
 
@@ -179,7 +180,7 @@ export async function runAgentTurn(
       knowledge,
       instructions,
       learnings: settings.learning ? await activeLessons(tx) : [],
-      voice: await agencyVoiceOf(tx),
+      voice: await chatVoiceOf(tx, chat.id),
       natural: await naturalIn(tx, chat.id, settings),
       timeZone,
     };

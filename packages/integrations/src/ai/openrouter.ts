@@ -1,8 +1,8 @@
-// The AI adapter for OpenRouter (ADR 0029). Every request asks OpenRouter to route only to providers that keep no data
-// (`provider.zdr`), and any other base URL is refused when the adapter is made, so a setting can never send an agency's
-// customers' words somewhere that is not covered. Each feature's models are configuration: its list is tried in order,
-// the next one when a model is rate limited, overloaded or gone. The key is sent as a header and appears nowhere else:
-// not in a message, a log or an error.
+// The AI adapter (ADR 0029): any OpenAI-compatible chat endpoint, OpenRouter's by default (Google's Gemini, called directly,
+// is https://generativelanguage.googleapis.com/v1beta/openai). Each feature's models are configuration: its list is tried in
+// order, the next one when a model is rate limited, overloaded or gone. OpenRouter's own fields (`provider.zdr`, zero data
+// retention on every request) are sent ONLY to OpenRouter: other endpoints reject fields they don't know, and keep what
+// their own terms say. The key is sent as a header and appears nowhere else: not in a message, a log or an error.
 import type { AiModel, AiRequest, AiResult, AiFeature } from "./ai-model.js";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -11,8 +11,10 @@ export interface OpenRouterOptions {
   apiKey: string;
   /** Each feature's models, the preferred one first, then its fallbacks. */
   models: Readonly<Record<AiFeature, readonly string[]>>;
-  /** Only OpenRouter's own address is accepted; a test server may be given as long as it is on openrouter.ai. */
+  /** The endpoint's address (OpenRouter's by default); any OpenAI-compatible one is accepted. */
   baseUrl?: string;
+  /** OpenRouter only: false turns its zero-data-retention routing off (its free models need it). */
+  zeroRetention?: boolean;
   /** Milliseconds before one model's try is given up. */
   timeoutMs?: number;
   fetch?: typeof fetch;
@@ -27,22 +29,33 @@ interface ChatCompletion {
 /** Statuses after which the next model is tried. */
 const TRY_NEXT = new Set([404, 408, 409, 429, 500, 502, 503, 504, 529]);
 
-/** The base URL, if it is OpenRouter's (https, host openrouter.ai). */
-export function openRouterBaseUrl(baseUrl: string = OPENROUTER_BASE_URL): string {
+/** The base URL as the adapter calls it: an http(s) address with no credentials in it, without a trailing slash. */
+export function aiBaseUrl(baseUrl: string = OPENROUTER_BASE_URL): string {
   let url: URL;
   try {
     url = new URL(baseUrl);
   } catch {
     throw new Error("The AI base URL is not a URL");
   }
-  if (url.protocol !== "https:" || url.hostname !== "openrouter.ai" || url.username !== "" || url.password !== "") {
-    throw new Error("AI requests go to OpenRouter only (https://openrouter.ai), which keeps no data");
+  if ((url.protocol !== "https:" && url.protocol !== "http:") || url.username !== "" || url.password !== "") {
+    throw new Error("The AI base URL must be an http(s) address with no credentials");
   }
   return baseUrl.replace(/\/+$/, "");
 }
 
+/** Whether the base URL is OpenRouter's (https, host openrouter.ai): the only one that takes its `provider` routing field. */
+export function isOpenRouterUrl(baseUrl: string): boolean {
+  try {
+    const url = new URL(baseUrl);
+    return url.protocol === "https:" && url.hostname === "openrouter.ai";
+  } catch {
+    return false;
+  }
+}
+
 export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
-  const base = openRouterBaseUrl(options.baseUrl);
+  const base = aiBaseUrl(options.baseUrl);
+  const openRouter = isOpenRouterUrl(base);
   const send = options.fetch ?? fetch;
   return {
     configured: options.apiKey !== "" && Object.values(options.models).some((list) => list.length > 0),
@@ -66,8 +79,10 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
               max_tokens: request.maxTokens ?? 500,
               ...(request.json === true ? { response_format: { type: "json_object" } } : {}),
               ...(request.user === undefined ? {} : { user: request.user }),
-              // Zero data retention on every request, and only providers that honour all the parameters sent.
-              provider: { zdr: true, require_parameters: true },
+              // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
+              ...(openRouter && options.zeroRetention !== false
+                ? { provider: { zdr: true, require_parameters: true } }
+                : {}),
             }),
           });
           if (!response.ok) {
