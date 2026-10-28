@@ -188,8 +188,13 @@ test("a connection whose delivery reports stopped goes to problem, in the consol
       timeout: 4_000,
     });
   }).toPass({ timeout: 60_000 });
-  await page.reload();
-  await expect(page.getByText(/No delivery reports from MSG91 for a connected number/)).toHaveCount(0);
+  // The inbox's banner is absent while its status is still loading, so the console is asked until it too says all is well.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByText(/No delivery reports from MSG91 for a connected number/)).toHaveCount(0, {
+      timeout: 4_000,
+    });
+  }).toPass({ timeout: 60_000 });
   await owner.close();
 });
 
