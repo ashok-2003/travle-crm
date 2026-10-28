@@ -14,5 +14,10 @@ export const consoleRoutes = {
   /** The WhatsApp numbers agencies use, and the webhook MSG91 calls. */
   whatsapp: "/console/whatsapp",
   log: "/console/log",
+  /** The invite-only program: invites and how their links have done. */
+  invites: "/console/invites",
+  /** How every organization uses the product; one organization's under it. */
+  usage: "/console/usage",
+  organizationUsage: (organizationId: string) => `/console/usage/${organizationId}`,
   staff: "/console/staff",
 } as const;

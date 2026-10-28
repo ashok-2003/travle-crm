@@ -1,0 +1,146 @@
+{
+  "invites": {
+    "title": "Invites",
+    "intro": "The invite-only program. Each company gets its own link: when the founder opens it, their organization is ready at once with the free days, and they are signed in, filling nothing.",
+    "loading": "Loading the invites",
+    "loadFailed": "The invites didn't load.",
+    "empty": "No invites yet. Add companies from a sheet to send your first links.",
+    "add": "Invite companies",
+    "copySheet": "Copy for Google Sheets",
+    "copied": "{count, plural, one {# invite copied} other {# invites copied}}. Paste it into a Google Sheet.",
+    "copyFailed": "The browser didn't allow copying. Try again.",
+    "figuresLabel": "The program at a glance",
+    "figures": {
+      "sent": "Invited",
+      "opened": "Opened",
+      "joined": "Joined",
+      "opens": "Link opens"
+    },
+    "columns": {
+      "company": "Company",
+      "status": "Status",
+      "opens": "Opens",
+      "lastOpened": "Last opened",
+      "send": "Send"
+    },
+    "status": {
+      "sent": "Not opened",
+      "opened": "Opened",
+      "joined": "Joined",
+      "cancelled": "Cancelled"
+    },
+    "first": "First {when}",
+    "seeUsage": "See usage",
+    "copyLink": "Copy link",
+    "copyMessage": "Copy message",
+    "cancel": "Cancel",
+    "cancelled": "Invite cancelled",
+    "message": "Hi {owner}, {company} has been selected for our invite-only program for a few growing travel companies. Your own {product}, the AI sales execution platform, is ready for you, with {days} days free. Open it here: {link}",
+    "sheet": {
+      "company": "Company",
+      "owner": "Owner",
+      "phone": "Phone",
+      "email": "Email",
+      "city": "City",
+      "status": "Status",
+      "opens": "Opens",
+      "lastOpened": "Last opened",
+      "link": "Invite link",
+      "message": "Message"
+    }
+  },
+  "add": {
+    "title": "Invite companies",
+    "description": "Copy the rows from your sheet and paste them here: Company, Owner name, Phone, Email, City (a header row is fine). Every row that reads gets its own link.",
+    "rows": "Rows from your sheet",
+    "rowsPlaceholder": "Sharma Holidays\tRavi Sharma\t98765 43210\travi@sharmaholidays.in\tJaipur",
+    "rowsHint": "Phone, email and city may be empty. Up to 500 rows at once.",
+    "read": "{good, plural, one {# row reads} other {# rows read}}{bad, plural, =0 {} one {, # needs fixing} other {, # need fixing}}",
+    "columns": {
+      "company": "Company",
+      "owner": "Owner",
+      "phone": "Phone",
+      "check": "Check"
+    },
+    "line": "Row {line}",
+    "ok": "Ready",
+    "plan": "Plan they start on",
+    "planPlaceholder": "Choose a plan",
+    "trialDays": "Free days",
+    "cycle": "Billing after the free days",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "gstState": "GST state",
+    "gstStateHint": "Their business profile starts in this state; they can change it.",
+    "create": "{count, plural, =0 {Invite} one {Invite # company} other {Invite # companies}}",
+    "created": "{count, plural, one {# invite made} other {# invites made}}. Copy their links to send them."
+  },
+  "usage": {
+    "title": "Usage",
+    "intro": "How every organization uses the product: who uses it, when and for how long, and what its AI costs.",
+    "loading": "Loading the usage",
+    "loadFailed": "The usage didn't load.",
+    "empty": "No organizations yet.",
+    "figuresLabel": "Every organization together",
+    "figures": {
+      "organizations": "Organizations",
+      "activeToday": "Used today",
+      "active7d": "Used this week",
+      "time7d": "Time this week",
+      "aiCost": "AI this month",
+      "aiProjected": "AI by month's end"
+    },
+    "columns": {
+      "organization": "Organization",
+      "members": "Users",
+      "leads": "Leads",
+      "lastActive": "Last used",
+      "week": "7 days",
+      "month": "30 days",
+      "sessions": "Sessions",
+      "ai": "AI this month"
+    },
+    "vip": "Invited",
+    "never": "Not yet",
+    "projected": "{amount} by month's end",
+    "noPricesTitle": "AI costs show as ₹0",
+    "noPricesDescription": "Set AI_PRICE_INPUT_PAISE_PER_MILLION and AI_PRICE_OUTPUT_PAISE_PER_MILLION on the console (what a million tokens cost your AI provider, in paise) to see each organization's AI cost. A free model costs 0."
+  },
+  "organization": {
+    "title": "Organization usage",
+    "back": "All organizations",
+    "intro": "The last 30 days, and the AI this month.",
+    "loading": "Loading the usage",
+    "loadFailed": "The usage didn't load.",
+    "aiLabel": "The AI this month",
+    "figures": {
+      "calls": "AI calls",
+      "tokens": "Tokens",
+      "cost": "AI cost so far",
+      "projected": "By month's end"
+    },
+    "daysTitle": "The last 14 days",
+    "daysDescription": "Minutes in the product and people who used it, each day (UTC).",
+    "series": {
+      "minutes": "Minutes",
+      "people": "People"
+    },
+    "pagesTitle": "Where the time goes",
+    "pagesDescription": "The pages they open most, by time spent.",
+    "membersTitle": "Users",
+    "membersDescription": "{count, plural, one {# user} other {# users}}, by time spent.",
+    "sessionsTitle": "Sessions",
+    "sessionsDescription": "Each time someone started using the product, newest first.",
+    "columns": {
+      "page": "Page",
+      "visits": "Visits",
+      "time": "Time",
+      "member": "User",
+      "lastActive": "Last used",
+      "sessions": "Sessions",
+      "started": "Started"
+    },
+    "never": "Not yet",
+    "nothingYet": "Nothing yet."
+  }
+}

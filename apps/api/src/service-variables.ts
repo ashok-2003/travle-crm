@@ -175,4 +175,10 @@ export const serviceVariables = {
   GOOGLE_SHEETS_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** How often a sheet is checked, in seconds (120 by default); the journeys shorten it (development and tests only). */
   SHEETS_CHECK_INTERVAL_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(3600).optional()),
+  /**
+   * What a million input and output tokens cost, in paise, for the console's usage analytics (both or neither); a free
+   * model costs 0. Unset, the console shows no AI cost.
+   */
+  AI_PRICE_INPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
+  AI_PRICE_OUTPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
 };

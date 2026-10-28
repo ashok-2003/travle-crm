@@ -37,6 +37,9 @@ export const KNOWN_ACTIONS = [
   "schedule.removed",
   "schedule.removal-failed",
   "demo.reset",
+  "invite.created",
+  "invite.cancelled",
+  "invite.joined",
 ] as const;
 
 export type KnownAction = (typeof KNOWN_ACTIONS)[number];

@@ -98,6 +98,9 @@ model Organization {
   leadAiInsights              LeadAiInsight[]
   aiDrafts                    AiDraft[]
   quoteTemplates              QuoteTemplate[]
+  pageVisits                  PageVisit[]
+  welcome                     OrganizationWelcome?
+  welcomesSeen                WelcomeSeen[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
 

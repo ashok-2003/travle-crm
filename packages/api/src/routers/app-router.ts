@@ -14,6 +14,7 @@ import { tripKitsRouter } from "./trip-kits.js";
 import { quotesRouter } from "./quotes.js";
 import { aiRouter } from "./ai.js";
 import { financeRouter } from "./finance.js";
+import { usageRouter } from "./usage.js";
 import { salesRouter } from "./sales.js";
 import { reportsRouter } from "./reports.js";
 import { whatsappTemplatesRouter } from "./whatsapp-templates.js";
@@ -68,6 +69,7 @@ export const appRouter = router({
   ai: aiRouter,
   finance: financeRouter,
   sales: salesRouter,
+  usage: usageRouter,
   reports: reportsRouter,
   whatsappTemplates: whatsappTemplatesRouter,
   leadExports: leadExportsRouter,

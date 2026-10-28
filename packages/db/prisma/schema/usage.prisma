@@ -1,0 +1,42 @@
+// What organizations do in the product (the owner, 2026-10-28), for the platform console: each page a member opened and
+// for how long, and the welcome each member saw once. Organization-owned, under row-level security.
+
+/// One page a member opened: its route with ids replaced (never a search or a name), when, and for how many seconds.
+model PageVisit {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  path           String
+  startedAt      DateTime     @default(now()) @map("started_at") @db.Timestamptz(6)
+  seconds        Int          @default(0)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, startedAt(sort: Desc)], map: "page_visit_started")
+  @@map("page_visit")
+}
+
+/// How the organization began: through the invite program (vip) and its free days, for the welcome.
+model OrganizationWelcome {
+  organizationId String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  vip            Boolean      @default(false)
+  trialDays      Int?         @map("trial_days")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("organization_welcome")
+}
+
+/// A member saw the welcome: it plays once each.
+model WelcomeSeen {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  seenAt         DateTime     @default(now()) @map("seen_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, userId], map: "welcome_seen_one_per_user")
+  @@map("welcome_seen")
+}

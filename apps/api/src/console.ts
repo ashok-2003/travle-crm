@@ -26,11 +26,14 @@ const { services, logger, running } = await startProcess("console", async (base)
   }
   return started;
 });
-const { settings, platform } = running;
+const { settings, platform, publicRoutes } = running;
 
-const server = serve({ fetch: createConsoleApp(platform, logger).fetch, port: settings.port }, (address) => {
-  logger.info({ port: address.port }, "console listening");
-});
+const server = serve(
+  { fetch: createConsoleApp(platform, logger, publicRoutes).fetch, port: settings.port },
+  (address) => {
+    logger.info({ port: address.port }, "console listening");
+  },
+);
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, let running jobs finish (pg-boss
 // stops with the services, waiting up to 30 seconds), then close the pools. Exit 0 only when that went well; 1 after

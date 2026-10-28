@@ -6,6 +6,7 @@ import audit from "./messages/en-IN/audit.json";
 import business from "./messages/en-IN/business.json";
 import calendar from "./messages/en-IN/calendar.json";
 import common from "./messages/en-IN/common.json";
+import consoleGrowth from "./messages/en-IN/console-growth.json";
 import consoleOrganizations from "./messages/en-IN/console-organizations.json";
 import consolePlatform from "./messages/en-IN/console-platform.json";
 import consoleMessages from "./messages/en-IN/console.json";
@@ -34,8 +35,10 @@ import staff from "./messages/en-IN/staff.json";
 import subscription from "./messages/en-IN/subscription.json";
 import tasks from "./messages/en-IN/tasks.json";
 import today from "./messages/en-IN/today.json";
+import vip from "./messages/en-IN/vip.json";
 import websiteForm from "./messages/en-IN/website-form.json";
 import websiteFormSettings from "./messages/en-IN/website-form-settings.json";
+import welcome from "./messages/en-IN/welcome.json";
 
 export const locale = "en-IN";
 
@@ -47,6 +50,7 @@ export const messages = {
   common,
   // "console" would shadow the global console in this module, hence the import's longer name.
   console: consoleMessages,
+  consoleGrowth,
   consoleOrganizations,
   consolePlatform,
   dashboard,
@@ -78,6 +82,8 @@ export const messages = {
   today,
   websiteForm,
   websiteFormSettings,
+  vip,
+  welcome,
 };
 
 export type Messages = typeof messages;

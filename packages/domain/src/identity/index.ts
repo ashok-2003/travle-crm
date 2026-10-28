@@ -25,6 +25,9 @@ export { memberActivity, recordMemberActivity, type MemberActivity } from "./mem
 export {
   addStaffWithPassword,
   createOrganizationRecord,
+  addInvitedOwner,
+  INVITED_OWNER_USERNAME,
+  renewInvitedOwnerPassword,
   inviteOwner,
   requestInvite,
   type NewOrganization,
