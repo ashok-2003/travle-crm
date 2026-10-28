@@ -6,7 +6,7 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { aLead } from "../crm/support/records.js";
-import type { MemberAccess } from "../../src/identity/index.js";
+import { PermissionSet, type MemberAccess } from "../../src/identity/index.js";
 import { createQuote, recordPayment, setQuoteStatus } from "../../src/quotes/index.js";
 import { salesReportOf, staffReportOf } from "../../src/reports/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
@@ -129,5 +129,28 @@ describe("reports", () => {
         inOrg((tx) => staffReportOf(tx, seller, { userId: colleague.userId, range: "month" }, now)),
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
+  });
+
+  it("sorts the team after the money is taken out, so a member without it can't read the order of sales", async () => {
+    const big = memberWithStarterRole("sales", { organizationId, userId: randomUUID() });
+    const busy = memberWithStarterRole("sales", { organizationId, userId: randomUUID() });
+    await aBooking(big.userId);
+    // The other has more wins and no sales: with the money taken out, they come first.
+    await inOrg(async (tx) => {
+      await aLead(tx, { ownerUserId: busy.userId, stage: "won", createdAt: now });
+      await aLead(tx, { ownerUserId: busy.userId, stage: "won", createdAt: now });
+    });
+    const asOwner = await inOrg((tx) => salesReportOf(tx, owner, "month", now));
+    const ids = (report: typeof asOwner) =>
+      report.team.map((row) => row.userId).filter((id) => id === big.userId || id === busy.userId);
+    expect(ids(asOwner)).toEqual([big.userId, busy.userId]);
+    // Sees every lead but not the money.
+    const manager: MemberAccess = {
+      ...memberWithStarterRole("sales", { organizationId, userId: randomUUID() }),
+      permissions: PermissionSet.of([{ permission: "leads:view", scope: "all" }]),
+    };
+    const blind = await inOrg((tx) => salesReportOf(tx, manager, "month", now));
+    expect(blind.showsMoney).toBe(false);
+    expect(ids(blind)).toEqual([busy.userId, big.userId]);
   });
 });

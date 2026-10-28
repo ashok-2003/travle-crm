@@ -110,7 +110,7 @@ describe("finance", () => {
         },
       });
     });
-    const summary = await inOrg((tx) => financeSummaryOf(tx, { from: "2026-11-01", to: "2026-11-30" }));
+    const summary = await inOrg((tx) => financeSummaryOf(tx, { from: "2026-11-01", to: "2026-11-30" }, "Asia/Kolkata"));
     expect(summary).toMatchObject({
       bookings: 2,
       revenuePaise: 2_000_000,
@@ -150,5 +150,16 @@ describe("finance", () => {
     expect(new Set(seen).size).toBe(seen.length);
     const accepted = await inOrg((tx) => tx.quote.count({ where: { status: "accepted" } }));
     expect(seen).toHaveLength(accepted);
+  });
+
+  it("cuts the period and the months in the agency's time zone", async () => {
+    // 20:00 UTC on 31 October is 01:30 on 1 November in India.
+    await aBooking(100_000, new Date("2026-10-31T20:00:00Z"));
+    const november = await inOrg((tx) =>
+      financeSummaryOf(tx, { from: "2026-11-01", to: "2026-11-01" }, "Asia/Kolkata"),
+    );
+    const october = await inOrg((tx) => financeSummaryOf(tx, { from: "2026-10-31", to: "2026-10-31" }, "Asia/Kolkata"));
+    expect(november.bookings).toBeGreaterThan(0);
+    expect(october.bookings).toBe(0);
   });
 });

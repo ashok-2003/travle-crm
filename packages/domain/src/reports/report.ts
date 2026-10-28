@@ -80,9 +80,14 @@ export async function salesReportOf(
     figures: await figuresOf(tx, owner, current),
     previous: await figuresOf(tx, owner, previous),
     ...(await breakdownsOf(tx, owner, current)),
-    team: team.sort((a, b) => b.salesPaise - a.salesPaise || b.won - a.won || b.leads - a.leads),
+    team,
   };
-  return report.showsMoney ? report : withoutMoney(report);
+  // Sorted after the money is blanked, so a member without it can't read the order of who sold most.
+  const shown = report.showsMoney ? report : withoutMoney(report);
+  return {
+    ...shown,
+    team: [...shown.team].sort((a, b) => b.salesPaise - a.salesPaise || b.won - a.won || b.leads - a.leads),
+  };
 }
 
 export async function staffReportOf(

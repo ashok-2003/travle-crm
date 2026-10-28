@@ -6,8 +6,9 @@
 import { financeSummary, type FinancePeriodInput, type FinanceSummary } from "@travel-crm/contracts/finance";
 import type { OrgTx } from "@travel-crm/db";
 
+import { addDays, startOfDayIn, type CalendarDate } from "../kernel/index.js";
+
 const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
-const endOf = (day: string) => new Date(`${day}T23:59:59.999Z`);
 const monthOf = (date: Date) => date.toISOString().slice(0, 7);
 
 /** The six months to `to`'s month, oldest first, as YYYY-MM. */
@@ -27,10 +28,10 @@ interface BookingSums {
   cost: bigint;
 }
 
-/** Accepted quotes from `from` to `to` (acceptance moments), by month: how many, their price, GST and costs. */
-const bookingsByMonth = (tx: OrgTx, from: Date, to: Date) =>
+/** Accepted quotes from `from` up to `before` (acceptance moments, months in the agency's zone), by month: how many, their price, GST and costs. */
+const bookingsByMonth = (tx: OrgTx, from: Date, before: Date, timeZone: string) =>
   tx.$queryRaw<BookingSums[]>`
-    SELECT to_char(q.accepted_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
+    SELECT to_char(q.accepted_at AT TIME ZONE ${timeZone}, 'YYYY-MM') AS month,
            count(*)::int AS bookings,
            coalesce(sum(q.subtotal_paise), 0)::bigint AS revenue,
            coalesce(sum(q.tax_paise), 0)::bigint AS gst,
@@ -39,18 +40,25 @@ const bookingsByMonth = (tx: OrgTx, from: Date, to: Date) =>
     LEFT JOIN LATERAL (
       SELECT sum(amount_paise) AS cost FROM trip_cost WHERE quote_id = q.id AND voided_at IS NULL
     ) c ON true
-    WHERE q.status = 'accepted' AND q.deleted_at IS NULL AND q.accepted_at >= ${from} AND q.accepted_at <= ${to}
+    WHERE q.status = 'accepted' AND q.deleted_at IS NULL AND q.accepted_at >= ${from} AND q.accepted_at < ${before}
     GROUP BY 1`;
 
-export async function financeSummaryOf(tx: OrgTx, period: FinancePeriodInput): Promise<FinanceSummary> {
+export async function financeSummaryOf(
+  tx: OrgTx,
+  period: FinancePeriodInput,
+  timeZone: string,
+): Promise<FinanceSummary> {
   const months = sixMonths(period.to);
-  const earliest = new Date(`${months[0] ?? period.from}-01T00:00:00Z`);
-  const windowStart = earliest < asDate(period.from) ? earliest : asDate(period.from);
+  // Booking moments are cut at the agency's midnights, as Reports cuts them; dated figures (payments, expenses) are days.
+  const zoned = (day: string) => startOfDayIn(day as CalendarDate, timeZone);
+  const earliest = zoned(`${months[0] ?? period.from.slice(0, 7)}-01`);
+  const windowStart = earliest < zoned(period.from) ? earliest : zoned(period.from);
   const start = asDate(period.from);
-  const end = endOf(period.to);
+  const end = zoned(addDays(period.to as CalendarDate, 1));
+  const dayWindowStart = new Date(`${months[0] ?? period.from.slice(0, 7)}-01T00:00:00Z`);
   const [monthly, inPeriod, owed, supplierOwed, collected, expenseMonths, expenseCategories] = await Promise.all([
-    bookingsByMonth(tx, windowStart, end),
-    bookingsByMonth(tx, start, end),
+    bookingsByMonth(tx, windowStart, end, timeZone),
+    bookingsByMonth(tx, zoned(period.from), end, timeZone),
     // What customers owe: the accepted quotes' totals less what was paid on them (a payment never passes its total).
     tx.$queryRaw<{ total: bigint; paid: bigint }[]>`
       SELECT coalesce(sum(q.total_paise), 0)::bigint AS total,
@@ -70,7 +78,10 @@ export async function financeSummaryOf(tx: OrgTx, period: FinancePeriodInput): P
     }),
     tx.agencyExpense.groupBy({
       by: ["spentOn"],
-      where: { voidedAt: null, spentOn: { gte: windowStart, lte: asDate(period.to) } },
+      where: {
+        voidedAt: null,
+        spentOn: { gte: dayWindowStart < start ? dayWindowStart : start, lte: asDate(period.to) },
+      },
       _sum: { amountPaise: true },
     }),
     tx.agencyExpense.groupBy({

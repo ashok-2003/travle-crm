@@ -7,6 +7,8 @@ import { lifecycleAccessOf, type Entitlements } from "@travel-crm/domain/subscri
 import type { Context } from "../src/context.js";
 import { freshProcedure, orgProcedure, protectedProcedure } from "../src/procedures.js";
 import { aiRouter } from "../src/routers/ai.js";
+import { financeRouter } from "../src/routers/finance.js";
+import { quotesRouter } from "../src/routers/quotes.js";
 import { subscriptionRouter } from "../src/routers/subscription.js";
 import { router, t } from "../src/trpc.js";
 
@@ -32,6 +34,9 @@ const probe = router({
   subscription: subscriptionRouter,
   /** The real Suggest reply router: its plan module and permission checks, run before any handler. */
   ai: aiRouter,
+  /** The real money routers: what they read or delete must come from a session read afresh. */
+  finance: financeRouter,
+  quotes: quotesRouter,
   whoAmI: protectedProcedure.query(({ ctx }) => ctx.session.impersonatedBy ?? "nobody"),
 });
 

@@ -26,10 +26,10 @@ import {
   voidExpense,
   voidTripCost,
 } from "@travel-crm/domain/finance";
-import { freshProcedure, orgProcedure } from "../procedures.js";
+import { freshProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
-const viewer = orgProcedure.requires("accounts:view");
+const viewer = freshProcedure.requires("accounts:view");
 const adder = freshProcedure.requires("accounts:create");
 const editor = freshProcedure.requires("accounts:edit");
 
@@ -37,7 +37,10 @@ export const financeRouter = router({
   summary: viewer
     .input(financePeriodInput)
     .output(financeSummary)
-    .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => financeSummaryOf(tx, input))),
+    .query(async ({ ctx, input }) => {
+      const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => financeSummaryOf(tx, input, timeZone));
+    }),
 
   bookings: viewer
     .input(bookingsInput)

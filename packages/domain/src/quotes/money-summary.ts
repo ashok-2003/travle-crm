@@ -5,17 +5,19 @@
 import type { MoneySummary } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
+import { addDays, startOfDayIn, type CalendarDate } from "../kernel/index.js";
 import { dayOf } from "./quote-rows.js";
 import { coveredInstallments } from "./totals.js";
 
 export async function moneySummaryOf(
   tx: OrgTx,
   access: MemberAccess,
-  period: { from: string; to: string; today: string },
+  period: { from: string; to: string; today: string; timeZone: string },
 ): Promise<MoneySummary> {
   const lead = scopeFilter(access, "quotes:view", "ownerUserId");
-  const start = new Date(`${period.from}T00:00:00Z`);
-  const end = new Date(`${period.to}T23:59:59.999Z`);
+  // The days are the agency's own: acceptance moments are cut at its midnights, as Reports cuts them.
+  const start = startOfDayIn(period.from as CalendarDate, period.timeZone);
+  const end = startOfDayIn(addDays(period.to as CalendarDate, 1), period.timeZone);
   const accepted = await tx.quote.findMany({
     where: { lead, status: "accepted" },
     select: {
@@ -26,7 +28,11 @@ export async function moneySummaryOf(
     },
   });
   const received = await tx.quotePayment.aggregate({
-    where: { voidedAt: null, receivedOn: { gte: start, lte: new Date(`${period.to}T00:00:00Z`) }, quote: { lead } },
+    where: {
+      voidedAt: null,
+      receivedOn: { gte: new Date(`${period.from}T00:00:00Z`), lte: new Date(`${period.to}T00:00:00Z`) },
+      quote: { lead },
+    },
     _sum: { amountPaise: true },
   });
   let acceptedCount = 0;
@@ -37,7 +43,7 @@ export async function moneySummaryOf(
   for (const quote of accepted) {
     const total = Number(quote.totalPaise);
     const paid = quote.payments.reduce((sum, payment) => sum + Number(payment.amountPaise), 0);
-    if (quote.acceptedAt !== null && quote.acceptedAt >= start && quote.acceptedAt <= end) {
+    if (quote.acceptedAt !== null && quote.acceptedAt >= start && quote.acceptedAt < end) {
       acceptedCount += 1;
       acceptedPaise += total;
     }
@@ -62,18 +68,4 @@ export async function moneySummaryOf(
     overduePaise,
     overdueCount,
   };
-}
-
-/** Each lead owner's sales in the period: the quotes accepted in it, before GST, for the team's leaderboard. */
-export async function salesByOwner(tx: OrgTx, period: { from: Date; to: Date }): Promise<Map<string, number>> {
-  const rows = await tx.quote.findMany({
-    where: { status: "accepted", acceptedAt: { gte: period.from, lt: period.to }, lead: { deletedAt: null } },
-    select: { subtotalPaise: true, lead: { select: { ownerUserId: true } } },
-  });
-  const sales = new Map<string, number>();
-  for (const row of rows) {
-    const owner = row.lead.ownerUserId;
-    if (owner !== null) sales.set(owner, (sales.get(owner) ?? 0) + Number(row.subtotalPaise));
-  }
-  return sales;
 }
