@@ -47,8 +47,26 @@ const figures: DashboardFigures = {
     { bucket: "waiting", leads: 2 },
   ],
   team: [
-    { userId: "0199a000-0000-7000-8000-000000000001", name: "Priya Shah", leads: 3, contacted: 1, won: 0 },
-    { userId: "0199a000-0000-7000-8000-000000000002", name: null, leads: 1, contacted: 1, won: 1 },
+    {
+      userId: "0199a000-0000-7000-8000-000000000001",
+      name: "Priya Shah",
+      leads: 3,
+      contacted: 1,
+      won: 0,
+      medianFirstReplyMinutes: null,
+      overdue: 0,
+      salesPaise: 0,
+    },
+    {
+      userId: "0199a000-0000-7000-8000-000000000002",
+      name: null,
+      leads: 1,
+      contacted: 1,
+      won: 1,
+      medianFirstReplyMinutes: null,
+      overdue: 0,
+      salesPaise: 0,
+    },
   ],
 };
 
