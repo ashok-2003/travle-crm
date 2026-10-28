@@ -1,0 +1,59 @@
+# Releases main to the two small Oracle servers (docs/runbook.md, "Two small servers"): scripts/server/release-servers.sh
+# builds the api's image once on this runner (linux/amd64 is native here), applies the commit's migrations to Neon
+# when DATABASE_MIGRATOR_URL is set, then releases to the api's server and the console's. It runs only where the owner
+# has turned it on (the repository variable ORACLE_DEPLOY_ENABLED), never for a pull request, one at a time, and in
+# the `production` environment, where the owner can require an approval before each run.
+name: Deploy to Oracle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The commit, branch or tag to release (a rollback is the commit before)
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+# Never two releases at once, and never one cut short: a later one waits its turn.
+concurrency:
+  group: oracle-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Release to the api's and the console's servers
+    if: vars.ORACLE_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      # The deploy key and the servers' host keys; a host key that isn't the one recorded stops the run.
+      - name: SSH to the servers
+        run: |
+          install -d -m 0700 ~/.ssh
+          (umask 077 && printf '%s\n' "$DEPLOY_SSH_KEY" >~/.ssh/oracle-deploy)
+          printf '%s\n' "$KNOWN_HOSTS" >~/.ssh/known_hosts
+          printf 'Host *\n  StrictHostKeyChecking yes\n  BatchMode yes\n  ServerAliveInterval 30\n' >~/.ssh/config
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.ORACLE_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.ORACLE_KNOWN_HOSTS }}
+      - name: Migrate, then release
+        run: |
+          # Prisma prints the database's host as it migrates, and this repository's logs are public.
+          if [ -n "$DATABASE_MIGRATOR_URL" ]; then
+            echo "::add-mask::$(printf '%s' "$DATABASE_MIGRATOR_URL" | sed -E 's#^[a-z]+://([^@/]*@)?([^/:?]+).*#\2#')"
+          fi
+          SSH_KEY="$HOME/.ssh/oracle-deploy" scripts/server/release-servers.sh "$(git rev-parse HEAD)"
+        env:
+          API_SERVER: ${{ vars.ORACLE_API_SERVER }}
+          CONSOLE_SERVER: ${{ vars.ORACLE_CONSOLE_SERVER }}
+          DATABASE_MIGRATOR_URL: ${{ secrets.DATABASE_MIGRATOR_URL }}
