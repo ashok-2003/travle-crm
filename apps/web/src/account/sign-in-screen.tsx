@@ -1,8 +1,9 @@
 "use client";
 
 // The sign-in screen (spec 6.3): one address for everyone, two ways in. The organization-code way opens first, with
-// the code filled in, once this device has used it. A person with two-factor sign-in goes on to type a code.
-import { useRouter, useSearchParams } from "next/navigation";
+// the code filled in, once this device has used it. A person with two-factor sign-in goes on to type a code. The form is
+// in the prerendered page itself.
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
@@ -21,7 +22,6 @@ type Way = "email" | "code";
 export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmail" | "signInWithCode"> }) {
   const t = useTranslations("account.signIn");
   const router = useRouter();
-  const next = nextPath(useSearchParams());
   const finishSignIn = useFinishSignIn();
   const rememberedCode = useRememberedOrganizationCode();
   // Until the person picks a tab, a remembered code decides which one opens.
@@ -29,6 +29,9 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
   const way = chosenWay ?? (rememberedCode ? "code" : "email");
 
   const onSignedIn = async ({ twoFactorRequired }: SignInOutcome) => {
+    // ?next= is read when it is needed, not while the page renders: reading it in render would keep the prerendered form
+    // behind a skeleton until the browser had run the page's scripts, which is what held the sign-in page's first paint.
+    const next = nextPath(new URLSearchParams(window.location.search));
     if (twoFactorRequired) router.push(`${routes.twoFactorChallenge}?next=${encodeURIComponent(next)}`);
     else await finishSignIn(next);
   };
