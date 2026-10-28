@@ -11,13 +11,13 @@ export function LocationCard({ latitude, longitude }: { latitude: number; longit
   const t = useTranslations("inbox.chat.place");
   const point = `${String(latitude)}, ${String(longitude)}`;
   return (
-    <Item variant="muted" size="sm" className="min-w-60 flex-nowrap">
+    <Item variant="muted" size="sm" className="min-w-60 flex-wrap">
       <ItemMedia variant="icon">
         <MapPinIcon aria-hidden="true" />
       </ItemMedia>
-      <ItemContent>
+      <ItemContent className="min-w-0">
         <ItemTitle>{t("title")}</ItemTitle>
-        <ItemDescription className="numbers">{point}</ItemDescription>
+        <ItemDescription className="whitespace-nowrap">{point}</ItemDescription>
       </ItemContent>
       <ItemActions>
         <Button asChild variant="outline" size="sm">

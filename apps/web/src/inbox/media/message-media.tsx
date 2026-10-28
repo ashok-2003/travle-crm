@@ -4,12 +4,14 @@
 // larger, a voice note with the browser's player, a document as a card. While the file is being copied, or when it could not
 // be, a plain box says so in words that name the kind of file, never blank.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
-import { FileIcon, ImageIcon, MicIcon, PlayIcon, VideoIcon, type LucideIcon } from "lucide-react";
+import { FileIcon, ImageIcon, MicIcon, VideoIcon, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useMediaLink } from "../use-inbox";
 import { DocumentCard } from "./document-card";
 import { useOpenMedia } from "./media-viewer";
+import { StickerImage, StickerTile } from "./sticker";
+import { VideoThumb } from "./video-thumb";
 import { VoiceNotePlayer } from "./voice-note-player";
 
 type MediaKind = "image" | "video" | "audio" | "document" | "sticker";
@@ -44,6 +46,7 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   if (message.mediaState === "failed")
     return <MediaPlaceholder kind={kind}>{t(`mediaFailed.${kind}`)}</MediaPlaceholder>;
   if (link.data === undefined) {
+    if (kind === "sticker") return <StickerTile />;
     return (
       <MediaPlaceholder kind={kind}>
         {link.isError ? t(`mediaFailed.${kind}`) : t(`mediaPending.${kind}`)}
@@ -55,25 +58,10 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   if (kind === "audio" || contentType.startsWith("audio/")) {
     return <VoiceNotePlayer url={url} />;
   }
-  if (kind === "sticker") {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={t("sticker")} className="size-36 object-contain" />;
-  }
+  if (kind === "sticker") return <StickerImage url={url} alt={t("sticker")} />;
   const isVideo = contentType.startsWith("video/");
   const thumbnail = isVideo ? (
-    <span className="relative block">
-      <video
-        src={url}
-        preload="metadata"
-        muted
-        playsInline
-        className="max-h-72 max-w-full rounded-md object-contain"
-        aria-label={t("video")}
-      />
-      <span className="absolute inset-0 flex items-center justify-center">
-        <PlayIcon aria-hidden="true" className="size-12 rounded-full bg-scrim p-3 text-background" />
-      </span>
-    </span>
+    <VideoThumb url={url} label={t("video")} className="h-44 w-64 max-w-full" />
   ) : (
     // A customer's photo from storage: its size is unknown, so it is not an optimised Next image. The height is
     // bounded and the shape kept, so a tall photo and a wide one both sit in the chat as they are.

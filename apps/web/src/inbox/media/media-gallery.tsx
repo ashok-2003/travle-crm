@@ -2,13 +2,14 @@
 
 // The contact panel's Media tab (audit 13): every photo and video of the chat as a grid of small pictures, newest first, a page
 // at a time. A tap opens the same viewer the chat uses, with the gallery's pictures as its pages.
-import { PlayIcon, ImageOffIcon } from "lucide-react";
+import { ImageOffIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { useChatMedia, useMediaLink } from "../use-inbox";
+import { VideoThumb } from "./video-thumb";
 import { MediaViewerProvider, useOpenMedia } from "./media-viewer";
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 
@@ -26,13 +27,7 @@ function Thumb({ message }: { message: ChatMessage }) {
     >
       {link.data !== undefined &&
         (isVideo ? (
-          <>
-            <video src={link.data.url} preload="metadata" muted playsInline className="size-full object-cover" />
-            <PlayIcon
-              aria-hidden="true"
-              className="absolute inset-0 m-auto size-8 rounded-full bg-scrim p-2 text-background"
-            />
-          </>
+          <VideoThumb url={link.data.url} label={t("openVideo")} className="size-full" />
         ) : (
           // A customer's photo from storage, cropped to a square: not an optimised Next image.
           // eslint-disable-next-line @next/next/no-img-element
