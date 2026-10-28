@@ -43,7 +43,8 @@
       "role-changed": "Changed a staff member's role",
       "phone-changed": "Changed a staff member's phone",
       "password-reset": "Gave a staff member a new temporary password",
-      "removed": "Removed a staff member"
+      "removed": "Removed a staff member",
+      "password-chosen": "Chose their own password"
     },
     "role": {
       "created": "Created a role",

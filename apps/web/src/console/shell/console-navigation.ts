@@ -3,7 +3,7 @@
 import {
   ActivityIcon,
   CirclePlusIcon,
-  CrownIcon,
+  GiftIcon,
   LayersIcon,
   LayoutDashboardIcon,
   MessageCircleIcon,
@@ -27,7 +27,7 @@ export interface ConsoleNavigationItem {
 export const consoleNavigationItems: readonly ConsoleNavigationItem[] = [
   { key: "home", href: consoleRoutes.home, icon: LayoutDashboardIcon, superAdminOnly: false },
   { key: "onboard", href: consoleRoutes.onboard, icon: CirclePlusIcon, superAdminOnly: false },
-  { key: "invites", href: consoleRoutes.invites, icon: CrownIcon, superAdminOnly: false },
+  { key: "invites", href: consoleRoutes.invites, icon: GiftIcon, superAdminOnly: false },
   { key: "usage", href: consoleRoutes.usage, icon: ActivityIcon, superAdminOnly: false },
   { key: "plans", href: consoleRoutes.plans, icon: LayersIcon, superAdminOnly: false },
   { key: "whatsapp", href: consoleRoutes.whatsapp, icon: MessageCircleIcon, superAdminOnly: false },

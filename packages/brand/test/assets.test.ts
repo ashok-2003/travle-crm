@@ -12,17 +12,16 @@ describe("brand assets", () => {
     expect(path.basename(brandAssets.logoDark)).toBe("logo-dark.svg");
   });
 
-  it("draw a square mark with paths only, in the brand's dark teal and white", () => {
+  it("draw a square mark with paths only: white on deep green, and deep green on white for dark surfaces", () => {
     for (const [file, mainColour] of [
-      [brandAssets.logo, brand.colours.sidebar.fill],
-      [brandAssets.logoDark, brand.colours.canvas],
+      [brandAssets.logo, brand.colours.canvas],
+      [brandAssets.logoDark, brand.colours.sidebar.fill],
     ] as const) {
       const svg = readFileSync(file, "utf8");
       const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
       expect(viewBox?.[1], file).toBe(viewBox?.[2]);
       expect(svg, file).not.toMatch(/<(text|image|use|style|script)\b/);
       expect(svg, file).toContain(`fill="${mainColour}"`);
-      expect(svg, file).toMatch(/placeholder/i);
     }
   });
 });

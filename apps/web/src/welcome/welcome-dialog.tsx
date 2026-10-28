@@ -6,9 +6,9 @@
 // way, counts it as seen. Without the video the words alone show.
 import { brand } from "@travel-crm/brand";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CrownIcon, SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -54,12 +54,7 @@ export function WelcomeDialog() {
     >
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader className="gap-3">
-          <span
-            aria-hidden="true"
-            className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground"
-          >
-            {data.vip ? <CrownIcon className="size-6" /> : <SparklesIcon className="size-6" />}
-          </span>
+          <BrandMark />
           {data.vip && <p className="text-label font-semibold tracking-wide text-primary uppercase">{t("vipBadge")}</p>}
           <DialogTitle className="text-title-mobile sm:text-title">
             {data.vip
