@@ -136,6 +136,8 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `MSG91_WEBHOOK_TOKEN`: 32+ random characters; the webhook's path  | ○   | ○      | ○       |         | yes    |
 | `MSG91_WEBHOOK_KEY`: 32+ random characters; the header's value    | ○   | ○      | ○       |         | yes    |
 | `MSG91_TEST_SERVER_URL`: tests only, refused in production        | ○   | ○      | ○       |         |        |
+| `OPENROUTER_API_KEY`: Suggest reply's AI (below); unset: off      | ○   |        |         |         | yes    |
+| `AI_SUGGEST_MODELS`: OpenRouter model slugs, best first (below)   | ○   |        |         |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                  | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)     | ○   | ○      | ○       |         | yes    |
 | `AXIOM_URL`: only for Axiom's EU region                           | ○   | ○      | ○       |         |        |
@@ -224,6 +226,18 @@ Secrets come from the platform's secret manager as environment variables, never 
   - Routes: `/webhooks/meta-leads` (Meta's callback, GET and POST) and `POST /api/meta/data-deletion` are under paths
     that already reach the api; `/meta/deletion` goes to the web app. The callback must be HTTPS.
   - The start-up line says `Meta lead ads: on` or `not set up`.
+- **Suggest reply, the AI** (ADR 0029; the owner's decision of 2026-10-28):
+  - Only the api reads `OPENROUTER_API_KEY` (an OpenRouter key) and `AI_SUGGEST_MODELS` (comma-separated OpenRouter slugs, the
+    preferred model first and its fallbacks after; default `google/gemini-2.5-flash,anthropic/claude-haiku-4.5`). Unset key:
+    the feature says the AI isn't set up, and nothing is sent anywhere. The key is never printed or logged.
+  - Every request asks OpenRouter for zero data retention (`provider.zdr`), and the adapter refuses any base URL that is not
+    `https://openrouter.ai`. Choose models that have a zero-data-retention endpoint on OpenRouter: a model without one
+    answers 404 and the next in the list is tried, so if no model has one, no suggestion is made.
+  - Off for every agency until its plan includes the `ai` module (the console's plan editor) and its Owner or Admin turns it on
+    in Settings, AI. A member asks for each draft; it reads the chat's last 12 messages, the lead's first name and trip
+    facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 500
+    suggestions an agency a month (`MONTHLY_SUGGESTION_LIMIT` in `packages/domain/src/ai/usage.ts`).
+  - Existing plans get no AI: edit each plan in the console to add the module.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
     printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to
