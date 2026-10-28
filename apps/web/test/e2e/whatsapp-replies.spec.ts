@@ -180,21 +180,20 @@ test("a connection whose delivery reports stopped goes to problem, in the consol
     });
   }).toPass({ timeout: 60_000 });
 
-  // A report arrives, and the connection is well again.
+  // A report arrives, and the connection is well again: wait on the connection's own state, not on how long a screen takes.
   await reportStatus({ business, customerNumber: customer, wamid }, "delivered");
-  await expect(async () => {
-    await owner.goto("/inbox");
-    await expect(owner.getByText("WhatsApp is having trouble: new messages may arrive late.")).toHaveCount(0, {
-      timeout: 4_000,
-    });
-  }).toPass({ timeout: 60_000 });
-  // The inbox's banner is absent while its status is still loading, so the console is asked until it too says all is well.
-  await expect(async () => {
-    await page.reload();
-    await expect(page.getByText(/No delivery reports from MSG91 for a connected number/)).toHaveCount(0, {
-      timeout: 4_000,
-    });
-  }).toPass({ timeout: 60_000 });
+  await expect
+    .poll(
+      async () => (await inAgency(agency.organizationId, (tx) => tx.whatsappConnection.findFirstOrThrow())).status,
+      { timeout: 60_000 },
+    )
+    .toBe("connected");
+  await owner.goto("/inbox");
+  await expect(owner.getByRole("heading", { level: 1, name: "Inbox" })).toBeVisible();
+  await expect(owner.getByText("WhatsApp is having trouble: new messages may arrive late.")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "WhatsApp" })).toBeVisible();
+  await expect(page.getByText(/No delivery reports from MSG91 for a connected number/)).toHaveCount(0);
   await owner.close();
 });
 
