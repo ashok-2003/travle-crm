@@ -3,3 +3,4 @@
 // calls; nothing below calls it. The automatic WhatsApps (greeting, follow-ups, payment reminders) are parked.
 export { hotLeadsOf, leadHeatOf } from "./hot-leads.js";
 export { BUYING_WORDS, customerWroteListener, holdsBuyingWord, HOT_LEAD_KIND, quoteOpenedListener } from "./signals.js";
+export { eraseSalesParts } from "./erasure.js";

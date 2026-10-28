@@ -7,6 +7,8 @@ import { deleteRecordFiles } from "../files/index.js";
 import type { Actor } from "../kernel/index.js";
 import { forgetRecordNotifications } from "../notifications/index.js";
 import { withdrawWhatsApp } from "../inbox/index.js";
+import { eraseQuoteParts } from "../quotes/index.js";
+import { eraseSalesParts } from "../sales/index.js";
 import { withdrawMetaLeads } from "../meta-leads/index.js";
 import { lockSheetConnections, type SheetsHashes, withdrawSheetRows } from "../sheets/index.js";
 import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
@@ -31,6 +33,9 @@ export async function eraseCustomerParts(
   const contacts = await customerContacts(tx, subject);
   const { leadIds, ...erased } = await eraseCustomer(tx, subject);
   const leads = leadIds.map((recordId) => ({ organizationId, recordType: "lead", recordId }));
+  // Their quotes' personal words and their hot-lead signals; the invoices and receipts issued are kept, as tax law asks.
+  const quotes = await eraseQuoteParts(tx, { organizationId, leadIds });
+  const sales = await eraseSalesParts(tx, { organizationId, leadIds });
   // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
   const tasksCancelled = await asOrganization(tx, organizationId, async (orgTx) => {
     let cancelled = 0;
@@ -68,6 +73,9 @@ export async function eraseCustomerParts(
     ...erased,
     tasksCancelled,
     taskTitles,
+    quotesEmptied: quotes.quotes,
+    paymentReferencesEmptied: quotes.payments,
+    hotLeadSignals: sales.signals,
     notifications,
     files,
     sheetRowsWithdrawn: sheets.rowsWithdrawn,
