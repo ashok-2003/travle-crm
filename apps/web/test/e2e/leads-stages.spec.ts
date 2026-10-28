@@ -94,8 +94,12 @@ test("a lead moves forward and back, is marked Lost after asking, and reopens to
 
   await menu.click();
   await page.getByRole("menuitem", { name: "Lost" }).click();
+  // Lost asks why first: Mark as Lost waits for a reason, and the lead says it afterwards.
+  await expect(page.getByRole("alertdialog").getByRole("button", { name: "Mark as Lost" })).toBeDisabled();
+  await page.getByRole("alertdialog").getByRole("radio", { name: "Price too high" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Mark as Lost" }).click();
   await expect(bar()).toHaveAccessibleName("Stage: Lost");
+  await expect(page.getByText("Lost: Price too high")).toBeVisible();
   await expect(bar().getByText("Reopen returns it to Contacted.")).toBeVisible();
   await expect(page.getByText("None set.")).toBeVisible();
   await expectAccessible(page);

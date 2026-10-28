@@ -201,7 +201,7 @@ export function QuoteForm({
           ) : (
             <ItemGroup className="gap-3">
               {days.fields.map((day, index) => (
-                <Item key={day.id} variant="muted" className="items-start">
+                <Item key={day.id} variant="muted" role="listitem" className="items-start">
                   <ItemContent className="gap-2">
                     <FormField label={t("dayTitle", { day: index + 1 })}>
                       {(links) => (
@@ -268,7 +268,7 @@ export function QuoteForm({
           ) : (
             <ItemGroup className="gap-3">
               {items.fields.map((item, index) => (
-                <Item key={item.id} variant="muted" className="items-start">
+                <Item key={item.id} variant="muted" role="listitem" className="items-start">
                   <ItemContent className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
                     <FormField label={t("itemDescription")} error={errorOf(`items.${String(index)}.description`)}>
                       {(links) => (

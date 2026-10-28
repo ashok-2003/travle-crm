@@ -65,7 +65,7 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
         ) : (
           <ItemGroup>
             {quote.installments.map((due) => (
-              <Item key={due.id} size="sm">
+              <Item key={due.id} size="sm" role="listitem">
                 <ItemContent>
                   <ItemTitle>{due.label}</ItemTitle>
                   <ItemDescription>{t("by", { day: formatCalendarDay(due.dueOn) })}</ItemDescription>
@@ -108,7 +108,7 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
         ) : (
           <ItemGroup>
             {quote.payments.map((payment) => (
-              <Item key={payment.id} size="sm">
+              <Item key={payment.id} size="sm" role="listitem">
                 <ItemContent>
                   <ItemTitle className="numbers">{rupees(payment.amountPaise)}</ItemTitle>
                   <ItemDescription>
