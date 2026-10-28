@@ -93,6 +93,7 @@
     "PLAN_KEY_RESERVED": "That key is the demo plan's. Choose another.",
     "PLAN_CYCLE_IN_USE": "Organizations pay for this plan that way, so that price can't be removed.",
     "PLAN_ARCHIVED": "That plan is no longer sold.",
+    "PLAN_NOT_SOLD_THAT_WAY": "This plan isn't sold on that billing cycle. Choose another.",
     "PLAN_NOT_FOR_SALE": "That plan isn't for sale.",
     "DEMO_PLAN_LOCKED": "The demo's own plan can't be archived.",
     "NOT_SOLD_MONTHLY": "That plan isn't sold monthly.",
