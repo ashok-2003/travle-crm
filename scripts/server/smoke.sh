@@ -63,13 +63,16 @@ expect_status "$app/webhooks/not-a-provider" 404 --request POST --header "Conten
 expect_header "$work/webhook" Content-Type application/json
 
 # Sign-in is password-only for the pilot, so the limit must hold: a burst of wrong passwords from one address is
-# refused with 429 within a few tries (Better Auth's sign-in rule, per client address).
+# refused with 429 within a few tries (Better Auth's sign-in rule, per client address). Each try may take up to 30 s:
+# the first sign-in after a restart, on a small server while the worker starts, and with a managed database that may
+# be waking, took 5.6 s once, past status_of's 5 (the last --max-time wins).
 echo "Sign-in rate limiting"
 limited=""
 for attempt in 1 2 3 4 5 6; do
   status="$(status_of "$app/api/auth/sign-in/org" --request POST --header "Origin: $origin" \
     --header "Content-Type: application/json" \
-    --data '{"orgCode":"SMOKE","username":"smoke-check","password":"not-the-password"}' "${curl_options[@]}")"
+    --data '{"orgCode":"SMOKE","username":"smoke-check","password":"not-the-password"}' "${curl_options[@]}" \
+    --max-time 30)"
   case "$status" in
     429)
       limited="$attempt"
