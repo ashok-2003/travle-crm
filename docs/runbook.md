@@ -1,7 +1,9 @@
 # Runbook: the pilot server
 
 How the product runs for the pilot, and what to do when something has to change or goes wrong. The deploy checklist
-(`docs/deploy-checklist.md`) says what any deploy must get right. This page is about this one server.
+(`docs/deploy-checklist.md`) says what any deploy must get right. This page is about this one server. When Oracle
+has no ARM capacity, two small free servers stand in for it, with a managed database and the web app on Vercel
+("Two small servers (api and console)").
 
 ## What runs where
 
@@ -194,6 +196,137 @@ worker console`.
 4. **Start on it:** `sudo scripts/server/compose.sh up --detach --wait`, then
    `sudo scripts/server/compose.sh --profile local-database stop postgres`, then the smoke check. Keep the old
    Postgres's volume until the restore drill has passed against the new database's backups.
+
+## Two small servers (api and console)
+
+The pilot's free layout on Oracle's Always Free AMD servers (VM.Standard.E2.1.Micro: x86, 1 GB, two allowed), when no
+ARM capacity is to be had. It replaces Render in `docs/serverless.md` and keeps the rest: Neon, R2, Brevo, the backups
+in GitHub Actions and the web app on Vercel.
+
+- **The api's server** (`SERVER_ROLE=api`): the api and the worker, and Caddy. It never holds `DATABASE_PLATFORM_URL`
+  (`secrets.sh check` refuses it).
+- **The console's server** (`SERVER_ROLE=console`): the console alone, and Caddy, so the platform role's connection
+  string is on no server the api runs on.
+- **Routes:** Vercel's rewrites are the load balancer (`API_ORIGIN` and `CONSOLE_ORIGIN` are the two servers' https
+  addresses). Each server's Caddy routes only its own paths (`docker/server/Caddyfile`) and answers 404 to the rest.
+- **The database** is Neon's, in Singapore: each query from Mumbai takes about 70 ms there and back, so a request is
+  some tenths of a second slower than next to it.
+- **Memory:** idle, the api and the worker take about 400 MB between them and the console about 200 MB (measured
+  2026-10-28). `setup.sh` adds 4 GB of swap for heavier moments.
+- **Builds:** neither server builds. The api's image is built for linux/amd64 elsewhere and loaded onto each server:
+  by GitHub Actions on every merge ("Releases from GitHub Actions" below), or by `release.sh --build-here` on the Mac.
+- **Migrations:** neither server holds `DATABASE_MIGRATOR_URL`, so deploys run none. GitHub Actions applies a
+  release's migrations before releasing it; from the Mac, apply them first, as on Render (`docs/serverless.md`).
+
+**Working hours.** The api runs all day. The worker and the console run only inside the working hours, India time
+(`scripts/server/work-hours.sh`; 09:00 to 19:00 in the commands below), so Neon's free 100 compute-hours last the month:
+about 78 of them for ten hours a day, the rest for requests at night, which wake Neon in about a second.
+
+- **What waits for the morning:**
+  - what listeners do after a change: an invite's email, notifications' email and push, the unassigned-lead alert, and
+    each step of an import, an export or a Sheets check;
+  - the schedules: each sends one run for the night when its process starts again (the subscriptions' records, the
+    sweeps and purges, the inbox's due work).
+- **The console's screens are down outside the hours.**
+- **No demo rebuild:** the server's console is given no `DEMO_*` settings (`docker-compose.server.yml`), so the demo
+  agency Render's console rebuilds each night is left as it is.
+- **Not affected:** sign-in, the screens' own reads and writes, the bell's rows and a password reset's email happen in
+  the request.
+
+### The first setup, once
+
+1. **Oracle:** in the servers' subnet's default security list, add ingress rules for TCP 80 and 443 from `0.0.0.0/0`.
+2. **Each server, from the Mac** (`<ip>` is the server's public address; the console's role is `console`):
+
+       SERVER=ubuntu@<ip> scripts/server/release.sh --push-only
+       ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> \
+         sudo /srv/travel-crm/app/scripts/server/setup.sh --managed-database   # then sudo reboot
+       ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> \
+         sudo /srv/travel-crm/app/scripts/server/secrets.sh init <ip>.sslip.io <owner email> api
+
+3. **The owner, in their own terminal,** so no value passes through a chat:
+   `ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> sudo /srv/travel-crm/app/scripts/server/secrets.sh set <NAME>` for:
+   - `APP_URL`: the Vercel address;
+   - `DATABASE_URL`: Neon's `app_runtime`, through its pooler; on the console's server also `DATABASE_PLATFORM_URL`
+     (`app_platform`), and on the api's server never;
+   - `DATABASE_POOL_SIZE` `5`, `DATABASE_TRANSACTION_MAX_WAIT_MS` `20000` and `DATABASE_TRANSACTION_TIMEOUT_MS`
+     `30000`, since Neon wakes from sleep and is far away;
+   - the Render group's values, so nobody notices the move:
+     - `BETTER_AUTH_SECRET` (or everyone signs in again);
+     - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (or every browser's push subscription is lost);
+     - `SHEETS_HASH_KEY` (every process refuses to start on a different one);
+     - the `S3_*` ones, `SMTP_USER`, `SMTP_PASSWORD` and `EMAIL_FROM_ADDRESS`;
+     - on the api's server, `GOOGLE_SHEETS_SERVICE_ACCOUNTS`.
+
+     `init` made its own secret, VAPID pair and Sheets key; setting these replaces them.
+
+   Then `sudo /srv/travel-crm/app/scripts/server/secrets.sh check` says every setting is filled.
+
+4. **The first release:** the migrations from the Mac as on Render, then, from the Mac, the api's server and then the
+   console's (the second only loads the image):
+
+       SERVER=ubuntu@<api ip> scripts/server/release.sh --build-here
+       SERVER=ubuntu@<console ip> scripts/server/release.sh --build-here
+
+5. **The working hours,** on each server:
+   `ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> sudo /srv/travel-crm/app/scripts/server/work-hours.sh set 09:00 19:00`.
+6. **The switch:**
+   - In Vercel, set `API_ORIGIN` = `https://<api ip>.sslip.io` and `CONSOLE_ORIGIN` = `https://<console ip>.sslip.io`.
+   - Redeploy, and run `docs/serverless.md` step 7's checks.
+   - Then suspend the two Render services and the cron-job.org wake-ups (step 9), which nothing needs any more.
+
+### Releases from GitHub Actions
+
+Once it's turned on, every merge to main is released by `.github/workflows/deploy.yml`, on GitHub's runners (free for
+a public repository). It runs `scripts/server/release-servers.sh`: it builds the api's image once, applies the
+commit's migrations to Neon with that image's `migrate` (when the `DATABASE_MIGRATOR_URL` secret is set), then
+releases to the api's server and then the console's, and stops at the first failure. Releases never overlap, and none
+is cut short.
+
+**Turning it on, once:**
+
+1. **A deploy key of its own**, never the owner's personal one. On the Mac:
+   `ssh-keygen -t ed25519 -N '' -C travel-crm-github-deploy -f ~/.ssh/travel-crm-github-deploy`. Then add its public
+   half to both servers:
+
+       for ip in <api ip> <console ip>; do
+         ssh -i ~/.ssh/travel-crm-oracle ubuntu@$ip 'cat >> ~/.ssh/authorized_keys' < ~/.ssh/travel-crm-github-deploy.pub
+       done
+
+   The key reaches `ubuntu`, which can `sudo`, so whoever holds it holds the servers; that's why it lives only in the
+   `production` environment, and why that environment can ask for an approval.
+
+2. **The servers' host keys**, so the runner trusts only them: `ssh-keyscan -t ed25519 <api ip> <console ip>`, and
+   check each line's key against the Mac's (`ssh-keygen -F <ip>`).
+3. **In GitHub** (Settings → Environments → New environment, named `production`; optionally a required reviewer, the
+   owner), as the environment's secrets:
+   - `ORACLE_DEPLOY_SSH_KEY`: the private half, `~/.ssh/travel-crm-github-deploy`, whole;
+   - `DATABASE_MIGRATOR_URL`: Neon's `app_migrator` connection string, the direct one (not `-pooler`), the same the Mac
+     migrates with. Without it the run applies no migrations, and they must be applied first from the Mac.
+4. **Repository variables** (Settings → Secrets and variables → Actions → Variables):
+   - `ORACLE_API_SERVER` = `ubuntu@<api ip>` and `ORACLE_CONSOLE_SERVER` = `ubuntu@<console ip>`;
+   - `ORACLE_KNOWN_HOSTS`: step 2's two lines;
+   - `ORACLE_DEPLOY_ENABLED` = `true`, last. Without it the workflow does nothing, so a fork or a fresh clone releases
+     nothing.
+5. **Render:** once the servers serve the pilot, turn off the two Render services' auto-deploy (or suspend them), or
+   every merge also deploys there.
+
+**By hand:** Actions → "Deploy to Oracle" → Run workflow, with a commit, branch or tag; a rollback is the commit
+before, whose image the servers keep. A run in progress shows the build, the migrations and each server's
+`deploy.sh` and smoke check; the database's host is masked in the log, which is public.
+
+### Day to day
+
+- **Release:**
+  - With GitHub Actions on: merge. Without it: migrations first, from the Mac, if the release has any, then
+    `release.sh --build-here` to the api's server, then the console's (or `release-servers.sh`, which does all three,
+    with `API_SERVER`, `CONSOLE_SERVER` and, to migrate, `DATABASE_MIGRATOR_URL` set).
+  - A rollback is a release of the commit before. The servers keep its image.
+- **The hours:** change them with `work-hours.sh set <start> <end>`, or `work-hours.sh off` to run all day.
+  - `systemctl list-timers 'travel-crm-work-*'` shows the next start and stop.
+  - `journalctl -u travel-crm-work-start -u travel-crm-work-stop` shows what they did.
+- **Unchanged from Render:** behind Vercel, the client address the api sees is Vercel's, so sign-ins share one limit
+  and the website form's per-address limits don't apply ("One sign-in limit for everyone" in `docs/serverless.md`).
 
 ## Switch to a real domain
 

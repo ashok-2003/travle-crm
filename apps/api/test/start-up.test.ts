@@ -83,6 +83,22 @@ describe("starting a process", () => {
     expect(started.environment.PORT).toBe(4321);
   });
 
+  it("builds each process's services for that process, so the api's job queue only sends", async () => {
+    const { services } = fakeServices();
+    const builtFor: unknown[] = [];
+    for (const processName of ["api", "worker", "console"] as const) {
+      await startProcess(processName, () => undefined, {
+        variables: testEnvironmentVariables(),
+        create: (_environment, _logger, name) => {
+          builtFor.push(name);
+          return services;
+        },
+        createLogger: () => createMemoryLogger(),
+      });
+    }
+    expect(builtFor).toEqual(["api", "worker", "console"]);
+  });
+
   it("makes the process's structured log at the environment's level, headed by the process", async () => {
     const { services } = fakeServices();
     const logger = createMemoryLogger();

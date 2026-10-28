@@ -4,6 +4,7 @@
 # environment, else the one /srv/travel-crm/release names. Every server script comes through here. Run it as root:
 #   sudo scripts/server/compose.sh ps
 #   sudo scripts/server/compose.sh logs --tail 100 api
+# The settings say which services run here (SERVER_ROLE), so it turns on their profiles.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/paths.sh
@@ -17,8 +18,27 @@ if [ -z "${RELEASE:-}" ] && [ -f "$release_file" ]; then
 fi
 # Before the first deploy there is no release: `ps` and `logs` still work.
 export RELEASE="${RELEASE:-none}"
-# The server's own Postgres runs only while the settings point the database at it.
+role="$(server_role)"
+case "$role" in
+  all) profiles=(api-host console-host web) ;;
+  api) profiles=(api-host) ;;
+  console) profiles=(console-host) ;;
+  *)
+    echo "SERVER_ROLE in $settings_file is '$role': it must be all, api or console" >&2
+    exit 1
+    ;;
+esac
+# The server's own Postgres runs only while the settings point the database at it, and the migrations only where the
+# settings hold the migrator's connection string.
 if uses_local_database; then
-  export COMPOSE_PROFILES=local-database
+  profiles+=(local-database)
 fi
+if runs_migrations; then
+  profiles+=(migrations)
+fi
+COMPOSE_PROFILES="$(
+  IFS=,
+  echo "${profiles[*]}"
+)"
+export COMPOSE_PROFILES
 exec docker compose --project-name travel-crm --file docker-compose.server.yml --env-file "$settings_file" "$@"

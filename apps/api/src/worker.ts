@@ -5,6 +5,7 @@ import { startWorker } from "@travel-crm/domain/jobs";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { reconcileScheduleAccounts } from "@travel-crm/domain/sheets";
 import { checkXlsxReading } from "@travel-crm/integrations/spreadsheets";
+import { relayPollingOf } from "./job-polling.js";
 import { metaSettingsOf, metaStartUpLine } from "./meta-settings.js";
 import { whatsappStartUpLine } from "./whatsapp-settings.js";
 import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
@@ -50,6 +51,7 @@ const {
           }),
     }),
     logger,
+    ...relayPollingOf(environment),
     // The relay's errors, and jobs whose event wasn't found: a line each. pg-boss's problems and failing jobs reach the
     // same log through the services.
     onError: logWorkerProblem(logger),

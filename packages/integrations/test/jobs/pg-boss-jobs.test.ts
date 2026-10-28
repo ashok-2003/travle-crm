@@ -7,6 +7,7 @@ import type { DbUrls } from "@travel-crm/db/testing";
 import { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { createPgBossJobs, ownMessage, type PgBossJobs } from "../../src/jobs/index.js";
+import { pgBossOptionsOf } from "../../src/jobs/pg-boss-options.js";
 import { createMemoryLogger } from "../../src/logging/index.js";
 import { describeJobAdapter } from "./job-adapter-contract.js";
 
@@ -37,6 +38,32 @@ describeJobAdapter("pg-boss", async () => {
     schedules: () => jobs.schedules(),
     stop: () => jobs.stop(),
   };
+});
+
+describe("pg-boss's own loops", () => {
+  it("hands the scheduled sends' check interval to pg-boss, which holds it to 1 to 45 seconds", () => {
+    const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
+    expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 46 })).toThrow(
+      /cronWorkerIntervalSeconds must be between 1 and 45 seconds/,
+    );
+    expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 45 })).not.toThrow();
+  });
+
+  it("starts a send-only instance with no supervision, no schedules and its queue cache read once a day", () => {
+    const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
+    expect(pgBossOptionsOf({ ...settings, sendOnly: true })).toMatchObject({
+      supervise: false,
+      schedule: false,
+      queueCacheIntervalSeconds: 86_400,
+    });
+    // pg-boss accepts the longest queue cache interval it allows.
+    expect(() => createPgBossJobs({ ...settings, sendOnly: true })).not.toThrow();
+    // Every other instance keeps pg-boss's own loops.
+    const working = pgBossOptionsOf(settings);
+    for (const loop of ["supervise", "schedule", "queueCacheIntervalSeconds"]) {
+      expect(working, loop).not.toHaveProperty(loop);
+    }
+  });
 });
 
 describe("pg-boss jobs", () => {
@@ -184,13 +211,19 @@ describe("pg-boss jobs", () => {
     expect(await jobs.send("probe.once", { eventId: "e3" }, { id })).toBeNull();
   });
 
-  it("keeps a schedule with its time zone, and removes it", async () => {
+  it("keeps a schedule with its time zone, owing one run for what came due while nothing ran, and removes it", async () => {
     await jobs.schedule("probe.nightly", "30 2 * * *", { timeZone: "Asia/Kolkata", data: { reason: "nightly" } });
     expect(await jobs.schedules()).toContainEqual({
       queue: "probe.nightly",
       cron: "30 2 * * *",
       timeZone: "Asia/Kolkata",
     });
+    // A worker stopped overnight sends the night's run once when it starts again (pg-boss's `missed: 'once'`).
+    const rows = await db.withoutOrg(
+      (tx) => tx.$queryRaw<{ missed: string | null }[]>`
+        SELECT options ->> 'missed' AS missed FROM pgboss.schedule WHERE name = 'probe.nightly'`,
+    );
+    expect(rows).toEqual([{ missed: "once" }]);
     await jobs.unschedule("probe.nightly");
     expect((await jobs.schedules()).map((schedule) => schedule.queue)).not.toContain("probe.nightly");
   });

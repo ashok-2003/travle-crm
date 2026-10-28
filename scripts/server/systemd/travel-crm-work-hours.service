@@ -1,0 +1,13 @@
+# At boot, starts or stops the background work for the time it is, since the timers aren't persistent and Docker
+# restarts what was running before. Installed by scripts/server/work-hours.sh. Its log: journalctl -u travel-crm-work-hours
+[Unit]
+Description=travel-crm working hours: apply them at boot
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/travel-crm/app/scripts/server/work-hours.sh apply
+
+[Install]
+WantedBy=multi-user.target

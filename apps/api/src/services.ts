@@ -19,10 +19,12 @@ import { createWebPushSender, type PushSender } from "@travel-crm/integrations/p
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
+import { jobQueuePollingOf, jobQueueRoleOf } from "./job-polling.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import { createMetaServices, type MetaServices } from "./meta-services.js";
 import { createAiModel } from "./ai-services.js";
 import { createWhatsAppServices, type WhatsAppServices } from "./whatsapp-services.js";
+import type { ProcessName } from "./process-name.js";
 import { loggerOfRequest } from "./request-log.js";
 import { verifySheetsKey } from "./sheets-key-check.js";
 
@@ -96,8 +98,15 @@ export function googleSheetsOf(environment: Environment, logger: Logger): Google
       });
 }
 
-/** `logger` is the process's structured log: pg-boss's problems and job lines go there, as ids, codes and timings. */
-export function createServices(environment: Environment, logger: Logger): Services {
+/**
+ * `logger` is the process's structured log: pg-boss's problems and job lines go there, as ids, codes and timings.
+ * `processName` is the process they're for: the api's job queue only sends (jobQueueRoleOf); unnamed, it works.
+ */
+export function createServices(
+  environment: Environment,
+  logger: Logger,
+  processName: ProcessName = "worker",
+): Services {
   const db = createDatabase(environment.DATABASE_URL, {
     maxConnections: environment.DATABASE_POOL_SIZE,
     transactionLimits: transactionLimitsOf(environment),
@@ -144,6 +153,8 @@ export function createServices(environment: Environment, logger: Logger): Servic
   const jobs = createPgBossJobs({
     connectionString: environment.DATABASE_URL,
     logger,
+    ...jobQueuePollingOf(environment),
+    ...jobQueueRoleOf(processName),
   });
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,

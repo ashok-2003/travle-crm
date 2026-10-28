@@ -3,9 +3,10 @@
 // resort once started: an error nothing handled ends it through its own drain.
 import { createPinoLogger, errorFields, type ClosableLogger } from "@travel-crm/integrations/logging";
 import { loadEnvironment, type Environment } from "./environment.js";
+import type { ProcessName } from "./process-name.js";
 import { createServices, type Services } from "./services.js";
 
-export type ProcessName = "api" | "worker" | "console";
+export type { ProcessName } from "./process-name.js";
 
 /** What a process starts on: its environment, its services and its log. */
 export interface ProcessBase {
@@ -23,8 +24,8 @@ export interface StartedProcess<T> extends ProcessBase {
 export interface StartProcessOptions {
   /** The environment variables; process.env unless a test gives others. */
   variables?: Record<string, string | undefined>;
-  /** How the services are built; createServices unless a test gives others. */
-  create?: (environment: Environment, logger: ClosableLogger) => Services;
+  /** How the services are built, for the process starting; createServices unless a test gives others. */
+  create?: (environment: Environment, logger: ClosableLogger, processName: ProcessName) => Services;
   /** The structured log; a pino logger on standard output unless a test gives another. */
   createLogger?: (processName: ProcessName, environment: Environment) => ClosableLogger;
 }
@@ -84,7 +85,7 @@ export async function startProcess<T>(
       },
       `${processName} starting`,
     );
-    services = create(environment, logger);
+    services = create(environment, logger, processName);
     await services.start();
     const running = await start({ environment, services, logger });
     return { environment, services, logger, running };

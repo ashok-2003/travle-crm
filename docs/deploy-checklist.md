@@ -113,6 +113,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `DATABASE_MIGRATOR_URL` (as `app_migrator`)                       |     |        |         | ●       | yes    |
 | `DATABASE_POOL_SIZE`                                              | ○   | ○      | ○       |         |        |
 | `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host)  | ○   | ○      | ○       |         |        |
+| `JOBS_POLLING_SECONDS`: checks for work less often (metered host) | ○   | ○      | ○       |         |        |
 | `BETTER_AUTH_SECRET`: one value for all three                     | ●   | ●      | ●       |         | yes    |
 | `BETTER_AUTH_URL`, `APP_URL`: both the app's https address        | ●   | ●      | ●       |         |        |
 | `TRUSTED_ORIGINS`                                                 | ○   | ○      | ○       |         |        |
@@ -279,10 +280,16 @@ Secrets come from the platform's secret manager as environment variables, never 
   needs no new line), and `/api/public/website-forms/*` and `/api/public/client-address` are the api's under the
   `/api/*` rule. The web image's content security policy gains Turnstile's origins on `/f` and `/embed` only, and `/embed`
   alone may be framed (by any https site).
+- **Two small servers** (`docs/runbook.md`): Vercel's rewrites are this table, sending the first row to the console's
+  server and the next three to the api's. Each server's Caddy (`docker/server/Caddyfile`, by `SERVER_ROLE`) routes only
+  its own rows and `/health`, answering 404 to the rest, and every other path is Vercel's. `BETTER_AUTH_URL` and
+  `APP_URL` are the Vercel address there (the settings' `APP_URL`), not the servers'. GitHub Actions releases to them
+  (`.github/workflows/deploy.yml`): it applies the migrations with the image's `migrate`, then deploys each server.
 - **Hosting, for the form's address:** on the Oracle pilot Caddy replaces `X-Forwarded-For` with one address, so
-  `PUBLIC_FORM_PROXY_HOPS` stays unset; on Render behind Vercel set it as `docs/serverless.md` step 5b says. A host behind
-  a load balancer that appends (Cloud Run, ECS) can use `AUTH_TRUSTED_PROXIES`, which the forms follow while the hops are
-  unset.
+  `PUBLIC_FORM_PROXY_HOPS` stays unset; on Render behind Vercel set it as `docs/serverless.md` step 5b says. On the two
+  small servers behind Vercel, Caddy's one address is Vercel's, so the per-address limits don't apply there. A host
+  behind a load balancer that appends (Cloud Run, ECS) can use `AUTH_TRUSTED_PROXIES`, which the forms follow while the
+  hops are unset.
 - **`/health` needs no public route:** the platform's health checks call each service on its own port (below). The
   local proxy sends it to the api, so the smoke run can ask through it.
 
