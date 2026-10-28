@@ -189,29 +189,22 @@ function Loaded({
               </ol>
             </div>
           </ScrollArea>
-          {unseen ? (
+          {(unseen || away) && (
+            // WhatsApp's round button: an arrow to the newest, with a small count when messages came in below.
             <Button
               variant="secondary"
-              className="absolute right-4 bottom-3 rounded-full"
+              size="icon"
+              className="absolute right-4 bottom-3 size-11 rounded-full"
               onClick={toBottom}
-              aria-label={t("newMessages")}
+              aria-label={unseen ? t("newMessages") : t("toBottom")}
             >
               <ArrowDownIcon aria-hidden="true" />
-              {t("newMessages")}
-              {unseenCount > 0 && <span className="numbers">{unseenCount > 99 ? "99+" : unseenCount}</span>}
+              {unseenCount > 0 && (
+                <span className="numbers absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-caption font-semibold text-primary-foreground">
+                  {unseenCount > 99 ? "99+" : unseenCount}
+                </span>
+              )}
             </Button>
-          ) : (
-            away && (
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute right-4 bottom-3 rounded-full"
-                onClick={toBottom}
-                aria-label={t("toBottom")}
-              >
-                <ArrowDownIcon aria-hidden="true" />
-              </Button>
-            )
           )}
         </div>
       </MediaViewerProvider>
