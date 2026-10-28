@@ -11,6 +11,7 @@ import { FigureCell, type Figure } from "@/dashboard/kpi-strip";
 import { useTRPC } from "@/data/trpc";
 import { useInboxSummary } from "@/inbox/use-sales-inbox";
 import { formatCount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useHotLeads } from "@/sales/use-sales";
 import { useTodaySummary } from "@/today/use-today";
 
@@ -37,14 +38,29 @@ export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) 
       : []),
     { key: "hot", label: t("hot"), value: formatCount(hot ?? 0), hint: t("hotHint") },
     ...(money
-      ? [{ key: "money", label: t("money"), value: toCome === undefined ? "–" : rupees(toCome), hint: t("moneyHint") }]
+      ? [
+          {
+            key: "money",
+            label: t("money"),
+            value: toCome === undefined ? "–" : rupees(toCome),
+            hint: t("moneyHint"),
+            wide: true,
+          },
+        ]
       : []),
   ];
   return (
     <Card aria-label={t("title")} role="region">
-      <CardContent className={figures.length === 3 ? "grid grid-cols-3" : "grid grid-cols-2"}>
+      <CardContent className={cn("grid grid-cols-2", figures.length === 3 && "md:grid-cols-3")}>
         {figures.map((figure, index) => (
-          <FigureCell key={figure.key} figure={figure} label={figure.label} index={index} count={figures.length} />
+          <FigureCell
+            key={figure.key}
+            figure={figure}
+            label={figure.label}
+            index={index}
+            count={figures.length}
+            wideNext={figures[index + 1]?.wide === true}
+          />
         ))}
       </CardContent>
     </Card>

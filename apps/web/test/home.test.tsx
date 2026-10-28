@@ -160,4 +160,35 @@ describe("Home", () => {
     const nudgeCard = await nudge();
     expect(strip.compareDocumentPosition(nudgeCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it("gives the money figure a row of its own on a phone, so an amount up to crores is never clipped", async () => {
+    stubApi({
+      "organization.setup.get": { data: halfway },
+      "today.summary": { data: busyDay },
+      "salesInbox.summary": { data: { waiting: 3, late: 1, unread: 2 } },
+      "sales.hotLeads": { data: [] },
+      "quotes.moneySummary": {
+        data: {
+          acceptedCount: 1,
+          acceptedPaise: 1,
+          receivedPaise: 1,
+          outstandingPaise: 123_456_789_00,
+          overduePaise: 0,
+          overdueCount: 0,
+        },
+      },
+    });
+    renderWithApi(
+      <HomePage />,
+      newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "quotes"] as never }),
+      member({ isOwner: true }),
+    );
+    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
+    const money = within(strip).getByRole("group", { name: messages.home.glance.money });
+    expect(await within(money).findByText("₹12,34,56,789")).toBeVisible();
+    // A whole row on a phone (two columns), one of three from a tablet up.
+    expect(money.className).toContain("col-span-2");
+    expect(money.className).toContain("md:col-span-1");
+    expect(strip.querySelector("[data-slot=card-content]")?.className).toContain("grid-cols-2");
+  });
 });
