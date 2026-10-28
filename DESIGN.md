@@ -37,6 +37,8 @@ colors:
   role-gold: { bg: "#f7f7cc", ink: "#595501" }
   role-fern: { bg: "#d6f8d8", ink: "#36563a" }
   role-mint: { bg: "#d3fff2", ink: "#035e4d" }
+  sidebar: { fill: "#075e54", ink: "#ffffff", active: "#0f8073" }
+  send: { fill: "#00785f", pressed: "#005f4d", ink: "#ffffff" }
   chat: { wallpaper: "#efeae2", out: "#d9fdd3", in: "#ffffff", date: "#fdf5e6", tick: "#0369a1" }
 typography:
   page-title: { family: "EB Garamond", size: 30px, weight: 500, lineHeight: 36px, tracking: "-0.01em" }

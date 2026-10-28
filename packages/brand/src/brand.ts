@@ -18,17 +18,17 @@ export interface RoleColour {
 }
 
 export const brand = {
-  /** The working name (spec open item Q8). Code reads it from here; a check refuses it anywhere else. */
-  productName: "Travel Agency OS",
+  /** The product's name (the owner, 2026-10-28). Code reads it from here; a check refuses it anywhere else. */
+  productName: "Veeper AI",
   /** For the home screen icon and other tight spaces. */
-  shortName: "Agency OS",
-  tagline: "Run your travel agency in one place",
+  shortName: "Veeper",
+  tagline: "The AI sales platform for travel agencies",
   /**
    * Who runs the product. The values on .example addresses are not confirmed yet: the product owner replaces them
    * before the first staging deploy (spec 13).
    */
-  legalName: "Travel Agency OS (legal name to be confirmed)",
-  website: "https://travel-agency-os.example",
+  legalName: "Veeper AI (legal name to be confirmed)",
+  website: "https://veeper-ai.example",
   /** The product owner's address for now (given 2026-10-16), until the product has a domain of its own. */
   supportEmail: "workatashok@gmail.com",
   /**
@@ -37,7 +37,7 @@ export const brand = {
    */
   supportPhone: "+918538953742" as string | null,
   /** The sender name on email the product sends for an organization: "<organization> via <this>". */
-  emailSenderName: "Travel Agency OS",
+  emailSenderName: "Veeper AI",
 
   /**
    * Colour tokens, read by the web app's Tailwind theme, the PDF templates and the email layout. The values are the
@@ -68,6 +68,24 @@ export const brand = {
     peoplePressed: "#5b3fa6",
     peopleTint: "#efe7fd",
     peopleTintInk: "#4c2f97",
+    /**
+     * The desktop sidebar: a deep green with white words, the current page a lighter green (owner, 2026-10-28, from
+     * Ayush's palette; the rest of the neutrals stay warm). White on the active green is 5.3:1.
+     */
+    sidebar: {
+      fill: "#075e54",
+      ink: "#ffffff",
+      active: "#0f8073",
+    },
+    /**
+     * Buttons that send to a customer on WhatsApp (owner, 2026-10-28): the green family, so a send looks unlike the
+     * blue buttons that work inside the app. Links are never green.
+     */
+    send: {
+      fill: "#00785f",
+      pressed: "#005f4d",
+      ink: "#ffffff",
+    },
     /** Money: amounts received, margins, invoices and the Accounts area. Never a status. */
     money: "#034f46",
     moneyPressed: "#07352f",

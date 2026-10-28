@@ -38,7 +38,7 @@ export function SignInScreen({ auth }: { auth?: Pick<AuthClient, "signInWithEmai
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("title")} />
+      <PageHeader title={t("title")} intro={t("intro")} />
       <Tabs
         value={way}
         onValueChange={(value) => {

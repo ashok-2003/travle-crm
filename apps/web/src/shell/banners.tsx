@@ -2,8 +2,10 @@
 
 // Banners above every screen: offline (DESIGN.md: persistent while it lasts), support impersonating the member
 // (spec 6.1: impersonation always shows a banner), with the way back to the console, and the subscription's state
-// when it needs saying (spec 7.3: the trial's last week, payment due, read-only).
+// when it needs saying (spec 7.3: the trial's last week, payment due, read-only); and an invited Owner's own password
+// to choose.
 import { HeadsetIcon, WifiOffIcon } from "lucide-react";
+import { OwnPasswordBanner } from "@/account/own-password-banner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranslations } from "next-intl";
 import { useMe } from "@/session/me-context";
@@ -29,6 +31,7 @@ export function Banners() {
           </Alert>
         </div>
       )}
+      <OwnPasswordBanner />
       <SubscriptionBanner />
       {!online && (
         <p role="status" className="flex items-center gap-2 bg-surface px-4 py-2 text-label text-foreground">

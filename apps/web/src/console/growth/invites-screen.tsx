@@ -6,7 +6,7 @@
 // list copied as a sheet (tab-separated, for Google Sheets), links and messages in it.
 import type { VipInvite } from "@travel-crm/contracts/platform";
 import { brand } from "@travel-crm/brand";
-import { CrownIcon, EyeIcon, MailOpenIcon, PlusIcon, SendIcon, UserCheckIcon } from "lucide-react";
+import { EyeIcon, GiftIcon, MailOpenIcon, PlusIcon, SendIcon, UserCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -106,7 +106,7 @@ export function InvitesScreen() {
       <LoadingRows rows={4} shape="twoLines" label={t("loading")} />
     );
   } else if (data.items.length === 0) {
-    content = <EmptyState icon={CrownIcon} message={t("empty")} />;
+    content = <EmptyState icon={GiftIcon} message={t("empty")} />;
   } else {
     content = (
       <Card>

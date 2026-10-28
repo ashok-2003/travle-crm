@@ -14,8 +14,9 @@ export interface NameFinding {
   text: string;
 }
 
-/** Folders that may name the product: the brand package itself, and the design documents. */
-const exemptFolders = ["packages/brand/", "docs/"];
+/** Paths that may name the product: the brand package itself, and the design documents. */
+// apps/web/PRODUCT.md is the product profile design reviews read: it names the product on purpose, as docs/ does.
+const exemptFolders = ["packages/brand/", "docs/", "apps/web/PRODUCT.md"];
 
 /**
  * A pattern for one name: any case, and between its words any run of whitespace (line breaks included), "-", "_" or
