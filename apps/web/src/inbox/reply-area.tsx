@@ -68,7 +68,8 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
     if (status.data?.demo === true) return <Note>{t("replyDemo")}</Note>;
     if (status.data?.connectionStatus === "paused") return <Note>{t("replyPaused")}</Note>;
     if (header.windowOpenUntil !== null) {
-      return <Composer header={header} windowOpenUntil={header.windowOpenUntil} />;
+      // One box per chat: its words are that chat's own, and never carried over to another when the address changes.
+      return <Composer key={header.id} header={header} windowOpenUntil={header.windowOpenUntil} />;
     }
     const action =
       header.optedOut && header.lastInboundAt === null ? undefined : <TemplateButton conversationId={header.id} />;

@@ -349,7 +349,10 @@ describe("the Google Sheets sync over HTTP", () => {
     }
   });
 
-  it("spends Sync now from the same budget of Google requests as the connect steps", async () => {
+  it("spends Sync now from the same budget of Google requests as the connect steps", { timeout: 60_000 }, async () => {
+    // The budget is a fixed minute: start early in one, so the eight presses never straddle two.
+    const intoMinute = Date.now() % 60_000;
+    if (intoMinute > 40_000) await new Promise((resolve) => setTimeout(resolve, 60_000 - intoMinute + 200));
     const limited = createTestServer(
       {},
       { google, sheetsHashes: createSheetsHashes("test-sheets-hash-key-0123456789-abc") },

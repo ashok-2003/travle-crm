@@ -11,18 +11,18 @@ import { answers, ok, renderScreen } from "./render";
 
 const push = vi.fn();
 const finishSignIn = vi.fn();
-let search = "";
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
-  useSearchParams: () => new URLSearchParams(search),
-}));
+/** The address the person opened, as the browser has it: the screen reads ?next= from it when they sign in. */
+const openedAs = (search: string) => {
+  window.history.replaceState({}, "", `/sign-in${search}`);
+};
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/account/finish-sign-in", () => ({ useFinishSignIn: () => finishSignIn }));
 
 const { account } = messages;
 
 afterEach(() => {
   window.localStorage.clear();
-  search = "";
+  openedAs("");
   vi.clearAllMocks();
 });
 
@@ -47,7 +47,7 @@ describe("SignInScreen", () => {
   });
 
   it("goes back to the page the person was sent from", async () => {
-    search = "next=/staff";
+    openedAs("?next=/staff");
     const signInWithEmail = answers(ok({ twoFactorRequired: false }));
     renderScreen(<SignInScreen auth={{ signInWithEmail, signInWithCode: vi.fn() }} />);
     await signInByEmail();
@@ -55,7 +55,7 @@ describe("SignInScreen", () => {
   });
 
   it("takes that page on to the code step", async () => {
-    search = "next=/staff";
+    openedAs("?next=/staff");
     const signInWithEmail = answers(ok({ twoFactorRequired: true }));
     renderScreen(<SignInScreen auth={{ signInWithEmail, signInWithCode: vi.fn() }} />);
     await signInByEmail();

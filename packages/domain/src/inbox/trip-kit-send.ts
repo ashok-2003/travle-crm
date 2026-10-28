@@ -3,6 +3,7 @@
 // its own. A member sends from the chat's Send details; the worker sends a trip by itself when a customer's message holds
 // one of its keywords, once a chat. Every piece has a token made from the send's, so a repeat (a double tap, a job run
 // twice) queues nothing twice and copies no file twice.
+import { createHash } from "node:crypto";
 import { TRIP_KIT_RECORD_TYPE, WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import {
   tripKitSent,
@@ -15,7 +16,7 @@ import { isUniqueViolation, type Database, type OrgTx } from "@travel-crm/db";
 import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
-import { DomainError, newUuidV7, type Actor } from "../kernel/index.js";
+import { DomainError, type Actor } from "../kernel/index.js";
 import { CUSTOMER_WROTE_EVENT } from "./automation.js";
 import { kindOf, sendableChat, type ReplyContext } from "./outbox.js";
 import { queueSystemText, type SystemSendResult } from "./system-send.js";
@@ -33,6 +34,15 @@ const wordsOf = (text: string) =>
     .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => word !== "")
     .join(" ")} `;
+
+/** An id made from a send's token, so asking again names the same one (a uuid: version 8, the custom one). */
+function idFromToken(token: string): string {
+  const bytes = createHash("sha256").update(token).digest().subarray(0, 16);
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x80;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 /** The first trip set to send itself whose keyword (a word or a phrase) stands whole in the text. */
 export function tripKitFor<Kit extends { keywords: string[] }>(text: string, kits: readonly Kit[]): Kit | undefined {
@@ -93,7 +103,8 @@ async function deliver(
       results.push({ ok: true, messageId: earlier.id });
       continue;
     }
-    const messageId = newUuidV7();
+    // Named by the send's token, so a retry copies into the same message's file and never makes a second copy.
+    const messageId = idFromToken(clientToken);
     await files.copyFile(
       actor,
       { recordType: TRIP_KIT_RECORD_TYPE, recordId: kit.id, attachmentId: file.id },

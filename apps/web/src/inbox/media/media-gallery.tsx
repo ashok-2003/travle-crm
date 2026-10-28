@@ -8,15 +8,14 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
-import { useChatMedia, useMediaLink } from "../use-inbox";
+import { useChatMedia } from "../use-inbox";
 import { VideoThumb } from "./video-thumb";
 import { MediaViewerProvider, useOpenMedia } from "./media-viewer";
-import type { ChatMessage } from "@travel-crm/contracts/inbox";
+import type { ChatMessage, MediaLink } from "@travel-crm/contracts/inbox";
 
-function Thumb({ message }: { message: ChatMessage }) {
+function Thumb({ message, link }: { message: ChatMessage; link: MediaLink | undefined }) {
   const t = useTranslations("inbox.panel.media");
   const open = useOpenMedia();
-  const link = useMediaLink(message.id, true);
   const isVideo = message.kind === "video";
   return (
     <button
@@ -25,13 +24,13 @@ function Thumb({ message }: { message: ChatMessage }) {
       aria-label={isVideo ? t("openVideo") : t("openPhoto")}
       onClick={() => open?.(message.id)}
     >
-      {link.data !== undefined &&
+      {link !== undefined &&
         (isVideo ? (
-          <VideoThumb url={link.data.url} label={t("openVideo")} className="size-full" />
+          <VideoThumb url={link.url} label={t("openVideo")} className="size-full" />
         ) : (
           // A customer's photo from storage, cropped to a square: not an optimised Next image.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={link.data.url} alt="" className="size-full object-cover" />
+          <img src={link.url} alt="" className="size-full object-cover" />
         ))}
     </button>
   );
@@ -53,6 +52,8 @@ export function MediaGallery({ conversationId, customerName }: { conversationId:
     );
   }
   if (media.items.length === 0) return <EmptyState icon={ImageOffIcon} message={t("empty")} />;
+  // Each page came with its pictures' links: one call for the page, none for a tile.
+  const links = Object.assign({}, ...(media.data?.pages.map((page) => page.links) ?? [])) as Record<string, MediaLink>;
   const people = Object.fromEntries(media.data?.pages.flatMap((page) => Object.entries(page.people)) ?? []);
   return (
     // The viewer reads oldest first, as the chat's does.
@@ -61,7 +62,7 @@ export function MediaGallery({ conversationId, customerName }: { conversationId:
         <ul className="grid grid-cols-3 gap-1.5" aria-label={t("title")}>
           {media.items.map((message) => (
             <li key={message.id}>
-              <Thumb message={message} />
+              <Thumb message={message} link={links[message.id]} />
             </li>
           ))}
         </ul>

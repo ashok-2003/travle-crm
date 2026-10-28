@@ -6,10 +6,10 @@ import type { Actor } from "../kernel/index.js";
 import { DomainError } from "../kernel/index.js";
 import { attachmentFields, storageKeyOf, toSummary } from "./attachment-row.js";
 import type { FilesDependencies } from "./dependencies.js";
-import { assertTypeAllowed } from "./uploads.js";
+import { assertTypeAllowed, bytesStored } from "./uploads.js";
 
 export async function copyFile(
-  { db, storage }: FilesDependencies,
+  { db, storage, storageLimitBytes }: FilesDependencies,
   actor: Actor,
   from: AttachmentRefInput,
   to: { recordType: string; recordId: string },
@@ -23,9 +23,27 @@ export async function copyFile(
   );
   if (source === null) throw notFound();
   assertTypeAllowed(to.recordType, source.contentType);
-  // Pending until storage holds the bytes: a copy that fails leaves a row nothing reads, as an abandoned upload does.
-  const copy = await db.forOrg(actor.organizationId, (tx) =>
-    tx.attachment.create({
+  // The same copy asked for again (the caller names the record by its token, so a retry names the same one) finds the row an
+  // earlier try made: a ready one is the answer, a pending one is finished, and no second copy is made or counted.
+  // A new copy is pending until storage holds the bytes: one that fails leaves a row nothing reads, as an abandoned upload does,
+  // and it counts toward the storage limit at once, as an upload does.
+  const limit = storageLimitBytes ? await storageLimitBytes(actor.organizationId) : null;
+  const copy = await db.forOrg(actor.organizationId, async (tx) => {
+    const earlier = await tx.attachment.findFirst({
+      where: {
+        recordType: to.recordType,
+        recordId: to.recordId,
+        fileName: source.fileName,
+        contentType: source.contentType,
+        sizeBytes: source.sizeBytes,
+      },
+      select: attachmentFields,
+    });
+    if (earlier !== null) return earlier;
+    if (limit !== null && (await bytesStored(tx, actor.organizationId)) + source.sizeBytes > limit) {
+      throw new DomainError("LIMIT_REACHED", "STORAGE_LIMIT_REACHED", "This organization's file storage is full");
+    }
+    return tx.attachment.create({
       data: {
         recordType: to.recordType,
         recordId: to.recordId,
@@ -36,8 +54,9 @@ export async function copyFile(
         createdBy: actor.userId,
       },
       select: attachmentFields,
-    }),
-  );
+    });
+  });
+  if (copy.status === "ready") return toSummary(copy);
   if (!(await storage.copy(storageKeyOf(source), storageKeyOf(copy)))) throw notFound();
   const ready = await db.forOrg(actor.organizationId, (tx) =>
     tx.attachment.update({

@@ -24,6 +24,8 @@ import { notifyNeedsAttention } from "./attention.js";
 import { chatNameOf } from "./chat-name.js";
 import { whatsappConsentOf } from "./whatsapp-consent.js";
 import { MESSAGE_QUEUED_EVENT } from "./outbox.js";
+import { sendKeepingOrDroppingQuote } from "./quote-retry.js";
+import { queuedMessage, type Queued } from "./queued-message.js";
 import { settleNeedsReply } from "./needs-reply.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
 import { windowIsOpen } from "./window.js";
@@ -61,88 +63,6 @@ export type FailureCode =
 
 const storedReason = (result: Extract<WhatsAppSendResult, { ok: false }>): FailureCode =>
   result.reason === "template_not_approved" ? "other" : result.reason;
-
-interface Queued {
-  id: string;
-  kind: string;
-  body: string | null;
-  caption: string | null;
-  fileName: string | null;
-  template: { name: string; language: string; category: string } | null;
-  templateParams: string[];
-  /** The WhatsApp id of the message our reply quotes; null with no quote, or when that message has none yet. */
-  replyTo: string | null;
-  /** The reply quotes a message (so a send refused for the quote may go again without it). */
-  quotes: boolean;
-  /** When it was queued (or last tried again by a person). */
-  queuedAt: Date;
-  sentBy: string | null;
-  /** "automation" for an answer the system wrote. */
-  origin: string;
-  conversationId: string;
-  phoneE164: string;
-  personId: string | null;
-  lastInboundAt: Date | null;
-  integratedNumber: string;
-  connectionStatus: string;
-  connectionId: string;
-}
-
-/** The queued message with what sending it needs, or null when it is not (or no longer) waiting. */
-async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | null> {
-  const message = await tx.whatsappMessage.findUnique({
-    where: { id: messageId },
-    select: {
-      id: true,
-      kind: true,
-      body: true,
-      caption: true,
-      fileName: true,
-      occurredAt: true,
-      sentBy: true,
-      templateParams: true,
-      quotedMessageId: true,
-      quotedMessage: { select: { wamid: true } },
-      template: { select: { name: true, language: true, category: true } },
-      status: true,
-      direction: true,
-      origin: true,
-      conversation: {
-        select: {
-          id: true,
-          phoneE164: true,
-          personId: true,
-          lastInboundAt: true,
-          connection: { select: { id: true, integratedNumber: true, status: true } },
-        },
-      },
-    },
-  });
-  if (message?.status !== "queued" || message.direction !== "out") return null;
-  if (message.origin !== "staff_crm" && message.origin !== "automation") return null;
-  const { conversation } = message;
-  return {
-    id: message.id,
-    kind: message.kind,
-    body: message.body,
-    caption: message.caption,
-    fileName: message.fileName,
-    template: message.template,
-    templateParams: message.templateParams,
-    replyTo: message.quotedMessage?.wamid ?? null,
-    quotes: message.quotedMessageId !== null,
-    queuedAt: message.occurredAt,
-    sentBy: message.sentBy,
-    origin: message.origin,
-    conversationId: conversation.id,
-    phoneE164: conversation.phoneE164,
-    personId: conversation.personId,
-    lastInboundAt: conversation.lastInboundAt,
-    integratedNumber: conversation.connection.integratedNumber,
-    connectionStatus: conversation.connection.status,
-    connectionId: conversation.connection.id,
-  };
-}
 
 /** Ends the message as not sent: the reason, the usage count, the chat waiting again, and a notice to whoever sent it. */
 async function fail(
@@ -288,22 +208,17 @@ export async function sendQueued(
   if (claimed.count !== 1) return "skipped";
 
   let result: WhatsAppSendResult | "file_missing";
-  let quoteDropped = queued.quotes && queued.replyTo === null;
+  let quoteDropped: boolean;
   try {
-    result = await callProvider(dependencies, provider, organizationId, queued, true);
-    // MSG91 refused something about the message while it carries a quote: the quote may be the reason (SPIKE(reply-context)),
-    // so it goes once more without it. Only a plain refusal is tried again; "unsure" and "down" never are (at most once).
-    if (result !== "file_missing" && !result.ok && result.reason === "other" && queued.replyTo !== null) {
-      dependencies.logger.info(
-        { connectionId: queued.connectionId, providerCode: result.providerCode ?? null },
-        "MSG91 refused a WhatsApp reply with its quote: sending it without",
-      );
-      quoteDropped = true;
-      result = await callProvider(dependencies, provider, organizationId, queued, false);
-    }
+    ({ result, quoteDropped } = await sendKeepingOrDroppingQuote(
+      (withQuote) => callProvider(dependencies, provider, organizationId, queued, withQuote),
+      queued,
+      dependencies.logger,
+    ));
   } catch {
     // The call left and we do not know what came of it.
     result = { ok: false, reason: "unsure" };
+    quoteDropped = false;
   }
   if (result !== "file_missing" && !result.ok && retryableFailureReasons.includes(result.reason)) {
     if (now.getTime() - queued.queuedAt.getTime() < RETRY_FOR_MS) {

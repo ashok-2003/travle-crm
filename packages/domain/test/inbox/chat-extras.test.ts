@@ -123,13 +123,22 @@ describe("the chat window's extras", () => {
     for (const row of media.slice(0, 3)) {
       await copyMedia(test.dependencies, connection.organizationId, row.id, at(10));
     }
-    const first = await inOrg((tx) => listChatMedia(tx, member, { conversationId: conversation.id, limit: 2 }));
+    const first = await listChatMedia(test.dependencies, member, { conversationId: conversation.id, limit: 2 });
     expect(first.items.map((message) => message.caption ?? message.body)).toHaveLength(2);
     expect(first.items.every((message) => message.mediaState === "stored")).toBe(true);
     expect(first.nextCursor).not.toBeNull();
-    const rest = await inOrg((tx) =>
-      listChatMedia(tx, member, { conversationId: conversation.id, limit: 2, before: first.nextCursor ?? undefined }),
-    );
+    const rest = await listChatMedia(test.dependencies, member, {
+      conversationId: conversation.id,
+      limit: 2,
+      before: first.nextCursor ?? undefined,
+    });
+    // Every picture of the page has its link, signed in the same pass; a photo opens in place, never by an extra call.
+    expect(Object.keys(first.links).sort()).toEqual(first.items.map((message) => message.id).sort());
+    expect(Object.values(first.links)[0]).toMatchObject({ contentType: "image/png" });
+    expect(Object.values(first.links)[0]?.url).toContain("inline=1");
+    await expect(
+      listChatMedia(test.dependencies, member, { conversationId: conversation.id, limit: 2, before: randomUUID() }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND", reason: "MEDIA_CURSOR_NOT_FOUND" });
     expect(rest.items).toHaveLength(1);
     expect(rest.nextCursor).toBeNull();
     expect(new Set([...first.items, ...rest.items].map((message) => message.id)).size).toBe(3);

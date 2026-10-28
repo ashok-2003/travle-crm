@@ -2,6 +2,7 @@
 // all, like leads:view) and are views; Start a new lead also needs leads:create. A chat out of the member's scope is not found.
 // Nothing here returns MSG91's key, a webhook secret or a provider link: files come as presigned links from inbox.mediaUrl.
 import {
+  chatMediaPage,
   chatMessagePage,
   conversationHeader,
   conversationIdInput,
@@ -120,9 +121,9 @@ export const inboxRouter = router({
   /** A chat's photos and videos, newest first, for the contact panel's gallery. */
   media: reader
     .input(listChatMediaInput)
-    .output(chatMessagePage)
+    .output(chatMediaPage)
     .query(async ({ ctx, input }) => {
-      const page = await ctx.db.forOrg(ctx.member.organizationId, (tx) => listChatMedia(tx, ctx.member, input));
+      const page = await listChatMedia(ctx, ctx.member, input);
       const people = await memberNames(
         ctx.identity,
         ctx.member.organizationId,

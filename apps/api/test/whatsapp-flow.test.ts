@@ -23,7 +23,9 @@ describe("a WhatsApp message, end to end", () => {
 
   const post = (body: string, headers: Record<string, string> = signer.headers, path = signer.path) =>
     server.app.request(path, { method: "POST", headers, body });
-  const events = () => server.platform.webhookEvent.findMany({ where: { provider: "msg91-whatsapp" } });
+  // This file's own number only: the files of the run share one database, and another's events come and go.
+  const events = () =>
+    server.platform.webhookEvent.findMany({ where: { provider: "msg91-whatsapp", payload: { contains: business } } });
   const processAll = async () => {
     for (const event of await events()) {
       await processWebhookEvent({ db: server.db, providers: [server.whatsapp?.provider ?? failing()] }, event.id);
