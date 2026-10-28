@@ -27,6 +27,15 @@ cookies stay first-party and the api needs no CORS.
 - **Background work runs only while the api is awake.** The worker shares its container, so invites and notifications
   go out while someone uses the app. The nightly jobs (the console's subscription records, file sweeps, rate-limit
   clean-up) run only if their service happens to be awake. That's safe: access is worked out on every request anyway.
+- **Background work starts up to a few minutes late.** Render's Hobby workspace includes only 5 GB of outbound traffic a
+  month, and the processes' queries to Neon count as Render's "service-initiated" traffic. With pg-boss polling about
+  40 queues every 2 seconds, October 2026 used 5.41 GB that way against 104 MB of pages. Over 5 GB Render bills $0.15 a
+  GB with a card on file, and otherwise stops every free service until the 1st. So the group sets
+  `JOBS_POLLING_SECONDS=120` (step 4): each queue and the outbox are checked every 2 minutes, and pg-boss's scheduled
+  sends every 45 seconds. An invite's email, a notification's email and push, and whatever else a listener does go out
+  up to 4 minutes after the change (the outbox's wait, then the listener's queue's), and each step of an import or a
+  Sheets check can wait as long. The bell's own rows and a password reset's email are written in the request, so they
+  aren't delayed.
 - **One sign-in limit for everyone:** behind Vercel and Render the api can't trust a client's address, so all sign-ins
   share one limit (3 wrong tries in 10 seconds). Guessing passwords stays slow, but two staff signing in at the same
   moment may be asked to wait a few seconds.
@@ -97,6 +106,7 @@ settings on GitHub. Keep every value the steps make in your password manager, an
    | `DATABASE_POOL_SIZE`                       | `5`                                                          |
    | `DATABASE_TRANSACTION_MAX_WAIT_MS`         | `20000` (a tenth of a CPU opens its first connection slowly) |
    | `DATABASE_TRANSACTION_TIMEOUT_MS`          | `30000`                                                      |
+   | `JOBS_POLLING_SECONDS`                     | `120` (spares Render's 5 GB of traffic: above)               |
    | `BETTER_AUTH_SECRET`                       | from setup-values                                            |
    | `BETTER_AUTH_URL`, `APP_URL`               | the Vercel address, e.g. `https://travel-crm.vercel.app`     |
    | `S3_ENDPOINT`                              | R2's endpoint                                                |
@@ -247,7 +257,7 @@ and the database would stop until the next month.
   data.
 - **Rotate a secret:** change it in the Render group (or one service), and Render restarts with it. A new
   `BETTER_AUTH_SECRET` signs everyone out. Never change the VAPID pair; a new pair drops every push subscription.
-- **Watch:** Neon's compute-hours and storage, Render's free hours, R2's 10 GB, Brevo's 300 a day and its bounces, and
+- **Watch:** Neon's compute-hours and storage, Render's free hours and its 5 GB of outbound traffic, R2's 10 GB, Brevo's 300 a day and its bounces, and
   that a backup lands every night.
 
 ## Before the next agency
