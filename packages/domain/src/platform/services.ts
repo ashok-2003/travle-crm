@@ -15,7 +15,11 @@ import type { Identity } from "../identity/index.js";
 
 import type { PlatformWhatsApp } from "./whatsapp-settings.js";
 
-import type { AiPrices } from "./usage-analytics.js";
+/** What one million tokens cost, in paise, as the console's settings give it (AI_PRICE_*). */
+export interface AiPrices {
+  inputPaisePerMillion: number;
+  outputPaisePerMillion: number;
+}
 
 export interface PlatformServices {
   /** The platform role: every organization, in transactions that can step into one (asOrganization). */

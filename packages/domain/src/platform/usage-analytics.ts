@@ -5,15 +5,9 @@
 // sees every organization, so each query names the organization it counts.
 import type { OrganizationUsage, UsageOverview } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
-import type { PlatformServices } from "./services.js";
+import type { AiPrices, PlatformServices } from "./services.js";
 
 const DAY_MS = 86_400_000;
-
-/** What one million tokens cost, in paise, as the console's settings give it (AI_PRICE_*). */
-export interface AiPrices {
-  inputPaisePerMillion: number;
-  outputPaisePerMillion: number;
-}
 
 /** This month's cost so far, and at this pace by the month's end (UTC months). */
 function aiCost(prices: AiPrices | null, tokens: { input: number; output: number }, now: Date) {

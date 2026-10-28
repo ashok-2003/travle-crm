@@ -39,7 +39,8 @@ export { platformJobHandlers } from "./jobs.js";
 export { listOrganizationMembers } from "./members.js";
 export { onboardOrganization, resendInvite } from "./onboarding.js";
 export { cancelVipInvite, createVipInvites, inviteUrl, listVipInvites, openVipInvite } from "./invites.js";
-export { organizationUsageOf, usageOverviewOf, type AiPrices } from "./usage-analytics.js";
+export { organizationUsageOf, usageOverviewOf } from "./usage-analytics.js";
+export type { AiPrices } from "./services.js";
 export { downloadOrganizationExport } from "./export-download.js";
 export type { ExportSizes } from "./export-storage.js";
 export {
