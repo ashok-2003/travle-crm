@@ -89,6 +89,11 @@ const environmentSchema = z
      */
     DATABASE_TRANSACTION_MAX_WAIT_MS: z.coerce.number().int().min(1).default(2000),
     DATABASE_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().min(1).default(5000),
+    /**
+     * How often, in seconds, the worker looks for work: each queue's jobs, the outbox's events and pg-boss's scheduled
+     * sends (at most every 45 s). Unset, pg-boss's 2 s and the relay's 1 s. A metered network sets more (docs/serverless.md).
+     */
+    JOBS_POLLING_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(600).optional()),
     /** Signs and encrypts cookies and two-factor secrets. Generate with `openssl rand -base64 32`. */
     BETTER_AUTH_SECRET: z.string().min(32, "must be at least 32 characters"),
     /** Where browsers reach the api, e.g. https://app.example.in. */

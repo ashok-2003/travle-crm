@@ -18,6 +18,7 @@ import { createWebPushSender, type PushSender } from "@travel-crm/integrations/p
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
+import { jobQueuePollingOf } from "./job-polling.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import { createMetaServices, type MetaServices } from "./meta-services.js";
 import { createWhatsAppServices, type WhatsAppServices } from "./whatsapp-services.js";
@@ -140,6 +141,7 @@ export function createServices(environment: Environment, logger: Logger): Servic
   const jobs = createPgBossJobs({
     connectionString: environment.DATABASE_URL,
     logger,
+    ...jobQueuePollingOf(environment),
   });
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,
