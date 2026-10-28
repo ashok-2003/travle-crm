@@ -23,6 +23,8 @@ RUN pnpm fetch
 COPY . .
 RUN pnpm install --frozen-lockfile --offline
 ENV NEXT_TELEMETRY_DISABLED=1
+# The build type-checks the api and the whole app: that needs more than Node's default heap (the build stage only).
+ENV NODE_OPTIONS=--max-old-space-size=4096
 # The browser drops a query cache saved by another build (next.config.ts): pass the commit, or the build's time is used.
 ARG CACHE_VERSION
 # Where the browser uploads files and loads logos from, which the Content-Security-Policy allows: the bucket's origin,
