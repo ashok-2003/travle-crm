@@ -23,6 +23,9 @@ model Quote {
   taxRateBasisPoints Int                @default(500) @map("tax_rate_basis_points")
   /// A GST state code or OUTSIDE_INDIA; null is the agency's own state.
   placeOfSupply      String?            @map("place_of_supply")
+  /// The agency's GST state when the quote was sent, frozen with its prices: its documents split the tax by it, never by
+  /// the state the agency has today. Null for a draft.
+  supplierStateCode  String?            @map("supplier_state_code")
   subtotalPaise      BigInt             @default(0) @map("subtotal_paise")
   taxPaise           BigInt             @default(0) @map("tax_paise")
   totalPaise         BigInt             @default(0) @map("total_paise")

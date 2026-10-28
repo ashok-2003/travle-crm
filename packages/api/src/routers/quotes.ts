@@ -143,11 +143,14 @@ export const quotesRouter = router({
   setStatus: editor
     .input(setQuoteStatusInput)
     .output(quoteDetail)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => setQuoteStatus(tx, ctx.member, input, new Date())),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        setQuoteStatus(tx, ctx.member, input, context.now, context.supplierStateCode),
+      );
+    }),
 
-  delete: editor
+  delete: moneyEditor
     .input(quoteIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteQuote(tx, ctx.member, input.quoteId)),
@@ -157,11 +160,18 @@ export const quotesRouter = router({
   share: moneyEditor
     .input(quoteIdInput)
     .output(quoteLink)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
         const quote = await getQuote(tx, ctx.member, input.quoteId);
         if (quote.status === "draft") {
-          await setQuoteStatus(tx, ctx.member, { quoteId: quote.id, status: "sent" }, new Date());
+          await setQuoteStatus(
+            tx,
+            ctx.member,
+            { quoteId: quote.id, status: "sent" },
+            context.now,
+            context.supplierStateCode,
+          );
         }
         const link = await createShareLink(tx, ctx.member, {
           recordType: QUOTE_RECORD_TYPE,
@@ -171,8 +181,8 @@ export const quotesRouter = router({
           expiresAt: new Date(Date.now() + 90 * 24 * 3_600_000),
         });
         return { path: link.path };
-      }),
-    ),
+      });
+    }),
 
   addInstallment: moneyEditor
     .input(addInstallmentInput)
@@ -305,7 +315,7 @@ export const quotesRouter = router({
     ),
 
   /** The dashboard's money: accepted, received, still to come and overdue. */
-  moneySummary: orgProcedure
+  moneySummary: freshProcedure
     .requires("quotes:view", "money:view_reports")
     .input(moneySummaryInput)
     .output(moneySummary)
@@ -313,7 +323,7 @@ export const quotesRouter = router({
       const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
       const today = calendarDateIn(new Date(), timeZone);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) =>
-        moneySummaryOf(tx, ctx.member, { from: input.from, to: input.to, today }),
+        moneySummaryOf(tx, ctx.member, { from: input.from, to: input.to, today, timeZone }),
       );
     }),
 });

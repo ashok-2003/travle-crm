@@ -13,6 +13,7 @@ import {
   acceptQuoteFromLink,
   addInstallment,
   createQuote,
+  deleteQuote,
   getQuote,
   issuePaymentReceipt,
   issueQuoteInvoice,
@@ -68,7 +69,8 @@ describe("a quote through its life", () => {
       return createQuote(tx, owner, { leadId: lead.id, ...fields(overrides) }, context);
     });
   }
-  const send = (quoteId: string) => inOrg((tx) => setQuoteStatus(tx, owner, { quoteId, status: "sent" }, context.now));
+  const send = (quoteId: string) =>
+    inOrg((tx) => setQuoteStatus(tx, owner, { quoteId, status: "sent" }, context.now, context.supplierStateCode));
   const sent = async (overrides: Partial<CreateQuoteInput> = {}) => send((await aQuote(overrides)).id);
   const pay = (quoteId: string, amountPaise: number, requestId = randomUUID()) =>
     inOrg((tx) =>
@@ -316,9 +318,96 @@ describe("a quote through its life", () => {
       const quote = await send(draft.id);
       await pay(quote.id, 1);
       const summary = (today: string) =>
-        inOrg((tx) => moneySummaryOf(tx, owner, { from: "2026-11-01", to: "2026-11-30", today }));
+        inOrg((tx) =>
+          moneySummaryOf(tx, owner, { from: "2026-11-01", to: "2026-11-30", today, timeZone: "Asia/Kolkata" }),
+        );
       expect((await summary("2026-11-10")).overdueCount).toBe(0);
       expect((await summary("2026-11-11")).overdueCount).toBeGreaterThan(0);
+    });
+  });
+
+  describe("the final money fixes", () => {
+    it("refuses a void once the quote's tax invoice exists, so the numbered invoice never outlives its payment", async () => {
+      const quote = await sent();
+      const { paymentId } = await pay(quote.id, 300_000);
+      await inOrg((tx) => issueQuoteInvoice(tx, owner, quote.id, documents));
+      expect(await reasonOf(inOrg((tx) => voidPayment(tx, owner, paymentId, context.now)))).toBe("QUOTE_INVOICED");
+      expect((await inOrg((tx) => getQuote(tx, owner, quote.id))).status).toBe("accepted");
+    });
+
+    it("puts the quote and lead back whichever order the payments are voided in", async () => {
+      for (const order of ["first-then-second", "second-then-first"] as const) {
+        const quote = await sent();
+        const first = await pay(quote.id, 300_000);
+        const second = await pay(quote.id, 200_000);
+        const [a, b] = order === "first-then-second" ? [first, second] : [second, first];
+        await inOrg((tx) => voidPayment(tx, owner, a.paymentId, context.now));
+        expect((await inOrg((tx) => getQuote(tx, owner, quote.id))).status, order).toBe("accepted");
+        await inOrg((tx) => voidPayment(tx, owner, b.paymentId, context.now));
+        expect(await inOrg((tx) => getQuote(tx, owner, quote.id)), order).toMatchObject({
+          status: "sent",
+          acceptedAt: null,
+        });
+        expect(await stageOf(quote.leadId), order).toBe("quote_sent");
+      }
+    });
+
+    it("deletes a draft or a sent quote with no money, and never an accepted one", async () => {
+      const draft = await aQuote();
+      await inOrg((tx) => deleteQuote(tx, owner, draft.id));
+      const quote = await sent();
+      await pay(quote.id, 100_000);
+      expect(await reasonOf(inOrg((tx) => deleteQuote(tx, owner, quote.id)))).toBeOneOf([
+        "QUOTE_HAS_PAYMENTS",
+        "QUOTE_NOT_DELETABLE",
+      ]);
+      const another = await sent();
+      await inOrg((tx) => setQuoteStatus(tx, owner, { quoteId: another.id, status: "accepted" }, context.now));
+      expect(await reasonOf(inOrg((tx) => deleteQuote(tx, owner, another.id)))).toBe("QUOTE_NOT_DELETABLE");
+    });
+
+    it("splits the tax by the agency's state when the quote was sent, not the state it has today", async () => {
+      const quote = await sent();
+      await pay(quote.id, 100_000);
+      // The agency moved its registration to Delhi after sending: the invoice still splits as the quote was sent (Maharashtra).
+      const issued = await inOrg((tx) =>
+        issueQuoteInvoice(tx, owner, quote.id, { ...documents, supplierStateCode: "07" }),
+      );
+      const row = await inOrg((tx) => tx.issuedDocument.findUniqueOrThrow({ where: { id: issued.documentId } }));
+      const labels = JSON.stringify(row.renderInput);
+      expect(labels).toContain("CGST");
+      expect(labels).not.toContain("IGST");
+    });
+
+    it("cuts a period in the agency's own time zone", async () => {
+      // 20:00 UTC on 10 March is 01:30 on the 11th in India.
+      const accepted = new Date("2027-03-10T20:00:00Z");
+      const lead = await inOrg((tx) => aLead(tx, { ownerUserId: owner.userId, stage: "contacted" }));
+      const quote = await inOrg(async (tx) => {
+        const made = await createQuote(tx, owner, { leadId: lead.id, ...fields() }, context);
+        await setQuoteStatus(tx, owner, { quoteId: made.id, status: "sent" }, accepted);
+        await recordPayment(
+          tx,
+          owner,
+          {
+            quoteId: made.id,
+            amountPaise: 100_000,
+            receivedOn: "2027-03-11",
+            method: "upi",
+            reference: "",
+            requestId: randomUUID(),
+          },
+          accepted,
+        );
+        return made;
+      });
+      const count = (day: string) =>
+        inOrg((tx) => moneySummaryOf(tx, owner, { from: day, to: day, today: day, timeZone: "Asia/Kolkata" })).then(
+          (summary) => summary.acceptedCount,
+        );
+      expect(quote.id).toBeDefined();
+      expect(await count("2027-03-10")).toBe(0);
+      expect(await count("2027-03-11")).toBeGreaterThan(0);
     });
   });
 });

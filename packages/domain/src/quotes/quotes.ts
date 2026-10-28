@@ -120,6 +120,8 @@ export async function setQuoteStatus(
   access: MemberAccess,
   input: SetQuoteStatusInput,
   now: Date,
+  /** The agency's GST state, frozen on the quote when it is sent. */
+  supplierStateCode: string | null = null,
 ): Promise<QuoteDetail> {
   const before = await findQuoteForChange(tx, access, input.quoteId);
   if (before.status !== input.status) {
@@ -131,7 +133,7 @@ export async function setQuoteStatus(
       where: { id: before.id },
       data: {
         status: input.status,
-        ...(input.status === "sent" ? { sentAt: now } : {}),
+        ...(input.status === "sent" ? { sentAt: now, supplierStateCode } : {}),
         ...(input.status === "accepted" ? { acceptedAt: now, acceptedName: null } : {}),
       },
     });
@@ -198,11 +200,21 @@ export async function newQuoteVersion(
   return getQuote(tx, access, draft.id);
 }
 
-/** Gone from every list. A quote with money recorded on it stays: void the payments first. */
+/**
+ * Gone from every list. A quote with money recorded on it stays (void the payments first), and so does one that is the booking:
+ * accepted, invoiced or carrying costs.
+ */
 export async function deleteQuote(tx: OrgTx, access: MemberAccess, quoteId: string): Promise<void> {
   const quote = await findQuoteForChange(tx, access, quoteId);
   if (quote.payments.length > 0) {
     throw new DomainError("CONFLICT", "QUOTE_HAS_PAYMENTS", "This quote has payments recorded on it");
+  }
+  if (
+    quote.status === "accepted" ||
+    quote.invoiceDocumentId !== null ||
+    (await tx.tripCost.count({ where: { quoteId: quote.id } })) > 0
+  ) {
+    throw new DomainError("CONFLICT", "QUOTE_NOT_DELETABLE", "An accepted quote is the booking and can't be deleted");
   }
   await tx.quote.update({ where: { id: quote.id }, data: softDeleted(access.userId) });
   await recordAudit(tx, access, {

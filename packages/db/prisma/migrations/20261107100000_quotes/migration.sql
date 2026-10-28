@@ -14,6 +14,7 @@ CREATE TABLE "quote" (
     "notes" TEXT NOT NULL DEFAULT '',
     "tax_rate_basis_points" INTEGER NOT NULL DEFAULT 500,
     "place_of_supply" TEXT,
+    "supplier_state_code" TEXT,
     "subtotal_paise" BIGINT NOT NULL DEFAULT 0,
     "tax_paise" BIGINT NOT NULL DEFAULT 0,
     "total_paise" BIGINT NOT NULL DEFAULT 0,

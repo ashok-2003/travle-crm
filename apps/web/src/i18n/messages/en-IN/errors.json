@@ -208,6 +208,8 @@
     "PAYMENT_EXCEEDS_BALANCE": "That is more than is left to pay on this quote.",
     "PAYMENT_HAS_RECEIPT": "A receipt was issued for this payment, so it can't be voided.",
     "REQUEST_REUSED": "This payment was recorded already. Close this and open the quote again.",
+    "QUOTE_INVOICED": "A tax invoice was issued for this quote, so its payments can't be voided.",
+    "QUOTE_NOT_DELETABLE": "An accepted quote is the booking and can't be deleted.",
     "GST_STATE_REQUIRED": "Save your GST state in the business details before you quote with tax.",
     "AI_OFF": "The AI is off for this agency. An Owner or Admin turns it on in Settings, AI.",
     "AI_NOT_READY": "The AI isn't set up on this server yet.",

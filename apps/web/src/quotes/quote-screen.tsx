@@ -188,7 +188,8 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
             {t("markDeclined")}
           </Button>
         )}
-        {mayEdit && quote.payments.length === 0 && (
+        {/* The same rule as the api's: an accepted, paid or invoiced quote is a booking and stays. */}
+        {mayEdit && quote.status !== "accepted" && quote.payments.length === 0 && quote.invoiceDocumentId === null && (
           <Button
             variant="ghost"
             onClick={() => {

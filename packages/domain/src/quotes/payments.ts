@@ -126,7 +126,8 @@ export async function recordPayment(
 
 /**
  * Voids a payment recorded by mistake. A payment with a receipt is not voided: the receipt is a numbered document that
- * can't be taken back. Voiding the payment that accepted the quote puts the quote and its lead back as they were.
+ * can't be taken back, and nor is a payment on a quote whose tax invoice was issued. Voiding the last live payment puts the quote
+ * and its lead back as they were before the first payment, whichever order the payments were voided in.
  */
 export async function voidPayment(tx: OrgTx, access: MemberAccess, paymentId: string, now: Date): Promise<void> {
   const found = await tx.quotePayment.findUnique({ where: { id: paymentId }, select: { quoteId: true } });
@@ -151,6 +152,13 @@ export async function voidPayment(tx: OrgTx, access: MemberAccess, paymentId: st
       "A receipt was issued for this payment, so it can't be voided",
     );
   }
+  if (quote.invoiceDocumentId !== null) {
+    throw new DomainError(
+      "CONFLICT",
+      "QUOTE_INVOICED",
+      "A tax invoice was issued for this quote, so its payments can't be voided",
+    );
+  }
   await tx.quotePayment.update({ where: { id: payment.id }, data: { voidedAt: now, voidedBy: access.userId } });
   await recordAudit(tx, access, {
     action: "quote.payment-voided",
@@ -160,14 +168,20 @@ export async function voidPayment(tx: OrgTx, access: MemberAccess, paymentId: st
   });
   const othersLeft = quote.payments.some((other) => other.id !== payment.id);
   if (othersLeft) return;
-  if (payment.quoteStatusBefore !== null && quote.status === "accepted" && quote.acceptedName === null) {
-    await tx.quote.update({ where: { id: quote.id }, data: { status: payment.quoteStatusBefore, acceptedAt: null } });
+  // What the first payment changed is remembered on it, voided or not: the earliest one that remembers is the state before any.
+  const first = await tx.quotePayment.findFirst({
+    where: { quoteId: quote.id, OR: [{ quoteStatusBefore: { not: null } }, { leadStageBefore: { not: null } }] },
+    orderBy: { createdAt: "asc" },
+    select: { quoteStatusBefore: true, leadStageBefore: true },
+  });
+  if (first?.quoteStatusBefore != null && quote.status === "accepted" && quote.acceptedName === null) {
+    await tx.quote.update({ where: { id: quote.id }, data: { status: first.quoteStatusBefore, acceptedAt: null } });
   }
-  if (payment.leadStageBefore !== null) {
+  if (first?.leadStageBefore != null) {
     await retreatLeadStage(
       tx,
       access,
-      { leadId: quote.leadId, from: leadStage.parse(payment.leadStageBefore), to: "won" },
+      { leadId: quote.leadId, from: leadStage.parse(first.leadStageBefore), to: "won" },
       now,
     );
   }

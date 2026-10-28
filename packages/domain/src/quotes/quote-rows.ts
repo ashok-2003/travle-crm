@@ -30,6 +30,7 @@ export const quoteColumns = {
   notes: true,
   taxRateBasisPoints: true,
   placeOfSupply: true,
+  supplierStateCode: true,
   subtotalPaise: true,
   taxPaise: true,
   totalPaise: true,

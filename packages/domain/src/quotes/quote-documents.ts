@@ -54,7 +54,8 @@ function moneyTotals(quote: Quote, context: DocumentContext) {
   const worked = quoteMoney(
     itemsOf(quote),
     quote.taxRateBasisPoints,
-    context.supplierStateCode ?? "",
+    // The state the agency had when it sent the quote, not the one it has now.
+    quote.supplierStateCode ?? context.supplierStateCode ?? "",
     quote.placeOfSupply,
   );
   return [
