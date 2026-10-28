@@ -32,18 +32,12 @@ on_server() {
   ssh -i "$key" -o IdentitiesOnly=yes "$server" "$@"
 }
 
-# Builds travel-crm-api:<release> for linux/amd64 unless this computer has it already, and loads it onto the server
-# unless the server has it already. The release is the commit's first 12 characters, as deploy.sh names it.
+# Builds travel-crm-api:<release> for linux/amd64 unless this computer has it already (build-api-image.sh), and loads
+# it onto the server unless the server has it already. The release is the commit's first 12 characters, as deploy.sh
+# names it.
 bring_api_image() {
-  local image="travel-crm-api:${commit:0:12}" source
-  if [ "$(docker image inspect --format '{{.Architecture}}' "$image" 2>/dev/null || true)" != amd64 ]; then
-    echo "Building $image for linux/amd64 on this computer (the first build takes a while)"
-    source="$(mktemp -d)"
-    # shellcheck disable=SC2064 # the directory is known now, and removed however the script ends
-    trap "rm -rf '$source'" EXIT
-    git archive "$commit" | tar -x -C "$source"
-    docker buildx build --platform linux/amd64 --file "$source/apps/api/Dockerfile" --tag "$image" --load "$source"
-  fi
+  local image="travel-crm-api:${commit:0:12}"
+  scripts/server/build-api-image.sh "$commit"
   if on_server "sudo docker image inspect $image >/dev/null 2>&1"; then
     echo "$image is already on $server"
   else

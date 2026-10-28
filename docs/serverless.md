@@ -3,7 +3,8 @@
 How the product runs for the pilot on free plans, and how to set it up, step by step. It stands in until a VM is
 rented; then `docs/runbook.md` applies (its scripts run on any Ubuntu VM: EC2, Compute Engine, Oracle). Its "Two small
 servers (api and console)" replaces only Render, with two free Oracle servers that never sleep, and keeps everything
-else here. What any deploy must get right is in `docs/deploy-checklist.md`.
+else here; GitHub Actions releases to them, migrations first (`.github/workflows/deploy.yml`). What any deploy must get
+right is in `docs/deploy-checklist.md`.
 
 ## What runs where
 
