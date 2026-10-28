@@ -13,8 +13,10 @@ source scripts/server/paths.sh
   echo "Can't read $settings_file: run this as root, after scripts/server/secrets.sh init" >&2
   exit 1
 }
+# The release file holds the whole commit (deploy.sh), and images are tagged with its first 12 characters, as deploy.sh
+# names them: the whole one names no image, so Compose would build one here, which a small server can't.
 if [ -z "${RELEASE:-}" ] && [ -f "$release_file" ]; then
-  RELEASE="$(cat "$release_file")"
+  RELEASE="$(cut -c 1-12 "$release_file")"
 fi
 # Before the first deploy there is no release: `ps` and `logs` still work.
 export RELEASE="${RELEASE:-none}"
