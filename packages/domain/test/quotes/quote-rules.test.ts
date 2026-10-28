@@ -109,6 +109,15 @@ describe("a quote through its life", () => {
       expect(refusal).toBe("QUOTE_FROZEN");
     });
 
+    it("refuses any field of a sent quote, the travel date included", async () => {
+      const quote = await sent();
+      const refusal = await reasonOf(
+        inOrg((tx) => updateQuote(tx, owner, { quoteId: quote.id, ...fields({ startDate: "2027-01-05" }) }, context)),
+      );
+      expect(refusal).toBe("QUOTE_FROZEN");
+      expect((await inOrg((tx) => getQuote(tx, owner, quote.id))).startDate).toBeNull();
+    });
+
     it("keeps the place of supply an edit sends, so IGST works", async () => {
       const draft = await aQuote({ placeOfSupply: "07" });
       const again = await inOrg((tx) =>

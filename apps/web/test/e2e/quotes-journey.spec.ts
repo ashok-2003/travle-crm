@@ -44,9 +44,13 @@ test("an Owner quotes, the customer accepts on the link, the Owner records a pay
 
   // The quote is accepted and, being sent, can no longer be changed.
   await page.reload();
-  await expect(page.getByText("Accepted by Rahul Sharma on the link.")).toBeVisible();
-  await expect(page.getByText("This quote was sent, so its prices are fixed")).toBeVisible();
-  await expect(page.getByLabel("Quote title")).toBeDisabled();
+  await expect(
+    page.getByText(/Rahul Sharma accepted this on .*\. It is now the booking, so its prices can't change\./),
+  ).toBeVisible();
+  // Read as text, with nothing to type in, add or delete.
+  await expect(page.getByLabel("Quote title")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add a line" })).toHaveCount(0);
+  await expect(page.getByText("4 × ₹12,000")).toBeVisible();
 
   // A payment, recorded once, moves what is left.
   await page.getByRole("button", { name: "Record payment" }).click();

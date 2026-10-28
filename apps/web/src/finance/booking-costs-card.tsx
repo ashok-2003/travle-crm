@@ -115,14 +115,21 @@ function Costs({ quoteId }: { quoteId: string }) {
               </div>
               <div className="flex flex-col">
                 <dt className="text-caption text-muted-foreground">{t("profit")}</dt>
+                {/* With no cost yet the whole price would read as profit: a dash until one is entered. */}
                 <dd
                   className={cn(
                     "numbers font-semibold",
-                    data.profitPaise < 0 ? "text-status-bad-ink" : "text-status-good-ink",
+                    data.costs.length > 0 && (data.profitPaise < 0 ? "text-status-bad-ink" : "text-status-good-ink"),
                   )}
                 >
-                  {rupees(data.profitPaise)}{" "}
-                  <span className="text-caption font-normal">{marginText(data.marginBasisPoints)}</span>
+                  {data.costs.length === 0 ? (
+                    "—"
+                  ) : (
+                    <>
+                      {rupees(data.profitPaise)}{" "}
+                      <span className="text-caption font-normal">{marginText(data.marginBasisPoints)}</span>
+                    </>
+                  )}
                 </dd>
               </div>
             </dl>

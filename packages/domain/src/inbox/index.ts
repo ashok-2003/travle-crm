@@ -32,6 +32,7 @@ export {
   automationOf,
   createKeywordReply,
   CUSTOMER_WROTE_EVENT,
+  TEXT_RECEIVED_EVENT,
   deleteKeywordReply,
   listKeywordReplies,
   saveAutomation,

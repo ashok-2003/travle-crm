@@ -197,8 +197,8 @@ describe("the AI, step one", () => {
       const event = (organizationId: string, conversationId: string, messageId: string): DomainEvent => ({
         id: randomUUID(),
         organizationId,
-        type: "whatsapp.customer-wrote",
-        payload: { conversationId, messageId, firstEver: true },
+        type: "whatsapp.text-received",
+        payload: { conversationId, messageId },
         occurredAt: testNow,
       });
       for (const [subject, modules] of [

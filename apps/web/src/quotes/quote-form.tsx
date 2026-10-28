@@ -20,6 +20,7 @@ import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useWriteAccess } from "@/subscription/write-access";
+import { FrozenQuote } from "./frozen-quote";
 
 interface Values {
   title: string;
@@ -152,6 +153,8 @@ export function QuoteForm({
   const errorOf = (name: string) =>
     form.getFieldState(name as "title").error === undefined ? undefined : t("problem");
 
+  // A quote that was sent is read, not written: its words as text, with nothing to add or delete.
+  if (frozen) return <FrozenQuote quote={quote} />;
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
       <Card>
@@ -382,14 +385,12 @@ export function QuoteForm({
       </Card>
 
       <RefusalAlert error={sending.error} />
-      {!frozen && (
-        <div className="sticky bottom-4 flex justify-end">
-          <Button type="submit" size="lg" disabled={busy}>
-            {sending.isPending && <Spinner aria-hidden="true" />}
-            {sending.isPending ? t("saving") : t("save")}
-          </Button>
-        </div>
-      )}
+      <div className="sticky bottom-4 flex justify-end">
+        <Button type="submit" size="lg" disabled={busy}>
+          {sending.isPending && <Spinner aria-hidden="true" />}
+          {sending.isPending ? t("saving") : t("save")}
+        </Button>
+      </div>
     </form>
   );
 }

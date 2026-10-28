@@ -3,11 +3,11 @@
 // lead's owner is told to call now: on the quote's second open (the first already tells whoever shared it), and on a
 // buying word at most once every six hours. The alert carries fixed words, never the customer's own (a push passes
 // through the phone maker's servers).
-import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
+import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { shareLinkOpenedEvent } from "@travel-crm/contracts/share-links";
 import type { OrgTx } from "@travel-crm/db";
 import { noticeKey } from "../crm/index.js";
-import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
+import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -104,8 +104,8 @@ export function quoteOpenedListener(): EventListener {
 export function customerWroteListener(): EventListener {
   return defineListener({
     name: "sales.customer-wrote",
-    eventType: CUSTOMER_WROTE_EVENT,
-    payload: whatsappCustomerWroteEvent,
+    eventType: TEXT_RECEIVED_EVENT,
+    payload: whatsappTextReceivedEvent,
     handle: async (event, context) => {
       await context.forOrg(async (tx) => {
         const chat = await tx.whatsappConversation.findUnique({

@@ -41,8 +41,8 @@ describe("hot leads", () => {
     const event: DomainEvent = {
       id: randomUUID(),
       organizationId,
-      type: "whatsapp.customer-wrote",
-      payload: { conversationId: chat.id, messageId: message.id, firstEver: true },
+      type: "whatsapp.text-received",
+      payload: { conversationId: chat.id, messageId: message.id },
       occurredAt: testNow,
     };
     const context: ListenerContext = { actor: systemActor(organizationId), forOrg: (work) => inOrg(work) };
@@ -79,12 +79,37 @@ describe("hot leads", () => {
       {
         id: randomUUID(),
         organizationId,
-        type: "whatsapp.customer-wrote",
-        payload: { conversationId: chat.id, messageId: message.id, firstEver: true },
+        type: "whatsapp.text-received",
+        payload: { conversationId: chat.id, messageId: message.id },
         occurredAt: testNow,
       },
       { actor: systemActor(organizationId), forOrg: (work) => inOrg(work) },
     );
     expect(await inOrg((tx) => tx.leadSignal.count({ where: { leadId: lead.id } }))).toBe(0);
+  });
+
+  it("hears a buying word in an agency with no automation at all, and the automatic answers never run for it", async () => {
+    const connection = await aConnectedAgency(test);
+    const { organizationId } = connection;
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const ownerUserId = randomUUID();
+    await deliver(
+      test,
+      fromCustomer(connection, { customerNumber: freshPhone().replace("+", ""), text: "Kitna price hai?" }),
+    );
+    const events = await inOrg(async (tx) => (await tx.outboxEvent.findMany()).map((event) => event.type));
+    expect(events).toContain("whatsapp.text-received");
+    expect(events).not.toContain("whatsapp.customer-wrote");
+    const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
+    const row = await inOrg((tx) => tx.outboxEvent.findFirstOrThrow({ where: { type: "whatsapp.text-received" } }));
+    const lead = await inOrg((tx) =>
+      aLead(tx, { ...(chat.personId === null ? {} : { personId: chat.personId }), ownerUserId, stage: "contacted" }),
+    );
+    await customerWroteListener().handle(
+      { id: row.id, organizationId, type: row.type, payload: row.payload as never, occurredAt: testNow },
+      { actor: systemActor(organizationId), forOrg: (work) => inOrg(work) },
+    );
+    expect(await inOrg((tx) => tx.leadSignal.count({ where: { leadId: lead.id } }))).toBe(1);
+    expect(await inOrg((tx) => tx.notification.count({ where: { kind: "sales.hot-lead" } }))).toBe(1);
   });
 });

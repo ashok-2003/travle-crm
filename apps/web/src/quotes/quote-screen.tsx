@@ -30,7 +30,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { refusalOf } from "@/data/api-error";
 import { leadRoute, quoteRoute, routes } from "@/lib/routes";
-import { useHolds } from "@/session/me-context";
+import { formatDay } from "@/lib/format";
+import { useHolds, useMe } from "@/session/me-context";
 import { BookingCostsCard } from "@/finance/booking-costs-card";
 import { QuoteForm } from "./quote-form";
 import { QuoteMoney } from "./quote-money";
@@ -204,9 +205,6 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
           <CopyButton value={link} label={t("copyLink")} />
         </div>
       )}
-      {quote.acceptedName !== null && (
-        <p className="text-muted-foreground">{t("acceptedBy", { name: quote.acceptedName })}</p>
-      )}
       <RefusalAlert
         error={
           changes.share.error ??
@@ -243,14 +241,30 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
 /** Why a quote that is no longer a draft can't be written, and the way on: a new version, or the one that replaced it. */
 function FrozenNotice({ quote }: { quote: QuoteDetail }) {
   const t = useTranslations("quotes.quote");
+  const { timeZone } = useMe().organization;
   if (quote.status === "draft") return null;
   const replaced = quote.status === "replaced";
+  // An accepted quote is one sentence: who accepted it, when, and that it is now the booking.
+  if (quote.status === "accepted") {
+    const when = quote.acceptedAt === null ? null : formatDay(new Date(quote.acceptedAt), { timeZone });
+    return (
+      <Alert>
+        <InfoIcon aria-hidden="true" />
+        <AlertDescription>
+          {t(quote.acceptedName === null ? "acceptedSentence" : "acceptedByOn", {
+            name: quote.acceptedName ?? "",
+            when: when ?? "",
+          })}
+        </AlertDescription>
+      </Alert>
+    );
+  }
   return (
     <Alert>
       <InfoIcon aria-hidden="true" />
       <AlertTitle>{replaced ? t("replacedTitle") : t("frozenTitle")}</AlertTitle>
       <AlertDescription>
-        {replaced ? t("replacedBody") : quote.status === "accepted" ? t("acceptedFrozenBody") : t("frozenBody")}
+        {replaced ? t("replacedBody") : t("frozenBody")}
         {quote.replacedById !== null && (
           <>
             {" "}

@@ -44,7 +44,7 @@ export function quotePage(quote: PublicQuote, agencyName: string, notice: ShareL
   const items = quote.items
     .map(
       (item) =>
-        `<tr><td>${escapeHtml(item.description)}${item.detail === "" ? "" : `<small>${escapeHtml(item.detail)}</small>`}${item.quantity > 1 ? `<small>× ${String(item.quantity)}</small>` : ""}</td><td class="n">${rupees(item.amountPaise)}</td></tr>`,
+        `<tr><td>${escapeHtml(item.description)}${item.detail === "" ? "" : `<small>${escapeHtml(item.detail)}</small>`}<small>${String(item.quantity)} × ${rupees(item.unitPricePaise)}</small></td><td class="n">${rupees(item.amountPaise)}</td></tr>`,
     )
     .join("");
   const dues = quote.installments
@@ -85,7 +85,7 @@ header p{margin:0;color:${colours.muted}}
 h1{font-weight:600;font-size:1.6rem;margin:.25rem 0}
 h2{font-size:1.1rem;margin:0 0 .5rem}
 section{background:${colours.surface};border-radius:12px;padding:1rem;margin-top:1rem}
-ol{padding-left:1.2rem;margin:0}li{margin-bottom:.75rem}li p{margin:.25rem 0 0;color:${colours.muted}}
+ol{list-style:none;padding:0;margin:0}li{margin-bottom:.75rem}li p{margin:.25rem 0 0;color:${colours.muted}}
 table{width:100%;border-collapse:collapse}td{padding:.5rem 0;vertical-align:top}td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 small{display:block;color:${colours.muted}}
 tfoot td{font-weight:600}

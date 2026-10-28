@@ -17,7 +17,7 @@ export interface PublicQuote {
   adults: number;
   children: number;
   days: { title: string; description: string }[];
-  items: { description: string; detail: string; quantity: number; amountPaise: number }[];
+  items: { description: string; detail: string; quantity: number; unitPricePaise: number; amountPaise: number }[];
   inclusions: string;
   exclusions: string;
   notes: string;
@@ -91,6 +91,7 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
       description: item.description,
       detail: item.detail,
       quantity: item.quantity,
+      unitPricePaise: item.unitPricePaise,
       amountPaise: item.unitPricePaise * item.quantity,
     })),
     inclusions: quote.inclusions,

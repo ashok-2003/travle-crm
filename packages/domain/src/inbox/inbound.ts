@@ -6,7 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import type { ParsedMessage } from "@travel-crm/integrations/whatsapp";
 import { agencyFactsOf, mayBringIn, receiveWhatsAppContact, type WhatsAppContactOutcome } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
-import { automationCouldAct, CUSTOMER_WROTE_EVENT } from "./automation.js";
+import { automationCouldAct, CUSTOMER_WROTE_EVENT, TEXT_RECEIVED_EVENT } from "./automation.js";
 import { systemActor } from "../kernel/index.js";
 import type { ConnectionRow } from "./connection-row.js";
 import { COPY_MEDIA_QUEUE, type InboxDependencies } from "./dependencies.js";
@@ -133,6 +133,19 @@ export async function receiveInbound(
           messageId: row.id,
           firstEver: conversation.lastInboundAt === null && conversation.lastMessageAt === null,
         },
+      });
+    }
+    // Words are read by what listens for them (hot-lead buying words, the AI's guess), for every agency, with no automatic answer.
+    if (
+      facts !== null &&
+      writing &&
+      !hidden &&
+      !isOptOutText(message.text) &&
+      (message.text ?? message.caption ?? "").trim() !== ""
+    ) {
+      await publishEvent(tx, {
+        type: TEXT_RECEIVED_EVENT,
+        payload: { conversationId: conversation.id, messageId: row.id },
       });
     }
     if (writing && personId !== null && isOptOutText(message.text)) {

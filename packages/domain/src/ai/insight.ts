@@ -4,14 +4,14 @@
 // of the customer's messages (the newest one's turn, a few seconds after it), never again for the same one; and it never
 // changes a lead's stage or anything but its own row. Erased with the customer.
 import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight } from "@travel-crm/contracts/ai";
-import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
+import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { organizationTimeZone } from "../identity/index.js";
-import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
+import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
@@ -39,8 +39,8 @@ export function scoreOnCustomerWroteListener(dependencies: {
 }): EventListener {
   return defineListener({
     name: "ai.customer-wrote",
-    eventType: CUSTOMER_WROTE_EVENT,
-    payload: whatsappCustomerWroteEvent,
+    eventType: TEXT_RECEIVED_EVENT,
+    payload: whatsappTextReceivedEvent,
     handle: async (event, context) => {
       if (!dependencies.ai.configured) return;
       // Nothing leaves for an agency that hasn't switched the AI on, or has no right to it.
