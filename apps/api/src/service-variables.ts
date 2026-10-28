@@ -147,6 +147,8 @@ export const serviceVariables = {
       )
       .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
   ),
+  /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */
+  AI_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake MSG91 (development and tests only; refused in production). */
   MSG91_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake Graph (development and tests only; refused in production). */

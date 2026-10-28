@@ -6,6 +6,7 @@ import type { TestProject } from "vitest/node";
 import { setup as startDatabase, teardown as stopDatabase, type DbUrls } from "@travel-crm/db/testing/global-setup";
 import { startFakeGoogle, type FakeGoogle } from "./support/fake-google";
 import { startFakeMeta, type FakeMeta } from "./support/fake-meta";
+import { startFakeOpenRouter, type FakeOpenRouter } from "./support/fake-openrouter";
 import { startFakeMsg91, type FakeMsg91 } from "./support/fake-msg91";
 import { startFakeTurnstile, type FakeTurnstile } from "./support/fake-turnstile";
 import { startMailpit, type Mailpit } from "./support/mailpit";
@@ -26,6 +27,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   let google: FakeGoogle | undefined;
   let meta: FakeMeta | undefined;
   let msg91: FakeMsg91 | undefined;
+  let openRouter: FakeOpenRouter | undefined;
   let turnstile: FakeTurnstile | undefined;
   /** Stops the containers that started; the database last, whatever stopping the others did. */
   const stopContainers = async () => {
@@ -36,6 +38,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
         google?.stop(),
         meta?.stop(),
         msg91?.stop(),
+        openRouter?.stop(),
         turnstile?.stop(),
       ]);
     } finally {
@@ -50,6 +53,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     google = await startFakeGoogle();
     meta = await startFakeMeta();
     msg91 = await startFakeMsg91();
+    openRouter = await startFakeOpenRouter();
     turnstile = await startFakeTurnstile();
     const servers = await startServers({
       databaseUrl: urls.runtime,
@@ -59,6 +63,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       google: { url: google.url, accountEmail: await google.client.accountEmail() },
       meta: { url: meta.url },
       msg91: { url: msg91.url },
+      ai: { url: openRouter.url },
       turnstile: { verifyUrl: turnstile.verifyUrl },
     });
     process.env.E2E_BASE_URL = servers.webUrl;
@@ -70,6 +75,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     process.env.E2E_GOOGLE_URL = google.url;
     process.env.E2E_META_URL = meta.url;
     process.env.E2E_MSG91_URL = msg91.url;
+    process.env.E2E_AI_URL = openRouter.url;
     process.env.E2E_MSG91_PHOTO_URL = msg91.photoUrl;
     process.env.E2E_TURNSTILE_URL = turnstile.verifyUrl;
     return async () => {

@@ -9,6 +9,7 @@ import { cp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import path from "node:path";
 import { META_E2E } from "./fake-meta";
+import { OPENROUTER_E2E_KEY } from "./fake-openrouter";
 import { MSG91_E2E } from "./fake-msg91";
 import type { EmailVariables } from "./mailpit";
 import type { StorageVariables } from "./minio";
@@ -179,6 +180,7 @@ export async function startServers({
   google,
   meta,
   msg91,
+  ai,
   turnstile,
 }: {
   databaseUrl: string;
@@ -194,6 +196,8 @@ export async function startServers({
   meta: { url: string };
   /** The fake MSG91 (support/fake-msg91.ts): the address the real adapter is given. */
   msg91: { url: string };
+  /** The fake OpenRouter (support/fake-openrouter.ts): where the AI adapter's calls are sent; only the api reads it. */
+  ai: { url: string };
   /** The fake Turnstile's siteverify address (support/fake-turnstile.ts). */
   turnstile: { verifyUrl: string };
 }): Promise<Servers> {
@@ -264,6 +268,9 @@ export async function startServers({
       TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
       TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
       TURNSTILE_VERIFY_URL: turnstile.verifyUrl,
+      // Suggest reply (ADR 0029): the api alone asks the AI, and its calls go to the fake.
+      OPENROUTER_API_KEY: OPENROUTER_E2E_KEY,
+      AI_TEST_SERVER_URL: ai.url,
     };
     const api = start(tsx, ["src/server.ts"], { cwd: apiDirectory, env: formEnvironment });
     const worker = start(tsx, ["src/worker.ts"], { cwd: apiDirectory, env: apiEnvironment });
