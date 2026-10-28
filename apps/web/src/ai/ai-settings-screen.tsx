@@ -19,8 +19,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useWriteAccess } from "@/subscription/write-access";
+import { AutopilotOverview } from "./autopilot-overview";
+import { AutopilotSection } from "./autopilot-section";
 import { KnowledgeSection } from "./knowledge-section";
-import { useAiSettings, useSaveAiSettings } from "./use-ai";
+import { LearningsSection } from "./learnings-section";
+import { useAiSettings, useAutopilot, useSaveAiSettings } from "./use-ai";
+import { VoiceSection } from "./voice-section";
 
 function SettingsForm({ saved }: { saved: AiSettings }) {
   const t = useTranslations("ai.settings");
@@ -88,6 +92,19 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
   );
 }
 
+function AutopilotParts({ aiOn }: { aiOn: boolean }) {
+  const autopilot = useAutopilot();
+  if (autopilot.data === undefined) return null;
+  return (
+    <>
+      <AutopilotOverview />
+      <AutopilotSection key={String(autopilot.dataUpdatedAt)} saved={autopilot.data} aiOn={aiOn} />
+      <LearningsSection learnedAt={autopilot.data.learnedAt} learning={autopilot.data.learning} />
+      <VoiceSection voice={autopilot.data.voice} />
+    </>
+  );
+}
+
 export function AiSettingsScreen() {
   const t = useTranslations("ai.settings");
   const settings = useAiSettings();
@@ -99,6 +116,7 @@ export function AiSettingsScreen() {
         <>
           <SettingsForm key={String(settings.dataUpdatedAt)} saved={settings.data} />
           <KnowledgeSection />
+          <AutopilotParts aiOn={settings.data.enabled} />
         </>
       ) : settings.isError ? (
         <ErrorState

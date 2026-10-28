@@ -64,6 +64,12 @@ export async function usageOverviewOf(
     const visits = await visitTotals(tx, now);
     const members = await tx.member.groupBy({ by: ["organizationId"], _count: { _all: true } });
     const leads = await tx.lead.groupBy({ by: ["organizationId"], _count: { _all: true } });
+    // Each agency's month row starts on its own first day, which can be a day before the UTC month's.
+    const ai = await tx.aiUsage.groupBy({
+      by: ["organizationId"],
+      where: { month: { gte: new Date(monthStartOf(now).getTime() - DAY_MS) } },
+      _sum: { inputTokens: true, outputTokens: true },
+    });
     const vips = new Set(
       (await tx.organizationWelcome.findMany({ where: { vip: true }, select: { organizationId: true } })).map(
         (one) => one.organizationId,
@@ -73,8 +79,12 @@ export async function usageOverviewOf(
       rows.find((row) => row.organizationId === id)?._count._all ?? 0;
     const items = organizations.map((organization) => {
       const visit = visits.get(organization.id);
-      // Our AI counts calls, not tokens (ai_usage), so no price can be applied: the cost shows as 0 until it counts tokens.
-      const cost = aiCost(prices, { input: 0, output: 0 }, now);
+      const tokens = ai.find((row) => row.organizationId === organization.id)?._sum;
+      const cost = aiCost(
+        prices,
+        { input: Number(tokens?.inputTokens ?? 0n), output: Number(tokens?.outputTokens ?? 0n) },
+        now,
+      );
       return {
         organizationId: organization.id,
         name: organization.name,
@@ -174,9 +184,9 @@ export async function organizationUsageOf(
     // The month's row starts on the agency's own first day, which can be a day before the UTC month's.
     const ai = await tx.aiUsage.aggregate({
       where: { organizationId, month: { gte: new Date(monthStartOf(now).getTime() - DAY_MS) } },
-      _sum: { calls: true },
+      _sum: { calls: true, inputTokens: true, outputTokens: true },
     });
-    const tokens = { input: 0, output: 0 };
+    const tokens = { input: Number(ai._sum.inputTokens ?? 0n), output: Number(ai._sum.outputTokens ?? 0n) };
     return {
       pages: pages.map((page) => ({ path: page.path, visits: page._count._all, seconds: page._sum.seconds ?? 0 })),
       members: members.sort((a, b) => b.seconds30d - a.seconds30d),

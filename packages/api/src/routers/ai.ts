@@ -4,6 +4,18 @@
 import {
   addAiKnowledgeInput,
   aiDocumentSlot,
+  aiLearnResult,
+  aiLearningList,
+  aiOverview,
+  aiVoice,
+  autopilotSettings,
+  chatAi,
+  conversationAiInput,
+  learnVoiceInput,
+  saveAutopilotInput,
+  setAiLearningInput,
+  setChatAiInput,
+  setChatPersonaInput,
   aiKnowledgeIdInput,
   aiKnowledgeList,
   aiSettings,
@@ -19,8 +31,21 @@ import {
 } from "@travel-crm/contracts/ai";
 import {
   addKnowledge,
+  aiAllowed,
   aiEnabled,
+  aiOverviewOf,
   aiSettingsOf,
+  autopilotSettingsOf,
+  chatAiOf,
+  clearVoice,
+  learnNow,
+  learnVoice,
+  listLearnings,
+  resumeChat,
+  saveAutopilot,
+  setChatMode,
+  setChatPersona,
+  setLearning,
   confirmDocument,
   deleteKnowledge,
   leadInsightOf,
@@ -130,4 +155,94 @@ export const aiRouter = router({
       const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
       return suggestReply(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
     }),
+
+  /** The autopilot's settings: off until an Owner or Admin turns it on. */
+  autopilot: freshProcedure
+    .requires("ai:manage")
+    .output(autopilotSettings)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => autopilotSettingsOf(tx))),
+
+  saveAutopilot: freshProcedure
+    .requires("ai:manage")
+    .input(saveAutopilotInput)
+    .output(autopilotSettings)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input)),
+    ),
+
+  /** The autopilot's last day at a glance. */
+  overview: freshProcedure
+    .requires("ai:manage")
+    .output(aiOverview)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => aiOverviewOf(tx, new Date()))),
+
+  /** What it learned from the agency's chats, for the owner to turn off or dismiss. */
+  learnings: freshProcedure
+    .requires("ai:manage")
+    .output(aiLearningList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listLearnings(tx))),
+
+  setLearning: freshProcedure
+    .requires("ai:manage")
+    .input(setAiLearningInput)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => setLearning(tx, ctx.member, input))),
+
+  learnNow: freshProcedure
+    .requires("ai:manage")
+    .output(aiLearnResult)
+    .mutation(async ({ ctx }) => {
+      if (!ctx.ai?.configured)
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      const agencyName = async (organizationId: string) =>
+        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
+      return learnNow({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, new Date());
+    }),
+
+  /** Learns one staff member's way of talking from their own messages (the browser dropped the customer's side). */
+  learnVoice: freshProcedure
+    .requires("ai:manage")
+    .input(learnVoiceInput)
+    .output(aiVoice)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.ai?.configured)
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      return learnVoice({ db: ctx.db, ai: ctx.ai }, ctx.member, input, new Date());
+    }),
+
+  clearVoice: freshProcedure
+    .requires("ai:manage")
+    .mutation(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => clearVoice(tx, ctx.member))),
+
+  /** A chat's autopilot state, for the inbox. */
+  chatAi: orgProcedure
+    .requires("ai:suggest", "inbox:view")
+    .input(conversationAiInput)
+    .output(chatAi)
+    .query(async ({ ctx, input }) => {
+      const allowed = aiAllowed(await ctx.subscriptions.entitlementsOf(ctx.member.organizationId));
+      return ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
+        chatAiOf(tx, input.conversationId, ctx.ai?.configured === true && allowed && (await aiEnabled(tx))),
+      );
+    }),
+
+  /** The AI on, off or as the agency says in one chat; turning it on gives a handed-over chat back. */
+  setChatMode: freshProcedure
+    .requires("ai:suggest", "inbox:view", "inbox:reply")
+    .input(setChatAiInput)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => setChatMode(tx, ctx.member, input))),
+
+  /** "Let AI answer now": a handed-over chat goes back to the AI. */
+  resumeChat: freshProcedure
+    .requires("ai:suggest", "inbox:view", "inbox:reply")
+    .input(conversationAiInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => resumeChat(tx, ctx.member, input.conversationId)),
+    ),
+
+  setChatPersona: freshProcedure
+    .requires("ai:suggest", "inbox:view", "inbox:reply")
+    .input(setChatPersonaInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setChatPersona(tx, ctx.member, input)),
+    ),
 });

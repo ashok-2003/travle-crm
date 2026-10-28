@@ -106,3 +106,18 @@ export async function recordWhatsappOptOut(
     after: { purpose: "whatsapp", source: "customer" },
   });
 }
+
+/**
+ * Whether the chat's customer asked to stop WhatsApp messages: their consent is withdrawn, or, for a chat with no person
+ * linked (no consent to read), a STOP among the words they wrote. STOP wins in every chat.
+ */
+export async function chatOptedOut(tx: OrgTx, chat: { id: string; personId: string | null }): Promise<boolean> {
+  if (chat.personId !== null) return (await whatsappConsentOf(tx, chat.personId)).state === "withdrawn";
+  const words = await tx.whatsappMessage.findMany({
+    where: { conversationId: chat.id, direction: "in", body: { not: null } },
+    orderBy: { occurredAt: "desc" },
+    take: 100,
+    select: { body: true },
+  });
+  return words.some((row) => isOptOutText(row.body));
+}

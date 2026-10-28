@@ -29,3 +29,16 @@ export async function usedThisMonth(tx: OrgTx, now: Date, timeZone: string): Pro
   const row = await tx.aiUsage.findFirst({ where: { month: monthStartOf(now, timeZone) }, select: { calls: true } });
   return row?.calls ?? 0;
 }
+
+/** Adds the tokens a call used to this month's row, for the console's cost figures. */
+export async function recordTokens(
+  tx: OrgTx,
+  now: Date,
+  timeZone: string,
+  tokens: { input: number; output: number },
+): Promise<void> {
+  await tx.aiUsage.updateMany({
+    where: { month: monthStartOf(now, timeZone) },
+    data: { inputTokens: { increment: tokens.input }, outputTokens: { increment: tokens.output } },
+  });
+}

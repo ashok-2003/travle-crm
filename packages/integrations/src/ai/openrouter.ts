@@ -20,6 +20,7 @@ export interface OpenRouterOptions {
 
 interface ChatCompletion {
   model?: string;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
   choices?: { message?: { content?: string | null }; finish_reason?: string }[];
 }
 
@@ -79,7 +80,13 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           if (choice?.finish_reason === "content_filter") return { ok: false, reason: "refused" };
           const text = choice?.message?.content ?? "";
           if (text.trim() === "") continue;
-          return { ok: true, text, model: body.model ?? model };
+          return {
+            ok: true,
+            text,
+            model: body.model ?? model,
+            inputTokens: body.usage?.prompt_tokens ?? 0,
+            outputTokens: body.usage?.completion_tokens ?? 0,
+          };
         } catch {
           // A timeout or a network failure: the next model may answer. Nothing of the error is kept: it could name the request.
           continue;

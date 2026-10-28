@@ -95,6 +95,9 @@ export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   // no settings saved, the buying words are on by default.
   const sales = await tx.salesAutomation.findFirst({ select: { hotKeywords: true, followEnabled: true } });
   if (sales?.followEnabled === true) return true;
+  // The AI's autopilot listens too, for an agency that turned it on or put it on in a chat.
+  if ((await tx.aiAutopilot.count({ where: { autopilot: true } })) > 0) return true;
+  if ((await tx.aiChat.count({ where: { mode: "on" } })) > 0) return true;
   return (await tx.tripKit.count({ where: { autoSend: true, keywords: { isEmpty: false } } })) > 0;
 }
 

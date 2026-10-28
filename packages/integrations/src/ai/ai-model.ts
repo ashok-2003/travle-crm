@@ -3,7 +3,7 @@
 // the in-memory one tests script. Domain code never sees a vendor's SDK or URL.
 
 /** The features that call the model; each has its own list of models in the settings. */
-export const aiFeatures = ["suggest_reply", "score_lead"] as const;
+export const aiFeatures = ["suggest_reply", "score_lead", "autopilot", "learn"] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 
 export interface AiMessage {
@@ -27,6 +27,9 @@ export type AiResult =
       text: string;
       /** The model that actually answered. */
       model: string;
+      /** The tokens the provider counted, 0 when it said nothing. */
+      inputTokens: number;
+      outputTokens: number;
     }
   | {
       /** rate_limited (try later), unavailable (no model answered), not_configured, refused (the provider declined to answer). */

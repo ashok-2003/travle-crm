@@ -22,6 +22,9 @@ model AiUsage {
   id             String       @id @default(uuid(7)) @db.Uuid
   month          DateTime     @db.Date
   calls          Int          @default(0)
+  /// The tokens those calls used, as the provider counted them, for the console's cost figures.
+  inputTokens    BigInt       @default(0) @map("input_tokens")
+  outputTokens   BigInt       @default(0) @map("output_tokens")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([organizationId, id])
@@ -97,4 +100,106 @@ model LeadAiInsight {
   @@unique([organizationId, id])
   @@unique([organizationId, leadId], map: "lead_ai_insight_one_per_lead")
   @@map("lead_ai_insight")
+}
+
+/// How the agency's autopilot works (the AI answering WhatsApp chats by itself, AI step 2): off until an Owner or Admin turns
+/// it on, then how it speaks, when it follows up, and whose way of talking it copies. One row each.
+model AiAutopilot {
+  organizationId   String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// The AI answers customers by itself in every chat that doesn't say otherwise. Off by default.
+  autopilot        Boolean      @default(false)
+  /// The name it signs as, e.g. "Riya from Sharma Holidays"; empty for the agency's name.
+  agentName        String       @default("") @map("agent_name")
+  /// Hours of a customer's silence, inside the 24-hour window, before it nudges once; 0 for never.
+  followUpHours    Int          @default(4) @map("follow_up_hours")
+  /// The most it writes in one chat in a day, so a loop can't run away.
+  maxRepliesPerDay Int          @default(25) @map("max_replies_per_day")
+  /// customer, english, hindi, hinglish or other (CHECK ai_autopilot_language_value).
+  language         String       @default("customer")
+  languageOther    String       @default("") @map("language_other")
+  /// human, short or points (CHECK ai_autopilot_style_value).
+  style            String       @default("human")
+  /// none, few or many (CHECK ai_autopilot_emojis_value).
+  emojis           String       @default("few")
+  /// friendly, professional or enthusiastic (CHECK ai_autopilot_tone_value).
+  tone             String       @default("friendly")
+  /// alert (never hands over by itself; flags the team), asked or careful (CHECK ai_autopilot_handoff_value).
+  handoff          String       @default("alert")
+  /// It chooses whether and when to follow up each quiet customer, inside the window.
+  smartFollowUp    Boolean      @default(true) @map("smart_follow_up")
+  /// It learns from the agency's chats each night (they go to the AI provider, numbers and emails taken out). Off by default.
+  learning         Boolean      @default(false)
+  learnedAt        DateTime?    @map("learned_at") @db.Timestamptz(6)
+  /// The staff member whose way of talking it copies (from their own messages in a WhatsApp export): their name, the style
+  /// guide the model wrote and a few of their own messages. Never the customer's side.
+  voiceName        String?      @map("voice_name")
+  voiceProfile     String?      @map("voice_profile")
+  voiceExamples    String[]     @default([]) @map("voice_examples")
+  /// sales (a sales agent) or natural (an everyday conversation as the copied person) (CHECK ai_autopilot_persona_value).
+  persona          String       @default("sales")
+  updatedBy        String?      @map("updated_by") @db.Uuid
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("ai_autopilot")
+}
+
+/// A chat's autopilot state: whether it answers here, whether it handed the chat to a person and why, what it remembers of
+/// the conversation, what it is doing now and what it planned next.
+model AiChat {
+  organizationId  String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String               @id @default(uuid(7)) @db.Uuid
+  conversationId  String               @map("conversation_id") @db.Uuid
+  /// default (the agency's), on or off (CHECK ai_chat_mode_value).
+  mode            String               @default("default")
+  handedOffAt     DateTime?            @map("handed_off_at") @db.Timestamptz(6)
+  handoffReason   String?              @map("handoff_reason")
+  /// The conversation so far, as the agent keeps it: facts, wishes, what was promised.
+  memory          String               @default("")
+  lastReplyAt     DateTime?            @map("last_reply_at") @db.Timestamptz(6)
+  /// The day (UTC) the reply count is for, and the count.
+  repliesOn       DateTime?            @map("replies_on") @db.Date
+  repliesCount    Int                  @default(0) @map("replies_count")
+  /// The last nudge, so a silent customer gets one per silence.
+  lastNudgeAt     DateTime?            @map("last_nudge_at") @db.Timestamptz(6)
+  /// What it is doing now, for the inbox: queued or thinking, else null (CHECK ai_chat_turn_state_value).
+  turnState       String?              @map("turn_state")
+  turnAt          DateTime?            @map("turn_at") @db.Timestamptz(6)
+  followUpAt      DateTime?            @map("follow_up_at") @db.Timestamptz(6)
+  followUpReason  String?              @map("follow_up_reason")
+  /// What it flagged for the team while it kept answering ("wants to book"), and when.
+  attentionReason String?              @map("attention_reason")
+  attentionAt     DateTime?            @map("attention_at") @db.Timestamptz(6)
+  /// When the team gave the chat back to the AI: their messages before it no longer keep it waiting.
+  resumedAt       DateTime?            @map("resumed_at") @db.Timestamptz(6)
+  /// default (the agency's), sales or natural (CHECK ai_chat_persona_value).
+  persona         String               @default("default")
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation    WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, conversationId], map: "ai_chat_one_per_chat")
+  @@index([organizationId, followUpAt], map: "ai_chat_follow_up")
+  @@map("ai_chat")
+}
+
+/// A lesson learned from the agency's chats: what customers want, what wins a booking, an objection and its answer, how to
+/// speak, a question asked often. General, never about one person. The owner turns each off or dismisses it.
+model AiLearning {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// need, winning, objection, style or faq (CHECK ai_learning_kind_value).
+  kind           String
+  text           String
+  evidence       Int          @default(1)
+  /// active, off or dismissed (CHECK ai_learning_state_value).
+  state          String       @default("active")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, state], map: "ai_learning_state")
+  @@map("ai_learning")
 }

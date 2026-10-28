@@ -11,7 +11,13 @@ export function createAiModel(environment: Environment): AiModel | null {
   const testServer = environment.AI_TEST_SERVER_URL;
   return createOpenRouterModel({
     apiKey,
-    models: { suggest_reply: environment.AI_SUGGEST_MODELS, score_lead: environment.AI_SCORE_MODELS },
+    models: {
+      suggest_reply: environment.AI_SUGGEST_MODELS,
+      score_lead: environment.AI_SCORE_MODELS,
+      // The autopilot and the nightly lessons write for customers and read many chats: the chat models do both.
+      autopilot: environment.AI_SUGGEST_MODELS,
+      learn: environment.AI_SUGGEST_MODELS,
+    },
     ...(testServer === undefined
       ? {}
       : {

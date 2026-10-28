@@ -21,7 +21,11 @@ export function createMemoryAiModel(): MemoryAiModel {
       requests.push(request);
       const next = answers.shift();
       if (next === undefined) return Promise.resolve({ ok: false, reason: "not_configured" });
-      return Promise.resolve(typeof next === "string" ? { ok: true, text: next, model: "memory-model" } : next);
+      return Promise.resolve(
+        typeof next === "string"
+          ? { ok: true, text: next, model: "memory-model", inputTokens: 0, outputTokens: 0 }
+          : next,
+      );
     },
   };
 }

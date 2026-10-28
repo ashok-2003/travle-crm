@@ -96,6 +96,9 @@ model Organization {
   salesTouches                SalesTouch[]
   leadSignals                 LeadSignal[]
   aiSettings                  AiSettings?
+  aiAutopilot                 AiAutopilot?
+  aiChats                     AiChat[]
+  aiLearnings                 AiLearning[]
   aiUsage                     AiUsage[]
   aiKnowledge                 AiKnowledge[]
   leadAiInsights              LeadAiInsight[]

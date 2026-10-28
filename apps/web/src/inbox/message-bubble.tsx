@@ -121,7 +121,7 @@ export function MessageBubble({
             <span>{t("formerMember")} ·</span>
           )}
           {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
-          {message.origin === "automation" && <span>{t("automatic")} ·</span>}
+          {message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
           {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
           <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
           {ours && !failed && <Ticks status={message.status} className="size-3.5" />}

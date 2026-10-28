@@ -144,6 +144,12 @@ export {
   syncTemplates,
   type TemplateDependencies,
 } from "./templates.js";
-export { isOptOutText, recordWhatsappOptOut, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
+export {
+  chatOptedOut,
+  isOptOutText,
+  recordWhatsappOptOut,
+  whatsappConsentOf,
+  type WhatsappConsent,
+} from "./whatsapp-consent.js";
 export { NEEDS_ATTENTION_KIND } from "./attention.js";
 export { queueSystemText, type SystemSendResult } from "./system-send.js";

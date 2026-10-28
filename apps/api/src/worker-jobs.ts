@@ -68,7 +68,18 @@ import {
   SALES_DUE_WORK_QUEUE,
   stopFollowUpsListener,
 } from "@travel-crm/domain/sales";
-import { aiDocumentListener, scoreHandler, scoreOnCustomerWroteListener } from "@travel-crm/domain/ai";
+import {
+  AI_LEARN_QUEUE,
+  AI_NUDGES_QUEUE,
+  aiChatResumedListener,
+  aiCustomerWroteListener,
+  aiDocumentListener,
+  aiReplyHandler,
+  runAiLearning,
+  runAiNudges,
+  scoreHandler,
+  scoreOnCustomerWroteListener,
+} from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
 import {
@@ -203,6 +214,14 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           checkIntervalSeconds: sheets.checkIntervalSeconds ?? defaultCheckIntervalSeconds,
           baselineFingerprints: leadSheetBaselineFingerprints(db, sheets.hashes),
         };
+  // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name.
+  const autopilotJobs = (model: AiModel) => ({
+    db,
+    ai: model,
+    subscriptions,
+    agencyName: async (organizationId: string) =>
+      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
+  });
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
   // Sales execution: the agency's name and the lead owner's for the WhatsApp blanks, in the agency's own time.
   const salesJobs = {
@@ -313,7 +332,12 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       aiDocumentListener({ files, readText: documentText }),
       ...(dependencies.jobs === undefined || ai === null
         ? []
-        : [scoreOnCustomerWroteListener({ queue: dependencies.jobs, ai, subscriptions })]),
+        : [
+            scoreOnCustomerWroteListener({ queue: dependencies.jobs, ai, subscriptions }),
+            // The autopilot: an agency's AI answering its chats by itself, only where it was turned on.
+            aiCustomerWroteListener({ queue: dependencies.jobs, subscriptions }),
+            aiChatResumedListener({ queue: dependencies.jobs, subscriptions }),
+          ]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
       addLeadImportListener(importJobs),
@@ -337,6 +361,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     ],
     handlers: [
       ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
+      ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         handle: async (data) => {
@@ -399,6 +424,28 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
                 await runDueWork({ db, logger }, new Date());
               },
             },
+            ...(ai === null
+              ? []
+              : [
+                  {
+                    // The autopilot's follow-ups that came due while the customer stayed quiet and the window is open.
+                    queue: AI_NUDGES_QUEUE,
+                    cron: "* * * * *",
+                    timeZone: "Asia/Kolkata",
+                    handle: async () => {
+                      await runAiNudges({ ...autopilotJobs(ai), logger }, new Date());
+                    },
+                  },
+                  {
+                    // Each night, an agency that lets its AI learn gets a lesson run from its recent chats.
+                    queue: AI_LEARN_QUEUE,
+                    cron: "30 2 * * *",
+                    timeZone: "Asia/Kolkata",
+                    handle: async () => {
+                      await runAiLearning({ ...autopilotJobs(ai), logger }, new Date());
+                    },
+                  },
+                ]),
             {
               // Sales execution: follow-ups whose day has come, and payment reminders, between 10:00 and 20:00.
               queue: SALES_DUE_WORK_QUEUE,

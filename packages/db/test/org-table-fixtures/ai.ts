@@ -8,6 +8,28 @@ const digits = () => `91${String(Math.floor(Math.random() * 1e10)).padStart(10, 
 
 export const fixtures: OrgTableFixtures = {
   ai_settings: { create: (tx) => tx.aiSettings.create({ data: { enabled: true } }), undeletable: true },
+  ai_autopilot: { create: (tx) => tx.aiAutopilot.create({ data: { autopilot: false } }), undeletable: true },
+  ai_learning: {
+    create: (tx) => tx.aiLearning.create({ data: { kind: "need", text: "Isolation" } }),
+    undeletable: true,
+  },
+  ai_chat: {
+    create: async (tx: OrgTx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: digits(),
+          displayNumber: "+910000000000",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const conversation = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+91${digits().slice(2)}` },
+      });
+      return tx.aiChat.create({ data: { conversationId: conversation.id } });
+    },
+    undeletable: true,
+  },
   ai_usage: {
     create: (tx) => tx.aiUsage.create({ data: { month: new Date("2026-11-01"), calls: 1 } }),
     undeletable: true,

@@ -81,5 +81,134 @@
       "budget": "Budget"
     },
     "unknown": "Not said yet"
+  },
+  "autopilot": {
+    "title": "Autopilot",
+    "info": "The AI answers WhatsApp chats by itself, as your sales agent. It is off until you turn it on here, and you can turn it off in any one chat. Every message it sends is marked \"Sent by the AI\" in the chat and kept in the audit log.",
+    "intro": "Let the AI answer your customers on WhatsApp by itself, and nudge those who go quiet.",
+    "on": "Let the AI answer WhatsApp chats by itself",
+    "needsAi": "Turn on \"Use the AI\" above first.",
+    "rules": "It writes only inside the 24 hours a customer opens by writing, never to someone who wrote STOP, never while one of your team is answering that chat, and within this month's AI calls. It quotes prices only from what it knows, never confirms a booking or a payment, and says it is an AI to anyone who asks. Your team can turn it off in any chat or take over at any time.",
+    "speakTitle": "How it speaks",
+    "speakIntro": "The language, length, emojis and tone of its messages, and the name it signs as.",
+    "agentName": "The name it signs as",
+    "agentNamePlaceholder": "Riya from Sharma Holidays",
+    "language": "Language",
+    "languageOther": "Which language",
+    "languages": {
+      "customer": "The customer's own",
+      "english": "English",
+      "hindi": "Hindi",
+      "hinglish": "Hinglish",
+      "other": "Another language"
+    },
+    "style": "Length and layout",
+    "styles": {
+      "human": "Natural lines, like a person",
+      "short": "One or two short lines",
+      "points": "A line, then points"
+    },
+    "emojis": "Emojis",
+    "emojiLevels": {
+      "none": "None",
+      "few": "A few",
+      "many": "Many"
+    },
+    "tone": "Tone",
+    "tones": {
+      "friendly": "Friendly",
+      "professional": "Professional",
+      "enthusiastic": "Enthusiastic"
+    },
+    "persona": "What it is for",
+    "personas": {
+      "sales": "A sales agent",
+      "natural": "An everyday chat in the copied person's way"
+    },
+    "sellTitle": "When it steps back, and follow-ups",
+    "sellIntro": "When a person must take over, how many messages it may write in a chat a day, and when it writes again to a customer who went quiet.",
+    "handoff": "Handing a chat to a person",
+    "handoffs": {
+      "alert": "Never by itself: it flags your team and keeps helping",
+      "asked": "When the customer asks for a person or is upset",
+      "careful": "Also for bookings, payments and discounts"
+    },
+    "maxReplies": "Most messages in one chat a day",
+    "followUpHours": "Hours of silence before one follow-up",
+    "followUpHint": "Inside the 24 hours. 0 for never.",
+    "smartFollowUp": "Let the AI choose whether and when to follow up",
+    "learning": "Let the AI learn from your chats each night",
+    "learningHint": "Your recent chats, with numbers, emails and links taken out, go to the AI service, which keeps nothing, to find what customers ask and what wins a booking. Off by default.",
+    "save": "Save the autopilot",
+    "saving": "Saving…",
+    "saved": "Autopilot settings saved"
+  },
+  "learnings": {
+    "title": "What the AI has learned",
+    "intro": "General lessons from your chats that the autopilot uses. Turn one off or dismiss it.",
+    "never": "It has not learned yet.",
+    "last": "Last learned {when}.",
+    "empty": "Nothing learned yet. It looks at your recent chats each night.",
+    "learningOff": "Learning is off. Turn it on in the autopilot settings above.",
+    "loadFailed": "The lessons didn't load.",
+    "evidence": "{count, plural, one {# chat} other {# chats}}",
+    "kinds": {
+      "need": "What customers want",
+      "winning": "What wins a booking",
+      "objection": "An objection and its answer",
+      "style": "How to talk",
+      "faq": "A question asked often"
+    },
+    "use": "Use: {text}",
+    "dismiss": "Dismiss",
+    "learnNow": "Learn now",
+    "learned": "Learned: {added} new, {updated} sharpened"
+  },
+  "voice": {
+    "title": "A way of talking to copy",
+    "intro": "Pick one of your team's WhatsApp chat exports and who in it, and the AI writes the way that person writes. Only that person's own messages are read: what the other side wrote never leaves your browser.",
+    "current": "It copies {name}, from {count} of their messages.",
+    "remove": "Stop copying",
+    "removed": "The AI talks its own way again",
+    "file": "A WhatsApp chat export (.txt)",
+    "fileHint": "In WhatsApp: open a chat, More, Export chat, Without media.",
+    "unreadable": "That file has no WhatsApp messages in it.",
+    "who": "Whose way of talking",
+    "sender": "{name} ({count, plural, one {# message} other {# messages}})",
+    "whoHint": "Choose your own team member, not the customer.",
+    "learn": "Learn their way of talking",
+    "learning": "Reading…",
+    "learned": "The AI has learned it"
+  },
+  "overview": {
+    "title": "The last day",
+    "chatsAnswered": "Chats answered",
+    "messagesSent": "Messages sent",
+    "medianReply": "Usual time to answer",
+    "seconds": "{count} s",
+    "flagged": "Chats flagged for your team",
+    "followUps": "Follow-ups planned",
+    "lessons": "Lessons in use"
+  },
+  "chat": {
+    "title": "The AI in this chat",
+    "loadFailed": "The AI's state didn't load.",
+    "answering": "The AI answers this chat.",
+    "notAnswering": "The AI doesn't answer this chat.",
+    "queued": "The AI has the message and is waiting for the next line.",
+    "thinking": "The AI is writing a reply.",
+    "handedOff": "The AI handed this chat to a person.",
+    "handoffTitle": "Handed over",
+    "handoffNoReason": "It needed a person.",
+    "resume": "Let AI answer now",
+    "attentionTitle": "The AI flagged this for your team",
+    "personPaused": "A person is answering: the AI waits until {until}.",
+    "followUp": "Follow-up planned {when}",
+    "modeLabel": "The AI in this chat",
+    "modes": {
+      "default": "As the agency",
+      "on": "On",
+      "off": "Off"
+    }
   }
 }
