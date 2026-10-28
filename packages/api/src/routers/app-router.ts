@@ -12,6 +12,7 @@ import { inboxRouter } from "./inbox.js";
 import { salesInboxRouter } from "./sales-inbox.js";
 import { tripKitsRouter } from "./trip-kits.js";
 import { quotesRouter } from "./quotes.js";
+import { aiRouter } from "./ai.js";
 import { financeRouter } from "./finance.js";
 import { salesRouter } from "./sales.js";
 import { reportsRouter } from "./reports.js";
@@ -64,6 +65,7 @@ export const appRouter = router({
   salesInbox: salesInboxRouter,
   tripKits: tripKitsRouter,
   quotes: quotesRouter,
+  ai: aiRouter,
   finance: financeRouter,
   sales: salesRouter,
   reports: reportsRouter,

@@ -6,6 +6,7 @@ import { PermissionSet } from "@travel-crm/domain/identity";
 import { lifecycleAccessOf, type Entitlements } from "@travel-crm/domain/subscriptions";
 import type { Context } from "../src/context.js";
 import { freshProcedure, orgProcedure, protectedProcedure } from "../src/procedures.js";
+import { aiRouter } from "../src/routers/ai.js";
 import { subscriptionRouter } from "../src/routers/subscription.js";
 import { router, t } from "../src/trpc.js";
 
@@ -29,6 +30,8 @@ const probe = router({
   /** A business module's procedure that needs no permission: check 3 still applies, from its meta. */
   quoteTemplates: orgProcedure.meta({ planModule: "quotes" }).query(() => "templates"),
   subscription: subscriptionRouter,
+  /** The real Suggest reply router: its plan module and permission checks, run before any handler. */
+  ai: aiRouter,
   whoAmI: protectedProcedure.query(({ ctx }) => ctx.session.impersonatedBy ?? "nobody"),
 });
 

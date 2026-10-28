@@ -1,0 +1,48 @@
+// Suggest reply (ADR 0029; the owner's decision of 2026-10-28): an agency's own switch and instructions for the AI, how many
+// suggestions it used this month, and the drafts it made, kept as ids and a hash (never the words) so a sent reply can be
+// audited as "drafted by AI, sent by <member>". Organization-owned, under RLS.
+
+/// An agency's AI settings: off until its Owner or Admin turns it on. One row each.
+model AiSettings {
+  organizationId String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  enabled        Boolean      @default(false)
+  /// What the agency tells its AI: tone, language, what to offer, what never to say (CHECK ai_settings_instructions_length).
+  instructions   String       @default("")
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("ai_settings")
+}
+
+/// Suggestions made in a month, for the monthly limit. The month is its first day in the organization's zone.
+model AiUsage {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  month          DateTime     @db.Date
+  suggestions    Int          @default(0)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, month], map: "ai_usage_month_key")
+  @@map("ai_usage")
+}
+
+/// A reply the AI drafted for a member. It keeps no words: a hash of the draft says whether the member changed it before
+/// sending, and `usedAt` that it was sent (once).
+model AiDraft {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  draftedBy      String               @map("drafted_by") @db.Uuid
+  model          String
+  textHash       String               @map("text_hash")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  usedAt         DateTime?            @map("used_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, conversationId], map: "ai_draft_conversation")
+  @@map("ai_draft")
+}

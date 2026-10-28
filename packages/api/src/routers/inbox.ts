@@ -65,6 +65,7 @@ import {
 } from "@travel-crm/domain/inbox";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
+import { recordDraftSent } from "@travel-crm/domain/ai";
 import { clearTyping, typingIn } from "../inbox-presence.js";
 import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
@@ -164,9 +165,25 @@ export const inboxRouter = router({
     .input(sendMessageInput)
     .output(sentMessage)
     .mutation(async ({ ctx, input }) => {
-      const sent = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
-        queueText(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
-      );
+      const now = new Date();
+      const sent = await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const queued = await queueText(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, now);
+        // A reply that began as the AI's draft is audited as drafted by AI, sent by this member.
+        if (input.aiDraftId !== undefined) {
+          await recordDraftSent(
+            tx,
+            ctx.member,
+            {
+              draftId: input.aiDraftId,
+              conversationId: input.conversationId,
+              messageId: queued.messageId,
+              text: input.text,
+            },
+            now,
+          );
+        }
+        return queued;
+      });
       // They sent it: the others need not be told they are still typing.
       clearTyping(ctx.member.organizationId, input.conversationId, ctx.member.userId);
       return sent;

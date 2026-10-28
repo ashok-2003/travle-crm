@@ -91,6 +91,8 @@ export const sendMessageInput = z.strictObject({
   text: z.string().trim().min(1).max(4096),
   /** One of this chat's messages, which the reply quotes. */
   replyToMessageId: recordId.optional(),
+  /** The AI's draft this text began as (Suggest reply): the send is then audited as drafted by AI, sent by the member. */
+  aiDraftId: recordId.optional(),
 });
 export type SendMessageInput = z.infer<typeof sendMessageInput>;
 

@@ -92,6 +92,9 @@ model Organization {
   tripCosts                   TripCost[]
   agencyExpenses              AgencyExpense[]
   leadSignals                 LeadSignal[]
+  aiSettings                  AiSettings?
+  aiUsage                     AiUsage[]
+  aiDrafts                    AiDraft[]
   quoteTemplates              QuoteTemplate[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]

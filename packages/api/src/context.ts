@@ -10,6 +10,7 @@ import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { TemplateDependencies } from "@travel-crm/domain/inbox";
+import type { AiModel } from "@travel-crm/domain/ai";
 
 export interface ApiDependencies {
   identity: Identity;
@@ -43,6 +44,8 @@ export interface ApiDependencies {
   whatsappConfigured?: boolean;
   /** The MSG91 provider the templates are read from and sent for approval through; null or absent when WhatsApp is off. */
   whatsappProvider?: TemplateDependencies["provider"];
+  /** The AI that drafts replies (OpenRouter, zero data retention); null or absent when no key is set: Suggest reply is off. */
+  ai?: AiModel | null;
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
   appUrl: string;
 }
@@ -66,6 +69,7 @@ export async function createContext(
     meta = null,
     whatsappConfigured = false,
     whatsappProvider = null,
+    ai = null,
     appUrl,
   }: ApiDependencies,
   request: Request,
@@ -90,6 +94,7 @@ export async function createContext(
     meta,
     whatsappConfigured,
     whatsappProvider,
+    ai,
     appUrl,
     headers: request.headers,
     resHeaders,

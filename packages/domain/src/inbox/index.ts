@@ -74,6 +74,7 @@ export {
   listTripKits,
   removeTripKitFile,
   requestTripKitUpload,
+  tripKitWords,
   updateTripKit,
   type TripKitDependencies,
 } from "./trip-kits.js";

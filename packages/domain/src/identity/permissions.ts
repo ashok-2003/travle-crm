@@ -39,6 +39,9 @@ export const permissions = [
   "accounts:view",
   "accounts:create",
   "accounts:edit",
+  // Suggest reply: the AI drafts a reply in a chat for the member to change and send; and the agency's own switch for it
+  "ai:suggest",
+  "ai:manage",
 ] as const;
 
 export type Permission = (typeof permissions)[number];

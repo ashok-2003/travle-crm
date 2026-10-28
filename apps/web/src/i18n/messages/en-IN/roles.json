@@ -56,7 +56,8 @@
     "bookings": "Bookings",
     "departures": "Departures",
     "suppliers": "Suppliers",
-    "accounts": "Accounts"
+    "accounts": "Accounts",
+    "ai": "AI"
   },
   "permissions": {
     "staff:manage": "Add, change and remove staff",
@@ -85,6 +86,8 @@
     "suppliers:edit": "Change suppliers",
     "accounts:view": "See invoices, receipts and payments",
     "accounts:create": "Create invoices, receipts and payments",
-    "accounts:edit": "Change invoices, receipts and payments"
+    "accounts:edit": "Change invoices, receipts and payments",
+    "ai:suggest": "Ask the AI to suggest a reply in a chat",
+    "ai:manage": "Turn the AI on and write its instructions"
   }
 }

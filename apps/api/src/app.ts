@@ -12,6 +12,7 @@ import { findShareLink, recordShareLinkOpen } from "@travel-crm/domain/share-lin
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
 import { receiveWebhook, type WebhookProvider, type WebhookRequest } from "@travel-crm/domain/webhooks";
+import type { AiModel } from "@travel-crm/integrations/ai";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -58,6 +59,8 @@ export interface ServerDependencies {
   webhookProviders: readonly WebhookProvider[];
   /** The Meta lead ads (ADR 0034): the verify and deletion routes and the procedures; null or absent when Meta is off. */
   meta?: MetaServices | null;
+  /** The AI that drafts replies; null or absent when no key is set. */
+  ai?: AiModel | null;
   /** The MSG91 provider, for the templates screens; null when WhatsApp is off. */
   whatsappProvider?: WhatsAppProvider | null;
   /** The structured log (ADR 0032): a line per request, and every unexpected error. */
@@ -105,6 +108,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     webhookProviders,
     meta = null,
     whatsappProvider = null,
+    ai = null,
     logger,
     authSecret,
     appUrl,
@@ -155,6 +159,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             meta: meta?.dependencies ?? null,
             whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
             whatsappProvider,
+            ai,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },

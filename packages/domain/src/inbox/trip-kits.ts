@@ -33,6 +33,11 @@ export interface TripKitDependencies {
 }
 
 /** Every trip of the agency with its files, by name. */
+/** Each trip's name and words, without its files: what the AI may use when it drafts a reply. */
+export async function tripKitWords(tx: OrgTx): Promise<{ name: string; message: string }[]> {
+  return tx.tripKit.findMany({ orderBy: { name: "asc" }, select: { name: true, message: true }, take: 20 });
+}
+
 export async function listTripKits({ db, files }: TripKitDependencies, access: MemberAccess): Promise<TripKit[]> {
   const kits = await db.forOrg(access.organizationId, (tx) =>
     tx.tripKit.findMany({
