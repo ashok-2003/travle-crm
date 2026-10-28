@@ -118,7 +118,7 @@ export function AppSidebar() {
             if (inGroup.length === 0) return null;
             return (
               <SidebarGroup key={group}>
-                <SidebarGroupLabel className="text-caption font-semibold tracking-wide uppercase group-data-[collapsible=icon]:hidden">
+                <SidebarGroupLabel className="text-caption font-semibold text-sidebar-foreground tracking-wide uppercase group-data-[collapsible=icon]:hidden">
                   {t(`groups.${group}`)}
                 </SidebarGroupLabel>
                 <SidebarMenu className="gap-0.5">

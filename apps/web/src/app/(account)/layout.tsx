@@ -32,11 +32,11 @@ export default async function AccountLayout({ children }: { children: ReactNode 
           </div>
           <div className="relative flex max-w-lg flex-col gap-8">
             <div className="flex flex-col gap-4">
-              <p className="text-label font-semibold tracking-wide text-sidebar-foreground/70 uppercase">
+              <p className="text-label font-semibold tracking-wide text-sidebar-foreground/90 uppercase">
                 {t("eyebrow")}
               </p>
               <h2 className="text-title leading-tight font-semibold text-balance">{t("headline")}</h2>
-              <p className="text-body text-sidebar-foreground/80">{t("subline")}</p>
+              <p className="text-body text-sidebar-foreground/90">{t("subline")}</p>
             </div>
             <ul className="flex flex-col gap-4">
               {points.map((point) => (
@@ -46,13 +46,13 @@ export default async function AccountLayout({ children }: { children: ReactNode 
                   </span>
                   <span className="flex flex-col">
                     <span className="font-medium">{t(`points.${point.key}.title`)}</span>
-                    <span className="text-label text-sidebar-foreground/75">{t(`points.${point.key}.text`)}</span>
+                    <span className="text-label text-sidebar-foreground/90">{t(`points.${point.key}.text`)}</span>
                   </span>
                 </li>
               ))}
             </ul>
           </div>
-          <p className="relative text-caption text-sidebar-foreground/60">{t("footer")}</p>
+          <p className="relative text-caption text-sidebar-foreground/90">{t("footer")}</p>
         </aside>
         <div className="flex flex-col items-center px-4 py-10 sm:justify-center sm:py-16">
           <main className="flex w-full max-w-sm flex-col gap-8">

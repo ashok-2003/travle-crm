@@ -84,6 +84,9 @@ export const test = base.extend<Fixtures, { database: Database }>({
       password: "owner-password-1",
     };
     await database.identity.createOrganizationOwner(organizationId, { ...owner, mustChangePassword: false });
+    // The journeys test the screens, not the welcome that covers a new organization's first sign-in (skipWelcome).
+    const ownerUser = await database.platform.user.findUniqueOrThrow({ where: { email: owner.email } });
+    await database.platform.welcomeSeen.create({ data: { organizationId, userId: ownerUser.id } });
     await use({ organizationId, code, name: "Sharma Travels", owner });
   },
   addStaff: async ({ database, agency }, use) => {
@@ -100,6 +103,9 @@ export const test = base.extend<Fixtures, { database: Database }>({
         username,
         roleKey,
         temporaryPassword: password,
+      });
+      await database.platform.welcomeSeen.create({
+        data: { organizationId: agency.organizationId, userId: created.userId },
       });
       if (!mustChangePassword) {
         await database.platform.user.update({ where: { id: created.userId }, data: { mustChangePassword: false } });
