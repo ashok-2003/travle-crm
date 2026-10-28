@@ -97,6 +97,7 @@ model Lead {
   timeline        LeadTimelineEntry[]
   notes           LeadNote[]
   quotes          Quote[]
+  cadence         LeadCadence[]
   signals         LeadSignal[]
   aiInsights      LeadAiInsight[]
   enquiries       LeadEnquiry[]

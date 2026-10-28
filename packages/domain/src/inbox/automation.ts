@@ -91,6 +91,10 @@ export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
     return true;
   }
   if ((await tx.inboxKeywordReply.count({ where: { enabled: true } })) > 0) return true;
+  // Sales execution listens too: a customer who writes ends their follow-ups, and a buying word makes the lead hot. With
+  // no settings saved, the buying words are on by default.
+  const sales = await tx.salesAutomation.findFirst({ select: { hotKeywords: true, followEnabled: true } });
+  if (sales?.followEnabled === true) return true;
   return (await tx.tripKit.count({ where: { autoSend: true, keywords: { isEmpty: false } } })) > 0;
 }
 

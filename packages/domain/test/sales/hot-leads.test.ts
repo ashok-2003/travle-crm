@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DomainEvent, ListenerContext } from "../../src/jobs/index.js";
-import { hotLeadsOf, customerWroteListener, leadHeatOf } from "../../src/sales/index.js";
+import { customerWroteListener, defaultSalesAutomation, hotLeadsOf, leadHeatOf } from "../../src/sales/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { aLead } from "../crm/support/records.js";
@@ -56,12 +56,18 @@ describe("hot leads", () => {
     expect(JSON.stringify(notices[0])).not.toContain("Rahul");
     expect(await inOrg((tx) => tx.leadSignal.count({ where: { leadId: lead.id } }))).toBe(1);
 
-    const hot = await inOrg((tx) => hotLeadsOf(tx, owner, { now: testNow }));
+    const hot = await inOrg((tx) =>
+      hotLeadsOf(tx, owner, defaultSalesAutomation, { now: testNow, today: "2026-10-28" }),
+    );
     expect(hot.map((row) => row.leadId)).toContain(lead.id);
     expect(hot.find((row) => row.leadId === lead.id)?.reasons).toEqual(["asked_price"]);
-    expect((await inOrg((tx) => leadHeatOf(tx, owner, { now: testNow, leadId: lead.id }))).reasons).toEqual([
-      "asked_price",
-    ]);
+    expect(
+      (
+        await inOrg((tx) =>
+          leadHeatOf(tx, owner, defaultSalesAutomation, { now: testNow, today: "2026-10-28", leadId: lead.id }),
+        )
+      ).reasons,
+    ).toEqual(["asked_price"]);
   });
 
   it("ignores a message with no buying word", async () => {

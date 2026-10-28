@@ -176,6 +176,8 @@ export async function queueCheckedTemplate(
     sentBy: string | null;
     broadcastId?: string;
     mayStartChat?: boolean;
+    /** "automation" for what the system sends by itself; a person's or a broadcast's is "staff_crm". */
+    origin?: "staff_crm" | "automation";
   },
   now: Date,
 ): Promise<SentMessage> {
@@ -195,7 +197,7 @@ export async function queueCheckedTemplate(
       {
         conversationId: chat.id,
         direction: "out",
-        origin: "staff_crm",
+        origin: input.origin ?? "staff_crm",
         kind: "template",
         body: renderTemplate(template.body, input.parameters),
         templateId: template.id,

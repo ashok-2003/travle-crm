@@ -1,22 +1,21 @@
 // What makes a lead hot (sales execution), as it happens: the customer opened their quote's link, or wrote one of the
 // agency's buying words ("price", "book"). Each is kept as a signal (its event's key makes a repeat nothing), and the
 // lead's owner is told to call now: on the quote's second open (the first already tells whoever shared it), and on a
-// buying word at most once every six hours. The alert carries fixed words, never the customer's own (a push passes
-// through the phone maker's servers).
-import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
+// buying word at most once every six hours. A customer who writes also ends their lead's follow-ups. The alert carries
+// fixed words, never the customer's own (a push passes through the phone maker's servers).
+import { whatsappCustomerWroteEvent, whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { shareLinkOpenedEvent } from "@travel-crm/contracts/share-links";
 import type { OrgTx } from "@travel-crm/db";
 import { noticeKey } from "../crm/index.js";
-import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
+import { CUSTOMER_WROTE_EVENT, TEXT_RECEIVED_EVENT } from "../inbox/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
+import { stopFollowUpsOnReply } from "./cadence.js";
+import { salesAutomationOf } from "./settings.js";
 
 export const HOT_LEAD_KIND = "sales.hot-lead";
 const SIX_HOURS = 6 * 3_600_000;
-
-/** What a customer writes when they are close to buying (English and Hinglish), matched as whole words. */
-export const BUYING_WORDS = ["price", "rate", "book", "booking", "confirm", "advance", "payment", "kitna"] as const;
 
 /** Whether the text holds a buying word or phrase, whole, in any case. */
 export function holdsBuyingWord(text: string, keywords: readonly string[]): boolean {
@@ -100,7 +99,25 @@ export function quoteOpenedListener(): EventListener {
   });
 }
 
-/** A customer wrote: a buying word makes the lead hot and tells its owner. */
+/** Any message from a customer, a photo too, ends their lead's follow-ups. */
+export function stopFollowUpsListener(): EventListener {
+  return defineListener({
+    name: "sales.stop-follow-ups",
+    eventType: CUSTOMER_WROTE_EVENT,
+    payload: whatsappCustomerWroteEvent,
+    handle: async (event, context) => {
+      await context.forOrg(async (tx) => {
+        const chat = await tx.whatsappConversation.findUnique({
+          where: { id: event.payload.conversationId },
+          select: { personId: true },
+        });
+        if (chat?.personId != null) await stopFollowUpsOnReply(tx, chat.personId);
+      });
+    },
+  });
+}
+
+/** A customer wrote words: their follow-ups end, and a buying word makes the lead hot and tells its owner. */
 export function customerWroteListener(): EventListener {
   return defineListener({
     name: "sales.customer-wrote",
@@ -113,12 +130,14 @@ export function customerWroteListener(): EventListener {
           select: { personId: true },
         });
         if (chat?.personId == null) return;
+        await stopFollowUpsOnReply(tx, chat.personId);
         const message = await tx.whatsappMessage.findUnique({
           where: { id: event.payload.messageId },
           select: { body: true, caption: true, occurredAt: true },
         });
         const text = message?.body ?? message?.caption ?? "";
-        if (message === null || !holdsBuyingWord(text, BUYING_WORDS)) return;
+        const settings = await salesAutomationOf(tx);
+        if (message === null || !holdsBuyingWord(text, settings.hotKeywords)) return;
         const lead = await tx.lead.findFirst({
           where: { personId: chat.personId, stage: { in: ["new", "contacted", "quote_sent", "booking_requested"] } },
           orderBy: { createdAt: "desc" },
