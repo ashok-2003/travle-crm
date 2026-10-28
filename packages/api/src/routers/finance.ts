@@ -5,7 +5,8 @@ import {
   addExpenseInput,
   addTripCostInput,
   bookingCosts,
-  bookingList,
+  bookingPage,
+  bookingsInput,
   expenseIdInput,
   expenseList,
   financePeriodInput,
@@ -39,8 +40,9 @@ export const financeRouter = router({
     .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => financeSummaryOf(tx, input))),
 
   bookings: viewer
-    .output(bookingList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listBookings(tx))),
+    .input(bookingsInput)
+    .output(bookingPage)
+    .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listBookings(tx, input))),
 
   costs: viewer
     .input(quoteCostsInput)

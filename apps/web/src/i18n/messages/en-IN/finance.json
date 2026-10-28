@@ -55,7 +55,8 @@
       "profit": "Profit",
       "customerOwes": "Customer owes",
       "youOwe": "You owe"
-    }
+    },
+    "showMore": "Show more bookings"
   },
   "expenses": {
     "loadFailed": "Running costs didn't load.",
