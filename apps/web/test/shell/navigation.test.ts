@@ -27,16 +27,11 @@ describe("visibleNavigationItems", () => {
       "audit",
     ]);
     const sales = member({ permissions: ["leads:view", "leads:create", "leads:edit"] });
-    expect(keys(visibleNavigationItems(sales, ["crm"]))).toEqual(["home", "today", "leads", "reports"]);
+    expect(keys(visibleNavigationItems(sales, ["crm"]))).toEqual(["home", "today", "leads"]);
   });
 
   it("shows each item only to roles holding its permission", () => {
-    expect(keys(visibleNavigationItems(member({ permissions: ["leads:view"] })))).toEqual([
-      "home",
-      "today",
-      "leads",
-      "reports",
-    ]);
+    expect(keys(visibleNavigationItems(member({ permissions: ["leads:view"] })))).toEqual(["home", "today", "leads"]);
     expect(keys(visibleNavigationItems(member({ permissions: ["staff:manage", "settings:manage"] })))).toEqual([
       "home",
       "staff",

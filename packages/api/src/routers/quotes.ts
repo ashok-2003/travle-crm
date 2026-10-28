@@ -305,7 +305,8 @@ export const quotesRouter = router({
     ),
 
   /** The dashboard's money: accepted, received, still to come and overdue. */
-  moneySummary: viewer
+  moneySummary: orgProcedure
+    .requires("quotes:view", "money:view_reports")
     .input(moneySummaryInput)
     .output(moneySummary)
     .query(async ({ ctx, input }) => {

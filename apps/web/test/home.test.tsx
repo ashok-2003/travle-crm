@@ -39,9 +39,27 @@ function ofStarterRole(key: string) {
   return member({ permissions: role.grants.map((grant) => grant.permission) });
 }
 
-function renderHome(me: SignedInMember, { crm = true } = {}) {
-  const { calls } = stubApi({ "organization.setup.get": { data: halfway }, "today.summary": { data: busyDay } });
-  const queryClient = newQueryClient({ ...paidSubscription, modules: crm ? ["crm"] : [] });
+function renderHome(
+  me: SignedInMember,
+  { crm = true, modules = crm ? ["crm"] : [] }: { crm?: boolean; modules?: string[] } = {},
+) {
+  const { calls } = stubApi({
+    "organization.setup.get": { data: halfway },
+    "today.summary": { data: busyDay },
+    "salesInbox.summary": { data: { waiting: 3, late: 1, unread: 2 } },
+    "sales.hotLeads": { data: [] },
+    "quotes.moneySummary": {
+      data: {
+        acceptedCount: 1,
+        acceptedPaise: 1,
+        receivedPaise: 1,
+        outstandingPaise: 3_040_000,
+        overduePaise: 0,
+        overdueCount: 0,
+      },
+    },
+  });
+  const queryClient = newQueryClient({ ...paidSubscription, modules: modules as never });
   const { unmount } = renderWithApi(<HomePage />, queryClient, me);
   return { calls, unmount };
 }
@@ -109,5 +127,37 @@ describe("Home", () => {
     for (const section of Object.values(messages.today.sections)) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
+  });
+
+  it("shows the key figures as one strip of three, Money to come only to whoever holds the money permission", async () => {
+    renderHome(member({ isOwner: true }), { modules: ["crm", "inbox", "quotes"] });
+    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(
+      within(strip)
+        .getAllByRole("group")
+        .map((cell) => cell.getAttribute("aria-label")),
+    ).toEqual([messages.home.glance.waiting, messages.home.glance.hot, messages.home.glance.money]);
+    expect(await within(strip).findByText("₹30,400")).toBeVisible();
+    // No icon of its own per figure, and an info hint on each.
+    expect(strip.querySelectorAll("svg").length).toBe(strip.querySelectorAll("button svg").length);
+    expect(within(strip).getAllByRole("button")).toHaveLength(3);
+  });
+
+  it("shows two figures, and no month so far, to a role without the money permission", async () => {
+    const api = renderHome(member({ permissions: ["leads:view", "quotes:view", "inbox:view"] }), {
+      modules: ["crm", "inbox", "quotes"],
+    });
+    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(within(strip).getAllByRole("group")).toHaveLength(2);
+    expect(within(strip).queryByText(messages.home.glance.money)).toBeNull();
+    expect(screen.queryByRole("heading", { name: messages.home.month.title })).toBeNull();
+    expect(api.calls).not.toContain("quotes.moneySummary");
+  });
+
+  it("puts the key figures before the day's nudge", async () => {
+    renderHome(member({ isOwner: true }), { modules: ["crm", "inbox", "quotes"] });
+    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
+    const nudgeCard = await nudge();
+    expect(strip.compareDocumentPosition(nudgeCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

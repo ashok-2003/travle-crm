@@ -438,5 +438,11 @@ to 7 where they differ.
   lead's first name and trip facts, the agency's trip details and quick replies and its written instructions; requests
   go through OpenRouter with zero data retention. Everything else the AI work offered (autopilot, nudges, scoring and
   insight, the voice copied from chat exports, nightly learning, PDF knowledge) is out.
-- **Home and sidebar.** His version (the day at a glance, the hot leads card, a person menu in the sidebar) is kept until the
-  owner chooses between the two, in one commit that can be reverted to bring the earlier Home and sidebar back.
+- **Home and sidebar: his layout in our style.** Home has the greeting with the date, New lead and Pipeline, the hot leads
+  card first (Call buttons, reason pills), one key-figures strip (the dashboard's component: no icon per figure, an info
+  hint on each, no red for a normal count) with only what Today doesn't show: chats waiting, hot leads, and money to come
+  (only for whoever holds `money:view_reports`; without it two figures), "N things today", "This month so far" with Open
+  reports (only with the money permission), then the setup steps. The sidebar keeps Sign out visible at the bottom with the
+  name and a Your account link, and has Quotes, Reports and Finance (Reports and Finance only for the money permission)
+  and the Today and Inbox counts. The dashboard's charts moved to Reports: the period chips, new leads by day, where they
+  came from, where they are now, time to first reply, top destinations and the team table.

@@ -35,7 +35,7 @@ test("a salesperson sees only what their role allows", async ({ page, addStaff, 
     await expect(navigation.getByRole("link", { name: destination })).toBeVisible();
   }
   await expect(navigation.getByRole("link", { name: "Staff" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Today at a glance" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Key figures" })).toBeVisible();
   // The setup card is for those who may change the settings: Sales never even asks for it.
   await page.waitForLoadState("networkidle");
   expect(setupAsked).toEqual([]);
@@ -82,7 +82,7 @@ test("on a desktop the sidebar stays put while a long page scrolls", async ({ pa
     width: 232,
     height: 320,
   });
-  await expect(page.getByRole("button", { name: /: account and sign out$/ })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeInViewport();
 });
 
 test("pages carry the security headers, and the token and offline pages send only their origin as referrer", async ({

@@ -136,13 +136,8 @@ export async function signInByCode(page: Page, { code, staff }: { code: string; 
   expect(response.ok()).toBe(true);
 }
 
-/** Signs out as a person does: from the phone's More sheet, or from the person's menu at the foot of the desktop's sidebar. */
+/** Signs out as a person does: from the phone's More sheet, or the button at the foot of the desktop's sidebar. */
 export async function signOutOf(page: Page, { phone }: { phone: boolean }) {
-  if (phone) {
-    await page.getByRole("button", { name: "More" }).click();
-    await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
-    return;
-  }
-  await page.getByRole("button", { name: /: account and sign out$/ }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  if (phone) await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
 }
