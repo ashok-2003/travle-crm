@@ -4,7 +4,15 @@
 // which makes a draft sent), the quotation's PDF, the tax invoice once accepted, Accepted or Declined by hand, Delete;
 // then its money beside the form that writes it. A quote out of the member's scope is "not found", as a lead is.
 import type { QuoteDetail } from "@travel-crm/contracts/quotes";
-import { CopyPlusIcon, FileDownIcon, LinkIcon, MessageCircleIcon, SearchXIcon } from "lucide-react";
+import {
+  CopyPlusIcon,
+  FileDownIcon,
+  InfoIcon,
+  LinkIcon,
+  MessageCircleIcon,
+  SearchXIcon,
+  SquarePenIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -16,7 +24,8 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
-import { BackLink } from "@/components/text-link";
+import { BackLink, TextLink } from "@/components/text-link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { refusalOf } from "@/data/api-error";
@@ -38,6 +47,8 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
   const router = useRouter();
   const mayEdit = useHolds("quotes:edit");
   const mayCreate = useHolds("quotes:create");
+  const mayRecord = useHolds("quotes:record_payments");
+  const live = quote.status !== "replaced" && quote.status !== "declined";
   const changes = useQuoteChanges();
   const open = useOpenDocument(quote.id);
   const [link, setLink] = useState<string | null>(null);
@@ -63,7 +74,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
-        {mayEdit && (
+        {mayEdit && live && (
           <Button
             disabled={changes.share.isPending}
             onClick={() => {
@@ -80,7 +91,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
             {t("sendWhatsapp")}
           </Button>
         )}
-        {mayEdit && (
+        {mayEdit && live && (
           <Button
             variant="outline"
             disabled={changes.share.isPending}
@@ -102,7 +113,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
           <FileDownIcon aria-hidden="true" />
           {t("pdf")}
         </Button>
-        {quote.status === "accepted" && mayEdit && (
+        {quote.status === "accepted" && mayRecord && (
           <Button
             variant="outline"
             disabled={open.isPending}
@@ -114,7 +125,26 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
             {quote.invoiceDocumentId === null ? t("issueInvoice") : t("invoice")}
           </Button>
         )}
-        {mayCreate && quote.status !== "accepted" && (
+        {mayCreate && mayEdit && (quote.status === "sent" || quote.status === "declined") && (
+          <Button
+            disabled={changes.newVersion.isPending}
+            onClick={() => {
+              changes.newVersion.mutate(
+                { quoteId: quote.id },
+                {
+                  onSuccess: (draft) => {
+                    toast.success(t("versionMade"));
+                    router.push(quoteRoute(draft.id));
+                  },
+                },
+              );
+            }}
+          >
+            <SquarePenIcon aria-hidden="true" />
+            {t("newVersion")}
+          </Button>
+        )}
+        {mayCreate && (quote.status === "draft" || quote.status === "sent") && (
           <Button
             variant="outline"
             disabled={changes.duplicate.isPending}
@@ -135,7 +165,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
           </Button>
         )}
         {mayEdit && <SavePackageDialog quoteId={quote.id} title={quote.title} />}
-        {mayEdit && quote.status !== "accepted" && (
+        {mayEdit && quote.status === "sent" && (
           <Button
             variant="outline"
             disabled={changes.setStatus.isPending}
@@ -146,7 +176,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
             {t("markAccepted")}
           </Button>
         )}
-        {mayEdit && quote.status !== "declined" && quote.status !== "accepted" && (
+        {mayEdit && quote.status === "sent" && (
           <Button
             variant="outline"
             disabled={changes.setStatus.isPending}
@@ -177,7 +207,15 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
       {quote.acceptedName !== null && (
         <p className="text-muted-foreground">{t("acceptedBy", { name: quote.acceptedName })}</p>
       )}
-      <RefusalAlert error={changes.share.error ?? changes.setStatus.error ?? changes.duplicate.error ?? open.error} />
+      <RefusalAlert
+        error={
+          changes.share.error ??
+          changes.setStatus.error ??
+          changes.duplicate.error ??
+          changes.newVersion.error ??
+          open.error
+        }
+      />
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
@@ -202,6 +240,30 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
   );
 }
 
+/** Why a quote that is no longer a draft can't be written, and the way on: a new version, or the one that replaced it. */
+function FrozenNotice({ quote }: { quote: QuoteDetail }) {
+  const t = useTranslations("quotes.quote");
+  if (quote.status === "draft") return null;
+  const replaced = quote.status === "replaced";
+  return (
+    <Alert>
+      <InfoIcon aria-hidden="true" />
+      <AlertTitle>{replaced ? t("replacedTitle") : t("frozenTitle")}</AlertTitle>
+      <AlertDescription>
+        {replaced ? t("replacedBody") : quote.status === "accepted" ? t("acceptedFrozenBody") : t("frozenBody")}
+        {quote.replacedById !== null && (
+          <>
+            {" "}
+            <TextLink href={quoteRoute(quote.replacedById)} inline>
+              {t("openReplacement")}
+            </TextLink>
+          </>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function QuoteScreen({ quoteId }: { quoteId: string }) {
   const t = useTranslations("quotes.quote");
   const quote = useQuote(quoteId);
@@ -214,6 +276,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
           <BackLink href={leadRoute(data.leadId)} label={t("backToLead", { name: data.customerName })} />
           <PageHeader title={data.title} intro={<QuoteStatusBadge status={data.status} />} />
           <QuoteActions quote={data} />
+          <FrozenNotice quote={data} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
             <QuoteForm
               key={data.updatedAt}

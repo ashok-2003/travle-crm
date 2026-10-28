@@ -13,6 +13,7 @@ import {
 } from "@travel-crm/contracts/quotes";
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { DateField } from "@/components/date-field";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-dialog";
@@ -112,6 +113,8 @@ function PaymentForm({
 }: FormProps<RecordPaymentInput> & { suggested: number }) {
   const t = useTranslations("quotes.money.paymentForm");
   const today = calendarDateIn(new Date(), useMe().organization.timeZone);
+  // One id for this form, so a double tap or a retry after a lost answer records the payment once.
+  const [requestId] = useState(() => crypto.randomUUID());
   const values = {
     amount: suggested > 0 ? rupeesFieldText(suggested) : "",
     receivedOn: today,
@@ -128,6 +131,7 @@ function PaymentForm({
           receivedOn: typed.receivedOn,
           method: typed.method,
           reference: typed.reference,
+          requestId,
         }),
         typed,
         (path) =>

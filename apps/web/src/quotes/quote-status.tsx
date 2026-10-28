@@ -10,6 +10,7 @@ const tones: Record<QuoteStatus, StatusTone> = {
   sent: "attention",
   accepted: "good",
   declined: "bad",
+  replaced: "neutral",
 };
 
 export function QuoteStatusBadge({ status }: { status: QuoteStatus }) {

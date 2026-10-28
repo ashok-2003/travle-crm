@@ -3,7 +3,8 @@
     "draft": "Draft",
     "sent": "Sent",
     "accepted": "Accepted",
-    "declined": "Declined"
+    "declined": "Declined",
+    "replaced": "Replaced"
   },
   "list": {
     "title": "Quotes",
@@ -65,7 +66,15 @@
     "deleteTitle": "Delete this quote?",
     "deleteDescription": "It goes from the lead and from Quotes. Its link stops working.",
     "addOption": "Add another option",
-    "optionMade": "Another option made. Change its hotel or price; the customer's link shows both."
+    "optionMade": "Another option made. Change its hotel or price; the customer's link shows both.",
+    "newVersion": "Make a new version",
+    "versionMade": "A new draft was made. The old quote's link now says it was replaced.",
+    "frozenTitle": "This quote was sent, so its prices are fixed",
+    "frozenBody": "To change anything, make a new version: a draft copy that replaces this quote. The customer's old link then says it was replaced.",
+    "acceptedFrozenBody": "This quote was accepted, so it is the booking and can't be changed.",
+    "replacedTitle": "This quote was replaced",
+    "replacedBody": "A new version took its place. Its old link tells the customer so.",
+    "openReplacement": "Open the new version"
   },
   "form": {
     "trip": "Trip",
@@ -109,7 +118,11 @@
     "notesHint": "Anything else the customer should know.",
     "problem": "Check this",
     "save": "Save quote",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "placeOfSupply": "Where the customer is (for GST)",
+    "placeOfSupplyHint": "Decides CGST and SGST, or IGST. Leave as your own state unless the customer is in another state or outside India.",
+    "placeSame": "My agency's own state",
+    "placeOutside": "Outside India"
   },
   "money": {
     "title": "Payments",
