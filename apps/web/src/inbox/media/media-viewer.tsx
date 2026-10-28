@@ -171,10 +171,10 @@ export function MediaViewerProvider({
           <DialogDescription className="sr-only">{t("description")}</DialogDescription>
           {message !== undefined && (
             <>
-              <div className="flex items-center gap-2 bg-background/90 p-2 pl-4 text-foreground">
+              <div className="flex items-center gap-2 p-2 pl-4">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{t("from", { name: from })}</p>
-                  <p className="text-caption text-muted-foreground">
+                  <p className="text-caption opacity-70">
                     {formatDayTime(new Date(message.occurredAt), { timeZone })}
                     {" · "}
                     {t("position", { index: index + 1, count: pages.length })}
@@ -184,6 +184,7 @@ export function MediaViewerProvider({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="text-background hover:text-background"
                   aria-label={t("download")}
                   disabled={download.isPending}
                   onClick={() => {
@@ -193,7 +194,13 @@ export function MediaViewerProvider({
                   <DownloadIcon aria-hidden="true" />
                 </Button>
                 <DialogClose asChild>
-                  <Button type="button" variant="ghost" size="icon" aria-label={t("close")}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-background hover:text-background"
+                    aria-label={t("close")}
+                  >
                     <XIcon aria-hidden="true" />
                   </Button>
                 </DialogClose>
@@ -229,7 +236,7 @@ export function MediaViewerProvider({
                   </Button>
                 )}
               </div>
-              <p dir="auto" className="min-h-14 bg-background/90 p-3 text-center whitespace-pre-wrap text-foreground">
+              <p dir="auto" className="min-h-14 p-3 text-center whitespace-pre-wrap">
                 {message.caption}
               </p>
             </>
