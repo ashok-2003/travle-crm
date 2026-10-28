@@ -542,4 +542,28 @@ describe("erasing someone an import or an export holds", () => {
       await platform.attachment.count({ where: { recordId: { in: [staffImport.importId, staffImport.exportId] } } }),
     ).toBe(0);
   });
+
+  it("erases a member's page visits and welcome with them, and nobody else's", async () => {
+    const agency = await deletionAgency(test, plan);
+    const ravi = await test.identity.identity.staff.create(agency.owner, {
+      name: "Ravi Kumar",
+      username: "ravi.usage",
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-1",
+    });
+    const raviUserId = (await platform.member.findFirstOrThrow({ where: { id: ravi.memberId } })).userId;
+    await test.services.db.forOrg(agency.organizationId, async (tx) => {
+      for (const userId of [raviUserId, agency.owner.userId]) {
+        await tx.pageVisit.create({ data: { userId, path: "/leads", seconds: 30 } });
+        await tx.welcomeSeen.create({ data: { userId } });
+      }
+    });
+    await test.identity.identity.staff.remove(agency.owner, { memberId: ravi.memberId });
+    await erase(agency, { kind: "member", memberId: ravi.memberId });
+    const left = (userId: string) => ({ where: { organizationId: agency.organizationId, userId } });
+    expect(await platform.pageVisit.count(left(raviUserId))).toBe(0);
+    expect(await platform.welcomeSeen.count(left(raviUserId))).toBe(0);
+    expect(await platform.pageVisit.count(left(agency.owner.userId))).toBe(1);
+    expect(await platform.welcomeSeen.count(left(agency.owner.userId))).toBe(1);
+  });
 });

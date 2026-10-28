@@ -37,6 +37,8 @@ export function strategyFor(request: RequestFacts, appOrigin: string): Strategy 
   if (isServerPath(url.pathname) || url.pathname === "/sw.js") return "network-only";
   // The visitor's form and its script keep no page, no cache and no worker (W29); lower-cased as isServerPath is.
   if (isPublicFormPath(url.pathname.toLowerCase()) || url.pathname.toLowerCase() === "/embed.js") return "network-only";
+  // An invite's one-click link signs a person in: no saved shell for it, whoever opens it next.
+  if (url.pathname.toLowerCase().startsWith("/vip/")) return "network-only";
   if (request.mode === "navigate") return "page";
   if (url.pathname.startsWith("/_next/static/")) return "cache-first";
   if (url.pathname.startsWith("/icons/")) return "network-first";

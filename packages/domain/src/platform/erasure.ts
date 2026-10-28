@@ -147,6 +147,9 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
     if (subject.kind === "member") {
       const { userId } = await erasePerson(tx, organizationId, subject.memberId);
       await forgetRecipient(tx, { organizationId, userId });
+      // What the usage analytics kept about them: the pages they opened and the welcome they saw.
+      await tx.pageVisit.deleteMany({ where: { organizationId, userId } });
+      await tx.welcomeSeen.deleteMany({ where: { organizationId, userId } });
     }
     const customer =
       record.recordType === "person"
