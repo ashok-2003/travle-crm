@@ -491,7 +491,6 @@ features.
 7. **The invite link** (recorded 2026-10-28). Anyone holding an invite link can get into that agency until the owner
    sets a password. The link doesn't expire. Two-factor is off.
 
-**Background list** (fixed after the push, without changing what users see unless the owner agrees): erasure of voice,
-lessons and cadence data; a monthly AI cap; the lifecycle check; the enrolment filter; the claimTouch race; audits;
-retention of page_visit; the invite-link hardening; a WhatsApp opt-in question on Meta lead forms.
-
+**Background list** (fixed after the push, without changing what users see unless the owner agrees): erasure of the agency
+voice and the lessons; the enrolment filter; the claimTouch race; retention of page_visit; the invite-link hardening; a
+WhatsApp opt-in question on Meta lead forms.
