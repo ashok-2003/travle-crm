@@ -146,6 +146,12 @@ ${pack.voice.context}
 `
 }`;
 
+/** The imported chat itself, both sides: how the two really talk to each other, and what was said last. */
+const earlierChat = (voice: Voice | null) =>
+  voice === null || voice.history.length === 0
+    ? ""
+    : `\nYour earlier chat with them, imported from WhatsApp (oldest first; "You" is ${voice.name}). Carry it on: the same closeness, the same way of replying, remembering what was said:\n${voice.history.map((line) => `${line.own ? "You" : "Them"}: ${line.text}`).join("\n")}\n`;
+
 export function agentPrompt(settings: AiSettingsRow, agency: string, kind: TurnKind, pack: PromptPack): string {
   const name = settings.agentName.trim() === "" ? `the team at ${agency}` : settings.agentName.trim();
   const lessons =
@@ -162,6 +168,7 @@ export function agentPrompt(settings: AiSettingsRow, agency: string, kind: TurnK
     ? `If something needs ${person} themselves (a real decision, money, a meeting or a call, an emergency, or they are upset), set attention to a short private note (they never see it) and keep the conversation going kindly. Always set handoff to false.`
     : handoffLines[settings.handoff];
   return `${role}
+${earlierChat(pack.voice)}
 ${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}${settings.emojis === "none" ? "\n- Use no emojis at all, not one, whatever the examples or lessons do." : ""}
 - The agency's choices here win over any lesson below and over the way of talking you copy.
 

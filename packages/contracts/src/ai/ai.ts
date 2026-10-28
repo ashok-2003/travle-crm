@@ -147,6 +147,8 @@ export const chatAi = z.object({
       own: z.boolean(),
       /** What this chat's imported export says the two talked about before. */
       context: z.string().nullable(),
+      /** How many of the imported chat's messages, both sides, it reads with every reply. */
+      history: z.int(),
     })
     .nullable(),
   /** What the AI is for in this chat (default: the agency's), and what that comes to. */

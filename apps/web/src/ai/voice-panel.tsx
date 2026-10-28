@@ -29,6 +29,7 @@ export function VoicePanel({
   inherited = false,
   disabled = false,
   context = null,
+  remembered = 0,
 }: {
   /** The chat it is for; null for the agency's. */
   conversationId: string | null;
@@ -37,6 +38,8 @@ export function VoicePanel({
   inherited?: boolean;
   /** What this chat's export says the two talked about before. */
   context?: string | null;
+  /** How many of the imported chat's messages it reads with every reply. */
+  remembered?: number;
   disabled?: boolean;
 }) {
   const t = useTranslations("ai.voice");
@@ -76,6 +79,7 @@ export function VoicePanel({
               {inherited ? t("inherited", { name: voice.name }) : t("talkingLike", { name: voice.name })}
             </ItemTitle>
             <ItemDescription>{t("examples", { count: voice.examples })}</ItemDescription>
+            {remembered > 0 && <ItemDescription>{t("remembered", { count: remembered })}</ItemDescription>}
             <Collapsible>
               <CollapsibleTrigger asChild>
                 <Button variant="link" className="h-auto p-0">

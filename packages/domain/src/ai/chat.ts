@@ -116,6 +116,7 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, configured: bo
             examples: voice.examples.length,
             own: voice.own,
             context: voice.context,
+            history: voice.history.length,
           },
     persona: state?.persona === "sales" || state?.persona === "natural" ? state.persona : "default",
     natural: state?.persona === "natural" || (state?.persona !== "sales" && settings.persona === "natural"),

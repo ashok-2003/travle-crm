@@ -167,6 +167,7 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
                   voice={state.voice}
                   inherited={state.voice !== null && !state.voice.own}
                   context={state.voice?.own === true ? state.voice.context : null}
+                  remembered={state.voice?.own === true ? state.voice.history : 0}
                   disabled={!mayReply}
                 />
               </div>

@@ -110,6 +110,8 @@ model AiChat {
   voiceExamples  String[]             @default([]) @map("voice_examples")
   /// What an imported chat export says the two talked about before: topics, plans, likes, how they are with each other.
   voiceContext   String?              @map("voice_context")
+  /// The imported chat's last messages, both sides, oldest first: [{ "own": boolean, "text": string }].
+  voiceHistory   Json                 @default("[]") @map("voice_history")
   /// default (the agency's), sales or natural (CHECK ai_chat_persona_value).
   persona        String               @default("default")
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)

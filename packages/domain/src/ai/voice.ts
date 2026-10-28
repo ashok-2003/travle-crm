@@ -1,8 +1,9 @@
 // The AI writes as a real person writes (the owner, 2026-10-28): from a WhatsApp chat export the browser read (both
 // sides, in order, with numbers, emails and links taken out), the model writes a style guide of how the chosen person
 // talks, picks a few of their own messages that show it, and, for one chat, writes down what the two talked about
-// before (topics, plans, likes, how they are with each other). Kept for the whole agency or for one chat, where it wins
-// over the agency's; never the export itself. The agent then writes as them; it never denies being an AI when asked.
+// before (who the other is, topics, plans, likes, how each of them writes) and keeps the chat's last messages from both
+// sides, read with every reply. Kept for the whole agency or for one chat, where it wins over the agency's. The agent
+// then writes as them; it never denies being an AI when asked.
 import { voiceAnswer, type AiVoice, type LearnVoiceInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -19,7 +20,13 @@ export interface Voice {
   examples: string[];
   /** What the two talked about before, from this chat's imported export; null for the agency's voice. */
   context: string | null;
+  /** The imported chat's last messages, both sides, oldest first; empty for the agency's voice. */
+  history: { own: boolean; text: string }[];
 }
+
+/** Imported messages a chat keeps, and the length of each, so every reply can read them. */
+const HISTORY_KEPT = 100;
+const HISTORY_CHARACTERS = 400;
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 
@@ -48,7 +55,7 @@ Write a style guide of ${name} (under 2500 characters), concrete and with short 
 - greetings, sign-offs, fillers, favourite words and how they address people (ji, bhai, sir, dear)
 - tone and humour, and how they show feelings: excitement, care, apology, impatience
 Then pick the 25 of ${name}'s messages that show their style best, exactly as written. Leave out any with a name, a number, an email or an address.
-Then write the context (under 2000 characters): what the two talk about, plans and promises still open, what the other side likes or dislikes, shared jokes and references, and how they are with each other, so the next reply follows on naturally.
+Then write the context (under 3500 characters), from the whole chat, so the next reply follows on as if no time had passed: who the other person is to ${name} and how close they are; what they talk about most; the important things said (events, places, dates, decisions, promises, plans still open); what the other person likes, dislikes, worries about and is going through; how the other person writes and what makes them happy or annoyed; their shared jokes, nicknames and references; and how the two usually reply to each other.
 
 Answer with ONE JSON object and nothing else: {"profile": string, "examples": [string], "context": string}`;
 }
@@ -71,22 +78,30 @@ export async function learnVoice(
   }
   const chat = input.messages.map((message) => ({ own: message.own, text: scrubbed(message.text) }));
   const theirs = chat.filter((message) => message.own).map((message) => message.text);
-  const result = await ai.complete({
-    tier: "chat",
-    json: true,
-    maxTokens: 3000,
-    user: access.organizationId,
-    messages: [
-      { role: "system", content: voicePrompt(input.personName) },
-      {
-        role: "user",
-        content: chat.map((message) => `${message.own ? input.personName : "Them"}: ${message.text}`).join("\n"),
-      },
-    ],
-  });
-  if (!result.ok) throw new DomainError("CONFLICT", "AI_UNAVAILABLE", "The AI did not answer; try again");
-  const parsed = readJson(result.text);
-  if (parsed === null) throw new DomainError("CONFLICT", "AI_UNAVAILABLE", "The AI did not answer; try again");
+  const ask = () =>
+    ai.complete({
+      tier: "chat",
+      json: true,
+      // Room for a thinking model's own tokens too: a cut-off answer is no JSON.
+      maxTokens: 6000,
+      user: access.organizationId,
+      messages: [
+        { role: "system", content: voicePrompt(input.personName) },
+        {
+          role: "user",
+          content: chat.map((message) => `${message.own ? input.personName : "Them"}: ${message.text}`).join("\n"),
+        },
+      ],
+    });
+  // An answer that isn't readable is asked for once more before the person is told to try again.
+  let result = await ask();
+  let parsed = result.ok ? readJson(result.text) : null;
+  if (result.ok && parsed === null) {
+    result = await ask();
+    parsed = result.ok ? readJson(result.text) : null;
+  }
+  if (!result.ok || parsed === null)
+    throw new DomainError("CONFLICT", "AI_UNAVAILABLE", "The AI did not answer; try again");
   const voice = {
     voiceName: input.personName,
     voiceProfile: parsed.profile,
@@ -101,6 +116,10 @@ export async function learnVoice(
   };
   // What the two talked about belongs to one chat; the agency's voice is a way of talking alone.
   const context = scrubbed(parsed.context).trim().slice(0, 4000);
+  const history = chat.slice(-HISTORY_KEPT).map((message) => ({
+    own: message.own,
+    text: message.text.slice(0, HISTORY_CHARACTERS),
+  }));
   return db.forOrg(access.organizationId, async (tx) => {
     await tx.aiUsage.create({
       data: { kind: "learn", model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
@@ -117,8 +136,13 @@ export async function learnVoice(
             conversationId: input.conversationId,
           },
         },
-        create: { conversationId: input.conversationId, ...voice, voiceContext: context || null },
-        update: { ...voice, voiceContext: context || null },
+        create: {
+          conversationId: input.conversationId,
+          ...voice,
+          voiceContext: context || null,
+          voiceHistory: history,
+        },
+        update: { ...voice, voiceContext: context || null, voiceHistory: history },
       });
     }
     await recordAudit(tx, access, {
@@ -134,7 +158,8 @@ export async function learnVoice(
 export async function clearVoice(tx: OrgTx, access: MemberAccess, conversationId: string | undefined): Promise<void> {
   const none = { voiceName: null, voiceProfile: null, voiceExamples: [] };
   if (conversationId === undefined) await tx.aiSettings.updateMany({ data: none });
-  else await tx.aiChat.updateMany({ where: { conversationId }, data: { ...none, voiceContext: null } });
+  else
+    await tx.aiChat.updateMany({ where: { conversationId }, data: { ...none, voiceContext: null, voiceHistory: [] } });
   await recordAudit(tx, access, {
     action: "ai.voice-removed",
     entityType: conversationId === undefined ? "ai_settings" : "whatsapp_conversation",
@@ -147,6 +172,22 @@ interface VoiceRow {
   voiceProfile: string | null;
   voiceExamples: string[];
   voiceContext?: string | null;
+  voiceHistory?: unknown;
+}
+
+/** The stored history read back: lines that aren't { own, text } are dropped. */
+function historyOf(stored: unknown): { own: boolean; text: string }[] {
+  if (!Array.isArray(stored)) return [];
+  return stored.flatMap((line: unknown) =>
+    typeof line === "object" &&
+    line !== null &&
+    "own" in line &&
+    "text" in line &&
+    typeof line.own === "boolean" &&
+    typeof line.text === "string"
+      ? [{ own: line.own, text: line.text }]
+      : [],
+  );
 }
 
 const voiceOf = (row: VoiceRow | null): Voice | null =>
@@ -157,6 +198,7 @@ const voiceOf = (row: VoiceRow | null): Voice | null =>
         profile: row.voiceProfile,
         examples: row.voiceExamples,
         context: row.voiceContext ?? null,
+        history: historyOf(row.voiceHistory),
       };
 
 const voiceColumns = { voiceName: true, voiceProfile: true, voiceExamples: true } as const;
@@ -169,7 +211,10 @@ export async function agencyVoiceOf(tx: OrgTx): Promise<Voice | null> {
 /** The way of talking in one chat: its own, else the agency's; and whether it is the chat's own. */
 export async function chatVoiceOf(tx: OrgTx, conversationId: string): Promise<(Voice & { own: boolean }) | null> {
   const own = voiceOf(
-    await tx.aiChat.findFirst({ where: { conversationId }, select: { ...voiceColumns, voiceContext: true } }),
+    await tx.aiChat.findFirst({
+      where: { conversationId },
+      select: { ...voiceColumns, voiceContext: true, voiceHistory: true },
+    }),
   );
   if (own !== null) return { ...own, own: true };
   const agency = await agencyVoiceOf(tx);

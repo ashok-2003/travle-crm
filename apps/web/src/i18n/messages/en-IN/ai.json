@@ -304,19 +304,20 @@
     "replace": "Upload another chat",
     "how": "In WhatsApp, open the chat, tap ⋮ → More → Export chat → Without media, and upload the .txt here. The chat's latest messages go to the AI with numbers and emails taken out; the chat itself isn't kept, only how the person talks and, in a chat, what the two talked about.",
     "notAnExport": "This file doesn't look like a WhatsApp chat export. Export it from WhatsApp, without media.",
-    "dialogTitle": "Whose way of talking?",
-    "dialogDescription": "{count, plural, one {# message read.} other {# messages read.}} Choose the person the AI should talk like.",
-    "whose": "Talk like",
+    "dialogTitle": "Who should the AI be?",
+    "dialogDescription": "{count, plural, one {# message read} other {# messages read}}, from both of you. The AI reads the whole chat, how each of you writes and what you talked about; choose the person it should be.",
+    "whose": "The AI talks as",
     "messageCount": "{count, plural, one {# message} other {# messages}}",
     "tooFew": "Too few messages to learn from",
     "learn": "Learn {name}'s way of talking",
-    "learning": "Reading how they talk…",
+    "learning": "Reading the whole chat…",
     "learned": "The AI now talks like {name}",
     "talkingLike": "Talking like {name}",
     "inherited": "Talking like {name}, as in every chat",
     "examples": "{count, plural, one {Learned from their messages; keeps # of them as examples.} other {Learned from their messages; keeps # of them as examples.}}",
     "howTheyTalk": "How {name} talks",
     "remove": "Remove",
-    "context": "What they talked about"
+    "context": "What they talked about",
+    "remembered": "{count, plural, one {Reads # message of your chat with them before every reply.} other {Reads the last # messages of your chat with them, both sides, before every reply.}}"
   }
 }
