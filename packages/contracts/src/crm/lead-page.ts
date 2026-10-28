@@ -4,7 +4,7 @@ import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { wallClockTime } from "../kernel/time.js";
 import { task, taskKind, taskTitle } from "../tasks/tasks.js";
-import { leadSource, leadStage, newPerson, noteBody, openLeadStage, peopleNames } from "./fields.js";
+import { leadSource, leadStage, lostReason, newPerson, noteBody, openLeadStage, peopleNames } from "./fields.js";
 import { tripDetail, tripInput } from "./trip.js";
 
 export const leadIdInput = z.strictObject({ leadId: recordId });
@@ -19,6 +19,8 @@ export const leadDetail = z.object({
   stage: leadStage,
   /** Where Reopen returns a closed lead; null means New. */
   reopenStage: openLeadStage.nullable(),
+  /** Why it was lost, when it is Lost and someone said. */
+  lostReason: lostReason.nullable(),
   stageChangedAt: z.iso.datetime(),
   firstReplyAt: z.iso.datetime().nullable(),
   returning: z.boolean(),
@@ -41,7 +43,12 @@ export const leadDetail = z.object({
 });
 export type LeadDetail = z.infer<typeof leadDetail>;
 
-export const moveStageInput = z.strictObject({ leadId: recordId, stage: leadStage });
+export const moveStageInput = z.strictObject({
+  leadId: recordId,
+  stage: leadStage,
+  /** Why, when it is moved to Lost. */
+  lostReason: lostReason.optional(),
+});
 export type MoveStageInput = z.infer<typeof moveStageInput>;
 
 export const reassignLeadInput = z.strictObject({ leadId: recordId, ownerUserId: recordId });

@@ -1,7 +1,7 @@
 // Signs staff in with the organization code through the api, as the sign-in screen does, so organization journeys
 // can act as them without depending on that screen.
 import type { APIRequestContext } from "@playwright/test";
-import { expect } from "./fixtures";
+import { expect, skipWelcome } from "./fixtures";
 
 export async function signInWithCode(
   request: APIRequestContext,
@@ -13,4 +13,5 @@ export async function signInWithCode(
     headers: { origin: process.env.E2E_BASE_URL ?? "" },
   });
   expect(response.status()).toBe(200);
+  await skipWelcome(request);
 }

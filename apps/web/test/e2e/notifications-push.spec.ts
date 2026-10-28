@@ -5,7 +5,7 @@
 // stand-ins (standInPush). Unverified here: a real push service's subscription and delivery, the browser's own
 // prompt, and showing a push and its tap (the worker's tests cover those two: test/pwa/push-worker.test.ts).
 import type { Page, TestInfo } from "@playwright/test";
-import { signInByEmail } from "./support/fixtures";
+import { signInByEmail, signOutOf } from "./support/fixtures";
 import { expect, test } from "./support/notifications";
 
 /**
@@ -41,8 +41,7 @@ function standInPush(): void {
 const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 
 async function signOutFrom(page: Page, testInfo: TestInfo): Promise<void> {
-  if (isPhone(testInfo)) await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
+  await signOutOf(page, { phone: isPhone(testInfo) });
 }
 
 test("turning push on saves this browser, and signing out removes it first", async ({

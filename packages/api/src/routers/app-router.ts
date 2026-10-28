@@ -10,6 +10,13 @@ import { documentsRouter } from "./documents.js";
 import { broadcastsRouter } from "./broadcasts.js";
 import { inboxRouter } from "./inbox.js";
 import { salesInboxRouter } from "./sales-inbox.js";
+import { tripKitsRouter } from "./trip-kits.js";
+import { quotesRouter } from "./quotes.js";
+import { aiRouter } from "./ai.js";
+import { financeRouter } from "./finance.js";
+import { usageRouter } from "./usage.js";
+import { salesRouter } from "./sales.js";
+import { reportsRouter } from "./reports.js";
 import { whatsappTemplatesRouter } from "./whatsapp-templates.js";
 import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
@@ -57,6 +64,13 @@ export const appRouter = router({
   broadcasts: broadcastsRouter,
   inbox: inboxRouter,
   salesInbox: salesInboxRouter,
+  tripKits: tripKitsRouter,
+  quotes: quotesRouter,
+  ai: aiRouter,
+  finance: financeRouter,
+  sales: salesRouter,
+  usage: usageRouter,
+  reports: reportsRouter,
   whatsappTemplates: whatsappTemplatesRouter,
   leadExports: leadExportsRouter,
   staffImports: staffImportsRouter,

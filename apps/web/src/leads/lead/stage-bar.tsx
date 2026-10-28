@@ -90,6 +90,7 @@ function StageProgress({ stage, reached }: { stage: LeadStage; reached: number }
 
 export function StageBar({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads");
+  const tLost = useTranslations("sales.lost");
   const canEdit = useHolds("leads:edit");
   const write = useWriteAccess("change");
   const hintId = useId();
@@ -125,6 +126,11 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
             <StageBadge stage={lead.stage} />
             {lead.stage === "not_a_lead" && <InfoHint term={t("stages.not_a_lead")}>{t("hints.notALead")}</InfoHint>}
           </span>
+          {lead.stage === "lost" && lead.lostReason !== null && (
+            <span className="text-muted-foreground">
+              {tLost("because", { reason: tLost(`reasons.${lead.lostReason}`) })}
+            </span>
+          )}
           {canEdit && (
             <p className="text-muted-foreground">
               {t("lead.reopenReturns", { stage: t(`stages.${lead.reopenStage ?? "new"}`) })}

@@ -33,6 +33,7 @@ import { firstOwner, leadWorkers, membersHolding } from "./lead-workers.js";
 import type { Permission } from "./permissions.js";
 import type { MemberAccess } from "./member-access.js";
 import { recordMemberActivity } from "./member-activity.js";
+import { chooseOwnPassword, hasOwnPasswordToChoose } from "./own-password.js";
 import {
   memberContacts,
   organizationProfile,
@@ -156,6 +157,14 @@ export interface Identity {
     update(actor: MemberAccess, input: UpdateRoleInput): Promise<RoleSummary>;
     delete(actor: MemberAccess, input: DeleteRoleInput): Promise<void>;
   };
+  /**
+   * The signed-in person's own password, when they came in through an invite link with one the platform made: whether
+   * they still have it to choose, and choosing it (never over one they chose).
+   */
+  readonly ownPassword: {
+    toChoose(actor: MemberAccess): Promise<boolean>;
+    choose(actor: MemberAccess, password: string): Promise<{ chosen: boolean }>;
+  };
   /** Organization settings owned by identity. Changing them needs settings:manage, which the API checks. */
   readonly settings: {
     setTwoFactorRequirement(actor: MemberAccess, input: SetTwoFactorRequirementInput): Promise<SecuritySettings>;
@@ -215,6 +224,10 @@ export function createIdentity(options: IdentityOptions): Identity {
       create: (actor, input) => createRole(database, actor, input),
       update: (actor, input) => updateRole(database, actor, input),
       delete: (actor, input) => deleteRole(database, actor, input),
+    },
+    ownPassword: {
+      toChoose: (actor) => hasOwnPasswordToChoose(database, actor),
+      choose: (actor, password) => chooseOwnPassword(database, hashPassword, actor, password),
     },
     settings: {
       setTwoFactorRequirement: (actor, input) => setTwoFactorRequirement(database, actor, input),

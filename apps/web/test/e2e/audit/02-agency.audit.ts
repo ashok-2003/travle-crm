@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "@playwright/test";
 import { logoPng, saveBusinessProfile } from "../support/documents";
-import { expect, signInByCode, signInByEmail, test } from "../support/fixtures";
+import { expect, homeGreeting, signInByCode, signInByEmail, test } from "../support/fixtures";
 import { screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -121,7 +121,7 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
   await expect(handover).toHaveCount(0);
 
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   // The checklist asks again as the screen opens; only its answer says it is gone for good.
   await page.waitForLoadState("networkidle");
   await expect(checklist).toHaveCount(0);
@@ -156,7 +156,7 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
   await shoot(page, "audit-log");
 
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   if (testInfo.project.name === "phone") {
     await shoot(page, "top-bar", { element: page.locator("header").filter({ visible: true }).first() });
     const bottomBar = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });

@@ -4,8 +4,11 @@
 import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import {
   CalendarCheckIcon,
+  ChartColumnIcon,
+  FileTextIcon,
   HistoryIcon,
   HouseIcon,
+  IndianRupeeIcon,
   InboxIcon,
   MessageCircleIcon,
   SettingsIcon,
@@ -22,7 +25,8 @@ export type NavigationGroup = (typeof navigationGroups)[number];
 
 export interface NavigationItem {
   /** Also the message key in the "shell.navigation" namespace. */
-  key: "home" | "today" | "leads" | "inbox" | "staff" | "roles" | "settings" | "audit";
+  key:
+    "home" | "today" | "leads" | "inbox" | "quotes" | "reports" | "finance" | "staff" | "roles" | "settings" | "audit";
   /** The sidebar heading it sits under; phones list the items without headings. */
   group: NavigationGroup;
   href: string;
@@ -38,6 +42,23 @@ export const navigationItems: readonly NavigationItem[] = [
   { key: "today", group: "work", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
   { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
   { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
+  { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },
+  {
+    key: "reports",
+    group: "work",
+    href: routes.reports,
+    icon: ChartColumnIcon,
+    requires: "money:view_reports",
+    module: "crm",
+  },
+  {
+    key: "finance",
+    group: "manage",
+    href: routes.finance,
+    icon: IndianRupeeIcon,
+    requires: "accounts:view",
+    module: "accounts",
+  },
   { key: "staff", group: "team", href: routes.staff, icon: UsersIcon, requires: "staff:manage", module: null },
   { key: "roles", group: "team", href: routes.roles, icon: ShieldCheckIcon, requires: "roles:manage", module: null },
   {

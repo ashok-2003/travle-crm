@@ -9,6 +9,7 @@ import { cp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import path from "node:path";
 import { META_E2E } from "./fake-meta";
+import { OPENROUTER_E2E_KEY } from "./fake-openrouter";
 import { MSG91_E2E } from "./fake-msg91";
 import type { EmailVariables } from "./mailpit";
 import type { StorageVariables } from "./minio";
@@ -179,6 +180,7 @@ export async function startServers({
   google,
   meta,
   msg91,
+  ai,
   turnstile,
 }: {
   databaseUrl: string;
@@ -194,6 +196,8 @@ export async function startServers({
   meta: { url: string };
   /** The fake MSG91 (support/fake-msg91.ts): the address the real adapter is given. */
   msg91: { url: string };
+  /** The fake OpenRouter (support/fake-openrouter.ts): where the AI adapter's calls are sent; only the api reads it. */
+  ai: { url: string };
   /** The fake Turnstile's siteverify address (support/fake-turnstile.ts). */
   turnstile: { verifyUrl: string };
 }): Promise<Servers> {
@@ -251,6 +255,9 @@ export async function startServers({
       ...sheets,
       ...metaVariables(meta.url),
       ...whatsappVariables(msg91.url),
+      // The AI (ADR 0029): the api asks it for a suggested reply and the worker for a lead's guess; both go to the fake.
+      OPENROUTER_API_KEY: OPENROUTER_E2E_KEY,
+      AI_TEST_SERVER_URL: ai.url,
     };
     const tsx = path.join(apiDirectory, "node_modules/.bin/tsx");
     await reserved.release();

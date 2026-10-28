@@ -112,6 +112,24 @@ export async function earlierSend(tx: OrgTx, conversationId: string, clientToken
   return row;
 }
 
+/**
+ * The message a reply quotes: one of this chat's own, never another chat's (a member must not learn of another chat's words
+ * by quoting them) and never a message that was replaced by its echo. Null for no quote.
+ */
+export async function quotedMessageOf(
+  tx: OrgTx,
+  conversationId: string,
+  replyToMessageId: string | undefined,
+): Promise<string | null> {
+  if (replyToMessageId === undefined) return null;
+  const target = await tx.whatsappMessage.findFirst({
+    where: { id: replyToMessageId, conversationId, status: { not: "superseded" } },
+    select: { id: true },
+  });
+  if (target === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "The message to reply to is not in this chat");
+  return target.id;
+}
+
 /** Queues a text reply. */
 export async function queueText(
   tx: OrgTx,
@@ -124,6 +142,7 @@ export async function queueText(
   const earlier = await earlierSend(tx, chat.id, input.clientToken);
   if (earlier !== null) return sentOf(earlier);
   await sendableChat(tx, access, input.conversationId, context, now);
+  const quotedMessageId = await quotedMessageOf(tx, chat.id, input.replyToMessageId);
   const [row] = await tx.whatsappMessage.createManyAndReturn({
     data: [
       {
@@ -132,6 +151,7 @@ export async function queueText(
         origin: "staff_crm",
         kind: "text",
         body: input.text,
+        quotedMessageId,
         status: "queued",
         sentBy: access.userId,
         clientToken: input.clientToken,
@@ -153,7 +173,7 @@ export async function queueText(
 }
 
 /** The kind of message a file is sent as. */
-const kindOf = (contentType: string) =>
+export const kindOf = (contentType: string) =>
   contentType.startsWith("image/")
     ? "image"
     : contentType.startsWith("video/")
@@ -230,10 +250,12 @@ export async function queueMedia(
   assertSendable(file.contentType, file.sizeBytes);
   return db.forOrg(access.organizationId, async (tx) => {
     const chat = await sendableChat(tx, access, input.conversationId, context, now);
+    const quotedMessageId = await quotedMessageOf(tx, chat.id, input.replyToMessageId);
     const [row] = await tx.whatsappMessage.createManyAndReturn({
       data: [
         {
           id: input.messageId,
+          quotedMessageId,
           conversationId: chat.id,
           direction: "out",
           origin: "staff_crm",

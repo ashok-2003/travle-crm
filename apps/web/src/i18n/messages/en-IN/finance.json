@@ -1,0 +1,154 @@
+{
+  "title": "Finance",
+  "intro": "What your bookings brought in, what they cost, your running costs, and the profit left.",
+  "periodLabel": "Period",
+  "periods": {
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "threeMonths": "Last 3 months",
+    "financialYear": "This financial year"
+  },
+  "range": "{from} to {to}",
+  "tabs": {
+    "overview": "Overview",
+    "bookings": "Bookings",
+    "expenses": "Expenses"
+  },
+  "overview": {
+    "loadFailed": "The figures didn't load.",
+    "loading": "Loading the figures",
+    "profitTitle": "Profit",
+    "revenue": "Sales",
+    "bookings": "{count, plural, =0 {No bookings} one {# booking, before GST} other {# bookings, before GST}}",
+    "tripCosts": "Booking costs",
+    "tripCostsNote": "Hotels, cabs, flights",
+    "grossProfit": "Gross profit",
+    "expenses": "Running costs",
+    "expensesNote": "Salaries, rent, ads",
+    "netProfit": "Net profit",
+    "netProfitNote": "What is left",
+    "cashTitle": "Money in and out",
+    "collected": "Received",
+    "collectedNote": "From customers, in the period",
+    "receivable": "Customers owe",
+    "receivableNote": "On accepted quotes, now",
+    "payable": "You owe suppliers",
+    "payableNote": "Costs not yet paid, now",
+    "gst": "GST collected",
+    "gstNote": "On the period's bookings, for the government",
+    "monthsTitle": "Month by month",
+    "month": "Month",
+    "costs": "Costs",
+    "whereTitle": "Where running costs went",
+    "noExpenses": "No running costs in this period."
+  },
+  "bookings": {
+    "loadFailed": "Bookings didn't load.",
+    "retry": "Try again",
+    "loading": "Loading bookings",
+    "empty": "No bookings yet. A quote becomes a booking when it is accepted or paid.",
+    "travels": "Travels {day}",
+    "columns": {
+      "booking": "Booking",
+      "revenue": "Sale before GST",
+      "cost": "Cost",
+      "profit": "Profit",
+      "customerOwes": "Customer owes",
+      "youOwe": "You owe"
+    },
+    "showMore": "Show more bookings"
+  },
+  "expenses": {
+    "loadFailed": "Running costs didn't load.",
+    "retry": "Try again",
+    "loading": "Loading running costs",
+    "empty": "No running costs in this period. Add salaries, rent and ads to see your real profit.",
+    "add": "Add running cost",
+    "addTitle": "Add a running cost",
+    "addDescription": "A cost of running the agency, not of one booking.",
+    "added": "Running cost added",
+    "save": "Save",
+    "saving": "Saving…",
+    "voidNamed": "Void {what}",
+    "voidTitle": "Void this running cost?",
+    "voidDescription": "It stays in the audit log, but no longer counts.",
+    "void": "Void",
+    "columns": {
+      "what": "What",
+      "category": "Category",
+      "day": "Day",
+      "amount": "Amount",
+      "actions": "Actions"
+    }
+  },
+  "expenseForm": {
+    "category": "Category",
+    "categories": {
+      "salary": "Salaries",
+      "rent": "Rent",
+      "marketing": "Marketing and ads",
+      "software": "Software",
+      "utilities": "Electricity, phone and internet",
+      "commission": "Commissions",
+      "travel": "Staff travel",
+      "other": "Other"
+    },
+    "description": "What it was",
+    "descriptionHint": "Like October rent or Facebook ads",
+    "amount": "Amount",
+    "spentOn": "Day",
+    "note": "Note",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this."
+    }
+  },
+  "costs": {
+    "title": "Booking costs and profit",
+    "loadFailed": "The costs didn't load.",
+    "revenue": "Sale before GST",
+    "cost": "Costs",
+    "profit": "Profit",
+    "none": "No costs yet. Add the hotel, cab and flights to see this booking's profit.",
+    "add": "Add cost",
+    "addTitle": "Add a booking cost",
+    "addDescription": "What you pay a supplier for this booking.",
+    "added": "Cost added",
+    "save": "Save",
+    "saving": "Saving…",
+    "dueOn": "Due {day}",
+    "paidOn": "Paid {day}",
+    "markPaid": "Mark paid",
+    "owed": "Owed",
+    "paid": "Paid",
+    "voidNamed": "Void the cost of {supplier}",
+    "voidTitle": "Void this cost?",
+    "voidDescription": "It stays in the audit log, but no longer counts.",
+    "void": "Void"
+  },
+  "costForm": {
+    "category": "What for",
+    "categories": {
+      "hotel": "Hotel",
+      "transport": "Cab and transport",
+      "flight": "Flight",
+      "train": "Train",
+      "activity": "Activity and sightseeing",
+      "visa": "Visa and insurance",
+      "guide": "Guide",
+      "other": "Other"
+    },
+    "supplier": "Supplier",
+    "supplierHint": "The hotel, cab owner or airline",
+    "amount": "Amount",
+    "dueOn": "Due by",
+    "dueOnHint": "When you have to pay them, if you know",
+    "paidOn": "Paid on",
+    "paidOnHint": "Leave it empty while you still owe it",
+    "note": "Note",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this."
+    }
+  }
+}

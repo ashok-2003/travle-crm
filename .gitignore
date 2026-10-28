@@ -13,3 +13,6 @@ next-env.d.ts
 .DS_Store
 .claude-flow/
 .claude/
+
+# Screenshots a builder takes for a review: not part of the code.
+shots/

@@ -24,6 +24,8 @@ import { notifyNeedsAttention } from "./attention.js";
 import { chatNameOf } from "./chat-name.js";
 import { whatsappConsentOf } from "./whatsapp-consent.js";
 import { MESSAGE_QUEUED_EVENT } from "./outbox.js";
+import { sendKeepingOrDroppingQuote } from "./quote-retry.js";
+import { queuedMessage, type Queued } from "./queued-message.js";
 import { settleNeedsReply } from "./needs-reply.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
 import { windowIsOpen } from "./window.js";
@@ -61,80 +63,6 @@ export type FailureCode =
 
 const storedReason = (result: Extract<WhatsAppSendResult, { ok: false }>): FailureCode =>
   result.reason === "template_not_approved" ? "other" : result.reason;
-
-interface Queued {
-  id: string;
-  kind: string;
-  body: string | null;
-  caption: string | null;
-  fileName: string | null;
-  template: { name: string; language: string; category: string } | null;
-  templateParams: string[];
-  /** When it was queued (or last tried again by a person). */
-  queuedAt: Date;
-  sentBy: string | null;
-  /** "automation" for an answer the system wrote. */
-  origin: string;
-  conversationId: string;
-  phoneE164: string;
-  personId: string | null;
-  lastInboundAt: Date | null;
-  integratedNumber: string;
-  connectionStatus: string;
-  connectionId: string;
-}
-
-/** The queued message with what sending it needs, or null when it is not (or no longer) waiting. */
-async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queued | null> {
-  const message = await tx.whatsappMessage.findUnique({
-    where: { id: messageId },
-    select: {
-      id: true,
-      kind: true,
-      body: true,
-      caption: true,
-      fileName: true,
-      occurredAt: true,
-      sentBy: true,
-      templateParams: true,
-      template: { select: { name: true, language: true, category: true } },
-      status: true,
-      direction: true,
-      origin: true,
-      conversation: {
-        select: {
-          id: true,
-          phoneE164: true,
-          personId: true,
-          lastInboundAt: true,
-          connection: { select: { id: true, integratedNumber: true, status: true } },
-        },
-      },
-    },
-  });
-  if (message?.status !== "queued" || message.direction !== "out") return null;
-  if (message.origin !== "staff_crm" && message.origin !== "automation") return null;
-  const { conversation } = message;
-  return {
-    id: message.id,
-    kind: message.kind,
-    body: message.body,
-    caption: message.caption,
-    fileName: message.fileName,
-    template: message.template,
-    templateParams: message.templateParams,
-    queuedAt: message.occurredAt,
-    sentBy: message.sentBy,
-    origin: message.origin,
-    conversationId: conversation.id,
-    phoneE164: conversation.phoneE164,
-    personId: conversation.personId,
-    lastInboundAt: conversation.lastInboundAt,
-    integratedNumber: conversation.connection.integratedNumber,
-    connectionStatus: conversation.connection.status,
-    connectionId: conversation.connection.id,
-  };
-}
 
 /** Ends the message as not sent: the reason, the usage count, the chat waiting again, and a notice to whoever sent it. */
 async function fail(
@@ -186,7 +114,9 @@ async function callProvider(
   provider: WhatsAppProvider,
   organizationId: string,
   message: Queued,
+  withQuote: boolean,
 ): Promise<WhatsAppSendResult | "file_missing"> {
+  const replyTo = withQuote && message.replyTo !== null ? { replyTo: message.replyTo } : {};
   if (message.template !== null) {
     return provider.sendTemplate(message.integratedNumber, message.phoneE164, {
       name: message.template.name,
@@ -195,7 +125,7 @@ async function callProvider(
     });
   }
   if (message.kind === "text")
-    return provider.sendText(message.integratedNumber, message.phoneE164, message.body ?? "");
+    return provider.sendText(message.integratedNumber, message.phoneE164, message.body ?? "", replyTo);
   const [file] = await dependencies.files.list(systemActor(organizationId), {
     recordType: WHATSAPP_RECORD_TYPE,
     recordId: message.id,
@@ -211,6 +141,7 @@ async function callProvider(
     ...(message.kind === "audio" && file.contentType === "audio/ogg" ? { voice: true } : {}),
     ...(message.caption === null ? {} : { caption: message.caption }),
     ...(message.fileName === null ? {} : { fileName: message.fileName }),
+    ...replyTo,
   });
 }
 
@@ -277,13 +208,18 @@ export async function sendQueued(
   if (claimed.count !== 1) return "skipped";
 
   let result: WhatsAppSendResult | "file_missing";
+  let quoteDropped: boolean;
   try {
-    result = await callProvider(dependencies, provider, organizationId, queued);
+    ({ result, quoteDropped } = await sendKeepingOrDroppingQuote(
+      (withQuote) => callProvider(dependencies, provider, organizationId, queued, withQuote),
+      queued,
+      dependencies.logger,
+    ));
   } catch {
     // The call left and we do not know what came of it.
     result = { ok: false, reason: "unsure" };
+    quoteDropped = false;
   }
-
   if (result !== "file_missing" && !result.ok && retryableFailureReasons.includes(result.reason)) {
     if (now.getTime() - queued.queuedAt.getTime() < RETRY_FOR_MS) {
       await context.forOrg((tx) =>
@@ -315,7 +251,7 @@ export async function sendQueued(
       }
       await tx.whatsappMessage.update({
         where: { id: queued.id },
-        data: { status: "sent", wamid: result.wamid, sentAt: now },
+        data: { status: "sent", wamid: result.wamid, sentAt: now, ...(quoteDropped ? { quoteDropped: true } : {}) },
       });
       await tx.whatsappConnection.update({ where: { id: queued.connectionId }, data: { lastSendOkAt: now } });
       await bumpUsage(tx, { organizationId, connectionId: queued.connectionId }, monthStartOf(now, "Asia/Kolkata"), {

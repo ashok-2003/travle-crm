@@ -12,6 +12,8 @@ import {
   FileTextIcon,
   FolderIcon,
   HistoryIcon,
+  IndianRupeeIcon,
+  SparklesIcon,
   ListChecksIcon,
   MessageCircleIcon,
   MapPinIcon,
@@ -49,6 +51,8 @@ interface Section {
     | "leadSources"
     | "assignment"
     | "whatsapp"
+    | "quotes"
+    | "ai"
     | "audit";
   href: string;
   icon: LucideIcon;
@@ -81,6 +85,8 @@ const sections: readonly Section[] = [
     module: "crm",
   },
   { key: "whatsapp", href: routes.whatsapp, icon: MessageCircleIcon, requires: "settings:manage", module: "inbox" },
+  { key: "quotes", href: routes.quoteSettings, icon: IndianRupeeIcon, requires: "settings:manage", module: "quotes" },
+  { key: "ai", href: routes.aiSettings, icon: SparklesIcon, requires: "ai:manage", module: "ai" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];
 

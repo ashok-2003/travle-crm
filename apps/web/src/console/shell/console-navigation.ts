@@ -1,7 +1,9 @@
 // The console's destinations and who sees them: support everything but Staff, which super admins manage alone
 // (spec 5). Hiding is for convenience only; the console's api refuses support's calls there anyway.
 import {
+  ActivityIcon,
   CirclePlusIcon,
+  GiftIcon,
   LayersIcon,
   LayoutDashboardIcon,
   MessageCircleIcon,
@@ -15,7 +17,7 @@ import { isSuperAdmin, type ConsoleStaff } from "../session/staff-context";
 
 export interface ConsoleNavigationItem {
   /** Also the message key in the "console.navigation" namespace. */
-  key: "home" | "onboard" | "plans" | "whatsapp" | "jobs" | "log" | "staff";
+  key: "home" | "onboard" | "invites" | "usage" | "plans" | "whatsapp" | "jobs" | "log" | "staff";
   href: string;
   icon: LucideIcon;
   /** Shown to super admins only. */
@@ -25,6 +27,8 @@ export interface ConsoleNavigationItem {
 export const consoleNavigationItems: readonly ConsoleNavigationItem[] = [
   { key: "home", href: consoleRoutes.home, icon: LayoutDashboardIcon, superAdminOnly: false },
   { key: "onboard", href: consoleRoutes.onboard, icon: CirclePlusIcon, superAdminOnly: false },
+  { key: "invites", href: consoleRoutes.invites, icon: GiftIcon, superAdminOnly: false },
+  { key: "usage", href: consoleRoutes.usage, icon: ActivityIcon, superAdminOnly: false },
   { key: "plans", href: consoleRoutes.plans, icon: LayersIcon, superAdminOnly: false },
   { key: "whatsapp", href: consoleRoutes.whatsapp, icon: MessageCircleIcon, superAdminOnly: false },
   { key: "jobs", href: consoleRoutes.jobs, icon: ServerCogIcon, superAdminOnly: false },

@@ -15,8 +15,11 @@ export {
 export { addDemoWhatsApp } from "./demo-seed.js";
 export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
 export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
+export { listChatMedia } from "./chat-media.js";
+export { discardFailedMessage } from "./discard.js";
 export {
   archiveConversation,
+  forwardMessage,
   markConversationRead,
   MAX_SNOOZE_MS,
   pinConversation,
@@ -29,6 +32,7 @@ export {
   automationOf,
   createKeywordReply,
   CUSTOMER_WROTE_EVENT,
+  TEXT_RECEIVED_EVENT,
   deleteKeywordReply,
   listKeywordReplies,
   saveAutomation,
@@ -64,6 +68,18 @@ export {
 } from "./scheduled.js";
 export { summaryOf } from "./summary.js";
 export { createQuickReply, deleteQuickReply, listQuickReplies, updateQuickReply } from "./quick-replies.js";
+export {
+  confirmTripKitUpload,
+  createTripKit,
+  deleteTripKit,
+  listTripKits,
+  removeTripKitFile,
+  requestTripKitUpload,
+  tripKitWords,
+  updateTripKit,
+  type TripKitDependencies,
+} from "./trip-kits.js";
+export { sendTripKit, sendTripKitOnKeyword, tripKitFor, tripKitKeywordListener } from "./trip-kit-send.js";
 export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";
 export {
@@ -107,10 +123,10 @@ export {
   inboxStatusOf,
   leadChatOf,
   listConversations,
-  listMessages,
   visibleConversation,
   visibleMessage,
 } from "./views.js";
+export { listMessages } from "./chat-messages.js";
 export { retryMessage } from "./retry.js";
 export { assertTemplateAllowed, queueTemplate, renderTemplate, startChatForLead } from "./template-send.js";
 export {

@@ -36,6 +36,10 @@ describe("contrast", () => {
       ["pressed action on its tint", colours.actionPressed, colours.actionTint],
       ["text on people", colours.onAction, colours.people],
       ["people ink on its tint", colours.peopleTintInk, colours.peopleTint],
+      ["sidebar words on its fill", colours.sidebar.ink, colours.sidebar.fill],
+      ["sidebar words on the current page", colours.sidebar.ink, colours.sidebar.active],
+      ["send text on its fill", colours.send.ink, colours.send.fill],
+      ["send text pressed", colours.send.ink, colours.send.pressed],
       ["money on canvas", colours.money, colours.canvas],
       ["money on its tint", colours.money, colours.moneyTint],
       ...Object.entries(colours.status).map(([name, status]): [string, string, string] => [

@@ -1,0 +1,100 @@
+// The AI (ADR 0029; the owner's decision of 2026-10-28), step 1: an agency's own switch and instructions, what it tells its
+// AI to know (typed words, or a PDF's), how many AI calls it used this month (shared by every AI feature), the drafts Suggest
+// reply made (ids and a hash, never the words, so a sent reply can be audited as "drafted by AI, sent by <member>"), and the
+// AI's guess of how each lead will go. Organization-owned, under RLS.
+
+/// An agency's AI settings: off until its Owner or Admin turns it on. One row each.
+model AiSettings {
+  organizationId String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  enabled        Boolean      @default(false)
+  /// What the agency tells its AI: tone, language, what to offer, what never to say (CHECK ai_settings_instructions_length).
+  instructions   String       @default("")
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("ai_settings")
+}
+
+/// AI calls made in a month by every AI feature, for the monthly limit. The month is its first day in the organization's zone.
+model AiUsage {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  month          DateTime     @db.Date
+  calls          Int          @default(0)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, month], map: "ai_usage_month_key")
+  @@map("ai_usage")
+}
+
+/// A reply the AI drafted for a member. It keeps no words: a hash of the draft says whether the member changed it before
+/// sending, and `usedAt` that it was sent (once).
+model AiDraft {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  draftedBy      String               @map("drafted_by") @db.Uuid
+  model          String
+  textHash       String               @map("text_hash")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  usedAt         DateTime?            @map("used_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, conversationId], map: "ai_draft_conversation")
+  @@map("ai_draft")
+}
+
+/// Something the AI knows about the agency: its packages, prices, inclusions and policies, typed or read from a document.
+/// Soft-deleted (its file goes with it).
+model AiKnowledge {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  title          String
+  body           String       @default("")
+  /// text or file (CHECK ai_knowledge_kind_value).
+  kind           String       @default("text")
+  /// A file's attachment (record type ai_knowledge) and name, whose words become the body.
+  attachmentId   String?      @map("attachment_id") @db.Uuid
+  fileName       String?      @map("file_name")
+  /// ready, reading (a file's words are being read) or failed (CHECK ai_knowledge_status_value).
+  status         String       @default("ready")
+  enabled        Boolean      @default(true)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@map("ai_knowledge")
+}
+
+/// The AI's guess of how a lead will go: how likely it books (0-100), hot, warm or cold, why, whether it looks fake, what to
+/// do next. A guess, shown as one; it never moves a lead's stage. Only agencies with the AI on have them; erased with the customer.
+model LeadAiInsight {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  score          Int
+  /// hot, warm or cold (CHECK lead_ai_insight_label_value).
+  label          String
+  reasons        String[]     @default([])
+  fake           Boolean      @default(false)
+  fakeReason     String?      @map("fake_reason")
+  nextStep       String       @default("") @map("next_step")
+  /// What the customer said they want, as words: { destination, when, travellers, budget } (CHECK lead_ai_insight_facts_object).
+  facts          Json         @default("{}")
+  model          String       @default("")
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, leadId], map: "lead_ai_insight_one_per_lead")
+  @@map("lead_ai_insight")
+}

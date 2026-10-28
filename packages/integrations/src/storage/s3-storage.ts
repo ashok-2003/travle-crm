@@ -16,7 +16,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ownMessages } from "../jobs/index.js";
-import { assertExpiry, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
+import { assertExpiry, assertInlineAllowed, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
 import { attachmentDisposition } from "./content-disposition.js";
 import type { ObjectStorage } from "./object-storage.js";
 
@@ -102,13 +102,15 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
       };
     },
 
-    async presignDownload({ key, fileName }, expiresInSeconds) {
+    async presignDownload({ key, fileName, inline = false, contentType }, expiresInSeconds) {
       assertSafeKey(key);
       assertExpiry(expiresInSeconds);
+      assertInlineAllowed(inline, contentType);
       const command = new GetObjectCommand({
         Bucket: bucket,
         Key: key,
-        ResponseContentDisposition: attachmentDisposition(fileName),
+        ResponseContentDisposition: attachmentDisposition(fileName, inline ? "inline" : "attachment"),
+        ...(inline ? { ResponseContentType: contentType } : {}),
       });
       return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
     },

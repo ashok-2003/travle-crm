@@ -29,12 +29,15 @@ const { environment, services, logger, running } = await startProcess("console",
   }
   return started;
 });
-const { settings, platform } = running;
+const { settings, platform, publicRoutes } = running;
 const jobs = consoleRunsJobs(environment);
 
-const server = serve({ fetch: createConsoleApp(platform, logger).fetch, port: settings.port }, (address) => {
-  logger.info({ port: address.port, jobs }, jobs ? "console listening" : "console listening, its jobs off");
-});
+const server = serve(
+  { fetch: createConsoleApp(platform, logger, publicRoutes).fetch, port: settings.port },
+  (address) => {
+    logger.info({ port: address.port, jobs }, jobs ? "console listening" : "console listening, its jobs off");
+  },
+);
 
 // Container platforms send SIGTERM before stopping an instance: finish open requests, let running jobs finish (pg-boss
 // stops with the services, waiting up to 30 seconds, or 2 minutes where JOBS_POLLING_SECONDS is set), then close the

@@ -1,10 +1,8 @@
 "use client";
 
-// The home screen (/dashboard). Whoever may change the organization's settings (the Owner, Admins) sees the setup card
-// above everything else until the checklist is done (spec 7.1); right under it, whoever's role sees leads on a plan
-// with them sees the day's nudge (spec 3.1: a count, three things, Open Today), never Today's long list; then the
-// screens their role may use to set the organization up; between them, for a role that sees leads, the dashboard
-// (release B). New lead is the header's action, an outline button, so Open Today stays the main one.
+// The home screen (/dashboard), made to be read at a glance (sales execution): a greeting with the day, then, for a role
+// that sees leads on a plan with them, the hot leads to call, the key figures (one strip) and the day's nudge (spec 3.1: a count, three things, Open Today) beside the month so far (the full figures are on Reports);
+// then the setup card until the checklist is done (spec 7.1) and the screens the role may use to set the agency up.
 import { ChevronRightIcon, KanbanIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -20,14 +18,28 @@ import { holds, useMe } from "@/session/me-context";
 import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 import { TodayNudge } from "@/today/today-nudge";
-import { Dashboard } from "@/dashboard/dashboard";
+import { AtAGlance } from "@/home/at-a-glance";
+import { MonthCard } from "@/home/month-card";
+import { HotLeadsCard } from "@/sales/hot-leads-card";
 
-/** The destinations that set the organization up: not home, Today, Leads or the Inbox (daily work), nor the audit log. */
+/** The destinations that set the organization up: not home, Today, Leads, the Inbox, Quotes or Finance (daily work), nor the audit log. */
 type SetUpItem = NavigationItem & {
-  key: Exclude<NavigationItem["key"], "home" | "today" | "leads" | "inbox" | "audit">;
+  key: Exclude<
+    NavigationItem["key"],
+    "home" | "today" | "leads" | "inbox" | "quotes" | "reports" | "finance" | "audit"
+  >;
 };
 
-const notSetUp: readonly NavigationItem["key"][] = ["home", "today", "leads", "inbox", "audit"];
+const notSetUp: readonly NavigationItem["key"][] = [
+  "home",
+  "today",
+  "leads",
+  "inbox",
+  "quotes",
+  "reports",
+  "finance",
+  "audit",
+];
 
 export default function HomePage() {
   const t = useTranslations("shell.home");
@@ -71,7 +83,7 @@ export default function HomePage() {
   const managesSettings = holds(me, "settings:manage");
   const actions = addsLeads && (
     <div className="flex flex-wrap gap-2">
-      <NewLeadButton variant="outline" />
+      <NewLeadButton />
       <Button asChild variant="outline">
         <Link href={routes.leadsPipeline}>
           <KanbanIcon aria-hidden="true" />
@@ -80,17 +92,38 @@ export default function HomePage() {
       </Button>
     </div>
   );
+  const has = (key: NavigationItem["key"]) => items.some((item) => item.key === key);
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: me.organization.timeZone, hour: "2-digit", hourCycle: "h23" }).format(
+      new Date(),
+    ),
+  );
+  const partOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+  const today = new Intl.DateTimeFormat("en-IN", {
+    timeZone: me.organization.timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader title={t("title", { name: me.user.name })} intro={t("intro2")} action={actions} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        {managesSettings && <SetupCard />}
-        {showsToday && <TodayNudge />}
-      </div>
-      {/* Where the role sees leads on a plan with them, as Today: the period's figures, at the content's full width. */}
-      {showsToday && <Dashboard />}
+    <div className="flex max-w-[1400px] flex-col gap-8">
+      <PageHeader
+        title={t("greeting", { part: partOfDay, name: me.user.name.split(/\s+/)[0] ?? me.user.name })}
+        intro={t("todayIs", { day: today })}
+        action={actions}
+      />
+      {/* Where the role sees leads on a plan with them: the hot leads to call first, the key figures, the day's nudge and the month so far. */}
+      {showsToday && <HotLeadsCard />}
+      {showsToday && <AtAGlance inbox={has("inbox")} money={has("quotes") && holds(me, "money:view_reports")} />}
+      {showsToday && (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
+          <TodayNudge />
+          {has("reports") && <MonthCard />}
+        </div>
+      )}
+      {managesSettings && <SetupCard />}
       {screens}
-      {screens === null && <p className="text-muted-foreground">{t("nothingToSetUp")}</p>}
+      {screens === null && !showsToday && <p className="text-muted-foreground">{t("nothingToSetUp")}</p>}
     </div>
   );
 }

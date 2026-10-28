@@ -33,7 +33,8 @@
     "submitting": "Signing in",
     "forgotPassword": "Forgot your password?",
     "noEmailHint": "Staff without an email sign in with the organization code. Your admin can reset your password.",
-    "waitSeconds": "Too many attempts. Try again in {seconds, plural, one {# second} other {# seconds}}."
+    "waitSeconds": "Too many attempts. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+    "intro": "Welcome back. Sign in to your workspace."
   },
   "twoFactor": {
     "title": "Enter your code",
@@ -116,5 +117,40 @@
     "invalidLink": "This reset link has expired or was used already.",
     "askAgain": "Ask for a new link",
     "signIn": "Sign in"
+  },
+  "brandPanel": {
+    "eyebrow": "The AI sales platform for travel agencies",
+    "headline": "Every enquiry answered. Every lead followed up. More trips sold.",
+    "subline": "Your team and your AI sales agent work every WhatsApp chat, lead and quote together, so nothing slips through.",
+    "points": {
+      "answers": {
+        "title": "Replies drafted in seconds",
+        "text": "The AI drafts a reply to each WhatsApp enquiry, and your team reads it, changes it and sends it."
+      },
+      "hot": {
+        "title": "Knows who will book",
+        "text": "Every lead gets a chance to book, so your team calls the right people first."
+      },
+      "followUps": {
+        "title": "No lead goes cold",
+        "text": "Hot leads and Today show who to follow up, so nobody waits for an answer."
+      }
+    },
+    "footer": "Made for Indian travel agencies."
+  },
+  "ownPassword": {
+    "title": "Choose your password",
+    "description": "You came in through your invitation. Choose a password now so you can sign in on any device, any time.",
+    "choose": "Choose a password",
+    "dialogTitle": "Choose your password",
+    "signInWith": "Afterwards you sign in with your organization code {code} and the username {username}, or with your email.",
+    "password": "New password",
+    "again": "The same again",
+    "hint": "At least 10 characters.",
+    "tooShort": "Use at least 10 characters.",
+    "differ": "The two passwords are different.",
+    "save": "Save password",
+    "saved": "Password saved. Your invitation link won't sign you in any more; sign in with your password.",
+    "alreadyChosen": "You have a password already."
   }
 }

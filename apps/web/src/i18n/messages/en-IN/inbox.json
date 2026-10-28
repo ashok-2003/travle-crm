@@ -48,12 +48,7 @@
     "windowClosed": "You can reply with free text only within 24 hours of their last message. It closed on {closed}. A template can still be sent.",
     "today": "Today",
     "you": "You",
-    "photoLoading": "Photo, not loaded yet",
-    "fileLoading": "File, not loaded yet",
-    "photoExpired": "This photo expired before we could save it.",
-    "fileFailed": "This file could not be saved.",
     "open": "Open",
-    "download": "Download {name}",
     "location": "Location: {latitude}, {longitude}",
     "openInMaps": "Open in Maps",
     "unsupported": "This message type can't be shown here. Open it on the phone.",
@@ -108,8 +103,13 @@
       },
       "quickReplies": "Quick replies",
       "noQuickReplies": "No quick reply has that shortcut. Add quick replies in Settings, WhatsApp.",
-      "paymentDetails": "Put the payment details in the message",
-      "noPaymentDetails": "No payment details yet. In Settings, WhatsApp, add a quick reply with the shortcut \"payment\" holding your UPI id and bank details."
+      "paymentDetails": "Payment details",
+      "noPaymentDetails": "No payment details yet. In Settings, WhatsApp, add a quick reply with the shortcut \"payment\" holding your UPI id and bank details.",
+      "tools": "Message tools",
+      "templates": "Templates",
+      "uploading": "Sending {percent}%",
+      "cancelUpload": "Cancel",
+      "dropHere": "Drop the file to attach it"
     },
     "formerMember": "A former member",
     "failure": {
@@ -185,7 +185,148 @@
       },
       "pick": "Or choose a time",
       "schedule": "Schedule"
-    }
+    },
+    "stageMoved": "Moved to {stage}",
+    "stageMenu": "Stage: {stage}. Change it",
+    "moveTo": "Move the lead to",
+    "wonConverted": "Won (converted)",
+    "ownerChanged": "Given to {name}",
+    "noOwner": "Unassigned",
+    "ownerMenu": "Owner: {name}. Give the lead to someone",
+    "giveTo": "Give the lead to",
+    "windowChipClosed": "Window closed",
+    "windowChipMinutes": "{minutes}m left",
+    "windowChipHours": "{hours}h left",
+    "windowChipHint": "How long you can still reply with free text: 24 hours from the customer's last message",
+    "call": "Call {name}",
+    "forward": {
+      "action": "Forward",
+      "title": "Forward to a chat",
+      "description": "Choose the chat. The words wait in its reply box for you to read over and send.",
+      "search": "Find a chat",
+      "searchPlaceholder": "Name or phone number",
+      "loading": "Loading the chats",
+      "none": "No chat matches.",
+      "chats": "Chats to forward to"
+    },
+    "followUp": {
+      "add": "Follow-up",
+      "set": "Follow up {when}",
+      "remove": "Remove the follow-up",
+      "title": "Follow up",
+      "presets": {
+        "evening": "This evening",
+        "tomorrow": "Tomorrow morning",
+        "inTwoDays": "In two days"
+      },
+      "pick": "Or choose a day and time",
+      "choose": "Set the follow-up",
+      "inNote": "Follow-up: {when}"
+    },
+    "viewer": {
+      "title": "Photos and videos",
+      "description": "Swipe or use the arrow keys for the chat's other photos and videos. Escape closes.",
+      "from": "From {name}",
+      "you": "You",
+      "position": "{index} of {count}",
+      "download": "Download",
+      "close": "Close",
+      "previous": "Previous",
+      "next": "Next",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "loading": "Loading the file",
+      "loadFailed": "This file could not be loaded.",
+      "photo": "Photo",
+      "video": "Video"
+    },
+    "mediaPending": {
+      "image": "Photo, not loaded yet",
+      "video": "Video, not loaded yet",
+      "audio": "Voice message, not loaded yet",
+      "document": "Document, not loaded yet",
+      "sticker": "Sticker, not loaded yet"
+    },
+    "mediaExpired": {
+      "image": "This photo expired before we could save it.",
+      "video": "This video expired before we could save it.",
+      "audio": "This voice message expired before we could save it.",
+      "document": "This document expired before we could save it.",
+      "sticker": "This sticker expired before we could save it."
+    },
+    "mediaFailed": {
+      "image": "This photo could not be saved.",
+      "video": "This video could not be saved.",
+      "audio": "This voice message could not be saved.",
+      "document": "This document could not be saved.",
+      "sticker": "This sticker could not be saved."
+    },
+    "playVideo": "Play the video",
+    "openPhoto": "Open the photo",
+    "documentCard": {
+      "unnamed": "Document",
+      "open": "Open {name}",
+      "download": "Download {name}",
+      "kinds": {
+        "pdf": "PDF",
+        "word": "Word document",
+        "sheet": "Spreadsheet",
+        "slides": "Presentation",
+        "text": "Text file",
+        "file": "File"
+      }
+    },
+    "sendingFile": "Sending",
+    "voice": {
+      "play": "Play the voice message",
+      "pause": "Pause",
+      "seek": "Move to a place in the voice message",
+      "progress": "How much has played",
+      "speed": "Speed {speed}x. Change it"
+    },
+    "place": {
+      "title": "Location",
+      "open": "Open in Maps"
+    },
+    "quote": {
+      "unavailable": "Original message not available",
+      "goTo": "Go to the message from {name}",
+      "kinds": {
+        "text": "Message",
+        "template": "Template message",
+        "image": "Photo",
+        "sticker": "Sticker",
+        "video": "Video",
+        "audio": "Voice message",
+        "document": "Document",
+        "location": "Location",
+        "contacts": "Contact",
+        "unsupported": "Message"
+      }
+    },
+    "info": {
+      "title": "Message info",
+      "description": "When this message was sent, delivered and read.",
+      "received": "Received",
+      "queued": "Written",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "notYet": "Not yet"
+    },
+    "reply": {
+      "action": "Reply",
+      "replyingTo": "Replying to {name}",
+      "cancel": "Stop replying to this message",
+      "youName": "You",
+      "sentWithoutQuote": "Sent without the quote",
+      "teammate": "A teammate"
+    },
+    "infoAction": "Message info",
+    "discard": "Discard",
+    "unreadDivider": "{count, plural, one {# unread message} other {# unread messages}}",
+    "toBottom": "Go to the newest message",
+    "toBottomCount": "{count, plural, one {# new message} other {# new messages}} below. Go to the newest"
   },
   "leadSection": {
     "title": "WhatsApp",
@@ -334,7 +475,19 @@
     "firstTag": "No tags yet. Add your first one below, like \"Hot\" or \"Honeymoon\".",
     "newTag": "New tag",
     "newTagPlaceholder": "Add a tag",
-    "addTag": "Add the tag"
+    "addTag": "Add the tag",
+    "tabDetails": "Details",
+    "tabMedia": "Media",
+    "media": {
+      "title": "Photos and videos",
+      "openPhoto": "Open the photo",
+      "openVideo": "Play the video",
+      "empty": "No photos or videos in this chat yet.",
+      "loading": "Loading the photos",
+      "loadFailed": "The photos didn't load.",
+      "retry": "Try again",
+      "more": "Show more"
+    }
   },
   "quickReplies": {
     "title": "Quick replies",
@@ -527,7 +680,81 @@
       "today": "{sendToday} go today. {waitForTomorrow, plural, =0 {} other {# wait and go tomorrow at 10 am.}}",
       "send": "{count, plural, one {Send to # chat} other {Send to # chats}}",
       "sending": "Starting",
-      "started": "The broadcast is on its way."
+      "started": "The broadcast is on its way.",
+      "segments": "Or send to",
+      "segmentsHint": "Chats of leads you lost, or of past customers: win them back with a seasonal offer. Only people who agreed to WhatsApp get it.",
+      "segmentNames": {
+        "lost": "Lost leads",
+        "won": "Past customers"
+      }
+    }
+  },
+  "emptyChoices": "No chat matches these choices.",
+  "stageFilter": "Show chats at a stage",
+  "anyStage": "Status",
+  "periodFilter": "Show chats from a period",
+  "anyTime": "Any time",
+  "periods": {
+    "today": "Today",
+    "week": "Last 7 days",
+    "month": "Last 30 days"
+  },
+  "tripKits": {
+    "title": "Trip details",
+    "intro": "Set up each trip once: its itinerary, price and payment details, with its photos, videos and PDFs. When a customer's message has one of its keywords, the trip goes to them by itself, once a chat. Anyone in the inbox can send it from a chat's Send details.",
+    "add": "Add trip",
+    "addTitle": "Add a trip",
+    "editTitle": "Change the trip",
+    "dialogDescription": "The words go first, then each file as a message of its own. Add the files on the trip's card after saving.",
+    "save": "Save trip",
+    "saving": "Saving…",
+    "added": "Trip added",
+    "saved": "Trip saved",
+    "edit": "Edit",
+    "editNamed": "Edit {name}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "It can no longer be sent from a chat or by its keywords. What was sent already stays in the chats.",
+    "loadFailed": "Trips didn't load.",
+    "retry": "Try again",
+    "loading": "Loading trips",
+    "empty": "No trips yet. Add one with its details and files, and your team sends it in one tap.",
+    "sendsItself": "Sends on keywords",
+    "sentByHand": "Sent from chats only",
+    "keywordsLabel": "Keywords:",
+    "addFiles": "Add files",
+    "uploading": "Uploading…",
+    "removeFile": "Remove {name}",
+    "filesHint": "Photos, MP4 videos, PDFs, Office files and voice notes, up to 16 MB each; {count} files at most.",
+    "filesRefused": "{count, plural, one {# file was} other {# files were}} not added: WhatsApp takes photos, MP4 videos, PDFs, Office files and voice notes up to 16 MB.",
+    "form": {
+      "name": "Trip name",
+      "nameHint": "What your team sees, like \"Manali 5 days\".",
+      "message": "Message",
+      "messageHint": "The itinerary, inclusions, price and payment details: sent first, as one message.",
+      "keywords": "Keywords",
+      "keywordsHint": "Words or phrases a customer may write, with commas between: manali, kullu manali.",
+      "autoSend": "Send it by itself when a customer's message has a keyword",
+      "problems": {
+        "required": "Enter the trip's name.",
+        "tooLong": "This is too long.",
+        "keywords": "Each keyword is 3 to 40 letters, 20 at most."
+      }
+    },
+    "send": {
+      "button": "Send details",
+      "title": "Send trip details",
+      "description": "The trip's words and every file go to this chat now.",
+      "loadFailed": "Trips didn't load.",
+      "loading": "Loading trips",
+      "empty": "No trips are set up yet.",
+      "setUp": "Set up trips",
+      "holds": "{files, plural, =0 {No files} one {# file} other {# files}}",
+      "send": "Send",
+      "sendNamed": "Send {name}",
+      "sent": "{count, plural, one {# message} other {# messages}} on the way",
+      "holdsWithDetails": "Details and {files, plural, =0 {no files} one {# file} other {# files}}"
     }
   }
 }

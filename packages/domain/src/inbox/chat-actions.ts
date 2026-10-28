@@ -1,5 +1,5 @@
 // What a member does from a chat that is not reading it: Start a new lead for a past customer (Q2), and open a message's file.
-import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
+import { WHATSAPP_RECORD_TYPE, type AttachmentSummary } from "@travel-crm/contracts/files";
 import { mediaLink, type MediaLink } from "@travel-crm/contracts/inbox";
 import type { Database, OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -34,17 +34,46 @@ export async function startLeadFromConversation(
   return { leadId };
 }
 
-/** A short-lived link to a message's stored file, with the name and type to show it by. Sensitive files obey their rule. */
+/** What a browser may open in place: it shows these and runs nothing from them. Every other file is saved. */
+const opensInPlace = (contentType: string) =>
+  /^(image\/(jpeg|png|webp|gif)|video\/|audio\/)/.test(contentType) || contentType === "application/pdf";
+
+/**
+ * A short-lived link to a message's stored file, with the name, type and size to show it by. It opens in place for a
+ * photo, video, voice note or PDF, unless the person asked to download. Sensitive files obey their rule.
+ */
 export async function mediaLinkOf(
   dependencies: { db: Database; files: Files },
   access: MemberAccess,
   messageId: string,
+  options: { download?: boolean } = {},
 ): Promise<MediaLink> {
   const message = await dependencies.db.forOrg(access.organizationId, (tx) => visibleMessage(tx, access, messageId));
   if (message.mediaState !== "stored") throw new DomainError("NOT_FOUND", "NOT_FOUND", "The file is not stored");
   const record = { recordType: WHATSAPP_RECORD_TYPE, recordId: messageId };
   const [file] = await dependencies.files.list(access, record);
   if (file === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "The file is not stored");
-  const link = await dependencies.files.downloadLink(access, { ...record, attachmentId: file.id });
-  return mediaLink.parse({ url: link.url, fileName: file.fileName, contentType: file.contentType });
+  return mediaLinkFor(dependencies.files, access, messageId, file, options);
+}
+
+/** The link for a message's stored file, in place where the browser may show it unless the person asked to download. */
+export async function mediaLinkFor(
+  files: Files,
+  access: MemberAccess,
+  messageId: string,
+  file: AttachmentSummary,
+  options: { download?: boolean } = {},
+): Promise<MediaLink> {
+  const inline = options.download !== true && opensInPlace(file.contentType);
+  const link = await files.downloadLink(
+    access,
+    { recordType: WHATSAPP_RECORD_TYPE, recordId: messageId, attachmentId: file.id },
+    { inline },
+  );
+  return mediaLink.parse({
+    url: link.url,
+    fileName: file.fileName,
+    contentType: file.contentType,
+    sizeBytes: file.sizeBytes,
+  });
 }

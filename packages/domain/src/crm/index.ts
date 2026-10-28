@@ -67,7 +67,7 @@ export { leadCountsQuery, leadListQuery, type LeadCountsFilter, type LeadListFil
 export { addLeadWork } from "./lead-work.js";
 export { addPerson, type PersonRow } from "./people.js";
 export { offeredDestinations, offeredDestinationsQuery } from "./offered-destinations.js";
-export { moveLeadStage, reassignLead, reopenLead } from "./stage-changes.js";
+export { advanceLeadStage, moveLeadStage, reassignLead, reopenLead, retreatLeadStage } from "./stage-changes.js";
 export { addLeadNote, listLeadNotes, listLeadTimeline, type LeadNoteRow } from "./timeline.js";
 export {
   countNewLeadsWaiting,

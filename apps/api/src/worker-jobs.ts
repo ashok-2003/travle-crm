@@ -53,12 +53,15 @@ import {
   syncAllTemplates,
   WHATSAPP_HEALTH_QUEUE,
   automationListener,
+  tripKitKeywordListener,
   broadcastListener,
   INBOX_DUE_WORK_QUEUE,
   runDueWork,
   WHATSAPP_TEMPLATES_QUEUE,
 } from "@travel-crm/domain/inbox";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
+import { customerWroteListener, quoteOpenedListener } from "@travel-crm/domain/sales";
+import { aiDocumentListener, scoreHandler, scoreOnCustomerWroteListener } from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
 import {
@@ -81,6 +84,7 @@ import { inboxDependenciesOf, type WhatsAppServices } from "./whatsapp-services.
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
+import { documentText, type AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
@@ -136,6 +140,8 @@ export interface WorkerJobDependencies {
   whatsapp?: WhatsAppServices | null;
   /** The worker's structured log (ADR 0032): ids, codes, counts and timings only. */
   logger: Logger;
+  /** The AI (ADR 0029): null or left out when no OpenRouter key is set, and then nothing is ever sent to it. */
+  ai?: AiModel | null;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
   jobs?: JobQueue;
 }
@@ -153,6 +159,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   // Who the slow-reply alert and the Unassigned notice go to: everyone whose role holds leads:assign (release 4).
   const leadAssigners = (organizationId: string) => identity.membersHolding(organizationId, "leads:assign");
   const { webhookProviders, rateLimiter, logger } = dependencies;
+  const ai = dependencies.ai ?? null;
   // The bulk imports' and exports' listeners (release 2): two of each step share its event, each acting on its kind.
   const importJobs: ImportJobDependencies = {
     files,
@@ -228,6 +235,11 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         timeZone: async (organizationId) =>
           (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
       }),
+      // Sales execution: what makes a lead hot (a quote opened, a buying word), its owner told to call.
+      quoteOpenedListener(),
+      customerWroteListener(),
+      // A trip's details, sent by themselves when a customer's message holds one of its keywords (once a chat).
+      tripKitKeywordListener({ db, files }),
       // A broadcast's waiting recipients go out here, a batch at a time (sales inbox spec 6).
       broadcastListener({
         timeZone: async (organizationId) =>
@@ -271,6 +283,12 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
             }),
             notifyUnassignedLeadListener({ managers: leadAssigners }),
           ]),
+      // What the agency tells its AI to know: an uploaded document's words are read (no AI call), and, for an agency with the
+      // AI on, a lead is scored once for each burst of the customer's messages.
+      aiDocumentListener({ files, readText: documentText }),
+      ...(dependencies.jobs === undefined || ai === null
+        ? []
+        : [scoreOnCustomerWroteListener({ queue: dependencies.jobs, ai, subscriptions })]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
       addLeadImportListener(importJobs),
@@ -293,6 +311,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       ...metaListeners,
     ],
     handlers: [
+      ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         handle: async (data) => {

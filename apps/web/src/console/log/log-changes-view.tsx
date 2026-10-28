@@ -74,6 +74,7 @@ const MODULES = [
   "suppliers",
   "accounts",
   "reports",
+  "ai",
 ] as const;
 
 /** A coded value's words when it is one of `options`, else undefined (shown as stored). */

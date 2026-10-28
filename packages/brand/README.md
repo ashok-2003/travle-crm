@@ -4,14 +4,14 @@ The product's own identity (spec section 10): name, colours, fonts, contacts and
 
     import { brand } from "@travel-crm/brand";
     import { brandAssets } from "@travel-crm/brand/files"; // Node only
-    brand.productName; // "Travel Agency OS"
+    brand.productName; // "Veeper AI"
     brand.colours.money; // "#034f46"
     brandAssets.logo; // absolute path to assets/logo.svg
 
 - Code reads the product name only through this package. `test/product-name.test.ts` fails if `brand.productName`
   or `brand.shortName` appears in any file outside `packages/brand/` and `docs/` (it runs in `pnpm check`).
-- `assets/logo.svg` (for light surfaces) and `assets/logo-dark.svg` (for dark ones) are placeholder marks drawn with
-  paths only, until a designed logo replaces them. Other packages can import them as `@travel-crm/brand/assets/<file>`.
+- `assets/logo.svg` (white on the deep green) and `assets/logo-dark.svg` (deep green on white, for dark surfaces) are
+  Veeper AI's mark: a V whose right arm climbs on as an arrow, drawn with paths only. Other packages can import them as `@travel-crm/brand/assets/<file>`.
 - The main entry is plain data, safe in the browser (`test/browser-safe.test.ts`). `brandAssets`, the logo files'
   absolute paths, is Node-only and comes from `@travel-crm/brand/files`.
 - `pnpm --filter @travel-crm/brand build` renders the icons from `assets/logo.svg` into `dist/icons`: `favicon.svg`,

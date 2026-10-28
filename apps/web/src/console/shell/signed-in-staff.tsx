@@ -10,7 +10,7 @@ export function SignedInStaff() {
   return (
     <span className="flex min-w-0 flex-col">
       <span className="font-medium break-words script-leading">{staff.name}</span>
-      <span className="text-caption text-muted-foreground">{t(staff.level)}</span>
+      <span className="text-caption text-sidebar-foreground">{t(staff.level)}</span>
     </span>
   );
 }

@@ -39,6 +39,24 @@ describe("the real WhatsApp provider", () => {
     });
   });
 
+  // SPIKE(reply-context): MSG91's field for the message a send answers is unconfirmed; this pins what the adapter sends today.
+  it("sends the message a reply quotes as its context, for text and for a file, and none when there is no quote", async () => {
+    const { adapter, requests } = provider(() =>
+      json(200, { status: "success", data: { messages: [{ id: "wamid.X2" }] } }),
+    );
+    await adapter.sendText("918888800000", "919876543210", "Yes", { replyTo: "wamid.ASKED" });
+    await adapter.sendMedia("918888800000", "919876543210", {
+      kind: "image",
+      url: "https://files.example/a.png",
+      replyTo: "wamid.ASKED",
+    });
+    await adapter.sendText("918888800000", "919876543210", "No quote");
+    const bodies = requests.map((request) => JSON.parse(request.init.body as string) as Record<string, unknown>);
+    expect(bodies[0]).toMatchObject({ context: { message_id: "wamid.ASKED" } });
+    expect(bodies[1]).toMatchObject({ context: { message_id: "wamid.ASKED" } });
+    expect(bodies[2]).not.toHaveProperty("context");
+  });
+
   it("maps Meta's codes and statuses to reasons, keeping codes only", async () => {
     const window = provider(() => json(400, { error: { code: 131047, message: "secret words" } }));
     expect(await window.adapter.sendText("918888800000", "919876543210", "x")).toEqual({

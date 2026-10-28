@@ -197,7 +197,7 @@ describe("TodayScreen", () => {
     for (const section of Object.values(words.sections)) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
-    expect(api.calls.map((call) => call.path)).toEqual(["assignment.mine", "today.summary"]);
+    expect(api.calls.map((call) => call.path)).toEqual(["assignment.mine", "today.summary", "sales.hotLeads"]);
   });
 
   it("shows the skeleton, the error with Try again, and a refusal's sentence", async () => {

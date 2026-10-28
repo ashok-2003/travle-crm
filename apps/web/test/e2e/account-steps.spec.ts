@@ -4,7 +4,7 @@
 import { features } from "@travel-crm/contracts/features";
 import { expectAccessible } from "./support/accessibility";
 import { setUpTwoFactor, signInWithCode } from "./support/account-steps";
-import { expect, signInByEmail, test } from "./support/fixtures";
+import { expect, homeGreeting, signInByEmail, test } from "./support/fixtures";
 import { totpCode } from "./support/totp";
 
 test("staff with a temporary password choose their own at the first sign-in", async ({ page, agency, addStaff }) => {
@@ -22,11 +22,11 @@ test("staff with a temporary password choose their own at the first sign-in", as
   await page.getByLabel("New password", { exact: true }).fill("meeras-own-password");
   await page.getByLabel("New password again").fill("meeras-own-password");
   await page.getByRole("button", { name: "Save new password" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Welcome, Meera Iyer" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting("Meera Iyer") })).toBeVisible();
 
   await page.context().clearCookies();
   await signInWithCode(page, agency.code, { username: meera.username, password: "meeras-own-password" });
-  await expect(page.getByRole("heading", { level: 1, name: "Welcome, Meera Iyer" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting("Meera Iyer") })).toBeVisible();
 });
 
 test("with two-factor off, an organization whose row requires it sends nobody to set it up", async ({
@@ -42,10 +42,10 @@ test("with two-factor off, an organization whose row requires it sends nobody to
     data: { requireTwoFactor: true },
   });
   await signInWithCode(page, agency.code, ravi);
-  await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting("Ravi Kumar") })).toBeVisible();
   // The setup's page, opened by its address, sends people home.
   await page.goto("/two-factor-setup");
-  await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting("Ravi Kumar") })).toBeVisible();
   await page.goto("/account");
   await expect(page.getByRole("heading", { level: 1, name: "Your account" })).toBeVisible();
   await expect(page.getByRole("main")).not.toContainText(/two-factor/i);
@@ -63,7 +63,7 @@ test("an Owner turns two-factor on from their account, then signs in with a code
   // A setup the Owner chose has a way back; the one an organization requires doesn't.
   await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
   const secret = await setUpTwoFactor(page, agency.owner.password);
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
 
   await page.context().clearCookies();
   await page.goto("/sign-in");
@@ -74,5 +74,5 @@ test("an Owner turns two-factor on from their account, then signs in with a code
   // second time. Better Auth 1.7.7 would (it has no replay check); the window it accepts includes the next code.
   await page.getByLabel("Code from your authenticator app").fill(totpCode(secret, Date.now() + 30_000));
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
 });

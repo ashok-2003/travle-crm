@@ -43,7 +43,8 @@
       "role-changed": "Changed a staff member's role",
       "phone-changed": "Changed a staff member's phone",
       "password-reset": "Gave a staff member a new temporary password",
-      "removed": "Removed a staff member"
+      "removed": "Removed a staff member",
+      "password-chosen": "Chose their own password"
     },
     "role": {
       "created": "Created a role",
@@ -196,6 +197,8 @@
       "chat-unarchived": "Brought back an archived chat",
       "chat-snoozed": "Snoozed a chat",
       "chat-woken": "Brought back a snoozed chat",
+      "message-discarded": "Discarded a WhatsApp message that was not sent",
+      "message-forwarded": "Forwarded a WhatsApp message to another chat",
       "message-starred": "Starred a WhatsApp message",
       "message-unstarred": "Took the star off a WhatsApp message",
       "message-scheduled": "Scheduled a WhatsApp message",
@@ -204,10 +207,50 @@
       "automation-changed": "Changed the automatic WhatsApp answers",
       "keyword-reply-created": "Added a keyword answer",
       "keyword-reply-deleted": "Deleted a keyword answer",
+      "trip-kit-created": "Added a trip's details",
+      "trip-kit-changed": "Changed a trip's details",
+      "trip-kit-deleted": "Deleted a trip's details",
       "broadcast-created": "Started a WhatsApp broadcast",
       "broadcast-cancelled": "Cancelled a WhatsApp broadcast",
       "broadcast-paused": "A WhatsApp broadcast paused itself",
       "broadcast-resumed": "Resumed a WhatsApp broadcast"
+    },
+    "quote": {
+      "created": "Made a quote",
+      "changed": "Changed a quote",
+      "deleted": "Deleted a quote",
+      "status-changed": "Changed a quote's status",
+      "accepted-by-customer": "The customer accepted a quote on its link",
+      "installment-added": "Added a payment due on a quote",
+      "installment-removed": "Removed a payment due on a quote",
+      "payment-recorded": "Recorded a payment",
+      "payment-voided": "Voided a payment",
+      "replaced": "Replaced a quote with a new version"
+    },
+    "quote-settings": {
+      "changed": "Changed how quotes are paid and taxed"
+    },
+    "trip-cost": {
+      "added": "Added a supplier cost to a booking",
+      "paid": "Marked a supplier cost paid",
+      "voided": "Voided a supplier cost"
+    },
+    "agency-expense": {
+      "added": "Added a running cost",
+      "voided": "Voided a running cost"
+    },
+    "quote-package": {
+      "saved": "Saved a quote package",
+      "deleted": "Deleted a quote package"
+    },
+    "ai-settings": {
+      "changed": "Changed the AI settings"
+    },
+    "ai": {
+      "draft-sent": "Sent a reply drafted by AI",
+      "knowledge-added": "Added to what the AI knows",
+      "knowledge-changed": "Changed what the AI knows",
+      "knowledge-deleted": "Removed from what the AI knows"
     }
   },
   "fields": {
@@ -261,7 +304,27 @@
     "keyword": "Keyword",
     "template": "Template",
     "total": "Chats",
-    "reason": "Why"
+    "reason": "Why",
+    "totalPaise": "Total",
+    "amountPaise": "Amount",
+    "dueOn": "Due on",
+    "method": "Paid by",
+    "receivedOn": "Received on",
+    "installmentId": "Payment due",
+    "paymentId": "Payment",
+    "upiId": "UPI id",
+    "defaultTaxRateBasisPoints": "Usual GST rate",
+    "tripCostId": "Supplier cost",
+    "category": "Category",
+    "paidOn": "Paid on",
+    "spentOn": "Spent on",
+    "lostReason": "Why it was lost",
+    "instructionsLength": "Instructions' length",
+    "changedByMember": "Changed before sending",
+    "enabled": "On",
+    "model": "Model",
+    "messageId": "Message",
+    "length": "Length"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -279,6 +342,14 @@
     "whatsapp_conversation": "A WhatsApp chat",
     "inbox_automation": "The automatic answers",
     "inbox_keyword_reply": "A keyword answer",
-    "whatsapp_broadcast": "A WhatsApp broadcast"
+    "whatsapp_broadcast": "A WhatsApp broadcast",
+    "quote": "A quote",
+    "quote_settings": "Quote settings",
+    "trip_kit": "A trip's details",
+    "agency_expense": "A running cost",
+    "quote_template": "A quote package",
+    "ai_settings": "The AI settings",
+    "ai_draft": "An AI draft",
+    "ai_knowledge": "A piece of what the AI knows"
   }
 }

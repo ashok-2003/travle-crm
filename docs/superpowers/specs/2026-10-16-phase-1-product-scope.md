@@ -411,3 +411,44 @@ outside the product and marked Refunded. No credit notes. Travellers cancel thro
 - Ask the pilot agency the package-page question (4.2).
 - Add to our terms with agencies: calls may be recorded and processed, and unanswerable report questions (Phase 2)
   reach us with names removed.
+
+## 10. Owner decisions 2026-10-28
+
+Made on reviewing the quotes, finance, sales and AI work of 27 October (branch `release/quotes`). They win over sections 3
+to 7 where they differ.
+
+- **Quotes as built.** A quote has a day-by-day plan, priced lines, GST at 0, 5 or 18 % (CGST and SGST within the agency's
+  state, IGST outside it, the place of supply chosen on the quote), inclusions, up to 12 payments due, options beside each
+  other, a numbered quotation PDF and a link the customer opens, pays by UPI from and accepts on. A sent quote keeps its
+  prices: it is changed by making a new version, a draft that replaces it, and the old link says so (spec 4.3).
+- **An accepted quote IS the booking, for now.** There is no separate bookings object or screen yet; it comes later. The
+  first payment recorded on a sent quote accepts it and wins its lead, and voiding that payment puts both back. Payments
+  only record money: nothing confirms a UPI payment, and no one is paid through us. Recording and voiding payments, and
+  issuing invoices and receipts, are the `quotes:record_payments` permission (Owner, Admin, Accounts). Finance (costs,
+  running costs, profit) and the sales and collections reports (`money:view_reports`) are for whoever keeps the money.
+- **Parked: automatic WhatsApp messages.** The new-lead greeting, the day 1, 3 and 7 follow-ups and the payment
+  reminders are not built, and their tables are not in the database. They return only if the owner decides to bring them back,
+  as one automation system built on the inbox's own listener.
+- **Kept from sales execution.** Hot leads (a quote opened again, or a buying word in a chat; the owner is alerted with fixed
+  words, never the customer's), lost reasons, broadcasts to lost or won leads, ready packages and quote options, reports
+  and each staff member's performance.
+- **AI, in two steps (decided later on 2026-10-28), off by default.** Step 1, in this release: Suggest reply (the AI drafts a
+  reply in a chat for staff to read, change and send; it never sends by itself, and a reply sent from a draft is audited as
+  drafted by AI, sent by the member); what the agency tells its AI to know (typed words, or a PDF's or text file's; deleting
+  one deletes its file); and the AI's guess of how each lead will go (hot, warm or cold, a next step, a fake check), only for
+  agencies with the AI on, shown as "AI's guess" in the AI's violet tint, at most once for each burst of the customer's
+  messages, never moving a stage, erased with the customer. An agency has it when its plan includes the `ai` module and its
+  Owner or Admin turns it on in Settings, AI; no AI for a suspended or cancelled agency; one monthly limit of AI calls per
+  agency, shared by every feature; when the provider is down the person is told. Requests go through OpenRouter with zero data
+  retention. Step 2, the next release: the autopilot (the AI answering chats by itself, never denying being an AI when
+  sincerely asked), nudges, writing-style learning from the staff member's own messages only, and nightly learning, each
+  erased with the customer, honouring STOP in every chat, marked and audited in the chat, and tried on a real number with the
+  pilot agency first.
+- **Home and sidebar: his layout in our style.** Home has the greeting with the date, New lead and Pipeline, the hot leads
+  card first (Call buttons, reason pills), one key-figures strip (the dashboard's component: no icon per figure, an info
+  hint on each, no red for a normal count) with only what Today doesn't show: chats waiting, hot leads, and money to come
+  (only for whoever holds `money:view_reports`; without it two figures), "N things today", "This month so far" with Open
+  reports (only with the money permission), then the setup steps. The sidebar keeps Sign out visible at the bottom with the
+  name and a Your account link, and has Quotes, Reports and Finance (Reports and Finance only for the money permission)
+  and the Today and Inbox counts. The dashboard's charts moved to Reports: the period chips, new leads by day, where they
+  came from, where they are now, time to first reply, top destinations and the team table.

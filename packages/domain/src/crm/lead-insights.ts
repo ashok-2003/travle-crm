@@ -30,7 +30,7 @@ export interface LeadInsights {
   topDestinations: { name: string; leads: number }[];
   responseTimes: { bucket: ResponseBucket; leads: number }[];
   /** Per owner, most new leads first, at most ten; asked only for everyone's leads. */
-  team: { userId: string; leads: number; contacted: number; won: number }[];
+  team: { userId: string; leads: number; contacted: number; won: number; medianFirstReplyMinutes: number | null }[];
 }
 
 const TOP = 10;
@@ -134,10 +134,14 @@ export async function leadInsights(
   const team =
     ownerUserId !== null
       ? []
-      : await tx.$queryRaw<{ userId: string; leads: number; contacted: number; won: number }[]>(sql`
+      : await tx.$queryRaw<
+          { userId: string; leads: number; contacted: number; won: number; medianFirstReplyMinutes: number | null }[]
+        >(sql`
           SELECT lead.owner_user_id AS "userId", count(*)::int AS leads,
             count(*) FILTER (WHERE ${replied})::int AS contacted,
-            count(*) FILTER (WHERE lead.stage = 'won')::int AS won
+            count(*) FILTER (WHERE lead.stage = 'won')::int AS won,
+            (percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM lead.first_reply_at - lead.created_at) / 60)
+              FILTER (WHERE lead.first_reply_at IS NOT NULL))::float8 AS "medianFirstReplyMinutes"
           FROM lead WHERE ${inCohort} AND lead.owner_user_id IS NOT NULL
           GROUP BY lead.owner_user_id ORDER BY leads DESC, lead.owner_user_id LIMIT ${TOP}`);
 

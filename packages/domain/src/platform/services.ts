@@ -15,6 +15,12 @@ import type { Identity } from "../identity/index.js";
 
 import type { PlatformWhatsApp } from "./whatsapp-settings.js";
 
+/** What one million tokens cost, in paise, as the console's settings give it (AI_PRICE_*). */
+export interface AiPrices {
+  inputPaisePerMillion: number;
+  outputPaisePerMillion: number;
+}
+
 export interface PlatformServices {
   /** The platform role: every organization, in transactions that can step into one (asOrganization). */
   platformDb: PlatformDatabase;
@@ -40,6 +46,10 @@ export interface PlatformServices {
    * counts and timings only. Required, so a process can't forget it; tests pass a memory logger.
    */
   logger: Logger;
+  /** The web app's address (APP_URL), for the invite links the console hands out. */
+  appUrl?: string;
+  /** What a million AI tokens cost, in paise (AI_PRICE_*), for the usage analytics; null or absent when unset. */
+  aiPrices?: AiPrices | null;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {

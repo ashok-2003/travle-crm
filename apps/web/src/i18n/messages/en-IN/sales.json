@@ -1,0 +1,32 @@
+{
+  "hot": {
+    "title": "{count, plural, one {# hot lead: call now} other {# hot leads: call now}}",
+    "description": "They are deciding. A call in the next hour wins most of them.",
+    "loadFailed": "Hot leads didn't load.",
+    "call": "Call",
+    "callNamed": "Call {name}",
+    "reasons": {
+      "quote_opened": "Opened the quote",
+      "asked_price": "Asked to book"
+    }
+  },
+  "lead": {
+    "title": "Sales",
+    "hot": "Hot lead"
+  },
+  "lost": {
+    "why": "Why was it lost?",
+    "title": "Mark this lead lost?",
+    "description": "Why it was lost helps you win back such leads later.",
+    "confirm": "Mark lost",
+    "because": "Lost: {reason}",
+    "reasons": {
+      "price": "Price too high",
+      "dates": "Dates didn't work",
+      "competitor": "Went with another agency",
+      "no_reply": "Stopped replying",
+      "changed_plans": "Changed or dropped plans",
+      "other": "Something else"
+    }
+  }
+}

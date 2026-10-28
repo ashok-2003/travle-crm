@@ -15,6 +15,7 @@ export const planModules = [
   "suppliers",
   "accounts",
   "reports",
+  "ai",
 ] as const;
 export const planModule = z.enum(planModules);
 export type PlanModule = z.infer<typeof planModule>;

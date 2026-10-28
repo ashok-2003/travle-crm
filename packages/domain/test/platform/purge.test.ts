@@ -157,6 +157,33 @@ describe("purging an organization", () => {
     expect(keysOf(test, organizationId)).toEqual([]);
   });
 
+  it("blanks the owner's name, phone and email on the invite that made the organization", async () => {
+    const agency = await deletionAgency(test, plan);
+    const { organizationId } = agency;
+    const invite = await platform.vipInvite.create({
+      data: {
+        token: randomUUID(),
+        companyName: "Sharma Travels",
+        ownerName: "Asha Sharma",
+        ownerPhone: "+919812345678",
+        ownerEmail: "asha@example.com",
+        planId: plan.id,
+        createdBy: supportUserId,
+        joinedOrganizationId: organizationId,
+      },
+    });
+    await cancel(test.services, support, { organizationId, reason: "Closing down" });
+    await exportOrganizationNow(test.services, organizationId);
+    await requestPurge(test.services, support, { organizationId, confirmation: agency.code });
+    await purgeOrganization(test.services, { organizationId, requestedBy: supportUserId });
+    expect(await platform.vipInvite.findUniqueOrThrow({ where: { id: invite.id } })).toMatchObject({
+      ownerName: "Removed",
+      ownerPhone: null,
+      ownerEmail: null,
+      companyName: "Sharma Travels",
+    });
+  });
+
   it("keeps a storage failure's files queued, logs it, and the console's job deletes them without a rerun", async () => {
     const { organizationId, job } = await readyToPurge();
     const { services, failing, logged } = flakyServices(test);

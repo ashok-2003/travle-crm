@@ -68,7 +68,8 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
     if (status.data?.demo === true) return <Note>{t("replyDemo")}</Note>;
     if (status.data?.connectionStatus === "paused") return <Note>{t("replyPaused")}</Note>;
     if (header.windowOpenUntil !== null) {
-      return <Composer header={header} windowOpenUntil={header.windowOpenUntil} />;
+      // One box per chat: its words are that chat's own, and never carried over to another when the address changes.
+      return <Composer key={header.id} header={header} windowOpenUntil={header.windowOpenUntil} />;
     }
     const action =
       header.optedOut && header.lastInboundAt === null ? undefined : <TemplateButton conversationId={header.id} />;
@@ -92,11 +93,11 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
             if (chosen === "reply" || chosen === "note") setMode(chosen);
           }}
         >
-          <ToggleGroupItem value="reply" className="rounded-full px-3">
+          <ToggleGroupItem value="reply" className="h-8 rounded-full px-3">
             <MessageSquareIcon aria-hidden="true" />
             {t("modeReply")}
           </ToggleGroupItem>
-          <ToggleGroupItem value="note" className="rounded-full px-3" disabled={header.lead === null}>
+          <ToggleGroupItem value="note" className="h-8 rounded-full px-3" disabled={header.lead === null}>
             <StickyNoteIcon aria-hidden="true" />
             {t("modeNote")}
           </ToggleGroupItem>
@@ -104,7 +105,7 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
       </div>
       {header.lead === null && <p className="text-caption text-muted-foreground">{t("noteNeedsLead")}</p>}
       {mode === "note" && header.lead !== null ? (
-        <TeamNoteComposer conversationId={header.id} />
+        <TeamNoteComposer conversationId={header.id} leadId={header.lead.id} />
       ) : (
         <>
           <ScheduledList conversationId={header.id} />

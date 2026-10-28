@@ -3,7 +3,7 @@
 // The staff list (DESIGN.md section 6): a table on tablets and wider, a list of items on phones with the name and
 // status on the first line and the details on the second. Each role is a badge in its own colour (DESIGN.md "Role
 // Badges"), so people are told apart by role at a glance. Names wrap rather than being cut off. The table's two-factor
-// column shows only while features.twoFactor is on.
+// column shows only while features.twoFactor is on. Each name has Performance, its report (sales execution).
 import { features } from "@travel-crm/contracts/features";
 import type { RoleSummary, StaffMember } from "@travel-crm/contracts/identity";
 import { useTranslations } from "next-intl";
@@ -19,7 +19,9 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TextLink } from "@/components/text-link";
 import { formatDay, formatPhoneNumber } from "@/lib/format";
+import { staffReportRoute } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { RoleBadge } from "../roles/role-badge";
@@ -60,6 +62,9 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
                     {signInName(member)} · {t("joinedOn", { date: joined(member) })}
                   </span>
                   {member.phone !== null && <span className="numbers">{formatPhoneNumber(member.phone)}</span>}
+                  <TextLink inline href={staffReportRoute(member.userId)}>
+                    {t("performance")}
+                  </TextLink>
                 </ItemDescription>
               </ItemContent>
               <ItemActions>{actions(member)}</ItemActions>
@@ -95,6 +100,9 @@ export function StaffList({ staff, roles }: { staff: StaffMember[]; roles: RoleS
                 <span className="font-medium script-leading">{member.name}</span>
                 {status(member)}
               </div>
+              <TextLink inline href={staffReportRoute(member.userId)}>
+                {t("performance")}
+              </TextLink>
             </TableCell>
             <TableCell className="whitespace-normal break-all">{signInName(member)}</TableCell>
             <TableCell className="numbers">{member.phone === null ? "" : formatPhoneNumber(member.phone)}</TableCell>

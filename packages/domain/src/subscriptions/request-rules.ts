@@ -57,6 +57,7 @@ const planModuleByPermissionModule = new Map<string, PlanModule | null>([
   ["departures", "departures"],
   ["suppliers", "suppliers"],
   ["accounts", "accounts"],
+  ["ai", "ai"],
 ]);
 
 export function planModuleOf(permissionModule: string): PlanModule | null {

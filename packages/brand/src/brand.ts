@@ -18,17 +18,17 @@ export interface RoleColour {
 }
 
 export const brand = {
-  /** The working name (spec open item Q8). Code reads it from here; a check refuses it anywhere else. */
-  productName: "Travel Agency OS",
+  /** The product's name (the owner, 2026-10-28). Code reads it from here; a check refuses it anywhere else. */
+  productName: "Veeper AI",
   /** For the home screen icon and other tight spaces. */
-  shortName: "Agency OS",
-  tagline: "Run your travel agency in one place",
+  shortName: "Veeper",
+  tagline: "The AI sales platform for travel agencies",
   /**
    * Who runs the product. The values on .example addresses are not confirmed yet: the product owner replaces them
    * before the first staging deploy (spec 13).
    */
-  legalName: "Travel Agency OS (legal name to be confirmed)",
-  website: "https://travel-agency-os.example",
+  legalName: "Veeper AI (legal name to be confirmed)",
+  website: "https://veeper-ai.example",
   /** The product owner's address for now (given 2026-10-16), until the product has a domain of its own. */
   supportEmail: "workatashok@gmail.com",
   /**
@@ -37,7 +37,7 @@ export const brand = {
    */
   supportPhone: "+918538953742" as string | null,
   /** The sender name on email the product sends for an organization: "<organization> via <this>". */
-  emailSenderName: "Travel Agency OS",
+  emailSenderName: "Veeper AI",
 
   /**
    * Colour tokens, read by the web app's Tailwind theme, the PDF templates and the email layout. The values are the
@@ -68,6 +68,24 @@ export const brand = {
     peoplePressed: "#5b3fa6",
     peopleTint: "#efe7fd",
     peopleTintInk: "#4c2f97",
+    /**
+     * The desktop sidebar: a deep green with white words, the current page a lighter green (owner, 2026-10-28, from
+     * Ayush's palette; the rest of the neutrals stay warm). White on the active green is 5.3:1.
+     */
+    sidebar: {
+      fill: "#075e54",
+      ink: "#ffffff",
+      active: "#0f8073",
+    },
+    /**
+     * Buttons that send to a customer on WhatsApp (owner, 2026-10-28): the green family, so a send looks unlike the
+     * blue buttons that work inside the app. Links are never green.
+     */
+    send: {
+      fill: "#00785f",
+      pressed: "#005f4d",
+      ink: "#ffffff",
+    },
     /** Money: amounts received, margins, invoices and the Accounts area. Never a status. */
     money: "#034f46",
     moneyPressed: "#07352f",
@@ -76,6 +94,18 @@ export const brand = {
      * The inbox's chat pane, and nowhere else (the owner's decision of 2026-10-26, later): WhatsApp's beige wallpaper, its green
      * and white bubbles, the date chip and the read ticks. The rest of the product wears the Agency OS palette above.
      */
+    /**
+     * A chat's round picture in the inbox (sales inbox spec, design v2): a soft tint and its dark ink, one per person, picked
+     * by a hash of the chat, so the same customer always wears the same colour and a list is easy to scan. Decoration only; they sit on the Agency OS palette (blue, rose, amber, sage, violet, sand), not WhatsApp's green.
+     */
+    avatar: {
+      sky: { fill: "#dbe7fb", ink: "#1e3a8a" },
+      rose: { fill: "#fde2e7", ink: "#8a2742" },
+      amber: { fill: "#fdecc8", ink: "#7a4a00" },
+      sage: { fill: "#e1efd9", ink: "#2f5a1f" },
+      violet: { fill: "#e9e1fb", ink: "#4c2f97" },
+      sand: { fill: "#efe6d2", ink: "#5b4521" },
+    } satisfies Record<string, RoleColour>,
     chat: {
       wallpaper: "#efeae2",
       bubbleOut: "#d9fdd3",

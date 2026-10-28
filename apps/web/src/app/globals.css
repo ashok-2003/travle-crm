@@ -184,13 +184,13 @@
   --border: var(--brand-hairline);
   --input: var(--brand-input-border);
   --ring: var(--brand-action);
-  /* The desktop sidebar (DESIGN.md section 6): the surface tone; the current page in the blue tint with dark blue. */
-  --sidebar: var(--brand-surface);
-  --sidebar-foreground: var(--brand-ink);
-  --sidebar-accent: var(--brand-action-tint);
-  --sidebar-accent-foreground: var(--brand-action-pressed);
-  --sidebar-border: var(--brand-hairline);
-  --sidebar-ring: var(--brand-action);
+  /* The desktop sidebar (DESIGN.md section 6): deep green with white words, the current page a lighter green. */
+  --sidebar: var(--brand-sidebar-fill);
+  --sidebar-foreground: var(--brand-sidebar-ink);
+  --sidebar-accent: var(--brand-sidebar-active);
+  --sidebar-accent-foreground: var(--brand-sidebar-ink);
+  --sidebar-border: var(--brand-sidebar-active);
+  --sidebar-ring: var(--brand-sidebar-ink);
 }
 
 /* On a phone, toasts sit above the bottom bar (56px, and 8px more) on the pages that have one

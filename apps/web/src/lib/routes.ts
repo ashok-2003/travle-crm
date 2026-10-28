@@ -28,6 +28,12 @@ export const routes = {
   inbox: "/inbox",
   /** Broadcasts to tagged chats (the Owner and Admins); one broadcast's page is broadcastRoute(id). */
   broadcasts: "/inbox/broadcasts",
+  /** A lead's quotations and the money on them (step 3, P0); one quote's page is quoteRoute(quoteId). */
+  quotes: "/quotes",
+  /** Reports and analytics; one staff member's is staffReportRoute(userId). */
+  reports: "/reports",
+  /** The agency's money: profit, bookings and running costs (step 6, P0). */
+  finance: "/finance",
   settings: "/settings",
   /** The setup checklist: what an organization does first (spec 11). */
   setup: "/setup",
@@ -43,6 +49,10 @@ export const routes = {
   leadSources: "/settings/lead-sources",
   /** The agency's website enquiry form: its link, snippet, fields and words (website form spec 3.2). */
   websiteForm: "/settings/lead-sources/website-form",
+  /** How quotes are paid (the agency's UPI id) and taxed. */
+  quoteSettings: "/settings/quotes",
+  /** Suggest reply's switch and the agency's instructions to the AI. */
+  aiSettings: "/settings/ai",
   /** The agency's WhatsApp number and its state. */
   whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */
@@ -54,6 +64,16 @@ export const routes = {
   /** The service worker's fallback for a page never opened before (src/service-worker/strategy.ts). */
   offline: "/offline",
 } as const;
+
+/** One staff member's performance and activity. */
+export function staffReportRoute(userId: string): string {
+  return `${routes.reports}/staff/${encodeURIComponent(userId)}`;
+}
+
+/** One quote's page. */
+export function quoteRoute(quoteId: string): string {
+  return `${routes.quotes}/${encodeURIComponent(quoteId)}`;
+}
 
 /** A WhatsApp chat's page. */
 export function broadcastRoute(broadcastId: string): string {

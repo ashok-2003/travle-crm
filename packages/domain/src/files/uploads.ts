@@ -25,7 +25,7 @@ import { allowedContentTypes, isSystemOwnedRecordType, maxUploadBytes } from "./
  * Refuses a file whose type its record doesn't take: an import's file is CSV or .xlsx, and those two go nowhere else
  * (spec 5).
  */
-function assertTypeAllowed(recordType: string, contentType: string): void {
+export function assertTypeAllowed(recordType: string, contentType: string): void {
   if (!allowedContentTypes(recordType).includes(contentType)) {
     throw new DomainError("VALIDATION", "CONTENT_TYPE_NOT_ALLOWED", "This record doesn't take files of this type");
   }

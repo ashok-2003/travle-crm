@@ -136,10 +136,17 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
     return mapSendFailure(outcome.status >= 400 ? outcome.status : 400, outcome.body);
   }
 
+  // SPIKE(reply-context): how MSG91 takes the message a send answers is not confirmed. This is Meta's own field, `context`
+  // with the message id, which MSG91's outbound API is built on; it lives here alone, so a real test send changes this line
+  // and the journeys' fake (test/e2e/support/fake-msg91.ts) and nothing else.
+  const replyContext = (replyTo: string | undefined) =>
+    replyTo === undefined ? {} : { context: { message_id: replyTo } };
+
   const base = (number: string, to: string) => ({ integrated_number: digits(number), recipient_number: digits(to) });
 
   return {
-    sendText: (number, to, textBody) => send({ ...base(number, to), content_type: "text", text: textBody }),
+    sendText: (number, to, textBody, textOptions) =>
+      send({ ...base(number, to), content_type: "text", text: textBody, ...replyContext(textOptions?.replyTo) }),
     sendMedia: (number, to, media: WhatsAppMediaToSend) =>
       send({
         ...base(number, to),
@@ -149,6 +156,7 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
         ...(media.fileName === undefined ? {} : { filename: media.fileName }),
         // SPIKE(S4): Meta's `voice` flag for Ogg Opus audio; the name MSG91 gives it is not confirmed.
         ...(media.voice === true ? { voice: true } : {}),
+        ...replyContext(media.replyTo),
       }),
     sendTemplate: async (number, to, template: WhatsAppTemplateSend) => {
       const components = Object.fromEntries(

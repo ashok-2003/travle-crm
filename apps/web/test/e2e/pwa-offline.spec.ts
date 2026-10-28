@@ -4,7 +4,7 @@
 // keeps an api answer or a token; an address with no shell shows the offline page.
 import type { Page } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
-import { expect, signInByEmail, test } from "./support/fixtures";
+import { expect, homeGreeting, signInByEmail, test } from "./support/fixtures";
 
 /** Waits for the service worker to be active (its install has kept every shell) and to control this page. */
 async function controlledByServiceWorker(page: Page): Promise<void> {
@@ -88,7 +88,7 @@ test("screens open offline by the app's links, opened before or not, with their 
   test.slow();
   await signInByEmail(page, agency.owner);
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   await controlledByServiceWorker(page);
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   const main = page.getByRole("main");

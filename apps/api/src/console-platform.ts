@@ -3,13 +3,17 @@
 import { checkPlatformConnection, createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import { createSheetsHashes } from "@travel-crm/domain/sheets";
 import { WHATSAPP_WEBHOOK_HEADER } from "@travel-crm/integrations/whatsapp";
+import type { ConsolePublicRoutes } from "./console-app.js";
 import { loadConsoleSettings, type ConsoleSettings } from "./console-environment.js";
+import { clientAddressFrom } from "./rate-limit.js";
 import { transactionLimitsOf } from "./services.js";
 import type { ProcessBase } from "./start-up.js";
 
 export interface ConsolePlatform {
   settings: ConsoleSettings;
   platform: PlatformServices;
+  /** For the invite links' public route: the limiter and who is asking. */
+  publicRoutes: ConsolePublicRoutes;
 }
 
 /**
@@ -30,6 +34,16 @@ export async function startConsolePlatform({ environment, services, logger }: Pr
     // The erasure of a customer of an agency with sheets keeps keyed hashes of their rows and contacts (S43, S6).
     sheetsHashes: settings.sheetsHashKey === null ? null : createSheetsHashes(settings.sheetsHashKey),
     logger,
+    // The invite program's links are the web app's.
+    appUrl: environment.APP_URL,
+    aiPrices:
+      environment.AI_PRICE_INPUT_PAISE_PER_MILLION === undefined ||
+      environment.AI_PRICE_OUTPUT_PAISE_PER_MILLION === undefined
+        ? null
+        : {
+            inputPaisePerMillion: environment.AI_PRICE_INPUT_PAISE_PER_MILLION,
+            outputPaisePerMillion: environment.AI_PRICE_OUTPUT_PAISE_PER_MILLION,
+          },
     // The webhook block and the provider for "Check with MSG91" (ADR 0035): from the process settings, never the database.
     whatsapp:
       whatsapp === null
@@ -48,5 +62,15 @@ export async function startConsolePlatform({ environment, services, logger }: Pr
     await platform.platformDb.disconnect().catch(() => undefined);
     throw error;
   }
-  return { settings, platform };
+  return {
+    settings,
+    platform,
+    publicRoutes: {
+      rateLimiter: services.rateLimiter,
+      clientAddress: clientAddressFrom({
+        headerNames: environment.AUTH_IP_ADDRESS_HEADERS,
+        trustedProxies: environment.AUTH_TRUSTED_PROXIES,
+      }),
+    },
+  };
 }

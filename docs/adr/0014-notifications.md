@@ -11,7 +11,7 @@ Date: 2026-10-15 · Status: accepted · Implements spec section 9.4
 - **The bell can't be turned off.** It is the record that something happened. Email and push can be, per kind of
   notification or for every kind (`*`), in `notification_preference`; a kind's own choice wins over `*`. The listener
   reads the choices at delivery time, so a change applies to notifications not yet sent.
-- **Email comes from our domain** under the organization's name ("Sharma Travels via Travel Agency OS"), with
+- **Email comes from our domain** under the organization's name ("Sharma Travels via Veeper AI"), with
   Reply-To set to the organization's contact email (`organization.contact_email`, set at onboarding), and a
   `List-Unsubscribe` header pointing at the web app's notification settings. One SMTP adapter (nodemailer) serves
   Mailpit locally and Amazon SES in the cloud through SES's SMTP interface. The from address is the adapter's

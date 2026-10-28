@@ -2,88 +2,106 @@
 /// it is read during sign-in, before an organization is known (spec section 4).
 /// Better Auth's organization plugin maps onto it: its `slug` field lives in our `code` column.
 model Organization {
-  id                      String                   @id @default(uuid(7)) @db.Uuid
-  name                    String
+  id                          String                       @id @default(uuid(7)) @db.Uuid
+  name                        String
   /// Short sign-in code such as SHARMA: 3-12 capital letters or digits (CHECK organization_code_format).
   /// Usernames embed it, so it must not change once the organization has staff.
-  code                    String                   @unique
-  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  code                        String                       @unique
+  createdAt                   DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
   /// Better Auth organization plugin columns. Unused by our code.
-  logo                    String?
-  metadata                String?
+  logo                        String?
+  metadata                    String?
   /// When true, every member must turn on two-factor sign-in before using the app (spec 6.2).
-  requireTwoFactor        Boolean                  @default(false) @map("require_two_factor")
+  requireTwoFactor            Boolean                      @default(false) @map("require_two_factor")
   /// The IANA time zone the organization works in. Times are stored in UTC and shown in this zone (spec 9.6).
-  timeZone                String                   @default("Asia/Kolkata") @map("time_zone")
+  timeZone                    String                       @default("Asia/Kolkata") @map("time_zone")
   /// Where replies to email the product sends for this organization go (spec 9.4). Set at onboarding (plan 4).
-  contactEmail            String?                  @map("contact_email")
-  counters                OrgCounter[]
-  members                 Member[]
-  invitations             Invitation[]
-  roles                   Role[]
-  rolePermissions         RolePermission[]
-  subscription            Subscription?
-  subscriptionPayments    SubscriptionPayment[]
-  outboxEvents            OutboxEvent[]
-  processedEvents         ProcessedEvent[]
-  attachments             Attachment[]
-  issuedDocuments         IssuedDocument[]
-  shareLinks              ShareLink[]
-  shareLinkOpens          ShareLinkOpen[]
-  notifications           Notification[]
-  notificationPreferences NotificationPreference[]
-  pushSubscriptions       PushSubscription[]
-  auditEntries            AuditEntry[]
-  profile                 OrganizationProfile?
-  destinations            Destination[]
-  people                  Person[]
-  leads                   Lead[]
-  leadTimelineEntries     LeadTimelineEntry[]
-  leadNotes               LeadNote[]
-  leadEnquiries           LeadEnquiry[]
-  blockedContacts         BlockedContact[]
-  assignmentSettings      AssignmentSettings[]
-  assignmentRules         AssignmentRule[]
-  assignmentPoolMembers   AssignmentPoolMember[]
-  tasks                   Task[]
-  importBatches           ImportBatch[]
-  importColumns           ImportColumn[]
-  importValueMatches      ImportValueMatch[]
-  importRows              ImportRow[]
-  importHeaderMatches     ImportHeaderMatch[]
-  importStopRequests      ImportStopRequest[]
-  dataExports             DataExport[]
-  sheetConnections        SheetConnection[]
-  sheetColumns            SheetColumn[]
-  sheetValueMatches       SheetValueMatch[]
-  sheetRows               SheetRow[]
-  sheetErasedContacts     SheetErasedContact[]
-  sheetCheckSchedules     SheetCheckSchedule[]
-  sheetSpreadsheetClaims  SheetSpreadsheetClaim[]
-  websiteForms            WebsiteForm[]
-  websiteFormSubmissions  WebsiteFormSubmission[]
-  personConsents          PersonConsent[]
-  metaPages               MetaPage[]
-  metaForms               MetaForm[]
-  metaFormQuestions       MetaFormQuestion[]
-  metaLeads               MetaLead[]
-  metaPageRoutes          MetaPageRoute[]
-  whatsappConnections     WhatsappConnection[]
-  whatsappConversations   WhatsappConversation[]
-  whatsappMessages        WhatsappMessage[]
-  whatsappTemplates       WhatsappTemplate[]
-  whatsappUsageMonths     WhatsappUsageMonth[]
-  whatsappNumberRoutes    WhatsappNumberRoute[]
-  inboxTags               InboxTag[]
-  conversationTags        ConversationTag[]
-  inboxQuickReplies       InboxQuickReply[]
-  conversationReads       ConversationRead[]
-  scheduledMessages       ScheduledMessage[]
-  inboxAutomations        InboxAutomation[]
-  inboxKeywordReplies     InboxKeywordReply[]
-  whatsappBroadcasts      WhatsappBroadcast[]
-  whatsappBroadcastTags   WhatsappBroadcastTag[]
+  contactEmail                String?                      @map("contact_email")
+  counters                    OrgCounter[]
+  members                     Member[]
+  invitations                 Invitation[]
+  roles                       Role[]
+  rolePermissions             RolePermission[]
+  subscription                Subscription?
+  subscriptionPayments        SubscriptionPayment[]
+  outboxEvents                OutboxEvent[]
+  processedEvents             ProcessedEvent[]
+  attachments                 Attachment[]
+  issuedDocuments             IssuedDocument[]
+  shareLinks                  ShareLink[]
+  shareLinkOpens              ShareLinkOpen[]
+  notifications               Notification[]
+  notificationPreferences     NotificationPreference[]
+  pushSubscriptions           PushSubscription[]
+  auditEntries                AuditEntry[]
+  profile                     OrganizationProfile?
+  destinations                Destination[]
+  people                      Person[]
+  leads                       Lead[]
+  leadTimelineEntries         LeadTimelineEntry[]
+  leadNotes                   LeadNote[]
+  leadEnquiries               LeadEnquiry[]
+  blockedContacts             BlockedContact[]
+  assignmentSettings          AssignmentSettings[]
+  assignmentRules             AssignmentRule[]
+  assignmentPoolMembers       AssignmentPoolMember[]
+  tasks                       Task[]
+  importBatches               ImportBatch[]
+  importColumns               ImportColumn[]
+  importValueMatches          ImportValueMatch[]
+  importRows                  ImportRow[]
+  importHeaderMatches         ImportHeaderMatch[]
+  importStopRequests          ImportStopRequest[]
+  dataExports                 DataExport[]
+  sheetConnections            SheetConnection[]
+  sheetColumns                SheetColumn[]
+  sheetValueMatches           SheetValueMatch[]
+  sheetRows                   SheetRow[]
+  sheetErasedContacts         SheetErasedContact[]
+  sheetCheckSchedules         SheetCheckSchedule[]
+  sheetSpreadsheetClaims      SheetSpreadsheetClaim[]
+  websiteForms                WebsiteForm[]
+  websiteFormSubmissions      WebsiteFormSubmission[]
+  personConsents              PersonConsent[]
+  metaPages                   MetaPage[]
+  metaForms                   MetaForm[]
+  metaFormQuestions           MetaFormQuestion[]
+  metaLeads                   MetaLead[]
+  metaPageRoutes              MetaPageRoute[]
+  whatsappConnections         WhatsappConnection[]
+  whatsappConversations       WhatsappConversation[]
+  whatsappMessages            WhatsappMessage[]
+  whatsappTemplates           WhatsappTemplate[]
+  whatsappUsageMonths         WhatsappUsageMonth[]
+  whatsappNumberRoutes        WhatsappNumberRoute[]
+  inboxTags                   InboxTag[]
+  conversationTags            ConversationTag[]
+  inboxQuickReplies           InboxQuickReply[]
+  conversationReads           ConversationRead[]
+  scheduledMessages           ScheduledMessage[]
+  inboxAutomations            InboxAutomation[]
+  inboxKeywordReplies         InboxKeywordReply[]
+  whatsappBroadcasts          WhatsappBroadcast[]
+  tripKits                    TripKit[]
+  tripKitSends                TripKitSend[]
+  quotes                      Quote[]
+  quoteInstallments           QuoteInstallment[]
+  quotePayments               QuotePayment[]
+  quoteSettings               QuoteSettings?
+  tripCosts                   TripCost[]
+  agencyExpenses              AgencyExpense[]
+  leadSignals                 LeadSignal[]
+  aiSettings                  AiSettings?
+  aiUsage                     AiUsage[]
+  aiKnowledge                 AiKnowledge[]
+  leadAiInsights              LeadAiInsight[]
+  aiDrafts                    AiDraft[]
+  quoteTemplates              QuoteTemplate[]
+  pageVisits                  PageVisit[]
+  welcome                     OrganizationWelcome?
+  welcomesSeen                WelcomeSeen[]
+  whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
 
   @@map("organization")

@@ -13,6 +13,7 @@ export {
   countOpenTasks,
   countOpenTasksQuery,
   countOverdueTasks,
+  overdueByAssignee,
   listOpenTasks,
   openTasksQuery,
   type OpenTasksFilter,

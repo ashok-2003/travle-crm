@@ -28,6 +28,7 @@ export const notificationKinds = [
   { kind: "whatsapp.needs-attention", messageKey: "whatsappNeedsAttention" },
   { kind: "inbox.mentioned", messageKey: "inboxMentioned" },
   { kind: "inbox.snooze-ended", messageKey: "inboxSnoozeEnded" },
+  { kind: "sales.hot-lead", messageKey: "salesHotLead" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

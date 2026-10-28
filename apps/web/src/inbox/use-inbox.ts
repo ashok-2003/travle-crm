@@ -3,7 +3,8 @@
 // The inbox's reads (inbox.*): the status, the list of chats and a chat's header and messages. The lists are keyed under
 // their procedure's path, so one refresh reaches them all; a chat refetches every 15 seconds while it is open, since new
 // messages arrive without the person doing anything (no websocket, spec 4.4 S1).
-import { INBOX_POLL_MS, type ConversationFilter } from "@travel-crm/contracts/inbox";
+import type { LeadStage } from "@travel-crm/contracts/crm";
+import { INBOX_POLL_MS, type ConversationFilter, type ConversationPeriod } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
@@ -23,11 +24,21 @@ export function useInboxStatus() {
   return useQuery(trpc.inbox.status.queryOptions());
 }
 
-export function useConversations(input: { filter: ConversationFilter; search: string; tagId: string | null }) {
+export interface ConversationQuery {
+  filter: ConversationFilter;
+  search: string;
+  tagId: string | null;
+  stage: LeadStage | null;
+  period: ConversationPeriod | null;
+}
+
+export function useConversations(input: ConversationQuery) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   const search = input.search === "" ? {} : { search: input.search };
   const tag = input.tagId === null ? {} : { tagId: input.tagId };
+  const stage = input.stage === null ? {} : { stage: input.stage };
+  const period = input.period === null ? {} : { period: input.period };
   return useCursorPages({
     queryKey: [...trpc.inbox.conversations.pathKey(), input],
     page: (cursor) =>
@@ -35,6 +46,8 @@ export function useConversations(input: { filter: ConversationFilter; search: st
         filter: input.filter,
         ...search,
         ...tag,
+        ...stage,
+        ...period,
         ...(cursor !== null && { before: cursor }),
       }),
     items: (page) => page.items,
@@ -99,4 +112,16 @@ export function useLeadChat(leadId: string, enabled: boolean) {
 export function useMediaLink(messageId: string, enabled: boolean) {
   const trpc = useTRPC();
   return useQuery({ ...trpc.inbox.mediaUrl.queryOptions(enabled ? { messageId } : skipToken), staleTime: 4 * 60_000 });
+}
+
+/** A chat's photos and videos, newest first, a page at a time: the contact panel's gallery. */
+export function useChatMedia(conversationId: string) {
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  return useCursorPages({
+    queryKey: [...trpc.inbox.media.pathKey(), conversationId],
+    page: (cursor) => client.inbox.media.query({ conversationId, ...(cursor !== null && { before: cursor }) }),
+    items: (page) => page.items,
+    staleTime: LIVE,
+  });
 }

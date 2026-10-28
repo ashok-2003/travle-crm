@@ -8,6 +8,7 @@ import {
   conversationNote,
   conversationNoteList,
   createKeywordReplyInput,
+  forwardMessageInput,
   inboxAutomation,
   inboxSummary,
   keywordReply,
@@ -27,6 +28,7 @@ import {
   cancelScheduled,
   createKeywordReply,
   deleteKeywordReply,
+  forwardMessage,
   listKeywordReplies,
   listNotes,
   listScheduled,
@@ -59,6 +61,14 @@ export const salesInboxRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) =>
         starMessage(tx, ctx.member, input.messageId, input.on, new Date()),
+      ),
+    ),
+
+  forward: replier
+    .input(forwardMessageInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        forwardMessage(tx, ctx.member, input.messageId, input.toConversationId),
       ),
     ),
 

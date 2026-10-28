@@ -66,6 +66,7 @@ export async function withdrawWhatsApp(
       mediaUrl: null,
       reaction: null,
       quotedWamid: null,
+      quotedMessageId: null,
       templateParams: [],
     },
   });
@@ -74,6 +75,8 @@ export async function withdrawWhatsApp(
   inboxRows += (await tx.scheduledMessage.deleteMany({ where: inChats })).count;
   inboxRows += (await tx.conversationTag.deleteMany({ where: inChats })).count;
   inboxRows += (await tx.conversationRead.deleteMany({ where: inChats })).count;
+  // Which trips went to the person's chats: their sends go with them.
+  inboxRows += (await tx.tripKitSend.deleteMany({ where: inChats })).count;
   // A notice about a chat (a mention, a failed send, a waking snooze) carries the customer's name and links to the chat.
   for (const id of conversationIds) {
     inboxRows += await forgetRecordNotifications(tx, { organizationId, recordId: id, sourceEventIds: [] });

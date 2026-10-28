@@ -3,7 +3,7 @@
 // stage a lead left (R30) and its first reply (spec 4); its open tasks cancelled on Lost and Not a lead (R29) or moved
 // to the new owner (R21); the timeline entry, audit entry and event; and "New lead assigned to you" when a person, not
 // the system, makes someone else the owner (R27). Whether the actor may make the change is the caller's to check.
-import { isOpenStage, leadStage, type LeadStage } from "@travel-crm/contracts/crm";
+import { isOpenStage, leadStage, type LeadStage, type LostReason } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
@@ -39,7 +39,7 @@ export async function lockLead(tx: OrgTx, leadId: string) {
 export async function changeLeadStage(
   tx: OrgTx,
   actor: Actor,
-  change: { leadId: string; stage: LeadStage },
+  change: { leadId: string; stage: LeadStage; lostReason?: LostReason | undefined },
   now: Date,
 ): Promise<boolean> {
   const { leadId, stage: to } = change;
@@ -52,6 +52,8 @@ export async function changeLeadStage(
     data: {
       stage: to,
       stageChangedAt: now,
+      // Why it was lost belongs to Lost alone: any other stage forgets it.
+      lostReason: to === "lost" ? (change.lostReason ?? null) : null,
       ...(isOpenStage(from) ? { reopenStage: from } : {}),
       ...(firstReply ? { firstReplyAt: now } : {}),
     },
@@ -70,7 +72,10 @@ export async function changeLeadStage(
     entityType: "lead",
     entityId: leadId,
     before: { stage: from },
-    after: { stage: to },
+    after: {
+      stage: to,
+      ...(to === "lost" && change.lostReason !== undefined ? { lostReason: change.lostReason } : {}),
+    },
   });
   await publishEvent(tx, { type: "lead.stage-changed", payload: { leadId, from, to } });
   return true;

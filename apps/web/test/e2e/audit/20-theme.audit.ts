@@ -53,6 +53,8 @@ test("Theme: home, leads, a lead, the inbox, broadcasts, settings and the consol
     customerMessage({ to: business, customerNumber: customer, text: "We are four adults in December." }),
   ]);
   await expect(chat.getByText("We are four adults in December.")).toBeVisible({ timeout: 60_000 });
+  // Words in the box, so the green Send button is live.
+  await chat.getByRole("combobox", { name: "Message" }).fill("Yes, we do. Sending you the plan now.");
   await shoot(owner, "theme-inbox-chat");
 
   await inAgency(agency.organizationId, async (tx) => {

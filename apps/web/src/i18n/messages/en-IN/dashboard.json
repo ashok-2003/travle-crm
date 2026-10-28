@@ -1,6 +1,4 @@
 {
-  "title": "How your leads are doing",
-  "titleOwn": "How your own leads are doing",
   "range": {
     "label": "Period",
     "7d": "7 days",
@@ -8,48 +6,7 @@
     "90d": "90 days",
     "month": "This month"
   },
-  "period": "{from} to {to}",
   "loadFailed": "The dashboard didn't load.",
-  "kpis": {
-    "label": "Key figures",
-    "newLeads": {
-      "label": "New leads",
-      "hint": "Leads that came in during the period, from every source."
-    },
-    "contacted": {
-      "label": "Contacted",
-      "value": "{percent}%",
-      "hint": "Of the period's new leads, the share that has had a reply: moved on from New. {count, plural, one {# lead} other {# leads}}."
-    },
-    "firstReply": {
-      "label": "First reply",
-      "none": "None yet",
-      "hint": "The middle wait between a lead coming in and its first reply, among the period's new leads that had one. Half waited less, half more."
-    },
-    "quotesSent": {
-      "label": "Quotes sent",
-      "hint": "Leads moved to Quote sent during the period, whenever they came in."
-    },
-    "won": {
-      "label": "Won",
-      "hint": "Leads moved to Won during the period, whenever they came in."
-    },
-    "conversion": {
-      "label": "Conversion",
-      "value": "{percent}%",
-      "hint": "Of the period's new leads, the share Won by now."
-    },
-    "open": {
-      "label": "Open now",
-      "hint": "Leads in New, Contacted, Quote sent or Booking requested today, whenever they came in."
-    },
-    "overdue": {
-      "label": "Overdue now",
-      "hint": "Follow-ups and tasks past their time today."
-    },
-    "change": "{percent}% {direction, select, up {up} other {down}}",
-    "vsBefore": "vs the period before"
-  },
   "duration": {
     "minutes": "{minutes} min",
     "hours": "{hours} h {minutes} min",
@@ -82,15 +39,6 @@
       "later": "Over a day",
       "waiting": "Still waiting"
     }
-  },
-  "team": {
-    "title": "Your team",
-    "intro": "The ten people with the most new leads in the period.",
-    "person": "Person",
-    "leads": "New leads",
-    "contacted": "Contacted",
-    "won": "Won",
-    "formerStaff": "No longer on staff"
   },
   "empty": "No new leads in this period yet. They show here as they come in."
 }

@@ -121,6 +121,52 @@ export const serviceVariables = {
     z.string().refine(isWebhookToken, "must be 32 or more letters, digits, - or _ (`openssl rand -hex 32`)").optional(),
   ),
   MSG91_WEBHOOK_KEY: emptyAsUnset(z.string().min(32, "must be at least 32 characters").optional()),
+  /**
+   * Suggest reply's AI (ADR 0029): OpenRouter's key, from openrouter.ai, with zero data retention asked of every request.
+   * Unset: the feature says the AI isn't set up. Never printed or logged.
+   */
+  OPENROUTER_API_KEY: emptyAsUnset(z.string().min(16, "must be an OpenRouter API key").optional()),
+  /**
+   * The models Suggest reply tries, in order, the first answering one used: OpenRouter slugs, comma separated, each one with
+   * a zero-data-retention provider. Changing a model is a change of this setting, not of code.
+   */
+  AI_SUGGEST_MODELS: emptyAsUnset(
+    z
+      .string()
+      .transform((text) =>
+        text
+          .split(",")
+          .map((model) => model.trim())
+          .filter((model) => model !== ""),
+      )
+      .pipe(
+        z
+          .array(z.string().regex(/^[\w.-]+\/[\w.:-]+$/, "must be OpenRouter model slugs like google/gemini-2.5-flash"))
+          .min(1)
+          .max(5),
+      )
+      .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
+  ),
+  /** The models lead scoring tries, in order (OpenRouter slugs, each with a zero-data-retention endpoint). */
+  AI_SCORE_MODELS: emptyAsUnset(
+    z
+      .string()
+      .transform((text) =>
+        text
+          .split(",")
+          .map((model) => model.trim())
+          .filter((model) => model !== ""),
+      )
+      .pipe(
+        z
+          .array(z.string().regex(/^[\w.-]+\/[\w.:-]+$/, "must be OpenRouter model slugs like google/gemini-2.5-flash"))
+          .min(1)
+          .max(5),
+      )
+      .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
+  ),
+  /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */
+  AI_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake MSG91 (development and tests only; refused in production). */
   MSG91_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake Graph (development and tests only; refused in production). */
@@ -129,4 +175,10 @@ export const serviceVariables = {
   GOOGLE_SHEETS_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** How often a sheet is checked, in seconds (120 by default); the journeys shorten it (development and tests only). */
   SHEETS_CHECK_INTERVAL_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(3600).optional()),
+  /**
+   * What a million input and output tokens cost, in paise, for the console's usage analytics (both or neither); a free
+   * model costs 0. Unset, the console shows no AI cost.
+   */
+  AI_PRICE_INPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
+  AI_PRICE_OUTPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
 };

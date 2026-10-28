@@ -5,19 +5,20 @@ import {
   isOpenStage,
   openLeadStage,
   type LeadIdInput,
+  type LeadStage,
   type MoveStageInput,
   type ReassignLeadInput,
 } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
-import { DomainError } from "../kernel/index.js";
+import { DomainError, type Actor } from "../kernel/index.js";
 import { changeLeadOwner, changeLeadStage, lockLead } from "./lead-core.js";
 import { findLeadInScope } from "./lead-detail.js";
 
 /** Moves the lead to a stage, forwards or back; the stage it is in already changes nothing (R31). */
 export async function moveLeadStage(tx: OrgTx, access: MemberAccess, input: MoveStageInput, now: Date): Promise<void> {
   const lead = await findLeadInScope(tx, access, input.leadId);
-  await changeLeadStage(tx, access, { leadId: lead.id, stage: input.stage }, now);
+  await changeLeadStage(tx, access, { leadId: lead.id, stage: input.stage, lostReason: input.lostReason }, now);
 }
 
 /**
@@ -46,4 +47,38 @@ export async function reassignLead(
     throw new DomainError("VALIDATION", "NOT_A_LEAD_WORKER", "That person can't work leads");
   }
   await changeLeadOwner(tx, access, { leadId: lead.id, ownerUserId: input.ownerUserId });
+}
+
+/** The open stages and Won, in the order a sale moves through them. */
+const saleOrder: readonly string[] = ["new", "contacted", "quote_sent", "booking_requested", "won"];
+
+/**
+ * Moves a lead forward as its quote does (sent, accepted, paid), never back and never out of Lost or Not a lead: a step
+ * the lead is at or past already changes nothing. The quote's own checks decided the actor may act on it.
+ */
+export async function advanceLeadStage(
+  tx: OrgTx,
+  actor: Actor,
+  change: { leadId: string; stage: "quote_sent" | "booking_requested" | "won" },
+  now: Date,
+): Promise<boolean> {
+  const lead = await lockLead(tx, change.leadId);
+  const from = saleOrder.indexOf(lead.stage);
+  if (from === -1 || saleOrder.indexOf(change.stage) <= from) return false;
+  return changeLeadStage(tx, actor, change, now);
+}
+
+/**
+ * Puts a lead back where a payment moved it from (a payment voided), but only while it is still where the payment left
+ * it: a lead someone has moved since stays where they put it.
+ */
+export async function retreatLeadStage(
+  tx: OrgTx,
+  actor: Actor,
+  change: { leadId: string; from: LeadStage; to: LeadStage },
+  now: Date,
+): Promise<boolean> {
+  const lead = await lockLead(tx, change.leadId);
+  if (lead.stage !== change.to) return false;
+  return changeLeadStage(tx, actor, { leadId: change.leadId, stage: change.from }, now);
 }

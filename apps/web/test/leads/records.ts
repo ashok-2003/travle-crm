@@ -52,6 +52,7 @@ export function aLead(overrides: Partial<LeadDetail> = {}): LeadDetail {
     id: ids.rahul,
     stage: "new",
     reopenStage: null,
+    lostReason: null,
     stageChangedAt: "2026-10-16T05:12:00.000Z",
     firstReplyAt: null,
     returning: false,

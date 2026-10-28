@@ -54,6 +54,24 @@ describe("starter roles", () => {
     expect(roleNamed("Accounts").has("documents:view_sensitive")).toBe(false);
   });
 
+  it("lets Sales ask the AI for a suggested reply, and only the Owner and Admin switch it on", () => {
+    expect(roleNamed("Sales").has("ai:suggest")).toBe(true);
+    expect(PermissionSet.everything().has("ai:manage")).toBe(true);
+    expect(roleNamed("Admin").has("ai:manage")).toBe(true);
+    for (const name of ["Sales", "Operations", "Accounts"]) expect(roleNamed(name).has("ai:manage"), name).toBe(false);
+    for (const name of ["Operations", "Accounts"]) expect(roleNamed(name).has("ai:suggest"), name).toBe(false);
+  });
+
+  it("show the sales and collections reports to Accounts, and payments to be recorded, but not to Sales", () => {
+    expect(roleNamed("Accounts").has("money:view_reports")).toBe(true);
+    expect(roleNamed("Accounts").has("quotes:record_payments")).toBe(true);
+    expect(roleNamed("Admin").has("money:view_reports")).toBe(true);
+    for (const name of ["Sales", "Operations"]) {
+      expect(roleNamed(name).has("money:view_reports"), name).toBe(false);
+      expect(roleNamed(name).has("quotes:record_payments"), name).toBe(false);
+    }
+  });
+
   it("show margins to Accounts, but not to Operations", () => {
     expect(roleNamed("Accounts").has("money:view_margin")).toBe(true);
     expect(roleNamed("Operations").has("money:view_margin")).toBe(false);

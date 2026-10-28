@@ -6,7 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { leadInsights } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { addDays, calendarDateIn, startOfDayIn } from "../kernel/index.js";
-import { countOverdueTasks } from "../tasks/index.js";
+import { countOverdueTasks, overdueByAssignee } from "../tasks/index.js";
 import { daysOf, periodDays } from "./period.js";
 
 /** The dashboard, with the team's people by id: Dashboard but for their names. */
@@ -35,6 +35,12 @@ export async function dashboardFigures(
     timeZone,
   });
   const leadsOn = new Map(insights.perDay.map((row) => [row.day, row.leads]));
+  // The team's leaderboard: each person's follow-ups missed now. Sales are money, so they live in Reports alone.
+  const overdue = await overdueByAssignee(
+    tx,
+    insights.team.map((row) => row.userId),
+    now,
+  );
   return {
     scope,
     from: days.first,
@@ -62,6 +68,9 @@ export async function dashboardFigures(
     byStage: insights.byStage,
     topDestinations: insights.topDestinations,
     responseTimes: insights.responseTimes,
-    team: insights.team,
+    team: insights.team.map((row) => ({
+      ...row,
+      overdue: overdue.get(row.userId) ?? 0,
+    })),
   };
 }

@@ -7,6 +7,9 @@ import { deleteRecordFiles } from "../files/index.js";
 import type { Actor } from "../kernel/index.js";
 import { forgetRecordNotifications } from "../notifications/index.js";
 import { withdrawWhatsApp } from "../inbox/index.js";
+import { withdrawAiParts } from "../ai/index.js";
+import { eraseQuoteParts } from "../quotes/index.js";
+import { eraseSalesParts } from "../sales/index.js";
 import { withdrawMetaLeads } from "../meta-leads/index.js";
 import { lockSheetConnections, type SheetsHashes, withdrawSheetRows } from "../sheets/index.js";
 import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
@@ -31,6 +34,9 @@ export async function eraseCustomerParts(
   const contacts = await customerContacts(tx, subject);
   const { leadIds, ...erased } = await eraseCustomer(tx, subject);
   const leads = leadIds.map((recordId) => ({ organizationId, recordType: "lead", recordId }));
+  // Their quotes' personal words and their hot-lead signals; the invoices and receipts issued are kept, as tax law asks.
+  const quotes = await eraseQuoteParts(tx, { organizationId, leadIds });
+  const sales = await eraseSalesParts(tx, { organizationId, leadIds });
   // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
   const tasksCancelled = await asOrganization(tx, organizationId, async (orgTx) => {
     let cancelled = 0;
@@ -56,6 +62,8 @@ export async function eraseCustomerParts(
   });
   // Meta's ledger keeps the Meta lead ids (so the catch-up never brings the lead back) and nothing of the person.
   const meta = await withdrawMetaLeads(tx, { organizationId, personId: subject.personId });
+  // The AI's drafts in their chats (ids and a hash, never the words).
+  const ai = await withdrawAiParts(tx, { organizationId, personId: subject.personId, phones: contacts.phones });
   // WhatsApp: the chat's words and files are emptied and the chat is erased; MSG91, Meta and the phone keep their own copy.
   const whatsapp = await withdrawWhatsApp(tx, {
     organizationId,
@@ -68,6 +76,11 @@ export async function eraseCustomerParts(
     ...erased,
     tasksCancelled,
     taskTitles,
+    quotesEmptied: quotes.quotes,
+    paymentReferencesEmptied: quotes.payments,
+    hotLeadSignals: sales.signals,
+    aiDrafts: ai.drafts,
+    aiInsights: ai.insights,
     notifications,
     files,
     sheetRowsWithdrawn: sheets.rowsWithdrawn,

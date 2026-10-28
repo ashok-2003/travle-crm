@@ -3,6 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   archiveConversation,
+  forwardMessage,
   markConversationRead,
   pinConversation,
   starMessage,
@@ -60,6 +61,20 @@ describe("a chat's flags", () => {
       "inbox.message-starred",
       "inbox.message-unstarred",
     ]);
+  });
+
+  it("audits a forward on the chat it came from, and refuses a message or chat that is not there", async () => {
+    const { conversation, message, member, inOrg, actions } = await chat();
+    const other = "01900000-0000-7000-8000-000000000000";
+    await inOrg((tx) => forwardMessage(tx, member, message.id, conversation.id));
+    expect(await actions()).toEqual(["inbox.message-forwarded"]);
+    await expect(inOrg((tx) => forwardMessage(tx, member, message.id, other))).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(inOrg((tx) => forwardMessage(tx, member, other, conversation.id))).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(await actions()).toEqual(["inbox.message-forwarded"]);
   });
 
   it("stars a message for the team with who starred it", async () => {

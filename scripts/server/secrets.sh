@@ -142,6 +142,11 @@ META_TOKEN_KEY=''
 MSG91_AUTHKEY=''
 MSG91_WEBHOOK_TOKEN=''
 MSG91_WEBHOOK_KEY=''
+# Suggest reply's AI (docs/deploy-checklist.md, "Suggest reply"): an OpenRouter key and the models it tries (slugs, comma
+# separated, each with a zero-data-retention endpoint); blank leaves it off, and `check` does not ask for them.
+OPENROUTER_API_KEY=''
+AI_SUGGEST_MODELS=''
+AI_SCORE_MODELS=''
 
 # Logs (docs/runbook.md, "Reading logs" and "Turn on Axiom"). LOG_LEVEL is debug, info, warn or error (blank: info).
 # The token and dataset ship every log line to Axiom too; blank leaves it off, and `check` does not ask for them.

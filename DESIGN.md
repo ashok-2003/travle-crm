@@ -18,6 +18,12 @@ colors:
   money: "#034f46"
   money-pressed: "#07352f"
   money-tint: "#e3f1ee"
+  avatar-sky: { bg: "#dbe7fb", ink: "#1e3a8a" }
+  avatar-rose: { bg: "#fde2e7", ink: "#8a2742" }
+  avatar-amber: { bg: "#fdecc8", ink: "#7a4a00" }
+  avatar-sage: { bg: "#e1efd9", ink: "#2f5a1f" }
+  avatar-violet: { bg: "#e9e1fb", ink: "#4c2f97" }
+  avatar-sand: { bg: "#efe6d2", ink: "#5b4521" }
   status-red: { dot: "#d92d20", bg: "#fdecea", ink: "#9b1c1c" }
   status-amber: { dot: "#c2680a", bg: "#fff3d6", ink: "#7a4100" }
   status-green: { dot: "#168f43", bg: "#e3f4e7", ink: "#14532d" }
@@ -31,6 +37,8 @@ colors:
   role-gold: { bg: "#f7f7cc", ink: "#595501" }
   role-fern: { bg: "#d6f8d8", ink: "#36563a" }
   role-mint: { bg: "#d3fff2", ink: "#035e4d" }
+  sidebar: { fill: "#075e54", ink: "#ffffff", active: "#0f8073" }
+  send: { fill: "#00785f", pressed: "#005f4d", ink: "#ffffff" }
   chat: { wallpaper: "#efeae2", out: "#d9fdd3", in: "#ffffff", date: "#fdf5e6", tick: "#0369a1" }
 typography:
   page-title: { family: "EB Garamond", size: 30px, weight: 500, lineHeight: 36px, tracking: "-0.01em" }

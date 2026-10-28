@@ -3,7 +3,7 @@
 // hold the quick replies, tags and automatic answers. The chats are made through the product against the fake MSG91.
 import { expect, signInToConsole, test } from "../support/console";
 import { signInByEmail } from "../support/fixtures";
-import { connectNumber, inAgency, newCustomerNumber, openNewChat } from "../support/whatsapp";
+import { connectNumber, inAgency, newCustomerNumber, openContactDetails, openNewChat } from "../support/whatsapp";
 import { screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -50,7 +50,7 @@ test("Sales inbox tools: chat, quick replies, notes, send later, snooze and the 
 
   // The details beside the chat (a sheet on a phone): the tag.
   const newTag = owner.getByRole("textbox", { name: "New tag" });
-  if (!(await newTag.isVisible())) await chat.getByRole("button", { name: "Contact and lead details" }).click();
+  if (!(await newTag.isVisible())) await openContactDetails(owner, chat);
   await newTag.fill("Honeymoon");
   await owner.getByRole("button", { name: "Add the tag" }).click();
   await expect(

@@ -41,11 +41,23 @@ const brandValueOf: Record<string, string> = {
   money: colours.money,
   "money-pressed": colours.moneyPressed,
   "money-tint": colours.moneyTint,
+  "sidebar.fill": colours.sidebar.fill,
+  "sidebar.ink": colours.sidebar.ink,
+  "sidebar.active": colours.sidebar.active,
+  "send.fill": colours.send.fill,
+  "send.pressed": colours.send.pressed,
+  "send.ink": colours.send.ink,
   "chat.wallpaper": colours.chat.wallpaper,
   "chat.out": colours.chat.bubbleOut,
   "chat.in": colours.chat.bubbleIn,
   "chat.date": colours.chat.dateChip,
   "chat.tick": colours.chat.tickRead,
+  ...Object.fromEntries(
+    Object.entries(colours.avatar).flatMap(([name, avatar]) => [
+      [`avatar-${name}.bg`, avatar.fill],
+      [`avatar-${name}.ink`, avatar.ink],
+    ]),
+  ),
   ...Object.fromEntries(
     (
       [

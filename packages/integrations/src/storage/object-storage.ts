@@ -27,8 +27,15 @@ export interface ObjectStorage {
     object: { key: string; contentType: string; sizeBytes: number },
     expiresInSeconds: number,
   ): Promise<PresignedUpload>;
-  /** A URL that downloads the file and saves it under fileName. */
-  presignDownload(object: { key: string; fileName: string }, expiresInSeconds: number): Promise<string>;
+  /**
+   * A URL that downloads the file and saves it under fileName. With `inline`, one the browser may open in place, which needs the
+   * file's `contentType` from our own record: the adapter refuses (RangeError) any type that is not a photo, video, voice note
+   * or PDF, so an SVG or an HTML page is only ever saved, and it tells the browser that type, not the object's own.
+   */
+  presignDownload(
+    object: { key: string; fileName: string; inline?: boolean; contentType?: string },
+    expiresInSeconds: number,
+  ): Promise<string>;
   /** Stores a file the server made itself, such as a rendered PDF. */
   put(object: { key: string; contentType: string; body: Uint8Array }): Promise<void>;
   /**

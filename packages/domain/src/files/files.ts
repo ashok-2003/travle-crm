@@ -4,9 +4,10 @@ import type { AttachmentRefInput, AttachmentSummary, RequestUploadInput } from "
 import type { PresignedUpload } from "@travel-crm/integrations/storage";
 import type { MemberAccess } from "../identity/index.js";
 import type { Actor } from "../kernel/index.js";
-import { listAttachments, removeAttachment, storageUsedBytes } from "./attachments.js";
+import { listAttachments, listAttachmentsOfRecords, removeAttachment, storageUsedBytes } from "./attachments.js";
 import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
+import { copyFile } from "./copies.js";
 import { confirmUpload, requestUpload, storeGeneratedFile, type StoredBytesCheck } from "./uploads.js";
 
 export interface Files {
@@ -24,14 +25,26 @@ export interface Files {
    * "not found".
    */
   confirmUpload(actor: Actor, input: AttachmentRefInput, check?: StoredBytesCheck): Promise<AttachmentSummary>;
-  /** A 5-minute link to a ready file. Sensitive files need documents:view_sensitive. */
-  downloadLink(actor: MemberAccess, input: AttachmentRefInput): Promise<DownloadLink>;
+  /** A 5-minute link to a ready file. Sensitive files need documents:view_sensitive. With `inline`, the browser may open it in place. */
+  downloadLink(actor: MemberAccess, input: AttachmentRefInput, options?: { inline?: boolean }): Promise<DownloadLink>;
   /** The record's ready files, sensitive ones marked; their names only for members with documents:view_sensitive. */
   list(actor: Actor, record: { recordType: string; recordId: string }): Promise<AttachmentSummary[]>;
+  /** `list` for many records of one type in one query, by record id. */
+  listForRecords(
+    actor: Actor,
+    recordType: string,
+    recordIds: readonly string[],
+  ): Promise<Map<string, AttachmentSummary[]>>;
   /** Soft-deletes the file. Only members with documents:view_sensitive may remove a sensitive file. */
   remove(actor: Actor, input: AttachmentRefInput): Promise<void>;
   /** Stores a file the server made and returns it ready; with a chosen attachmentId, a retry stores it once. */
   storeGeneratedFile(actor: Actor, file: GeneratedFile): Promise<AttachmentSummary>;
+  /** A ready file copied onto another record inside storage (a trip's file sent as a WhatsApp message's). */
+  copyFile(
+    actor: Actor,
+    from: AttachmentRefInput,
+    to: { recordType: string; recordId: string },
+  ): Promise<AttachmentSummary>;
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
   /** An ordinary file's bytes, named by its record, for server code that draws it (a logo on a PDF). */
@@ -44,10 +57,13 @@ export function createFiles(dependencies: FilesDependencies): Files {
   return {
     requestUpload: (actor, input) => requestUpload(dependencies, actor, input),
     confirmUpload: (actor, input, check) => confirmUpload(dependencies, actor, input, check),
-    downloadLink: (actor, input) => downloadLink(dependencies, actor, input),
+    downloadLink: (actor, input, options) => downloadLink(dependencies, actor, input, options),
     list: (actor, record) => listAttachments(dependencies, actor, record),
+    listForRecords: (actor, recordType, recordIds) =>
+      listAttachmentsOfRecords(dependencies, actor, recordType, recordIds),
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
+    copyFile: (actor, from, to) => copyFile(dependencies, actor, from, to),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
     systemFile: (organizationId, input) => systemFile(dependencies, organizationId, input),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),

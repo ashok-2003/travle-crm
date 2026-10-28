@@ -40,7 +40,11 @@
     "audit": "Audit log",
     "auditHint": "Who changed what in your organization, and when",
     "whatsapp": "WhatsApp",
-    "whatsappHint": "Your WhatsApp number and its state"
+    "whatsappHint": "Your WhatsApp number and its state",
+    "quotes": "Quotes and payments",
+    "quotesHint": "Your UPI id, the usual GST rate and the terms under every quote",
+    "ai": "AI",
+    "aiHint": "Suggest reply: turn it on and tell the AI how you talk to customers"
   },
   "destinations": {
     "title": "Destinations",

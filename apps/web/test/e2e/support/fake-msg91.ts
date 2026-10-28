@@ -46,6 +46,8 @@ export interface FakeSent {
   caption: string | null;
   fileName: string | null;
   voice: boolean;
+  /** The message this one answered (SPIKE(reply-context): the `context` field of the outbound call), or null. */
+  replyTo: string | null;
   /** For a template: its name, language and the values of its blanks. */
   template: { name: string; language: string; parameters: string[] } | null;
 }
@@ -62,6 +64,23 @@ interface FakeTemplate {
   reason: string | null;
   id: string;
 }
+
+/** Small stand-ins for the other kinds of file a customer sends, so a chat can be shown with every kind in it. */
+const otherMedia: Record<string, { type: string; bytes: Buffer }> = {
+  "/media/clip.mp4": {
+    type: "video/mp4",
+    bytes: Buffer.from("00000018667479706d703432000000006d70343269736f6d", "hex"),
+  },
+  "/media/voice.mp3": {
+    type: "audio/mpeg",
+    bytes: Buffer.from("494433030000000000000000fffb90640000000000000000", "hex"),
+  },
+  "/media/itinerary.pdf": { type: "application/pdf", bytes: Buffer.from("%PDF-1.4\n% a test itinerary\n%%EOF\n") },
+  "/media/sticker.webp": {
+    type: "image/webp",
+    bytes: Buffer.from("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==", "base64"),
+  },
+};
 
 const OUTBOUND_PATH = "/api/v5/whatsapp/whatsapp-outbound-message/";
 const TEMPLATE_SEND_PATH = "/api/v5/whatsapp/whatsapp-outbound-message/bulk/";
@@ -125,6 +144,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         caption: null,
         fileName: null,
         voice: false,
+        replyTo: null,
         template: {
           name: textOf(template.name),
           language: textOf(language.code),
@@ -208,6 +228,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         caption: textOrNull(body.caption),
         fileName: textOrNull(body.filename),
         voice: body.voice === true,
+        replyTo: textOrNull((body.context as { message_id?: unknown } | undefined)?.message_id),
         template: null,
       });
       response.writeHead(200, { "content-type": "application/json" });
@@ -223,6 +244,12 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
       refuseNext.add(url.searchParams.get("to") ?? "");
       response.writeHead(200, { "content-type": "application/json" });
       response.end("{}");
+      return;
+    }
+    const other = otherMedia[request.url ?? ""];
+    if (other !== undefined) {
+      response.writeHead(200, { "content-type": other.type, "content-length": String(other.bytes.byteLength) });
+      response.end(other.bytes);
       return;
     }
     if (request.url === "/media/photo.png") {

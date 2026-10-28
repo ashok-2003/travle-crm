@@ -52,6 +52,10 @@ x-api-environment: &api-environment
   META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
   META_LOGIN_CONFIG_ID: ${META_LOGIN_CONFIG_ID:-}
   META_TOKEN_KEY: ${META_TOKEN_KEY:-}
+  # Suggest reply's AI (ADR 0029): the OpenRouter key and the models; blank leaves it off.
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  AI_SUGGEST_MODELS: ${AI_SUGGEST_MODELS:-}
+  AI_SCORE_MODELS: ${AI_SCORE_MODELS:-}
   # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
   # webhook block and check a number.
   MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}

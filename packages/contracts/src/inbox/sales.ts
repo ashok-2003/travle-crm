@@ -79,6 +79,10 @@ export type InboxSummary = z.infer<typeof inboxSummary>;
 export const starMessageInput = z.strictObject({ messageId: recordId, on: z.boolean() });
 export type StarMessageInput = z.infer<typeof starMessageInput>;
 
+/** Forward a message's words to another chat's reply box: the api only checks both chats and writes the audit entry. */
+export const forwardMessageInput = z.strictObject({ messageId: recordId, toConversationId: recordId });
+export type ForwardMessageInput = z.infer<typeof forwardMessageInput>;
+
 /** Snooze a chat until a moment (it leaves the lists and its snoozer is reminded then), or wake it now with null. */
 export const snoozeInput = z.strictObject({ conversationId: recordId, until: timestamp.nullable() });
 export type SnoozeInput = z.infer<typeof snoozeInput>;

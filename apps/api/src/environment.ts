@@ -177,7 +177,13 @@ const environmentSchema = z
     if (environment.MSG91_TEST_SERVER_URL !== undefined && whatsappSet.length === 0) {
       problem("MSG91_TEST_SERVER_URL", "is only for use with the WhatsApp settings");
     }
+    if (environment.AI_TEST_SERVER_URL !== undefined && environment.OPENROUTER_API_KEY === undefined) {
+      problem("AI_TEST_SERVER_URL", "is only for use with OPENROUTER_API_KEY");
+    }
     if (developmentLike(environment.NODE_ENV)) return;
+    if (environment.AI_TEST_SERVER_URL !== undefined) {
+      problem("AI_TEST_SERVER_URL", "is for development and tests only: unset it in production");
+    }
     if (environment.MSG91_TEST_SERVER_URL !== undefined) {
       problem("MSG91_TEST_SERVER_URL", "is for development and tests only: unset it in production");
     }

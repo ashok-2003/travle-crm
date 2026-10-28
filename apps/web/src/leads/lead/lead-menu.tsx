@@ -2,10 +2,10 @@
 
 // A lead's ⋯ menu (spec 3.4, R33, P2): Reassign (leads:assign), Lost and Not a lead (leads:edit; not the stage the lead
 // is in), and Block this number (leads:assign), which blocks the phone, else the email, else the handle, and marks the
-// lead Not a lead. Lost, Not a lead and Block ask first (ConfirmDialog, held while the request is out); Reassign opens
+// lead Not a lead. Lost asks why (sales execution), and Lost, Not a lead and Block ask first (ConfirmDialog, held while the request is out); Reassign opens
 // its dialog; each gives the focus back to the ⋯ button when it closes. While the subscription refuses changes, the
 // items are off and the menu says why.
-import type { LeadDetail } from "@travel-crm/contracts/crm";
+import type { LeadDetail, LostReason } from "@travel-crm/contracts/crm";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { LostReasonChoice } from "@/sales/lost-reason";
 import { ReassignDialog } from "./reassign-dialog";
 import { useBlockContact, useMoveStage } from "./use-lead";
 
@@ -32,6 +33,7 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
   const canAssign = useHolds("leads:assign");
   const write = useWriteAccess("change");
   const [asking, setAsking] = useState<Asking>(null);
+  const [lostReason, setLostReason] = useState<LostReason | null>(null);
   // The dialogs aren't the menu's: closed, saved or cancelled, they give the focus back to the ⋯ button.
   const opener = useRef<HTMLButtonElement>(null);
   const close = () => {
@@ -88,10 +90,17 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
           description={t(`${asking}.description`)}
           action={t(`${asking}.confirm`)}
           request={move}
+          confirmDisabled={asking === "lost" && lostReason === null}
           onConfirm={() => {
-            move.mutate({ leadId: lead.id, stage: asking === "lost" ? "lost" : "not_a_lead" });
+            if (asking === "lost") {
+              if (lostReason !== null) move.mutate({ leadId: lead.id, stage: "lost", lostReason });
+              return;
+            }
+            move.mutate({ leadId: lead.id, stage: "not_a_lead" });
           }}
-        />
+        >
+          {asking === "lost" && <LostReasonChoice value={lostReason} onChange={setLostReason} />}
+        </ConfirmDialog>
       )}
       {asking === "block" && (
         <ConfirmDialog

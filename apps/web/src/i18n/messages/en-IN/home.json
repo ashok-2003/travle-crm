@@ -1,0 +1,23 @@
+{
+  "glance": {
+    "title": "Key figures",
+    "waiting": "Chats waiting",
+    "waitingHint": "Customers who wrote and are waiting for a reply in the inbox.",
+    "hot": "Hot leads",
+    "hotHint": "Leads that opened their quote again or asked to book: call them now.",
+    "money": "Money to come",
+    "moneyHint": "What accepted quotes still have to be paid by customers."
+  },
+  "month": {
+    "title": "This month so far",
+    "intro": "Your agency against last month's same days.",
+    "introOwn": "Your leads against last month's same days.",
+    "reports": "Open reports",
+    "loading": "Loading",
+    "sales": "Sales",
+    "won": "Bookings won",
+    "conversion": "Conversion",
+    "ofLeads": "{count, plural, one {of # new lead} other {of # new leads}}",
+    "collected": "Money received"
+  }
+}

@@ -105,6 +105,10 @@
       "inboxSnoozeEnded": {
         "label": "A chat you snoozed comes back",
         "hint": "At the time you chose when you snoozed it."
+      },
+      "salesHotLead": {
+        "label": "A lead is hot: they opened the quote again or asked to book",
+        "hint": "So you call while they are deciding."
       }
     },
     "loading": "Loading your choices",

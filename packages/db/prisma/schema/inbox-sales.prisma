@@ -159,6 +159,8 @@ model WhatsappBroadcast {
   templateId     String                       @map("template_id") @db.Uuid
   /// The template's blanks, the same for everyone.
   params         String[]                     @default([])
+  /// Who it goes to besides the tags: the chats of lost leads ("lost") or past customers ("won").
+  segments       String[]                     @default([])
   /// sending, paused, cancelled or done (CHECK whatsapp_broadcast_status_value).
   status         String                       @default("sending")
   /// Why it paused: failure_rate or template_unavailable (CHECK whatsapp_broadcast_paused_reason_value).

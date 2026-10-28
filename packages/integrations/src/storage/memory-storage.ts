@@ -1,6 +1,6 @@
 // An in-memory ObjectStorage for tests: it keeps files in a Map and checks a simulated browser upload the way S3
 // checks a presigned one (same size and type, before it expires).
-import { assertExpiry, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
+import { assertExpiry, assertInlineAllowed, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
 import type { ObjectStorage, PresignedUpload, StoredObject } from "./object-storage.js";
 
 interface MemoryObject {
@@ -40,12 +40,13 @@ export function createMemoryStorage(now: () => Date = () => new Date()): MemoryS
           expiresAt,
         };
       }),
-    presignDownload: ({ key, fileName }, expiresInSeconds) =>
+    presignDownload: ({ key, fileName, inline = false, contentType }, expiresInSeconds) =>
       promised(() => {
         assertSafeKey(key);
         assertExpiry(expiresInSeconds);
+        assertInlineAllowed(inline, contentType);
         const expires = String(now().getTime() + expiresInSeconds * 1000);
-        return `memory://download/${encodeURIComponent(key)}?name=${encodeURIComponent(fileName)}&expires=${expires}`;
+        return `memory://download/${encodeURIComponent(key)}?name=${encodeURIComponent(fileName)}${inline ? "&inline=1" : ""}&expires=${expires}`;
       }),
     put: ({ key, contentType, body }) =>
       promised(() => {

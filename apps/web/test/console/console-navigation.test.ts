@@ -14,6 +14,8 @@ describe("visibleConsoleItems", () => {
     expect(keys(visibleConsoleItems(platformStaff("super-admin")))).toEqual([
       "home",
       "onboard",
+      "invites",
+      "usage",
       "plans",
       "whatsapp",
       "jobs",
@@ -26,6 +28,8 @@ describe("visibleConsoleItems", () => {
     expect(keys(visibleConsoleItems(platformStaff("support")))).toEqual([
       "home",
       "onboard",
+      "invites",
+      "usage",
       "plans",
       "whatsapp",
       "jobs",
@@ -37,6 +41,8 @@ describe("visibleConsoleItems", () => {
     expect(Object.fromEntries(consoleNavigationItems.map((item) => [item.key, item.href]))).toEqual({
       home: consoleRoutes.home,
       onboard: consoleRoutes.onboard,
+      invites: consoleRoutes.invites,
+      usage: consoleRoutes.usage,
       plans: consoleRoutes.plans,
       whatsapp: consoleRoutes.whatsapp,
       jobs: consoleRoutes.jobs,
