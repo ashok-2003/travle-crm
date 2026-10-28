@@ -5,6 +5,12 @@
 # through scripts/server/compose.sh, which names the project, reads the server's root-only settings
 # (/srv/travel-crm/production.env: every secret, generated on the server, never in git) and says which release's
 # images run (RELEASE, the commit). Only Caddy publishes ports: 80 and 443.
+#
+# The settings' SERVER_ROLE says what this server runs, through profiles compose.sh turns on: `all` (one server: the
+# api, the worker, the console and the web app), or the two small servers behind a web app hosted elsewhere
+# (docs/runbook.md, "Two small servers"): `api` (the api and the worker) and `console` (the console alone, so the
+# platform role's connection string is on no server the api runs on). The migrations run where DATABASE_MIGRATOR_URL
+# is set (profile `migrations`), and the server's own Postgres where the database is the host `postgres`.
 
 # What the api, the worker and the console share. NODE_ENV is production (the image's), so each refuses to start on
 # an http address, an off rate limit, a weak secret or .env.example's VAPID pair. AUTH_TRUSTED_PROXIES stays empty:
@@ -12,9 +18,15 @@
 x-api-environment: &api-environment
   DATABASE_URL: ${DATABASE_URL:?}
   DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
+  # A managed database far away, or asleep, may need longer to start a transaction (docs/runbook.md).
+  DATABASE_TRANSACTION_MAX_WAIT_MS: ${DATABASE_TRANSACTION_MAX_WAIT_MS:-2000}
+  DATABASE_TRANSACTION_TIMEOUT_MS: ${DATABASE_TRANSACTION_TIMEOUT_MS:-5000}
+  # How often the worker and the console look for work (apps/api/src/job-polling.ts); blank: every 2 seconds.
+  JOBS_POLLING_SECONDS: ${JOBS_POLLING_SECONDS:-}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
-  BETTER_AUTH_URL: https://${APP_HOST:?}
-  APP_URL: https://${APP_HOST:?}
+  # The address people use: this server's, unless APP_URL names the web app's own (the two small servers').
+  BETTER_AUTH_URL: ${APP_URL:-https://${APP_HOST:?}}
+  APP_URL: ${APP_URL:-https://${APP_HOST:?}}
   # R2's S3 endpoint, path-style, so the web image's STORAGE_ORIGIN is this one origin.
   S3_ENDPOINT: ${S3_ENDPOINT:?}
   S3_REGION: auto
@@ -52,7 +64,8 @@ x-api-environment: &api-environment
   AXIOM_URL: ${AXIOM_URL:-}
 
 # One build of the api's image, tagged with the release, for the four services that run it. Old releases' images
-# stay on the server, so a rollback starts them again without a build.
+# stay on the server, so a rollback starts them again without a build. The two small servers never build it: release.sh
+# builds it on the owner's computer and loads it onto them.
 x-api-image: &api-image
   image: travel-crm-api:${RELEASE:?run it with scripts/server/compose.sh}
   build:
@@ -61,9 +74,11 @@ x-api-image: &api-image
   read_only: true
   tmpfs: [/tmp]
 
+# Where the migrations don't run (no DATABASE_MIGRATOR_URL: they're applied before the release), nothing waits for them.
 x-api-depends-on: &api-depends-on
   migrate:
     condition: service_completed_successfully
+    required: false
 
 services:
   # The server's own Postgres. It runs while the settings' connection strings name the host `postgres`
@@ -111,12 +126,14 @@ services:
       timeout: 3s
       retries: 30
 
-  # The migrations, once per release, as app_migrator, before anything else starts (spec 12.3).
+  # The migrations, once per release, as app_migrator, before anything else starts (spec 12.3), on a server whose
+  # settings hold DATABASE_MIGRATOR_URL (compose.sh turns the profile on).
   migrate:
     <<: *api-image
+    profiles: [migrations]
     command: ["migrate"]
     environment:
-      DATABASE_MIGRATOR_URL: ${DATABASE_MIGRATOR_URL:?}
+      DATABASE_MIGRATOR_URL: ${DATABASE_MIGRATOR_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,6 +142,7 @@ services:
 
   api:
     <<: *api-image
+    profiles: [api-host]
     command: ["api"]
     restart: unless-stopped
     environment:
@@ -147,23 +165,27 @@ services:
       retries: 30
 
   # The worker and the console let running jobs finish for up to 30 seconds on SIGTERM (docs/deploy-checklist.md).
+  # On the two small servers both run in working hours only (scripts/server/work-hours.sh).
   worker:
     <<: *api-image
+    profiles: [api-host]
     command: ["worker"]
     restart: unless-stopped
     environment: *api-environment
     depends_on: *api-depends-on
     stop_grace_period: 35s
 
-  # The only service with the platform role's URL. No DEMO_* settings: the demo agency never runs beside real ones.
+  # The only service with the platform role's URL. No DEMO_* settings: the demo agency never runs beside real ones. The
+  # api's server has no DATABASE_PLATFORM_URL at all, so it isn't required here: the console refuses to start without it.
   console:
     <<: *api-image
+    profiles: [console-host]
     command: ["console"]
     restart: unless-stopped
     stop_grace_period: 35s
     environment:
       <<: *api-environment
-      DATABASE_PLATFORM_URL: ${DATABASE_PLATFORM_URL:?}
+      DATABASE_PLATFORM_URL: ${DATABASE_PLATFORM_URL:-}
       # The console never holds the service accounts (the image drops them too).
       GOOGLE_SHEETS_SERVICE_ACCOUNTS: ""
       META_APP_ID: ""
@@ -187,6 +209,7 @@ services:
 
   web:
     image: travel-crm-web:${RELEASE:?run it with scripts/server/compose.sh}
+    profiles: [web]
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -212,7 +235,8 @@ services:
       retries: 30
 
   # The product's one address. Caddy gets and renews the certificate for APP_HOST (Let's Encrypt, or ZeroSSL when
-  # that refuses) and keeps it in caddy-data, so a restart never asks again.
+  # that refuses) and keeps it in caddy-data, so a restart never asks again. It routes what this server runs
+  # (SERVER_ROLE, docker/server/Caddyfile) and waits only for those services.
   proxy:
     image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
     restart: unless-stopped
@@ -222,6 +246,7 @@ services:
     environment:
       APP_HOST: ${APP_HOST:?}
       ACME_EMAIL: ${ACME_EMAIL:?}
+      SERVER_ROLE: ${SERVER_ROLE:-all}
     volumes:
       - ./docker/server/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -229,10 +254,13 @@ services:
     depends_on:
       api:
         condition: service_healthy
+        required: false
       console:
         condition: service_healthy
+        required: false
       web:
         condition: service_healthy
+        required: false
 
 volumes:
   postgres-data:

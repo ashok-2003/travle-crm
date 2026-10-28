@@ -15,3 +15,17 @@ previous_release_file="$server_root/release.previous"
 uses_local_database() {
   grep -q -s -E "^DATABASE_URL='postgresql://[^@']*@postgres:5432/" "$settings_file"
 }
+
+# What this server runs (docker-compose.server.yml): `all`, or one of the two small servers, `api` or `console`
+# (docs/runbook.md, "Two small servers"). Settings without SERVER_ROLE are `all`.
+server_role() {
+  local role
+  role="$(sed -n -E "s/^SERVER_ROLE='(.*)'\$/\1/p" "$settings_file" 2>/dev/null | tail -n 1)"
+  echo "${role:-all}"
+}
+
+# Whether the settings hold DATABASE_MIGRATOR_URL, so this server applies each release's migrations. Without it they are
+# applied before the release, from the owner's computer.
+runs_migrations() {
+  grep -q -s -E "^DATABASE_MIGRATOR_URL='.+'\$" "$settings_file"
+}

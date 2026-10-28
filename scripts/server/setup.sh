@@ -7,7 +7,10 @@
 # - huge pages for Postgres's shared buffers, and a little swap for builds;
 # - the nightly backup's timer.
 # As root, from the server's checkout (scripts/server/release.sh makes it):
-#   sudo /srv/travel-crm/app/scripts/server/setup.sh
+#   sudo /srv/travel-crm/app/scripts/server/setup.sh [--managed-database]
+# --managed-database is for a server whose database is managed elsewhere (the two small servers, docs/runbook.md):
+# no huge pages, since no Postgres runs here, keeping its memory for the processes, and no backup timer, since the
+# managed database is backed up from GitHub Actions (docs/serverless.md). The swap stays: a 1 GB server needs it.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/postgres-memory.sh
@@ -15,6 +18,15 @@ source scripts/server/postgres-memory.sh
   echo "Run it as root (sudo)." >&2
   exit 1
 }
+managed_database=""
+case "${1:-}" in
+  "") ;;
+  --managed-database) managed_database="yes" ;;
+  *)
+    echo "Usage: setup.sh [--managed-database]" >&2
+    exit 1
+    ;;
+esac
 export DEBIAN_FRONTEND=noninteractive
 
 echo "Packages and security updates"
@@ -85,11 +97,16 @@ fi
 systemctl enable --quiet docker
 
 echo "Huge pages for Postgres, and swap"
-# Huge pages for Postgres's shared buffers (a quarter of the memory, scripts/server/postgres-memory.sh) and the rest of
-# its shared memory: a tenth more, and 64 MB.
-page_kb="$(awk '/^Hugepagesize:/ { print $2 }' /proc/meminfo)"
-huge_mb="$(($(postgres_shared_buffers_mb) * 11 / 10 + 64))"
-echo "vm.nr_hugepages = $(((huge_mb * 1024 + page_kb - 1) / page_kb))" >/etc/sysctl.d/60-travel-crm.conf
+if [ -n "$managed_database" ]; then
+  # No Postgres here: huge pages would only hold memory the processes need.
+  echo "vm.nr_hugepages = 0" >/etc/sysctl.d/60-travel-crm.conf
+else
+  # Huge pages for Postgres's shared buffers (a quarter of the memory, scripts/server/postgres-memory.sh) and the rest
+  # of its shared memory: a tenth more, and 64 MB.
+  page_kb="$(awk '/^Hugepagesize:/ { print $2 }' /proc/meminfo)"
+  huge_mb="$(($(postgres_shared_buffers_mb) * 11 / 10 + 64))"
+  echo "vm.nr_hugepages = $(((huge_mb * 1024 + page_kb - 1) / page_kb))" >/etc/sysctl.d/60-travel-crm.conf
+fi
 echo "vm.swappiness = 10" >>/etc/sysctl.d/60-travel-crm.conf
 sysctl --quiet --system
 if ! swapon --show=NAME --noheadings | grep -q -x /swapfile; then
@@ -100,10 +117,14 @@ if ! swapon --show=NAME --noheadings | grep -q -x /swapfile; then
   grep -q '^/swapfile ' /etc/fstab || echo "/swapfile none swap sw 0 0" >>/etc/fstab
 fi
 
-echo "The nightly backup's timer"
-install -m 0644 scripts/server/systemd/travel-crm-backup.service scripts/server/systemd/travel-crm-backup.timer \
-  /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --quiet --now travel-crm-backup.timer
+if [ -n "$managed_database" ]; then
+  echo "No backup timer: the managed database is backed up from GitHub Actions (docs/serverless.md)"
+else
+  echo "The nightly backup's timer"
+  install -m 0644 scripts/server/systemd/travel-crm-backup.service scripts/server/systemd/travel-crm-backup.timer \
+    /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable --quiet --now travel-crm-backup.timer
+fi
 
 echo "The server is ready. Huge pages reserved: $(awk '/^HugePages_Total:/ { print $2 }' /proc/meminfo)"
