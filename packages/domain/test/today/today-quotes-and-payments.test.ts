@@ -99,6 +99,43 @@ describe("today's opened quotes and payments due", () => {
       expect(items.map((item) => (item.kind === "quote-opened" ? item.lead.id : ""))).not.toContain(called.lead.id);
     });
 
+    it("goes away when another quote of the lead changed after the open", async () => {
+      const me = aSalesperson();
+      const { lead } = await openedQuote(me, 30);
+      expect((await section(me, "quote-opened")).items).toHaveLength(1);
+      await inOrg((tx) =>
+        tx.quote.create({
+          data: {
+            leadId: lead.id,
+            title: "A second quote",
+            status: "sent",
+            subtotalPaise: 100_00,
+            totalPaise: 100_00,
+            updatedAt: ago(2),
+          },
+        }),
+      );
+      expect((await section(me, "quote-opened")).items).toEqual([]);
+    });
+
+    it("carries on after a cursor whose item has gone, instead of starting over", async () => {
+      const me = aSalesperson();
+      const first = await openedQuote(me, 80);
+      const second = await openedQuote(me, 60);
+      const third = await openedQuote(me, 40);
+      const page = await inOrg((tx) => todaySection(tx, me, { section: "quote-opened", limit: 2 }, now));
+      expect(page.items.map((item) => (item.kind === "quote-opened" ? item.quote.id : ""))).toEqual([
+        first.quote.id,
+        second.quote.id,
+      ]);
+      expect(page.nextCursor).toBe(second.quote.id);
+      await inOrg((tx) => dismissOpenedQuote(tx, me, second.lead.id, now));
+      const next = await inOrg((tx) =>
+        todaySection(tx, me, { section: "quote-opened", after: second.quote.id, limit: 2 }, now),
+      );
+      expect(next.items.map((item) => (item.kind === "quote-opened" ? item.quote.id : ""))).toEqual([third.quote.id]);
+    });
+
     it("comes back only after a newer open once it is marked Done", async () => {
       const me = aSalesperson();
       const { lead } = await openedQuote(me, 30);
@@ -155,6 +192,27 @@ describe("today's opened quotes and payments due", () => {
         { kind: "payment-due", installmentId: ids[1], missed: false, dueOn: "2026-10-30" },
       ]);
       expect((await counts(me)).paymentsDue).toBe(2);
+    });
+
+    it("carries on after a cursor whose payment has been made, instead of starting over", async () => {
+      const me = aSalesperson();
+      const { ids, quote } = await acceptedQuote(me, [
+        { amount: 100_000, dueOn: "2026-10-18" },
+        { amount: 100_000, dueOn: "2026-10-19" },
+        { amount: 100_000, dueOn: "2026-10-20" },
+      ]);
+      const page = await inOrg((tx) => todaySection(tx, me, { section: "payments-due", limit: 2 }, now));
+      expect(page.nextCursor).toBe(ids[1]);
+      // The first two instalments are paid: the cursor's item leaves the list.
+      await inOrg((tx) =>
+        tx.quotePayment.create({
+          data: { quoteId: quote.id, amountPaise: 200_000n, receivedOn: new Date("2026-10-28"), method: "upi" },
+        }),
+      );
+      const next = await inOrg((tx) =>
+        todaySection(tx, me, { section: "payments-due", after: ids[1] ?? "", limit: 2 }, now),
+      );
+      expect(next.items).toMatchObject([{ installmentId: ids[2] }]);
     });
 
     it("skips an instalment the payments cover, and a quote that is not accepted", async () => {
