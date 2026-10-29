@@ -35,7 +35,7 @@ test("an Owner turns the autopilot on, the AI answers a customer by itself, mark
 
   // The Owner turns the AI on, then the autopilot, in Settings, AI.
   await owner.goto("/settings/ai");
-  await expect(owner.getByRole("heading", { level: 1, name: "AI" })).toBeVisible();
+  await expect(owner.getByRole("heading", { level: 1, name: "AI sales agent" })).toBeVisible();
   await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
   await owner.getByRole("button", { name: "Save", exact: true }).click();
   await expect(owner.getByText("AI settings saved")).toBeVisible();
@@ -71,6 +71,9 @@ test("an Owner turns the autopilot on, the AI answers a customer by itself, mark
   const panel = owner.getByRole("region", { name: "Chat with Rahul Mehta" });
   await expect(panel.getByText("Kerala 5 nights is Rs 18,500")).toBeVisible();
   await expect(panel.getByText(/Sent by the AI/)).toBeVisible();
+  // Over the reply box, the AI says it has this chat, with the one button to take it over.
+  await expect(panel.getByText(/is answering this chat/)).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Take over" })).toBeVisible();
   const audited = await inAgency(agency.organizationId, (tx) =>
     tx.auditEntry.count({ where: { action: "ai.message-sent" } }),
   );

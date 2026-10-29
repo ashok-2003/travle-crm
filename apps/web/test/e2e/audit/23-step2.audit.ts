@@ -30,7 +30,7 @@ test("Sales automation, the autopilot and a chat with an AI message", async ({ p
   await shoot(owner, "step2-sales-automation");
 
   await owner.goto("/settings/ai");
-  await expect(owner.getByRole("heading", { level: 1, name: "AI" })).toBeVisible();
+  await expect(owner.getByRole("heading", { level: 1, name: "AI sales agent" })).toBeVisible();
   await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
   await owner.getByRole("button", { name: "Save", exact: true }).click();
   await expect(owner.getByText("AI settings saved")).toBeVisible();

@@ -32,11 +32,11 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
 
   // Off by default: no button in the chat.
   await expect(chat.getByRole("combobox", { name: "Message" })).toBeVisible();
-  await expect(chat.getByRole("button", { name: "Suggest reply" })).toHaveCount(0);
+  await expect(chat.getByRole("button", { name: "Suggest a reply" })).toHaveCount(0);
 
   // The Owner turns it on in Settings, AI, with an instruction.
   await owner.goto("/settings/ai");
-  await expect(owner.getByRole("heading", { level: 1, name: "AI" })).toBeVisible();
+  await expect(owner.getByRole("heading", { level: 1, name: "AI sales agent" })).toBeVisible();
   await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
   await owner.getByLabel("Instructions for the AI").fill("Reply warm and short. Never offer a discount.");
   await owner.getByRole("button", { name: "Save", exact: true }).click();
@@ -56,7 +56,7 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
     .click();
   const panel = owner.getByRole("region", { name: "Chat with Rahul Mehta" });
   const box = panel.getByRole("combobox", { name: "Message" });
-  await panel.getByRole("button", { name: "Suggest reply" }).click();
+  await panel.getByRole("button", { name: "Suggest a reply" }).click();
   await expect(box).toHaveValue(/Which dates are you planning to travel/);
   await expect(panel.getByText("Drafted by AI")).toBeVisible();
   expect(await sentTo(customer)).toHaveLength(0);
@@ -112,6 +112,8 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
     await expect(owner.getByRole("heading", { name: "AI's guess" })).toBeVisible({ timeout: 4_000 });
   }).toPass({ timeout: 90_000 });
   await expect(owner.getByText("Call today and offer the Kerala 5-night package.")).toBeVisible();
+  // The AI wrote a line on how the lead stands with the score.
+  await expect(owner.getByText("Wants a Kerala package for four in December and has asked the price.")).toBeVisible();
   // It never moved the lead's stage.
   expect(await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).stage)).toBe("new");
 });

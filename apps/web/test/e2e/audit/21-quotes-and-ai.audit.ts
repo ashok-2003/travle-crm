@@ -118,7 +118,7 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   await shoot(page, "lost-reason");
   await page.keyboard.press("Escape");
   await page.goto("/dashboard");
-  await expect(page.getByRole("region", { name: "Key figures" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Today at a glance" })).toBeVisible();
   await shoot(page, "home-final");
   await page.goto("/reports");
   await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
@@ -142,7 +142,7 @@ test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, 
   );
 
   await owner.goto("/settings/ai");
-  await expect(owner.getByRole("heading", { level: 1, name: "AI" })).toBeVisible();
+  await expect(owner.getByRole("heading", { level: 1, name: "AI sales agent" })).toBeVisible();
   await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
   await owner
     .getByLabel("Instructions for the AI")
@@ -165,7 +165,7 @@ test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, 
     .first()
     .click();
   const panel = owner.getByRole("region", { name: "Chat with Rahul Mehta" });
-  await panel.getByRole("button", { name: "Suggest reply" }).click();
+  await panel.getByRole("button", { name: "Suggest a reply" }).click();
   await expect(panel.getByText("Drafted by AI")).toBeVisible();
   await shoot(owner, "composer-suggestion");
 
