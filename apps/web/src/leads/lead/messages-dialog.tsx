@@ -7,7 +7,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { MessageSquareTextIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChoiceGroup } from "@/components/forms/choice-field";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -51,13 +51,17 @@ export function MessagesButton({ leadId, name, phone }: { leadId: string; name: 
     ...trpc.leads.messagePreview.queryOptions({ leadId, text: message?.body ?? "" }),
     enabled: open && message !== undefined,
   });
+  // Nothing is copied or opened while a blank has no value for this lead (no quote yet): a message is never sent with one.
+  const stillOpen = preview.data?.open ?? [];
+  const blocked = message !== undefined && (preview.data === undefined || stillOpen.length > 0);
+  const blockedId = useId();
   const ready = useMutation(trpc.leads.readyMessage.mutationOptions());
   const use = (how: "copy" | "whatsapp") => {
     if (message === undefined) return;
     ready.mutate(
       { leadId, text: message.body },
       {
-        onSuccess: ({ text, open: stillOpen }) => {
+        onSuccess: ({ text }) => {
           if (how === "copy") {
             void navigator.clipboard.writeText(text).then(
               () => {
@@ -70,8 +74,6 @@ export function MessagesButton({ leadId, name, phone }: { leadId: string; name: 
           } else if (phone !== null) {
             window.open(`${whatsAppLink(phone)}?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
           }
-          if (stillOpen.length > 0)
-            toast.info(t("open", { blanks: stillOpen.map((blank) => `{${blank}}`).join(", ") }));
         },
       },
     );
@@ -137,10 +139,16 @@ export function MessagesButton({ leadId, name, phone }: { leadId: string; name: 
         description={t("description", { name })}
         footer={
           <>
+            {blocked && stillOpen.length > 0 && (
+              <p id={blockedId} className="text-label text-muted-foreground">
+                {t("blocked", { blanks: stillOpen.map((blank) => `{${blank}}`).join(", ") })}
+              </p>
+            )}
             {canReply && phone !== null && (
               <Button
                 variant="outline"
-                disabled={message === undefined || ready.isPending}
+                aria-describedby={blocked && stillOpen.length > 0 ? blockedId : undefined}
+                disabled={message === undefined || blocked || ready.isPending}
                 onClick={() => {
                   use("whatsapp");
                 }}
@@ -149,7 +157,8 @@ export function MessagesButton({ leadId, name, phone }: { leadId: string; name: 
               </Button>
             )}
             <Button
-              disabled={message === undefined || ready.isPending}
+              aria-describedby={blocked && stillOpen.length > 0 ? blockedId : undefined}
+              disabled={message === undefined || blocked || ready.isPending}
               onClick={() => {
                 use("copy");
               }}

@@ -3,7 +3,7 @@
 // copies it; Open in WhatsApp needs inbox:reply.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { MessagesButton } from "@/leads/lead/messages-dialog";
 import { stubApi } from "../support/api-stub";
@@ -26,10 +26,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+let preview = { text: "Hi Rahul, pay ₹5,000: {link}", open: [] as string[] };
+
 function open(me = owner) {
   const api = stubApi({
     "leads.messageLibrary": { data: library },
-    "leads.messagePreview": { data: { text: "Hi Rahul, pay {amount}: {link}", open: ["amount"] } },
+    "leads.messagePreview": { data: preview },
     "leads.readyMessage": { data: { text: "Hi Rahul, pay ₹5,000: https://app.test/p/abc", open: [] } },
   });
   renderScreen(<MessagesButton leadId={ids.rahul} name="Rahul Sharma" phone="+919876543210" />, { me });
@@ -37,7 +39,12 @@ function open(me = owner) {
 }
 
 describe("Messages", () => {
+  beforeEach(() => {
+    preview = { text: "Hi Rahul, pay ₹5,000: {link}", open: [] };
+  });
+
   it("lists the library, previews the chosen message with the blank that has no value highlighted", async () => {
+    preview = { text: "Hi Rahul, pay {amount}: {link}", open: ["amount"] };
     open();
     await userEvent.click(screen.getByRole("button", { name: words.button }));
     const dialog = await screen.findByRole("dialog");
@@ -72,5 +79,19 @@ describe("Messages", () => {
     await userEvent.click(screen.getByRole("button", { name: words.button }));
     await screen.findByRole("dialog");
     expect(screen.queryByRole("button", { name: words.whatsApp })).toBeNull();
+  });
+
+  it("will not copy or open a message while a blank has no value for this lead, and says why", async () => {
+    preview = { text: "Hi Rahul, pay {amount}: {link}", open: ["amount"] };
+    open();
+    await userEvent.click(screen.getByRole("button", { name: words.button }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(await within(dialog).findByRole("radio", { name: "Send the quote" }));
+    const copy = within(dialog).getByRole("button", { name: words.copy });
+    await waitFor(() => {
+      expect(copy).toBeDisabled();
+    });
+    expect(copy).toHaveAccessibleDescription(/nothing for \{amount\} yet/);
+    expect(inputsTo("leads.readyMessage")).toEqual([]);
   });
 });
