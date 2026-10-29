@@ -4,6 +4,7 @@ import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { createApp } from "./app.js";
 import { clientAddressFrom } from "./rate-limit.js";
+import { storageOriginOf } from "./storage-origin.js";
 import { metaSettingsOf, metaStartUpLine } from "./meta-settings.js";
 import { whatsappStartUpLine } from "./whatsapp-settings.js";
 import { sheetsStartUpLine } from "./sheets-settings.js";
@@ -41,6 +42,7 @@ const app = createApp({
   logger,
   authSecret: environment.BETTER_AUTH_SECRET,
   appUrl: environment.APP_URL,
+  storageOrigin: storageOriginOf(environment),
   // environment.ts makes the keys a pair, so one is never set without the other.
   turnstile:
     services.botCheck !== null && environment.TURNSTILE_SITE_KEY !== undefined

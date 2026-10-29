@@ -5,6 +5,7 @@ import { assignmentRouter } from "./assignment.js";
 import { attachmentsRouter } from "./attachments.js";
 import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
+import { bookingsRouter } from "./bookings.js";
 import { callsRouter } from "./calls.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
@@ -68,6 +69,7 @@ export const appRouter = router({
   salesInbox: salesInboxRouter,
   tripKits: tripKitsRouter,
   quotes: quotesRouter,
+  bookings: bookingsRouter,
   ai: aiRouter,
   finance: financeRouter,
   sales: salesRouter,
