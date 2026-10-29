@@ -569,6 +569,18 @@ export const SHOTS = [
   { name: "home-final", screen: "Home, the owner's layout in our style", as: owner },
   { name: "reports-final", screen: "Reports with the lead flow charts that left Home", as: owner },
   { name: "composer-suggestion", screen: "A chat's reply box with the AI's draft, marked Drafted by AI", as: owner },
+  // Release 5: calling and the daily rhythm (2026-10-29).
+  {
+    name: "r5-call-panel",
+    screen: "The call panel (a computer) or the page Send to my phone opens (a phone)",
+    as: owner,
+  },
+  { name: "r5-call-qr", screen: "The call panel's QR code", as: owner, only: "desktop" },
+  { name: "r5-call-note", screen: "How did the call go? with a follow-up offered", as: owner },
+  { name: "r5-lead-call-timeline", screen: "A lead's timeline with a call", as: owner },
+  { name: "r5-library", screen: "Messages on a lead, a message with its blanks filled", as: owner },
+  { name: "r5-today", screen: "Today with payments due and a quote opened, no reply", as: owner },
+  { name: "r5-morning-settings", screen: "Notifications, the morning summary", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];
