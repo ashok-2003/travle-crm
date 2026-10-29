@@ -10,6 +10,7 @@ import { money } from "@travel-crm/domain/kernel";
 import { savePushSubscription } from "@travel-crm/domain/notifications";
 import { createRateLimiter, RATE_LIMIT_PURGE_QUEUE } from "@travel-crm/domain/rate-limits";
 import { createShareLink } from "@travel-crm/domain/share-links";
+import { WEBHOOK_PROCESS_QUEUE } from "@travel-crm/domain/webhooks";
 import { senderNameFor } from "@travel-crm/integrations/email";
 import { extractText } from "unpdf";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -127,6 +128,11 @@ describe("the api and the worker, end to end", () => {
     );
     expect(failed.map((job) => job.queue)).toEqual([]);
   }, 90_000);
+
+  it("processes webhooks a few at a time, so a burst of WhatsApp messages doesn't wait in a line", () => {
+    const webhooks = flow.work.handlers.find((handler) => handler.queue === WEBHOOK_PROCESS_QUEUE);
+    expect(webhooks?.concurrency).toBe(3);
+  });
 
   it("runs imports.read-file, the two lead import listeners, the two staff import listeners and both export listeners", () => {
     const names = flow.work.listeners.map((listener) => listener.name);
