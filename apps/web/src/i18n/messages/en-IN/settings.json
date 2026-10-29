@@ -46,7 +46,9 @@
     "ai": "AI sales agent",
     "aiHint": "Sells on WhatsApp by itself: answers, follows up, scores leads and learns from your chats",
     "salesAutomation": "Sales automation",
-    "salesAutomationHint": "Reply to new leads in a minute, follow-ups, payment reminders, hot leads"
+    "salesAutomationHint": "Reply to new leads in a minute, follow-ups, payment reminders, hot leads",
+    "bookings": "Bookings",
+    "bookingsHint": "Payments asked for, reminders, cancellation steps and the trip page"
   },
   "destinations": {
     "title": "Destinations",

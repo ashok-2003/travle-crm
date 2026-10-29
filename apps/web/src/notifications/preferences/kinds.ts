@@ -32,6 +32,10 @@ export const notificationKinds = [
   { kind: "sales.payment-due", messageKey: "salesPaymentDue" },
   { kind: "call.dial", messageKey: "callDial" },
   { kind: "today.morning", messageKey: "todayMorning" },
+  { kind: "booking.requested", messageKey: "bookingRequested" },
+  { kind: "booking.payment-claimed", messageKey: "bookingPaymentClaimed" },
+  { kind: "booking.payment-waiting", messageKey: "bookingPaymentWaiting" },
+  { kind: "booking.low-feedback", messageKey: "bookingLowFeedback" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

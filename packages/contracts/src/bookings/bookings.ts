@@ -248,6 +248,8 @@ export const bookingDetail = z.object({
   ...bookingSummary.shape,
   level: travellerLevel,
   leadOwnerUserId: recordId.nullable(),
+  /** The customer's phone (E.164), to send the trip link on WhatsApp. */
+  customerPhone: z.string().nullable(),
   essentials,
   installments: z.array(installment),
   payments: z.array(payment),

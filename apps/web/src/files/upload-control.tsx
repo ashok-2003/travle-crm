@@ -26,7 +26,7 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { ACCEPTED_FILES, checkAttachmentFile } from "./attachment-file";
 import { UploadError } from "./upload";
-import type { AttachmentRecord } from "./use-attachments";
+import { isBookingRecord, type AttachmentRecord } from "./use-attachments";
 import { wasStopped } from "./use-signed-upload";
 import { useUploadAttachment, type UploadRequest } from "./use-upload-attachment";
 
@@ -44,6 +44,8 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
   const id = useId();
   // Sensitive unless chosen otherwise: most business papers are, and a file can't be made sensitive afterwards.
   const [sensitivity, setSensitivity] = useState<Sensitivity>("sensitive");
+  // A booking's tickets are never sensitive, so nothing is asked: the traveller's ID photos come from the trip page.
+  const asksSensitivity = !isBookingRecord(record);
   const [problem, setProblem] = useState<string | null>(null);
   const off = !write.allowed || upload.isPending;
 
@@ -62,7 +64,7 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
       setProblem(t(`problems.${check.problem}`, { name: file.name }));
       return;
     }
-    send({ file, contentType: check.contentType, sensitive: sensitivity === "sensitive" });
+    send({ file, contentType: check.contentType, sensitive: asksSensitivity && sensitivity === "sensitive" });
   };
   const failure = (error: unknown): string => {
     if (error instanceof UploadError) return error.status === 0 ? t("storageUnreachable") : t("storageRefused");
@@ -73,35 +75,37 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
   return (
     // Grouped by spacing, not boxed: the choice cards draw their own edges (no box in a box).
     <div className="flex flex-col gap-4">
-      <FieldSet disabled={off}>
-        <FieldLegend variant="label">{t("sensitivity")}</FieldLegend>
-        <FieldDescription>{t("sensitivityHint")}</FieldDescription>
-        <RadioGroup
-          value={sensitivity}
-          disabled={off}
-          onValueChange={(value) => {
-            setSensitivity(value === "notSensitive" ? "notSensitive" : "sensitive");
-          }}
-        >
-          {SENSITIVITIES.map((choice) => (
-            // The whole card picks the choice; the radio is named by its title and described by its hint.
-            <FieldLabel key={choice} htmlFor={`${id}-${choice}`}>
-              <Field orientation="horizontal">
-                <RadioGroupItem
-                  value={choice}
-                  id={`${id}-${choice}`}
-                  aria-labelledby={`${id}-${choice}-title`}
-                  aria-describedby={`${id}-${choice}-hint`}
-                />
-                <FieldContent>
-                  <FieldTitle id={`${id}-${choice}-title`}>{t(choice)}</FieldTitle>
-                  <FieldDescription id={`${id}-${choice}-hint`}>{t(`${choice}Hint`)}</FieldDescription>
-                </FieldContent>
-              </Field>
-            </FieldLabel>
-          ))}
-        </RadioGroup>
-      </FieldSet>
+      {asksSensitivity && (
+        <FieldSet disabled={off}>
+          <FieldLegend variant="label">{t("sensitivity")}</FieldLegend>
+          <FieldDescription>{t("sensitivityHint")}</FieldDescription>
+          <RadioGroup
+            value={sensitivity}
+            disabled={off}
+            onValueChange={(value) => {
+              setSensitivity(value === "notSensitive" ? "notSensitive" : "sensitive");
+            }}
+          >
+            {SENSITIVITIES.map((choice) => (
+              // The whole card picks the choice; the radio is named by its title and described by its hint.
+              <FieldLabel key={choice} htmlFor={`${id}-${choice}`}>
+                <Field orientation="horizontal">
+                  <RadioGroupItem
+                    value={choice}
+                    id={`${id}-${choice}`}
+                    aria-labelledby={`${id}-${choice}-title`}
+                    aria-describedby={`${id}-${choice}-hint`}
+                  />
+                  <FieldContent>
+                    <FieldTitle id={`${id}-${choice}-title`}>{t(choice)}</FieldTitle>
+                    <FieldDescription id={`${id}-${choice}-hint`}>{t(`${choice}Hint`)}</FieldDescription>
+                  </FieldContent>
+                </Field>
+              </FieldLabel>
+            ))}
+          </RadioGroup>
+        </FieldSet>
+      )}
       <input
         ref={picker}
         type="file"
@@ -160,7 +164,7 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
               // The same upload, picked up where it stopped; or, if the sensitivity shown has changed since, a new
               // one stored as the screen now says (the unfinished one stays pending, which nobody sees).
               const { variables } = upload;
-              const shown = sensitivity === "sensitive";
+              const shown = asksSensitivity && sensitivity === "sensitive";
               send(variables.sensitive === shown ? variables : { ...variables, sensitive: shown });
             }}
           >

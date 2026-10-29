@@ -18,11 +18,9 @@ export async function setRemindersPaused(
   assertOpen(booking);
   if ((booking.remindersPausedAt !== null) === input.paused) return;
   await tx.booking.update({ where: { id: booking.id }, data: { remindersPausedAt: input.paused ? now : null } });
-  await recordAudit(tx, access, {
-    action: input.paused ? "booking.reminders-paused" : "booking.reminders-resumed",
-    entityType: "booking",
-    entityId: booking.id,
-  });
+  const about = { entityType: "booking", entityId: booking.id };
+  if (input.paused) await recordAudit(tx, access, { action: "booking.reminders-paused", ...about });
+  else await recordAudit(tx, access, { action: "booking.reminders-resumed", ...about });
 }
 
 export async function recordTripUpdatesConsentByStaff(

@@ -272,6 +272,37 @@
     },
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"
+    },
+    "booking": {
+      "created": "A booking was made from an accepted quote",
+      "removed": "A booking was removed with its quote",
+      "confirmed": "Confirmed a booking",
+      "cancelled": "Cancelled a booking",
+      "charge-changed": "Changed a cancellation charge",
+      "refunded": "Marked a refund paid",
+      "completed": "A trip was marked completed",
+      "schedule-changed": "Changed the payments due on a booking",
+      "essentials-saved": "Saved a trip's essentials",
+      "stay-saved": "Saved a stay",
+      "stay-removed": "Removed a stay",
+      "voucher-issued": "Issued a hotel voucher",
+      "trip-pdf-prepared": "Prepared the trip PDF",
+      "level-changed": "Changed what travellers fill in",
+      "travellers-counted": "Changed how many travellers a booking has",
+      "traveller-saved": "Saved a traveller's details",
+      "identity-viewed": "Read a traveller's ID number",
+      "payment-claimed": "A traveller said they paid",
+      "payment-confirmed": "Confirmed a payment a traveller claimed",
+      "payment-rejected": "Rejected a payment a traveller claimed",
+      "reminder-by-hand": "A reminder was left to do by hand",
+      "reminders-paused": "Paused a booking's reminders",
+      "reminders-resumed": "Resumed a booking's reminders",
+      "trip-updates-agreed": "Recorded that a traveller agreed to trip updates",
+      "feedback-requested": "Asked a traveller for feedback",
+      "feedback-received": "A traveller sent feedback"
+    },
+    "booking-settings": {
+      "changed": "Changed how bookings run"
     }
   },
   "fields": {
@@ -387,6 +418,8 @@
     "ai_knowledge": "A piece of what the AI knows",
     "ai_autopilot": "The AI's autopilot",
     "ai_learning": "An AI lesson",
-    "whatsapp_message": "A message"
+    "whatsapp_message": "A message",
+    "booking": "A booking",
+    "booking_settings": "Booking settings"
   }
 }

@@ -203,6 +203,7 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
     refundDuePaise: refund?.status === "due" ? Number(refund.amountPaise) : 0,
     level: booking.level as TravellerLevel,
     leadOwnerUserId: booking.lead.ownerUserId,
+    customerPhone: booking.lead.person.phoneE164,
     essentials: {
       reportingTime: booking.reportingTime,
       reportingPlace: booking.reportingPlace,

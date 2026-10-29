@@ -121,6 +121,22 @@
       "todayMorning": {
         "label": "Your morning summary",
         "hint": "One push in the morning with the count of your day. Choose its time below."
+      },
+      "bookingRequested": {
+        "label": "A customer accepted a quote: confirm the booking",
+        "hint": "A task to confirm it is on Today too."
+      },
+      "bookingPaymentClaimed": {
+        "label": "A traveller says they paid",
+        "hint": "So you check it against your bank and mark it received."
+      },
+      "bookingPaymentWaiting": {
+        "label": "A payment a traveller claimed has waited over a day",
+        "hint": "For managers: nobody has checked it yet."
+      },
+      "bookingLowFeedback": {
+        "label": "A traveller gave one to three stars",
+        "hint": "So you call them while it is fresh."
       }
     },
     "loading": "Loading your choices",

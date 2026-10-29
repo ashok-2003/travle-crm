@@ -20,6 +20,7 @@ import { BackLink } from "@/components/text-link";
 import { refusalOf } from "@/data/api-error";
 import { useElementHeight } from "@/lib/use-element-height";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
+import { LeadBookingsCard } from "@/bookings/lead-bookings-card";
 import { LeadQuotesCard } from "@/quotes/lead-quotes-card";
 import { LeadInsight } from "@/ai/insight-card";
 import { LeadSalesCard } from "@/sales/lead-sales-card";
@@ -58,6 +59,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
         <PersonCard lead={lead} />
         <TripCard lead={lead} />
         {canSeeQuotes && <LeadQuotesCard lead={lead} />}
+        <LeadBookingsCard lead={lead} />
         <OwnerCard lead={lead} />
         <LeadChat leadId={lead.id} />
       </div>
