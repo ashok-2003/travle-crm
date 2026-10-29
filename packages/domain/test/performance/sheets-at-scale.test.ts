@@ -40,7 +40,7 @@ import {
   type TestSheets,
 } from "../sheets/support/sheets.js";
 import { seedLargeAgency } from "./large-agency.js";
-import { fastestMs, planOf, type QueryPlan } from "./query-plans.js";
+import { budgetMs, fastestMs, planOf, type QueryPlan } from "./query-plans.js";
 
 const SIZE = { leads: 50_000, tasks: 0, staff: 500, destinations: 300 };
 const HEADER = ["Timestamp", "Full name", "Phone number", "Email Address"];
@@ -172,7 +172,7 @@ describe("Google Sheets sync in a large agency", () => {
         }),
       );
     });
-    expect(timings.get("hundred-checks")).toBeLessThan(10_000);
+    expect(timings.get("hundred-checks")).toBeLessThan(budgetMs(10_000));
   }, 300_000);
 
   it("checks 50 new rows within 2 seconds, each lookup a query on its index", async () => {
@@ -184,7 +184,7 @@ describe("Google Sheets sync in a large agency", () => {
       test.google.append(spreadsheetId, "Form responses 1", row(index + 1, "9192"));
     const dependencies = checkDependencies(test, { identity });
     await timed("fifty-new", () => checkOf(dependencies, sheetId));
-    expect(timings.get("fifty-new")).toBeLessThan(2000);
+    expect(timings.get("fifty-new")).toBeLessThan(budgetMs(2000));
     const added = await inOrg((tx) => tx.sheetRow.count({ where: { connectionId: sheetId, status: "added" } }));
     expect(added).toBe(50);
     const lookups: [string, Sql, string][] = [
@@ -233,13 +233,13 @@ describe("Google Sheets sync in a large agency", () => {
     } finally {
       clearInterval(watching);
     }
-    expect(timings.get("baseline-20000")).toBeLessThan(30_000);
+    expect(timings.get("baseline-20000")).toBeLessThan(budgetMs(30_000));
     expect((peak - before) / 1_000_000).toBeLessThan(150);
     const known = await inOrg((tx) => tx.sheetRow.count({ where: { connectionId: confirmed.sheetId } }));
     expect(known).toBe(20_000);
     const dependencies = checkDependencies(test, { identity });
     await timed("full-read-20000", () => checkOf(dependencies, confirmed.sheetId, "recheck"));
-    expect(timings.get("full-read-20000")).toBeLessThan(10_000);
+    expect(timings.get("full-read-20000")).toBeLessThan(budgetMs(10_000));
     const afterRead = await inOrg((tx) => tx.sheetRow.count({ where: { connectionId: confirmed.sheetId } }));
     expect(afterRead).toBe(20_000);
     await analyzeTables(isolated.urls, ["sheet_row"]);
@@ -272,7 +272,7 @@ describe("Google Sheets sync in a large agency", () => {
     test.google.share(spreadsheetId, test.accountEmail);
     const leadsBefore = await inOrg((tx) => tx.lead.count());
     await timed("column-inserted-20000", () => checkOf(checkDependencies(test, { identity }), sheetId, "recheck"));
-    expect(timings.get("column-inserted-20000")).toBeLessThan(60_000);
+    expect(timings.get("column-inserted-20000")).toBeLessThan(budgetMs(60_000));
     expect(await inOrg((tx) => tx.lead.count())).toBe(leadsBefore);
     const known = await inOrg((tx) =>
       tx.sheetRow.count({ where: { connectionId: sheetId, status: "before_connect" } }),
