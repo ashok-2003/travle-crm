@@ -31,6 +31,7 @@ CREATE TABLE "booking" (
     "cancelled_by" UUID,
     "cancel_reason" TEXT,
     "charge_paise" BIGINT,
+    "confirm_task_id" UUID,
     "reminders_paused_at" TIMESTAMPTZ(6),
     "feedback_requested_at" TIMESTAMPTZ(6),
     "trip_pdf_document_id" UUID,
@@ -146,6 +147,7 @@ CREATE TABLE "booking_reminder" (
     "status" TEXT NOT NULL DEFAULT 'scheduled',
     "note" TEXT,
     "message_id" UUID,
+    "task_id" UUID,
     "sent_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -193,6 +195,8 @@ CREATE TABLE "booking_settings" (
     "details_params" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "reporting_template_id" UUID,
     "reporting_params" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "feedback_template_id" UUID,
+    "feedback_params" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "packing_list" TEXT NOT NULL DEFAULT '',
     "emergency_name" TEXT NOT NULL DEFAULT '',
     "emergency_phone" TEXT NOT NULL DEFAULT '',
@@ -465,6 +469,15 @@ INSERT INTO "org_counter" ("organization_id", "key", "value")
 SELECT b.organization_id, 'BK-' || split_part(b.number, '-', 2), max(split_part(b.number, '-', 3)::int)
 FROM "booking" b GROUP BY b.organization_id, split_part(b.number, '-', 2)
 ON CONFLICT ("organization_id", "key") DO UPDATE SET "value" = GREATEST("org_counter"."value", EXCLUDED."value");
+
+-- A salesperson confirms the bookings of their own leads (the "Confirm booking" task is theirs). ADR 0005 changes no existing
+-- role by itself, so every organization's Sales role is given it here, once; its view stays the lead's owner's. Custom roles
+-- are left to their Owners.
+INSERT INTO role_permission (organization_id, role_id, permission, scope)
+SELECT organization_id, id, 'bookings:edit', NULL
+FROM role
+WHERE key = 'sales' AND deleted_at IS NULL
+ON CONFLICT DO NOTHING;
 
 -- Organization isolation (see app_enable_org_rls in the init migration).
 SELECT app_enable_org_rls('booking');

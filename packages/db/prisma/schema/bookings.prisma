@@ -37,6 +37,8 @@ model Booking {
   cancelReason        String?            @map("cancel_reason")
   /// The cancellation charge in paise, including GST; null until cancelled.
   chargePaise         BigInt?            @map("charge_paise")
+  /// The "Confirm booking" task, until the booking is confirmed or cancelled.
+  confirmTaskId       String?            @map("confirm_task_id") @db.Uuid
   remindersPausedAt   DateTime?          @map("reminders_paused_at") @db.Timestamptz(6)
   feedbackRequestedAt DateTime?          @map("feedback_requested_at") @db.Timestamptz(6)
   /// The itinerary PDF last issued, and a fingerprint of what it was made from, so a later change shows it as out of date.
@@ -212,6 +214,8 @@ model BookingReminder {
   /// Why it was skipped or left to hand: a code, never the customer's words.
   note           String?
   messageId      String?           @map("message_id") @db.Uuid
+  /// The "Remind by hand" task made when the message could not go.
+  taskId         String?           @map("task_id") @db.Uuid
   sentAt         DateTime?         @map("sent_at") @db.Timestamptz(6)
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -275,6 +279,8 @@ model BookingSettings {
   detailsParams       String[]     @default([]) @map("details_params")
   reportingTemplateId String?      @map("reporting_template_id") @db.Uuid
   reportingParams     String[]     @default([]) @map("reporting_params")
+  feedbackTemplateId  String?      @map("feedback_template_id") @db.Uuid
+  feedbackParams      String[]     @default([]) @map("feedback_params")
   packingList         String       @default("") @map("packing_list")
   emergencyName       String       @default("") @map("emergency_name")
   emergencyPhone      String       @default("") @map("emergency_phone")
