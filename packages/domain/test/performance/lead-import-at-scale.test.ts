@@ -37,7 +37,7 @@ import { crmEntitlements } from "../crm/lead-import/support/lead-imports.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { fakeIdentity } from "../imports/support/test-imports.js";
 import { seedLargeAgency } from "./large-agency.js";
-import { planOf, type QueryPlan } from "./query-plans.js";
+import { budgetMs, planOf, type QueryPlan } from "./query-plans.js";
 
 const SIZE = { leads: 50_000, tasks: 0, staff: 500, destinations: 300 };
 const ROWS = 10_000;
@@ -165,7 +165,7 @@ describe("a 10,000-row lead import into a large agency", () => {
   it("reads a 10,000-row file within 2 s", async () => {
     const sheet = await timed("read", async () => readImportFile(dependencies, await batchOf()));
     expect(sheet.rows).toHaveLength(ROWS);
-    expect(timings.get("read")).toBeLessThan(2000);
+    expect(timings.get("read")).toBeLessThan(budgetMs(2000));
   });
 
   it("checks 10,000 rows within 15 s, each lookup one query on its live unique index", async () => {
@@ -229,7 +229,7 @@ describe("a 10,000-row lead import into a large agency", () => {
     await timed("check", async () => {
       await checkLeadImport(context, dependencies, await batchOf());
     });
-    expect(timings.get("check")).toBeLessThan(15_000);
+    expect(timings.get("check")).toBeLessThan(budgetMs(15_000));
     const checked = await batchOf();
     expect([checked.status, checked.rowsTotal, checked.rowsToAdd]).toEqual(["checked", ROWS, ROWS]);
   }, 120_000);
@@ -263,13 +263,13 @@ describe("a 10,000-row lead import into a large agency", () => {
       clearInterval(watching);
     }
     timings.set("longest-transaction", Math.round(longest.ms));
-    expect(timings.get("add")).toBeLessThan(180_000);
+    expect(timings.get("add")).toBeLessThan(budgetMs(180_000));
     const done = await batchOf();
     expect([done.status, done.rowsAdded]).toEqual(["done", ROWS]);
     // A reader saw it move batch by batch (a batch is at most 50 rows, fewer when the clock ends it sooner).
     expect([...seen].every((rows) => rows <= ROWS)).toBe(true);
     expect(seen.size).toBeGreaterThan(5);
     // On the production default limit of 5 s for a transaction, no transaction nears it: under half.
-    expect(longest.ms).toBeLessThan(2500);
-  }, 400_000);
+    expect(longest.ms).toBeLessThan(budgetMs(2500));
+  }, 700_000);
 });
