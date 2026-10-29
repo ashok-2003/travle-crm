@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "./section-card";
 import { AttachmentList } from "@/files/attachment-list";
 import { useAttachments } from "@/files/use-attachments";
 import { formatDay } from "@/lib/format";
@@ -46,53 +46,46 @@ export function FeedbackCard({ booking }: { booking: BookingDetail }) {
   const { feedback } = booking;
   if (!askable && booking.feedbackRequestedAt === null && feedback === null) return null;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("title")}</h2>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {askable && mayEdit && (
-          <>
-            <p className="text-muted-foreground">{t("askBody")}</p>
-            <Button
-              variant="outline"
-              className="self-start"
-              disabled={requestFeedback.isPending || !access.allowed}
-              onClick={() => {
-                requestFeedback.mutate({ bookingId: booking.id });
-              }}
-            >
-              {t("ask")}
-            </Button>
-            {requestFeedback.data && !requestFeedback.data.sent && (
-              <p className="text-muted-foreground">{t("notSent")}</p>
-            )}
-          </>
-        )}
-        <RefusalAlert error={requestFeedback.error} />
-        {booking.feedbackRequestedAt !== null && feedback === null && (
-          <p className="text-muted-foreground">
-            {t("waiting", { day: formatDay(new Date(booking.feedbackRequestedAt), { timeZone }) })}
-          </p>
-        )}
-        {feedback !== null && (
-          <>
-            <Details
-              rows={[
-                { label: t("overall"), value: <Stars value={feedback.overall} /> },
-                { label: t("hotel"), value: <Stars value={feedback.hotel} /> },
-                { label: t("transport"), value: <Stars value={feedback.transport} /> },
-                { label: t("guide"), value: <Stars value={feedback.guide} /> },
-                { label: t("share"), value: feedback.mayShare ? t("mayShare") : t("mayNotShare") },
-              ]}
-            />
-            {feedback.comment !== "" && <p className="break-words whitespace-pre-wrap">{feedback.comment}</p>}
-            <Photos bookingId={booking.id} />
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <SectionCard title={t("title")}>
+      {askable && mayEdit && (
+        <>
+          <p className="text-muted-foreground">{t("askBody")}</p>
+          <Button
+            variant="outline"
+            className="self-start"
+            disabled={requestFeedback.isPending || !access.allowed}
+            onClick={() => {
+              requestFeedback.mutate({ bookingId: booking.id });
+            }}
+          >
+            {t("ask")}
+          </Button>
+          {requestFeedback.data && !requestFeedback.data.sent && (
+            <p className="text-muted-foreground">{t("notSent")}</p>
+          )}
+        </>
+      )}
+      <RefusalAlert error={requestFeedback.error} />
+      {booking.feedbackRequestedAt !== null && feedback === null && (
+        <p className="text-muted-foreground">
+          {t("waiting", { day: formatDay(new Date(booking.feedbackRequestedAt), { timeZone }) })}
+        </p>
+      )}
+      {feedback !== null && (
+        <>
+          <Details
+            rows={[
+              { label: t("overall"), value: <Stars value={feedback.overall} /> },
+              { label: t("hotel"), value: <Stars value={feedback.hotel} /> },
+              { label: t("transport"), value: <Stars value={feedback.transport} /> },
+              { label: t("guide"), value: <Stars value={feedback.guide} /> },
+              { label: t("share"), value: feedback.mayShare ? t("mayShare") : t("mayNotShare") },
+            ]}
+          />
+          {feedback.comment !== "" && <p className="break-words whitespace-pre-wrap">{feedback.comment}</p>}
+          <Photos bookingId={booking.id} />
+        </>
+      )}
+    </SectionCard>
   );
 }

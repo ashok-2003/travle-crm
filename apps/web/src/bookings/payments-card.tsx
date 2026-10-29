@@ -11,7 +11,7 @@ import { rupees } from "@/components/forms/money-field";
 import { StatusBadge } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "./section-card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { useDownload } from "@/files/use-download";
@@ -81,123 +81,116 @@ export function PaymentsCard({ booking }: { booking: BookingDetail }) {
   const mayCheck = useHolds("quotes:record_payments");
   const cancelled = booking.status === "cancelled";
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("title")}</h2>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <dl className="grid grid-cols-3 gap-3">
-          {(
-            [
-              [cancelled ? "charge" : "total", booking.totalPaise],
-              ["paid", booking.paidPaise],
-              ["balance", booking.balancePaise],
-            ] as const
-          ).map(([key, paise]) => (
-            <div key={key} className="flex flex-col">
-              <dt className="text-caption text-muted-foreground">{t(key)}</dt>
-              <dd className="numbers text-section font-semibold">{rupees(paise)}</dd>
-            </div>
-          ))}
-        </dl>
+    <SectionCard title={t("title")}>
+      <dl className="grid grid-cols-3 gap-3">
+        {(
+          [
+            [cancelled ? "charge" : "total", booking.totalPaise],
+            ["paid", booking.paidPaise],
+            ["balance", booking.balancePaise],
+          ] as const
+        ).map(([key, paise]) => (
+          <div key={key} className="flex flex-col">
+            <dt className="text-caption text-muted-foreground">{t(key)}</dt>
+            <dd className="numbers text-section font-semibold">{rupees(paise)}</dd>
+          </div>
+        ))}
+      </dl>
 
-        {booking.claims.length > 0 && (
-          <>
-            <Separator />
-            <h3 className="font-semibold">{t("claims")}</h3>
-            <ItemGroup>
-              {booking.claims.map((claim) => (
-                <ClaimRow key={claim.id} claim={claim} bookingId={booking.id} mayCheck={mayCheck} />
-              ))}
-            </ItemGroup>
-            {!mayCheck && booking.pendingClaims > 0 && (
-              <p className="text-caption text-muted-foreground">{t("notYours")}</p>
-            )}
-          </>
-        )}
-
-        {!cancelled && (
-          <>
-            <Separator />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold">{t("due")}</h3>
-              {mayEdit && booking.installments.length > 0 && <ChangeScheduleDialog booking={booking} />}
-            </div>
-            {booking.installments.length === 0 ? (
-              <p className="text-muted-foreground">{t("noInstallments")}</p>
-            ) : (
-              <ItemGroup>
-                {booking.installments.map((due) => (
-                  <Item key={due.id} size="sm" role="listitem">
-                    <ItemContent>
-                      <ItemTitle>{due.label}</ItemTitle>
-                      <ItemDescription>{t("by", { day: formatCalendarDay(due.dueOn) })}</ItemDescription>
-                    </ItemContent>
-                    <ItemActions>
-                      <span className="numbers">{rupees(due.amountPaise)}</span>
-                      <StatusBadge tone={due.paid ? "good" : "attention"}>
-                        {due.paid ? t("paidBadge") : t("toPay")}
-                      </StatusBadge>
-                    </ItemActions>
-                  </Item>
-                ))}
-              </ItemGroup>
-            )}
-          </>
-        )}
-
-        <Separator />
-        <h3 className="font-semibold">{t("received")}</h3>
-        {booking.payments.length === 0 ? (
-          <p className="text-muted-foreground">{t("noneReceived")}</p>
-        ) : (
+      {booking.claims.length > 0 && (
+        <>
+          <Separator />
+          <h3 className="font-semibold">{t("claims")}</h3>
           <ItemGroup>
-            {booking.payments.map((payment) => (
-              <Item key={payment.id} size="sm" role="listitem">
-                <ItemContent>
-                  <ItemTitle className="numbers">{rupees(payment.amountPaise)}</ItemTitle>
-                  <ItemDescription>
-                    {formatCalendarDay(payment.receivedOn)} · {t(`methods.${payment.method}`)}
-                    {payment.reference === "" ? "" : ` · ${payment.reference}`}
-                  </ItemDescription>
-                </ItemContent>
-              </Item>
+            {booking.claims.map((claim) => (
+              <ClaimRow key={claim.id} claim={claim} bookingId={booking.id} mayCheck={mayCheck} />
             ))}
           </ItemGroup>
-        )}
-        <TextLink href={quoteRoute(booking.quoteId)}>{t("openQuote")}</TextLink>
+          {!mayCheck && booking.pendingClaims > 0 && (
+            <p className="text-caption text-muted-foreground">{t("notYours")}</p>
+          )}
+        </>
+      )}
 
-        {booking.refund !== null && (
-          <>
-            <Separator />
-            <h3 className="font-semibold">{t("refund")}</h3>
-            <Item size="sm">
+      {!cancelled && (
+        <>
+          <Separator />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">{t("due")}</h3>
+            {mayEdit && booking.installments.length > 0 && <ChangeScheduleDialog booking={booking} />}
+          </div>
+          {booking.installments.length === 0 ? (
+            <p className="text-muted-foreground">{t("noInstallments")}</p>
+          ) : (
+            <ItemGroup>
+              {booking.installments.map((due) => (
+                <Item key={due.id} size="sm" role="listitem">
+                  <ItemContent>
+                    <ItemTitle>{due.label}</ItemTitle>
+                    <ItemDescription>{t("by", { day: formatCalendarDay(due.dueOn) })}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <span className="numbers">{rupees(due.amountPaise)}</span>
+                    <StatusBadge tone={due.paid ? "good" : "attention"}>
+                      {due.paid ? t("paidBadge") : t("toPay")}
+                    </StatusBadge>
+                  </ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          )}
+        </>
+      )}
+
+      <Separator />
+      <h3 className="font-semibold">{t("received")}</h3>
+      {booking.payments.length === 0 ? (
+        <p className="text-muted-foreground">{t("noneReceived")}</p>
+      ) : (
+        <ItemGroup>
+          {booking.payments.map((payment) => (
+            <Item key={payment.id} size="sm" role="listitem">
               <ItemContent>
-                <ItemTitle>
-                  <span className="numbers">{rupees(booking.refund.amountPaise)}</span>{" "}
-                  <StatusBadge tone={booking.refund.status === "refunded" ? "good" : "attention"}>
-                    {t(booking.refund.status === "refunded" ? "refunded" : "refundDue")}
-                  </StatusBadge>
-                </ItemTitle>
-                {booking.refund.status === "refunded" && booking.refund.refundedOn !== null && (
-                  <ItemDescription>
-                    {formatCalendarDay(booking.refund.refundedOn)}
-                    {booking.refund.method === null ? "" : ` · ${t(`methods.${booking.refund.method as "upi"}`)}`}
-                    {booking.refund.reference === "" ? "" : ` · ${booking.refund.reference}`}
-                  </ItemDescription>
-                )}
+                <ItemTitle className="numbers">{rupees(payment.amountPaise)}</ItemTitle>
+                <ItemDescription>
+                  {formatCalendarDay(payment.receivedOn)} · {t(`methods.${payment.method}`)}
+                  {payment.reference === "" ? "" : ` · ${payment.reference}`}
+                </ItemDescription>
               </ItemContent>
-              {booking.refund.status === "due" && mayCheck && (
-                <ItemActions>
-                  <MarkRefundedDialog bookingId={booking.id} />
-                </ItemActions>
-              )}
             </Item>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          ))}
+        </ItemGroup>
+      )}
+      <TextLink href={quoteRoute(booking.quoteId)}>{t("openQuote")}</TextLink>
+
+      {booking.refund !== null && (
+        <>
+          <Separator />
+          <h3 className="font-semibold">{t("refund")}</h3>
+          <Item size="sm">
+            <ItemContent>
+              <ItemTitle>
+                <span className="numbers">{rupees(booking.refund.amountPaise)}</span>{" "}
+                <StatusBadge tone={booking.refund.status === "refunded" ? "good" : "attention"}>
+                  {t(booking.refund.status === "refunded" ? "refunded" : "refundDue")}
+                </StatusBadge>
+              </ItemTitle>
+              {booking.refund.status === "refunded" && booking.refund.refundedOn !== null && (
+                <ItemDescription>
+                  {formatCalendarDay(booking.refund.refundedOn)}
+                  {booking.refund.method === null ? "" : ` · ${t(`methods.${booking.refund.method as "upi"}`)}`}
+                  {booking.refund.reference === "" ? "" : ` · ${booking.refund.reference}`}
+                </ItemDescription>
+              )}
+            </ItemContent>
+            {booking.refund.status === "due" && mayCheck && (
+              <ItemActions>
+                <MarkRefundedDialog bookingId={booking.id} />
+              </ItemActions>
+            )}
+          </Item>
+        </>
+      )}
+    </SectionCard>
   );
 }

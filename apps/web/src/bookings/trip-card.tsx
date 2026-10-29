@@ -12,7 +12,7 @@ import { Details } from "@/components/details";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "./section-card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentsPanel } from "@/files/attachments-panel";
@@ -118,107 +118,100 @@ export function TripCard({ booking }: { booking: BookingDetail }) {
   const issuedAlready = booking.status === "confirmed" || booking.status === "completed";
   const { essentials } = booking;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("title")}</h2>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold">{tEssentials("title")}</h3>
-          {mayEdit && <EssentialsDialog booking={booking} />}
-        </div>
-        <Details
-          rows={[
-            {
-              label: tEssentials("report"),
-              value:
-                essentials.reportingTime === null && essentials.reportingPlace === ""
-                  ? tEssentials("notSet")
-                  : [essentials.reportingTime, essentials.reportingPlace].filter(Boolean).join(" · "),
-            },
-            {
-              label: tEssentials("driver"),
-              value:
-                essentials.driverName === "" && essentials.driverPhone === ""
-                  ? tEssentials("notSet")
-                  : [essentials.driverName, essentials.driverPhone].filter(Boolean).join(" · "),
-            },
-            {
-              label: tEssentials("emergency"),
-              value:
-                essentials.emergencyName === "" && essentials.emergencyPhone === ""
-                  ? tEssentials("notSet")
-                  : [essentials.emergencyName, essentials.emergencyPhone].filter(Boolean).join(" · "),
-            },
-          ]}
-        />
+    <SectionCard title={t("title")}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">{tEssentials("title")}</h3>
+        {mayEdit && <EssentialsDialog booking={booking} />}
+      </div>
+      <Details
+        rows={[
+          {
+            label: tEssentials("report"),
+            value:
+              essentials.reportingTime === null && essentials.reportingPlace === ""
+                ? tEssentials("notSet")
+                : [essentials.reportingTime, essentials.reportingPlace].filter(Boolean).join(" · "),
+          },
+          {
+            label: tEssentials("driver"),
+            value:
+              essentials.driverName === "" && essentials.driverPhone === ""
+                ? tEssentials("notSet")
+                : [essentials.driverName, essentials.driverPhone].filter(Boolean).join(" · "),
+          },
+          {
+            label: tEssentials("emergency"),
+            value:
+              essentials.emergencyName === "" && essentials.emergencyPhone === ""
+                ? tEssentials("notSet")
+                : [essentials.emergencyName, essentials.emergencyPhone].filter(Boolean).join(" · "),
+          },
+        ]}
+      />
 
-        <Separator />
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold">{t("stays")}</h3>
-          {mayEdit && <StayDialog bookingId={booking.id} stay={null} />}
-        </div>
-        {booking.stays.length === 0 ? (
-          <p className="text-muted-foreground">{t("noStays")}</p>
-        ) : (
-          <ItemGroup>
-            {booking.stays.map((stay) => (
-              <StayRow key={stay.id} booking={booking} stay={stay} mayEdit={mayEdit} />
-            ))}
-          </ItemGroup>
-        )}
+      <Separator />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">{t("stays")}</h3>
+        {mayEdit && <StayDialog bookingId={booking.id} stay={null} />}
+      </div>
+      {booking.stays.length === 0 ? (
+        <p className="text-muted-foreground">{t("noStays")}</p>
+      ) : (
+        <ItemGroup>
+          {booking.stays.map((stay) => (
+            <StayRow key={stay.id} booking={booking} stay={stay} mayEdit={mayEdit} />
+          ))}
+        </ItemGroup>
+      )}
 
-        <Separator />
-        <h3 className="font-semibold">{t("pdf")}</h3>
-        {booking.tripPdf !== null && (
-          <p className="flex flex-wrap items-center gap-2 text-muted-foreground">
-            <span className="numbers">{booking.tripPdf.number}</span>
-            {!booking.tripPdf.upToDate && <StatusBadge tone="attention">{t("pdfOutOfDate")}</StatusBadge>}
-          </p>
-        )}
-        {mayEdit && issuedAlready ? (
-          <div className="flex flex-wrap gap-2">
+      <Separator />
+      <h3 className="font-semibold">{t("pdf")}</h3>
+      {booking.tripPdf !== null && (
+        <p className="flex flex-wrap items-center gap-2 text-muted-foreground">
+          <span className="numbers">{booking.tripPdf.number}</span>
+          {!booking.tripPdf.upToDate && <StatusBadge tone="attention">{t("pdfOutOfDate")}</StatusBadge>}
+        </p>
+      )}
+      {mayEdit && issuedAlready ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={open.isPending || !access.allowed}
+            onClick={() => {
+              open.mutate({ kind: "trip" });
+            }}
+          >
+            <FileDownIcon aria-hidden="true" />
+            {booking.tripPdf === null ? t("prepare") : booking.tripPdf.upToDate ? t("openPdf") : t("prepareAgain")}
+          </Button>
+          {booking.tripPdf !== null && !booking.tripPdf.upToDate && (
             <Button
-              variant="outline"
-              disabled={open.isPending || !access.allowed}
+              variant="ghost"
+              disabled={open.isPending}
               onClick={() => {
-                open.mutate({ kind: "trip" });
+                if (booking.tripPdf !== null) open.mutate({ kind: "open", documentId: booking.tripPdf.documentId });
               }}
             >
-              <FileDownIcon aria-hidden="true" />
-              {booking.tripPdf === null ? t("prepare") : booking.tripPdf.upToDate ? t("openPdf") : t("prepareAgain")}
+              {t("openOldPdf")}
             </Button>
-            {booking.tripPdf !== null && !booking.tripPdf.upToDate && (
-              <Button
-                variant="ghost"
-                disabled={open.isPending}
-                onClick={() => {
-                  if (booking.tripPdf !== null) open.mutate({ kind: "open", documentId: booking.tripPdf.documentId });
-                }}
-              >
-                {t("openOldPdf")}
-              </Button>
-            )}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">{t("pdfAfterConfirm")}</p>
-        )}
-        <RefusalAlert error={open.error} />
+          )}
+        </div>
+      ) : (
+        <p className="text-muted-foreground">{t("pdfAfterConfirm")}</p>
+      )}
+      <RefusalAlert error={open.error} />
 
-        {mayEdit && (
-          <>
-            <Separator />
-            <h3 className="font-semibold">{t("tickets")}</h3>
-            <p className="text-caption text-muted-foreground">{t("ticketsHint")}</p>
-            <AttachmentsPanel
-              record={{ recordType: "booking_voucher", recordId: booking.id }}
-              emptyMessage={t("noTickets")}
-            />
-          </>
-        )}
-      </CardContent>
-    </Card>
+      {mayEdit && (
+        <>
+          <Separator />
+          <h3 className="font-semibold">{t("tickets")}</h3>
+          <p className="text-caption text-muted-foreground">{t("ticketsHint")}</p>
+          <AttachmentsPanel
+            record={{ recordType: "booking_voucher", recordId: booking.id }}
+            emptyMessage={t("noTickets")}
+          />
+        </>
+      )}
+    </SectionCard>
   );
 }
