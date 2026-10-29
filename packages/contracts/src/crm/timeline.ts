@@ -3,12 +3,15 @@ import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { taskKind } from "../tasks/tasks.js";
 import { assignedBy } from "./assignment.js";
+import { callNote, callOutcome } from "./calls.js";
 import { leadSource, leadStage, peopleNames } from "./fields.js";
 import { tripDetail } from "./trip.js";
 
 export const leadEventKinds = [
   "created",
   "note",
+  /** A call someone made and wrote up (release 5). */
+  "call",
   "stage-changed",
   "reassigned",
   "follow-up-added",
@@ -42,6 +45,13 @@ export const timelineEntry = z.discriminatedUnion("kind", [
     assignment: assignedBy.extend({ ownerUserId: recordId.nullable() }).nullable(),
   }),
   z.object({ ...entry, kind: z.literal("note"), body: z.string() }),
+  z.object({
+    ...entry,
+    kind: z.literal("call"),
+    callId: recordId,
+    outcome: callOutcome,
+    note: callNote.nullable(),
+  }),
   z.object({ ...entry, kind: z.literal("stage-changed"), stage: leadStage }),
   z.object({ ...entry, kind: z.literal("reassigned"), ownerUserId: recordId.nullable() }),
   z.object({ ...entry, kind: z.literal("follow-up-added"), task: timelineTask }),

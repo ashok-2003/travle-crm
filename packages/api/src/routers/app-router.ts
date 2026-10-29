@@ -5,6 +5,7 @@ import { assignmentRouter } from "./assignment.js";
 import { attachmentsRouter } from "./attachments.js";
 import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
+import { callsRouter } from "./calls.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
 import { broadcastsRouter } from "./broadcasts.js";
@@ -52,6 +53,7 @@ export const appRouter = router({
   shareLinks: shareLinksRouter,
   audit: auditRouter,
   leads: leadsRouter,
+  calls: callsRouter,
   blockedContacts: blockedContactsRouter,
   destinations: destinationsRouter,
   tasks: tasksRouter,

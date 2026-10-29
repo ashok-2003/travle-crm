@@ -3,7 +3,7 @@
 // organization in every query, since it deletes rows the runtime role may not (timeline entries, blocked contacts,
 // R7); the export only reads, in the organization's own transaction. The platform's erasure adds the rest: the
 // person's audit entries, and their leads' tasks, notifications and files.
-import { leadSource, leadStage } from "@travel-crm/contracts/crm";
+import { callOutcome, leadSource, leadStage } from "@travel-crm/contracts/crm";
 import type { CustomerExport } from "@travel-crm/contracts/platform";
 import { joinSql, sql, withDeleted, type OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
@@ -21,6 +21,8 @@ export interface CustomerSubject {
 export interface ErasedCustomer {
   leadIds: string[];
   notes: number;
+  /** The calls written up on their leads. */
+  calls: number;
   enquiries: number;
   timelineEntries: number;
   blockedContacts: number;
@@ -32,8 +34,8 @@ export interface ErasedCustomer {
 
 /**
  * Empties the person's name and contacts, marks them erased and soft-deletes them and their leads, whose trip facts
- * stay for later reports but whose source detail (free text, which may name people) goes. Deletes their leads' notes
- * and repeat enquiries with those rows' timeline entries, and every blocked contact, live or unblocked, that holds
+ * stay for later reports but whose source detail (free text, which may name people) goes. Deletes their leads' notes,
+ * calls and repeat enquiries with those rows' timeline entries, and every blocked contact, live or unblocked, that holds
  * their phone, email or handle. Erased people and deleted leads are included, so a repeat finishes what is left; a
  * person the organization doesn't have changes nothing.
  */
@@ -49,6 +51,7 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
       return {
         leadIds: [],
         notes: 0,
+        calls: 0,
         enquiries: 0,
         timelineEntries: 0,
         blockedContacts: 0,
@@ -63,9 +66,16 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
     const leadIds = leads.map((lead) => lead.id);
     const ofLeads = { organizationId, leadId: { in: leadIds } };
     const timelineEntries = await tx.leadTimelineEntry.deleteMany({
-      where: { ...ofLeads, recordType: { in: ["lead_note", "lead_enquiry"] } },
+      where: { ...ofLeads, recordType: { in: ["lead_note", "lead_call", "lead_enquiry"] } },
     });
     const notes = await tx.leadNote.deleteMany({ where: ofLeads });
+    // A plain DELETE, as for blocked contacts: soft delete refuses Prisma's, and only the platform role may delete calls.
+    const calls =
+      leadIds.length === 0
+        ? 0
+        : await tx.$executeRaw(sql`
+            DELETE FROM lead_call
+            WHERE organization_id = ${organizationId}::uuid AND lead_id = ANY(${leadIds}::uuid[])`);
     const enquiries = await tx.leadEnquiry.deleteMany({ where: ofLeads });
     const held = [
       ["phone", person.phoneE164],
@@ -94,6 +104,7 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
     return {
       leadIds,
       notes: notes.count,
+      calls,
       enquiries: enquiries.count,
       timelineEntries: timelineEntries.count,
       blockedContacts,
@@ -127,6 +138,7 @@ export async function exportCustomer(tx: OrgTx, subject: CustomerSubject): Promi
         createdAt: true,
         ...tripColumnNames,
         notes: { select: { body: true, createdAt: true }, orderBy: { id: "asc" } },
+        calls: { select: { outcome: true, note: true, occurredAt: true }, orderBy: { id: "asc" } },
         enquiries: {
           select: { ...tripColumnNames, source: true, sourceDetail: true, note: true, createdAt: true },
           orderBy: { id: "asc" },
@@ -157,6 +169,11 @@ export async function exportCustomer(tx: OrgTx, subject: CustomerSubject): Promi
         createdAt: lead.createdAt.toISOString(),
         trip: tripDetailOf(lead, names),
         notes: lead.notes.map((note) => ({ body: note.body, createdAt: note.createdAt.toISOString() })),
+        calls: lead.calls.map((call) => ({
+          outcome: callOutcome.parse(call.outcome),
+          note: call.note,
+          occurredAt: call.occurredAt.toISOString(),
+        })),
         enquiries: lead.enquiries.map((enquiry) => ({
           trip: tripDetailOf(enquiry, names),
           source: leadSource.parse(enquiry.source),

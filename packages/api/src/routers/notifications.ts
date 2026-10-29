@@ -6,6 +6,8 @@
 import {
   listNotificationsInput,
   markReadInput,
+  morningSetting,
+  morningSettingInput,
   notificationPage,
   notificationPreference,
   notificationPreferenceInput,
@@ -14,10 +16,12 @@ import {
 } from "@travel-crm/contracts/notifications";
 import { DomainError } from "@travel-crm/domain/kernel";
 import {
+  getMorningSetting,
   listNotifications,
   listPreferences,
   markRead,
   removePushSubscription,
+  saveMorningSetting,
   savePushSubscription,
   setPreference,
   unreadCount,
@@ -41,6 +45,20 @@ const preferencesRouter = router({
     .output(notificationPreference)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => setPreference(tx, ctx.member, input)),
+    ),
+});
+
+const morningRouter = router({
+  get: ownRows
+    .output(morningSetting)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => getMorningSetting(tx, ctx.member))),
+
+  /** Refused to support impersonating the person (IMPERSONATING): it is the person's own. */
+  set: ownRows
+    .input(morningSettingInput)
+    .output(morningSetting)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveMorningSetting(tx, ctx.member, input)),
     ),
 });
 
@@ -92,5 +110,6 @@ export const notificationsRouter = router({
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => markRead(tx, ctx.member, input))),
 
   preferences: preferencesRouter,
+  morning: morningRouter,
   push: pushRouter,
 });

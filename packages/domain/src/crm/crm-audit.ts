@@ -14,7 +14,13 @@ interface PersonChange {
 /** A lead added, or something added to it. */
 interface LeadAddition {
   entityType: "lead";
-  action: "lead.added" | "lead.repeat-enquiry" | "lead.note-added";
+  action:
+    | "lead.added"
+    | "lead.repeat-enquiry"
+    | "lead.note-added"
+    | "lead.call-logged"
+    | "lead.call-edited"
+    | "lead.call-deleted";
 }
 
 /** A change to the lead itself. */
