@@ -53,7 +53,14 @@ describe("suggest reply", () => {
     );
     const model = createMemoryAiModel();
     const turnOn = (instructions = "") =>
-      inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, instructions }, { providerReady: true, now: testNow }));
+      inOrg((tx) =>
+        saveAiSettings(
+          tx,
+          owner,
+          { enabled: true, scoring: true, instructions },
+          { providerReady: true, now: testNow },
+        ),
+      );
     const ask = (member = seller, ai: MemoryAiModel = model) =>
       suggestReply(test.db, ai, member, { conversationId: chat.id }, { agencyName: "Sharma Holidays", now: testNow });
     return { organizationId, inOrg, owner, seller, outsider, chat, model, turnOn, ask };
@@ -74,7 +81,7 @@ describe("suggest reply", () => {
     const entries = await inOrg((tx) => tx.auditEntry.findMany({ where: { action: "ai-settings.changed" } }));
     expect(entries).toHaveLength(1);
     expect(JSON.stringify(entries[0])).not.toContain("Hinglish");
-    expect(entries[0]).toMatchObject({ after: { enabled: true, instructionsLength: 41 } });
+    expect(entries[0]).toMatchObject({ after: { enabled: true, scoring: true, instructionsLength: 41 } });
   });
 
   it("drafts from the chat, the lead and the agency's words, with no contact details, and keeps no words", async () => {

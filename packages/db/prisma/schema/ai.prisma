@@ -7,8 +7,10 @@
 model AiSettings {
   organizationId String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   enabled        Boolean      @default(false)
-  /// What the agency tells its AI: tone, language, what to offer, what never to say (CHECK ai_settings_instructions_length).
+  /// What the agency tells its AI: tone, language, what to offer, what never to say (CHECK ai_settings_instructions_length, at most 4000 characters).
   instructions   String       @default("")
+  /// The AI scores each lead from its chat (the chance to book, why, the next step); the Owner or Admin can turn it off.
+  scoring        Boolean      @default(true)
   updatedBy      String?      @map("updated_by") @db.Uuid
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -90,6 +92,8 @@ model LeadAiInsight {
   fake           Boolean      @default(false)
   fakeReason     String?      @map("fake_reason")
   nextStep       String       @default("") @map("next_step")
+  /// A line or two on how the lead stands, for the lead page.
+  summary        String       @default("")
   /// What the customer said they want, as words: { destination, when, travellers, budget } (CHECK lead_ai_insight_facts_object).
   facts          Json         @default("{}")
   model          String       @default("")

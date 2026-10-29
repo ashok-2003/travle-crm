@@ -129,39 +129,41 @@ describe("Home", () => {
     }
   });
 
-  it("shows the key figures as one strip of three, Money to come only to whoever holds the money permission", async () => {
+  it("shows the day at a glance as six tiles, each a way to its work, Money to come only to whoever holds the money permission", async () => {
     renderHome(member({ isOwner: true }), { modules: ["crm", "inbox", "quotes"] });
-    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
-    expect(
-      within(strip)
-        .getAllByRole("group")
-        .map((cell) => cell.getAttribute("aria-label")),
-    ).toEqual([messages.home.glance.waiting, messages.home.glance.hot, messages.home.glance.money]);
-    expect(await within(strip).findByText("₹30,400")).toBeVisible();
-    // No icon of its own per figure, and an info hint on each.
-    expect(strip.querySelectorAll("svg").length).toBe(strip.querySelectorAll("button svg").length);
-    expect(within(strip).getAllByRole("button")).toHaveLength(3);
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(await within(glance).findByText("₹30,400")).toBeVisible();
+    const tiles = within(glance).getAllByRole("link");
+    const g = messages.home.glance;
+    expect(tiles).toHaveLength(6);
+    for (const [index, label] of [g.newLeads, g.waiting, g.dueToday, g.overdue, g.hot, g.money].entries()) {
+      expect(tiles[index]?.textContent).toContain(label);
+    }
+    expect(tiles[1]?.getAttribute("href")).toBe(routes.inbox);
+    expect(tiles[5]?.getAttribute("href")).toBe(routes.quotes);
+    // One chat has waited too long: said on the tile.
+    expect(within(glance).getByText("1 waiting too long")).toBeVisible();
   });
 
-  it("shows two figures, and no month so far, to a role without the money permission", async () => {
+  it("shows five tiles, and no month so far, to a role without the money permission", async () => {
     const api = renderHome(member({ permissions: ["leads:view", "quotes:view", "inbox:view"] }), {
       modules: ["crm", "inbox", "quotes"],
     });
-    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
-    expect(within(strip).getAllByRole("group")).toHaveLength(2);
-    expect(within(strip).queryByText(messages.home.glance.money)).toBeNull();
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(within(glance).getAllByRole("link")).toHaveLength(5);
+    expect(within(glance).queryByText(messages.home.glance.money)).toBeNull();
     expect(screen.queryByRole("heading", { name: messages.home.month.title })).toBeNull();
     expect(api.calls).not.toContain("quotes.moneySummary");
   });
 
-  it("puts the key figures before the day's nudge", async () => {
+  it("puts the day at a glance before the day's nudge", async () => {
     renderHome(member({ isOwner: true }), { modules: ["crm", "inbox", "quotes"] });
-    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
     const nudgeCard = await nudge();
-    expect(strip.compareDocumentPosition(nudgeCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(glance.compareDocumentPosition(nudgeCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("gives the money figure a row of its own on a phone, so an amount up to crores is never clipped", async () => {
+  it("shows an amount up to crores whole on the money tile, and the late payments in red", async () => {
     stubApi({
       "organization.setup.get": { data: halfway },
       "today.summary": { data: busyDay },
@@ -173,8 +175,8 @@ describe("Home", () => {
           acceptedPaise: 1,
           receivedPaise: 1,
           outstandingPaise: 123_456_789_00,
-          overduePaise: 0,
-          overdueCount: 0,
+          overduePaise: 5_000_00,
+          overdueCount: 2,
         },
       },
     });
@@ -183,12 +185,8 @@ describe("Home", () => {
       newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "quotes"] as never }),
       member({ isOwner: true }),
     );
-    const strip = await screen.findByRole("region", { name: messages.home.glance.title });
-    const money = within(strip).getByRole("group", { name: messages.home.glance.money });
-    expect(await within(money).findByText("₹12,34,56,789")).toBeVisible();
-    // A whole row on a phone (two columns), one of three from a tablet up.
-    expect(money.className).toContain("col-span-2");
-    expect(money.className).toContain("md:col-span-1");
-    expect(strip.querySelector("[data-slot=card-content]")?.className).toContain("grid-cols-2");
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(await within(glance).findByText("₹12,34,56,789")).toBeVisible();
+    expect(await within(glance).findByText(/2 payments late: ₹5,000/)).toBeVisible();
   });
 });

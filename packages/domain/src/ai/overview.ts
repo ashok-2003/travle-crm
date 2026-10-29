@@ -1,6 +1,6 @@
 // The autopilot's last day at a glance (the AI screen's head): chats it answered and messages it sent, how fast it answered
 // (the middle time from a customer's message to its reply: a reply's token names the message it answers), chats it flagged
-// or handed over, follow-ups it has planned, and its lessons.
+// or handed over, follow-ups it has planned, its lessons and the model that answered last.
 import type { AiOverview } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 
@@ -13,6 +13,22 @@ const median = (values: number[]) => {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? null;
 };
+
+/** The model that answered last, for a draft or a score, whichever is newer; null before any. */
+async function lastModel(tx: OrgTx): Promise<string | null> {
+  const draft = await tx.aiDraft.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { model: true, createdAt: true },
+  });
+  const score = await tx.leadAiInsight.findFirst({
+    where: { model: { not: "" } },
+    orderBy: { updatedAt: "desc" },
+    select: { model: true, updatedAt: true },
+  });
+  if (draft === null) return score?.model ?? null;
+  if (score === null) return draft.model;
+  return score.updatedAt > draft.createdAt ? score.model : draft.model;
+}
 
 export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {
   const since = new Date(now.getTime() - DAY_MS);
@@ -45,5 +61,6 @@ export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {
     }),
     followUpsPlanned: await tx.aiChat.count({ where: { followUpAt: { gt: now } } }),
     learnings: await tx.aiLearning.count({ where: { state: "active" } }),
+    model: await lastModel(tx),
   };
 }

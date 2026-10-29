@@ -13,6 +13,7 @@ import {
   aiDocumentListener,
   confirmDocument,
   deleteKnowledge,
+  leadInsightOf,
   listKnowledge,
   MONTHLY_AI_LIMIT,
   requestDocument,
@@ -55,6 +56,7 @@ const answer = {
   reasons: ["Asked for the price", "Gave dates"],
   fake: false,
   fakeReason: "",
+  summary: "Wants Manali in December for four adults and has asked the price.",
   nextStep: "Call today with the Manali package.",
   facts: { destination: "Manali", when: "December", travellers: "4 adults", budget: null },
 };
@@ -92,7 +94,12 @@ describe("the AI, step one", () => {
     );
     if (on)
       await inOrg((tx) =>
-        saveAiSettings(tx, owner, { enabled: true, instructions: "" }, { providerReady: true, now: testNow }),
+        saveAiSettings(
+          tx,
+          owner,
+          { enabled: true, scoring: true, instructions: "" },
+          { providerReady: true, now: testNow },
+        ),
       );
     const model = createMemoryAiModel();
     const job = { organizationId, conversationId: chat.id, messageId: message.id };
@@ -247,6 +254,35 @@ describe("the AI, step one", () => {
       }
     });
 
+    it("is not queued once the agency turned scoring off", async () => {
+      const { organizationId, inOrg, owner, model, chat, message } = await agency();
+      await inOrg((tx) =>
+        saveAiSettings(
+          tx,
+          owner,
+          { enabled: true, scoring: false, instructions: "" },
+          { providerReady: true, now: testNow },
+        ),
+      );
+      const before = test.queue.sent.length;
+      const listener = scoreOnCustomerWroteListener({
+        queue: test.queue,
+        ai: model,
+        subscriptions: { entitlementsOf: () => Promise.resolve(entitlements()) },
+      });
+      await listener.handle(
+        {
+          id: randomUUID(),
+          organizationId,
+          type: "whatsapp.text-received",
+          payload: { conversationId: chat.id, messageId: message.id },
+          occurredAt: testNow,
+        },
+        { actor: systemActor(organizationId), forOrg: (work) => test.db.forOrg(organizationId, work) },
+      );
+      expect(test.queue.sent.length - before).toBe(0);
+    });
+
     it("scores a lead from its chat, keeps the guess, and never moves the stage", async () => {
       const { inOrg, lead, model, score } = await agency();
       model.answer(JSON.stringify(answer));
@@ -255,8 +291,31 @@ describe("the AI, step one", () => {
       expect(request).toMatchObject({ feature: "score_lead", json: true });
       expect(JSON.stringify(request?.messages)).not.toMatch(/\+91\d{8}/);
       const row = await inOrg((tx) => tx.leadAiInsight.findFirstOrThrow({ where: { leadId: lead.id } }));
-      expect(row).toMatchObject({ score: 82, label: "hot", fake: false });
+      expect(row).toMatchObject({
+        score: 82,
+        label: "hot",
+        fake: false,
+        summary: "Wants Manali in December for four adults and has asked the price.",
+      });
+      expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.summary).toBe(row.summary);
       expect((await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: lead.id } }))).stage).toBe("contacted");
+    });
+
+    it("scores nothing, and asks the AI nothing, once the agency turned scoring off", async () => {
+      const { organizationId, inOrg, owner, model, score } = await agency();
+      await inOrg((tx) =>
+        saveAiSettings(
+          tx,
+          owner,
+          { enabled: true, scoring: false, instructions: "" },
+          { providerReady: true, now: testNow },
+        ),
+      );
+      model.answer(JSON.stringify(answer));
+      expect(await score()).toBe("off");
+      expect(model.requests).toHaveLength(0);
+      expect(await inOrg((tx) => tx.leadAiInsight.count())).toBe(0);
+      expect(organizationId).toBeDefined();
     });
 
     it("does nothing, and asks the AI nothing, with the AI off, the plan without it, or the subscription suspended or cancelled", async () => {

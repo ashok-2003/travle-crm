@@ -26,7 +26,7 @@ export const aiPersonas = ["sales", "natural"] as const;
 export const autopilotFields = {
   autopilot: z.boolean(),
   agentName: text(80),
-  followUpHours: z.int().min(0).max(20),
+  followUpHours: z.int().min(0).max(23),
   maxRepliesPerDay: z.int().min(1).max(200),
   language: z.enum(aiLanguages),
   languageOther: text(40),
@@ -203,5 +203,7 @@ export const aiOverview = z.object({
   flagged: z.int(),
   followUpsPlanned: z.int(),
   learnings: z.int(),
+  /** The model that last answered for the agency (a draft or a score), else null. */
+  model: z.string().nullable(),
 });
 export type AiOverview = z.infer<typeof aiOverview>;

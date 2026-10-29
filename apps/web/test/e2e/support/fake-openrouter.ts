@@ -66,6 +66,7 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
                 reasons: ["Asked about a Kerala package for four"],
                 fake: false,
                 fakeReason: "",
+                summary: "Wants a Kerala package for four in December and has asked the price.",
                 nextStep: "Call today and offer the Kerala 5-night package.",
                 facts: { destination: "Kerala", when: "December", travellers: "4 adults", budget: null },
               })

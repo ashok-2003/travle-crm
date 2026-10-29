@@ -168,7 +168,8 @@ export function useChatAi(conversationId: string) {
   return useQuery({
     ...trpc.ai.chatAi.queryOptions({ conversationId }),
     enabled,
-    refetchInterval: (query) => (query.state.data?.turn === null || query.state.data === undefined ? 20_000 : 2_000),
+    // Where the AI answers, look every few seconds: its "typing" shows as it starts and its answer as it ends.
+    refetchInterval: (query) => (query.state.data?.answering === true ? 2_500 : 20_000),
   });
 }
 

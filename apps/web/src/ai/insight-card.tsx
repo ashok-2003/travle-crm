@@ -2,7 +2,7 @@
 
 // The AI's guess of how a lead will go (Settings, AI turns it on for the agency): how likely it books in the next two weeks, as
 // a number and hot, warm or cold; a warning when it looks fake (spam, a test, a wrong number); why; what the customer said they
-// want; and what to do next. Always shown as a guess, in the AI's violet tint, and it never moves the lead's stage. Nothing
+// want; a line on how the lead stands; and what to do next. Always shown as a guess, in the AI's violet tint, and it never moves the lead's stage. Nothing
 // shows until the AI has scored the lead from its chat.
 import type { LeadInsight } from "@travel-crm/contracts/ai";
 import { SparklesIcon, TriangleAlertIcon } from "lucide-react";
@@ -57,6 +57,7 @@ export function InsightCard({ insight }: { insight: LeadInsight }) {
             <AlertDescription>{insight.fakeReason ?? t("fakeHint")}</AlertDescription>
           </Alert>
         )}
+        {insight.summary !== "" && <p>{insight.summary}</p>}
         <div className="flex flex-col gap-1.5">
           <p className="flex items-baseline justify-between gap-2">
             <span className="text-label text-muted-foreground">{t("chance")}</span>

@@ -82,7 +82,12 @@ describe("the autopilot", () => {
       aLead(tx, { ...(chat.personId === null ? {} : { personId: chat.personId }), stage: "contacted" }),
     );
     await inOrg((tx) =>
-      saveAiSettings(tx, owner, { enabled: true, instructions: "" }, { providerReady: true, now: testNow }),
+      saveAiSettings(
+        tx,
+        owner,
+        { enabled: true, scoring: true, instructions: "" },
+        { providerReady: true, now: testNow },
+      ),
     );
     const settings = {
       autopilot,

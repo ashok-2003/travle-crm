@@ -8,6 +8,7 @@ import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { MessageSquareIcon, StickyNoteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
+import { AiReplyBar } from "@/ai/ai-turn";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
 import { formatDayTime } from "@/lib/format";
@@ -69,7 +70,12 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
     if (status.data?.connectionStatus === "paused") return <Note>{t("replyPaused")}</Note>;
     if (header.windowOpenUntil !== null) {
       // One box per chat: its words are that chat's own, and never carried over to another when the address changes.
-      return <Composer key={header.id} header={header} windowOpenUntil={header.windowOpenUntil} />;
+      return (
+        <>
+          <AiReplyBar conversationId={header.id} />
+          <Composer key={header.id} header={header} windowOpenUntil={header.windowOpenUntil} />
+        </>
+      );
     }
     const action =
       header.optedOut && header.lastInboundAt === null ? undefined : <TemplateButton conversationId={header.id} />;

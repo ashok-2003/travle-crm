@@ -23,7 +23,7 @@ import { useWideScreen } from "@/lib/use-wide-screen";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
-import { AiDraftNote, SuggestReplyButton, type AiDraft } from "@/ai/suggest-reply-button";
+import { AiDraftNote, SuggestButton, type AiDraft } from "@/ai/suggest-button";
 import { useSuggestReplyAvailable } from "@/ai/use-ai";
 import { AttachedFile } from "./attached-file";
 import { useDroppedFile } from "./chat-drop";
@@ -159,17 +159,6 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
           onCancel={replying.clear}
         />
       )}
-      {canSuggest && !recording && (
-        <SuggestReplyButton
-          conversationId={conversationId}
-          disabled={reply.pending || !access.allowed || file !== null}
-          onDraft={(draft) => {
-            setAiDraft(draft);
-            setText(draft.text);
-            requestAnimationFrame(() => box.current?.focus());
-          }}
-        />
-      )}
       {stillAiWords && <AiDraftNote />}
       {fileProblem !== null && <p className="text-label text-destructive">{t(`composer.${fileProblem}`)}</p>}
       {file !== null && (
@@ -253,6 +242,17 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
                   aria-autocomplete="list"
                 />
                 <InputGroupAddon align="inline-end">
+                  {canSuggest && (
+                    <SuggestButton
+                      conversationId={conversationId}
+                      disabled={reply.pending || !access.allowed || file !== null}
+                      onDraft={(draft) => {
+                        setAiDraft(draft);
+                        setText(draft.text);
+                        requestAnimationFrame(() => box.current?.focus());
+                      }}
+                    />
+                  )}
                   <Button
                     type="button"
                     variant="ghost"

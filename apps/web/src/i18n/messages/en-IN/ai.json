@@ -1,7 +1,7 @@
 {
   "settings": {
-    "title": "AI",
-    "intro": "Suggest reply writes a draft answer in a WhatsApp chat for your staff to read, change and send, and the AI guesses how each lead will go. It never sends anything itself and never moves a lead.",
+    "title": "AI sales agent",
+    "intro": "Your best salesperson, on WhatsApp all day: it answers every enquiry in seconds, understands the trip, recommends your packages with prices, handles objections, takes booking details and follows up at the right time. It flags your team when a lead is ready, learns from your chats every night, and scores every lead.",
     "loadFailed": "The AI settings didn't load.",
     "retry": "Try again",
     "loading": "Loading the AI settings",
@@ -14,14 +14,28 @@
     "instructionsIntro": "Your tone, your language, what you usually offer, and what it must never say. It also uses your trip details and quick replies.",
     "instructions": "Instructions for the AI",
     "instructionsPlaceholder": "Reply in Hinglish, warm and short. Always ask for the travel dates and the number of travellers. Never offer a discount.",
-    "instructionsHint": "Up to 1,500 characters. Don't write secrets here: your staff and the AI service read it.",
+    "instructionsHint": "Up to 4,000 characters. Anything it should always do or never say. Prices and packages go in what the AI knows, below. Don't write secrets here: your staff and the AI service read it.",
     "save": "Save",
     "saving": "Saving…",
-    "saved": "AI settings saved"
+    "saved": "AI settings saved",
+    "linesLabel": "Suggestions to add",
+    "lines": {
+      "dates": "Ask for the travel dates and the number of travellers early.",
+      "pickup": "Mention our free airport pickup with every package.",
+      "twoOptions": "Offer a 3-star and a 4-star option side by side.",
+      "honeymoon": "For honeymoon couples, suggest the candle-light dinner add-on.",
+      "advance": "To book, ask for a 30% advance by UPI.",
+      "noDiscount": "Never promise a discount; say the team will check.",
+      "budget": "If the budget is low, suggest fewer nights rather than a cheaper hotel.",
+      "itinerary": "Share the full itinerary once they give their dates."
+    },
+    "instructionsCount": "{count} of {max} characters",
+    "scoring": "Let the AI score each lead",
+    "scoringHint": "After each message from a customer: its chance to book, a line on how the lead stands, the next step, and whether it looks fake. Shown on the lead's page."
   },
   "suggest": {
-    "button": "Suggest reply",
-    "drafting": "Drafting…",
+    "button": "Suggest a reply",
+    "nothing": "The AI had no reply to suggest for this chat.",
     "draftedByAi": "Drafted by AI",
     "draftedHint": "Read it, change it, then send."
   },
@@ -33,7 +47,7 @@
     "uploading": "Uploading…",
     "uploaded": "Uploaded. The AI is reading it.",
     "fileType": "Choose a PDF or a .txt file.",
-    "fileSize": "The file is over 5 MB.",
+    "fileSize": "The file is over 10 MB.",
     "empty": "Nothing yet. Add your packages and prices so the AI can answer about them.",
     "alsoKnown": "Your trips' details and your quick replies are known too, without adding them here.",
     "document": "Document",
@@ -202,16 +216,6 @@
     "chatLearned": "The AI now talks like {name} in this chat",
     "chatRemove": "Remove"
   },
-  "overview": {
-    "title": "The last day",
-    "chatsAnswered": "Chats answered",
-    "messagesSent": "Messages sent",
-    "medianReply": "Usual time to answer",
-    "seconds": "{count} s",
-    "flagged": "Chats flagged for your team",
-    "followUps": "Follow-ups planned",
-    "lessons": "Lessons in use"
-  },
   "chat": {
     "title": "The AI in this chat",
     "loadFailed": "The AI's state didn't load.",
@@ -231,7 +235,23 @@
       "default": "As the agency",
       "on": "On",
       "off": "Off"
-    }
+    },
+    "theAi": "The AI",
+    "reading": "{name} (AI) is reading…",
+    "readingUnnamed": "The AI is reading…",
+    "typing": "{name} (AI) is typing…",
+    "typingUnnamed": "The AI is typing…",
+    "barAnswering": "{name} is answering this chat. If you write, it waits 10 minutes.",
+    "barWorking": "{name} is replying now…",
+    "barOff": "You are answering this chat. The AI is off here.",
+    "barHandedOff": "Over to you: {reason}",
+    "takeOver": "Take over",
+    "letAnswer": "Let AI answer",
+    "barFlagged": "{name} flagged: {reason}. It's still answering; join any time.",
+    "followUpPlanned": "Next follow-up {when}",
+    "followUpWhy": "Next follow-up {when}: {why}",
+    "barPaused": "You wrote in this chat, so {name} waits until {until} so you two don't answer at once.",
+    "answerNow": "Let AI answer now"
   },
   "test": {
     "title": "Try it",
@@ -242,5 +262,43 @@
     "noAnswer": "(no answer)",
     "handoff": "It would hand the chat to your team: {reason}",
     "noReason": "a person is needed"
+  },
+  "hero": {
+    "unnamed": "Your AI agent",
+    "live": "Live",
+    "chatsYouChoose": "In chats you choose",
+    "notSetUp": "Not set up",
+    "liveLine": "{name} is answering every WhatsApp chat by itself, day and night.",
+    "pausedLine": "It answers only in the chats where you turn it on. Turn on \"Let the AI answer WhatsApp chats by itself\" below to let it sell all day.",
+    "notSetUpLine": "Once the platform sets up a model and you turn the AI on below, it can start selling.",
+    "label": "The AI's last day",
+    "seconds": "{count} s",
+    "minutes": "{count} min",
+    "figures": {
+      "chats": {
+        "label": "Chats answered",
+        "hint": "Chats the AI wrote in over the last 24 hours."
+      },
+      "speed": {
+        "label": "Reply time",
+        "hint": "The middle time from a customer's message to the AI's answer, over the last 24 hours."
+      },
+      "flagged": {
+        "label": "Flagged for you",
+        "hint": "Chats where the AI asked your team to look or join, over the last 24 hours."
+      },
+      "followUps": {
+        "label": "Follow-ups planned",
+        "hint": "Quiet customers the AI will write to again, at the time it chose, inside WhatsApp's 24-hour window."
+      },
+      "learnings": {
+        "label": "Lessons learned",
+        "hint": "What the AI learned from your chats and uses in every reply."
+      },
+      "messages": {
+        "label": "Messages sent",
+        "hint": "Messages the AI sent over the last 24 hours."
+      }
+    }
   }
 }

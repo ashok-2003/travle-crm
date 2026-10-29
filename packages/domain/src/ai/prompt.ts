@@ -1,6 +1,7 @@
 // What the AI is told when it drafts a reply: fixed rules, the agency's own words (its instructions, trip kits and quick
 // replies), the lead's details and the chat's last messages. The customer's words and the agency's are fenced as data, so
 // an instruction inside a message is not one. A person's full name, phone and email are never included.
+import { AI_INSTRUCTIONS_MAX } from "@travel-crm/contracts/ai";
 import type { AiMessage } from "@travel-crm/integrations/ai";
 
 const RULES = `You draft ONE WhatsApp reply for a travel agency's staff member, who will read it, change it and send it. You do not send anything.
@@ -37,7 +38,7 @@ export function promptOf(facts: PromptFacts): AiMessage[] {
     `Agency: ${fenced(facts.agencyName)}`,
     facts.instructions === ""
       ? ""
-      : `The agency's instructions:\n<data>${fenced(cut(facts.instructions, 1500))}</data>`,
+      : `The agency's instructions:\n<data>${fenced(cut(facts.instructions, AI_INSTRUCTIONS_MAX))}</data>`,
     facts.lead.length === 0 ? "" : `What is known about this enquiry:\n<data>${fenced(facts.lead.join("\n"))}</data>`,
     facts.knowledge.length === 0
       ? ""

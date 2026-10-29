@@ -35,7 +35,7 @@ test("a salesperson sees only what their role allows", async ({ page, addStaff, 
     await expect(navigation.getByRole("link", { name: destination })).toBeVisible();
   }
   await expect(navigation.getByRole("link", { name: "Staff" })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Key figures" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Today at a glance" })).toBeVisible();
   // The setup card is for those who may change the settings: Sales never even asks for it.
   await page.waitForLoadState("networkidle");
   expect(setupAsked).toEqual([]);
