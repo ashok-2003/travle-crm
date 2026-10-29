@@ -94,8 +94,8 @@ const sections: readonly Section[] = [
     requires: "settings:manage",
     module: "inbox",
   },
-  { key: "quotes", href: routes.quoteSettings, icon: IndianRupeeIcon, requires: "settings:manage", module: "quotes" },
   { key: "ai", href: routes.aiSettings, icon: SparklesIcon, requires: "ai:manage", module: "ai" },
+  { key: "quotes", href: routes.quoteSettings, icon: IndianRupeeIcon, requires: "settings:manage", module: "quotes" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];
 

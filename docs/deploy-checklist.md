@@ -241,7 +241,7 @@ Secrets come from the platform's secret manager as environment variables, never 
     `https://openrouter.ai`. Choose models that have a zero-data-retention endpoint on OpenRouter: a model without one
     answers 404 and the next in the list is tried, so if no model has one, no suggestion is made.
   - The worker also scores leads (`AI_SCORE_MODELS`) for agencies with the AI on, 20 seconds after a customer's last message of a
-    burst, and reads the words of documents agencies upload for their AI (PDF and plain text, up to 5 MB).
+    burst, and reads the words of documents agencies upload for their AI (PDF and plain text, up to 10 MB).
   - Off for every agency until its plan includes the `ai` module (the console's plan editor) and its Owner or Admin turns it on
     in Settings, AI. A member asks for each draft; it reads the chat's last 12 messages, the lead's first name and trip
     facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 500

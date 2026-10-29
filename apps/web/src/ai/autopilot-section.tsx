@@ -254,7 +254,7 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
               value={draft.followUpHours}
               disabled={busy}
               onChange={(event) => {
-                set("followUpHours", Math.min(20, Math.max(0, Math.round(Number(event.target.value) || 0))));
+                set("followUpHours", Math.min(23, Math.max(0, Math.round(Number(event.target.value) || 0))));
               }}
             />
             <p className="text-label text-muted-foreground">{t("followUpHint")}</p>

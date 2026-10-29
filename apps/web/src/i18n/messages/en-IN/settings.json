@@ -43,8 +43,8 @@
     "whatsappHint": "Your WhatsApp number and its state",
     "quotes": "Quotes and payments",
     "quotesHint": "Your UPI id, the usual GST rate and the terms under every quote",
-    "ai": "AI",
-    "aiHint": "Suggest reply: turn it on and tell the AI how you talk to customers",
+    "ai": "AI sales agent",
+    "aiHint": "Sells on WhatsApp by itself: answers, follows up, scores leads and learns from your chats",
     "salesAutomation": "Sales automation",
     "salesAutomationHint": "Reply to new leads in a minute, follow-ups, payment reminders, hot leads"
   },
