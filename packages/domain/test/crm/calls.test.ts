@@ -192,11 +192,11 @@ describe("calls on a lead", () => {
           return Promise.resolve({ allowed: false });
         },
       };
-      await expect(limitDials(refusing, salesperson.userId, new Date())).rejects.toMatchObject({
+      await expect(limitDials(refusing, salesperson, new Date())).rejects.toMatchObject({
         reason: "DIALING_TOO_FAST",
       });
-      expect(keys).toEqual([`call-dial:${salesperson.userId}`]);
-      await expect(limitDials(undefined, salesperson.userId, new Date())).resolves.toBeUndefined();
+      expect(keys).toEqual([`call-dial:${organizationId}:${salesperson.userId}`]);
+      await expect(limitDials(undefined, salesperson, new Date())).resolves.toBeUndefined();
     });
 
     it("refuses a lead with no phone number", async () => {
