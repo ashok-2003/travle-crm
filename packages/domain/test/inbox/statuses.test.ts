@@ -95,4 +95,15 @@ describe("delivery reports out of order", () => {
     await report("delivered", 90);
     expect((await row()).deliveredAt).toEqual(once.deliveredAt);
   });
+
+  // The worker processes several webhooks at once (apps/api/src/worker-jobs.ts): a delivered and a read for one message
+  // can both read it as sent before either is saved, and the one saved last must still not move it back.
+  it("never moves a message back when its reports are handled at the same time", async () => {
+    const messages = await Promise.all(Array.from({ length: 8 }, () => sentMessage()));
+    await Promise.all(messages.flatMap(({ report }) => [report("read", 30), report("delivered", 10)]));
+    const failures = await Promise.all(Array.from({ length: 8 }, () => sentMessage("delivered")));
+    await Promise.all(failures.flatMap(({ report }) => [report("read", 30), report("failed", 31, "131047")]));
+    for (const { row } of messages) expect((await row()).status).toBe("read");
+    for (const { row } of failures) expect((await row()).status).toBe("read");
+  });
 });

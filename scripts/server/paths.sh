@@ -13,6 +13,11 @@ previous_release_file="$server_root/release.previous"
 # Whether the console runs its jobs now, `on` or `off` (scripts/server/work-hours.sh writes it; compose.sh hands it to
 # the console as CONSOLE_JOBS). Missing: on. TRAVEL_CRM_CONSOLE_JOBS names another file, for work-hours.sh's test.
 console_jobs_file="${TRAVEL_CRM_CONSOLE_JOBS:-/etc/travel-crm/console-jobs}"
+# The api's wake-up signal (apps/api/src/work-signal.ts): through its container, the api writes the time here when work
+# for the worker came in, and scripts/server/work-hours.sh starts a worker the night stopped. Its folder belongs to the
+# api's user, `node` in its image (uid and gid 1000). TRAVEL_CRM_WORK_SIGNAL names another file, for work-hours.sh's test.
+work_signal_file="${TRAVEL_CRM_WORK_SIGNAL:-$server_root/work-signal/at}"
+api_user_id=1000
 
 # Whether the settings point the database at the server's own Postgres (the host `postgres`) rather than a managed one.
 uses_local_database() {

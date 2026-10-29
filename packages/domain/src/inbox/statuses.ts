@@ -1,6 +1,8 @@
 // Delivery statuses (spec 4.5): a status event moves the message with that wamid forward, never back, and is the proof that
 // reports still arrive. A status for a message we don't have yet is tried again by the intake (MSG91 can be faster than our
-// own save of the send's answer); one for a message older than two minutes with no row is dropped and counted.
+// own save of the send's answer); one for a message older than two minutes with no row is dropped and counted. The worker
+// handles several webhooks at once, so each update also names the statuses it may not overwrite: two reports that both
+// read the message before either was saved still leave it at the further one.
 import type { OrgTx } from "@travel-crm/db";
 import { ownMessage } from "@travel-crm/integrations/jobs";
 import type { ParsedEvent } from "@travel-crm/integrations/whatsapp";
@@ -52,19 +54,23 @@ export async function applyStatus(
   }
   const at = event.occurredAt ?? now;
   if (event.status === "failed") {
-    if (message.status === "delivered" || message.status === "read") return "ignored";
-    await tx.whatsappMessage.update({
-      where: { id: message.id },
+    const arrived = ["delivered", "read"];
+    if (arrived.includes(message.status)) return "ignored";
+    const failed = await tx.whatsappMessage.updateMany({
+      where: { id: message.id, status: { notIn: arrived } },
       data: { status: "failed", failureCode: (event.reasonCode ?? "unknown").slice(0, 100) },
     });
+    if (failed.count === 0) return "ignored";
     await bumpUsage(tx, scope, monthStartOf(now, timeZone), { failed: 1 });
     return "applied";
   }
   // A late "sent" does not undo a recorded failure; a delivered or read does (the message did arrive).
   if (message.status === "failed" && event.status === "sent") return "ignored";
-  if ((rank[event.status] ?? 0) <= (rank[message.status] ?? 0)) return "ignored";
-  await tx.whatsappMessage.update({
-    where: { id: message.id },
+  const eventRank = rank[event.status] ?? 0;
+  if (eventRank <= (rank[message.status] ?? 0)) return "ignored";
+  const atOrPast = Object.keys(rank).filter((status) => (rank[status] ?? 0) >= eventRank);
+  const moved = await tx.whatsappMessage.updateMany({
+    where: { id: message.id, status: { notIn: event.status === "sent" ? [...atOrPast, "failed"] : atOrPast } },
     data: {
       status: event.status,
       ...(event.status === "sent" ? { sentAt: at } : {}),
@@ -73,5 +79,5 @@ export async function applyStatus(
       ...(event.status === "read" ? { readAt: at, deliveredAt: message.deliveredAt ?? at } : {}),
     },
   });
-  return "applied";
+  return moved.count === 0 ? "ignored" : "applied";
 }

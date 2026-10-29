@@ -115,6 +115,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host)                                    | ○   | ○      | ○       |         |        |
 | `JOBS_POLLING_SECONDS`: checks for work less often (metered host)                                   | ○   | ○      | ○       |         |        |
 | `CONSOLE_JOBS`: `off` serves the console's pages, runs no jobs                                      |     |        | ○       |         |        |
+| `WORK_SIGNAL_FILE`: where the api signals work, to wake a stopped worker (docs/runbook.md)          | ○   |        |         |         |        |
 | `BETTER_AUTH_SECRET`: one value for all three                                                       | ●   | ●      | ●       |         | yes    |
 | `BETTER_AUTH_URL`, `APP_URL`: both the app's https address                                          | ●   | ●      | ●       |         |        |
 | `TRUSTED_ORIGINS`                                                                                   | ○   | ○      | ○       |         |        |

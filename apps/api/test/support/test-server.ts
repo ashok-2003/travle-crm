@@ -94,6 +94,8 @@ export interface TestServerOptions {
   turnstile?: Turnstile;
   /** How the website form reads the visitor's address (W32): sign-in's rule unless given. */
   formAddress?: FormAddressSettings;
+  /** Told when work for the worker came in (the host's wake-up signal): nothing unless given. */
+  signalWork?: () => void;
 }
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
@@ -141,6 +143,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     appUrl: options.appUrl ?? "http://localhost:3000",
     turnstile: options.turnstile ?? null,
     ...(options.formAddress === undefined ? {} : { formAddress: options.formAddress }),
+    ...(options.signalWork === undefined ? {} : { signalWork: options.signalWork }),
   });
   return {
     app,

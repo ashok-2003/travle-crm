@@ -10,6 +10,7 @@ import { sheetsStartUpLine } from "./sheets-settings.js";
 import { assertServiceAccountsInPlace } from "./sheets-settings.js";
 import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProvidersOf } from "./webhook-providers.js";
+import { createWorkSignal } from "./work-signal.js";
 
 const { environment, services, logger } = await startProcess("api", async ({ services }) => {
   // The list of service accounts is the worker's to follow, but the api shows the address sheets are shared with: it
@@ -51,6 +52,9 @@ const app = createApp({
     trustedProxies: environment.AUTH_TRUSTED_PROXIES,
     proxyHops: environment.PUBLIC_FORM_PROXY_HOPS ?? null,
   },
+  ...(environment.WORK_SIGNAL_FILE === undefined
+    ? {}
+    : { signalWork: createWorkSignal({ file: environment.WORK_SIGNAL_FILE, logger }) }),
 });
 
 const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => {

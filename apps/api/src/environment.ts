@@ -95,6 +95,12 @@ const environmentSchema = z
      */
     JOBS_POLLING_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(600).optional()),
     /**
+     * The api's alone: a file the host watches, where the api writes the time when work for the worker came in, so a
+     * worker the night's plan stopped starts (apps/api/src/work-signal.ts; docs/runbook.md, "Waking the worker at
+     * night"). Unset, nothing is written.
+     */
+    WORK_SIGNAL_FILE: emptyAsUnset(z.string().min(1).optional()),
+    /**
      * Whether the console runs its jobs (on by default). Off, it serves its pages with a pg-boss that only sends, so an
      * idle console queries nothing: the two small servers' nights (docs/runbook.md, "Working hours and night bursts").
      * The console's alone; here because its services are built from this environment.
