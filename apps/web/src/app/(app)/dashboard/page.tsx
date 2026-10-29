@@ -1,7 +1,8 @@
 "use client";
 
 // The home screen (/dashboard), made to be read at a glance (sales execution): a greeting with the day, then, for a role
-// that sees leads on a plan with them, the hot leads to call, the key figures (one strip) and the day's nudge (spec 3.1: a count, three things, Open Today) beside the month so far (the full figures are on Reports);
+// that sees leads on a plan with them, the day at a glance (each figure a way to its work), the hot leads to call and the
+// day's nudge (spec 3.1: a count, three things, Open Today) beside the month so far (the full figures are on Reports);
 // then the setup card until the checklist is done (spec 7.1) and the screens the role may use to set the agency up.
 import { ChevronRightIcon, KanbanIcon } from "lucide-react";
 import Link from "next/link";
@@ -112,12 +113,14 @@ export default function HomePage() {
         intro={t("todayIs", { day: today })}
         action={actions}
       />
-      {/* Where the role sees leads on a plan with them: the hot leads to call first, the key figures, the day's nudge and the month so far. */}
-      {showsToday && <HotLeadsCard />}
+      {/* Where the role sees leads on a plan with them: the day at a glance, what to do now, and the month so far. */}
       {showsToday && <AtAGlance inbox={has("inbox")} money={has("quotes") && holds(me, "money:view_reports")} />}
       {showsToday && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
-          <TodayNudge />
+          <div className="flex flex-col gap-6">
+            <HotLeadsCard />
+            <TodayNudge />
+          </div>
           {has("reports") && <MonthCard />}
         </div>
       )}

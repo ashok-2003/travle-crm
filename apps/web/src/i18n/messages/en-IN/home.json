@@ -1,12 +1,21 @@
 {
   "glance": {
-    "title": "Key figures",
+    "title": "Today at a glance",
+    "newLeads": "New leads",
+    "newLeadsNote": "Waiting for a first reply",
     "waiting": "Chats waiting",
-    "waitingHint": "Customers who wrote and are waiting for a reply in the inbox.",
+    "waitingNote": "Customers waiting for your reply",
+    "late": "{count, plural, one {# waiting too long} other {# waiting too long}}",
+    "dueToday": "Follow-ups today",
+    "dueTodayNote": "Calls and tasks due today",
+    "overdue": "Overdue",
+    "overdueNote": "Past their time: do these first",
+    "nothingLate": "Nothing late",
     "hot": "Hot leads",
-    "hotHint": "Leads that opened their quote again or asked to book: call them now.",
+    "hotNote": "Ready to book: call now",
     "money": "Money to come",
-    "moneyHint": "What accepted quotes still have to be paid by customers."
+    "moneyNote": "On accepted quotes",
+    "moneyLate": "{count, plural, one {# payment late} other {# payments late}}: {amount}"
   },
   "month": {
     "title": "This month so far",
