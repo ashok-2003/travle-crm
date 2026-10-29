@@ -17,6 +17,12 @@ interface LeadAddition {
   action: "lead.added" | "lead.repeat-enquiry" | "lead.note-added";
 }
 
+/** A call written up on the lead, changed or deleted. */
+interface LeadCallChange {
+  entityType: "lead";
+  action: "lead.call-logged" | "lead.call-edited" | "lead.call-deleted";
+}
+
 /** A change to the lead itself. */
 interface LeadChange {
   entityType: "lead";
@@ -28,7 +34,7 @@ interface BlockedContactChange {
   action: "blocked-contact.added" | "blocked-contact.removed";
 }
 
-export type CrmAuditChange = (PersonChange | LeadAddition | LeadChange | BlockedContactChange) & {
+export type CrmAuditChange = (PersonChange | LeadAddition | LeadCallChange | LeadChange | BlockedContactChange) & {
   entityId: string;
   before?: AuditSnapshot | null;
   after?: AuditSnapshot | null;

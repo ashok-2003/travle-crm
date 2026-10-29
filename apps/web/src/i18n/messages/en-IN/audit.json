@@ -101,7 +101,10 @@
       "stage-changed": "Moved a lead to another stage",
       "reopened": "Reopened a closed lead",
       "reassigned": "Gave a lead to another owner",
-      "trip-edited": "Changed a lead's trip"
+      "trip-edited": "Changed a lead's trip",
+      "call-logged": "Wrote a call up on a lead",
+      "call-edited": "Changed a call on a lead",
+      "call-deleted": "Deleted a call on a lead"
     },
     "task": {
       "added": "Added a follow-up or task",
@@ -243,7 +246,8 @@
       "changed": "Changed the sales automation"
     },
     "sales": {
-      "follow-ups-changed": "Turned a lead's follow-ups on or off"
+      "follow-ups-changed": "Turned a lead's follow-ups on or off",
+      "quote-opened-dismissed": "Marked an opened quote as seen"
     },
     "quote-package": {
       "saved": "Saved a quote package",

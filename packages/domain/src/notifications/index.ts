@@ -4,7 +4,8 @@ export { deliverNotificationListener, type DeliveryDependencies } from "./delive
 export { forgetPushSubscriptionsListener } from "./forget-push-subscriptions.js";
 export { forgetRecipient } from "./forget-recipient.js";
 export { forgetRecordNotifications } from "./forget-record.js";
+export { getMorningSetting, saveMorningSetting } from "./morning-setting.js";
 export { notify } from "./notify.js";
 export type { Person } from "./person.js";
 export { isOptedOut, listPreferences, setPreference } from "./preferences.js";
-export { removePushSubscription, savePushSubscription } from "./push-subscriptions.js";
+export { hasPushDevice, removePushSubscription, savePushSubscription } from "./push-subscriptions.js";

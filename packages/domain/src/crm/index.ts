@@ -35,6 +35,17 @@ export {
   type WhatsAppContactContext,
   type WhatsAppContactOutcome,
 } from "./whatsapp-contact.js";
+export {
+  callTargetOf,
+  deleteCall,
+  DEFAULT_FOLLOW_UP_TITLE,
+  DIALS_PER_MINUTE,
+  editCall,
+  limitDials,
+  logCall,
+  sendCallToMyPhone,
+  type DialLimiter,
+} from "./calls.js";
 export { createLead } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";

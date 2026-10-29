@@ -61,6 +61,7 @@ describe("forgetting a person", () => {
       notifications: 1,
       preferences: 1,
       pushSubscriptions: 1,
+      morningSettings: 0,
     });
     const left = await db.forOrg(organizationId, async (tx) => ({
       notifications: await tx.notification.findMany({ select: { recipientUserId: true } }),

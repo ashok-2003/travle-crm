@@ -3,7 +3,14 @@
 // Add or change a quick reply (sales inbox spec, section 5): its shortcut (typed after "/"), a title to find it by, and the
 // words, with the blanks the reply bar fills from the chat. Checked by the api's own schema before it is sent. The words
 // of the reply with the shortcut "payment" are also the reply bar's Payment details.
-import { createQuickReplyInput, type CreateQuickReplyInput, type QuickReply } from "@travel-crm/contracts/inbox";
+import {
+  blankNames,
+  createQuickReplyInput,
+  fillBlanks,
+  unknownBlanks,
+  type CreateQuickReplyInput,
+  type QuickReply,
+} from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog, type OpenState } from "@/components/forms/form-dialog";
@@ -18,7 +25,7 @@ interface Values {
   title: string;
   body: string;
 }
-type Problem = "required" | "shortcut" | "tooLong";
+type Problem = "required" | "shortcut" | "tooLong" | "unknownBlank";
 
 function QuickReplyForm({
   formId,
@@ -32,6 +39,7 @@ function QuickReplyForm({
   sending: { isPending: boolean; error: unknown };
 }) {
   const t = useTranslations("inbox.quickReplies.form");
+  const tPreview = useTranslations("inbox.quickReplies");
   const { form, onSubmit, formProblem } = useCheckedForm<Values, CreateQuickReplyInput, Problem>(
     { shortcut: existing?.shortcut ?? "", title: existing?.title ?? "", body: existing?.body ?? "" },
     (values) =>
@@ -39,7 +47,9 @@ function QuickReplyForm({
         createQuickReplyInput.safeParse(values),
         values,
         (path) => (path[0] === "shortcut" || path[0] === "title" || path[0] === "body" ? path[0] : undefined),
-        (field) => (field === "shortcut" ? "shortcut" : "tooLong"),
+        (field): Problem => (field === "shortcut" ? "shortcut" : "tooLong"),
+        // A blank the library doesn't know gets its own sentence, not "too long".
+        unknownBlanks(values.body).length > 0 ? { body: "unknownBlank" } : {},
       ),
     (problem) => t(`problems.${problem}`),
   );
@@ -61,6 +71,16 @@ function QuickReplyForm({
         hint={t("bodyHint")}
         disabled={sending.isPending}
       />
+      <section aria-label={tPreview("previewHeading")} className="flex flex-col gap-1">
+        <h3 className="font-medium">{tPreview("previewHeading")}</h3>
+        <p className="break-words whitespace-pre-line text-muted-foreground">
+          {fillBlanks(
+            form.watch("body"),
+            Object.fromEntries(blankNames.map((name) => [name, tPreview(`sample.${name}`)])),
+          )}
+        </p>
+        <p className="text-label text-muted-foreground">{tPreview("previewHint")}</p>
+      </section>
       <FormAlert sending={sending} problem={formProblem} />
     </form>
   );

@@ -56,6 +56,7 @@ export function aLead(overrides: Partial<LeadDetail> = {}): LeadDetail {
     stageChangedAt: "2026-10-16T05:12:00.000Z",
     firstReplyAt: null,
     returning: false,
+    callCount: 0,
     person: {
       id: ids.person,
       name: "Rahul Sharma",

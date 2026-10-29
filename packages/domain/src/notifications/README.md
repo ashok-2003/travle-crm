@@ -22,8 +22,10 @@ in build step 2.
   removes a member (`staff.removed`), it deletes all their push subscriptions in the event's organization.
 - Type `Person`: an actor with a user id. A job has no bell (`FORBIDDEN`/`NOT_A_PERSON`).
 
-- `forgetRecipient(tx, { organizationId, userId })`: an erasure's part (spec 5): the person's notifications, opt-outs
-  and push subscriptions, deleted by the platform role.
+- `getMorningSetting` / `saveMorningSetting` (release 5): the person's own morning summary on/off and time (a person
+  who never chose has it on at 09:00); `hasPushDevice`: whether any device of theirs is registered for push.
+- `forgetRecipient(tx, { organizationId, userId })`: an erasure's part (spec 5): the person's notifications, opt-outs,
+  morning setting and push subscriptions, deleted by the platform role.
 - `forgetRecordNotifications(tx, { organizationId, recordId, sourceEventIds })`: a record's erasure (spec 5, ADR
   0023): deletes the notifications about the record, those whose link names its id and those the given events caused
   (a share link's opens: their titles quote its label), by the platform role. Returns how many went. Emails and pushes

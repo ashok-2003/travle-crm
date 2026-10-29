@@ -30,6 +30,8 @@ export const notificationKinds = [
   { kind: "inbox.snooze-ended", messageKey: "inboxSnoozeEnded" },
   { kind: "sales.hot-lead", messageKey: "salesHotLead" },
   { kind: "sales.payment-due", messageKey: "salesPaymentDue" },
+  { kind: "call.dial", messageKey: "callDial" },
+  { kind: "today.morning", messageKey: "todayMorning" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

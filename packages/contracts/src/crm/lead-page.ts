@@ -39,6 +39,8 @@ export const leadDetail = z.object({
   createdAt: z.iso.datetime(),
   /** Every open follow-up and task on the lead, earliest due first. */
   work: z.array(leadWork),
+  /** How many calls have been written up on the lead. */
+  callCount: z.int(),
   people: peopleNames,
 });
 export type LeadDetail = z.infer<typeof leadDetail>;

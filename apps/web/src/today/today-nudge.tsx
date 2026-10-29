@@ -13,7 +13,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
-import { formatTime } from "@/lib/format";
+import { money } from "@travel-crm/domain/kernel";
+import { formatCalendarDay, formatRupees, formatTime } from "@/lib/format";
 import { elapsed } from "@/lib/relative-time";
 import { leadRoute, routes } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
@@ -36,13 +37,29 @@ function NudgeItem({ item }: { item: TodayItem }) {
       const { unit, count } = elapsed(new Date(item.waitingSince), now);
       return { urgency: "waiting", text: t("ago", { elapsed: tNext(`elapsed.${unit}`, { count }) }) };
     }
+    if (item.kind === "quote-opened") return { urgency: "waiting", text: t("quoteOpened") };
+    if (item.kind === "payment-due") {
+      return {
+        urgency: item.missed ? "overdue" : "today",
+        text: item.missed ? t("paymentMissed") : formatCalendarDay(item.dueOn, now),
+      };
+    }
     const due = new Date(item.task.dueAt);
     return due < now
       ? { urgency: "overdue", text: t("overdue") }
       : { urgency: "today", text: formatTime(due, { timeZone }) };
   })();
   const title = item.lead?.personName ?? (item.kind === "task" ? item.task.title : "");
-  const about = item.kind === "new-lead" ? t("waiting") : item.lead === null ? null : item.task.title;
+  const about =
+    item.kind === "new-lead"
+      ? t("waiting")
+      : item.kind === "quote-opened"
+        ? item.quote.title
+        : item.kind === "payment-due"
+          ? formatRupees(money(item.amountPaise))
+          : item.lead === null
+            ? null
+            : item.task.title;
   return (
     <div role="listitem">
       <Item size="sm" asChild>
@@ -65,8 +82,8 @@ export function TodayNudge() {
   const headingId = useId();
 
   if (summary.data) {
-    const { overdue, newLeads, dueToday } = summary.data.counts;
-    const total = overdue + newLeads + dueToday;
+    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue } = summary.data.counts;
+    const total = overdue + newLeads + dueToday + quoteOpened + paymentsDue;
     const top = summary.data.top.slice(0, SHOWN);
     return (
       <Card role="region" aria-labelledby={headingId}>

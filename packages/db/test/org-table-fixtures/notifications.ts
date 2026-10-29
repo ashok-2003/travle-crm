@@ -17,6 +17,10 @@ export const fixtures: OrgTableFixtures = {
     create: (tx) =>
       tx.notificationPreference.create({ data: { userId: someone, channel: "email", kind: "*", optedOut: true } }),
   },
+  morning_push_setting: {
+    create: (tx) => tx.morningPushSetting.create({ data: { userId: someone } }),
+    undeletable: true,
+  },
   push_subscription: {
     create: (tx) =>
       tx.pushSubscription.create({

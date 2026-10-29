@@ -22,6 +22,10 @@ export const fixtures: OrgTableFixtures = {
     create: async (tx) => tx.leadNote.create({ data: { leadId: (await aLead(tx)).id, body: "Isolation note" } }),
     undeletable: true,
   },
+  lead_call: {
+    create: async (tx) =>
+      tx.leadCall.create({ data: { leadId: (await aLead(tx)).id, outcome: "spoke", note: "Isolation call" } }),
+  },
   lead_enquiry: {
     create: async (tx) => tx.leadEnquiry.create({ data: { leadId: (await aLead(tx)).id, source: "referral" } }),
     undeletable: true,

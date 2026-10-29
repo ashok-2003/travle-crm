@@ -181,6 +181,7 @@ describe("a customer's erasure and export", () => {
     expect(await erase(randomUUID())).toEqual({
       leadIds: [],
       notes: 0,
+      calls: 0,
       enquiries: 0,
       timelineEntries: 0,
       blockedContacts: 0,
@@ -223,6 +224,7 @@ describe("a customer's erasure and export", () => {
         roomType: null,
       },
       notes: customer.notes.map((note) => ({ body: note.body, createdAt: note.createdAt.toISOString() })),
+      calls: [],
       enquiries: [
         {
           trip: expect.objectContaining({ when: { kind: "flexible" }, adults: 4, destination: null }) as unknown,

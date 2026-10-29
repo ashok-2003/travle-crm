@@ -5,6 +5,7 @@
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { AppFrame } from "@/components/app-frame";
+import { CallReturn } from "@/leads/call/call-return";
 import { SessionGate } from "@/session/session-gate";
 import { Banners } from "@/shell/banners";
 import { BottomBar } from "@/shell/bottom-bar";
@@ -25,6 +26,7 @@ export default function SignedInLayout({ children }: { children: ReactNode }) {
           above={
             <>
               <RefreshOnPush />
+              <CallReturn />
               <PageTracker />
               <WelcomeDialog />
               <TopBar />

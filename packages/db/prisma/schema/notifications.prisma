@@ -62,6 +62,23 @@ model NotificationPreference {
   @@map("notification_preference")
 }
 
+/// A person's morning summary push (release 5): on or off, at what time in the agency's zone, and the day it last went
+/// so a day gets one. A person with no row has the default: on at 09:00.
+model MorningPushSetting {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  enabled        Boolean      @default(true)
+  /// HH:MM in 15-minute steps (CHECK morning_push_setting_time_format).
+  localTime      String       @default("09:00") @map("local_time")
+  /// The agency's day of the last push sent.
+  lastSentOn     DateTime?    @map("last_sent_on") @db.Date
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([organizationId, userId])
+  @@map("morning_push_setting")
+}
+
 /// One browser's push subscription for one person. Deleted when the push service says it is gone.
 model PushSubscription {
   /// Filled from db.forOrg()'s organization when omitted.

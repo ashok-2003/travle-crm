@@ -27,6 +27,10 @@ export type LeadRepeatEnquiryEvent = z.infer<typeof leadRepeatEnquiryEvent>;
 export const leadEvent = z.strictObject({ leadId: recordId });
 export type LeadEvent = z.infer<typeof leadEvent>;
 
+/** lead.call-logged. */
+export const leadCallLoggedEvent = z.strictObject({ leadId: recordId, callId: recordId });
+export type LeadCallLoggedEvent = z.infer<typeof leadCallLoggedEvent>;
+
 /** person.added and person.edited. */
 export const personEvent = z.strictObject({ personId: recordId });
 export type PersonEvent = z.infer<typeof personEvent>;

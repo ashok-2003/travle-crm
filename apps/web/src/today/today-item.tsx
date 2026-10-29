@@ -6,24 +6,35 @@
 // contacted for a new lead. Four 44px buttons don't fit one row on a phone, so there they take two; from a tablet up,
 // one. Times are the agency's.
 import type { TripSummary } from "@travel-crm/contracts/crm";
+import { money } from "@travel-crm/domain/kernel";
 import type { TodayItem as TodayItemData } from "@travel-crm/contracts/today";
 import { useTranslations } from "next-intl";
 import { TextLink } from "@/components/text-link";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
 import { useTripLine } from "@/leads/trip-line";
-import { formatDayTime, formatTime } from "@/lib/format";
+import { formatCalendarDay, formatDayTime, formatRupees, formatTime } from "@/lib/format";
 import { dayRelation, elapsed } from "@/lib/relative-time";
 import { leadRoute } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
 import { useHolds, useMe } from "@/session/me-context";
 import { TaskActions } from "@/tasks/task-actions";
 import { MarkContactedButton } from "./mark-contacted-button";
+import { QuoteDoneButton } from "./quote-done-button";
 import { WhenMark, type Urgency } from "./when-mark";
 
-/** The id a section's page names it by: its task's, or a new lead's. */
+/** The id a section's page names it by: its task's, a new lead's, an opened quote's or an instalment's. */
 export function todayItemId(item: TodayItemData): string {
-  return item.kind === "task" ? item.task.id : item.lead.id;
+  switch (item.kind) {
+    case "task":
+      return item.task.id;
+    case "new-lead":
+      return item.lead.id;
+    case "quote-opened":
+      return item.quote.id;
+    case "payment-due":
+      return item.installmentId;
+  }
 }
 
 const tripKnown = (trip: TripSummary) =>
@@ -38,6 +49,16 @@ function useWhen(item: TodayItemData): { urgency: Urgency; text: string } {
   if (item.kind === "new-lead") {
     const { unit, count } = elapsed(new Date(item.waitingSince), now);
     return { urgency: "waiting", text: tNext(`elapsed.${unit}`, { count }) };
+  }
+  if (item.kind === "quote-opened") {
+    const { unit, count } = elapsed(new Date(item.lastOpenedAt), now);
+    return { urgency: "waiting", text: t("openedAgo", { elapsed: tNext(`elapsed.${unit}`, { count }) }) };
+  }
+  if (item.kind === "payment-due") {
+    const day = formatCalendarDay(item.dueOn, now);
+    return item.missed
+      ? { urgency: "overdue", text: t("paymentMissed", { amount: formatRupees(money(item.amountPaise)), day }) }
+      : { urgency: "today", text: t("paymentDue", { amount: formatRupees(money(item.amountPaise)), day }) };
   }
   const due = new Date(item.task.dueAt);
   const clock = { timeZone, now };
@@ -62,8 +83,18 @@ export function TodayItem({ item }: { item: TodayItemData }) {
   const title = item.kind === "task" ? item.task.title : null;
   const phone = lead?.phone ?? null;
   const trip = lead && tripKnown(lead.trip) ? tripLine(lead.trip) : null;
+  const tItem = useTranslations("today.item");
   // A task on no lead already shows its title as the item's title.
-  const about = item.kind === "new-lead" ? [trip, tSources(item.lead.source)] : lead ? [title, trip] : [];
+  const about =
+    item.kind === "new-lead"
+      ? [trip, tSources(item.lead.source)]
+      : item.kind === "quote-opened"
+        ? [tItem("quoteOpened", { title: item.quote.title, count: item.opens }), trip]
+        : item.kind === "payment-due"
+          ? [trip]
+          : lead
+            ? [title, trip]
+            : [];
   const description = about.filter((part): part is string => part !== null && part !== "").join(" · ");
   return (
     <Item size="sm" role="listitem" className="items-start">
@@ -81,11 +112,13 @@ export function TodayItem({ item }: { item: TodayItemData }) {
       <ItemActions className="basis-full flex-col items-start gap-2 md:flex-row md:items-start">
         {lead !== null && phone !== null && (
           <div className="flex flex-wrap gap-2">
-            <CallButton phone={phone} name={lead.personName} variant="outline" />
+            <CallButton phone={phone} name={lead.personName} leadId={lead.id} variant="outline" />
             <WhatsAppButton phone={phone} name={lead.personName} />
           </div>
         )}
-        {item.kind === "task" ? <TaskActions task={item.task} /> : mayEdit && <MarkContactedButton lead={item.lead} />}
+        {item.kind === "task" && <TaskActions task={item.task} />}
+        {item.kind === "new-lead" && mayEdit && <MarkContactedButton lead={item.lead} />}
+        {item.kind === "quote-opened" && mayEdit && <QuoteDoneButton lead={item.lead} />}
       </ItemActions>
     </Item>
   );

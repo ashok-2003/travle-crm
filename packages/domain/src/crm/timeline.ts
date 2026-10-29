@@ -3,6 +3,7 @@
 // nothing listens to notes yet, so adding one publishes no event (P5).
 import {
   assignmentReason,
+  callOutcome,
   leadEventKind,
   leadSource,
   leadStage,
@@ -34,13 +35,17 @@ interface EntryRow {
   assignmentAway: boolean;
 }
 
-/** The notes, repeat enquiries and tasks a page of the lead's entries points to, by id. */
+/** The notes, calls, repeat enquiries and tasks a page of the lead's entries points to, by id. */
 async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
   const idsOf = (recordType: string) =>
     rows.flatMap((row) => (row.recordType === recordType && row.recordId !== null ? [row.recordId] : []));
   const notes = await tx.leadNote.findMany({
     where: { id: { in: idsOf("lead_note") } },
     select: { id: true, body: true },
+  });
+  const calls = await tx.leadCall.findMany({
+    where: { id: { in: idsOf("lead_call") } },
+    select: { id: true, outcome: true, note: true },
   });
   const enquiries = await tx.leadEnquiry.findMany({
     where: { id: { in: idsOf("lead_enquiry") } },
@@ -57,6 +62,7 @@ async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
     taskIds.size === 0 ? [] : (await listTasksOnRecord(tx, "lead", [leadId])).filter((task) => taskIds.has(task.id));
   return {
     notes: new Map(notes.map((note) => [note.id, note.body])),
+    calls: new Map(calls.map((call) => [call.id, { outcome: callOutcome.parse(call.outcome), note: call.note }])),
     enquiries: new Map(
       enquiries.map((enquiry) => [
         enquiry.id,
@@ -100,6 +106,10 @@ function entryOf(
     case "note": {
       const body = pointed.notes.get(target);
       return body === undefined ? null : { ...base, kind, body };
+    }
+    case "call": {
+      const call = pointed.calls.get(target);
+      return call === undefined ? null : { ...base, kind, callId: target, ...call };
     }
     case "stage-changed":
       return row.stage === null ? null : { ...base, kind, stage: leadStage.parse(row.stage) };

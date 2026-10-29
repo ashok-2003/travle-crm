@@ -59,6 +59,7 @@ import {
   runDueWork,
   WHATSAPP_TEMPLATES_QUEUE,
 } from "@travel-crm/domain/inbox";
+import { MORNING_PUSH_QUEUE, runMorningPush } from "@travel-crm/domain/today";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
 import {
   customerWroteListener,
@@ -126,6 +127,7 @@ export interface WorkerJobDependencies {
   identity: Pick<
     Identity,
     | "organizationProfile"
+    | "organizationsPage"
     | "memberContacts"
     | "inviteListener"
     | "firstOwner"
@@ -483,6 +485,16 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               },
             },
           ]),
+      {
+        // Each person's morning summary push, at the time they chose in their agency's zone (release 5): looked for every
+        // 15 minutes, one push a person a day.
+        queue: MORNING_PUSH_QUEUE,
+        cron: "*/15 * * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await runMorningPush({ db, identity, subscriptions, logger }, new Date());
+        },
+      },
       {
         // Rate-limit windows last a minute; a day's worth is kept for looking into abuse. The job is the platform's,
         // not an organization's, so it runs in a fixed zone: India time, a quiet hour for the agencies it serves.

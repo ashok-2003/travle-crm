@@ -229,7 +229,12 @@
     "GSTIN_REQUIRED": "Save your GSTIN in the business details before you issue an invoice with tax.",
     "TOO_MANY_INSTALLMENTS": "A quote has 12 payments due at most.",
     "NAME_REQUIRED": "Type your name to accept.",
-    "PACKAGE_NAME_TAKEN": "Another package already has this name."
+    "PACKAGE_NAME_TAKEN": "Another package already has this name.",
+    "CALL_LOCKED": "A call can be changed for a day after you write it, by you. After that, ask an Owner or Admin.",
+    "LEAD_HAS_NO_PHONE": "This lead has no phone number.",
+    "NO_PUSH_DEVICE": "Turn on notifications on your phone first, then try again.",
+    "DIALING_TOO_FAST": "Too many calls sent in a minute. Wait a little.",
+    "INVALID_MORNING_SETTING": "Choose a time on the quarter hour."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

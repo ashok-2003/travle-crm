@@ -2,6 +2,7 @@
 // tags on a chat, quick replies typed with "/", pinning and archiving a chat, and a member's read mark.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
+import { libraryMessageBody } from "./blanks.js";
 
 export const MAX_TAGS_ON_A_CHAT = 10;
 /** The quick reply whose words are also the reply bar's Payment details. */
@@ -36,7 +37,7 @@ export const quickReplyList = z.array(quickReply);
 export const quickReplyFields = {
   shortcut: quickReplyShortcut,
   title: z.string().trim().min(1).max(80),
-  body: z.string().trim().min(1).max(4096),
+  body: libraryMessageBody,
 };
 export const createQuickReplyInput = z.strictObject(quickReplyFields);
 export type CreateQuickReplyInput = z.infer<typeof createQuickReplyInput>;

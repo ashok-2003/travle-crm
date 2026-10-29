@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWriteAccess } from "@/subscription/write-access";
+import { BlanksCheatSheet } from "./blanks-cheat-sheet";
 import { QuickReplyDialog } from "./quick-reply-dialog";
 import { useDeleteTag, useQuickReplies, useSaveQuickReply, useTags } from "./use-inbox-tools";
 
@@ -136,6 +137,7 @@ export function QuickRepliesSection() {
         <QuickReplyDialog />
       </div>
       <p className="max-w-[65ch] text-muted-foreground">{t("intro")}</p>
+      <BlanksCheatSheet />
       {body()}
     </section>
   );

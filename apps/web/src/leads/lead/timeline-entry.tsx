@@ -9,12 +9,20 @@
 import type { PeopleNames, TimelineEntry } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
-import { StatusDot } from "@/components/status-badge";
+import { StatusDot, type StatusTone } from "@/components/status-badge";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { formatDayTime } from "@/lib/format";
+import { CallEntryActions } from "../call/call-entry-actions";
 import { useMe } from "@/session/me-context";
 import { StageDot } from "../stage-badge";
 import { useTripLine } from "../trip-line";
+
+const callTones: Record<Extract<TimelineEntry, { kind: "call" }>["outcome"], StatusTone> = {
+  spoke: "good",
+  no_answer: "attention",
+  busy: "attention",
+  wrong_number: "bad",
+};
 
 const taskWords = {
   "follow-up-added": { "follow-up": "followUpAdded", task: "taskAdded" },
@@ -22,7 +30,15 @@ const taskWords = {
   "follow-up-cancelled": { "follow-up": "followUpCancelled", task: "taskCancelled" },
 } as const;
 
-export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; people: PeopleNames }) {
+export function TimelineEntryItem({
+  entry,
+  people,
+  leadId,
+}: {
+  entry: TimelineEntry;
+  people: PeopleNames;
+  leadId: string;
+}) {
   const t = useTranslations("leads");
   const tripLine = useTripLine();
   const { timeZone } = useMe().organization;
@@ -52,7 +68,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
     );
   };
 
-  const describe = (): { title: string; detail?: ReactNode; mark?: ReactNode } => {
+  const describe = (): { title: string; detail?: ReactNode; mark?: ReactNode; actions?: ReactNode } => {
     switch (entry.kind) {
       case "created":
         return {
@@ -61,6 +77,24 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
         };
       case "note":
         return { title: t("lead.timeline.note"), detail: lines(entry.body) };
+      case "call":
+        return {
+          title: t("lead.timeline.call", { outcome: t(`call.note.outcomes.${entry.outcome}`) }),
+          detail: lines(entry.note),
+          mark: <StatusDot tone={callTones[entry.outcome]} className={inline} />,
+          actions: (
+            <CallEntryActions
+              leadId={leadId}
+              call={{
+                callId: entry.callId,
+                outcome: entry.outcome,
+                note: entry.note,
+                actorUserId: entry.actorUserId,
+                occurredAt: entry.occurredAt,
+              }}
+            />
+          ),
+        };
       case "stage-changed":
         return {
           title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }),
@@ -111,7 +145,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
     }
   };
 
-  const { title, detail, mark } = describe();
+  const { title, detail, mark, actions } = describe();
   const actor = entry.actorUserId === null ? t("lead.timeline.system") : nameOf(entry.actorUserId);
   return (
     <Item size="sm" role="listitem" className="px-0">
@@ -126,6 +160,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
           {t("lead.timeline.meta", { actor, when: at(entry.occurredAt) })}
         </ItemDescription>
         {detail}
+        {actions}
       </ItemContent>
     </Item>
   );

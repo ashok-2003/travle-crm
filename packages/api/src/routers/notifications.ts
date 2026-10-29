@@ -6,6 +6,8 @@
 import {
   listNotificationsInput,
   markReadInput,
+  morningSetting,
+  morningSettingInput,
   notificationPage,
   notificationPreference,
   notificationPreferenceInput,
@@ -14,10 +16,13 @@ import {
 } from "@travel-crm/contracts/notifications";
 import { DomainError } from "@travel-crm/domain/kernel";
 import {
+  getMorningSetting,
+  hasPushDevice,
   listNotifications,
   listPreferences,
   markRead,
   removePushSubscription,
+  saveMorningSetting,
   savePushSubscription,
   setPreference,
   unreadCount,
@@ -44,9 +49,28 @@ const preferencesRouter = router({
     ),
 });
 
+const morningRouter = router({
+  get: ownRows
+    .output(morningSetting)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => getMorningSetting(tx, ctx.member))),
+
+  /** Refused to support impersonating the person (IMPERSONATING): it is the person's own. */
+  set: ownRows
+    .input(morningSettingInput)
+    .output(morningSetting)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveMorningSetting(tx, ctx.member, input)),
+    ),
+});
+
 const pushRouter = router({
   /** The VAPID public key the browser subscribes with, from the api's settings: no key is built into the web app. */
   publicKey: ownRows.output(z.string()).query(({ ctx }) => ctx.pushPublicKey),
+
+  /** Whether any phone or browser of the person's is registered for push: "Send to my phone" needs one. */
+  hasDevice: ownRows
+    .output(z.boolean())
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => hasPushDevice(tx, ctx.member))),
 
   /**
    * Saves this browser's subscription for the person: within the organization, a shared browser moves to whoever
@@ -92,5 +116,6 @@ export const notificationsRouter = router({
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => markRead(tx, ctx.member, input))),
 
   preferences: preferencesRouter,
+  morning: morningRouter,
   push: pushRouter,
 });
