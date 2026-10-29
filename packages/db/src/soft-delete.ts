@@ -18,6 +18,7 @@ export const softDeleteModels: readonly string[] = [
   Prisma.ModelName.Quote,
   Prisma.ModelName.QuoteTemplate,
   Prisma.ModelName.AiKnowledge,
+  Prisma.ModelName.LeadCall,
 ];
 
 /** Operations that must neither see nor change deleted rows. Creates are unaffected; deletes and upserts are refused. */

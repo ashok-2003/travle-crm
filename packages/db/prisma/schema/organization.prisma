@@ -33,6 +33,7 @@ model Organization {
   shareLinkOpens              ShareLinkOpen[]
   notifications               Notification[]
   notificationPreferences     NotificationPreference[]
+  morningPushSettings         MorningPushSetting[]
   pushSubscriptions           PushSubscription[]
   auditEntries                AuditEntry[]
   profile                     OrganizationProfile?
@@ -40,6 +41,7 @@ model Organization {
   people                      Person[]
   leads                       Lead[]
   leadTimelineEntries         LeadTimelineEntry[]
+  leadCalls                   LeadCall[]
   leadNotes                   LeadNote[]
   leadEnquiries               LeadEnquiry[]
   blockedContacts             BlockedContact[]
