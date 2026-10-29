@@ -34,6 +34,9 @@ const required: Record<string, Permission> = {
   "leads.list": "leads:view",
   "leads.counts": "leads:view",
   "leads.owners": "leads:view",
+  "leads.messageLibrary": "leads:view",
+  "leads.messagePreview": "leads:view",
+  "leads.readyMessage": "leads:view",
   "leads.knownContact": "leads:view",
   "leads.get": "leads:view",
   "leads.timeline": "leads:view",
@@ -53,6 +56,7 @@ const required: Record<string, Permission> = {
   "blockedContacts.unblock": "leads:assign",
   "today.summary": "leads:view",
   "today.section": "leads:view",
+  "today.dismissQuoteOpened": "leads:edit",
 };
 
 /** A caller of the app router for a member holding every permission but one, on a plan with every module. */
