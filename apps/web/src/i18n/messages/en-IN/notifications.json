@@ -113,12 +113,30 @@
       "salesPaymentDue": {
         "label": "A customer's payment is due or missed",
         "hint": "We remind them on WhatsApp too, when Sales automation's reminders are on."
+      },
+      "callDial": {
+        "label": "Calls you send to your phone",
+        "hint": "The push that opens the dialler when you tap Send to my phone."
+      },
+      "todayMorning": {
+        "label": "Your morning summary",
+        "hint": "One push in the morning with the count of your day. Choose its time below."
       }
     },
     "loading": "Loading your choices",
     "loadFailed": "Your choices didn't load.",
     "noEmail": "You sign in without an email address, so no email is sent to you.",
-    "impersonating": "Only {name} can change these: what reaches them is their choice."
+    "impersonating": "Only {name} can change these: what reaches them is their choice.",
+    "morning": {
+      "heading": "Morning summary",
+      "label": "A push each morning with your day",
+      "hint": "Just the count, like \"8 things today, 2 overdue\". Nothing is sent on a day with nothing to do, or to a device with push off.",
+      "time": "Send it at",
+      "loadFailed": "Your morning summary setting didn't load.",
+      "loading": "Loading your morning summary setting",
+      "saved": "Saved",
+      "impersonating": "Only {name} can change this."
+    }
   },
   "push": {
     "heading": "On this device",

@@ -56,7 +56,7 @@ export function Timeline({ lead }: { lead: LeadDetail }) {
           {timeline.items.map((entry, index) => (
             <Fragment key={entry.id}>
               {index > 0 && <ItemSeparator />}
-              <TimelineEntryItem entry={entry} people={timeline.people} />
+              <TimelineEntryItem entry={entry} people={timeline.people} leadId={lead.id} />
             </Fragment>
           ))}
         </ItemGroup>

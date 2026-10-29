@@ -8,4 +8,4 @@ export { getMorningSetting, saveMorningSetting } from "./morning-setting.js";
 export { notify } from "./notify.js";
 export type { Person } from "./person.js";
 export { isOptedOut, listPreferences, setPreference } from "./preferences.js";
-export { removePushSubscription, savePushSubscription } from "./push-subscriptions.js";
+export { hasPushDevice, removePushSubscription, savePushSubscription } from "./push-subscriptions.js";

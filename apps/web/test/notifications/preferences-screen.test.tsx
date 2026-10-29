@@ -27,7 +27,7 @@ function withEmail(me: SignedInMember = member({ name: "Asha" })): SignedInMembe
 }
 
 function renderScreen(answers: Record<string, Answer>, me: SignedInMember = withEmail()) {
-  const api = stubApi(answers);
+  const api = stubApi({ "notifications.morning.get": { data: { enabled: true, time: "09:00" } }, ...answers });
   renderWithApi(<NotificationPreferencesScreen />, newQueryClient(), me);
   return api;
 }
@@ -122,5 +122,53 @@ describe("NotificationPreferencesScreen", () => {
     api.answer("notifications.preferences.list", choices([]));
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
     expect(await switchFor(preferences.everything.label, "email")).toBeChecked();
+  });
+});
+
+describe("the morning summary", () => {
+  const { morning } = preferences;
+
+  beforeEach(() => {
+    // Radix's select asks the browser for these.
+    Element.prototype.hasPointerCapture = () => false;
+    Element.prototype.releasePointerCapture = () => undefined;
+    Element.prototype.scrollIntoView = () => undefined;
+  });
+
+  it("is on at 9:00 for a person who never chose, and moves to the time they pick", async () => {
+    renderScreen({
+      "notifications.preferences.list": choices([]),
+      "notifications.morning.set": { data: { enabled: true, time: "07:45" } },
+    });
+    expect(await screen.findByRole("heading", { name: morning.heading })).toBeVisible();
+    const on = await screen.findByRole("switch", { name: morning.label });
+    expect(on).toBeChecked();
+    await userEvent.click(screen.getByRole("combobox", { name: morning.time }));
+    await userEvent.click(await screen.findByRole("option", { name: "7:45 am" }));
+    await waitFor(() => {
+      expect(sentInputs("notifications.morning.set")).toEqual([{ enabled: true, time: "07:45" }]);
+    });
+  });
+
+  it("switches off, and then offers no time", async () => {
+    renderScreen({
+      "notifications.preferences.list": choices([]),
+      "notifications.morning.set": { data: { enabled: false, time: "09:00" } },
+    });
+    await userEvent.click(await screen.findByRole("switch", { name: morning.label }));
+    await waitFor(() => {
+      expect(sentInputs("notifications.morning.set")).toEqual([{ enabled: false, time: "09:00" }]);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("combobox", { name: morning.time })).toBeNull();
+    });
+  });
+
+  it("can be seen but not changed by support impersonating the person", async () => {
+    renderScreen(
+      { "notifications.preferences.list": choices([]) },
+      withEmail(member({ name: "Asha", impersonatedBy: "0199a000-0000-7000-8000-0000000000ad" })),
+    );
+    expect(await screen.findByRole("switch", { name: morning.label })).toBeDisabled();
   });
 });

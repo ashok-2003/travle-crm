@@ -26,7 +26,7 @@ import {
   timelineInput,
   timelinePage,
 } from "@travel-crm/contracts/crm";
-import { filledMessage, messageForLeadInput } from "@travel-crm/contracts/inbox";
+import { filledMessage, messageForLeadInput, quickReplyList } from "@travel-crm/contracts/inbox";
 import { task } from "@travel-crm/contracts/tasks";
 import {
   addLeadNote,
@@ -45,6 +45,7 @@ import {
   reassignLead,
   reopenLead,
 } from "@travel-crm/domain/crm";
+import { listQuickReplies } from "@travel-crm/domain/inbox";
 import { previewMessage, readyMessage } from "@travel-crm/domain/sales";
 import { z } from "zod";
 import { leadWorkerIds, leadWorkerIdsIfOther } from "../lead-workers.js";
@@ -119,6 +120,11 @@ export const leadsRouter = router({
       ]);
       return { ...page, people: await memberNames(ctx.identity, organizationId, mentioned) };
     }),
+
+  /** The agency's message library, for the lead page's Messages: everyone who sees leads, with or without the inbox. */
+  messageLibrary: viewer
+    .output(quickReplyList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listQuickReplies(tx))),
 
   /** A library message with this lead's facts in its blanks, for looking at (the quote's link is made when it is used). */
   messagePreview: viewer

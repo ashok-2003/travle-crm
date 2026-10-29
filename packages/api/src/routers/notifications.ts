@@ -17,6 +17,7 @@ import {
 import { DomainError } from "@travel-crm/domain/kernel";
 import {
   getMorningSetting,
+  hasPushDevice,
   listNotifications,
   listPreferences,
   markRead,
@@ -65,6 +66,11 @@ const morningRouter = router({
 const pushRouter = router({
   /** The VAPID public key the browser subscribes with, from the api's settings: no key is built into the web app. */
   publicKey: ownRows.output(z.string()).query(({ ctx }) => ctx.pushPublicKey),
+
+  /** Whether any phone or browser of the person's is registered for push: "Send to my phone" needs one. */
+  hasDevice: ownRows
+    .output(z.boolean())
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => hasPushDevice(tx, ctx.member))),
 
   /**
    * Saves this browser's subscription for the person: within the organization, a shared browser moves to whoever
