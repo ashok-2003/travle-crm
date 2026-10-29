@@ -122,6 +122,8 @@ export interface WorkerSheets {
 
 /** The time zone an organization without a profile reads its working hours in. */
 const DEFAULT_TIME_ZONE = "Asia/Kolkata";
+/** How many webhooks the worker processes at once (each takes seconds against a distant database). */
+export const WEBHOOK_CONCURRENCY = 3;
 
 export interface WorkerJobDependencies {
   db: Database;
@@ -373,6 +375,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
+        // A few at once: each takes seconds against a distant database, and a customer's burst of messages would wait in
+        // a line. One body is at most 64 KB, and each message is saved under its chat's lock (a burst still makes one lead).
+        concurrency: WEBHOOK_CONCURRENCY,
         handle: async (data) => {
           await processWebhookJob({ db, providers: webhookProviders }, data);
         },
