@@ -6,7 +6,8 @@
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import { INBOX_POLL_MS, type ConversationFilter, type ConversationPeriod } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 
@@ -18,6 +19,13 @@ const UNSETTLED_POLL_MS = 5_000;
  * opening one always asks again, and the copy only fills the screen until the answer comes.
  */
 const LIVE = 0;
+
+/** Loads every inbox read again (the chats, a chat's header and messages): something changed that no poll has seen yet. */
+export function useRefreshInbox(): () => Promise<unknown> {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useCallback(() => queryClient.invalidateQueries({ queryKey: trpc.inbox.pathKey() }), [queryClient, trpc]);
+}
 
 export function useInboxStatus() {
   const trpc = useTRPC();

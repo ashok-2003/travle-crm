@@ -20,8 +20,8 @@
     "saved": "AI settings saved"
   },
   "suggest": {
-    "button": "Suggest reply",
-    "drafting": "Drafting…",
+    "button": "Suggest a reply",
+    "nothing": "The AI had no reply to suggest for this chat.",
     "draftedByAi": "Drafted by AI",
     "draftedHint": "Read it, change it, then send."
   },
@@ -231,7 +231,23 @@
       "default": "As the agency",
       "on": "On",
       "off": "Off"
-    }
+    },
+    "theAi": "The AI",
+    "reading": "{name} (AI) is reading…",
+    "readingUnnamed": "The AI is reading…",
+    "typing": "{name} (AI) is typing…",
+    "typingUnnamed": "The AI is typing…",
+    "barAnswering": "{name} is answering this chat. If you write, it waits 10 minutes.",
+    "barWorking": "{name} is replying now…",
+    "barOff": "You are answering this chat. The AI is off here.",
+    "barHandedOff": "Over to you: {reason}",
+    "takeOver": "Take over",
+    "letAnswer": "Let AI answer",
+    "barFlagged": "{name} flagged: {reason}. It's still answering; join any time.",
+    "followUpPlanned": "Next follow-up {when}",
+    "followUpWhy": "Next follow-up {when}: {why}",
+    "barPaused": "You wrote in this chat, so {name} waits until {until} so you two don't answer at once.",
+    "answerNow": "Let AI answer now"
   },
   "test": {
     "title": "Try it",

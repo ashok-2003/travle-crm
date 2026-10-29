@@ -8,6 +8,7 @@ import type { ChatMessage, ConversationNote } from "@travel-crm/contracts/inbox"
 import { ArrowDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { AiTyping } from "@/ai/ai-turn";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
@@ -186,6 +187,7 @@ function Loaded({
                   <Fragment key={index}>{row}</Fragment>
                 ))}
                 <PendingBubble conversationId={conversationId} />
+                <AiTyping conversationId={conversationId} />
               </ol>
             </div>
           </ScrollArea>
