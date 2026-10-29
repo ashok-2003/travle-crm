@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { messages } from "@/i18n/messages";
 
 export default async function AccountLayout({ children }: { children: ReactNode }) {
   const t = await getTranslations("account.brandPanel");
@@ -15,7 +16,18 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     { key: "followUps", icon: RepeatIcon },
   ] as const;
   return (
-    <NextIntlClientProvider>
+    // Only the words these screens read: the default would send every screen's words in each page's document, which
+    // Lighthouse's phone feels as a slower first paint of the sign-in page.
+    <NextIntlClientProvider
+      messages={{
+        account: messages.account,
+        common: messages.common,
+        errors: messages.errors,
+        forms: messages.forms,
+        vip: messages.vip,
+        welcome: messages.welcome,
+      }}
+    >
       <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
         <aside className="relative hidden overflow-hidden bg-sidebar p-12 text-sidebar-foreground lg:flex lg:flex-col lg:justify-between xl:p-16">
           {/* Two soft rings of light behind the words, in the panel's own colours. */}
