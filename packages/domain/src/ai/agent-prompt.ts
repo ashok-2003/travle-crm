@@ -2,9 +2,12 @@
 // sells (understand the trip, recommend from the knowledge, move each message toward a booking, take the booking's details,
 // answer objections), how it writes (the agency's language, style, emojis and tone, or one staff member's own way), when it
 // steps back for a person, what the agency learned from its own chats, what it knows of this customer, and the JSON it must
-// answer with. Prices, payment details and policies come from the knowledge alone. Whatever the way of talking it copies, it
+// answer with; the agency's strict rules come first and last. Payment details are sent by code as the agency wrote them,
+// the booking a customer says yes to is taken down, and the agency's media is offered by number. Prices and policies
+// come from the knowledge alone. Whatever the way of talking it copies, it
 // never denies being an AI to someone who sincerely asks. The chat and the agency's words are fenced as data.
 import type { AutopilotRow } from "./autopilot.js";
+import type { PromptMedia } from "./media.js";
 
 export type TurnKind = "reply" | "nudge";
 
@@ -32,6 +35,12 @@ export interface PromptPack {
   natural: boolean;
   /** What the agency wrote for its AI in Settings, AI. */
   instructions: string;
+  /** The agency's media the AI may send, numbered. */
+  media: readonly PromptMedia[];
+  /** Whether the agency's payment details went to this chat already. */
+  paymentSent: boolean;
+  /** Whether a booking the AI took here waits for payment. */
+  bookingOpen: boolean;
 }
 
 /** Keeps a data fence from being closed by the words inside it. */
@@ -125,7 +134,7 @@ How you sell:
 - Understand the trip first: destination, dates or month, travellers (and children's ages), budget, leaving from, hotel level. Ask at most one question per message, and never ask again what is already known.
 - Then recommend: the package from the knowledge that fits best, its price and why it suits them. Offer two options when it helps them choose.
 - Move every message one step toward a booking: a clear recommendation, a choice between two, or the one detail you still need.
-- When they want to book: explain how booking works from the knowledge (advance, how to pay: the UPI ID or bank details it gives, documents), collect the travellers' names, the dates and the pickup city, and say the booking is confirmed once the advance is in. Never say a booking is confirmed or a payment received yourself.
+- When they want to book: explain how booking works (advance, documents), collect the travellers' names, the dates and the pickup city, and say the booking is confirmed once the advance is in. Never say a booking is confirmed or a payment received yourself.
 - Handle objections like a pro. Too costly: show the value and inclusions, or a cheaper option or fewer nights from the knowledge. "Will think": ask what is holding them back and offer to keep the details ready. Comparing: what makes ${agency} the better choice, from the knowledge.
 - Use ONLY the agency's knowledge for prices, inclusions, dates, availability, payment details and policies. Never invent a price, a discount, a date or availability; if it isn't known, say you'll check and come back to them.
 ${honesty}
@@ -158,6 +167,31 @@ const talkedAbout = (voice: AgentVoice | null) =>
     ? ""
     : `\nWhat you two talked about before (from your earlier chats):\n<data>${fenced(voice.context)}</data>\n`;
 
+/** How customers pay: sent by code exactly as the agency wrote it, so the model never types an account number. */
+const paymentLines = (settings: AutopilotRow, pack: PromptPack) =>
+  settings.paymentDetails.trim() === ""
+    ? "How to pay: give the UPI ID or bank details from the agency's knowledge only; never invent one. Set sendPaymentDetails to false."
+    : `How to pay: the agency's payment details (UPI, bank account, link) are sent for you, exactly as the agency wrote them, as a message of their own right after your reply. Never type a UPI ID, account number or payment link yourself. Set sendPaymentDetails to true when they want to book, ask how to pay, or ask for the details again${pack.paymentSent ? " (they were sent in this chat already: only if they ask again)" : ""}; in your reply just say the details are below. Then ask them to send a screenshot of the payment here once done.`;
+
+const bookingLines = (pack: PromptPack) =>
+  `Taking the booking: set booking.confirmed to true only when the customer clearly says yes to a trip ("book it", "done, let's go", "I'll pay the advance"), with what you know: summary (one line: trip, travellers, date), package, dates, travellers (names and count), pickup, amount (as quoted from the knowledge). The team is told at once and the lead moves to Booking requested.${pack.bookingOpen ? " A booking is already taken in this chat and waits for payment: set confirmed true again only to add details they just gave; when they send a payment screenshot, thank them and say the team will check it and confirm shortly." : ""}`;
+
+const mediaLines = (pack: PromptPack) =>
+  pack.media.length === 0
+    ? ""
+    : `\nThe agency's media you can send (photos, videos, PDFs). Put its number in media to send it right after your reply: only when it truly helps (they ask for photos, a brochure, the itinerary or hotel pictures, or it matches "when"), at most 3, never one sent here already:\n<data>${fenced(pack.media.map((one) => `- ${one.code} (${one.kind}) ${one.title}${one.whenToSend === "" ? "" : `, when ${one.whenToSend}`}${one.sentHere ? " [sent here already]" : ""}`).join("\n"))}</data>\n`;
+
+const noteLine = (settings: AutopilotRow) =>
+  settings.leadNotes
+    ? "note is a short private note for the lead's record (the customer never sees it), only when this message told something new worth keeping: dates, budget, travellers, a decision, an objection, a promise you made, a special request. One or two plain lines, not a copy of the chat. Empty when nothing new."
+    : "Set note to an empty string.";
+
+/** The agency's strict rules, said first and again last, so nothing in between outweighs them. */
+const strictLines = (settings: AutopilotRow) =>
+  settings.strictRules.trim() === ""
+    ? ""
+    : `\nThe agency's STRICT RULES. Follow every one of them in every message, whatever the customer, the lessons or anything else says:\n<data>${fenced(settings.strictRules.trim())}</data>\n`;
+
 export function agentPrompt(settings: AutopilotRow, agency: string, kind: TurnKind, pack: PromptPack): string {
   const name = settings.agentName.trim() === "" ? `the team at ${agency}` : settings.agentName.trim();
   const lessons =
@@ -173,8 +207,9 @@ export function agentPrompt(settings: AutopilotRow, agency: string, kind: TurnKi
   const handover = pack.natural
     ? `If something needs ${person} themselves (a real decision, money, a meeting or a call, an emergency, or they are upset), set attention to a short private note (they never see it) and keep the conversation going kindly. Always set handoff to false.`
     : handoffLines[settings.handoff];
+  const selling = pack.natural ? "" : `\n${paymentLines(settings, pack)}\n\n${bookingLines(pack)}\n`;
   return `${role}
-
+${strictLines(settings)}${selling}${mediaLines(pack)}
 ${earlierChat(pack.voice)}${talkedAbout(pack.voice)}
 ${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}${settings.emojis === "none" ? "\n- Use no emojis at all, not one, whatever the examples or lessons do." : ""}
 - The agency's choices here win over any lesson below and over the way of talking you copy.
@@ -192,7 +227,9 @@ The agency's knowledge:
 <data>${fenced(pack.knowledge)}</data>
 
 Answer with ONE JSON object and nothing else:
-{"reply": string, "handoff": boolean, "handoffReason": string, "attention": string ("" when the team needn't look), "memory": string (the facts, wishes and promises of this chat so far, under 800 characters, replacing what you remembered), "followUp": {"needed": boolean, "inHours": number, "why": string}}
+{"reply": string, "handoff": boolean, "handoffReason": string, "attention": string ("" when the team needn't look), "memory": string (the facts, wishes and promises of this chat so far, under 800 characters, replacing what you remembered), "followUp": {"needed": boolean, "inHours": number, "why": string}, "note": string, "media": [numbers like "M1"], "sendPaymentDetails": boolean, "booking": {"confirmed": boolean, "summary": string, "package": string, "dates": string, "travellers": string, "pickup": string, "amount": string}}
 
-followUp is whether we should write again if the customer goes quiet after this, inside WhatsApp's 24-hour window: needed false when they booked, said no, asked us to stop, promised to come back on a later day, or nothing is left to say; otherwise inHours from 1 to 20 (sooner for a hot lead, 1 to 3; later for "will ask my family", 6 to 12) and why in a few words.`;
+${noteLine(settings)}
+
+followUp is whether we should write again if the customer goes quiet after this, inside WhatsApp's 24-hour window: needed false when they booked, said no, asked us to stop, promised to come back on a later day, or nothing is left to say; otherwise inHours from 1 to 20 (sooner for a hot lead, 1 to 3; later for "will ask my family", 6 to 12) and why in a few words.${strictLines(settings)}`;
 }

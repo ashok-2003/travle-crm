@@ -74,6 +74,7 @@ import {
   AI_NUDGES_QUEUE,
   aiChatResumedListener,
   aiCustomerWroteListener,
+  aiPaymentProofListener,
   aiDocumentListener,
   aiReplyHandler,
   runAiLearning,
@@ -216,13 +217,17 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           checkIntervalSeconds: sheets.checkIntervalSeconds ?? defaultCheckIntervalSeconds,
           baselineFingerprints: leadSheetBaselineFingerprints(db, sheets.hashes),
         };
-  // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name.
+  // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
+  const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
+  // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name, with its media.
   const autopilotJobs = (model: AiModel) => ({
     db,
     ai: model,
     subscriptions,
     agencyName: async (organizationId: string) =>
       (await identity.organizationProfile(organizationId))?.name ?? "the agency",
+    files,
+    managers: bookingManagers,
   });
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
   // Sales execution: the agency's name and the lead owner's for the WhatsApp blanks, in the agency's own time.
@@ -332,6 +337,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // What the agency tells its AI to know: an uploaded document's words are read (no AI call), and, for an agency with the
       // AI on, a lead is scored once for each burst of the customer's messages.
       aiDocumentListener({ files, readText: documentText }),
+      // A photo or PDF from a customer whose AI booking waits for payment is kept as their proof; the team is told.
+      aiPaymentProofListener({ recipients: bookingManagers }),
       ...(dependencies.jobs === undefined || ai === null
         ? []
         : [

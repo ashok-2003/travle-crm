@@ -5,11 +5,13 @@
 // window, never to someone who asked to stop (in a chat with no person linked too), while the autopilot is on in the chat,
 // no person is answering it and the day's count has room; prices and payment details come only from the knowledge, and a
 // booking or a payment is confirmed only by a person. Every message it sends is marked as the AI's in the chat
-// (clientToken "ai:...") and audited; every call's tokens are kept.
+// (clientToken "ai:...") and audited; every call's tokens are kept. After the words go the agency's payment details
+// (exactly as it wrote them) when the AI says so, then the media it chose; a yes from the customer becomes a booking.
 import { agentAnswer, type AgentAnswer } from "@travel-crm/contracts/ai";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
+import type { Files } from "../files/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { chatOptedOut, queueSystemText, windowIsOpen } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
@@ -19,6 +21,8 @@ import { agentPrompt, type TurnKind } from "./agent-prompt.js";
 import { applyAnswer, type ChatFacts } from "./agent-effects.js";
 import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./agent-context.js";
 import { autopilotOf, type AutopilotRow } from "./autopilot.js";
+import { openBookingOf, takeBooking, type BookingRecipients } from "./booking.js";
+import { mediaForPrompt, sendChosenMedia } from "./media.js";
 import { activeLessons } from "./learning-store.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { aiEnabled } from "./settings.js";
@@ -34,10 +38,16 @@ export interface AgentDependencies {
   subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   /** The agency's name, for the AI to speak for. */
   agencyName: (organizationId: string) => Promise<string>;
+  /** Where the agency's media is kept, to send it. */
+  files: Files;
+  /** The agency's managers, told of every booking the AI takes. */
+  managers: BookingRecipients;
 }
 
 /** The marker of a message the AI wrote: its client token starts with this. */
 export const AI_TOKEN_PREFIX = "ai:";
+/** The token of the payment details' message in a chat: the AI's, after its reply. */
+const PAYMENT_TOKEN = "ai-pay:";
 
 /**
  * The model's answer, read leniently: the JSON object (words or a code fence around it are dropped, and a reply under
@@ -171,6 +181,11 @@ export async function runAgentTurn(
         .join(" "),
     );
     const instructions = (await tx.aiSettings.findFirst({ select: { instructions: true } }))?.instructions ?? "";
+    const paymentSent =
+      (await tx.whatsappMessage.findFirst({
+        where: { conversationId: chat.id, clientToken: { startsWith: PAYMENT_TOKEN } },
+        select: { id: true },
+      })) !== null;
     return {
       settings,
       chat,
@@ -183,6 +198,9 @@ export async function runAgentTurn(
       voice: await chatVoiceOf(tx, chat.id),
       natural: await naturalIn(tx, chat.id, settings),
       timeZone,
+      media: settings.sendMedia ? await mediaForPrompt(tx, chat.id) : [],
+      paymentSent,
+      bookingOpen: facts.leadId !== null && (await openBookingOf(tx, facts.leadId)) !== null,
     };
   });
   if (typeof prepared === "string") return prepared;
@@ -197,6 +215,9 @@ export async function runAgentTurn(
         voice: prepared.voice,
         natural: prepared.natural,
         instructions: prepared.instructions,
+        media: prepared.media,
+        paymentSent: prepared.paymentSent,
+        bookingOpen: prepared.bookingOpen,
       }),
     },
     asTranscript(prepared.history.messages, input.kind),
@@ -230,7 +251,9 @@ export async function runAgentTurn(
   }
   const answer = withSettings(asked.answer, prepared.settings, prepared.natural);
 
-  return db.forOrg(input.organizationId, async (tx) => {
+  const booking = answer.booking.confirmed && !prepared.natural;
+  const managers = booking ? await dependencies.managers(input.organizationId) : [];
+  const outcome = await db.forOrg(input.organizationId, async (tx) => {
     const sendReply = async () => {
       const reply = answer.reply.trim();
       if (reply === "") return null;
@@ -255,9 +278,34 @@ export async function runAgentTurn(
           after: { kind: input.kind, model: result.model, length: reply.length },
         });
       }
-      return sent.ok ? "sent" : sent.code;
+      if (!sent.ok) return sent.code;
+      // The payment details as the agency wrote them, never as the model would type them.
+      const details = prepared.settings.paymentDetails.trim();
+      if (answer.sendPaymentDetails && details !== "" && !prepared.natural) {
+        const paid = await queueSystemText(
+          tx,
+          {
+            conversationId: prepared.chat.id,
+            body: details,
+            sentBy: null,
+            origin: "automation",
+            clientToken: `${PAYMENT_TOKEN}${input.token}`,
+            answers: !answer.handoff,
+          },
+          now,
+        );
+        if (paid.ok) {
+          await recordAudit(tx, systemActor(input.organizationId), {
+            action: "ai.message-sent",
+            entityType: "whatsapp_message",
+            entityId: paid.messageId,
+            after: { kind: "payment-details", model: result.model, length: details.length },
+          });
+        }
+      }
+      return "sent";
     };
-    return applyAnswer(tx, {
+    const done = await applyAnswer(tx, {
       organizationId: input.organizationId,
       chat: prepared.chat,
       settings: prepared.settings,
@@ -265,8 +313,31 @@ export async function runAgentTurn(
       answer,
       model: result.model,
       token: input.token,
+      leadId: prepared.facts.leadId,
       sendReply,
       now,
     });
+    if (booking) {
+      await takeBooking(tx, {
+        organizationId: input.organizationId,
+        conversationId: prepared.chat.id,
+        leadId: prepared.facts.leadId,
+        booking: answer.booking,
+        recipients: managers,
+        now,
+      });
+    }
+    return done;
   });
+  // The media it chose, each as a message of its own after the words, once the reply went.
+  const replied = outcome === "replied" || outcome === "replied_flagged" || outcome === "handed_off";
+  if (replied && prepared.media.length > 0 && answer.media.length > 0) {
+    const chosen = prepared.media.filter((one) => answer.media.some((code) => code.trim().toUpperCase() === one.code));
+    await sendChosenMedia(
+      dependencies,
+      { organizationId: input.organizationId, conversationId: prepared.chat.id, chosen, token: input.token },
+      now,
+    );
+  }
+  return outcome;
 }

@@ -552,7 +552,9 @@
       "call": "Call: {outcome}",
       "callEdit": "Edit the call",
       "callEditNamed": "Edit the call with the outcome {outcome}",
-      "callDeleteNamed": "Delete the call with the outcome {outcome}"
+      "callDeleteNamed": "Delete the call with the outcome {outcome}",
+      "aiNote": "AI note",
+      "ai": "The AI"
     },
     "callCount": "{count, plural, one {# call} other {# calls}}",
     "messages": {

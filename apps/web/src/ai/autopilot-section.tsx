@@ -2,7 +2,8 @@
 
 // Settings, AI: the autopilot. The AI answering WhatsApp chats by itself is OFF until an Owner or Admin turns it on here, and
 // it needs the AI switched on above. What it does, what it never does and how it is kept in check (every message marked as the
-// AI's and audited, STOP and the 24-hour window obeyed, the shared monthly limit) are said in plain words next to the switch.
+// AI's and audited, STOP and the 24-hour window obeyed, the shared monthly limit) are said in plain words next to the switch;
+// its notes, media, payment details and strict rules are saved with it.
 import type { AutopilotSettings } from "@travel-crm/contracts/ai";
 import { aiEmojiLevels, aiHandoffPolicies, aiLanguages, aiPersonas, aiStyles, aiTones } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
@@ -18,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useWriteAccess } from "@/subscription/write-access";
+import { PaymentsCard } from "./payments-card";
 import { useSaveAutopilot } from "./use-ai";
 
 type Draft = Omit<AutopilotSettings, "learnedAt" | "voice">;
@@ -81,6 +83,10 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
     smartFollowUp: saved.smartFollowUp,
     learning: saved.learning,
     persona: saved.persona,
+    leadNotes: saved.leadNotes,
+    sendMedia: saved.sendMedia,
+    paymentDetails: saved.paymentDetails,
+    strictRules: saved.strictRules,
   });
   const set = <Key extends keyof Draft>(key: Key, value: Draft[Key]) => {
     setDraft((now) => ({ ...now, [key]: value }));
@@ -94,7 +100,13 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(
-          { ...draft, agentName: draft.agentName.trim(), languageOther: draft.languageOther.trim() },
+          {
+            ...draft,
+            agentName: draft.agentName.trim(),
+            languageOther: draft.languageOther.trim(),
+            paymentDetails: draft.paymentDetails.trim(),
+            strictRules: draft.strictRules.trim(),
+          },
           { onSuccess: () => toast.success(t("saved")) },
         );
       }}
@@ -286,6 +298,13 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
           </div>
         </CardContent>
       </Card>
+      <PaymentsCard
+        values={draft}
+        change={(patch) => {
+          setDraft((now) => ({ ...now, ...patch }));
+        }}
+        disabled={busy}
+      />
       <RefusalAlert error={save.error} />
       <Button type="submit" className="self-start" disabled={busy || !changed}>
         {save.isPending && <Spinner aria-hidden="true" />}

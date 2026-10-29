@@ -44,7 +44,8 @@ export const timelineEntry = z.discriminatedUnion("kind", [
     /** Who the lead went to and why, when the agency's assignment chose (spec 4.7); null for a lead added by hand. */
     assignment: assignedBy.extend({ ownerUserId: recordId.nullable() }).nullable(),
   }),
-  z.object({ ...entry, kind: z.literal("note"), body: z.string() }),
+  /** byAi: written by the AI from the lead's chat. */
+  z.object({ ...entry, kind: z.literal("note"), body: z.string(), byAi: z.boolean() }),
   z.object({
     ...entry,
     kind: z.literal("call"),

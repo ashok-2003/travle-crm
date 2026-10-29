@@ -121,6 +121,18 @@
       "todayMorning": {
         "label": "Your morning summary",
         "hint": "One push in the morning with the count of your day. Choose its time below."
+      },
+      "aiHandoff": {
+        "label": "The AI needs you in a chat",
+        "hint": "When the AI hands a chat over or flags something for the lead's owner."
+      },
+      "aiBooking": {
+        "label": "The AI took a booking",
+        "hint": "When a customer says yes to a trip in a chat the AI answers."
+      },
+      "aiPaymentProof": {
+        "label": "A customer sent a payment screenshot",
+        "hint": "When a customer whose booking waits for payment sends a photo or PDF."
       }
     },
     "loading": "Loading your choices",
@@ -161,5 +173,26 @@
   "account": {
     "label": "Notifications",
     "action": "Choose what reaches you"
+  },
+  "team": {
+    "title": "Team notifications",
+    "intro": "Choose who on your team gets emails, and who gets a copy of every important alert.",
+    "whatTitle": "What these mean",
+    "emailMeaning": "Email: the person gets their notifications by email too, not only in the app and on their phone.",
+    "copiesMeaning": "Copy of team alerts: the person also hears about every booking, payment screenshot, hot lead, unassigned lead and chat the AI needs help with, even when the lead isn't theirs.",
+    "own": "Each person can still turn kinds off for themselves in <link>their notifications</link>.",
+    "membersTitle": "Your team",
+    "membersDescription": "Bookings and payment screenshots are always emailed to the lead's owner and to whoever manages settings.",
+    "email": "Email",
+    "copies": "Copy of team alerts",
+    "noEmail": "No email address: signs in with a username",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "unsaved": "Unsaved changes",
+    "allSaved": "All changes saved",
+    "loadFailed": "Your team couldn't be loaded.",
+    "retry": "Try again",
+    "loading": "Loading your team"
   }
 }

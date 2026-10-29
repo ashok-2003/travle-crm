@@ -18,6 +18,7 @@ export const softDeleteModels: readonly string[] = [
   Prisma.ModelName.Quote,
   Prisma.ModelName.QuoteTemplate,
   Prisma.ModelName.AiKnowledge,
+  Prisma.ModelName.AiMedia,
   Prisma.ModelName.LeadCall,
 ];
 

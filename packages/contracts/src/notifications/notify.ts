@@ -4,7 +4,8 @@ import { recordId } from "../identity/fields.js";
 import { notificationChannel, notificationKind, notificationLink } from "./fields.js";
 
 export const notifyInput = z.strictObject({
-  recipientUserIds: z.array(recordId).min(1).max(500),
+  /** Who it is for; may be empty for a team alert, which still reaches the members chosen for its copies. */
+  recipientUserIds: z.array(recordId).max(500),
   /**
    * People to leave out, such as the person who acted when a listener (which has no acting person) notifies. A
    * request-time caller is left out automatically as the actor.

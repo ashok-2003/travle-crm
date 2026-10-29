@@ -1,5 +1,6 @@
 // The agency's autopilot settings (AI step 2): whether the AI answers WhatsApp chats by itself, how it speaks, when it
-// follows up and whose way of talking it copies. Off until an Owner or Admin (ai:manage) turns it on, and only for an
+// follows up, whose way of talking it copies, whether it writes notes on leads and sends the agency's media, how
+// customers pay and the rules it always follows. Off until an Owner or Admin (ai:manage) turns it on, and only for an
 // agency that has the AI switched on; every change is audited with what changed, never the words typed in.
 import { autopilotSettings, type AutopilotSettings, type SaveAutopilotInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
@@ -25,6 +26,10 @@ export interface AutopilotRow {
   voiceName: string | null;
   voiceProfile: string | null;
   voiceExamples: string[];
+  leadNotes: boolean;
+  sendMedia: boolean;
+  paymentDetails: string;
+  strictRules: string;
 }
 
 export const autopilotDefaults: AutopilotRow = {
@@ -45,6 +50,10 @@ export const autopilotDefaults: AutopilotRow = {
   voiceName: null,
   voiceProfile: null,
   voiceExamples: [],
+  leadNotes: true,
+  sendMedia: true,
+  paymentDetails: "",
+  strictRules: "",
 };
 
 const columns = {
@@ -65,6 +74,10 @@ const columns = {
   voiceName: true,
   voiceProfile: true,
   voiceExamples: true,
+  leadNotes: true,
+  sendMedia: true,
+  paymentDetails: true,
+  strictRules: true,
 } as const;
 
 /** The agency's autopilot settings, the defaults (everything off) when it saved none. */

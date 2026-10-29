@@ -76,7 +76,7 @@ export function TimelineEntryItem({
           ...(entry.assignment && { detail: assignmentLines(entry.assignment) }),
         };
       case "note":
-        return { title: t("lead.timeline.note"), detail: lines(entry.body) };
+        return { title: entry.byAi ? t("lead.timeline.aiNote") : t("lead.timeline.note"), detail: lines(entry.body) };
       case "call":
         return {
           title: t("lead.timeline.call", { outcome: t(`call.note.outcomes.${entry.outcome}`) }),
@@ -146,7 +146,12 @@ export function TimelineEntryItem({
   };
 
   const { title, detail, mark, actions } = describe();
-  const actor = entry.actorUserId === null ? t("lead.timeline.system") : nameOf(entry.actorUserId);
+  const ai = entry.kind === "note" && entry.byAi;
+  const actor = ai
+    ? t("lead.timeline.ai")
+    : entry.actorUserId === null
+      ? t("lead.timeline.system")
+      : nameOf(entry.actorUserId);
   return (
     <Item size="sm" role="listitem" className="px-0">
       <ItemContent>

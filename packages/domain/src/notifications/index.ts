@@ -9,3 +9,4 @@ export { notify } from "./notify.js";
 export type { Person } from "./person.js";
 export { isOptedOut, listPreferences, setPreference } from "./preferences.js";
 export { hasPushDevice, removePushSubscription, savePushSubscription } from "./push-subscriptions.js";
+export { saveTeamRouting, TEAM_ALERT_KINDS, teamRoutingOf, type TeamRoutingRow } from "./routing.js";
