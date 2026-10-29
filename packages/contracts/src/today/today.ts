@@ -7,7 +7,14 @@ import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
 import { task } from "../tasks/tasks.js";
 
-export const todaySectionNames = ["overdue", "payments-due", "new-leads", "quote-opened", "due-today"] as const;
+export const todaySectionNames = [
+  "overdue",
+  "payments-due",
+  "trip-details",
+  "new-leads",
+  "quote-opened",
+  "due-today",
+] as const;
 export const todaySectionName = z.enum(todaySectionNames);
 export type TodaySectionName = z.infer<typeof todaySectionName>;
 
@@ -22,8 +29,13 @@ export const leadBrief = z.object({
 export type LeadBrief = z.infer<typeof leadBrief>;
 
 export const todayItem = z.discriminatedUnion("kind", [
-  /** A follow-up or task, with its lead when it is on one. */
-  z.object({ kind: z.literal("task"), task, lead: leadBrief.nullable() }),
+  /** A follow-up or task, with its lead when it is on one, and its booking when it is on one (release 6). */
+  z.object({
+    kind: z.literal("task"),
+    task,
+    lead: leadBrief.nullable(),
+    booking: z.object({ id: recordId, number: z.string() }).nullable(),
+  }),
   /** A lead still in New: since when it has waited. */
   z.object({ kind: z.literal("new-lead"), lead: leadBrief, waitingSince: z.iso.datetime() }),
   /** A customer opened the quote over a day ago and has been quiet since (release 5). */
@@ -33,6 +45,16 @@ export const todayItem = z.discriminatedUnion("kind", [
     quote: z.object({ id: recordId, title: z.string() }),
     opens: z.int(),
     lastOpenedAt: z.iso.datetime(),
+  }),
+  /** A trip leaving within two weeks while a traveller's details are still missing (release 6). */
+  z.object({
+    kind: z.literal("trip-details"),
+    lead: leadBrief,
+    bookingId: recordId,
+    number: z.string(),
+    startDate: calendarDate,
+    missing: z.int(),
+    total: z.int(),
   }),
   /** An instalment of an accepted quote that is due soon or missed, not yet covered by what was paid (release 5). */
   z.object({
@@ -56,9 +78,10 @@ export const todaySummary = z.object({
     dueToday: z.int(),
     quoteOpened: z.int(),
     paymentsDue: z.int(),
+    tripDetails: z.int(),
   }),
   /** The first of each section, as far as there are any, in the order Today shows them. */
-  top: z.array(todayItem).max(5),
+  top: z.array(todayItem).max(6),
 });
 export type TodaySummary = z.infer<typeof todaySummary>;
 

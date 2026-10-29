@@ -11,6 +11,7 @@ export {
   type DocumentContext,
 } from "./quote-documents.js";
 export { deletePackage, duplicateQuote, listPackages, quoteFromPackage, savePackage } from "./packages.js";
+export { quoteOwedSql, quoteSalesSql, quoteTaxSql } from "./sales-sql.js";
 export { eraseQuoteParts, type QuotesErased } from "./erasure.js";
 export { findQuoteInScope } from "./quote-rows.js";
 export {

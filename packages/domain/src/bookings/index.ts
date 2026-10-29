@@ -42,6 +42,7 @@ export {
   publicTripOf,
   type PublicTrip,
 } from "./public-trip.js";
+export { publicUploadRecord, publicUploadTarget, type UploadTarget } from "./public-uploads.js";
 export { getBooking, listBookings, listLeadBookings } from "./reads.js";
 export {
   BOOKING_REMINDERS_QUEUE,
