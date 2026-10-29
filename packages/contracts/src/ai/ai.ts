@@ -5,11 +5,13 @@ import { z } from "zod";
 import { aiKnowledgeFileTypes, presignedUpload } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 
-export const AI_INSTRUCTIONS_MAX = 1500;
+export const AI_INSTRUCTIONS_MAX = 4000;
 
 /** What an Owner or Admin sets. Off until they turn it on. */
 export const saveAiSettingsInput = z.strictObject({
   enabled: z.boolean(),
+  /** The AI scores each lead from its chat: its chance to book, why and the next step. */
+  scoring: z.boolean(),
   /** What the agency tells its AI: its tone and language, what to offer, what never to say. */
   instructions: z.string().trim().max(AI_INSTRUCTIONS_MAX),
 });
@@ -17,6 +19,7 @@ export type SaveAiSettingsInput = z.infer<typeof saveAiSettingsInput>;
 
 export const aiSettings = z.object({
   enabled: z.boolean(),
+  scoring: z.boolean(),
   instructions: z.string(),
   /** False when this server has no AI key: the switch can be on but no suggestion is made, and the screen says so. */
   providerReady: z.boolean(),
@@ -42,7 +45,7 @@ export const suggestedReply = z.object({
 export type SuggestedReply = z.infer<typeof suggestedReply>;
 
 /** The largest document the agency gives its AI. */
-export const MAX_AI_KNOWLEDGE_BYTES = 5 * 1024 * 1024;
+export const MAX_AI_KNOWLEDGE_BYTES = 10 * 1024 * 1024;
 export const aiKnowledgeContentTypes = aiKnowledgeFileTypes;
 
 export const aiKnowledgeItem = z.object({
@@ -98,6 +101,8 @@ export const leadInsight = z.object({
   reasons: z.array(z.string()),
   fake: z.boolean(),
   fakeReason: z.string().nullable(),
+  /** A line or two on how the lead stands, written with the score. */
+  summary: z.string(),
   nextStep: z.string(),
   facts: insightFacts,
   updatedAt: z.iso.datetime(),
@@ -113,6 +118,7 @@ export const scoreAnswer = z.object({
   reasons: z.array(z.string().trim().max(200)).max(4).catch([]),
   fake: z.boolean().catch(false),
   fakeReason: z.string().trim().max(200).catch(""),
+  summary: z.string().trim().max(400).catch(""),
   nextStep: z.string().trim().max(300).catch(""),
   facts: insightFacts.partial().catch({}),
 });
