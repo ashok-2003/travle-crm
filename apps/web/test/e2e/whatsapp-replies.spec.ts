@@ -57,11 +57,12 @@ test("staff reply inside the window: the ticks follow MSG91's reports, a double 
   // The list opens on All now, so ask for the chats waiting for an answer.
   await owner.getByRole("radio", { name: "Waiting for reply" }).click();
   await expect(owner.getByRole("link", { name: /Rahul Mehta/ })).toHaveCount(0);
-  const firstReply = await inAgency(
-    agency.organizationId,
-    async (tx) => (await tx.lead.findFirstOrThrow()).firstReplyAt,
-  );
-  expect(firstReply).not.toBeNull();
+  // The worker's listener sets it after the send, so wait for it rather than read the row once.
+  await expect
+    .poll(() => inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).firstReplyAt), {
+      timeout: 60_000,
+    })
+    .not.toBeNull();
 
   // The ticks follow the reports: delivered, then read.
   await owner.goto("/inbox");
