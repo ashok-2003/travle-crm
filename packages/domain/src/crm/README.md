@@ -59,6 +59,12 @@ below it, never today above it (`business-modules-call-down`).
   every change on a lead starts with.
 - `timeline.ts`: `listLeadTimeline`, newest first, each entry with the note, repeat enquiry or task it points to (the
   tasks through the tasks module's `listTasksOnRecord`); `addLeadNote`, audited without its text (R28).
+- `calls.ts` (release 5): `logCall` (a call written up with its outcome, a note and, if asked, the next follow-up, in
+  one transaction under the lead's lock; Spoke on a New lead moves it to Contacted), `editCall` and `deleteCall` (soft;
+  by who wrote it in the first day, `CALL_EDIT_HOURS`, and by `leads:assign` at any time), `callTargetOf` and
+  `sendCallToMyPhone` (notify() the person's own device, "Call {name}" linking to `/call/<lead>`; no number in the push;
+  needs a registered device; rate limited through the limiter the router passes). A call's note is never copied into the
+  audit log or the `lead.call-logged` event.
 - `stage-changes.ts`: `moveLeadStage`, `reopenLead` (under the row's lock, to the open stage it left, R30) and
   `reassignLead`, through `lead-core.ts`.
 - `lead-edits.ts`: `editLeadTrip` (replaced whole, "trip edited" on the timeline) and `editLeadPerson`
@@ -77,7 +83,7 @@ below it, never today above it (`business-modules-call-down`).
   leaver's open leads, then their closed leads that still hold open work, then their standalone tasks go to the first
   Owner, 50 in a locked batch, until a batch selects none; the system's change, telling nobody (R27, R37).
 - `customer-erasure.ts`: `exportCustomer` (in the organization's transaction: the person, their leads with trips,
-  notes, enquiries and tasks) and `eraseCustomer` (on the platform's transaction; `platform/erase-customer.ts` runs
+  notes, calls, enquiries and tasks) and `eraseCustomer` (on the platform's transaction; `platform/erase-customer.ts` runs
   it with the leads' tasks, notifications and files).
 - `demo-leads.ts` and `demo-lead-data.ts`: `addDemoLeads`, the demo agency's destinations, people and leads, built
   through the same cores the screens use, inside the nightly reset.
