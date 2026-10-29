@@ -6,7 +6,6 @@ import type { OrgTx } from "@travel-crm/db";
 import { leadInsights } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { addDays, calendarDateIn, startOfDayIn } from "../kernel/index.js";
-import { salesByOwner } from "../quotes/index.js";
 import { countOverdueTasks, overdueByAssignee } from "../tasks/index.js";
 import { daysOf, periodDays } from "./period.js";
 
@@ -36,15 +35,12 @@ export async function dashboardFigures(
     timeZone,
   });
   const leadsOn = new Map(insights.perDay.map((row) => [row.day, row.leads]));
-  // The team's leaderboard: each person's sales in the period and their follow-ups missed now.
-  const teamIds = insights.team.map((row) => row.userId);
-  const [overdue, sales] = await Promise.all([
-    overdueByAssignee(tx, teamIds, now),
-    salesByOwner(tx, {
-      from: startOfDayIn(days.first, timeZone),
-      to: startOfDayIn(addDays(days.last, 1), timeZone),
-    }),
-  ]);
+  // The team's leaderboard: each person's follow-ups missed now. Sales are money, so they live in Reports alone.
+  const overdue = await overdueByAssignee(
+    tx,
+    insights.team.map((row) => row.userId),
+    now,
+  );
   return {
     scope,
     from: days.first,
@@ -75,7 +71,6 @@ export async function dashboardFigures(
     team: insights.team.map((row) => ({
       ...row,
       overdue: overdue.get(row.userId) ?? 0,
-      salesPaise: sales.get(row.userId) ?? 0,
     })),
   };
 }

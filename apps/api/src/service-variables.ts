@@ -12,6 +12,22 @@ function emptyAsUnset<Schema extends z.ZodType>(schema: Schema) {
   return z.preprocess((value) => (value === "" ? undefined : value), schema);
 }
 
+/** Model names, comma-separated, as a provider spells them ("gemini-2.5-flash", "google/gemini-2.5-flash"). */
+const modelList = z
+  .string()
+  .transform((text) =>
+    text
+      .split(",")
+      .map((model) => model.trim())
+      .filter((model) => model !== ""),
+  )
+  .pipe(
+    z
+      .array(z.string().regex(/^[\w./:-]+$/, "must be model names, comma separated"))
+      .min(1)
+      .max(5),
+  );
+
 export const serviceVariables = {
   /** Where people open the web app: links in emails and pushes point there, and password resets come back to it. */
   APP_URL: httpUrl.default("http://localhost:3000"),
@@ -121,6 +137,64 @@ export const serviceVariables = {
     z.string().refine(isWebhookToken, "must be 32 or more letters, digits, - or _ (`openssl rand -hex 32`)").optional(),
   ),
   MSG91_WEBHOOK_KEY: emptyAsUnset(z.string().min(32, "must be at least 32 characters").optional()),
+  /**
+   * Suggest reply's AI (ADR 0029): OpenRouter's key, from openrouter.ai, with zero data retention asked of every request.
+   * Unset: the feature says the AI isn't set up. Never printed or logged.
+   */
+  OPENROUTER_API_KEY: emptyAsUnset(z.string().min(16, "must be an OpenRouter API key").optional()),
+  /**
+   * The models Suggest reply tries, in order, the first answering one used: OpenRouter slugs, comma separated, each one with
+   * a zero-data-retention provider. Changing a model is a change of this setting, not of code.
+   */
+  AI_SUGGEST_MODELS: emptyAsUnset(
+    z
+      .string()
+      .transform((text) =>
+        text
+          .split(",")
+          .map((model) => model.trim())
+          .filter((model) => model !== ""),
+      )
+      .pipe(
+        z
+          .array(z.string().regex(/^[\w.-]+\/[\w.:-]+$/, "must be OpenRouter model slugs like google/gemini-2.5-flash"))
+          .min(1)
+          .max(5),
+      )
+      .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
+  ),
+  /** The models lead scoring tries, in order (OpenRouter slugs, each with a zero-data-retention endpoint). */
+  AI_SCORE_MODELS: emptyAsUnset(
+    z
+      .string()
+      .transform((text) =>
+        text
+          .split(",")
+          .map((model) => model.trim())
+          .filter((model) => model !== ""),
+      )
+      .pipe(
+        z
+          .array(z.string().regex(/^[\w.-]+\/[\w.:-]+$/, "must be OpenRouter model slugs like google/gemini-2.5-flash"))
+          .min(1)
+          .max(5),
+      )
+      .default(["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"]),
+  ),
+  /**
+   * The same AI on any OpenAI-compatible endpoint, called directly (the owner, 2026-10-29): AI_BASE_URL (OpenRouter's when
+   * unset; Google's Gemini is https://generativelanguage.googleapis.com/v1beta/openai), AI_API_KEY and the models, comma
+   * separated and tried in order: AI_CHAT_MODELS write and score for every feature, AI_FAST_MODELS only score leads (the
+   * chat ones when unset). With AI_API_KEY set they replace OPENROUTER_API_KEY and its model lists. OpenRouter's own
+   * zero-data-retention routing is sent to OpenRouter alone; AI_ZERO_RETENTION=false turns it off there (free models).
+   */
+  AI_BASE_URL: emptyAsUnset(httpUrl.optional()),
+  AI_API_KEY: emptyAsUnset(z.string().min(8, "must be the AI provider's API key").optional()),
+  AI_CHAT_MODELS: emptyAsUnset(modelList.optional()),
+  AI_FAST_MODELS: emptyAsUnset(modelList.optional()),
+  AI_ZERO_RETENTION: emptyAsUnset(z.stringbool().optional()),
+  /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */
+  AI_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake MSG91 (development and tests only; refused in production). */
   MSG91_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake Graph (development and tests only; refused in production). */
@@ -129,37 +203,6 @@ export const serviceVariables = {
   GOOGLE_SHEETS_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** How often a sheet is checked, in seconds (120 by default); the journeys shorten it (development and tests only). */
   SHEETS_CHECK_INTERVAL_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(3600).optional()),
-  /**
-   * The AI sales agent (ADR 0029): any OpenAI-compatible chat API. OpenRouter by default; Google's Gemini is
-   * https://generativelanguage.googleapis.com/v1beta/openai, Groq's https://api.groq.com/openai/v1. Without
-   * AI_API_KEY the agent is off and its screens say so. The key is never printed or logged.
-   */
-  AI_BASE_URL: emptyAsUnset(httpUrl.optional()).transform((url) => url ?? "https://openrouter.ai/api/v1"),
-  AI_API_KEY: emptyAsUnset(z.string().min(8, "must be the AI provider's API key").optional()),
-  /**
-   * The models, comma-separated, tried in order when one is busy or down: the chat tier writes to customers, the fast
-   * tier only scores leads. Change them here and restart; nothing else changes.
-   */
-  AI_CHAT_MODELS: z
-    .string()
-    .default("google/gemini-2.5-flash")
-    .transform((value) =>
-      value
-        .split(",")
-        .map((model) => model.trim())
-        .filter((model) => model !== ""),
-    ),
-  AI_FAST_MODELS: z
-    .string()
-    .default("")
-    .transform((value) =>
-      value
-        .split(",")
-        .map((model) => model.trim())
-        .filter((model) => model !== ""),
-    ),
-  /** OpenRouter only: route to providers that keep no data (true by default). Its free models need false. */
-  AI_ZERO_RETENTION: z.stringbool().default(true),
   /**
    * What a million input and output tokens cost, in paise, for the console's usage analytics (both or neither); a free
    * model costs 0. Unset, the console shows no AI cost.

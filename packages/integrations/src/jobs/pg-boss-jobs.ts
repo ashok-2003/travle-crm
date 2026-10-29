@@ -1,37 +1,23 @@
 // The jobs port on pg-boss (spec 9.1): queues in Postgres, no extra server. pg-boss runs as app_runtime with
 // migrate: false; its schema comes from our migrations (ADR 0010).
 import { PgBoss } from "pg-boss";
-import { createPinoLogger, errorFields, type LogFields, type Logger, type LogLevel } from "../logging/index.js";
+import { createPinoLogger, errorFields, type LogFields, type LogLevel } from "../logging/index.js";
 import type { JobAdministration } from "./job-administration.js";
 import { assertJobId, assertQueueName, type JobData, type JobQueue } from "./job-queue.js";
 import type { JobRunner } from "./job-runner.js";
 import { failedJobsPage, toJobData } from "./pg-boss-failed-jobs.js";
-import { defaultRetryPolicy, type RetryPolicy } from "./retry-policy.js";
+import { pgBossOptionsOf, SCHEMA, type PgBossJobsSettings } from "./pg-boss-options.js";
+import { defaultRetryPolicy } from "./retry-policy.js";
 import { sanitizeJobError, toError } from "./sanitize-job-error.js";
 
-export interface PgBossJobsSettings {
-  /** Postgres as the app_runtime role. */
-  connectionString: string;
-  /** Size of pg-boss's own connection pool. */
-  maxConnections?: number;
-  /** Seconds between a worker's checks for new jobs (pg-boss's default is 2). */
-  pollingIntervalSeconds?: number;
-  /** How the queues this instance creates retry failed jobs. Tests shorten it; production keeps the default. */
-  retryPolicy?: RetryPolicy;
-  /**
-   * The structured log (ADR 0032). Each job a handler runs gets a `debug` line when it starts and an `info` line when it
-   * ends, with its queue, job id, organization (when its data names one), retry count and duration; a failing handler
-   * gets an `error` line with the error's name, code and frames. pg-boss's own errors (a failing maintenance query, a
-   * lost connection; with the queue when pg-boss names one) are `error` lines, its warnings `warn` lines in its own
-   * words, and failed-job rows that couldn't be read `warn` lines. Errors never show their messages, which can quote
-   * personal data. Without it, warnings and errors go to standard output as JSON.
-   */
-  logger?: Logger;
-}
+export type { PgBossJobsSettings } from "./pg-boss-options.js";
 
 export interface PgBossJobs extends JobQueue, JobRunner, JobAdministration {
   start(): Promise<void>;
-  /** Stops taking jobs, waits up to 30 seconds for running handlers to finish, and closes the pool. */
+  /**
+   * Stops taking jobs, waits for running handlers to finish (up to 30 seconds, or the settings' stopTimeoutSeconds), and
+   * closes the pool. A handler still running then is cut short; pg-boss runs its job again once its time is up.
+   */
   stop(): Promise<void>;
 }
 
@@ -44,9 +30,6 @@ function organizationOf(data: unknown): { organizationId?: string } {
   return typeof organizationId === "string" && UUID.test(organizationId) ? { organizationId } : {};
 }
 
-/** The schema our migrations create pg-boss in (migration 20261015100000_pgboss). */
-const SCHEMA = "pgboss";
-
 /** The longest an attempt may run: pg-boss refuses more (node_modules/pg-boss/dist/attorney.js, MAX_EXPIRATION_HOURS). */
 const MAX_EXPIRE_IN_SECONDS = 24 * 60 * 60;
 
@@ -54,14 +37,7 @@ const MAX_EXPIRE_IN_SECONDS = 24 * 60 * 60;
 const QUEUE_NOT_FOUND = "PGBOSS_QUEUE_NOT_FOUND";
 
 export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
-  const boss = new PgBoss({
-    connectionString: settings.connectionString,
-    schema: SCHEMA,
-    max: settings.maxConnections ?? 5,
-    // Our migrations own pg-boss's schema; the runtime role may not change it.
-    migrate: false,
-    createSchema: false,
-  });
+  const boss = new PgBoss(pgBossOptionsOf(settings));
   const logger = settings.logger ?? createPinoLogger({ process: "jobs", level: "warn" });
   function report(level: LogLevel, fields: LogFields, message: string): void {
     try {
@@ -110,7 +86,7 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
     start: async () => {
       await boss.start();
     },
-    stop: () => boss.stop({ graceful: true, timeout: 30_000 }),
+    stop: () => boss.stop({ graceful: true, timeout: (settings.stopTimeoutSeconds ?? 30) * 1000 }),
 
     async send(queue, data, options = {}) {
       if (options.id !== undefined) assertJobId(options.id);
@@ -167,7 +143,10 @@ export function createPgBossJobs(settings: PgBossJobsSettings): PgBossJobs {
 
     async schedule(queue, cron, { timeZone, data }) {
       await ensureQueue(queue);
-      await boss.schedule(queue, cron, data ?? {}, { tz: timeZone });
+      // A run that came due while no worker ran (a deploy, the night a daytime-only worker is stopped) is sent once
+      // when one runs again, however many were missed: every schedule's job works out what is due from the time it
+      // runs, so a late run catches up and a second one would find nothing.
+      await boss.schedule(queue, cron, data ?? {}, { tz: timeZone, missed: "once" });
     },
 
     async unschedule(queue) {

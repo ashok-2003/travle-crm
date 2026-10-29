@@ -4,27 +4,27 @@ import type { AiModel, AiRequest, AiResult } from "./ai-model.js";
 
 export interface MemoryAiModel extends AiModel {
   readonly requests: AiRequest[];
-  /** Queues the next answers, plain text or a JSON object. */
-  answer(...texts: (string | Record<string, unknown>)[]): void;
+  /** Queues the next answers: text, or a refusal like the provider being down. */
+  answer(...answers: (string | Extract<AiResult, { ok: false }>)[]): void;
 }
 
 export function createMemoryAiModel(): MemoryAiModel {
   const requests: AiRequest[] = [];
-  const answers: string[] = [];
+  const answers: (string | Extract<AiResult, { ok: false }>)[] = [];
   return {
     configured: true,
-    models: { chat: ["memory-chat"], fast: ["memory-fast"] },
     requests,
-    answer(...texts) {
-      for (const text of texts) answers.push(typeof text === "string" ? text : JSON.stringify(text));
+    answer(...next) {
+      answers.push(...next);
     },
     complete(request): Promise<AiResult> {
       requests.push(request);
-      const text = answers.shift();
+      const next = answers.shift();
+      if (next === undefined) return Promise.resolve({ ok: false, reason: "not_configured" });
       return Promise.resolve(
-        text === undefined
-          ? { ok: false, reason: "not_configured" }
-          : { ok: true, text, model: `memory-${request.tier}`, inputTokens: 0, outputTokens: 0 },
+        typeof next === "string"
+          ? { ok: true, text: next, model: "memory-model", inputTokens: 0, outputTokens: 0 }
+          : next,
       );
     },
   };

@@ -2,7 +2,7 @@
 // following it, choosing a new password and signing in with it; and a link that has expired or was used. The token
 // leaves the address bar as soon as the screen has read it (ADR 0006), and saving still sends it.
 import { expectAccessible } from "./support/accessibility";
-import { expect, test } from "./support/fixtures";
+import { expect, homeGreeting, test } from "./support/fixtures";
 import { resetLinkSentTo } from "./support/mailpit";
 
 test("the forgot-password screen explains both ways to get a new password", async ({ page }) => {
@@ -35,7 +35,7 @@ test("a forgotten password is reset from the emailed link, and the new one signs
   await page.getByRole("textbox", { name: "Email" }).fill(agency.owner.email);
   await page.getByLabel("Password", { exact: true }).fill(newPassword);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
 });
 
 test("an expired or used link offers a new one", async ({ page }) => {

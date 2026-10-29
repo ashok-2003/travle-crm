@@ -13,13 +13,14 @@ export async function downloadLink(
   { db, storage }: FilesDependencies,
   actor: MemberAccess,
   input: AttachmentRefInput,
+  options: { inline?: boolean } = {},
 ): Promise<DownloadLink> {
   const row = await db.forOrg(actor.organizationId, (tx) => findAttachment(tx, input));
   assertReady(row);
   if (row.sensitive && !actor.permissions.has("documents:view_sensitive")) {
     throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
   }
-  return presign(storage, row);
+  return presign(storage, row, options.inline === true);
 }
 
 /**
@@ -65,8 +66,11 @@ function assertReady(row: AttachmentRow): void {
   if (row.status !== "ready") throw new DomainError("NOT_FOUND", "ATTACHMENT_NOT_FOUND", "No such file");
 }
 
-async function presign(storage: ObjectStorage, row: AttachmentRow): Promise<DownloadLink> {
+async function presign(storage: ObjectStorage, row: AttachmentRow, inline = false): Promise<DownloadLink> {
   const expiresAt = new Date(Date.now() + DOWNLOAD_URL_SECONDS * 1000);
-  const url = await storage.presignDownload({ key: storageKeyOf(row), fileName: row.fileName }, DOWNLOAD_URL_SECONDS);
+  const url = await storage.presignDownload(
+    { key: storageKeyOf(row), fileName: row.fileName, inline, ...(inline ? { contentType: row.contentType } : {}) },
+    DOWNLOAD_URL_SECONDS,
+  );
   return { url, expiresAt };
 }

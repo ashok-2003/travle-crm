@@ -114,12 +114,20 @@
         "label": "A customer's payment is due or missed",
         "hint": "We remind them on WhatsApp too, when Sales automation's reminders are on."
       },
+      "callDial": {
+        "label": "Calls you send to your phone",
+        "hint": "The push that opens the dialler when you tap Send to my phone."
+      },
+      "todayMorning": {
+        "label": "Your morning summary",
+        "hint": "One push in the morning with the count of your day. Choose its time below."
+      },
       "aiHandoff": {
-        "label": "The AI assistant handed a chat to you",
-        "hint": "When a customer wants to book, pay, bargain or talk to a person."
+        "label": "The AI needs you in a chat",
+        "hint": "When the AI hands a chat over or flags something for the lead's owner."
       },
       "aiBooking": {
-        "label": "The AI assistant took a booking",
+        "label": "The AI took a booking",
         "hint": "When a customer says yes to a trip in a chat the AI answers."
       },
       "aiPaymentProof": {
@@ -130,7 +138,17 @@
     "loading": "Loading your choices",
     "loadFailed": "Your choices didn't load.",
     "noEmail": "You sign in without an email address, so no email is sent to you.",
-    "impersonating": "Only {name} can change these: what reaches them is their choice."
+    "impersonating": "Only {name} can change these: what reaches them is their choice.",
+    "morning": {
+      "heading": "Morning summary",
+      "label": "A push each morning with your day",
+      "hint": "Just the count, like \"8 things today, 2 overdue\". Nothing is sent on a day with nothing to do, or to a device with push off.",
+      "time": "Send it at",
+      "loadFailed": "Your morning summary setting didn't load.",
+      "loading": "Loading your morning summary setting",
+      "saved": "Saved",
+      "impersonating": "Only {name} can change this."
+    }
   },
   "push": {
     "heading": "On this device",

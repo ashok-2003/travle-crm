@@ -1,7 +1,7 @@
 "use client";
 
 // One entry of a lead's timeline (spec 3.4, R36) as a sentence: the lead's creation and where it came from, a note
-// (its words under it; the AI's own notes say so), a stage change, a reassignment, a follow-up or task added (what and when it is due), done or
+// (its words under it), a stage change, a reassignment, a follow-up or task added (what and when it is due), done or
 // cancelled, a repeat enquiry (its trip, source and note) and a trip edit; then who did it and when, in the agency's
 // zone. Nobody is "The system"; a name the page didn't carry is a former member's. A stage change carries its stage's
 // dot and a finished follow-up or task status green's (DESIGN.md "Stage Colours", "Green Is Done"); nothing else is
@@ -9,12 +9,20 @@
 import type { PeopleNames, TimelineEntry } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
-import { StatusDot } from "@/components/status-badge";
+import { StatusDot, type StatusTone } from "@/components/status-badge";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { formatDayTime } from "@/lib/format";
+import { CallEntryActions } from "../call/call-entry-actions";
 import { useMe } from "@/session/me-context";
 import { StageDot } from "../stage-badge";
 import { useTripLine } from "../trip-line";
+
+const callTones: Record<Extract<TimelineEntry, { kind: "call" }>["outcome"], StatusTone> = {
+  spoke: "good",
+  no_answer: "attention",
+  busy: "attention",
+  wrong_number: "bad",
+};
 
 const taskWords = {
   "follow-up-added": { "follow-up": "followUpAdded", task: "taskAdded" },
@@ -22,7 +30,15 @@ const taskWords = {
   "follow-up-cancelled": { "follow-up": "followUpCancelled", task: "taskCancelled" },
 } as const;
 
-export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; people: PeopleNames }) {
+export function TimelineEntryItem({
+  entry,
+  people,
+  leadId,
+}: {
+  entry: TimelineEntry;
+  people: PeopleNames;
+  leadId: string;
+}) {
   const t = useTranslations("leads");
   const tripLine = useTripLine();
   const { timeZone } = useMe().organization;
@@ -52,7 +68,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
     );
   };
 
-  const describe = (): { title: string; detail?: ReactNode; mark?: ReactNode } => {
+  const describe = (): { title: string; detail?: ReactNode; mark?: ReactNode; actions?: ReactNode } => {
     switch (entry.kind) {
       case "created":
         return {
@@ -61,6 +77,24 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
         };
       case "note":
         return { title: entry.byAi ? t("lead.timeline.aiNote") : t("lead.timeline.note"), detail: lines(entry.body) };
+      case "call":
+        return {
+          title: t("lead.timeline.call", { outcome: t(`call.note.outcomes.${entry.outcome}`) }),
+          detail: lines(entry.note),
+          mark: <StatusDot tone={callTones[entry.outcome]} className={inline} />,
+          actions: (
+            <CallEntryActions
+              leadId={leadId}
+              call={{
+                callId: entry.callId,
+                outcome: entry.outcome,
+                note: entry.note,
+                actorUserId: entry.actorUserId,
+                occurredAt: entry.occurredAt,
+              }}
+            />
+          ),
+        };
       case "stage-changed":
         return {
           title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }),
@@ -111,7 +145,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
     }
   };
 
-  const { title, detail, mark } = describe();
+  const { title, detail, mark, actions } = describe();
   const ai = entry.kind === "note" && entry.byAi;
   const actor = ai
     ? t("lead.timeline.ai")
@@ -131,6 +165,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
           {t("lead.timeline.meta", { actor, when: at(entry.occurredAt) })}
         </ItemDescription>
         {detail}
+        {actions}
       </ItemContent>
     </Item>
   );

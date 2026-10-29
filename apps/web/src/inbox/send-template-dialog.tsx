@@ -234,6 +234,7 @@ export function SendTemplateDialog({
       footer={
         <Button
           type="submit"
+          variant="send"
           form={formId}
           disabled={
             send.isPending || templates.length === 0 || (data?.optedOut === true && data.lastInboundAt === null)

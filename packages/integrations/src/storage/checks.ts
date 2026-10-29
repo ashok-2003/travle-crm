@@ -1,5 +1,6 @@
 // Checks every ObjectStorage adapter makes before it touches a key, a size or an expiry, so both adapters refuse the
 // same things.
+import { isInlineSafe } from "./content-disposition.js";
 
 /** S3's longest key. */
 const MAX_KEY_BYTES = 1024;
@@ -47,5 +48,13 @@ export function assertPositiveSize(sizeBytes: number): void {
 export function assertExpiry(expiresInSeconds: number): void {
   if (!Number.isInteger(expiresInSeconds) || expiresInSeconds <= 0 || expiresInSeconds > MAX_EXPIRY_SECONDS) {
     throw new RangeError(`A URL's lifetime must be 1 to ${String(MAX_EXPIRY_SECONDS)} seconds`);
+  }
+}
+
+/** An in-place link needs the type our record names, and only a type that is safe to show. */
+export function assertInlineAllowed(inline: boolean, contentType: string | undefined): void {
+  if (!inline) return;
+  if (contentType === undefined || !isInlineSafe(contentType)) {
+    throw new RangeError("A file can be opened in place only when it is a photo, a video, a voice note or a PDF");
   }
 }

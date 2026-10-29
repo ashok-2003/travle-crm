@@ -76,8 +76,6 @@ export const dashboard = z.object({
       medianFirstReplyMinutes: z.number().min(0).nullable(),
       /** Their follow-ups and tasks past their time, now. */
       overdue: count,
-      /** Quotes of their leads accepted in the period, before GST, in paise. */
-      salesPaise: z.int().min(0),
     }),
   ),
 });

@@ -1,11 +1,37 @@
-// Public API of @travel-crm/domain/ai: the AI sales agent (the owner's widening of ADR 0029, 2026-10-27 and 2026-10-28).
-// It answers customers on WhatsApp inside the window from the agency's knowledge and sells like a closer, follows quiet
-// ones up when it judges best, remembers each chat, flags the team or hands a chat to a person as the agency chose,
-// scores each lead, writes notes on leads, sends the agency's media and payment details, takes bookings (keeping the
-// customer's payment proof), and learns from the agency's chats. It sits above crm and inbox, which it calls; nothing below
-// calls it.
+// Public API of @travel-crm/domain/ai: the AI (ADR 0029; the owner's decisions of 2026-10-28): the agency's switch and
+// instructions, what it tells its AI to know, Suggest reply with its monthly limit and its audit, the AI's guess of how a
+// lead will go (it never moves a lead's stage), and the autopilot: the AI answering chats by itself, off until an Owner or
+// Admin turns it on, marking and auditing every message it sends, with nudges, a staff member's style and nightly lessons, notes on leads, the agency's media and payment details, and the
+// bookings it takes with the customer's payment proof. It sits above crm and inbox, which it calls;
+// nothing below calls it.
 export type { AiModel } from "@travel-crm/integrations/ai";
-export { AI_HANDOFF_KIND, agentAnswers, parseAnswer, runAgentTurn, type AgentDependencies } from "./agent.js";
+export { aiAllowed } from "./allowed.js";
+export { withdrawAiParts } from "./erasure.js";
+export { recordDraftSent } from "./drafts.js";
+export { AI_SCORE_QUEUE, leadInsightOf, scoreHandler, scoreLead, scoreOnCustomerWroteListener } from "./insight.js";
+export {
+  addKnowledge,
+  aiDocumentListener,
+  confirmDocument,
+  deleteKnowledge,
+  listKnowledge,
+  requestDocument,
+  updateKnowledge,
+} from "./knowledge.js";
+export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
+export { suggestReply } from "./suggest.js";
+export { MONTHLY_AI_LIMIT } from "./usage.js";
+export {
+  AI_NUDGES_QUEUE,
+  AI_REPLY_QUEUE,
+  AI_LEARN_QUEUE,
+  aiChatResumedListener,
+  aiCustomerWroteListener,
+  aiReplyHandler,
+  runAiLearning,
+  runAiNudges,
+} from "./agent-worker.js";
+export { AI_HANDOFF_KIND, AI_TOKEN_PREFIX, agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 export {
   AI_BOOKING_KIND,
   AI_PAYMENT_PROOF_KIND,
@@ -14,39 +40,12 @@ export {
   setBookingStatus,
   type BookingRecipients,
 } from "./booking.js";
-export {
-  chatAiOf,
-  leadInsightOf,
-  leadScoresOf,
-  resumeChat,
-  setChatMode,
-  suggestReply,
-  testAnswer,
-  type AiAssistDependencies,
-} from "./chat.js";
-export {
-  AI_DOCUMENT_ADDED_EVENT,
-  addKnowledge,
-  confirmDocument,
-  deleteKnowledge,
-  listKnowledge,
-  requestDocument,
-  updateKnowledge,
-} from "./knowledge.js";
 export { confirmMedia, deleteMedia, listMedia, mediaLink, requestMedia, updateMedia } from "./media.js";
+export { autopilotDefaults, autopilotOf, autopilotSettingsOf, saveAutopilot } from "./autopilot.js";
+export { AI_CHAT_RESUMED_EVENT, chatAiOf, resumeChat, setChatMode, setChatPersona } from "./chat-state.js";
 export { learnFromChats, learnNow, type LearnDependencies } from "./learning.js";
 export { listLearnings, setLearning } from "./learning-store.js";
 export { aiOverviewOf } from "./overview.js";
-export { agencyVoiceOf, clearVoice, learnVoice, setChatPersona } from "./voice.js";
-export { aiSettingsOf, defaultAiSettings, saveAiSettings } from "./settings.js";
-export {
-  AI_LEARN_QUEUE,
-  AI_NUDGES_QUEUE,
-  AI_REPLY_QUEUE,
-  aiChatResumedListener,
-  aiCustomerWroteListener,
-  aiDocumentListener,
-  aiReplyHandler,
-  runAiLearning,
-  runAiNudges,
-} from "./worker.js";
+export { testAnswer } from "./test-answer.js";
+export { clearVoice, learnVoice } from "./voice.js";
+export { clearChatVoice, learnChatVoice } from "./chat-voice.js";

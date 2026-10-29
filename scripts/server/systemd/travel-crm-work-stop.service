@@ -1,0 +1,10 @@
+# The night's state when the working hours end, from travel-crm-work-stop.timer: the worker stops (running jobs get up
+# to 2 minutes), the console keeps its pages with its jobs off. Installed by scripts/server/work-hours.sh.
+# Its log: journalctl -u travel-crm-work-stop
+[Unit]
+Description=travel-crm working hours: the night's state
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/travel-crm/app/scripts/server/work-hours.sh stop

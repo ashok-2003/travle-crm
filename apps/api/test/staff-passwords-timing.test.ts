@@ -4,6 +4,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestServer, type TestServer } from "./support/test-server.js";
 
+// A shared CI runner hashes several times slower than a laptop (25 took 8 s there, not 2 s) and stalls the event loop
+// for longer, so the wall-clock bounds are looser there; a hasher that blocked the loop for good would still miss them.
+const slowRunner = process.env.CI === undefined ? 1 : 4;
+
 describe("hashing a call's temporary passwords", () => {
   let server: TestServer;
 
@@ -25,7 +29,7 @@ describe("hashing a call's temporary passwords", () => {
     console.info("25 passwords hashed in", Math.round(ms), "ms");
     expect(hashes).toHaveLength(25);
     expect(new Set(hashes).size).toBe(25);
-    expect(ms).toBeLessThan(5000);
+    expect(ms).toBeLessThan(5000 * slowRunner);
   });
 
   it("leaves the event loop turning while it hashes", async () => {
@@ -42,6 +46,6 @@ describe("hashing a call's temporary passwords", () => {
     clearInterval(timer);
     console.info("longest wait of the event loop:", Math.round(longest), "ms");
     // One hash takes about 70 ms: no wait is longer than a few of them.
-    expect(longest).toBeLessThan(400);
+    expect(longest).toBeLessThan(400 * slowRunner);
   });
 });

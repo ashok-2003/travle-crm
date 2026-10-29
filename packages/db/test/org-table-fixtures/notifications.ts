@@ -1,4 +1,4 @@
-// Isolation fixtures for the notifications module: the bell, opt-outs, who hears what, and push subscriptions.
+// Isolation fixtures for the notifications module: the bell, opt-outs and push subscriptions.
 import type { OrgTableFixtures } from "../org-table-fixture.js";
 
 const someone = "0199e7a0-0000-7000-8000-00000000beef";
@@ -16,6 +16,10 @@ export const fixtures: OrgTableFixtures = {
   notification_preference: {
     create: (tx) =>
       tx.notificationPreference.create({ data: { userId: someone, channel: "email", kind: "*", optedOut: true } }),
+  },
+  morning_push_setting: {
+    create: (tx) => tx.morningPushSetting.create({ data: { userId: someone } }),
+    undeletable: true,
   },
   notification_routing: {
     create: (tx) => tx.notificationRouting.create({ data: { emailUserIds: [someone] } }),

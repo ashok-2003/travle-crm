@@ -201,7 +201,8 @@
       "departures": "Departures",
       "suppliers": "Suppliers",
       "accounts": "Accounts",
-      "reports": "Reports"
+      "reports": "Reports",
+      "ai": "AI suggestions"
     },
     "price": {
       "caption": {

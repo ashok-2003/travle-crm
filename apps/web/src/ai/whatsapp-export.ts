@@ -1,8 +1,8 @@
-// Reads a WhatsApp chat export (.txt, "Export chat" without media) in the browser, for the AI to learn one person's way of
-// talking: each message with its sender, from Android's "28/10/26, 9:41 pm - Name: text" and the iPhone's
+// Reads a WhatsApp chat export (.txt, "Export chat" without media) in the browser, for the AI to learn one staff member's
+// way of talking: each message with its sender, from Android's "28/10/26, 9:41 pm - Name: text" and the iPhone's
 // "[28/10/26, 9:41:03 PM] Name: text"; a message's later lines join it, and what WhatsApp writes itself (media left
-// out, deleted messages, missed calls, the encryption notice) is dropped. The chat's latest lines go to the AI, the
-// chosen person's marked as theirs.
+// out, deleted messages, missed calls, the encryption notice) is dropped. Only the chosen person's OWN messages are kept
+// for the upload: what the other side wrote never leaves the browser.
 import { MAX_VOICE_SAMPLE_CHARACTERS } from "@travel-crm/contracts/ai";
 
 export interface ExportedMessage {
@@ -51,8 +51,8 @@ export function sendersOf(messages: ExportedMessage[]): { name: string; count: n
 }
 
 /**
- * The chat's latest messages, both sides in order, within what one request may carry: `own` marks the chosen person's,
- * so the AI learns how they talk and what the two talked about.
+ * One chat's export for its own voice: the latest lines of both sides in order, the chosen person's marked as theirs. The
+ * other side's words go too (the AI reads what the two talked about); the agency-wide style never sends them.
  */
 export function conversationOf(messages: ExportedMessage[], sender: string): { own: boolean; text: string }[] {
   const chosen: { own: boolean; text: string }[] = [];
@@ -61,6 +61,23 @@ export function conversationOf(messages: ExportedMessage[], sender: string): { o
     const text = message.text.slice(0, 1000);
     if (text.length > left || chosen.length >= 1500) break;
     chosen.unshift({ own: message.sender === sender, text });
+    left -= text.length;
+  }
+  return chosen;
+}
+
+/**
+ * The chosen person's own latest messages, oldest first, within what one request may carry. Everything the other side
+ * wrote is dropped here, in the browser, before anything is sent.
+ */
+export function ownMessagesOf(messages: ExportedMessage[], sender: string): string[] {
+  const chosen: string[] = [];
+  let left = MAX_VOICE_SAMPLE_CHARACTERS;
+  for (const message of [...messages].reverse()) {
+    if (message.sender !== sender) continue;
+    const text = message.text.slice(0, 1000);
+    if (text.length > left || chosen.length >= 1500) break;
+    chosen.unshift(text);
     left -= text.length;
   }
   return chosen;

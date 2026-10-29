@@ -3,7 +3,7 @@
 // Writing a quote (step 3, P0): the trip (title, start, travellers), its plan a day at a time, the priced lines (what,
 // how many, the price of one), the GST rate, inclusions, exclusions and notes. Days and lines are added and removed in
 // place. The totals shown are a preview; the api works them out again on save, with GST split CGST and SGST.
-import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
+import { gstStates, paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { QuoteDetail, UpdateQuoteInput } from "@travel-crm/contracts/quotes";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -20,6 +20,7 @@ import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useWriteAccess } from "@/subscription/write-access";
+import { FrozenQuote } from "./frozen-quote";
 
 interface Values {
   title: string;
@@ -29,6 +30,8 @@ interface Values {
   days: { title: string; description: string }[];
   items: { description: string; detail: string; quantity: string; price: string }[];
   taxRate: string;
+  /** A GST state code, "OUTSIDE_INDIA", or "own" for the agency's own state (a select can't hold an empty value). */
+  placeOfSupply: string;
   inclusions: string;
   exclusions: string;
   notes: string;
@@ -47,6 +50,7 @@ const valuesOf = (quote: QuoteDetail): Values => ({
     price: rupeesFieldText(item.unitPricePaise),
   })),
   taxRate: String(quote.taxRateBasisPoints),
+  placeOfSupply: quote.placeOfSupply ?? "own",
   inclusions: quote.inclusions,
   exclusions: quote.exclusions,
   notes: quote.notes,
@@ -57,6 +61,9 @@ const dayField = <Key extends "title" | "description">(index: number, key: Key) 
   `days.${String(index)}.${key}` as `days.${number}.${Key}`;
 const itemField = <Key extends "description" | "detail" | "quantity" | "price">(index: number, key: Key) =>
   `items.${String(index)}.${key}` as `items.${number}.${Key}`;
+
+const placeOf = (value: string): UpdateQuoteInput["placeOfSupply"] =>
+  value === "OUTSIDE_INDIA" ? value : (gstStates.find((state) => state.code === value)?.code ?? null);
 
 const whole = (text: string) => (/^\d{1,4}$/.test(text.trim()) ? Number(text.trim()) : null);
 
@@ -91,7 +98,7 @@ function inputOf(quoteId: string, values: Values): UpdateQuoteInput | { problem:
     exclusions: values.exclusions.trim(),
     notes: values.notes.trim(),
     taxRateBasisPoints: rate === 0 || rate === 1800 ? rate : 500,
-    placeOfSupply: null,
+    placeOfSupply: placeOf(values.placeOfSupply),
   };
 }
 
@@ -125,12 +132,14 @@ export function QuoteForm({
   onSave: (input: UpdateQuoteInput) => void;
   sending: { isPending: boolean; error: unknown };
 }) {
+  // Only a draft is written: a sent quote keeps its prices, and a new version is the way to change it.
+  const frozen = quote.status !== "draft";
   const t = useTranslations("quotes.form");
   const access = useWriteAccess("change");
   const form = useForm<Values>({ defaultValues: valuesOf(quote) });
   const days = useFieldArray({ control: form.control, name: "days" });
   const items = useFieldArray({ control: form.control, name: "items" });
-  const busy = sending.isPending || !access.allowed;
+  const busy = sending.isPending || !access.allowed || frozen;
   const submit = form.handleSubmit((values) => {
     form.clearErrors();
     const input = inputOf(quote.id, values);
@@ -144,6 +153,8 @@ export function QuoteForm({
   const errorOf = (name: string) =>
     form.getFieldState(name as "title").error === undefined ? undefined : t("problem");
 
+  // A quote that was sent is read, not written: its words as text, with nothing to add or delete.
+  if (frozen) return <FrozenQuote quote={quote} />;
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
       <Card>
@@ -193,7 +204,7 @@ export function QuoteForm({
           ) : (
             <ItemGroup className="gap-3">
               {days.fields.map((day, index) => (
-                <Item key={day.id} variant="muted" className="items-start">
+                <Item key={day.id} variant="muted" role="listitem" className="items-start">
                   <ItemContent className="gap-2">
                     <FormField label={t("dayTitle", { day: index + 1 })}>
                       {(links) => (
@@ -260,7 +271,7 @@ export function QuoteForm({
           ) : (
             <ItemGroup className="gap-3">
               {items.fields.map((item, index) => (
-                <Item key={item.id} variant="muted" className="items-start">
+                <Item key={item.id} variant="muted" role="listitem" className="items-start">
                   <ItemContent className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
                     <FormField label={t("itemDescription")} error={errorOf(`items.${String(index)}.description`)}>
                       {(links) => (
@@ -334,6 +345,26 @@ export function QuoteForm({
               ]}
             />
             <Preview control={form.control} />
+            <SelectField
+              control={form.control}
+              name="placeOfSupply"
+              label={t("placeOfSupply")}
+              hint={t("placeOfSupplyHint")}
+              disabled={busy}
+              options={[
+                { value: "own", label: t("placeSame") },
+                ...gstStates.map((state) => ({
+                  value: state.code,
+                  label: (
+                    <span className="flex gap-2">
+                      <span className="numbers">{state.code}</span>
+                      <span className="script-leading">{state.name}</span>
+                    </span>
+                  ),
+                })),
+                { value: "OUTSIDE_INDIA", label: t("placeOutside") },
+              ]}
+            />
           </div>
         </CardContent>
       </Card>

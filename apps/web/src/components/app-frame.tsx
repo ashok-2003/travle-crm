@@ -32,7 +32,7 @@ export function AppFrame({
         {t("skipToContent")}
       </a>
       {sidebar}
-      <SidebarInset className="min-w-0 bg-surface">
+      <SidebarInset className="min-w-0">
         {above}
         {/* The skip link lands here, past the phone's top bar and the banners, on the page itself. A screen that marks
             itself `data-bleed` (the inbox) fills the frame edge to edge, like the chat apps it stands in for. */}

@@ -11,10 +11,13 @@ import { formatPhoneNumber } from "@/lib/format";
 import { CallButton, WhatsAppButton } from "../contact-buttons";
 import { ReturningBadge } from "../list/returning-badge";
 import { LeadMenu } from "./lead-menu";
+import { MessagesButton } from "./messages-dialog";
 
 export function LeadHeader({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads");
   const { name, phone, email, instagramHandle } = lead.person;
+  // Blocking a contact makes its lead Not a lead: no one is called from it any more.
+  const callable = lead.stage !== "not_a_lead";
   const contacts = [
     phone && (
       <span key="phone" className="numbers">
@@ -27,6 +30,7 @@ export function LeadHeader({ lead }: { lead: LeadDetail }) {
       </span>
     ),
     instagramHandle && <span key="handle">@{instagramHandle}</span>,
+    lead.callCount > 0 && <span key="calls">{t("lead.callCount", { count: lead.callCount })}</span>,
   ].filter(Boolean);
   const intro = (contacts.length > 0 || lead.returning) && (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -54,8 +58,9 @@ export function LeadHeader({ lead }: { lead: LeadDetail }) {
       {...(intro && { intro })}
       action={
         <div className="flex flex-wrap items-center gap-2">
-          {phone && <CallButton phone={phone} name={name} />}
+          {phone && callable && <CallButton phone={phone} name={name} leadId={lead.id} />}
           {phone && <WhatsAppButton phone={phone} name={name} />}
+          <MessagesButton leadId={lead.id} name={name} phone={phone} />
           <LeadMenu lead={lead} />
         </div>
       }

@@ -27,6 +27,26 @@ export async function listAttachments(
   });
 }
 
+/** The ready files of many records of one type in one query, by record id (a record with none has no entry). */
+export async function listAttachmentsOfRecords(
+  { db }: FilesDependencies,
+  actor: Actor,
+  recordType: string,
+  recordIds: readonly string[],
+): Promise<Map<string, AttachmentSummary[]>> {
+  const byRecord = new Map<string, AttachmentSummary[]>();
+  if (recordIds.length === 0) return byRecord;
+  const rows = await db.forOrg(actor.organizationId, (tx) =>
+    tx.attachment.findMany({
+      where: { recordType, recordId: { in: [...recordIds] }, status: "ready" },
+      select: attachmentFields,
+      orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
+    }),
+  );
+  for (const row of rows) byRecord.set(row.recordId, [...(byRecord.get(row.recordId) ?? []), summaryFor(actor, row)]);
+  return byRecord;
+}
+
 /**
  * Hides the file (ADR 0004). Its bytes stay in storage, and count, until the platform's purge. A sensitive file is
  * removed only by a member holding documents:view_sensitive; a file of a system-owned record type, by no one.

@@ -56,6 +56,34 @@ describe("S3 storage downloads", () => {
     expect(decodeURIComponent(encoded)).toBe(fileName);
   });
 
+  it("opens a file in place when the link is inline, and saves it otherwise", async () => {
+    const key = "organizations/o1/attachments/a3";
+    await storage.put({ key, contentType: "image/png", body: new TextEncoder().encode("png") });
+    const inline = await fetch(
+      await storage.presignDownload({ key, fileName: "Photo.png", inline: true, contentType: "image/png" }, 60),
+    );
+    // The type the browser is told is the one the record names, never what the object happened to be stored as.
+    expect(inline.headers.get("content-type")).toBe("image/png");
+    expect(inline.headers.get("content-disposition")).toMatch(
+      /^inline; filename="Photo.png"; filename\*=UTF-8''Photo\.png$/,
+    );
+    const saved = await fetch(await storage.presignDownload({ key, fileName: "Photo.png" }, 60));
+    expect(saved.headers.get("content-disposition")).toMatch(/^attachment; /);
+  });
+
+  it("will not sign an in-place link for SVG, HTML or XML, however the object is stored", async () => {
+    const key = "organizations/o1/attachments/a4";
+    await storage.put({ key, contentType: "image/svg+xml", body: new TextEncoder().encode("<svg onload=alert(1)/>") });
+    for (const contentType of ["image/svg+xml", "text/html", "application/xml"]) {
+      await expect(
+        storage.presignDownload({ key, fileName: "x.svg", inline: true, contentType }, 60),
+        contentType,
+      ).rejects.toBeInstanceOf(RangeError);
+    }
+    const saved = await fetch(await storage.presignDownload({ key, fileName: "x.svg" }, 60));
+    expect(saved.headers.get("content-disposition")).toMatch(/^attachment; /);
+  });
+
   it("refuses a download URL once it has expired", async () => {
     const key = "organizations/o1/attachments/a2";
     await storage.put({ key, contentType: "application/pdf", body: new TextEncoder().encode("%PDF") });

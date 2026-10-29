@@ -26,7 +26,7 @@ export async function applyStatus(
   const reportStamp = { lastEventAt: now, lastReportAt: now };
   const message = await tx.whatsappMessage.findFirst({
     where: { wamid: event.wamid },
-    select: { id: true, status: true, direction: true },
+    select: { id: true, status: true, direction: true, deliveredAt: true },
   });
   if (message === null) {
     const at = event.occurredAt ?? now;
@@ -69,7 +69,8 @@ export async function applyStatus(
       status: event.status,
       ...(event.status === "sent" ? { sentAt: at } : {}),
       ...(event.status === "delivered" ? { deliveredAt: at } : {}),
-      ...(event.status === "read" ? { readAt: at, deliveredAt: at } : {}),
+      // A read that arrives first is also the delivery; one after a delivery leaves the delivery's own time alone.
+      ...(event.status === "read" ? { readAt: at, deliveredAt: message.deliveredAt ?? at } : {}),
     },
   });
   return "applied";

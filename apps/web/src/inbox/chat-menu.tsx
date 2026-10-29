@@ -11,8 +11,11 @@ import {
   ArchiveRestoreIcon,
   CheckCheckIcon,
   EllipsisVerticalIcon,
+  PanelRightIcon,
+  PhoneIcon,
   PinIcon,
   PinOffIcon,
+  SearchIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -28,7 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useErrorMessage } from "@/lib/error-message";
-import { formatDayTime } from "@/lib/format";
+import { formatDayTime, formatPhoneNumber } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useArchive, useMarkAnswered, usePin } from "./use-inbox-tools";
@@ -59,7 +62,16 @@ function snoozeChoices(timeZone: string) {
   ] as const;
 }
 
-export function ChatMenu({ header }: { header: ConversationHeader }) {
+export function ChatMenu({
+  header,
+  onToggleSearch,
+  onTogglePanel,
+}: {
+  header: ConversationHeader;
+  /** On a phone the bar has no room for these, so the menu holds them. */
+  onToggleSearch: () => void;
+  onTogglePanel: () => void;
+}) {
   const t = useTranslations("inbox.chat");
   const { apiError } = useErrorMessage();
   const { timeZone } = useMe().organization;
@@ -69,89 +81,116 @@ export function ChatMenu({ header }: { header: ConversationHeader }) {
   const archive = useArchive();
   const answered = useMarkAnswered();
   const snooze = useSnooze();
-  if (!mayReply || header.state !== "open") return null;
+  const acts = mayReply && header.state === "open";
+  const name = header.name ?? formatPhoneNumber(header.phone);
   const failed = { onError: (error: unknown) => toast.error(apiError(error)) };
   const off = !access.allowed;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label={t("menu")}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={t("menu")}
+          className={acts ? undefined : "md:hidden"}
+        >
           <EllipsisVerticalIcon aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {header.needsReply && (
-          <DropdownMenuItem
-            disabled={off || answered.isPending}
-            onSelect={() => {
-              answered.mutate({ conversationId: header.id }, failed);
-            }}
-          >
-            <CheckCheckIcon aria-hidden="true" />
-            {t("markAnswered")}
-          </DropdownMenuItem>
-        )}
-        {header.snoozedUntil === null ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger disabled={off}>
-              <AlarmClockIcon aria-hidden="true" />
-              {t("snooze")}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {snoozeChoices(timeZone).map((choice) => (
-                <DropdownMenuItem
-                  key={choice.key}
-                  disabled={snooze.isPending}
-                  onSelect={() => {
-                    snooze.mutate(
-                      { conversationId: header.id, until: choice.until.toISOString() },
-                      {
-                        ...failed,
-                        onSuccess: () => {
-                          toast.success(t("snoozedUntil", { when: formatDayTime(choice.until, { timeZone }) }));
-                        },
-                      },
-                    );
-                  }}
-                >
-                  {t(`snoozeChoices.${choice.key}`)}
-                  <span className="ml-auto pl-4 text-caption text-muted-foreground">
-                    {formatDayTime(choice.until, { timeZone })}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ) : (
-          <DropdownMenuItem
-            disabled={off || snooze.isPending}
-            onSelect={() => {
-              snooze.mutate({ conversationId: header.id, until: null }, failed);
-            }}
-          >
-            <AlarmClockOffIcon aria-hidden="true" />
-            {t("wake")}
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled={off || pin.isPending}
-          onSelect={() => {
-            pin.mutate({ conversationId: header.id, on: !header.pinned }, failed);
-          }}
-        >
-          {header.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
-          {header.pinned ? t("unpin") : t("pin")}
+        {/* What the bar shows on a wider screen, here on a phone, where the bar keeps the name in full. */}
+        <DropdownMenuItem className="md:hidden" onSelect={onToggleSearch}>
+          <SearchIcon aria-hidden="true" />
+          {t("search")}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={off || archive.isPending}
-          onSelect={() => {
-            archive.mutate({ conversationId: header.id, on: !header.archived }, failed);
-          }}
-        >
-          {header.archived ? <ArchiveRestoreIcon aria-hidden="true" /> : <ArchiveIcon aria-hidden="true" />}
-          {header.archived ? t("unarchive") : t("archive")}
+        <DropdownMenuItem asChild className="md:hidden">
+          <a href={`tel:${header.phone}`}>
+            <PhoneIcon aria-hidden="true" />
+            {t("call", { name })}
+          </a>
         </DropdownMenuItem>
+        <DropdownMenuItem className="md:hidden" onSelect={onTogglePanel}>
+          <PanelRightIcon aria-hidden="true" />
+          {t("contactPanel")}
+        </DropdownMenuItem>
+        {acts && <DropdownMenuSeparator className="md:hidden" />}
+        {acts && (
+          <>
+            {header.needsReply && (
+              <DropdownMenuItem
+                disabled={off || answered.isPending}
+                onSelect={() => {
+                  answered.mutate({ conversationId: header.id }, failed);
+                }}
+              >
+                <CheckCheckIcon aria-hidden="true" />
+                {t("markAnswered")}
+              </DropdownMenuItem>
+            )}
+            {header.snoozedUntil === null ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger disabled={off}>
+                  <AlarmClockIcon aria-hidden="true" />
+                  {t("snooze")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {snoozeChoices(timeZone).map((choice) => (
+                    <DropdownMenuItem
+                      key={choice.key}
+                      disabled={snooze.isPending}
+                      onSelect={() => {
+                        snooze.mutate(
+                          { conversationId: header.id, until: choice.until.toISOString() },
+                          {
+                            ...failed,
+                            onSuccess: () => {
+                              toast.success(t("snoozedUntil", { when: formatDayTime(choice.until, { timeZone }) }));
+                            },
+                          },
+                        );
+                      }}
+                    >
+                      {t(`snoozeChoices.${choice.key}`)}
+                      <span className="ml-auto pl-4 text-caption text-muted-foreground">
+                        {formatDayTime(choice.until, { timeZone })}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : (
+              <DropdownMenuItem
+                disabled={off || snooze.isPending}
+                onSelect={() => {
+                  snooze.mutate({ conversationId: header.id, until: null }, failed);
+                }}
+              >
+                <AlarmClockOffIcon aria-hidden="true" />
+                {t("wake")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={off || pin.isPending}
+              onSelect={() => {
+                pin.mutate({ conversationId: header.id, on: !header.pinned }, failed);
+              }}
+            >
+              {header.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
+              {header.pinned ? t("unpin") : t("pin")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={off || archive.isPending}
+              onSelect={() => {
+                archive.mutate({ conversationId: header.id, on: !header.archived }, failed);
+              }}
+            >
+              {header.archived ? <ArchiveRestoreIcon aria-hidden="true" /> : <ArchiveIcon aria-hidden="true" />}
+              {header.archived ? t("unarchive") : t("archive")}
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

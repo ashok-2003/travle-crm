@@ -52,7 +52,7 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
         asChild
         size="sm"
         className={cn(
-          "w-full min-w-0 flex-nowrap rounded-none px-3 py-2.5 hover:bg-chat-bar",
+          "w-full min-w-0 flex-nowrap rounded-none px-3 py-2.5 hover:bg-surface",
           current && "bg-hairline hover:bg-hairline",
         )}
       >

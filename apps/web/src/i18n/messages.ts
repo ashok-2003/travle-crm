@@ -44,7 +44,6 @@ export const locale = "en-IN";
 
 export const messages = {
   account,
-  ai,
   audit,
   business,
   calendar,
@@ -70,6 +69,7 @@ export const messages = {
   home,
   pwa,
   quotes,
+  ai,
   reports,
   roles,
   sales,

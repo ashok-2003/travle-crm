@@ -4,23 +4,37 @@
   "overdueCount": "{count} overdue",
   "loadFailed": "Today didn't load.",
   "nothing": "Nothing for today",
-  "later": "Later, Today also shows quotes opened but not answered, payments due, departures and pickups, and travellers with missing details.",
+  "later": "Later, Today also shows departures and pickups, and travellers with missing details.",
   "sections": {
     "overdue": "Overdue",
+    "payments-due": "Payments due",
     "new-leads": "New leads not contacted yet",
+    "quote-opened": "Quote opened, no reply",
     "due-today": "Due today"
   },
   "sectionLoadFailed": "This part of Today didn't load.",
   "more": {
     "overdue": "Show more overdue",
+    "payments-due": "Show more payments",
     "new-leads": "Show more new leads",
+    "quote-opened": "Show more opened quotes",
     "due-today": "Show more due today"
   },
   "item": {
     "yesterday": "Yesterday, {time}",
     "today": "Today, {time}",
     "markContacted": "Mark contacted",
-    "markContactedPerson": "Mark {name} contacted"
+    "markContactedPerson": "Mark {name} contacted",
+    "quoteOpened": "{title} · opened {count, plural, one {once} other {# times}}",
+    "openedAgo": "Opened {elapsed} ago",
+    "paymentDue": "{amount} due {day}",
+    "paymentMissed": "{amount} was due {day}",
+    "paymentOn": "{amount} due {day}, {title}",
+    "quoteDone": "Done",
+    "quoteDonePerson": "Done with {name}'s quote",
+    "quoteDoneToast": "Marked as seen. It comes back only if they open the quote again.",
+    "missed": "Missed",
+    "dueLabel": "Due {day}"
   },
   "nudge": {
     "count": "{count, plural, one {# thing today} other {# things today}}",
@@ -29,7 +43,9 @@
     "waiting": "New lead, not contacted yet",
     "ago": "{elapsed} ago",
     "open": "Open Today",
-    "loadFailed": "Today's work didn't load."
+    "loadFailed": "Today's work didn't load.",
+    "quoteOpened": "Opened the quote, no reply",
+    "paymentMissed": "Missed"
   },
   "addTask": {
     "action": "Add a task",

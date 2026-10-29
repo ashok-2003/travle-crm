@@ -6,9 +6,19 @@ import { FileTextIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { SendTemplateDialog } from "./send-template-dialog";
 
-export function TemplateTool({ conversationId, disabled }: { conversationId: string; disabled: boolean }) {
+export function TemplateTool({
+  conversationId,
+  disabled,
+  listed = false,
+}: {
+  conversationId: string;
+  disabled: boolean;
+  /** Drawn as a line of a list (the phone's tools sheet), not as a button in a row. */
+  listed?: boolean;
+}) {
   const t = useTranslations("inbox.chat.composer");
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -18,7 +28,7 @@ export function TemplateTool({ conversationId, disabled }: { conversationId: str
         ref={button}
         type="button"
         variant="ghost"
-        className="shrink-0 gap-1.5 px-2.5 text-muted-foreground"
+        className={cn("shrink-0 gap-1.5 px-2.5 text-muted-foreground", listed && "w-full justify-start gap-2")}
         disabled={disabled}
         onClick={() => {
           setOpen(true);

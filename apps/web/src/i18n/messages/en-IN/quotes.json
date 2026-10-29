@@ -3,7 +3,8 @@
     "draft": "Draft",
     "sent": "Sent",
     "accepted": "Accepted",
-    "declined": "Declined"
+    "declined": "Declined",
+    "replaced": "Replaced"
   },
   "list": {
     "title": "Quotes",
@@ -60,12 +61,20 @@
     "invoice": "Tax invoice",
     "markAccepted": "Mark accepted",
     "markDeclined": "Mark declined",
-    "acceptedBy": "Accepted by {name} on the link.",
     "delete": "Delete",
     "deleteTitle": "Delete this quote?",
     "deleteDescription": "It goes from the lead and from Quotes. Its link stops working.",
     "addOption": "Add another option",
-    "optionMade": "Another option made. Change its hotel or price; the customer's link shows both."
+    "optionMade": "Another option made. Change its hotel or price; the customer's link shows both.",
+    "newVersion": "Make a new version",
+    "versionMade": "A new draft was made. The old quote's link now says it was replaced.",
+    "frozenTitle": "This quote was sent, so its prices are fixed",
+    "frozenBody": "To change anything, make a new version: a draft copy that replaces this quote. The customer's old link then says it was replaced.",
+    "replacedTitle": "This quote was replaced",
+    "replacedBody": "A new version took its place. Its old link tells the customer so.",
+    "openReplacement": "Open the new version",
+    "acceptedByOn": "{name} accepted this on {when}. It is now the booking, so its prices can't change.",
+    "acceptedSentence": "This quote was accepted on {when}. It is now the booking, so its prices can't change."
   },
   "form": {
     "trip": "Trip",
@@ -109,7 +118,11 @@
     "notesHint": "Anything else the customer should know.",
     "problem": "Check this",
     "save": "Save quote",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "placeOfSupply": "Where the customer is (for GST)",
+    "placeOfSupplyHint": "Decides CGST and SGST, or IGST. Leave as your own state unless the customer is in another state or outside India.",
+    "placeSame": "My agency's own state",
+    "placeOutside": "Outside India"
   },
   "money": {
     "title": "Payments",
@@ -235,5 +248,13 @@
     "deleteNamed": "Delete {name}",
     "deleteTitle": "Delete {name}?",
     "deleteDescription": "Quotes made from it stay as they are."
+  },
+  "frozen": {
+    "adults": "{count, plural, one {# adult} other {# adults}}",
+    "children": "{count, plural, one {# child} other {# children}}",
+    "from": "Travel from {day}",
+    "day": "Day {day}: {title}",
+    "line": "{quantity} × {price}",
+    "place": "GST place of supply: {place}"
   }
 }

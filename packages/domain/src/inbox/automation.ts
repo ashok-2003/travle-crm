@@ -17,6 +17,8 @@ import { DomainError } from "../kernel/index.js";
 
 /** Published when a customer writes and the agency has an automatic answer that could fit (never a reaction, a blocked contact, or STOP). */
 export const CUSTOMER_WROTE_EVENT = "whatsapp.customer-wrote";
+/** Published for every customer message with words, whatever automation the agency has (see whatsappTextReceivedEvent). */
+export const TEXT_RECEIVED_EVENT = "whatsapp.text-received";
 
 const defaults: InboxAutomation = {
   awayEnabled: false,
@@ -79,7 +81,7 @@ const auditView = (settings: InboxAutomation) => ({
 const minuteText = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
-/** Whether an answer could fit any message at all: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
+/** Whether anything could act on a customer's message: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   const settings = await automationOf(tx);
   if (

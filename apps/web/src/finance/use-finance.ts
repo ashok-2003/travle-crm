@@ -5,7 +5,8 @@
 import type { FinancePeriodInput } from "@travel-crm/contracts/finance";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { calendarDateIn } from "@travel-crm/domain/kernel";
-import { useTRPC } from "@/data/trpc";
+import { useTRPC, useTRPCClient } from "@/data/trpc";
+import { useCursorPages } from "@/data/use-cursor-pages";
 import { useMe } from "@/session/me-context";
 
 export const financePeriods = ["thisMonth", "lastMonth", "threeMonths", "financialYear"] as const;
@@ -41,7 +42,12 @@ export function useFinanceSummary(period: FinancePeriodInput) {
 
 export function useBookings() {
   const trpc = useTRPC();
-  return useQuery(trpc.finance.bookings.queryOptions());
+  const client = useTRPCClient();
+  return useCursorPages({
+    queryKey: trpc.finance.bookings.pathKey(),
+    page: (cursor) => client.finance.bookings.query(cursor === null ? {} : { cursor }),
+    items: (page) => page.items,
+  });
 }
 
 export function useExpenses(period: FinancePeriodInput) {

@@ -94,6 +94,28 @@ export async function starMessage(
   else await recordAudit(tx, access, { action: "inbox.message-unstarred", ...about });
 }
 
+/**
+ * A message's words are forwarded to another chat's reply box (the browser keeps them there; nothing is sent). Both chats
+ * must be open to the member, and the audit entry, on the chat it came from, names the chat it went to.
+ */
+export async function forwardMessage(
+  tx: OrgTx,
+  access: MemberAccess,
+  messageId: string,
+  toConversationId: string,
+): Promise<void> {
+  const message = await tx.whatsappMessage.findUnique({ where: { id: messageId }, select: { conversationId: true } });
+  if (message === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  await openChat(tx, access, message.conversationId);
+  await openChat(tx, access, toConversationId);
+  await recordAudit(tx, access, {
+    action: "inbox.message-forwarded",
+    entityType: "whatsapp_conversation",
+    entityId: message.conversationId,
+    after: { messageId, toConversationId },
+  });
+}
+
 /** The furthest ahead a chat may be snoozed: a year. */
 export const MAX_SNOOZE_MS = 365 * 24 * 3_600_000;
 

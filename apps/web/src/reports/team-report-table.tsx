@@ -18,7 +18,7 @@ import { percentOf } from "./use-reports";
 
 const number = "numbers text-right";
 
-export function TeamReportTable({ team }: { team: TeamRow[] }) {
+export function TeamReportTable({ team, showsMoney }: { team: TeamRow[]; showsMoney: boolean }) {
   const t = useTranslations("reports.team");
   const tDuration = useTranslations("dashboard.duration");
   const columns = [
@@ -28,8 +28,7 @@ export function TeamReportTable({ team }: { team: TeamRow[] }) {
     "quotes",
     "won",
     "lost",
-    "sales",
-    "collected",
+    ...(showsMoney ? (["sales", "collected"] as const) : []),
     "messages",
     "notes",
     "tasks",
@@ -62,7 +61,7 @@ export function TeamReportTable({ team }: { team: TeamRow[] }) {
                 <TableRow key={row.userId}>
                   <TableCell>
                     <span className="inline-flex items-center gap-1.5">
-                      {index === 0 && row.salesPaise > 0 && (
+                      {showsMoney && index === 0 && row.salesPaise > 0 && (
                         <TrophyIcon aria-label={t("top")} className="size-4 text-status-attention-ink" />
                       )}
                       {row.name === null ? (
@@ -82,8 +81,12 @@ export function TeamReportTable({ team }: { team: TeamRow[] }) {
                   <TableCell className={number}>{formatCount(row.quotesSent)}</TableCell>
                   <TableCell className={number}>{formatCount(row.won)}</TableCell>
                   <TableCell className={number}>{formatCount(row.lost)}</TableCell>
-                  <TableCell className={cn(number, "font-semibold")}>{rupees(row.salesPaise)}</TableCell>
-                  <TableCell className={number}>{rupees(row.collectedPaise)}</TableCell>
+                  {showsMoney && (
+                    <>
+                      <TableCell className={cn(number, "font-semibold")}>{rupees(row.salesPaise)}</TableCell>
+                      <TableCell className={number}>{rupees(row.collectedPaise)}</TableCell>
+                    </>
+                  )}
                   <TableCell className={number}>{formatCount(row.messages)}</TableCell>
                   <TableCell className={number}>{formatCount(row.notes)}</TableCell>
                   <TableCell className={number}>{formatCount(row.tasksDone)}</TableCell>

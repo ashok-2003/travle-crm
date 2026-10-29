@@ -38,6 +38,13 @@ describe("strategyFor", () => {
     expect(strategyFor(request("/webhooksettings", { mode: "navigate" }), origin)).toBe("page");
   });
 
+  it("leaves an invite's one-click link to the network, in any case", () => {
+    for (const path of ["/vip/abc", "/VIP/abc"]) {
+      expect(strategyFor(request(path, { mode: "navigate" }), origin), path).toBe("network-only");
+    }
+    expect(strategyFor(request("/vipers", { mode: "navigate" }), origin)).toBe("page");
+  });
+
   it("leaves the visitor's form pages and script to the network and never keeps them as pages", () => {
     for (const path of ["/f/abc", "/F/abc", "/embed/abc", "/EMBED/abc", "/embed.js"]) {
       expect(strategyFor(request(path, { mode: "navigate" }), origin), path).toBe("network-only");

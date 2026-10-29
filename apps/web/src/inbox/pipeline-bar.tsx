@@ -12,7 +12,7 @@ export function PipelineBar({ summary }: { summary: InboxSummary }) {
   const t = useTranslations("inbox");
   const names = useTranslations("inbox.pipelineStages");
   return (
-    <dl aria-label={t("pipeline")} className="grid grid-cols-5 gap-1 rounded-lg bg-chat-bar p-1.5">
+    <dl aria-label={t("pipeline")} className="grid grid-cols-5 gap-1 rounded-lg bg-surface p-1.5">
       {order.map((stage) => (
         // The count shows above its stage's name, though the name comes first for a screen reader.
         <div key={stage} className="flex min-w-0 flex-col-reverse items-center rounded-md px-1 py-1 text-center">

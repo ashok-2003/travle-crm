@@ -33,12 +33,14 @@ export function MonthCard() {
           <p className="text-muted-foreground">{t("loading")}</p>
         ) : (
           <dl className="grid grid-cols-2 gap-6 md:grid-cols-4">
-            <FigureTile
-              label={t("sales")}
-              value={rupees(report.figures.salesPaise)}
-              now={report.figures.salesPaise}
-              before={report.previous.salesPaise}
-            />
+            {report.showsMoney && (
+              <FigureTile
+                label={t("sales")}
+                value={rupees(report.figures.salesPaise)}
+                now={report.figures.salesPaise}
+                before={report.previous.salesPaise}
+              />
+            )}
             <FigureTile
               label={t("won")}
               value={formatCount(report.figures.won)}
@@ -52,12 +54,14 @@ export function MonthCard() {
               before={share(report.previous.won, report.previous.newLeads)}
               note={t("ofLeads", { count: report.figures.newLeads })}
             />
-            <FigureTile
-              label={t("collected")}
-              value={rupees(report.figures.collectedPaise)}
-              now={report.figures.collectedPaise}
-              before={report.previous.collectedPaise}
-            />
+            {report.showsMoney && (
+              <FigureTile
+                label={t("collected")}
+                value={rupees(report.figures.collectedPaise)}
+                now={report.figures.collectedPaise}
+                before={report.previous.collectedPaise}
+              />
+            )}
           </dl>
         )}
       </CardContent>

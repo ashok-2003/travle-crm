@@ -5,6 +5,7 @@ import {
   isOpenStage,
   openLeadStage,
   type LeadIdInput,
+  type LeadStage,
   type MoveStageInput,
   type ReassignLeadInput,
 } from "@travel-crm/contracts/crm";
@@ -65,4 +66,19 @@ export async function advanceLeadStage(
   const from = saleOrder.indexOf(lead.stage);
   if (from === -1 || saleOrder.indexOf(change.stage) <= from) return false;
   return changeLeadStage(tx, actor, change, now);
+}
+
+/**
+ * Puts a lead back where a payment moved it from (a payment voided), but only while it is still where the payment left
+ * it: a lead someone has moved since stays where they put it.
+ */
+export async function retreatLeadStage(
+  tx: OrgTx,
+  actor: Actor,
+  change: { leadId: string; from: LeadStage; to: LeadStage },
+  now: Date,
+): Promise<boolean> {
+  const lead = await lockLead(tx, change.leadId);
+  if (lead.stage !== change.to) return false;
+  return changeLeadStage(tx, actor, { leadId: change.leadId, stage: change.from }, now);
 }

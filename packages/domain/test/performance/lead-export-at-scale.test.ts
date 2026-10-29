@@ -27,7 +27,7 @@ import { systemActor } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { fakeExportIdentity, requested } from "../exports/test-exports.js";
 import { seedLargeAgency } from "./large-agency.js";
-import { planOf } from "./query-plans.js";
+import { budgetMs, planOf } from "./query-plans.js";
 
 const LEADS = 50_000;
 
@@ -153,9 +153,9 @@ describe("the lead export at scale", () => {
         residentGrowthMb: Math.round(residentGrowth),
       }),
     );
-    expect(seconds).toBeLessThan(60);
+    expect(seconds).toBeLessThan(budgetMs(60_000) / 1000);
     expect(growth).toBeLessThan(150);
-  }, 120_000);
+  }, 300_000);
 
   it("reads each page by keyset on lead_open or lead_open_by_owner, never OFFSET, never a whole table", async () => {
     const [anyLead] = await inOrg((tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM lead ORDER BY id DESC LIMIT 1`);

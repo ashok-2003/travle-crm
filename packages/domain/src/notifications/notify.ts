@@ -10,10 +10,9 @@ import { TEAM_ALERT_KINDS, teamRoutingOf } from "./routing.js";
 /**
  * Notifies people in the transaction's organization: one notification in each person's bell, and, when channels
  * name email or push, a "notification.created" event per notification for the delivery listener. A team alert also
- * goes to the members the owner chose for copies, and anyone the owner chose for email gets it by email too. Nobody
- * is notified about their own action: the actor is left out, and so is anyone in `excludeUserIds`. A listener passes
- * the event's id as `sourceEventId`, so running it again adds nothing. Returns the ids of the notifications this call
- * created.
+ * goes to the members the owner chose for copies, and anyone the owner chose for email gets it by email too. Nobody is notified
+ * about their own action: the actor is left out, and so is anyone in `excludeUserIds`. A listener passes the event's
+ * id as `sourceEventId`, so running it again adds nothing. Returns the ids of the notifications this call created.
  */
 export async function notify(tx: OrgTx, actor: Actor, input: NotifyInput): Promise<string[]> {
   const { recipientUserIds, excludeUserIds, sourceEventId, kind, title, body, link, channels } = parseInput(

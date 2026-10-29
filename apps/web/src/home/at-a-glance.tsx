@@ -2,7 +2,7 @@
 
 // Home's first row (sales execution): the day at a glance, each figure a way straight to the work: new leads to answer,
 // chats waiting for a reply (the late ones called out), follow-ups due today, work overdue, hot leads to call, and
-// money due from customers. A figure the member's role or plan doesn't have is left out.
+// money due from customers (only for whoever holds the money permission). A figure the member's role or plan doesn't have is left out.
 import type { LucideIcon } from "lucide-react";
 import {
   AlarmClockIcon,
@@ -77,7 +77,7 @@ function MoneyDueTile({ today }: { today: string }) {
   );
 }
 
-export function AtAGlance({ inbox, quotes }: { inbox: boolean; quotes: boolean }) {
+export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) {
   const t = useTranslations("home.glance");
   const today = useTodaySummary().data;
   const chats = useInboxSummary();
@@ -143,7 +143,7 @@ export function AtAGlance({ inbox, quotes }: { inbox: boolean; quotes: boolean }
         {tiles.map((tile) => (
           <TileLink key={tile.key} tile={tile} />
         ))}
-        {quotes && today !== undefined && <MoneyDueTile today={today.day} />}
+        {money && today !== undefined && <MoneyDueTile today={today.day} />}
       </div>
     </section>
   );

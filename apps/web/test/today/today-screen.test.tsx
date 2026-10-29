@@ -44,6 +44,24 @@ const rohanDue: TodayItem = {
   lead: aLead({ id: "0199e7a0-0000-7000-8000-0000000000a6", personName: "Rohan Gupta" }),
 };
 
+const sunitaQuote: TodayItem = {
+  kind: "quote-opened",
+  lead: aLead({ id: "0199e7a0-0000-7000-8000-0000000000a7", personName: "Sunita Rao", trip: aLead().trip }),
+  quote: { id: "0199e7a0-0000-7000-8000-0000000000b1", title: "Goa 5 days" },
+  opens: 3,
+  lastOpenedAt: "2026-10-14T04:30:00.000Z",
+};
+
+const kiranPayment: TodayItem = {
+  kind: "payment-due",
+  lead: aLead({ id: "0199e7a0-0000-7000-8000-0000000000a8", personName: "Kiran Joshi" }),
+  installmentId: "0199e7a0-0000-7000-8000-0000000000c1",
+  quoteId: "0199e7a0-0000-7000-8000-0000000000b2",
+  amountPaise: 2_500_000,
+  dueOn: "2026-10-15",
+  missed: true,
+};
+
 /** What the api holds: the summary (or how it fails), each section's first page, and the page after it, if any. */
 interface Day {
   summary: TodaySummary;
@@ -55,7 +73,14 @@ interface Day {
 let day: Day;
 
 /** The id a page's cursor names: a task's, or a new lead's. */
-const idOf = (item: TodayItem) => (item.kind === "task" ? item.task.id : item.lead.id);
+const idOf = (item: TodayItem) =>
+  item.kind === "task"
+    ? item.task.id
+    : item.kind === "quote-opened"
+      ? item.quote.id
+      : item.kind === "payment-due"
+        ? item.installmentId
+        : item.lead.id;
 
 /** The api's answer, keeping what it holds as a change leaves it: a lead marked contacted is no longer new. */
 function answer(call: Call): Reply {
@@ -73,6 +98,12 @@ function answer(call: Call): Reply {
   if (call.path === "leads.counts") {
     return { data: { open: 3, new: day.summary.counts.newLeads, contacted: 0, quote_sent: 0, booking_requested: 0 } };
   }
+  if (call.path === "today.dismissQuoteOpened") {
+    const { leadId } = call.input as { leadId: string };
+    day.sections["quote-opened"] = day.sections["quote-opened"].filter((item) => item.lead?.id !== leadId);
+    day.summary = { ...day.summary, counts: { ...day.summary.counts, quoteOpened: 0 } };
+    return { data: null };
+  }
   if (call.path === "leads.moveStage") {
     const { leadId } = call.input as { leadId: string };
     day.sections["new-leads"] = day.sections["new-leads"].filter((item) => item.lead?.id !== leadId);
@@ -87,7 +118,9 @@ function busy(summary: TodaySummary = busyDay): Day {
     summary,
     sections: {
       overdue: [snehaOverdue, vikramOverdue],
+      "payments-due": [],
       "new-leads": [rahulNew, arjunNew],
+      "quote-opened": [],
       "due-today": [priyaDue, standaloneDue],
     },
     nextPages: {},
@@ -186,7 +219,10 @@ describe("TodayScreen", () => {
   });
 
   it("says 'Nothing for today' when all three are empty, and keeps the quiet line about later releases", async () => {
-    day = { ...busy(quietDay), sections: { overdue: [], "new-leads": [], "due-today": [] } };
+    day = {
+      ...busy(quietDay),
+      sections: { overdue: [], "payments-due": [], "new-leads": [], "quote-opened": [], "due-today": [] },
+    };
     const api = renderToday();
     expect(await screen.findByText(words.nothing)).toBeVisible();
     // The day alone: "0 things" right above "Nothing for today" would say it twice.
@@ -197,7 +233,7 @@ describe("TodayScreen", () => {
     for (const section of Object.values(words.sections)) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
-    expect(api.calls.map((call) => call.path)).toEqual(["assignment.mine", "today.summary"]);
+    expect(api.calls.map((call) => call.path)).toEqual(["assignment.mine", "today.summary", "sales.hotLeads"]);
   });
 
   it("shows the skeleton, the error with Try again, and a refusal's sentence", async () => {
@@ -219,5 +255,50 @@ describe("TodayScreen", () => {
     renderToday();
     expect(await screen.findByText(messages.errors.reasons.MODULE_NOT_ON_PLAN)).toBeVisible();
     expect(screen.queryByText(words.loadFailed)).toBeNull();
+  });
+
+  it("shows the payments due after Overdue and the quotes opened without a reply after the new leads", async () => {
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, quoteOpened: 1, paymentsDue: 1 } });
+    day.sections["quote-opened"] = [sunitaQuote];
+    day.sections["payments-due"] = [kiranPayment];
+    renderToday();
+    const overdue = await region(words.sections.overdue);
+    const payments = await region(words.sections["payments-due"]);
+    const newLeads = await region(words.sections["new-leads"]);
+    const opened = await region(words.sections["quote-opened"]);
+    const dueToday = await region(words.sections["due-today"]);
+    const inOrder = [overdue, payments, newLeads, opened, dueToday];
+    // Each section follows the one before it in the document.
+    inOrder.slice(1).forEach((next, index) => {
+      const before = inOrder.slice(index, index + 1)[0];
+      expect((before?.compareDocumentPosition(next) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+    // The header counts them too: 8 things and the 2 more.
+    expect(await screen.findByText("Fri 16 Oct · 10 things")).toBeVisible();
+    expect(await within(payments).findByRole("link", { name: "Kiran Joshi" })).toBeVisible();
+    expect(within(payments).getByText("₹25,000 was due 15 Oct")).toBeVisible();
+    expect(within(payments).getByRole("link", { name: "Call Kiran Joshi" })).toHaveAttribute(
+      "href",
+      "tel:+919812345678",
+    );
+    expect(await within(opened).findByRole("link", { name: "Sunita Rao" })).toBeVisible();
+    expect(within(opened).getByText("Opened 2 days ago")).toBeVisible();
+    expect(within(opened).getByText(/Goa 5 days · opened 3 times/)).toBeVisible();
+  });
+
+  it("marks an opened quote Done, and it leaves Today", async () => {
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, quoteOpened: 1 } });
+    day.sections["quote-opened"] = [sunitaQuote];
+    const api = renderToday();
+    const opened = await region(words.sections["quote-opened"]);
+    await userEvent.click(await within(opened).findByRole("button", { name: "Done with Sunita Rao's quote" }));
+    await waitFor(() => {
+      expect(api.calls.find((call) => call.path === "today.dismissQuoteOpened")?.input).toEqual({
+        leadId: sunitaQuote.lead.id,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("region", { name: words.sections["quote-opened"] })).toBeNull();
+    });
   });
 });

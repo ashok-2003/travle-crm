@@ -44,6 +44,33 @@ describe("environment", () => {
     expect(() => loadEnvironment({ ...production, LOG_LEVEL: "verbose" })).toThrow(/LOG_LEVEL/);
   });
 
+  it("takes the AI's endpoint, key and models together (Google's Gemini direct), over https in production", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    const gemini = {
+      AI_BASE_URL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      AI_API_KEY: "AIza-test-key-0123456789",
+      AI_CHAT_MODELS: "gemini-2.5-flash, gemini-2.0-flash",
+      AI_FAST_MODELS: "gemini-2.0-flash",
+    };
+    expect(loadEnvironment({ ...production, ...gemini })).toMatchObject({
+      AI_API_KEY: gemini.AI_API_KEY,
+      AI_CHAT_MODELS: ["gemini-2.5-flash", "gemini-2.0-flash"],
+      AI_FAST_MODELS: ["gemini-2.0-flash"],
+    });
+    // None of them, or a compose file's blanks, leave the AI to OpenRouter's key.
+    expect(loadEnvironment({ ...production, AI_BASE_URL: "", AI_API_KEY: "" }).AI_API_KEY).toBeUndefined();
+    expect(() => loadEnvironment({ ...production, AI_API_KEY: gemini.AI_API_KEY })).toThrow(/AI_CHAT_MODELS/);
+    expect(() => loadEnvironment({ ...production, AI_CHAT_MODELS: "gemini-2.5-flash" })).toThrow(/AI_API_KEY/);
+    expect(() => loadEnvironment({ ...production, ...gemini, AI_BASE_URL: "http://api.example.com/v1" })).toThrow(
+      /AI_BASE_URL/,
+    );
+    // Development may use an http fake.
+    expect(
+      loadEnvironment({ ...valid, ...gemini, NODE_ENV: "development", AI_BASE_URL: "http://127.0.0.1:4010" })
+        .AI_BASE_URL,
+    ).toBe("http://127.0.0.1:4010");
+  });
+
   it("takes Axiom's token and dataset together or not at all, over https outside development", () => {
     const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
     expect(loadEnvironment(production).AXIOM_TOKEN).toBeUndefined();

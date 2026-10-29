@@ -31,7 +31,7 @@ import { refusalOf } from "@/data/api-error";
 import { waitWords } from "@/dashboard/duration";
 import { formatCalendarDay, formatCount, formatDayTime } from "@/lib/format";
 import { routes } from "@/lib/routes";
-import { useMe } from "@/session/me-context";
+import { useHolds, useMe } from "@/session/me-context";
 import { FigureTile } from "./figure-tile";
 import { percentOf, useStaffReport } from "./use-reports";
 
@@ -43,6 +43,7 @@ export function StaffReportScreen({ userId }: { userId: string }) {
   const tDuration = useTranslations("dashboard.duration");
   const words = useAuditWords();
   const { timeZone } = useMe().organization;
+  const mayReadAudit = useHolds("audit:view");
   const [range, setRange] = useState<DashboardRange>("30d");
   const report = useStaffReport(userId, range);
   const data = report.data;
@@ -67,6 +68,7 @@ export function StaffReportScreen({ userId }: { userId: string }) {
     );
   }
   const person = data.person;
+  const average = data.teamAverage;
   const conversion = person.leads === 0 ? null : (person.won * 100) / person.leads;
   return (
     <div className="flex max-w-[1400px] flex-col gap-6">
@@ -109,21 +111,23 @@ export function StaffReportScreen({ userId }: { userId: string }) {
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-6">
-            <FigureTile
-              label={t("sales")}
-              value={rupees(person.salesPaise)}
-              note={t("teamSales", { amount: rupees(data.teamAverage.salesPaise) })}
-            />
+            {data.showsMoney && (
+              <FigureTile
+                label={t("sales")}
+                value={rupees(person.salesPaise)}
+                note={average === null ? undefined : t("teamSales", { amount: rupees(average.salesPaise) })}
+              />
+            )}
             <FigureTile label={t("won")} value={formatCount(person.won)} note={t("ofLeads", { count: person.leads })} />
             <FigureTile
               label={t("conversion")}
               value={percentOf(person.won, person.leads)}
               now={conversion}
-              before={data.teamAverage.conversionPercent}
+              before={average?.conversionPercent ?? null}
               note={
-                data.teamAverage.conversionPercent === null
+                average?.conversionPercent == null
                   ? undefined
-                  : t("vsTeam", { value: `${String(Math.round(data.teamAverage.conversionPercent))}%` })
+                  : t("vsTeam", { value: `${String(Math.round(average.conversionPercent))}%` })
               }
             />
             <FigureTile
@@ -132,15 +136,15 @@ export function StaffReportScreen({ userId }: { userId: string }) {
                 person.medianFirstReplyMinutes === null ? "–" : waitWords(person.medianFirstReplyMinutes, tDuration)
               }
               now={person.medianFirstReplyMinutes}
-              before={data.teamAverage.medianFirstReplyMinutes}
+              before={average?.medianFirstReplyMinutes ?? null}
               lessIsBetter
               note={
-                data.teamAverage.medianFirstReplyMinutes === null
+                average?.medianFirstReplyMinutes == null
                   ? undefined
-                  : t("vsTeam", { value: waitWords(data.teamAverage.medianFirstReplyMinutes, tDuration) })
+                  : t("vsTeam", { value: waitWords(average.medianFirstReplyMinutes, tDuration) })
               }
             />
-            <FigureTile label={t("collected")} value={rupees(person.collectedPaise)} />
+            {data.showsMoney && <FigureTile label={t("collected")} value={rupees(person.collectedPaise)} />}
             <FigureTile label={t("quotes")} value={formatCount(person.quotesSent)} />
             <FigureTile label={t("messages")} value={formatCount(person.messages)} />
             <FigureTile label={t("notes")} value={formatCount(person.notes)} />
@@ -192,28 +196,30 @@ export function StaffReportScreen({ userId }: { userId: string }) {
             </ChartContainer>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("activityTitle")}</CardTitle>
-            <CardDescription>{t("activityIntro")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {data.activity.length === 0 ? (
-              <p className="text-muted-foreground">{t("noActivity")}</p>
-            ) : (
-              <ItemGroup>
-                {data.activity.map((entry, index) => (
-                  <Item key={`${entry.occurredAt}-${String(index)}`} size="sm">
-                    <ItemContent>
-                      <ItemTitle>{words.action(entry.action)}</ItemTitle>
-                      <ItemDescription>{formatDayTime(new Date(entry.occurredAt), { timeZone })}</ItemDescription>
-                    </ItemContent>
-                  </Item>
-                ))}
-              </ItemGroup>
-            )}
-          </CardContent>
-        </Card>
+        {mayReadAudit && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("activityTitle")}</CardTitle>
+              <CardDescription>{t("activityIntro")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {data.activity.length === 0 ? (
+                <p className="text-muted-foreground">{t("noActivity")}</p>
+              ) : (
+                <ItemGroup>
+                  {data.activity.map((entry, index) => (
+                    <Item key={`${entry.occurredAt}-${String(index)}`} size="sm">
+                      <ItemContent>
+                        <ItemTitle>{words.action(entry.action)}</ItemTitle>
+                        <ItemDescription>{formatDayTime(new Date(entry.occurredAt), { timeZone })}</ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

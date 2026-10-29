@@ -1,6 +1,6 @@
-// Home (spec 3.1, the mockup): the owner's setup card stays first; right under it, for whoever's role sees leads on a
-// plan with the crm module, the day's nudge ("8 things today · 2 overdue", three things, Open Today); New lead as the
-// header's outline action for whoever may add leads, so Open Today stays the main button. Never Today's long list.
+// Home (spec 3.1, the clearer Home): for whoever's role sees leads on a plan with the crm module, the day's nudge ("8 things
+// today · 2 overdue", three things, Open Today) comes first, and the owner's setup card under it; New lead is the header's
+// main action for whoever may add leads. Never Today's long list.
 import type { SetupChecklist } from "@travel-crm/contracts/profile";
 import { starterRoles } from "@travel-crm/domain/identity";
 import { screen, waitFor, within } from "@testing-library/react";
@@ -39,9 +39,27 @@ function ofStarterRole(key: string) {
   return member({ permissions: role.grants.map((grant) => grant.permission) });
 }
 
-function renderHome(me: SignedInMember, { crm = true } = {}) {
-  const { calls } = stubApi({ "organization.setup.get": { data: halfway }, "today.summary": { data: busyDay } });
-  const queryClient = newQueryClient({ ...paidSubscription, modules: crm ? ["crm"] : [] });
+function renderHome(
+  me: SignedInMember,
+  { crm = true, modules = crm ? ["crm"] : [] }: { crm?: boolean; modules?: string[] } = {},
+) {
+  const { calls } = stubApi({
+    "organization.setup.get": { data: halfway },
+    "today.summary": { data: busyDay },
+    "salesInbox.summary": { data: { waiting: 3, late: 1, unread: 2 } },
+    "sales.hotLeads": { data: [] },
+    "quotes.moneySummary": {
+      data: {
+        acceptedCount: 1,
+        acceptedPaise: 1,
+        receivedPaise: 1,
+        outstandingPaise: 3_040_000,
+        overduePaise: 0,
+        overdueCount: 0,
+      },
+    },
+  });
+  const queryClient = newQueryClient({ ...paidSubscription, modules: modules as never });
   const { unmount } = renderWithApi(<HomePage />, queryClient, me);
   return { calls, unmount };
 }
@@ -60,26 +78,23 @@ afterEach(() => {
 });
 
 describe("Home", () => {
-  it("keeps the setup card first, then '8 things today · 2 overdue', three items and Open Today", async () => {
+  it("puts '8 things today · 2 overdue', three items and Open Today first, then the setup card", async () => {
     renderHome(member({ isOwner: true }));
     const setupCard = await screen.findByRole("region", { name: setupCardName });
     const card = await nudge();
     expect(within(card).getByRole("heading", { level: 2 })).toHaveTextContent("8 things today2 overdue");
     expect(within(within(card).getByRole("list")).getAllByRole("listitem")).toHaveLength(3);
     expect(within(card).getByRole("link", { name: words.open })).toHaveAttribute("href", routes.today);
-    // The setup card, then the nudge, then the usual Home.
-    const usualHome = screen.getByText(messages.shell.home.intro);
-    expect(setupCard.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(card.compareDocumentPosition(usualHome) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Open Today is the main button; nothing else on Home is.
+    // The nudge, then the setup card.
+    expect(card.compareDocumentPosition(setupCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(card).getByRole("link", { name: words.open }).dataset.variant).toBe("default");
   });
 
-  it("gives New lead as the header's outline action to leads:create", async () => {
+  it("gives New lead as the header's main action to leads:create", async () => {
     renderHome(ofStarterRole("sales"));
     const newLead = screen.getByRole("link", { name: messages.leads.newLead });
     expect(newLead).toHaveAttribute("href", routes.newLead);
-    expect(newLead.dataset.variant).toBe("outline");
+    expect(newLead.dataset.variant).toBe("default");
     expect(await nudge()).toBeVisible();
   });
 
@@ -112,5 +127,66 @@ describe("Home", () => {
     for (const section of Object.values(messages.today.sections)) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
+  });
+
+  it("shows the day at a glance as six tiles, each a way to its work, Money to come only to whoever holds the money permission", async () => {
+    renderHome(member({ isOwner: true }), { modules: ["crm", "inbox", "quotes"] });
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(await within(glance).findByText("₹30,400")).toBeVisible();
+    const tiles = within(glance).getAllByRole("link");
+    const g = messages.home.glance;
+    expect(tiles).toHaveLength(6);
+    for (const [index, label] of [g.newLeads, g.waiting, g.dueToday, g.overdue, g.hot, g.money].entries()) {
+      expect(tiles[index]?.textContent).toContain(label);
+    }
+    expect(tiles[1]?.getAttribute("href")).toBe(routes.inbox);
+    expect(tiles[5]?.getAttribute("href")).toBe(routes.quotes);
+    // One chat has waited too long: said on the tile.
+    expect(within(glance).getByText("1 waiting too long")).toBeVisible();
+  });
+
+  it("shows five tiles, and no month so far, to a role without the money permission", async () => {
+    const api = renderHome(member({ permissions: ["leads:view", "quotes:view", "inbox:view"] }), {
+      modules: ["crm", "inbox", "quotes"],
+    });
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(within(glance).getAllByRole("link")).toHaveLength(5);
+    expect(within(glance).queryByText(messages.home.glance.money)).toBeNull();
+    expect(screen.queryByRole("heading", { name: messages.home.month.title })).toBeNull();
+    expect(api.calls).not.toContain("quotes.moneySummary");
+  });
+
+  it("puts the day at a glance before the day's nudge", async () => {
+    renderHome(member({ isOwner: true }), { modules: ["crm", "inbox", "quotes"] });
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    const nudgeCard = await nudge();
+    expect(glance.compareDocumentPosition(nudgeCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows an amount up to crores whole on the money tile, and the late payments in red", async () => {
+    stubApi({
+      "organization.setup.get": { data: halfway },
+      "today.summary": { data: busyDay },
+      "salesInbox.summary": { data: { waiting: 3, late: 1, unread: 2 } },
+      "sales.hotLeads": { data: [] },
+      "quotes.moneySummary": {
+        data: {
+          acceptedCount: 1,
+          acceptedPaise: 1,
+          receivedPaise: 1,
+          outstandingPaise: 123_456_789_00,
+          overduePaise: 5_000_00,
+          overdueCount: 2,
+        },
+      },
+    });
+    renderWithApi(
+      <HomePage />,
+      newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "quotes"] as never }),
+      member({ isOwner: true }),
+    );
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    expect(await within(glance).findByText("₹12,34,56,789")).toBeVisible();
+    expect(await within(glance).findByText(/2 payments late: ₹5,000/)).toBeVisible();
   });
 });

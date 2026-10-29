@@ -8,8 +8,8 @@ import type { Actor } from "../kernel/index.js";
 export interface LeadEventEntry {
   leadId: string;
   kind: LeadEventKind;
-  /** The row the entry is about: a note, a repeat enquiry or a task. */
-  record?: { recordType: "lead_note" | "lead_enquiry" | "task"; recordId: string };
+  /** The row the entry is about: a note, a call, a repeat enquiry or a task. */
+  record?: { recordType: "lead_note" | "lead_call" | "lead_enquiry" | "task"; recordId: string };
   /** The stage it moved to, for stage-changed. */
   stage?: LeadStage;
   /** The new owner, for reassigned. */

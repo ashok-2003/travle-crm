@@ -7,7 +7,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { publishEvent } from "../jobs/index.js";
 import { liveConnection } from "./connection-row.js";
 import { MESSAGE_QUEUED_EVENT, showAsLast } from "./outbox.js";
-import { whatsappConsentOf } from "./whatsapp-consent.js";
+import { chatOptedOut } from "./whatsapp-consent.js";
 import { windowIsOpen } from "./window.js";
 
 export type SystemSendResult = { ok: true; messageId: string } | { ok: false; code: string };
@@ -42,9 +42,7 @@ export async function queueSystemText(
   if (connection.status === "paused") return { ok: false, code: "paused" };
   if (connection.status === "setup") return { ok: false, code: "not_connected" };
   if (!windowIsOpen(chat.lastInboundAt, now)) return { ok: false, code: "window_closed" };
-  if (chat.personId !== null && (await whatsappConsentOf(tx, chat.personId)).state === "withdrawn") {
-    return { ok: false, code: "opted_out" };
-  }
+  if (await chatOptedOut(tx, chat)) return { ok: false, code: "opted_out" };
   const [row] = await tx.whatsappMessage.createManyAndReturn({
     data: [
       {

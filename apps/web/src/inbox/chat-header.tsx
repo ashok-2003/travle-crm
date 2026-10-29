@@ -3,15 +3,13 @@
 // The bar atop a chat (sales inbox spec, sections 3, 6 and design v2), as the sales inboxes teams know: on a phone a way
 // back; the person's tinted picture, their name, and under it their phone and how long the 24-hour window stays open, or
 // "Priya is replying…" while a teammate types here; then the sale worked in place (the lead's owner and its stage as
-// menus, on a wide screen; in the contact panel otherwise), the AI agent's state and the lead's score, how long the
-// customer has waited, search in the chat, a call,
+// menus, on a wide screen; in the contact panel otherwise), how long the customer has waited, search in the chat, a call,
 // the contact panel and the chat's menu. On a phone the name is the page's title.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { ArrowLeftIcon, PanelRightIcon, PhoneIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { Ref } from "react";
-import { ChatAiChip } from "@/ai/chat-ai-card";
 import { PageTitle } from "@/components/page-title";
 import { Button } from "@/components/ui/button";
 import { formatPhoneNumber } from "@/lib/format";
@@ -44,7 +42,7 @@ export function ChatHeader({
   const waitingSince = header.needsReply ? header.lastInboundAt : null;
   const titleClass = cn("w-full truncate text-section font-semibold script-leading", header.name === null && "numbers");
   return (
-    <header className="flex min-h-16 shrink-0 items-center gap-2 bg-chat-bar px-2 py-2 md:px-4">
+    <header className="flex min-h-16 shrink-0 items-center gap-2 bg-surface px-2 py-2 md:gap-3 md:px-4">
       {asPage && (
         <Button asChild variant="ghost" size="icon" aria-label={t("back")}>
           <Link href={routes.inbox}>
@@ -76,10 +74,9 @@ export function ChatHeader({
           )}
         </p>
       </div>
-      <ChatAiChip conversationId={header.id} />
       {waitingSince !== null && <WaitTimer since={waitingSince} className="hidden sm:inline-flex" />}
-      {/* The sale in place where there is room; the contact panel holds the same on a narrow screen. */}
-      <div className="hidden items-center gap-2 lg:flex">
+      {/* The sale in place where there is room (more of it with the panel shut); the contact panel holds the same. */}
+      <div className={cn("hidden items-center gap-2", panelOpen ? "2xl:flex" : "lg:flex")}>
         <OwnerMenu header={header} />
         <StageMenu header={header} />
       </div>
@@ -87,13 +84,14 @@ export function ChatHeader({
         type="button"
         variant={searchOpen ? "secondary" : "ghost"}
         size="icon"
+        className="hidden md:inline-flex"
         aria-label={t("search")}
         aria-pressed={searchOpen}
         onClick={onToggleSearch}
       >
         <SearchIcon aria-hidden="true" />
       </Button>
-      <Button asChild variant="ghost" size="icon" aria-label={t("call", { name })}>
+      <Button asChild variant="ghost" size="icon" className="hidden md:inline-flex" aria-label={t("call", { name })}>
         <a href={`tel:${header.phone}`}>
           <PhoneIcon aria-hidden="true" />
         </a>
@@ -103,13 +101,14 @@ export function ChatHeader({
         type="button"
         variant={panelOpen ? "secondary" : "ghost"}
         size="icon"
+        className="hidden md:inline-flex"
         aria-label={t("contactPanel")}
         aria-pressed={panelOpen}
         onClick={onTogglePanel}
       >
         <PanelRightIcon aria-hidden="true" />
       </Button>
-      <ChatMenu header={header} />
+      <ChatMenu header={header} onToggleSearch={onToggleSearch} onTogglePanel={onTogglePanel} />
     </header>
   );
 }

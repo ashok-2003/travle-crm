@@ -1,0 +1,13 @@
+# A night burst, from travel-crm-work-burst.timer: the day's state for the burst's minutes (the worker runs, the console
+# runs its jobs), then the night's again. It runs for the whole burst, hence the long start timeout (a burst lasts at
+# most 120 minutes, and stopping takes up to 2 more). Installed by scripts/server/work-hours.sh.
+# Its log: journalctl -u travel-crm-work-burst
+[Unit]
+Description=travel-crm night burst: the background work for a few minutes
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=3h
+ExecStart=/srv/travel-crm/app/scripts/server/work-hours.sh burst

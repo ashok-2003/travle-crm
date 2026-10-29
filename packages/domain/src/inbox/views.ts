@@ -4,16 +4,12 @@
 import {
   conversationHeader,
   conversationPage,
-  chatMessagePage,
   inboxStatus,
-  whatsappMessageKind,
   whatsappMessageStatus,
-  type ChatMessagePage,
   type ConversationHeader,
   type ConversationPage,
   type InboxStatus,
   type ListConversationsInput,
-  type ListMessagesInput,
 } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
@@ -329,80 +325,6 @@ export async function conversationHeaderOf(
       row.snoozedUntil !== null && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil.toISOString() : null,
     // The api adds who is typing: it alone knows (kept in its memory, never stored).
     replying: [],
-  });
-}
-
-/** A page of the chat's messages, newest first. */
-export async function listMessages(
-  tx: OrgTx,
-  access: MemberAccess,
-  input: ListMessagesInput,
-): Promise<ChatMessagePage> {
-  await visibleConversation(tx, access, input.conversationId);
-  const after =
-    input.before === undefined
-      ? null
-      : await tx.whatsappMessage.findFirst({
-          where: { id: input.before, conversationId: input.conversationId },
-          select: { id: true, occurredAt: true },
-        });
-  const rows = await tx.whatsappMessage.findMany({
-    where: {
-      conversationId: input.conversationId,
-      status: { not: "superseded" },
-      ...(input.starredOnly === true ? { starredAt: { not: null } } : {}),
-      ...(input.search === undefined
-        ? {}
-        : {
-            AND: [
-              {
-                OR: [
-                  { body: { contains: input.search, mode: "insensitive" as const } },
-                  { caption: { contains: input.search, mode: "insensitive" as const } },
-                ],
-              },
-            ],
-          }),
-      ...(after === null
-        ? {}
-        : { OR: [{ occurredAt: { lt: after.occurredAt } }, { occurredAt: after.occurredAt, id: { lt: after.id } }] }),
-    },
-    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    take: input.limit + 1,
-  });
-  const page = rows.slice(0, input.limit);
-  const quotedWamids = page.map((row) => row.quotedWamid).filter((wamid): wamid is string => wamid !== null);
-  const quoted = await tx.whatsappMessage.findMany({
-    where: { conversationId: input.conversationId, wamid: { in: quotedWamids } },
-    select: { wamid: true, kind: true, body: true, caption: true },
-  });
-  const quotedByWamid = new Map(quoted.map((message) => [message.wamid, message]));
-  return chatMessagePage.parse({
-    items: page.map((row) => {
-      const target = row.quotedWamid === null ? undefined : quotedByWamid.get(row.quotedWamid);
-      return {
-        id: row.id,
-        direction: row.direction,
-        origin: row.origin,
-        byAi: row.clientToken?.startsWith("ai:") === true,
-        kind: whatsappMessageKind.catch("unsupported").parse(row.kind),
-        body: row.body,
-        caption: row.caption,
-        fileName: row.fileName,
-        latitude: row.latitude === null ? null : Number(row.latitude),
-        longitude: row.longitude === null ? null : Number(row.longitude),
-        quoted: target === undefined ? null : { kind: target.kind, body: target.body ?? target.caption },
-        reaction: row.reaction,
-        status: whatsappMessageStatus.catch("received").parse(row.status),
-        failureCode: row.failureCode,
-        mediaState: row.mediaState,
-        sentBy: row.sentBy,
-        occurredAt: row.occurredAt.toISOString(),
-        starred: row.starredAt !== null,
-      };
-    }),
-    nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,
-    people: {},
   });
 }
 

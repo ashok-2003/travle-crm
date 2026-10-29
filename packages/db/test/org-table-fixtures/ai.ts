@@ -1,42 +1,37 @@
-// Isolation fixtures for the AI sales agent: its settings, a piece of knowledge, a chat's AI state, a lead's insight, a
-// usage row and a learning. The runtime role deletes none of them, and never changes a usage row.
+// Isolation fixtures for the AI: the agency's settings, a month's usage, a draft, a piece of knowledge, a lead's insight, a
+// file it sends and a booking it took. The runtime role deletes none of them.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
 
-const digits = () => String(Math.floor(Math.random() * 1e10)).padStart(10, "0");
-
-const aConversation = async (tx: OrgTx) =>
-  tx.whatsappConversation.create({
-    data: {
-      connectionId: (
-        await tx.whatsappConnection.create({
-          data: {
-            integratedNumber: `91${digits()}`,
-            displayNumber: "+910000000000",
-            mode: "new_number",
-            status: "disconnected",
-          },
-        })
-      ).id,
-      phoneE164: `+91${digits()}`,
-    },
-  });
-
-const aLead = async (tx: OrgTx) =>
-  tx.lead.create({
-    data: {
-      personId: (
-        await tx.person.create({ data: { name: "Isolation person", email: `ai-${randomUUID()}@example.test` } })
-      ).id,
-      source: "walk_in",
-    },
-  });
+const digits = () => `91${String(Math.floor(Math.random() * 1e10)).padStart(10, "0")}`;
 
 export const fixtures: OrgTableFixtures = {
-  ai_settings: { create: (tx) => tx.aiSettings.create({ data: {} }), undeletable: true },
-  ai_knowledge: {
-    create: (tx) => tx.aiKnowledge.create({ data: { title: "Isolation", body: "Manali" } }),
+  ai_settings: { create: (tx) => tx.aiSettings.create({ data: { enabled: true } }), undeletable: true },
+  ai_autopilot: { create: (tx) => tx.aiAutopilot.create({ data: { autopilot: false } }), undeletable: true },
+  ai_learning: {
+    create: (tx) => tx.aiLearning.create({ data: { kind: "need", text: "Isolation" } }),
+    undeletable: true,
+  },
+  ai_chat: {
+    create: async (tx: OrgTx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: digits(),
+          displayNumber: "+910000000000",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const conversation = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+91${digits().slice(2)}` },
+      });
+      return tx.aiChat.create({ data: { conversationId: conversation.id } });
+    },
+    undeletable: true,
+  },
+  ai_usage: {
+    create: (tx) => tx.aiUsage.create({ data: { month: new Date("2026-11-01"), calls: 1 } }),
     undeletable: true,
   },
   ai_media: {
@@ -47,23 +42,56 @@ export const fixtures: OrgTableFixtures = {
     undeletable: true,
   },
   ai_booking: {
-    create: async (tx) =>
-      tx.aiBooking.create({
-        data: { leadId: (await aLead(tx)).id, conversationId: randomUUID(), summary: "Manali for 2" },
-      }),
+    create: async (tx: OrgTx) => {
+      const person = await tx.person.create({ data: { name: "Isolation", email: `ai-${randomUUID()}@example.test` } });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "walk_in" } });
+      return tx.aiBooking.create({ data: { leadId: lead.id, conversationId: randomUUID(), summary: "Manali for 2" } });
+    },
     undeletable: true,
   },
-  ai_chat: {
-    create: async (tx) => tx.aiChat.create({ data: { conversationId: (await aConversation(tx)).id } }),
+  ai_knowledge: {
+    create: (tx) => tx.aiKnowledge.create({ data: { title: "Isolation", body: "Manali" } }),
     undeletable: true,
   },
   lead_ai_insight: {
-    create: async (tx) => tx.leadAiInsight.create({ data: { leadId: (await aLead(tx)).id, score: 50, label: "warm" } }),
+    create: async (tx: OrgTx) =>
+      tx.leadAiInsight.create({
+        data: {
+          leadId: (
+            await tx.lead.create({
+              data: {
+                personId: (
+                  await tx.person.create({
+                    data: { name: "Isolation person", email: `ai-${randomUUID()}@example.test` },
+                  })
+                ).id,
+                source: "walk_in",
+              },
+            })
+          ).id,
+          score: 50,
+          label: "warm",
+        },
+      }),
     undeletable: true,
   },
-  ai_usage: { create: (tx) => tx.aiUsage.create({ data: { kind: "test", model: "isolation" } }), appendOnly: true },
-  ai_learning: {
-    create: (tx) => tx.aiLearning.create({ data: { kind: "need", text: "Families ask about Kerala in October" } }),
+  ai_draft: {
+    create: async (tx: OrgTx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: digits(),
+          displayNumber: "+910000000000",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const conversation = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+91${digits().slice(2)}` },
+      });
+      return tx.aiDraft.create({
+        data: { conversationId: conversation.id, draftedBy: randomUUID(), model: "isolation", textHash: "0" },
+      });
+    },
     undeletable: true,
   },
 };

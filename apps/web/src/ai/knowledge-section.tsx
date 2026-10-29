@@ -1,9 +1,8 @@
 "use client";
 
-// What the AI agent knows (the AI sales agent's settings): the agency's packages, prices, inclusions and policies, typed
-// in or read from a PDF or text file (uploaded straight to storage; the worker reads its words, and the list looks again
-// until it has). Each piece can be turned off, opened to edit, or removed. The agency's trips and quote packages are
-// known too, without being added here.
+// What the AI knows (Settings, AI): the agency's packages, prices, inclusions and policies, typed in or read from a PDF or
+// text file (uploaded straight to storage; the worker reads its words, and the list looks again until it has). Each piece can
+// be turned off, opened to edit, or removed (a document's file goes with it).
 import { MAX_AI_KNOWLEDGE_BYTES, aiKnowledgeContentTypes, type AiKnowledgeItem } from "@travel-crm/contracts/ai";
 import { FileTextIcon, PlusIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import { useTranslations } from "next-intl";

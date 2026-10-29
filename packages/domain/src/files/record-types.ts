@@ -2,11 +2,11 @@
 // documents, import reports and exports are the system's alone; and the bulk files are short-lived, so the platform's
 // sweep and erasure delete them for good.
 import {
-  attachmentContentTypes,
   AI_KNOWLEDGE_RECORD_TYPE,
   AI_MEDIA_RECORD_TYPE,
-  aiKnowledgeFileTypes,
   aiMediaFileTypes,
+  aiKnowledgeFileTypes,
+  attachmentContentTypes,
   TRIP_KIT_RECORD_TYPE,
   WHATSAPP_RECORD_TYPE,
   whatsappContentTypes,
@@ -55,11 +55,11 @@ export function maxUploadBytes(recordType: string): number {
 
 /** The content types a record's files may have: spreadsheets for the bulk files, documents and photos elsewhere. */
 export function allowedContentTypes(recordType: string): readonly string[] {
-  // A trip's details are sent on WhatsApp, so they take what a WhatsApp message does (videos and voice notes too).
-  if (recordType === WHATSAPP_RECORD_TYPE || recordType === TRIP_KIT_RECORD_TYPE) return whatsappContentTypes;
   // The AI reads what it is given: a PDF or plain words.
   if (recordType === AI_KNOWLEDGE_RECORD_TYPE) return aiKnowledgeFileTypes;
   // What the AI sends is what WhatsApp takes as a photo, a video or a document.
   if (recordType === AI_MEDIA_RECORD_TYPE) return aiMediaFileTypes;
+  // A trip's details are sent on WhatsApp, so they take what a WhatsApp message does (videos and voice notes too).
+  if (recordType === WHATSAPP_RECORD_TYPE || recordType === TRIP_KIT_RECORD_TYPE) return whatsappContentTypes;
   return spreadsheetRecordTypes.includes(recordType) ? spreadsheetContentTypes : attachmentContentTypes;
 }

@@ -148,5 +148,16 @@ export const bookingRow = z.object({
   marginBasisPoints: z.int().nullable(),
 });
 export type BookingRow = z.infer<typeof bookingRow>;
-export const bookingList = z.array(bookingRow);
+export const BOOKINGS_PAGE_SIZE = 50;
+export const bookingsInput = z.strictObject({
+  /** The `nextCursor` of the page before: an acceptance moment, an underscore and a booking id. */
+  cursor: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z_[0-9a-f-]{36}$/)
+    .optional(),
+});
+export type BookingsInput = z.infer<typeof bookingsInput>;
+/** A page of bookings, newest first; `nextCursor` asks for the page after it, null at the end. */
+export const bookingPage = z.object({ items: z.array(bookingRow), nextCursor: z.string().nullable() });
+export type BookingPage = z.infer<typeof bookingPage>;
 export const expenseList = z.array(expense);

@@ -23,7 +23,7 @@ export function BrandMark({ onDark = false, size = "md" }: { onDark?: boolean; s
         )}
       >
         {first}
-        {last !== undefined && <span className={onDark ? "text-sidebar-foreground/70" : "text-primary"}> {last}</span>}
+        {last !== undefined && <span className={onDark ? "text-sidebar-foreground/90" : "text-primary"}> {last}</span>}
       </span>
     </span>
   );

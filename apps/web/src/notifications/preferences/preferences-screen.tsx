@@ -16,6 +16,7 @@ import { routes } from "@/lib/routes";
 import { shownEmail } from "@/lib/shown-email";
 import { useMe } from "@/session/me-context";
 import { PushOnThisDevice } from "../push/push-on-this-device";
+import { MorningSummary } from "./morning-summary";
 import { EVERY_KIND, notificationKinds, reaches } from "./kinds";
 import { PreferenceRow } from "./preference-row";
 import { usePreferences, useSetPreference } from "./use-preferences";
@@ -90,6 +91,7 @@ export function NotificationPreferencesScreen() {
       <BackLink href={routes.account} label={tShell("navigation.account")} />
       <PageHeader title={t("title")} intro={t("intro")} />
       <PushOnThisDevice />
+      <MorningSummary />
       <section aria-labelledby={headingId} className="flex flex-col gap-3">
         <h2 id={headingId} className="text-section font-semibold">
           {t("kindsHeading")}

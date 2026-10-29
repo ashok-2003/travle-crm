@@ -19,7 +19,9 @@ function RowsTable({
   first,
   empty,
   rows,
+  showsMoney,
 }: {
+  showsMoney: boolean;
   title: string;
   intro: string;
   first: string;
@@ -44,8 +46,8 @@ function RowsTable({
                 <TableHead className="text-right">{t("leads")}</TableHead>
                 <TableHead className="text-right">{t("won")}</TableHead>
                 <TableHead className="text-right">{t("conversion")}</TableHead>
-                <TableHead className="text-right">{t("sales")}</TableHead>
-                <TableHead className="text-right">{t("perLead")}</TableHead>
+                {showsMoney && <TableHead className="text-right">{t("sales")}</TableHead>}
+                {showsMoney && <TableHead className="text-right">{t("perLead")}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -55,10 +57,12 @@ function RowsTable({
                   <TableCell className={number}>{formatCount(row.leads)}</TableCell>
                   <TableCell className={number}>{formatCount(row.won)}</TableCell>
                   <TableCell className={number}>{percentOf(row.won, row.leads)}</TableCell>
-                  <TableCell className={number}>{rupees(row.salesPaise)}</TableCell>
-                  <TableCell className={number}>
-                    {row.leads === 0 ? "–" : rupees(Math.round(row.salesPaise / row.leads))}
-                  </TableCell>
+                  {showsMoney && <TableCell className={number}>{rupees(row.salesPaise)}</TableCell>}
+                  {showsMoney && (
+                    <TableCell className={number}>
+                      {row.leads === 0 ? "–" : rupees(Math.round(row.salesPaise / row.leads))}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -74,6 +78,7 @@ export function SourcesTable({ report }: { report: SalesReport }) {
   const tSources = useTranslations("leads.sources");
   return (
     <RowsTable
+      showsMoney={report.showsMoney}
       title={t("sourcesTitle")}
       intro={t("sourcesIntro")}
       first={t("source")}
@@ -87,6 +92,7 @@ export function DestinationsTable({ report }: { report: SalesReport }) {
   const t = useTranslations("reports.breakdowns");
   return (
     <RowsTable
+      showsMoney={report.showsMoney}
       title={t("destinationsTitle")}
       intro={t("destinationsIntro")}
       first={t("destination")}

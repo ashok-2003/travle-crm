@@ -17,7 +17,7 @@ import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
-import { limitBody, limitTrpcBody } from "./body-limit.js";
+import { limitBody } from "./body-limit.js";
 import { metaDeletionRoute, metaVerifyRoute } from "./meta-routes.js";
 import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import type { MetaServices } from "./meta-services.js";
@@ -59,6 +59,8 @@ export interface ServerDependencies {
   webhookProviders: readonly WebhookProvider[];
   /** The Meta lead ads (ADR 0034): the verify and deletion routes and the procedures; null or absent when Meta is off. */
   meta?: MetaServices | null;
+  /** The AI that drafts replies; null or absent when no key is set. */
+  ai?: AiModel | null;
   /** The MSG91 provider, for the templates screens; null when WhatsApp is off. */
   whatsappProvider?: WhatsAppProvider | null;
   /** The structured log (ADR 0032): a line per request, and every unexpected error. */
@@ -71,8 +73,6 @@ export interface ServerDependencies {
   turnstile?: Turnstile | null;
   /** How the website form reads the visitor's address (W32); absent, as sign-in does. */
   formAddress?: FormAddressSettings;
-  /** The AI sales agent's model (ADR 0029); absent, the agent is off. */
-  ai?: AiModel;
 }
 
 /**
@@ -108,12 +108,12 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     webhookProviders,
     meta = null,
     whatsappProvider = null,
+    ai = null,
     logger,
     authSecret,
     appUrl,
     turnstile = null,
     formAddress = { headerNames: ["x-forwarded-for"], trustedProxies: [], proxyHops: null },
-    ai,
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
@@ -133,7 +133,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   app.on(["GET", "POST"], "/api/auth/*", (c) => identity.auth.handler(c.req.raw));
 
   app.use("/api/trpc/*", requireTrustedJson(identity));
-  app.use("/api/trpc/*", limitTrpcBody(BODY_LIMIT));
+  app.use("/api/trpc/*", limitBody(BODY_LIMIT));
   // Built for each request, so its context and its errors can tell the request's line who called and what failed.
   app.use("/api/trpc/*", (c, next) => {
     const request = c.var.requestLog;
@@ -159,7 +159,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             meta: meta?.dependencies ?? null,
             whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
             whatsappProvider,
-            ...(ai === undefined ? {} : { ai }),
+            ai,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },

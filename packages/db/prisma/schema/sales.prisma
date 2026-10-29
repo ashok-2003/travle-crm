@@ -12,9 +12,9 @@ model SalesAutomation {
   speedTemplateId    String?      @map("speed_template_id") @db.Uuid
   /// What fills each blank of the template: a field key (name, destination...) or "text:<words>".
   speedParams        String[]     @default([]) @map("speed_params")
+  /// The nudges to a lead who has not written back: [{ days, templateId, params }], in order.
   /// The agency's word that someone who enquires with their number agreed to hear back on WhatsApp.
   contactEnquirers   Boolean      @default(false) @map("contact_enquirers")
-  /// The nudges to a lead who has not written back: [{ days, templateId, params }], in order.
   followEnabled      Boolean      @default(false) @map("follow_enabled")
   followSteps        Json         @default("[]") @map("follow_steps")
   /// A payment due on an accepted quote: a reminder some days before, and once the day after it is missed.
@@ -91,6 +91,8 @@ model LeadSignal {
   /// The event it came from, so a repeat adds nothing.
   sourceKey      String       @map("source_key")
   at             DateTime     @db.Timestamptz(6)
+  /// When a person marked the opened quote Done on Today, so it does not come back; null until then.
+  dismissedAt    DateTime?    @map("dismissed_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 

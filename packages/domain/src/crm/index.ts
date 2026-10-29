@@ -35,6 +35,17 @@ export {
   type WhatsAppContactContext,
   type WhatsAppContactOutcome,
 } from "./whatsapp-contact.js";
+export {
+  callTargetOf,
+  deleteCall,
+  DEFAULT_FOLLOW_UP_TITLE,
+  DIALS_PER_MINUTE,
+  editCall,
+  limitDials,
+  logCall,
+  sendCallToMyPhone,
+  type DialLimiter,
+} from "./calls.js";
 export { createLead } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
@@ -67,7 +78,7 @@ export { leadCountsQuery, leadListQuery, type LeadCountsFilter, type LeadListFil
 export { addLeadWork } from "./lead-work.js";
 export { addPerson, type PersonRow } from "./people.js";
 export { offeredDestinations, offeredDestinationsQuery } from "./offered-destinations.js";
-export { advanceLeadStage, moveLeadStage, reassignLead, reopenLead } from "./stage-changes.js";
+export { advanceLeadStage, moveLeadStage, reassignLead, reopenLead, retreatLeadStage } from "./stage-changes.js";
 export { addAiLeadNote, addLeadNote, listLeadNotes, listLeadTimeline, type LeadNoteRow } from "./timeline.js";
 export {
   countNewLeadsWaiting,

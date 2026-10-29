@@ -13,7 +13,9 @@ import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { LeadFlow } from "@/dashboard/lead-flow";
 import { formatCalendarDay } from "@/lib/format";
+import { MoneyCard } from "@/quotes/money-card";
 import { DestinationsTable, LostReasonsCard, SourcesTable } from "./breakdown-tables";
 import { Funnel, KeyFigures } from "./overview-cards";
 import { TeamReportTable } from "./team-report-table";
@@ -76,10 +78,12 @@ export function ReportsScreen() {
           </TabsList>
           <TabsContent value="overview" className="flex flex-col gap-6 pt-4">
             <KeyFigures report={data} />
+            {data.showsMoney && <MoneyCard from={data.from} to={data.to} />}
             <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
               <Funnel report={data} />
               <MonthsCard report={data} />
             </div>
+            <LeadFlow range={range} />
           </TabsContent>
           <TabsContent value="sources" className="flex flex-col gap-6 pt-4">
             <SourcesTable report={data} />
@@ -90,7 +94,7 @@ export function ReportsScreen() {
           </TabsContent>
           {data.scope === "all" && (
             <TabsContent value="team" className="pt-4">
-              <TeamReportTable team={data.team} />
+              <TeamReportTable team={data.team} showsMoney={data.showsMoney} />
             </TabsContent>
           )}
           <TabsContent value="timing" className="pt-4">

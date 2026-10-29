@@ -89,8 +89,9 @@ model WhatsappConversation {
   reads          ConversationRead[]
   scheduled      ScheduledMessage[]
   tripKitSends   TripKitSend[]
-  aiChat         AiChat[]
   broadcasts     WhatsappBroadcastRecipient[]
+  aiDrafts       AiDraft[]
+  aiChats        AiChat[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, connectionId, phoneE164], map: "whatsapp_conversation_phone")
@@ -108,54 +109,61 @@ model WhatsappConversation {
 /// One message in a chat, in or out. The unique wamid is the dedupe ledger.
 model WhatsappMessage {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String                       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String                       @id @default(uuid(7)) @db.Uuid
-  conversationId String                       @map("conversation_id") @db.Uuid
+  organizationId  String                       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String                       @id @default(uuid(7)) @db.Uuid
+  conversationId  String                       @map("conversation_id") @db.Uuid
   /// in or out.
-  direction      String
+  direction       String
   /// customer, staff_crm, staff_phone, history or automation (an away, welcome or keyword answer).
-  origin         String
+  origin          String
   /// text, image, video, audio, document, sticker, location, contacts, reaction, template or unsupported.
-  kind           String
+  kind            String
   /// At most 4,096 characters.
-  body           String?
-  caption        String?
-  fileName       String?                      @map("file_name")
-  latitude       Decimal?                     @db.Decimal(9, 6)
-  longitude      Decimal?                     @db.Decimal(9, 6)
+  body            String?
+  caption         String?
+  fileName        String?                      @map("file_name")
+  latitude        Decimal?                     @db.Decimal(9, 6)
+  longitude       Decimal?                     @db.Decimal(9, 6)
   /// WhatsApp's message id; null until a send is answered.
-  wamid          String?
-  quotedWamid    String?                      @map("quoted_wamid")
+  wamid           String?
+  quotedWamid     String?                      @map("quoted_wamid")
+  /// Our reply's quote: the message it answers, in the same chat (a member chose it). An inbound quote is `quotedWamid` alone.
+  quotedMessageId String?                      @map("quoted_message_id") @db.Uuid
+  /// MSG91 would not take the quote, so the message went without it.
+  quoteDropped    Boolean                      @default(false) @map("quote_dropped")
   /// An emoji set on this message by a reaction.
-  reaction       String?
-  clientToken    String?                      @map("client_token")
-  templateId     String?                      @map("template_id") @db.Uuid
-  templateParams String[]                     @default([]) @map("template_params")
-  sentBy         String?                      @map("sent_by") @db.Uuid
+  reaction        String?
+  clientToken     String?                      @map("client_token")
+  templateId      String?                      @map("template_id") @db.Uuid
+  templateParams  String[]                     @default([]) @map("template_params")
+  sentBy          String?                      @map("sent_by") @db.Uuid
   /// received, queued, sending, sent, delivered, read, failed or superseded.
-  status         String
-  failureCode    String?                      @map("failure_code")
-  occurredAt     DateTime                     @map("occurred_at") @db.Timestamptz(6)
-  sentAt         DateTime?                    @map("sent_at") @db.Timestamptz(6)
-  deliveredAt    DateTime?                    @map("delivered_at") @db.Timestamptz(6)
-  readAt         DateTime?                    @map("read_at") @db.Timestamptz(6)
+  status          String
+  failureCode     String?                      @map("failure_code")
+  occurredAt      DateTime                     @map("occurred_at") @db.Timestamptz(6)
+  sentAt          DateTime?                    @map("sent_at") @db.Timestamptz(6)
+  deliveredAt     DateTime?                    @map("delivered_at") @db.Timestamptz(6)
+  readAt          DateTime?                    @map("read_at") @db.Timestamptz(6)
   /// none, pending, stored, expired or failed.
-  mediaState     String                       @default("none") @map("media_state")
+  mediaState      String                       @default("none") @map("media_state")
   /// MSG91's link to an inbound file, blanked when the file is stored.
-  mediaUrl       String?                      @map("media_url")
-  mediaAttempts  Int                          @default(0) @map("media_attempts")
+  mediaUrl        String?                      @map("media_url")
+  mediaAttempts   Int                          @default(0) @map("media_attempts")
   /// Starred for the team (sales inbox spec 6).
-  starredAt      DateTime?                    @map("starred_at") @db.Timestamptz(6)
-  starredBy      String?                      @map("starred_by") @db.Uuid
+  starredAt       DateTime?                    @map("starred_at") @db.Timestamptz(6)
+  starredBy       String?                      @map("starred_by") @db.Uuid
   /// The broadcast that sent it, if one did.
-  broadcastId    String?                      @map("broadcast_id") @db.Uuid
-  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  conversation   WhatsappConversation         @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  template       WhatsappTemplate?            @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  broadcast      WhatsappBroadcast?           @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  scheduledFrom  ScheduledMessage[]
-  broadcastRows  WhatsappBroadcastRecipient[]
+  broadcastId     String?                      @map("broadcast_id") @db.Uuid
+  createdAt       DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation    WhatsappConversation         @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  template        WhatsappTemplate?            @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  broadcast       WhatsappBroadcast?           @relation(fields: [organizationId, broadcastId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  /// Not RESTRICT: the purge deletes a table's rows in one statement, and a restricting key to a row of the same table would stop it.
+  quotedMessage   WhatsappMessage?             @relation("MessageQuote", fields: [organizationId, quotedMessageId], references: [organizationId, id], onDelete: NoAction, onUpdate: Restrict)
+  quotedBy        WhatsappMessage[]            @relation("MessageQuote")
+  scheduledFrom   ScheduledMessage[]
+  broadcastRows   WhatsappBroadcastRecipient[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, wamid], map: "whatsapp_message_wamid", where: raw("(wamid IS NOT NULL)"))

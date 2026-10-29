@@ -89,6 +89,17 @@ const environmentSchema = z
      */
     DATABASE_TRANSACTION_MAX_WAIT_MS: z.coerce.number().int().min(1).default(2000),
     DATABASE_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().min(1).default(5000),
+    /**
+     * How often, in seconds, the worker looks for work: each queue's jobs, the outbox's events and pg-boss's scheduled
+     * sends (at most every 45 s). Unset, pg-boss's 2 s and the relay's 1 s. A metered network sets more (docs/serverless.md).
+     */
+    JOBS_POLLING_SECONDS: emptyAsUnset(z.coerce.number().int().min(1).max(600).optional()),
+    /**
+     * Whether the console runs its jobs (on by default). Off, it serves its pages with a pg-boss that only sends, so an
+     * idle console queries nothing: the two small servers' nights (docs/runbook.md, "Working hours and night bursts").
+     * The console's alone; here because its services are built from this environment.
+     */
+    CONSOLE_JOBS: emptyAsUnset(z.stringbool().default(true)),
     /** Signs and encrypts cookies and two-factor secrets. Generate with `openssl rand -base64 32`. */
     BETTER_AUTH_SECRET: z.string().min(32, "must be at least 32 characters"),
     /** Where browsers reach the api, e.g. https://app.example.in. */
@@ -166,7 +177,26 @@ const environmentSchema = z
     if (environment.MSG91_TEST_SERVER_URL !== undefined && whatsappSet.length === 0) {
       problem("MSG91_TEST_SERVER_URL", "is only for use with the WhatsApp settings");
     }
+    // The AI's endpoint, key and models come together: a key needs its chat models, and the others need the key.
+    if (environment.AI_API_KEY !== undefined && environment.AI_CHAT_MODELS === undefined) {
+      problem("AI_CHAT_MODELS", "is needed with AI_API_KEY");
+    }
+    for (const name of ["AI_BASE_URL", "AI_CHAT_MODELS", "AI_FAST_MODELS"] as const) {
+      if (environment[name] !== undefined && environment.AI_API_KEY === undefined) {
+        problem(name, "is only for use with AI_API_KEY");
+      }
+    }
+    if (environment.AI_TEST_SERVER_URL !== undefined && environment.OPENROUTER_API_KEY === undefined) {
+      problem("AI_TEST_SERVER_URL", "is only for use with OPENROUTER_API_KEY");
+    }
     if (developmentLike(environment.NODE_ENV)) return;
+    // The AI key and the customers' words go in every request: over https only.
+    if (environment.AI_BASE_URL !== undefined && !environment.AI_BASE_URL.startsWith("https://")) {
+      problem("AI_BASE_URL", "must be an https address in production");
+    }
+    if (environment.AI_TEST_SERVER_URL !== undefined) {
+      problem("AI_TEST_SERVER_URL", "is for development and tests only: unset it in production");
+    }
     if (environment.MSG91_TEST_SERVER_URL !== undefined) {
       problem("MSG91_TEST_SERVER_URL", "is for development and tests only: unset it in production");
     }

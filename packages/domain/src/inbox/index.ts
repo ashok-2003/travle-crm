@@ -15,8 +15,11 @@ export {
 export { addDemoWhatsApp } from "./demo-seed.js";
 export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
 export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
+export { listChatMedia } from "./chat-media.js";
+export { discardFailedMessage } from "./discard.js";
 export {
   archiveConversation,
+  forwardMessage,
   markConversationRead,
   MAX_SNOOZE_MS,
   pinConversation,
@@ -29,6 +32,7 @@ export {
   automationOf,
   createKeywordReply,
   CUSTOMER_WROTE_EVENT,
+  TEXT_RECEIVED_EVENT,
   deleteKeywordReply,
   listKeywordReplies,
   saveAutomation,
@@ -71,6 +75,7 @@ export {
   listTripKits,
   removeTripKitFile,
   requestTripKitUpload,
+  tripKitWords,
   updateTripKit,
   type TripKitDependencies,
 } from "./trip-kits.js";
@@ -119,10 +124,10 @@ export {
   inboxStatusOf,
   leadChatOf,
   listConversations,
-  listMessages,
   visibleConversation,
   visibleMessage,
 } from "./views.js";
+export { listMessages } from "./chat-messages.js";
 export { retryMessage } from "./retry.js";
 export {
   assertTemplateAllowed,
@@ -140,6 +145,12 @@ export {
   syncTemplates,
   type TemplateDependencies,
 } from "./templates.js";
-export { isOptOutText, recordWhatsappOptOut, whatsappConsentOf, type WhatsappConsent } from "./whatsapp-consent.js";
+export {
+  chatOptedOut,
+  isOptOutText,
+  recordWhatsappOptOut,
+  whatsappConsentOf,
+  type WhatsappConsent,
+} from "./whatsapp-consent.js";
 export { NEEDS_ATTENTION_KIND } from "./attention.js";
 export { queueSystemText, type SystemSendResult } from "./system-send.js";

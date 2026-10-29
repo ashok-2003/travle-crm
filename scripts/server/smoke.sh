@@ -5,12 +5,16 @@
 #   scripts/server/smoke.sh https://<host>
 # deploy.sh adds --local on the server: the same requests, sent to this server's Caddy whatever DNS says. Where the
 # address doesn't route /health to the api (Vercel, docs/serverless.md), HEALTH_URL names the api's own.
+# SERVER_ROLE `api` or `console` checks one of the two small servers (docs/runbook.md) for its own paths only, and
+# ORIGIN names the address its sign-in takes requests from (the web app's, APP_URL) when it isn't the one checked.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
 
 app="${1:?Usage: smoke.sh https://<host> [--local]}"
 host="${app#https://}"
+role="${SERVER_ROLE:-all}"
+origin="${ORIGIN:-$app}"
 # Extra curl arguments for every request.
 curl_options=(--connect-timeout 10)
 if [ "${2:-}" = "--local" ]; then
@@ -20,16 +24,36 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 echo "HTTPS, with a certificate curl trusts"
-expect_status "http://$host/sign-in" 308 "${curl_options[@]}"
+if [ "$role" = all ]; then
+  expect_status "http://$host/sign-in" 308 "${curl_options[@]}"
+else
+  expect_status "http://$host/health" 308 "${curl_options[@]}"
+fi
 expect_status "${HEALTH_URL:-$app/health}" 200 "${curl_options[@]}"
 
 echo "Routes, as docs/deploy-checklist.md has them"
-expect_status "$app/sign-in" 200 --dump-header "$work/sign-in" "${curl_options[@]}"
-expect_header "$work/sign-in" Content-Security-Policy "default-src 'self'"
-expect_header "$work/sign-in" Strict-Transport-Security "max-age=63072000; includeSubDomains"
-echo "ok: the web app's Content-Security-Policy and HSTS come through once each"
-# The console answers its own api: the api has no /api/platform and would say 404.
-expect_status "$app/api/platform/trpc/whoAmI" 401 "${curl_options[@]}"
+case "$role" in
+  all)
+    expect_status "$app/sign-in" 200 --dump-header "$work/sign-in" "${curl_options[@]}"
+    expect_header "$work/sign-in" Content-Security-Policy "default-src 'self'"
+    expect_header "$work/sign-in" Strict-Transport-Security "max-age=63072000; includeSubDomains"
+    echo "ok: the web app's Content-Security-Policy and HSTS come through once each"
+    # The console answers its own api: the api has no /api/platform and would say 404.
+    expect_status "$app/api/platform/trpc/whoAmI" 401 "${curl_options[@]}"
+    ;;
+  api)
+    # The web app and the console are on other hosts: this server answers only the api's paths.
+    expect_status "$app/sign-in" 404 "${curl_options[@]}"
+    expect_status "$app/api/platform/trpc/whoAmI" 404 "${curl_options[@]}"
+    ;;
+  console)
+    expect_status "$app/api/platform/trpc/whoAmI" 401 "${curl_options[@]}"
+    expect_status "$app/api/trpc/me.get" 404 "${curl_options[@]}"
+    echo "The console's server is good."
+    exit 0
+    ;;
+  *) fail "SERVER_ROLE is '$role': it must be all, api or console" ;;
+esac
 expect_status "$app/api/trpc/me.get" 401 "${curl_options[@]}"
 # Only the api's 404 for a share link says no-referrer, and only it refuses an unknown provider's webhook in JSON.
 expect_status "$app/p/not-a-token" 404 --dump-header "$work/share-link" "${curl_options[@]}"
@@ -39,13 +63,16 @@ expect_status "$app/webhooks/not-a-provider" 404 --request POST --header "Conten
 expect_header "$work/webhook" Content-Type application/json
 
 # Sign-in is password-only for the pilot, so the limit must hold: a burst of wrong passwords from one address is
-# refused with 429 within a few tries (Better Auth's sign-in rule, per client address).
+# refused with 429 within a few tries (Better Auth's sign-in rule, per client address). Each try may take up to 30 s:
+# the first sign-in after a restart, on a small server while the worker starts, and with a managed database that may
+# be waking, took 5.6 s once, past status_of's 5 (the last --max-time wins).
 echo "Sign-in rate limiting"
 limited=""
 for attempt in 1 2 3 4 5 6; do
-  status="$(status_of "$app/api/auth/sign-in/org" --request POST --header "Origin: $app" \
+  status="$(status_of "$app/api/auth/sign-in/org" --request POST --header "Origin: $origin" \
     --header "Content-Type: application/json" \
-    --data '{"orgCode":"SMOKE","username":"smoke-check","password":"not-the-password"}' "${curl_options[@]}")"
+    --data '{"orgCode":"SMOKE","username":"smoke-check","password":"not-the-password"}' "${curl_options[@]}" \
+    --max-time 30)"
   case "$status" in
     429)
       limited="$attempt"

@@ -1,5 +1,5 @@
-// What the AI sales agent has learned, as stored (the owner, 2026-10-28): the lessons the agent uses in every chat, the
-// list the owner reads, and the owner's switch for one (on, off, or dismissed for good). Audited.
+// What the AI has learned, as stored (the owner, 2026-10-28): the lessons the autopilot uses in every chat, the list the
+// owner reads, and the owner's switch for one (on, off, or dismissed for good). Audited.
 import { aiLearningKinds, type AiLearning } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -9,7 +9,7 @@ import { DomainError } from "../kernel/index.js";
 /** Lessons a prompt carries at most, best supported first. */
 const LESSONS_IN_PROMPT = 15;
 
-/** The active lessons as lines for the agent's prompt. */
+/** The active lessons as lines for the autopilot's prompt. */
 export async function activeLessons(tx: OrgTx): Promise<string[]> {
   const rows = await tx.aiLearning.findMany({
     where: { state: "active" },

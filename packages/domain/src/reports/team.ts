@@ -35,11 +35,13 @@ export async function teamRowsOf(
       count(*) FILTER (WHERE ${within(sql`q.sent_at`, period)})::int AS sent,
       coalesce(sum(q.subtotal_paise) FILTER (WHERE q.status = 'accepted' AND ${within(sql`q.accepted_at`, period)}), 0)::bigint AS sales
     FROM quote q JOIN lead ON lead.id = q.lead_id
-    WHERE q.deleted_at IS NULL AND ${person(sql`lead.owner_user_id`)} GROUP BY lead.owner_user_id`);
+    WHERE q.deleted_at IS NULL AND lead.deleted_at IS NULL AND ${person(sql`lead.owner_user_id`)}
+    GROUP BY lead.owner_user_id`);
   const collected = await tx.$queryRaw<{ userId: string; collected: bigint }[]>(sql`
     SELECT lead.owner_user_id AS "userId", sum(p.amount_paise)::bigint AS collected
     FROM quote_payment p JOIN quote q ON q.id = p.quote_id JOIN lead ON lead.id = q.lead_id
-    WHERE p.voided_at IS NULL AND p.received_on >= ${period.firstDay}::date AND p.received_on <= ${period.lastDay}::date
+    WHERE p.voided_at IS NULL AND q.deleted_at IS NULL AND lead.deleted_at IS NULL
+      AND p.received_on >= ${period.firstDay}::date AND p.received_on <= ${period.lastDay}::date
       AND ${person(sql`lead.owner_user_id`)}
     GROUP BY lead.owner_user_id`);
   const messages = await tx.$queryRaw<{ userId: string; messages: number }[]>(sql`

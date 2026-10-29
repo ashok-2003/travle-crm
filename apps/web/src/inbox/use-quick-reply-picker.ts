@@ -1,15 +1,24 @@
 "use client";
 
 // Quick replies for the reply box (sales inbox spec, section 5): the list that opens after "/", which row is chosen, putting a
-// reply (or the agency's payment details) in the box with its blanks filled, and the keys that drive the list. The box keeps
-// the focus; Esc shuts the list until the next keystroke.
-import { PAYMENT_DETAILS_SHORTCUT, type ConversationHeader, type QuickReply } from "@travel-crm/contracts/inbox";
+// reply (or the agency's payment details) in the box with its blanks filled, and the keys that drive the list. The blanks
+// are filled by the api, from the chat's lead, with the same function the lead page's Messages and the owner's preview
+// use; a chat with no lead fills what the chat itself knows. A blank with nothing to fill stays in the box, and the box
+// does not send while one is left. The box keeps the focus; Esc shuts the list until the next keystroke.
+import {
+  fillBlanks,
+  PAYMENT_DETAILS_SHORTCUT,
+  type BlankName,
+  type ConversationHeader,
+  type QuickReply,
+} from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import { useState, type KeyboardEvent, type RefObject } from "react";
 import { toast } from "sonner";
+import { useTRPCClient } from "@/data/trpc";
 import { formatMonthName } from "@/lib/format";
 import { useMe } from "@/session/me-context";
-import { fillBlanks, matchingReplies, typedShortcut } from "./quick-reply-list";
+import { matchingReplies, typedShortcut } from "./quick-reply-list";
 import { useQuickReplies } from "./use-inbox-tools";
 
 export function useQuickReplyPicker(
@@ -20,15 +29,36 @@ export function useQuickReplyPicker(
 ) {
   const t = useTranslations("inbox.chat.composer");
   const me = useMe();
+  const client = useTRPCClient();
   const quickReplies = useQuickReplies();
   const [active, setActive] = useState(0);
   const [shut, setShut] = useState(false);
   const typed = typedShortcut(text);
   const shown = typed === null || shut ? null : matchingReplies(quickReplies.data ?? [], typed);
 
+  /** What the chat itself knows of the blanks, for a chat with no lead or when the api can't be asked. */
+  const known = (): Partial<Record<BlankName, string>> => {
+    const first = (name: string | null) => name?.trim().split(/\s+/)[0] ?? "";
+    const values: Partial<Record<BlankName, string>> = {};
+    if (first(header.name) !== "") values.name = first(header.name);
+    if (header.trip.destination !== null) values.destination = header.trip.destination;
+    if (header.trip.travelMonth !== null) values.month = formatMonthName(header.trip.travelMonth);
+    if (first(me.user.name) !== "") values.agent = first(me.user.name);
+    return values;
+  };
+  const filledFrom = async (body: string): Promise<string> => {
+    if (header.lead === null) return fillBlanks(body, known());
+    try {
+      return (await client.leads.readyMessage.mutate({ leadId: header.lead.id, text: body })).text;
+    } catch {
+      toast.error(t("blankFailed"));
+      return fillBlanks(body, known());
+    }
+  };
+
   /** Puts the reply in the box, in place of what was typed, or (for payment details) after it. */
-  const place = (chosen: QuickReply, replaceAll: boolean) => {
-    const filled = fillBlanks(chosen.body, { header, agent: me.user.name, monthOf: formatMonthName });
+  const place = async (chosen: QuickReply, replaceAll: boolean) => {
+    const filled = await filledFrom(chosen.body);
     const next = replaceAll || text.trim() === "" ? filled : `${text.trimEnd()}\n\n${filled}`;
     setText(next);
     setActive(0);
@@ -40,7 +70,7 @@ export function useQuickReplyPicker(
   const payment = () => {
     const details = quickReplies.data?.find((candidate) => candidate.shortcut === PAYMENT_DETAILS_SHORTCUT);
     if (details === undefined) toast.info(t("noPaymentDetails"));
-    else place(details, false);
+    else void place(details, false);
   };
   /** Handles a key meant for the open list; true when it did, so the box does nothing more with it. */
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
@@ -54,7 +84,7 @@ export function useQuickReplyPicker(
       }
       if ((event.key === "Enter" || event.key === "Tab") && pick !== undefined && !event.nativeEvent.isComposing) {
         event.preventDefault();
-        place(pick, true);
+        void place(pick, true);
         return true;
       }
     }

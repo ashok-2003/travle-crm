@@ -2,7 +2,7 @@
 
 // What sits under the messages for someone who may reply (spec 3.2; sales inbox spec 6): a choice of Reply or Note (a note
 // on the chat's lead, for the team, never sent, which works whatever the window), the messages scheduled for later, then the reply box while
-// the 24-hour window is open (under the line that says whether the AI or a person has the chat), or a plain line instead when it has closed, the customer never wrote, the number is paused
+// the 24-hour window is open, or a plain line instead when it has closed, the customer never wrote, the number is paused
 // or this is the demo (Mark as answered is in the chat's menu). Someone who may only read sees nothing here.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { MessageSquareIcon, StickyNoteIcon } from "lucide-react";
@@ -69,10 +69,11 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
     if (status.data?.demo === true) return <Note>{t("replyDemo")}</Note>;
     if (status.data?.connectionStatus === "paused") return <Note>{t("replyPaused")}</Note>;
     if (header.windowOpenUntil !== null) {
+      // One box per chat: its words are that chat's own, and never carried over to another when the address changes.
       return (
         <>
           <AiReplyBar conversationId={header.id} />
-          <Composer header={header} windowOpenUntil={header.windowOpenUntil} />
+          <Composer key={header.id} header={header} windowOpenUntil={header.windowOpenUntil} />
         </>
       );
     }
@@ -98,11 +99,11 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
             if (chosen === "reply" || chosen === "note") setMode(chosen);
           }}
         >
-          <ToggleGroupItem value="reply" className="rounded-full px-3">
+          <ToggleGroupItem value="reply" className="h-8 rounded-full px-3">
             <MessageSquareIcon aria-hidden="true" />
             {t("modeReply")}
           </ToggleGroupItem>
-          <ToggleGroupItem value="note" className="rounded-full px-3" disabled={header.lead === null}>
+          <ToggleGroupItem value="note" className="h-8 rounded-full px-3" disabled={header.lead === null}>
             <StickyNoteIcon aria-hidden="true" />
             {t("modeNote")}
           </ToggleGroupItem>

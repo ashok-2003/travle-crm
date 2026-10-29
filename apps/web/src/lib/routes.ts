@@ -51,10 +51,10 @@ export const routes = {
   websiteForm: "/settings/lead-sources/website-form",
   /** What the agency's sales do by themselves: the first WhatsApp, follow-ups, reminders, hot leads. */
   salesAutomation: "/settings/sales-automation",
-  /** The AI sales agent: whether it answers customers by itself, how it speaks, what it knows. */
-  aiSettings: "/settings/ai",
   /** How quotes are paid (the agency's UPI id) and taxed. */
   quoteSettings: "/settings/quotes",
+  /** Suggest reply's switch and the agency's instructions to the AI. */
+  aiSettings: "/settings/ai",
   /** The agency's WhatsApp number and its state. */
   whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */

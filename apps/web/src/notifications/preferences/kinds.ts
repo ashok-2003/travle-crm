@@ -30,6 +30,8 @@ export const notificationKinds = [
   { kind: "inbox.snooze-ended", messageKey: "inboxSnoozeEnded" },
   { kind: "sales.hot-lead", messageKey: "salesHotLead" },
   { kind: "sales.payment-due", messageKey: "salesPaymentDue" },
+  { kind: "call.dial", messageKey: "callDial" },
+  { kind: "today.morning", messageKey: "todayMorning" },
   { kind: "ai.handoff", messageKey: "aiHandoff" },
   { kind: "ai.booking", messageKey: "aiBooking" },
   { kind: "ai.payment-proof", messageKey: "aiPaymentProof" },

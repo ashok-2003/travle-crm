@@ -101,7 +101,10 @@
       "stage-changed": "Moved a lead to another stage",
       "reopened": "Reopened a closed lead",
       "reassigned": "Gave a lead to another owner",
-      "trip-edited": "Changed a lead's trip"
+      "trip-edited": "Changed a lead's trip",
+      "call-logged": "Wrote a call up on a lead",
+      "call-edited": "Changed a call on a lead",
+      "call-deleted": "Deleted a call on a lead"
     },
     "task": {
       "added": "Added a follow-up or task",
@@ -197,6 +200,8 @@
       "chat-unarchived": "Brought back an archived chat",
       "chat-snoozed": "Snoozed a chat",
       "chat-woken": "Brought back a snoozed chat",
+      "message-discarded": "Discarded a WhatsApp message that was not sent",
+      "message-forwarded": "Forwarded a WhatsApp message to another chat",
       "message-starred": "Starred a WhatsApp message",
       "message-unstarred": "Took the star off a WhatsApp message",
       "message-scheduled": "Scheduled a WhatsApp message",
@@ -222,7 +227,8 @@
       "installment-added": "Added a payment due on a quote",
       "installment-removed": "Removed a payment due on a quote",
       "payment-recorded": "Recorded a payment",
-      "payment-voided": "Voided a payment"
+      "payment-voided": "Voided a payment",
+      "replaced": "Replaced a quote with a new version"
     },
     "quote-settings": {
       "changed": "Changed how quotes are paid and taxed"
@@ -239,26 +245,37 @@
     "sales-automation": {
       "changed": "Changed the sales automation"
     },
+    "sales": {
+      "follow-ups-changed": "Turned a lead's follow-ups on or off",
+      "quote-opened-dismissed": "Marked an opened quote as seen"
+    },
     "quote-package": {
       "saved": "Saved a quote package",
       "deleted": "Deleted a quote package"
     },
+    "ai-settings": {
+      "changed": "Changed the AI settings"
+    },
     "ai": {
-      "settings-changed": "Changed the AI assistant's settings",
-      "knowledge-added": "Taught the AI assistant something",
-      "knowledge-changed": "Changed what the AI assistant knows",
-      "knowledge-deleted": "Removed something the AI assistant knew",
-      "chat-mode-changed": "Turned the AI assistant on or off in a chat",
-      "chat-resumed": "Let the AI assistant answer a chat again",
-      "learning-changed": "Turned a lesson the AI learned on or off",
-      "learned": "Had the AI learn from the chats",
-      "voice-learned": "Taught the AI to talk like a person",
-      "voice-removed": "Removed the way of talking the AI copied",
-      "chat-persona-changed": "Chose what the AI is for in a chat",
-      "media-added": "Added a photo, video or PDF for the AI assistant to send",
-      "media-changed": "Changed a file the AI assistant sends",
-      "media-deleted": "Removed a file the AI assistant sent",
-      "booking-decided": "Confirmed or cancelled a booking the AI assistant took"
+      "draft-sent": "Sent a reply drafted by AI",
+      "knowledge-added": "Added to what the AI knows",
+      "knowledge-changed": "Changed what the AI knows",
+      "knowledge-deleted": "Removed from what the AI knows",
+      "message-sent": "The AI sent a reply by itself",
+      "voice-learned": "Gave the AI a way of talking to copy",
+      "voice-removed": "Removed the AI's way of talking",
+      "learned": "Asked the AI to learn from the chats",
+      "learning-changed": "Turned an AI lesson on, off or away",
+      "chat-mode-changed": "Turned the AI on or off in a chat",
+      "chat-resumed": "Gave a chat back to the AI",
+      "chat-persona-changed": "Changed what the AI is for in a chat",
+      "media-added": "Added a photo, video or PDF for the AI to send",
+      "media-changed": "Changed a file the AI sends",
+      "media-deleted": "Removed a file the AI sent",
+      "booking-decided": "Confirmed or cancelled a booking the AI took"
+    },
+    "ai-autopilot": {
+      "changed": "Changed the AI's autopilot settings"
     },
     "notifications": {
       "routing-changed": "Chose who on the team gets email and alert copies"
@@ -333,14 +350,21 @@
     "followUps": "Follow-ups",
     "reminders": "Payment reminders",
     "lostReason": "Why it was lost",
-    "autopilot": "Answers by itself",
-    "scoring": "Scores leads",
+    "instructionsLength": "Instructions' length",
+    "changedByMember": "Changed before sending",
+    "enabled": "On",
+    "model": "Model",
+    "messageId": "Message",
+    "length": "Length",
+    "autopilot": "Autopilot",
+    "learning": "Learning",
+    "persona": "What the AI is for",
+    "handoff": "Hand-over",
     "mode": "AI in this chat",
-    "handoff": "When the AI steps back",
-    "state": "State",
-    "added": "Lessons added",
-    "updated": "Lessons sharpened",
-    "persona": "What the AI is for"
+    "messages": "Messages",
+    "added": "Added",
+    "updated": "Updated",
+    "state": "State"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -365,11 +389,14 @@
     "agency_expense": "A running cost",
     "sales_automation": "Sales automation",
     "quote_template": "A quote package",
-    "ai_settings": "The AI assistant",
-    "ai_knowledge": "Something the AI assistant knows",
-    "ai_learning": "A lesson the AI learned",
-    "ai_media": "A file the AI assistant sends",
-    "ai_booking": "A booking the AI assistant took",
+    "ai_settings": "The AI settings",
+    "ai_draft": "An AI draft",
+    "ai_knowledge": "A piece of what the AI knows",
+    "ai_autopilot": "The AI's autopilot",
+    "ai_learning": "An AI lesson",
+    "whatsapp_message": "A message",
+    "ai_media": "A file the AI sends",
+    "ai_booking": "A booking the AI took",
     "notification_routing": "Team notifications"
   }
 }

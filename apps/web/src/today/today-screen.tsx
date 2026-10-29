@@ -22,7 +22,9 @@ import { HotLeadsCard } from "@/sales/hot-leads-card";
 
 const sections: readonly { name: TodaySectionName; count: keyof TodaySummary["counts"] }[] = [
   { name: "overdue", count: "overdue" },
+  { name: "payments-due", count: "paymentsDue" },
   { name: "new-leads", count: "newLeads" },
+  { name: "quote-opened", count: "quoteOpened" },
   { name: "due-today", count: "dueToday" },
 ];
 
@@ -34,14 +36,14 @@ function DayLine({ summary }: { summary: TodaySummary }) {
   const t = useTranslations("today");
   const { timeZone } = useMe().organization;
   const start = startOfDayIn(parseCalendarDate(summary.day), timeZone);
-  const { overdue, newLeads, dueToday } = summary.counts;
+  const { overdue, newLeads, dueToday, quoteOpened, paymentsDue } = summary.counts;
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <span>
         {t("intro", {
           weekday: formatWeekday(start, { timeZone }),
           day: formatDay(start, { timeZone }),
-          count: overdue + newLeads + dueToday,
+          count: overdue + newLeads + dueToday + quoteOpened + paymentsDue,
         })}
       </span>
       {overdue > 0 && <StatusBadge tone="bad">{t("overdueCount", { count: overdue })}</StatusBadge>}

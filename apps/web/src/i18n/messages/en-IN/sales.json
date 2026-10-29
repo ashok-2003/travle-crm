@@ -46,8 +46,8 @@
       "title": "Reply to new leads in a minute",
       "description": "A lead from your ads, website or a sheet gets this WhatsApp within a minute, day or night. Leads who answer first convert the most.",
       "template": "Greeting template",
-      "consent": "People who enquire with their number agree to hear back on WhatsApp",
-      "consentHint": "WhatsApp needs their agreement before you message first. Turn this on if your forms and ads say you will contact them on WhatsApp. Anyone who writes STOP is never messaged."
+      "consentHint": "WhatsApp needs their agreement before you message first. Turn this on if your forms and ads say you will contact them on WhatsApp. Anyone who writes STOP is never messaged.",
+      "consent": "People who enquire with their number agree to hear back on WhatsApp"
     },
     "follow": {
       "title": "Follow up when they go quiet",

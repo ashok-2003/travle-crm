@@ -1,4 +1,4 @@
-// /settings/ai: the AI sales agent: whether it answers customers by itself, how it speaks, what it knows.
+// /settings/ai: the agency's switch for Suggest reply and its instructions to the AI, for whoever manages it (Owner, Admin).
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AiSettingsScreen } from "@/ai/ai-settings-screen";
@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function AiSettingsPage() {
   return (
-    <RequirePermission permission="settings:manage">
+    <RequirePermission permission="ai:manage">
       <AiSettingsScreen />
     </RequirePermission>
   );

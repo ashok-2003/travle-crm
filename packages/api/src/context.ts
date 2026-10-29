@@ -44,18 +44,11 @@ export interface ApiDependencies {
   whatsappConfigured?: boolean;
   /** The MSG91 provider the templates are read from and sent for approval through; null or absent when WhatsApp is off. */
   whatsappProvider?: TemplateDependencies["provider"];
+  /** The AI that drafts replies (OpenRouter, zero data retention); null or absent when no key is set: Suggest reply is off. */
+  ai?: AiModel | null;
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
   appUrl: string;
-  /** The AI sales agent's model (ADR 0029); absent or not configured means the agent is off. */
-  ai?: AiModel;
 }
-
-/** No AI: every call says not configured. */
-const noAi: AiModel = {
-  configured: false,
-  models: { chat: [], fast: [] },
-  complete: () => Promise.resolve({ ok: false, reason: "not_configured" }),
-};
 
 /**
  * `resHeaders` are the response's headers: Better Auth re-issues its cookies while reading the session (a fresh cache
@@ -76,8 +69,8 @@ export async function createContext(
     meta = null,
     whatsappConfigured = false,
     whatsappProvider = null,
+    ai = null,
     appUrl,
-    ai = noAi,
   }: ApiDependencies,
   request: Request,
   resHeaders: Headers,
@@ -101,8 +94,8 @@ export async function createContext(
     meta,
     whatsappConfigured,
     whatsappProvider,
-    appUrl,
     ai,
+    appUrl,
     headers: request.headers,
     resHeaders,
     session: response?.session ?? null,

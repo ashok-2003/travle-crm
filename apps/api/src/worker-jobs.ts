@@ -4,17 +4,6 @@
 // lifecycle among them), run in the console process instead (console-jobs.ts).
 import type { Database } from "@travel-crm/db";
 import {
-  AI_LEARN_QUEUE,
-  AI_NUDGES_QUEUE,
-  aiChatResumedListener,
-  aiCustomerWroteListener,
-  aiDocumentListener,
-  aiPaymentProofListener,
-  aiReplyHandler,
-  runAiLearning,
-  runAiNudges,
-} from "@travel-crm/domain/ai";
-import {
   addLeadImportListener,
   catchUpBroughtInFormListener,
   checkFirstReply,
@@ -70,6 +59,7 @@ import {
   runDueWork,
   WHATSAPP_TEMPLATES_QUEUE,
 } from "@travel-crm/domain/inbox";
+import { MORNING_PUSH_QUEUE, runMorningPush } from "@travel-crm/domain/today";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
 import {
   customerWroteListener,
@@ -77,7 +67,21 @@ import {
   quoteOpenedListener,
   runSalesDueWork,
   SALES_DUE_WORK_QUEUE,
+  stopFollowUpsListener,
 } from "@travel-crm/domain/sales";
+import {
+  AI_LEARN_QUEUE,
+  AI_NUDGES_QUEUE,
+  aiChatResumedListener,
+  aiCustomerWroteListener,
+  aiPaymentProofListener,
+  aiDocumentListener,
+  aiReplyHandler,
+  runAiLearning,
+  runAiNudges,
+  scoreHandler,
+  scoreOnCustomerWroteListener,
+} from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
 import {
@@ -97,10 +101,10 @@ import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { processWebhookJob, WEBHOOK_PROCESS_QUEUE, type WebhookProvider } from "@travel-crm/domain/webhooks";
 import { metaProcessDependencies, type MetaServices } from "./meta-services.js";
 import { inboxDependenciesOf, type WhatsAppServices } from "./whatsapp-services.js";
-import { documentText, type AiModel } from "@travel-crm/integrations/ai";
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
+import { documentText, type AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
@@ -124,6 +128,7 @@ export interface WorkerJobDependencies {
   identity: Pick<
     Identity,
     | "organizationProfile"
+    | "organizationsPage"
     | "memberContacts"
     | "inviteListener"
     | "firstOwner"
@@ -156,10 +161,10 @@ export interface WorkerJobDependencies {
   whatsapp?: WhatsAppServices | null;
   /** The worker's structured log (ADR 0032): ids, codes, counts and timings only. */
   logger: Logger;
+  /** The AI (ADR 0029): null or left out when no OpenRouter key is set, and then nothing is ever sent to it. */
+  ai?: AiModel | null;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
   jobs?: JobQueue;
-  /** The AI sales agent's model (ADR 0029); left out or not configured, the agent does nothing. */
-  ai?: AiModel;
 }
 
 export interface WorkerJobs {
@@ -175,6 +180,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   // Who the slow-reply alert and the Unassigned notice go to: everyone whose role holds leads:assign (release 4).
   const leadAssigners = (organizationId: string) => identity.membersHolding(organizationId, "leads:assign");
   const { webhookProviders, rateLimiter, logger } = dependencies;
+  const ai = dependencies.ai ?? null;
   // The bulk imports' and exports' listeners (release 2): two of each step share its event, each acting on its kind.
   const importJobs: ImportJobDependencies = {
     files,
@@ -211,6 +217,18 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           checkIntervalSeconds: sheets.checkIntervalSeconds ?? defaultCheckIntervalSeconds,
           baselineFingerprints: leadSheetBaselineFingerprints(db, sheets.hashes),
         };
+  // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
+  const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
+  // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name, with its media.
+  const autopilotJobs = (model: AiModel) => ({
+    db,
+    ai: model,
+    subscriptions,
+    agencyName: async (organizationId: string) =>
+      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
+    files,
+    managers: bookingManagers,
+  });
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
   // Sales execution: the agency's name and the lead owner's for the WhatsApp blanks, in the agency's own time.
   const salesJobs = {
@@ -227,23 +245,6 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       return { agencyName: organization?.name ?? "our team", agentName: owners[0]?.name ?? null };
     },
   };
-  // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
-  const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
-  // The AI sales agent: it speaks for the agency by its name; its turns need the queue and a configured model.
-  const { ai } = dependencies;
-  const aiJobs =
-    ai?.configured === true && dependencies.jobs !== undefined
-      ? {
-          db,
-          ai,
-          logger,
-          queue: dependencies.jobs,
-          agencyName: async (organizationId: string) =>
-            (await identity.organizationProfile(organizationId))?.name ?? "our team",
-          files,
-          managers: bookingManagers,
-        }
-      : null;
   // The Meta lead ads' side: the route, the notices, the checks and the import of a form's earlier leads, only when Meta is set up.
   const { meta = null } = dependencies;
   const metaJobs = meta === null ? null : metaProcessDependencies(meta.dependencies, { identity, subscriptions });
@@ -287,15 +288,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       greetNewLeadListener(salesJobs),
       quoteOpenedListener(),
       customerWroteListener(),
+      stopFollowUpsListener(),
       // A trip's details, sent by themselves when a customer's message holds one of its keywords (once a chat).
       tripKitKeywordListener({ db, files }),
-      // The AI agent's knowledge: an uploaded document's words are read whether or not a model is set.
-      aiDocumentListener({ db, files, readText: (bytes, contentType) => documentText(bytes, contentType) }),
-      // A photo or PDF from a customer whose AI booking waits for payment is kept as their proof; the team is told.
-      aiPaymentProofListener({ recipients: bookingManagers }),
-      // The AI agent's turn after a customer writes, queued a few seconds on.
-      // A chat given back to the AI ("Let AI answer now"): its turn for the waiting message, at once.
-      ...(aiJobs === null ? [] : [aiCustomerWroteListener(aiJobs), aiChatResumedListener(aiJobs)]),
       // A broadcast's waiting recipients go out here, a batch at a time (sales inbox spec 6).
       broadcastListener({
         timeZone: async (organizationId) =>
@@ -339,6 +334,19 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
             }),
             notifyUnassignedLeadListener({ managers: leadAssigners }),
           ]),
+      // What the agency tells its AI to know: an uploaded document's words are read (no AI call), and, for an agency with the
+      // AI on, a lead is scored once for each burst of the customer's messages.
+      aiDocumentListener({ files, readText: documentText }),
+      // A photo or PDF from a customer whose AI booking waits for payment is kept as their proof; the team is told.
+      aiPaymentProofListener({ recipients: bookingManagers }),
+      ...(dependencies.jobs === undefined || ai === null
+        ? []
+        : [
+            scoreOnCustomerWroteListener({ queue: dependencies.jobs, ai, subscriptions }),
+            // The autopilot: an agency's AI answering its chats by itself, only where it was turned on.
+            aiCustomerWroteListener({ queue: dependencies.jobs, subscriptions }),
+            aiChatResumedListener({ queue: dependencies.jobs, subscriptions }),
+          ]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
       addLeadImportListener(importJobs),
@@ -361,6 +369,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       ...metaListeners,
     ],
     handlers: [
+      ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
+      ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         handle: async (data) => {
@@ -383,7 +393,6 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               },
             },
           ]),
-      ...(aiJobs === null ? [] : [aiReplyHandler(aiJobs)]),
       ...(sheetsJobs === null ? [] : [sheetsCheckHandler(sheetsJobs)]),
       ...(metaJobs === null ? [] : [metaCatchupHandler(metaJobs)]),
     ],
@@ -424,6 +433,28 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
                 await runDueWork({ db, logger }, new Date());
               },
             },
+            ...(ai === null
+              ? []
+              : [
+                  {
+                    // The autopilot's follow-ups that came due while the customer stayed quiet and the window is open.
+                    queue: AI_NUDGES_QUEUE,
+                    cron: "* * * * *",
+                    timeZone: "Asia/Kolkata",
+                    handle: async () => {
+                      await runAiNudges({ ...autopilotJobs(ai), logger }, new Date());
+                    },
+                  },
+                  {
+                    // Each night, an agency that lets its AI learn gets a lesson run from its recent chats.
+                    queue: AI_LEARN_QUEUE,
+                    cron: "30 2 * * *",
+                    timeZone: "Asia/Kolkata",
+                    handle: async () => {
+                      await runAiLearning({ ...autopilotJobs(ai), logger }, new Date());
+                    },
+                  },
+                ]),
             {
               // Sales execution: follow-ups whose day has come, and payment reminders, between 10:00 and 20:00.
               queue: SALES_DUE_WORK_QUEUE,
@@ -433,28 +464,6 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
                 await runSalesDueWork(salesJobs, new Date());
               },
             },
-            ...(aiJobs === null
-              ? []
-              : [
-                  {
-                    // The follow-ups the AI agent planned, due now, while the 24-hour window is still open.
-                    queue: AI_NUDGES_QUEUE,
-                    cron: "* * * * *",
-                    timeZone: "Asia/Kolkata",
-                    handle: async () => {
-                      await runAiNudges(aiJobs, new Date());
-                    },
-                  },
-                  {
-                    // Each night the AI learns from every agency's chats, while chats are quiet.
-                    queue: AI_LEARN_QUEUE,
-                    cron: "30 2 * * *",
-                    timeZone: "Asia/Kolkata",
-                    handle: async () => {
-                      await runAiLearning(aiJobs, new Date());
-                    },
-                  },
-                ]),
             {
               // Delivery reports that stopped, rows stuck sending, and media never queued (spec 8.4).
               queue: WHATSAPP_HEALTH_QUEUE,
@@ -483,6 +492,16 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               },
             },
           ]),
+      {
+        // Each person's morning summary push, at the time they chose in their agency's zone (release 5): looked for every
+        // 15 minutes, one push a person a day.
+        queue: MORNING_PUSH_QUEUE,
+        cron: "*/15 * * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await runMorningPush({ db, identity, subscriptions, logger }, new Date());
+        },
+      },
       {
         // Rate-limit windows last a minute; a day's worth is kept for looking into abuse. The job is the platform's,
         // not an organization's, so it runs in a fixed zone: India time, a quiet hour for the agencies it serves.

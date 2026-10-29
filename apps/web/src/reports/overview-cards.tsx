@@ -30,13 +30,15 @@ export function KeyFigures({ report }: { report: SalesReport }) {
       </CardHeader>
       <CardContent>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-3 xl:grid-cols-5">
-          <FigureTile
-            label={t("sales")}
-            value={rupees(now.salesPaise)}
-            now={now.salesPaise}
-            before={before.salesPaise}
-            hint={t("salesHint")}
-          />
+          {report.showsMoney && (
+            <FigureTile
+              label={t("sales")}
+              value={rupees(now.salesPaise)}
+              now={now.salesPaise}
+              before={before.salesPaise}
+              hint={t("salesHint")}
+            />
+          )}
           <FigureTile label={t("won")} value={formatCount(now.won)} now={now.won} before={before.won} />
           <FigureTile
             label={t("conversion")}
@@ -45,18 +47,22 @@ export function KeyFigures({ report }: { report: SalesReport }) {
             before={share(before.won, before.newLeads)}
             hint={t("conversionHint")}
           />
-          <FigureTile
-            label={t("averageSale")}
-            value={average(now) === null ? "–" : rupees(average(now) ?? 0)}
-            now={average(now)}
-            before={average(before)}
-          />
-          <FigureTile
-            label={t("collected")}
-            value={rupees(now.collectedPaise)}
-            now={now.collectedPaise}
-            before={before.collectedPaise}
-          />
+          {report.showsMoney && (
+            <>
+              <FigureTile
+                label={t("averageSale")}
+                value={average(now) === null ? "–" : rupees(average(now) ?? 0)}
+                now={average(now)}
+                before={average(before)}
+              />
+              <FigureTile
+                label={t("collected")}
+                value={rupees(now.collectedPaise)}
+                now={now.collectedPaise}
+                before={before.collectedPaise}
+              />
+            </>
+          )}
           <FigureTile
             label={t("newLeads")}
             value={formatCount(now.newLeads)}
@@ -78,12 +84,14 @@ export function KeyFigures({ report }: { report: SalesReport }) {
             lessIsBetter
             hint={t("firstReplyHint")}
           />
-          <FigureTile
-            label={t("pipeline")}
-            value={rupees(report.pipelinePaise)}
-            note={t("openQuotes", { count: report.openQuotes })}
-            hint={t("pipelineHint")}
-          />
+          {report.showsMoney && (
+            <FigureTile
+              label={t("pipeline")}
+              value={rupees(report.pipelinePaise)}
+              note={t("openQuotes", { count: report.openQuotes })}
+              hint={t("pipelineHint")}
+            />
+          )}
           <FigureTile
             label={t("lost")}
             value={formatCount(now.lost)}

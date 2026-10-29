@@ -7,7 +7,7 @@ import type { TestInfo } from "@playwright/test";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { saveOnboardingProfile } from "../support/business";
 import { signInToConsole } from "../support/console";
-import { signInByEmail } from "../support/fixtures";
+import { homeGreeting, signInByEmail } from "../support/fixtures";
 import { addLeadThroughApi, anotherPersonsDevice, callApi, leadInput } from "../support/leads";
 import { chooseDay, expect, test } from "../support/console-organizations";
 import { addFailedJob, addLeftoverSchedule, recordWith, uniqueSuffix } from "../support/console-platform";
@@ -170,7 +170,7 @@ test("support's console, and support signed in as the agency's Owner", async ({ 
     .getByRole("alertdialog", { name: `Sign in as ${agency.owner.name}?` })
     .getByRole("button", { name: `Sign in as ${agency.owner.name}` })
     .click();
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   await expect(page.getByText(`You're signed in as ${agency.owner.name} at ${agency.name}.`)).toBeVisible();
   await shoot(page, "impersonating");
   await page.getByRole("button", { name: "Stop" }).click();

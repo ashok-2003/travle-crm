@@ -3,6 +3,7 @@
 // nothing listens to notes yet, so adding one publishes no event (P5).
 import {
   assignmentReason,
+  callOutcome,
   leadEventKind,
   leadSource,
   leadStage,
@@ -35,13 +36,17 @@ interface EntryRow {
   assignmentAway: boolean;
 }
 
-/** The notes, repeat enquiries and tasks a page of the lead's entries points to, by id. */
+/** The notes, calls, repeat enquiries and tasks a page of the lead's entries points to, by id. */
 async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
   const idsOf = (recordType: string) =>
     rows.flatMap((row) => (row.recordType === recordType && row.recordId !== null ? [row.recordId] : []));
   const notes = await tx.leadNote.findMany({
     where: { id: { in: idsOf("lead_note") } },
     select: { id: true, body: true, byAi: true },
+  });
+  const calls = await tx.leadCall.findMany({
+    where: { id: { in: idsOf("lead_call") } },
+    select: { id: true, outcome: true, note: true },
   });
   const enquiries = await tx.leadEnquiry.findMany({
     where: { id: { in: idsOf("lead_enquiry") } },
@@ -58,6 +63,7 @@ async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
     taskIds.size === 0 ? [] : (await listTasksOnRecord(tx, "lead", [leadId])).filter((task) => taskIds.has(task.id));
   return {
     notes: new Map(notes.map((note) => [note.id, note])),
+    calls: new Map(calls.map((call) => [call.id, { outcome: callOutcome.parse(call.outcome), note: call.note }])),
     enquiries: new Map(
       enquiries.map((enquiry) => [
         enquiry.id,
@@ -101,6 +107,10 @@ function entryOf(
     case "note": {
       const note = pointed.notes.get(target);
       return note === undefined ? null : { ...base, kind, body: note.body, byAi: note.byAi };
+    }
+    case "call": {
+      const call = pointed.calls.get(target);
+      return call === undefined ? null : { ...base, kind, callId: target, ...call };
     }
     case "stage-changed":
       return row.stage === null ? null : { ...base, kind, stage: leadStage.parse(row.stage) };
@@ -199,9 +209,9 @@ export async function addLeadNote(tx: OrgTx, access: MemberAccess, input: AddNot
 }
 
 /**
- * A note the AI agent writes on a lead from its chat (the owner, 2026-10-29): what the customer told it that is worth
- * keeping. Its own timeline entry, by the system; audited without its text. The same words twice in a row are kept once
- * (a turn run again writes nothing new).
+ * A note the AI writes on a lead from its chat (the owner, 2026-10-29): what the customer told it that is worth keeping.
+ * Its own timeline entry, by the system; audited without its text. The same words twice in a row are kept once (a turn
+ * run again writes nothing new).
  */
 export async function addAiLeadNote(tx: OrgTx, actor: Actor, leadId: string, body: string): Promise<boolean> {
   const text = body.trim().slice(0, 4000);

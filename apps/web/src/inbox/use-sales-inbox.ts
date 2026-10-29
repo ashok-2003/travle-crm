@@ -40,6 +40,11 @@ export function useStar() {
   return useMutation(trpc.salesInbox.star.mutationOptions({ onSuccess: () => invalidate("messages") }));
 }
 
+export function useForward() {
+  const trpc = useTRPC();
+  return useMutation(trpc.salesInbox.forward.mutationOptions());
+}
+
 export function useSnooze() {
   const trpc = useTRPC();
   const invalidate = useInvalidate();

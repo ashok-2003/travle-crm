@@ -33,6 +33,7 @@ model Organization {
   shareLinkOpens              ShareLinkOpen[]
   notifications               Notification[]
   notificationPreferences     NotificationPreference[]
+  morningPushSettings         MorningPushSetting[]
   pushSubscriptions           PushSubscription[]
   auditEntries                AuditEntry[]
   profile                     OrganizationProfile?
@@ -40,6 +41,7 @@ model Organization {
   people                      Person[]
   leads                       Lead[]
   leadTimelineEntries         LeadTimelineEntry[]
+  leadCalls                   LeadCall[]
   leadNotes                   LeadNote[]
   leadEnquiries               LeadEnquiry[]
   blockedContacts             BlockedContact[]
@@ -95,16 +97,18 @@ model Organization {
   leadCadences                LeadCadence[]
   salesTouches                SalesTouch[]
   leadSignals                 LeadSignal[]
-  quoteTemplates              QuoteTemplate[]
   aiSettings                  AiSettings?
-  aiKnowledge                 AiKnowledge[]
+  aiAutopilot                 AiAutopilot?
   aiChats                     AiChat[]
-  leadAiInsights              LeadAiInsight[]
-  aiUsage                     AiUsage[]
   aiLearnings                 AiLearning[]
   aiMedia                     AiMedia[]
   aiBookings                  AiBooking[]
   notificationRouting         NotificationRouting?
+  aiUsage                     AiUsage[]
+  aiKnowledge                 AiKnowledge[]
+  leadAiInsights              LeadAiInsight[]
+  aiDrafts                    AiDraft[]
+  quoteTemplates              QuoteTemplate[]
   pageVisits                  PageVisit[]
   welcome                     OrganizationWelcome?
   welcomesSeen                WelcomeSeen[]

@@ -48,7 +48,7 @@ describe("today over HTTP", () => {
     });
 
     const summary = await dataOf<TodaySummary>(await query(server, "today.summary", salesperson));
-    expect(summary.counts).toEqual({ overdue: 1, newLeads: 1, dueToday: 0 });
+    expect(summary.counts).toEqual({ overdue: 1, newLeads: 1, dueToday: 0, quoteOpened: 0, paymentsDue: 0 });
     expect(summary.top).toMatchObject([
       {
         kind: "task",
@@ -64,6 +64,9 @@ describe("today over HTTP", () => {
     expect(page).toMatchObject({ items: [{ kind: "new-lead", lead: { id: leadId } }], nextCursor: null });
 
     const managers = await dataOf<TodaySummary>(await query(server, "today.summary", owner));
-    expect(managers).toMatchObject({ counts: { overdue: 0, newLeads: 0, dueToday: 0 }, top: [] });
+    expect(managers).toMatchObject({
+      counts: { overdue: 0, newLeads: 0, dueToday: 0, quoteOpened: 0, paymentsDue: 0 },
+      top: [],
+    });
   });
 });

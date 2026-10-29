@@ -549,8 +549,31 @@
         "away": "{name} is away. Reassign it if someone else should have it."
       },
       "whatsappContact": "Wrote on WhatsApp",
+      "call": "Call: {outcome}",
+      "callEdit": "Edit the call",
+      "callEditNamed": "Edit the call with the outcome {outcome}",
+      "callDeleteNamed": "Delete the call with the outcome {outcome}",
       "aiNote": "AI note",
-      "ai": "AI assistant"
+      "ai": "The AI"
+    },
+    "callCount": "{count, plural, one {# call} other {# calls}}",
+    "messages": {
+      "button": "Messages",
+      "title": "Messages",
+      "description": "Your agency's saved messages, with {name}'s details filled in. Copy one, or open it in WhatsApp.",
+      "loading": "Loading the messages",
+      "loadFailed": "The messages didn't load.",
+      "empty": "No saved messages yet. An Owner or Admin adds them in Settings, WhatsApp.",
+      "choose": "Choose a message",
+      "preview": "How it will read",
+      "previewLoading": "Filling in the blanks",
+      "linkNote": "The quote's link is made when you copy or open it.",
+      "copy": "Copy the message",
+      "copied": "Message copied",
+      "whatsApp": "Open in WhatsApp",
+      "noPhone": "This lead has no phone number to message.",
+      "copyFailed": "The message couldn't be copied. Select it and copy it yourself.",
+      "blocked": "This lead has nothing for {blanks} yet, so the message can't be copied or opened. Add what's missing, such as a quote, first."
     }
   },
   "export": {
@@ -615,5 +638,60 @@
     "awayUntil": "You're away until {when}: the turns skip you.",
     "for": "{days, plural, one {Away for a day} other {Away for # days}}",
     "back": "I'm back"
+  },
+  "call": {
+    "panelTitle": "Call {name}",
+    "number": "{name}'s number",
+    "callNow": "Call now",
+    "dial": "Dial from this device",
+    "sendToPhone": "Send to my phone",
+    "sending": "Sending",
+    "sent": "Sent to your phone. Open the notification there to dial.",
+    "needsPush": "Turn on notifications on your phone first.",
+    "needsPushLink": "Turn on notifications",
+    "qrLabel": "A QR code that dials {name}",
+    "qrHint": "Or scan this with your phone's camera to dial.",
+    "logCall": "Log the call",
+    "page": {
+      "title": "Call",
+      "intro": "Tap to dial. Afterwards, come back and write one line about how it went.",
+      "callNow": "Call {name} now",
+      "noPhone": "This lead has no phone number.",
+      "openLead": "Open the lead",
+      "loadFailed": "This call didn't load."
+    },
+    "note": {
+      "title": "How did the call go?",
+      "titleEdit": "Change the call",
+      "description": "Your call with {name}. One line is enough.",
+      "descriptionEdit": "You can change a call for a day after you write it.",
+      "outcome": "Outcome",
+      "outcomes": {
+        "spoke": "Spoke",
+        "no_answer": "No answer",
+        "busy": "Busy or call later",
+        "wrong_number": "Wrong number"
+      },
+      "note": "Note",
+      "noteHint": "Optional. What was said, or what they want next.",
+      "followUp": "Add a follow-up",
+      "followUpHint": "A reminder to call back, for the lead's owner.",
+      "due": "Follow up on",
+      "submit": "Save the call",
+      "submitting": "Saving",
+      "saved": "Call saved",
+      "problems": {
+        "tooLong": "Keep the note to 2,000 characters.",
+        "day": "Choose a day.",
+        "time": "Choose a time."
+      }
+    },
+    "delete": {
+      "label": "Delete",
+      "title": "Delete this call?",
+      "description": "It leaves the lead's timeline. Any follow-up you added stays.",
+      "done": "Call deleted"
+    },
+    "edit": "Edit"
   }
 }

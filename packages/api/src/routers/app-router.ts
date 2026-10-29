@@ -5,6 +5,7 @@ import { assignmentRouter } from "./assignment.js";
 import { attachmentsRouter } from "./attachments.js";
 import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
+import { callsRouter } from "./calls.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
 import { broadcastsRouter } from "./broadcasts.js";
@@ -12,8 +13,8 @@ import { inboxRouter } from "./inbox.js";
 import { salesInboxRouter } from "./sales-inbox.js";
 import { tripKitsRouter } from "./trip-kits.js";
 import { quotesRouter } from "./quotes.js";
-import { financeRouter } from "./finance.js";
 import { aiRouter } from "./ai.js";
+import { financeRouter } from "./finance.js";
 import { usageRouter } from "./usage.js";
 import { salesRouter } from "./sales.js";
 import { reportsRouter } from "./reports.js";
@@ -52,6 +53,7 @@ export const appRouter = router({
   shareLinks: shareLinksRouter,
   audit: auditRouter,
   leads: leadsRouter,
+  calls: callsRouter,
   blockedContacts: blockedContactsRouter,
   destinations: destinationsRouter,
   tasks: tasksRouter,
@@ -66,9 +68,9 @@ export const appRouter = router({
   salesInbox: salesInboxRouter,
   tripKits: tripKitsRouter,
   quotes: quotesRouter,
+  ai: aiRouter,
   finance: financeRouter,
   sales: salesRouter,
-  ai: aiRouter,
   usage: usageRouter,
   reports: reportsRouter,
   whatsappTemplates: whatsappTemplatesRouter,

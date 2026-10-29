@@ -1,7 +1,7 @@
 "use client";
 
 // /leads/<id> (spec 3.4): one lead. The way back to Leads keeps the list's filters, which the list's links carry. The
-// person and the main buttons, the stage, then the lead's cards: its open follow-ups, the AI's insight, the person, the trip, the owner
+// person and the main buttons, the stage, then the lead's cards: its open follow-ups, the person, the trip, the owner
 // and source, and the timeline. Below 1280px it is one reading panel 720px wide; from 1280px, where a computer has room
 // beside it, the timeline moves into a column of its own beside the cards, so the lead's history shows next to its
 // details, and always sticks: 24px from the top while it fits the screen, and when it is taller, as far up as brings
@@ -13,8 +13,6 @@ import { SearchXIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, type CSSProperties, type ReactNode } from "react";
-import { LeadBookings } from "@/ai/lead-bookings";
-import { LeadInsight } from "@/ai/lead-insight";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -23,6 +21,8 @@ import { refusalOf } from "@/data/api-error";
 import { useElementHeight } from "@/lib/use-element-height";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
 import { LeadQuotesCard } from "@/quotes/lead-quotes-card";
+import { LeadInsight } from "@/ai/insight-card";
+import { LeadBookings } from "@/ai/lead-bookings";
 import { LeadSalesCard } from "@/sales/lead-sales-card";
 import { isOnPlan } from "@/shell/navigation";
 import { useSubscription } from "@/subscription/use-subscription";

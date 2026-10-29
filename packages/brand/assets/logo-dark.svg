@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <!-- Veeper AI's mark for dark surfaces: the light mark's colours swapped, white ground and a deep green V. -->
-  <path fill="#ffffff" d="M16 0h32a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H16A16 16 0 0 1 0 48V16A16 16 0 0 1 16 0Z"/>
+  <path fill="#fffdf9" d="M16 0h32a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H16A16 16 0 0 1 0 48V16A16 16 0 0 1 16 0Z"/>
   <path fill="none" stroke="#075e54" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" d="M15 20l13 26L45 15"/>
   <path fill="#075e54" d="M38.5 12.5 50.5 9 48.4 21.3Z"/>
   <path fill="#25d366" d="M15 20a3.5 3.5 0 1 1 0 0.01Z"/>

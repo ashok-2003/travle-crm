@@ -9,7 +9,7 @@ import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets";
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
-import { createOpenAiCompatibleModel, type AiModel } from "@travel-crm/integrations/ai";
+import type { AiModel } from "@travel-crm/integrations/ai";
 import { createTurnstileBotCheck, type BotCheck } from "@travel-crm/integrations/bot-check";
 import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -19,9 +19,12 @@ import { createWebPushSender, type PushSender } from "@travel-crm/integrations/p
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
 import { authSettingsFrom, type Environment } from "./environment.js";
+import { jobQueuePollingOf, jobQueueRoleOf } from "./job-polling.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import { createMetaServices, type MetaServices } from "./meta-services.js";
+import { createAiModel } from "./ai-services.js";
 import { createWhatsAppServices, type WhatsAppServices } from "./whatsapp-services.js";
+import type { ProcessName } from "./process-name.js";
 import { loggerOfRequest } from "./request-log.js";
 import { verifySheetsKey } from "./sheets-key-check.js";
 
@@ -41,6 +44,8 @@ export interface Services {
   sheetsHashes: SheetsHashes | null;
   /** The Meta lead ads (ADR 0034); null when the five Meta settings are not set: Meta is off. */
   meta: MetaServices | null;
+  /** The AI that drafts replies (ADR 0029); null when OPENROUTER_API_KEY is not set: Suggest reply says it isn't set up. */
+  ai: AiModel | null;
   /** WhatsApp through MSG91 (ADR 0035); null when the three MSG91 settings are not set: WhatsApp is off. */
   whatsapp: WhatsAppServices | null;
   /** What each organization's plan allows today, for the jobs that act for a person (an import's add). */
@@ -54,8 +59,6 @@ export interface Services {
   rateLimiter: RateLimiter;
   /** Asks Cloudflare Turnstile whether a form's visitor is a person; null when no keys are set (W39). */
   botCheck: BotCheck | null;
-  /** The AI sales agent's model (ADR 0029); not `configured` when AI_API_KEY is unset, and then the agent is off. */
-  ai: AiModel;
   /** Checks the database role and the storage bucket, then starts pg-boss. Call before serving requests or working. */
   start(): Promise<void>;
   /** Stops pg-boss (waiting for running jobs) and closes the database pools. */
@@ -95,8 +98,16 @@ export function googleSheetsOf(environment: Environment, logger: Logger): Google
       });
 }
 
-/** `logger` is the process's structured log: pg-boss's problems and job lines go there, as ids, codes and timings. */
-export function createServices(environment: Environment, logger: Logger): Services {
+/**
+ * `logger` is the process's structured log: pg-boss's problems and job lines go there, as ids, codes and timings.
+ * `processName` is the process they're for: the api's job queue only sends, and the console's with CONSOLE_JOBS off
+ * (jobQueueRoleOf); unnamed, it works.
+ */
+export function createServices(
+  environment: Environment,
+  logger: Logger,
+  processName: ProcessName = "worker",
+): Services {
   const db = createDatabase(environment.DATABASE_URL, {
     maxConnections: environment.DATABASE_POOL_SIZE,
     transactionLimits: transactionLimitsOf(environment),
@@ -143,6 +154,8 @@ export function createServices(environment: Environment, logger: Logger): Servic
   const jobs = createPgBossJobs({
     connectionString: environment.DATABASE_URL,
     logger,
+    ...jobQueuePollingOf(environment),
+    ...jobQueueRoleOf(processName, environment),
   });
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,
@@ -171,6 +184,7 @@ export function createServices(environment: Environment, logger: Logger): Servic
     google: googleSheetsOf(environment, logger),
     sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     meta: createMetaServices(environment, { db, rateLimiter, logger }),
+    ai: createAiModel(environment),
     whatsapp: createWhatsAppServices(environment),
     subscriptions,
     seatLimit: limits.seats,
@@ -179,14 +193,6 @@ export function createServices(environment: Environment, logger: Logger): Servic
     push,
     rateLimiter,
     botCheck,
-    ai: createOpenAiCompatibleModel({
-      baseUrl: environment.AI_BASE_URL,
-      apiKey: environment.AI_API_KEY ?? "",
-      models: { chat: environment.AI_CHAT_MODELS, fast: environment.AI_FAST_MODELS },
-      zeroRetention: environment.AI_ZERO_RETENTION,
-      // A customer is waiting: a model slower than this is left for the next one in the list.
-      timeoutMs: 20_000,
-    }),
     start: async () => {
       // A DATABASE_URL for the wrong role (app_migrator, say) would otherwise fail every request and job while the
       // process looked healthy: the first query checks the role, so make one now.

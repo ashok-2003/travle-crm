@@ -2,41 +2,46 @@
   "settings": {
     "title": "AI sales agent",
     "intro": "Your best salesperson, on WhatsApp all day: it answers every enquiry in seconds, understands the trip, recommends your packages with prices, handles objections, takes booking details and follows up at the right time. It flags your team when a lead is ready, learns from your chats every night, and scores every lead.",
-    "loading": "Loading the AI settings",
     "loadFailed": "The AI settings didn't load.",
     "retry": "Try again",
+    "loading": "Loading the AI settings",
+    "notReady": "The AI isn't set up on this server yet, so no suggestion can be made. Your platform's administrator adds the OpenRouter key.",
+    "switchTitle": "Use the AI",
+    "switchIntro": "When it is on, a Suggest reply button appears in each chat for your staff, and the AI reads a lead's chat to guess how likely it is to book. The chat's last messages, the lead's trip details, your knowledge, trip details and quick replies, and the instructions below are sent to the AI service, which keeps nothing. First name only: never a phone number or email.",
+    "on": "Let the AI draft replies and guess how leads will go",
+    "usage": "{used} of {limit} AI calls used this month, by every AI feature.",
+    "instructionsTitle": "What the AI should know",
+    "instructionsIntro": "Your tone, your language, what you usually offer, and what it must never say. It also uses your trip details and quick replies.",
+    "instructions": "Instructions for the AI",
+    "instructionsPlaceholder": "Reply in Hinglish, warm and short. Always ask for the travel dates and the number of travellers. Never offer a discount.",
+    "instructionsHint": "Up to 4,000 characters. Anything it should always do or never say. Prices and packages go in what the AI knows, below. Don't write secrets here: your staff and the AI service read it.",
     "save": "Save",
     "saving": "Saving…",
     "saved": "AI settings saved",
-    "problem": "Check the values: the daily limit is 1 to 200 and the follow-up hours 1 to 23.",
-    "model": {
-      "offTitle": "The AI is not set up on this server yet",
-      "offDescription": "Ask the platform to set AI_API_KEY (and AI_BASE_URL and AI_CHAT_MODELS for the chosen provider). Until then nothing here runs. You can still add what the AI should know."
+    "linesLabel": "Suggestions to add",
+    "lines": {
+      "dates": "Ask for the travel dates and the number of travellers early.",
+      "pickup": "Mention our free airport pickup with every package.",
+      "twoOptions": "Offer a 3-star and a 4-star option side by side.",
+      "honeymoon": "For honeymoon couples, suggest the candle-light dinner add-on.",
+      "advance": "To book, ask for a 30% advance by UPI.",
+      "noDiscount": "Never promise a discount; say the team will check.",
+      "budget": "If the budget is low, suggest fewer nights rather than a cheaper hotel.",
+      "itinerary": "Share the full itinerary once they give their dates."
     },
-    "test": {
-      "title": "Try it",
-      "description": "Ask what a customer might, and see what the AI would answer from what it knows and has learned. Nothing is sent.",
-      "question": "A customer's question",
-      "placeholder": "Kerala ka 5 din ka package kitne ka hai?",
-      "ask": "Ask",
-      "answer": "The AI would say",
-      "noAnswer": "(no answer)",
-      "handoff": "It would hand the chat to your team: {reason}",
-      "noReason": "a person is needed"
-    },
-    "unsaved": "Unsaved changes",
-    "allSaved": "All changes saved",
-    "tabs": {
-      "agent": "Agent",
-      "knowledge": "Knowledge",
-      "learnings": "Learnings",
-      "try": "Try it",
-      "media": "Media"
-    }
+    "instructionsCount": "{count} of {max} characters",
+    "scoring": "Let the AI score each lead",
+    "scoringHint": "After each message from a customer: its chance to book, a line on how the lead stands, the next step, and whether it looks fake. Shown on the lead's page."
+  },
+  "suggest": {
+    "button": "Suggest a reply",
+    "nothing": "The AI had no reply to suggest for this chat.",
+    "draftedByAi": "Drafted by AI",
+    "draftedHint": "Read it, change it, then send."
   },
   "knowledge": {
     "title": "What the AI knows",
-    "description": "Your packages, prices, inclusions, dates, payment details (UPI ID, bank account, advance) and policies. The AI quotes only from these, and tells your team when something isn't here.",
+    "description": "Your packages, prices, inclusions, dates, payment details and policies. The AI quotes only from these (and your trip details and quick replies), and tells your team when something isn't here.",
     "add": "Add text",
     "upload": "Upload a PDF or text file",
     "uploading": "Uploading…",
@@ -44,7 +49,7 @@
     "fileType": "Choose a PDF or a .txt file.",
     "fileSize": "The file is over 10 MB.",
     "empty": "Nothing yet. Add your packages and prices so the AI can answer about them.",
-    "alsoKnown": "Your trips' details and your quote packages are known too, without adding them here.",
+    "alsoKnown": "Your trips' details and your quick replies are known too, without adding them here.",
     "document": "Document",
     "characters": "{count, plural, one {# character} other {# characters}}",
     "status": {
@@ -55,7 +60,7 @@
     "use": "Use {title}",
     "remove": "Remove {title}",
     "removeTitle": "Remove {title}?",
-    "removeDescription": "The AI won't know it any more.",
+    "removeDescription": "The AI won't know it any more, and a document's file is deleted.",
     "removeAction": "Remove",
     "addTitle": "Add what the AI knows",
     "editTitle": "Change what the AI knows",
@@ -67,58 +72,9 @@
     "save": "Save",
     "saved": "Saved"
   },
-  "chat": {
-    "title": "AI assistant",
-    "info": "The AI sells to this customer by itself inside WhatsApp's 24-hour window, from what your agency taught it and learned, and alerts you when the lead is ready. Take over any time.",
-    "loadFailed": "The AI's state didn't load.",
-    "notConfigured": "The AI is not set up on this server yet.",
-    "openSettings": "AI settings",
-    "answering": "The AI is answering this chat.",
-    "notAnswering": "The AI isn't answering this chat.",
-    "handedOff": "The AI handed this chat to your team.",
-    "handoffTitle": "Over to you",
-    "handoffNoReason": "The customer needs a person.",
-    "resume": "Let the AI answer again",
-    "modeLabel": "AI in this chat",
-    "modes": {
-      "default": "As the agency",
-      "on": "On",
-      "off": "Off"
-    },
-    "memory": "What the AI remembers",
-    "answeringShort": "AI on",
-    "handedOffShort": "Needs you",
-    "theAi": "The AI",
-    "reading": "{name} (AI) is reading…",
-    "readingUnnamed": "The AI is reading…",
-    "typing": "{name} (AI) is typing…",
-    "typingUnnamed": "The AI is typing…",
-    "barAnswering": "{name} is answering this chat. If you write, it waits 10 minutes.",
-    "barWorking": "{name} is replying now…",
-    "barOff": "You are answering this chat. The AI is off here.",
-    "barHandedOff": "Over to you: {reason}",
-    "takeOver": "Take over",
-    "letAnswer": "Let AI answer",
-    "barFlagged": "{name} flagged: {reason}. It's still answering; join any time.",
-    "followUpPlanned": "Next follow-up {when}",
-    "followUpWhy": "Next follow-up {when}: {why}",
-    "flaggedShort": "AI flagged",
-    "voiceLabel": "Talk like a person in this chat",
-    "personaLabel": "What the AI is for in this chat",
-    "personas": {
-      "default": "As the agency",
-      "sales": "Sales agent",
-      "natural": "Natural"
-    },
-    "salesHint": "It sells here: trips, prices and bookings.",
-    "naturalHint": "It chats here like a normal person, as the voice below, and remembers what you two talked about.",
-    "barPaused": "You wrote in this chat, so {name} waits until {until} so you two don't answer at once.",
-    "answerNow": "Let AI answer now"
-  },
   "insight": {
-    "title": "AI insight",
-    "info": "The AI's view of this lead from its chat: how likely it books in the next two weeks, why, and what to do next. A guess to help you choose who to call first, never a decision.",
-    "none": "No insight yet: it comes after the customer's next message.",
+    "title": "AI's guess",
+    "info": "The AI's reading of this lead from its chat: how likely it books in the next two weeks, why, and what to do next. A guess to help you choose who to call first, never a decision: it never changes the lead's stage.",
     "updated": "Updated {when}",
     "chance": "Chance to book",
     "percent": "{score}%",
@@ -140,9 +96,172 @@
     },
     "unknown": "Not said yet"
   },
-  "suggest": {
-    "label": "Suggest a reply with AI",
-    "nothing": "The AI had nothing to suggest."
+  "autopilot": {
+    "title": "Autopilot",
+    "info": "The AI answers WhatsApp chats by itself, as your sales agent. It is off until you turn it on here, and you can turn it off in any one chat. Every message it sends is marked \"Sent by the AI\" in the chat and kept in the audit log.",
+    "intro": "Let the AI answer your customers on WhatsApp by itself, and nudge those who go quiet.",
+    "on": "Let the AI answer WhatsApp chats by itself",
+    "needsAi": "Turn on \"Use the AI\" above first.",
+    "rules": "It writes only inside the 24 hours a customer opens by writing, never to someone who wrote STOP, never while one of your team is answering that chat, and within this month's AI calls. It quotes prices only from what it knows, never confirms a booking or a payment, and says it is an AI to anyone who asks. Your team can turn it off in any chat or take over at any time.",
+    "speakTitle": "How it speaks",
+    "speakIntro": "The language, length, emojis and tone of its messages, and the name it signs as.",
+    "agentName": "The name it signs as",
+    "agentNamePlaceholder": "Riya from Sharma Holidays",
+    "language": "Language",
+    "languageOther": "Which language",
+    "languages": {
+      "customer": "The customer's own",
+      "english": "English",
+      "hindi": "Hindi",
+      "hinglish": "Hinglish",
+      "other": "Another language"
+    },
+    "style": "Length and layout",
+    "styles": {
+      "human": "Natural lines, like a person",
+      "short": "One or two short lines",
+      "points": "A line, then points"
+    },
+    "emojis": "Emojis",
+    "emojiLevels": {
+      "none": "None",
+      "few": "A few",
+      "many": "Many"
+    },
+    "tone": "Tone",
+    "tones": {
+      "friendly": "Friendly",
+      "professional": "Professional",
+      "enthusiastic": "Enthusiastic"
+    },
+    "persona": "What it is for",
+    "personas": {
+      "sales": "A sales agent",
+      "natural": "An everyday chat in the copied person's way"
+    },
+    "sellTitle": "When it steps back, and follow-ups",
+    "sellIntro": "When a person must take over, how many messages it may write in a chat a day, and when it writes again to a customer who went quiet.",
+    "handoff": "Handing a chat to a person",
+    "handoffs": {
+      "alert": "Never by itself: it flags your team and keeps helping",
+      "asked": "When the customer asks for a person or is upset",
+      "careful": "Also for bookings, payments and discounts"
+    },
+    "maxReplies": "Most messages in one chat a day",
+    "followUpHours": "Hours of silence before one follow-up",
+    "followUpHint": "Inside the 24 hours. 0 for never.",
+    "smartFollowUp": "Let the AI choose whether and when to follow up",
+    "learning": "Let the AI learn from your chats each night",
+    "learningHint": "Your recent chats, with numbers, emails and links taken out, go to the AI service, which keeps nothing, to find what customers ask and what wins a booking. Off by default.",
+    "save": "Save the autopilot",
+    "saving": "Saving…",
+    "saved": "Autopilot settings saved"
+  },
+  "learnings": {
+    "title": "What the AI has learned",
+    "intro": "General lessons from your chats that the autopilot uses. Turn one off or dismiss it.",
+    "never": "It has not learned yet.",
+    "last": "Last learned {when}.",
+    "empty": "Nothing learned yet. It looks at your recent chats each night.",
+    "learningOff": "Learning is off. Turn it on in the autopilot settings above.",
+    "loadFailed": "The lessons didn't load.",
+    "evidence": "{count, plural, one {# chat} other {# chats}}",
+    "kinds": {
+      "need": "What customers want",
+      "winning": "What wins a booking",
+      "objection": "An objection and its answer",
+      "style": "How to talk",
+      "faq": "A question asked often"
+    },
+    "use": "Use: {text}",
+    "dismiss": "Dismiss",
+    "learnNow": "Learn now",
+    "learned": "Learned: {added} new, {updated} sharpened"
+  },
+  "voice": {
+    "title": "A way of talking to copy",
+    "intro": "Pick one of your team's WhatsApp chat exports and who in it, and the AI writes the way that person writes. Only that person's own messages are read: what the other side wrote never leaves your browser.",
+    "current": "It copies {name}, from {count} of their messages.",
+    "remove": "Stop copying",
+    "removed": "The AI talks its own way again",
+    "file": "A WhatsApp chat export (.txt)",
+    "fileHint": "In WhatsApp: open a chat, More, Export chat, Without media.",
+    "unreadable": "That file has no WhatsApp messages in it.",
+    "who": "Whose way of talking",
+    "sender": "{name} ({count, plural, one {# message} other {# messages}})",
+    "whoHint": "Choose your own team member, not the customer.",
+    "learn": "Learn their way of talking",
+    "learning": "Reading…",
+    "learned": "The AI has learned it",
+    "chatTitle": "This chat's way of talking",
+    "chatIntro": "Give the AI an export of this chat and choose whose way of talking to copy here: it reads both sides, so it also remembers what the two talked about, and it wins over the agency's way of talking in this chat. The whole chat's words go to the AI service.",
+    "upload": "Upload this chat (.txt)",
+    "replace": "Upload another chat",
+    "notAnExport": "This file doesn't look like a WhatsApp chat export. Export it from WhatsApp, without media.",
+    "dialogTitle": "Who should the AI be?",
+    "dialogDescription": "{count, plural, one {# message read.} other {# messages read.}}",
+    "readsAll": "The AI reads everyone's messages in this chat",
+    "personCount": "{name}: {count, plural, one {# message} other {# messages}}",
+    "whose": "Now choose who the AI talks as",
+    "tooFew": "Too few messages to learn from",
+    "becomes": "The AI writes as {name}, and talks to {other} the way {name} does",
+    "theOther": "the others",
+    "talkingLike": "Talking like {name}",
+    "inherited": "Talking like {name}, as in every chat",
+    "howTheyTalk": "How {name} talks",
+    "context": "What they talked about",
+    "remembered": "{count, plural, one {Reads # message of this chat before every reply.} other {Reads the last # messages of this chat, both sides, before every reply.}}",
+    "chatLearn": "Learn {name}'s way of talking",
+    "chatLearning": "Reading the whole chat…",
+    "chatLearned": "The AI now talks like {name} in this chat",
+    "chatRemove": "Remove"
+  },
+  "chat": {
+    "title": "The AI in this chat",
+    "loadFailed": "The AI's state didn't load.",
+    "answering": "The AI answers this chat.",
+    "notAnswering": "The AI doesn't answer this chat.",
+    "queued": "The AI has the message and is waiting for the next line.",
+    "thinking": "The AI is writing a reply.",
+    "handedOff": "The AI handed this chat to a person.",
+    "handoffTitle": "Handed over",
+    "handoffNoReason": "It needed a person.",
+    "resume": "Let AI answer now",
+    "attentionTitle": "The AI flagged this for your team",
+    "personPaused": "A person is answering: the AI waits until {until}.",
+    "followUp": "Follow-up planned {when}",
+    "modeLabel": "The AI in this chat",
+    "modes": {
+      "default": "As the agency",
+      "on": "On",
+      "off": "Off"
+    },
+    "theAi": "The AI",
+    "reading": "{name} (AI) is reading…",
+    "readingUnnamed": "The AI is reading…",
+    "typing": "{name} (AI) is typing…",
+    "typingUnnamed": "The AI is typing…",
+    "barAnswering": "{name} is answering this chat. If you write, it waits 10 minutes.",
+    "barWorking": "{name} is replying now…",
+    "barOff": "You are answering this chat. The AI is off here.",
+    "barHandedOff": "Over to you: {reason}",
+    "takeOver": "Take over",
+    "letAnswer": "Let AI answer",
+    "barFlagged": "{name} flagged: {reason}. It's still answering; join any time.",
+    "followUpPlanned": "Next follow-up {when}",
+    "followUpWhy": "Next follow-up {when}: {why}",
+    "barPaused": "You wrote in this chat, so {name} waits until {until} so you two don't answer at once.",
+    "answerNow": "Let AI answer now"
+  },
+  "test": {
+    "title": "Try it",
+    "description": "Ask what a customer might, and see what the AI would answer from what it knows and has learned. Nothing is sent.",
+    "question": "A customer's question",
+    "placeholder": "Kerala ka 5 din ka package kitne ka hai?",
+    "ask": "Ask",
+    "noAnswer": "(no answer)",
+    "handoff": "It would hand the chat to your team: {reason}",
+    "noReason": "a person is needed"
   },
   "hero": {
     "unnamed": "Your AI agent",
@@ -150,8 +269,8 @@
     "chatsYouChoose": "In chats you choose",
     "notSetUp": "Not set up",
     "liveLine": "{name} is answering every WhatsApp chat by itself, day and night.",
-    "pausedLine": "It answers only in the chats where you turn it on. Turn on Answer every chat to let it sell all day.",
-    "notSetUpLine": "Once the platform sets up a model, it can start selling.",
+    "pausedLine": "It answers only in the chats where you turn it on. Turn on \"Let the AI answer WhatsApp chats by itself\" below to let it sell all day.",
+    "notSetUpLine": "Once the platform sets up a model and you turn the AI on below, it can start selling.",
     "label": "The AI's last day",
     "seconds": "{count} s",
     "minutes": "{count} min",
@@ -164,10 +283,6 @@
         "label": "Reply time",
         "hint": "The middle time from a customer's message to the AI's answer, over the last 24 hours."
       },
-      "hot": {
-        "label": "Hot leads",
-        "hint": "Leads the AI judged likely to book soon, this week, fakes left out."
-      },
       "flagged": {
         "label": "Flagged for you",
         "hint": "Chats where the AI asked your team to look or join, over the last 24 hours."
@@ -179,161 +294,20 @@
       "learnings": {
         "label": "Lessons learned",
         "hint": "What the AI learned from your chats and uses in every reply."
+      },
+      "messages": {
+        "label": "Messages sent",
+        "hint": "Messages the AI sent over the last 24 hours."
       }
     }
   },
-  "personality": {
-    "title": "Personality",
-    "description": "How your AI agent speaks to customers. It always answers from your knowledge and never makes up a price.",
-    "name": "Its name",
-    "namePlaceholder": "Riya from Sharma Holidays",
-    "nameHint": "The name it introduces itself with. Leave empty to speak as your agency.",
-    "language": "Language",
-    "languages": {
-      "customer": "The customer's language",
-      "english": "English",
-      "hindi": "Hindi",
-      "hinglish": "Hinglish",
-      "other": "Another language"
-    },
-    "languageOther": "Which language",
-    "languageOtherPlaceholder": "Marathi",
-    "style": "How it writes",
-    "styles": {
-      "human": "Like a person",
-      "short": "Short and quick",
-      "points": "In points"
-    },
-    "styleHints": {
-      "human": "Natural WhatsApp messages of a few short lines, as a real salesperson types.",
-      "short": "One or two lines at a time, for customers who want it quick.",
-      "points": "A short opener, then the details as bullet points: easy to scan."
-    },
-    "emojis": "Emojis",
-    "emojiLevels": {
-      "none": "None",
-      "few": "A few",
-      "many": "Plenty"
-    },
-    "tone": "Tone",
-    "tones": {
-      "friendly": "Friendly",
-      "professional": "Professional",
-      "enthusiastic": "Enthusiastic"
-    },
-    "instructions": "Your instructions",
-    "instructionsPlaceholder": "Always ask for the travel dates and the number of people early. Mention our free airport pickup.",
-    "instructionsHint": "Anything it should always do or never say. Prices and packages go in Knowledge.",
-    "suggestions": "Suggestions to add",
-    "suggestion": {
-      "dates": "Ask for the travel dates and the number of travellers early.",
-      "pickup": "Mention our free airport pickup with every package.",
-      "twoOptions": "Offer a 3-star and a 4-star option side by side.",
-      "honeymoon": "For honeymoon couples, suggest the candle-light dinner add-on.",
-      "advance": "To book, ask for a 30% advance by UPI.",
-      "noDiscount": "Never promise a discount; say the team will check.",
-      "budget": "If the budget is low, suggest fewer nights rather than a cheaper hotel.",
-      "itinerary": "Share the full itinerary once they give their dates."
-    },
-    "persona": "What is the AI for?",
-    "personas": {
-      "sales": {
-        "label": "Sales agent",
-        "description": "It sells: understands the trip, recommends your packages, handles objections and takes the booking's details."
-      },
-      "natural": {
-        "label": "Natural conversation",
-        "description": "It chats like a normal person about whatever the other side brings up, as the person whose chat you uploaded below, and helps with trips only when asked."
-      }
-    }
-  },
-  "selling": {
-    "title": "How it sells",
-    "description": "It writes only inside WhatsApp's 24-hour window, never to someone who asked to stop, and waits 10 minutes whenever someone on your team writes in a chat (or until they press Let AI answer now).",
-    "autopilot": "Answer every chat",
-    "autopilotHint": "On: the AI takes every chat, unless you turn it off in one. Off: it answers only the chats you turn it on in.",
-    "handoff": "When does it hand a chat to your team?",
-    "handoffs": {
-      "alert": {
-        "label": "Never by itself (recommended)",
-        "description": "It sells right through to the booking: takes the details, shares how to pay from your knowledge, and alerts the lead's owner when a lead is ready. It stops only when someone presses Take over."
-      },
-      "asked": {
-        "label": "When the customer asks for a person",
-        "description": "It handles everything else and alerts your team, but steps back when a customer asks for a person or is upset."
-      },
-      "careful": {
-        "label": "For bookings, payments and discounts too",
-        "description": "It steps back as soon as a customer wants to book or pay, asks for a discount, or asks something your knowledge doesn't answer."
-      }
-    },
-    "followUps": "Follow up quiet customers",
-    "followUpsHint": "One message to a customer who goes quiet, while WhatsApp's 24-hour window is open, so no lead goes cold.",
-    "smartFollowUp": "Let the AI choose when",
-    "smartFollowUpHint": "It decides for each customer whether to write again and when: soon for a hot lead, later for someone asking their family, never after a no.",
-    "followUpHours": "Follow up after (hours)",
-    "followUpHoursHint": "1 to 23 hours, inside the window.",
-    "scoring": "Score every lead",
-    "scoringHint": "After each message: its chance to book, why, the next step, and whether it looks fake.",
-    "learning": "Learn from our chats",
-    "learningHint": "Each night it reads your recent chats, the booked and the lost, and learns what your customers want and what wins them.",
-    "maxReplies": "Most AI messages in a chat per day",
-    "maxRepliesHint": "A safety limit, so a chat can't run away.",
+  "payments": {
+    "title": "Bookings, media and strict rules",
+    "description": "When a customer wants to book, the AI sends your payment details exactly as written here, asks for the payment screenshot, takes the booking on the lead and tells your team by email.",
     "leadNotes": "Write notes on leads",
     "leadNotesHint": "When a customer tells the AI something worth keeping (dates, budget, travellers, a decision), it writes a short note on the lead's timeline.",
     "sendMedia": "Send photos, videos and PDFs",
-    "sendMediaHint": "The AI sends your files from Media when they help: a brochure, hotel photos, the itinerary."
-  },
-  "learnings": {
-    "title": "What the AI learned",
-    "description": "Lessons from your own chats, used in every reply. Turn off one you disagree with, or remove it.",
-    "never": "It hasn't learned yet.",
-    "last": "Last learned {when}.",
-    "learnNow": "Learn now",
-    "learning": "Reading your chats…",
-    "learned": "Done: {added} new, {updated} sharpened.",
-    "empty": "Nothing learned yet. After a few days of chats, the AI writes down what your customers want and what wins them.",
-    "evidence": "{count, plural, one {seen in # chat} other {seen in # chats}}",
-    "use": "Use this lesson",
-    "remove": "Remove this lesson",
-    "kinds": {
-      "need": "What they want",
-      "winning": "What wins",
-      "objection": "Objection",
-      "style": "How to talk",
-      "faq": "Asked often"
-    }
-  },
-  "voice": {
-    "title": "Talk like a real person",
-    "description": "Give the AI a WhatsApp chat and choose whose way of talking to copy: it reads the whole chat, both sides, and writes exactly as that person does: their words, Hinglish, emojis, warmth and feelings. Here it is for every chat; in one chat's AI panel it also remembers what the two talked about. Asked sincerely whether it is an AI, it never denies it.",
-    "upload": "Upload a WhatsApp chat (.txt)",
-    "replace": "Upload another chat",
-    "how": "In WhatsApp, open the chat, tap ⋮ → More → Export chat → Without media, and upload the .txt here. The chat's latest messages go to the AI with numbers and emails taken out; the chat itself isn't kept, only how the person talks and, in a chat, what the two talked about.",
-    "notAnExport": "This file doesn't look like a WhatsApp chat export. Export it from WhatsApp, without media.",
-    "dialogTitle": "Who should the AI be?",
-    "dialogDescription": "{count, plural, one {# message read.} other {# messages read.}}",
-    "whose": "Now choose who the AI talks as",
-    "messageCount": "{count, plural, one {# message} other {# messages}}",
-    "tooFew": "Too few messages to learn from",
-    "learn": "Learn {name}'s way of talking",
-    "learning": "Reading the whole chat…",
-    "learned": "The AI now talks like {name}",
-    "talkingLike": "Talking like {name}",
-    "inherited": "Talking like {name}, as in every chat",
-    "examples": "{count, plural, one {Learned from their messages; keeps # of them as examples.} other {Learned from their messages; keeps # of them as examples.}}",
-    "howTheyTalk": "How {name} talks",
-    "remove": "Remove",
-    "context": "What they talked about",
-    "remembered": "{count, plural, one {Reads # message of your chat with them before every reply.} other {Reads the last # messages of your chat with them, both sides, before every reply.}}",
-    "readsAll": "The AI reads everyone's messages in this chat",
-    "personCount": "{name}: {count, plural, one {# message} other {# messages}}",
-    "becomes": "The AI writes as {name}, and talks to {other} the way {name} does",
-    "theOther": "the others"
-  },
-  "payments": {
-    "title": "Payments and strict rules",
-    "description": "When a customer wants to book, the AI sends your payment details exactly as written here, asks for the payment screenshot, takes the booking on the lead and tells your team by email.",
+    "sendMediaHint": "The AI sends your files from Media below when they help: a brochure, hotel photos, the itinerary.",
     "details": "Payment details",
     "detailsPlaceholder": "UPI: sharmaholidays@okhdfc\nBank: HDFC Bank, A/c 50200012345678, IFSC HDFC0001234, Sharma Holidays\nAdvance: 30% to confirm, balance 7 days before travel",
     "detailsHint": "Sent as its own message, word for word, so an account number is never typed wrong. Leave empty to give no payment details.",

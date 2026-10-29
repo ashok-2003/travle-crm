@@ -3,14 +3,14 @@
 // carries the security headers, and signing out leaves no organization data on the device, offline too. Each journey's
 // last screen also gets the automatic accessibility check (support/accessible-after-each.ts).
 import type { Page, TestInfo } from "@playwright/test";
-import { expect, signInByCode, signInByEmail, test } from "./support/fixtures";
+import { expect, homeGreeting, signInByCode, signInByEmail, signOutOf, test } from "./support/fixtures";
 
 const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 
 test("an Owner sees their organization and every destination", async ({ page, agency }, testInfo) => {
   await signInByEmail(page, agency.owner);
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   for (const destination of isPhone(testInfo)
     ? ["Home", "Today", "Leads", "Inbox", "More"]
@@ -29,13 +29,13 @@ test("a salesperson sees only what their role allows", async ({ page, addStaff, 
     if (request.url().includes("organization.setup.get")) setupAsked.push(request.url());
   });
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { level: 1, name: "Welcome, Ravi Kumar" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting("Ravi Kumar") })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   for (const destination of ["Home", "Today", "Leads"]) {
     await expect(navigation.getByRole("link", { name: destination })).toBeVisible();
   }
   await expect(navigation.getByRole("link", { name: "Staff" })).toHaveCount(0);
-  await expect(page.getByText("Your work will show here.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Today at a glance" })).toBeVisible();
   // The setup card is for those who may change the settings: Sales never even asks for it.
   await page.waitForLoadState("networkidle");
   expect(setupAsked).toEqual([]);
@@ -107,8 +107,7 @@ test("a signed-out visitor is sent to sign in", async ({ page }) => {
 });
 
 async function signOutFrom(page: Page, testInfo: TestInfo): Promise<void> {
-  if (isPhone(testInfo)) await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
+  await signOutOf(page, { phone: isPhone(testInfo) });
 }
 
 test("signing out wipes the saved data and ends the session", async ({ page, agency }, testInfo) => {

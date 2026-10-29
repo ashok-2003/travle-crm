@@ -21,7 +21,10 @@ export const marginOf = (profitPaise: number, revenuePaise: number) =>
   revenuePaise > 0 ? Math.round((profitPaise * 10_000) / revenuePaise) : null;
 
 async function liveQuote(tx: OrgTx, quoteId: string) {
-  const quote = await tx.quote.findUnique({ where: { id: quoteId }, select: { id: true, subtotalPaise: true } });
+  const quote = await tx.quote.findUnique({
+    where: { id: quoteId },
+    select: { id: true, subtotalPaise: true, status: true },
+  });
   if (quote === null) throw notFound();
   return quote;
 }
@@ -52,6 +55,10 @@ export async function bookingCostsOf(tx: OrgTx, quoteId: string): Promise<Bookin
 
 export async function addTripCost(tx: OrgTx, access: MemberAccess, input: AddTripCostInput): Promise<void> {
   const quote = await liveQuote(tx, input.quoteId);
+  // Costs belong to a booking, and an accepted quote is the booking: a quote still on offer has none.
+  if (quote.status !== "accepted") {
+    throw new DomainError("CONFLICT", "QUOTE_NOT_ACCEPTED", "Costs are recorded on a booking: accept the quote first");
+  }
   const row = await tx.tripCost.create({
     data: {
       quoteId: quote.id,

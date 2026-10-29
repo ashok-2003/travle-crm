@@ -56,7 +56,8 @@
     "bookings": "Bookings",
     "departures": "Departures",
     "suppliers": "Suppliers",
-    "accounts": "Accounts"
+    "accounts": "Accounts",
+    "ai": "AI"
   },
   "permissions": {
     "staff:manage": "Add, change and remove staff",
@@ -64,6 +65,7 @@
     "settings:manage": "Change the organization's settings",
     "audit:view": "See the audit log",
     "money:view_margin": "See costs, margins and profit",
+    "money:view_reports": "See the sales and collections reports",
     "documents:view_sensitive": "See passports, Aadhaar and other ID documents",
     "leads:view": "See leads",
     "leads:create": "Add leads",
@@ -72,6 +74,7 @@
     "quotes:view": "See quotes",
     "quotes:create": "Create quotes",
     "quotes:edit": "Change quotes",
+    "quotes:record_payments": "Record and void payments, and issue invoices and receipts",
     "bookings:view": "See bookings",
     "bookings:create": "Create bookings",
     "bookings:edit": "Change bookings",
@@ -83,6 +86,8 @@
     "suppliers:edit": "Change suppliers",
     "accounts:view": "See invoices, receipts and payments",
     "accounts:create": "Create invoices, receipts and payments",
-    "accounts:edit": "Change invoices, receipts and payments"
+    "accounts:edit": "Change invoices, receipts and payments",
+    "ai:suggest": "Ask the AI to suggest a reply in a chat",
+    "ai:manage": "Turn the AI on and write its instructions"
   }
 }

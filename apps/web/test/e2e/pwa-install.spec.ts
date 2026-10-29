@@ -33,9 +33,9 @@ test("the manifest names the app, opens it standalone, and its icons load", asyn
   }
 });
 
-test("pages link a favicon, a home-screen icon and the dark teal theme colour, and they load", async ({ page }) => {
+test("pages link a favicon, a home-screen icon and the canvas theme colour, and they load", async ({ page }) => {
   await page.goto("/sign-in");
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", brand.colours.sidebar.fill);
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", brand.colours.canvas);
   const hrefs = await page
     .locator('link[rel="icon"], link[rel="apple-touch-icon"]')
     .evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));

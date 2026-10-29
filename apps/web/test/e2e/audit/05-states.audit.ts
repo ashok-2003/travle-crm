@@ -4,7 +4,7 @@
 import type { Route } from "@playwright/test";
 import { expect, signInToConsole, test } from "../support/console";
 import { uniqueSuffix } from "../support/console-platform";
-import { signInByEmail } from "../support/fixtures";
+import { homeGreeting, signInByEmail } from "../support/fixtures";
 import { openFromNavigation, screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -21,7 +21,7 @@ test("an agency's states: an empty list, an error with Try again, a skeleton", a
   await shoot(page, "agency-empty");
 
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${agency.owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   await page.route(callsTo("/api/trpc/", "roles.list"), (route) => route.abort());
   await openFromNavigation(page, "Main", "Roles");
   // An unanswered call is tried twice more before the screen gives up.

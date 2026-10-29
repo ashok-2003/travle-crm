@@ -31,6 +31,7 @@ describe("permission catalog", () => {
         "departures",
         "suppliers",
         "accounts",
+        "ai",
       ]),
     );
   });

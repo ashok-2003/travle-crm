@@ -32,6 +32,9 @@ test("a row with no contact is listed with its reason; fixing the cell adds the 
   await page.waitForTimeout(31_000);
   await syncNow(page);
   await waitForLead(page, "Aditi Rao");
-  await page.goto(sheetPage);
-  await expect(page.getByRole("region", { name: "Couldn't be added" })).toHaveCount(0);
+  // The line clears when the worker's check has run past the fixed row: reload until it has, not once.
+  await expect(async () => {
+    await page.goto(sheetPage);
+    await expect(page.getByRole("region", { name: "Couldn't be added" })).toHaveCount(0, { timeout: 3_000 });
+  }).toPass({ timeout: 60_000 });
 });

@@ -14,12 +14,12 @@ import {
   FolderIcon,
   HistoryIcon,
   IndianRupeeIcon,
+  SparklesIcon,
   ListChecksIcon,
   MessageCircleIcon,
   MapPinIcon,
   PaletteIcon,
   ShuffleIcon,
-  SparklesIcon,
   ZapIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -54,8 +54,8 @@ interface Section {
     | "assignment"
     | "whatsapp"
     | "quotes"
-    | "salesAutomation"
     | "ai"
+    | "salesAutomation"
     | "teamNotifications"
     | "audit";
   href: string;
@@ -96,7 +96,7 @@ const sections: readonly Section[] = [
     requires: "settings:manage",
     module: "inbox",
   },
-  { key: "ai", href: routes.aiSettings, icon: SparklesIcon, requires: "settings:manage", module: "inbox" },
+  { key: "ai", href: routes.aiSettings, icon: SparklesIcon, requires: "ai:manage", module: "ai" },
   { key: "quotes", href: routes.quoteSettings, icon: IndianRupeeIcon, requires: "settings:manage", module: "quotes" },
   { key: "teamNotifications", href: routes.teamNotifications, icon: BellRingIcon, requires: "settings:manage" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },

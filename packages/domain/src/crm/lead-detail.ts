@@ -69,6 +69,7 @@ export async function getLead(tx: OrgTx, access: MemberAccess, leadId: string): 
   const person = await tx.person.findUniqueOrThrow({ where: { id: lead.personId }, select: personColumns });
   const names = await destinationNames(tx, lead.destinationId === null ? [] : [lead.destinationId]);
   const work = await openTasksOf(tx, { recordType: "lead", recordId: lead.id });
+  const callCount = await tx.leadCall.count({ where: { leadId: lead.id } });
   return {
     id: lead.id,
     stage: leadStage.parse(lead.stage),
@@ -91,5 +92,6 @@ export async function getLead(tx: OrgTx, access: MemberAccess, leadId: string): 
     createdBy: lead.createdBy,
     createdAt: lead.createdAt.toISOString(),
     work: work.map(({ id, kind, title, dueAt, assigneeUserId }) => ({ id, kind, title, dueAt, assigneeUserId })),
+    callCount,
   };
 }

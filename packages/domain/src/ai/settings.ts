@@ -1,118 +1,67 @@
-// The agency's AI settings (the AI sales agent): whether the agent answers customers by itself, whether leads are scored,
-// the name it signs as, what it is for (a sales agent or a natural conversation), how it speaks (language, style, emojis, tone) and the agency's own instructions, when it steps
-// back for a person, how it follows up a silent customer, how many messages it may write in one chat a day, and whether
-// it learns from the chats; whether it writes notes on leads and sends the agency's media; how customers pay; and the
-// rules it always follows. Saved by whoever manages settings; audited.
-import {
-  aiEmojiLevels,
-  aiHandoffPolicies,
-  aiLanguages,
-  aiPersonas,
-  aiStyles,
-  aiTones,
-  type SaveAiSettingsInput,
-} from "@travel-crm/contracts/ai";
+// The agency's own switch for Suggest reply and its instructions to the AI. Off until an Owner or Admin (ai:manage) turns
+// it on; every change is audited with what changed, never the instructions' words.
+import { aiSettings, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
-import type { MemberAccess } from "../identity/index.js";
+import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
+import { MONTHLY_AI_LIMIT, usedThisMonth } from "./usage.js";
 
-const columns = {
-  autopilot: true,
-  scoring: true,
-  agentName: true,
-  instructions: true,
-  followUpHours: true,
-  maxRepliesPerDay: true,
-  language: true,
-  languageOther: true,
-  style: true,
-  emojis: true,
-  tone: true,
-  handoff: true,
-  smartFollowUp: true,
-  learning: true,
-  learnedAt: true,
-  persona: true,
-  leadNotes: true,
-  sendMedia: true,
-  paymentDetails: true,
-  strictRules: true,
-} as const;
+const columns = { enabled: true, scoring: true, instructions: true } as const;
 
-export type AiSettingsRow = SaveAiSettingsInput & { learnedAt: Date | null };
-
-export const defaultAiSettings: AiSettingsRow = {
-  autopilot: false,
-  scoring: true,
-  agentName: "",
-  instructions: "",
-  followUpHours: 4,
-  maxRepliesPerDay: 25,
-  language: "customer",
-  languageOther: "",
-  style: "human",
-  emojis: "few",
-  tone: "friendly",
-  handoff: "alert",
-  smartFollowUp: true,
-  learning: true,
-  learnedAt: null,
-  persona: "sales",
-  leadNotes: true,
-  sendMedia: true,
-  paymentDetails: "",
-  strictRules: "",
-};
-
-/** A stored word read back as one of its values; the check constraint keeps others out, this keeps the type honest. */
-const oneOf = <T extends string>(values: readonly T[], value: string, fallback: T): T =>
-  values.find((one) => one === value) ?? fallback;
-
-type StoredRow = Omit<AiSettingsRow, "language" | "style" | "emojis" | "tone" | "handoff" | "persona"> & {
-  persona: string;
-  language: string;
-  style: string;
-  emojis: string;
-  tone: string;
-  handoff: string;
-};
-
-function read(row: StoredRow): AiSettingsRow {
-  return {
-    ...row,
-    language: oneOf(aiLanguages, row.language, "customer"),
-    style: oneOf(aiStyles, row.style, "human"),
-    emojis: oneOf(aiEmojiLevels, row.emojis, "few"),
-    tone: oneOf(aiTones, row.tone, "friendly"),
-    handoff: oneOf(aiHandoffPolicies, row.handoff, "alert"),
-    persona: oneOf(aiPersonas, row.persona, "sales"),
-  };
+/** Whether the agency has turned Suggest reply on. */
+export async function aiEnabled(tx: OrgTx): Promise<boolean> {
+  return (await tx.aiSettings.findFirst({ select: { enabled: true } }))?.enabled ?? false;
 }
 
-export async function aiSettingsOf(tx: OrgTx): Promise<AiSettingsRow> {
+/** Whether the AI scores leads from their chats: on unless the agency turned it off. */
+export async function aiScoringOn(tx: OrgTx): Promise<boolean> {
+  return (await tx.aiSettings.findFirst({ select: { scoring: true } }))?.scoring ?? true;
+}
+
+export async function aiSettingsOf(
+  tx: OrgTx,
+  context: { organizationId: string; providerReady: boolean; now: Date },
+): Promise<AiSettings> {
   const row = await tx.aiSettings.findFirst({ select: columns });
-  return row === null ? defaultAiSettings : read(row);
+  const timeZone = await organizationTimeZone(tx, context.organizationId);
+  return aiSettings.parse({
+    enabled: row?.enabled ?? false,
+    scoring: row?.scoring ?? true,
+    instructions: row?.instructions ?? "",
+    providerReady: context.providerReady,
+    monthlyLimit: MONTHLY_AI_LIMIT,
+    usedThisMonth: await usedThisMonth(tx, context.now, timeZone),
+  });
 }
 
 export async function saveAiSettings(
   tx: OrgTx,
   access: MemberAccess,
   input: SaveAiSettingsInput,
-): Promise<AiSettingsRow> {
-  const before = await aiSettingsOf(tx);
-  const data = { ...input, updatedBy: access.userId };
-  const existing = await tx.aiSettings.findFirst({ select: { organizationId: true } });
-  const row = read(
-    existing === null
-      ? await tx.aiSettings.create({ data, select: columns })
-      : await tx.aiSettings.update({ where: { organizationId: existing.organizationId }, data, select: columns }),
-  );
+  context: { providerReady: boolean; now: Date },
+): Promise<AiSettings> {
+  const before = await tx.aiSettings.findFirst({ select: columns });
+  const data = {
+    enabled: input.enabled,
+    scoring: input.scoring,
+    instructions: input.instructions,
+    updatedBy: access.userId,
+  };
+  await tx.aiSettings.upsert({
+    where: { organizationId: access.organizationId },
+    create: { organizationId: access.organizationId, ...data },
+    update: data,
+  });
   await recordAudit(tx, access, {
-    action: "ai.settings-changed",
+    action: "ai-settings.changed",
     entityType: "ai_settings",
     entityId: access.organizationId,
-    before: { autopilot: before.autopilot, scoring: before.scoring, handoff: before.handoff, persona: before.persona },
-    after: { autopilot: row.autopilot, scoring: row.scoring, handoff: row.handoff, persona: row.persona },
+    before: {
+      enabled: before?.enabled ?? false,
+      scoring: before?.scoring ?? true,
+      instructionsLength: before?.instructions.length ?? 0,
+    },
+    after: { enabled: input.enabled, scoring: input.scoring, instructionsLength: input.instructions.length },
   });
-  return row;
+  return aiSettingsOf(tx, { organizationId: access.organizationId, ...context });
 }

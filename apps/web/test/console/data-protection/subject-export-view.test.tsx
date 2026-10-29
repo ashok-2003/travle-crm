@@ -49,6 +49,7 @@ const customer: CustomerExport = {
         { body: "Wants a houseboat", createdAt: "2026-10-01T05:00:00.000Z" },
         { body: "Call after 6 pm", createdAt: "2026-10-02T05:00:00.000Z" },
       ],
+      calls: [],
       enquiries: [
         { trip, source: "phone_call", sourceDetail: null, note: "Asked again", createdAt: "2026-10-03T05:00:00.000Z" },
       ],
@@ -62,6 +63,7 @@ const customer: CustomerExport = {
       createdAt: "2025-04-01T05:00:00.000Z",
       trip: { ...trip, destination: null },
       notes: [],
+      calls: [],
       enquiries: [],
       tasks: [task("Collect the balance")],
     },

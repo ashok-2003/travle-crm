@@ -20,7 +20,7 @@ import { openInNewTab } from "@/lib/open-in-new-tab";
 import { useErrorMessage } from "@/lib/error-message";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
-import { useLeadBookings, useSetBookingStatus } from "./use-ai";
+import { useLeadBookings, useSetBookingStatus } from "./use-ai-media";
 
 const statusTone: Record<AiBooking["status"], StatusTone> = {
   awaiting_payment: "attention",
@@ -36,7 +36,7 @@ function BookingBlock({ booking }: { booking: AiBooking }) {
   const { timeZone } = useMe().organization;
   const canDecide = useHolds("leads:edit");
   const access = useWriteAccess("change");
-  const decide = useSetBookingStatus();
+  const decide = useSetBookingStatus(booking.leadId);
   const [confirming, setConfirming] = useState<"confirmed" | "cancelled" | null>(null);
   const open = booking.status === "awaiting_payment" || booking.status === "proof_received";
   const openProof = (messageId: string) => {

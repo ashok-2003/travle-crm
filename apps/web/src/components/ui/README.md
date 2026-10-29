@@ -32,7 +32,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - `button.tsx`: pill shape (`rounded-full`), primary hover is `action-pressed`; outline has the input border; ghost is
   blue text; destructive is an ink outline with red text. A `quiet` variant of our own (feedback round 1): ink words
   that take the ghost's blue tint on hover, for a choice whose own content carries colour (the stage bar's steps, where
-  link blue would hide the stages' colours); One Action Colour still holds, as the blue comes on hover.
+  link blue would hide the stages' colours); a `send` variant of our own (owner, 2026-10-28): the brand's green fill with
+  white words, for the buttons that send to a customer on WhatsApp and nothing else, so a send looks unlike every blue
+  in-app button; One Action Colour still holds, as the blue comes on hover.
 - `input.tsx`: 44px high, 16px text at every width (no iOS zoom), 6px radius, canvas fill. `textarea.tsx` (which
   `input-group` brings) likewise (6px, canvas fill, 16px text at every width), at least 64px high.
 - `popover.tsx`: the registry's shadow, with a hairline border instead of its ring.
@@ -49,7 +51,7 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   sheet's Close words are the `common.close` message.
 - `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own
   label says what is happening, and a status inside a button would join its name.
-- `sidebar.tsx`: 232px wide; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
+- `sidebar.tsx`: 232px wide; its separators take `data-horizontal:w-auto`, so `mx-2` no longer pushes them past the edge; its `--sidebar-*` colours are the brand's in `globals.css` (surface, the blue tint for the
   current page). It asks `lib/use-wide-screen.ts` whether the screen is a phone instead of shadcn's `use-mobile` hook,
   and has five small lint fixes. It has no Ctrl/Cmd+B shortcut: the keys stay the browser's (bookmarks, bold), and the
   agency's sidebar folds to its icons with `SidebarTrigger` alone. Folded, it is 60px wide (`--sidebar-width-icon`)

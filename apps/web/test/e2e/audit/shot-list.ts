@@ -141,6 +141,30 @@ const TWO_FACTOR_SHOTS = [
   { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
   { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
   { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
+  // The theme (2026-10-26, later): the product's own look everywhere, WhatsApp's only in the chat pane.
+  { name: "theme-home", screen: "Home in the product's own look", as: owner },
+  { name: "theme-leads", screen: "The Leads list", as: owner },
+  { name: "theme-lead", screen: "A lead's page", as: owner },
+  { name: "theme-inbox-chat", screen: "The inbox with a chat open: only the chat pane is WhatsApp's", as: owner },
+  { name: "theme-broadcasts", screen: "Inbox, Broadcasts", as: owner },
+  { name: "theme-settings-whatsapp", screen: "Settings, WhatsApp", as: owner },
+  { name: "theme-console", screen: "A console page", as: superAdmin },
+  // The theme with Ayush's green sidebar and the green send buttons (2026-10-28).
+  { name: "theme-signin", screen: "Sign-in with the brand panel", as: visitor },
+  { name: "theme-quote-send", screen: "A sent quote: blue Save, green Send on WhatsApp", as: owner },
+  { name: "theme-invites", screen: "The console's invites screen", as: superAdmin },
+  // The automatic WhatsApps and the autopilot (2026-10-29).
+  {
+    name: "step2-sales-automation",
+    screen: "Settings, Sales automation: greeting, follow-ups, payment reminders",
+    as: owner,
+  },
+  {
+    name: "step2-ai-autopilot",
+    screen: "Settings, AI: the autopilot, how it speaks, learning and the copied way of talking",
+    as: owner,
+  },
+  { name: "step2-chat-ai-message", screen: "A chat with a message the AI sent by itself, marked", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -514,6 +538,49 @@ export const SHOTS = [
   { name: "broadcast-page", screen: "A broadcast sent: its counts and every chat's state", as: owner },
   { name: "broadcast-paused", screen: "A broadcast that paused itself: why, Resume and Cancel", as: owner },
   { name: "broadcasts-list", screen: "Inbox, Broadcasts: a finished and a paused broadcast", as: owner },
+  // The theme (2026-10-26, later): the product's own look everywhere, WhatsApp's only in the chat pane.
+  { name: "theme-home", screen: "Home in the product's own look", as: owner },
+  { name: "theme-leads", screen: "The Leads list", as: owner },
+  { name: "theme-lead", screen: "A lead's page", as: owner },
+  { name: "theme-inbox-chat", screen: "The inbox with a chat open: only the chat pane is WhatsApp's", as: owner },
+  { name: "theme-broadcasts", screen: "Inbox, Broadcasts", as: owner },
+  { name: "theme-settings-whatsapp", screen: "Settings, WhatsApp", as: owner },
+  { name: "theme-console", screen: "A console page", as: superAdmin },
+  // Quotes, money and Suggest reply (2026-10-28).
+  { name: "quote-editor", screen: "A draft quote: its plan, priced lines, GST and place of supply", as: owner },
+  {
+    name: "quote-customer-link",
+    screen: "The customer's link: the plan, the price and Accept",
+    as: "the customer, signed out",
+  },
+  {
+    name: "quote-payments",
+    screen: "An accepted quote: its read-only notice, the payments due and received",
+    as: owner,
+  },
+  { name: "quote-invoice", screen: "A paid quote with its tax invoice issued", as: owner },
+  { name: "finance", screen: "Finance: profit, bookings and costs", as: owner },
+  { name: "reports", screen: "Reports: the key figures, the funnel and the team", as: owner },
+  { name: "home-hot-leads", screen: "Home: the hot leads to call now", as: owner },
+  { name: "lost-reason", screen: "Marking a lead Lost asks why", as: owner },
+  { name: "settings-ai", screen: "Settings, AI: the switch and the instructions", as: owner },
+  { name: "settings-ai-knowledge", screen: "Settings, AI: what the AI knows", as: owner },
+  { name: "lead-ai-guess", screen: "A lead page with the AI's guess in the AI's tint", as: owner },
+  { name: "home-final", screen: "Home, the owner's layout in our style", as: owner },
+  { name: "reports-final", screen: "Reports with the lead flow charts that left Home", as: owner },
+  { name: "composer-suggestion", screen: "A chat's reply box with the AI's draft, marked Drafted by AI", as: owner },
+  // Release 5: calling and the daily rhythm (2026-10-29).
+  {
+    name: "r5-call-panel",
+    screen: "The call panel (a computer) or the page Send to my phone opens (a phone)",
+    as: owner,
+  },
+  { name: "r5-call-qr", screen: "The call panel's QR code", as: owner, only: "desktop" },
+  { name: "r5-call-note", screen: "How did the call go? with a follow-up offered", as: owner },
+  { name: "r5-lead-call-timeline", screen: "A lead's timeline with a call", as: owner },
+  { name: "r5-library", screen: "Messages on a lead, a message with its blanks filled", as: owner },
+  { name: "r5-today", screen: "Today with payments due and a quote opened, no reply", as: owner },
+  { name: "r5-morning-settings", screen: "Notifications, the morning summary", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

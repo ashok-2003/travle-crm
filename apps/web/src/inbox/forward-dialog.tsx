@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingRows } from "@/components/loading-rows";
+import { RefusalAlert } from "@/components/refusal-alert";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
@@ -18,16 +19,19 @@ import { inboxRoute } from "@/lib/routes";
 import { keepTabValue } from "@/lib/tab-storage";
 import { ChatAvatar } from "./chat-avatar";
 import { useConversations } from "./use-inbox";
+import { useForward } from "./use-sales-inbox";
 
 /** Where a chat's reply box finds words forwarded to it. */
 export const draftKey = (conversationId: string) => `inbox.draft.${conversationId}`;
 
 export function ForwardDialog({
+  messageId,
   words,
   open,
   onOpenChange,
   returnFocusTo,
 }: {
+  messageId: string;
   words: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,10 +50,19 @@ export function ForwardDialog({
     stage: null,
     period: null,
   });
+  const forward = useForward();
+  // The audit entry is written first; only then do the words move to the other chat's box.
   const choose = (conversationId: string) => {
-    keepTabValue(draftKey(conversationId), words);
-    onOpenChange(false);
-    router.push(inboxRoute(conversationId));
+    forward.mutate(
+      { messageId, toConversationId: conversationId },
+      {
+        onSuccess: () => {
+          keepTabValue(draftKey(conversationId), words);
+          onOpenChange(false);
+          router.push(inboxRoute(conversationId));
+        },
+      },
+    );
   };
   return (
     <ResponsiveDialog
@@ -58,6 +71,7 @@ export function ForwardDialog({
       title={t("title")}
       description={t("description")}
       returnFocusTo={returnFocusTo}
+      busy={forward.isPending}
     >
       <div className="flex flex-col gap-3">
         <SearchField
@@ -67,6 +81,7 @@ export function ForwardDialog({
           placeholder={t("searchPlaceholder")}
           className="md:w-full"
         />
+        <RefusalAlert error={forward.error} />
         {chats.items === undefined ? (
           <LoadingRows shape="twoLines" label={t("loading")} />
         ) : chats.items.length === 0 ? (
@@ -74,9 +89,10 @@ export function ForwardDialog({
         ) : (
           <ItemGroup aria-label={t("chats")} className="gap-0">
             {chats.items.slice(0, 12).map((chat) => (
-              <Item key={chat.id} asChild size="sm" className="rounded-lg hover:bg-chat-bar">
+              <Item key={chat.id} asChild size="sm" className="rounded-lg hover:bg-surface">
                 <button
                   type="button"
+                  disabled={forward.isPending}
                   onClick={() => {
                     choose(chat.id);
                   }}

@@ -47,8 +47,8 @@ logs, and what is still open.
   never reads a file. Imports and exports add no environment variable.
 - **Routing.** The load balancer sends `/api/platform/*` to the console and everything else under `/api` to the api.
   The console can be locked down further (an IP allow-list) without touching the api.
-- **Stopping.** Each process drains on SIGTERM; the console waits 30 seconds for its jobs, so allow it that long
-  before a hard kill (`apps/api/README.md`).
+- **Stopping.** Each process drains on SIGTERM; the console waits 30 seconds for its jobs (2 minutes where
+  `JOBS_POLLING_SECONDS` is set), so allow it that long before a hard kill (`apps/api/README.md`).
 
 ## Sign-in behind the load balancer (ADR 0006)
 
@@ -113,6 +113,8 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `DATABASE_MIGRATOR_URL` (as `app_migrator`)                                                         |     |        |         | ●       | yes    |
 | `DATABASE_POOL_SIZE`                                                                                | ○   | ○      | ○       |         |        |
 | `DATABASE_TRANSACTION_MAX_WAIT_MS`, `..._TIMEOUT_MS` (slow host)                                    | ○   | ○      | ○       |         |        |
+| `JOBS_POLLING_SECONDS`: checks for work less often (metered host)                                   | ○   | ○      | ○       |         |        |
+| `CONSOLE_JOBS`: `off` serves the console's pages, runs no jobs                                      |     |        | ○       |         |        |
 | `BETTER_AUTH_SECRET`: one value for all three                                                       | ●   | ●      | ●       |         | yes    |
 | `BETTER_AUTH_URL`, `APP_URL`: both the app's https address                                          | ●   | ●      | ●       |         |        |
 | `TRUSTED_ORIGINS`                                                                                   | ○   | ○      | ○       |         |        |
@@ -136,10 +138,12 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `MSG91_WEBHOOK_TOKEN`: 32+ random characters; the webhook's path                                    | ○   | ○      | ○       |         | yes    |
 | `MSG91_WEBHOOK_KEY`: 32+ random characters; the header's value                                      | ○   | ○      | ○       |         | yes    |
 | `MSG91_TEST_SERVER_URL`: tests only, refused in production                                          | ○   | ○      | ○       |         |        |
-| `AI_API_KEY`: the AI provider's key; unset, the AI agent is off                                     | ○   | ○      |         |         | yes    |
-| `AI_BASE_URL`: an OpenAI-compatible API (OpenRouter's by default)                                   | ○   | ○      |         |         |        |
-| `AI_CHAT_MODELS`, `AI_FAST_MODELS`: comma-separated, in order                                       | ○   | ○      |         |         |        |
-| `AI_ZERO_RETENTION`: OpenRouter's no-data routing (`true`)                                          | ○   | ○      |         |         |        |
+| `OPENROUTER_API_KEY`: the AI (below); unset: off                                                    | ○   | ○      |         |         | yes    |
+| `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS`: OpenRouter slugs (below)                                    | ○   | ○      |         |         |        |
+| `AI_API_KEY`: the AI on any OpenAI-compatible endpoint (below); replaces `OPENROUTER_API_KEY`       | ○   | ○      |         |         | yes    |
+| `AI_BASE_URL`: its address (Google's Gemini direct; https in production)                            | ○   | ○      |         |         |        |
+| `AI_CHAT_MODELS`: its models, comma-separated; needed with `AI_API_KEY`                             | ○   | ○      |         |         |        |
+| `AI_FAST_MODELS`: the ones that only score leads (the chat ones when blank)                         | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                                                    | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)                                       | ○   | ○      | ○       |         | yes    |
@@ -229,6 +233,27 @@ Secrets come from the platform's secret manager as environment variables, never 
   - Routes: `/webhooks/meta-leads` (Meta's callback, GET and POST) and `POST /api/meta/data-deletion` are under paths
     that already reach the api; `/meta/deletion` goes to the web app. The callback must be HTTPS.
   - The start-up line says `Meta lead ads: on` or `not set up`.
+- **Suggest reply, the AI** (ADR 0029; the owner's decision of 2026-10-28):
+  - The api and the worker read `OPENROUTER_API_KEY` (an OpenRouter key), `AI_SUGGEST_MODELS` and `AI_SCORE_MODELS` (the models
+    for Suggest reply and for lead scoring: comma-separated OpenRouter slugs, the preferred model first and its fallbacks after; default `google/gemini-2.5-flash,anthropic/claude-haiku-4.5`). Unset key:
+    the feature says the AI isn't set up, and nothing is sent anywhere. The key is never printed or logged.
+  - Every request asks OpenRouter for zero data retention (`provider.zdr`), and the adapter refuses any base URL that is not
+    `https://openrouter.ai`. Choose models that have a zero-data-retention endpoint on OpenRouter: a model without one
+    answers 404 and the next in the list is tried, so if no model has one, no suggestion is made.
+  - The worker also scores leads (`AI_SCORE_MODELS`) for agencies with the AI on, 20 seconds after a customer's last message of a
+    burst, and reads the words of documents agencies upload for their AI (PDF and plain text, up to 10 MB).
+  - Off for every agency until its plan includes the `ai` module (the console's plan editor) and its Owner or Admin turns it on
+    in Settings, AI. A member asks for each draft; it reads the chat's last 12 messages, the lead's first name and trip
+    facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 500
+    suggestions an agency a month (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
+  - **Called directly on another endpoint** (the owner, 2026-10-29): `AI_API_KEY` with `AI_BASE_URL` (for Google's Gemini,
+    `https://generativelanguage.googleapis.com/v1beta/openai`; OpenRouter's when unset) and `AI_CHAT_MODELS` (and optionally
+    `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the
+    process stops if the key has no chat models, if the others come without the key, or if the base URL is not https in
+    production. OpenRouter's `provider` zero-data-retention field is sent only to OpenRouter, so a direct endpoint keeps what
+    its own terms say (Google's free tier may use prompts: keep billing on for the project). `docker-compose.server.yml`
+    passes all of them to the api, the worker and the console.
+  - Existing plans get no AI: edit each plan in the console to add the module.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
     printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to
@@ -268,10 +293,16 @@ Secrets come from the platform's secret manager as environment variables, never 
   needs no new line), and `/api/public/website-forms/*` and `/api/public/client-address` are the api's under the
   `/api/*` rule. The web image's content security policy gains Turnstile's origins on `/f` and `/embed` only, and `/embed`
   alone may be framed (by any https site).
+- **Two small servers** (`docs/runbook.md`): Vercel's rewrites are this table, sending the first row to the console's
+  server and the next three to the api's. Each server's Caddy (`docker/server/Caddyfile`, by `SERVER_ROLE`) routes only
+  its own rows and `/health`, answering 404 to the rest, and every other path is Vercel's. `BETTER_AUTH_URL` and
+  `APP_URL` are the Vercel address there (the settings' `APP_URL`), not the servers'. GitHub Actions releases to them
+  (`.github/workflows/deploy.yml`): it applies the migrations with the image's `migrate`, then deploys each server.
 - **Hosting, for the form's address:** on the Oracle pilot Caddy replaces `X-Forwarded-For` with one address, so
-  `PUBLIC_FORM_PROXY_HOPS` stays unset; on Render behind Vercel set it as `docs/serverless.md` step 5b says. A host behind
-  a load balancer that appends (Cloud Run, ECS) can use `AUTH_TRUSTED_PROXIES`, which the forms follow while the hops are
-  unset.
+  `PUBLIC_FORM_PROXY_HOPS` stays unset; on Render behind Vercel set it as `docs/serverless.md` step 5b says. On the two
+  small servers behind Vercel, Caddy's one address is Vercel's, so the per-address limits don't apply there. A host
+  behind a load balancer that appends (Cloud Run, ECS) can use `AUTH_TRUSTED_PROXIES`, which the forms follow while the
+  hops are unset.
 - **`/health` needs no public route:** the platform's health checks call each service on its own port (below). The
   local proxy sends it to the api, so the smoke run can ask through it.
 
@@ -280,9 +311,13 @@ Secrets come from the platform's secret manager as environment variables, never 
 | Service | Health check                                | On SIGTERM                                                             |
 | ------- | ------------------------------------------- | ---------------------------------------------------------------------- |
 | api     | `GET /health` on 3001: `{ "status": "ok" }` | finishes open requests, closes its pools, exits 0                      |
-| console | `GET /health` on 3002                       | the same, letting running jobs finish for up to 30 seconds             |
+| console | `GET /health` on 3002                       | the same, letting running jobs finish for up to 30 seconds (below)     |
 | worker  | none (no port): the platform watches it     | stops relaying, lets running jobs finish for up to 30 seconds, exits 0 |
-| web     | `GET /sign-in` on 3000 (a static page)      | Next.js closes its server and exits 143                                |
+
+Where `JOBS_POLLING_SECONDS` is set, the worker and the console wait up to 2 minutes instead: the two small servers'
+working hours stop them every day (`docs/runbook.md`, "Working hours and night bursts"). A job still running then is
+cut short and runs again later, as pg-boss retries it.
+| web | `GET /sign-in` on 3000 (a static page) | Next.js closes its server and exits 143 |
 
 - **A start that fails exits 1** before the health check can pass: a wrong role, a bucket it can't use, pg-boss, and
   for the console the platform role's grant. A broken deploy never turns healthy.

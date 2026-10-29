@@ -47,3 +47,9 @@ export async function removePushSubscription(
   const removed = await tx.pushSubscription.deleteMany({ where: { endpoint, userId: person.userId } });
   return removed.count > 0;
 }
+
+/** Whether the person has any phone or browser registered for push, so "Send to my phone" can say when it cannot. */
+export async function hasPushDevice(tx: OrgTx, actor: Actor): Promise<boolean> {
+  const person = asPerson(actor);
+  return (await tx.pushSubscription.count({ where: { userId: person.userId } })) > 0;
+}

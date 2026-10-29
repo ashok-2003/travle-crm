@@ -31,6 +31,14 @@ export const whatsappCustomerWroteEvent = z.strictObject({
 });
 export type WhatsappCustomerWroteEvent = z.infer<typeof whatsappCustomerWroteEvent>;
 
+/**
+ * whatsapp.text-received: a customer wrote words (not a reaction, not a blocked contact's, not STOP), for every agency, whatever
+ * automation it has set up: what reads the words for itself (hot-lead buying words, the AI's guess) listens here, so that
+ * none of them makes the automatic answers run for an agency that has none.
+ */
+export const whatsappTextReceivedEvent = z.strictObject({ conversationId: recordId, messageId: recordId });
+export type WhatsappTextReceivedEvent = z.infer<typeof whatsappTextReceivedEvent>;
+
 /** whatsapp.broadcast-ready: a broadcast has recipients waiting (it was created, resumed, or has more after a batch or a day). */
 export const whatsappBroadcastReadyEvent = z.strictObject({ broadcastId: recordId });
 export type WhatsappBroadcastReadyEvent = z.infer<typeof whatsappBroadcastReadyEvent>;

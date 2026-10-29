@@ -18,7 +18,8 @@ export const MAX_INSTALLMENTS = 12;
 export const quoteTaxRates = [0, 500, 1800] as const;
 export const quoteTaxRate = z.union([z.literal(0), z.literal(500), z.literal(1800)]);
 
-export const quoteStatuses = ["draft", "sent", "accepted", "declined"] as const;
+/** "replaced": a sent quote the agency made a new version of; its link says so. */
+export const quoteStatuses = ["draft", "sent", "accepted", "declined", "replaced"] as const;
 export const quoteStatus = z.enum(quoteStatuses);
 export type QuoteStatus = z.infer<typeof quoteStatus>;
 
@@ -90,6 +91,8 @@ export const recordPaymentInput = z.strictObject({
   receivedOn: calendarDate,
   method: paymentMethod,
   reference: text(80),
+  /** Made once when the form opens, so a double tap or a retry records the payment once. */
+  requestId: z.uuid(),
 });
 export type RecordPaymentInput = z.infer<typeof recordPaymentInput>;
 export const paymentIdInput = z.strictObject({ paymentId: recordId });
@@ -175,6 +178,8 @@ export const quoteDetail = z.object({
   /** The customer's phone (E.164), to send the link on WhatsApp. */
   customerPhone: z.string().nullable(),
   invoiceDocumentId: recordId.nullable(),
+  /** The draft that took this quote's place, when it was replaced. */
+  replacedById: recordId.nullable(),
   installments: z.array(installment),
   payments: z.array(payment),
 });

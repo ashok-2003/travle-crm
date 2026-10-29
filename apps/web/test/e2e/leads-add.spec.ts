@@ -42,9 +42,12 @@ test("an Owner adds a lead with a name and a phone, and finds it in Leads", asyn
   const timeline = page.getByRole("list", { name: "Timeline" });
   await expect(timeline.getByText("Lead added from a phone call")).toBeVisible();
   await expectAccessible(page);
-  // A computer (1280px here) has room beside the lead's cards: the timeline sits there, level with the first card. A
-  // phone reads it under them.
-  const firstCard = await page.getByRole("region", { name: "Next follow-up" }).boundingBox();
+  // A computer (1280px here) has room beside the lead's cards: the timeline sits there, level with the top of their
+  // column (whichever card opens it: the sales and AI cards come before Next follow-up). A phone reads it under them.
+  const firstCard = await page
+    .getByRole("region", { name: "Timeline" })
+    .locator("xpath=ancestor::div[contains(@class, 'xl:sticky')]/preceding-sibling::div[1]")
+    .boundingBox();
   const history = await page.getByRole("region", { name: "Timeline" }).boundingBox();
   if (firstCard === null || history === null) throw new Error("The lead's cards aren't on the page.");
   if (testInfo.project.name === "phone") {

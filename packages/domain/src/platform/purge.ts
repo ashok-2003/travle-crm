@@ -136,6 +136,11 @@ export async function purgeOrganization(
       const files = await queueOrganizationFileDeletion(tx, job.organizationId, now);
       const userIds = await organizationUserIds(tx, job.organizationId);
       const webhooks = await tombstoneWebhookEvents(tx, job.organizationId, { organizationGone: true });
+      // The invite that made it keeps its company and its counts, not the owner's name or contacts.
+      await tx.vipInvite.updateMany({
+        where: { joinedOrganizationId: job.organizationId },
+        data: { ownerName: "Removed", ownerPhone: null, ownerEmail: null },
+      });
       const deleted = await deleteOrganizationRows(tx, job.organizationId);
       const people = await deleteUsers(tx, userIds);
       const result: PurgeResult = {

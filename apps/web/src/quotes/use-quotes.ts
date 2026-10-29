@@ -60,6 +60,7 @@ export function useQuoteChanges() {
     voidPayment: useMutation(trpc.quotes.voidPayment.mutationOptions(options)),
     fromPackage: useMutation(trpc.quotes.fromPackage.mutationOptions(options)),
     duplicate: useMutation(trpc.quotes.duplicate.mutationOptions(options)),
+    newVersion: useMutation(trpc.quotes.newVersion.mutationOptions(options)),
     savePackage: useMutation(trpc.quotes.savePackage.mutationOptions(options)),
     deletePackage: useMutation(trpc.quotes.deletePackage.mutationOptions(options)),
   };

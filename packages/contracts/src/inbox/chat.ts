@@ -129,7 +129,7 @@ export const chatMessage = z.object({
   id: recordId,
   direction: z.enum(["in", "out"]),
   origin: z.enum(["customer", "staff_crm", "staff_phone", "history", "automation"]),
-  /** Written by the AI agent (an automatic message of its own). */
+  /** The AI wrote and sent it by itself (autopilot): the chat marks it as the AI's. */
   byAi: z.boolean(),
   kind: whatsappMessageKind,
   body: z.string().nullable(),
@@ -137,8 +137,25 @@ export const chatMessage = z.object({
   fileName: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
-  /** The message this one replies to, as far as we have it. */
-  quoted: z.object({ kind: whatsappMessageKind, body: z.string().nullable() }).nullable(),
+  /**
+   * The message this one replies to. `messageId` is null when we never had the original (a quote of a message from before we
+   * were connected): the bubble then says it is not available.
+   */
+  quoted: z
+    .object({
+      messageId: recordId.nullable(),
+      direction: z.enum(["in", "out"]).nullable(),
+      /** The staff member who wrote it, for one of ours. */
+      sentBy: recordId.nullable(),
+      kind: whatsappMessageKind.nullable(),
+      /** Its words, or its caption. */
+      body: z.string().nullable(),
+      fileName: z.string().nullable(),
+      mediaState: whatsappMediaState.nullable(),
+    })
+    .nullable(),
+  /** MSG91 would not take our quote, so the message went without it. */
+  quoteDropped: z.boolean(),
   /** An emoji a reaction set on this message. */
   reaction: z.string().nullable(),
   status: whatsappMessageStatus,
@@ -147,11 +164,22 @@ export const chatMessage = z.object({
   /** The staff member who sent it from here, named in the page's `people`; null for the customer's and the phone's. */
   sentBy: recordId.nullable(),
   occurredAt: timestamp,
+  /** When it was sent, delivered and read (message info); each null until it happens. */
+  sentAt: timestamp.nullable(),
+  deliveredAt: timestamp.nullable(),
+  readAt: timestamp.nullable(),
   starred: z.boolean(),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
 
+/**
+ * What the member had not read when the chat was opened: how many of the customer's messages (at most 99) and which was the
+ * first, so the chat can draw "N unread messages" above it. Only on the chat's first page, and not while searching.
+ */
+export const chatUnread = z.object({ count: z.int().min(0), firstMessageId: recordId.nullable() });
+
 export const chatMessagePage = z.object({
+  unread: chatUnread.nullable(),
   /** Newest first; the screen lays them out oldest at the bottom. */
   items: z.array(chatMessage),
   nextCursor: recordId.nullable(),
@@ -173,5 +201,14 @@ export type MediaUploadSlot = z.infer<typeof mediaUploadSlot>;
 export const sentMessage = z.object({ messageId: recordId, status: whatsappMessageStatus });
 export type SentMessage = z.infer<typeof sentMessage>;
 
-export const mediaLink = z.object({ url: z.string(), fileName: z.string().nullable(), contentType: z.string() });
+export const mediaLink = z.object({
+  url: z.string(),
+  fileName: z.string().nullable(),
+  contentType: z.string(),
+  sizeBytes: z.int().nonnegative(),
+});
 export type MediaLink = z.infer<typeof mediaLink>;
+
+/** The gallery's page: the messages, and a link to each one's file, signed in the same pass (one call, not one per picture). */
+export const chatMediaPage = chatMessagePage.extend({ links: z.record(recordId, mediaLink) });
+export type ChatMediaPage = z.infer<typeof chatMediaPage>;

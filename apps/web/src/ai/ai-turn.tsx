@@ -72,12 +72,12 @@ export function AiTyping({ conversationId }: { conversationId: string }) {
 export function AiReplyBar({ conversationId }: { conversationId: string }) {
   const t = useTranslations("ai.chat");
   const ai = useChatAi(conversationId).data;
-  const setMode = useSetChatAi();
-  const resume = useResumeChatAi();
+  const setMode = useSetChatAi(conversationId);
+  const resume = useResumeChatAi(conversationId);
   const access = useWriteAccess("change");
   const mayReply = useHolds("inbox:reply");
   const { timeZone } = useMe().organization;
-  if (ai?.configured !== true) return null;
+  if (ai?.available !== true) return null;
   const name = aiFirstName(ai.agentName) ?? t("theAi");
   const busy = setMode.isPending || resume.isPending || !access.allowed || !mayReply;
   const button = (label: string, onClick: () => void) => (

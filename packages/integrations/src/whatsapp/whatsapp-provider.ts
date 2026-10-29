@@ -35,6 +35,13 @@ export interface WhatsAppMediaToSend {
   fileName?: string;
   /** An Ogg Opus voice note, sent as one. SPIKE(S4). */
   voice?: boolean;
+  /** The WhatsApp message id this one answers, shown as its quote. SPIKE(reply-context). */
+  replyTo?: string;
+}
+
+export interface WhatsAppTextOptions {
+  /** The WhatsApp message id this one answers, shown as its quote. SPIKE(reply-context). */
+  replyTo?: string;
 }
 
 export interface WhatsAppTemplateSend {
@@ -91,7 +98,7 @@ export type WhatsAppMediaResult =
 
 export interface WhatsAppProvider {
   /** `number` is the agency's integrated number, as MSG91 writes it (digits); `to` is E.164 or digits. */
-  sendText(number: string, to: string, text: string): Promise<WhatsAppSendResult>;
+  sendText(number: string, to: string, text: string, options?: WhatsAppTextOptions): Promise<WhatsAppSendResult>;
   sendMedia(number: string, to: string, media: WhatsAppMediaToSend): Promise<WhatsAppSendResult>;
   sendTemplate(number: string, to: string, template: WhatsAppTemplateSend): Promise<WhatsAppSendResult>;
   listTemplates(number: string): Promise<WhatsAppListResult>;

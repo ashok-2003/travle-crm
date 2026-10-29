@@ -1,6 +1,7 @@
 // Onboarding an agency from the console (spec 7.1): support fills in the agency, its business profile, its Owner and
 // a plan on sale; the organization's page says the invite went out; the worker emails it (Mailpit); the Owner chooses
 // a password from its link and signs in to the agency.
+import { homeGreeting } from "./support/fixtures";
 import { choose, expect, inviteLinkSentTo, organizationCode, test } from "./support/console-organizations";
 import { signInToConsole } from "./support/console";
 
@@ -50,5 +51,5 @@ test("support onboards an agency, whose Owner chooses a password from the invite
   await page.getByRole("textbox", { name: "Email" }).fill(owner.email);
   await page.getByLabel("Password", { exact: true }).fill("lakshmi-password-1");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: `Welcome, ${owner.name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(owner.name) })).toBeVisible();
 });

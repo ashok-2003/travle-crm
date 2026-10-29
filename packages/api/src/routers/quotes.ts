@@ -47,6 +47,7 @@ import {
   listLeadQuotes,
   listQuotes,
   moneySummaryOf,
+  newQuoteVersion,
   QUOTE_RECORD_TYPE,
   quoteSettingsOf,
   recordPayment,
@@ -68,7 +69,9 @@ type MemberContext = Pick<Context, "db" | "files" | "identity" | "profiles"> & {
 const viewer = orgProcedure.requires("quotes:view");
 const maker = orgProcedure.requires("quotes:create");
 const editor = orgProcedure.requires("quotes:edit");
+// What changes a quote or its money is read from the database, never the five-minute session cache.
 const moneyEditor = freshProcedure.requires("quotes:edit");
+const paymentRecorder = freshProcedure.requires("quotes:record_payments");
 
 /** What every quote write needs: the agency's GST state, from its business details. */
 async function quoteContext(ctx: MemberContext) {
@@ -129,7 +132,7 @@ export const quotesRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => createQuote(tx, ctx.member, input, context));
     }),
 
-  update: editor
+  update: moneyEditor
     .input(updateQuoteInput)
     .output(quoteDetail)
     .mutation(async ({ ctx, input }) => {
@@ -140,11 +143,14 @@ export const quotesRouter = router({
   setStatus: editor
     .input(setQuoteStatusInput)
     .output(quoteDetail)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => setQuoteStatus(tx, ctx.member, input, new Date())),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        setQuoteStatus(tx, ctx.member, input, context.now, context.supplierStateCode),
+      );
+    }),
 
-  delete: editor
+  delete: moneyEditor
     .input(quoteIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteQuote(tx, ctx.member, input.quoteId)),
@@ -154,11 +160,18 @@ export const quotesRouter = router({
   share: moneyEditor
     .input(quoteIdInput)
     .output(quoteLink)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
         const quote = await getQuote(tx, ctx.member, input.quoteId);
         if (quote.status === "draft") {
-          await setQuoteStatus(tx, ctx.member, { quoteId: quote.id, status: "sent" }, new Date());
+          await setQuoteStatus(
+            tx,
+            ctx.member,
+            { quoteId: quote.id, status: "sent" },
+            context.now,
+            context.supplierStateCode,
+          );
         }
         const link = await createShareLink(tx, ctx.member, {
           recordType: QUOTE_RECORD_TYPE,
@@ -168,8 +181,8 @@ export const quotesRouter = router({
           expiresAt: new Date(Date.now() + 90 * 24 * 3_600_000),
         });
         return { path: link.path };
-      }),
-    ),
+      });
+    }),
 
   addInstallment: moneyEditor
     .input(addInstallmentInput)
@@ -183,21 +196,21 @@ export const quotesRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => removeInstallment(tx, ctx.member, input.installmentId)),
     ),
 
-  recordPayment: moneyEditor
+  recordPayment: paymentRecorder
     .input(recordPaymentInput)
     .output(z.object({ paymentId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => recordPayment(tx, ctx.member, input, new Date())),
     ),
 
-  /** A payment recorded by mistake is voided, never deleted. It takes money off the quote, so like recording it. */
-  voidPayment: moneyEditor
+  /** A payment recorded by mistake is voided, never deleted (and not once its receipt is issued). */
+  voidPayment: paymentRecorder
     .input(paymentIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => voidPayment(tx, ctx.member, input.paymentId, new Date())),
     ),
 
-  issuePdf: editor
+  issuePdf: moneyEditor
     .input(quoteIdInput)
     .output(quoteDocument)
     .mutation(async ({ ctx, input }) => {
@@ -205,7 +218,7 @@ export const quotesRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => issueQuotePdf(tx, ctx.member, input.quoteId, context));
     }),
 
-  issueInvoice: moneyEditor
+  issueInvoice: paymentRecorder
     .input(quoteIdInput)
     .output(quoteDocument)
     .mutation(async ({ ctx, input }) => {
@@ -215,7 +228,7 @@ export const quotesRouter = router({
       );
     }),
 
-  issueReceipt: moneyEditor
+  issueReceipt: paymentRecorder
     .input(paymentIdInput)
     .output(quoteDocument)
     .mutation(async ({ ctx, input }) => {
@@ -270,6 +283,16 @@ export const quotesRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => quoteFromPackage(tx, ctx.member, input, context));
     }),
 
+  /** A sent quote keeps its prices: a new version is a draft copy that replaces it, and its link says so. */
+  newVersion: freshProcedure
+    .requires("quotes:create", "quotes:edit")
+    .input(quoteIdInput)
+    .output(quoteDetail)
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => newQuoteVersion(tx, ctx.member, input.quoteId, context));
+    }),
+
   /** Another option of the quote, which the customer's link shows beside it. */
   duplicate: maker
     .input(quoteIdInput)
@@ -292,14 +315,15 @@ export const quotesRouter = router({
     ),
 
   /** The dashboard's money: accepted, received, still to come and overdue. */
-  moneySummary: viewer
+  moneySummary: freshProcedure
+    .requires("quotes:view", "money:view_reports")
     .input(moneySummaryInput)
     .output(moneySummary)
     .query(async ({ ctx, input }) => {
       const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
       const today = calendarDateIn(new Date(), timeZone);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) =>
-        moneySummaryOf(tx, ctx.member, { from: input.from, to: input.to, today }),
+        moneySummaryOf(tx, ctx.member, { from: input.from, to: input.to, today, timeZone }),
       );
     }),
 });

@@ -111,8 +111,12 @@ export const standaloneDue: TaskItem = {
 /** The mockup's day: 8 things, 2 overdue, 3 new leads, 3 due today, and its top three. */
 export const busyDay: TodaySummary = {
   day: "2026-10-16",
-  counts: { overdue: 2, newLeads: 3, dueToday: 3 },
+  counts: { overdue: 2, newLeads: 3, dueToday: 3, quoteOpened: 0, paymentsDue: 0 },
   top: [snehaOverdue, rahulNew, priyaDue],
 };
 
-export const quietDay: TodaySummary = { day: "2026-10-16", counts: { overdue: 0, newLeads: 0, dueToday: 0 }, top: [] };
+export const quietDay: TodaySummary = {
+  day: "2026-10-16",
+  counts: { overdue: 0, newLeads: 0, dueToday: 0, quoteOpened: 0, paymentsDue: 0 },
+  top: [],
+};

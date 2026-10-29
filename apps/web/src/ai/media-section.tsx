@@ -25,7 +25,7 @@ import { uploadFile } from "@/files/upload";
 import { useErrorMessage } from "@/lib/error-message";
 import { openInNewTab } from "@/lib/open-in-new-tab";
 import { useWriteAccess } from "@/subscription/write-access";
-import { useAiMedia, useConfirmMedia, useDeleteMedia, useRequestMedia, useUpdateMedia } from "./use-ai";
+import { useAiMedia, useConfirmMedia, useDeleteMedia, useRequestMedia, useUpdateMedia } from "./use-ai-media";
 
 function MediaIcon({ contentType }: { contentType: string }) {
   if (contentType.startsWith("image/")) return <ImageIcon aria-hidden="true" />;

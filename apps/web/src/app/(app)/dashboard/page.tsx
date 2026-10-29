@@ -114,7 +114,7 @@ export default function HomePage() {
         action={actions}
       />
       {/* Where the role sees leads on a plan with them: the day at a glance, what to do now, and the month so far. */}
-      {showsToday && <AtAGlance inbox={has("inbox")} quotes={has("quotes")} />}
+      {showsToday && <AtAGlance inbox={has("inbox")} money={has("quotes") && holds(me, "money:view_reports")} />}
       {showsToday && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
           <div className="flex flex-col gap-6">

@@ -1,7 +1,9 @@
 # Runbook: the pilot server
 
 How the product runs for the pilot, and what to do when something has to change or goes wrong. The deploy checklist
-(`docs/deploy-checklist.md`) says what any deploy must get right. This page is about this one server.
+(`docs/deploy-checklist.md`) says what any deploy must get right. This page is about this one server. When Oracle
+has no ARM capacity, two small free servers stand in for it, with a managed database and the web app on Vercel
+("Two small servers (api and console)").
 
 ## What runs where
 
@@ -194,6 +196,230 @@ worker console`.
 4. **Start on it:** `sudo scripts/server/compose.sh up --detach --wait`, then
    `sudo scripts/server/compose.sh --profile local-database stop postgres`, then the smoke check. Keep the old
    Postgres's volume until the restore drill has passed against the new database's backups.
+
+## Two small servers (api and console)
+
+The pilot's free layout on Oracle's Always Free AMD servers (VM.Standard.E2.1.Micro: x86, 1 GB, two allowed), when no
+ARM capacity is to be had. It replaces Render in `docs/serverless.md` and keeps the rest: Neon, R2, Brevo, the backups
+in GitHub Actions and the web app on Vercel.
+
+- **The api's server** (`SERVER_ROLE=api`): the api and the worker, and Caddy. It never holds `DATABASE_PLATFORM_URL`
+  (`secrets.sh check` refuses it).
+- **The console's server** (`SERVER_ROLE=console`): the console alone, and Caddy, so the platform role's connection
+  string is on no server the api runs on.
+- **Routes:** Vercel's rewrites are the load balancer (`API_ORIGIN` and `CONSOLE_ORIGIN` are the two servers' https
+  addresses). Each server's Caddy routes only its own paths (`docker/server/Caddyfile`) and answers 404 to the rest.
+- **The database** is Neon's, in Singapore: each query from Mumbai takes about 70 ms there and back, so a request is
+  some tenths of a second slower than next to it.
+- **Memory:** idle, the api and the worker take about 400 MB between them and the console about 200 MB (measured
+  2026-10-28). `setup.sh` adds 4 GB of swap for heavier moments.
+- **Builds:** neither server builds. The api's image is built for linux/amd64 elsewhere and loaded onto each server:
+  by GitHub Actions on every merge ("Releases from GitHub Actions" below), or by `release.sh --build-here` on the Mac.
+- **Migrations:** neither server holds `DATABASE_MIGRATOR_URL`, so deploys run none. GitHub Actions applies a
+  release's migrations before releasing it; from the Mac, apply them first, as on Render (`docs/serverless.md`).
+
+**Working hours and night bursts.** The api and the console's pages run day and night; the background work runs in
+the working hours and in short bursts at night, so Neon's free compute hours last the month. The next section says why,
+what each choice costs and how to change it.
+
+**No demo rebuild:** the server's console is given no `DEMO_*` settings (`docker-compose.server.yml`), so the demo
+agency Render's console rebuilt each night is left as it is.
+
+### The first setup, once
+
+1. **Oracle:** in the servers' subnet's default security list, add ingress rules for TCP 80 and 443 from `0.0.0.0/0`.
+2. **Each server, from the Mac** (`<ip>` is the server's public address; the console's role is `console`):
+
+       SERVER=ubuntu@<ip> scripts/server/release.sh --push-only
+       ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> \
+         sudo /srv/travel-crm/app/scripts/server/setup.sh --managed-database   # then sudo reboot
+       ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> \
+         sudo /srv/travel-crm/app/scripts/server/secrets.sh init <ip>.sslip.io <owner email> api
+
+3. **The owner, in their own terminal,** so no value passes through a chat:
+   `ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> sudo /srv/travel-crm/app/scripts/server/secrets.sh set <NAME>` for:
+   - `APP_URL`: the Vercel address;
+   - `DATABASE_URL`: Neon's `app_runtime`, through its pooler; on the console's server also `DATABASE_PLATFORM_URL`
+     (`app_platform`), and on the api's server never;
+   - `DATABASE_POOL_SIZE` `5`, `DATABASE_TRANSACTION_MAX_WAIT_MS` `20000` and `DATABASE_TRANSACTION_TIMEOUT_MS`
+     `30000`, since Neon wakes from sleep and is far away;
+   - the Render group's values, so nobody notices the move:
+     - `BETTER_AUTH_SECRET` (or everyone signs in again);
+     - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (or every browser's push subscription is lost);
+     - `SHEETS_HASH_KEY` (every process refuses to start on a different one);
+     - the `S3_*` ones, `SMTP_USER`, `SMTP_PASSWORD` and `EMAIL_FROM_ADDRESS`;
+     - on the api's server, `GOOGLE_SHEETS_SERVICE_ACCOUNTS`.
+
+     `init` made its own secret, VAPID pair and Sheets key; setting these replaces them.
+
+   Then `sudo /srv/travel-crm/app/scripts/server/secrets.sh check` says every setting is filled.
+
+4. **The first release:** the migrations from the Mac as on Render, then, from the Mac, the api's server and then the
+   console's (the second only loads the image):
+
+       SERVER=ubuntu@<api ip> scripts/server/release.sh --build-here
+       SERVER=ubuntu@<console ip> scripts/server/release.sh --build-here
+
+5. **The working hours,** on each server:
+   `ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> sudo /srv/travel-crm/app/scripts/server/work-hours.sh set 09:00 19:00`.
+   The night bursts start with their defaults ("Working hours and night bursts" below).
+6. **The switch:**
+   - In Vercel, set `API_ORIGIN` = `https://<api ip>.sslip.io` and `CONSOLE_ORIGIN` = `https://<console ip>.sslip.io`.
+   - Redeploy, and run `docs/serverless.md` step 7's checks.
+   - Then suspend the two Render services and the cron-job.org wake-ups (step 9), which nothing needs any more.
+
+### Releases from GitHub Actions
+
+Once it's turned on, every merge to main is released by `.github/workflows/deploy.yml`, on GitHub's runners (free for
+a public repository). It runs `scripts/server/release-servers.sh`: it builds the api's image once, applies the
+commit's migrations to Neon with that image's `migrate` (when the `DATABASE_MIGRATOR_URL` secret is set), then
+releases to the api's server and then the console's, and stops at the first failure. Releases never overlap, and none
+is cut short.
+
+**Turning it on, once:**
+
+1. **A deploy key of its own**, never the owner's personal one. On the Mac:
+   `ssh-keygen -t ed25519 -N '' -C travel-crm-github-deploy -f ~/.ssh/travel-crm-github-deploy`. Then add its public
+   half to both servers:
+
+       for ip in <api ip> <console ip>; do
+         ssh -i ~/.ssh/travel-crm-oracle ubuntu@$ip 'cat >> ~/.ssh/authorized_keys' < ~/.ssh/travel-crm-github-deploy.pub
+       done
+
+   The key reaches `ubuntu`, which can `sudo`, so whoever holds it holds the servers; that's why it lives only in the
+   `production` environment, and why that environment can ask for an approval.
+
+2. **The servers' host keys**, so the runner trusts only them: `ssh-keyscan -t ed25519 <api ip> <console ip>`, and
+   check each line's key against the Mac's (`ssh-keygen -F <ip>`).
+3. **In GitHub** (Settings → Environments → New environment, named `production`; optionally a required reviewer, the
+   owner), as the environment's secrets:
+   - `ORACLE_DEPLOY_SSH_KEY`: the private half, `~/.ssh/travel-crm-github-deploy`, whole;
+   - `DATABASE_MIGRATOR_URL`: Neon's `app_migrator` connection string, the direct one (not `-pooler`), the same the Mac
+     migrates with. Without it the run applies no migrations, and they must be applied first from the Mac.
+4. **Repository variables** (Settings → Secrets and variables → Actions → Variables):
+   - `ORACLE_API_SERVER` = `ubuntu@<api ip>` and `ORACLE_CONSOLE_SERVER` = `ubuntu@<console ip>`;
+   - `ORACLE_KNOWN_HOSTS`: step 2's two lines;
+   - `ORACLE_DEPLOY_ENABLED` = `true`, last. Without it the workflow does nothing, so a fork or a fresh clone releases
+     nothing.
+5. **Render:** once the servers serve the pilot, turn off the two Render services' auto-deploy (or suspend them), or
+   every merge also deploys there.
+
+**By hand:** Actions → "Deploy to Oracle" → Run workflow, with a commit, branch or tag; a rollback is the commit
+before, whose image the servers keep. A run in progress shows the build, the migrations and each server's
+`deploy.sh` and smoke check; the database's host is masked in the log, which is public.
+
+### Day to day
+
+- **Release:**
+  - With GitHub Actions on: merge. Without it: migrations first, from the Mac, if the release has any, then
+    `release.sh --build-here` to the api's server, then the console's (or `release-servers.sh`, which does all three,
+    with `API_SERVER`, `CONSOLE_SERVER` and, to migrate, `DATABASE_MIGRATOR_URL` set).
+  - A rollback is a release of the commit before. The servers keep its image.
+- **The hours and the bursts:** `work-hours.sh status` on each server, and "Working hours and night bursts" below to
+  change them.
+- **Unchanged from Render:** behind Vercel, the client address the api sees is Vercel's, so sign-ins share one limit
+  and the website form's per-address limits don't apply ("One sign-in limit for everyone" in `docs/serverless.md`).
+
+### Working hours and night bursts
+
+`scripts/server/work-hours.sh` decides when the background work runs, on both servers (decided 2026-10-28).
+
+**Why.** Neon's free plan gives 100 compute hours a month and puts the database to sleep only after **5 minutes with no
+query at all**. It charges for the time it's awake, not for queries. While the worker or the console runs its jobs,
+pg-boss asks the database something every few seconds (the table below), so Neon never sleeps: around the clock that's
+744 hours at Neon's smallest size (0.25 compute units), about **186 compute hours**, and Neon would switch the database
+off until the 1st about halfway through the month. Asking less often doesn't help unless every gap is longer than 5
+minutes, and pg-boss's own checks can't be spaced that far (its scheduler's are 45 seconds at most). So the work
+**stops** at night, apart from short bursts. The api, and the console with its jobs off, ask nothing while nobody uses
+them, so they run day and night; a visit at night wakes Neon in about a second, and it sleeps 5 minutes later.
+
+**What runs when** (India time; `work-hours.sh status` shows the plan, the state now and the next timers):
+
+| On the server of | Working hours (09:00 to 19:00) | Night                          | Each night burst (22:00, 01:00, 04:00, 07:00; 10 minutes) |
+| ---------------- | ------------------------------ | ------------------------------ | --------------------------------------------------------- |
+| the api          | the api and the worker         | the api alone (worker stopped) | the api and the worker                                    |
+| the console      | the console with its jobs      | the console's pages, jobs off  | the console with its jobs                                 |
+
+- **What waits for the next burst** (at most 3 hours; after the 07:00 burst, the 09:00 start): what listeners do after a
+  change (an invite's email, notifications' email and push, the unassigned-lead alert, each step of an import, an export
+  or a Sheets check), the console's jobs (a purge, an export, an erasure), and each schedule's run for the time it
+  missed, sent once when its process starts (the subscriptions' records, the sweeps and purges, the inbox's due work).
+- **Not affected:** sign-in, every screen's reads and writes (the console's too), the bell's rows and a password reset's
+  email, which happen in the request.
+- **A long piece of work** may need more than one burst: a burst does what 10 minutes allow. When it ends, a job still
+  running gets 2 minutes to finish (`stop_grace_period` in `docker-compose.server.yml`; the processes wait as long
+  because `JOBS_POLLING_SECONDS` is set); one cut short runs again later, as pg-boss retries it, and every job is safe
+  to run twice.
+- **Mechanics:** systemd timers written from `/etc/travel-crm/work-hours`: `travel-crm-work-start.timer` and
+  `-stop.timer` at the hours' ends, `-burst.timer` at the bursts (its service runs for the burst's minutes, then puts the
+  night back), and `travel-crm-work-hours.service` at boot. The console's mode is in `/etc/travel-crm/console-jobs`,
+  which `compose.sh` hands to it as `CONSOLE_JOBS`, so any `compose.sh up` keeps it; changing it recreates the
+  console's container, so its pages are away for the half minute it takes to start, at each switch. Each deploy ends
+  with `work-hours.sh apply`, which rewrites the timers for the release's script and puts each process in the state the
+  time calls for.
+
+**The checks the database sees** while nobody uses the product (`apps/api/src/job-polling.ts`; before is with
+`JOBS_POLLING_SECONDS=120` alone, now is with the housekeeping it also brings):
+
+| Check (each process that works jobs)                                  | pg-boss's own | Before       | Now                      |
+| --------------------------------------------------------------------- | ------------- | ------------ | ------------------------ |
+| Each queue: "a new job?" (the worker about 40 queues, the console 15) | 2 s           | 2 min        | 2 min                    |
+| The outbox: "new events to hand out?" (the worker)                    | 1 s           | 2 min        | 2 min                    |
+| Scheduled jobs due to be sent?                                        | 5 s           | 45 s         | 45 s (pg-boss's longest) |
+| The schedules' watchdog                                               | 30 s          | 30 s         | 45 s (pg-boss's longest) |
+| Flows to advance (jobs waiting on jobs; none are used)                | 5 s           | 5 s          | 1 hour                   |
+| Supervision (expired jobs to retry, old ones deleted), queue stats    | 1 min each    | 1 min each   | 5 min each               |
+| The cache of queues                                                   | 1 min         | 1 min        | 10 min                   |
+| The instance registry's heartbeat (monitoring only)                   | 30 s          | 30 s         | 5 min                    |
+| Schedules due every minute (the inbox's, the Sheets and Meta checks)  |               | every minute | every minute (a feature) |
+
+Measured idle on a local Postgres 18 on 2026-10-28, in transactions a minute (net of the database's own):
+
+| Process                              | Before | Now                                                      |
+| ------------------------------------ | ------ | -------------------------------------------------------- |
+| the worker                           | 90     | 37                                                       |
+| the console with its jobs            | 71     | 20                                                       |
+| the console with its jobs off        |        | 0                                                        |
+| the api (and any send-only instance) | 2      | 0 (it stays out of the registry, whose heartbeat it was) |
+
+So by day Neon is awake anyway (the worker asks something every second or two), and what lets it sleep at night is
+that the api and the console's pages ask nothing: any check at all, however rare, keeps it awake if it comes more
+often than every 5 minutes. The every-minute schedules are features (a snoozed conversation comes back on time, a
+sheet's new rows arrive within minutes), so they stay.
+
+**Neon's budget** (compute hours a month at 0.25 compute units; a burst keeps Neon awake its minutes plus the 5 after):
+
+| Choice                                            | Day work | Night bursts | Backups | Total (of 100)  |
+| ------------------------------------------------- | -------- | ------------ | ------- | --------------- |
+| **Today:** 09:00 to 19:00, 4 bursts of 10 minutes | ~78      | ~8           | ~3      | **~89**         |
+| Bursts every 2 hours (6 of 10 minutes)            | ~78      | ~12          | ~3      | ~93: too tight  |
+| 08:00 to 20:00, 4 bursts                          | ~93      | ~8           | ~3      | ~104: over      |
+| No bursts (the work waits for the morning)        | ~78      | 0            | ~3      | ~81             |
+| Everything around the clock, on Neon's free plan  | ~186     |              |         | stops mid-month |
+
+Night visits add a little on top (each wakes Neon for about 5 minutes), and a busy day can take Neon above its
+smallest size, which counts for more. Around the clock on Neon's Launch plan costs about $20 a month (~186 compute
+hours at $0.106, no monthly minimum; check neon.com/pricing): then `work-hours.sh off` on both servers.
+
+**How Neon is doing:** in Neon's console, the project's **Monitoring** page shows when the compute was active or idle
+(idle overnight between bursts is what we want), and **Billing** (or the project's **Usage**) shows the month's compute
+hours so far. Mid-month, about half of 89 is on track.
+
+**Changing it,** on each server, as `ubuntu`, with
+`ssh -t -i ~/.ssh/travel-crm-oracle ubuntu@<ip> sudo /srv/travel-crm/app/scripts/server/work-hours.sh <command>`:
+
+| Command                             | Does                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| `status`                            | the plan, what runs now, and the timers' next runs                        |
+| `set 09:00 19:00`                   | the working hours (start before end, within one day); bursts stay as set  |
+| `bursts 22:00,01:00,04:00,07:00 10` | the night bursts: when, and for how many minutes (1 to 120)               |
+| `bursts off`                        | no night bursts: the night's work waits for the morning                   |
+| `off`                               | no working hours: everything runs all day and night (Neon's paid plan)    |
+| `apply`                             | rewrites the timers and puts the state the time calls for (deploys do it) |
+
+Run the same command on both servers, or the console's jobs and the worker keep different hours. Every burst must fall
+outside the working hours: to widen the hours past a burst, move the bursts first. What the timers did:
+`journalctl -u travel-crm-work-start -u travel-crm-work-stop -u travel-crm-work-burst`.
 
 ## Switch to a real domain
 

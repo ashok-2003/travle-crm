@@ -1,5 +1,5 @@
-// The AI waits while a person answers (the AI sales agent): someone on the team who wrote in a chat a few minutes ago is
-// answering it, so the AI keeps quiet until then, unless the team gave the chat back to it since ("Let AI answer now").
+// The AI waits while a person answers: someone on the team who wrote in a chat a few minutes ago is answering it, so the AI
+// keeps quiet until then, unless the team gave the chat back to it since ("Let AI answer now").
 import type { OrgTx } from "@travel-crm/db";
 
 /** How long the AI waits after someone on the team writes in a chat. */

@@ -5,15 +5,9 @@
 // sees every organization, so each query names the organization it counts.
 import type { OrganizationUsage, UsageOverview } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
-import type { PlatformServices } from "./services.js";
+import type { AiPrices, PlatformServices } from "./services.js";
 
 const DAY_MS = 86_400_000;
-
-/** What one million tokens cost, in paise, as the console's settings give it (AI_PRICE_*). */
-export interface AiPrices {
-  inputPaisePerMillion: number;
-  outputPaisePerMillion: number;
-}
 
 /** This month's cost so far, and at this pace by the month's end (UTC months). */
 function aiCost(prices: AiPrices | null, tokens: { input: number; output: number }, now: Date) {
@@ -70,9 +64,10 @@ export async function usageOverviewOf(
     const visits = await visitTotals(tx, now);
     const members = await tx.member.groupBy({ by: ["organizationId"], _count: { _all: true } });
     const leads = await tx.lead.groupBy({ by: ["organizationId"], _count: { _all: true } });
+    // Each agency's month row starts on its own first day, which can be a day before the UTC month's.
     const ai = await tx.aiUsage.groupBy({
       by: ["organizationId"],
-      where: { createdAt: { gte: monthStartOf(now) } },
+      where: { month: { gte: new Date(monthStartOf(now).getTime() - DAY_MS) } },
       _sum: { inputTokens: true, outputTokens: true },
     });
     const vips = new Set(
@@ -85,7 +80,11 @@ export async function usageOverviewOf(
     const items = organizations.map((organization) => {
       const visit = visits.get(organization.id);
       const tokens = ai.find((row) => row.organizationId === organization.id)?._sum;
-      const cost = aiCost(prices, { input: tokens?.inputTokens ?? 0, output: tokens?.outputTokens ?? 0 }, now);
+      const cost = aiCost(
+        prices,
+        { input: Number(tokens?.inputTokens ?? 0n), output: Number(tokens?.outputTokens ?? 0n) },
+        now,
+      );
       return {
         organizationId: organization.id,
         name: organization.name,
@@ -182,12 +181,12 @@ export async function organizationUsageOf(
         sessions30d: theirs.length,
       };
     });
+    // The month's row starts on the agency's own first day, which can be a day before the UTC month's.
     const ai = await tx.aiUsage.aggregate({
-      where: { organizationId, createdAt: { gte: monthStartOf(now) } },
-      _count: { _all: true },
-      _sum: { inputTokens: true, outputTokens: true },
+      where: { organizationId, month: { gte: new Date(monthStartOf(now).getTime() - DAY_MS) } },
+      _sum: { calls: true, inputTokens: true, outputTokens: true },
     });
-    const tokens = { input: ai._sum.inputTokens ?? 0, output: ai._sum.outputTokens ?? 0 };
+    const tokens = { input: Number(ai._sum.inputTokens ?? 0n), output: Number(ai._sum.outputTokens ?? 0n) };
     return {
       pages: pages.map((page) => ({ path: page.path, visits: page._count._all, seconds: page._sum.seconds ?? 0 })),
       members: members.sort((a, b) => b.seconds30d - a.seconds30d),
@@ -199,7 +198,7 @@ export async function organizationUsageOf(
         seconds: session.seconds,
       })),
       ai: {
-        calls: ai._count._all,
+        calls: ai._sum.calls ?? 0,
         inputTokens: tokens.input,
         outputTokens: tokens.output,
         ...aiCost(prices, tokens, now),

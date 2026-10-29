@@ -1,79 +1,28 @@
 "use client";
 
-// What the AI sales agent learned from the agency's chats (the owner, 2026-10-28): each lesson with its kind (what
-// customers want, what wins, an objection and its answer, how to speak, a common question) and how many chats showed
-// it; the owner turns one off or removes it. It learns by itself each night; "Learn now" runs it at once.
-import type { AiLearning, AiSettings } from "@travel-crm/contracts/ai";
-import { BrainIcon, XIcon } from "lucide-react";
+// Settings, AI: what the AI learned from the agency's chats (General lessons, never about one person), each one the owner
+// can turn off or dismiss, and "Learn now". Chats are sent to the AI only when learning is switched on above.
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
+import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { RefusalAlert } from "@/components/refusal-alert";
-import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { formatDayTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
-import { useAiLearnings, useLearnNow, useSetLearning } from "./use-ai";
+import { useLearnings, useLearnNow, useSetLearning } from "./use-ai";
 
-const kindTone: Record<AiLearning["kind"], StatusTone> = {
-  need: "neutral",
-  winning: "good",
-  objection: "attention",
-  style: "neutral",
-  faq: "neutral",
-};
-
-function Lesson({ lesson, disabled }: { lesson: AiLearning; disabled: boolean }) {
+export function LearningsSection({ learnedAt, learning }: { learnedAt: string | null; learning: boolean }) {
   const t = useTranslations("ai.learnings");
-  const set = useSetLearning();
-  return (
-    <Item variant="muted">
-      <ItemContent>
-        <ItemTitle className="flex-wrap">
-          <StatusBadge tone={kindTone[lesson.kind]}>{t(`kinds.${lesson.kind}`)}</StatusBadge>
-          <span className="text-caption font-normal text-muted-foreground">
-            {t("evidence", { count: lesson.evidence })}
-          </span>
-        </ItemTitle>
-        <ItemDescription className="line-clamp-none text-foreground">{lesson.text}</ItemDescription>
-      </ItemContent>
-      <ItemActions>
-        <Switch
-          checked={lesson.state === "active"}
-          aria-label={t("use")}
-          disabled={disabled || set.isPending}
-          onCheckedChange={(on) => {
-            set.mutate({ learningId: lesson.id, state: on ? "active" : "off" });
-          }}
-        />
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t("remove")}
-          disabled={disabled || set.isPending}
-          onClick={() => {
-            set.mutate({ learningId: lesson.id, state: "dismissed" });
-          }}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      </ItemActions>
-    </Item>
-  );
-}
-
-export function LearningsSection({ settings }: { settings: AiSettings }) {
-  const t = useTranslations("ai.learnings");
-  const { timeZone } = useMe().organization;
   const access = useWriteAccess("change");
-  const learnings = useAiLearnings();
-  const learn = useLearnNow();
-  const lessons = learnings.data ?? [];
+  const { timeZone } = useMe().organization;
+  const lessons = useLearnings();
+  const setLearning = useSetLearning();
+  const learnNow = useLearnNow();
   return (
     <Card>
       <CardHeader>
@@ -81,39 +30,63 @@ export function LearningsSection({ settings }: { settings: AiSettings }) {
           <h2>{t("title")}</h2>
         </CardTitle>
         <CardDescription>
-          {t("description")}{" "}
-          {settings.learnedAt === null
-            ? t("never")
-            : t("last", { when: formatDayTime(new Date(settings.learnedAt), { timeZone }) })}
+          {t("intro")}{" "}
+          {learnedAt === null ? t("never") : t("last", { when: formatDayTime(new Date(learnedAt), { timeZone }) })}
         </CardDescription>
-        {settings.configured && (
-          <CardAction>
-            <Button
-              variant="outline"
-              disabled={!access.allowed || learn.isPending}
-              onClick={() => {
-                learn.mutate(undefined, {
-                  onSuccess: (result) => toast.success(t("learned", { added: result.added, updated: result.updated })),
-                });
-              }}
-            >
-              {learn.isPending ? <Spinner aria-hidden="true" /> : <BrainIcon aria-hidden="true" />}
-              {learn.isPending ? t("learning") : t("learnNow")}
-            </Button>
-          </CardAction>
-        )}
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <RefusalAlert error={learn.error ?? learnings.error} />
-        {lessons.length === 0 ? (
-          <EmptyState icon={BrainIcon} message={t("empty")} />
+      <CardContent className="flex flex-col gap-4">
+        {lessons.isError ? (
+          <LoadFailedAlert message={t("loadFailed")} error={lessons.error} onRetry={() => void lessons.refetch()} />
+        ) : lessons.data === undefined || lessons.data.length === 0 ? (
+          <p className="text-muted-foreground">{learning ? t("empty") : t("learningOff")}</p>
         ) : (
-          <ItemGroup className="gap-2">
-            {lessons.map((lesson) => (
-              <Lesson key={lesson.id} lesson={lesson} disabled={!access.allowed} />
+          <ItemGroup>
+            {lessons.data.map((lesson) => (
+              <Item key={lesson.id} role="listitem">
+                <ItemContent>
+                  <ItemTitle>{lesson.text}</ItemTitle>
+                  <ItemDescription>
+                    {t(`kinds.${lesson.kind}`)} · {t("evidence", { count: lesson.evidence })}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Switch
+                    aria-label={t("use", { text: lesson.text })}
+                    checked={lesson.state === "active"}
+                    disabled={setLearning.isPending || !access.allowed}
+                    onCheckedChange={(on) => {
+                      setLearning.mutate({ learningId: lesson.id, state: on ? "active" : "off" });
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={setLearning.isPending || !access.allowed}
+                    onClick={() => {
+                      setLearning.mutate({ learningId: lesson.id, state: "dismissed" });
+                    }}
+                  >
+                    {t("dismiss")}
+                  </Button>
+                </ItemActions>
+              </Item>
             ))}
           </ItemGroup>
         )}
+        <RefusalAlert error={setLearning.error ?? learnNow.error} />
+        <Button
+          variant="outline"
+          className="self-start"
+          disabled={!learning || learnNow.isPending || !access.allowed}
+          onClick={() => {
+            learnNow.mutate(undefined, {
+              onSuccess: (done) => toast.success(t("learned", { added: done.added, updated: done.updated })),
+            });
+          }}
+        >
+          {learnNow.isPending && <Spinner aria-hidden="true" />}
+          {t("learnNow")}
+        </Button>
       </CardContent>
     </Card>
   );

@@ -25,6 +25,8 @@ export interface SentMessage {
   to: string;
   kind: "text" | "media" | "template";
   text?: string;
+  /** The message id this one answered, as sent. */
+  replyTo?: string;
   media?: WhatsAppMediaToSend;
   template?: WhatsAppTemplateSend;
   sentAt: Date;
@@ -141,7 +143,14 @@ export function createMemoryWhatsAppProvider(options: { now?: Date } = {}): Memo
         ts: Math.floor(now.getTime() / 1000),
       });
     },
-    sendText: (number, to, text) => Promise.resolve().then(() => send("sendText", number, to, { kind: "text", text })),
+    sendText: (number, to, text, options) =>
+      Promise.resolve().then(() =>
+        send("sendText", number, to, {
+          kind: "text",
+          text,
+          ...(options?.replyTo === undefined ? {} : { replyTo: options.replyTo }),
+        }),
+      ),
     sendMedia: (number, to, media) =>
       Promise.resolve().then(() => send("sendMedia", number, to, { kind: "media", media })),
     sendTemplate: (number, to, template) =>

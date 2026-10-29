@@ -43,7 +43,14 @@ export const navigationItems: readonly NavigationItem[] = [
   { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
   { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
   { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },
-  { key: "reports", group: "work", href: routes.reports, icon: ChartColumnIcon, requires: "leads:view", module: "crm" },
+  {
+    key: "reports",
+    group: "work",
+    href: routes.reports,
+    icon: ChartColumnIcon,
+    requires: "money:view_reports",
+    module: "crm",
+  },
   {
     key: "finance",
     group: "manage",

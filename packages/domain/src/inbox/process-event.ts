@@ -17,8 +17,7 @@ async function handleEvent(
   event: ParsedEvent,
   now: Date,
 ): Promise<void> {
-  // No number, or one that is no number at all (MSG91's test run sends "9190287XXXXX"): nothing to route or count.
-  if (event.integratedNumber === null || !/^[0-9]{8,15}$/.test(event.integratedNumber)) return;
+  if (event.integratedNumber === null) return;
   const route = await routeOfNumber(dependencies.db, event.integratedNumber);
   if (route === null) {
     // A number nobody recorded: counted so the console can show it, and nothing else happens (R5).

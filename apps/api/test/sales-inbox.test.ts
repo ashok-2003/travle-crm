@@ -68,7 +68,9 @@ describe("the sales inbox, through the api", () => {
       }),
     ]);
     await server.app.request(signer.path, { method: "POST", headers: signer.headers, body });
-    for (const event of await server.platform.webhookEvent.findMany({ where: { provider: "msg91-whatsapp" } })) {
+    // This file's own number only: the files of the run share one database, and another's events are not ours.
+    const mine = { provider: "msg91-whatsapp", payload: { contains: business } };
+    for (const event of await server.platform.webhookEvent.findMany({ where: mine })) {
       const { processWebhookEvent } = await import("@travel-crm/domain/webhooks");
       await processWebhookEvent({ db: server.db, providers: [server.whatsapp?.provider ?? failing()] }, event.id);
     }
@@ -238,7 +240,8 @@ describe("the sales inbox, through the api", () => {
     await server.app.request(signer.path, { method: "POST", headers: signer.headers, body: wake });
     const { processWebhookEvent } = await import("@travel-crm/domain/webhooks");
     for (const event of await server.platform.webhookEvent.findMany({
-      where: { provider: "msg91-whatsapp", processedAt: null },
+      // This file's own number only: the files of the run share one database, and another's events are not ours to process.
+      where: { provider: "msg91-whatsapp", processedAt: null, payload: { contains: business } },
     })) {
       await processWebhookEvent({ db: server.db, providers: [server.whatsapp?.provider ?? failing()] }, event.id);
     }

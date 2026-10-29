@@ -33,9 +33,11 @@ async function openMenu() {
   return screen.findByRole("menu");
 }
 
-async function chooseAndConfirm(item: string, confirm: string) {
+async function chooseAndConfirm(item: string, confirm: string, reason?: string) {
   await userEvent.click(within(await openMenu()).getByRole("menuitem", { name: item }));
   const dialog = await screen.findByRole("alertdialog");
+  // Lost asks why first: its button waits for a reason.
+  if (reason !== undefined) await userEvent.click(within(dialog).getByRole("radio", { name: reason }));
   await userEvent.click(within(dialog).getByRole("button", { name: confirm }));
   await waitFor(() => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
@@ -57,11 +59,11 @@ describe("LeadMenu", () => {
     ).toEqual([words.menu.reassign, words.menu.lost, words.menu.notALead, words.menu.block]);
     await userEvent.keyboard("{Escape}");
 
-    await chooseAndConfirm(words.menu.lost, words.lost.confirm);
-    expect(inputsTo("leads.moveStage")).toEqual([{ leadId: ids.rahul, stage: "lost" }]);
+    await chooseAndConfirm(words.menu.lost, words.lost.confirm, messages.sales.lost.reasons.price);
+    expect(inputsTo("leads.moveStage")).toEqual([{ leadId: ids.rahul, stage: "lost", lostReason: "price" }]);
     await chooseAndConfirm(words.menu.notALead, words.notALead.confirm);
     expect(inputsTo("leads.moveStage")).toEqual([
-      { leadId: ids.rahul, stage: "lost" },
+      { leadId: ids.rahul, stage: "lost", lostReason: "price" },
       { leadId: ids.rahul, stage: "not_a_lead" },
     ]);
     await chooseAndConfirm(words.menu.block, words.block.confirm);

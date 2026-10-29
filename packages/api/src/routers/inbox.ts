@@ -2,6 +2,7 @@
 // all, like leads:view) and are views; Start a new lead also needs leads:create. A chat out of the member's scope is not found.
 // Nothing here returns MSG91's key, a webhook secret or a provider link: files come as presigned links from inbox.mediaUrl.
 import {
+  chatMediaPage,
   chatMessagePage,
   conversationHeader,
   conversationIdInput,
@@ -11,6 +12,8 @@ import {
   listConversationsInput,
   listMessagesInput,
   mediaLink,
+  mediaUrlInput,
+  listChatMediaInput,
   mediaUploadSlot,
   messageIdInput,
   requestMediaUploadInput,
@@ -40,6 +43,8 @@ import {
   listMessages,
   markAnswered,
   mediaLinkOf,
+  listChatMedia,
+  discardFailedMessage,
   queueMedia,
   queueTemplate,
   queueText,
@@ -61,6 +66,7 @@ import {
 } from "@travel-crm/domain/inbox";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
+import { recordDraftSent } from "@travel-crm/domain/ai";
 import { clearTyping, typingIn } from "../inbox-presence.js";
 import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
@@ -106,7 +112,22 @@ export const inboxRouter = router({
       const people = await memberNames(
         ctx.identity,
         ctx.member.organizationId,
-        page.items.map((message) => message.sentBy),
+        // The senders of the messages, and of the ones they quote.
+        page.items.flatMap((message) => [message.sentBy, message.quoted?.sentBy ?? null]),
+      );
+      return { ...page, people };
+    }),
+
+  /** A chat's photos and videos, newest first, for the contact panel's gallery. */
+  media: reader
+    .input(listChatMediaInput)
+    .output(chatMediaPage)
+    .query(async ({ ctx, input }) => {
+      const page = await listChatMedia(ctx, ctx.member, input);
+      const people = await memberNames(
+        ctx.identity,
+        ctx.member.organizationId,
+        page.items.flatMap((message) => [message.sentBy, message.quoted?.sentBy ?? null]),
       );
       return { ...page, people };
     }),
@@ -122,9 +143,9 @@ export const inboxRouter = router({
 
   /** A presigned link to a message's stored file (5 minutes). */
   mediaUrl: reader
-    .input(messageIdInput)
+    .input(mediaUrlInput)
     .output(mediaLink)
-    .query(({ ctx, input }) => mediaLinkOf(ctx, ctx.member, input.messageId)),
+    .query(({ ctx, input }) => mediaLinkOf(ctx, ctx.member, input.messageId, { download: input.download })),
 
   /** Start a new lead for a past customer's chat (Q2). */
   startLead: starter
@@ -145,9 +166,25 @@ export const inboxRouter = router({
     .input(sendMessageInput)
     .output(sentMessage)
     .mutation(async ({ ctx, input }) => {
-      const sent = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
-        queueText(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
-      );
+      const now = new Date();
+      const sent = await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const queued = await queueText(tx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, now);
+        // A reply that began as the AI's draft is audited as drafted by AI, sent by this member.
+        if (input.aiDraftId !== undefined) {
+          await recordDraftSent(
+            tx,
+            ctx.member,
+            {
+              draftId: input.aiDraftId,
+              conversationId: input.conversationId,
+              messageId: queued.messageId,
+              text: input.text,
+            },
+            now,
+          );
+        }
+        return queued;
+      });
       // They sent it: the others need not be told they are still typing.
       clearTyping(ctx.member.organizationId, input.conversationId, ctx.member.userId);
       return sent;
@@ -167,6 +204,13 @@ export const inboxRouter = router({
     .output(sentMessage)
     .mutation(({ ctx, input }) =>
       queueMedia(ctx, ctx.member, input, { whatsappConfigured: ctx.whatsappConfigured }, new Date()),
+    ),
+
+  /** Take a message that was not sent out of the chat, for good (instead of trying again). */
+  discard: replier
+    .input(messageIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => discardFailedMessage(tx, ctx.member, input.messageId)),
     ),
 
   /** Try again on a message that was not sent: back in the queue, if the window is still open. */

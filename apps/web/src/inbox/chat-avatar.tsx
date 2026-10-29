@@ -22,9 +22,9 @@ const tints = [
   "bg-avatar-sky-fill text-avatar-sky-ink",
   "bg-avatar-rose-fill text-avatar-rose-ink",
   "bg-avatar-amber-fill text-avatar-amber-ink",
-  "bg-avatar-mint-fill text-avatar-mint-ink",
+  "bg-avatar-sage-fill text-avatar-sage-ink",
   "bg-avatar-violet-fill text-avatar-violet-ink",
-  "bg-avatar-teal-fill text-avatar-teal-ink",
+  "bg-avatar-sand-fill text-avatar-sand-ink",
 ] as const;
 
 /** The same tint for the same seed, every time. */

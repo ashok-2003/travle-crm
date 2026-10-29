@@ -5,33 +5,37 @@
 // Send, which is off while the box is empty or the subscription refuses a change (with the reason under it). Enter sends on a computer and starts a new
 // line on a touch screen; Shift+Enter always does. A file waits in the box with a name and a way to take it off, and the words
 // become its caption (the chat's bar says how long free text may still be sent). Typing "/" opens the agency's quick replies, and
-// Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment"). ✨ puts
-// the AI agent's suggested reply there, to edit before sending.
+// Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment").
 import {
+  blanksIn,
   MAX_WHATSAPP_SEND_BYTES,
   whatsappSendContentTypes,
   type ConversationHeader,
 } from "@travel-crm/contracts/inbox";
-import { IndianRupeeIcon, PaperclipIcon, SendIcon, ZapIcon } from "lucide-react";
+import { PaperclipIcon, SendIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState, type KeyboardEvent } from "react";
-import { SuggestButton } from "@/ai/suggest-button";
+import { useId, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
+import { formatPhoneNumber } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
+import { AiDraftNote, SuggestButton, type AiDraft } from "@/ai/suggest-button";
+import { useSuggestReplyAvailable } from "@/ai/use-ai";
 import { AttachedFile } from "./attached-file";
+import { useDroppedFile } from "./chat-drop";
+import { usePendingSend } from "./pending-sends";
 import { draftKey } from "./forward-dialog";
 import { EmojiButton } from "./emoji-button";
+import { ToolsRow, ToolsSheet } from "./composer-tools";
 import { QuickReplyList } from "./quick-reply-list";
-import { ScheduleButton } from "./schedule-button";
-import { TemplateTool } from "./template-tool";
-import { SendDetailsTool } from "./trip-kits/send-details-tool";
+import { ReplyingBar } from "./replying-bar";
 import { useQuickReplyPicker } from "./use-quick-reply-picker";
+import { useReplying } from "./use-replying";
 import { useTypingSignal } from "./use-sales-inbox";
 import { useReply } from "./use-reply";
 import { useVoiceNote } from "./voice/use-voice-note";
@@ -46,27 +50,37 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const listId = useId();
   const access = useWriteAccess("change");
   const hintId = useId();
-  // Words forwarded from another chat wait in the tab for this box; it takes them once.
-  const [text, setText] = useState(() => {
-    const forwarded = readTabValue(draftKey(header.id)) ?? "";
-    if (forwarded !== "") keepTabValue(draftKey(header.id), "");
-    return forwarded;
-  });
+  // The words typed here are kept in the tab for this chat, so they are there again when the person comes back to it; so are
+  // words forwarded from another chat, which wait under the same key. A send clears them; sign-out wipes the tab's values.
+  const [text, setTextState] = useState(() => readTabValue(draftKey(header.id)) ?? "");
+  const setText = (next: string) => {
+    setTextState(next);
+    keepTabValue(draftKey(header.id), next);
+  };
+  // The AI's draft the box began as (Suggest reply): kept for the audit when the reply is sent, whatever the person changes.
+  const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
+  const canSuggest = useSuggestReplyAvailable();
   const [file, setFile] = useState<File | null>(null);
   const [fileProblem, setFileProblem] = useState<"fileType" | "fileSize" | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const wide = useWideScreen();
   const signalTyping = useTypingSignal(conversationId);
+  const replying = useReplying();
   const reply = useReply(conversationId, () => {
     setText("");
+    setAiDraft(null);
     setFile(null);
+    replying.clear();
   });
   const voice = useVoiceNote((recorded) => {
     reply.sendFile(recorded, undefined);
   });
+  const sending = usePendingSend(conversationId);
   const quick = useQuickReplyPicker(header, text, setText, box);
   const words = text.trim();
+  // Still the AI's own words: shown as drafted by AI until the person changes a letter.
+  const stillAiWords = aiDraft !== null && words === aiDraft.text.trim();
   const recording = voice.phase === "recording" || voice.phase === "limit";
   const insertEmoji = (emoji: string) => {
     const field = box.current;
@@ -78,12 +92,31 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
       field?.setSelectionRange(start + emoji.length, start + emoji.length);
     });
   };
-  const canSend = access.allowed && !reply.pending && (file !== null || words !== "");
+  const toolProps = {
+    conversationId,
+    disabled: reply.pending || !access.allowed,
+    words,
+    hasFile: file !== null,
+    windowOpenUntil,
+    onQuickReplies: () => {
+      setText("/");
+      quick.typedSomething();
+      requestAnimationFrame(() => box.current?.focus());
+    },
+    onPayment: quick.payment,
+    onScheduled: () => {
+      setText("");
+    },
+  };
+  // A blank left in the words (no quote yet, a typo) is the person's to fill in: nothing is sent with one in it.
+  const openBlanks = blanksIn(words);
+  const canSend = access.allowed && !reply.pending && openBlanks.length === 0 && (file !== null || words !== "");
 
   const submit = () => {
     if (!canSend) return;
-    if (file === null) reply.sendText(words);
-    else reply.sendFile(file, words === "" ? undefined : words);
+    const quoted = replying.message?.id;
+    if (file === null) reply.sendText(words, quoted, aiDraft?.id);
+    else reply.sendFile(file, words === "" ? undefined : words, quoted);
   };
   const choose = (chosen: File | undefined) => {
     if (chosen === undefined) return;
@@ -94,6 +127,14 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
         : null;
     setFileProblem(problem);
     setFile(problem === null ? chosen : null);
+  };
+  // A file dropped on the chat, or pasted into the box, waits in it like a chosen one.
+  useDroppedFile(choose);
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = event.clipboardData.files[0];
+    if (pasted === undefined) return;
+    event.preventDefault();
+    choose(pasted);
   };
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (quick.onKey(event)) return;
@@ -114,11 +155,21 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
       }}
     >
       <RefusalAlert error={reply.error} />
+      {replying.message !== null && (
+        <ReplyingBar
+          message={replying.message}
+          customerName={header.name ?? formatPhoneNumber(header.phone)}
+          onCancel={replying.clear}
+        />
+      )}
+      {stillAiWords && <AiDraftNote />}
       {fileProblem !== null && <p className="text-label text-destructive">{t(`composer.${fileProblem}`)}</p>}
       {file !== null && (
         <AttachedFile
           file={file}
           busy={reply.pending}
+          progress={reply.uploading ? (sending?.progress ?? 0) : null}
+          onCancel={reply.cancel}
           onRemove={() => {
             setFile(null);
           }}
@@ -147,117 +198,101 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
               event.target.value = "";
             }}
           />
-          {/* The words on top, room for several lines, as the sales inboxes have it; the tools and Send under them. */}
-          <div className="relative min-w-0">
-            {quick.shown !== null && (
-              <QuickReplyList
-                replies={quick.shown}
-                active={Math.min(quick.active, Math.max(quick.shown.length - 1, 0))}
-                listId={listId}
-                onPick={(chosen) => {
-                  quick.place(chosen, true);
-                }}
-              />
-            )}
-            <InputGroup className="rounded-xl bg-background">
-              <InputGroupTextarea
-                ref={box}
-                dir="auto"
-                rows={2}
-                maxLength={MAX_TEXT}
-                className="max-h-48 min-h-16 py-3"
-                aria-label={t("composer.label")}
-                aria-describedby={access.hint === null ? undefined : hintId}
-                placeholder={t("composer.placeholder")}
-                value={text}
-                disabled={!access.allowed}
-                onChange={(event) => {
-                  setText(event.target.value);
-                  signalTyping();
-                  quick.typedSomething();
-                }}
-                onKeyDown={onKey}
-                role="combobox"
-                aria-expanded={quick.shown !== null}
-                aria-controls={quick.shown === null ? undefined : listId}
-                aria-autocomplete="list"
-              />
-            </InputGroup>
-          </div>
-          <div className="flex items-center gap-0.5" role="toolbar" aria-label={t("composer.tools")}>
-            <SuggestButton
-              conversationId={conversationId}
-              disabled={reply.pending || !access.allowed}
-              onSuggest={(suggested) => {
-                setText(suggested);
-                requestAnimationFrame(() => box.current?.focus());
-              }}
-            />
-            <TemplateTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
-            <SendDetailsTool conversationId={conversationId} disabled={reply.pending || !access.allowed} />
-            {wide && <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
-              aria-label={t("composer.attach")}
-              disabled={reply.pending || !access.allowed}
-              onClick={() => picker.current?.click()}
-            >
-              <PaperclipIcon aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
-              aria-label={t("composer.quickReplies")}
-              disabled={reply.pending || !access.allowed}
-              onClick={() => {
-                setText("/");
-                quick.typedSomething();
-                requestAnimationFrame(() => box.current?.focus());
-              }}
-            >
-              <ZapIcon aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
-              aria-label={t("composer.paymentDetails")}
-              disabled={reply.pending || !access.allowed}
-              onClick={quick.payment}
-            >
-              <IndianRupeeIcon aria-hidden="true" />
-            </Button>
-            {words !== "" && file === null && (
-              <ScheduleButton
-                conversationId={conversationId}
-                windowOpenUntil={windowOpenUntil}
-                text={words}
-                disabled={!access.allowed || reply.pending}
-                onScheduled={() => {
-                  setText("");
-                }}
-              />
-            )}
-            {voice.available && words === "" && file === null && !reply.pending && (
+          {/* One line that grows as you type, the emoji and the clip inside it, and one round button at its right: the
+              microphone while the box is empty, Send once there is something to send, as WhatsApp's. */}
+          <div className="flex items-end gap-1.5">
+            {!wide && <ToolsSheet {...toolProps} />}
+            <div className="relative min-w-0 flex-1">
+              {quick.shown !== null && (
+                <QuickReplyList
+                  replies={quick.shown}
+                  active={Math.min(quick.active, Math.max(quick.shown.length - 1, 0))}
+                  listId={listId}
+                  onPick={(chosen) => {
+                    void quick.place(chosen, true);
+                  }}
+                />
+              )}
+              <InputGroup className="min-h-11 rounded-3xl bg-background">
+                {wide && (
+                  <InputGroupAddon align="inline-start">
+                    <EmojiButton onPick={insertEmoji} disabled={reply.pending || !access.allowed} />
+                  </InputGroupAddon>
+                )}
+                <InputGroupTextarea
+                  ref={box}
+                  dir="auto"
+                  rows={1}
+                  maxLength={MAX_TEXT}
+                  className="max-h-40 min-h-11 py-3"
+                  aria-label={t("composer.label")}
+                  aria-describedby={access.hint === null ? undefined : hintId}
+                  placeholder={t("composer.placeholder")}
+                  value={text}
+                  disabled={!access.allowed}
+                  onChange={(event) => {
+                    setText(event.target.value);
+                    // Cleared altogether: whatever is written next is the person's own.
+                    if (event.target.value.trim() === "") setAiDraft(null);
+                    signalTyping();
+                    quick.typedSomething();
+                  }}
+                  onKeyDown={onKey}
+                  onPaste={onPaste}
+                  role="combobox"
+                  aria-expanded={quick.shown !== null}
+                  aria-controls={quick.shown === null ? undefined : listId}
+                  aria-autocomplete="list"
+                />
+                <InputGroupAddon align="inline-end">
+                  {canSuggest && (
+                    <SuggestButton
+                      conversationId={conversationId}
+                      disabled={reply.pending || !access.allowed || file !== null}
+                      onDraft={(draft) => {
+                        setAiDraft(draft);
+                        setText(draft.text);
+                        requestAnimationFrame(() => box.current?.focus());
+                      }}
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    aria-label={t("composer.attach")}
+                    disabled={reply.pending || !access.allowed}
+                    onClick={() => picker.current?.click()}
+                  >
+                    <PaperclipIcon aria-hidden="true" />
+                  </Button>
+                </InputGroupAddon>
+              </InputGroup>
+            </div>
+            {voice.available && words === "" && file === null && !reply.pending ? (
               <MicButton disabled={!access.allowed || voice.phase === "starting"} onStart={() => void voice.start()} />
+            ) : (
+              <Button
+                type="submit"
+                variant="send"
+                size="icon"
+                className="shrink-0 rounded-full"
+                disabled={!canSend}
+                aria-label={reply.pending ? t("composer.sending") : t("composer.send")}
+                aria-describedby={access.hint === null ? undefined : hintId}
+              >
+                {reply.pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
+              </Button>
             )}
-            <Button
-              type="submit"
-              className="ml-auto shrink-0 rounded-full px-5"
-              disabled={!canSend}
-              aria-describedby={access.hint === null ? undefined : hintId}
-            >
-              {reply.pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
-              {reply.pending ? t("composer.sending") : t("composer.send")}
-            </Button>
           </div>
+          {wide && <ToolsRow {...toolProps} />}
         </div>
+      )}
+      {openBlanks.length > 0 && (
+        <p role="status" className="text-label text-status-attention-ink">
+          {t("composer.openBlanks", { blanks: openBlanks.map((blank) => `{${blank}}`).join(", ") })}
+        </p>
       )}
       <WriteHint id={hintId} hint={access.hint} visible />
     </form>

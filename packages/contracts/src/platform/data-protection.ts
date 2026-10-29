@@ -3,6 +3,7 @@
 // itself a job, which stores the export for 7 days; the console fetches short-lived links to it.
 import { z } from "zod";
 import { auditEntityType, auditEntry } from "../audit/index.js";
+import { callOutcome } from "../crm/calls.js";
 import { leadSource, leadStage } from "../crm/fields.js";
 import { tripDetail } from "../crm/trip.js";
 import { recordId } from "../identity/index.js";
@@ -99,6 +100,8 @@ export const exportedLead = z.object({
   createdAt: z.iso.datetime(),
   trip: tripDetail,
   notes: z.array(z.object({ body: z.string(), createdAt: z.iso.datetime() })),
+  /** Calls written up on the lead. */
+  calls: z.array(z.object({ outcome: callOutcome, note: z.string().nullable(), occurredAt: z.iso.datetime() })),
   /** Repeat enquiries added to the lead, each as the customer asked it. */
   enquiries: z.array(
     z.object({

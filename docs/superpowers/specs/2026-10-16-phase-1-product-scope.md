@@ -411,3 +411,86 @@ outside the product and marked Refunded. No credit notes. Travellers cancel thro
 - Ask the pilot agency the package-page question (4.2).
 - Add to our terms with agencies: calls may be recorded and processed, and unanswerable report questions (Phase 2)
   reach us with names removed.
+
+## 10. Owner decisions 2026-10-28
+
+Made on reviewing the quotes, finance, sales and AI work of 27 October (branch `release/quotes`). They win over sections 3
+to 7 where they differ.
+
+- **Quotes as built.** A quote has a day-by-day plan, priced lines, GST at 0, 5 or 18 % (CGST and SGST within the agency's
+  state, IGST outside it, the place of supply chosen on the quote), inclusions, up to 12 payments due, options beside each
+  other, a numbered quotation PDF and a link the customer opens, pays by UPI from and accepts on. A sent quote keeps its
+  prices: it is changed by making a new version, a draft that replaces it, and the old link says so (spec 4.3).
+- **An accepted quote IS the booking, for now.** There is no separate bookings object or screen yet; it comes later. The
+  first payment recorded on a sent quote accepts it and wins its lead, and voiding that payment puts both back. Payments
+  only record money: nothing confirms a UPI payment, and no one is paid through us. Recording and voiding payments, and
+  issuing invoices and receipts, are the `quotes:record_payments` permission (Owner, Admin, Accounts). Finance (costs,
+  running costs, profit) and the sales and collections reports (`money:view_reports`) are for whoever keeps the money.
+- **Parked: automatic WhatsApp messages.** The new-lead greeting, the day 1, 3 and 7 follow-ups and the payment
+  reminders are not built, and their tables are not in the database. They return only if the owner decides to bring them back,
+  as one automation system built on the inbox's own listener.
+- **Kept from sales execution.** Hot leads (a quote opened again, or a buying word in a chat; the owner is alerted with fixed
+  words, never the customer's), lost reasons, broadcasts to lost or won leads, ready packages and quote options, reports
+  and each staff member's performance.
+- **AI, in two steps (decided later on 2026-10-28), off by default.** Step 1, in this release: Suggest reply (the AI drafts a
+  reply in a chat for staff to read, change and send; it never sends by itself, and a reply sent from a draft is audited as
+  drafted by AI, sent by the member); what the agency tells its AI to know (typed words, or a PDF's or text file's; deleting
+  one deletes its file); and the AI's guess of how each lead will go (hot, warm or cold, a next step, a fake check), only for
+  agencies with the AI on, shown as "AI's guess" in the AI's violet tint, at most once for each burst of the customer's
+  messages, never moving a stage, erased with the customer. An agency has it when its plan includes the `ai` module and its
+  Owner or Admin turns it on in Settings, AI; no AI for a suspended or cancelled agency; one monthly limit of AI calls per
+  agency, shared by every feature; when the provider is down the person is told. Requests go through OpenRouter with zero data
+  retention. Step 2, the next release: the autopilot (the AI answering chats by itself, never denying being an AI when
+  sincerely asked), nudges, writing-style learning from the staff member's own messages only, and nightly learning, each
+  erased with the customer, honouring STOP in every chat, marked and audited in the chat, and tried on a real number with the
+  pilot agency first.
+- **Home and sidebar: his layout in our style.** Home has the greeting with the date, New lead and Pipeline, the hot leads
+  card first (Call buttons, reason pills), one key-figures strip (the dashboard's component: no icon per figure, an info
+  hint on each, no red for a normal count) with only what Today doesn't show: chats waiting, hot leads, and money to come
+  (only for whoever holds `money:view_reports`; without it two figures), "N things today", "This month so far" with Open
+  reports (only with the money permission), then the setup steps. The sidebar keeps Sign out visible at the bottom with the
+  name and a Your account link, and has Quotes, Reports and Finance (Reports and Finance only for the money permission)
+  and the Today and Inbox counts. The dashboard's charts moved to Reports: the period chips, new leads by day, where they
+  came from, where they are now, time to first reply, top destinations and the team table.
+
+## 10. Accepted risks, 2026-10-29
+
+The owner's decision on 2026-10-29 was to take Ayush's behaviour for the automatic WhatsApps and the per-chat voice, with the
+safety fixes we kept (below). The risks are accepted for now and revisited after the pilot tests these features. What we kept
+that Ayush did not have: the automatic messages are marked as automation, a lead's follow-ups switch is audited, a customer's
+erasure takes the run and every touch and the AI's state and memory of their chats; the AI is off until an Owner or Admin
+turns it on (autopilot and learning both default off), every AI call counts against the agency's monthly limit, no AI runs
+for a plan without it or a subscription that is read-only, suspended or cancelled, every message the AI sends is marked and
+audited, and the AI never replies to a chat whose customer wrote STOP or withdrew consent, a chat with no person linked too.
+Where the list below says Ayush's own, it is as he built it.
+
+later. We will record it right now." Each risk below is accepted for now and revisited after the pilot tests these
+features.
+
+1. **Automatic consent for every enquirer.** The "contact enquirers" setting records WhatsApp consent for every new lead
+   (Meta ads, website, Google Sheets, Excel imports, including old contacts) and the automatic greeting, follow-ups and
+   reminders message them.
+   - **Risk:** people who never agreed report spam. Meta lowers the number's quality rating and can restrict or block
+     it. All agencies send through one MSG91 account, so one agency's reports can affect others.
+   - It records consent nobody gave (India's DPDP Act; WhatsApp Business policy asks for opt-in).
+   - The owner's view: a lead who left their number wants to be contacted, and agencies normally do this.
+2. **STOP, then writing again.** After a customer sends STOP, their consent is withdrawn. If they later write again
+   (say "any update?"), the next payment reminder silently marks them as agreed again, and automatic messages resume.
+   - **Risk:** writing again is not the same as opting back in to reminders and marketing.
+   - The owner's view: this is right; a customer who writes again is open to contact.
+3. **Gemini called directly.** With `AI_API_KEY` set to a Google key, customers' chat words go to Google Gemini, called
+   directly (not OpenRouter), so there is no zero-retention routing, and on the free tier Google may use prompts. Keep
+   billing on for the Google project. The AI is still off for an agency until its Owner or Admin turns it on.
+4. **A chat's own voice sends both sides.** Importing a chat's WhatsApp export for that chat's own voice and history sends
+   the customer's messages too, to the AI provider (numbers, emails and links taken out). The agency-wide style takes the
+   staff member's own messages only.
+5. **Erasure gaps.** The agency voice (verbatim messages of a staff member) and the nightly lessons are not erased when a
+   customer asks to be deleted; the AI's state and memory of that customer's chats, with a chat's own voice, are.
+6. **Prices from the AI.** "Quote prices only from the knowledge" is a prompt instruction. Nothing checks the reply's
+   numbers before the autopilot sends it.
+7. **The invite link** (recorded 2026-10-28). Anyone holding an invite link can get into that agency until the owner
+   sets a password. The link doesn't expire. Two-factor is off.
+
+**Background list** (fixed after the push, without changing what users see unless the owner agrees): erasure of the agency
+voice and the lessons; the enrolment filter; the claimTouch race; retention of page_visit; the invite-link hardening; a
+WhatsApp opt-in question on Meta lead forms.

@@ -9,6 +9,7 @@ import {
   deliverWhatsapp,
   inAgency,
   newCustomerNumber,
+  openContactDetails,
   openNewChat,
   sentTo,
 } from "./support/whatsapp";
@@ -42,7 +43,7 @@ test("tag a chat, answer with a quick reply, snooze it, and a new message wakes 
 
   // Tag it: the contact details are a side panel that a wide screen shows already, and a sheet that a phone opens from the header.
   const newTag = owner.getByRole("textbox", { name: "New tag" });
-  if (!(await newTag.isVisible())) await panel.getByRole("button", { name: "Contact and lead details" }).click();
+  if (!(await newTag.isVisible())) await openContactDetails(owner, panel);
   await newTag.fill("Hot");
   await owner.getByRole("button", { name: "Add the tag" }).click();
 

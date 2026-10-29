@@ -22,7 +22,8 @@ import { useOpenDocument, useQuoteChanges } from "./use-quotes";
 
 export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
   const t = useTranslations("quotes.money");
-  const mayEdit = useHolds("quotes:edit");
+  const mayEdit = useHolds("quotes:edit") && quote.status === "draft";
+  const mayRecord = useHolds("quotes:record_payments");
   const { removeInstallment, voidPayment } = useQuoteChanges();
   const open = useOpenDocument(quote.id);
   const [voiding, setVoiding] = useState<string | null>(null);
@@ -64,7 +65,7 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
         ) : (
           <ItemGroup>
             {quote.installments.map((due) => (
-              <Item key={due.id} size="sm">
+              <Item key={due.id} size="sm" role="listitem">
                 <ItemContent>
                   <ItemTitle>{due.label}</ItemTitle>
                   <ItemDescription>{t("by", { day: formatCalendarDay(due.dueOn) })}</ItemDescription>
@@ -98,14 +99,16 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
         <Separator />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold">{t("received")}</h3>
-          {mayEdit && quote.status !== "declined" && <RecordPaymentDialog quoteId={quote.id} suggested={suggested} />}
+          {mayRecord && (quote.status === "sent" || quote.status === "accepted") && totals.balancePaise > 0 && (
+            <RecordPaymentDialog quoteId={quote.id} suggested={suggested} />
+          )}
         </div>
         {quote.payments.length === 0 ? (
           <p className="text-muted-foreground">{t("noPayments")}</p>
         ) : (
           <ItemGroup>
             {quote.payments.map((payment) => (
-              <Item key={payment.id} size="sm">
+              <Item key={payment.id} size="sm" role="listitem">
                 <ItemContent>
                   <ItemTitle className="numbers">{rupees(payment.amountPaise)}</ItemTitle>
                   <ItemDescription>
@@ -115,17 +118,19 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Button
-                    variant="outline"
-                    disabled={open.isPending}
-                    onClick={() => {
-                      open.mutate({ kind: "receipt", paymentId: payment.id });
-                    }}
-                  >
-                    <ReceiptIcon aria-hidden="true" />
-                    {t("receipt")}
-                  </Button>
-                  {mayEdit && (
+                  {mayRecord && (
+                    <Button
+                      variant="outline"
+                      disabled={open.isPending}
+                      onClick={() => {
+                        open.mutate({ kind: "receipt", paymentId: payment.id });
+                      }}
+                    >
+                      <ReceiptIcon aria-hidden="true" />
+                      {t("receipt")}
+                    </Button>
+                  )}
+                  {mayRecord && payment.receiptDocumentId === null && (
                     <Button
                       variant="ghost"
                       size="icon"

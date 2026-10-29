@@ -1,14 +1,14 @@
 "use client";
 
-// The head of the AI screen (the AI sales agent): the agent as a colleague (its name, live or paused, the model it runs
-// on) and its last day in figures: chats it answered, how fast, the hot leads and fakes it found this week, the chats it
-// flagged for the team, the follow-ups it has planned and the lessons it has learned.
-import type { AiOverview, AiSettings } from "@travel-crm/contracts/ai";
+// The head of the AI screen (the AI sales agent): the agent as a colleague (its name, live, paused or not set up, the model
+// that answered last) and its last day in figures: chats it answered, messages it sent, how fast, the chats it flagged for the
+// team, the follow-ups it has planned and the lessons it has learned.
+import type { AiOverview, AutopilotSettings } from "@travel-crm/contracts/ai";
 import {
   BellRingIcon,
   BrainIcon,
   CalendarClockIcon,
-  FlameIcon,
+  MessageSquareTextIcon,
   MessagesSquareIcon,
   SparklesIcon,
   TimerIcon,
@@ -25,7 +25,7 @@ import { aiFirstName } from "./ai-turn";
 import { useAiOverview } from "./use-ai";
 
 interface Figure {
-  key: "chats" | "speed" | "hot" | "flagged" | "followUps" | "learnings";
+  key: "chats" | "messages" | "speed" | "flagged" | "followUps" | "learnings";
   icon: LucideIcon;
   value: string;
 }
@@ -33,23 +33,25 @@ interface Figure {
 function figuresOf(overview: AiOverview, seconds: (value: number) => string): Figure[] {
   return [
     { key: "chats", icon: MessagesSquareIcon, value: formatCount(overview.chatsAnswered) },
+    { key: "messages", icon: MessageSquareTextIcon, value: formatCount(overview.messagesSent) },
     {
       key: "speed",
       icon: TimerIcon,
       value: overview.medianReplySeconds === null ? "–" : seconds(overview.medianReplySeconds),
     },
-    { key: "hot", icon: FlameIcon, value: formatCount(overview.hotLeads) },
     { key: "flagged", icon: BellRingIcon, value: formatCount(overview.flagged) },
     { key: "followUps", icon: CalendarClockIcon, value: formatCount(overview.followUpsPlanned) },
     { key: "learnings", icon: BrainIcon, value: formatCount(overview.learnings) },
   ];
 }
 
-export function AiHero({ settings }: { settings: AiSettings }) {
+/** `ready`: the server has an AI key and models and the agency switched the AI on; `autopilot` answers every chat. */
+export function AiHero({ autopilot, ready }: { autopilot: AutopilotSettings; ready: boolean }) {
   const t = useTranslations("ai.hero");
   const overview = useAiOverview();
-  const name = aiFirstName(settings.agentName) ?? t("unnamed");
-  const live = settings.configured && settings.autopilot;
+  const model = overview.data?.model ?? null;
+  const name = aiFirstName(autopilot.agentName) ?? t("unnamed");
+  const live = ready && autopilot.autopilot;
   const seconds = (value: number) =>
     value < 120 ? t("seconds", { count: value }) : t("minutes", { count: Math.round(value / 60) });
   return (
@@ -64,17 +66,15 @@ export function AiHero({ settings }: { settings: AiSettings }) {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <CardTitle className="flex flex-wrap items-center gap-2">
             <h2 className="text-section">{name}</h2>
-            <StatusBadge tone={!settings.configured ? "neutral" : live ? "good" : "attention"}>
-              {!settings.configured ? t("notSetUp") : live ? t("live") : t("chatsYouChoose")}
+            <StatusBadge tone={!ready ? "neutral" : live ? "good" : "attention"}>
+              {!ready ? t("notSetUp") : live ? t("live") : t("chatsYouChoose")}
             </StatusBadge>
           </CardTitle>
           <CardDescription>
-            {live ? t("liveLine", { name }) : settings.configured ? t("pausedLine") : t("notSetUpLine")}
+            {live ? t("liveLine", { name }) : ready ? t("pausedLine") : t("notSetUpLine")}
           </CardDescription>
         </div>
-        {settings.configured && settings.models.chat[0] !== undefined && (
-          <span className="numbers hidden text-caption text-muted-foreground sm:inline">{settings.models.chat[0]}</span>
-        )}
+        {model !== null && <span className="numbers hidden text-caption text-muted-foreground sm:inline">{model}</span>}
       </CardHeader>
       <CardContent>
         {overview.data === undefined ? (

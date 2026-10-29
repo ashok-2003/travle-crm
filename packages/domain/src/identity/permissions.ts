@@ -11,6 +11,8 @@ export const permissions = [
   "settings:manage",
   "audit:view",
   "money:view_margin",
+  // The sales and collections reports: what the agency earned and was paid
+  "money:view_reports",
   // Traveller ID documents such as passports and Aadhaar (spec 5): files marked sensitive
   "documents:view_sensitive",
   // Business modules, listed now so the starter roles are complete from the first organization
@@ -24,6 +26,8 @@ export const permissions = [
   "inbox:templates",
   "quotes:create",
   "quotes:edit",
+  // Record and void the money a customer paid on a quote, and issue its invoice and receipts
+  "quotes:record_payments",
   "bookings:create",
   "bookings:edit",
   "departures:view",
@@ -35,6 +39,9 @@ export const permissions = [
   "accounts:view",
   "accounts:create",
   "accounts:edit",
+  // Suggest reply: the AI drafts a reply in a chat for the member to change and send; and the agency's own switch for it
+  "ai:suggest",
+  "ai:manage",
 ] as const;
 
 export type Permission = (typeof permissions)[number];

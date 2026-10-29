@@ -7,6 +7,7 @@ import type { DbUrls } from "@travel-crm/db/testing";
 import { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { createPgBossJobs, ownMessage, type PgBossJobs } from "../../src/jobs/index.js";
+import { pgBossOptionsOf } from "../../src/jobs/pg-boss-options.js";
 import { createMemoryLogger } from "../../src/logging/index.js";
 import { describeJobAdapter } from "./job-adapter-contract.js";
 
@@ -37,6 +38,72 @@ describeJobAdapter("pg-boss", async () => {
     schedules: () => jobs.schedules(),
     stop: () => jobs.stop(),
   };
+});
+
+describe("pg-boss's own loops", () => {
+  it("hands the scheduled sends' check interval to pg-boss, which holds it to 1 to 45 seconds", () => {
+    const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
+    expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 46 })).toThrow(
+      /cronWorkerIntervalSeconds must be between 1 and 45 seconds/,
+    );
+    expect(() => createPgBossJobs({ ...settings, cronWorkerIntervalSeconds: 45 })).not.toThrow();
+  });
+
+  it("starts a send-only instance with no supervision, no schedules, no registry heartbeat and its queue cache read once a day", () => {
+    const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
+    expect(pgBossOptionsOf({ ...settings, sendOnly: true })).toMatchObject({
+      supervise: false,
+      schedule: false,
+      // pg-boss's instance registry (getInstances, monitoring only) would write a heartbeat every 30 seconds.
+      registerInstance: false,
+      queueCacheIntervalSeconds: 86_400,
+    });
+    // pg-boss accepts the longest queue cache interval it allows.
+    expect(() => createPgBossJobs({ ...settings, sendOnly: true })).not.toThrow();
+    // Every other instance keeps pg-boss's own loops and its registry.
+    const working = pgBossOptionsOf(settings);
+    for (const loop of ["supervise", "schedule", "registerInstance", "queueCacheIntervalSeconds"]) {
+      expect(working, loop).not.toHaveProperty(loop);
+    }
+  });
+
+  it("hands slower housekeeping to pg-boss, which accepts it up to its 24 hours", () => {
+    const settings = { connectionString: "postgresql://nobody@127.0.0.1:9/none" };
+    const quiet = {
+      ...settings,
+      flowIntervalSeconds: 3600,
+      superviseIntervalSeconds: 300,
+      monitorIntervalSeconds: 300,
+      queueCacheIntervalSeconds: 600,
+      cronMonitorIntervalSeconds: 45,
+      instanceHeartbeatSeconds: 300,
+    };
+    expect(pgBossOptionsOf(quiet)).toMatchObject({
+      flowIntervalSeconds: 3600,
+      superviseIntervalSeconds: 300,
+      monitorIntervalSeconds: 300,
+      queueCacheIntervalSeconds: 600,
+      cronMonitorIntervalSeconds: 45,
+      instanceHeartbeatSeconds: 300,
+    });
+    expect(() => createPgBossJobs(quiet)).not.toThrow();
+    expect(() => createPgBossJobs({ ...settings, instanceHeartbeatSeconds: 3601 })).toThrow(
+      /instanceHeartbeatSeconds must be an integer from 1 to 3600/,
+    );
+    expect(() => createPgBossJobs({ ...settings, superviseIntervalSeconds: 86_401 })).toThrow(
+      /superviseIntervalSeconds cannot exceed 24 hours/,
+    );
+    expect(() => createPgBossJobs({ ...settings, cronMonitorIntervalSeconds: 46 })).toThrow(
+      /cronMonitorIntervalSeconds must be between 1 and 45 seconds/,
+    );
+    // Send-only still reads its cache of queues once a day, whatever the others say.
+    expect(pgBossOptionsOf({ ...quiet, sendOnly: true })).toMatchObject({ queueCacheIntervalSeconds: 86_400 });
+    // Unset, pg-boss keeps its own timings.
+    const working = pgBossOptionsOf(settings);
+    for (const loop of ["flowIntervalSeconds", "superviseIntervalSeconds", "monitorIntervalSeconds"]) {
+      expect(working, loop).not.toHaveProperty(loop);
+    }
+  });
 });
 
 describe("pg-boss jobs", () => {
@@ -184,13 +251,19 @@ describe("pg-boss jobs", () => {
     expect(await jobs.send("probe.once", { eventId: "e3" }, { id })).toBeNull();
   });
 
-  it("keeps a schedule with its time zone, and removes it", async () => {
+  it("keeps a schedule with its time zone, owing one run for what came due while nothing ran, and removes it", async () => {
     await jobs.schedule("probe.nightly", "30 2 * * *", { timeZone: "Asia/Kolkata", data: { reason: "nightly" } });
     expect(await jobs.schedules()).toContainEqual({
       queue: "probe.nightly",
       cron: "30 2 * * *",
       timeZone: "Asia/Kolkata",
     });
+    // A worker stopped overnight sends the night's run once when it starts again (pg-boss's `missed: 'once'`).
+    const rows = await db.withoutOrg(
+      (tx) => tx.$queryRaw<{ missed: string | null }[]>`
+        SELECT options ->> 'missed' AS missed FROM pgboss.schedule WHERE name = 'probe.nightly'`,
+    );
+    expect(rows).toEqual([{ missed: "once" }]);
     await jobs.unschedule("probe.nightly");
     expect((await jobs.schedules()).map((schedule) => schedule.queue)).not.toContain("probe.nightly");
   });
@@ -369,6 +442,10 @@ describe("pg-boss jobs", () => {
       );
     } finally {
       await listing.stop();
+      // The malformed job is not left in the shared job table, where a list of every failed job would report it again.
+      await db.withoutOrg(
+        (tx) => tx.$executeRaw`DELETE FROM pgboss.job WHERE name IN ('probe.malformed', 'probe.malformed-good')`,
+      );
     }
   });
 
@@ -438,6 +515,36 @@ describe("pg-boss jobs", () => {
       expect(stopped.entries.filter((entry) => entry.level === "warn" || entry.level === "error")).toEqual([]);
     } finally {
       await stopping.stop().catch(() => undefined);
+    }
+  });
+
+  it("waits only as long as its stop timeout for a running handler: the job runs again later", async () => {
+    const stopping = createPgBossJobs({
+      connectionString: urls.runtime,
+      maxConnections: 2,
+      pollingIntervalSeconds: 0.5,
+      stopTimeoutSeconds: 1,
+      logger: createMemoryLogger(),
+    });
+    await stopping.start();
+    let started = false;
+    let finished = false;
+    try {
+      await stopping.work("probe.slower", async () => {
+        started = true;
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        finished = true;
+      });
+      await stopping.send("probe.slower", {});
+      await eventually(() => started);
+      const stoppingAt = Date.now();
+      await stopping.stop();
+      expect(Date.now() - stoppingAt).toBeLessThan(3500);
+      expect(finished).toBe(false);
+    } finally {
+      await stopping.stop().catch(() => undefined);
+      // Let the cut-short handler end before the next test.
+      await eventually(() => finished, 10_000);
     }
   });
 });

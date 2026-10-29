@@ -165,7 +165,6 @@
   --overlay-shadow:
     0 8px 24px color-mix(in srgb, var(--brand-ink) 10%, transparent),
     0 1px 2px color-mix(in srgb, var(--brand-ink) 6%, transparent);
-  /* Controls, cards and panels are white; the page behind them is WhatsApp's grey (components/app-frame.tsx). */
   --background: var(--brand-canvas);
   --foreground: var(--brand-ink);
   --card: var(--brand-canvas);
@@ -174,7 +173,7 @@
   --popover-foreground: var(--brand-ink);
   --primary: var(--brand-action);
   --primary-foreground: var(--brand-on-action);
-  --secondary: var(--brand-hairline);
+  --secondary: var(--brand-surface);
   --secondary-foreground: var(--brand-ink);
   --muted: var(--brand-surface);
   --muted-foreground: var(--brand-muted);
@@ -185,33 +184,13 @@
   --border: var(--brand-hairline);
   --input: var(--brand-input-border);
   --ring: var(--brand-action);
-  /* The desktop sidebar (DESIGN.md section 6): WhatsApp's dark teal with white words; the current page a lighter teal. */
+  /* The desktop sidebar (DESIGN.md section 6): deep green with white words, the current page a lighter green. */
   --sidebar: var(--brand-sidebar-fill);
   --sidebar-foreground: var(--brand-sidebar-ink);
   --sidebar-accent: var(--brand-sidebar-active);
   --sidebar-accent-foreground: var(--brand-sidebar-ink);
-  --sidebar-border: var(--brand-sidebar-fill);
+  --sidebar-border: var(--brand-sidebar-active);
   --sidebar-ring: var(--brand-sidebar-ink);
-}
-
-/* The dark teal sidebar and the phone's top bar (the owner's WhatsApp theme): their quiet buttons (the bell, the fold) and its quiet words are white,
-   since the app's ghost buttons are teal and its muted words grey, which vanish on teal. */
-[data-slot="sidebar"] [data-variant="ghost"],
-[data-dark-bar] [data-variant="ghost"] {
-  color: var(--sidebar-foreground);
-}
-[data-slot="sidebar"] [data-variant="ghost"]:hover,
-[data-dark-bar] [data-variant="ghost"]:hover {
-  background-color: var(--sidebar-accent);
-  color: var(--sidebar-accent-foreground);
-}
-[data-slot="sidebar"] .text-muted-foreground {
-  color: color-mix(in srgb, var(--sidebar-foreground) 78%, transparent);
-}
-/* On the lighter teal of the current page, even softened words fall under 4.5:1: they take the full white there. */
-[data-slot="sidebar"] [data-active="true"] .text-muted-foreground,
-[data-slot="sidebar"] [aria-current="page"] .text-muted-foreground {
-  color: var(--sidebar-foreground);
 }
 
 /* On a phone, toasts sit above the bottom bar (56px, and 8px more) on the pages that have one
@@ -231,7 +210,7 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-surface text-body text-foreground antialiased;
+    @apply bg-background text-body text-foreground antialiased;
   }
   h1,
   h2,

@@ -1,2 +1,5 @@
-// Public API of @travel-crm/contracts/ai: the AI sales agent's settings, knowledge, chat state and lead insight.
+// Public API of @travel-crm/contracts/ai: Suggest reply's settings, status and suggestion, the autopilot, the media it
+// sends and the bookings it takes.
 export * from "./ai.js";
+export * from "./autopilot.js";
+export * from "./bookings-media.js";

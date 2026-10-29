@@ -73,10 +73,10 @@ export function WelcomeDialog() {
             src={WELCOME_VIDEO}
             className="aspect-video w-full rounded-xl bg-muted"
             autoPlay
+            preload="metadata"
             muted
             playsInline
             controls
-            preload="auto"
             onError={() => {
               setNoVideo(true);
             }}

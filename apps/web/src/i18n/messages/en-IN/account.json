@@ -124,8 +124,8 @@
     "subline": "Your team and your AI sales agent work every WhatsApp chat, lead and quote together, so nothing slips through.",
     "points": {
       "answers": {
-        "title": "Replies in seconds, day and night",
-        "text": "The AI answers every enquiry on WhatsApp the way your best salesperson would."
+        "title": "Replies drafted in seconds",
+        "text": "The AI drafts a reply to each WhatsApp enquiry, and your team reads it, changes it and sends it."
       },
       "hot": {
         "title": "Knows who will book",
@@ -133,7 +133,7 @@
       },
       "followUps": {
         "title": "No lead goes cold",
-        "text": "Follow-ups at the right moment, and your team alerted when a lead is ready."
+        "text": "Hot leads and Today show who to follow up, so nobody waits for an answer."
       }
     },
     "footer": "Made for Indian travel agencies."

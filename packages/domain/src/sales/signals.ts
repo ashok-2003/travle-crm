@@ -1,12 +1,13 @@
 // What makes a lead hot (sales execution), as it happens: the customer opened their quote's link, or wrote one of the
 // agency's buying words ("price", "book"). Each is kept as a signal (its event's key makes a repeat nothing), and the
 // lead's owner is told to call now: on the quote's second open (the first already tells whoever shared it), and on a
-// buying word at most once every six hours. A customer who writes also ends their lead's follow-ups.
-import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
+// buying word at most once every six hours. A customer who writes also ends their lead's follow-ups. The alert carries
+// fixed words, never the customer's own (a push passes through the phone maker's servers).
+import { whatsappCustomerWroteEvent, whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { shareLinkOpenedEvent } from "@travel-crm/contracts/share-links";
 import type { OrgTx } from "@travel-crm/db";
 import { noticeKey } from "../crm/index.js";
-import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
+import { CUSTOMER_WROTE_EVENT, TEXT_RECEIVED_EVENT } from "../inbox/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -69,10 +70,12 @@ export function quoteOpenedListener(): EventListener {
           select: {
             leadId: true,
             title: true,
+            status: true,
             lead: { select: { ownerUserId: true, person: { select: { name: true } } } },
           },
         });
-        if (quote === null) return;
+        // A replaced quote is no longer on offer: opening its old link says so, and is no sign of interest.
+        if (quote === null || quote.status === "replaced") return;
         await tx.leadSignal.createMany({
           data: [
             { leadId: quote.leadId, kind: "quote_opened", sourceKey: `open:${event.payload.openId}`, at: new Date() },
@@ -96,12 +99,30 @@ export function quoteOpenedListener(): EventListener {
   });
 }
 
-/** A customer wrote: their follow-ups end, and a buying word makes the lead hot and tells its owner. */
+/** Any message from a customer, a photo too, ends their lead's follow-ups. */
+export function stopFollowUpsListener(): EventListener {
+  return defineListener({
+    name: "sales.stop-follow-ups",
+    eventType: CUSTOMER_WROTE_EVENT,
+    payload: whatsappCustomerWroteEvent,
+    handle: async (event, context) => {
+      await context.forOrg(async (tx) => {
+        const chat = await tx.whatsappConversation.findUnique({
+          where: { id: event.payload.conversationId },
+          select: { personId: true },
+        });
+        if (chat?.personId != null) await stopFollowUpsOnReply(tx, chat.personId);
+      });
+    },
+  });
+}
+
+/** A customer wrote words: their follow-ups end, and a buying word makes the lead hot and tells its owner. */
 export function customerWroteListener(): EventListener {
   return defineListener({
     name: "sales.customer-wrote",
-    eventType: CUSTOMER_WROTE_EVENT,
-    payload: whatsappCustomerWroteEvent,
+    eventType: TEXT_RECEIVED_EVENT,
+    payload: whatsappTextReceivedEvent,
     handle: async (event, context) => {
       await context.forOrg(async (tx) => {
         const chat = await tx.whatsappConversation.findUnique({
@@ -141,7 +162,7 @@ export function customerWroteListener(): EventListener {
           {
             key: `${lead.id}:asked:${String(Math.floor(message.occurredAt.getTime() / SIX_HOURS))}`,
             title: `${lead.person.name} is asking to book. Reply now`,
-            body: text.slice(0, 120),
+            body: "Open the chat and reply now.",
           },
         );
       });

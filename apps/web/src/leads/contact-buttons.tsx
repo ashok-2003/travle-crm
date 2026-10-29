@@ -1,15 +1,18 @@
 "use client";
 
-// Reaching a lead's person (R48): Call is the main button and dials on a phone; on a wide screen, which has no dialler,
-// it shows the number with Copy. WhatsApp opens the chat with the number (wa.me, digits only) and is an outline
+// Reaching a lead's person (R48): Call is the main button and dials on a phone (and asks how the call went when the
+// person comes back); on a wide screen, which has no dialler, it opens the call panel: the number with Copy, Send to my
+// phone and a QR code that dials (release 5). WhatsApp opens the chat with the number (wa.me, digits only) and is an outline
 // button: never green (status) or violet (people). Show them only when the person has a phone.
 import { MessageCircleIcon, PhoneIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { CopyButton } from "@/components/copy-button";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { formatPhoneNumber } from "@/lib/format";
 import { useWideScreen } from "@/lib/use-wide-screen";
+import { CallNoteDialog } from "./call/call-note-dialog";
+import { CallPanel } from "./call/call-panel";
+import { rememberDial } from "./call/pending-call";
 
 type Variant = "default" | "outline" | "ghost";
 
@@ -18,9 +21,22 @@ export function whatsAppLink(e164: string): string {
   return `https://wa.me/${e164.replace(/\D/g, "")}`;
 }
 
-export function CallButton({ phone, name, variant = "default" }: { phone: string; name: string; variant?: Variant }) {
+export function CallButton({
+  phone,
+  name,
+  leadId,
+  variant = "default",
+}: {
+  phone: string;
+  name: string;
+  leadId: string;
+  variant?: Variant;
+}) {
   const t = useTranslations("leads.contact");
   const wide = useWideScreen();
+  const [open, setOpen] = useState(false);
+  const [logging, setLogging] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
   const label = t("callPerson", { name });
   const content = (
     <>
@@ -31,25 +47,46 @@ export function CallButton({ phone, name, variant = "default" }: { phone: string
   if (!wide) {
     return (
       <Button asChild variant={variant}>
-        <a href={`tel:${phone}`} aria-label={label}>
+        <a
+          href={`tel:${phone}`}
+          aria-label={label}
+          onClick={() => {
+            // On coming back, the app asks how the call went.
+            rememberDial({ leadId, name });
+          }}
+        >
           {content}
         </a>
       </Button>
     );
   }
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant={variant} aria-label={label}>
-          {content}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" aria-label={label}>
-        <p className="text-muted-foreground">{t("callFrom", { name })}</p>
-        <p className="numbers text-number-lg">{formatPhoneNumber(phone)}</p>
-        <CopyButton value={phone} label={t("copyNumber", { name })} />
-      </PopoverContent>
-    </Popover>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button ref={button} variant={variant} aria-label={label}>
+            {content}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" aria-label={label} className="w-80">
+          <CallPanel
+            leadId={leadId}
+            name={name}
+            phone={phone}
+            onLogCall={() => {
+              setOpen(false);
+              setLogging(true);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+      <CallNoteDialog
+        leadId={leadId}
+        name={name}
+        held={{ open: logging, setOpen: setLogging }}
+        returnFocusTo={button}
+      />
+    </>
   );
 }
 

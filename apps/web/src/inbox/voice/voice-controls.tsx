@@ -72,7 +72,7 @@ export function RecordingRow({
           <StatusDot tone="bad" className="motion-safe:animate-pulse" />
           {clock(elapsedMs)}
         </p>
-        <Button type="button" disabled={busy} onClick={onSend}>
+        <Button type="button" variant="send" disabled={busy} onClick={onSend}>
           <SendIcon aria-hidden="true" />
           {t("send")}
         </Button>

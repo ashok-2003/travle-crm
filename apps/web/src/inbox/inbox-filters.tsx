@@ -59,8 +59,8 @@ export function FilterChips({
 }) {
   const t = useTranslations("inbox");
   return (
-    // The row scrolls sideways and fades its right edge as the cue, on every screen.
-    <div className="-mx-3 overflow-x-auto px-3 mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+    // On a phone the row scrolls sideways and fades its right edge as the cue; on a computer it wraps, so no chip is cut.
+    <div className="-mx-3 overflow-x-auto px-3 mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)] md:mx-0 md:overflow-visible md:px-0 md:mask-none">
       <ToggleGroup
         type="single"
         variant="outline"
@@ -70,7 +70,7 @@ export function FilterChips({
           const found = inboxFilters.find((filter) => filter === chosen);
           if (found !== undefined) onChange(found);
         }}
-        className="w-max pr-6"
+        className="w-max pr-6 md:w-full md:flex-wrap md:pr-0"
       >
         {inboxFilters.map((filter) => {
           const count = countOf(summary, filter);
