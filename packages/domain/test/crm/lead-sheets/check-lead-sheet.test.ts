@@ -2,6 +2,8 @@
 // sort, insert and delete add nothing; two checks at once, or one retried after a crash, add each row once; an unfinished
 // row waits one check; an edit is a repeat enquiry, never a second lead; a gap in the columns stops the check without
 // consuming a row.
+import { runInNewContext } from "node:vm";
+import { setFlagsFromString } from "node:v8";
 import type { Database } from "@travel-crm/db";
 import { afterAll, describe, expect, it } from "vitest";
 import type { MemberAccess } from "../../../src/identity/index.js";
@@ -449,14 +451,23 @@ describe("the columns of a checked sheet", () => {
   });
 });
 
+/** A full garbage collection, so heap readings count what is held; V8 is told to expose `gc` only for this call. */
+function collectGarbage(): void {
+  setFlagsFromString("--expose-gc");
+  (runInNewContext("gc") as () => void)();
+}
+
 describe("what Google hands back", () => {
   it("skips a million-row sheet's excess and a 10 MB cell without holding them", async () => {
     const agency = await anAgency(test);
     const importer: MemberAccess = memberOf(agency);
     const rows: string[][] = [HEADER, ["19/10/2026", "x".repeat(10_000_000), "", ""]];
     for (let index = 0; index < 1_000_000; index += 1) rows.push(["19/10/2026", "Row", "", ""]);
+    collectGarbage();
     const before = process.memoryUsage().heapUsed;
     const sheet = await aRunningSheet(test, importer, { rows, fields: FIELDS });
+    // What is still held after a collection, not what a busy or slow machine has not yet got round to freeing.
+    collectGarbage();
     const grown = process.memoryUsage().heapUsed - before;
     const state = await test.db.forOrg(agency, (tx) =>
       tx.sheetConnection.findUniqueOrThrow({ where: { id: sheet.sheetId } }),
