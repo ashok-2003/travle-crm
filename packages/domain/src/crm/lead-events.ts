@@ -1,6 +1,7 @@
 // A lead's timeline (spec 3.4, 5): one slim row per thing that happened to a lead, pointing at the note, enquiry or
 // task it is about. Every crm change writes its entry in its own transaction, and the api writes "follow-up done"
 // through this when a lead's task is done (R22): tasks sits below crm and never calls it.
+import type { BookingEvent } from "@travel-crm/contracts/bookings";
 import type { AssignedBy, LeadEventKind, LeadStage } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { Actor } from "../kernel/index.js";
@@ -9,7 +10,9 @@ export interface LeadEventEntry {
   leadId: string;
   kind: LeadEventKind;
   /** The row the entry is about: a note, a call, a repeat enquiry or a task. */
-  record?: { recordType: "lead_note" | "lead_call" | "lead_enquiry" | "task"; recordId: string };
+  record?: { recordType: "lead_note" | "lead_call" | "lead_enquiry" | "task" | "booking"; recordId: string };
+  /** What happened to the booking, for booking-event. */
+  bookingEvent?: BookingEvent;
   /** The stage it moved to, for stage-changed. */
   stage?: LeadStage;
   /** The new owner, for reassigned. */
@@ -30,6 +33,7 @@ export async function recordLeadEvent(tx: OrgTx, actor: Actor, entry: LeadEventE
       recordType: entry.record?.recordType ?? null,
       recordId: entry.record?.recordId ?? null,
       stage: entry.stage ?? null,
+      bookingEvent: entry.bookingEvent ?? null,
       ownerUserId: entry.ownerUserId ?? null,
       ...(entry.assignedBy === undefined
         ? {}

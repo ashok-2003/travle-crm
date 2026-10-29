@@ -1,7 +1,9 @@
 // Public API of the tasks module: follow-ups and tasks on any record, or standing alone (spec 6, L0).
 export { redactTaskTitles } from "./erasure.js";
 export {
+  bringTaskForward,
   cancelOpenTasks,
+  finishTasks,
   nextOpenTasks,
   openTasksOf,
   reassignOpenStandaloneTasks,
