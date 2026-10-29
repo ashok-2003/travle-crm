@@ -13,6 +13,7 @@ import { SearchXIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, type CSSProperties, type ReactNode } from "react";
+import { LeadBookings } from "@/ai/lead-bookings";
 import { LeadInsight } from "@/ai/lead-insight";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -53,6 +54,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
     <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
       <div className="flex flex-col gap-6">
         <LeadSalesCard leadId={lead.id} open={isOpenStage(lead.stage)} />
+        <LeadBookings leadId={lead.id} />
         <LeadInsight leadId={lead.id} />
         <WorkCard lead={lead} />
         <PersonCard lead={lead} />

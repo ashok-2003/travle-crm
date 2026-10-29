@@ -14,6 +14,7 @@ import {
 import type { OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
 import type { MemberAccess } from "../identity/index.js";
+import type { Actor } from "../kernel/index.js";
 import { listTasksOnRecord } from "../tasks/index.js";
 import { recordCrmAudit } from "./crm-audit.js";
 import { findLeadInScope } from "./lead-detail.js";
@@ -40,7 +41,7 @@ async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
     rows.flatMap((row) => (row.recordType === recordType && row.recordId !== null ? [row.recordId] : []));
   const notes = await tx.leadNote.findMany({
     where: { id: { in: idsOf("lead_note") } },
-    select: { id: true, body: true },
+    select: { id: true, body: true, byAi: true },
   });
   const enquiries = await tx.leadEnquiry.findMany({
     where: { id: { in: idsOf("lead_enquiry") } },
@@ -56,7 +57,7 @@ async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
   const tasks =
     taskIds.size === 0 ? [] : (await listTasksOnRecord(tx, "lead", [leadId])).filter((task) => taskIds.has(task.id));
   return {
-    notes: new Map(notes.map((note) => [note.id, note.body])),
+    notes: new Map(notes.map((note) => [note.id, note])),
     enquiries: new Map(
       enquiries.map((enquiry) => [
         enquiry.id,
@@ -98,8 +99,8 @@ function entryOf(
               },
       };
     case "note": {
-      const body = pointed.notes.get(target);
-      return body === undefined ? null : { ...base, kind, body };
+      const note = pointed.notes.get(target);
+      return note === undefined ? null : { ...base, kind, body: note.body, byAi: note.byAi };
     }
     case "stage-changed":
       return row.stage === null ? null : { ...base, kind, stage: leadStage.parse(row.stage) };
@@ -195,4 +196,29 @@ export async function addLeadNote(tx: OrgTx, access: MemberAccess, input: AddNot
     after: { recordId: note.id },
   });
   return note;
+}
+
+/**
+ * A note the AI agent writes on a lead from its chat (the owner, 2026-10-29): what the customer told it that is worth
+ * keeping. Its own timeline entry, by the system; audited without its text. The same words twice in a row are kept once
+ * (a turn run again writes nothing new).
+ */
+export async function addAiLeadNote(tx: OrgTx, actor: Actor, leadId: string, body: string): Promise<boolean> {
+  const text = body.trim().slice(0, 4000);
+  if (text === "") return false;
+  const last = await tx.leadNote.findFirst({
+    where: { leadId, byAi: true },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { body: true },
+  });
+  if (last?.body === text) return false;
+  const note = await tx.leadNote.create({ data: { leadId, body: text, byAi: true }, select: { id: true } });
+  await recordLeadEvent(tx, actor, { leadId, kind: "note", record: { recordType: "lead_note", recordId: note.id } });
+  await recordCrmAudit(tx, actor, {
+    action: "lead.note-added",
+    entityType: "lead",
+    entityId: leadId,
+    after: { recordId: note.id },
+  });
+  return true;
 }

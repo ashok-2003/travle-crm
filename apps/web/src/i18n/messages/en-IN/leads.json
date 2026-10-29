@@ -548,7 +548,9 @@
         "none": "Nobody could take it, so it waits in Unassigned.",
         "away": "{name} is away. Reassign it if someone else should have it."
       },
-      "whatsappContact": "Wrote on WhatsApp"
+      "whatsappContact": "Wrote on WhatsApp",
+      "aiNote": "AI note",
+      "ai": "AI assistant"
     }
   },
   "export": {

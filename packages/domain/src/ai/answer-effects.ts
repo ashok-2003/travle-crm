@@ -1,10 +1,11 @@
 // What one answer of the AI sales agent changes (the AI sales agent): what it remembers of the chat, the lead's insight,
 // the reply it sends, the follow-up it plans (inside WhatsApp's window, at the time it chose or the agency's fixed
 // hours), what it flags for the team while it keeps selling (the lead's owner hears once in a while, not at every
-// message), and a hand-over to a person when it must step back.
+// message), a note on the lead when the chat told something worth keeping, and a hand-over to a person when it must
+// step back.
 import type { AgentAnswer } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
-import { noticeKey } from "../crm/index.js";
+import { addAiLeadNote, noticeKey } from "../crm/index.js";
 import { WINDOW_MS } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -64,15 +65,16 @@ async function tellOwner(
     orderBy: { createdAt: "desc" },
     select: { ownerUserId: true, person: { select: { name: true } } },
   });
-  if (lead?.ownerUserId == null) return;
+  if (lead === null) return;
+  // A lead nobody owns still reaches the members the owner chose for copies of team alerts.
   await notify(tx, systemActor(organizationId), {
-    recipientUserIds: [lead.ownerUserId],
+    recipientUserIds: lead.ownerUserId === null ? [] : [lead.ownerUserId],
     sourceEventId: noticeKey(notice.key, AI_HANDOFF_KIND),
     kind: AI_HANDOFF_KIND,
     title: notice.title(lead.person.name),
     body: notice.body,
     link: `/inbox/${chat.id}`,
-    channels: ["push"],
+    channels: ["email", "push"],
   });
 }
 
@@ -119,6 +121,10 @@ export async function applyAnswer(
       create: { leadId: input.leadId, ...insight },
       update: insight,
     });
+  }
+  // What the chat told that the team should keep, on the lead's timeline, whether or not the agent writes now.
+  if (input.leadId !== null && input.settings.leadNotes && answer.note.trim() !== "") {
+    await addAiLeadNote(tx, systemActor(organizationId), input.leadId, answer.note);
   }
   if (input.kind === "insight") return input.blocked ?? "insight";
 

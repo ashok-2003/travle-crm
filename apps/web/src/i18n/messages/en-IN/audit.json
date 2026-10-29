@@ -254,7 +254,14 @@
       "learned": "Had the AI learn from the chats",
       "voice-learned": "Taught the AI to talk like a person",
       "voice-removed": "Removed the way of talking the AI copied",
-      "chat-persona-changed": "Chose what the AI is for in a chat"
+      "chat-persona-changed": "Chose what the AI is for in a chat",
+      "media-added": "Added a photo, video or PDF for the AI assistant to send",
+      "media-changed": "Changed a file the AI assistant sends",
+      "media-deleted": "Removed a file the AI assistant sent",
+      "booking-decided": "Confirmed or cancelled a booking the AI assistant took"
+    },
+    "notifications": {
+      "routing-changed": "Chose who on the team gets email and alert copies"
     }
   },
   "fields": {
@@ -360,6 +367,9 @@
     "quote_template": "A quote package",
     "ai_settings": "The AI assistant",
     "ai_knowledge": "Something the AI assistant knows",
-    "ai_learning": "A lesson the AI learned"
+    "ai_learning": "A lesson the AI learned",
+    "ai_media": "A file the AI assistant sends",
+    "ai_booking": "A booking the AI assistant took",
+    "notification_routing": "Team notifications"
   }
 }

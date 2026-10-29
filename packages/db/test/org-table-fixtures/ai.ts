@@ -39,6 +39,20 @@ export const fixtures: OrgTableFixtures = {
     create: (tx) => tx.aiKnowledge.create({ data: { title: "Isolation", body: "Manali" } }),
     undeletable: true,
   },
+  ai_media: {
+    create: (tx) =>
+      tx.aiMedia.create({
+        data: { title: "Isolation", attachmentId: randomUUID(), fileName: "a.jpg", contentType: "image/jpeg" },
+      }),
+    undeletable: true,
+  },
+  ai_booking: {
+    create: async (tx) =>
+      tx.aiBooking.create({
+        data: { leadId: (await aLead(tx)).id, conversationId: randomUUID(), summary: "Manali for 2" },
+      }),
+    undeletable: true,
+  },
   ai_chat: {
     create: async (tx) => tx.aiChat.create({ data: { conversationId: (await aConversation(tx)).id } }),
     undeletable: true,

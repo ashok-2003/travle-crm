@@ -80,3 +80,16 @@ model PushSubscription {
   @@index([organizationId, userId])
   @@map("push_subscription")
 }
+
+/// Who on the team hears what, as the agency's owner chose: the members who also get their notifications by email, and
+/// the members who get a copy of every team alert (a hot lead, the AI asking for a person...). One row each.
+model NotificationRouting {
+  organizationId String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  emailUserIds   String[]     @default([]) @map("email_user_ids") @db.Uuid
+  copyUserIds    String[]     @default([]) @map("copy_user_ids") @db.Uuid
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("notification_routing")
+}

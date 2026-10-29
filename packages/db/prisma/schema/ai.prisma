@@ -45,6 +45,14 @@ model AiSettings {
   voiceExamples    String[]     @default([]) @map("voice_examples")
   /// sales (a sales agent) or natural (an everyday conversation as the copied person) (CHECK ai_settings_persona_value).
   persona          String       @default("sales")
+  /// The agent writes a short note on the lead when a chat tells it something worth keeping.
+  leadNotes        Boolean      @default(true) @map("lead_notes")
+  /// The agent sends the agency's photos, videos and PDFs (its media) when they help.
+  sendMedia        Boolean      @default(true) @map("send_media")
+  /// How customers pay (UPI ID, bank account, a payment link), sent exactly as written when someone wants to book.
+  paymentDetails   String       @default("") @map("payment_details")
+  /// Rules the agent always follows, whatever else it is told.
+  strictRules      String       @default("") @map("strict_rules")
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -75,6 +83,60 @@ model AiKnowledge {
 
   @@unique([organizationId, id])
   @@map("ai_knowledge")
+}
+
+/// A photo, video or PDF the agent may send in a chat (a brochure, a hotel's photos), with when it should. Its file is an
+/// attachment of record type ai_media under the row's id. Soft-deleted.
+model AiMedia {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  title          String
+  /// When the agent sends it, in the agency's words: "when they ask about Kashmir hotels".
+  whenToSend     String       @default("") @map("when_to_send")
+  attachmentId   String       @map("attachment_id") @db.Uuid
+  fileName       String       @map("file_name")
+  contentType    String       @map("content_type")
+  /// Whether its upload finished: only a ready one is offered to the agent.
+  ready          Boolean      @default(false)
+  enabled        Boolean      @default(true)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@map("ai_media")
+}
+
+/// A booking the agent took in a chat (the owner, 2026-10-29): the customer said yes, so the lead moved to Booking
+/// requested, the payment details went out and the team was told; a photo or PDF the customer sends next is kept as their
+/// payment proof (the chat's own message, whose file is already ours) for a person to check and confirm.
+model AiBooking {
+  organizationId  String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String       @id @default(uuid(7)) @db.Uuid
+  leadId          String       @map("lead_id") @db.Uuid
+  conversationId  String       @map("conversation_id") @db.Uuid
+  /// What was booked, in a line: "Manali 5N for 4, 12 Dec, from Delhi".
+  summary         String
+  /// What the agent took down: package, dates, travellers' names, pickup city, amount (an object of strings).
+  details         Json         @default("{}")
+  /// awaiting_payment, proof_received, confirmed or cancelled (CHECK ai_booking_status_value).
+  status          String       @default("awaiting_payment")
+  /// The customer's messages (photos, PDFs) sent as proof of payment.
+  proofMessageIds String[]     @default([]) @map("proof_message_ids") @db.Uuid
+  decidedBy       String?      @map("decided_by") @db.Uuid
+  decidedAt       DateTime?    @map("decided_at") @db.Timestamptz(6)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead            Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, leadId], map: "ai_booking_by_lead")
+  @@index([organizationId, conversationId], map: "ai_booking_by_chat")
+  @@map("ai_booking")
 }
 
 /// A chat's AI state: whether the agent answers here, whether it handed the chat to a person and why, and what it

@@ -1,12 +1,12 @@
 "use client";
 
 // /settings/ai (the AI sales agent): the agent at a glance (its name, live or not, its last day in figures), then four
-// tabs: the agent itself (how it speaks, whose way of talking it copies, and how it sells: the settings saved together
-// from a bar that stays in reach), what it
-// knows, what it learned from the chats, and a question to try it on. Which model answers is the platform's setting;
+// tabs: the agent itself (how it speaks, whose way of talking it copies, how it sells, how customers pay and the rules it
+// always follows: the settings saved together from a bar that stays in reach), what it knows, the media it sends, what it
+// learned from the chats, and a question to try it on. Which model answers is the platform's setting;
 // with none set, the screen says so and nothing runs.
 import { saveAiSettingsInput, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
-import { BookOpenIcon, BotIcon, BrainIcon, SparklesIcon } from "lucide-react";
+import { BookOpenIcon, BotIcon, BrainIcon, ImagesIcon, SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -26,6 +26,8 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { AiHero } from "./ai-hero";
 import { KnowledgeSection } from "./knowledge-section";
 import { LearningsSection } from "./learnings-section";
+import { MediaSection } from "./media-section";
+import { PaymentsCard } from "./payments-card";
 import { PersonalityCard } from "./personality-card";
 import { SellingCard } from "./selling-card";
 import { useAiSettings, useSaveAiSettings, useTestAi } from "./use-ai";
@@ -47,6 +49,10 @@ const inputOf = (settings: AiSettings): SaveAiSettingsInput => ({
   smartFollowUp: settings.smartFollowUp,
   learning: settings.learning,
   persona: settings.persona,
+  leadNotes: settings.leadNotes,
+  sendMedia: settings.sendMedia,
+  paymentDetails: settings.paymentDetails,
+  strictRules: settings.strictRules,
 });
 
 /** Talk like a real person, in every chat: saved on its own, as soon as the AI has read the chat. */
@@ -89,6 +95,7 @@ function AgentForm({ saved }: { saved: AiSettings }) {
       <PersonalityCard settings={settings} change={change} disabled={busy} />
       <VoiceCard voice={saved.voice} />
       <SellingCard settings={settings} change={change} disabled={busy} />
+      <PaymentsCard settings={settings} change={change} disabled={busy} />
       {/* Above the phone's bottom bar (56px and the safe area); at the screen's foot from a tablet up. */}
       <div className="sticky bottom-[calc(3.5rem+1px+env(safe-area-inset-bottom))] z-(--z-sticky) -mx-1 flex flex-wrap items-center gap-3 bg-background/95 px-1 py-3 backdrop-blur md:bottom-0">
         <Button size="lg" disabled={busy || !dirty} onClick={submit}>
@@ -190,6 +197,10 @@ export function AiSettingsScreen() {
                 <BookOpenIcon aria-hidden="true" />
                 {t("tabs.knowledge")}
               </TabsTrigger>
+              <TabsTrigger value="media">
+                <ImagesIcon aria-hidden="true" />
+                {t("tabs.media")}
+              </TabsTrigger>
               <TabsTrigger value="learnings">
                 <BrainIcon aria-hidden="true" />
                 {t("tabs.learnings")}
@@ -206,6 +217,9 @@ export function AiSettingsScreen() {
             </TabsContent>
             <TabsContent value="knowledge" className="pt-4">
               <KnowledgeSection />
+            </TabsContent>
+            <TabsContent value="media" className="pt-4">
+              <MediaSection />
             </TabsContent>
             <TabsContent value="learnings" className="pt-4">
               <LearningsSection settings={settings.data} />

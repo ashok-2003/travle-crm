@@ -1,10 +1,16 @@
 // ai.*: the AI sales agent (the owner's widening of ADR 0029, 2026-10-27). Its settings and knowledge, written by
 // whoever manages settings; a chat's AI state, its switch and giving a handed-over chat back, for whoever answers chats;
-// a suggested reply for them; a lead's insight for anyone who sees the lead; a test question, the AI's day at a glance
-// and what it learned (and learning now), for settings.
+// a suggested reply for them; a lead's insight and the bookings the AI took on it for anyone who sees the lead (a
+// booking confirmed or cancelled by whoever may work it); its media, a test question, the AI's day at a glance and what
+// it learned (and learning now), for settings.
 import { z } from "zod";
 import {
+  aiBookingList,
   aiDocumentSlot,
+  aiMediaIdInput,
+  aiMediaLink,
+  aiMediaList,
+  aiMediaSlot,
   aiKnowledgeIdInput,
   aiKnowledgeList,
   aiLearnResult,
@@ -15,12 +21,15 @@ import {
   chatAi,
   clearVoiceInput,
   confirmAiDocumentInput,
+  confirmAiMediaInput,
   conversationAiInput,
   createAiKnowledgeInput,
   leadInsight,
   leadInsightInput,
   learnVoiceInput,
   requestAiDocumentInput,
+  requestAiMediaInput,
+  setAiBookingStatusInput,
   resumeChatAiInput,
   saveAiSettingsInput,
   setAiLearningInput,
@@ -30,10 +39,19 @@ import {
   testAiAnswer,
   testAiInput,
   updateAiKnowledgeInput,
+  updateAiMediaInput,
 } from "@travel-crm/contracts/ai";
 import {
   addKnowledge,
   agencyVoiceOf,
+  bookingsOfLead,
+  confirmMedia,
+  deleteMedia,
+  listMedia,
+  mediaLink,
+  requestMedia,
+  setBookingStatus,
+  updateMedia,
   aiOverviewOf,
   aiSettingsOf,
   chatAiOf,
@@ -176,6 +194,38 @@ export const aiRouter = router({
     .input(confirmAiDocumentInput)
     .mutation(({ ctx, input }) => confirmDocument({ db: ctx.db, files: ctx.files }, ctx.member, input)),
 
+  /** The photos, videos and PDFs the agent may send. */
+  media: settingsReader
+    .output(aiMediaList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listMedia(tx))),
+
+  /** Step one of a media file: where the browser uploads it. */
+  requestMedia: settingsWriter
+    .input(requestAiMediaInput)
+    .output(aiMediaSlot)
+    .mutation(({ ctx, input }) => requestMedia({ db: ctx.db, files: ctx.files }, ctx.member, input)),
+
+  /** Step two: it is stored, so the agent may send it. */
+  confirmMedia: settingsWriter
+    .input(confirmAiMediaInput)
+    .mutation(({ ctx, input }) => confirmMedia({ db: ctx.db, files: ctx.files }, ctx.member, input)),
+
+  updateMedia: settingsWriter
+    .input(updateAiMediaInput)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => updateMedia(tx, ctx.member, input))),
+
+  deleteMedia: settingsWriter
+    .input(aiMediaIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteMedia(tx, ctx.member, input.mediaId)),
+    ),
+
+  /** A 5-minute link to look at one. */
+  mediaLink: settingsReader
+    .input(aiMediaIdInput)
+    .output(aiMediaLink)
+    .query(({ ctx, input }) => mediaLink({ db: ctx.db, files: ctx.files }, ctx.member, input.mediaId)),
+
   /** What the agent would answer a question, from the knowledge alone. */
   test: settingsWriter
     .input(testAiInput)
@@ -213,6 +263,41 @@ export const aiRouter = router({
     .input(conversationAiInput)
     .output(suggestedReply)
     .mutation(({ ctx, input }) => suggestReply(assistOf(ctx), ctx.member, input.conversationId)),
+
+  /** The bookings the AI took on a lead, with the customer's payment proofs; a lead out of scope is not found. */
+  bookingsForLead: orgProcedure
+    .requires("leads:view")
+    .input(leadInsightInput)
+    .output(aiBookingList)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const lead = await tx.lead.findFirst({
+          where: { id: input.leadId, ...scopeFilter(ctx.member, "leads:view", "ownerUserId") },
+          select: { id: true },
+        });
+        if (lead === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+        return bookingsOfLead(tx, lead.id);
+      }),
+    ),
+
+  /** The payment is in (the lead is won), the booking is off, or it waits for payment again. */
+  setBookingStatus: freshProcedure
+    .requires("leads:edit")
+    .input(setAiBookingStatusInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const booking = await tx.aiBooking.findUnique({ where: { id: input.bookingId }, select: { leadId: true } });
+        const lead =
+          booking === null
+            ? null
+            : await tx.lead.findFirst({
+                where: { id: booking.leadId, ...scopeFilter(ctx.member, "leads:view", "ownerUserId") },
+                select: { id: true },
+              });
+        if (lead === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+        await setBookingStatus(tx, ctx.member, input, new Date());
+      }),
+    ),
 
   /** A lead's insight, for its page; a lead out of the member's scope is not found. */
   forLead: orgProcedure

@@ -1,7 +1,7 @@
 "use client";
 
 // One entry of a lead's timeline (spec 3.4, R36) as a sentence: the lead's creation and where it came from, a note
-// (its words under it), a stage change, a reassignment, a follow-up or task added (what and when it is due), done or
+// (its words under it; the AI's own notes say so), a stage change, a reassignment, a follow-up or task added (what and when it is due), done or
 // cancelled, a repeat enquiry (its trip, source and note) and a trip edit; then who did it and when, in the agency's
 // zone. Nobody is "The system"; a name the page didn't carry is a former member's. A stage change carries its stage's
 // dot and a finished follow-up or task status green's (DESIGN.md "Stage Colours", "Green Is Done"); nothing else is
@@ -60,7 +60,7 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
           ...(entry.assignment && { detail: assignmentLines(entry.assignment) }),
         };
       case "note":
-        return { title: t("lead.timeline.note"), detail: lines(entry.body) };
+        return { title: entry.byAi ? t("lead.timeline.aiNote") : t("lead.timeline.note"), detail: lines(entry.body) };
       case "stage-changed":
         return {
           title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }),
@@ -112,7 +112,12 @@ export function TimelineEntryItem({ entry, people }: { entry: TimelineEntry; peo
   };
 
   const { title, detail, mark } = describe();
-  const actor = entry.actorUserId === null ? t("lead.timeline.system") : nameOf(entry.actorUserId);
+  const ai = entry.kind === "note" && entry.byAi;
+  const actor = ai
+    ? t("lead.timeline.ai")
+    : entry.actorUserId === null
+      ? t("lead.timeline.system")
+      : nameOf(entry.actorUserId);
   return (
     <Item size="sm" role="listitem" className="px-0">
       <ItemContent>

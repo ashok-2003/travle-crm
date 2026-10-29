@@ -37,6 +37,14 @@ export const aiSettingsFields = {
   smartFollowUp: z.boolean(),
   learning: z.boolean(),
   persona: z.enum(aiPersonas),
+  /** The agent writes a short note on the lead when a chat tells it something worth keeping. */
+  leadNotes: z.boolean(),
+  /** The agent sends the agency's media (photos, videos, PDFs) when they help. */
+  sendMedia: z.boolean(),
+  /** How customers pay (UPI ID, bank account, a link): sent exactly as written when someone wants to book. */
+  paymentDetails: text(2000),
+  /** Rules the agent always follows, whatever else it is told. */
+  strictRules: text(4000),
 };
 export const saveAiSettingsInput = z.strictObject(aiSettingsFields);
 export type SaveAiSettingsInput = z.infer<typeof saveAiSettingsInput>;
@@ -44,6 +52,8 @@ export const aiSettings = z.object({
   ...aiSettingsFields,
   agentName: z.string(),
   instructions: z.string(),
+  paymentDetails: z.string(),
+  strictRules: z.string(),
   languageOther: z.string(),
   /** When it last learned from the chats. */
   learnedAt: z.iso.datetime().nullable(),
@@ -93,6 +103,76 @@ export const aiDocumentSlot = z.object({
   upload: presignedUpload,
 });
 export const confirmAiDocumentInput = z.strictObject({ knowledgeId: recordId, attachmentId: recordId });
+
+/** What the agent may send from the agency's media: what WhatsApp takes as a photo, a video or a document. */
+export const aiMediaContentTypes = ["image/jpeg", "image/png", "video/mp4", "application/pdf"] as const;
+/** WhatsApp's own limits: 5 MB a photo, 16 MB a video, more for a document; one cap keeps it simple. */
+export const MAX_AI_MEDIA_BYTES = 16 * 1024 * 1024;
+/** The most media the agent sends with one reply. */
+export const MAX_AI_MEDIA_PER_REPLY = 3;
+
+export const aiMediaItem = z.object({
+  id: recordId,
+  title: z.string(),
+  whenToSend: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  ready: z.boolean(),
+  enabled: z.boolean(),
+  /** How many chats it was sent in. */
+  sent: z.int(),
+  updatedAt: z.iso.datetime(),
+});
+export type AiMediaItem = z.infer<typeof aiMediaItem>;
+export const aiMediaList = z.array(aiMediaItem);
+export const requestAiMediaInput = z.strictObject({
+  title: text(120).min(1),
+  whenToSend: text(400),
+  fileName: z.string().trim().min(1).max(200),
+  contentType: z.enum(aiMediaContentTypes),
+  sizeBytes: z.int().min(1).max(MAX_AI_MEDIA_BYTES),
+});
+export type RequestAiMediaInput = z.infer<typeof requestAiMediaInput>;
+export const aiMediaSlot = z.object({ mediaId: recordId, attachmentId: recordId, upload: presignedUpload });
+export const aiMediaIdInput = z.strictObject({ mediaId: recordId });
+export const confirmAiMediaInput = z.strictObject({ mediaId: recordId, attachmentId: recordId });
+export const updateAiMediaInput = z.strictObject({
+  mediaId: recordId,
+  title: text(120).min(1),
+  whenToSend: text(400),
+  enabled: z.boolean(),
+});
+export type UpdateAiMediaInput = z.infer<typeof updateAiMediaInput>;
+/** A 5-minute link to look at one of the media. */
+export const aiMediaLink = z.object({ url: z.string() });
+
+export const aiBookingStatuses = ["awaiting_payment", "proof_received", "confirmed", "cancelled"] as const;
+export const aiBookingStatus = z.enum(aiBookingStatuses);
+export const aiBooking = z.object({
+  id: recordId,
+  leadId: recordId,
+  conversationId: recordId,
+  summary: z.string(),
+  details: z.object({
+    package: z.string(),
+    dates: z.string(),
+    travellers: z.string(),
+    pickup: z.string(),
+    amount: z.string(),
+  }),
+  status: aiBookingStatus,
+  /** The customer's photos and PDFs sent as payment proof: their chat messages. */
+  proofs: z.array(
+    z.object({ messageId: recordId, kind: z.string(), fileName: z.string().nullable(), at: z.iso.datetime() }),
+  ),
+  createdAt: z.iso.datetime(),
+});
+export type AiBooking = z.infer<typeof aiBooking>;
+export const aiBookingList = z.array(aiBooking);
+export const setAiBookingStatusInput = z.strictObject({
+  bookingId: recordId,
+  status: z.enum(["confirmed", "cancelled", "awaiting_payment"]),
+});
 
 export const aiChatModes = ["default", "on", "off"] as const;
 export const aiChatMode = z.enum(aiChatModes);
@@ -201,6 +281,24 @@ export const agentAnswer = z.object({
       budget: z.string().max(120).nullable().catch(null),
     })
     .catch({ destination: null, when: null, travellers: null, budget: null }),
+  /** A short note for the lead's record when this message told something worth keeping; empty for none. */
+  note: z.string().max(600).catch(""),
+  /** Send the agency's payment details now, as their own message (the customer wants to book or asks how to pay). */
+  sendPaymentDetails: z.boolean().catch(false),
+  /** The customer clearly said yes to a trip: the booking's details as taken down. */
+  booking: z
+    .object({
+      confirmed: z.boolean().catch(false),
+      summary: z.string().max(300).catch(""),
+      package: z.string().max(200).catch(""),
+      dates: z.string().max(120).catch(""),
+      travellers: z.string().max(400).catch(""),
+      pickup: z.string().max(120).catch(""),
+      amount: z.string().max(120).catch(""),
+    })
+    .catch({ confirmed: false, summary: "", package: "", dates: "", travellers: "", pickup: "", amount: "" }),
+  /** The agency's media to send with the reply, by their numbers in the prompt ("M1"). */
+  media: z.array(z.string().max(20)).max(10).catch([]),
   /** Whether to write again if the customer goes quiet, in how many hours, and why. */
   followUp: z
     .object({

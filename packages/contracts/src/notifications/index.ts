@@ -3,3 +3,4 @@ export * from "./bell.js";
 export * from "./fields.js";
 export * from "./notify.js";
 export * from "./preferences.js";
+export * from "./routing.js";

@@ -2,7 +2,8 @@
 
 // How the AI sales agent sells (the owner, 2026-10-28): whether it answers every chat by itself, when it steps back for
 // a person (never by itself and flags the team, when the customer asks, or carefully), its follow-ups (timed by itself
-// or after fixed hours, always inside WhatsApp's window), a day's limit per chat, lead scoring, and learning from the chats.
+// or after fixed hours, always inside WhatsApp's window), a day's limit per chat, lead scoring, notes on leads, sending
+// the agency's media, and learning from the chats.
 import { aiHandoffPolicies, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useId, type ReactNode } from "react";
@@ -132,6 +133,24 @@ export function SellingCard({
           disabled={disabled}
           onChange={(scoring) => {
             change({ scoring });
+          }}
+        />
+        <SwitchRow
+          label={t("leadNotes")}
+          hint={t("leadNotesHint")}
+          checked={settings.leadNotes}
+          disabled={disabled}
+          onChange={(leadNotes) => {
+            change({ leadNotes });
+          }}
+        />
+        <SwitchRow
+          label={t("sendMedia")}
+          hint={t("sendMediaHint")}
+          checked={settings.sendMedia}
+          disabled={disabled}
+          onChange={(sendMedia) => {
+            change({ sendMedia });
           }}
         />
         <SwitchRow

@@ -1,7 +1,8 @@
 // The agency's AI settings (the AI sales agent): whether the agent answers customers by itself, whether leads are scored,
 // the name it signs as, what it is for (a sales agent or a natural conversation), how it speaks (language, style, emojis, tone) and the agency's own instructions, when it steps
 // back for a person, how it follows up a silent customer, how many messages it may write in one chat a day, and whether
-// it learns from the chats. Saved by whoever manages settings; audited.
+// it learns from the chats; whether it writes notes on leads and sends the agency's media; how customers pay; and the
+// rules it always follows. Saved by whoever manages settings; audited.
 import {
   aiEmojiLevels,
   aiHandoffPolicies,
@@ -32,6 +33,10 @@ const columns = {
   learning: true,
   learnedAt: true,
   persona: true,
+  leadNotes: true,
+  sendMedia: true,
+  paymentDetails: true,
+  strictRules: true,
 } as const;
 
 export type AiSettingsRow = SaveAiSettingsInput & { learnedAt: Date | null };
@@ -53,6 +58,10 @@ export const defaultAiSettings: AiSettingsRow = {
   learning: true,
   learnedAt: null,
   persona: "sales",
+  leadNotes: true,
+  sendMedia: true,
+  paymentDetails: "",
+  strictRules: "",
 };
 
 /** A stored word read back as one of its values; the check constraint keeps others out, this keeps the type honest. */

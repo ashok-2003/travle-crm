@@ -1,7 +1,8 @@
 "use client";
 
 // The AI sales agent's reads and changes: its settings and knowledge, its day at a glance and what it learned, a chat's
-// AI state and insight, a lead's insight, a suggested reply and a test question. A change loads again what shows it.
+// AI state and insight, a lead's insight and bookings, the media it sends, a suggested reply and a test question. A
+// change loads again what shows it.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
 
@@ -170,4 +171,53 @@ export function useClearVoice(conversationId: string | null) {
 export function useLeadInsight(leadId: string) {
   const trpc = useTRPC();
   return useQuery(trpc.ai.forLead.queryOptions({ leadId }));
+}
+
+export function useAiMedia() {
+  const trpc = useTRPC();
+  return useQuery(trpc.ai.media.queryOptions());
+}
+
+export function useRequestMedia() {
+  const trpc = useTRPC();
+  return useMutation(trpc.ai.requestMedia.mutationOptions());
+}
+
+export function useConfirmMedia() {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  return useMutation(trpc.ai.confirmMedia.mutationOptions({ onSuccess: changed }));
+}
+
+export function useUpdateMedia() {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  return useMutation(trpc.ai.updateMedia.mutationOptions({ onSuccess: changed }));
+}
+
+export function useDeleteMedia() {
+  const trpc = useTRPC();
+  const changed = useAiChange();
+  return useMutation(trpc.ai.deleteMedia.mutationOptions({ onSuccess: changed }));
+}
+
+/** The bookings the AI took on a lead, with the customer's payment proofs. */
+export function useLeadBookings(leadId: string) {
+  const trpc = useTRPC();
+  return useQuery(trpc.ai.bookingsForLead.queryOptions({ leadId }));
+}
+
+/** A person decides a booking; the lead's own page loads again, since a confirmed one wins the lead. */
+export function useSetBookingStatus() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.ai.setBookingStatus.mutationOptions({
+      onSuccess: () =>
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.ai.pathKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.leads.pathKey() }),
+        ]),
+    }),
+  );
 }

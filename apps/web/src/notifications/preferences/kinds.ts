@@ -31,6 +31,8 @@ export const notificationKinds = [
   { kind: "sales.hot-lead", messageKey: "salesHotLead" },
   { kind: "sales.payment-due", messageKey: "salesPaymentDue" },
   { kind: "ai.handoff", messageKey: "aiHandoff" },
+  { kind: "ai.booking", messageKey: "aiBooking" },
+  { kind: "ai.payment-proof", messageKey: "aiPaymentProof" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

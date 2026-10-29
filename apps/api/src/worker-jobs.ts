@@ -9,6 +9,7 @@ import {
   aiChatResumedListener,
   aiCustomerWroteListener,
   aiDocumentListener,
+  aiPaymentProofListener,
   aiReplyHandler,
   runAiLearning,
   runAiNudges,
@@ -226,6 +227,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       return { agencyName: organization?.name ?? "our team", agentName: owners[0]?.name ?? null };
     },
   };
+  // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
+  const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
   // The AI sales agent: it speaks for the agency by its name; its turns need the queue and a configured model.
   const { ai } = dependencies;
   const aiJobs =
@@ -237,6 +240,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
           queue: dependencies.jobs,
           agencyName: async (organizationId: string) =>
             (await identity.organizationProfile(organizationId))?.name ?? "our team",
+          files,
+          managers: bookingManagers,
         }
       : null;
   // The Meta lead ads' side: the route, the notices, the checks and the import of a form's earlier leads, only when Meta is set up.
@@ -286,6 +291,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       tripKitKeywordListener({ db, files }),
       // The AI agent's knowledge: an uploaded document's words are read whether or not a model is set.
       aiDocumentListener({ db, files, readText: (bytes, contentType) => documentText(bytes, contentType) }),
+      // A photo or PDF from a customer whose AI booking waits for payment is kept as their proof; the team is told.
+      aiPaymentProofListener({ recipients: bookingManagers }),
       // The AI agent's turn after a customer writes, queued a few seconds on.
       // A chat given back to the AI ("Let AI answer now"): its turn for the waiting message, at once.
       ...(aiJobs === null ? [] : [aiCustomerWroteListener(aiJobs), aiChatResumedListener(aiJobs)]),

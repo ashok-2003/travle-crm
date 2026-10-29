@@ -3,12 +3,16 @@
 // it, what to remember, whether and when to follow up, and the lead's insight. Code decides the rest: the reply goes only
 // inside the 24-hour window, to someone who hasn't asked to stop, while the agent is on in the chat, no person is
 // answering it and the day's count has room; prices and payment details come only from the knowledge, and a booking or a
-// payment is confirmed only by a person. Every call's usage is kept.
+// payment is confirmed only by a person. Every call's usage is kept. After the words go the agency's payment details
+// (exactly as it wrote them) when the agent says so, then the media it chose; a yes from the customer becomes a booking.
 import { agentAnswer, type AgentAnswer } from "@travel-crm/contracts/ai";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
+import type { Files } from "../files/index.js";
 import { queueSystemText, whatsappConsentOf, windowIsOpen } from "../inbox/index.js";
 import { applyAnswer, type ChatFacts } from "./answer-effects.js";
+import { openBookingOf, takeBooking, type BookingRecipients } from "./booking.js";
+import { mediaForPrompt, sendChosenMedia } from "./media.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./context.js";
 import { activeLessons } from "./learning-store.js";
@@ -24,7 +28,14 @@ export interface AgentDependencies {
   ai: AiModel;
   /** The agency's name, for the agent to speak for. */
   agencyName: (organizationId: string) => Promise<string>;
+  /** Where the agency's media is kept, to send it. */
+  files: Files;
+  /** The agency's managers, told of every booking the agent takes. */
+  managers: BookingRecipients;
 }
+
+/** The token of the payment details' message in a chat: once a day unless the customer asks again. */
+const PAYMENT_TOKEN = "ai-pay:";
 
 /**
  * The model's answer, read leniently: the JSON object (words or a code fence around it are dropped, and a reply under
@@ -151,9 +162,31 @@ export async function runAgentTurn(
     const learnings = settings.learning ? await activeLessons(tx) : [];
     const voice = await chatVoiceOf(tx, chat.id);
     const natural = await naturalIn(tx, chat.id, settings);
+    const media = settings.sendMedia ? await mediaForPrompt(tx, chat.id) : [];
+    const paymentSent =
+      (await tx.whatsappMessage.findFirst({
+        where: { conversationId: chat.id, clientToken: { startsWith: PAYMENT_TOKEN } },
+        select: { id: true },
+      })) !== null;
+    const bookingOpen = facts.leadId !== null && (await openBookingOf(tx, facts.leadId)) !== null;
     // Writing only when nothing stops it; else the same call judges the lead and writes nothing.
     const kind: TurnKind = blocked === null ? input.kind : "insight";
-    return { settings, chat, history, memory, facts, knowledge, learnings, voice, natural, kind, blocked };
+    return {
+      settings,
+      chat,
+      history,
+      memory,
+      facts,
+      knowledge,
+      learnings,
+      voice,
+      natural,
+      kind,
+      blocked,
+      media,
+      paymentSent,
+      bookingOpen,
+    };
   });
   if (prepared === null || prepared.history.messages.length === 0) return "nothing";
   const messages: AiMessage[] = [
@@ -166,6 +199,9 @@ export async function runAgentTurn(
         learnings: prepared.learnings,
         voice: prepared.voice,
         natural: prepared.natural,
+        media: prepared.media,
+        paymentSent: prepared.paymentSent,
+        bookingOpen: prepared.bookingOpen,
       }),
     },
     asTranscript(prepared.history.messages, prepared.kind),
@@ -200,7 +236,9 @@ export async function runAgentTurn(
   if (asked.answer === null) return "unreadable";
   const answer = withSettings(asked.answer, prepared.settings, prepared.natural);
 
-  return db.forOrg(input.organizationId, async (tx) => {
+  const managers =
+    answer.booking.confirmed && !prepared.natural ? await dependencies.managers(input.organizationId) : [];
+  const outcome = await db.forOrg(input.organizationId, async (tx) => {
     const sendReply = async () => {
       const reply = answer.reply.trim();
       if (prepared.kind === "insight" || reply === "") return null;
@@ -217,9 +255,26 @@ export async function runAgentTurn(
         },
         now,
       );
-      return sent.ok ? "sent" : sent.code;
+      if (!sent.ok) return sent.code;
+      // The payment details as the agency wrote them, never as the model would type them.
+      const details = prepared.settings.paymentDetails.trim();
+      if (answer.sendPaymentDetails && details !== "" && !prepared.natural) {
+        await queueSystemText(
+          tx,
+          {
+            conversationId: prepared.chat.id,
+            body: details,
+            sentBy: null,
+            origin: "automation",
+            clientToken: `${PAYMENT_TOKEN}${input.token}`,
+            answers: !answer.handoff,
+          },
+          now,
+        );
+      }
+      return "sent";
     };
-    return applyAnswer(tx, {
+    const done = await applyAnswer(tx, {
       organizationId: input.organizationId,
       chat: prepared.chat,
       settings: prepared.settings,
@@ -232,5 +287,27 @@ export async function runAgentTurn(
       sendReply,
       now,
     });
+    // A yes is taken down even when the agent may not write now (a person was answering): the team still hears.
+    if (answer.booking.confirmed && !prepared.natural) {
+      await takeBooking(tx, {
+        organizationId: input.organizationId,
+        conversationId: prepared.chat.id,
+        leadId: prepared.facts.leadId,
+        booking: answer.booking,
+        recipients: managers,
+        now,
+      });
+    }
+    return done;
   });
+  const replied = outcome === "replied" || outcome === "replied_flagged" || outcome === "handed_off";
+  if (replied && prepared.media.length > 0 && answer.media.length > 0) {
+    const chosen = prepared.media.filter((one) => answer.media.some((code) => code.trim().toUpperCase() === one.code));
+    await sendChosenMedia(
+      dependencies,
+      { organizationId: input.organizationId, conversationId: prepared.chat.id, chosen, token: input.token },
+      now,
+    );
+  }
+  return outcome;
 }

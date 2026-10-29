@@ -1,7 +1,7 @@
 // The AI agent as staff see and steer it (the AI sales agent): a chat's AI state (answering or not, handed over and
 // why, what it remembers, the lead's insight), turning the agent on or off in one chat, giving a handed-over chat back
 // to it, a suggested reply for the person answering, and a test question against the agency's knowledge.
-import { agentAnswer, type ChatAi, type LeadInsight } from "@travel-crm/contracts/ai";
+import { agentAnswer, type AgentAnswer, type ChatAi, type LeadInsight } from "@travel-crm/contracts/ai";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -13,7 +13,7 @@ import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./contex
 import { activeLessons } from "./learning-store.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { agencyVoiceOf, chatVoiceOf, naturalIn } from "./voice.js";
-import { aiSettingsOf } from "./settings.js";
+import { aiSettingsOf, type AiSettingsRow } from "./settings.js";
 
 export interface AiAssistDependencies {
   db: Database;
@@ -242,6 +242,9 @@ export async function suggestReply(
           learnings: prepared.learnings,
           voice: prepared.voice,
           natural: prepared.natural,
+          media: [],
+          paymentSent: false,
+          bookingOpen: false,
         }),
       },
       asTranscript(prepared.history.messages, "reply"),
@@ -258,8 +261,17 @@ export async function suggestReply(
       },
     }),
   );
-  return { text: cleanReply(parseAnswer(result.text)?.reply ?? "", prepared.settings) };
+  const answer = parseAnswer(result.text);
+  return { text: withPaymentDetails(cleanReply(answer?.reply ?? "", prepared.settings), answer, prepared.settings) };
 }
+
+/** The reply as the customer would read it: the agency's payment details under it when the agent sends them. */
+const withPaymentDetails = (reply: string, answer: AgentAnswer | null, settings: AiSettingsRow) =>
+  answer?.sendPaymentDetails === true && settings.paymentDetails.trim() !== ""
+    ? `${reply}
+
+${settings.paymentDetails.trim()}`.trim()
+    : reply;
 
 /** What the agent would answer a customer's question, from the agency's knowledge alone: to check it before turning it on. */
 export async function testAnswer(
@@ -291,6 +303,9 @@ export async function testAnswer(
           learnings: settings.learning ? learnings : [],
           voice,
           natural: settings.persona === "natural",
+          media: [],
+          paymentSent: false,
+          bookingOpen: false,
         }),
       },
       { role: "user", content: question },
@@ -304,7 +319,7 @@ export async function testAnswer(
   );
   const answer = parseAnswer(result.text);
   return {
-    answer: cleanReply(answer?.reply ?? "", settings),
+    answer: withPaymentDetails(cleanReply(answer?.reply ?? "", settings), answer, settings),
     // "Never by itself" never hands over, whatever the model said.
     handoff: settings.handoff !== "alert" && settings.persona !== "natural" && (answer?.handoff ?? false),
     reason: answer?.handoffReason ?? "",

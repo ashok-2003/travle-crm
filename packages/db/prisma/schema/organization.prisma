@@ -102,6 +102,9 @@ model Organization {
   leadAiInsights              LeadAiInsight[]
   aiUsage                     AiUsage[]
   aiLearnings                 AiLearning[]
+  aiMedia                     AiMedia[]
+  aiBookings                  AiBooking[]
+  notificationRouting         NotificationRouting?
   pageVisits                  PageVisit[]
   welcome                     OrganizationWelcome?
   welcomesSeen                WelcomeSeen[]

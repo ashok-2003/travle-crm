@@ -30,7 +30,8 @@
       "agent": "Agent",
       "knowledge": "Knowledge",
       "learnings": "Learnings",
-      "try": "Try it"
+      "try": "Try it",
+      "media": "Media"
     }
   },
   "knowledge": {
@@ -277,7 +278,11 @@
     "learning": "Learn from our chats",
     "learningHint": "Each night it reads your recent chats, the booked and the lost, and learns what your customers want and what wins them.",
     "maxReplies": "Most AI messages in a chat per day",
-    "maxRepliesHint": "A safety limit, so a chat can't run away."
+    "maxRepliesHint": "A safety limit, so a chat can't run away.",
+    "leadNotes": "Write notes on leads",
+    "leadNotesHint": "When a customer tells the AI something worth keeping (dates, budget, travellers, a decision), it writes a short note on the lead's timeline.",
+    "sendMedia": "Send photos, videos and PDFs",
+    "sendMediaHint": "The AI sends your files from Media when they help: a brochure, hotel photos, the itinerary."
   },
   "learnings": {
     "title": "What the AI learned",
@@ -325,5 +330,72 @@
     "personCount": "{name}: {count, plural, one {# message} other {# messages}}",
     "becomes": "The AI writes as {name}, and talks to {other} the way {name} does",
     "theOther": "the others"
+  },
+  "payments": {
+    "title": "Payments and strict rules",
+    "description": "When a customer wants to book, the AI sends your payment details exactly as written here, asks for the payment screenshot, takes the booking on the lead and tells your team by email.",
+    "details": "Payment details",
+    "detailsPlaceholder": "UPI: sharmaholidays@okhdfc\nBank: HDFC Bank, A/c 50200012345678, IFSC HDFC0001234, Sharma Holidays\nAdvance: 30% to confirm, balance 7 days before travel",
+    "detailsHint": "Sent as its own message, word for word, so an account number is never typed wrong. Leave empty to give no payment details.",
+    "rules": "Strict rules the AI always follows",
+    "rulesPlaceholder": "Never offer a discount above 5%.\nNever promise a hotel by name before it is confirmed.\nAlways ask for the travellers' ages.",
+    "rulesHint": "One rule per line. These win over everything else the AI is told."
+  },
+  "media": {
+    "title": "Media the AI sends",
+    "description": "Photos, videos and PDFs the AI can send in a chat when they help: brochures, hotel photos, itineraries. Say when to send each one.",
+    "upload": "Upload a file",
+    "uploading": "Uploading",
+    "uploaded": "Uploaded. The AI can send it now.",
+    "uploadAction": "Upload",
+    "fileType": "Choose a JPG or PNG photo, an MP4 video or a PDF.",
+    "fileSize": "The file is over 16 MB, WhatsApp's limit.",
+    "empty": "No files yet. Add a brochure or your best hotel photos.",
+    "hint": "The AI sends at most 3 files with a reply, and never the same file twice in a chat.",
+    "addTitle": "Add a file for the AI",
+    "editTitle": "Change a file for the AI",
+    "titleLabel": "Name",
+    "titlePlaceholder": "Kashmir brochure",
+    "whenLabel": "When should the AI send it?",
+    "whenPlaceholder": "When they ask about Kashmir packages or want to see the hotels",
+    "whenHint": "In your own words. The AI reads this to choose.",
+    "save": "Save",
+    "saved": "Saved",
+    "noWhen": "Whenever it helps",
+    "when": "When {when}",
+    "sent": "{count, plural, =0 {not sent yet} one {sent in # chat} other {sent in # chats}}",
+    "use": "Send {title}",
+    "edit": "Change {title}",
+    "remove": "Remove {title}",
+    "removeTitle": "Remove {title}?",
+    "removeDescription": "The AI won't send it any more. Chats it went to keep it.",
+    "removeAction": "Remove"
+  },
+  "bookings": {
+    "title": "Bookings taken by the AI",
+    "description": "The customer said yes in the chat. Check the payment, then confirm.",
+    "count": "{count, plural, one {# booking} other {# bookings}}",
+    "status": {
+      "awaiting_payment": "Waiting for payment",
+      "proof_received": "Payment screenshot received",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled"
+    },
+    "package": "Package",
+    "dates": "Dates",
+    "travellers": "Travellers",
+    "pickup": "Pickup",
+    "amount": "Amount",
+    "taken": "Taken",
+    "noProof": "No payment screenshot yet. It shows here as soon as the customer sends one.",
+    "proof": "Payment proof {number} · {when}",
+    "confirm": "Confirm booking",
+    "cancel": "Cancel booking",
+    "confirmTitle": "Confirm this booking?",
+    "confirmDescription": "Do this once the payment is in your account. The lead moves to Won.",
+    "cancelTitle": "Cancel this booking?",
+    "cancelDescription": "The lead stays as it is; nothing is sent to the customer.",
+    "confirmed": "Booking confirmed",
+    "cancelled": "Booking cancelled"
   }
 }

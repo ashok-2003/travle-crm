@@ -18,6 +18,9 @@ export const TRIP_KIT_RECORD_TYPE = "trip_kit";
 /** The record type of a document the agency gives its AI (packages, prices, policies): a PDF or plain text. */
 export const AI_KNOWLEDGE_RECORD_TYPE = "ai_knowledge";
 export const aiKnowledgeFileTypes = ["application/pdf", "text/plain"] as const;
+/** The record type of a photo, video or PDF the agency's AI sends in chats (its media). */
+export const AI_MEDIA_RECORD_TYPE = "ai_media";
+export const aiMediaFileTypes = ["image/jpeg", "image/png", "video/mp4", "application/pdf"] as const;
 
 /** What a WhatsApp message may carry: the attachment types plus the video, voice notes and Office files people send. */
 export const whatsappContentTypes = [

@@ -96,6 +96,7 @@ model Lead {
   destination     Destination?            @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   timeline        LeadTimelineEntry[]
   notes           LeadNote[]
+  aiBookings      AiBooking[]
   quotes          Quote[]
   cadence         LeadCadence[]
   signals         LeadSignal[]
@@ -169,6 +170,8 @@ model LeadNote {
   /// 1-4000 characters (CHECK lead_note_body_length).
   body           String
   createdBy      String?      @map("created_by") @db.Uuid
+  /// Written by the AI agent from a chat, not by a person.
+  byAi           Boolean      @default(false) @map("by_ai")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)

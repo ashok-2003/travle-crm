@@ -78,6 +78,7 @@ export { sendTripKit, sendTripKitOnKeyword, tripKitFor, tripKitKeywordListener }
 export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";
 export {
+  kindOf,
   markAnswered,
   MESSAGE_QUEUED_EVENT,
   queueMedia,

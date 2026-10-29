@@ -4,7 +4,9 @@
 import {
   attachmentContentTypes,
   AI_KNOWLEDGE_RECORD_TYPE,
+  AI_MEDIA_RECORD_TYPE,
   aiKnowledgeFileTypes,
+  aiMediaFileTypes,
   TRIP_KIT_RECORD_TYPE,
   WHATSAPP_RECORD_TYPE,
   whatsappContentTypes,
@@ -57,5 +59,7 @@ export function allowedContentTypes(recordType: string): readonly string[] {
   if (recordType === WHATSAPP_RECORD_TYPE || recordType === TRIP_KIT_RECORD_TYPE) return whatsappContentTypes;
   // The AI reads what it is given: a PDF or plain words.
   if (recordType === AI_KNOWLEDGE_RECORD_TYPE) return aiKnowledgeFileTypes;
+  // What the AI sends is what WhatsApp takes as a photo, a video or a document.
+  if (recordType === AI_MEDIA_RECORD_TYPE) return aiMediaFileTypes;
   return spreadsheetRecordTypes.includes(recordType) ? spreadsheetContentTypes : attachmentContentTypes;
 }

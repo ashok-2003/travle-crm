@@ -86,6 +86,9 @@ export async function withdrawWhatsApp(
   ).flatMap((chat) => (chat.personId === null ? [] : [chat.personId]));
   inboxRows += (await tx.leadAiInsight.deleteMany({ where: { organizationId, lead: { personId: { in: personIds } } } }))
     .count;
+  // The bookings the AI took on their leads: the travellers' names and dates.
+  inboxRows += (await tx.aiBooking.deleteMany({ where: { organizationId, lead: { personId: { in: personIds } } } }))
+    .count;
   // A notice about a chat (a mention, a failed send, a waking snooze) carries the customer's name and links to the chat.
   for (const id of conversationIds) {
     inboxRows += await forgetRecordNotifications(tx, { organizationId, recordId: id, sourceEventIds: [] });
