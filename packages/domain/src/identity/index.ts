@@ -33,7 +33,7 @@ export {
   type NewOrganization,
 } from "./onboarding.js";
 export { organizationMembers } from "./organization-members.js";
-export type { MemberContact, OrganizationProfile } from "./organization-profile.js";
+export type { MemberContact, OrganizationProfile, OrganizationSlice } from "./organization-profile.js";
 export {
   findOrganizationByCode,
   findOrganizationRecord,

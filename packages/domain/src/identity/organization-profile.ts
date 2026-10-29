@@ -32,6 +32,25 @@ export async function organizationProfile(
   });
 }
 
+/** One organization as a scheduled job walks them: its id and the zone its days are counted in. */
+export interface OrganizationSlice {
+  id: string;
+  timeZone: string;
+}
+
+/** The organizations by id, a page after the given one, for jobs that act once for every agency (the morning push). */
+export async function organizationsPage(
+  database: IdentityDatabase,
+  input: { after?: string | undefined; limit: number },
+): Promise<OrganizationSlice[]> {
+  return database.client.organization.findMany({
+    where: input.after === undefined ? {} : { id: { gt: input.after } },
+    orderBy: { id: "asc" },
+    take: input.limit,
+    select: { id: true, timeZone: true },
+  });
+}
+
 /**
  * The organization's time zone, read inside the caller's transaction, so documents count their year and date in it
  * without taking it from the caller. The organization table has no row-level security, so this reads the id it is

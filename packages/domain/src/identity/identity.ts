@@ -37,8 +37,10 @@ import { chooseOwnPassword, hasOwnPasswordToChoose } from "./own-password.js";
 import {
   memberContacts,
   organizationProfile,
+  organizationsPage,
   type MemberContact,
   type OrganizationProfile,
+  type OrganizationSlice,
 } from "./organization-profile.js";
 import { createRole, deleteRole, listRoles, updateRole } from "./roles.js";
 import { seedStarterRoles } from "./seed-starter-roles.js";
@@ -93,6 +95,8 @@ export interface Identity {
   describeSignedInPerson(session: SignedInSession): Promise<MeOutput | null>;
   /** The organization's name, code, time zone and contact email, for modules that can't read it themselves. */
   organizationProfile(organizationId: string): Promise<OrganizationProfile | null>;
+  /** The organizations by id, a page after the given one: for a job that acts once for every agency. */
+  organizationsPage(input: { after?: string | undefined; limit: number }): Promise<OrganizationSlice[]>;
   /** Names and real email addresses of the organization's active members among userIds, for notifications. */
   memberContacts(organizationId: string, userIds: readonly string[]): Promise<MemberContact[]>;
   /** Active members whose role is the Owner's or sees leads, by name: who may own a lead or be given a task (R14). */
@@ -192,6 +196,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     resolveAccess: (userId, organizationId, session) => resolveAccess(database, userId, organizationId, session),
     describeSignedInPerson: (session) => describeSignedInPerson(database, session),
     organizationProfile: (organizationId) => organizationProfile(database, organizationId),
+    organizationsPage: (input) => organizationsPage(database, input),
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
     leadWorkers: (organizationId) => leadWorkers(database, organizationId),
     firstOwner: (organizationId) => firstOwner(database, organizationId),
