@@ -110,7 +110,10 @@
       "templates": "Templates",
       "uploading": "Sending {percent}%",
       "cancelUpload": "Cancel",
-      "dropHere": "Drop the file to attach it"
+      "dropHere": "Drop the file to attach it",
+      "openBlanks": "Fill in {blanks} before you send.",
+      "blankFilling": "Filling in the blanks",
+      "blankFailed": "The blanks couldn't be filled in. You can type them yourself."
     },
     "formerMember": "A former member",
     "failure": {
@@ -491,26 +494,26 @@
     }
   },
   "quickReplies": {
-    "title": "Quick replies",
-    "intro": "Saved answers your team inserts by typing / in a chat. '{name}', '{destination}', '{month}' and '{agent}' are filled from the chat. The quick reply with the shortcut \"payment\" is also the ₹ button: put your UPI id and bank details in it.",
-    "add": "Add a quick reply",
-    "addTitle": "Add a quick reply",
-    "editTitle": "Change the quick reply",
+    "title": "Message library",
+    "intro": "One set of messages for the whole team. Blanks like '{name}' are filled in for each customer, when a teammate types / in a chat or opens Messages on a lead. The message with the shortcut \"payment\" is also the ₹ button: put your UPI id and bank details in it.",
+    "add": "Add a message",
+    "addTitle": "Add a message",
+    "editTitle": "Change the message",
     "dialogDescription": "Your team types / and the shortcut to use it.",
     "save": "Save",
     "saving": "Saving",
-    "added": "Quick reply added",
-    "saved": "Quick reply saved",
+    "added": "Message added",
+    "saved": "Message saved",
     "edit": "Edit",
     "editNamed": "Edit {title}",
     "delete": "Delete",
     "deleteNamed": "Delete {title}",
     "deleteTitle": "Delete {title}?",
-    "deleteDescription": "Your team will no longer find it with /.",
-    "loadFailed": "The quick replies didn't load.",
+    "deleteDescription": "Your team will no longer find it.",
+    "loadFailed": "The messages didn't load.",
     "retry": "Try again",
-    "loading": "Loading the quick replies",
-    "empty": "No quick replies yet. Add the answers your team types most, and one called payment with your UPI and bank details.",
+    "loading": "Loading the messages",
+    "empty": "No messages yet. Add the answers your team sends most, and one called payment with your UPI and bank details.",
     "columns": {
       "shortcut": "Shortcut",
       "reply": "Reply",
@@ -521,12 +524,33 @@
       "shortcutHint": "Letters, digits and dashes, like price or payment. Your team types /price.",
       "title": "Title",
       "body": "Message",
-      "bodyHint": "You can use '{name}', '{destination}', '{month}' and '{agent}'.",
+      "bodyHint": "You can use '{name}', '{destination}', '{month}', '{agent}', '{amount}' and '{link}'. Each is filled in for the customer.",
       "problems": {
         "required": "Fill this in.",
         "shortcut": "Use letters, digits and dashes only, up to 30.",
-        "tooLong": "This is too long."
+        "tooLong": "This is too long.",
+        "unknownBlank": "One of the blanks isn't one we know. Use '{name}', '{destination}', '{month}', '{agent}', '{amount}' or '{link}'."
       }
+    },
+    "blanks": {
+      "heading": "Blanks",
+      "info": "Blanks are words in braces that become the customer's own details when a message is used.",
+      "name": "The customer's first name",
+      "destination": "Where they want to go",
+      "month": "The month they want to travel",
+      "agent": "Your own first name",
+      "amount": "The amount due on the lead's latest quote: its next unpaid instalment, else the whole",
+      "link": "A link to the lead's latest quote, made when the message is used"
+    },
+    "previewHeading": "How it reads",
+    "previewHint": "With a made-up customer, Asha, who wants Spiti in May.",
+    "sample": {
+      "name": "Asha",
+      "destination": "Spiti",
+      "month": "May",
+      "agent": "Meera",
+      "amount": "₹25,000.00",
+      "link": "https://example.in/p/quote"
     }
   },
   "tagsSettings": {

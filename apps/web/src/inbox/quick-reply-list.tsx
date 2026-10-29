@@ -2,8 +2,8 @@
 
 // Quick replies in the reply bar (sales inbox spec, section 5): typing "/" at the start opens the agency's saved answers
 // above the bar, narrowed as the shortcut is typed; the arrows move, Enter or a tap puts the answer in the box with its
-// blanks filled from the chat ({name}, {destination}, {month}, {agent}), and Esc closes it. The box keeps the focus.
-import type { ConversationHeader, QuickReply } from "@travel-crm/contracts/inbox";
+// blanks filled in (use-quick-reply-picker.ts), and Esc closes it. The box keeps the focus.
+import type { QuickReply } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import { ComposerPicker } from "./composer-picker";
 
@@ -20,21 +20,6 @@ export function matchingReplies(replies: QuickReply[], typed: string): QuickRepl
     (reply) => !reply.shortcut.startsWith(typed) && reply.title.toLowerCase().includes(typed),
   );
   return [...byShortcut, ...byTitle].slice(0, 8);
-}
-
-/** A reply's words with the chat's facts in its blanks; a blank with nothing to fill is left empty. */
-export function fillBlanks(
-  body: string,
-  facts: { header: ConversationHeader; agent: string; monthOf: (date: string) => string },
-): string {
-  const first = (name: string | null) => name?.split(/\s+/)[0] ?? "";
-  const values: Record<string, string> = {
-    name: first(facts.header.name),
-    destination: facts.header.trip.destination ?? "",
-    month: facts.header.trip.travelMonth === null ? "" : facts.monthOf(facts.header.trip.travelMonth),
-    agent: first(facts.agent),
-  };
-  return body.replace(/\{(name|destination|month|agent)\}/g, (_, key: string) => values[key] ?? "");
 }
 
 export function QuickReplyList({

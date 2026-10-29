@@ -7,6 +7,7 @@
 // become its caption (the chat's bar says how long free text may still be sent). Typing "/" opens the agency's quick replies, and
 // Payment details (₹) puts the agency's payment words in the box (the quick reply with the shortcut "payment").
 import {
+  blanksIn,
   MAX_WHATSAPP_SEND_BYTES,
   whatsappSendContentTypes,
   type ConversationHeader,
@@ -107,7 +108,9 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
       setText("");
     },
   };
-  const canSend = access.allowed && !reply.pending && (file !== null || words !== "");
+  // A blank left in the words (no quote yet, a typo) is the person's to fill in: nothing is sent with one in it.
+  const openBlanks = blanksIn(words);
+  const canSend = access.allowed && !reply.pending && openBlanks.length === 0 && (file !== null || words !== "");
 
   const submit = () => {
     if (!canSend) return;
@@ -206,7 +209,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
                   active={Math.min(quick.active, Math.max(quick.shown.length - 1, 0))}
                   listId={listId}
                   onPick={(chosen) => {
-                    quick.place(chosen, true);
+                    void quick.place(chosen, true);
                   }}
                 />
               )}
@@ -285,6 +288,11 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
           </div>
           {wide && <ToolsRow {...toolProps} />}
         </div>
+      )}
+      {openBlanks.length > 0 && (
+        <p role="status" className="text-label text-status-attention-ink">
+          {t("composer.openBlanks", { blanks: openBlanks.map((blank) => `{${blank}}`).join(", ") })}
+        </p>
       )}
       <WriteHint id={hintId} hint={access.hint} visible />
     </form>
