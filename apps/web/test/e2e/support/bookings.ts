@@ -41,7 +41,7 @@ export async function sentQuote(
         description: "Package per adult",
         detail: "",
         quantity: options.adults ?? 2,
-        unitPricePaise: (options.totalRupees ?? 100_000) * 50,
+        unitPricePaise: Math.round(((options.totalRupees ?? 100_000) * 100) / (options.adults ?? 2)),
       },
     ],
     inclusions: "",

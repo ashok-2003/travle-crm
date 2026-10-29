@@ -27,10 +27,9 @@ export function screenshotsOnly(): void {
 /** The address as the index shows it: ids as <id>, so the routes read the same in every run. */
 function routeOf(page: Page): string {
   const url = new URL(page.url());
-  return `${url.pathname}${url.search}`.replaceAll(
-    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
-    "<id>",
-  );
+  return `${url.pathname}${url.search}`
+    .replace(/^\/p\/[\w-]{20,}.*/, "/p/<token>")
+    .replaceAll(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<id>");
 }
 
 async function settled(page: Page, { skeleton }: { skeleton: boolean }): Promise<void> {
