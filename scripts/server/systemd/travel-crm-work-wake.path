@@ -1,0 +1,12 @@
+# The worker's wake-up: the api writes the time to this file when work for the worker came in (apps/api/src/work-signal.ts),
+# and this starts travel-crm-work-wake.service, which runs a worker the night stopped while work keeps coming. The file
+# is paths.sh's work_signal_file. Installed by scripts/server/work-hours.sh, unless its wake is off.
+[Unit]
+Description=travel-crm wake-up: watches for the api's signal that work came in
+
+[Path]
+PathChanged=/srv/travel-crm/work-signal/at
+Unit=travel-crm-work-wake.service
+
+[Install]
+WantedBy=paths.target

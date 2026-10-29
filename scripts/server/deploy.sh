@@ -56,6 +56,9 @@ else
 fi
 
 echo "Starting release $release"
+# The api writes its wake-up signal for the worker in this folder (scripts/server/work-hours.sh): made before the api
+# starts, as the api's user's, so Docker doesn't make it root's.
+install -d -o "$api_user_id" -g "$api_user_id" -m 0755 "$(dirname "$work_signal_file")"
 compose up --detach --wait --wait-timeout 300 --remove-orphans || {
   compose ps >&2
   compose logs --tail 50 >&2
