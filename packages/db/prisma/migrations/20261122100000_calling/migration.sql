@@ -52,6 +52,9 @@ ALTER TABLE "lead_call"
 ALTER TABLE "morning_push_setting"
   ADD CONSTRAINT morning_push_setting_time_format CHECK (local_time ~ '^([01][0-9]|2[0-3]):(00|15|30|45)$');
 
+-- A signal is kept as it came; the one thing a person does to it is mark it seen, so that column alone is theirs to change.
+GRANT UPDATE ("dismissed_at") ON TABLE "lead_signal" TO app_runtime;
+
 -- A call is soft-deleted (ADR 0004) and a setting is replaced: the runtime role deletes neither. Erasure and purge, the
 -- platform's, do.
 REVOKE DELETE ON TABLE "lead_call", "morning_push_setting" FROM app_runtime;

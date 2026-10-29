@@ -1,5 +1,5 @@
 // Isolation fixtures for sales execution: the automation settings, a lead's follow-up run, an automatic touch, a hot
-// signal and a ready package. The runtime role deletes none of them, and changes neither a touch nor a signal.
+// signal and a ready package. The runtime role deletes none of them, and changes no touch; a signal changes only to be marked seen.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
@@ -31,6 +31,8 @@ export const fixtures: OrgTableFixtures = {
         data: { leadId: (await aLead(tx)).id, kind: "asked_price", sourceKey: randomUUID(), at: new Date() },
       }),
     appendOnly: true,
+    // Today's Done on an opened quote.
+    updatableColumn: "dismissed_at",
   },
   quote_template: {
     create: (tx) => tx.quoteTemplate.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}`, title: "Trip" } }),

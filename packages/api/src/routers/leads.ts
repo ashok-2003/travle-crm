@@ -26,6 +26,7 @@ import {
   timelineInput,
   timelinePage,
 } from "@travel-crm/contracts/crm";
+import { filledMessage, messageForLeadInput } from "@travel-crm/contracts/inbox";
 import { task } from "@travel-crm/contracts/tasks";
 import {
   addLeadNote,
@@ -44,6 +45,7 @@ import {
   reassignLead,
   reopenLead,
 } from "@travel-crm/domain/crm";
+import { previewMessage, readyMessage } from "@travel-crm/domain/sales";
 import { z } from "zod";
 import { leadWorkerIds, leadWorkerIdsIfOther } from "../lead-workers.js";
 import { memberNames } from "../member-names.js";
@@ -116,6 +118,28 @@ export const leadsRouter = router({
         entry.kind === "created" ? (entry.assignment?.ownerUserId ?? null) : null,
       ]);
       return { ...page, people: await memberNames(ctx.identity, organizationId, mentioned) };
+    }),
+
+  /** A library message with this lead's facts in its blanks, for looking at (the quote's link is made when it is used). */
+  messagePreview: viewer
+    .input(messageForLeadInput)
+    .output(filledMessage)
+    .query(async ({ ctx, input }) => {
+      const { organizationId, userId } = ctx.member;
+      const agentName = (await memberNames(ctx.identity, organizationId, [userId]))[userId] ?? "";
+      return ctx.db.forOrg(organizationId, (tx) => previewMessage(tx, ctx.member, { ...input, agentName }));
+    }),
+
+  /** The same message made ready to send: the quote's link is made and put in. */
+  readyMessage: viewer
+    .input(messageForLeadInput)
+    .output(filledMessage)
+    .mutation(async ({ ctx, input }) => {
+      const { organizationId, userId } = ctx.member;
+      const agentName = (await memberNames(ctx.identity, organizationId, [userId]))[userId] ?? "";
+      return ctx.db.forOrg(organizationId, (tx) =>
+        readyMessage(tx, ctx.member, { ...input, agentName, appUrl: ctx.appUrl }, new Date()),
+      );
     }),
 
   /** Adds a lead, or a repeat enquiry to the person's open lead (the form's choice, R24). */

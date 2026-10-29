@@ -7,7 +7,7 @@ import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
 import { task } from "../tasks/tasks.js";
 
-export const todaySectionNames = ["overdue", "new-leads", "due-today"] as const;
+export const todaySectionNames = ["overdue", "payments-due", "new-leads", "quote-opened", "due-today"] as const;
 export const todaySectionName = z.enum(todaySectionNames);
 export type TodaySectionName = z.infer<typeof todaySectionName>;
 
@@ -26,21 +26,45 @@ export const todayItem = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("task"), task, lead: leadBrief.nullable() }),
   /** A lead still in New: since when it has waited. */
   z.object({ kind: z.literal("new-lead"), lead: leadBrief, waitingSince: z.iso.datetime() }),
+  /** A customer opened the quote over a day ago and has been quiet since (release 5). */
+  z.object({
+    kind: z.literal("quote-opened"),
+    lead: leadBrief,
+    quote: z.object({ id: recordId, title: z.string() }),
+    opens: z.int(),
+    lastOpenedAt: z.iso.datetime(),
+  }),
+  /** An instalment of an accepted quote that is due soon or missed, not yet covered by what was paid (release 5). */
+  z.object({
+    kind: z.literal("payment-due"),
+    lead: leadBrief,
+    installmentId: recordId,
+    quoteId: recordId,
+    amountPaise: z.int(),
+    dueOn: calendarDate,
+    missed: z.boolean(),
+  }),
 ]);
 export type TodayItem = z.infer<typeof todayItem>;
 
 export const todaySummary = z.object({
   /** Today in the agency's zone. */
   day: calendarDate,
-  counts: z.object({ overdue: z.int(), newLeads: z.int(), dueToday: z.int() }),
-  /** The first overdue, the oldest new lead and the next due today, as far as there are any. */
-  top: z.array(todayItem).max(3),
+  counts: z.object({
+    overdue: z.int(),
+    newLeads: z.int(),
+    dueToday: z.int(),
+    quoteOpened: z.int(),
+    paymentsDue: z.int(),
+  }),
+  /** The first of each section, as far as there are any, in the order Today shows them. */
+  top: z.array(todayItem).max(5),
 });
 export type TodaySummary = z.infer<typeof todaySummary>;
 
 export const todaySectionInput = z.strictObject({
   section: todaySectionName,
-  /** The last item's id (a task's or a lead's) of the previous page. */
+  /** The last item's id (a task's, a lead's, a quote's or an instalment's) of the previous page. */
   after: recordId.optional(),
   limit: z.int().min(1).max(50).default(20),
 });
@@ -48,3 +72,6 @@ export type TodaySectionInput = z.infer<typeof todaySectionInput>;
 
 export const todaySectionPage = z.object({ items: z.array(todayItem), nextCursor: recordId.nullable() });
 export type TodaySectionPage = z.infer<typeof todaySectionPage>;
+
+export const dismissQuoteOpenedInput = z.strictObject({ leadId: recordId });
+export type DismissQuoteOpenedInput = z.infer<typeof dismissQuoteOpenedInput>;

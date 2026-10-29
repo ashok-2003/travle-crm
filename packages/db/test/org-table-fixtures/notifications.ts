@@ -19,6 +19,7 @@ export const fixtures: OrgTableFixtures = {
   },
   morning_push_setting: {
     create: (tx) => tx.morningPushSetting.create({ data: { userId: someone } }),
+    undeletable: true,
   },
   push_subscription: {
     create: (tx) =>

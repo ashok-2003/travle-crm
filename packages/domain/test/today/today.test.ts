@@ -2,7 +2,7 @@
 // waiting for a reply, split at the agency's midnight, with the top three for Home, each section 20 a page, and each
 // lead's name, phone and trip line beside its task.
 import { randomUUID } from "node:crypto";
-import type { TodayItem } from "@travel-crm/contracts/today";
+import type { TodayItem, TodaySectionName } from "@travel-crm/contracts/today";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
@@ -29,7 +29,7 @@ describe("today", () => {
   const summaryOf = (access: MemberAccess, now: Date) => inOrg((tx) => todaySummary(tx, access, now));
   const sectionOf = (
     access: MemberAccess,
-    section: "overdue" | "new-leads" | "due-today",
+    section: TodaySectionName,
     now: Date,
     page: { after?: string; limit?: number } = {},
   ) => inOrg((tx) => todaySection(tx, access, { section, limit: 20, ...page }, now));
@@ -76,7 +76,7 @@ describe("today", () => {
 
     const summary = await summaryOf(me, now);
     expect(summary.day).toBe("2026-10-17");
-    expect(summary.counts).toEqual({ overdue: 2, newLeads: 1, dueToday: 1 });
+    expect(summary.counts).toEqual({ overdue: 2, newLeads: 1, dueToday: 1, quoteOpened: 0, paymentsDue: 0 });
     expect(idsOf((await sectionOf(me, "overdue", now)).items)).toEqual([ids.overdueFollowUp, ids.overdueTask]);
     expect(idsOf((await sectionOf(me, "new-leads", now)).items)).toEqual([ids.newLead]);
     expect(idsOf((await sectionOf(me, "due-today", now)).items)).toEqual([ids.dueToday]);
@@ -141,7 +141,7 @@ describe("today", () => {
     const nothingOverdue = later(-3);
     expect(idsOf((await summaryOf(me, nothingOverdue)).top)).toEqual([ids.oldestLead, ids.firstOverdue]);
     expect(await summaryOf(aSalesperson(), now)).toMatchObject({
-      counts: { overdue: 0, newLeads: 0, dueToday: 0 },
+      counts: { overdue: 0, newLeads: 0, dueToday: 0, quoteOpened: 0, paymentsDue: 0 },
       top: [],
     });
   });
