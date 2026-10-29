@@ -41,6 +41,7 @@ export {
   DEFAULT_FOLLOW_UP_TITLE,
   DIALS_PER_MINUTE,
   editCall,
+  limitDials,
   logCall,
   sendCallToMyPhone,
   type DialLimiter,

@@ -19,7 +19,7 @@ import { useHotLeads } from "./use-sales";
 function HotRow({ lead }: { lead: HotLead }) {
   const t = useTranslations("sales.hot");
   return (
-    <Item size="sm">
+    <Item size="sm" role="listitem">
       <ItemContent>
         <ItemTitle>
           <TextLink inline href={leadRoute(lead.leadId)}>

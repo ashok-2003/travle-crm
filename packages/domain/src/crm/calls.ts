@@ -129,25 +129,24 @@ export interface DialLimiter {
   hit(key: string, rule: { limit: number; windowSeconds: number }, now?: Date): Promise<{ allowed: boolean }>;
 }
 
+/** Counts one dial against the person's minute. The limiter has its own transaction, so call this outside any forOrg(). */
+export async function limitDials(limiter: DialLimiter | undefined, userId: string, now: Date): Promise<void> {
+  const result = await limiter?.hit(`call-dial:${userId}`, { limit: DIALS_PER_MINUTE, windowSeconds: 60 }, now);
+  if (result?.allowed === false) {
+    throw new DomainError("CONFLICT", "DIALING_TOO_FAST", "Too many calls sent in a minute: wait a little");
+  }
+}
+
 /**
  * Pushes "Call {name}" to the signed-in person's own devices, linking to the page that dials. Needs a phone number on
- * the lead and a device registered for push; limited to ten a minute. The push holds the name, never the number.
+ * the lead and a device registered for push. The push holds the name, never the number.
  */
-export async function sendCallToMyPhone(
-  tx: OrgTx,
-  access: MemberAccess,
-  leadId: string,
-  limiter: DialLimiter | undefined,
-  now: Date,
-): Promise<void> {
+export async function sendCallToMyPhone(tx: OrgTx, access: MemberAccess, leadId: string): Promise<void> {
   const target = await callTargetOf(tx, access, leadId);
   if (target.phone === null) throw new DomainError("CONFLICT", "LEAD_HAS_NO_PHONE", "This lead has no phone number");
   if ((await tx.pushSubscription.count({ where: { userId: access.userId } })) === 0) {
     throw new DomainError("CONFLICT", "NO_PUSH_DEVICE", "Turn on notifications on your phone first");
   }
-  const result = await limiter?.hit(`call-dial:${access.userId}`, { limit: DIALS_PER_MINUTE, windowSeconds: 60 }, now);
-  if (result?.allowed === false)
-    throw new DomainError("CONFLICT", "DIALING_TOO_FAST", "Too many calls sent in a minute: wait a little");
   // The system sends it, because notify() leaves the acting person out and this one is for them.
   await notify(tx, systemActor(access.organizationId), {
     recipientUserIds: [access.userId],

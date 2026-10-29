@@ -12,6 +12,7 @@ import {
   DEFAULT_FOLLOW_UP_TITLE,
   editCall,
   getLead,
+  limitDials,
   listLeadTimeline,
   logCall,
   sendCallToMyPhone,
@@ -151,13 +152,12 @@ describe("calls on a lead", () => {
   describe("send to my phone", () => {
     const person = (access: MemberAccess) =>
       inOrg((tx) => tx.pushSubscription.count({ where: { userId: access.userId } }));
-    const allowed = { hit: () => Promise.resolve({ allowed: true }) };
 
     it("needs a phone registered for push", async () => {
       const lead = await aLeadOf(salesperson);
-      await expect(
-        inOrg((tx) => sendCallToMyPhone(tx, salesperson, lead.id, allowed, new Date())),
-      ).rejects.toMatchObject({ reason: "NO_PUSH_DEVICE" });
+      await expect(inOrg((tx) => sendCallToMyPhone(tx, salesperson, lead.id))).rejects.toMatchObject({
+        reason: "NO_PUSH_DEVICE",
+      });
       expect(await person(salesperson)).toBe(0);
     });
 
@@ -173,7 +173,7 @@ describe("calls on a lead", () => {
           },
         }),
       );
-      await inOrg((tx) => sendCallToMyPhone(tx, salesperson, lead.id, allowed, new Date()));
+      await inOrg((tx) => sendCallToMyPhone(tx, salesperson, lead.id));
       const rows = await inOrg((tx) =>
         tx.notification.findMany({ where: { recipientUserId: salesperson.userId, kind: "call.dial" } }),
       );
@@ -184,13 +184,19 @@ describe("calls on a lead", () => {
       expect(JSON.stringify(events)).toContain(rows[0]?.id);
     });
 
-    it("is limited by the rate limiter", async () => {
-      const lead = await aLeadOf(salesperson);
-      await expect(
-        inOrg((tx) =>
-          sendCallToMyPhone(tx, salesperson, lead.id, { hit: () => Promise.resolve({ allowed: false }) }, new Date()),
-        ),
-      ).rejects.toMatchObject({ reason: "DIALING_TOO_FAST" });
+    it("is limited by the rate limiter, counted for the person", async () => {
+      const keys: string[] = [];
+      const refusing = {
+        hit: (key: string) => {
+          keys.push(key);
+          return Promise.resolve({ allowed: false });
+        },
+      };
+      await expect(limitDials(refusing, salesperson.userId, new Date())).rejects.toMatchObject({
+        reason: "DIALING_TOO_FAST",
+      });
+      expect(keys).toEqual([`call-dial:${salesperson.userId}`]);
+      await expect(limitDials(undefined, salesperson.userId, new Date())).resolves.toBeUndefined();
     });
 
     it("refuses a lead with no phone number", async () => {
@@ -199,9 +205,9 @@ describe("calls on a lead", () => {
         await tx.person.update({ where: { id: made.personId }, data: { phoneE164: null, email: "x@example.test" } });
         return made;
       });
-      await expect(
-        inOrg((tx) => sendCallToMyPhone(tx, salesperson, lead.id, allowed, new Date())),
-      ).rejects.toMatchObject({ reason: "LEAD_HAS_NO_PHONE" });
+      await expect(inOrg((tx) => sendCallToMyPhone(tx, salesperson, lead.id))).rejects.toMatchObject({
+        reason: "LEAD_HAS_NO_PHONE",
+      });
     });
   });
 });

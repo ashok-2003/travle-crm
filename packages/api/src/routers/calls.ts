@@ -10,7 +10,7 @@ import {
   logCallInput,
   sendToMyPhoneInput,
 } from "@travel-crm/contracts/crm";
-import { callTargetOf, deleteCall, editCall, logCall, sendCallToMyPhone } from "@travel-crm/domain/crm";
+import { callTargetOf, deleteCall, editCall, limitDials, logCall, sendCallToMyPhone } from "@travel-crm/domain/crm";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
@@ -31,9 +31,9 @@ export const callsRouter = router({
     .meta({ lifecycle: "always" })
     .input(sendToMyPhoneInput)
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
-        sendCallToMyPhone(tx, ctx.member, input.leadId, ctx.rateLimiter, new Date()),
-      );
+      // The limiter has a transaction of its own: counted before the organization's.
+      await limitDials(ctx.rateLimiter, ctx.member.userId, new Date());
+      await ctx.db.forOrg(ctx.member.organizationId, (tx) => sendCallToMyPhone(tx, ctx.member, input.leadId));
     }),
 
   /** Writes a call up on the lead, with the next follow-up if one is asked for. */
