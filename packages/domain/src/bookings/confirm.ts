@@ -8,10 +8,10 @@ import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
-import { addDays, calendarDateIn, DomainError, parseCalendarDate } from "../kernel/index.js";
+import { addDays, calendarDateIn, DomainError, parseCalendarDate, type Actor } from "../kernel/index.js";
 import { finishTasks } from "../tasks/index.js";
 import { rebuildReminders } from "./reminders.js";
-import { assertOpen, asDate, dayOf, findBookingForChange, type BookingRow } from "./rows.js";
+import { assertOpen, asDate, dayOf, findBookingForChange, findBookingForSystem, type BookingRow } from "./rows.js";
 import { bookingSettingsOf } from "./settings.js";
 import { recordBookingEvent } from "./timeline.js";
 
@@ -62,13 +62,28 @@ export async function confirmBooking(
   now: Date,
 ): Promise<void> {
   const booking = await findBookingForChange(tx, access, input.bookingId);
+  await confirmRequested(tx, access, booking, input.installments, now);
+}
+
+/** Confirms a booking that waits for the agency, as `actor`, whoever may see it: for what confirms one by itself (the AI's). */
+export async function confirmBookingAs(tx: OrgTx, actor: Actor, bookingId: string, now: Date): Promise<void> {
+  await confirmRequested(tx, actor, await findBookingForSystem(tx, bookingId, true), undefined, now);
+}
+
+async function confirmRequested(
+  tx: OrgTx,
+  actor: Actor,
+  booking: BookingRow,
+  installments: ScheduleRow[] | undefined,
+  now: Date,
+): Promise<void> {
   if (booking.status === "confirmed") return;
   if (booking.status !== "requested") {
     throw new DomainError("CONFLICT", "BOOKING_NOT_REQUESTED", "Only a requested booking is confirmed");
   }
   const existing = await tx.quoteInstallment.count({ where: { quoteId: booking.quoteId } });
   if (existing === 0) {
-    const rows = input.installments ?? (await offeredSchedule(tx, booking, now));
+    const rows = installments ?? (await offeredSchedule(tx, booking, now));
     assertAddsUp(rows, Number(booking.quote.totalPaise));
     for (const row of rows) {
       await tx.quoteInstallment.create({
@@ -83,18 +98,18 @@ export async function confirmBooking(
   }
   await tx.booking.update({
     where: { id: booking.id },
-    data: { status: "confirmed", confirmedAt: now, confirmedBy: access.userId },
+    data: { status: "confirmed", confirmedAt: now, confirmedBy: actor.userId },
   });
-  await finishTasks(tx, access, [booking.confirmTaskId], "done", now);
+  await finishTasks(tx, actor, [booking.confirmTaskId], "done", now);
   await rebuildReminders(tx, booking.id, now);
-  await recordAudit(tx, access, {
+  await recordAudit(tx, actor, {
     action: "booking.confirmed",
     entityType: "booking",
     entityId: booking.id,
     before: { status: "requested" },
     after: { status: "confirmed" },
   });
-  await recordBookingEvent(tx, access, { leadId: booking.leadId, bookingId: booking.id, event: "confirmed" });
+  await recordBookingEvent(tx, actor, { leadId: booking.leadId, bookingId: booking.id, event: "confirmed" });
   await publishEvent(tx, { type: "booking.confirmed", payload: { bookingId: booking.id } });
 }
 

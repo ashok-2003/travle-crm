@@ -7,7 +7,7 @@ import { aiBookingList, aiBookingStatus, type AgentAnswer, type AiBooking } from
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
-import { confirmAiBooking } from "../bookings/index.js";
+import { linkAiBooking } from "../bookings/index.js";
 import { addAiLeadNote, advanceLeadStage, noticeKey } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
@@ -84,14 +84,10 @@ export async function takeBooking(
     await tx.aiBooking.update({ where: { id: open.id }, data: { details: merged } });
     return open.id;
   }
-  // A lead has one open booking: a second yes at the same moment finds the first (the unique index says so, and a conflict
-  // is skipped rather than raised, which would end the transaction).
-  const [row] = await tx.aiBooking.createManyAndReturn({
-    data: [{ leadId: input.leadId, conversationId: input.conversationId, summary, details }],
-    skipDuplicates: true,
+  const row = await tx.aiBooking.create({
+    data: { leadId: input.leadId, conversationId: input.conversationId, summary, details },
     select: { id: true },
   });
-  if (row === undefined) return (await openBookingOf(tx, input.leadId))?.id ?? null;
   await advanceLeadStage(tx, actor, { leadId: input.leadId, stage: "booking_requested" }, input.now);
   await addAiLeadNote(tx, actor, input.leadId, noteOf(summary, details));
   const lead = await tx.lead.findUnique({
@@ -213,49 +209,47 @@ export async function bookingsOfLead(tx: OrgTx, leadId: string): Promise<AiBooki
   );
 }
 
-/**
- * A person decides: the payment is in (the booking is made and confirmed, the payment recorded, the lead won by that), the
- * booking is off, or it waits for payment again. The row is locked, a cancelled booking stays cancelled, and a confirmed one
- * is changed on its booking (cancelled there, with its charge and refund), not here.
- */
+const textsOf = (details: unknown) => {
+  const found = (details ?? {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  return {
+    package: text(found.package),
+    dates: text(found.dates),
+    travellers: text(found.travellers),
+    pickup: text(found.pickup),
+    amountPaise: paiseFromRupeesText(text(found.amount)) ?? 0,
+  };
+};
+
+/** A person decides: the payment is in (the lead is won), the booking is off, or it waits for payment again. */
 export async function setBookingStatus(
   tx: OrgTx,
   access: MemberAccess,
   input: { bookingId: string; status: "confirmed" | "cancelled" | "awaiting_payment" },
   now: Date,
 ): Promise<{ leadId: string }> {
-  await tx.$queryRaw`SELECT id FROM ai_booking WHERE id = ${input.bookingId}::uuid FOR UPDATE`;
   const row = await tx.aiBooking.findUnique({
     where: { id: input.bookingId },
-    select: { id: true, leadId: true, status: true, summary: true, details: true, proofMessageIds: true },
+    select: { id: true, leadId: true, summary: true, details: true, proofMessageIds: true, bookingId: true },
   });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-  if (row.status === input.status) return { leadId: row.leadId };
-  if (row.status === "cancelled") {
-    throw new DomainError("CONFLICT", "AI_BOOKING_CANCELLED", "This booking was cancelled and can't be changed");
-  }
-  if (row.status === "confirmed") {
-    throw new DomainError(
-      "CONFLICT",
-      "AI_BOOKING_CONFIRMED",
-      "This booking is confirmed: change it on the booking itself",
-    );
-  }
-  let bookingId: string | null = null;
-  if (input.status === "confirmed") {
-    const amount = (row.details as Record<string, unknown>).amount;
-    bookingId = await confirmAiBooking(
-      tx,
-      access,
-      {
-        leadId: row.leadId,
-        summary: row.summary,
-        amountPaise: typeof amount === "string" ? (paiseFromRupeesText(amount) ?? 0) : 0,
-        proofMessageIds: row.proofMessageIds,
-      },
-      now,
-    );
-  }
+  // Confirming also makes (or finds) the release 6 booking for it: the lead's accepted quote's, or one made from what the AI took
+  // down. Confirming again finds the same one.
+  const bookingId =
+    input.status === "confirmed"
+      ? await linkAiBooking(
+          tx,
+          access,
+          {
+            leadId: row.leadId,
+            summary: row.summary,
+            details: textsOf(row.details),
+            proofMessageIds: row.proofMessageIds,
+            linkedBookingId: row.bookingId,
+          },
+          now,
+        )
+      : null;
   await tx.aiBooking.update({
     where: { id: row.id },
     data: {
@@ -265,6 +259,7 @@ export async function setBookingStatus(
       ...(bookingId === null ? {} : { bookingId }),
     },
   });
+  if (input.status === "confirmed") await advanceLeadStage(tx, access, { leadId: row.leadId, stage: "won" }, now);
   await recordAudit(tx, access, {
     action: "ai.booking-decided",
     entityType: "ai_booking",

@@ -53,6 +53,31 @@ export async function createBookingFromQuote(
   const existing = await tx.booking.findFirst({ where: { quoteId: quote.id }, select: { id: true } });
   if (existing !== null) return existing.id;
   const actor = systemActor(input.organizationId);
+  // A booking the AI took stands on a quote made from a chat: the real quote accepted now takes its place, so the lead keeps one.
+  const chat = await tx.booking.findFirst({
+    where: { leadId: quote.leadId, quotePlaceholder: true, status: { in: ["requested", "confirmed"] } },
+    select: { id: true, quoteId: true },
+  });
+  if (chat !== null) {
+    const endDay = lastDayOf(quote.startDate, quote.days);
+    await tx.booking.update({
+      where: { id: chat.id },
+      data: {
+        quoteId: quote.id,
+        quotePlaceholder: false,
+        startDate: quote.startDate,
+        endDate: endDay === null ? null : new Date(`${endDay}T00:00:00Z`),
+      },
+    });
+    await tx.quote.update({ where: { id: chat.quoteId }, data: { status: "replaced", replacedById: quote.id } });
+    await recordAudit(tx, actor, {
+      action: "booking.quote-replaced",
+      entityType: "booking",
+      entityId: chat.id,
+      after: { quoteId: quote.id },
+    });
+    return chat.id;
+  }
   const timeZone = await organizationTimeZone(tx, input.organizationId);
   const number = await nextDocumentNumber(tx, { prefix: BOOKING_DOCUMENT_PREFIX, year: yearIn(now, timeZone) });
   const settings = await bookingSettingsOf(tx);

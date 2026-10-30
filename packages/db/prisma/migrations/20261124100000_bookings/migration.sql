@@ -34,6 +34,8 @@ CREATE TABLE "booking" (
     "cancelled_by" UUID,
     "cancel_reason" TEXT,
     "charge_paise" BIGINT,
+    "quote_placeholder" BOOLEAN NOT NULL DEFAULT false,
+    "proof_message_ids" UUID[] DEFAULT ARRAY[]::UUID[],
     "confirm_task_id" UUID,
     "reminders_paused_at" TIMESTAMPTZ(6),
     "feedback_requested_at" TIMESTAMPTZ(6),
@@ -116,7 +118,6 @@ CREATE TABLE "payment_claim" (
     "decided_by" UUID,
     "decided_at" TIMESTAMPTZ(6),
     "task_id" UUID,
-    "proof_message_ids" UUID[] DEFAULT ARRAY[]::UUID[],
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "payment_claim_pkey" PRIMARY KEY ("id")
@@ -284,19 +285,6 @@ CREATE UNIQUE INDEX "cancellation_policy_rule_organization_id_id_key" ON "cancel
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cancellation_policy_rule_days" ON "cancellation_policy_rule"("organization_id", "days_before_min");
-
--- One open booking taken by the AI to a lead: where production already holds more, the older ones are cancelled (the newest
--- is the one the customer last said yes to) so the unique index below can be made.
-UPDATE "ai_booking" SET "status" = 'cancelled'
-WHERE "status" IN ('awaiting_payment', 'proof_received')
-  AND EXISTS (
-    SELECT 1 FROM "ai_booking" newer
-    WHERE newer."organization_id" = "ai_booking"."organization_id" AND newer."lead_id" = "ai_booking"."lead_id"
-      AND newer."status" IN ('awaiting_payment', 'proof_received')
-      AND (newer."created_at", newer."id") > ("ai_booking"."created_at", "ai_booking"."id"));
-
--- CreateIndex
-CREATE UNIQUE INDEX "ai_booking_one_open" ON "ai_booking"("organization_id", "lead_id") WHERE (status = ANY (ARRAY['awaiting_payment'::text, 'proof_received'::text]));
 
 -- AddForeignKey
 ALTER TABLE "ai_booking" ADD CONSTRAINT "ai_booking_organization_id_booking_id_fkey" FOREIGN KEY ("organization_id", "booking_id") REFERENCES "booking"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;

@@ -1,81 +1,81 @@
-// A booking the AI took, confirmed by a person (release 6 meets the AI's bookings): the customer said yes in a chat and sent
-// proof of payment, and the agency confirms it. That makes the real thing, through release 6's own functions: a quote for what
-// was agreed, accepted; the booking made from it and confirmed (its payments due, its reminders, its task closed); and, when
-// there is an amount, the customer's payment claim carrying their proof messages, checked and recorded as a payment, which is
-// what moves the lead to Won. Nothing here moves a stage by hand, so the booking's own permissions, row lock and status
-// guard apply, and a cancelled one stays cancelled.
+// A booking the AI took, confirmed by a person (release 6 meets the AI's bookings): the confirmation, which still wins the lead
+// by its own rules, also makes (or finds) the release 6 booking, confirmed. When the lead has an accepted quote the booking is
+// that quote's (made now if it has none); otherwise the booking stands on a quote made from what the chat agreed (its trip,
+// travellers and amount when written, the dates, pickup and package in its notes), which a real quote accepted later replaces.
+// The customer's proof messages are kept on the booking. Confirming again finds the same booking.
 import type { OrgTx } from "@travel-crm/db";
-import type { MemberAccess } from "../identity/index.js";
-import { createQuote, setQuoteStatus } from "../quotes/index.js";
-import { confirmClaim, submitPaymentClaim } from "./claims.js";
-import { confirmBooking } from "./confirm.js";
+import type { Actor } from "../kernel/index.js";
+import { agreedQuote } from "../quotes/index.js";
+import { confirmBookingAs } from "./confirm.js";
 import { createBookingFromQuote } from "./create-booking.js";
 
 export interface AiBookingFacts {
   leadId: string;
   /** What was booked, in a line. */
   summary: string;
-  /** What the AI wrote as the amount, in paise; 0 when it wrote none the agency can read. */
-  amountPaise: number;
+  details: { package: string; dates: string; travellers: string; pickup: string; amountPaise: number };
   /** The customer's chat messages sent as proof of payment. */
   proofMessageIds: readonly string[];
+  /** The booking an earlier confirmation made, if any. */
+  linkedBookingId: string | null;
 }
 
-/** Makes and confirms the booking, and records the payment the customer's proof stands for. Returns the booking's id. */
-export async function confirmAiBooking(
-  tx: OrgTx,
-  access: MemberAccess,
-  facts: AiBookingFacts,
-  now: Date,
-): Promise<string> {
-  const quote = await createQuote(
-    tx,
-    access,
-    {
-      leadId: facts.leadId,
-      title: facts.summary.slice(0, 120),
-      startDate: null,
-      adults: 1,
-      children: 0,
-      days: [],
-      items:
-        facts.amountPaise > 0
-          ? [{ description: facts.summary.slice(0, 200), detail: "", quantity: 1, unitPricePaise: facts.amountPaise }]
-          : [],
-      inclusions: "",
-      exclusions: "",
-      notes: "",
-      taxRateBasisPoints: 0,
-      placeOfSupply: null,
-    },
-    { supplierStateCode: null, now },
-  );
-  await setQuoteStatus(tx, access, { quoteId: quote.id, status: "sent" }, now);
-  await setQuoteStatus(tx, access, { quoteId: quote.id, status: "accepted" }, now);
-  const bookingId = await createBookingFromQuote(
-    tx,
-    { organizationId: access.organizationId, quoteId: quote.id, confirmed: false },
-    now,
-  );
-  if (bookingId === null) throw new Error("The accepted quote made no booking");
-  await confirmBooking(tx, access, { bookingId }, now);
-  if (facts.amountPaise > 0) {
-    const claimId = await submitPaymentClaim(
-      tx,
-      {
-        organizationId: access.organizationId,
-        quoteId: quote.id,
-        claim: {
-          installmentId: null,
-          amountPaise: facts.amountPaise,
-          reference: facts.proofMessageIds.length > 0 ? "Proof sent on WhatsApp" : "Confirmed by the agency",
-          screenshotAttachmentId: null,
+/** How many travellers the AI wrote down: the first whole number in its words, one if there is none. */
+export const travellersOf = (text: string): number => {
+  const found = /\d+/.exec(text);
+  return Math.min(500, Math.max(1, found === null ? 1 : Number(found[0])));
+};
+
+const notesOf = (facts: AiBookingFacts) =>
+  [
+    "Taken in a WhatsApp chat by the AI.",
+    facts.details.package === "" ? "" : `Package: ${facts.details.package}`,
+    facts.details.dates === "" ? "" : `Dates: ${facts.details.dates}`,
+    facts.details.travellers === "" ? "" : `Travellers: ${facts.details.travellers}`,
+    facts.details.pickup === "" ? "" : `Pickup: ${facts.details.pickup}`,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+
+/** The booking for an AI request being confirmed: the one already linked, the lead's accepted quote's, or a new one. */
+export async function linkAiBooking(tx: OrgTx, actor: Actor, facts: AiBookingFacts, now: Date): Promise<string> {
+  let bookingId = facts.linkedBookingId;
+  if (bookingId === null) {
+    const accepted = await tx.quote.findFirst({
+      where: { leadId: facts.leadId, status: "accepted" },
+      orderBy: [{ acceptedAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    });
+    const quoteId =
+      accepted?.id ??
+      (await agreedQuote(
+        tx,
+        actor,
+        {
+          leadId: facts.leadId,
+          title: facts.summary,
+          travellers: travellersOf(facts.details.travellers),
+          notes: notesOf(facts),
+          amountPaise: facts.details.amountPaise,
         },
-        fromAi: { proofMessageIds: facts.proofMessageIds },
-      },
+        now,
+      ));
+    bookingId = await createBookingFromQuote(
+      tx,
+      { organizationId: actor.organizationId, quoteId, confirmed: false },
       now,
     );
-    await confirmClaim(tx, access, { claimId }, now);
+    if (bookingId === null) throw new Error("The accepted quote made no booking");
+    if (accepted === null) await tx.booking.update({ where: { id: bookingId }, data: { quotePlaceholder: true } });
   }
+  const booking = await tx.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    select: { status: true, proofMessageIds: true },
+  });
+  if (booking.status === "requested") await confirmBookingAs(tx, actor, bookingId, now);
+  await tx.booking.update({
+    where: { id: bookingId },
+    data: { proofMessageIds: [...new Set([...booking.proofMessageIds, ...facts.proofMessageIds])] },
+  });
   return bookingId;
 }

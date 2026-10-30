@@ -32,6 +32,8 @@ export const bookingColumns = {
   feedbackRequestedAt: true,
   tripPdfDocumentId: true,
   tripPdfFingerprint: true,
+  proofMessageIds: true,
+  quotePlaceholder: true,
   createdAt: true,
   lead: { select: { ownerUserId: true, personId: true, person: { select: { name: true, phoneE164: true } } } },
   quote: {

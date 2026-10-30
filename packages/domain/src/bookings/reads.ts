@@ -324,5 +324,7 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
         ? null
         : { documentId: tripPdf.id, number: tripPdf.number, upToDate: booking.tripPdfFingerprint === stamp },
     detailsCutoffOn: await detailsCutoffOf(tx, booking),
+    proofMessageIds: booking.proofMessageIds,
+    quotePlaceholder: booking.quotePlaceholder,
   });
 }

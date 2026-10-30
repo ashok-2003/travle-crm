@@ -269,6 +269,10 @@ export const bookingDetail = z.object({
   tripUpdatesAgreed: z.boolean(),
   tripPdf: z.object({ documentId: recordId, number: z.string(), upToDate: z.boolean() }).nullable(),
   detailsCutoffOn: calendarDate.nullable(),
+  /** The customer's chat messages the AI took as proof of payment, opened from the inbox's media. */
+  proofMessageIds: z.array(recordId),
+  /** The quote was made from a chat the AI took, not sent: a real quote accepted later takes its place. */
+  quotePlaceholder: z.boolean(),
 });
 export type BookingDetail = z.infer<typeof bookingDetail>;
 
