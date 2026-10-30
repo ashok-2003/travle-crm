@@ -35,18 +35,22 @@ export function leadSheetBaselineFingerprints(db: Database, hashes: SheetsHashes
     });
     const readings = read.rows.map((row) => readSheetRow(row, context));
     // An erased customer's contact comes back as nothing: the row is known as erased, and no lead is ever made of it (S43).
-    const erasedKeys = await db.forOrg(sheet.organizationId, (tx) =>
-      findTombstones(
-        tx,
-        hashes,
-        readings.flatMap(({ contacts }) => [
-          ...(contacts.phone === null ? [] : [{ kind: "phone" as const, value: contacts.phone }]),
-          ...(contacts.email === null ? [] : [{ kind: "email" as const, value: contacts.email }]),
-          ...(contacts.instagramHandle === null
-            ? []
-            : [{ kind: "instagram" as const, value: contacts.instagramHandle }]),
-        ]),
-      ),
+    const erasedKeys = await db.forOrg(
+      sheet.organizationId,
+      (tx) =>
+        findTombstones(
+          tx,
+          hashes,
+          readings.flatMap(({ contacts }) => [
+            ...(contacts.phone === null ? [] : [{ kind: "phone" as const, value: contacts.phone }]),
+            ...(contacts.email === null ? [] : [{ kind: "email" as const, value: contacts.email }]),
+            ...(contacts.instagramHandle === null
+              ? []
+              : [{ kind: "instagram" as const, value: contacts.instagramHandle }]),
+          ]),
+        ),
+      // A sheet of tens of thousands of rows asks in many statements: more than the default five seconds.
+      { timeout: 30_000, maxWait: 10_000 },
     );
     return readings.map((reading) => {
       const { phone, email, instagramHandle } = reading.contacts;
