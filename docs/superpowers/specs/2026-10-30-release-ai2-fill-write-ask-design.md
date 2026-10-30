@@ -193,3 +193,31 @@ regional languages beyond Hindi/Hinglish; the traveller-details form fill (scope
 
 ## OWNER ANSWERS (2026-10-30)
 The owner accepted every recommendation: about 10 fixed report questions (b), personal wa.me messages for empty seats (a), monthly AI limit raised to 3,000 for every plan (b), voice and screenshot inputs deleted after 30 days (a). Build ai2a first, then ai2b (rooming and empty seats after 7a lands).
+
+## RULINGS OF THE ai2a BUILD (2026-10-30)
+
+- **Audio format (the spike, one real call with a two-second sample):** Gemini's OpenAI-compatible endpoint takes `wav` and `mp3` in
+  `input_audio` and refuses `webm`, `ogg`, `mp4`, `aac` and `m4a` (400 "Valid formats are: [wav, mp3]"). So the browser records in
+  its own format, decodes it and writes a 16 kHz mono 16-bit WAV itself (`apps/web/src/ai/fill/wav.ts`): two minutes are 3.84 MB, under
+  the 4 MB limit. WhatsApp voice notes are ogg/opus and would need a conversion in the worker (no ffmpeg in the image), so a new
+  lead's opening voice notes and images stay out of ai2a: the WhatsApp fill (feature 3) reads text only. They are next.
+- `AiMessage` keeps `content: string` and gains `attachments?: AiPart[]` (image, audio), instead of `content: string | AiPart[]`: the
+  autopilot and the other callers read `content` as a string. The adapter turns attachments into `image_url` and `input_audio` parts.
+- The monthly AI limit is `MONTHLY_AI_LIMIT = 3000` for every plan (owner, 2026-10-30), still shared with autopilot and scoring.
+- The nightly deletion of `ai_input` files after 30 days runs in the console's jobs (`platform/ai-inputs-sweep.ts`, 03:30 India
+  time), not the worker: only the platform role may delete attachment rows. `ai_fill.input_attachment_id` has no foreign key for the
+  same reason; the sweep empties it. A customer's erasure deletes the fills of their leads, the fields suggested on them and the
+  recordings and screenshots those fills read.
+- A fill is three procedures (`ai.fill.lead`, `ai.fill.leadEdit` for the lead edit and the call note, `ai.fill.quote`) so each
+  checks its own form's permission and plan module. A save that began as a fill carries `aiFill: { fillId, paths }` (one optional
+  object, not a bare id); the fill may be used for more than one save (a call note and the lead's details it heard), each path once.
+- The model's JSON is flat (`destination`, `dateFrom`, `budget` as said...), parsed leniently in `contracts/ai/fill-answer.ts`;
+  code (`domain/ai/fill/resolve.ts`) resolves dates, times, phone, destination, budget and enums. A start date with no end becomes
+  the month plus the question "What are the travel dates, start and end?". A second phone number goes into the note.
+- A destination the agency does not list is proposed as "new" in the sheet (the person confirms it by saving), and is never added
+  by the unattended WhatsApp fill: only an existing destination is written there.
+- The WhatsApp fill extends the scoring call (`scoreAnswer` gains `trip`), so it costs no extra call. The call runs while either the
+  score or the fill is on (`ai_settings.fill_leads`, default on, with a switch in Settings, AI). The "Ask for the missing details"
+  card (30 minutes of silence) is not in ai2a.
+- The violet is the people tint (`bg-people-tint`); a field stays marked while it still holds the value the AI gave. A lead's
+  suggested fields are marked by comparing the lead's value with the stored hash, so crm never calls the ai module.

@@ -20,6 +20,7 @@ export {
   updateKnowledge,
 } from "./knowledge.js";
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
+export { decideSuggestions, suggestedFieldsOf } from "./fill/lead-fields.js";
 export { suggestReply } from "./suggest.js";
 export { MONTHLY_AI_LIMIT } from "./usage.js";
 export {

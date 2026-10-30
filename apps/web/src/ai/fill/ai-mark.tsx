@@ -33,7 +33,7 @@ export function AiMark({
   return (
     <div
       {...(marked.length > 0 && { "data-ai-filled": true })}
-      className={cn(marked.length > 0 && "flex flex-col gap-1 rounded-lg bg-people-tint p-2", className)}
+      className={cn(marked.length > 0 && "flex flex-col gap-1 rounded-lg bg-people-tint/50 p-2", className)}
     >
       {children}
       {marked.length > 0 && (

@@ -188,7 +188,7 @@ function CallNoteForm({
           />
         )}
         {leadFill !== null && (
-          <p className="rounded-lg bg-people-tint p-2 text-caption text-people-tint-ink">
+          <p className="rounded-lg bg-people-tint/50 p-2 text-caption text-people-tint-ink">
             {t("alsoUpdates", { details: leadFill.fields.map((field) => textOf(field.path, field.value)).join(", ") })}
           </p>
         )}

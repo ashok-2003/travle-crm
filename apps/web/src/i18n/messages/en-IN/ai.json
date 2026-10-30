@@ -31,7 +31,9 @@
     },
     "instructionsCount": "{count} of {max} characters",
     "scoring": "Let the AI score each lead",
-    "scoringHint": "After each message from a customer: its chance to book, a line on how the lead stands, the next step, and whether it looks fake. Shown on the lead's page."
+    "scoringHint": "After each message from a customer: its chance to book, a line on how the lead stands, the next step, and whether it looks fake. Shown on the lead's page.",
+    "fillLeads": "Let the AI fill in new WhatsApp leads",
+    "fillLeadsHint": "From a new customer's first messages: where, when, how many and the budget, put on the lead as suggestions in violet for your team to confirm. It never changes what a person already wrote. It uses the same AI call as scoring."
   },
   "suggest": {
     "button": "Suggest a reply",

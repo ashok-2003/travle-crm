@@ -36,8 +36,13 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
   const save = useSaveAiSettings();
   const [enabled, setEnabled] = useState(saved.enabled);
   const [scoring, setScoring] = useState(saved.scoring);
+  const [fillLeads, setFillLeads] = useState(saved.fillLeads);
   const [instructions, setInstructions] = useState(saved.instructions);
-  const changed = enabled !== saved.enabled || scoring !== saved.scoring || instructions.trim() !== saved.instructions;
+  const changed =
+    enabled !== saved.enabled ||
+    scoring !== saved.scoring ||
+    fillLeads !== saved.fillLeads ||
+    instructions.trim() !== saved.instructions;
   return (
     <form
       noValidate
@@ -45,7 +50,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(
-          { enabled, scoring, instructions: instructions.trim() },
+          { enabled, scoring, fillLeads, instructions: instructions.trim() },
           { onSuccess: () => toast.success(t("saved")) },
         );
       }}
@@ -70,6 +75,11 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
             <Label htmlFor="ai-scoring">{t("scoring")}</Label>
           </div>
           <p className="text-label text-muted-foreground">{t("scoringHint")}</p>
+          <div className="flex items-center gap-3">
+            <Switch id="ai-fill-leads" checked={fillLeads} onCheckedChange={setFillLeads} disabled={save.isPending} />
+            <Label htmlFor="ai-fill-leads">{t("fillLeads")}</Label>
+          </div>
+          <p className="text-label text-muted-foreground">{t("fillLeadsHint")}</p>
           <p className="text-muted-foreground">
             {t("usage", { used: saved.usedThisMonth, limit: saved.monthlyLimit })}
           </p>

@@ -5,6 +5,7 @@
 // while saving, a refusal (a destination name the api won't take) shown in it.
 import { leadConverter } from "@/ai/fill/fill-converters";
 import { FillWithAi } from "@/ai/fill/fill-with-ai";
+import { useSuggestedMarks } from "@/ai/fill/use-suggested-marks";
 import { FillMarksProvider, useFillMarks } from "@/ai/fill/use-fill-marks";
 import { editTripInput, type EditTripInput, type LeadDetail } from "@travel-crm/contracts/crm";
 import { useMutation } from "@tanstack/react-query";
@@ -40,7 +41,7 @@ function TripForm({ formId, lead, save }: { formId: string; lead: LeadDetail; sa
       ),
     (problem) => t(`problems.${problem}`),
   );
-  const marks = useFillMarks(form, leadConverter);
+  const marks = useFillMarks(form, leadConverter, useSuggestedMarks(lead.id));
   return (
     <FillMarksProvider marks={marks}>
       <form

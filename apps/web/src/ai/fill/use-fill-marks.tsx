@@ -40,6 +40,8 @@ export const useMarks = (): FillMarks | null => useContext(MarksContext);
 export function useFillMarks<Values extends FieldValues>(
   form: UseFormReturn<Values>,
   converter: FillConverter<Values>,
+  /** Values the AI put on the record itself earlier (a new WhatsApp lead's), marked the same way until edited. */
+  suggested: Partial<Record<FillPath, AiFillField>> = {},
 ): FillMarks {
   // Watching all values re-renders the form on every change, which is what lets a mark go when its field is edited.
   const values: Values = form.watch();
@@ -49,7 +51,7 @@ export function useFillMarks<Values extends FieldValues>(
     active: applied !== null,
     current,
     markOf(path) {
-      const field = applied?.fields[path];
+      const field = applied?.fields[path] ?? suggested[path];
       return field !== undefined && sameValue(path, current()[path], field.value) ? field : null;
     },
     apply(proposal, ticked) {

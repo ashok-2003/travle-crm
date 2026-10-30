@@ -65,6 +65,7 @@ export {
   sheetsCheckHandler,
 } from "./lead-sheets/index.js";
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";
+export { clearTripFields, fillTripGaps, tripFieldValues, type GapField, type TripGaps } from "./trip-gaps.js";
 export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
 export {
   leadInsights,

@@ -222,11 +222,9 @@ export async function fillForm(
     const allowed: readonly string[] = fillTargetPaths[input.target];
     const fields = (resolved?.fields ?? []).filter((field) => allowed.includes(field.path));
     // A chat's number is the lead's phone, as the chat has it: not the model's reading of it.
-    if (
-      input.target === "lead" &&
-      prepared.chatPhone !== null &&
-      !fields.some((field) => field.path === "person.phone")
-    ) {
+    if (input.target === "lead" && prepared.chatPhone !== null) {
+      const own = fields.findIndex((field) => field.path === "person.phone");
+      if (own >= 0) fields.splice(own, 1);
       fields.unshift({ path: "person.phone", value: prepared.chatPhone, from: "chat", excerpt: "" });
     }
     const questions = resolved?.questions ?? [];

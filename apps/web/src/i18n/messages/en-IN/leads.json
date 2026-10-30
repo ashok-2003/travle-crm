@@ -483,6 +483,14 @@
         "description": "Everything can wait; change what you know now.",
         "submit": "Save",
         "submitting": "Saving"
+      },
+      "suggested": {
+        "title": "The AI filled in from the customer's messages: {fields}.",
+        "hint": "Check them with the customer. Confirm keeps them; Dismiss clears what the AI wrote.",
+        "confirm": "Confirm",
+        "dismiss": "Dismiss",
+        "term": "this AI-filled detail",
+        "said": "The customer wrote: “{words}”"
       }
     },
     "owner": {

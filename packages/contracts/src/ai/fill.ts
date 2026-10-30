@@ -181,7 +181,9 @@ export const suggestedLeadFields = [
 export const suggestedLeadField = z.enum(suggestedLeadFields);
 export type SuggestedLeadField = z.infer<typeof suggestedLeadField>;
 export const leadAiFieldsInput = z.strictObject({ leadId: recordId });
+export const decideLeadAiFieldsInput = z.strictObject({ leadId: recordId, decision: z.enum(["confirm", "dismiss"]) });
 export const leadAiFields = z.object({
-  fields: z.array(z.object({ field: suggestedLeadField, excerpt: z.string() })),
+  /** The suggestions still holding what the AI wrote, with that value (the lead's own) and the customer's words. */
+  fields: z.array(z.object({ field: suggestedLeadField, path: fillPath, value: z.unknown(), excerpt: z.string() })),
 });
 export type LeadAiFields = z.infer<typeof leadAiFields>;

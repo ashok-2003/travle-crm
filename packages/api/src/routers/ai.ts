@@ -4,6 +4,9 @@
 // the lead for anyone who sees it, and whoever may work the lead confirms or cancels one. The plan's AI module is checked
 // on every call.
 import {
+  decideLeadAiFieldsInput,
+  leadAiFields,
+  leadAiFieldsInput,
   addAiKnowledgeInput,
   aiBookingList,
   aiBookingsInput,
@@ -46,6 +49,8 @@ import {
   updateAiKnowledgeInput,
 } from "@travel-crm/contracts/ai";
 import {
+  decideSuggestions,
+  suggestedFieldsOf,
   addKnowledge,
   aiAllowed,
   bookingsOfLead,
@@ -235,6 +240,30 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
         const lead = await getLead(tx, ctx.member, input.leadId);
         return { insight: await leadInsightOf(tx, lead.id) };
+      }),
+    ),
+
+  /** What the AI filled in on a new lead from its first messages and a person has not confirmed: only for a lead the member may see. */
+  leadFields: orgProcedure
+    .requires("ai:suggest", "leads:view")
+    .input(leadAiFieldsInput)
+    .output(leadAiFields)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const lead = await getLead(tx, ctx.member, input.leadId);
+        return { fields: await suggestedFieldsOf(tx, lead.id) };
+      }),
+    ),
+
+  /** Confirm keeps what the AI filled in; dismiss clears what is still the AI's. */
+  decideLeadFields: orgProcedure
+    .requires("ai:suggest", "leads:edit")
+    .input(decideLeadAiFieldsInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        // A lead out of the member's scope is "not found".
+        const lead = await getLead(tx, ctx.member, input.leadId);
+        await decideSuggestions(tx, ctx.member, lead.id, input.decision);
       }),
     ),
 
