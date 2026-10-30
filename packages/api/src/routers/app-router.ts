@@ -7,6 +7,7 @@ import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
 import { bookingsRouter } from "./bookings.js";
 import { callsRouter } from "./calls.js";
+import { departuresRouter } from "./departures.js";
 import { destinationsRouter } from "./destinations.js";
 import { documentsRouter } from "./documents.js";
 import { broadcastsRouter } from "./broadcasts.js";
@@ -37,6 +38,7 @@ import { staffRouter } from "./staff.js";
 import { staffExportsRouter } from "./staff-exports.js";
 import { staffImportsRouter } from "./staff-imports.js";
 import { subscriptionRouter } from "./subscription.js";
+import { suppliersRouter } from "./suppliers.js";
 import { tasksRouter } from "./tasks.js";
 import { todayRouter } from "./today.js";
 import { websiteFormRouter } from "./website-form.js";
@@ -70,6 +72,8 @@ export const appRouter = router({
   tripKits: tripKitsRouter,
   quotes: quotesRouter,
   bookings: bookingsRouter,
+  departures: departuresRouter,
+  suppliers: suppliersRouter,
   ai: aiRouter,
   finance: financeRouter,
   sales: salesRouter,

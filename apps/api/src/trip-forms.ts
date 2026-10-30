@@ -62,6 +62,8 @@ export function travellerForm(trip: PublicTrip, index: number): string {
   const id = `traveller-${String(index)}`;
   const detailed = trip.level !== "basic";
   const international = trip.level === "international";
+  const roomOption = (current: string, value: string, label: string) =>
+    `<option value="${value}"${current === value ? " selected" : ""}>${label}</option>`;
   const gender = (value: string, label: string) =>
     `<option value="${value}"${traveller.gender === value ? " selected" : ""}>${label}</option>`;
   return `<form method="post">
@@ -70,6 +72,12 @@ ${text(`${id}-name`, "name", "Name as on ID", traveller.name, { required: true, 
 ${text(`${id}-dob`, "dateOfBirth", "Date of birth", traveller.dateOfBirth ?? "", { required: true, type: "date", max: 10 })}
 ${field(`${id}-gender`, "Gender", `<select id="${id}-gender" name="gender"><option value="">Prefer not to say</option>${gender("female", "Female")}${gender("male", "Male")}${gender("other", "Other")}</select>`)}
 ${text(`${id}-phone`, "phone", "Phone", traveller.phone, { type: "tel", max: 40, autocomplete: "tel" })}
+${
+  trip.onDeparture
+    ? `${field(`${id}-room`, "What you'd like for your room", `<select id="${id}-room" name="roomRequest">${roomOption(traveller.roomRequest, "none", "Nothing in particular")}${roomOption(traveller.roomRequest, "single_room", "A room to myself")}${roomOption(traveller.roomRequest, "ground_floor", "A ground-floor room")}${roomOption(traveller.roomRequest, "near_group", "A room near my group")}</select>`)}
+${field(`${id}-room-note`, "Anything else about your room (optional)", `<input id="${id}-room-note" name="roomNote" type="text" value="${escapeHtml(traveller.roomNote)}" maxlength="200">`)}`
+    : ""
+}
 ${
   detailed
     ? `${text(`${id}-emergency-name`, "emergencyName", "Emergency contact name", traveller.emergencyName, { required: true })}
