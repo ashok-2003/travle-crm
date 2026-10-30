@@ -23,6 +23,10 @@ import { currentPolicy } from "./settings.js";
 import { tripFingerprint, voucherFingerprint } from "./trip-essentials.js";
 import { tripUpdatesAgreed } from "./reminders.js";
 
+/** The departure a booking is on, in brief, or null. */
+const departureRefOf = (departure: { id: string; title: string; startDate: Date } | null) =>
+  departure === null ? null : { id: departure.id, title: departure.title, startDate: dayOf(departure.startDate) };
+
 /** What a booking is worth to be paid: the trip's total, or, once cancelled, the charge kept. */
 const owedOf = (booking: Pick<BookingRow, "status" | "chargePaise"> & { quote: { totalPaise: bigint } }) =>
   booking.status === "cancelled" ? Number(booking.chargePaise ?? 0n) : Number(booking.quote.totalPaise);
@@ -51,6 +55,7 @@ export async function listBookings(tx: OrgTx, access: MemberAccess, input: ListB
       startDate: true,
       endDate: true,
       chargePaise: true,
+      departure: { select: { id: true, title: true, startDate: true } },
       lead: { select: { person: { select: { name: true } } } },
       quote: { select: { title: true, totalPaise: true } },
     },
@@ -93,6 +98,7 @@ export async function listBookings(tx: OrgTx, access: MemberAccess, input: ListB
       title: row.quote.title,
       startDate: row.startDate === null ? null : dayOf(row.startDate),
       endDate: row.endDate === null ? null : dayOf(row.endDate),
+      departure: departureRefOf(row.departure),
       totalPaise,
       paidPaise,
       balancePaise: Math.max(0, totalPaise - paidPaise),
@@ -111,13 +117,20 @@ export async function listLeadBookings(tx: OrgTx, access: MemberAccess, leadId: 
   const rows = await tx.booking.findMany({
     where: { leadId: lead.id },
     orderBy: { id: "desc" },
-    select: { id: true, number: true, status: true, quote: { select: { title: true } } },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      quote: { select: { title: true } },
+      departure: { select: { id: true, title: true, startDate: true } },
+    },
   });
   return rows.map((row) => ({
     id: row.id,
     number: row.number,
     status: row.status as LeadBooking["status"],
     title: row.quote.title,
+    departure: departureRefOf(row.departure),
   }));
 }
 
@@ -194,6 +207,7 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
     title: booking.quote.title,
     startDate: booking.startDate === null ? null : dayOf(booking.startDate),
     endDate: booking.endDate === null ? null : dayOf(booking.endDate),
+    departure: departureRefOf(booking.departure),
     totalPaise: owed,
     paidPaise,
     balancePaise: Math.max(0, owed - paidPaise),
@@ -260,6 +274,8 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
       emergencyName: row.emergencyName,
       emergencyPhone: row.emergencyPhone,
       medicalNotes: row.medicalNotes,
+      roomRequest: row.roomRequest,
+      roomNote: row.roomNote,
       complete: row.completeAt !== null,
       hasIdentity: identities.some((identity) => identity.travellerId === row.id),
     })),

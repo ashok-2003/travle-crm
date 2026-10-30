@@ -16,6 +16,8 @@ const now = new Date("2026-11-10T06:00:00Z");
 const context = { supplierStateCode: "27", now };
 const cost = (quoteId: string, amountPaise: number, paidOn: string | null = null) => ({
   quoteId,
+  departureId: null,
+  supplierId: null,
   category: "hotel" as const,
   supplier: "Hotel Snow",
   amountPaise,

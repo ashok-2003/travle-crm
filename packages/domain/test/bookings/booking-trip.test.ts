@@ -36,6 +36,8 @@ const traveller = (travellerId: string, extra: Record<string, unknown> = {}) => 
   emergencyName: "",
   emergencyPhone: "",
   medicalNotes: "",
+  roomRequest: "none" as const,
+  roomNote: "",
   identity: null,
   idPhotoAttachmentId: null,
   ...extra,

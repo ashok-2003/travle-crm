@@ -34,7 +34,16 @@ export async function bookingCostsOf(tx: OrgTx, quoteId: string): Promise<Bookin
   const rows = await tx.tripCost.findMany({
     where: { quoteId: quote.id, voidedAt: null },
     orderBy: { createdAt: "asc" },
-    select: { id: true, category: true, supplier: true, amountPaise: true, dueOn: true, paidOn: true, note: true },
+    select: {
+      id: true,
+      category: true,
+      supplier: true,
+      supplierId: true,
+      amountPaise: true,
+      dueOn: true,
+      paidOn: true,
+      note: true,
+    },
   });
   const costPaise = rows.reduce((total, row) => total + Number(row.amountPaise), 0);
   const revenuePaise = Number(quote.subtotalPaise);
@@ -53,15 +62,41 @@ export async function bookingCostsOf(tx: OrgTx, quoteId: string): Promise<Bookin
   });
 }
 
+/** What a cost is recorded against: a booking (its quote) or a whole departure (the hotel block, the bus). */
+async function ownerOf(tx: OrgTx, input: Pick<AddTripCostInput, "quoteId" | "departureId">) {
+  if (input.quoteId !== null) {
+    const quote = await liveQuote(tx, input.quoteId);
+    // Costs belong to a booking, and an accepted quote is the booking: a quote still on offer has none.
+    if (quote.status !== "accepted") {
+      throw new DomainError(
+        "CONFLICT",
+        "QUOTE_NOT_ACCEPTED",
+        "Costs are recorded on a booking: accept the quote first",
+      );
+    }
+    return { quoteId: quote.id, departureId: null, entityType: "quote", entityId: quote.id };
+  }
+  const departure =
+    input.departureId === null
+      ? null
+      : await tx.departure.findUnique({ where: { id: input.departureId }, select: { id: true } });
+  if (departure === null) throw notFound();
+  return { quoteId: null, departureId: departure.id, entityType: "departure", entityId: departure.id };
+}
+
 export async function addTripCost(tx: OrgTx, access: MemberAccess, input: AddTripCostInput): Promise<void> {
-  const quote = await liveQuote(tx, input.quoteId);
-  // Costs belong to a booking, and an accepted quote is the booking: a quote still on offer has none.
-  if (quote.status !== "accepted") {
-    throw new DomainError("CONFLICT", "QUOTE_NOT_ACCEPTED", "Costs are recorded on a booking: accept the quote first");
+  const owner = await ownerOf(tx, input);
+  if (
+    input.supplierId !== null &&
+    (await tx.supplier.findUnique({ where: { id: input.supplierId }, select: { id: true } })) === null
+  ) {
+    throw notFound();
   }
   const row = await tx.tripCost.create({
     data: {
-      quoteId: quote.id,
+      quoteId: owner.quoteId,
+      departureId: owner.departureId,
+      supplierId: input.supplierId,
       category: input.category,
       supplier: input.supplier,
       amountPaise: BigInt(input.amountPaise),
@@ -74,8 +109,8 @@ export async function addTripCost(tx: OrgTx, access: MemberAccess, input: AddTri
   });
   await recordAudit(tx, access, {
     action: "trip-cost.added",
-    entityType: "quote",
-    entityId: quote.id,
+    entityType: owner.entityType,
+    entityId: owner.entityId,
     after: { tripCostId: row.id, category: input.category, amountPaise: input.amountPaise },
   });
 }
@@ -83,14 +118,14 @@ export async function addTripCost(tx: OrgTx, access: MemberAccess, input: AddTri
 export async function markTripCostPaid(tx: OrgTx, access: MemberAccess, input: MarkTripCostPaidInput): Promise<void> {
   const cost = await tx.tripCost.findUnique({
     where: { id: input.tripCostId },
-    select: { id: true, quoteId: true, paidOn: true, voidedAt: true },
+    select: { id: true, quoteId: true, departureId: true, paidOn: true, voidedAt: true },
   });
   if (cost?.voidedAt !== null) throw notFound();
   await tx.tripCost.update({ where: { id: cost.id }, data: { paidOn: asDate(input.paidOn) } });
   await recordAudit(tx, access, {
     action: "trip-cost.paid",
-    entityType: "quote",
-    entityId: cost.quoteId,
+    entityType: cost.quoteId === null ? "departure" : "quote",
+    entityId: cost.quoteId ?? cost.departureId ?? cost.id,
     before: { tripCostId: cost.id, paidOn: cost.paidOn === null ? null : dayOf(cost.paidOn) },
     after: { tripCostId: cost.id, paidOn: input.paidOn },
   });
@@ -99,14 +134,14 @@ export async function markTripCostPaid(tx: OrgTx, access: MemberAccess, input: M
 export async function voidTripCost(tx: OrgTx, access: MemberAccess, tripCostId: string, now: Date): Promise<void> {
   const cost = await tx.tripCost.findUnique({
     where: { id: tripCostId },
-    select: { id: true, quoteId: true, amountPaise: true, voidedAt: true },
+    select: { id: true, quoteId: true, departureId: true, amountPaise: true, voidedAt: true },
   });
   if (cost?.voidedAt !== null) throw notFound();
   await tx.tripCost.update({ where: { id: cost.id }, data: { voidedAt: now, voidedBy: access.userId } });
   await recordAudit(tx, access, {
     action: "trip-cost.voided",
-    entityType: "quote",
-    entityId: cost.quoteId,
+    entityType: cost.quoteId === null ? "departure" : "quote",
+    entityId: cost.quoteId ?? cost.departureId ?? cost.id,
     before: { tripCostId: cost.id, amountPaise: Number(cost.amountPaise) },
   });
 }

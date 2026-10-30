@@ -73,8 +73,9 @@ export async function financeSummaryOf(
       WHERE q.status = 'accepted' AND q.deleted_at IS NULL`),
       tx.$queryRaw<{ owed: bigint }[]>`
       SELECT coalesce(sum(c.amount_paise), 0)::bigint AS owed
-      FROM trip_cost c JOIN quote q ON q.id = c.quote_id
-      WHERE q.status = 'accepted' AND q.deleted_at IS NULL AND c.voided_at IS NULL AND c.paid_on IS NULL`,
+      FROM trip_cost c LEFT JOIN quote q ON q.id = c.quote_id
+      WHERE c.voided_at IS NULL AND c.paid_on IS NULL
+        AND (c.departure_id IS NOT NULL OR (q.status = 'accepted' AND q.deleted_at IS NULL))`,
       tx.quotePayment.aggregate({
         where: { voidedAt: null, receivedOn: { gte: start, lte: asDate(period.to) } },
         _sum: { amountPaise: true },

@@ -9,6 +9,7 @@ import { forgetRecordNotifications } from "../notifications/index.js";
 import { withdrawWhatsApp } from "../inbox/index.js";
 import { withdrawAiParts } from "../ai/index.js";
 import { eraseBookingParts } from "../bookings/index.js";
+import { eraseDepartureParts } from "../departures/index.js";
 import { eraseQuoteParts } from "../quotes/index.js";
 import { eraseSalesParts } from "../sales/index.js";
 import { withdrawMetaLeads } from "../meta-leads/index.js";
@@ -40,6 +41,8 @@ export async function eraseCustomerParts(
   const sales = await eraseSalesParts(tx, { organizationId, leadIds });
   // Their bookings: the travellers' details and ID numbers, claims' references and screenshots, feedback, and the files.
   const bookings = await eraseBookingParts(tx, { organizationId, leadIds, now });
+  // Their holds, their places on a waitlist and in rooms, and the words of their room requests.
+  const departures = await eraseDepartureParts(tx, { organizationId, leadIds });
   // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
   const tasksCancelled = await asOrganization(tx, organizationId, async (orgTx) => {
     let cancelled = 0;
@@ -95,6 +98,9 @@ export async function eraseCustomerParts(
     paymentClaimsEmptied: bookings.claims,
     feedbackEmptied: bookings.feedback,
     bookingFiles: bookings.files,
+    departureHoldsDeleted: departures.holds,
+    waitlistEntriesDeleted: departures.waitlist,
+    roomAssignmentsDeleted: departures.assignments,
     aiDrafts: ai.drafts,
     aiInsights: ai.insights,
     notifications,
