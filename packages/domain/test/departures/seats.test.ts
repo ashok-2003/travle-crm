@@ -6,6 +6,7 @@ import { cancelBooking } from "../../src/bookings/index.js";
 import {
   cancelDeparture,
   createDeparture,
+  addToWaitlist,
   createHold,
   expireHolds,
   getDeparture,
@@ -256,6 +257,27 @@ describe("departures and their seats", () => {
       world.inOrg((tx) =>
         tx.departure.update({ where: { id: created.id }, data: { cutoffOn: new Date("2026-12-01") } }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/departure_cutoff_before_start/);
+  });
+
+  it("runs the expiry's task and tells the waitlist when a new hold finds a lapsed one of the same lead", async () => {
+    const departure = await world.inOrg((tx) => aDeparture(tx, { seatsTotal: 4 }));
+    const lead = await aSellersLead(world);
+    const waiting = await aSellersLead(world);
+    await world.inOrg((tx) =>
+      createHold(tx, world.seller, { departureId: departure.id, leadId: lead.id, seats: 4, hours: 1, note: "" }, now),
+    );
+    await world.inOrg((tx) =>
+      addToWaitlist(tx, world.seller, { departureId: departure.id, leadId: waiting.id, seats: 1 }),
+    );
+    const later = new Date("2026-10-29T09:00:00Z");
+    await world.inOrg((tx) =>
+      createHold(tx, world.seller, { departureId: departure.id, leadId: lead.id, seats: 1, note: "" }, later),
+    );
+    const tasks = await world.inOrg((tx) => tx.task.findMany({ where: { recordType: "lead", recordId: lead.id } }));
+    expect(tasks.map((task) => task.title)).toEqual([expect.stringMatching(/^Hold expired: /) as string]);
+    const events = await world.inOrg((tx) => tx.outboxEvent.findMany({ where: { type: "departure.seats-freed" } }));
+    expect(events.some((event) => (event.payload as { departureId?: string }).departureId === departure.id)).toBe(true);
+    expect(await world.inOrg((tx) => expireHolds(tx, world.organizationId, later))).toBe(0);
   });
 });

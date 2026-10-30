@@ -8,7 +8,7 @@ import { recordAudit } from "../audit/index.js";
 import { getLead, noticeKey } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
-import { DomainError, systemActor } from "../kernel/index.js";
+import { DomainError, systemActor, type Actor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
 import { createTask } from "../tasks/index.js";
 import {
@@ -36,10 +36,9 @@ export async function createHold(
   const departure = await findDepartureForChange(tx, input.departureId);
   assertOpenForSeats(departure);
   // A hold past its time that the job has not yet marked is over: it must not block a new one (one active hold a lead).
-  await tx.departureHold.updateMany({
-    where: { departureId: departure.id, leadId: lead.id, status: "active", expiresAt: { lte: now } },
-    data: { status: "expired", endedAt: now },
-  });
+  for (const lapsed of await readLapsed(tx, { departureId: departure.id, leadId: lead.id }, now)) {
+    await expireLapsedHold(tx, systemActor(access.organizationId), lapsed, now);
+  }
   const already = await tx.departureHold.findFirst({
     where: { departureId: departure.id, leadId: lead.id, status: "active" },
     select: { id: true },
@@ -173,63 +172,73 @@ export async function bookingJoinedDeparture(
   }
 }
 
-/**
- * Holds whose time has come: each becomes Expired, the lead's owner is told and given a task "Hold expired: <lead>", and the
- * waitlist is looked at. Returns how many. The status change is what makes it happen once.
- */
-export async function expireHolds(tx: OrgTx, organizationId: string, now: Date): Promise<number> {
-  const due = await tx.departureHold.findMany({
-    where: { status: "active", expiresAt: { lte: now } },
+const lapsedColumns = {
+  id: true,
+  departureId: true,
+  seats: true,
+  leadId: true,
+  departure: { select: { title: true } },
+  lead: { select: { ownerUserId: true, person: { select: { name: true } } } },
+} as const;
+
+type LapsedHold = NonNullable<Awaited<ReturnType<typeof readLapsed>>>[number];
+const readLapsed = (tx: OrgTx, where: { departureId?: string; leadId?: string }, now: Date) =>
+  tx.departureHold.findMany({
+    where: { ...where, status: "active", expiresAt: { lte: now } },
     orderBy: { expiresAt: "asc" },
     take: 200,
-    select: {
-      id: true,
-      departureId: true,
-      seats: true,
-      leadId: true,
-      departure: { select: { title: true } },
-      lead: { select: { ownerUserId: true, person: { select: { name: true } } } },
-    },
+    select: lapsedColumns,
   });
+
+/**
+ * One hold's time has come: it becomes Expired (once: the status change decides), the lead's owner is told and given a task
+ * "Hold expired: <lead>", and the waitlist is looked at. The worker's job and a new hold's lazy expiry both go through here.
+ */
+async function expireLapsedHold(tx: OrgTx, actor: Actor, hold: LapsedHold, now: Date): Promise<boolean> {
+  const done = await tx.departureHold.updateMany({
+    where: { id: hold.id, status: "active" },
+    data: { status: "expired", endedAt: now },
+  });
+  if (done.count === 0) return false;
+  await publishEvent(tx, {
+    type: "departure.hold-expired",
+    payload: { holdId: hold.id, departureId: hold.departureId },
+  });
+  await recordAudit(tx, actor, {
+    action: "departure.hold-expired",
+    entityType: "departure",
+    entityId: hold.departureId,
+    before: { holdId: hold.id, leadId: hold.leadId, seats: hold.seats },
+  });
+  const title = `Hold expired: ${hold.lead.person.name}`.slice(0, 200);
+  await createTask(tx, actor, {
+    kind: "task",
+    title,
+    dueAt: now,
+    assigneeUserId: hold.lead.ownerUserId,
+    record: { recordType: "lead", recordId: hold.leadId },
+  });
+  if (hold.lead.ownerUserId !== null) {
+    await notify(tx, actor, {
+      recipientUserIds: [hold.lead.ownerUserId],
+      sourceEventId: noticeKey(hold.id, HOLD_EXPIRED_KIND),
+      kind: HOLD_EXPIRED_KIND,
+      title,
+      body: `${String(hold.seats)} seats on ${hold.departure.title} are free again.`,
+      link: `/leads/${hold.leadId}`,
+      channels: ["push"],
+    });
+  }
+  await announceSeatsFreed(tx, hold.departureId);
+  return true;
+}
+
+/** Holds whose time has come, in every departure: each expires as expireLapsedHold says. Returns how many. */
+export async function expireHolds(tx: OrgTx, organizationId: string, now: Date): Promise<number> {
   const actor = systemActor(organizationId);
   let expired = 0;
-  for (const hold of due) {
-    const done = await tx.departureHold.updateMany({
-      where: { id: hold.id, status: "active" },
-      data: { status: "expired", endedAt: now },
-    });
-    if (done.count === 0) continue;
-    expired += 1;
-    await publishEvent(tx, {
-      type: "departure.hold-expired",
-      payload: { holdId: hold.id, departureId: hold.departureId },
-    });
-    await recordAudit(tx, actor, {
-      action: "departure.hold-expired",
-      entityType: "departure",
-      entityId: hold.departureId,
-      before: { holdId: hold.id, leadId: hold.leadId, seats: hold.seats },
-    });
-    const title = `Hold expired: ${hold.lead.person.name}`.slice(0, 200);
-    await createTask(tx, actor, {
-      kind: "task",
-      title,
-      dueAt: now,
-      assigneeUserId: hold.lead.ownerUserId,
-      record: { recordType: "lead", recordId: hold.leadId },
-    });
-    if (hold.lead.ownerUserId !== null) {
-      await notify(tx, actor, {
-        recipientUserIds: [hold.lead.ownerUserId],
-        sourceEventId: noticeKey(hold.id, HOLD_EXPIRED_KIND),
-        kind: HOLD_EXPIRED_KIND,
-        title,
-        body: `${String(hold.seats)} seats on ${hold.departure.title} are free again.`,
-        link: `/leads/${hold.leadId}`,
-        channels: ["push"],
-      });
-    }
-    await announceSeatsFreed(tx, hold.departureId);
+  for (const hold of await readLapsed(tx, {}, now)) {
+    if (await expireLapsedHold(tx, actor, hold, now)) expired += 1;
   }
   return expired;
 }
