@@ -29,6 +29,7 @@ import {
   quoteRevertedListener,
   runBookingDueWork,
 } from "@travel-crm/domain/bookings";
+import { DEPARTURE_HOLDS_QUEUE, runDepartureHoldExpiry, seatsFreedListener } from "@travel-crm/domain/departures";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
 import { makeStaffExportListener, type ExportJobDependencies } from "@travel-crm/domain/exports";
 import type { Files } from "@travel-crm/domain/files";
@@ -92,6 +93,7 @@ import {
 } from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
+import { runSupplierDueSoon, SUPPLIER_DUES_QUEUE } from "@travel-crm/domain/suppliers";
 import {
   attentionListener,
   baselineListener,
@@ -258,6 +260,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     timeZone: salesJobsTimeZone,
     names: salesJobsNames,
   };
+  // Departures: the holds whose time has come; suppliers: the payments falling due.
+  const departureJobs = { db, identity, subscriptions, logger };
   const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
   // Sales execution: the agency's name and the lead owner's for the WhatsApp blanks, in the agency's own time.
   const salesJobs = { db, appUrl, logger, timeZone: salesJobsTimeZone, names: salesJobsNames };
@@ -328,6 +332,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // An accepted quote becomes a booking (release 6), and a reverted one takes its booking away.
       quoteAcceptedListener(),
       quoteRevertedListener(),
+      // A departure's seats free up: the first lead waiting whose party fits has its owner told (release 7a).
+      seatsFreedListener(),
       deliverNotificationListener({
         email,
         push,
@@ -521,6 +527,24 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         timeZone: "Asia/Kolkata",
         handle: async () => {
           await runBookingDueWork(bookingJobs, new Date());
+        },
+      },
+      {
+        // Departures: a hold whose time has come expires, tells the lead's owner and frees its seats.
+        queue: DEPARTURE_HOLDS_QUEUE,
+        cron: "*/10 * * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await runDepartureHoldExpiry(departureJobs, new Date());
+        },
+      },
+      {
+        // Suppliers: the accounts' keepers are told, once for each cost, of a payment due within two days.
+        queue: SUPPLIER_DUES_QUEUE,
+        cron: "0 9 * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await runSupplierDueSoon(departureJobs, new Date());
         },
       },
       {

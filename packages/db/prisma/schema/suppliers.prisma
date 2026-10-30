@@ -1,0 +1,53 @@
+// Suppliers (release 7a): the hotels, transport operators and guides an agency buys from, their contacts, and the costs
+// linked to them (finance's trip_cost), so the agency knows who it owes, how much and by when. Organization-owned, under
+// row-level security.
+
+/// A supplier. Soft-deleted (ADR 0004); one with costs still unpaid cannot be.
+model Supplier {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
+  /// hotel, transport, guide or other (CHECK supplier_kind_value).
+  kind           String
+  name           String
+  city           String            @default("")
+  gstin          String            @default("")
+  paymentTerms   String            @default("") @map("payment_terms")
+  /// Bank or UPI details as plain text: shown only to whoever may edit suppliers.
+  paymentDetails String            @default("") @map("payment_details")
+  notes          String            @default("")
+  createdBy      String?           @map("created_by") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?           @map("deleted_by") @db.Uuid
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  contacts       SupplierContact[]
+  costs          TripCost[]
+  stays          DepartureStay[]
+
+  @@unique([organizationId, id])
+  /// A live supplier's name is its own.
+  @@unique([organizationId, name], map: "supplier_live_name", where: { deletedAt: null })
+  @@index([organizationId, kind], map: "supplier_by_kind")
+  @@map("supplier")
+}
+
+/// A person at a supplier to call.
+model SupplierContact {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  supplierId     String       @map("supplier_id") @db.Uuid
+  position       Int          @default(0)
+  name           String
+  role           String       @default("")
+  phone          String       @default("")
+  whatsapp       String       @default("")
+  email          String       @default("")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  supplier       Supplier     @relation(fields: [organizationId, supplierId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, supplierId], map: "supplier_contact_supplier")
+  @@map("supplier_contact")
+}

@@ -21,6 +21,7 @@ import { refusalOf } from "@/data/api-error";
 import { useElementHeight } from "@/lib/use-element-height";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
 import { LeadBookingsCard } from "@/bookings/lead-bookings-card";
+import { LeadDeparturesCard } from "@/departures/lead-departures-card";
 import { LeadQuotesCard } from "@/quotes/lead-quotes-card";
 import { LeadInsight } from "@/ai/insight-card";
 import { LeadBookings } from "@/ai/lead-bookings";
@@ -62,6 +63,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
         <TripCard lead={lead} />
         {canSeeQuotes && <LeadQuotesCard lead={lead} />}
         <LeadBookingsCard lead={lead} />
+        <LeadDeparturesCard leadId={lead.id} />
         <OwnerCard lead={lead} />
         <LeadChat leadId={lead.id} />
       </div>

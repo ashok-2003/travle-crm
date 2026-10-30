@@ -16,7 +16,12 @@ const at = (iso: string) => new Date(iso);
 const HOUR_MS = 60 * 60 * 1000;
 
 /** What each item is about: the task's id, or the new lead's. */
-const idsOf = (items: TodayItem[]) => items.map((item) => (item.kind === "task" ? item.task.id : item.lead.id));
+const idsOf = (items: TodayItem[]) =>
+  items.map((item) => {
+    if (item.kind === "task") return item.task.id;
+    if (item.kind === "departure") return item.departureId;
+    return item.lead.id;
+  });
 
 describe("today", () => {
   let platform: PlatformClient;
@@ -83,6 +88,7 @@ describe("today", () => {
       quoteOpened: 0,
       paymentsDue: 0,
       tripDetails: 0,
+      departures: 0,
     });
     expect(idsOf((await sectionOf(me, "overdue", now)).items)).toEqual([ids.overdueFollowUp, ids.overdueTask]);
     expect(idsOf((await sectionOf(me, "new-leads", now)).items)).toEqual([ids.newLead]);
@@ -236,7 +242,8 @@ describe("today", () => {
       { kind: "task", task: { id: ids.standalone.id, record: null }, lead: null },
       { kind: "task", task: { id: ids.onSomethingElse.id }, lead: null },
     ]);
-    expect(dueToday[0]?.lead).toEqual({
+    expect(dueToday[0]).toMatchObject({ kind: "task" });
+    expect(dueToday[0]?.kind === "task" ? dueToday[0].lead : null).toEqual({
       id: ids.lead,
       personName: "Priya Nair",
       phone,

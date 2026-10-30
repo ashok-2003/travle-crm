@@ -165,6 +165,14 @@ const TWO_FACTOR_SHOTS = [
     as: owner,
   },
   { name: "step2-chat-ai-message", screen: "A chat with a message the AI sent by itself, marked", as: owner },
+  // Release 7a: departures and suppliers (2026-10-30).
+  { name: "r7a-departures", screen: "Departures: upcoming batches with seats sold and held", as: owner },
+  { name: "r7a-departure", screen: "A departure: seats, bookings, the rooming list", as: owner },
+  { name: "r7a-holds-waitlist", screen: "A full departure: held seats and the waitlist", as: owner },
+  { name: "r7a-rooming", screen: "The rooming list: rooms drafted, a hotel's PDF and file", as: owner },
+  { name: "r7a-today", screen: "Today with a departure leaving soon and what needs a look", as: owner },
+  { name: "r7a-supplier", screen: "A supplier with its contact and the costs linked to it", as: owner },
+  { name: "r7a-dues", screen: "What the agency owes, supplier by supplier, the overdue first", as: owner },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [

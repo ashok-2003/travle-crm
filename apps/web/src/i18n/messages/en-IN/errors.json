@@ -252,7 +252,16 @@
     "TOO_MANY_CLAIMS": "Earlier payments on this booking are still being checked.",
     "TOO_MANY_FILES": "Too many pictures were sent for this booking.",
     "TOO_MANY_STAYS": "A booking has thirty stays at most.",
-    "INSTALLMENT_IN_USE": "A payment that was claimed on or reminded about can't be removed. Change its amount or day instead."
+    "INSTALLMENT_IN_USE": "A payment that was claimed on or reminded about can't be removed. Change its amount or day instead.",
+    "DEPARTURE_FULL": "There aren't that many seats free on this departure.",
+    "DEPARTURE_NOT_OPEN": "This departure is closed or cancelled, so it takes no new seats.",
+    "HOLD_EXISTS": "This lead already holds seats on this departure. Release them first.",
+    "SEAT_HOLD_EXPIRED": "These seats are no longer held. Hold them again first.",
+    "ROOM_FULL": "That room doesn't have the beds for it.",
+    "ROOMING_EMPTY": "Nobody is in a room yet: draft the rooms first.",
+    "STAY_DATES_BACKWARDS": "Check-out comes before check-in.",
+    "SUPPLIER_HAS_UNPAID": "You still owe this supplier money. Mark those costs paid first.",
+    "SUPPLIER_NAME_TAKEN": "Another supplier already has this name."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

@@ -7,6 +7,8 @@ import {
   CalendarCheckIcon,
   ChartColumnIcon,
   BriefcaseBusinessIcon,
+  BusIcon,
+  HandshakeIcon,
   FileTextIcon,
   HistoryIcon,
   HouseIcon,
@@ -35,6 +37,8 @@ export interface NavigationItem {
     | "inbox"
     | "quotes"
     | "bookings"
+    | "departures"
+    | "suppliers"
     | "reports"
     | "finance"
     | "staff"
@@ -72,6 +76,22 @@ export const navigationItems: readonly NavigationItem[] = [
     icon: BriefcaseBusinessIcon,
     requires: "bookings:view",
     module: "bookings",
+  },
+  {
+    key: "departures",
+    group: "work",
+    href: routes.departures,
+    icon: BusIcon,
+    requires: "departures:view",
+    module: "departures",
+  },
+  {
+    key: "suppliers",
+    group: "work",
+    href: routes.suppliers,
+    icon: HandshakeIcon,
+    requires: "suppliers:view",
+    module: "suppliers",
   },
   {
     key: "reports",

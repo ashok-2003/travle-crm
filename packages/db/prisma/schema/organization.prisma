@@ -102,6 +102,15 @@ model Organization {
   bookingSettings             BookingSettings[]
   quoteSettings               QuoteSettings?
   tripCosts                   TripCost[]
+  departures                  Departure[]
+  departureHolds              DepartureHold[]
+  departureWaitlist           DepartureWaitlist[]
+  departureStays              DepartureStay[]
+  departureRooms              DepartureRoom[]
+  departureRoomAssignments    DepartureRoomAssignment[]
+  departureSettings           DepartureSettings[]
+  suppliers                   Supplier[]
+  supplierContacts            SupplierContact[]
   agencyExpenses              AgencyExpense[]
   salesAutomation             SalesAutomation?
   leadCadences                LeadCadence[]

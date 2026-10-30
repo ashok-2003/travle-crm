@@ -26,7 +26,9 @@
     "reports": "Reports",
     "notifications": "Notifications",
     "unread": "{count, plural, one {# unread chat} other {# unread chats}}",
-    "toDo": "{count, plural, one {# thing to do today} other {# things to do today}}"
+    "toDo": "{count, plural, one {# thing to do today} other {# things to do today}}",
+    "departures": "Departures",
+    "suppliers": "Suppliers"
   },
   "home": {
     "title": "Welcome, {name}",

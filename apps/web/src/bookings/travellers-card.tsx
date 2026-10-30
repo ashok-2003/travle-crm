@@ -109,7 +109,14 @@ export function TravellersCard({ booking }: { booking: BookingDetail }) {
                 <StatusBadge tone={traveller.complete ? "good" : "attention"}>
                   {traveller.complete ? t("badge.complete") : t("badge.missing")}
                 </StatusBadge>
-                {mayEdit && <TravellerDialog traveller={traveller} level={booking.level} number={index + 1} />}
+                {mayEdit && (
+                  <TravellerDialog
+                    traveller={traveller}
+                    level={booking.level}
+                    number={index + 1}
+                    onDeparture={booking.departure !== null}
+                  />
+                )}
               </ItemActions>
             </Item>
           ))}

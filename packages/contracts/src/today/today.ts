@@ -11,12 +11,18 @@ export const todaySectionNames = [
   "overdue",
   "payments-due",
   "trip-details",
+  "departures",
   "new-leads",
   "quote-opened",
   "due-today",
 ] as const;
 export const todaySectionName = z.enum(todaySectionNames);
 export type TodaySectionName = z.infer<typeof todaySectionName>;
+
+/** Why a departure is on Today: what needs a look before it leaves. */
+export const departureReasons = ["holds-ending", "details-incomplete", "rooming-not-drafted", "overbooked"] as const;
+export const departureReason = z.enum(departureReasons);
+export type DepartureReason = z.infer<typeof departureReason>;
 
 /** A lead in brief, beside its task or as a new lead waiting. */
 export const leadBrief = z.object({
@@ -56,6 +62,16 @@ export const todayItem = z.discriminatedUnion("kind", [
     missing: z.int(),
     total: z.int(),
   }),
+  /** A group departure starting within two weeks, with what needs a look first (release 7a). */
+  z.object({
+    kind: z.literal("departure"),
+    departureId: recordId,
+    title: z.string(),
+    startDate: calendarDate,
+    sold: z.int(),
+    seatsTotal: z.int(),
+    reasons: z.array(departureReason),
+  }),
   /** An instalment of an accepted quote that is due soon or missed, not yet covered by what was paid (release 5). */
   z.object({
     kind: z.literal("payment-due"),
@@ -79,6 +95,7 @@ export const todaySummary = z.object({
     quoteOpened: z.int(),
     paymentsDue: z.int(),
     tripDetails: z.int(),
+    departures: z.int(),
   }),
   /** The first of each section, as far as there are any, in the order Today shows them. */
   top: z.array(todayItem).max(6),

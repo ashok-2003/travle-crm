@@ -35,17 +35,26 @@ export const expenseCategories = [
 export const expenseCategory = z.enum(expenseCategories);
 export type ExpenseCategory = z.infer<typeof expenseCategory>;
 
-export const addTripCostInput = z.strictObject({
-  quoteId: recordId,
-  category: tripCostCategory,
-  supplier: text(120).min(1),
-  amountPaise: positivePaise,
-  /** When the supplier is to be paid; null when it isn't known. */
-  dueOn: calendarDate.nullable(),
-  /** The day it was paid; null while it is owed. */
-  paidOn: calendarDate.nullable(),
-  note: text(300),
-});
+export const addTripCostInput = z
+  .strictObject({
+    /** The booking it belongs to, or null for a cost of a whole departure (exactly one of the two). */
+    quoteId: recordId.nullable(),
+    departureId: recordId.nullable(),
+    /** The supplier it is paid to, when the agency keeps one. */
+    supplierId: recordId.nullable(),
+    category: tripCostCategory,
+    supplier: text(120).min(1),
+    amountPaise: positivePaise,
+    /** When the supplier is to be paid; null when it isn't known. */
+    dueOn: calendarDate.nullable(),
+    /** The day it was paid; null while it is owed. */
+    paidOn: calendarDate.nullable(),
+    note: text(300),
+  })
+  .refine((cost) => (cost.quoteId === null) !== (cost.departureId === null), {
+    message: "A cost belongs to a booking or to a departure",
+    path: ["departureId"],
+  });
 export type AddTripCostInput = z.infer<typeof addTripCostInput>;
 export const tripCostIdInput = z.strictObject({ tripCostId: recordId });
 export const markTripCostPaidInput = z.strictObject({ tripCostId: recordId, paidOn: calendarDate });
@@ -54,6 +63,7 @@ export const quoteCostsInput = z.strictObject({ quoteId: recordId });
 
 export const tripCost = z.object({
   id: recordId,
+  supplierId: recordId.nullable(),
   category: tripCostCategory,
   supplier: z.string(),
   amountPaise: z.int(),

@@ -6,6 +6,7 @@
 // sum of payments stays right. Travellers do not cancel from the page; they ask their agent.
 import type { CancelBookingInput, CancelPreview, MarkRefundedInput } from "@travel-crm/contracts/bookings";
 import type { OrgTx } from "@travel-crm/db";
+import { announceSeatsFreed } from "../departures/index.js";
 import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
@@ -98,6 +99,8 @@ export async function cancelBooking(
   }
   await recordBookingEvent(tx, access, { leadId: booking.leadId, bookingId: booking.id, event: "cancelled" });
   await publishEvent(tx, { type: "booking.cancelled", payload: { bookingId: booking.id } });
+  // The seats are free again: a lead waiting for them is told.
+  if (booking.departureId !== null) await announceSeatsFreed(tx, booking.departureId);
 }
 
 /** The refund was paid outside the product: marked with the day, how and the reference. */

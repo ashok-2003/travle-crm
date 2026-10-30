@@ -11,6 +11,7 @@ import consoleGrowth from "./messages/en-IN/console-growth.json";
 import consoleOrganizations from "./messages/en-IN/console-organizations.json";
 import consolePlatform from "./messages/en-IN/console-platform.json";
 import consoleMessages from "./messages/en-IN/console.json";
+import departures from "./messages/en-IN/departures.json";
 import dashboard from "./messages/en-IN/dashboard.json";
 import documents from "./messages/en-IN/documents.json";
 import errors from "./messages/en-IN/errors.json";
@@ -34,6 +35,7 @@ import sheets from "./messages/en-IN/sheets.json";
 import shell from "./messages/en-IN/shell.json";
 import staff from "./messages/en-IN/staff.json";
 import subscription from "./messages/en-IN/subscription.json";
+import suppliers from "./messages/en-IN/suppliers.json";
 import tasks from "./messages/en-IN/tasks.json";
 import today from "./messages/en-IN/today.json";
 import vip from "./messages/en-IN/vip.json";
@@ -56,6 +58,7 @@ export const messages = {
   consoleOrganizations,
   consolePlatform,
   dashboard,
+  departures,
   documents,
   errors,
   // "exports" is CommonJS's module object, hence this import's longer name too.
@@ -80,6 +83,7 @@ export const messages = {
   shell,
   staff,
   subscription,
+  suppliers,
   tasks,
   today,
   websiteForm,

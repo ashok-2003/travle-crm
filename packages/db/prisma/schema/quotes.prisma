@@ -10,6 +10,8 @@ model Quote {
   leadId             String             @map("lead_id") @db.Uuid
   title              String
   startDate          DateTime?          @map("start_date") @db.Date
+  /// The group departure the quote books seats on; its dates are the quote's.
+  departureId        String?            @map("departure_id") @db.Uuid
   adults             Int                @default(2)
   children           Int                @default(0)
   /// [{ title, description }], one a day (CHECK quote_days_array).
@@ -49,6 +51,7 @@ model Quote {
   deletedBy          String?            @map("deleted_by") @db.Uuid
   organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   lead               Lead               @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  departure          Departure?         @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   pdfDocument        IssuedDocument?    @relation("QuotePdf", fields: [organizationId, pdfDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   invoiceDocument    IssuedDocument?    @relation("QuoteInvoice", fields: [organizationId, invoiceDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   /// Not RESTRICT: the purge deletes a table's rows in one statement, and a restricting key to a row of the same table would stop it.

@@ -125,7 +125,10 @@
     "voidNamed": "Void the cost of {supplier}",
     "voidTitle": "Void this cost?",
     "voidDescription": "It stays in the audit log, but no longer counts.",
-    "void": "Void"
+    "void": "Void",
+    "addDepartureTitle": "Add a departure cost",
+    "addDepartureDescription": "What you pay a supplier once for the whole batch: the hotel block, the bus.",
+    "addDeparture": "Add a departure cost"
   },
   "costForm": {
     "category": "What for",
@@ -150,6 +153,7 @@
     "problems": {
       "required": "Fill this in.",
       "invalid": "Check this."
-    }
+    },
+    "supplierName": "Supplier's name"
   }
 }

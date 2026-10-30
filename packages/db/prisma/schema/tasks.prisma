@@ -5,30 +5,30 @@
 /// Something to do by a time: a follow-up on a lead, or a task linked to a record or standing alone.
 model Task {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
   /// follow-up or task (CHECK task_kind_value).
   kind           String
   /// What to do, at most 200 characters; empty only once erasure has emptied it (CHECK task_title_length).
   title          String
   /// When it is due; snoozing moves it and keeps first_due_at.
-  dueAt          DateTime     @map("due_at") @db.Timestamptz(6)
-  firstDueAt     DateTime     @map("first_due_at") @db.Timestamptz(6)
+  dueAt          DateTime          @map("due_at") @db.Timestamptz(6)
+  firstDueAt     DateTime          @map("first_due_at") @db.Timestamptz(6)
   /// A member's user id. A lead's tasks are its owner's and move with it (R21).
-  assigneeUserId String?      @map("assignee_user_id") @db.Uuid
+  assigneeUserId String?           @map("assignee_user_id") @db.Uuid
   /// The record it is about, e.g. "lead", with its id; both or neither (CHECK task_record_pair).
-  recordType     String?      @map("record_type")
-  recordId       String?      @map("record_id") @db.Uuid
+  recordType     String?           @map("record_type")
+  recordId       String?           @map("record_id") @db.Uuid
   /// Done or cancelled, never both (CHECK task_done_or_cancelled).
-  doneAt         DateTime?    @map("done_at") @db.Timestamptz(6)
-  doneBy         String?      @map("done_by") @db.Uuid
-  cancelledAt    DateTime?    @map("cancelled_at") @db.Timestamptz(6)
-  createdBy      String?      @map("created_by") @db.Uuid
+  doneAt         DateTime?         @map("done_at") @db.Timestamptz(6)
+  doneBy         String?           @map("done_by") @db.Uuid
+  cancelledAt    DateTime?         @map("cancelled_at") @db.Timestamptz(6)
+  createdBy      String?           @map("created_by") @db.Uuid
   /// Added by the AI from a WhatsApp chat, not by a person (the Follow-ups screen, 2026-10-30).
-  byAi           Boolean      @default(false) @map("by_ai")
-  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  byAi           Boolean           @default(false) @map("by_ai")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   aiTouches      AiFollowUpTouch[]
 
   /// Lets a later table point at (organization_id, id).

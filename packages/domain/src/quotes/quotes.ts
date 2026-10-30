@@ -99,9 +99,15 @@ export async function updateQuote(
 ): Promise<QuoteDetail> {
   const before = await findQuoteForChange(tx, access, input.quoteId);
   assertDraft(before);
+  // A quote on a group departure leaves on the departure's day, whatever the form says.
+  const columns = columnsOf(input, context);
   const after = await tx.quote.update({
     where: { id: before.id },
-    data: { ...columnsOf(input, context), version: { increment: 1 } },
+    data: {
+      ...columns,
+      ...(before.departure === null ? {} : { startDate: before.departure.startDate }),
+      version: { increment: 1 },
+    },
     select: { title: true, totalPaise: true, status: true },
   });
   await recordAudit(tx, access, {
@@ -187,6 +193,8 @@ export async function newQuoteVersion(
     );
   }
   const draft = await createQuote(tx, access, copyOf(old), context);
+  if (old.departureId !== null)
+    await tx.quote.update({ where: { id: draft.id }, data: { departureId: old.departureId } });
   await tx.quoteInstallment.createMany({
     data: old.installments.map((due) => ({
       quoteId: draft.id,
