@@ -76,7 +76,14 @@ describe("today", () => {
 
     const summary = await summaryOf(me, now);
     expect(summary.day).toBe("2026-10-17");
-    expect(summary.counts).toEqual({ overdue: 2, newLeads: 1, dueToday: 1, quoteOpened: 0, paymentsDue: 0 });
+    expect(summary.counts).toEqual({
+      overdue: 2,
+      newLeads: 1,
+      dueToday: 1,
+      quoteOpened: 0,
+      paymentsDue: 0,
+      tripDetails: 0,
+    });
     expect(idsOf((await sectionOf(me, "overdue", now)).items)).toEqual([ids.overdueFollowUp, ids.overdueTask]);
     expect(idsOf((await sectionOf(me, "new-leads", now)).items)).toEqual([ids.newLead]);
     expect(idsOf((await sectionOf(me, "due-today", now)).items)).toEqual([ids.dueToday]);

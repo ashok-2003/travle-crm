@@ -5,7 +5,9 @@
 // confirms the payment (the lead is won) or cancels; the agent never says a payment was received.
 import { aiBookingList, aiBookingStatus, type AgentAnswer, type AiBooking } from "@travel-crm/contracts/ai";
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
+import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
+import { linkAiBooking } from "../bookings/index.js";
 import { addAiLeadNote, advanceLeadStage, noticeKey } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
@@ -170,6 +172,11 @@ export async function bookingsOfLead(tx: OrgTx, leadId: string): Promise<AiBooki
           select: { id: true, kind: true, fileName: true, occurredAt: true },
         });
   const text = (value: unknown) => (typeof value === "string" ? value : "");
+  const bookingIds = rows.flatMap((row) => (row.bookingId === null ? [] : [row.bookingId]));
+  const made =
+    bookingIds.length === 0
+      ? []
+      : await tx.booking.findMany({ where: { id: { in: bookingIds } }, select: { id: true, number: true } });
   return aiBookingList.parse(
     rows.map((row) => {
       const details = (row.details ?? {}) as Record<string, unknown>;
@@ -186,6 +193,8 @@ export async function bookingsOfLead(tx: OrgTx, leadId: string): Promise<AiBooki
           amount: text(details.amount),
         },
         status: aiBookingStatus.parse(row.status),
+        bookingId: row.bookingId,
+        bookingNumber: made.find((booking) => booking.id === row.bookingId)?.number ?? null,
         proofs: proofs
           .filter((proof) => row.proofMessageIds.includes(proof.id))
           .map((proof) => ({
@@ -200,6 +209,18 @@ export async function bookingsOfLead(tx: OrgTx, leadId: string): Promise<AiBooki
   );
 }
 
+const textsOf = (details: unknown) => {
+  const found = (details ?? {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  return {
+    package: text(found.package),
+    dates: text(found.dates),
+    travellers: text(found.travellers),
+    pickup: text(found.pickup),
+    amountPaise: paiseFromRupeesText(text(found.amount)) ?? 0,
+  };
+};
+
 /** A person decides: the payment is in (the lead is won), the booking is off, or it waits for payment again. */
 export async function setBookingStatus(
   tx: OrgTx,
@@ -207,11 +228,36 @@ export async function setBookingStatus(
   input: { bookingId: string; status: "confirmed" | "cancelled" | "awaiting_payment" },
   now: Date,
 ): Promise<{ leadId: string }> {
-  const row = await tx.aiBooking.findUnique({ where: { id: input.bookingId }, select: { id: true, leadId: true } });
+  const row = await tx.aiBooking.findUnique({
+    where: { id: input.bookingId },
+    select: { id: true, leadId: true, summary: true, details: true, proofMessageIds: true, bookingId: true },
+  });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  // Confirming also makes (or finds) the release 6 booking for it: the lead's accepted quote's, or one made from what the AI took
+  // down. Confirming again finds the same one.
+  const bookingId =
+    input.status === "confirmed"
+      ? await linkAiBooking(
+          tx,
+          access,
+          {
+            leadId: row.leadId,
+            summary: row.summary,
+            details: textsOf(row.details),
+            proofMessageIds: row.proofMessageIds,
+            linkedBookingId: row.bookingId,
+          },
+          now,
+        )
+      : null;
   await tx.aiBooking.update({
     where: { id: row.id },
-    data: { status: input.status, decidedBy: access.userId, decidedAt: now },
+    data: {
+      status: input.status,
+      decidedBy: access.userId,
+      decidedAt: now,
+      ...(bookingId === null ? {} : { bookingId }),
+    },
   });
   if (input.status === "confirmed") await advanceLeadStage(tx, access, { leadId: row.leadId, stage: "won" }, now);
   await recordAudit(tx, access, {

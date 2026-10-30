@@ -31,6 +31,8 @@ model IssuedDocument {
   quotePdfs       Quote[]        @relation("QuotePdf")
   quoteInvoices   Quote[]        @relation("QuoteInvoice")
   paymentReceipts QuotePayment[] @relation("PaymentReceipt")
+  bookingTripPdfs Booking[]      @relation("BookingTripPdf")
+  stayVouchers    BookingStay[]  @relation("StayVoucher")
 
   /// Lets other organization tables point at (organization_id, id).
   @@unique([organizationId, id])

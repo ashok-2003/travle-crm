@@ -42,6 +42,7 @@ const rohanDue: TodayItem = {
     dueAt: "2026-10-16T12:30:00.000Z",
   }),
   lead: aLead({ id: "0199e7a0-0000-7000-8000-0000000000a6", personName: "Rohan Gupta" }),
+  booking: null,
 };
 
 const sunitaQuote: TodayItem = {
@@ -119,6 +120,7 @@ function busy(summary: TodaySummary = busyDay): Day {
     sections: {
       overdue: [snehaOverdue, vikramOverdue],
       "payments-due": [],
+      "trip-details": [],
       "new-leads": [rahulNew, arjunNew],
       "quote-opened": [],
       "due-today": [priyaDue, standaloneDue],
@@ -221,7 +223,14 @@ describe("TodayScreen", () => {
   it("says 'Nothing for today' when all three are empty, and keeps the quiet line about later releases", async () => {
     day = {
       ...busy(quietDay),
-      sections: { overdue: [], "payments-due": [], "new-leads": [], "quote-opened": [], "due-today": [] },
+      sections: {
+        overdue: [],
+        "payments-due": [],
+        "trip-details": [],
+        "new-leads": [],
+        "quote-opened": [],
+        "due-today": [],
+      },
     };
     const api = renderToday();
     expect(await screen.findByText(words.nothing)).toBeVisible();

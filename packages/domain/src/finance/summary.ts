@@ -4,7 +4,8 @@
 // Every figure is summed by the database (a month at a time), so the screen's cost doesn't grow with the bookings.
 // Live sums under row-level security.
 import { financeSummary, type FinancePeriodInput, type FinanceSummary } from "@travel-crm/contracts/finance";
-import type { OrgTx } from "@travel-crm/db";
+import { sql, type OrgTx } from "@travel-crm/db";
+import { quoteOwedSql, quoteSalesSql, quoteTaxSql } from "../quotes/index.js";
 
 import { addDays, startOfDayIn, type CalendarDate } from "../kernel/index.js";
 
@@ -30,18 +31,18 @@ interface BookingSums {
 
 /** Accepted quotes from `from` up to `before` (acceptance moments, months in the agency's zone), by month: how many, their price, GST and costs. */
 const bookingsByMonth = (tx: OrgTx, from: Date, before: Date, timeZone: string) =>
-  tx.$queryRaw<BookingSums[]>`
+  tx.$queryRaw<BookingSums[]>(sql`
     SELECT to_char(q.accepted_at AT TIME ZONE ${timeZone}, 'YYYY-MM') AS month,
            count(*)::int AS bookings,
-           coalesce(sum(q.subtotal_paise), 0)::bigint AS revenue,
-           coalesce(sum(q.tax_paise), 0)::bigint AS gst,
+           coalesce(sum(${quoteSalesSql}), 0)::bigint AS revenue,
+           coalesce(sum(${quoteTaxSql}), 0)::bigint AS gst,
            coalesce(sum(c.cost), 0)::bigint AS cost
     FROM quote q
     LEFT JOIN LATERAL (
       SELECT sum(amount_paise) AS cost FROM trip_cost WHERE quote_id = q.id AND voided_at IS NULL
     ) c ON true
     WHERE q.status = 'accepted' AND q.deleted_at IS NULL AND q.accepted_at >= ${from} AND q.accepted_at < ${before}
-    GROUP BY 1`;
+    GROUP BY 1`);
 
 export async function financeSummaryOf(
   tx: OrgTx,
@@ -56,40 +57,47 @@ export async function financeSummaryOf(
   const start = asDate(period.from);
   const end = zoned(addDays(period.to as CalendarDate, 1));
   const dayWindowStart = new Date(`${months[0] ?? period.from.slice(0, 7)}-01T00:00:00Z`);
-  const [monthly, inPeriod, owed, supplierOwed, collected, expenseMonths, expenseCategories] = await Promise.all([
-    bookingsByMonth(tx, windowStart, end, timeZone),
-    bookingsByMonth(tx, zoned(period.from), end, timeZone),
-    // What customers owe: the accepted quotes' totals less what was paid on them (a payment never passes its total).
-    tx.$queryRaw<{ total: bigint; paid: bigint }[]>`
-      SELECT coalesce(sum(q.total_paise), 0)::bigint AS total,
-             coalesce(sum(p.paid), 0)::bigint AS paid
+  const [monthly, inPeriod, owed, supplierOwed, collected, refunded, expenseMonths, expenseCategories] =
+    await Promise.all([
+      bookingsByMonth(tx, windowStart, end, timeZone),
+      bookingsByMonth(tx, zoned(period.from), end, timeZone),
+      // What customers owe: the accepted quotes' totals less what was paid on them (a payment never passes its total).
+      // (a cancelled booking owes its charge, not the trip's total, and never more than that.)
+      tx.$queryRaw<{ total: bigint; paid: bigint }[]>(sql`
+      SELECT coalesce(sum(GREATEST(0, ${quoteOwedSql} - coalesce(p.paid, 0))), 0)::bigint AS total,
+             0::bigint AS paid
       FROM quote q
       LEFT JOIN LATERAL (
         SELECT sum(amount_paise) AS paid FROM quote_payment WHERE quote_id = q.id AND voided_at IS NULL
       ) p ON true
-      WHERE q.status = 'accepted' AND q.deleted_at IS NULL`,
-    tx.$queryRaw<{ owed: bigint }[]>`
+      WHERE q.status = 'accepted' AND q.deleted_at IS NULL`),
+      tx.$queryRaw<{ owed: bigint }[]>`
       SELECT coalesce(sum(c.amount_paise), 0)::bigint AS owed
       FROM trip_cost c JOIN quote q ON q.id = c.quote_id
       WHERE q.status = 'accepted' AND q.deleted_at IS NULL AND c.voided_at IS NULL AND c.paid_on IS NULL`,
-    tx.quotePayment.aggregate({
-      where: { voidedAt: null, receivedOn: { gte: start, lte: asDate(period.to) } },
-      _sum: { amountPaise: true },
-    }),
-    tx.agencyExpense.groupBy({
-      by: ["spentOn"],
-      where: {
-        voidedAt: null,
-        spentOn: { gte: dayWindowStart < start ? dayWindowStart : start, lte: asDate(period.to) },
-      },
-      _sum: { amountPaise: true },
-    }),
-    tx.agencyExpense.groupBy({
-      by: ["category"],
-      where: { voidedAt: null, spentOn: { gte: start, lte: asDate(period.to) } },
-      _sum: { amountPaise: true },
-    }),
-  ]);
+      tx.quotePayment.aggregate({
+        where: { voidedAt: null, receivedOn: { gte: start, lte: asDate(period.to) } },
+        _sum: { amountPaise: true },
+      }),
+      // Refunds paid in the period come off the cash collected.
+      tx.bookingRefund.aggregate({
+        where: { status: "refunded", refundedOn: { gte: start, lte: asDate(period.to) } },
+        _sum: { amountPaise: true },
+      }),
+      tx.agencyExpense.groupBy({
+        by: ["spentOn"],
+        where: {
+          voidedAt: null,
+          spentOn: { gte: dayWindowStart < start ? dayWindowStart : start, lte: asDate(period.to) },
+        },
+        _sum: { amountPaise: true },
+      }),
+      tx.agencyExpense.groupBy({
+        by: ["category"],
+        where: { voidedAt: null, spentOn: { gte: start, lte: asDate(period.to) } },
+        _sum: { amountPaise: true },
+      }),
+    ]);
 
   const perMonth = new Map(months.map((month) => [month, { revenue: 0, tripCost: 0, expense: 0 }]));
   for (const row of monthly) {
@@ -120,7 +128,7 @@ export async function financeSummaryOf(
     grossProfitPaise,
     expensePaise,
     netProfitPaise: grossProfitPaise - expensePaise,
-    collectedPaise: Number(collected._sum.amountPaise ?? 0n),
+    collectedPaise: Number(collected._sum.amountPaise ?? 0n) - Number(refunded._sum.amountPaise ?? 0n),
     receivablePaise: Math.max(0, Number(owed[0]?.total ?? 0n) - Number(owed[0]?.paid ?? 0n)),
     payablePaise: Number(supplierOwed[0]?.owed ?? 0n),
     expensesByCategory,

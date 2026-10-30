@@ -38,6 +38,7 @@ function NudgeItem({ item }: { item: TodayItem }) {
       return { urgency: "waiting", text: t("ago", { elapsed: tNext(`elapsed.${unit}`, { count }) }) };
     }
     if (item.kind === "quote-opened") return { urgency: "waiting", text: t("quoteOpened") };
+    if (item.kind === "trip-details") return { urgency: "waiting", text: formatCalendarDay(item.startDate, now) };
     if (item.kind === "payment-due") {
       return {
         urgency: item.missed ? "overdue" : "today",
@@ -57,9 +58,11 @@ function NudgeItem({ item }: { item: TodayItem }) {
         ? item.quote.title
         : item.kind === "payment-due"
           ? formatRupees(money(item.amountPaise))
-          : item.lead === null
-            ? null
-            : item.task.title;
+          : item.kind === "trip-details"
+            ? t("tripDetails")
+            : item.lead === null
+              ? null
+              : item.task.title;
   return (
     <div role="listitem">
       <Item size="sm" asChild>
@@ -82,8 +85,8 @@ export function TodayNudge() {
   const headingId = useId();
 
   if (summary.data) {
-    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue } = summary.data.counts;
-    const total = overdue + newLeads + dueToday + quoteOpened + paymentsDue;
+    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue, tripDetails } = summary.data.counts;
+    const total = overdue + newLeads + dueToday + quoteOpened + paymentsDue + tripDetails;
     const top = summary.data.top.slice(0, SHOWN);
     return (
       <Card role="region" aria-labelledby={headingId}>

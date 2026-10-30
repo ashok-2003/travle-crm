@@ -58,6 +58,7 @@ export function BookingsTable() {
                 </TextLink>
                 <p className="text-caption text-muted-foreground">
                   {booking.customerName}
+                  {booking.cancelled ? ` · ${t("cancelled")}` : ""}
                   {booking.startDate === null
                     ? ""
                     : ` · ${t("travels", { day: formatCalendarDay(booking.startDate) })}`}

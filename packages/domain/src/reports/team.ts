@@ -4,6 +4,7 @@
 // who did anything shows; names are the router's, from identity.
 import type { TeamRow } from "@travel-crm/contracts/reports";
 import { sql, type OrgTx, type Sql } from "@travel-crm/db";
+import { quoteSalesSql } from "../quotes/index.js";
 import { overdueByAssignee } from "../tasks/index.js";
 import { medianReplySql, repliedSql, type ReportPeriod } from "./figures.js";
 
@@ -33,7 +34,7 @@ export async function teamRowsOf(
   const quotes = await tx.$queryRaw<{ userId: string; sent: number; sales: bigint }[]>(sql`
     SELECT lead.owner_user_id AS "userId",
       count(*) FILTER (WHERE ${within(sql`q.sent_at`, period)})::int AS sent,
-      coalesce(sum(q.subtotal_paise) FILTER (WHERE q.status = 'accepted' AND ${within(sql`q.accepted_at`, period)}), 0)::bigint AS sales
+      coalesce(sum(${quoteSalesSql}) FILTER (WHERE q.status = 'accepted' AND ${within(sql`q.accepted_at`, period)}), 0)::bigint AS sales
     FROM quote q JOIN lead ON lead.id = q.lead_id
     WHERE q.deleted_at IS NULL AND lead.deleted_at IS NULL AND ${person(sql`lead.owner_user_id`)}
     GROUP BY lead.owner_user_id`);
@@ -42,6 +43,13 @@ export async function teamRowsOf(
     FROM quote_payment p JOIN quote q ON q.id = p.quote_id JOIN lead ON lead.id = q.lead_id
     WHERE p.voided_at IS NULL AND q.deleted_at IS NULL AND lead.deleted_at IS NULL
       AND p.received_on >= ${period.firstDay}::date AND p.received_on <= ${period.lastDay}::date
+      AND ${person(sql`lead.owner_user_id`)}
+    GROUP BY lead.owner_user_id`);
+  const refunded = await tx.$queryRaw<{ userId: string; refunded: bigint }[]>(sql`
+    SELECT lead.owner_user_id AS "userId", sum(r.amount_paise)::bigint AS refunded
+    FROM booking_refund r JOIN booking b ON b.id = r.booking_id JOIN lead ON lead.id = b.lead_id
+    WHERE r.status = 'refunded' AND lead.deleted_at IS NULL
+      AND r.refunded_on >= ${period.firstDay}::date AND r.refunded_on <= ${period.lastDay}::date
       AND ${person(sql`lead.owner_user_id`)}
     GROUP BY lead.owner_user_id`);
   const messages = await tx.$queryRaw<{ userId: string; messages: number }[]>(sql`
@@ -62,7 +70,7 @@ export async function teamRowsOf(
     GROUP BY lead.owner_user_id`);
 
   const ids = new Set<string>(only === null ? [] : [only]);
-  for (const list of [leads, quotes, collected, messages, notes, tasks, open])
+  for (const list of [leads, quotes, collected, refunded, messages, notes, tasks, open])
     for (const row of list) ids.add(row.userId);
   const overdue = await overdueByAssignee(tx, [...ids], now);
   const pick = <T extends { userId: string }>(list: T[], userId: string) => list.find((row) => row.userId === userId);
@@ -78,7 +86,7 @@ export async function teamRowsOf(
       medianFirstReplyMinutes: own?.median ?? null,
       quotesSent: quoted?.sent ?? 0,
       salesPaise: Number(quoted?.sales ?? 0n),
-      collectedPaise: Number(pick(collected, userId)?.collected ?? 0n),
+      collectedPaise: Number(pick(collected, userId)?.collected ?? 0n) - Number(pick(refunded, userId)?.refunded ?? 0n),
       messages: pick(messages, userId)?.messages ?? 0,
       notes: pick(notes, userId)?.notes ?? 0,
       tasksDone: pick(tasks, userId)?.done ?? 0,

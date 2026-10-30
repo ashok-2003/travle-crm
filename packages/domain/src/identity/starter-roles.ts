@@ -46,6 +46,7 @@ export const starterRoles: readonly StarterRole[] = [
       allow("quotes:edit"),
       ownRecords("bookings:view"),
       allow("bookings:create"),
+      allow("bookings:edit"),
       allow("departures:view"),
       allow("suppliers:view"),
     ],

@@ -15,7 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useTRPCClient } from "@/data/trpc";
+import { TextLink } from "@/components/text-link";
 import { formatDayTime } from "@/lib/format";
+import { bookingRoute } from "@/lib/routes";
 import { openInNewTab } from "@/lib/open-in-new-tab";
 import { useErrorMessage } from "@/lib/error-message";
 import { useHolds, useMe } from "@/session/me-context";
@@ -61,6 +63,11 @@ function BookingBlock({ booking }: { booking: AiBooking }) {
           { label: t("taken"), value: formatDayTime(new Date(booking.createdAt), { timeZone }) },
         ]}
       />
+      {booking.bookingId !== null && booking.bookingNumber !== null && (
+        <TextLink href={bookingRoute(booking.bookingId)}>
+          {t("openBooking", { number: booking.bookingNumber })}
+        </TextLink>
+      )}
       {booking.proofs.length === 0 ? (
         open && <p className="text-caption text-muted-foreground">{t("noProof")}</p>
       ) : (

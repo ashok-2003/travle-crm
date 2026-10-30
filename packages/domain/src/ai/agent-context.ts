@@ -143,6 +143,7 @@ export async function leadFactsFor(tx: OrgTx, personId: string | null) {
 const askFor = {
   reply: "Write your answer to the customer's last message now",
   nudge: "The customer has gone quiet: write your one follow-up now",
+  followUp: "The follow-up planned with this customer is due: write your one message about it now",
 } as const;
 
 /**

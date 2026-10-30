@@ -3,11 +3,17 @@
 // deleted, only voided with who and when; the first payment on a sent quote makes it accepted and its lead Won, and
 // voiding that payment puts both back. Every change takes the quote's row lock, so two taps never both count. All audited.
 import { leadStage } from "@travel-crm/contracts/crm";
-import type { AddInstallmentInput, RecordPaymentInput } from "@travel-crm/contracts/quotes";
+import type {
+  AddInstallmentInput,
+  QuoteAcceptedEvent,
+  QuoteRevertedEvent,
+  RecordPaymentInput,
+} from "@travel-crm/contracts/quotes";
 import { MAX_INSTALLMENTS } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage, retreatLeadStage } from "../crm/index.js";
+import { publishEvent } from "../jobs/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { assertDraft, findQuoteForChange, paidOf } from "./quote-rows.js";
@@ -117,7 +123,14 @@ export async function recordPayment(
     after: { paymentId: row.id, amountPaise: input.amountPaise, method: input.method, receivedOn: input.receivedOn },
   });
   // Money paid on a quote is a sale: accepted, if nobody marked it, and the lead Won.
-  if (accepts) await tx.quote.update({ where: { id: quote.id }, data: { status: "accepted", acceptedAt: now } });
+  if (accepts) {
+    await tx.quote.update({ where: { id: quote.id }, data: { status: "accepted", acceptedAt: now } });
+    // Staff recorded money: it is a sale, so its booking is made Confirmed (bookings.create-from-quote).
+    await publishEvent(tx, {
+      type: "quote.accepted",
+      payload: { quoteId: quote.id, leadId: quote.leadId, confirmed: true } satisfies QuoteAcceptedEvent,
+    });
+  }
   if (await advanceLeadStage(tx, access, { leadId: quote.leadId, stage: "won" }, now)) {
     await tx.quotePayment.update({ where: { id: row.id }, data: { leadStageBefore: lead.stage } });
   }
@@ -176,6 +189,8 @@ export async function voidPayment(tx: OrgTx, access: MemberAccess, paymentId: st
   });
   if (first?.quoteStatusBefore != null && quote.status === "accepted" && quote.acceptedName === null) {
     await tx.quote.update({ where: { id: quote.id }, data: { status: first.quoteStatusBefore, acceptedAt: null } });
+    // The booking made from the sale goes with it (bookings.remove-with-quote).
+    await publishEvent(tx, { type: "quote.reverted", payload: { quoteId: quote.id } satisfies QuoteRevertedEvent });
   }
   if (first?.leadStageBefore != null) {
     await retreatLeadStage(

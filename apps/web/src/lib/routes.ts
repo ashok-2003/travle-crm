@@ -20,6 +20,8 @@ export const routes = {
   /** The lead list (release 1); a lead's own page is leadRoute(leadId). */
   leads: "/leads",
   newLead: "/leads/new",
+  /** Every open follow-up on a lead, with its WhatsApp chat and what the AI did when it came due (2026-10-30). */
+  followUps: "/leads/follow-ups",
   /** The open leads by stage, as a board (release C). */
   leadsPipeline: "/leads/pipeline",
   /** A lead import's first step; an import's own page is leadImportRoute(importId). */
@@ -30,6 +32,8 @@ export const routes = {
   broadcasts: "/inbox/broadcasts",
   /** A lead's quotations and the money on them (step 3, P0); one quote's page is quoteRoute(quoteId). */
   quotes: "/quotes",
+  /** Accepted quotes as bookings the agency confirms and runs (release 6); one booking's page is bookingRoute(bookingId). */
+  bookings: "/bookings",
   /** Reports and analytics; one staff member's is staffReportRoute(userId). */
   reports: "/reports",
   /** The agency's money: profit, bookings and running costs (step 6, P0). */
@@ -53,6 +57,8 @@ export const routes = {
   salesAutomation: "/settings/sales-automation",
   /** How quotes are paid (the agency's UPI id) and taxed. */
   quoteSettings: "/settings/quotes",
+  /** How bookings run: the payment schedule, reminders, the cancellation steps and the review link (release 6). */
+  bookingSettings: "/settings/bookings",
   /** Suggest reply's switch and the agency's instructions to the AI. */
   aiSettings: "/settings/ai",
   /** The agency's WhatsApp number and its state. */
@@ -77,6 +83,11 @@ export function staffReportRoute(userId: string): string {
 /** One quote's page. */
 export function quoteRoute(quoteId: string): string {
   return `${routes.quotes}/${encodeURIComponent(quoteId)}`;
+}
+
+/** One booking's page. */
+export function bookingRoute(bookingId: string): string {
+  return `${routes.bookings}/${encodeURIComponent(bookingId)}`;
 }
 
 /** A WhatsApp chat's page. */

@@ -3,6 +3,7 @@
 // without being sent, marked by hand or paid), the sales (accepted, before GST) and the money customers paid. For one owner's leads, or the agency's. Live sums under row-level security.
 import type { ReportFigures } from "@travel-crm/contracts/reports";
 import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
+import { quoteSalesSql } from "../quotes/index.js";
 
 export interface ReportPeriod {
   /** The first instant of the first day, and the first instant after the last, in the agency's zone. */
@@ -55,7 +56,7 @@ export async function figuresOf(tx: OrgTx, ownerUserId: string | null, period: R
   const owner = ownerOf(ownerUserId);
   const [quotes] = await tx.$queryRaw<{ sales: bigint; sent: number; accepted: number }[]>(sql`
     SELECT
-      coalesce(sum(q.subtotal_paise) FILTER (WHERE q.status = 'accepted'
+      coalesce(sum(${quoteSalesSql}) FILTER (WHERE q.status = 'accepted'
         AND q.accepted_at >= ${period.from}::timestamptz AND q.accepted_at < ${period.to}::timestamptz), 0)::bigint AS sales,
       count(*) FILTER (WHERE q.sent_at >= ${period.from}::timestamptz AND q.sent_at < ${period.to}::timestamptz)::int AS sent,
       count(*) FILTER (WHERE q.status = 'accepted'
@@ -68,6 +69,13 @@ export async function figuresOf(tx: OrgTx, ownerUserId: string | null, period: R
     WHERE p.voided_at IS NULL AND q.deleted_at IS NULL AND lead.deleted_at IS NULL
       AND p.received_on >= ${period.firstDay}::date AND p.received_on <= ${period.lastDay}::date
       ${owner}`);
+  // Cash collected is the payments less the refunds paid in the period (a refund is its own row, never a negative payment).
+  const [refunded] = await tx.$queryRaw<{ refunded: bigint }[]>(sql`
+    SELECT coalesce(sum(r.amount_paise), 0)::bigint AS refunded
+    FROM booking_refund r JOIN booking b ON b.id = r.booking_id JOIN lead ON lead.id = b.lead_id
+    WHERE r.status = 'refunded' AND lead.deleted_at IS NULL
+      AND r.refunded_on >= ${period.firstDay}::date AND r.refunded_on <= ${period.lastDay}::date
+      ${owner}`);
   return {
     newLeads: leads?.newLeads ?? 0,
     contacted: leads?.contacted ?? 0,
@@ -77,7 +85,7 @@ export async function figuresOf(tx: OrgTx, ownerUserId: string | null, period: R
     lost: leads?.lost ?? 0,
     medianFirstReplyMinutes: leads?.median ?? null,
     salesPaise: Number(quotes?.sales ?? 0n),
-    collectedPaise: Number(paid?.collected ?? 0n),
+    collectedPaise: Number(paid?.collected ?? 0n) - Number(refunded?.refunded ?? 0n),
     quotesSent: quotes?.sent ?? 0,
     quotesAccepted: quotes?.accepted ?? 0,
   };

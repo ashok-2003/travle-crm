@@ -2,9 +2,11 @@
 // by UPI; and accepting it there with their name, which the system records as the customer's (publicActor) and which
 // moves the lead to Booking requested. A declined, replaced or unsent quote can't be accepted; accepting twice changes
 // nothing. A replaced quote's link says so, with no prices.
+import type { QuoteAcceptedEvent } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage } from "../crm/index.js";
+import { publishEvent } from "../jobs/index.js";
 import { DomainError, publicActor } from "../kernel/index.js";
 import { dayOf, daysOf, findQuoteForSystem, itemsOf, paidOf } from "./quote-rows.js";
 import { coveredInstallments } from "./totals.js";
@@ -119,7 +121,14 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
  */
 export async function acceptQuoteFromLink(
   tx: OrgTx,
-  input: { organizationId: string; quoteId: string; name: string; optionId?: string | undefined },
+  input: {
+    organizationId: string;
+    quoteId: string;
+    name: string;
+    optionId?: string | undefined;
+    /** The box "Send me trip updates on WhatsApp" was ticked. */
+    tripUpdates?: boolean | undefined;
+  },
   now: Date,
 ): Promise<void> {
   // Locked, so a customer's double tap, and a payment recorded at the same moment, take their turns.
@@ -156,4 +165,30 @@ export async function acceptQuoteFromLink(
     after: { status: "accepted" },
   });
   await advanceLeadStage(tx, actor, { leadId: quote.leadId, stage: "booking_requested" }, now);
+  // The booking is made from this (bookings.create-from-quote); the traveller's trip-updates consent is kept with it.
+  await publishEvent(tx, {
+    type: "quote.accepted",
+    payload: { quoteId: quote.id, leadId: quote.leadId, confirmed: false } satisfies QuoteAcceptedEvent,
+  });
+  if (input.tripUpdates === true) await recordTripUpdatesConsent(tx, quote.leadId, now);
 }
+
+/** The customer ticked "Send me trip updates on WhatsApp" when accepting: kept in the consent ledger, with the words shown. */
+async function recordTripUpdatesConsent(tx: OrgTx, leadId: string, now: Date): Promise<void> {
+  const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { personId: true } });
+  if (lead === null) return;
+  await tx.personConsent.create({
+    data: {
+      personId: lead.personId,
+      purpose: "trip_updates",
+      action: "granted",
+      wording: TRIP_UPDATES_WORDING,
+      wordingVersion: 1,
+      source: "quote_accept",
+      recordedAt: now,
+    },
+  });
+}
+
+/** The sentence beside the box on the quote page; the ledger keeps exactly this. */
+export const TRIP_UPDATES_WORDING = "Send me trip updates on WhatsApp.";

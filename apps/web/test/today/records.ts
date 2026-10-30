@@ -39,7 +39,7 @@ export function aTask(overrides: Partial<Task> = {}): Task {
 }
 
 /** Sneha's follow-up, due yesterday at 5:00 pm. */
-export const snehaOverdue: TaskItem = { kind: "task", task: aTask(), lead: aLead() };
+export const snehaOverdue: TaskItem = { kind: "task", task: aTask(), lead: aLead(), booking: null };
 
 /** Vikram's, due at 9:30 this morning; his trip isn't known yet. */
 export const vikramOverdue: TaskItem = {
@@ -57,6 +57,7 @@ export const vikramOverdue: TaskItem = {
     trip: { destinationName: null, when: { kind: "unknown" }, adults: null, childrenCount: 0 },
     source: "walk_in",
   }),
+  booking: null,
 };
 
 /** Rahul's new lead, in 12 minutes ago by phone. */
@@ -93,6 +94,7 @@ export const priyaDue: TaskItem = {
     },
     source: "referral",
   }),
+  booking: null,
 };
 
 /** A task of the member's own, on no lead, due at 6:00 pm. */
@@ -106,17 +108,18 @@ export const standaloneDue: TaskItem = {
     record: null,
   }),
   lead: null,
+  booking: null,
 };
 
 /** The mockup's day: 8 things, 2 overdue, 3 new leads, 3 due today, and its top three. */
 export const busyDay: TodaySummary = {
   day: "2026-10-16",
-  counts: { overdue: 2, newLeads: 3, dueToday: 3, quoteOpened: 0, paymentsDue: 0 },
+  counts: { overdue: 2, newLeads: 3, dueToday: 3, quoteOpened: 0, paymentsDue: 0, tripDetails: 0 },
   top: [snehaOverdue, rahulNew, priyaDue],
 };
 
 export const quietDay: TodaySummary = {
   day: "2026-10-16",
-  counts: { overdue: 0, newLeads: 0, dueToday: 0, quoteOpened: 0, paymentsDue: 0 },
+  counts: { overdue: 0, newLeads: 0, dueToday: 0, quoteOpened: 0, paymentsDue: 0, tripDetails: 0 },
   top: [],
 };

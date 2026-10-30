@@ -10,8 +10,10 @@ import type { PeopleNames, TimelineEntry } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { StatusDot, type StatusTone } from "@/components/status-badge";
+import { TextLink } from "@/components/text-link";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { formatDayTime } from "@/lib/format";
+import { bookingRoute } from "@/lib/routes";
 import { CallEntryActions } from "../call/call-entry-actions";
 import { useMe } from "@/session/me-context";
 import { StageDot } from "../stage-badge";
@@ -142,6 +144,16 @@ export function TimelineEntryItem({
         return { title: t("lead.timeline.tripEdited") };
       case "whatsapp-contact":
         return { title: t("lead.timeline.whatsappContact") };
+      case "booking-event":
+        return {
+          title: t(`lead.timeline.booking.${entry.event}`, { number: entry.number }),
+          detail: (
+            <TextLink inline href={bookingRoute(entry.bookingId)}>
+              {t("lead.timeline.openBooking", { number: entry.number })}
+            </TextLink>
+          ),
+          ...(entry.event === "payment-confirmed" && { mark: <StatusDot tone="good" className={inline} /> }),
+        };
     }
   };
 

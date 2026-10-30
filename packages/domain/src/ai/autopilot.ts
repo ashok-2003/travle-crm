@@ -30,6 +30,7 @@ export interface AutopilotRow {
   sendMedia: boolean;
   paymentDetails: string;
   strictRules: string;
+  followUpTasks: boolean;
 }
 
 export const autopilotDefaults: AutopilotRow = {
@@ -54,6 +55,7 @@ export const autopilotDefaults: AutopilotRow = {
   sendMedia: true,
   paymentDetails: "",
   strictRules: "",
+  followUpTasks: true,
 };
 
 const columns = {
@@ -78,6 +80,7 @@ const columns = {
   sendMedia: true,
   paymentDetails: true,
   strictRules: true,
+  followUpTasks: true,
 } as const;
 
 /** The agency's autopilot settings, the defaults (everything off) when it saved none. */

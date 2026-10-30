@@ -85,6 +85,7 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
     persona: saved.persona,
     leadNotes: saved.leadNotes,
     sendMedia: saved.sendMedia,
+    followUpTasks: saved.followUpTasks,
     paymentDetails: saved.paymentDetails,
     strictRules: saved.strictRules,
   });

@@ -57,6 +57,7 @@ model Quote {
   installments       QuoteInstallment[]
   payments           QuotePayment[]
   costs              TripCost[]
+  bookings           Booking[]
 
   @@unique([organizationId, id])
   @@index([organizationId, leadId], map: "quote_lead")
@@ -65,15 +66,17 @@ model Quote {
 
 /// A payment due on a quote: the advance, the balance before travel.
 model QuoteInstallment {
-  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String       @id @default(uuid(7)) @db.Uuid
-  quoteId        String       @map("quote_id") @db.Uuid
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
+  quoteId        String            @map("quote_id") @db.Uuid
   label          String
-  amountPaise    BigInt       @map("amount_paise")
-  dueOn          DateTime     @map("due_on") @db.Date
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  quote          Quote        @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  amountPaise    BigInt            @map("amount_paise")
+  dueOn          DateTime          @map("due_on") @db.Date
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  quote          Quote             @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  claims         PaymentClaim[]
+  reminders      BookingReminder[]
 
   @@unique([organizationId, id])
   @@index([organizationId, quoteId], map: "quote_installment_quote")
@@ -104,6 +107,7 @@ model QuotePayment {
   organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   quote             Quote           @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   receiptDocument   IssuedDocument? @relation("PaymentReceipt", fields: [organizationId, receiptDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  claims            PaymentClaim[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, requestId], map: "quote_payment_request_once")

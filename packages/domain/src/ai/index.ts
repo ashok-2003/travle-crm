@@ -2,7 +2,8 @@
 // instructions, what it tells its AI to know, Suggest reply with its monthly limit and its audit, the AI's guess of how a
 // lead will go (it never moves a lead's stage), and the autopilot: the AI answering chats by itself, off until an Owner or
 // Admin turns it on, marking and auditing every message it sends, with nudges, a staff member's style and nightly lessons, notes on leads, the agency's media and payment details, and the
-// bookings it takes with the customer's payment proof. It sits above crm and inbox, which it calls;
+// bookings it takes with the customer's payment proof, and the follow-ups it adds to leads and works when they come due
+// (the Follow-ups screen). It sits above crm and inbox, which it calls;
 // nothing below calls it.
 export type { AiModel } from "@travel-crm/integrations/ai";
 export { aiAllowed } from "./allowed.js";
@@ -42,6 +43,7 @@ export {
 } from "./booking.js";
 export { confirmMedia, deleteMedia, listMedia, mediaLink, requestMedia, updateMedia } from "./media.js";
 export { autopilotDefaults, autopilotOf, autopilotSettingsOf, saveAutopilot } from "./autopilot.js";
+export { followUpBoardOf } from "./follow-up-board.js";
 export { AI_CHAT_RESUMED_EVENT, chatAiOf, resumeChat, setChatMode, setChatPersona } from "./chat-state.js";
 export { learnFromChats, learnNow, type LearnDependencies } from "./learning.js";
 export { listLearnings, setLearning } from "./learning-store.js";

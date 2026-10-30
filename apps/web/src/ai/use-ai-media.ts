@@ -4,6 +4,7 @@
 // it took on a lead. A change loads again only what shows it: the media list, or the lead's bookings and the lead itself
 // (a confirmed booking wins the lead).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRefreshBookings } from "@/bookings/use-bookings";
 import { useTRPC } from "@/data/trpc";
 
 export function useAiMedia() {
@@ -46,10 +47,13 @@ export function useLeadBookings(leadId: string) {
 export function useSetBookingStatus(leadId: string) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  // Confirming makes a quote, a booking and a payment: their screens and Today's tasks load again too.
+  const refreshBookings = useRefreshBookings();
   return useMutation(
     trpc.ai.setBookingStatus.mutationOptions({
       onSuccess: () =>
         Promise.all([
+          refreshBookings(),
           queryClient.invalidateQueries({ queryKey: trpc.ai.bookingsForLead.queryKey({ leadId }) }),
           queryClient.invalidateQueries({ queryKey: trpc.leads.pathKey() }),
         ]),

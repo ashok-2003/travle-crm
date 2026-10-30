@@ -26,7 +26,7 @@ import type { FormAddressSettings } from "./form-client-address.js";
 import { organizationSignIn } from "./org-sign-in.js";
 import { rateLimit } from "./rate-limit.js";
 import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js";
-import { shareLinkActions, shareLinkResolvers } from "./share-link-resolvers.js";
+import { shareLinkActions, shareLinkDownloads, shareLinkResolvers } from "./share-link-resolvers.js";
 import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
 import { requireTrustedJson } from "./trusted-origin.js";
 import { websiteFormRoutes } from "./website-form-routes.js";
@@ -70,6 +70,8 @@ export interface ServerDependencies {
   authSecret: string;
   /** Where people open the web app (APP_URL): the settings screens' form links are made under it. */
   appUrl: string;
+  /** The bucket's origin, which the trip page's script sends pictures to; absent in tests that have no bucket. */
+  storageOrigin?: string | null;
   /** Turnstile's check and the widget's public key; null or absent when the server has no keys (W39). */
   turnstile?: Turnstile | null;
   /** How the website form reads the visitor's address (W32); absent, as sign-in does. */
@@ -118,6 +120,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     logger,
     authSecret,
     appUrl,
+    storageOrigin = null,
     turnstile = null,
     formAddress = { headerNames: ["x-forwarded-for"], trustedProxies: [], proxyHops: null },
     signalWork = () => undefined,
@@ -204,14 +207,17 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
       logger,
     }),
   );
+  // A page's form or a picture's JSON is small.
+  app.use("/p/*", limitBody(32 * 1024));
   app.use("/p/*", signalTakenPosts(signalWork));
   app.route(
     "/p",
     shareLinkRoutes({
       find: (token) => findShareLink(db, token),
       recordOpen: (opened, visitor) => recordShareLinkOpen(db, opened, visitor),
-      resolvers: shareLinkResolvers({ db, files, identity }),
-      actions: shareLinkActions({ db }),
+      resolvers: shareLinkResolvers({ db, files, identity, profiles, storageOrigin }),
+      actions: shareLinkActions({ db, identity }),
+      downloads: shareLinkDownloads({ db, files }),
       clientAddress,
     }),
   );

@@ -143,12 +143,20 @@ async function mayWrite(
 }
 
 /**
- * One turn of the AI in a chat: `reply` to the customer's last message, or `nudge` a quiet one. Returns what happened,
- * for the log. Safe to run twice: a reply's token is the message it answers.
+ * One turn of the AI in a chat: `reply` to the customer's last message, `nudge` a quiet one, or write about a `followUp`
+ * on the lead that came due. Returns what happened, for the log. Safe to run twice: a reply's token is the message it
+ * answers.
  */
 export async function runAgentTurn(
   dependencies: AgentDependencies,
-  input: { organizationId: string; conversationId: string; kind: TurnKind; token: string },
+  input: {
+    organizationId: string;
+    conversationId: string;
+    kind: TurnKind;
+    token: string;
+    /** What the follow-up that came due is about, for a `followUp` turn. */
+    followUp?: string;
+  },
   now: Date,
 ): Promise<string> {
   const { db, ai } = dependencies;
@@ -218,6 +226,7 @@ export async function runAgentTurn(
         media: prepared.media,
         paymentSent: prepared.paymentSent,
         bookingOpen: prepared.bookingOpen,
+        followUp: input.followUp ?? null,
       }),
     },
     asTranscript(prepared.history.messages, input.kind),

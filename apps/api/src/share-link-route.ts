@@ -4,16 +4,38 @@
 import { brand } from "@travel-crm/brand";
 import { DomainError } from "@travel-crm/domain/kernel";
 import type { OpenedShareLink, ShareLinkVisitor } from "@travel-crm/domain/share-links";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 
 /**
- * Shows a shared record of one type, e.g. redirects to an issued document's PDF. `notice` says what the customer just
- * did on the page (an action's answer), for it to say so.
+ * Shows a shared record of one type, e.g. redirects to an issued document's PDF. `view` says where the page lives and
+ * what the customer just did on it (an action's answer), for it to say so.
  */
-export type ShareLinkResolver = (opened: OpenedShareLink, notice: ShareLinkNotice | null) => Promise<Response>;
+export type ShareLinkResolver = (opened: OpenedShareLink, view: ShareLinkView) => Promise<Response>;
 
 /** What a page tells the customer about what they just did: it was recorded, or it was refused (the page says why). */
-export type ShareLinkNotice = "accepted" | "refused";
+export type ShareLinkNotice = "accepted" | "refused" | "claimed" | "saved" | "feedback";
+const NOTICES: readonly string[] = ["accepted", "refused", "claimed", "saved", "feedback"];
+
+export interface ShareLinkView {
+  /** The link's own path, /p/<token>: where a page's forms, downloads and uploads are. */
+  base: string;
+  notice: ShareLinkNotice | null;
+  /** The reason code of a refusal, for a page that words it (a code, never a message). */
+  why: string | null;
+}
+
+/** What a page of one record type serves besides itself: its documents and files, and its pictures sent straight to storage. */
+export interface ShareLinkDownloads {
+  /** An issued document of the record, as a redirect to a short-lived download of its PDF. */
+  document: (opened: OpenedShareLink, documentId: string) => Promise<Response>;
+  /** A file attached to the record, the same way. */
+  file: (opened: OpenedShareLink, attachmentId: string) => Promise<Response>;
+  /** Signs a picture's upload to storage; the body is the page's JSON, checked by the record's module. */
+  requestUpload: (opened: OpenedShareLink, body: unknown) => Promise<unknown>;
+  /** Confirms the picture arrived. */
+  confirmUpload: (opened: OpenedShareLink, body: unknown) => Promise<unknown>;
+}
+const REASON = /^[A-Z][A-Z_]{2,40}$/;
 
 /** What a customer does on a shared record's page (a POST of its form): what to tell them, or nothing. */
 export type ShareLinkAction = (
@@ -30,6 +52,8 @@ export interface ShareLinkRouteOptions {
   resolvers: Readonly<Record<string, ShareLinkResolver>>;
   /** What a page's form may do, per record type: a quote's Accept. */
   actions?: Readonly<Record<string, ShareLinkAction>>;
+  /** The documents, files and uploads a record type's page serves. */
+  downloads?: Readonly<Record<string, ShareLinkDownloads>>;
   clientAddress: (request: Request) => string | null;
 }
 
@@ -180,7 +204,12 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
     let response: Response;
     try {
       const done = c.req.query("done");
-      response = await resolve(opened, done === "accepted" || done === "refused" ? done : null);
+      const why = c.req.query("why");
+      response = await resolve(opened, {
+        base: `/p/${encodeURIComponent(c.req.param("token"))}`,
+        notice: done !== undefined && NOTICES.includes(done) ? (done as ShareLinkNotice) : null,
+        why: why !== undefined && REASON.test(why) ? why : null,
+      });
     } catch (error) {
       // A resolver says "not found" (or "not ready yet") the same way the link itself does.
       if (error instanceof DomainError && error.code === "NOT_FOUND") {
@@ -212,18 +241,87 @@ export function shareLinkRoutes(options: ShareLinkRouteOptions): Hono {
     if (!act) return errorPage("LINK_NOT_FOUND");
     const body = await c.req.parseBody();
     const form: Record<string, string | undefined> = {};
-    for (const [key, value] of Object.entries(body)) if (typeof value === "string") form[key] = value.slice(0, 500);
+    for (const [key, value] of Object.entries(body)) if (typeof value === "string") form[key] = value.slice(0, 2100);
     let done: ShareLinkNotice | undefined;
     try {
       done = await act(opened, form);
     } catch (error) {
       // A refusal (declined, replaced, not sent) goes back to the page, which says why from the quote's own state.
-      if (error instanceof DomainError) return c.redirect(`/p/${encodeURIComponent(token)}?done=refused`, 303);
+      if (error instanceof DomainError) {
+        const why = REASON.test(error.reason) ? `&why=${error.reason}` : "";
+        return c.redirect(`/p/${encodeURIComponent(token)}?done=refused${why}`, 303);
+      }
       throw error;
     }
     const target = `/p/${encodeURIComponent(token)}${done === undefined ? "" : `?done=${done}`}`;
     return keptPrivate(new Response(null, { status: 303, headers: { Location: target } }));
   });
+
+  // A record's documents and files, each checked to belong to the record the link opens.
+  const download = (kind: "document" | "file") => async (c: Context) => {
+    let opened: OpenedShareLink;
+    try {
+      opened = await options.find(c.req.param("token") ?? "");
+    } catch (error) {
+      if (error instanceof DomainError && error.code === "NOT_FOUND") {
+        return errorPage(isPageReason(error.reason) ? error.reason : "LINK_NOT_FOUND");
+      }
+      throw error;
+    }
+    const serves = Object.hasOwn(options.downloads ?? {}, opened.recordType)
+      ? options.downloads?.[opened.recordType]
+      : undefined;
+    if (!serves) return errorPage("LINK_NOT_FOUND");
+    try {
+      return keptPrivate(await serves[kind](opened, c.req.param("id") ?? ""));
+    } catch (error) {
+      if (error instanceof DomainError && error.code === "NOT_FOUND") {
+        return errorPage(isPageReason(error.reason) ? error.reason : "LINK_NOT_FOUND");
+      }
+      throw error;
+    }
+  };
+  app.get("/:token/doc/:id", download("document"));
+  app.get("/:token/file/:id", download("file"));
+
+  // Pictures go from the page straight to storage: the page asks here for where to put one, then says it arrived. JSON only,
+  // so another site's form can't post here (a JSON content type needs a preflight this app never answers).
+  const upload = (step: "requestUpload" | "confirmUpload") => async (c: Context) => {
+    if (!(c.req.header("content-type") ?? "").toLowerCase().startsWith("application/json")) {
+      return c.json({ error: "JSON_ONLY" }, 415);
+    }
+    let opened: OpenedShareLink;
+    try {
+      opened = await options.find(c.req.param("token") ?? "");
+    } catch (error) {
+      if (error instanceof DomainError && error.code === "NOT_FOUND") return c.json({ error: error.reason }, 404);
+      throw error;
+    }
+    const serves = Object.hasOwn(options.downloads ?? {}, opened.recordType)
+      ? options.downloads?.[opened.recordType]
+      : undefined;
+    if (!serves) return c.json({ error: "LINK_NOT_FOUND" }, 404);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "INVALID_JSON" }, 400);
+    }
+    try {
+      return c.json((await serves[step](opened, body)) ?? {}, 200, privacyHeaders);
+    } catch (error) {
+      if (error instanceof DomainError) {
+        return c.json(
+          { error: error.reason },
+          error.code === "NOT_FOUND" ? 404 : error.code === "CONFLICT" ? 409 : 400,
+          privacyHeaders,
+        );
+      }
+      throw error;
+    }
+  };
+  app.post("/:token/upload", upload("requestUpload"));
+  app.post("/:token/upload/confirm", upload("confirmUpload"));
 
   return app;
 }

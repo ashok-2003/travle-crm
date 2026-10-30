@@ -133,6 +133,8 @@ export type FinanceSummary = z.infer<typeof financeSummary>;
 export const bookingRow = z.object({
   quoteId: recordId,
   leadId: recordId,
+  /** Cancelled: its revenue is the charge the agency kept (before GST) and it is owed no more than that. */
+  cancelled: z.boolean(),
   customerName: z.string(),
   title: z.string(),
   startDate: calendarDate.nullable(),

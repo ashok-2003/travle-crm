@@ -1,9 +1,13 @@
-// tasks.*: standalone tasks, and Done and Snooze on any follow-up or task (spec 3.5). All need leads:view (R20); a
+// tasks.*: standalone tasks, Done, Snooze and Edit on any follow-up or task (spec 3.5), and the Follow-ups screen's list
+// (2026-10-30). All need leads:view (R20); a
 // task for someone else needs leads:assign, which the domain checks. Done on a lead's task also writes "follow-up done"
 // on the lead's timeline, in the same transaction (R22): tasks sits below crm, so the router calls both.
-import { addTaskInput, snoozeTaskInput, task, taskIdInput } from "@travel-crm/contracts/tasks";
+import { followUpBoard, followUpsInput } from "@travel-crm/contracts/ai";
+import { addTaskInput, editTaskInput, snoozeTaskInput, task, taskIdInput } from "@travel-crm/contracts/tasks";
+import { followUpBoardOf } from "@travel-crm/domain/ai";
 import { recordLeadEvent } from "@travel-crm/domain/crm";
-import { addStandaloneTask, completeTask, snoozeTask } from "@travel-crm/domain/tasks";
+import { addStandaloneTask, completeTask, editTask, snoozeTask } from "@travel-crm/domain/tasks";
+import { memberNames } from "../member-names.js";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 import { leadWorkerIdsIfOther } from "../lead-workers.js";
@@ -50,4 +54,22 @@ export const tasksRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => snoozeTask(tx, ctx.member, input, new Date())),
     ),
+
+  /** What a follow-up or task asks and when it is due, changed (the Follow-ups screen); a time already past is refused. */
+  edit: worker
+    .input(editTaskInput)
+    .output(task)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => editTask(tx, ctx.member, input, new Date())),
+    ),
+
+  /** The Follow-ups screen: open follow-ups on leads with their WhatsApp chat and what the AI did when each came due. */
+  followUps: worker
+    .input(followUpsInput)
+    .output(followUpBoard)
+    .query(async ({ ctx, input }) => {
+      const { organizationId } = ctx.member;
+      const board = await ctx.db.forOrg(organizationId, (tx) => followUpBoardOf(tx, ctx.member, input, new Date()));
+      return { rows: board.rows, people: await memberNames(ctx.identity, organizationId, board.mentioned) };
+    }),
 });

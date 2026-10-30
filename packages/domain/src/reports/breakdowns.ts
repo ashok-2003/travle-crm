@@ -5,12 +5,13 @@ import { leadSources, lostReasons, type LeadSource, type LostReason } from "@tra
 import type { SalesReport } from "@travel-crm/contracts/reports";
 import { sql, type OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
+import { quoteSalesSql } from "../quotes/index.js";
 import { cohortOf, ownerOf, type ReportPeriod } from "./figures.js";
 
 const TOP = 10;
 
 /** What the accepted quotes of each lead earned, before GST. */
-const salesOfLead = sql`coalesce((SELECT sum(q.subtotal_paise) FROM quote q
+const salesOfLead = sql`coalesce((SELECT sum(${quoteSalesSql}) FROM quote q
   WHERE q.lead_id = lead.id AND q.deleted_at IS NULL AND q.status = 'accepted'), 0)`;
 
 export async function breakdownsOf(
@@ -55,7 +56,7 @@ export async function breakdownsOf(
       AND lead.stage_changed_at AT TIME ZONE ${zone} >= ${monthStart} AND lead.stage_changed_at < ${period.to}::timestamptz
     GROUP BY 1`);
   const salesMonths = await tx.$queryRaw<{ month: string; sales: bigint }[]>(sql`
-    SELECT to_char(q.accepted_at AT TIME ZONE ${zone}, 'YYYY-MM') AS month, sum(q.subtotal_paise)::bigint AS sales
+    SELECT to_char(q.accepted_at AT TIME ZONE ${zone}, 'YYYY-MM') AS month, sum(${quoteSalesSql})::bigint AS sales
     FROM quote q JOIN lead ON lead.id = q.lead_id
     WHERE q.deleted_at IS NULL AND lead.deleted_at IS NULL AND q.status = 'accepted' ${owner}
       AND q.accepted_at AT TIME ZONE ${zone} >= ${monthStart} AND q.accepted_at < ${period.to}::timestamptz

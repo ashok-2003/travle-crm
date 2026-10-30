@@ -80,7 +80,7 @@ async function quoteContext(ctx: MemberContext) {
 }
 
 /** The agency's name, colour, terms and logo as they are now, frozen into a document issued with them. */
-async function documentContext(ctx: MemberContext): Promise<DocumentContext> {
+export async function documentContext(ctx: MemberContext): Promise<DocumentContext> {
   const { organizationId } = ctx.member;
   const [profile, organization, logo, settings] = await Promise.all([
     ctx.profiles.get(organizationId),

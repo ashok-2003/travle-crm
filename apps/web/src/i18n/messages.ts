@@ -3,6 +3,7 @@
 import account from "./messages/en-IN/account.json";
 import ai from "./messages/en-IN/ai.json";
 import audit from "./messages/en-IN/audit.json";
+import bookings from "./messages/en-IN/bookings.json";
 import business from "./messages/en-IN/business.json";
 import calendar from "./messages/en-IN/calendar.json";
 import common from "./messages/en-IN/common.json";
@@ -45,6 +46,7 @@ export const locale = "en-IN";
 export const messages = {
   account,
   audit,
+  bookings,
   business,
   calendar,
   common,

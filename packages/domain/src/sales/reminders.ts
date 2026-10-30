@@ -42,6 +42,9 @@ async function dueReminders(tx: OrgTx, today: CalendarDate, daysBefore: number):
   const quotes = await tx.quote.findMany({
     where: {
       status: "accepted",
+      // A booking made since release 6 sends its own reminders (bookings.send-reminders); a carried-over one stays this
+      // automation's, and a cancelled one is reminded of nothing.
+      bookings: { none: { deletedAt: null, OR: [{ sendsReminders: true }, { status: "cancelled" }] } },
       installments: {
         some: { dueOn: { in: [new Date(`${soon}T00:00:00Z`), new Date(`${yesterday}T00:00:00Z`)] } },
       },

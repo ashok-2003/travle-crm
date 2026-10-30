@@ -9,7 +9,8 @@
 import type { AutopilotRow } from "./autopilot.js";
 import type { PromptMedia } from "./media.js";
 
-export type TurnKind = "reply" | "nudge";
+/** Answer the last message, nudge a quiet customer, or write about a follow-up on the lead that came due. */
+export type TurnKind = "reply" | "nudge" | "followUp";
 
 export interface AgentVoice {
   name: string;
@@ -41,6 +42,8 @@ export interface PromptPack {
   paymentSent: boolean;
   /** Whether a booking the AI took here waits for payment. */
   bookingOpen: boolean;
+  /** What the follow-up that came due is about, for a `followUp` turn; null otherwise. */
+  followUp?: string | null;
 }
 
 /** Keeps a data fence from being closed by the words inside it. */
@@ -95,13 +98,29 @@ const naturalTaskLines: Record<TurnKind, string> = {
   reply: "Reply to their last message.",
   nudge:
     "They have gone quiet. Write ONE short, natural message that picks the conversation up again: about something you two were talking about, or a simple check-in. Never needy, never pushy.",
+  followUp:
+    "Something you planned to pick up with them is due now (below). Write ONE short, natural message about it. Never needy, never pushy.",
 };
 
 const taskLines: Record<TurnKind, string> = {
   reply: "Answer the customer's last message.",
   nudge:
     "The customer has gone quiet. Write ONE short, warm follow-up that moves them a step forward: the next detail they need, a gentle question, or a reason to decide now that the knowledge supports. Never pushy, never a guilt trip.",
+  followUp:
+    "A follow-up the team planned with this customer is due now (what it is about is below). Write ONE short, warm message that picks the conversation up on it and moves them a step forward: the update they were waiting for, the next detail, or a gentle question. Never pushy, and never mention a follow-up, a task or a reminder.",
 };
+
+/** What the follow-up that came due is about, fenced: a person or the AI wrote it, and it may quote the customer. */
+const dueLines = (pack: PromptPack) =>
+  pack.followUp == null || pack.followUp.trim() === ""
+    ? ""
+    : `\nThe follow-up that is due:\n<data>${fenced(pack.followUp.trim())}</data>\n`;
+
+/** When the AI adds a follow-up to the lead for the team: only when the agency lets it. */
+const taskLine = (settings: AutopilotRow) =>
+  settings.followUpTasks
+    ? 'task is a follow-up for the team on the lead: needed true only when the customer asks to be contacted later or on a day ("call me tomorrow", "will confirm next week", "talk after Diwali"), or a call or a promised update is due; title is what to do in a short line ("Call Rahul about the Manali dates"); inHours is when, from 1 to 336. Otherwise needed false.'
+    : "Set task.needed to false.";
 
 const genericWriting = (settings: AutopilotRow) => `How you write:
 - ${languageLine(settings)}
@@ -209,7 +228,7 @@ export function agentPrompt(settings: AutopilotRow, agency: string, kind: TurnKi
     : handoffLines[settings.handoff];
   const selling = pack.natural ? "" : `\n${paymentLines(settings, pack)}\n\n${bookingLines(pack)}\n`;
   return `${role}
-${strictLines(settings)}${selling}${mediaLines(pack)}
+${dueLines(pack)}${strictLines(settings)}${selling}${mediaLines(pack)}
 ${earlierChat(pack.voice)}${talkedAbout(pack.voice)}
 ${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}${settings.emojis === "none" ? "\n- Use no emojis at all, not one, whatever the examples or lessons do." : ""}
 - The agency's choices here win over any lesson below and over the way of talking you copy.
@@ -227,9 +246,11 @@ The agency's knowledge:
 <data>${fenced(pack.knowledge)}</data>
 
 Answer with ONE JSON object and nothing else:
-{"reply": string, "handoff": boolean, "handoffReason": string, "attention": string ("" when the team needn't look), "memory": string (the facts, wishes and promises of this chat so far, under 800 characters, replacing what you remembered), "followUp": {"needed": boolean, "inHours": number, "why": string}, "note": string, "media": [numbers like "M1"], "sendPaymentDetails": boolean, "booking": {"confirmed": boolean, "summary": string, "package": string, "dates": string, "travellers": string, "pickup": string, "amount": string}}
+{"reply": string, "handoff": boolean, "handoffReason": string, "attention": string ("" when the team needn't look), "memory": string (the facts, wishes and promises of this chat so far, under 800 characters, replacing what you remembered), "followUp": {"needed": boolean, "inHours": number, "why": string}, "task": {"needed": boolean, "title": string, "inHours": number}, "note": string, "media": [numbers like "M1"], "sendPaymentDetails": boolean, "booking": {"confirmed": boolean, "summary": string, "package": string, "dates": string, "travellers": string, "pickup": string, "amount": string}}
 
 ${noteLine(settings)}
+
+${taskLine(settings)}
 
 followUp is whether we should write again if the customer goes quiet after this, inside WhatsApp's 24-hour window: needed false when they booked, said no, asked us to stop, promised to come back on a later day, or nothing is left to say; otherwise inHours from 1 to 20 (sooner for a hot lead, 1 to 3; later for "will ask my family", 6 to 12) and why in a few words.${strictLines(settings)}`;
 }

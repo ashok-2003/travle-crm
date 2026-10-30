@@ -18,6 +18,44 @@ export async function cancelOpenTasks(tx: OrgTx, actor: Actor, record: TaskRecor
   return cancelled;
 }
 
+/**
+ * Closes these tasks if they are still open: done (the work was finished by another route, with the actor named) or
+ * cancelled (it no longer applies). Closed ones are left as they are, so a repeat changes nothing. Returns those closed.
+ */
+export async function finishTasks(
+  tx: OrgTx,
+  actor: Actor,
+  taskIds: readonly (string | null)[],
+  how: "done" | "cancelled",
+  now: Date,
+): Promise<Task[]> {
+  const ids = taskIds.filter((id): id is string => id !== null);
+  if (ids.length === 0) return [];
+  const rows = await tx.task.updateManyAndReturn({
+    where: { id: { in: ids }, ...openTask },
+    data:
+      how === "done"
+        ? { doneAt: now, ...(actor.userId === null ? {} : { doneBy: actor.userId }) }
+        : { cancelledAt: now },
+    select: taskColumns,
+  });
+  const closed = rows.map(taskFromRow);
+  for (const task of closed) await auditTask(tx, actor, how === "done" ? "task.done" : "task.cancelled", task);
+  return closed;
+}
+
+/** Makes an open task due now when it is due later, so a snoozed task reads overdue again. True when it moved. */
+export async function bringTaskForward(tx: OrgTx, actor: Actor, taskId: string, now: Date): Promise<boolean> {
+  const [moved] = await tx.task.updateManyAndReturn({
+    where: { id: taskId, ...openTask, dueAt: { gt: now } },
+    data: { dueAt: now },
+    select: taskColumns,
+  });
+  if (moved === undefined) return false;
+  await auditTask(tx, actor, "task.snoozed", taskFromRow(moved));
+  return true;
+}
+
 /** Gives every open task on the record to one person (or nobody), and returns those that moved. */
 export async function reassignOpenTasks(
   tx: OrgTx,

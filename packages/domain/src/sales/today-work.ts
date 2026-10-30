@@ -172,6 +172,8 @@ async function paymentsDueSoon(tx: OrgTx, ownerUserId: string, today: CalendarDa
     where: {
       status: "accepted",
       lead: { ownerUserId, deletedAt: null },
+      // A cancelled booking owes nothing more (release 6).
+      bookings: { none: { deletedAt: null, status: "cancelled" } },
       installments: { some: { dueOn: { lte: new Date(`${horizon}T00:00:00Z`) } } },
     },
     select: {

@@ -221,3 +221,11 @@ export type SavePackageInput = z.infer<typeof savePackageInput>;
 export const packageIdInput = z.strictObject({ packageId: recordId });
 export const quoteFromPackageInput = z.strictObject({ leadId: recordId, packageId: recordId });
 export type QuoteFromPackageInput = z.infer<typeof quoteFromPackageInput>;
+
+/** The payload of "quote.accepted": ids only. `confirmed` is true when staff recorded money on the quote (it is a sale already). */
+export const quoteAcceptedEvent = z.strictObject({ quoteId: recordId, leadId: recordId, confirmed: z.boolean() });
+export type QuoteAcceptedEvent = z.infer<typeof quoteAcceptedEvent>;
+
+/** The payload of "quote.reverted": the first payment that made a sent quote a sale was voided, so it is sent again. */
+export const quoteRevertedEvent = z.strictObject({ quoteId: recordId });
+export type QuoteRevertedEvent = z.infer<typeof quoteRevertedEvent>;

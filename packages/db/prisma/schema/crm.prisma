@@ -96,6 +96,7 @@ model Lead {
   destination     Destination?            @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   timeline        LeadTimelineEntry[]
   notes           LeadNote[]
+  bookings        Booking[]
   aiBookings      AiBooking[]
   calls           LeadCall[]
   quotes          Quote[]
@@ -151,6 +152,8 @@ model LeadTimelineEntry {
   assignmentRulePosition Int?         @map("assignment_rule_position")
   /// Whether the chosen person was away when the lead went to them (a previous owner or a rule's person can be).
   assignmentAway         Boolean      @default(false) @map("assignment_away")
+  /// What happened to the booking (record_type booking), for booking-event (CHECK lead_timeline_entry_booking_event_value).
+  bookingEvent           String?      @map("booking_event")
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   lead                   Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 

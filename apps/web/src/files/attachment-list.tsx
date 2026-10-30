@@ -31,10 +31,12 @@ function AttachmentActions({
   record,
   attachment,
   name,
+  removable,
 }: {
   record: AttachmentRecord;
   attachment: AttachmentSummary;
   name: string;
+  removable: boolean;
 }) {
   const t = useTranslations("business.attachments");
   const change = useWriteAccess("change");
@@ -58,17 +60,19 @@ function AttachmentActions({
         <DownloadIcon aria-hidden="true" />
         {t("download")}
       </Button>
-      <Button
-        ref={removeButton}
-        variant="outline"
-        aria-label={t("removeName", { name })}
-        disabled={!change.allowed}
-        onClick={() => {
-          setRemoving(true);
-        }}
-      >
-        {t("remove")}
-      </Button>
+      {removable && (
+        <Button
+          ref={removeButton}
+          variant="outline"
+          aria-label={t("removeName", { name })}
+          disabled={!change.allowed}
+          onClick={() => {
+            setRemoving(true);
+          }}
+        >
+          {t("remove")}
+        </Button>
+      )}
       {/* Its bytes stay in storage until the platform's purge, so it still counts toward the plan (ADR 0011). */}
       <ConfirmDialog
         open={removing}
@@ -86,7 +90,15 @@ function AttachmentActions({
   );
 }
 
-function AttachmentRow({ record, attachment }: { record: AttachmentRecord; attachment: AttachmentSummary }) {
+function AttachmentRow({
+  record,
+  attachment,
+  removable,
+}: {
+  record: AttachmentRecord;
+  attachment: AttachmentSummary;
+  removable: boolean;
+}) {
   const t = useTranslations("business.attachments");
   const me = useMe();
   // The api already hides the name; the screen says it in its own words, and offers nothing it would refuse.
@@ -124,7 +136,7 @@ function AttachmentRow({ record, attachment }: { record: AttachmentRecord; attac
         {hidden ? (
           <p className="text-label text-muted-foreground">{t("sensitiveHidden")}</p>
         ) : (
-          <AttachmentActions record={record} attachment={attachment} name={name} />
+          <AttachmentActions record={record} attachment={attachment} name={name} removable={removable} />
         )}
       </ItemActions>
     </Item>
@@ -134,16 +146,19 @@ function AttachmentRow({ record, attachment }: { record: AttachmentRecord; attac
 export function AttachmentList({
   record,
   attachments,
+  removable = true,
 }: {
   record: AttachmentRecord;
   attachments: AttachmentSummary[];
+  /** False for files that belong to a traveller's side of a record (their photos, a payment screenshot): staff download, never remove. */
+  removable?: boolean;
 }) {
   return (
     <ItemGroup>
       {attachments.map((attachment, index) => (
         <Fragment key={attachment.id}>
           {index > 0 && <ItemSeparator />}
-          <AttachmentRow record={record} attachment={attachment} />
+          <AttachmentRow record={record} attachment={attachment} removable={removable} />
         </Fragment>
       ))}
     </ItemGroup>
