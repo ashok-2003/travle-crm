@@ -43,9 +43,10 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   await expect(owner.getByText("AI settings saved")).toBeVisible();
   // What the agency tells its AI to know.
   await owner.getByRole("button", { name: "Add text" }).click();
-  await owner.getByLabel("Title").fill("Kerala 5N");
-  await owner.getByLabel("Details").fill("Kerala 5 nights is ₹18,500 per person, hotels and breakfast included.");
-  await owner.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  const dialog = owner.getByRole("dialog");
+  await dialog.getByLabel("Title").fill("Kerala 5N");
+  await dialog.getByLabel("Details").fill("Kerala 5 nights is ₹18,500 per person, hotels and breakfast included.");
+  await dialog.getByRole("button", { name: "Save" }).click();
   await expect(owner.getByText("Kerala 5N")).toBeVisible();
 
   // The draft lands in the box, marked as the AI's, and nothing has been sent.
@@ -106,7 +107,10 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
       }),
     ]),
   ).toBe(200);
-  const leadId = await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).id);
+  const leadId = await inAgency(
+    agency.organizationId,
+    async (tx) => (await tx.lead.findFirstOrThrow({ where: { person: { phoneE164: `+${customer}` } } })).id,
+  );
   await expect(async () => {
     await owner.goto(`/leads/${leadId}`);
     await expect(owner.getByRole("heading", { name: "AI's guess" })).toBeVisible({ timeout: 4_000 });
@@ -115,5 +119,10 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   // The AI wrote a line on how the lead stands with the score.
   await expect(owner.getByText("Wants a Kerala package for four in December and has asked the price.")).toBeVisible();
   // It never moved the lead's stage.
-  expect(await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).stage)).toBe("new");
+  expect(
+    await inAgency(
+      agency.organizationId,
+      async (tx) => (await tx.lead.findFirstOrThrow({ where: { person: { phoneE164: `+${customer}` } } })).stage,
+    ),
+  ).toBe("new");
 });
