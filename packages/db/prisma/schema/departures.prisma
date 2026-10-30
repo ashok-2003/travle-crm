@@ -62,9 +62,12 @@ model DepartureHold {
   booking        Booking?     @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([organizationId, id])
+  /// A lead holds seats on a departure once at a time.
+  @@unique([organizationId, departureId, leadId], map: "departure_hold_one_active", where: { status: "active" })
   @@index([organizationId, departureId, status], map: "departure_hold_by_departure")
   @@index([organizationId, status, expiresAt], map: "departure_hold_due")
   @@index([organizationId, leadId], map: "departure_hold_lead")
+  @@index([organizationId, bookingId], map: "departure_hold_booking")
   @@map("departure_hold")
 }
 

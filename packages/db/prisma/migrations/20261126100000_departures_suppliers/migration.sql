@@ -233,6 +233,12 @@ CREATE INDEX "trip_cost_departure" ON "trip_cost"("organization_id", "departure_
 -- CreateIndex
 CREATE INDEX "trip_cost_supplier" ON "trip_cost"("organization_id", "supplier_id");
 
+-- CreateIndex
+CREATE INDEX "departure_hold_booking" ON "departure_hold"("organization_id", "booking_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "departure_hold_one_active" ON "departure_hold"("organization_id", "departure_id", "lead_id") WHERE ("status" = 'active');
+
 -- AddForeignKey
 ALTER TABLE "booking" ADD CONSTRAINT "booking_organization_id_departure_id_fkey" FOREIGN KEY ("organization_id", "departure_id") REFERENCES "departure"("organization_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
@@ -354,6 +360,8 @@ ALTER TABLE "supplier_contact"
 ALTER TABLE "booking_traveller"
   ADD CONSTRAINT booking_traveller_room_request_value CHECK (room_request IN ('none', 'single_room', 'ground_floor', 'near_group')),
   ADD CONSTRAINT booking_traveller_room_note_length CHECK (char_length(room_note) <= 200);
+ALTER TABLE "departure"
+  ADD CONSTRAINT departure_cutoff_before_start CHECK (cutoff_on IS NULL OR cutoff_on <= start_date);
 -- A cost belongs to one booking or to one whole departure, never both and never neither.
 ALTER TABLE "trip_cost"
   ADD CONSTRAINT trip_cost_one_owner CHECK (num_nonnulls(quote_id, departure_id) = 1);

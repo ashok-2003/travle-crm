@@ -38,13 +38,20 @@ export const departureFields = {
 };
 
 const endsAfterStart = (value: { startDate: string; endDate: string }) => value.endDate >= value.startDate;
+const cutoffBeforeStart = (value: { startDate: string; cutoffOn: string | null }) =>
+  value.cutoffOn === null || value.cutoffOn <= value.startDate;
+const cutoffMessage = { message: "The last day to book is after the trip starts", path: ["cutoffOn"] };
 const endsAfterStartMessage = { message: "The last day is before the first", path: ["endDate"] };
 
-export const createDepartureInput = z.strictObject(departureFields).refine(endsAfterStart, endsAfterStartMessage);
+export const createDepartureInput = z
+  .strictObject(departureFields)
+  .refine(endsAfterStart, endsAfterStartMessage)
+  .refine(cutoffBeforeStart, cutoffMessage);
 export type CreateDepartureInput = z.infer<typeof createDepartureInput>;
 export const updateDepartureInput = z
   .strictObject({ departureId: recordId, ...departureFields })
-  .refine(endsAfterStart, endsAfterStartMessage);
+  .refine(endsAfterStart, endsAfterStartMessage)
+  .refine(cutoffBeforeStart, cutoffMessage);
 export type UpdateDepartureInput = z.infer<typeof updateDepartureInput>;
 
 export const departureIdInput = z.strictObject({ departureId: recordId });

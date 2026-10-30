@@ -22,6 +22,12 @@ async function stayOf(tx: OrgTx, stayId: string) {
   return stay;
 }
 
+/** Locks these rooms until the transaction ends, so two people filling one near-full room count its beds one after the other. */
+async function lockRooms(tx: OrgTx, roomIds: readonly string[]): Promise<void> {
+  if (roomIds.length === 0) return;
+  await tx.$queryRaw`SELECT id FROM departure_room WHERE id = ANY(${[...roomIds]}::uuid[]) ORDER BY id FOR UPDATE`;
+}
+
 async function roomOf(tx: OrgTx, roomId: string) {
   const room = await tx.departureRoom.findUnique({
     where: { id: roomId },
@@ -97,6 +103,7 @@ export async function updateRoom(
   input: { roomId: string; label: string; capacity: number; groundFloor: boolean },
 ): Promise<void> {
   const room = await roomOf(tx, input.roomId);
+  await lockRooms(tx, [room.id]);
   const inside = await tx.departureRoomAssignment.count({ where: { roomId: room.id } });
   if (input.capacity < inside) throw new DomainError("CONFLICT", "ROOM_FULL", "More people are in this room than that");
   await tx.departureRoom.update({
@@ -136,6 +143,7 @@ export async function moveTraveller(tx: OrgTx, access: MemberAccess, input: Move
       select: { id: true, stayId: true, capacity: true },
     });
     if (room?.stayId !== stay.id) throw missing("room");
+    await lockRooms(tx, [room.id]);
     const inside = await tx.departureRoomAssignment.count({ where: { roomId: room.id } });
     if (inside >= room.capacity) throw new DomainError("CONFLICT", "ROOM_FULL", "This room is full");
     await tx.departureRoomAssignment.create({
@@ -156,6 +164,10 @@ export async function moveTraveller(tx: OrgTx, access: MemberAccess, input: Move
  */
 export async function draftStayRooms(tx: OrgTx, access: MemberAccess, stayId: string): Promise<{ unassigned: number }> {
   const stay = await stayOf(tx, stayId);
+  await lockRooms(
+    tx,
+    (await tx.departureRoom.findMany({ where: { stayId }, select: { id: true } })).map((room) => room.id),
+  );
   await tx.departureRoomAssignment.deleteMany({ where: { stayId, locked: false } });
   const [roster, settings, rooms, locked] = await Promise.all([
     rosterOf(tx, stay.departureId),

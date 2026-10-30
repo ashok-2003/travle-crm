@@ -280,4 +280,30 @@ describe("a departure's rooming list", () => {
       ),
     ).rejects.toMatchObject({ reason: "STAY_DATES_BACKWARDS" });
   });
+
+  it("never puts more people in a room than it holds when two staff fill it at once", async () => {
+    const departure = await world.inOrg((tx) => aDeparture(tx));
+    await aBookingOn(world, departure.id, { adults: 3, confirmed: true });
+    await world.inOrg((tx) =>
+      saveRoomingStay(tx, world.manager, {
+        departureId: departure.id,
+        hotelName: "Hotel Snow",
+        supplierId: null,
+        checkIn: "2026-11-03",
+        checkOut: "2026-11-05",
+      }),
+    );
+    const stay = (await world.inOrg((tx) => getRooming(tx, departure.id))).stays[0];
+    const stayId = stay?.id ?? "";
+    await world.inOrg((tx) => addRoom(tx, world.manager, { stayId, label: "101", capacity: 2, groundFloor: false }));
+    const roomId = (await world.inOrg((tx) => getRooming(tx, departure.id))).stays[0]?.rooms[0]?.id ?? "";
+    const people = (await world.inOrg((tx) => getRooming(tx, departure.id))).stays[0]?.unassigned ?? [];
+    const results = await Promise.allSettled(
+      people.map((person) =>
+        world.inOrg((tx) => moveTraveller(tx, world.manager, { stayId, travellerId: person.travellerId, roomId })),
+      ),
+    );
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(2);
+    expect(await world.inOrg((tx) => tx.departureRoomAssignment.count({ where: { roomId } }))).toBe(2);
+  });
 });

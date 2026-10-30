@@ -226,4 +226,36 @@ describe("departures and their seats", () => {
     const cancelled = await world.inOrg((tx) => listDepartures(tx, world.manager, { filter: "cancelled" }, now));
     expect(cancelled.some((row) => row.id === departure.id)).toBe(true);
   });
+
+  it("refuses two active holds for one lead even when both ask at once, and a lapsed hold does not block a new one", async () => {
+    const departure = await world.inOrg((tx) => aDeparture(tx, { seatsTotal: 10 }));
+    const lead = await aSellersLead(world);
+    const results = await Promise.allSettled(
+      [1, 2].map(() =>
+        world.inOrg((tx) =>
+          createHold(tx, world.seller, { departureId: departure.id, leadId: lead.id, seats: 1, note: "" }, now),
+        ),
+      ),
+    );
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({ reason: { reason: "HOLD_EXISTS" } });
+    const later = new Date("2026-11-02T00:00:00Z");
+    await world.inOrg((tx) =>
+      createHold(tx, world.seller, { departureId: departure.id, leadId: lead.id, seats: 2, note: "" }, later),
+    );
+    expect(await world.inOrg((tx) => tx.departureHold.count({ where: { leadId: lead.id, status: "active" } }))).toBe(1);
+  });
+
+  it("refuses a last day to book after the trip starts", async () => {
+    const created = await world.inOrg((tx) => createDeparture(tx, world.manager, dayInput));
+    expect(created.id).toBeTruthy();
+    const { createDepartureInput } = await import("@travel-crm/contracts/departures");
+    expect(createDepartureInput.safeParse({ ...dayInput, cutoffOn: "2026-11-21" }).success).toBe(false);
+    expect(createDepartureInput.safeParse({ ...dayInput, cutoffOn: "2026-11-20" }).success).toBe(true);
+    await expect(
+      world.inOrg((tx) =>
+        tx.departure.update({ where: { id: created.id }, data: { cutoffOn: new Date("2026-12-01") } }),
+      ),
+    ).rejects.toThrow();
+  });
 });

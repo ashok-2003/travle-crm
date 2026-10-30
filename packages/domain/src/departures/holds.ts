@@ -35,8 +35,13 @@ export async function createHold(
   const lead = await getLead(tx, access, input.leadId);
   const departure = await findDepartureForChange(tx, input.departureId);
   assertOpenForSeats(departure);
+  // A hold past its time that the job has not yet marked is over: it must not block a new one (one active hold a lead).
+  await tx.departureHold.updateMany({
+    where: { departureId: departure.id, leadId: lead.id, status: "active", expiresAt: { lte: now } },
+    data: { status: "expired", endedAt: now },
+  });
   const already = await tx.departureHold.findFirst({
-    where: { departureId: departure.id, leadId: lead.id, status: "active", expiresAt: { gt: now } },
+    where: { departureId: departure.id, leadId: lead.id, status: "active" },
     select: { id: true },
   });
   if (already !== null) {
@@ -47,17 +52,25 @@ export async function createHold(
   }
   const hours = input.hours ?? (await departureSettingsOf(tx)).holdHours;
   const expiresAt = new Date(now.getTime() + hours * HOUR_MS);
-  const hold = await tx.departureHold.create({
-    data: {
-      departureId: departure.id,
-      leadId: lead.id,
-      seats: input.seats,
-      expiresAt,
-      note: input.note,
-      createdBy: access.userId,
-    },
-    select: { id: true },
-  });
+  const hold = await tx.departureHold
+    .create({
+      data: {
+        departureId: departure.id,
+        leadId: lead.id,
+        seats: input.seats,
+        expiresAt,
+        note: input.note,
+        createdBy: access.userId,
+      },
+      select: { id: true },
+    })
+    .catch((error: unknown) => {
+      // The database keeps one active hold a lead on a departure: a second at the same moment meets its unique index.
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+        throw new DomainError("CONFLICT", "HOLD_EXISTS", "This lead already holds seats here: release them first");
+      }
+      throw error;
+    });
   await recordAudit(tx, access, {
     action: "departure.hold-created",
     entityType: "departure",
