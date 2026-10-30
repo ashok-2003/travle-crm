@@ -218,6 +218,19 @@ export const aiRouter = router({
         if (booking === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
         // A lead out of the member's scope is not found.
         await getLead(tx, ctx.member, booking.leadId);
+        // Confirming makes a quote, a booking and a payment: each has its own permission.
+        const missing =
+          input.status === "confirmed"
+            ? ctx.member.permissions.missing([
+                "bookings:edit",
+                "quotes:create",
+                "quotes:edit",
+                "quotes:record_payments",
+              ])
+            : [];
+        if (missing.length > 0) {
+          throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", `Requires ${missing.join(", ")}`);
+        }
         await setBookingStatus(tx, ctx.member, input, new Date());
       }),
     ),

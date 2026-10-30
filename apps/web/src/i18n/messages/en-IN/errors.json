@@ -252,7 +252,9 @@
     "TOO_MANY_CLAIMS": "Earlier payments on this booking are still being checked.",
     "TOO_MANY_FILES": "Too many pictures were sent for this booking.",
     "TOO_MANY_STAYS": "A booking has thirty stays at most.",
-    "INSTALLMENT_IN_USE": "A payment that was claimed on or reminded about can't be removed. Change its amount or day instead."
+    "INSTALLMENT_IN_USE": "A payment that was claimed on or reminded about can't be removed. Change its amount or day instead.",
+    "AI_BOOKING_CANCELLED": "This booking was cancelled and can't be changed.",
+    "AI_BOOKING_CONFIRMED": "This booking is confirmed. Change it on the booking itself."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",

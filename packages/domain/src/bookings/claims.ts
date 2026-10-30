@@ -40,7 +40,13 @@ async function openBookingOfQuote(tx: OrgTx, quoteId: string): Promise<BookingRo
 /** The traveller's "I've paid". Returns the claim's id. */
 export async function submitPaymentClaim(
   tx: OrgTx,
-  input: { organizationId: string; quoteId: string; claim: PublicClaimInput },
+  input: {
+    organizationId: string;
+    quoteId: string;
+    claim: PublicClaimInput;
+    /** A claim the AI's confirmation makes on the customer's behalf: it keeps their proof messages, and staff are not asked to check it again. */
+    fromAi?: { proofMessageIds: readonly string[] };
+  },
   now: Date,
 ): Promise<string> {
   const claim = publicClaimInput.parse(input.claim);
@@ -83,9 +89,11 @@ export async function submitPaymentClaim(
       amountPaise: BigInt(claim.amountPaise),
       reference: claim.reference,
       screenshotFileId: claim.screenshotAttachmentId,
+      ...(input.fromAi === undefined ? {} : { proofMessageIds: [...input.fromAi.proofMessageIds] }),
     },
     select: { id: true },
   });
+  if (input.fromAi !== undefined) return row.id;
   const amount = formatMoney(money(claim.amountPaise));
   const task = await createTask(tx, actor, {
     kind: "task",
