@@ -31,6 +31,8 @@ const required: Record<string, Permission> = {
   "tasks.add": "leads:view",
   "tasks.complete": "leads:view",
   "tasks.snooze": "leads:view",
+  "tasks.edit": "leads:view",
+  "tasks.followUps": "leads:view",
   "leads.list": "leads:view",
   "leads.counts": "leads:view",
   "leads.owners": "leads:view",
