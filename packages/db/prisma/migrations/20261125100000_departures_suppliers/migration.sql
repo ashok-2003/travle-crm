@@ -362,6 +362,12 @@ ALTER TABLE "trip_cost"
 -- none of them. A waitlist entry, a stay, a room, an assignment and a contact are plain data and may be removed.
 REVOKE DELETE ON TABLE "departure", "departure_hold", "departure_settings", "supplier" FROM app_runtime;
 
+-- A departure's rooming list is numbered apart from invoices too (RML-2026-0001), so no agency may choose that prefix for its
+-- invoices. NOT VALID, as bookings' was: a live agency that already chose it must not fail the deploy.
+ALTER TABLE "organization_profile" DROP CONSTRAINT organization_profile_invoice_prefix_not_reserved;
+ALTER TABLE "organization_profile"
+  ADD CONSTRAINT organization_profile_invoice_prefix_not_reserved CHECK (invoice_prefix NOT IN ('SMPL', 'DOC', 'QT', 'RCT', 'BK', 'VCH', 'ITN', 'RML')) NOT VALID;
+
 -- Sales holds seats for their leads (owner, 2026-10-30). ADR 0005 changes no existing role by itself, so every organization's
 -- Sales role is given departures:create here, once. Custom roles are left to their Owners.
 INSERT INTO role_permission (organization_id, role_id, permission, scope)
