@@ -5,6 +5,7 @@ import { recordId } from "../identity/fields.js";
 import { wallClockTime } from "../kernel/time.js";
 import { task, taskKind, taskTitle } from "../tasks/tasks.js";
 import { leadSource, leadStage, lostReason, newPerson, noteBody, openLeadStage, peopleNames } from "./fields.js";
+import { aiFillUse } from "../ai/fill-use.js";
 import { tripDetail, tripInput } from "./trip.js";
 
 export const leadIdInput = z.strictObject({ leadId: recordId });
@@ -57,7 +58,7 @@ export const reassignLeadInput = z.strictObject({ leadId: recordId, ownerUserId:
 export type ReassignLeadInput = z.infer<typeof reassignLeadInput>;
 
 /** The whole trip, replaced. */
-export const editTripInput = z.strictObject({ leadId: recordId, trip: tripInput });
+export const editTripInput = z.strictObject({ leadId: recordId, trip: tripInput, aiFill: aiFillUse.optional() });
 export type EditTripInput = z.infer<typeof editTripInput>;
 
 /** The lead's person: their name and contacts, replaced. */

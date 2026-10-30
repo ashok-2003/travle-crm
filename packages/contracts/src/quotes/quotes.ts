@@ -2,6 +2,7 @@
 // the customer opens and accepts, the payments due on it and those received (UPI, cash, bank), and its invoice and
 // receipts as numbered PDFs. Amounts are integer paise, never floats.
 import { z } from "zod";
+import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate, gstStateCode } from "../kernel/index.js";
 
@@ -58,7 +59,7 @@ export const quoteFields = {
 
 export const createQuoteInput = z.strictObject({ leadId: recordId, ...quoteFields });
 export type CreateQuoteInput = z.infer<typeof createQuoteInput>;
-export const updateQuoteInput = z.strictObject({ quoteId: recordId, ...quoteFields });
+export const updateQuoteInput = z.strictObject({ quoteId: recordId, ...quoteFields, aiFill: aiFillUse.optional() });
 export type UpdateQuoteInput = z.infer<typeof updateQuoteInput>;
 export const quoteIdInput = z.strictObject({ quoteId: recordId });
 export type QuoteIdInput = z.infer<typeof quoteIdInput>;

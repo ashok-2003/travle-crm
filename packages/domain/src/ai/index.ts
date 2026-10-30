@@ -51,3 +51,7 @@ export { aiOverviewOf } from "./overview.js";
 export { testAnswer } from "./test-answer.js";
 export { clearVoice, learnVoice } from "./voice.js";
 export { clearChatVoice, learnChatVoice } from "./chat-voice.js";
+export { fillForm } from "./fill/engine.js";
+export { recordFillApplied } from "./fill/applied.js";
+export { confirmAiInput, requestAiInput } from "./fill/input.js";
+export { callSaved, leadSaved, quoteSaved, tripSaved } from "./fill/saved.js";

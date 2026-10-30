@@ -27,6 +27,7 @@ import {
   updateQuoteInput,
 } from "@travel-crm/contracts/quotes";
 import { z } from "zod";
+import { quoteSaved, recordFillApplied } from "@travel-crm/domain/ai";
 import { assertPdfCanBeMade, getIssuedDocument } from "@travel-crm/domain/documents";
 import type { MemberAccess } from "@travel-crm/domain/identity";
 import { calendarDateIn, DomainError } from "@travel-crm/domain/kernel";
@@ -137,7 +138,20 @@ export const quotesRouter = router({
     .output(quoteDetail)
     .mutation(async ({ ctx, input }) => {
       const context = await quoteContext(ctx);
-      return ctx.db.forOrg(ctx.member.organizationId, (tx) => updateQuote(tx, ctx.member, input, context));
+      return ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const updated = await updateQuote(tx, ctx.member, input, context);
+        // A quote the AI filled in: audited as drafted by AI, approved by the member. Its prices were never the AI's.
+        if (input.aiFill !== undefined) {
+          await recordFillApplied(
+            tx,
+            ctx.member,
+            input.aiFill,
+            { targets: ["quote"], subject: { type: "quote", id: input.quoteId }, saved: quoteSaved(input) },
+            context.now,
+          );
+        }
+        return updated;
+      });
     }),
 
   setStatus: editor

@@ -4,8 +4,8 @@
 import type { OrgTx } from "@travel-crm/db";
 import { monthStartOf } from "../inbox/index.js";
 
-/** AI calls an agency may make in a month, whatever its plan. */
-export const MONTHLY_AI_LIMIT = 1000;
+/** AI calls an agency may make in a month, whatever its plan (the owner, 2026-10-30: 3,000, shared by every AI feature). */
+export const MONTHLY_AI_LIMIT = 3000;
 
 /** Takes one of this month's calls; false when none is left. */
 export async function reserveAiCall(tx: OrgTx, now: Date, timeZone: string): Promise<boolean> {

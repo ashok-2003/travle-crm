@@ -273,7 +273,9 @@
       "media-added": "Added a photo, video or PDF for the AI to send",
       "media-changed": "Changed a file the AI sends",
       "media-deleted": "Removed a file the AI sent",
-      "booking-decided": "Confirmed or cancelled a booking the AI took"
+      "booking-decided": "Confirmed or cancelled a booking the AI took",
+      "fill-applied": "Saved a form the AI filled in",
+      "lead-filled": "The AI filled in a new lead from its first messages"
     },
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"
@@ -424,6 +426,7 @@
     "quote_template": "A quote package",
     "ai_settings": "The AI settings",
     "ai_draft": "An AI draft",
+    "ai_fill": "A form the AI filled in",
     "ai_knowledge": "A piece of what the AI knows",
     "ai_autopilot": "The AI's autopilot",
     "ai_learning": "An AI lesson",

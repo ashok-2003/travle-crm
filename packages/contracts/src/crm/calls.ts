@@ -1,6 +1,7 @@
 // Calls on a lead (release 5): the call panel's "Send to my phone", and a call written up with one line about how it
 // went and, if wanted, the next follow-up. A call's note is never copied into the audit log or an event.
 import { z } from "zod";
+import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
 import { wallClockTime } from "../kernel/time.js";
 import { taskTitle } from "../tasks/tasks.js";
@@ -24,6 +25,7 @@ export const logCallInput = z.strictObject({
   outcome: callOutcome,
   note: callNote.optional(),
   followUp: callFollowUp.optional(),
+  aiFill: aiFillUse.optional(),
 });
 export type LogCallInput = z.infer<typeof logCallInput>;
 

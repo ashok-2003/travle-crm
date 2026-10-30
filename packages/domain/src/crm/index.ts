@@ -46,7 +46,7 @@ export {
   sendCallToMyPhone,
   type DialLimiter,
 } from "./calls.js";
-export { createLead } from "./create-lead.js";
+export { createLead, type AfterLeadSaved } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
 export { addDemoLeads } from "./demo-leads.js";

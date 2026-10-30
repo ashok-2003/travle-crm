@@ -45,6 +45,7 @@ import {
   reassignLead,
   reopenLead,
 } from "@travel-crm/domain/crm";
+import { leadSaved, recordFillApplied, tripSaved } from "@travel-crm/domain/ai";
 import { listQuickReplies } from "@travel-crm/domain/inbox";
 import { previewMessage, readyMessage } from "@travel-crm/domain/sales";
 import { z } from "zod";
@@ -155,7 +156,25 @@ export const leadsRouter = router({
     .output(createdLead)
     .mutation(async ({ ctx, input }) => {
       const owners = await leadWorkerIdsIfOther(ctx.identity, ctx.member, input.ownerUserId);
-      return createLead(ctx.db, ctx.member, input, { owners, now: new Date() });
+      const now = new Date();
+      const { aiFill } = input;
+      return createLead(ctx.db, ctx.member, input, {
+        owners,
+        now,
+        // A form the AI filled is audited in the save's own transaction: drafted by AI, approved by the member.
+        ...(aiFill === undefined
+          ? {}
+          : {
+              after: (tx, saved) =>
+                recordFillApplied(
+                  tx,
+                  ctx.member,
+                  aiFill,
+                  { targets: ["lead"], subject: { type: "lead", id: saved.leadId }, saved: leadSaved(input) },
+                  now,
+                ),
+            }),
+      });
     }),
 
   addNote: editor
@@ -174,11 +193,25 @@ export const leadsRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => reopenLead(tx, ctx.member, input, new Date())),
     ),
 
-  editTrip: editor
-    .input(editTripInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => editLeadTrip(tx, ctx.member, input)),
-    ),
+  editTrip: editor.input(editTripInput).mutation(({ ctx, input }) =>
+    ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+      await editLeadTrip(tx, ctx.member, input);
+      // The trip a call note or a lead edit filled: drafted by AI, approved by the member.
+      if (input.aiFill !== undefined) {
+        await recordFillApplied(
+          tx,
+          ctx.member,
+          input.aiFill,
+          {
+            targets: ["lead_edit", "call_note"],
+            subject: { type: "lead", id: input.leadId },
+            saved: tripSaved(input.trip),
+          },
+          new Date(),
+        );
+      }
+    }),
+  ),
 
   editPerson: editor
     .input(editPersonInput)
