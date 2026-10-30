@@ -39,7 +39,7 @@ function withoutMoney<Report extends SalesReportFigures>(report: Report): Report
 export type SalesReportFigures = Omit<SalesReport, "team"> & { team: Unnamed<TeamRow>[] };
 export type StaffReportFigures = Omit<StaffReport, "person"> & { person: Unnamed<TeamRow> };
 
-function periodOf(first: CalendarDate, last: CalendarDate, timeZone: string): ReportPeriod {
+export function periodOf(first: CalendarDate, last: CalendarDate, timeZone: string): ReportPeriod {
   return {
     from: startOfDayIn(first, timeZone),
     to: startOfDayIn(addDays(last, 1), timeZone),

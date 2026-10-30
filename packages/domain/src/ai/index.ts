@@ -56,3 +56,5 @@ export { fillForm } from "./fill/engine.js";
 export { recordFillApplied } from "./fill/applied.js";
 export { confirmAiInput, requestAiInput } from "./fill/input.js";
 export { callSaved, leadSaved, quoteSaved, tripSaved } from "./fill/saved.js";
+export { chooseReport, chosenFrom, type CatalogueEntry, type Chosen } from "./ask/choose.js";
+export { writeUpQuote } from "./write-up/write-up.js";
