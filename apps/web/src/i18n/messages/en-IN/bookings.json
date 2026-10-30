@@ -329,6 +329,11 @@
       "TIER_LIMIT_REACHED": "daily limit reached"
     }
   },
+  "proof": {
+    "title": "Proof of payment",
+    "body": "What the customer sent in the chat when the AI took this booking.",
+    "open": "Proof {number}"
+  },
   "feedback": {
     "title": "Feedback",
     "askBody": "Ask the traveller how the trip was. They get a form on their trip page; one to three stars tell you at once.",

@@ -22,6 +22,7 @@ import { BookingActions } from "./booking-actions";
 import { BookingStatusBadge } from "./booking-status";
 import { FeedbackCard } from "./feedback-card";
 import { PaymentsCard } from "./payments-card";
+import { ProofCard } from "./proof-card";
 import { RemindersCard } from "./reminders-card";
 import { TravellersCard } from "./travellers-card";
 import { TripCard } from "./trip-card";
@@ -96,6 +97,7 @@ export function BookingScreen({ bookingId }: { bookingId: string }) {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
             <div className="flex flex-col gap-6">
               <PaymentsCard booking={data} />
+              <ProofCard booking={data} />
               <TravellersCard booking={data} />
               <FeedbackCard booking={data} />
             </div>
