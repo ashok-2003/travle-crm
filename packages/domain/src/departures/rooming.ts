@@ -182,7 +182,7 @@ export async function draftStayRooms(tx: OrgTx, access: MemberAccess, stayId: st
       data: {
         stayId,
         position: room.position,
-        label: `Room ${String(index + 1)}`,
+        label: String(index + 1),
         capacity: room.capacity,
         groundFloor: room.groundFloor,
       },

@@ -94,7 +94,7 @@ export function SupplierScreen({ supplierId }: { supplierId: string }) {
             ) : (
               <ItemGroup>
                 {data.contacts.map((contact) => (
-                  <Item key={contact.id} size="sm" className="items-start">
+                  <Item key={contact.id} size="sm" role="listitem" className="items-start">
                     <ItemContent className="min-w-0">
                       <ItemTitle>{contact.name}</ItemTitle>
                       <ItemDescription>
@@ -153,7 +153,7 @@ export function SupplierScreen({ supplierId }: { supplierId: string }) {
               ) : (
                 <ItemGroup>
                   {data.costs.map((cost) => (
-                    <Item key={cost.id} size="sm">
+                    <Item key={cost.id} size="sm" role="listitem">
                       <ItemContent>
                         <ItemTitle>
                           {cost.quoteId !== null ? (

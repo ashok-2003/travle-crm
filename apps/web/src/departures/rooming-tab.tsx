@@ -47,7 +47,7 @@ function TravellerRow({
   const request = t(`requests.${traveller.roomRequest}`);
   const notes = [request, traveller.roomNote, traveller.locked ? t("locked") : ""].filter((part) => part !== "");
   return (
-    <Item size="sm" className="items-start">
+    <Item size="sm" role="listitem" className="items-start">
       <ItemContent className="min-w-0">
         <ItemTitle>{traveller.name}</ItemTitle>
         <ItemDescription className="flex flex-wrap items-center gap-2">

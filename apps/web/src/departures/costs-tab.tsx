@@ -71,7 +71,7 @@ export function CostsTab({ departureId }: { departureId: string }) {
           ) : (
             <ItemGroup>
               {data.costs.map((cost) => (
-                <Item key={cost.id} size="sm">
+                <Item key={cost.id} size="sm" role="listitem">
                   <ItemContent>
                     <ItemTitle>{cost.supplier}</ItemTitle>
                     <ItemDescription>

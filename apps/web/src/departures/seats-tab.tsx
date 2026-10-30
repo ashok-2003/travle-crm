@@ -44,7 +44,7 @@ function HoldRow({
   const soon = ends.getTime() - now.getTime() <= HOLD_ENDING_SOON_HOURS * 60 * 60 * 1000;
   const when = formatDayTime(ends, { timeZone, now });
   return (
-    <Item size="sm" className="items-start">
+    <Item size="sm" role="listitem" className="items-start">
       <ItemContent className="min-w-0">
         <ItemTitle>
           <TextLink inline href={leadRoute(hold.leadId)}>
@@ -92,7 +92,7 @@ function WaitlistRow({ entry, mayHold }: { entry: WaitlistEntry; mayHold: boolea
   const tHolds = useTranslations("departures.seats.holds");
   const changes = useDepartureChanges();
   return (
-    <Item size="sm" className="items-start">
+    <Item size="sm" role="listitem" className="items-start">
       <ItemContent>
         <ItemTitle>
           <TextLink inline href={leadRoute(entry.leadId)}>
@@ -137,7 +137,7 @@ export function SeatsTab({ departure }: { departure: DepartureDetail }) {
         ) : (
           <ItemGroup>
             {departure.bookings.map((booking) => (
-              <Item key={booking.bookingId} size="sm" className="items-start">
+              <Item key={booking.bookingId} size="sm" role="listitem" className="items-start">
                 <ItemContent className="min-w-0">
                   <ItemTitle>
                     <TextLink inline href={bookingRoute(booking.bookingId)}>

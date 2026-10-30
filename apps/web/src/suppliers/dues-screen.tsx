@@ -76,7 +76,7 @@ export function DuesScreen() {
             </p>
             <ItemGroup>
               {group.items.map((item) => (
-                <Item key={item.id} size="sm" className="items-start">
+                <Item key={item.id} size="sm" role="listitem" className="items-start">
                   <ItemContent className="min-w-0">
                     <ItemTitle>
                       {item.quoteId !== null ? (

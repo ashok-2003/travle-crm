@@ -55,6 +55,7 @@ describe("today over HTTP", () => {
       quoteOpened: 0,
       paymentsDue: 0,
       tripDetails: 0,
+      departures: 0,
     });
     expect(summary.top).toMatchObject([
       {

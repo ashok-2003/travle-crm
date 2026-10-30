@@ -113,7 +113,7 @@ function CostForm({
         <TextField
           control={form.control}
           name="supplier"
-          label={t("supplier")}
+          label={keepsSuppliers ? t("supplierName") : t("supplier")}
           hint={t("supplierHint")}
           disabled={sending.isPending}
         />
@@ -135,9 +135,9 @@ export function AddCostDialog({ owner }: { owner: CostOwner }) {
     <FormDialog
       dialog={dialog}
       sending={addCost}
-      trigger={{ label: t("add"), variant: "outline" }}
-      title={t("addTitle")}
-      description={t("addDescription")}
+      trigger={{ label: "departureId" in owner ? t("addDeparture") : t("add"), variant: "outline" }}
+      title={"departureId" in owner ? t("addDepartureTitle") : t("addTitle")}
+      description={"departureId" in owner ? t("addDepartureDescription") : t("addDescription")}
       submit={t("save")}
       submitting={t("saving")}
     >
