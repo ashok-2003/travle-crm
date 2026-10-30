@@ -281,6 +281,7 @@
       "created": "A booking was made from an accepted quote",
       "removed": "A booking was removed with its quote",
       "confirmed": "Confirmed a booking",
+      "quote-replaced": "A booking taken in a chat moved onto the accepted quote",
       "cancelled": "Cancelled a booking",
       "charge-changed": "Changed a cancellation charge",
       "refunded": "Marked a refund paid",
