@@ -6,6 +6,62 @@
     "snooze": "Snooze",
     "snoozeTask": "Snooze: {title}"
   },
+  "followUps": {
+    "title": "Follow-ups",
+    "intro": "Every open follow-up on a lead, with the customer's last WhatsApp message. When one comes due, the AI writes to the customer if WhatsApp's 24-hour window is open; the follow-up stays here for your call.",
+    "when": "When",
+    "views": {
+      "due": "Due now",
+      "upcoming": "Later",
+      "all": "All"
+    },
+    "empty": {
+      "due": "Nothing due. Follow-ups due today and overdue show here.",
+      "upcoming": "No follow-ups for later days.",
+      "all": "No open follow-ups."
+    },
+    "loadFailed": "The follow-ups didn't load.",
+    "byAi": "Added by AI",
+    "owner": "Owner: {name}",
+    "unassigned": "Unassigned",
+    "formerMember": "Former member",
+    "noChat": "No WhatsApp chat yet",
+    "windowOpen": "Window open",
+    "windowClosed": "Window closed",
+    "lastMessage": "Last message from {from}, {ago} ago:",
+    "from": {
+      "customer": "the customer",
+      "team": "your team",
+      "ai": "the AI",
+      "automation": "an automatic message"
+    },
+    "ai": {
+      "sent": "AI wrote {ago} ago:",
+      "window_closed": "AI didn't write ({ago} ago): the 24-hour window was closed. Send a template or call.",
+      "no_chat": "AI didn't write ({ago} ago): this customer has no WhatsApp chat.",
+      "opted_out": "AI didn't write ({ago} ago): the customer asked us to stop.",
+      "off": "AI didn't write ({ago} ago): the AI isn't answering this chat.",
+      "failed": "AI couldn't write ({ago} ago). Follow up yourself."
+    },
+    "openChat": "Open chat",
+    "edit": "Edit",
+    "editTask": "Edit: {title}",
+    "editDialog": {
+      "title": "Edit follow-up",
+      "description": "Change what to do or when. Moved to a later time, the AI writes again then.",
+      "what": "What to do",
+      "when": "When",
+      "submit": "Save",
+      "submitting": "Saving",
+      "saved": "Follow-up changed",
+      "problems": {
+        "title": "Say what to do.",
+        "day": "Choose a day.",
+        "time": "Choose a time.",
+        "required": "Say what to do, and choose a day and a time."
+      }
+    }
+  },
   "snooze": {
     "title": "Snooze",
     "description": "When should this come back? When it was first due stays on record.",

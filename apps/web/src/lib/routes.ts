@@ -20,6 +20,8 @@ export const routes = {
   /** The lead list (release 1); a lead's own page is leadRoute(leadId). */
   leads: "/leads",
   newLead: "/leads/new",
+  /** Every open follow-up on a lead, with its WhatsApp chat and what the AI did when it came due (2026-10-30). */
+  followUps: "/leads/follow-ups",
   /** The open leads by stage, as a board (release C). */
   leadsPipeline: "/leads/pipeline",
   /** A lead import's first step; an import's own page is leadImportRoute(importId). */
