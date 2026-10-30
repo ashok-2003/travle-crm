@@ -12,6 +12,7 @@ export {
   WEBSITE_FORMS_SWEEP_QUEUE,
   websiteFormsSweepSchedule,
 } from "./website-forms-sweep.js";
+export { aiInputsSweepSchedule, SWEEP_AI_INPUTS_QUEUE, sweepAiInputs } from "./ai-inputs-sweep.js";
 export { SWEEP_SHEETS_QUEUE, sheetsSweepSchedule, sweepSheetsNow } from "./sheets-sweep.js";
 export {
   checkWhatsAppWithProvider,

@@ -13,6 +13,8 @@ export async function withdrawAiParts(
     organizationId: string;
     personId: string;
     /** Their numbers: a chat stored with no person is found by them. */ phones?: readonly string[];
+    /** Their leads, read before crm erased them: a soft-deleted lead is out of sight of a query. */
+    leadIds: readonly string[];
     now: Date;
   },
 ): Promise<{
@@ -40,11 +42,7 @@ export async function withdrawAiParts(
   const bookings = await tx.aiBooking.deleteMany({
     where: { organizationId: input.organizationId, lead: { personId: input.personId } },
   });
-  const leads = await tx.lead.findMany({
-    where: { organizationId: input.organizationId, personId: input.personId },
-    select: { id: true },
-  });
-  const leadIds = leads.map((lead) => lead.id);
+  const leadIds = [...input.leadIds];
   const fields = await tx.leadAiField.deleteMany({
     where: { organizationId: input.organizationId, leadId: { in: leadIds } },
   });

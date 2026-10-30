@@ -6,6 +6,7 @@
 // worker's.
 import { startJobHandlers, type JobHandler, type ScheduledJob } from "@travel-crm/domain/jobs";
 import {
+  aiInputsSweepSchedule,
   bulkFilesSweepSchedule,
   expiredExportsSchedule,
   platformJobHandlers,
@@ -73,6 +74,8 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   const expiredExportsSweep = expiredExportsSchedule(services);
   // Imports' and exports' files past their time (B53, B54): no job of their own deletes them.
   const bulkFilesSweep = bulkFilesSweepSchedule(services);
+  // The recordings and screenshots "Fill it for me" read, 30 days after upload (the owner, 2026-10-30).
+  const aiInputsSweep = aiInputsSweepSchedule(services);
   // The Sheets sync's drafts, resolved problems, schedule rows and claims past their time (S5, S6, S31).
   const sheetsSweep = sheetsSweepSchedule(services);
   // The Meta lead ads' Pages chosen at Facebook and never confirmed, past a day (spec 5).
@@ -88,6 +91,7 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
       storedFilesSweep,
       expiredExportsSweep,
       bulkFilesSweep,
+      aiInputsSweep,
       sheetsSweep,
       metaSweep,
       whatsappSweep,

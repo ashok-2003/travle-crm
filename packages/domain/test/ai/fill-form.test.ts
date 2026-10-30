@@ -3,8 +3,9 @@
 // recording only the member's own; a save that began as a fill audited as drafted by AI, with what the member changed.
 import { randomUUID } from "node:crypto";
 import { AI_INPUT_RECORD_TYPE } from "@travel-crm/contracts/files";
+import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   MONTHLY_AI_LIMIT,
   confirmAiInput,
@@ -14,6 +15,8 @@ import {
   saveAiSettings,
 } from "../../src/ai/index.js";
 import { monthStartOf } from "../../src/inbox/index.js";
+import { systemActor } from "../../src/kernel/index.js";
+import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import { aLead } from "../crm/support/records.js";
 import { anAgency, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
 
@@ -40,10 +43,15 @@ const leadJson = JSON.stringify({
 
 describe("fill it for me", () => {
   let test: TestImports;
+  let platformDb: PlatformDatabase;
   beforeAll(() => {
     test = createTestImports();
+    platformDb = createPlatformDatabase(inject("dbUrls").platform);
   });
-  afterAll(() => test.close());
+  afterAll(async () => {
+    await platformDb.disconnect();
+    await test.close();
+  });
 
   async function agency(options: { aiOn?: boolean } = {}) {
     const organizationId = await anAgency(test, "Sharma Holidays");
@@ -289,5 +297,33 @@ describe("fill it for me", () => {
         await reasonOf(inOrg((tx) => recordFillApplied(tx, owner, use, { targets: ["quote"], saved: {} }, NOW))),
       ).toBe("NOT_FOUND");
     });
+  });
+
+  it("is erased with the customer: the fill, the fields it suggested and the recording it read", async () => {
+    const { owner, dependencies, model, inOrg, organizationId } = await agency();
+    const lead = await inOrg((tx) => aLead(tx, {}));
+    const bytes = new Uint8Array([1, 2, 3]);
+    const slot = await requestAiInput({ files: test.files }, owner, { contentType: "audio/wav", sizeBytes: 3 });
+    await test.storage.upload({ ...slot.upload, expiresAt: new Date(slot.upload.expiresAt) }, bytes, "audio/wav");
+    await confirmAiInput({ files: test.files }, owner, { recordId: slot.recordId, attachmentId: slot.attachmentId });
+    model.answer(leadJson);
+    const proposal = await fillForm(
+      dependencies,
+      owner,
+      { target: "lead_edit", subjectId: lead.id, source: { kind: "upload", attachmentId: slot.attachmentId } },
+      NOW,
+    );
+    await inOrg((tx) => tx.leadAiField.create({ data: { leadId: lead.id, field: "destination", valueHash: "x" } }));
+    const person = await inOrg((tx) =>
+      tx.lead.findUniqueOrThrow({ where: { id: lead.id }, select: { personId: true } }),
+    );
+
+    await platformDb.transaction((tx) =>
+      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: person.personId }, NOW),
+    );
+
+    expect(await inOrg((tx) => tx.aiFill.count({ where: { id: proposal.fillId } }))).toBe(0);
+    expect(await inOrg((tx) => tx.leadAiField.count({ where: { leadId: lead.id } }))).toBe(0);
+    expect(await test.files.list(owner, { recordType: AI_INPUT_RECORD_TYPE, recordId: slot.recordId })).toEqual([]);
   });
 });

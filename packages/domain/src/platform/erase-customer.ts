@@ -74,7 +74,13 @@ export async function eraseCustomerParts(
   // Meta's ledger keeps the Meta lead ids (so the catch-up never brings the lead back) and nothing of the person.
   const meta = await withdrawMetaLeads(tx, { organizationId, personId: subject.personId });
   // The AI's drafts in their chats (ids and a hash, never the words).
-  const ai = await withdrawAiParts(tx, { organizationId, personId: subject.personId, phones: contacts.phones, now });
+  const ai = await withdrawAiParts(tx, {
+    organizationId,
+    personId: subject.personId,
+    phones: contacts.phones,
+    leadIds,
+    now,
+  });
   // WhatsApp: the chat's words and files are emptied and the chat is erased; MSG91, Meta and the phone keep their own copy.
   const whatsapp = await withdrawWhatsApp(tx, {
     organizationId,
