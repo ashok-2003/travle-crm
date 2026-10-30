@@ -13,7 +13,15 @@ export function createAiModel(environment: Environment): AiModel | null {
       apiKey: environment.AI_API_KEY,
       // The chat models write for customers and read chats; the fast ones only score leads.
       // Fill it for me reads recordings and screenshots, so it needs a multimodal model: Gemini's chat models are.
-      models: { suggest_reply: chat, autopilot: chat, learn: chat, score_lead: fast, fill_form: chat },
+      models: {
+        suggest_reply: chat,
+        autopilot: chat,
+        learn: chat,
+        score_lead: fast,
+        fill_form: chat,
+        write_up: chat,
+        ask_report: fast,
+      },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...(environment.AI_ZERO_RETENTION === undefined ? {} : { zeroRetention: environment.AI_ZERO_RETENTION }),
     });
@@ -30,6 +38,8 @@ export function createAiModel(environment: Environment): AiModel | null {
       autopilot: environment.AI_SUGGEST_MODELS,
       learn: environment.AI_SUGGEST_MODELS,
       fill_form: environment.AI_SUGGEST_MODELS,
+      write_up: environment.AI_SUGGEST_MODELS,
+      ask_report: environment.AI_SCORE_MODELS,
     },
     ...(testServer === undefined
       ? {}

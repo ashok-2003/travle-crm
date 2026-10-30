@@ -3,7 +3,15 @@
 // the in-memory one tests script. Domain code never sees a vendor's SDK or URL.
 
 /** The features that call the model; each has its own list of models in the settings. */
-export const aiFeatures = ["suggest_reply", "score_lead", "autopilot", "learn", "fill_form"] as const;
+export const aiFeatures = [
+  "suggest_reply",
+  "score_lead",
+  "autopilot",
+  "learn",
+  "fill_form",
+  "write_up",
+  "ask_report",
+] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 
 /**

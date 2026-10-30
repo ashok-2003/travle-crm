@@ -13,6 +13,8 @@ model AiSettings {
   scoring        Boolean      @default(true)
   /// New WhatsApp leads are filled in from their opening messages, saved as suggested (CHECK-free; default on).
   fillLeads      Boolean      @default(true) @map("fill_leads")
+  /// How the quote write-up sounds: warm, premium or short (CHECK ai_settings_write_style_value).
+  writeStyle     String       @default("warm") @map("write_style")
   updatedBy      String?      @map("updated_by") @db.Uuid
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
