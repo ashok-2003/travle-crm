@@ -16,7 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { refusalOf } from "@/data/api-error";
 import { rupees } from "@/components/forms/money-field";
 import { formatCalendarDay, formatDay } from "@/lib/format";
-import { leadRoute, routes } from "@/lib/routes";
+import { departureRoute, leadRoute, routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { BookingActions } from "./booking-actions";
 import { BookingStatusBadge } from "./booking-status";
@@ -71,6 +71,7 @@ function Attention({ booking }: { booking: BookingDetail }) {
 
 export function BookingScreen({ bookingId }: { bookingId: string }) {
   const t = useTranslations("bookings.booking");
+  const tDeparture = useTranslations("departures.booking");
   const tCommon = useTranslations("common");
   const booking = useBooking(bookingId);
   const body = (): ReactNode => {
@@ -92,6 +93,14 @@ export function BookingScreen({ bookingId }: { bookingId: string }) {
           <TextLink href={leadRoute(data.leadId)} inline>
             {t("openLead", { name: data.customerName })}
           </TextLink>
+          {data.departure !== null && (
+            <TextLink href={departureRoute(data.departure.id)} inline>
+              {tDeparture("onDeparture", {
+                day: formatCalendarDay(data.departure.startDate),
+                title: data.departure.title,
+              })}
+            </TextLink>
+          )}
           <BookingActions booking={data} />
           <Attention booking={data} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">

@@ -228,7 +228,8 @@
       "installment-removed": "Removed a payment due on a quote",
       "payment-recorded": "Recorded a payment",
       "payment-voided": "Voided a payment",
-      "replaced": "Replaced a quote with a new version"
+      "replaced": "Replaced a quote with a new version",
+      "departure-changed": "Put a quote on a departure, or took it off"
     },
     "quote-settings": {
       "changed": "Changed how quotes are paid and taxed"
@@ -311,6 +312,38 @@
     },
     "notifications": {
       "routing-changed": "Chose who on the team gets email and alert copies"
+    },
+    "departure": {
+      "created": "Added a departure",
+      "changed": "Changed a departure",
+      "closed": "Closed a departure to new seats",
+      "reopened": "Opened a departure again",
+      "cancelled": "Cancelled a departure",
+      "hold-created": "Held seats on a departure",
+      "hold-released": "Released held seats",
+      "hold-expired": "Held seats expired",
+      "hold-converted": "Held seats became a booking",
+      "waitlist-added": "Added a lead to a departure's waitlist",
+      "waitlist-removed": "Took a lead off a departure's waitlist",
+      "stay-saved": "Saved a hotel stay for a departure",
+      "stay-removed": "Removed a hotel stay",
+      "room-saved": "Saved a room",
+      "room-removed": "Removed a room",
+      "room-moved": "Moved a traveller to a room",
+      "rooms-drafted": "Drafted the rooms",
+      "layout-copied": "Copied a stay's rooms to the other stays",
+      "rooming-issued": "Made a rooming list PDF"
+    },
+    "departure-settings": {
+      "changed": "Changed how departures work"
+    },
+    "supplier": {
+      "created": "Added a supplier",
+      "changed": "Changed a supplier",
+      "deleted": "Deleted a supplier",
+      "contact-saved": "Saved a supplier's contact",
+      "contact-removed": "Removed a supplier's contact",
+      "costs-linked": "Linked costs to a supplier"
     }
   },
   "fields": {
@@ -431,6 +464,9 @@
     "booking_settings": "Booking settings",
     "ai_media": "A file the AI sends",
     "ai_booking": "A booking the AI took",
-    "notification_routing": "Team notifications"
+    "notification_routing": "Team notifications",
+    "departure": "A departure",
+    "supplier": "A supplier",
+    "departure_settings": "Departure settings"
   }
 }

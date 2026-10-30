@@ -27,7 +27,17 @@ import { HotLeadsCard } from "@/sales/hot-leads-card";
 type SetUpItem = NavigationItem & {
   key: Exclude<
     NavigationItem["key"],
-    "home" | "today" | "leads" | "inbox" | "quotes" | "bookings" | "reports" | "finance" | "audit"
+    | "home"
+    | "today"
+    | "leads"
+    | "inbox"
+    | "quotes"
+    | "bookings"
+    | "departures"
+    | "suppliers"
+    | "reports"
+    | "finance"
+    | "audit"
   >;
 };
 
@@ -38,6 +48,8 @@ const notSetUp: readonly NavigationItem["key"][] = [
   "inbox",
   "quotes",
   "bookings",
+  "departures",
+  "suppliers",
   "reports",
   "finance",
   "audit",

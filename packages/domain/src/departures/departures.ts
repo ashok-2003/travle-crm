@@ -223,13 +223,14 @@ export async function setDepartureStatus(
   const before = await findDepartureForChange(tx, input.departureId);
   if (before.status === "cancelled" || before.status === input.status) return;
   await tx.departure.update({ where: { id: before.id }, data: { status: input.status } });
-  await recordAudit(tx, access, {
-    action: input.status === "closed" ? "departure.closed" : "departure.reopened",
+  const change = {
     entityType: "departure",
     entityId: before.id,
     before: { status: before.status },
     after: { status: input.status },
-  });
+  };
+  if (input.status === "closed") await recordAudit(tx, access, { action: "departure.closed", ...change });
+  else await recordAudit(tx, access, { action: "departure.reopened", ...change });
   if (input.status === "open") await announceSeatsFreed(tx, before.id);
 }
 

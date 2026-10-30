@@ -3,6 +3,7 @@
 // Filling or fixing one traveller's details as staff (release 6): name, birthday, gender, phone; the emergency contact and
 // medical notes at Detailed; the passport at International, for a member who may read ID numbers (documents:view_sensitive),
 // who also sees the ID photos the traveller sent. A passport number typed here replaces the one on file; left empty, it is kept.
+import { roomRequests } from "@travel-crm/contracts/departures";
 import {
   gender,
   saveTravellerInput,
@@ -30,6 +31,7 @@ function TravellerForm({
   traveller,
   level,
   mayReadIds,
+  onDeparture,
   saveTraveller,
   dialog,
 }: {
@@ -37,6 +39,8 @@ function TravellerForm({
   traveller: Traveller;
   level: TravellerLevel;
   mayReadIds: boolean;
+  /** The booking holds seats on a group departure, so the room request is asked. */
+  onDeparture: boolean;
   saveTraveller: Changes["saveTraveller"];
   dialog: { onSuccess: () => Promise<void> };
 }) {
@@ -49,6 +53,8 @@ function TravellerForm({
     emergencyName: traveller.emergencyName,
     emergencyPhone: traveller.emergencyPhone,
     medicalNotes: traveller.medicalNotes,
+    roomRequest: traveller.roomRequest,
+    roomNote: traveller.roomNote,
     passportNumber: "",
     passportIssuedOn: "",
     passportExpiresOn: "",
@@ -68,6 +74,8 @@ function TravellerForm({
           emergencyName: typed.emergencyName,
           emergencyPhone: typed.emergencyPhone,
           medicalNotes: typed.medicalNotes,
+          roomRequest: typed.roomRequest,
+          roomNote: typed.roomNote,
           identity:
             showPassport && typed.passportNumber.trim() !== ""
               ? {
@@ -149,6 +157,18 @@ function TravellerForm({
           />
         </>
       )}
+      {onDeparture && (
+        <>
+          <SelectField
+            control={form.control}
+            name="roomRequest"
+            label={t("roomRequest")}
+            disabled={saveTraveller.isPending}
+            options={roomRequests.map((request) => ({ value: request, label: t(`roomRequests.${request}`) }))}
+          />
+          <TextField control={form.control} name="roomNote" label={t("roomNote")} disabled={saveTraveller.isPending} />
+        </>
+      )}
       {showPassport && (
         <>
           <TextField
@@ -178,10 +198,12 @@ export function TravellerDialog({
   traveller,
   level,
   number,
+  onDeparture,
 }: {
   traveller: Traveller;
   level: TravellerLevel;
   number: number;
+  onDeparture: boolean;
 }) {
   const t = useTranslations("bookings.travellers");
   const dialog = useFormDialog(t("saved"));
@@ -207,6 +229,7 @@ export function TravellerDialog({
           traveller={traveller}
           level={level}
           mayReadIds={mayReadIds}
+          onDeparture={onDeparture}
           saveTraveller={saveTraveller}
           dialog={dialog}
         />

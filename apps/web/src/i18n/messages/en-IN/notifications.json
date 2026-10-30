@@ -149,6 +149,22 @@
       "aiPaymentProof": {
         "label": "A customer sent a payment screenshot",
         "hint": "When a customer whose booking waits for payment sends a photo or PDF."
+      },
+      "departureSeatsFree": {
+        "label": "Seats free up on a full departure",
+        "hint": "When a lead of yours is waiting and their party now fits."
+      },
+      "departureHoldExpired": {
+        "label": "Held seats expired",
+        "hint": "When seats you held for a lead run out of time and go back to the batch."
+      },
+      "departureOverbooked": {
+        "label": "A departure is overbooked",
+        "hint": "When a traveller accepts a quote on a batch that has no seats left."
+      },
+      "supplierCostDueSoon": {
+        "label": "A supplier payment is due soon",
+        "hint": "For whoever keeps the accounts: a cost falls due within two days."
       }
     },
     "loading": "Loading your choices",

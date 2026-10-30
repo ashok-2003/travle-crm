@@ -20,6 +20,8 @@ describe("visibleNavigationItems", () => {
       "inbox",
       "quotes",
       "bookings",
+      "departures",
+      "suppliers",
       "reports",
       "finance",
       "staff",
