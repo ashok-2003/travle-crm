@@ -107,6 +107,7 @@ describe("the autopilot", () => {
       sendMedia: true,
       paymentDetails: "",
       strictRules: "",
+      followUpTasks: true,
     };
     await inOrg((tx) => saveAutopilot(tx, owner, settings));
     const model = createMemoryAiModel();

@@ -110,6 +110,7 @@
       "added": "Added a follow-up or task",
       "done": "Marked a follow-up or task done",
       "snoozed": "Snoozed a follow-up or task",
+      "edited": "Changed a follow-up or task",
       "cancelled": "Cancelled a follow-up or task",
       "reassigned": "Gave a follow-up or task to someone else"
     },

@@ -122,6 +122,7 @@ model Organization {
   aiLearnings                 AiLearning[]
   aiMedia                     AiMedia[]
   aiBookings                  AiBooking[]
+  aiFollowUpTouches           AiFollowUpTouch[]
   notificationRouting         NotificationRouting?
   aiUsage                     AiUsage[]
   aiKnowledge                 AiKnowledge[]

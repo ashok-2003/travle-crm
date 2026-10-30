@@ -39,6 +39,10 @@ export const addTaskInput = z.strictObject({
 export type AddTaskInput = z.infer<typeof addTaskInput>;
 
 export const taskIdInput = z.strictObject({ taskId: recordId });
+
+/** A follow-up or task changed: what to do and when (the Follow-ups screen, 2026-10-30). */
+export const editTaskInput = z.strictObject({ taskId: recordId, title: taskTitle, due: wallClockTime });
+export type EditTaskInput = z.infer<typeof editTaskInput>;
 export type TaskIdInput = z.infer<typeof taskIdInput>;
 
 /** One hour from now, tomorrow at 09:00 on the agency's clock, or a chosen day and time. */
@@ -52,6 +56,6 @@ export type SnoozeUntil = z.infer<typeof snoozeUntil>;
 export const snoozeTaskInput = z.strictObject({ taskId: recordId, until: snoozeUntil });
 export type SnoozeTaskInput = z.infer<typeof snoozeTaskInput>;
 
-/** The payload of task.added, task.done, task.snoozed, task.cancelled and task.reassigned: ids only. */
+/** The payload of task.added, task.done, task.snoozed, task.edited, task.cancelled and task.reassigned: ids only. */
 export const taskEvent = z.strictObject({ taskId: recordId });
 export type TaskEvent = z.infer<typeof taskEvent>;

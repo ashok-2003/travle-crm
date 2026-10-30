@@ -308,6 +308,8 @@
     "leadNotesHint": "When a customer tells the AI something worth keeping (dates, budget, travellers, a decision), it writes a short note on the lead's timeline.",
     "sendMedia": "Send photos, videos and PDFs",
     "sendMediaHint": "The AI sends your files from Media below when they help: a brochure, hotel photos, the itinerary.",
+    "followUpTasks": "Add and work follow-ups",
+    "followUpTasksHint": "When a customer asks to talk later, the AI adds a follow-up on the lead. When any follow-up on a lead comes due, the AI writes to the customer on WhatsApp if the 24-hour window is open. The follow-up stays open for your team's call. See them all in Leads, Follow-ups.",
     "details": "Payment details",
     "detailsPlaceholder": "UPI: sharmaholidays@okhdfc\nBank: HDFC Bank, A/c 50200012345678, IFSC HDFC0001234, Sharma Holidays\nAdvance: 30% to confirm, balance 7 days before travel",
     "detailsHint": "Sent as its own message, word for word, so an account number is never typed wrong. Leave empty to give no payment details.",

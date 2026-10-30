@@ -3,3 +3,4 @@
 export * from "./ai.js";
 export * from "./autopilot.js";
 export * from "./bookings-media.js";
+export * from "./follow-ups.js";

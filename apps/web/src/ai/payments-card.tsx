@@ -1,7 +1,7 @@
 "use client";
 
 // Settings, AI: what the autopilot does beyond its words (the owner, 2026-10-29): notes on the lead when a chat tells
-// something worth keeping, the agency's media when it helps, how customers pay (sent exactly as written when someone wants
+// something worth keeping, the agency's media when it helps, follow-ups it adds and works (2026-10-30), how customers pay (sent exactly as written when someone wants
 // to book, then the payment screenshot is asked for), and the rules it always follows. Saved with the autopilot's form.
 import type { SaveAutopilotInput } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
-type Values = Pick<SaveAutopilotInput, "leadNotes" | "sendMedia" | "paymentDetails" | "strictRules">;
+type Values = Pick<SaveAutopilotInput, "leadNotes" | "sendMedia" | "followUpTasks" | "paymentDetails" | "strictRules">;
 
 function SwitchRow({
   id,
@@ -51,7 +51,7 @@ export function PaymentsCard({
   disabled: boolean;
 }) {
   const t = useTranslations("ai.payments");
-  const ids = { notes: useId(), media: useId(), payment: useId(), rules: useId() };
+  const ids = { notes: useId(), media: useId(), followUps: useId(), payment: useId(), rules: useId() };
   return (
     <Card>
       <CardHeader>
@@ -79,6 +79,16 @@ export function PaymentsCard({
           disabled={disabled}
           onChange={(sendMedia) => {
             change({ sendMedia });
+          }}
+        />
+        <SwitchRow
+          id={ids.followUps}
+          label={t("followUpTasks")}
+          hint={t("followUpTasksHint")}
+          checked={values.followUpTasks}
+          disabled={disabled}
+          onChange={(followUpTasks) => {
+            change({ followUpTasks });
           }}
         />
         <Separator />
