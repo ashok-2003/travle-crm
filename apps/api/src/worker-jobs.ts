@@ -21,6 +21,14 @@ import {
   leadSheetBaselineFingerprints,
   sheetsCheckHandler,
 } from "@travel-crm/domain/crm";
+import {
+  BOOKING_COMPLETE_QUEUE,
+  BOOKING_DUE_WORK_QUEUE,
+  completeFinishedBookings,
+  quoteAcceptedListener,
+  quoteRevertedListener,
+  runBookingDueWork,
+} from "@travel-crm/domain/bookings";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
 import { makeStaffExportListener, type ExportJobDependencies } from "@travel-crm/domain/exports";
 import type { Files } from "@travel-crm/domain/files";
@@ -182,6 +190,15 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   // Who the slow-reply alert and the Unassigned notice go to: everyone whose role holds leads:assign (release 4).
   const leadAssigners = (organizationId: string) => identity.membersHolding(organizationId, "leads:assign");
   const { webhookProviders, rateLimiter, logger } = dependencies;
+  const salesJobsTimeZone = async (organizationId: string) =>
+    (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE;
+  const salesJobsNames = async (organizationId: string, ownerUserId: string | null) => {
+    const [organization, owners] = await Promise.all([
+      identity.organizationProfile(organizationId),
+      ownerUserId === null ? Promise.resolve([]) : identity.memberContacts(organizationId, [ownerUserId]),
+    ]);
+    return { agencyName: organization?.name ?? "our team", agentName: owners[0]?.name ?? null };
+  };
   const ai = dependencies.ai ?? null;
   // The bulk imports' and exports' listeners (release 2): two of each step share its event, each acting on its kind.
   const importJobs: ImportJobDependencies = {
@@ -231,22 +248,19 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     files,
     managers: bookingManagers,
   });
-  const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
-  // Sales execution: the agency's name and the lead owner's for the WhatsApp blanks, in the agency's own time.
-  const salesJobs = {
+  // Bookings: the reminders now due and the claims left waiting, each minute; the finished trips, each night.
+  const bookingJobs = {
     db,
     appUrl,
     logger,
-    timeZone: async (organizationId: string) =>
-      (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE,
-    names: async (organizationId: string, ownerUserId: string | null) => {
-      const [organization, owners] = await Promise.all([
-        identity.organizationProfile(organizationId),
-        ownerUserId === null ? Promise.resolve([]) : identity.memberContacts(organizationId, [ownerUserId]),
-      ]);
-      return { agencyName: organization?.name ?? "our team", agentName: owners[0]?.name ?? null };
-    },
+    identity,
+    subscriptions,
+    timeZone: salesJobsTimeZone,
+    names: salesJobsNames,
   };
+  const exportJobs: ExportJobDependencies = { files, spreadsheets, identity, appUrl, logger };
+  // Sales execution: the agency's name and the lead owner's for the WhatsApp blanks, in the agency's own time.
+  const salesJobs = { db, appUrl, logger, timeZone: salesJobsTimeZone, names: salesJobsNames };
   // The Meta lead ads' side: the route, the notices, the checks and the import of a form's earlier leads, only when Meta is set up.
   const { meta = null } = dependencies;
   const metaJobs = meta === null ? null : metaProcessDependencies(meta.dependencies, { identity, subscriptions });
@@ -311,6 +325,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
             }),
           ]),
       renderIssuedDocumentListener({ files, render: renderPdf }),
+      // An accepted quote becomes a booking (release 6), and a reverted one takes its booking away.
+      quoteAcceptedListener(),
+      quoteRevertedListener(),
       deliverNotificationListener({
         email,
         push,
@@ -497,6 +514,24 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               },
             },
           ]),
+      {
+        // Bookings: a traveller's reminders now due (or a task to send them by hand) and the claims waiting over a day.
+        queue: BOOKING_DUE_WORK_QUEUE,
+        cron: "* * * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await runBookingDueWork(bookingJobs, new Date());
+        },
+      },
+      {
+        // A trip whose last day was yesterday becomes Completed.
+        queue: BOOKING_COMPLETE_QUEUE,
+        cron: "20 2 * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await completeFinishedBookings(bookingJobs, new Date());
+        },
+      },
       {
         // Each person's morning summary push, at the time they chose in their agency's zone (release 5): looked for every
         // 15 minutes, one push a person a day.

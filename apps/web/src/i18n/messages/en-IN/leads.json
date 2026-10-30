@@ -553,6 +553,23 @@
       "callEdit": "Edit the call",
       "callEditNamed": "Edit the call with the outcome {outcome}",
       "callDeleteNamed": "Delete the call with the outcome {outcome}",
+      "openBooking": "Open booking {number}",
+      "booking": {
+        "created": "Booking {number} was made from the accepted quote",
+        "confirmed": "Booking {number} was confirmed",
+        "payment-claimed": "The customer said they paid, on booking {number}",
+        "payment-confirmed": "A payment was confirmed on booking {number}",
+        "payment-rejected": "A payment the customer claimed couldn't be matched, on booking {number}",
+        "voucher-issued": "A hotel voucher was issued for booking {number}",
+        "trip-pdf-prepared": "The trip PDF was prepared for booking {number}",
+        "details-complete": "Every traveller's details are in for booking {number}",
+        "reminder-sent": "A reminder was sent for booking {number}",
+        "reminder-by-hand": "A reminder for booking {number} is left to do by hand",
+        "feedback-requested": "Feedback was asked for on booking {number}",
+        "feedback-received": "The customer sent feedback on booking {number}",
+        "cancelled": "Booking {number} was cancelled",
+        "refunded": "The refund for booking {number} was paid"
+      },
       "aiNote": "AI note",
       "ai": "The AI"
     },

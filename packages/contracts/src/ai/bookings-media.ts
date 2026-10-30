@@ -64,6 +64,9 @@ export const aiBooking = z.object({
     amount: z.string(),
   }),
   status: aiBookingStatus,
+  /** The booking its confirmation made (release 6), and its number. */
+  bookingId: recordId.nullable(),
+  bookingNumber: z.string().nullable(),
   /** The customer's photos and PDFs sent as payment proof: their chat messages. */
   proofs: z.array(
     z.object({ messageId: recordId, kind: z.string(), fileName: z.string().nullable(), at: z.iso.datetime() }),

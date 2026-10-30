@@ -20,6 +20,7 @@ export {
   type OpenedQuote,
   type PaymentDue,
 } from "./today-work.js";
+export { sendToLead, type AutoSendResult } from "./send.js";
 export { previewMessage, readyMessage } from "./message-library.js";
 export { hotLeadsOf, leadHeatOf } from "./hot-leads.js";
 export { PAYMENT_DUE_KIND, runRemindersFor, runSalesDueWorkFor, type ReminderDependencies } from "./reminders.js";

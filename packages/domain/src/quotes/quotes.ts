@@ -6,6 +6,7 @@
 import type {
   CreateQuoteInput,
   ListQuotesInput,
+  QuoteAcceptedEvent,
   QuoteDetail,
   QuoteSummary,
   SetQuoteStatusInput,
@@ -15,6 +16,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { softDeleted } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage, getLead } from "../crm/index.js";
+import { publishEvent } from "../jobs/index.js";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import {
@@ -148,6 +150,10 @@ export async function setQuoteStatus(
       await advanceLeadStage(tx, access, { leadId: before.leadId, stage: "quote_sent" }, now);
     if (input.status === "accepted") {
       await advanceLeadStage(tx, access, { leadId: before.leadId, stage: "booking_requested" }, now);
+      await publishEvent(tx, {
+        type: "quote.accepted",
+        payload: { quoteId: before.id, leadId: before.leadId, confirmed: false } satisfies QuoteAcceptedEvent,
+      });
     }
   }
   return toDetail(await findQuoteInScope(tx, access, before.id));

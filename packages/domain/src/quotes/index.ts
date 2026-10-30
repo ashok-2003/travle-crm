@@ -1,6 +1,7 @@
 // Public API of @travel-crm/domain/quotes: a lead's quotations, the money due and paid on them, their documents and the
 // customer's link (step 3, P0). It sits above crm, which it calls; nothing below calls it.
 export { acceptQuoteFromLink, publicQuoteOf, type PublicQuote } from "./public-quote.js";
+export { agreedQuote } from "./agreed-quote.js";
 export { moneySummaryOf } from "./money-summary.js";
 export { addInstallment, recordPayment, removeInstallment, voidPayment } from "./payments.js";
 export {
@@ -11,6 +12,7 @@ export {
   type DocumentContext,
 } from "./quote-documents.js";
 export { deletePackage, duplicateQuote, listPackages, quoteFromPackage, savePackage } from "./packages.js";
+export { quoteOwedSql, quoteSalesSql, quoteTaxSql } from "./sales-sql.js";
 export { eraseQuoteParts, type QuotesErased } from "./erasure.js";
 export { findQuoteInScope } from "./quote-rows.js";
 export {

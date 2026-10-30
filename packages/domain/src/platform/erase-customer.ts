@@ -8,6 +8,7 @@ import type { Actor } from "../kernel/index.js";
 import { forgetRecordNotifications } from "../notifications/index.js";
 import { withdrawWhatsApp } from "../inbox/index.js";
 import { withdrawAiParts } from "../ai/index.js";
+import { eraseBookingParts } from "../bookings/index.js";
 import { eraseQuoteParts } from "../quotes/index.js";
 import { eraseSalesParts } from "../sales/index.js";
 import { withdrawMetaLeads } from "../meta-leads/index.js";
@@ -37,13 +38,20 @@ export async function eraseCustomerParts(
   // Their quotes' personal words and their hot-lead signals; the invoices and receipts issued are kept, as tax law asks.
   const quotes = await eraseQuoteParts(tx, { organizationId, leadIds });
   const sales = await eraseSalesParts(tx, { organizationId, leadIds });
+  // Their bookings: the travellers' details and ID numbers, claims' references and screenshots, feedback, and the files.
+  const bookings = await eraseBookingParts(tx, { organizationId, leadIds, now });
   // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
   const tasksCancelled = await asOrganization(tx, organizationId, async (orgTx) => {
     let cancelled = 0;
     for (const lead of leads) cancelled += (await cancelOpenTasks(orgTx, actor, lead, now)).length;
+    for (const bookingId of bookings.bookingIds) {
+      cancelled += (await cancelOpenTasks(orgTx, actor, { recordType: "booking", recordId: bookingId }, now)).length;
+    }
     return cancelled;
   });
-  const taskTitles = await redactTaskTitles(tx, { organizationId, recordType: "lead", recordIds: leadIds });
+  const taskTitles =
+    (await redactTaskTitles(tx, { organizationId, recordType: "lead", recordIds: leadIds })) +
+    (await redactTaskTitles(tx, { organizationId, recordType: "booking", recordIds: bookings.bookingIds }));
   let notifications = 0;
   let files = 0;
   for (const lead of leads) {
@@ -53,6 +61,9 @@ export async function eraseCustomerParts(
       sourceEventIds: [],
     });
     files += await deleteRecordFiles(tx, lead, now);
+  }
+  for (const bookingId of bookings.bookingIds) {
+    notifications += await forgetRecordNotifications(tx, { organizationId, recordId: bookingId, sourceEventIds: [] });
   }
   const sheets = await withdrawSheetRows(tx, sheetsHashes, {
     organizationId,
@@ -79,6 +90,11 @@ export async function eraseCustomerParts(
     quotesEmptied: quotes.quotes,
     paymentReferencesEmptied: quotes.payments,
     hotLeadSignals: sales.signals,
+    travellersErased: bookings.travellers,
+    travellerIdentitiesDeleted: bookings.identities,
+    paymentClaimsEmptied: bookings.claims,
+    feedbackEmptied: bookings.feedback,
+    bookingFiles: bookings.files,
     aiDrafts: ai.drafts,
     aiInsights: ai.insights,
     notifications,

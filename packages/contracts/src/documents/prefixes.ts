@@ -13,6 +13,15 @@ export const QUOTE_DOCUMENT_PREFIX = "QT";
 /** Payment receipts: RCT-2026-0001. */
 export const RECEIPT_DOCUMENT_PREFIX = "RCT";
 
+/** Bookings, numbered from the organization's counter: BK-2026-0001. */
+export const BOOKING_DOCUMENT_PREFIX = "BK";
+
+/** A hotel voucher for a booking's stay: VCH-2026-0001. */
+export const VOUCHER_DOCUMENT_PREFIX = "VCH";
+
+/** A booking's itinerary PDF: ITN-2026-0001. */
+export const ITINERARY_DOCUMENT_PREFIX = "ITN";
+
 /** An invoice of an agency that has not chosen its own prefix: INV-2026-0001. */
 export const DEFAULT_INVOICE_PREFIX = "INV";
 
@@ -26,4 +35,7 @@ export const reservedDocumentPrefixes: readonly string[] = [
   DEFAULT_DOCUMENT_PREFIX,
   QUOTE_DOCUMENT_PREFIX,
   RECEIPT_DOCUMENT_PREFIX,
+  BOOKING_DOCUMENT_PREFIX,
+  VOUCHER_DOCUMENT_PREFIX,
+  ITINERARY_DOCUMENT_PREFIX,
 ];

@@ -15,7 +15,7 @@ import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
 import { useTripLine } from "@/leads/trip-line";
 import { formatCalendarDay, formatDayTime, formatRupees, formatTime } from "@/lib/format";
 import { dayRelation, elapsed } from "@/lib/relative-time";
-import { leadRoute } from "@/lib/routes";
+import { bookingRoute, leadRoute } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
 import { useHolds, useMe } from "@/session/me-context";
 import { TaskActions } from "@/tasks/task-actions";
@@ -34,6 +34,8 @@ export function todayItemId(item: TodayItemData): string {
       return item.quote.id;
     case "payment-due":
       return item.installmentId;
+    case "trip-details":
+      return item.bookingId;
   }
 }
 
@@ -53,6 +55,9 @@ function useWhen(item: TodayItemData): { urgency: Urgency; text: string } {
   if (item.kind === "quote-opened") {
     const { unit, count } = elapsed(new Date(item.lastOpenedAt), now);
     return { urgency: "waiting", text: t("openedAgo", { elapsed: tNext(`elapsed.${unit}`, { count }) }) };
+  }
+  if (item.kind === "trip-details") {
+    return { urgency: "today", text: t("tripLeaves", { day: formatCalendarDay(item.startDate, now) }) };
   }
   if (item.kind === "payment-due") {
     const day = formatCalendarDay(item.dueOn, now);
@@ -92,9 +97,11 @@ export function TodayItem({ item }: { item: TodayItemData }) {
         ? [tItem("quoteOpened", { title: item.quote.title, count: item.opens }), trip]
         : item.kind === "payment-due"
           ? [trip]
-          : lead
-            ? [title, trip]
-            : [];
+          : item.kind === "trip-details"
+            ? [tItem("tripDetails", { missing: item.missing, total: item.total }), trip]
+            : lead
+              ? [title, trip]
+              : [];
   const description = about.filter((part): part is string => part !== null && part !== "").join(" · ");
   return (
     <Item size="sm" role="listitem" className="items-start">
@@ -115,6 +122,16 @@ export function TodayItem({ item }: { item: TodayItemData }) {
             <CallButton phone={phone} name={lead.personName} leadId={lead.id} variant="outline" />
             <WhatsAppButton phone={phone} name={lead.personName} />
           </div>
+        )}
+        {item.kind === "task" && item.booking !== null && (
+          <TextLink inline href={bookingRoute(item.booking.id)}>
+            {tItem("openBooking", { number: item.booking.number })}
+          </TextLink>
+        )}
+        {item.kind === "trip-details" && (
+          <TextLink inline href={bookingRoute(item.bookingId)}>
+            {tItem("openBooking", { number: item.number })}
+          </TextLink>
         )}
         {item.kind === "task" && <TaskActions task={item.task} />}
         {item.kind === "new-lead" && mayEdit && <MarkContactedButton lead={item.lead} />}

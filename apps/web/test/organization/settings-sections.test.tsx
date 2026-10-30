@@ -23,6 +23,7 @@ describe("SettingsSections", () => {
       [expect.stringContaining(sections.branding), routes.branding],
       [expect.stringContaining(sections.files), routes.files],
       [expect.stringContaining(sections.documents), routes.documents],
+      [expect.stringContaining(sections.teamNotifications), routes.teamNotifications],
       [expect.stringContaining(sections.audit), routes.audit],
     ]);
   });

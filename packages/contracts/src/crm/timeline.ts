@@ -5,6 +5,7 @@ import { taskKind } from "../tasks/tasks.js";
 import { assignedBy } from "./assignment.js";
 import { callNote, callOutcome } from "./calls.js";
 import { leadSource, leadStage, peopleNames } from "./fields.js";
+import { bookingEvent } from "../bookings/bookings.js";
 import { tripDetail } from "./trip.js";
 
 export const leadEventKinds = [
@@ -21,6 +22,8 @@ export const leadEventKinds = [
   "trip-edited",
   /** The thread restarted on WhatsApp after a quiet day (the chat is the person's, so no enquiry per message). */
   "whatsapp-contact",
+  /** A step of the lead's booking: it was made, confirmed, paid, cancelled... (release 6). */
+  "booking-event",
 ] as const;
 export const leadEventKind = z.enum(leadEventKinds);
 export type LeadEventKind = z.infer<typeof leadEventKind>;
@@ -70,6 +73,13 @@ export const timelineEntry = z.discriminatedUnion("kind", [
   }),
   z.object({ ...entry, kind: z.literal("trip-edited") }),
   z.object({ ...entry, kind: z.literal("whatsapp-contact") }),
+  z.object({
+    ...entry,
+    kind: z.literal("booking-event"),
+    bookingId: recordId,
+    number: z.string(),
+    event: bookingEvent,
+  }),
 ]);
 export type TimelineEntry = z.infer<typeof timelineEntry>;
 

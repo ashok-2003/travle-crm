@@ -20,6 +20,8 @@ export const softDeleteModels: readonly string[] = [
   Prisma.ModelName.AiKnowledge,
   Prisma.ModelName.AiMedia,
   Prisma.ModelName.LeadCall,
+  Prisma.ModelName.Booking,
+  Prisma.ModelName.BookingTraveller,
 ];
 
 /** Operations that must neither see nor change deleted rows. Creates are unaffected; deletes and upserts are refused. */

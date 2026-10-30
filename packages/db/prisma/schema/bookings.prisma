@@ -1,0 +1,300 @@
+// Bookings (release 6): an accepted quote made into a booking the agency confirms, collects money on and sends the
+// traveller a trip page for, with each traveller's details, stays and vouchers, payment claims ("I've paid"), reminders,
+// feedback, and a cancellation with a refund worked out from the agency's policy. Money stays on the quote
+// (quote_payment, quote_installment); a booking reads it through quote_id. Organization-owned, under row-level security.
+
+/// One accepted quote as a booking. Soft-deleted (ADR 0004) when the quote's first payment is voided and the quote reverts.
+model Booking {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId      String             @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                  String             @id @default(uuid(7)) @db.Uuid
+  quoteId             String             @map("quote_id") @db.Uuid
+  leadId              String             @map("lead_id") @db.Uuid
+  /// "BK-<year>-<0001>" from the organization's counter.
+  number              String
+  /// requested, confirmed, cancelled or completed (CHECK booking_status_value).
+  status              String             @default("requested")
+  startDate           DateTime?          @map("start_date") @db.Date
+  endDate             DateTime?          @map("end_date") @db.Date
+  /// How much each traveller fills in: basic, detailed or international (CHECK booking_level_value).
+  level               String             @default("basic")
+  /// "HH:MM" on the agency's clock, or null.
+  reportingTime       String?            @map("reporting_time")
+  reportingPlace      String             @default("") @map("reporting_place")
+  driverName          String             @default("") @map("driver_name")
+  driverPhone         String             @default("") @map("driver_phone")
+  emergencyName       String             @default("") @map("emergency_name")
+  emergencyPhone      String             @default("") @map("emergency_phone")
+  /// The agency's cancellation policy as it stood at booking: { rules: [{ daysBeforeMin, chargeBasisPoints }], notes }.
+  /// Null for a booking carried over from before bookings existed; it is cancelled by the policy of the day.
+  policySnapshot      Json?              @map("policy_snapshot")
+  /// False for a carried-over booking, whose payment reminders stay the sales automation's (no second reminder).
+  sendsReminders      Boolean            @default(true) @map("sends_reminders")
+  confirmedAt         DateTime?          @map("confirmed_at") @db.Timestamptz(6)
+  confirmedBy         String?            @map("confirmed_by") @db.Uuid
+  cancelledAt         DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  cancelledBy         String?            @map("cancelled_by") @db.Uuid
+  cancelReason        String?            @map("cancel_reason")
+  /// The cancellation charge in paise, including GST; null until cancelled.
+  chargePaise         BigInt?            @map("charge_paise")
+  /// The "Confirm booking" task, until the booking is confirmed or cancelled.
+  /// True while the booking stands on a quote the AI made from a chat (no quote was sent): a real quote accepted later takes its place.
+  quotePlaceholder    Boolean            @default(false) @map("quote_placeholder")
+  /// The customer's chat messages (photos, PDFs) kept as proof of payment, when the AI took the booking.
+  proofMessageIds     String[]           @default([]) @map("proof_message_ids") @db.Uuid
+  confirmTaskId       String?            @map("confirm_task_id") @db.Uuid
+  remindersPausedAt   DateTime?          @map("reminders_paused_at") @db.Timestamptz(6)
+  feedbackRequestedAt DateTime?          @map("feedback_requested_at") @db.Timestamptz(6)
+  /// The itinerary PDF last issued, and a fingerprint of what it was made from, so a later change shows it as out of date.
+  tripPdfDocumentId   String?            @map("trip_pdf_document_id") @db.Uuid
+  tripPdfFingerprint  String?            @map("trip_pdf_fingerprint")
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  deletedBy           String?            @map("deleted_by") @db.Uuid
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  quote               Quote              @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lead                Lead               @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tripPdfDocument     IssuedDocument?    @relation("BookingTripPdf", fields: [organizationId, tripPdfDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  stays               BookingStay[]
+  travellers          BookingTraveller[]
+  claims              PaymentClaim[]
+  refunds             BookingRefund[]
+  reminders           BookingReminder[]
+  feedback            BookingFeedback[]
+  aiBookings          AiBooking[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, number])
+  /// A quote has one live booking.
+  @@unique([organizationId, quoteId], map: "booking_live_quote", where: { deletedAt: null })
+  @@index([organizationId, leadId], map: "booking_lead")
+  @@index([organizationId, status, startDate], map: "booking_by_status")
+  @@map("booking")
+}
+
+/// Where the travellers stay: a hotel with its dates, and the voucher issued for it.
+model BookingStay {
+  organizationId     String          @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                 String          @id @default(uuid(7)) @db.Uuid
+  bookingId          String          @map("booking_id") @db.Uuid
+  position           Int             @default(0)
+  name               String
+  address            String          @default("")
+  mapUrl             String          @default("") @map("map_url")
+  checkIn            DateTime        @map("check_in") @db.Date
+  checkOut           DateTime        @map("check_out") @db.Date
+  /// Room and meal notes printed on the voucher.
+  notes              String          @default("")
+  voucherDocumentId  String?         @map("voucher_document_id") @db.Uuid
+  /// What the voucher was made from; a stay that no longer fingerprints the same has an out-of-date voucher.
+  voucherFingerprint String?         @map("voucher_fingerprint")
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking            Booking         @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  voucherDocument    IssuedDocument? @relation("StayVoucher", fields: [organizationId, voucherDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, bookingId], map: "booking_stay_booking")
+  @@map("booking_stay")
+}
+
+/// One head of a booking. Anyone with the trip link fills any row. Soft-deleted when the headcount shrinks.
+model BookingTraveller {
+  organizationId String                     @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String                     @id @default(uuid(7)) @db.Uuid
+  bookingId      String                     @map("booking_id") @db.Uuid
+  position       Int
+  name           String                     @default("")
+  dateOfBirth    DateTime?                  @map("date_of_birth") @db.Date
+  /// female, male or other (CHECK booking_traveller_gender_value).
+  gender         String?
+  phone          String                     @default("")
+  emergencyName  String                     @default("") @map("emergency_name")
+  emergencyPhone String                     @default("") @map("emergency_phone")
+  medicalNotes   String                     @default("") @map("medical_notes")
+  /// When every field the booking's level asks for was filled; null while any is missing.
+  completeAt     DateTime?                  @map("complete_at") @db.Timestamptz(6)
+  updatedAt      DateTime                   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?                    @map("deleted_by") @db.Uuid
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking        Booking                    @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  identity       BookingTravellerIdentity[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, bookingId, position], map: "booking_traveller_live_position", where: { deletedAt: null })
+  @@index([organizationId, bookingId], map: "booking_traveller_booking")
+  @@map("booking_traveller")
+}
+
+/// A traveller's ID numbers, apart from the plain row: read only with documents:view_sensitive. Never shown back to the traveller.
+model BookingTravellerIdentity {
+  organizationId String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String           @id @default(uuid(7)) @db.Uuid
+  travellerId    String           @map("traveller_id") @db.Uuid
+  /// passport or other_id (CHECK booking_traveller_identity_kind_value).
+  kind           String
+  number         String
+  issuedOn       DateTime?        @map("issued_on") @db.Date
+  expiresOn      DateTime?        @map("expires_on") @db.Date
+  nationality    String           @default("")
+  updatedAt      DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  traveller      BookingTraveller @relation(fields: [organizationId, travellerId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, travellerId], map: "booking_traveller_identity_once")
+  @@map("booking_traveller_identity")
+}
+
+/// A traveller's "I've paid": the amount, the UPI reference and a screenshot, until staff confirm or reject it.
+model PaymentClaim {
+  organizationId   String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id               String            @id @default(uuid(7)) @db.Uuid
+  bookingId        String            @map("booking_id") @db.Uuid
+  installmentId    String?           @map("installment_id") @db.Uuid
+  amountPaise      BigInt            @map("amount_paise")
+  reference        String            @default("")
+  /// A ready attachment of record type payment_claim (the booking's id), an image.
+  screenshotFileId String?           @map("screenshot_file_id") @db.Uuid
+  /// pending, confirmed or rejected (CHECK payment_claim_status_value).
+  status           String            @default("pending")
+  /// not_found, wrong_amount or other (CHECK payment_claim_reject_reason_value).
+  rejectReason     String?           @map("reject_reason")
+  /// The payment staff recorded on confirming it.
+  paymentId        String?           @map("payment_id") @db.Uuid
+  decidedBy        String?           @map("decided_by") @db.Uuid
+  decidedAt        DateTime?         @map("decided_at") @db.Timestamptz(6)
+  /// The "Check payment" task.
+  taskId           String?           @map("task_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking          Booking           @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  installment      QuoteInstallment? @relation(fields: [organizationId, installmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  payment          QuotePayment?     @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, bookingId], map: "payment_claim_booking")
+  @@index([organizationId, status, createdAt], map: "payment_claim_by_status")
+  @@map("payment_claim")
+}
+
+/// The money owed back after a cancellation, paid outside the product and marked refunded. Never a negative payment.
+model BookingRefund {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  bookingId      String       @map("booking_id") @db.Uuid
+  amountPaise    BigInt       @map("amount_paise")
+  /// due or refunded (CHECK booking_refund_status_value).
+  status         String       @default("due")
+  refundedOn     DateTime?    @map("refunded_on") @db.Date
+  /// upi, bank, cash, card or other.
+  method         String?
+  reference      String       @default("")
+  recordedBy     String?      @map("recorded_by") @db.Uuid
+  /// The "Refund" task.
+  taskId         String?      @map("task_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking        Booking      @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, bookingId], map: "booking_refund_once")
+  @@map("booking_refund")
+}
+
+/// A message the traveller is due: the balance, their details and packing list, or where to report.
+model BookingReminder {
+  organizationId String            @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String            @id @default(uuid(7)) @db.Uuid
+  bookingId      String            @map("booking_id") @db.Uuid
+  /// balance, details or reporting (CHECK booking_reminder_kind_value).
+  kind           String
+  installmentId  String?           @map("installment_id") @db.Uuid
+  /// "<kind>:<instalment or ->:<days before>": a reminder is made once (unique with the booking).
+  key            String
+  sendAt         DateTime          @map("send_at") @db.Timestamptz(6)
+  /// scheduled, sent, by_hand or skipped (CHECK booking_reminder_status_value).
+  status         String            @default("scheduled")
+  /// Why it was skipped or left to hand: a code, never the customer's words.
+  note           String?
+  messageId      String?           @map("message_id") @db.Uuid
+  /// The "Remind by hand" task made when the message could not go.
+  taskId         String?           @map("task_id") @db.Uuid
+  sentAt         DateTime?         @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking        Booking           @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  installment    QuoteInstallment? @relation(fields: [organizationId, installmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, bookingId, key], map: "booking_reminder_once")
+  @@index([organizationId, status, sendAt], map: "booking_reminder_due")
+  @@map("booking_reminder")
+}
+
+/// What the traveller said about the trip, privately.
+model BookingFeedback {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  bookingId      String       @map("booking_id") @db.Uuid
+  overall        Int
+  hotel          Int?
+  transport      Int?
+  guide          Int?
+  comment        String       @default("")
+  mayShare       Boolean      @default(false) @map("may_share")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking        Booking      @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, bookingId], map: "booking_feedback_once")
+  @@map("booking_feedback")
+}
+
+/// One step of the agency's cancellation charges: from this many days before departure up to the next step, this share.
+model CancellationPolicyRule {
+  organizationId    String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                String       @id @default(uuid(7)) @db.Uuid
+  daysBeforeMin     Int          @map("days_before_min")
+  chargeBasisPoints Int          @map("charge_basis_points")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, daysBeforeMin], map: "cancellation_policy_rule_days")
+  @@map("cancellation_policy_rule")
+}
+
+/// How an agency's bookings run: the default payment schedule, when travellers' details lock, the reminders and their
+/// templates, the packing list, the emergency contact, the cancellation notes and the review link. One row each.
+model BookingSettings {
+  organizationId      String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// The default schedule offered at Confirm: this share (basis points) now, the rest this many days before departure.
+  advanceBasisPoints  Int          @default(3000) @map("advance_basis_points")
+  balanceDaysBefore   Int          @default(15) @map("balance_days_before")
+  detailsCutoffDays   Int          @default(3) @map("details_cutoff_days")
+  defaultLevel        String       @default("basic") @map("default_level")
+  /// Days before an unpaid instalment's due day that its reminder goes (0 is the day itself).
+  balanceReminderDays Int[]        @default([3, 0]) @map("balance_reminder_days")
+  detailsReminderDays Int          @default(10) @map("details_reminder_days")
+  balanceTemplateId   String?      @map("balance_template_id") @db.Uuid
+  balanceParams       String[]     @default([]) @map("balance_params")
+  detailsTemplateId   String?      @map("details_template_id") @db.Uuid
+  detailsParams       String[]     @default([]) @map("details_params")
+  reportingTemplateId String?      @map("reporting_template_id") @db.Uuid
+  reportingParams     String[]     @default([]) @map("reporting_params")
+  feedbackTemplateId  String?      @map("feedback_template_id") @db.Uuid
+  feedbackParams      String[]     @default([]) @map("feedback_params")
+  packingList         String       @default("") @map("packing_list")
+  emergencyName       String       @default("") @map("emergency_name")
+  emergencyPhone      String       @default("") @map("emergency_phone")
+  bankDetails         String       @default("") @map("bank_details")
+  cancellationNotes   String       @default("") @map("cancellation_notes")
+  googleReviewUrl     String       @default("") @map("google_review_url")
+  updatedBy           String?      @map("updated_by") @db.Uuid
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("booking_settings")
+}
