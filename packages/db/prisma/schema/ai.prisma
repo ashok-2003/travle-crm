@@ -149,6 +149,8 @@ model AiAutopilot {
   paymentDetails   String       @default("") @map("payment_details")
   /// Rules it always follows, whatever else it is told.
   strictRules      String       @default("") @map("strict_rules")
+  /// It adds follow-ups to leads from its chats, and writes to each lead whose follow-up comes due, inside the window.
+  followUpTasks    Boolean      @default(true) @map("follow_up_tasks")
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -279,4 +281,25 @@ model AiBooking {
   @@index([organizationId, leadId], map: "ai_booking_by_lead")
   @@index([organizationId, conversationId], map: "ai_booking_by_chat")
   @@map("ai_booking")
+}
+
+/// What the AI did about a follow-up when it came due (the owner, 2026-10-30): once for each time it is due (a follow-up
+/// moved to a later time is worked again). The follow-up itself stays open: the team still calls. `messageId` is the
+/// WhatsApp message it sent, if it sent one; `outcome` why not when it didn't.
+model AiFollowUpTouch {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  taskId         String       @map("task_id") @db.Uuid
+  /// The follow-up's due time it was worked for.
+  dueAt          DateTime     @map("due_at") @db.Timestamptz(6)
+  conversationId String?      @map("conversation_id") @db.Uuid
+  messageId      String?      @map("message_id") @db.Uuid
+  /// sent, window_closed, no_chat, opted_out, off, failed (CHECK ai_follow_up_touch_outcome_value).
+  outcome        String
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  task           Task         @relation(fields: [organizationId, taskId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, taskId, dueAt])
+  @@map("ai_follow_up_touch")
 }

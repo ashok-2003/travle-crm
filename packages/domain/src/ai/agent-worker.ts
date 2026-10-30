@@ -13,6 +13,7 @@ import { aiAllowed } from "./allowed.js";
 import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 import { autopilotOf } from "./autopilot.js";
 import { AI_CHAT_RESUMED_EVENT } from "./chat-state.js";
+import { workDueFollowUps } from "./follow-up-work.js";
 import { learnFromChats, type LearnDependencies } from "./learning.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { aiEnabled } from "./settings.js";
@@ -200,7 +201,10 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
   return due.length;
 }
 
-/** Each minute, every agency with a WhatsApp number: its quiet customers' nudges. One agency failing never stops the rest. */
+/**
+ * Each minute, every agency with a WhatsApp number: its follow-ups that came due, then its quiet customers' nudges. One
+ * agency failing never stops the rest.
+ */
 export async function runAiNudges(dependencies: AgentDependencies & { logger: Logger }, now: Date): Promise<number> {
   if (!dependencies.ai.configured) return 0;
   let done = 0;
@@ -209,6 +213,8 @@ export async function runAiNudges(dependencies: AgentDependencies & { logger: Lo
     const page = await routesPage(dependencies.db, { after, limit: 100 });
     for (const organizationId of new Set(page.map((route) => route.organizationId))) {
       try {
+        // Follow-ups first: a chat written to about one is not nudged in the same silence.
+        done += await workDueFollowUps(dependencies, organizationId, now);
         done += await nudgeAgency(dependencies, organizationId, now);
       } catch (error) {
         dependencies.logger.error(

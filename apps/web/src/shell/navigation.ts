@@ -3,6 +3,7 @@
 // what the organization's plan must include for it to show (request check 3).
 import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import {
+  AlarmClockIcon,
   CalendarCheckIcon,
   ChartColumnIcon,
   BriefcaseBusinessIcon,
@@ -30,6 +31,7 @@ export interface NavigationItem {
     | "home"
     | "today"
     | "leads"
+    | "followUps"
     | "inbox"
     | "quotes"
     | "bookings"
@@ -53,6 +55,14 @@ export const navigationItems: readonly NavigationItem[] = [
   { key: "home", group: "work", href: routes.home, icon: HouseIcon, requires: null, module: null },
   { key: "today", group: "work", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
   { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
+  {
+    key: "followUps",
+    group: "work",
+    href: routes.followUps,
+    icon: AlarmClockIcon,
+    requires: "leads:view",
+    module: "crm",
+  },
   { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
   { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },
   {

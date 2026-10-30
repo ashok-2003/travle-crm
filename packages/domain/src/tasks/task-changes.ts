@@ -1,8 +1,8 @@
-// Adding, finishing and snoozing follow-ups and tasks (spec 3.5, 4). Times picked on the agency's clock become
+// Adding, finishing, snoozing and changing follow-ups and tasks (spec 3.5, 4). Times picked on the agency's clock become
 // instants in its zone (R25); a time that has passed is refused. A member reaches the tasks assigned to them, or
 // everyone's with leads:view over all records (R21); any other is "not found". Each change is audited without the
 // title (R28) and publishes an event of the same name.
-import type { AddTaskInput, SnoozeTaskInput, Task, TaskKind } from "@travel-crm/contracts/tasks";
+import type { AddTaskInput, EditTaskInput, SnoozeTaskInput, Task, TaskKind } from "@travel-crm/contracts/tasks";
 import type { WallClockTime } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit, type AuditSnapshot } from "../audit/index.js";
@@ -26,7 +26,7 @@ const MORNING = parseTimeOfDay("09:00");
 export async function auditTask(
   tx: OrgTx,
   actor: Actor,
-  action: "task.added" | "task.done" | "task.snoozed" | "task.cancelled" | "task.reassigned",
+  action: "task.added" | "task.done" | "task.snoozed" | "task.edited" | "task.cancelled" | "task.reassigned",
   task: Task,
   before?: AuditSnapshot,
 ): Promise<void> {
@@ -59,7 +59,15 @@ export async function dueInstant(tx: OrgTx, organizationId: string, due: WallClo
 export async function createTask(
   tx: OrgTx,
   actor: Actor,
-  task: { kind: TaskKind; title: string; dueAt: Date; assigneeUserId: string | null; record: TaskRecordLink | null },
+  task: {
+    kind: TaskKind;
+    title: string;
+    dueAt: Date;
+    assigneeUserId: string | null;
+    record: TaskRecordLink | null;
+    /** Added by the AI from a chat. */
+    byAi?: boolean;
+  },
 ): Promise<Task> {
   const created = taskFromRow(
     await tx.task.create({
@@ -72,6 +80,7 @@ export async function createTask(
         recordType: task.record?.recordType ?? null,
         recordId: task.record?.recordId ?? null,
         createdBy: actor.userId,
+        byAi: task.byAi ?? false,
       },
       select: taskColumns,
     }),
@@ -117,7 +126,11 @@ async function openTaskInScope(tx: OrgTx, access: MemberAccess, taskId: string) 
 }
 
 /** Changes an open task, or refuses as closed when another tab closed it first. */
-async function updateOpenTask(tx: OrgTx, taskId: string, data: { doneAt?: Date; doneBy?: string; dueAt?: Date }) {
+async function updateOpenTask(
+  tx: OrgTx,
+  taskId: string,
+  data: { doneAt?: Date; doneBy?: string; dueAt?: Date; title?: string },
+) {
   const [updated] = await tx.task.updateManyAndReturn({
     where: { id: taskId, ...openTask },
     data,
@@ -151,4 +164,13 @@ export async function snoozeTask(tx: OrgTx, access: MemberAccess, input: SnoozeT
   const snoozed = await updateOpenTask(tx, input.taskId, { dueAt });
   await auditTask(tx, access, "task.snoozed", snoozed, { dueAt: task.dueAt.toISOString() });
   return snoozed;
+}
+
+/** Changes what an open task asks and when it is due (the Follow-ups screen); a time already past is refused. */
+export async function editTask(tx: OrgTx, access: MemberAccess, input: EditTaskInput, now: Date): Promise<Task> {
+  const task = await openTaskInScope(tx, access, input.taskId);
+  const dueAt = await dueInstant(tx, access.organizationId, input.due, now);
+  const edited = await updateOpenTask(tx, input.taskId, { title: input.title, dueAt });
+  await auditTask(tx, access, "task.edited", edited, { dueAt: task.dueAt.toISOString() });
+  return edited;
 }

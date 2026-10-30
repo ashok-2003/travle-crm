@@ -45,6 +45,8 @@ export const autopilotFields = {
   paymentDetails: text(2000),
   /** Rules it always follows, whatever else it is told. */
   strictRules: text(4000),
+  /** It adds follow-ups to leads from its chats, and writes to each lead whose follow-up comes due, inside the window. */
+  followUpTasks: z.boolean(),
 };
 export const saveAutopilotInput = z.strictObject(autopilotFields);
 export type SaveAutopilotInput = z.infer<typeof saveAutopilotInput>;
@@ -120,6 +122,14 @@ export const agentAnswer = z.object({
   memory: z.string().max(2000).catch(""),
   /** A short note for the lead's record when this message told something worth keeping; empty for none. */
   note: z.string().max(600).catch(""),
+  /** A follow-up for the team on the lead: the customer asked to be contacted later, or a call is due. */
+  task: z
+    .object({
+      needed: z.boolean().catch(false),
+      title: z.string().max(200).catch(""),
+      inHours: z.coerce.number().min(1).max(336).catch(24),
+    })
+    .catch({ needed: false, title: "", inHours: 24 }),
   /** The agency's media to send with the reply, by their numbers in the prompt ("M1"). */
   media: z.array(z.string().max(20)).max(10).catch([]),
   /** Send the agency's payment details now, as their own message (the customer wants to book or asks how to pay). */

@@ -459,7 +459,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               ? []
               : [
                   {
-                    // The autopilot's follow-ups that came due while the customer stayed quiet and the window is open.
+                    // Follow-ups on leads that came due, then the autopilot's nudges to quiet customers, inside the window.
                     queue: AI_NUDGES_QUEUE,
                     cron: "* * * * *",
                     timeZone: "Asia/Kolkata",

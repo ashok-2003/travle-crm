@@ -23,11 +23,11 @@ import { AtAGlance } from "@/home/at-a-glance";
 import { MonthCard } from "@/home/month-card";
 import { HotLeadsCard } from "@/sales/hot-leads-card";
 
-/** The destinations that set the organization up: not home, Today, Leads, the Inbox, Quotes, Bookings or Finance (daily work), nor the audit log. */
+/** The destinations that set the organization up: not home, Today, Leads, Follow-ups, the Inbox, Quotes, Bookings or Finance (daily work), nor the audit log. */
 type SetUpItem = NavigationItem & {
   key: Exclude<
     NavigationItem["key"],
-    "home" | "today" | "leads" | "inbox" | "quotes" | "bookings" | "reports" | "finance" | "audit"
+    "home" | "today" | "leads" | "followUps" | "inbox" | "quotes" | "bookings" | "reports" | "finance" | "audit"
   >;
 };
 
@@ -35,6 +35,7 @@ const notSetUp: readonly NavigationItem["key"][] = [
   "home",
   "today",
   "leads",
+  "followUps",
   "inbox",
   "quotes",
   "bookings",

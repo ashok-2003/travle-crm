@@ -49,6 +49,16 @@ export const fixtures: OrgTableFixtures = {
     },
     undeletable: true,
   },
+  ai_follow_up_touch: {
+    create: async (tx: OrgTx) => {
+      const due = new Date("2026-11-02T04:30:00Z");
+      const task = await tx.task.create({
+        data: { kind: "follow-up", title: "Isolation", dueAt: due, firstDueAt: due },
+      });
+      return tx.aiFollowUpTouch.create({ data: { taskId: task.id, dueAt: due, outcome: "no_chat" } });
+    },
+    undeletable: true,
+  },
   ai_knowledge: {
     create: (tx) => tx.aiKnowledge.create({ data: { title: "Isolation", body: "Manali" } }),
     undeletable: true,
