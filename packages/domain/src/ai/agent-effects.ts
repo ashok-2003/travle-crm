@@ -1,10 +1,10 @@
 // What one answer of the autopilot changes: what it remembers of the chat, the reply it sends, the follow-up it plans (inside WhatsApp's window, at the time it chose or the agency's fixed
 // hours), what it flags for the team while it keeps selling (the lead's owner hears once in a while, not at every
-// message), a note on the lead when the chat told something worth keeping, and a hand-over to a person when it must
-// step back.
+// message), a note on the lead when the chat told something worth keeping, a follow-up on the lead when the customer
+// asked to be contacted later, and a hand-over to a person when it must step back.
 import type { AgentAnswer } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
-import { addAiLeadNote, noticeKey } from "../crm/index.js";
+import { addAiFollowUp, addAiLeadNote, noticeKey } from "../crm/index.js";
 import { WINDOW_MS } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -35,8 +35,8 @@ export function planFollowUp(
   now: Date,
 ): { followUpAt: Date | null; followUpReason: string | null } {
   const none = { followUpAt: null, followUpReason: null };
-  // One nudge per silence: after it, the next follow-up waits for the customer to write again.
-  if (settings.followUpHours === 0 || kind === "nudge" || lastInboundAt === null) return none;
+  // One nudge per silence (a due follow-up's message counts as one): the next waits for the customer to write again.
+  if (settings.followUpHours === 0 || kind !== "reply" || lastInboundAt === null) return none;
   const hours = settings.smartFollowUp
     ? answer.followUp.needed
       ? Math.min(20, Math.max(1, Math.round(answer.followUp.inHours)))
@@ -106,6 +106,17 @@ export async function applyAnswer(
   if (input.leadId !== null && input.settings.leadNotes && answer.note.trim() !== "") {
     await addAiLeadNote(tx, systemActor(organizationId), input.leadId, answer.note);
   }
+  // A follow-up for the team when the customer asked to be contacted later (the owner, 2026-10-30).
+  const taskTitle = answer.task.title.trim().slice(0, 200);
+  if (input.leadId !== null && input.settings.followUpTasks && answer.task.needed && taskTitle !== "") {
+    const hours = Math.min(336, Math.max(1, Math.round(answer.task.inHours)));
+    await addAiFollowUp(
+      tx,
+      systemActor(organizationId),
+      { leadId: input.leadId, title: taskTitle, dueAt: new Date(now.getTime() + hours * HOUR_MS) },
+      now,
+    );
+  }
   const sent = await input.sendReply();
   if (sent !== null && sent !== "sent") return sent;
   const sameDay = state.repliesOn?.getTime() === today.getTime();
@@ -118,7 +129,7 @@ export async function applyAnswer(
             lastReplyAt: now,
             repliesOn: today,
             repliesCount: sameDay ? state.repliesCount + 1 : 1,
-            ...(input.kind === "nudge" ? { lastNudgeAt: now } : {}),
+            ...(input.kind === "reply" ? {} : { lastNudgeAt: now }),
           }
         : {}),
       ...planFollowUp(input.settings, input.kind, answer, chat.lastInboundAt, now),
