@@ -119,6 +119,8 @@ model Organization {
   aiKnowledge                 AiKnowledge[]
   leadAiInsights              LeadAiInsight[]
   aiDrafts                    AiDraft[]
+  aiFills                     AiFill[]
+  leadAiFields                LeadAiField[]
   quoteTemplates              QuoteTemplate[]
   pageVisits                  PageVisit[]
   welcome                     OrganizationWelcome?

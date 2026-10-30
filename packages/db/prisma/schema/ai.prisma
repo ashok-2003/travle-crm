@@ -11,6 +11,8 @@ model AiSettings {
   instructions   String       @default("")
   /// The AI scores each lead from its chat (the chance to book, why, the next step); the Owner or Admin can turn it off.
   scoring        Boolean      @default(true)
+  /// New WhatsApp leads are filled in from their opening messages, saved as suggested (CHECK-free; default on).
+  fillLeads      Boolean      @default(true) @map("fill_leads")
   updatedBy      String?      @map("updated_by") @db.Uuid
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -302,4 +304,65 @@ model AiFollowUpTouch {
 
   @@unique([organizationId, taskId, dueAt])
   @@map("ai_follow_up_touch")
+}
+
+/// A form the AI filled in for a member ("Fill it for me"): the proposal went to the browser and nothing was saved. It keeps
+/// no words and no values: the paths proposed, a hash of each proposed value, and later which the member applied and then
+/// changed, so the audit can say "drafted by AI, approved by X". Used once. Its recording or screenshot is an `ai_input`
+/// attachment, deleted 30 days after upload (and with the customer or the organization).
+model AiFill {
+  organizationId    String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                String       @id @default(uuid(7)) @db.Uuid
+  /// lead, lead_edit, quote or call_note (CHECK ai_fill_target_value).
+  target            String
+  /// What the form is for (lead, quote, ...) and its id: polymorphic, so no key. Null for a lead not made yet.
+  subjectType       String?      @map("subject_type")
+  subjectId         String?      @map("subject_id") @db.Uuid
+  requestedBy       String       @map("requested_by") @db.Uuid
+  /// text, voice, image or chat (CHECK ai_fill_input_kind_value).
+  inputKind         String       @map("input_kind")
+  /// The recording or screenshot, an attachment of record type ai_input; no key: the sweep deletes the attachment row.
+  inputAttachmentId String?      @map("input_attachment_id") @db.Uuid
+  model             String
+  /// A hash of the whole proposal.
+  proposalHash      String       @map("proposal_hash")
+  /// The paths proposed, and a hash of each proposed value ({ path: hash }).
+  fields            String[]     @default([])
+  fieldHashes       Json         @default("{}") @map("field_hashes")
+  appliedAt         DateTime?    @map("applied_at") @db.Timestamptz(6)
+  appliedBy         String?      @map("applied_by") @db.Uuid
+  appliedFields     String[]     @default([]) @map("applied_fields")
+  changedFields     String[]     @default([]) @map("changed_fields")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, subjectId], map: "ai_fill_subject")
+  @@map("ai_fill")
+}
+
+/// A lead field the AI filled in from the customer's opening messages, still waiting for a person to confirm it. The value is
+/// on the lead's own field (so lists and assignment can use it); this row says it is a suggestion, with the customer's own
+/// words it came from. The tint ends by itself once the lead's value no longer matches the hash. Erased with the customer.
+model LeadAiField {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  /// destination, when, adults, children_ages, budget, departure_city, trip_type, hotel_category, food or room_type (CHECK lead_ai_field_field_value).
+  field          String
+  /// suggested, confirmed or dismissed (CHECK lead_ai_field_state_value).
+  state          String       @default("suggested")
+  /// A hash of the value the AI wrote, to tell when a person changed it.
+  valueHash      String       @map("value_hash")
+  /// Up to 200 characters of the customer's own words.
+  excerpt        String       @default("")
+  messageIds     String[]     @default([]) @map("message_ids") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, leadId, field], map: "lead_ai_field_one_per_field")
+  @@map("lead_ai_field")
 }
