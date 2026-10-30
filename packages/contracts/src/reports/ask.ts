@@ -47,7 +47,6 @@ export const reportColumnKinds = [
   "text",
   "count",
   "money",
-  "percent",
   "minutes",
 ] as const;
 export const reportColumnKind = z.enum(reportColumnKinds);

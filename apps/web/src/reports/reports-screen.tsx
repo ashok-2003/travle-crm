@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LeadFlow } from "@/dashboard/lead-flow";
 import { formatCalendarDay } from "@/lib/format";
+import { AskReports } from "./ask/ask-reports";
 import { MoneyCard } from "@/quotes/money-card";
 import { DestinationsTable, LostReasonsCard, SourcesTable } from "./breakdown-tables";
 import { Funnel, KeyFigures } from "./overview-cards";
@@ -33,6 +34,7 @@ export function ReportsScreen() {
   return (
     <div className="flex max-w-[1400px] flex-col gap-6">
       <PageHeader title={t("title")} intro={data?.scope === "own" ? t("introOwn") : t("intro")} />
+      <AskReports />
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <ToggleGroup
           type="single"
