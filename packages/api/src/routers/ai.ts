@@ -47,6 +47,8 @@ import {
   suggestedReply,
   suggestReplyInput,
   updateAiKnowledgeInput,
+  writeUp,
+  writeUpInput,
 } from "@travel-crm/contracts/ai";
 import {
   decideSuggestions,
@@ -86,6 +88,7 @@ import {
   saveAiSettings,
   suggestReply,
   updateKnowledge,
+  writeUpQuote,
 } from "@travel-crm/domain/ai";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
@@ -278,6 +281,19 @@ export const aiRouter = router({
       }
       const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
       return suggestReply(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
+    }),
+
+  /** A message for the customer about a quote, in the chosen language and for the chosen channel; never sent by itself. */
+  writeUp: orgProcedure
+    .requires("ai:suggest", "quotes:view")
+    .input(writeUpInput)
+    .output(writeUp)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.ai?.configured) {
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      }
+      const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
+      return writeUpQuote(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
     }),
 
   /** The autopilot's settings: off until an Owner or Admin turns it on. */
