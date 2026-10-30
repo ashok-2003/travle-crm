@@ -13,7 +13,7 @@ test("an Owner sees their organization and every destination", async ({ page, ag
   await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   for (const destination of isPhone(testInfo)
-    ? ["Home", "Today", "Leads", "Inbox", "More"]
+    ? ["Home", "Today", "Leads", "Follow-ups", "More"]
     : ["Home", "Today", "Leads", "Staff", "Roles", "Settings", "Audit log"]) {
     await expect(
       navigation.getByRole(isPhone(testInfo) && destination === "More" ? "button" : "link", { name: destination }),

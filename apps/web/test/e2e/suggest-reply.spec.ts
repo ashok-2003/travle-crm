@@ -44,7 +44,10 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   // What the agency tells its AI to know.
   await owner.getByRole("button", { name: "Add text" }).click();
   await owner.getByLabel("Title").fill("Kerala 5N");
-  await owner.getByLabel("Details").fill("Kerala 5 nights is ₹18,500 per person, hotels and breakfast included.");
+  await owner
+    .getByRole("dialog")
+    .getByLabel("Details")
+    .fill("Kerala 5 nights is ₹18,500 per person, hotels and breakfast included.");
   await owner.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   await expect(owner.getByText("Kerala 5N")).toBeVisible();
 
