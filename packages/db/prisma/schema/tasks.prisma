@@ -24,9 +24,12 @@ model Task {
   doneBy         String?      @map("done_by") @db.Uuid
   cancelledAt    DateTime?    @map("cancelled_at") @db.Timestamptz(6)
   createdBy      String?      @map("created_by") @db.Uuid
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Added by the AI from a WhatsApp chat, not by a person (the Follow-ups screen, 2026-10-30).
+  byAi           Boolean      @default(false) @map("by_ai")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  aiTouches      AiFollowUpTouch[]
 
   /// Lets a later table point at (organization_id, id).
   @@unique([organizationId, id])
