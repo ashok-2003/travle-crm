@@ -274,8 +274,7 @@
       "media-changed": "Changed a file the AI sends",
       "media-deleted": "Removed a file the AI sent",
       "booking-decided": "Confirmed or cancelled a booking the AI took",
-      "fill-applied": "Saved a form the AI filled in",
-      "lead-filled": "The AI filled in a new lead from its first messages"
+      "fill-applied": "Saved a form the AI filled in"
     },
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"

@@ -701,7 +701,11 @@
         "tooLong": "Keep the note to 2,000 characters.",
         "day": "Choose a day.",
         "time": "Choose a time."
-      }
+      },
+      "followUpTitle": "What for",
+      "followUpTitleHint": "Optional. The reminder is called \"Call back\" if you leave it empty.",
+      "alsoUpdates": "This tap also updates the lead: {details}.",
+      "leadNotUpdated": "The call is saved, but the lead's details weren't updated. {reason}"
     },
     "delete": {
       "label": "Delete",

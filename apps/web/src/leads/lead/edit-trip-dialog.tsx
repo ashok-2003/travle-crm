@@ -3,6 +3,9 @@
 // Editing a lead's trip (spec 3.4, P8): the new-lead form's own trip fields, started from the lead's trip
 // (tripValuesOf) and checked by the api's schema (editTripInput), which replaces the whole trip. A FormDialog: held
 // while saving, a refusal (a destination name the api won't take) shown in it.
+import { leadConverter } from "@/ai/fill/fill-converters";
+import { FillWithAi } from "@/ai/fill/fill-with-ai";
+import { FillMarksProvider, useFillMarks } from "@/ai/fill/use-fill-marks";
 import { editTripInput, type EditTripInput, type LeadDetail } from "@travel-crm/contracts/crm";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -37,13 +40,26 @@ function TripForm({ formId, lead, save }: { formId: string; lead: LeadDetail; sa
       ),
     (problem) => t(`problems.${problem}`),
   );
+  const marks = useFillMarks(form, leadConverter);
   return (
-    <form id={formId} noValidate onSubmit={onSubmit(save.mutate)} className="flex flex-col gap-4">
-      <FieldGroup>
-        <TripFields form={form} disabled={save.isPending} />
-      </FieldGroup>
-      <FormAlert sending={save} problem={formProblem} />
-    </form>
+    <FillMarksProvider marks={marks}>
+      <form
+        id={formId}
+        noValidate
+        onSubmit={onSubmit((input) => {
+          // A trip the AI filled carries which fill and which fields, so the save is audited as drafted by AI.
+          const aiFill = marks.use();
+          save.mutate(aiFill === undefined ? input : { ...input, aiFill });
+        })}
+        className="flex flex-col gap-4"
+      >
+        <FillWithAi target="lead_edit" subjectId={lead.id} marks={marks} />
+        <FieldGroup>
+          <TripFields form={form} disabled={save.isPending} />
+        </FieldGroup>
+        <FormAlert sending={save} problem={formProblem} />
+      </form>
+    </FillMarksProvider>
   );
 }
 

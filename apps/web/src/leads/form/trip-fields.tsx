@@ -6,6 +6,7 @@
 import { foodPreferences, hotelCategories, tripTypes } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { UseFormReturn } from "react-hook-form";
+import { AiMark } from "@/ai/fill/ai-mark";
 import { ChoiceField } from "@/components/forms/choice-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
@@ -23,42 +24,60 @@ export function TripFields({ form, disabled = false }: { form: UseFormReturn<Lea
   const notAsked = { value: NOT_ASKED, label: words("notAsked") };
   return (
     <>
-      <DestinationField control={control} name="destination" label={words("destination")} allowNew />
-      <WhenField form={form} disabled={disabled} />
-      <TravellersField form={form} disabled={disabled} />
-      <BudgetField form={form} disabled={disabled} />
-      <TextField control={control} name="departureCity" label={words("departureCity")} autoComplete="off" />
-      <SelectField
-        control={control}
-        name="tripType"
-        label={words("tripType")}
-        disabled={disabled}
-        options={[notAsked, ...tripTypes.map((kind) => ({ value: kind, label: t(`tripTypes.${kind}`) }))]}
-      />
-      <ChoiceField
-        control={control}
-        name="hotelCategory"
-        legend={words("hotelCategory")}
-        inline
-        options={[
-          notAsked,
-          ...hotelCategories.map((category) => ({ value: category, label: t(`hotelCategories.${category}`) })),
-        ]}
-      />
-      <ChoiceField
-        control={control}
-        name="food"
-        legend={words("food")}
-        inline
-        options={[notAsked, ...foodPreferences.map((food) => ({ value: food, label: t(`food.${food}`) }))]}
-      />
-      <TextField
-        control={control}
-        name="roomType"
-        label={words("roomType")}
-        hint={words("roomTypeHint")}
-        autoComplete="off"
-      />
+      <AiMark paths={["trip.destination"]}>
+        <DestinationField control={control} name="destination" label={words("destination")} allowNew />
+      </AiMark>
+      <AiMark paths={["trip.when"]}>
+        <WhenField form={form} disabled={disabled} />
+      </AiMark>
+      <AiMark paths={["trip.adults", "trip.childrenAges"]}>
+        <TravellersField form={form} disabled={disabled} />
+      </AiMark>
+      <AiMark paths={["trip.budget"]}>
+        <BudgetField form={form} disabled={disabled} />
+      </AiMark>
+      <AiMark paths={["trip.departureCity"]}>
+        <TextField control={control} name="departureCity" label={words("departureCity")} autoComplete="off" />
+      </AiMark>
+      <AiMark paths={["trip.tripType"]}>
+        <SelectField
+          control={control}
+          name="tripType"
+          label={words("tripType")}
+          disabled={disabled}
+          options={[notAsked, ...tripTypes.map((kind) => ({ value: kind, label: t(`tripTypes.${kind}`) }))]}
+        />
+      </AiMark>
+      <AiMark paths={["trip.hotelCategory"]}>
+        <ChoiceField
+          control={control}
+          name="hotelCategory"
+          legend={words("hotelCategory")}
+          inline
+          options={[
+            notAsked,
+            ...hotelCategories.map((category) => ({ value: category, label: t(`hotelCategories.${category}`) })),
+          ]}
+        />
+      </AiMark>
+      <AiMark paths={["trip.food"]}>
+        <ChoiceField
+          control={control}
+          name="food"
+          legend={words("food")}
+          inline
+          options={[notAsked, ...foodPreferences.map((food) => ({ value: food, label: t(`food.${food}`) }))]}
+        />
+      </AiMark>
+      <AiMark paths={["trip.roomType"]}>
+        <TextField
+          control={control}
+          name="roomType"
+          label={words("roomType")}
+          hint={words("roomTypeHint")}
+          autoComplete="off"
+        />
+      </AiMark>
     </>
   );
 }
