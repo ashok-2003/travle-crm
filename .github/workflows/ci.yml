@@ -7,6 +7,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  # The performance job below, nightly and on demand; the gates run on dispatch too, and skip the schedule.
+  schedule:
+    - cron: "17 21 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,6 +29,7 @@ env:
 jobs:
   typecheck:
     name: Typecheck
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -36,6 +41,7 @@ jobs:
 
   lint:
     name: Lint, import rules, the product's name, workflows and scripts
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -53,6 +59,7 @@ jobs:
   test:
     # The isolation suite and the RLS schema check are the db package's tests.
     name: Unit, integration and isolation tests
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -65,6 +72,7 @@ jobs:
 
   journeys:
     name: Journeys
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -84,6 +92,7 @@ jobs:
 
   lighthouse:
     name: Lighthouse
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -97,6 +106,7 @@ jobs:
 
   migrations:
     name: Migrations on an empty Postgres 18
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -108,6 +118,7 @@ jobs:
 
   images:
     name: Docker images and the whole product
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -121,6 +132,7 @@ jobs:
 
   audit:
     name: Dependency audit
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -133,3 +145,17 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: pnpm audit --audit-level=high
+
+  performance:
+    # The at-scale and query-plan tests (packages/domain/test/performance): a large seeded agency, budgets, plans. Not a
+    # merge gate: it never runs on a pull request or a push, because a shared runner's speed is not a regression.
+    name: Performance (nightly, on demand)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm test:performance
