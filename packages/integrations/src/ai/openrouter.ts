@@ -3,14 +3,14 @@
 // order, the next one when a model is rate limited, overloaded or gone. OpenRouter's own fields (`provider.zdr`, zero data
 // retention on every request) are sent ONLY to OpenRouter: other endpoints reject fields they don't know, and keep what
 // their own terms say. The key is sent as a header and appears nowhere else: not in a message, a log or an error.
-import type { AiModel, AiRequest, AiResult, AiFeature } from "./ai-model.js";
+import type { AiMessage, AiModel, AiRequest, AiResult, AiFeature } from "./ai-model.js";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 export interface OpenRouterOptions {
   apiKey: string;
   /** Each feature's models, the preferred one first, then its fallbacks. */
-  models: Readonly<Record<AiFeature, readonly string[]>>;
+  models: Readonly<Partial<Record<AiFeature, readonly string[]>>>;
   /** The endpoint's address (OpenRouter's by default); any OpenAI-compatible one is accepted. */
   baseUrl?: string;
   /** OpenRouter only: false turns its zero-data-retention routing off (its free models need it). */
@@ -28,6 +28,25 @@ interface ChatCompletion {
 
 /** Statuses after which the next model is tried. */
 const TRY_NEXT = new Set([404, 408, 409, 429, 500, 502, 503, 504, 529]);
+
+/** A message as the endpoint takes it: words alone stay a string; a message with an image or a recording becomes parts. */
+export function wireMessage(message: AiMessage): { role: AiMessage["role"]; content: unknown } {
+  if (message.attachments === undefined || message.attachments.length === 0) {
+    return { role: message.role, content: message.content };
+  }
+  const base64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
+  return {
+    role: message.role,
+    content: [
+      { type: "text", text: message.content },
+      ...message.attachments.map((part) =>
+        part.type === "image"
+          ? { type: "image_url", image_url: { url: `data:${part.mimeType};base64,${base64(part.bytes)}` } }
+          : { type: "input_audio", input_audio: { data: base64(part.bytes), format: part.format } },
+      ),
+    ],
+  };
+}
 
 /** The base URL as the adapter calls it: an http(s) address with no credentials in it, without a trailing slash. */
 export function aiBaseUrl(baseUrl: string = OPENROUTER_BASE_URL): string {
@@ -60,7 +79,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   return {
     configured: options.apiKey !== "" && Object.values(options.models).some((list) => list.length > 0),
     async complete(request: AiRequest): Promise<AiResult> {
-      const list = options.models[request.feature];
+      const list = options.models[request.feature] ?? [];
       if (options.apiKey === "" || list.length === 0) return { ok: false, reason: "not_configured" };
       let limited = false;
       for (const model of list) {
@@ -75,7 +94,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
             headers: { "content-type": "application/json", authorization: `Bearer ${options.apiKey}` },
             body: JSON.stringify({
               model,
-              messages: request.messages,
+              messages: request.messages.map(wireMessage),
               max_tokens: request.maxTokens ?? 500,
               ...(request.json === true ? { response_format: { type: "json_object" } } : {}),
               ...(request.user === undefined ? {} : { user: request.user }),
