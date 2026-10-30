@@ -12,6 +12,7 @@ import type {
   TodaySummary,
 } from "@travel-crm/contracts/today";
 import type { OrgTx } from "@travel-crm/db";
+import { bookingsMissingDetails } from "../bookings/index.js";
 import { countNewLeadsWaiting, leadBriefs, newLeadsWaiting, type NewLeadWaiting } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { addDays, calendarDateIn, startOfDayIn, type CalendarDate } from "../kernel/index.js";
@@ -27,13 +28,37 @@ async function dayAt(tx: OrgTx, access: MemberAccess, now: Date): Promise<{ day:
 
 /** Each task with its lead in brief, when it is on a lead that is still there and the member may see. */
 async function taskItems(tx: OrgTx, access: MemberAccess, tasks: Task[]): Promise<TodayItem[]> {
-  const leadIdOf = (task: Task) => (task.record?.recordType === "lead" ? task.record.recordId : null);
+  // A task on a booking (confirm it, check a payment, a refund, a reminder by hand) is about the booking's lead too.
+  const bookingIds = tasks.flatMap((task) => (task.record?.recordType === "booking" ? task.record.recordId : []));
+  const bookings = new Map(
+    (bookingIds.length === 0
+      ? []
+      : await tx.booking.findMany({
+          where: { id: { in: bookingIds } },
+          select: { id: true, leadId: true, number: true },
+        })
+    ).map((booking) => [booking.id, booking]),
+  );
+  const leadIdOf = (task: Task) =>
+    task.record?.recordType === "lead"
+      ? task.record.recordId
+      : task.record?.recordType === "booking"
+        ? (bookings.get(task.record.recordId)?.leadId ?? null)
+        : null;
   const leads = await leadBriefs(
     tx,
     access,
     tasks.flatMap((task) => leadIdOf(task) ?? []),
   );
-  return tasks.map((task) => ({ kind: "task", task, lead: leads.get(leadIdOf(task) ?? "") ?? null }));
+  return tasks.map((task) => {
+    const booking = task.record?.recordType === "booking" ? bookings.get(task.record.recordId) : undefined;
+    return {
+      kind: "task" as const,
+      task,
+      lead: leads.get(leadIdOf(task) ?? "") ?? null,
+      booking: booking === undefined ? null : { id: booking.id, number: booking.number },
+    };
+  });
 }
 
 /** New leads in brief, each with the moment it came in. */
@@ -46,6 +71,39 @@ async function newLeadItems(tx: OrgTx, access: MemberAccess, waiting: NewLeadWai
   return waiting.flatMap(({ leadId, waitingSince }) => {
     const lead = leads.get(leadId);
     return lead === undefined ? [] : [{ kind: "new-lead" as const, lead, waitingSince: waitingSince.toISOString() }];
+  });
+}
+
+/** Trips leaving within two weeks with a traveller's details still missing, each with its lead in brief. */
+async function tripDetailItems(
+  tx: OrgTx,
+  access: MemberAccess,
+  page: { after?: string | undefined; limit: number },
+  day: CalendarDate,
+): Promise<TodayItem[]> {
+  const all = await bookingsMissingDetails(tx, access.userId, day);
+  const from = page.after === undefined ? 0 : all.findIndex((row) => row.bookingId === page.after) + 1;
+  const shown = all.slice(from, from + page.limit);
+  const leads = await leadBriefs(
+    tx,
+    access,
+    shown.map(({ leadId }) => leadId),
+  );
+  return shown.flatMap((row) => {
+    const lead = leads.get(row.leadId);
+    return lead === undefined
+      ? []
+      : [
+          {
+            kind: "trip-details" as const,
+            lead,
+            bookingId: row.bookingId,
+            number: row.number,
+            startDate: row.startDate,
+            missing: row.missing,
+            total: row.total,
+          },
+        ];
   });
 }
 
@@ -126,6 +184,8 @@ async function sectionItems(
       return newLeadItems(tx, access, await newLeadsWaiting(tx, { ownerUserId: access.userId, ...cursor }));
     case "payments-due":
       return paymentItems(tx, access, cursor, day);
+    case "trip-details":
+      return tripDetailItems(tx, access, cursor, day);
     case "quote-opened":
       return openedQuoteItems(tx, access, cursor, now);
     case "due-today": {
@@ -145,6 +205,8 @@ function itemId(item: TodayItem): string {
       return item.quote.id;
     case "payment-due":
       return item.installmentId;
+    case "trip-details":
+      return item.bookingId;
   }
 }
 
@@ -158,6 +220,7 @@ export async function todaySummary(tx: OrgTx, access: MemberAccess, now: Date): 
     dueToday: await countOpenTasks(tx, { assigneeUserId, dueFrom: now, dueBefore: endsAt }),
     quoteOpened: await countOpenedQuotesNoReply(tx, access, now),
     paymentsDue: await countPaymentsDue(tx, access, day),
+    tripDetails: (await bookingsMissingDetails(tx, access.userId, day)).length,
   };
   const top: TodayItem[] = [];
   for (const section of todaySectionNames) {

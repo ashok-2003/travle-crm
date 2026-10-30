@@ -581,6 +581,29 @@ export const SHOTS = [
   { name: "r5-library", screen: "Messages on a lead, a message with its blanks filled", as: owner },
   { name: "r5-today", screen: "Today with payments due and a quote opened, no reply", as: owner },
   { name: "r5-morning-settings", screen: "Notifications, the morning summary", as: owner },
+  // Release 6: bookings and the trip (2026-10-29).
+  {
+    name: "r6-bookings",
+    screen: "Bookings: waiting, confirmed with a payment to check, cancelled with a refund",
+    as: owner,
+  },
+  {
+    name: "r6-booking-requested",
+    screen: "A booking waiting for the agency: Confirm with the default schedule",
+    as: owner,
+  },
+  { name: "r6-booking", screen: "A confirmed booking: money, travellers, the trip, reminders", as: owner },
+  { name: "r6-trip-page", screen: "The traveller's trip page", as: visitor },
+  { name: "r6-claim-form", screen: "The trip page's payments, with I've paid open", as: visitor },
+  { name: "r6-details-form", screen: "The trip page's travellers and one traveller's details form", as: visitor },
+  { name: "r6-check-task", screen: "Today with a Check payment task and a trip with details missing", as: owner },
+  { name: "r6-claim-check", screen: "A booking's money with a payment to check: Confirm and Reject", as: owner },
+  { name: "r6-voucher", screen: "A hotel voucher, the PDF", as: owner },
+  { name: "r6-itinerary", screen: "The itinerary PDF", as: owner },
+  { name: "r6-cancel", screen: "Cancel booking: the policy's charge and the refund", as: owner },
+  { name: "r6-cancelled", screen: "A cancelled booking with its refund due", as: owner },
+  { name: "r6-trip-cancelled", screen: "The trip page of a cancelled booking", as: visitor },
+  { name: "r6-settings", screen: "Settings, Bookings: the schedule, reminders and cancellation steps", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

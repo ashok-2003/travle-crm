@@ -4,10 +4,11 @@
   "overdueCount": "{count} overdue",
   "loadFailed": "Today didn't load.",
   "nothing": "Nothing for today",
-  "later": "Later, Today also shows departures and pickups, and travellers with missing details.",
+  "later": "Later, Today also shows departures and pickups.",
   "sections": {
     "overdue": "Overdue",
     "payments-due": "Payments due",
+    "trip-details": "Trips leaving soon, details missing",
     "new-leads": "New leads not contacted yet",
     "quote-opened": "Quote opened, no reply",
     "due-today": "Due today"
@@ -16,6 +17,7 @@
   "more": {
     "overdue": "Show more overdue",
     "payments-due": "Show more payments",
+    "trip-details": "Show more trips",
     "new-leads": "Show more new leads",
     "quote-opened": "Show more opened quotes",
     "due-today": "Show more due today"
@@ -34,7 +36,10 @@
     "quoteDonePerson": "Done with {name}'s quote",
     "quoteDoneToast": "Marked as seen. It comes back only if they open the quote again.",
     "missed": "Missed",
-    "dueLabel": "Due {day}"
+    "dueLabel": "Due {day}",
+    "tripDetails": "{missing} of {total} travellers' details missing",
+    "tripLeaves": "Leaves {day}",
+    "openBooking": "Open booking {number}"
   },
   "nudge": {
     "count": "{count, plural, one {# thing today} other {# things today}}",
@@ -45,7 +50,8 @@
     "open": "Open Today",
     "loadFailed": "Today's work didn't load.",
     "quoteOpened": "Opened the quote, no reply",
-    "paymentMissed": "Missed"
+    "paymentMissed": "Missed",
+    "tripDetails": "Details missing"
   },
   "addTask": {
     "action": "Add a task",

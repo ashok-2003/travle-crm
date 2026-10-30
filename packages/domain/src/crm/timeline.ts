@@ -1,6 +1,7 @@
 // A lead's timeline and its notes (spec 3.4): what happened, newest first a page at a time, each entry with the note,
 // repeat enquiry or task it points to; and a note added to it. A note's text is never copied into the audit log (R28);
 // nothing listens to notes yet, so adding one publishes no event (P5).
+import { bookingEvent } from "@travel-crm/contracts/bookings";
 import {
   assignmentReason,
   callOutcome,
@@ -34,6 +35,7 @@ interface EntryRow {
   assignmentReason: string | null;
   assignmentRulePosition: number | null;
   assignmentAway: boolean;
+  bookingEvent: string | null;
 }
 
 /** The notes, calls, repeat enquiries and tasks a page of the lead's entries points to, by id. */
@@ -56,6 +58,10 @@ async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
     tx,
     enquiries.flatMap((enquiry) => (enquiry.destinationId === null ? [] : [enquiry.destinationId])),
   );
+  const bookings = await tx.booking.findMany({
+    where: { id: { in: idsOf("booking") } },
+    select: { id: true, number: true },
+  });
   // Done and cancelled tasks too: the timeline tells what happened to them. Its tasks are all on the lead (a follow-up
   // stays on its lead whoever owns it), read through the tasks module, which alone reads the task table.
   const taskIds = new Set(idsOf("task"));
@@ -76,6 +82,7 @@ async function pointedAt(tx: OrgTx, leadId: string, rows: readonly EntryRow[]) {
       ]),
     ),
     tasks: new Map(tasks.map((task) => [task.id, { kind: task.kind, title: task.title, dueAt: task.dueAt }])),
+    bookings: new Map(bookings.map((booking) => [booking.id, booking.number])),
   };
 }
 
@@ -129,6 +136,12 @@ function entryOf(
     case "trip-edited":
     case "whatsapp-contact":
       return { ...base, kind };
+    case "booking-event": {
+      const number = pointed.bookings.get(target);
+      return number === undefined || row.bookingEvent === null
+        ? null
+        : { ...base, kind, bookingId: target, number, event: bookingEvent.parse(row.bookingEvent) };
+    }
   }
 }
 
@@ -156,6 +169,7 @@ export async function listLeadTimeline(
       assignmentReason: true,
       assignmentRulePosition: true,
       assignmentAway: true,
+      bookingEvent: true,
     },
   });
   const page = rows.slice(0, input.limit);

@@ -370,6 +370,7 @@
     "cancelTitle": "Cancel this booking?",
     "cancelDescription": "The lead stays as it is; nothing is sent to the customer.",
     "confirmed": "Booking confirmed",
-    "cancelled": "Booking cancelled"
+    "cancelled": "Booking cancelled",
+    "openBooking": "Open booking {number}"
   }
 }

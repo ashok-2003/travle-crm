@@ -28,6 +28,7 @@ export async function listBookings(tx: OrgTx, input: BookingsInput): Promise<Boo
       subtotalPaise: true,
       totalPaise: true,
       lead: { select: { person: { select: { name: true } } } },
+      bookings: { where: { deletedAt: null }, take: 1, select: { status: true, chargePaise: true } },
       payments: { where: { voidedAt: null }, select: { amountPaise: true } },
       costs: { where: { voidedAt: null }, select: { amountPaise: true, paidOn: true } },
     },
@@ -38,8 +39,13 @@ export async function listBookings(tx: OrgTx, input: BookingsInput): Promise<Boo
     rows.length > BOOKINGS_PAGE_SIZE && last?.acceptedAt != null ? `${last.acceptedAt.toISOString()}_${last.id}` : null;
   return bookingPage.parse({
     items: page.map((row) => {
-      const revenuePaise = Number(row.subtotalPaise);
-      const totalPaise = Number(row.totalPaise);
+      // A cancelled booking earned the charge it kept (before GST) and is owed no more than that.
+      const cancelled = row.bookings[0]?.status === "cancelled";
+      const charge = Number(row.bookings[0]?.chargePaise ?? 0n);
+      const revenuePaise = cancelled
+        ? Math.round((charge * Number(row.subtotalPaise)) / Math.max(1, Number(row.totalPaise)))
+        : Number(row.subtotalPaise);
+      const totalPaise = cancelled ? charge : Number(row.totalPaise);
       const paidPaise = row.payments.reduce((sum, payment) => sum + Number(payment.amountPaise), 0);
       const costPaise = row.costs.reduce((sum, cost) => sum + Number(cost.amountPaise), 0);
       const owedPaise = row.costs
@@ -49,6 +55,7 @@ export async function listBookings(tx: OrgTx, input: BookingsInput): Promise<Boo
       return {
         quoteId: row.id,
         leadId: row.leadId,
+        cancelled,
         customerName: row.lead.person.name,
         title: row.title,
         startDate: dayOf(row.startDate),

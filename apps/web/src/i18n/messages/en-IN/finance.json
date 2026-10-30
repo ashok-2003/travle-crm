@@ -56,7 +56,8 @@
       "customerOwes": "Customer owes",
       "youOwe": "You owe"
     },
-    "showMore": "Show more bookings"
+    "showMore": "Show more bookings",
+    "cancelled": "Cancelled: the charge kept"
   },
   "expenses": {
     "loadFailed": "Running costs didn't load.",

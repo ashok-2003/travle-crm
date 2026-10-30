@@ -1,0 +1,479 @@
+{
+  "status": {
+    "requested": "Waiting for you",
+    "confirmed": "Confirmed",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "list": {
+    "title": "Bookings",
+    "intro": "A quote the customer accepted becomes a booking. Confirm it, collect the money, and give the traveller their trip page.",
+    "filterLabel": "Show",
+    "filters": {
+      "all": "All",
+      "requested": "Waiting for you",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "claims": "Payments to check"
+    },
+    "columns": {
+      "booking": "Booking",
+      "status": "Status",
+      "paid": "Paid",
+      "travellers": "Details"
+    },
+    "claims": "{count, plural, one {# payment to check} other {# payments to check}}",
+    "toPay": "{amount} to pay",
+    "details": "{done} of {total}",
+    "refundDue": "Refund {amount} due",
+    "more": "Show more bookings",
+    "loadFailed": "Bookings didn't load.",
+    "loading": "Loading bookings",
+    "empty": "No bookings yet. A booking appears here when a customer accepts a quote.",
+    "noneHere": "No bookings here."
+  },
+  "booking": {
+    "title": "Booking",
+    "backToBookings": "All bookings",
+    "openLead": "Open {name}'s lead",
+    "requestedTitle": "Waiting for you to confirm",
+    "requestedBody": "{name} accepted the quote. Confirm the booking to ask for the advance and send them their trip page.",
+    "cancelledTitle": "Cancelled on {day}",
+    "cancelledBody": "The cancellation charge is {charge}. Reason: {reason}.",
+    "refundDue": "A refund of {amount} is due.",
+    "claimsWaiting": "{count, plural, one {A traveller says they paid. Check it against your bank.} other {# payments to check against your bank.}}",
+    "notFound": "This booking doesn't exist, or it isn't one of yours.",
+    "loadFailed": "This booking didn't load.",
+    "loading": "Loading the booking"
+  },
+  "actions": {
+    "sendWhatsapp": "Send the trip link on WhatsApp",
+    "makeLink": "Make the trip link",
+    "copyLink": "Copy the link",
+    "linkLabel": "The traveller's trip link",
+    "noPhone": "This customer has no phone number. Copy the link and send it yourself.",
+    "whatsappWords": "Hi {name}, here is the page for your trip, {title}: {link}"
+  },
+  "confirm": {
+    "open": "Confirm booking",
+    "title": "Confirm this booking",
+    "description": "Say yes to the traveller's request. Check the payments you will ask for, then confirm.",
+    "descriptionKept": "Say yes to the traveller's request. The payments due on the quote stay as they are.",
+    "keptBody": "The traveller then sees their trip page, and the reminders start.",
+    "submit": "Confirm booking",
+    "submitting": "Confirming",
+    "confirmed": "Booking confirmed",
+    "scheduleLoading": "Loading the payments due",
+    "scheduleFailed": "The payments due didn't load."
+  },
+  "schedule": {
+    "open": "Change payments due",
+    "title": "Payments due",
+    "description": "What the traveller pays and by when. They must add up to the trip's total.",
+    "label": "Payment {number}: name",
+    "amount": "Payment {number}: amount",
+    "dueOn": "Payment {number}: due on",
+    "remove": "Remove payment {number}",
+    "add": "Add a payment",
+    "sum": "{sum} of {total}",
+    "save": "Save payments due",
+    "saving": "Saving",
+    "saved": "Payments due saved",
+    "problems": {
+      "check": "Give each payment a name, an amount and a day.",
+      "sum": "The payments must add up to {total}."
+    }
+  },
+  "payments": {
+    "title": "Money",
+    "total": "Trip total",
+    "charge": "Charge kept",
+    "paid": "Paid",
+    "balance": "To pay",
+    "claims": "Payments the traveller says they made",
+    "notYours": "Whoever records payments checks these.",
+    "due": "Payments due",
+    "noInstallments": "No payments due yet. They are made when the booking is confirmed.",
+    "by": "By {day}",
+    "paidBadge": "Paid",
+    "toPay": "To pay",
+    "received": "Payments received",
+    "noneReceived": "No payment has been recorded yet.",
+    "openQuote": "Record a payment or open receipts on the quote",
+    "refund": "Refund",
+    "refunded": "Refunded",
+    "refundDue": "Due",
+    "methods": {
+      "upi": "UPI",
+      "bank": "Bank transfer",
+      "cash": "Cash",
+      "card": "Card",
+      "other": "Other"
+    }
+  },
+  "claims": {
+    "status": {
+      "pending": "To check",
+      "confirmed": "Received",
+      "rejected": "Not matched"
+    },
+    "reference": "UPI reference {reference}",
+    "noReference": "No reference given",
+    "screenshot": "See screenshot",
+    "confirm": "Confirm",
+    "confirmTitle": "Confirm this payment",
+    "confirmDescription": "Check it against your bank. This records the payment on the quote, once.",
+    "confirmSubmit": "Record the payment",
+    "confirming": "Recording",
+    "confirmed": "Payment recorded",
+    "confirmForm": {
+      "amount": "Amount received",
+      "amountHint": "Change it if the bank shows a different amount.",
+      "reference": "UPI reference {reference}",
+      "noReference": "The traveller gave no reference. Look for the amount.",
+      "problems": {
+        "required": "Type the amount received.",
+        "invalid": "Type the amount as a number of rupees."
+      }
+    },
+    "reject": "Reject",
+    "rejectTitle": "Reject this payment",
+    "rejectDescription": "The traveller is told it couldn't be matched and may try again.",
+    "rejectSubmit": "Reject the payment",
+    "rejecting": "Rejecting",
+    "rejected": "Payment rejected",
+    "rejectForm": {
+      "reason": "Why",
+      "reasons": {
+        "not_found": "I can't find it in the bank",
+        "wrong_amount": "The amount is different",
+        "other": "Another reason"
+      },
+      "problems": {
+        "required": "Choose a reason.",
+        "invalid": "Choose a reason."
+      }
+    }
+  },
+  "travellers": {
+    "heading": "Travellers",
+    "progress": "{done} of {total} complete",
+    "cutoff": "Locks for travellers on {day}",
+    "level": "What each traveller fills in",
+    "levels": {
+      "basic": "Name and birthday",
+      "detailed": "Plus emergency contact and medical notes",
+      "international": "Plus passport"
+    },
+    "count": "Number of travellers",
+    "fewer": "One fewer traveller",
+    "more": "One more traveller",
+    "none": "No travellers yet.",
+    "unnamed": "Traveller {number}",
+    "complete": "Details received",
+    "missing": "Details missing",
+    "idOnFile": "ID on file",
+    "badge": {
+      "complete": "Complete",
+      "missing": "Missing"
+    },
+    "fill": "Fill in",
+    "edit": "Edit",
+    "editNamed": "Edit traveller {number}",
+    "title": "Traveller {number}",
+    "description": "Fill or fix this traveller's details. They can fill them in themselves on their trip page.",
+    "save": "Save details",
+    "saving": "Saving",
+    "saved": "Details saved",
+    "form": {
+      "name": "Name as on ID",
+      "dateOfBirth": "Date of birth",
+      "gender": "Gender",
+      "genders": {
+        "none": "Prefer not to say",
+        "female": "Female",
+        "male": "Male",
+        "other": "Other"
+      },
+      "phone": "Phone",
+      "emergencyName": "Emergency contact name",
+      "emergencyPhone": "Emergency contact phone",
+      "medicalNotes": "Medical notes or allergies",
+      "passportNumber": "Passport number",
+      "passportHint": "Only people allowed to read ID numbers can see it again.",
+      "passportKept": "One is on file. Type a number only to replace it.",
+      "passportIssuedOn": "Passport issued on",
+      "passportExpiresOn": "Passport expires on",
+      "nationality": "Nationality",
+      "problems": {
+        "required": "This is needed.",
+        "invalid": "Check this."
+      }
+    }
+  },
+  "essentials": {
+    "title": "Trip essentials",
+    "edit": "Edit essentials",
+    "report": "Report",
+    "driver": "Driver or guide",
+    "emergency": "Emergency contact",
+    "notSet": "Not set yet",
+    "description": "What the traveller needs on the day. It shows on their trip page.",
+    "save": "Save essentials",
+    "saving": "Saving",
+    "saved": "Essentials saved",
+    "form": {
+      "reportingTime": "Reporting time",
+      "reportingTimeHint": "On your clock.",
+      "reportingPlace": "Reporting place",
+      "driverName": "Driver or guide",
+      "driverPhone": "Driver or guide phone",
+      "emergencyName": "Emergency contact",
+      "emergencyPhone": "Emergency phone",
+      "problems": {
+        "required": "This is needed.",
+        "invalid": "Check this."
+      }
+    }
+  },
+  "stays": {
+    "add": "Add a stay",
+    "addTitle": "Add a stay",
+    "editTitle": "Change a stay",
+    "edit": "Edit",
+    "editNamed": "Edit {name}",
+    "description": "A hotel with its days. A voucher can be issued for it.",
+    "save": "Save stay",
+    "saving": "Saving",
+    "saved": "Stay saved",
+    "issue": "Issue voucher",
+    "open": "Open voucher",
+    "issueAgain": "Issue voucher again",
+    "openOld": "Open the old one",
+    "outOfDate": "Voucher is out of date, issue again",
+    "removeNamed": "Remove {name}",
+    "removeTitle": "Remove this stay?",
+    "removeDescription": "{name} is taken off the booking. A voucher already issued stays in your documents.",
+    "remove": "Remove stay",
+    "form": {
+      "name": "Hotel",
+      "address": "Address",
+      "mapUrl": "Map link",
+      "mapUrlHint": "A link from Google Maps, starting with https://",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "notes": "Room and meal notes",
+      "notesHint": "Printed on the voucher.",
+      "problems": {
+        "required": "This is needed.",
+        "invalid": "Check this."
+      }
+    }
+  },
+  "trip": {
+    "title": "The trip",
+    "stays": "Where they stay",
+    "noStays": "No stay added yet.",
+    "pdf": "Trip PDF",
+    "prepare": "Prepare the trip PDF",
+    "prepareAgain": "Prepare the trip PDF again",
+    "openPdf": "Open the trip PDF",
+    "openOldPdf": "Open the old one",
+    "pdfOutOfDate": "Out of date, prepare again",
+    "pdfAfterConfirm": "The trip PDF can be made once the booking is confirmed.",
+    "tickets": "Tickets and files",
+    "ticketsHint": "Added here, they show on the traveller's trip page.",
+    "noTickets": "No tickets or files yet."
+  },
+  "reminders": {
+    "title": "Reminders",
+    "carriedOver": "This booking came from before bookings existed. Its payment reminders are still in Sales automation.",
+    "agreed": "The traveller agreed to trip updates on WhatsApp.",
+    "notAgreed": "The traveller hasn't agreed to trip updates on WhatsApp, so reminders become tasks for you to do by hand.",
+    "recordAgreed": "They agreed to trip updates",
+    "pause": "Pause reminders",
+    "resume": "Resume reminders",
+    "paused": "Reminders are paused.",
+    "none": "No reminder is due.",
+    "afterConfirm": "Reminders start once the booking is confirmed.",
+    "on": "On {day}",
+    "sentOn": "Sent {day}",
+    "kinds": {
+      "balance": "Payment due",
+      "details": "Fill in details and packing list",
+      "reporting": "Where to report"
+    },
+    "status": {
+      "scheduled": "To come",
+      "sent": "Sent",
+      "by_hand": "By hand",
+      "skipped": "Skipped"
+    },
+    "notes": {
+      "paid": "already paid",
+      "complete": "details already in",
+      "no_essentials": "nothing to say yet",
+      "stale": "its day passed",
+      "cancelled": "booking cancelled",
+      "completed": "trip over",
+      "quote_reverted": "quote reverted",
+      "no_consent": "no consent to message",
+      "no_template": "no template chosen",
+      "no_phone": "no phone number",
+      "not_connected": "WhatsApp not connected",
+      "paused": "WhatsApp paused",
+      "unavailable": "chat unavailable",
+      "no_lead": "no lead",
+      "TEMPLATE_CAP_REACHED": "daily limit reached",
+      "TIER_LIMIT_REACHED": "daily limit reached"
+    }
+  },
+  "proof": {
+    "title": "Proof of payment",
+    "body": "What the customer sent in the chat when the AI took this booking.",
+    "open": "Proof {number}"
+  },
+  "feedback": {
+    "title": "Feedback",
+    "askBody": "Ask the traveller how the trip was. They get a form on their trip page; one to three stars tell you at once.",
+    "ask": "Ask for feedback",
+    "notSent": "The message could not be sent. Send the trip link yourself.",
+    "waiting": "Asked on {day}. Nothing back yet.",
+    "overall": "Overall",
+    "hotel": "Hotels",
+    "transport": "Transport",
+    "guide": "Guide",
+    "share": "Sharing",
+    "mayShare": "They said you may share it",
+    "mayNotShare": "Keep it private",
+    "notRated": "Not rated",
+    "stars": "{count, plural, one {# star} other {# stars}}"
+  },
+  "cancel": {
+    "open": "Cancel booking",
+    "title": "Cancel this booking",
+    "description": "The agency's policy works out what is charged. Check it before you cancel.",
+    "reason": "Why it is cancelled",
+    "reasonHint": "For your records. The traveller doesn't see it.",
+    "days": "Days before departure",
+    "daysValue": "{count, plural, one {# day} other {# days}}",
+    "noDate": "The trip has no date",
+    "step": "The policy charges",
+    "stepValue": "{percent}% of the trip total",
+    "total": "Trip total",
+    "paid": "Paid so far",
+    "charge": "Cancellation charge",
+    "chargeHint": "Including GST. Change it to charge a different amount.",
+    "chargeReason": "Why the charge is changed",
+    "chargeReasonHint": "Kept in the audit log with the old and new amount.",
+    "refund": "Refund due",
+    "submit": "Cancel booking",
+    "submitting": "Cancelling",
+    "cancelled": "Booking cancelled",
+    "previewLoading": "Working out the charge",
+    "previewFailed": "The charge couldn't be worked out.",
+    "problems": {
+      "required": "This is needed.",
+      "invalid": "Check this."
+    }
+  },
+  "refund": {
+    "mark": "Mark refunded",
+    "title": "Mark the refund paid",
+    "description": "The refund is paid outside this product. Note when and how, so the books agree.",
+    "submit": "Mark refunded",
+    "submitting": "Saving",
+    "marked": "Refund marked paid",
+    "form": {
+      "refundedOn": "Paid on",
+      "method": "How",
+      "methods": {
+        "upi": "UPI",
+        "bank": "Bank transfer",
+        "cash": "Cash",
+        "card": "Card",
+        "other": "Other"
+      },
+      "reference": "Reference",
+      "referenceHint": "The transaction number, if there is one.",
+      "problems": {
+        "required": "This is needed.",
+        "invalid": "Check this."
+      }
+    }
+  },
+  "lead": {
+    "title": "Bookings",
+    "loadFailed": "Bookings didn't load."
+  },
+  "settings": {
+    "title": "Bookings",
+    "intro": "How your bookings run: the payments asked for, what travellers fill in, the reminders, and the cancellation steps.",
+    "loadFailed": "The booking settings didn't load.",
+    "loading": "Loading the settings",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Booking settings saved",
+    "schedule": {
+      "title": "Payments",
+      "description": "What Confirm offers when a quote has no payments due.",
+      "advance": "Advance (% of the total)",
+      "advanceHint": "Asked now, when the booking is confirmed.",
+      "balance": "Balance due this many days before departure",
+      "balanceHint": "The rest of the total."
+    },
+    "travellers": {
+      "title": "Travellers' details",
+      "description": "What each traveller fills in on their trip page, and when it locks.",
+      "level": "Usually asked for",
+      "levels": {
+        "basic": "Name and birthday",
+        "detailed": "Plus emergency contact and medical notes",
+        "international": "Plus passport"
+      },
+      "cutoff": "Lock this many days before departure",
+      "cutoffHint": "After that only your staff change them."
+    },
+    "reminders": {
+      "title": "Reminders",
+      "description": "Messages on WhatsApp, written by code: no AI. Each uses one of your approved templates.",
+      "balanceDays": "Remind about a payment, days before it is due",
+      "balanceDaysHint": "Separate with commas. 0 is the day itself.",
+      "detailsDays": "Ask for details and the packing list, days before departure",
+      "detailsDaysHint": "Only while a traveller's details are missing.",
+      "balanceTemplate": "Template for a payment due",
+      "detailsTemplate": "Template for details and the packing list",
+      "reportingTemplate": "Template for where to report (the evening before)",
+      "feedbackTemplate": "Template for asking for feedback",
+      "consentHint": "Only travellers who agreed to trip updates are messaged. For the others, or without a template, a reminder becomes a task for the lead's owner."
+    },
+    "page": {
+      "title": "The trip page",
+      "description": "What travellers see on their trip page.",
+      "packing": "Packing list",
+      "packingHint": "Shown on every trip page.",
+      "bank": "Bank details for transfers",
+      "bankHint": "Shown beside Pay by UPI.",
+      "emergencyName": "Emergency contact name",
+      "emergencyPhone": "Emergency contact phone",
+      "review": "Google review link",
+      "reviewHint": "Shown to everyone after they send their feedback."
+    },
+    "policy": {
+      "title": "Cancellation steps",
+      "description": "From this many days before departure, this share of the trip total is charged. The first step starts at 0 days. Every new booking keeps the steps of the day it is made.",
+      "days": "Step {number}: from days before departure",
+      "charge": "Step {number}: charge (%)",
+      "remove": "Remove step {number}",
+      "add": "Add a step",
+      "notes": "Notes under the steps",
+      "notesHint": "For example: flight tickets are non-refundable."
+    },
+    "problems": {
+      "reminderDays": "Type the reminder days as numbers separated by commas.",
+      "rules": "The first step starts at 0 days, and no two steps start on the same day.",
+      "check": "Check the settings and try again."
+    }
+  }
+}
