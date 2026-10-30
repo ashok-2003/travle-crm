@@ -46,65 +46,67 @@ model Person {
 /// One trip enquiry by one person, worked from New to Won, Lost or Not a lead (spec 4). Soft-deleted.
 model Lead {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId  String                  @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id              String                  @id @default(uuid(7)) @db.Uuid
-  personId        String                  @map("person_id") @db.Uuid
+  organizationId    String                  @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                String                  @id @default(uuid(7)) @db.Uuid
+  personId          String                  @map("person_id") @db.Uuid
   /// new, contacted, quote_sent, booking_requested, won, lost or not_a_lead (CHECK lead_stage_value).
-  stage           String                  @default("new")
+  stage             String                  @default("new")
   /// The last open stage it left, where reopening returns it (R30; CHECK lead_reopen_stage_open).
-  reopenStage     String?                 @map("reopen_stage")
+  reopenStage       String?                 @map("reopen_stage")
   /// Why it was lost: price, dates, competitor, no_reply, changed_plans or other (CHECK lead_lost_reason_value); null otherwise.
-  lostReason      String?                 @map("lost_reason")
-  stageChangedAt  DateTime                @default(now()) @map("stage_changed_at") @db.Timestamptz(6)
+  lostReason        String?                 @map("lost_reason")
+  stageChangedAt    DateTime                @default(now()) @map("stage_changed_at") @db.Timestamptz(6)
   /// The first time it left New for any stage but Not a lead (spec 4), for later releases' alerts and reports.
-  firstReplyAt    DateTime?               @map("first_reply_at") @db.Timestamptz(6)
+  firstReplyAt      DateTime?               @map("first_reply_at") @db.Timestamptz(6)
   /// The person had an earlier lead when this one was made (spec 4): a marker, not a stage.
-  returning       Boolean                 @default(false)
+  returning         Boolean                 @default(false)
   /// A member's user id; null only for release 4's Unassigned queue.
-  ownerUserId     String?                 @map("owner_user_id") @db.Uuid
-  destinationId   String?                 @map("destination_id") @db.Uuid
+  ownerUserId       String?                 @map("owner_user_id") @db.Uuid
+  destinationId     String?                 @map("destination_id") @db.Uuid
   /// dates, month, flexible or unknown; the dates and month columns fit it (CHECK lead_travel_fits_kind).
-  travelKind      String                  @default("unknown") @map("travel_kind")
-  travelStart     DateTime?               @map("travel_start") @db.Date
-  travelEnd       DateTime?               @map("travel_end") @db.Date
+  travelKind        String                  @default("unknown") @map("travel_kind")
+  travelStart       DateTime?               @map("travel_start") @db.Date
+  travelEnd         DateTime?               @map("travel_end") @db.Date
   /// The month's first day.
-  travelMonth     DateTime?               @map("travel_month") @db.Date
-  adults          Int?
+  travelMonth       DateTime?               @map("travel_month") @db.Date
+  adults            Int?
   /// Each child's age, 0-17; the count is the array's length (CHECK lead_children_ages).
-  childrenAges    Int[]                   @default([]) @map("children_ages")
+  childrenAges      Int[]                   @default([]) @map("children_ages")
   /// INR in paise, with its basis: per_person or for_everyone (CHECKs lead_budget_*).
-  budgetPaise     BigInt?                 @map("budget_paise")
-  budgetBasis     String?                 @map("budget_basis")
-  departureCity   String?                 @map("departure_city")
+  budgetPaise       BigInt?                 @map("budget_paise")
+  budgetBasis       String?                 @map("budget_basis")
+  departureCity     String?                 @map("departure_city")
   /// family, honeymoon, friends, solo, corporate, pilgrimage or trek: one list for every agency, so reports compare.
-  tripType        String?                 @map("trip_type")
+  tripType          String?                 @map("trip_type")
   /// 3_star, 4_star, 5_star or any.
-  hotelCategory   String?                 @map("hotel_category")
+  hotelCategory     String?                 @map("hotel_category")
   /// veg, jain or non_veg.
-  food            String?
-  roomType        String?                 @map("room_type")
+  food              String?
+  roomType          String?                 @map("room_type")
   /// Where it came from: the form's seven, and later releases' (CHECK lead_source_value).
-  source          String
-  sourceDetail    String?                 @map("source_detail")
-  createdBy       String?                 @map("created_by") @db.Uuid
-  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime?               @map("deleted_at") @db.Timestamptz(6)
-  deletedBy       String?                 @map("deleted_by") @db.Uuid
-  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  person          Person                  @relation(fields: [organizationId, personId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  destination     Destination?            @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  timeline        LeadTimelineEntry[]
-  notes           LeadNote[]
-  bookings        Booking[]
-  aiBookings      AiBooking[]
-  calls           LeadCall[]
-  quotes          Quote[]
-  cadence         LeadCadence[]
-  signals         LeadSignal[]
-  aiInsights      LeadAiInsight[]
-  enquiries       LeadEnquiry[]
-  formSubmissions WebsiteFormSubmission[]
+  source            String
+  sourceDetail      String?                 @map("source_detail")
+  createdBy         String?                 @map("created_by") @db.Uuid
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?               @map("deleted_at") @db.Timestamptz(6)
+  deletedBy         String?                 @map("deleted_by") @db.Uuid
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  person            Person                  @relation(fields: [organizationId, personId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  destination       Destination?            @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  timeline          LeadTimelineEntry[]
+  notes             LeadNote[]
+  bookings          Booking[]
+  departureHolds    DepartureHold[]
+  departureWaitlist DepartureWaitlist[]
+  aiBookings        AiBooking[]
+  calls             LeadCall[]
+  quotes            Quote[]
+  cadence           LeadCadence[]
+  signals           LeadSignal[]
+  aiInsights        LeadAiInsight[]
+  enquiries         LeadEnquiry[]
+  formSubmissions   WebsiteFormSubmission[]
 
   /// Lets the timeline, notes and enquiries point at (organization_id, id).
   @@unique([organizationId, id])

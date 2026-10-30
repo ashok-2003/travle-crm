@@ -7,7 +7,11 @@ model TripCost {
   /// Filled from db.forOrg()'s organization when omitted.
   organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   id             String       @id @default(uuid(7)) @db.Uuid
-  quoteId        String       @map("quote_id") @db.Uuid
+  /// The booking the cost belongs to; null for a cost of a whole departure (exactly one of quote and departure: CHECK trip_cost_one_owner).
+  quoteId        String?      @map("quote_id") @db.Uuid
+  departureId    String?      @map("departure_id") @db.Uuid
+  /// The supplier it is paid to, when linked; `supplier` below stays the name at the time.
+  supplierId     String?      @map("supplier_id") @db.Uuid
   /// hotel, transport, flight, train, activity, visa, guide or other (CHECK trip_cost_category_value).
   category       String
   supplier       String
@@ -21,10 +25,14 @@ model TripCost {
   voidedAt       DateTime?    @map("voided_at") @db.Timestamptz(6)
   voidedBy       String?      @map("voided_by") @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  quote          Quote        @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  quote          Quote?       @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  departure      Departure?   @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  supplierRecord Supplier?    @relation(fields: [organizationId, supplierId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([organizationId, id])
   @@index([organizationId, quoteId], map: "trip_cost_quote")
+  @@index([organizationId, departureId], map: "trip_cost_departure")
+  @@index([organizationId, supplierId], map: "trip_cost_supplier")
   @@map("trip_cost")
 }
 
