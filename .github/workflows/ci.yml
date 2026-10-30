@@ -71,22 +71,28 @@ jobs:
       - run: pnpm exec turbo run test --concurrency=3
 
   journeys:
-    name: Journeys
+    # Four shards: one run of every journey, on a phone and a desktop, outlasts Playwright's twenty-minute limit on a
+    # runner of two cores.
+    name: Journeys (${{ matrix.shard }}/4)
     if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: pnpm --filter @travel-crm/web exec playwright install --with-deps chromium
-      - run: pnpm --filter @travel-crm/web e2e
+      - run: pnpm --filter @travel-crm/web e2e --shard=${{ matrix.shard }}/4
       - name: Keep the failed journeys' traces
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: journey-traces
+          name: journey-traces-${{ matrix.shard }}
           path: apps/web/test-results/
           retention-days: 7
 
