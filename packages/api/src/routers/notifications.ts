@@ -2,7 +2,8 @@
 // subscriptions (spec 9.4), for every member: they are the person's own, so they need no permission. The bell's list
 // and count are views like any other; marking read, the choices and the browsers touch only the person's own rows,
 // never the organization's records, so they work in every state of the subscription: an unsubscribe link must work
-// whatever the organization has paid (DPDP), and so must signing out, which removes this browser's subscription.
+// whatever the organization has paid (DPDP), and so must signing out, which removes this browser's subscription. Who on
+// the team gets email and copies of team alerts is the agency's, chosen by whoever manages settings.
 import {
   listNotificationsInput,
   markReadInput,
@@ -13,7 +14,10 @@ import {
   notificationPreferenceInput,
   pushSubscriptionInput,
   removePushSubscriptionInput,
+  saveTeamRoutingInput,
+  teamRouting,
 } from "@travel-crm/contracts/notifications";
+import type { Identity, MemberAccess } from "@travel-crm/domain/identity";
 import { DomainError } from "@travel-crm/domain/kernel";
 import {
   getMorningSetting,
@@ -24,11 +28,14 @@ import {
   removePushSubscription,
   saveMorningSetting,
   savePushSubscription,
+  saveTeamRouting,
   setPreference,
+  teamRoutingOf,
+  type TeamRoutingRow,
   unreadCount,
 } from "@travel-crm/domain/notifications";
 import { z } from "zod";
-import { orgProcedure } from "../procedures.js";
+import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
 const person = orgProcedure.meta({ planModule: "core" });
@@ -96,6 +103,43 @@ const pushRouter = router({
   }),
 });
 
+/** The routing as the screen shows it, with the members to choose from; a member who left is dropped. */
+async function routingView(identity: Identity, actor: MemberAccess, row: TeamRoutingRow) {
+  const members = (await identity.staff.list(actor)).map((member) => ({
+    userId: member.userId,
+    name: member.name,
+    hasEmail: member.email !== null,
+  }));
+  const active = new Set(members.map((member) => member.userId));
+  return {
+    emailUserIds: row.emailUserIds.filter((id) => active.has(id)),
+    copyUserIds: row.copyUserIds.filter((id) => active.has(id)),
+    members,
+  };
+}
+
+/** Who on the team gets email and copies of team alerts: the agency's, chosen by whoever manages settings. */
+const teamRoutingRouter = router({
+  get: orgProcedure
+    .requires("settings:manage")
+    .output(teamRouting)
+    .query(async ({ ctx }) =>
+      routingView(ctx.identity, ctx.member, await ctx.db.forOrg(ctx.member.organizationId, (tx) => teamRoutingOf(tx))),
+    ),
+
+  save: freshProcedure
+    .requires("settings:manage")
+    .input(saveTeamRoutingInput)
+    .output(teamRouting)
+    .mutation(async ({ ctx, input }) =>
+      routingView(
+        ctx.identity,
+        ctx.member,
+        await ctx.db.forOrg(ctx.member.organizationId, (tx) => saveTeamRouting(tx, ctx.member, input)),
+      ),
+    ),
+});
+
 export const notificationsRouter = router({
   /** Newest first, a page at a time. */
   list: person
@@ -118,4 +162,5 @@ export const notificationsRouter = router({
   preferences: preferencesRouter,
   morning: morningRouter,
   push: pushRouter,
+  teamRouting: teamRoutingRouter,
 });

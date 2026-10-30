@@ -1,9 +1,10 @@
 // What one answer of the autopilot changes: what it remembers of the chat, the reply it sends, the follow-up it plans (inside WhatsApp's window, at the time it chose or the agency's fixed
 // hours), what it flags for the team while it keeps selling (the lead's owner hears once in a while, not at every
-// message), and a hand-over to a person when it must step back.
+// message), a note on the lead when the chat told something worth keeping, and a hand-over to a person when it must
+// step back.
 import type { AgentAnswer } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
-import { noticeKey } from "../crm/index.js";
+import { addAiLeadNote, noticeKey } from "../crm/index.js";
 import { WINDOW_MS } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -63,15 +64,16 @@ async function tellOwner(
     orderBy: { createdAt: "desc" },
     select: { ownerUserId: true, person: { select: { name: true } } },
   });
-  if (lead?.ownerUserId == null) return;
+  if (lead === null) return;
+  // A lead nobody owns still reaches the members the owner chose for copies of team alerts.
   await notify(tx, systemActor(organizationId), {
-    recipientUserIds: [lead.ownerUserId],
+    recipientUserIds: lead.ownerUserId === null ? [] : [lead.ownerUserId],
     sourceEventId: noticeKey(notice.key, AI_HANDOFF_KIND),
     kind: AI_HANDOFF_KIND,
     title: notice.title(lead.person.name),
     body: notice.body,
     link: `/inbox/${chat.id}`,
-    channels: ["push"],
+    channels: ["email", "push"],
   });
 }
 
@@ -85,6 +87,8 @@ export async function applyAnswer(
     answer: AgentAnswer;
     model: string;
     token: string;
+    /** The chat's lead, for the AI's note on it. */
+    leadId: string | null;
     /** Sends the reply; null when there is none to send. */
     sendReply: () => Promise<string | null>;
     now: Date;
@@ -98,6 +102,10 @@ export async function applyAnswer(
     update: answer.memory === "" ? {} : { memory: answer.memory },
     select: { id: true, repliesOn: true, repliesCount: true, attentionAt: true },
   });
+  // What the chat told that the team should keep, on the lead's timeline.
+  if (input.leadId !== null && input.settings.leadNotes && answer.note.trim() !== "") {
+    await addAiLeadNote(tx, systemActor(organizationId), input.leadId, answer.note);
+  }
   const sent = await input.sendReply();
   if (sent !== null && sent !== "sent") return sent;
   const sameDay = state.repliesOn?.getTime() === today.getTime();

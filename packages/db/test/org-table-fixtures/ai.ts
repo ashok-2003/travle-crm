@@ -1,5 +1,5 @@
-// Isolation fixtures for the AI: the agency's settings, a month's usage, a draft, a piece of knowledge and a lead's insight. The runtime role deletes
-// none of them.
+// Isolation fixtures for the AI: the agency's settings, a month's usage, a draft, a piece of knowledge, a lead's insight, a
+// file it sends and a booking it took. The runtime role deletes none of them.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
@@ -32,6 +32,21 @@ export const fixtures: OrgTableFixtures = {
   },
   ai_usage: {
     create: (tx) => tx.aiUsage.create({ data: { month: new Date("2026-11-01"), calls: 1 } }),
+    undeletable: true,
+  },
+  ai_media: {
+    create: (tx) =>
+      tx.aiMedia.create({
+        data: { title: "Isolation", attachmentId: randomUUID(), fileName: "a.jpg", contentType: "image/jpeg" },
+      }),
+    undeletable: true,
+  },
+  ai_booking: {
+    create: async (tx: OrgTx) => {
+      const person = await tx.person.create({ data: { name: "Isolation", email: `ai-${randomUUID()}@example.test` } });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "walk_in" } });
+      return tx.aiBooking.create({ data: { leadId: lead.id, conversationId: randomUUID(), summary: "Manali for 2" } });
+    },
     undeletable: true,
   },
   ai_knowledge: {

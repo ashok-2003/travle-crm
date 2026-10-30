@@ -268,7 +268,11 @@
       "learning-changed": "Turned an AI lesson on, off or away",
       "chat-mode-changed": "Turned the AI on or off in a chat",
       "chat-resumed": "Gave a chat back to the AI",
-      "chat-persona-changed": "Changed what the AI is for in a chat"
+      "chat-persona-changed": "Changed what the AI is for in a chat",
+      "media-added": "Added a photo, video or PDF for the AI to send",
+      "media-changed": "Changed a file the AI sends",
+      "media-deleted": "Removed a file the AI sent",
+      "booking-decided": "Confirmed or cancelled a booking the AI took"
     },
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"
@@ -303,6 +307,9 @@
     },
     "booking-settings": {
       "changed": "Changed how bookings run"
+    },
+    "notifications": {
+      "routing-changed": "Chose who on the team gets email and alert copies"
     }
   },
   "fields": {
@@ -420,6 +427,9 @@
     "ai_learning": "An AI lesson",
     "whatsapp_message": "A message",
     "booking": "A booking",
-    "booking_settings": "Booking settings"
+    "booking_settings": "Booking settings",
+    "ai_media": "A file the AI sends",
+    "ai_booking": "A booking the AI took",
+    "notification_routing": "Team notifications"
   }
 }

@@ -48,3 +48,9 @@ export async function fastestMs(run: () => Promise<unknown>): Promise<number> {
   }
   return fastest;
 }
+
+/**
+ * A wall-clock budget for one timed run: as written on a laptop, three times as long on a shared CI runner, which is
+ * several times slower and noisier (a 25-second budget has been seen missed there with the work unchanged).
+ */
+export const budgetMs = (laptopMs: number): number => (process.env.CI === undefined ? laptopMs : laptopMs * 3);

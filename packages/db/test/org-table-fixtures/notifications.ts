@@ -21,6 +21,10 @@ export const fixtures: OrgTableFixtures = {
     create: (tx) => tx.morningPushSetting.create({ data: { userId: someone } }),
     undeletable: true,
   },
+  notification_routing: {
+    create: (tx) => tx.notificationRouting.create({ data: { emailUserIds: [someone] } }),
+    undeletable: true,
+  },
   push_subscription: {
     create: (tx) =>
       tx.pushSubscription.create({

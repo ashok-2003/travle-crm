@@ -491,7 +491,8 @@ describe("a departing member's work", () => {
     // One for the pool row, nine batches of 50 open leads and a tenth that finds none left, one page of closed leads'
     // tasks, and one for the standalone tasks.
     expect(transactions()).toBe(13);
-  });
+    // 450 rows are created and moved in 13 transactions: well over the default 30 s on a slow shared runner.
+  }, 120_000);
 
   it("moves nothing, and fails for the worker to retry, when the agency has no Owner", async () => {
     const { leaver, handOver, transactions } = departure({ owner: null });

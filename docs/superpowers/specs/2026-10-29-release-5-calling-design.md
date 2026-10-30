@@ -45,7 +45,7 @@ quote and went quiet, and payments about to fall due. My owner keeps one set of 
   is Spoke. No answer does not.
 - Edge cases: a lead the person can't see refuses (404 as elsewhere); a blocked contact shows no call panel; an
   erased person's calls are removed by the customer erasure step; the note can be edited or deleted by its author
-  within 24 hours (soft delete, ADR 0004), then only by `leads:edit`.
+  within 24 hours (soft delete, ADR 0004), then only by a holder of `leads:assign`. Not `leads:edit`: every salesperson holds that, so it would let any rep rewrite anyone's call after a day.
 
 ### 2.3 Message library (blanks)
 
@@ -109,7 +109,7 @@ quote and went quiet, and payments about to fall due. My owner keeps one set of 
 ## 4. Permissions and plan modules
 
 - Seeing the panel / sending to my phone: `leads:view` (scoped); logging a call note: `leads:edit`; editing within 24h
-  by the author, after that `leads:edit`. Plan module `leads` (core).
+  by the author, after that `leads:assign` (a manager), not `leads:edit`, which every salesperson holds. Plan module `leads` (core).
 - Message library read: `inbox:view`/`leads:view` (everyone who may reply); manage: `inbox:templates` (existing). The
   lead-page Messages button needs `leads:view` and works without the WhatsApp module (it copies text); the WhatsApp
   open needs `inbox:reply` and the inbox plan module.

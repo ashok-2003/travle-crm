@@ -569,7 +569,9 @@
         "feedback-received": "The customer sent feedback on booking {number}",
         "cancelled": "Booking {number} was cancelled",
         "refunded": "The refund for booking {number} was paid"
-      }
+      },
+      "aiNote": "AI note",
+      "ai": "The AI"
     },
     "callCount": "{count, plural, one {# call} other {# calls}}",
     "messages": {
@@ -583,12 +585,12 @@
       "preview": "How it will read",
       "previewLoading": "Filling in the blanks",
       "linkNote": "The quote's link is made when you copy or open it.",
-      "open": "Still to fill in: {blanks}. Type them in after you copy.",
       "copy": "Copy the message",
       "copied": "Message copied",
       "whatsApp": "Open in WhatsApp",
       "noPhone": "This lead has no phone number to message.",
-      "copyFailed": "The message couldn't be copied. Select it and copy it yourself."
+      "copyFailed": "The message couldn't be copied. Select it and copy it yourself.",
+      "blocked": "This lead has nothing for {blanks} yet, so the message can't be copied or opened. Add what's missing, such as a quote, first."
     }
   },
   "export": {

@@ -33,6 +33,7 @@ import { websiteFormRoutes } from "./website-form-routes.js";
 import type { Turnstile } from "./website-form-shared.js";
 import { webhookRoutes } from "./webhook-route.js";
 import { whatsappWebhookRoute } from "./whatsapp-routes.js";
+import { signalTakenPosts } from "./work-signal.js";
 
 export interface ServerDependencies {
   identity: Identity;
@@ -75,6 +76,11 @@ export interface ServerDependencies {
   turnstile?: Turnstile | null;
   /** How the website form reads the visitor's address (W32); absent, as sign-in does. */
   formAddress?: FormAddressSettings;
+  /**
+   * Tells the host that work for the worker came in (work-signal.ts), so a worker the night's plan stopped starts: a
+   * stored webhook, a signed-in person's change, a public form or share link taken. Absent, nothing is told.
+   */
+  signalWork?: () => void;
 }
 
 /**
@@ -117,6 +123,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     storageOrigin = null,
     turnstile = null,
     formAddress = { headerNames: ["x-forwarded-for"], trustedProxies: [], proxyHops: null },
+    signalWork = () => undefined,
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
@@ -146,7 +153,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
       // The web app sends queries as POSTs too, so their input (a phone, a searched name) is never in a URL. They stay
       // queries: what a call does, for the lifecycle, is its procedure's type, not the HTTP method.
       allowMethodOverride: true,
-      createContext: async ({ resHeaders }) => {
+      createContext: async ({ resHeaders, info }) => {
         const context = await createContext(
           {
             identity,
@@ -169,7 +176,12 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
           c.req.raw,
           resHeaders,
         );
-        if (context.user !== null) request.userId = context.user.id;
+        if (context.user !== null) {
+          request.userId = context.user.id;
+          // A change may leave work for the worker (a reply to send, an email): only a signed-in person's, so a stranger
+          // can't keep the worker up. Reads leave none.
+          if (info.calls.some((call) => call.procedure?._def.type === "mutation")) signalWork();
+        }
         if (context.session?.activeOrganizationId) request.organizationId = context.session.activeOrganizationId;
         return context;
       },
@@ -197,6 +209,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   );
   // A page's form or a picture's JSON is small.
   app.use("/p/*", limitBody(32 * 1024));
+  app.use("/p/*", signalTakenPosts(signalWork));
   app.route(
     "/p",
     shareLinkRoutes({
@@ -224,8 +237,12 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   // Meta's callback verification (GET) answers before the generic intake, which takes POSTs only.
   if (meta !== null)
     app.route("/webhooks/meta-leads", metaVerifyRoute({ verifyToken: meta.settings.webhookVerifyToken }));
-  const receive = (provider: string, request: WebhookRequest) =>
-    receiveWebhook({ db, queue, providers: webhookProviders }, provider, request);
+  // A stored event is the worker's to process: the host is told, so a worker the night stopped starts.
+  const receive = async (provider: string, request: WebhookRequest) => {
+    const receipt = await receiveWebhook({ db, queue, providers: webhookProviders }, provider, request);
+    if (receipt.status === 200) signalWork();
+    return receipt;
+  };
   // MSG91's webhook carries its token in the path, one segment more than the generic intake takes (ADR 0035).
   if (whatsappOn) {
     app.route(
@@ -259,6 +276,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   }
 
   // The website form's public routes (spec 5): no session, no cookies, no CORS; each does its own limits and checks.
+  app.use("/api/public/*", signalTakenPosts(signalWork));
   app.route(
     "/api/public",
     websiteFormRoutes({

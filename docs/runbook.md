@@ -337,13 +337,23 @@ them, so they run day and night; a visit at night wakes Neon in about a second, 
 
 | On the server of | Working hours (09:00 to 19:00) | Night                          | Each night burst (22:00, 01:00, 04:00, 07:00; 10 minutes) |
 | ---------------- | ------------------------------ | ------------------------------ | --------------------------------------------------------- |
-| the api          | the api and the worker         | the api alone (worker stopped) | the api and the worker                                    |
+| the api          | the api and the worker         | the api; the worker when woken | the api and the worker                                    |
 | the console      | the console with its jobs      | the console's pages, jobs off  | the console with its jobs                                 |
 
-- **What waits for the next burst** (at most 3 hours; after the 07:00 burst, the 09:00 start): what listeners do after a
-  change (an invite's email, notifications' email and push, the unassigned-lead alert, each step of an import, an export
-  or a Sheets check), the console's jobs (a purge, an export, an erasure), and each schedule's run for the time it
-  missed, sent once when its process starts (the subscriptions' records, the sweeps and purges, the inbox's due work).
+- **Work that comes in wakes the worker** (added 2026-10-29, after customers' WhatsApp messages waited up to 3 hours
+  for the next burst): a WhatsApp message or any other webhook stored, a change by someone signed in (a reply typed in
+  the inbox, an invite), a website form sent or a share link's action taken. The api writes the time to
+  `/srv/travel-crm/work-signal/at` (`apps/api/src/work-signal.ts`, at most every 30 seconds; the folder is shared with
+  its container as `WORK_SIGNAL_FILE`). `travel-crm-work-wake.path` sees the write and runs `work-hours.sh awake`, which
+  starts the worker and keeps it until nothing more came for the wake's minutes (5 by default), then puts the night
+  back; a burst's end and the hours' end keep it running too. A message then lands in about half a minute (the worker's
+  start, then its polling). The database is awake anyway at that moment, since the api has just used it, so each wake
+  costs only its quiet minutes: about 0.02 compute hours, so ten a night is about 6 a month. Reads, a stranger's calls
+  and refused webhooks wake nothing.
+- **What still waits for the next burst** (at most 3 hours; after the 07:00 burst, the 09:00 start): the console's jobs
+  (a purge, an export, an erasure), each schedule's run for the time it missed, sent once when its process starts (the
+  subscriptions' records, the sweeps and purges, the inbox's due work, follow-ups whose day came), and anything work
+  the night did not signal (a quote opened).
 - **Not affected:** sign-in, every screen's reads and writes (the console's too), the bell's rows and a password reset's
   email, which happen in the request.
 - **A long piece of work** may need more than one burst: a burst does what 10 minutes allow. When it ends, a job still
@@ -414,12 +424,15 @@ hours so far. Mid-month, about half of 89 is on track.
 | `set 09:00 19:00`                   | the working hours (start before end, within one day); bursts stay as set  |
 | `bursts 22:00,01:00,04:00,07:00 10` | the night bursts: when, and for how many minutes (1 to 120)               |
 | `bursts off`                        | no night bursts: the night's work waits for the morning                   |
+| `wake 5`                            | work that comes in at night keeps the worker up until 5 quiet minutes     |
+| `wake off`                          | work that comes in at night waits for the next burst (as before 10-29)    |
 | `off`                               | no working hours: everything runs all day and night (Neon's paid plan)    |
 | `apply`                             | rewrites the timers and puts the state the time calls for (deploys do it) |
 
 Run the same command on both servers, or the console's jobs and the worker keep different hours. Every burst must fall
-outside the working hours: to widen the hours past a burst, move the bursts first. What the timers did:
-`journalctl -u travel-crm-work-start -u travel-crm-work-stop -u travel-crm-work-burst`.
+outside the working hours: to widen the hours past a burst, move the bursts first. The wake matters only on the api's
+server, where the worker runs. What the timers did:
+`journalctl -u travel-crm-work-start -u travel-crm-work-stop -u travel-crm-work-burst -u travel-crm-work-wake`.
 
 ## Switch to a real domain
 

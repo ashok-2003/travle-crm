@@ -1,6 +1,7 @@
 // The test box (Ayush's, ported): what the AI would answer a customer's question from the agency's knowledge alone, to check it
 // before turning the autopilot on. Nothing is sent to anyone and no chat is read; it spends one of the agency's monthly AI calls
 // and its tokens are kept.
+import type { AgentAnswer } from "@travel-crm/contracts/ai";
 import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
@@ -8,10 +9,16 @@ import { DomainError } from "../kernel/index.js";
 import { cleanReply, parseAnswer } from "./agent.js";
 import { agentPrompt } from "./agent-prompt.js";
 import { knowledgePack } from "./agent-context.js";
-import { autopilotOf } from "./autopilot.js";
+import { autopilotOf, type AutopilotRow } from "./autopilot.js";
 import { activeLessons } from "./learning-store.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
 import { agencyVoiceOf } from "./voice.js";
+
+/** The reply as the customer would read it: the agency's payment details under it when the AI sends them. */
+const withPaymentDetails = (reply: string, answer: AgentAnswer | null, settings: AutopilotRow) =>
+  answer?.sendPaymentDetails === true && settings.paymentDetails.trim() !== "" && settings.persona !== "natural"
+    ? `${reply}\n\n${settings.paymentDetails.trim()}`.trim()
+    : reply;
 
 export async function testAnswer(
   dependencies: { db: Database; ai: AiModel; agencyName: (organizationId: string) => Promise<string> },
@@ -53,6 +60,9 @@ export async function testAnswer(
           voice: prepared.voice,
           natural: prepared.settings.persona === "natural",
           instructions: prepared.instructions,
+          media: [],
+          paymentSent: false,
+          bookingOpen: false,
         }),
       },
       {
@@ -70,7 +80,7 @@ export async function testAnswer(
   );
   const answer = parseAnswer(result.text);
   return {
-    answer: cleanReply(answer?.reply ?? "", prepared.settings),
+    answer: withPaymentDetails(cleanReply(answer?.reply ?? "", prepared.settings), answer, prepared.settings),
     // "Never by itself" never hands over, whatever the model said.
     handoff:
       prepared.settings.handoff !== "alert" && prepared.settings.persona !== "natural" && (answer?.handoff ?? false),

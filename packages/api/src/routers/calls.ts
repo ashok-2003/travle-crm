@@ -32,7 +32,7 @@ export const callsRouter = router({
     .input(sendToMyPhoneInput)
     .mutation(async ({ ctx, input }) => {
       // The limiter has a transaction of its own: counted before the organization's.
-      await limitDials(ctx.rateLimiter, ctx.member.userId, new Date());
+      await limitDials(ctx.rateLimiter, ctx.member, new Date());
       await ctx.db.forOrg(ctx.member.organizationId, (tx) => sendCallToMyPhone(tx, ctx.member, input.leadId));
     }),
 

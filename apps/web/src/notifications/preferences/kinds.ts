@@ -36,6 +36,9 @@ export const notificationKinds = [
   { kind: "booking.payment-claimed", messageKey: "bookingPaymentClaimed" },
   { kind: "booking.payment-waiting", messageKey: "bookingPaymentWaiting" },
   { kind: "booking.low-feedback", messageKey: "bookingLowFeedback" },
+  { kind: "ai.handoff", messageKey: "aiHandoff" },
+  { kind: "ai.booking", messageKey: "aiBooking" },
+  { kind: "ai.payment-proof", messageKey: "aiPaymentProof" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

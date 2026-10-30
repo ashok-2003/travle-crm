@@ -1,0 +1,12 @@
+# The worker's wake-up, from travel-crm-work-wake.path: the api signalled work, so the worker runs, at night too, until
+# nothing more came for the wake's minutes, and then the state the time calls for returns. It runs for as long as work
+# keeps coming, hence no start timeout. Installed by scripts/server/work-hours.sh.
+# Its log: journalctl -u travel-crm-work-wake
+[Unit]
+Description=travel-crm wake-up: the worker while work comes in
+After=docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=infinity
+ExecStart=/srv/travel-crm/app/scripts/server/work-hours.sh awake

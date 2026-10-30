@@ -63,6 +63,8 @@ export const routes = {
   whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */
   leadAssignment: "/settings/assignment",
+  /** Who on the team gets email and copies of team alerts, as the owner chose. */
+  teamNotifications: "/settings/notifications",
   /** Each person's own choice of what they are told, and how (spec 9.4). */
   notificationPreferences: "/account/notifications",
   /** The platform console's dashboard; its other screens are in src/console/routes.ts, which only it imports. */

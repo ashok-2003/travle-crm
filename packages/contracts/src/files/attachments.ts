@@ -15,6 +15,9 @@ export type AttachmentContentType = (typeof attachmentContentTypes)[number];
 /** The record type of a document the agency gives its AI (packages, prices, policies): a PDF or plain text. */
 export const AI_KNOWLEDGE_RECORD_TYPE = "ai_knowledge";
 export const aiKnowledgeFileTypes = ["application/pdf", "text/plain"] as const;
+/** The record type of a photo, video or PDF the agency's AI sends in chats (its media). */
+export const AI_MEDIA_RECORD_TYPE = "ai_media";
+export const aiMediaFileTypes = ["image/jpeg", "image/png", "video/mp4", "application/pdf"] as const;
 export const WHATSAPP_RECORD_TYPE = "whatsapp_message";
 /** The record type of a trip's details (sales inbox, trip details): the photos, videos and PDFs sent with them on WhatsApp. */
 export const TRIP_KIT_RECORD_TYPE = "trip_kit";

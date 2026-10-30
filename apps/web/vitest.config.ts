@@ -9,5 +9,7 @@ export default defineConfig({
     include: ["test/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     setupFiles: ["test/setup.ts"],
+    // The form tests click through a screen with userEvent: 5 s is not enough for them on a busy or shared machine.
+    testTimeout: 15_000,
   },
 });

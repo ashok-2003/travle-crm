@@ -1,8 +1,20 @@
 // ai.*: Suggest reply (ADR 0029; the owner's decision of 2026-10-28). Anyone who may reply in a chat and holds ai:suggest
 // asks for a draft (a mutation: it spends one of the agency's suggestions); only whoever holds ai:manage, from a session
-// read afresh, turns it on for the agency and writes its instructions. The plan's AI module is checked on every call.
+// read afresh, turns it on for the agency and writes its instructions and its media. The bookings the AI took show on
+// the lead for anyone who sees it, and whoever may work the lead confirms or cancels one. The plan's AI module is checked
+// on every call.
 import {
   addAiKnowledgeInput,
+  aiBookingList,
+  aiBookingsInput,
+  aiMediaIdInput,
+  aiMediaLink,
+  aiMediaList,
+  aiMediaSlot,
+  confirmAiMediaInput,
+  requestAiMediaInput,
+  setAiBookingStatusInput,
+  updateAiMediaInput,
   aiDocumentSlot,
   aiLearnResult,
   aiLearningList,
@@ -36,6 +48,14 @@ import {
 import {
   addKnowledge,
   aiAllowed,
+  bookingsOfLead,
+  confirmMedia,
+  deleteMedia,
+  listMedia,
+  mediaLink,
+  requestMedia,
+  setBookingStatus,
+  updateMedia,
   aiEnabled,
   aiOverviewOf,
   aiSettingsOf,
@@ -137,6 +157,70 @@ export const aiRouter = router({
     .requires("ai:manage")
     .input(confirmAiDocumentInput)
     .mutation(({ ctx, input }) => confirmDocument(ctx, ctx.member, input)),
+
+  /** The photos, videos and PDFs the AI may send. */
+  media: freshProcedure
+    .requires("ai:manage")
+    .output(aiMediaList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listMedia(tx))),
+
+  /** Step one of a media file: where the browser puts it. */
+  requestMedia: freshProcedure
+    .requires("ai:manage")
+    .input(requestAiMediaInput)
+    .output(aiMediaSlot)
+    .mutation(({ ctx, input }) => requestMedia(ctx, ctx.member, input)),
+
+  /** Step two: it is stored, so the AI may send it. */
+  confirmMedia: freshProcedure
+    .requires("ai:manage")
+    .input(confirmAiMediaInput)
+    .mutation(({ ctx, input }) => confirmMedia(ctx, ctx.member, input)),
+
+  updateMedia: freshProcedure
+    .requires("ai:manage")
+    .input(updateAiMediaInput)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => updateMedia(tx, ctx.member, input))),
+
+  deleteMedia: freshProcedure
+    .requires("ai:manage")
+    .input(aiMediaIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteMedia(tx, ctx.member, input.mediaId)),
+    ),
+
+  /** A 5-minute link to look at one. */
+  mediaLink: freshProcedure
+    .requires("ai:manage")
+    .input(aiMediaIdInput)
+    .output(aiMediaLink)
+    .query(({ ctx, input }) => mediaLink(ctx, ctx.member, input.mediaId)),
+
+  /** The bookings the AI took on a lead, with the customer's payment proofs: only for a lead the member may see. */
+  bookingsForLead: orgProcedure
+    .requires("leads:view")
+    .input(aiBookingsInput)
+    .output(aiBookingList)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const lead = await getLead(tx, ctx.member, input.leadId);
+        return bookingsOfLead(tx, lead.id);
+      }),
+    ),
+
+  /** The payment is in (the lead is won), the booking is off, or it waits for payment again. */
+  setBookingStatus: freshProcedure
+    .requires("leads:edit", "leads:view")
+    .input(setAiBookingStatusInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const booking = await tx.aiBooking.findUnique({ where: { id: input.bookingId }, select: { leadId: true } });
+        if (booking === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+        // A lead out of the member's scope is not found.
+        await getLead(tx, ctx.member, booking.leadId);
+        await setBookingStatus(tx, ctx.member, input, new Date());
+      }),
+    ),
 
   /** The AI's guess of how a lead will go, for its page: only for a lead the member may see. */
   leadInsight: orgProcedure

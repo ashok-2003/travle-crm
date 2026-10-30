@@ -103,6 +103,10 @@ describe("the autopilot", () => {
       smartFollowUp: true,
       learning: false,
       persona: "sales" as const,
+      leadNotes: true,
+      sendMedia: true,
+      paymentDetails: "",
+      strictRules: "",
     };
     await inOrg((tx) => saveAutopilot(tx, owner, settings));
     const model = createMemoryAiModel();
@@ -113,6 +117,8 @@ describe("the autopilot", () => {
           ai: model,
           subscriptions: { entitlementsOf: () => Promise.resolve(entitlements(status, modules)) },
           agencyName: () => Promise.resolve("Sharma Holidays"),
+          files: test.files,
+          managers: () => Promise.resolve([]),
         },
         { organizationId, conversationId: chat.id, kind: "reply", token: message.id },
         at,

@@ -130,8 +130,16 @@ export interface DialLimiter {
 }
 
 /** Counts one dial against the person's minute. The limiter has its own transaction, so call this outside any forOrg(). */
-export async function limitDials(limiter: DialLimiter | undefined, userId: string, now: Date): Promise<void> {
-  const result = await limiter?.hit(`call-dial:${userId}`, { limit: DIALS_PER_MINUTE, windowSeconds: 60 }, now);
+export async function limitDials(
+  limiter: DialLimiter | undefined,
+  person: { organizationId: string; userId: string },
+  now: Date,
+): Promise<void> {
+  const result = await limiter?.hit(
+    `call-dial:${person.organizationId}:${person.userId}`,
+    { limit: DIALS_PER_MINUTE, windowSeconds: 60 },
+    now,
+  );
   if (result?.allowed === false) {
     throw new DomainError("CONFLICT", "DIALING_TOO_FAST", "Too many calls sent in a minute: wait a little");
   }

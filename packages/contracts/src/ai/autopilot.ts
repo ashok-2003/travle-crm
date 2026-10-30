@@ -37,6 +37,14 @@ export const autopilotFields = {
   smartFollowUp: z.boolean(),
   learning: z.boolean(),
   persona: z.enum(aiPersonas),
+  /** It writes a short note on the lead when a chat tells it something worth keeping. */
+  leadNotes: z.boolean(),
+  /** It sends the agency's media (photos, videos, PDFs) when they help. */
+  sendMedia: z.boolean(),
+  /** How customers pay (UPI ID, bank account, a link): sent exactly as written when someone wants to book. */
+  paymentDetails: text(2000),
+  /** Rules it always follows, whatever else it is told. */
+  strictRules: text(4000),
 };
 export const saveAutopilotInput = z.strictObject(autopilotFields);
 export type SaveAutopilotInput = z.infer<typeof saveAutopilotInput>;
@@ -49,6 +57,8 @@ export const autopilotSettings = z.object({
   ...autopilotFields,
   agentName: z.string(),
   languageOther: z.string(),
+  paymentDetails: z.string(),
+  strictRules: z.string(),
   /** When it last learned from the chats. */
   learnedAt: z.iso.datetime().nullable(),
   /** The person whose way of talking it copies in every chat, if one was given. */
@@ -108,6 +118,24 @@ export const agentAnswer = z.object({
   /** Something the team should see while it keeps answering ("wants to book for 4 on 12 Dec"); empty for none. */
   attention: z.string().max(200).catch(""),
   memory: z.string().max(2000).catch(""),
+  /** A short note for the lead's record when this message told something worth keeping; empty for none. */
+  note: z.string().max(600).catch(""),
+  /** The agency's media to send with the reply, by their numbers in the prompt ("M1"). */
+  media: z.array(z.string().max(20)).max(10).catch([]),
+  /** Send the agency's payment details now, as their own message (the customer wants to book or asks how to pay). */
+  sendPaymentDetails: z.boolean().catch(false),
+  /** The customer clearly said yes to a trip: the booking's details as taken down. */
+  booking: z
+    .object({
+      confirmed: z.boolean().catch(false),
+      summary: z.string().max(300).catch(""),
+      package: z.string().max(200).catch(""),
+      dates: z.string().max(120).catch(""),
+      travellers: z.string().max(400).catch(""),
+      pickup: z.string().max(120).catch(""),
+      amount: z.string().max(120).catch(""),
+    })
+    .catch({ confirmed: false, summary: "", package: "", dates: "", travellers: "", pickup: "", amount: "" }),
   /** Whether to write again if the customer goes quiet, in how many hours, and why. */
   followUp: z
     .object({

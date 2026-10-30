@@ -41,10 +41,25 @@ interface Page {
   limit: number;
 }
 
-const pageOf = <Row>(rows: Row[], idOf: (row: Row) => string, { after, limit }: Page): Row[] => {
-  const from = after === undefined ? 0 : rows.findIndex((row) => idOf(row) === after) + 1;
-  return rows.slice(from, from + limit);
-};
+/**
+ * The rows after the cursor, by the keyset (sort key, then id) the lists are sorted in: a cursor whose row has left the
+ * list (marked Done, paid) still has its key, which `keyOfGone` reads, so the next page carries on after its place and
+ * never restarts from the first. A cursor with no key at all ends the list.
+ */
+async function pageOf<Row>(
+  rows: Row[],
+  keyOf: (row: Row) => string,
+  after: string | undefined,
+  keyOfCursor: (id: string) => Promise<string | null>,
+  limit: number,
+  idOf: (row: Row) => string,
+): Promise<Row[]> {
+  if (after === undefined) return rows.slice(0, limit);
+  const present = rows.find((row) => idOf(row) === after);
+  const cursorKey = present === undefined ? await keyOfCursor(after) : keyOf(present);
+  if (cursorKey === null) return [];
+  return rows.filter((row) => keyOf(row) > cursorKey).slice(0, limit);
+}
 
 /** Every quote the person's customers opened and then left quiet for a day, oldest open first. */
 async function quietOpenedQuotes(tx: OrgTx, ownerUserId: string, now: Date): Promise<OpenedQuote[]> {
@@ -61,7 +76,7 @@ async function quietOpenedQuotes(tx: OrgTx, ownerUserId: string, now: Date): Pro
   const quiet = opens
     .flatMap((row) => (row._max.at === null ? [] : [{ leadId: row.leadId, at: row._max.at, opens: row._count._all }]))
     .filter((row) => now.getTime() - row.at.getTime() > DAY)
-    .sort((a, b) => a.at.getTime() - b.at.getTime())
+    .sort((a, b) => a.at.getTime() - b.at.getTime() || a.leadId.localeCompare(b.leadId))
     .slice(0, MOST_READ);
   if (quiet.length === 0) return [];
   const leadIds = quiet.map((row) => row.leadId);
@@ -84,7 +99,7 @@ async function quietOpenedQuotes(tx: OrgTx, ownerUserId: string, now: Date): Pro
   });
   const latest = (dates: (Date | null | undefined)[]) =>
     dates.reduce<number>((best, date) => Math.max(best, date?.getTime() ?? 0), 0);
-  return quiet.flatMap((row) => {
+  const rows = quiet.flatMap((row) => {
     const quote = quotes.find((candidate) => candidate.leadId === row.leadId);
     if (quote === undefined) return [];
     const personId = personOf.get(row.leadId);
@@ -98,7 +113,12 @@ async function quietOpenedQuotes(tx: OrgTx, ownerUserId: string, now: Date): Pro
       ? []
       : [{ quoteId: quote.id, leadId: row.leadId, title: quote.title, opens: row.opens, lastOpenedAt: row.at }];
   });
+  return rows.sort((a, b) => openedKey(a).localeCompare(openedKey(b)));
 }
+
+/** The place of an opened quote in its list: when it was last opened, then its id. */
+const openedKey = (row: Pick<OpenedQuote, "lastOpenedAt" | "quoteId">) =>
+  `${row.lastOpenedAt.toISOString()}|${row.quoteId}`;
 
 export async function openedQuotesNoReply(
   tx: OrgTx,
@@ -106,7 +126,23 @@ export async function openedQuotesNoReply(
   page: Page,
   now: Date,
 ): Promise<OpenedQuote[]> {
-  return pageOf(await quietOpenedQuotes(tx, access.userId, now), (row) => row.quoteId, page);
+  return pageOf(
+    await quietOpenedQuotes(tx, access.userId, now),
+    openedKey,
+    page.after,
+    async (quoteId) => {
+      // Marked Done since the last page: its opens still say where it stood.
+      const quote = await tx.quote.findUnique({ where: { id: quoteId }, select: { leadId: true } });
+      if (quote === null) return null;
+      const opened = await tx.leadSignal.aggregate({
+        where: { leadId: quote.leadId, kind: "quote_opened" },
+        _max: { at: true },
+      });
+      return opened._max.at === null ? null : openedKey({ lastOpenedAt: opened._max.at, quoteId });
+    },
+    page.limit,
+    (row) => row.quoteId,
+  );
 }
 
 export async function countOpenedQuotesNoReply(tx: OrgTx, access: MemberAccess, now: Date): Promise<number> {
@@ -172,13 +208,27 @@ async function paymentsDueSoon(tx: OrgTx, ownerUserId: string, today: CalendarDa
     .sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.installmentId.localeCompare(b.installmentId));
 }
 
+/** The place of a payment in its list: its due day, then its id. */
+const dueKey = (row: { dueOn: string; installmentId: string }) => `${row.dueOn}|${row.installmentId}`;
+
 export async function paymentsDue(
   tx: OrgTx,
   access: MemberAccess,
   page: Page,
   today: CalendarDate,
 ): Promise<PaymentDue[]> {
-  return pageOf(await paymentsDueSoon(tx, access.userId, today), (row) => row.installmentId, page);
+  return pageOf(
+    await paymentsDueSoon(tx, access.userId, today),
+    dueKey,
+    page.after,
+    async (installmentId) => {
+      // Paid since the last page: its due day still says where it stood.
+      const row = await tx.quoteInstallment.findUnique({ where: { id: installmentId }, select: { dueOn: true } });
+      return row === null ? null : dueKey({ dueOn: row.dueOn.toISOString().slice(0, 10), installmentId });
+    },
+    page.limit,
+    (row) => row.installmentId,
+  );
 }
 
 export async function countPaymentsDue(tx: OrgTx, access: MemberAccess, today: CalendarDate): Promise<number> {

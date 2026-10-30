@@ -58,6 +58,7 @@ model Booking {
   refunds             BookingRefund[]
   reminders           BookingReminder[]
   feedback            BookingFeedback[]
+  aiBookings          AiBooking[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, number])
@@ -162,6 +163,8 @@ model PaymentClaim {
   decidedAt        DateTime?         @map("decided_at") @db.Timestamptz(6)
   /// The "Check payment" task.
   taskId           String?           @map("task_id") @db.Uuid
+  /// The customer's messages (photos, PDFs) kept as proof, when the AI took the booking.
+  proofMessageIds  String[]          @default([]) @map("proof_message_ids") @db.Uuid
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   booking          Booking           @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)

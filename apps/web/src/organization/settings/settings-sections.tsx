@@ -7,6 +7,7 @@ import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import {
   BanIcon,
   BriefcaseBusinessIcon,
+  BellRingIcon,
   BuildingIcon,
   ChevronRightIcon,
   FileSpreadsheetIcon,
@@ -57,6 +58,7 @@ interface Section {
     | "bookings"
     | "ai"
     | "salesAutomation"
+    | "teamNotifications"
     | "audit";
   href: string;
   icon: LucideIcon;
@@ -105,6 +107,7 @@ const sections: readonly Section[] = [
     requires: "settings:manage",
     module: "bookings",
   },
+  { key: "teamNotifications", href: routes.teamNotifications, icon: BellRingIcon, requires: "settings:manage" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];
 

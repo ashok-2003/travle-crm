@@ -151,6 +151,8 @@ services:
         required: false
     restart: "no"
 
+  # The api writes its wake-up signal for the worker to a folder the host watches (scripts/server/work-hours.sh): at
+  # night, work that comes in starts the stopped worker.
   api:
     <<: *api-image
     profiles: [api-host]
@@ -161,6 +163,9 @@ services:
       PUBLIC_FORM_PROXY_HOPS: ${PUBLIC_FORM_PROXY_HOPS:-}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      WORK_SIGNAL_FILE: /run/work-signal/at
+    volumes:
+      - /srv/travel-crm/work-signal:/run/work-signal
     depends_on: *api-depends-on
     healthcheck:
       test:

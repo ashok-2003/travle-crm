@@ -8,7 +8,7 @@ import { createIsolatedDatabase, createTestOrganization, type IsolatedDatabase }
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createIdentity, type Identity, type ImportedStaffRow, type MemberAccess } from "../../src/identity/index.js";
 import { testAuthSettings } from "../identity/test-identity.js";
-import { fastestMs } from "./query-plans.js";
+import { budgetMs, fastestMs } from "./query-plans.js";
 
 const STAFF = 500;
 
@@ -94,7 +94,7 @@ describe("a large staff", () => {
     const ms = performance.now() - started;
     console.info("Staff import add (500):", Math.round(ms), "ms");
     expect(added).toHaveLength(STAFF);
-    expect(ms).toBeLessThan(10_000);
+    expect(ms).toBeLessThan(budgetMs(10_000));
     expect((await identity.staff.list(owner)).length).toBe(2 * STAFF + 1);
   }, 60_000);
 });

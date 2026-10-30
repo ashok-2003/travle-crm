@@ -5,18 +5,26 @@
 # - outside them the worker stops and the console keeps serving its pages with its jobs off (CONSOLE_JOBS=off);
 # - at each night burst (by default 22:00, 01:00, 04:00 and 07:00, 10 minutes each) the day's state comes back for the
 #   burst's minutes: what came due in the night (invite emails, notifications, imports' steps, each schedule's missed
-#   run, sent once) is done, and the night's state returns.
+#   run, sent once) is done, and the night's state returns;
+# - and work that comes in at night wakes the worker (by default for 5 quiet minutes): a WhatsApp message or another
+#   webhook stored, a signed-in person's change, a form sent. The api writes the time to work_signal_file
+#   (apps/api/src/work-signal.ts), travel-crm-work-wake.path sees it and runs `awake`, and the worker runs until nothing
+#   more came for those minutes. The database is awake then anyway: the api has just used it.
 # The api never stops. As root:
 #   work-hours.sh set <start HH:MM> <end HH:MM>      the working hours; the night bursts stay as they are
 #   work-hours.sh bursts <HH:MM,HH:MM,...> <minutes> the night bursts: when (outside the hours) and how long (1-120)
 #   work-hours.sh bursts off                         no night bursts: the night's work waits for the morning
+#   work-hours.sh wake <minutes>                     how long work that came in at night keeps the worker up (1-60)
+#   work-hours.sh wake off                           work that comes in at night waits for the next burst or the morning
 #   work-hours.sh off                                no working hours: everything runs all day and night
 #   work-hours.sh status                             the plan, what runs now, and the timers' next runs
 #   work-hours.sh apply                              writes the timers for the plan and starts or stops the work for the
 #                                                    time now (deploy.sh, and at boot)
-#   work-hours.sh start | stop | burst               what the timers run: the day's state, the night's, a burst
+#   work-hours.sh start | stop | burst | awake       what the timers run: the day's state, the night's, a burst, and
+#                                                    the wake-up's watch over the api's signal
 # scripts/server/work-hours.test.sh sources it (`pnpm scripts:test`): for it, WORK_HOURS_PLAN names another plan,
-# WORK_HOURS_COMPOSE another compose command and WORK_HOURS_NOW the time (HH:MM, India time).
+# WORK_HOURS_COMPOSE another compose command, WORK_HOURS_NOW the time (HH:MM, India time) and TRAVEL_CRM_WORK_SIGNAL
+# another signal file.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 source scripts/server/paths.sh
@@ -24,11 +32,13 @@ source scripts/server/paths.sh
 zone=Asia/Kolkata
 units=/etc/systemd/system
 compose="${WORK_HOURS_COMPOSE:-scripts/server/compose.sh}"
-# The plan: `hours <start> <end>` and `bursts <times|off> <minutes>`. A file of one line `<start> <end>` (this script's
-# first version) reads as those hours with the default bursts, and is rewritten the first time anything is set.
+# The plan: `hours <start> <end>`, `bursts <times|off> <minutes>` and `wake <minutes|off>`. A file of one line
+# `<start> <end>` (this script's first version) reads as those hours with the default bursts, a plan without a wake line
+# with the default wake, and either is rewritten the first time anything is set.
 plan_file="${WORK_HOURS_PLAN:-/etc/travel-crm/work-hours}"
 default_bursts="22:00,01:00,04:00,07:00"
 default_burst_minutes=10
+default_wake_minutes=5
 
 fail() {
   echo "$*" >&2
@@ -41,12 +51,14 @@ hours_start=""
 hours_end=""
 bursts=""
 burst_minutes=""
+wake_minutes=""
 
 read_plan() {
   hours_start=""
   hours_end=""
   bursts="$default_bursts"
   burst_minutes="$default_burst_minutes"
+  wake_minutes="$default_wake_minutes"
   [ -f "$plan_file" ] || return 0
   local key first second
   while read -r key first second; do
@@ -59,6 +71,7 @@ read_plan() {
         bursts="$first"
         burst_minutes="${second:-$default_burst_minutes}"
         ;;
+      wake) wake_minutes="${first:-$default_wake_minutes}" ;;
       [0-2][0-9]:[0-5][0-9])
         hours_start="$key"
         hours_end="$first"
@@ -69,7 +82,8 @@ read_plan() {
 
 write_plan() {
   install -d -m 0755 "$(dirname "$plan_file")"
-  printf 'hours %s %s\nbursts %s %s\n' "$hours_start" "$hours_end" "$bursts" "$burst_minutes" >"$plan_file"
+  printf 'hours %s %s\nbursts %s %s\nwake %s\n' "$hours_start" "$hours_end" "$bursts" "$burst_minutes" "$wake_minutes" \
+    >"$plan_file"
 }
 
 # Minutes since midnight of an HH:MM time.
@@ -103,6 +117,11 @@ in_burst() {
     if within "$minute" "$(minutes_of "$time")" "$burst_minutes"; then return 0; fi
   done
   return 1
+}
+
+# Whether the api signalled work within the wake's minutes (a file modified less than that many minutes ago).
+signalled() {
+  [ "$wake_minutes" != off ] && [ -n "$(find "$work_signal_file" -mmin "-$wake_minutes" 2>/dev/null)" ]
 }
 
 valid_time() {
@@ -158,6 +177,15 @@ night_state() {
   fi
 }
 
+# The night's state, but the worker runs: work came in (the api's signal), and it runs until it's quiet.
+woken_state() {
+  if runs_worker; then "$compose" up --detach --no-deps worker; fi
+  if runs_console; then
+    set_console_jobs off
+    "$compose" up --detach --no-deps console
+  fi
+}
+
 what_runs_here() {
   case "$(server_role)" in
     api) echo "the worker" ;;
@@ -175,12 +203,14 @@ what_sleeps_here() {
 }
 
 describe_plan() {
+  local wake="work that comes in at night wakes the worker for $wake_minutes quiet minutes"
+  if [ "$wake_minutes" = off ]; then wake="work that comes in at night waits"; fi
   if [ -z "$hours_start" ]; then
     echo "No working hours: the background work runs all day and night"
   elif [ "$bursts" = off ]; then
-    echo "Working hours $hours_start to $hours_end, India time; no night bursts"
+    echo "Working hours $hours_start to $hours_end, India time; no night bursts; $wake"
   else
-    echo "Working hours $hours_start to $hours_end, India time; night bursts at $bursts for $burst_minutes minutes"
+    echo "Working hours $hours_start to $hours_end, India time; night bursts at $bursts for $burst_minutes minutes; $wake"
   fi
 }
 
@@ -197,6 +227,9 @@ apply_state() {
   elif in_burst "$minute"; then
     echo "Inside a night burst (one of $bursts, $burst_minutes minutes): running $(what_runs_here)"
     day_state
+  elif signalled; then
+    echo "Night, with work signalled in the last $wake_minutes minutes: running the worker until it's quiet"
+    woken_state
   else
     echo "Night ($hours_end to $hours_start, India time): $(what_sleeps_here)"
     night_state
@@ -252,7 +285,12 @@ write_units() {
     put_unit travel-crm-work-burst.timer "$(timer_unit \
       "night bursts: the background work for $burst_minutes minutes at $bursts India time" "${burst_times[@]}")"
   fi
+  write_wake_units
   if [ -n "$unit_changed" ]; then systemctl daemon-reload; fi
+  if [ -f "$units/travel-crm-work-wake.path" ]; then
+    systemctl enable --quiet travel-crm-work-wake.path
+    systemctl restart travel-crm-work-wake.path
+  fi
   systemctl enable --quiet travel-crm-work-start.timer travel-crm-work-stop.timer travel-crm-work-hours.service
   # Restarted, not started: a rewritten timer must read its new times.
   systemctl restart travel-crm-work-start.timer travel-crm-work-stop.timer
@@ -262,18 +300,37 @@ write_units() {
   fi
 }
 
+# The wake-up's watch over the api's signal, where the worker runs and the wake is on; removed otherwise.
+write_wake_units() {
+  if runs_worker && [ "$wake_minutes" != off ]; then
+    put_unit travel-crm-work-wake.service "$(cat scripts/server/systemd/travel-crm-work-wake.service)"
+    put_unit travel-crm-work-wake.path "$(cat scripts/server/systemd/travel-crm-work-wake.path)"
+  elif [ -f "$units/travel-crm-work-wake.path" ]; then
+    systemctl disable --quiet --now travel-crm-work-wake.path 2>/dev/null || true
+    rm -f "$units"/travel-crm-work-wake.{path,service}
+    unit_changed="yes"
+  fi
+}
+
 remove_units() {
   systemctl disable --quiet --now travel-crm-work-start.timer travel-crm-work-stop.timer \
-    travel-crm-work-burst.timer 2>/dev/null || true
+    travel-crm-work-burst.timer travel-crm-work-wake.path 2>/dev/null || true
   systemctl disable --quiet travel-crm-work-hours.service 2>/dev/null || true
-  rm -f "$units"/travel-crm-work-{start,stop,burst}.{timer,service} "$units/travel-crm-work-hours.service"
+  rm -f "$units"/travel-crm-work-{start,stop,burst}.{timer,service} "$units/travel-crm-work-hours.service" \
+    "$units"/travel-crm-work-wake.{path,service}
   systemctl daemon-reload
 }
 
 # --- Commands -------------------------------------------------------------------------------------------------------
 
+# The signal's folder, the api's user's to write (deploy.sh also makes it before the api starts, so Docker doesn't).
+make_signal_folder() {
+  install -d -o "$api_user_id" -g "$api_user_id" -m 0755 "$(dirname "$work_signal_file")"
+}
+
 apply() {
   read_plan
+  if runs_worker; then make_signal_folder; fi
   if [ -n "$hours_start" ]; then write_units; fi
   apply_state
 }
@@ -315,6 +372,22 @@ set_bursts() {
   apply
 }
 
+set_wake() {
+  local minutes="${1:-}"
+  read_plan
+  [ -n "$hours_start" ] || fail "Set the working hours first: work-hours.sh set <start HH:MM> <end HH:MM>"
+  if [ "$minutes" = off ]; then
+    wake_minutes=off
+  elif [[ "$minutes" =~ ^[0-9]+$ ]] && [ "$minutes" -ge 1 ] && [ "$minutes" -le 60 ]; then
+    wake_minutes="$minutes"
+  else
+    fail "Usage: work-hours.sh wake <minutes, 1 to 60> | wake off"
+  fi
+  write_plan
+  describe_plan
+  apply
+}
+
 off() {
   remove_units
   rm -f "$plan_file"
@@ -332,6 +405,26 @@ burst() {
   apply_state
 }
 
+# The hours' end (travel-crm-work-stop.timer): the night's state, but the worker keeps going if work just came in.
+stop() {
+  read_plan
+  if signalled; then woken_state; else night_state; fi
+}
+
+# What travel-crm-work-wake.service runs when the api signals work: the state the time calls for (at night, the worker
+# runs while work keeps coming), and once nothing more came for the wake's minutes, that state again. The path doesn't
+# watch while this runs, so work that came in while the worker was stopping starts it again here.
+awake() {
+  read_plan
+  [ -n "$hours_start" ] || return 0
+  while :; do
+    apply_state
+    while signalled; do sleep 20; done
+    apply_state
+    signalled || return 0
+  done
+}
+
 status() {
   local state=()
   read_plan
@@ -345,6 +438,12 @@ status() {
   fi
   if runs_console; then state+=("console running, its jobs $(cat "$console_jobs_file" 2>/dev/null || echo on)"); fi
   echo "This server ($(server_role)) now: ${state[0]}${state[1]:+; ${state[1]}}"
+  if [ -f "$work_signal_file" ]; then
+    echo "The api last signalled work at $(TZ="$zone" date -r "$work_signal_file" '+%Y-%m-%d %H:%M:%S') India time"
+  fi
+  if runs_worker && [ "$wake_minutes" != off ]; then
+    echo "The wake-up's watch: $(systemctl is-active travel-crm-work-wake.path 2>/dev/null || true)"
+  fi
   systemctl list-timers --all --no-pager 'travel-crm-work-*' 2>/dev/null || true
 }
 
@@ -355,13 +454,18 @@ main() {
   case "$command" in
     set) set_hours "$@" ;;
     bursts) set_bursts "$@" ;;
+    wake) set_wake "$@" ;;
     off) off ;;
     apply) apply ;;
     status) status ;;
     start) day_state ;;
-    stop) night_state ;;
+    stop) stop ;;
     burst) burst ;;
-    *) fail "Usage: work-hours.sh <set <start> <end> | bursts <HH:MM,...> <minutes> | bursts off | off | status | apply>" ;;
+    awake) awake ;;
+    *)
+      fail "Usage: work-hours.sh <set <start> <end> | bursts <HH:MM,...> <minutes> | bursts off | wake <minutes> |" \
+        "wake off | off | status | apply>"
+      ;;
   esac
 }
 

@@ -42,11 +42,11 @@ function sizerRefusal(sheetData: string): UnreadableReason | null {
   return sizer.size.refusal;
 }
 
-/** Refused for `reason` within two seconds. */
+/** Refused for `reason` within two seconds on a laptop; GitHub's shared runners get three times that. */
 async function expectRefused(bytes: Uint8Array, reason: UnreadableReason) {
   const started = performance.now();
   expect(await reasonOf(bytes)).toBe(reason);
-  expect(performance.now() - started).toBeLessThan(2000);
+  expect(performance.now() - started).toBeLessThan(process.env.CI === undefined ? 2000 : 6000);
 }
 
 describe("sizing a workbook as an XML parser reads it", () => {

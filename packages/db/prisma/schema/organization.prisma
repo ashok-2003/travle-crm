@@ -111,6 +111,9 @@ model Organization {
   aiAutopilot                 AiAutopilot?
   aiChats                     AiChat[]
   aiLearnings                 AiLearning[]
+  aiMedia                     AiMedia[]
+  aiBookings                  AiBooking[]
+  notificationRouting         NotificationRouting?
   aiUsage                     AiUsage[]
   aiKnowledge                 AiKnowledge[]
   leadAiInsights              LeadAiInsight[]

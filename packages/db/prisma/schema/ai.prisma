@@ -141,6 +141,14 @@ model AiAutopilot {
   voiceExamples    String[]     @default([]) @map("voice_examples")
   /// sales (a sales agent) or natural (an everyday conversation as the copied person) (CHECK ai_autopilot_persona_value).
   persona          String       @default("sales")
+  /// It writes a short note on the lead when a chat tells it something worth keeping.
+  leadNotes        Boolean      @default(true) @map("lead_notes")
+  /// It sends the agency's media (photos, videos, PDFs) when they help.
+  sendMedia        Boolean      @default(true) @map("send_media")
+  /// How customers pay (UPI ID, bank account, a payment link), sent exactly as written when someone wants to book.
+  paymentDetails   String       @default("") @map("payment_details")
+  /// Rules it always follows, whatever else it is told.
+  strictRules      String       @default("") @map("strict_rules")
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -214,4 +222,63 @@ model AiLearning {
   @@unique([organizationId, id])
   @@index([organizationId, state], map: "ai_learning_state")
   @@map("ai_learning")
+}
+
+/// A photo, video or PDF the autopilot may send in a chat (a brochure, a hotel's photos), with when it should. Its file is
+/// an attachment of record type ai_media under the row's id. Soft-deleted.
+model AiMedia {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  title          String
+  /// When the AI sends it, in the agency's words: "when they ask about Kashmir hotels".
+  whenToSend     String       @default("") @map("when_to_send")
+  attachmentId   String       @map("attachment_id") @db.Uuid
+  fileName       String       @map("file_name")
+  contentType    String       @map("content_type")
+  /// Whether its upload finished: only a ready one is offered to the AI.
+  ready          Boolean      @default(false)
+  enabled        Boolean      @default(true)
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy      String?      @map("deleted_by") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@map("ai_media")
+}
+
+/// A booking the autopilot took in a chat (the owner, 2026-10-29): the customer said yes, so the lead moved to Booking
+/// requested, the payment details went out and the team was told; a photo or PDF the customer sends next is kept as their
+/// payment proof (the chat's own message, whose file is already ours) for a person to check and confirm.
+model AiBooking {
+  organizationId  String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String       @id @default(uuid(7)) @db.Uuid
+  leadId          String       @map("lead_id") @db.Uuid
+  conversationId  String       @map("conversation_id") @db.Uuid
+  /// What was booked, in a line: "Manali 5N for 4, 12 Dec, from Delhi".
+  summary         String
+  /// What the AI took down: package, dates, travellers' names, pickup city, amount (an object of strings).
+  details         Json         @default("{}")
+  /// awaiting_payment, proof_received, confirmed or cancelled (CHECK ai_booking_status_value).
+  status          String       @default("awaiting_payment")
+  /// The customer's messages (photos, PDFs) sent as proof of payment.
+  proofMessageIds String[]     @default([]) @map("proof_message_ids") @db.Uuid
+  decidedBy       String?      @map("decided_by") @db.Uuid
+  decidedAt       DateTime?    @map("decided_at") @db.Timestamptz(6)
+  /// The release 6 booking its confirmation made (with its quote and the customer's payment claim); null until confirmed.
+  bookingId       String?      @map("booking_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lead            Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  booking         Booking?     @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  /// A lead has one open booking taken by the AI at a time.
+  @@unique([organizationId, leadId], map: "ai_booking_one_open", where: raw("(status = ANY (ARRAY['awaiting_payment'::text, 'proof_received'::text]))"))
+  @@index([organizationId, leadId], map: "ai_booking_by_lead")
+  @@index([organizationId, conversationId], map: "ai_booking_by_chat")
+  @@map("ai_booking")
 }

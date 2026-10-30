@@ -48,7 +48,9 @@
     "salesAutomation": "Sales automation",
     "salesAutomationHint": "Reply to new leads in a minute, follow-ups, payment reminders, hot leads",
     "bookings": "Bookings",
-    "bookingsHint": "Payments asked for, reminders, cancellation steps and the trip page"
+    "bookingsHint": "Payments asked for, reminders, cancellation steps and the trip page",
+    "teamNotifications": "Team notifications",
+    "teamNotificationsHint": "Who gets emails, and copies of bookings, payments and hot leads"
   },
   "destinations": {
     "title": "Destinations",
