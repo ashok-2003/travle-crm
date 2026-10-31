@@ -149,8 +149,17 @@ describe("websiteForm router", () => {
       fields: { email: "optional", budget: "off" },
     });
     expect(preview.months).toHaveLength(12);
-    expect(preview.months[0]).toBe("2026-10");
-    expect(preview.months[11]).toBe("2027-09");
+    // The next twelve months from this one, counted in the agency's zone, so the test does not age with the calendar.
+    const thisMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" })
+      .format(new Date())
+      .slice(0, 7);
+    const [year = 0, month = 0] = thisMonth.split("-").map(Number);
+    const monthAt = (offset: number) => {
+      const index = year * 12 + (month - 1) + offset;
+      return `${String(Math.floor(index / 12))}-${String((index % 12) + 1).padStart(2, "0")}`;
+    };
+    expect(preview.months[0]).toBe(monthAt(0));
+    expect(preview.months[11]).toBe(monthAt(11));
     const direct = await publicFormOf(
       {
         db: harness.db,
