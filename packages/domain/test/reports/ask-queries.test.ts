@@ -37,7 +37,6 @@ describe("the ask-reports catalogue", () => {
         ownerUserId: owner.userId,
         stage: "lost",
         source: "website",
-        lostReason: "price",
         createdAt: now,
       });
     });

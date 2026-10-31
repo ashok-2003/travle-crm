@@ -92,7 +92,9 @@ function writtenUp(user: string): string {
 
 /** Ask reports: Instagram leads last month are answered by the sources report; anything else is declined with the nearest reports. */
 function chosenReport(user: string): object {
-  if (user.includes("Instagram")) return { queryId: "leads_by_source", params: { range: "last_month" } };
+  // Only the question is read: the catalogue the model is shown names Instagram too.
+  if (user.split("The question:")[1]?.includes("Instagram"))
+    return { queryId: "leads_by_source", params: { range: "last_month" } };
   return { cannot: "not about the reports", closest: ["lost_leads", "quotes"] };
 }
 
