@@ -9,6 +9,7 @@ export default defineConfig({
   test: {
     name: "domain-performance",
     include: ["test/performance/**/*.test.ts"],
+    setupFiles: [require.resolve("@travel-crm/db/testing/transaction-limits")],
     globalSetup: [require.resolve("@travel-crm/db/testing/global-setup")],
     testTimeout: 600_000,
     hookTimeout: 600_000,

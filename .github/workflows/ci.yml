@@ -18,7 +18,7 @@ permissions:
 # A newer push to a pull request replaces its run in progress. A push to main never cancels one: each merge's gates
 # run to the end.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
