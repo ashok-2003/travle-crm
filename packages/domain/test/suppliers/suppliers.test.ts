@@ -171,4 +171,18 @@ describe("suppliers and what the agency owes", () => {
     );
     expect(again).toBe(1);
   });
+
+  it("keeps live names unique whatever the case, in the database too, and frees the name when the supplier is deleted", async () => {
+    const first = await world.inOrg((tx) => createSupplier(tx, world.manager, { ...hotel, name: "Case Lodge" }));
+    await expect(
+      world.inOrg((tx) => createSupplier(tx, world.manager, { ...hotel, name: "CASE LODGE" })),
+    ).rejects.toMatchObject({
+      reason: "SUPPLIER_NAME_TAKEN",
+    });
+    await expect(
+      world.inOrg((tx) => tx.supplier.create({ data: { kind: "hotel", name: "case lodge" } })),
+    ).rejects.toThrow(/supplier_live_name/);
+    await world.inOrg((tx) => deleteSupplier(tx, world.manager, first.id));
+    await world.inOrg((tx) => createSupplier(tx, world.manager, { ...hotel, name: "case lodge" }));
+  });
 });

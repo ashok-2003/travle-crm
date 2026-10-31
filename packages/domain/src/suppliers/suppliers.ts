@@ -32,6 +32,14 @@ async function assertNameFree(tx: OrgTx, name: string, exceptId: string | null):
   }
 }
 
+/** Two people adding the same name at once meet the live-name index: the same refusal as the check before it gives. */
+function nameTakenOnUniqueViolation(error: unknown): never {
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+    throw new DomainError("CONFLICT", "SUPPLIER_NAME_TAKEN", "Another supplier already has this name");
+  }
+  throw error;
+}
+
 export async function listSuppliers(tx: OrgTx, input: ListSuppliersInput): Promise<SupplierPage> {
   const search = input.search?.trim();
   const rows = await tx.supplier.findMany({
@@ -154,7 +162,9 @@ export async function createSupplier(
   input: CreateSupplierInput,
 ): Promise<{ id: string }> {
   await assertNameFree(tx, input.name, null);
-  const created = await tx.supplier.create({ data: { ...input, createdBy: access.userId }, select: { id: true } });
+  const created = await tx.supplier
+    .create({ data: { ...input, createdBy: access.userId }, select: { id: true } })
+    .catch(nameTakenOnUniqueViolation);
   await recordAudit(tx, access, {
     action: "supplier.created",
     entityType: "supplier",
@@ -172,7 +182,7 @@ export async function updateSupplier(tx: OrgTx, access: MemberAccess, input: Upd
   });
   if (before === null) throw notFound();
   await assertNameFree(tx, fields.name, before.id);
-  await tx.supplier.update({ where: { id: before.id }, data: fields });
+  await tx.supplier.update({ where: { id: before.id }, data: fields }).catch(nameTakenOnUniqueViolation);
   await recordAudit(tx, access, {
     action: "supplier.changed",
     entityType: "supplier",

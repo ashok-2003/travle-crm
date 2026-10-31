@@ -306,4 +306,28 @@ describe("a departure's rooming list", () => {
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(2);
     expect(await world.inOrg((tx) => tx.departureRoomAssignment.count({ where: { roomId } }))).toBe(2);
   });
+
+  it("numbers the rooms it makes on from the stay's labels, each once", async () => {
+    const { departure, stayId } = await departureWithStay();
+    await world.inOrg((tx) => draftStayRooms(tx, world.manager, stayId));
+    const labels =
+      (await world.inOrg((tx) => getRooming(tx, departure.id))).stays[0]?.rooms.map((room) => room.label) ?? [];
+    expect(labels.length).toBeGreaterThan(1);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("refuses to put a traveller of another departure in a room", async () => {
+    const { departure, stayId } = await departureWithStay();
+    const other = await world.inOrg((tx) => aDeparture(tx, { title: "Elsewhere" }));
+    const { bookingId } = await aBookingOn(world, other.id, { adults: 1, confirmed: true });
+    const stranger = await world.inOrg((tx) => tx.bookingTraveller.findFirstOrThrow({ where: { bookingId } }));
+    await world.inOrg((tx) => addRoom(tx, world.manager, { stayId, label: "101", capacity: 2, groundFloor: false }));
+    const roomId = (await world.inOrg((tx) => getRooming(tx, departure.id))).stays[0]?.rooms[0]?.id ?? "";
+    await expect(
+      world.inOrg((tx) => moveTraveller(tx, world.manager, { stayId, travellerId: stranger.id, roomId })),
+    ).rejects.toMatchObject({ reason: "NOT_FOUND" });
+    expect(await world.inOrg((tx) => tx.departureRoomAssignment.count({ where: { travellerId: stranger.id } }))).toBe(
+      0,
+    );
+  });
 });

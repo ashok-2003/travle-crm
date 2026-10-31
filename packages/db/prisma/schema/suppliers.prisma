@@ -27,8 +27,8 @@ model Supplier {
   stays          DepartureStay[]
 
   @@unique([organizationId, id])
-  /// A live supplier's name is its own.
-  @@unique([organizationId, name], map: "supplier_live_name", where: { deletedAt: null })
+  // supplier_live_name, a unique index on (organization_id, lower(name)) among live rows, is in the migration alone: Prisma has no
+  // way to write an expression index.
   @@index([organizationId, kind], map: "supplier_by_kind")
   @@map("supplier")
 }

@@ -216,7 +216,8 @@ CREATE INDEX "supplier_by_kind" ON "supplier"("organization_id", "kind");
 CREATE UNIQUE INDEX "supplier_organization_id_id_key" ON "supplier"("organization_id", "id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "supplier_live_name" ON "supplier"("organization_id", "name") WHERE ("deleted_at" IS NULL);
+-- A live supplier's name is its own whatever the case: the same match the link-costs-by-name feature makes.
+CREATE UNIQUE INDEX "supplier_live_name" ON "supplier"("organization_id", lower("name")) WHERE ("deleted_at" IS NULL);
 
 -- CreateIndex
 CREATE INDEX "supplier_contact_supplier" ON "supplier_contact"("organization_id", "supplier_id");

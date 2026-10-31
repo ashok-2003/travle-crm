@@ -188,13 +188,23 @@ export async function draftStayRooms(tx: OrgTx, access: MemberAccess, stayId: st
     rooms.map((room) => ({ ...room, occupied: locked.filter((assignment) => assignment.roomId === room.id).length })),
     settings.defaultRoomCapacity,
   );
+  // New rooms are numbered on from the stay's own labels, never repeating one already there.
+  const taken = new Set(
+    (await tx.departureRoom.findMany({ where: { stayId }, select: { label: true } })).map((room) => room.label),
+  );
+  let next = 0;
+  const nextLabel = () => {
+    do next += 1;
+    while (taken.has(String(next)));
+    return String(next);
+  };
   const made = new Map<string, string>();
-  for (const [index, room] of result.newRooms.entries()) {
+  for (const room of result.newRooms) {
     const created = await tx.departureRoom.create({
       data: {
         stayId,
         position: room.position,
-        label: String(index + 1),
+        label: nextLabel(),
         capacity: room.capacity,
         groundFloor: room.groundFloor,
       },
