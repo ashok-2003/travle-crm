@@ -9,6 +9,12 @@ import path from "node:path";
 import { chromium } from "@playwright/test";
 import { CATEGORIES, median, missedBudgets, summarise, type LighthouseRun } from "./lighthouse-budgets.js";
 
+/** On GitHub Actions a line like this shows as an annotation on the run, readable without the job's log. */
+const onGitHub = process.env.GITHUB_ACTIONS !== undefined;
+const annotate = (level: "notice" | "error", title: string, message: string): void => {
+  if (onGitHub) console.log(`::${level} title=${title}::${message.replaceAll("\n", "%0A")}`);
+};
+
 /** The pages anyone can open: the rest need a session, which Lighthouse doesn't have. */
 const PAGES = ["/sign-in", "/offline"] as const;
 const RUNS = 3;
@@ -100,11 +106,14 @@ try {
     for (let attempt = 0; attempt < RUNS; attempt += 1) runs.push(await lighthouseRun(`${origin}${page}`, chromePath));
     const scores = CATEGORIES.map((category) => `${category} ${String(median(runs.map((run) => run[category])))}`);
     const layoutShift = median(runs.map((run) => run.layoutShift));
-    console.log(`${page}: ${scores.join(", ")}, layout shift ${String(layoutShift)} (medians of ${String(RUNS)} runs)`);
+    const line = `${scores.join(", ")}, layout shift ${String(layoutShift)} (medians of ${String(RUNS)} runs)`;
+    console.log(`${page}: ${line}`);
+    annotate("notice", `Lighthouse ${page}`, line);
     missed.push(...missedBudgets(page, runs));
   }
   if (missed.length > 0) {
     console.error(missed.join("\n"));
+    for (const miss of missed) annotate("error", "Lighthouse budget missed", miss);
     process.exitCode = 1;
   } else {
     console.log("Every page is within its budgets.");
