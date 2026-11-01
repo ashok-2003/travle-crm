@@ -1,5 +1,6 @@
 // leads.*: the lead list, a lead's page and every change made from it (spec 3.2-3.4, 6). Reading needs leads:view,
-// adding leads:create, changing leads:edit, and reassigning or blocking leads:assign (R17-R20). A lead out of the
+// adding leads:create, changing leads:edit, reassigning or blocking leads:assign (R17-R20), and removing leads:delete
+// (every lead at once: an Owner alone, read fresh from the database). A lead out of the
 // member's scope is "not found" (R26). Pages name people by id; the router adds their names (R13).
 import {
   addLeadWorkInput,
@@ -7,6 +8,7 @@ import {
   bulkAddWorkInput,
   bulkMoveStageInput,
   bulkReassignInput,
+  bulkRemoveInput,
   bulkResult,
   createdLead,
   createLeadInput,
@@ -23,6 +25,7 @@ import {
   listLeadsInput,
   moveStageInput,
   reassignLeadInput,
+  removedLeads,
   timelineInput,
   timelinePage,
 } from "@travel-crm/contracts/crm";
@@ -43,6 +46,8 @@ import {
   listLeadTimeline,
   moveLeadStage,
   reassignLead,
+  removeAllLeads,
+  removeLead,
   reopenLead,
 } from "@travel-crm/domain/crm";
 import { listQuickReplies } from "@travel-crm/domain/inbox";
@@ -50,12 +55,13 @@ import { previewMessage, readyMessage } from "@travel-crm/domain/sales";
 import { z } from "zod";
 import { leadWorkerIds, leadWorkerIdsIfOther } from "../lead-workers.js";
 import { memberNames } from "../member-names.js";
-import { orgProcedure } from "../procedures.js";
+import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
 const viewer = orgProcedure.requires("leads:view");
 const editor = orgProcedure.requires("leads:edit");
 const assigner = orgProcedure.requires("leads:assign");
+const remover = orgProcedure.requires("leads:delete");
 
 export const leadsRouter = router({
   /** A page of leads, newest first: Mine · open unless asked otherwise; a salesperson only ever sees their own. */
@@ -236,6 +242,28 @@ export const leadsRouter = router({
         addLeadWork(tx, ctx.member, { leadId, ...work }, now),
       );
     }),
+
+  /** Removes the lead and cancels its open follow-ups; one with a quote or a booking is refused. */
+  remove: remover
+    .input(leadIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => removeLead(tx, ctx.member, input.leadId, new Date())),
+    ),
+
+  /** Removes the chosen leads, each as a removal of one would; those with a quote or a booking are skipped. */
+  bulkRemove: remover
+    .input(bulkRemoveInput)
+    .output(bulkResult)
+    .mutation(({ ctx, input }) => {
+      const now = new Date();
+      return changeEachLead(ctx.db, ctx.member, input.leadIds, (tx, leadId) => removeLead(tx, ctx.member, leadId, now));
+    }),
+
+  /** Removes every lead of the agency but those with a quote or a booking: an Owner alone, from Settings. */
+  removeAll: freshProcedure
+    .requires("leads:delete")
+    .output(removedLeads)
+    .mutation(({ ctx }) => removeAllLeads(ctx.db, ctx.member)),
 
   /** Blocks the lead's phone (else email, else handle) and marks it Not a lead. */
   block: assigner
