@@ -1,0 +1,171 @@
+// Departures (release 7a): a group batch with a number of seats (a Kedarnath yatra on 3 Nov with 20 seats), the seats held
+// for a lead for a while, the waitlist when it is full, and the rooming list for its hotels. Seats sold are never stored: they
+// are the heads of the live bookings on the departure. Organization-owned, under row-level security.
+
+/// A group departure. Soft-deleted (ADR 0004); cancelling keeps it, with a reason.
+model Departure {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId  String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String              @id @default(uuid(7)) @db.Uuid
+  title           String
+  destinationId   String?             @map("destination_id") @db.Uuid
+  startDate       DateTime            @map("start_date") @db.Date
+  endDate         DateTime            @map("end_date") @db.Date
+  seatsTotal      Int                 @map("seats_total")
+  /// Per person, in paise, or null when each quote sets its own.
+  pricePaise      BigInt?             @map("price_paise")
+  /// The last day a seat is sold, or null.
+  cutoffOn        DateTime?           @map("cutoff_on") @db.Date
+  /// open, closed or cancelled (CHECK departure_status_value). Full and Filling fast are worked out from the seats.
+  status          String              @default("open")
+  notes           String              @default("")
+  cancelledReason String?             @map("cancelled_reason")
+  createdBy       String?             @map("created_by") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  deletedBy       String?             @map("deleted_by") @db.Uuid
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  destination     Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  holds           DepartureHold[]
+  waitlist        DepartureWaitlist[]
+  stays           DepartureStay[]
+  quotes          Quote[]
+  bookings        Booking[]
+  costs           TripCost[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, startDate], map: "departure_by_start")
+  @@map("departure")
+}
+
+/// Seats kept for a lead until a time: they count as held until the hold expires, is released or becomes a booking.
+model DepartureHold {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  departureId    String       @map("departure_id") @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  seats          Int
+  expiresAt      DateTime     @map("expires_at") @db.Timestamptz(6)
+  /// active, released, expired or converted (CHECK departure_hold_status_value).
+  status         String       @default("active")
+  /// The booking an accepted quote made of the hold, when it was converted.
+  bookingId      String?      @map("booking_id") @db.Uuid
+  note           String       @default("")
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// When it stopped being active, whichever way.
+  endedAt        DateTime?    @map("ended_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  departure      Departure    @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  booking        Booking?     @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  /// A lead holds seats on a departure once at a time.
+  @@unique([organizationId, departureId, leadId], map: "departure_hold_one_active", where: { status: "active" })
+  @@index([organizationId, departureId, status], map: "departure_hold_by_departure")
+  @@index([organizationId, status, expiresAt], map: "departure_hold_due")
+  @@index([organizationId, leadId], map: "departure_hold_lead")
+  @@index([organizationId, bookingId], map: "departure_hold_booking")
+  @@map("departure_hold")
+}
+
+/// A lead waiting for seats on a full departure.
+model DepartureWaitlist {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  departureId    String       @map("departure_id") @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  seats          Int
+  createdBy      String?      @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  departure      Departure    @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, departureId, leadId], map: "departure_waitlist_once")
+  @@index([organizationId, leadId], map: "departure_waitlist_lead")
+  @@map("departure_waitlist")
+}
+
+/// A hotel the departure stays at, with its dates and the rooming list last issued for it.
+model DepartureStay {
+  organizationId     String                    @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                 String                    @id @default(uuid(7)) @db.Uuid
+  departureId        String                    @map("departure_id") @db.Uuid
+  position           Int                       @default(0)
+  hotelName          String                    @map("hotel_name")
+  supplierId         String?                   @map("supplier_id") @db.Uuid
+  checkIn            DateTime                  @map("check_in") @db.Date
+  checkOut           DateTime                  @map("check_out") @db.Date
+  /// The rooming list PDF last issued for this stay, and what it was made from, so a later change shows it as out of date.
+  roomingDocumentId  String?                   @map("rooming_document_id") @db.Uuid
+  roomingFingerprint String?                   @map("rooming_fingerprint")
+  organization       Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  departure          Departure                 @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  supplier           Supplier?                 @relation(fields: [organizationId, supplierId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  roomingDocument    IssuedDocument?           @relation("StayRooming", fields: [organizationId, roomingDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  rooms              DepartureRoom[]
+  assignments        DepartureRoomAssignment[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, departureId], map: "departure_stay_departure")
+  @@map("departure_stay")
+}
+
+/// A room at a stay.
+model DepartureRoom {
+  organizationId String                    @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String                    @id @default(uuid(7)) @db.Uuid
+  stayId         String                    @map("stay_id") @db.Uuid
+  position       Int                       @default(0)
+  label          String
+  /// 1 to 4 (CHECK departure_room_capacity_value).
+  capacity       Int
+  groundFloor    Boolean                   @default(false) @map("ground_floor")
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  stay           DepartureStay             @relation(fields: [organizationId, stayId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  assignments    DepartureRoomAssignment[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, stayId], map: "departure_room_stay")
+  @@map("departure_room")
+}
+
+/// A traveller in a room of a stay. Locked when staff placed them, so drafting the rooms again leaves them where they are.
+model DepartureRoomAssignment {
+  organizationId String           @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String           @id @default(uuid(7)) @db.Uuid
+  stayId         String           @map("stay_id") @db.Uuid
+  roomId         String           @map("room_id") @db.Uuid
+  travellerId    String           @map("traveller_id") @db.Uuid
+  locked         Boolean          @default(false)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  stay           DepartureStay    @relation(fields: [organizationId, stayId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  room           DepartureRoom    @relation(fields: [organizationId, roomId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  traveller      BookingTraveller @relation(fields: [organizationId, travellerId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, stayId, travellerId], map: "departure_room_assignment_once")
+  @@index([organizationId, roomId], map: "departure_room_assignment_room")
+  @@map("departure_room_assignment")
+}
+
+/// How the agency's departures behave. One row an organization, made when first saved; the defaults hold until then.
+model DepartureSettings {
+  organizationId      String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// How long a hold lasts unless staff set it shorter.
+  holdHours           Int          @default(48) @map("hold_hours")
+  /// "Filling fast" shows when the free seats are this percent of the total or fewer.
+  fillingFastPercent  Int          @default(20) @map("filling_fast_percent")
+  /// Heads to a room when drafting the rooming list.
+  defaultRoomCapacity Int          @default(2) @map("default_room_capacity")
+  updatedBy           String?      @map("updated_by") @db.Uuid
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([organizationId])
+  @@map("departure_settings")
+}

@@ -130,6 +130,23 @@ describe("websiteForm router", () => {
     expect(await refusal(caller.websiteForm.changeLink())).toBe("FORM_NOT_FOUND");
   });
 
+  it("preview offers twelve months from the agency's current month, across a year's end", async () => {
+    const organizationId = await anAgency(harness);
+    const { caller } = callerOf(harness, { organizationId });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-12-15T06:00:00Z"));
+      const december = (await caller.websiteForm.preview(settings)).months;
+      expect([december[0], december[1], december[11]]).toEqual(["2026-12", "2027-01", "2027-11"]);
+      // 19:00 UTC on 31 December is already January in India.
+      vi.setSystemTime(new Date("2026-12-31T19:00:00Z"));
+      const january = (await caller.websiteForm.preview(settings)).months;
+      expect([january[0], january[11]]).toEqual(["2027-01", "2027-12"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("preview returns what the public form would, with the sample token", async () => {
     const organizationId = await anAgency(harness);
     const { caller } = callerOf(harness, { organizationId });
@@ -149,8 +166,6 @@ describe("websiteForm router", () => {
       fields: { email: "optional", budget: "off" },
     });
     expect(preview.months).toHaveLength(12);
-    expect(preview.months[0]).toBe("2026-10");
-    expect(preview.months[11]).toBe("2027-09");
     const direct = await publicFormOf(
       {
         db: harness.db,

@@ -19,6 +19,8 @@ import { MoneyField } from "@/components/forms/money-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { useHolds } from "@/session/me-context";
+import { SupplierField, type PickedSupplier } from "@/suppliers/supplier-field";
 import { useFinanceChanges, useToday } from "./use-finance";
 
 type Problem = "required" | "invalid";
@@ -35,34 +37,64 @@ interface Sending {
   error: unknown;
 }
 
+/** What a cost is recorded against: a booking's quote, or a whole departure (the hotel block, the bus). */
+export type CostOwner = { quoteId: string } | { departureId: string };
+
+interface CostValues {
+  category: string;
+  supplier: string;
+  linked: PickedSupplier | null;
+  amount: string;
+  dueOn: string;
+  paidOn: string;
+  note: string;
+}
+
+const kindOf = (category: string) =>
+  category === "hotel" || category === "transport" || category === "guide" ? category : "other";
+
 function CostForm({
   formId,
-  quoteId,
+  owner,
   onSave,
   sending,
 }: {
   formId: string;
-  quoteId: string;
+  owner: CostOwner;
   onSave: (input: AddTripCostInput) => void;
   sending: Sending;
 }) {
   const t = useTranslations("finance.costForm");
-  const values = { category: "hotel", supplier: "", amount: "", dueOn: "", paidOn: "", note: "" };
-  const { form, onSubmit, formProblem } = useCheckedForm<typeof values, AddTripCostInput, Problem>(
+  const keepsSuppliers = useHolds("suppliers:view");
+  const values: CostValues = {
+    category: "hotel",
+    supplier: "",
+    linked: null,
+    amount: "",
+    dueOn: "",
+    paidOn: "",
+    note: "",
+  };
+  const { form, onSubmit, formProblem } = useCheckedForm<CostValues, AddTripCostInput, Problem>(
     values,
     (typed) =>
       checked(
         addTripCostInput.safeParse({
-          quoteId,
+          quoteId: "quoteId" in owner ? owner.quoteId : null,
+          departureId: "departureId" in owner ? owner.departureId : null,
+          supplierId: typed.linked?.id ?? null,
           category: typed.category,
-          supplier: typed.supplier,
+          supplier: typed.linked?.name ?? typed.supplier,
           amountPaise: amountOf(typed.amount),
           dueOn: typed.dueOn === "" ? null : typed.dueOn,
           paidOn: typed.paidOn === "" ? null : typed.paidOn,
           note: typed.note,
         }),
         typed,
-        fieldOf(["category", "supplier", "amount", "dueOn", "paidOn", "note"] as const, { amountPaise: "amount" }),
+        fieldOf(["category", "supplier", "amount", "dueOn", "paidOn", "note"] as const, {
+          amountPaise: "amount",
+          supplierId: "linked",
+        }),
         () => "invalid",
       ),
     (problem) => t(`problems.${problem}`),
@@ -76,13 +108,16 @@ function CostForm({
         disabled={sending.isPending}
         options={tripCostCategories.map((category) => ({ value: category, label: t(`categories.${category}`) }))}
       />
-      <TextField
-        control={form.control}
-        name="supplier"
-        label={t("supplier")}
-        hint={t("supplierHint")}
-        disabled={sending.isPending}
-      />
+      {keepsSuppliers && <SupplierField control={form.control} name="linked" kind={kindOf(form.watch("category"))} />}
+      {(!keepsSuppliers || form.watch("linked") === null) && (
+        <TextField
+          control={form.control}
+          name="supplier"
+          label={keepsSuppliers ? t("supplierName") : t("supplier")}
+          hint={t("supplierHint")}
+          disabled={sending.isPending}
+        />
+      )}
       <MoneyField control={form.control} name="amount" label={t("amount")} />
       <DateField control={form.control} name="dueOn" label={t("dueOn")} hint={t("dueOnHint")} />
       <DateField control={form.control} name="paidOn" label={t("paidOn")} hint={t("paidOnHint")} />
@@ -92,7 +127,7 @@ function CostForm({
   );
 }
 
-export function AddCostDialog({ quoteId }: { quoteId: string }) {
+export function AddCostDialog({ owner }: { owner: CostOwner }) {
   const t = useTranslations("finance.costs");
   const dialog = useFormDialog(t("added"));
   const { addCost } = useFinanceChanges();
@@ -100,16 +135,16 @@ export function AddCostDialog({ quoteId }: { quoteId: string }) {
     <FormDialog
       dialog={dialog}
       sending={addCost}
-      trigger={{ label: t("add"), variant: "outline" }}
-      title={t("addTitle")}
-      description={t("addDescription")}
+      trigger={{ label: "departureId" in owner ? t("addDeparture") : t("add"), variant: "outline" }}
+      title={"departureId" in owner ? t("addDepartureTitle") : t("addTitle")}
+      description={"departureId" in owner ? t("addDepartureDescription") : t("addDescription")}
       submit={t("save")}
       submitting={t("saving")}
     >
       {(formId) => (
         <CostForm
           formId={formId}
-          quoteId={quoteId}
+          owner={owner}
           sending={addCost}
           onSave={(input) => {
             addCost.mutate(input, { onSuccess: () => void dialog.onSuccess() });

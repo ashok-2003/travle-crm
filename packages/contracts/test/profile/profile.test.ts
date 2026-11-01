@@ -60,7 +60,7 @@ describe("business profile contracts", () => {
         invoicePrefix,
       ).toEqual([["invoicePrefix"]]);
     }
-    expect(reservedDocumentPrefixes).toEqual(["SMPL", "DOC", "QT", "RCT", "BK", "VCH", "ITN"]);
+    expect(reservedDocumentPrefixes).toEqual(["SMPL", "DOC", "QT", "RCT", "BK", "VCH", "ITN", "RML"]);
     expect(saveOrganizationProfileInput.parse({ ...profile, invoicePrefix: "smp" }).invoicePrefix).toBe("SMP");
   });
 

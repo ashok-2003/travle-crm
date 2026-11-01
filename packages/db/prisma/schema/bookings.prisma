@@ -16,6 +16,8 @@ model Booking {
   status              String             @default("requested")
   startDate           DateTime?          @map("start_date") @db.Date
   endDate             DateTime?          @map("end_date") @db.Date
+  /// The group departure it holds seats on (copied from the quote when it was accepted).
+  departureId         String?            @map("departure_id") @db.Uuid
   /// How much each traveller fills in: basic, detailed or international (CHECK booking_level_value).
   level               String             @default("basic")
   /// "HH:MM" on the agency's clock, or null.
@@ -55,6 +57,7 @@ model Booking {
   organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   quote               Quote              @relation(fields: [organizationId, quoteId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   lead                Lead               @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  departure           Departure?         @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   tripPdfDocument     IssuedDocument?    @relation("BookingTripPdf", fields: [organizationId, tripPdfDocumentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   stays               BookingStay[]
   travellers          BookingTraveller[]
@@ -63,6 +66,7 @@ model Booking {
   reminders           BookingReminder[]
   feedback            BookingFeedback[]
   aiBookings          AiBooking[]
+  departureHolds      DepartureHold[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, number])
@@ -70,6 +74,7 @@ model Booking {
   @@unique([organizationId, quoteId], map: "booking_live_quote", where: { deletedAt: null })
   @@index([organizationId, leadId], map: "booking_lead")
   @@index([organizationId, status, startDate], map: "booking_by_status")
+  @@index([organizationId, departureId], map: "booking_departure")
   @@map("booking")
 }
 
@@ -100,26 +105,30 @@ model BookingStay {
 
 /// One head of a booking. Anyone with the trip link fills any row. Soft-deleted when the headcount shrinks.
 model BookingTraveller {
-  organizationId String                     @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String                     @id @default(uuid(7)) @db.Uuid
-  bookingId      String                     @map("booking_id") @db.Uuid
-  position       Int
-  name           String                     @default("")
-  dateOfBirth    DateTime?                  @map("date_of_birth") @db.Date
+  organizationId  String                     @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id              String                     @id @default(uuid(7)) @db.Uuid
+  bookingId       String                     @map("booking_id") @db.Uuid
+  position        Int
+  name            String                     @default("")
+  dateOfBirth     DateTime?                  @map("date_of_birth") @db.Date
   /// female, male or other (CHECK booking_traveller_gender_value).
-  gender         String?
-  phone          String                     @default("")
-  emergencyName  String                     @default("") @map("emergency_name")
-  emergencyPhone String                     @default("") @map("emergency_phone")
-  medicalNotes   String                     @default("") @map("medical_notes")
+  gender          String?
+  phone           String                     @default("")
+  emergencyName   String                     @default("") @map("emergency_name")
+  emergencyPhone  String                     @default("") @map("emergency_phone")
+  medicalNotes    String                     @default("") @map("medical_notes")
+  /// What the traveller asks of their room: none, single_room, ground_floor or near_group (CHECK booking_traveller_room_request_value).
+  roomRequest     String                     @default("none") @map("room_request")
+  roomNote        String                     @default("") @map("room_note")
   /// When every field the booking's level asks for was filled; null while any is missing.
-  completeAt     DateTime?                  @map("complete_at") @db.Timestamptz(6)
-  updatedAt      DateTime                   @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?                  @map("deleted_at") @db.Timestamptz(6)
-  deletedBy      String?                    @map("deleted_by") @db.Uuid
-  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  booking        Booking                    @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  identity       BookingTravellerIdentity[]
+  completeAt      DateTime?                  @map("complete_at") @db.Timestamptz(6)
+  updatedAt       DateTime                   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  deletedBy       String?                    @map("deleted_by") @db.Uuid
+  organization    Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking         Booking                    @relation(fields: [organizationId, bookingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  identity        BookingTravellerIdentity[]
+  roomAssignments DepartureRoomAssignment[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, bookingId, position], map: "booking_traveller_live_position", where: { deletedAt: null })

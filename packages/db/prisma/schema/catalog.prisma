@@ -23,6 +23,7 @@ model Destination {
   leads           Lead[]
   enquiries       LeadEnquiry[]
   assignmentRules AssignmentRule[]
+  departures      Departure[]
 
   /// Lets leads, enquiries and merged destinations point at (organization_id, id).
   @@unique([organizationId, id])

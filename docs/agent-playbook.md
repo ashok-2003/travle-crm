@@ -52,6 +52,12 @@ before a feature, a fix wave or a review, together with `CLAUDE.md`, `DESIGN.md`
 - **`pnpm check`** covers format, typecheck, lint, unit tests and import rules. The full gate adds the journeys on
   phone and desktop, with axe after each test, plus `migrations:check`, `workflows:lint`, `scripts:test`,
   `images:smoke`, `product:smoke` and `lighthouse`. Each step runs in the foreground, at most 10 minutes per call.
+- **The at-scale and query-plan tests are not a gate.** `packages/domain/test/performance` is its own vitest config
+  (`pnpm test:performance`), left out of `pnpm check` and of pull requests; ci.yml's `performance` job runs it nightly and
+  on demand (`workflow_dispatch`), and a red run there is a signal to look at, not a block on a merge. Run it yourself
+  when a change touches a query a list or an import runs at scale.
+- **On CI the tests' Prisma transactions get 30 s, not 5.** `@travel-crm/db/testing/transaction-limits` (a setup file of
+  each database-backed package) sets it when `CI` is set; production keeps `DATABASE_TRANSACTION_TIMEOUT_MS`.
 - **Docker has 8 GB.**
   - Run at most two or three full gates at once.
   - Use `turbo … --concurrency=2` or `3`.

@@ -39,6 +39,10 @@ export const notificationKinds = [
   { kind: "ai.handoff", messageKey: "aiHandoff" },
   { kind: "ai.booking", messageKey: "aiBooking" },
   { kind: "ai.payment-proof", messageKey: "aiPaymentProof" },
+  { kind: "departure.seats-free", messageKey: "departureSeatsFree" },
+  { kind: "departure.hold-expired", messageKey: "departureHoldExpired" },
+  { kind: "departure.overbooked", messageKey: "departureOverbooked" },
+  { kind: "supplier-cost.due-soon", messageKey: "supplierCostDueSoon" },
 ] as const;
 
 /** Whether notifications of this kind reach the person on this channel, given their choices. */

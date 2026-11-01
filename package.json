@@ -16,6 +16,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:performance": "turbo run test:performance",
     "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
     "check": "pnpm run format:check && pnpm run scripts:test && turbo run typecheck lint test e2e && pnpm run depcruise",
     "db:up": "scripts/dev/compose.sh up -d --wait postgres",

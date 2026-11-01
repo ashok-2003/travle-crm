@@ -1,0 +1,326 @@
+{
+  "list": {
+    "title": "Departures",
+    "intro": "Group batches with seats: who has booked, who is holding, and who is waiting.",
+    "filterLabel": "Show departures",
+    "filters": {
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "cancelled": "Cancelled"
+    },
+    "columns": {
+      "departure": "Departure",
+      "seats": "Seats",
+      "status": "Status"
+    },
+    "seats": "{used} of {total}",
+    "seatsHeld": "{sold} sold, {held} held",
+    "empty": "No departures yet. Add the first batch to start taking seats.",
+    "noneHere": "No departures here.",
+    "loading": "Loading departures",
+    "loadFailed": "The departures didn't load.",
+    "new": "New departure",
+    "created": "Departure added",
+    "dates": "{from} to {to}"
+  },
+  "states": {
+    "open": "Open",
+    "filling": "Filling fast",
+    "full": "Full",
+    "closed": "Closed",
+    "cancelled": "Cancelled"
+  },
+  "form": {
+    "newTitle": "New departure",
+    "editTitle": "Change this departure",
+    "description": "A batch with a number of seats. Seats sold and held are worked out from the bookings and holds.",
+    "title": "Name",
+    "titleHint": "Such as \"Kedarnath yatra, 3 Nov\".",
+    "destination": "Destination",
+    "startDate": "First day",
+    "endDate": "Last day",
+    "seatsTotal": "Seats",
+    "price": "Price per person (before GST)",
+    "priceHint": "Leave it empty when each quote sets its own price.",
+    "cutoff": "Last day to book",
+    "cutoffHint": "Leave it empty for no cut-off.",
+    "notes": "Notes",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Departure saved",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this."
+    }
+  },
+  "page": {
+    "title": "Departure",
+    "backToDepartures": "All departures",
+    "loading": "Loading the departure",
+    "loadFailed": "This departure didn't load.",
+    "notFound": "This departure isn't here any more.",
+    "intro": "{from} to {to}",
+    "pricePerPerson": "{price} a person",
+    "edit": "Change",
+    "close": "Close to new seats",
+    "reopen": "Open again",
+    "closed": "Closed to new seats",
+    "reopened": "Open again",
+    "cancel": "Cancel departure",
+    "cancelledBanner": "Cancelled: {reason}",
+    "cancelledBookings": "{count, plural, one {# booking is still on it} other {# bookings are still on it}}. Move or cancel each.",
+    "overbooked": "Overbooked by {count}: more people are booked than there are seats.",
+    "sold": "Sold",
+    "held": "Held",
+    "free": "Free",
+    "total": "Seats",
+    "tabs": {
+      "label": "Departure sections",
+      "seats": "Seats",
+      "rooming": "Rooming",
+      "costs": "Costs"
+    }
+  },
+  "cancelDialog": {
+    "title": "Cancel this departure?",
+    "description": "Its holds are released and its waitlist cleared. Bookings on it stay: move or cancel each of them.",
+    "reason": "Why is it cancelled?",
+    "action": "Cancel departure",
+    "keep": "Keep it",
+    "cancelled": "Departure cancelled",
+    "problems": {
+      "required": "Say why.",
+      "invalid": "Check this."
+    }
+  },
+  "seats": {
+    "bookings": {
+      "title": "Bookings",
+      "none": "No bookings on this departure yet.",
+      "heads": "{count, plural, one {# traveller} other {# travellers}}",
+      "details": "{done} of {total} details",
+      "status": {
+        "requested": "Waiting for you",
+        "confirmed": "Confirmed"
+      }
+    },
+    "holds": {
+      "title": "Held seats",
+      "none": "No seats are held.",
+      "until": "until {time}",
+      "endingSoon": "ends {time}",
+      "seats": "{count, plural, one {# seat} other {# seats}}",
+      "hold": "Hold seats",
+      "makeQuote": "Make quote",
+      "makeQuoteFor": "Make a quote for {name}",
+      "release": "Release",
+      "releaseFor": "Release {name}'s seats",
+      "quoteMade": "Quote started",
+      "released": "Seats released",
+      "releaseTitle": "Release these seats?",
+      "releaseDescription": "They go back to the free seats at once, and the first person waiting is told."
+    },
+    "holdDialog": {
+      "title": "Hold seats",
+      "description": "Keep seats for a lead until a time. They count as held until they expire, are released or become a booking.",
+      "lead": "Lead",
+      "leadHint": "Search by name or phone.",
+      "seats": "Seats",
+      "hours": "Hold for (hours)",
+      "hoursHint": "Empty means the agency's usual {hours} hours.",
+      "note": "Note",
+      "save": "Hold seats",
+      "saving": "Holding",
+      "saved": "Seats held",
+      "problems": {
+        "required": "Fill this in.",
+        "invalid": "Check this."
+      }
+    },
+    "waitlist": {
+      "title": "Waitlist",
+      "none": "Nobody is waiting.",
+      "add": "Add to waitlist",
+      "addTitle": "Add to the waitlist",
+      "addDescription": "When seats free up, the first lead whose party fits has its owner told.",
+      "seats": "Seats",
+      "lead": "Lead",
+      "save": "Add",
+      "saving": "Adding",
+      "added": "Added to the waitlist",
+      "remove": "Remove",
+      "removeNamed": "Take {name} off the waitlist",
+      "removed": "Taken off the waitlist"
+    }
+  },
+  "rooming": {
+    "title": "Rooming list",
+    "intro": "Where each traveller sleeps at each hotel. Names and requests only.",
+    "travellers": "{count, plural, one {# traveller} other {# travellers}}",
+    "none": "No hotels yet. Add the first stay to plan the rooms.",
+    "loadFailed": "The rooming list didn't load.",
+    "loading": "Loading the rooming list",
+    "addStay": "Add a stay",
+    "editStay": "Change stay",
+    "editStayNamed": "Change {name}",
+    "removeStay": "Remove stay",
+    "removeStayNamed": "Remove {name}",
+    "removeStayTitle": "Remove this stay?",
+    "removeStayDescription": "Its rooms and who is in them go. Travellers stay on the departure.",
+    "stayDates": "{from} to {to}",
+    "draft": "Draft rooms",
+    "drafted": "Rooms drafted",
+    "draftedLeft": "{count, plural, one {# traveller has no room yet} other {# travellers have no room yet}}",
+    "addRoom": "Add a room",
+    "copyLayout": "Copy to other stays",
+    "copied": "{count, plural, =0 {Every other stay already has rooms} one {Copied to # stay} other {Copied to # stays}}",
+    "pdf": "Rooming list PDF",
+    "pdfNamed": "Rooming list PDF for {name}",
+    "csv": "Excel (CSV)",
+    "csvNamed": "Excel file for {name}",
+    "pdfStates": {
+      "none": "Not sent to the hotel yet",
+      "current": "Up to date",
+      "out_of_date": "Out of date: the rooms changed after it was made"
+    },
+    "pdfMade": "Rooming list ready",
+    "pdfPreparing": "Preparing the PDF",
+    "csvMade": "File downloaded",
+    "room": "Room {label}",
+    "roomCapacity": "{count, plural, one {# bed} other {# beds}}",
+    "groundFloor": "Ground floor",
+    "empty": "Empty",
+    "edit": "Change room",
+    "editNamed": "Change room {label}",
+    "remove": "Remove room",
+    "removeNamed": "Remove room {label}",
+    "removeRoomTitle": "Remove this room?",
+    "removeRoomDescription": "Whoever is in it goes back under Unassigned.",
+    "unassigned": "Unassigned",
+    "unassignedNone": "Everyone has a room.",
+    "needsDecision": "Needs a roommate decision",
+    "locked": "Placed by you",
+    "moveTo": "Move to room",
+    "moveToNamed": "Move {name} to a room",
+    "noRoom": "No room",
+    "moved": "Moved",
+    "requests": {
+      "none": "",
+      "single_room": "Wants a room alone",
+      "ground_floor": "Wants the ground floor",
+      "near_group": "Wants to be near the group"
+    },
+    "stayForm": {
+      "addTitle": "Add a stay",
+      "editTitle": "Change this stay",
+      "description": "A hotel the batch sleeps in, with its days.",
+      "hotel": "Hotel",
+      "supplier": "Supplier",
+      "supplierHint": "Optional: the hotel from your suppliers.",
+      "noSupplier": "No supplier",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "save": "Save",
+      "saving": "Saving",
+      "saved": "Stay saved",
+      "problems": {
+        "required": "Fill this in.",
+        "invalid": "Check this."
+      }
+    },
+    "roomForm": {
+      "addTitle": "Add a room",
+      "editTitle": "Change this room",
+      "description": "A room at this hotel.",
+      "label": "Room",
+      "labelHint": "Its number or name, such as 101.",
+      "capacity": "Beds",
+      "groundFloor": "On the ground floor",
+      "save": "Save",
+      "saving": "Saving",
+      "saved": "Room saved",
+      "problems": {
+        "required": "Fill this in.",
+        "invalid": "Check this."
+      }
+    }
+  },
+  "costs": {
+    "title": "Costs and profit",
+    "intro": "The bookings' price before GST, against what they cost and what the departure itself costs.",
+    "revenue": "Bookings",
+    "bookingCosts": "Booking costs",
+    "departureCosts": "Departure costs",
+    "profit": "Profit",
+    "none": "No cost of the whole departure yet: the hotel block, the bus.",
+    "add": "Add a departure cost",
+    "loadFailed": "The costs didn't load.",
+    "dueOn": "due {day}",
+    "paidOn": "paid {day}",
+    "markPaid": "Mark paid",
+    "paid": "Paid",
+    "owed": "Owed",
+    "void": "Remove",
+    "voidNamed": "Remove the cost for {supplier}",
+    "voidTitle": "Remove this cost?",
+    "voidDescription": "It stays on record, marked as removed, and no longer counts."
+  },
+  "quote": {
+    "title": "Departure",
+    "on": "On {title}, {day}",
+    "onDescription": "The quote's dates are the departure's. When the traveller accepts, the booking takes the seats.",
+    "add": "Add to departure",
+    "change": "Change departure",
+    "remove": "Take off the departure",
+    "dialogTitle": "Add this quote to a departure",
+    "dialogDescription": "Its first day becomes the departure's.",
+    "departure": "Departure",
+    "choose": "Choose a departure",
+    "freeSeats": "{free} free",
+    "none": "There is no open departure to add it to.",
+    "save": "Add",
+    "saving": "Adding",
+    "saved": "Quote added to the departure",
+    "removed": "Quote taken off the departure",
+    "problems": {
+      "required": "Choose a departure.",
+      "invalid": "Check this."
+    }
+  },
+  "lead": {
+    "title": "Seats held and waiting",
+    "hold": "{count, plural, one {# seat} other {# seats}} held on {title}, {day}, until {time}",
+    "waitlist": "Waiting for {count, plural, one {# seat} other {# seats}} on {title}, {day}"
+  },
+  "booking": {
+    "onDeparture": "On departure {day}, {title}"
+  },
+  "settings": {
+    "title": "Departures",
+    "intro": "How long seats are held, when a batch reads \"Filling fast\", and how many beds a room has when the rooms are drafted.",
+    "holdHours": "A hold lasts (hours)",
+    "holdHoursHint": "Staff can hold for less on any one hold.",
+    "fillingFastPercent": "Filling fast at (percent of seats free)",
+    "fillingFastHint": "A batch with this share of its seats free, or fewer, reads Filling fast.",
+    "defaultRoomCapacity": "Beds in a drafted room",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Departure settings saved",
+    "loadFailed": "The settings didn't load.",
+    "loading": "Loading the settings",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this."
+    }
+  },
+  "today": {
+    "seats": "{sold} of {total} seats sold",
+    "reasons": {
+      "holds-ending": "A hold ends soon",
+      "details-incomplete": "Details missing",
+      "rooming-not-drafted": "Rooms not drafted",
+      "overbooked": "Overbooked"
+    },
+    "open": "Open {title}"
+  }
+}

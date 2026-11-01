@@ -24,6 +24,9 @@ export type PublicClaimInput = z.infer<typeof publicClaimInput>;
 export const publicTravellerInput = z.strictObject({
   travellerId: recordId,
   ...travellerFields,
+  /** Only asked on a booking that is on a group departure; left out, what is stored stays. */
+  roomRequest: travellerFields.roomRequest.optional(),
+  roomNote: travellerFields.roomNote.optional(),
   gender: gender.nullable(),
   dateOfBirth: calendarDate.nullable(),
   identity: z.strictObject(identityFields).nullable(),
