@@ -109,7 +109,10 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
       }),
     ]),
   ).toBe(200);
-  const leadId = await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).id);
+  const leadId = await inAgency(
+    agency.organizationId,
+    async (tx) => (await tx.lead.findFirstOrThrow({ where: { person: { phoneE164: `+${customer}` } } })).id,
+  );
   await expect(async () => {
     await owner.goto(`/leads/${leadId}`);
     await expect(owner.getByRole("heading", { name: "AI's guess" })).toBeVisible({ timeout: 4_000 });
@@ -118,5 +121,10 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   // The AI wrote a line on how the lead stands with the score.
   await expect(owner.getByText("Wants a Kerala package for four in December and has asked the price.")).toBeVisible();
   // It never moved the lead's stage.
-  expect(await inAgency(agency.organizationId, async (tx) => (await tx.lead.findFirstOrThrow()).stage)).toBe("new");
+  expect(
+    await inAgency(
+      agency.organizationId,
+      async (tx) => (await tx.lead.findFirstOrThrow({ where: { person: { phoneE164: `+${customer}` } } })).stage,
+    ),
+  ).toBe("new");
 });

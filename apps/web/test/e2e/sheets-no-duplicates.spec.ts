@@ -56,7 +56,13 @@ test("a repeat enquiry joins the open lead, and the same row in a second sheet i
   await google.append(second.id, FORM_TAB, row);
   await page.goto(secondPage);
   await syncNow(page);
-  await expect(page.getByRole("listitem").filter({ hasText: "Left out as duplicates" })).toContainText("1");
+  // The worker counts the row after the sync; the page is read again until it has.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByRole("listitem").filter({ hasText: "Left out as duplicates" })).toContainText("1", {
+      timeout: 3_000,
+    });
+  }).toPass({ timeout: 30_000 });
   await waitForLead(page, "Rahul Sharma").catch(() => undefined);
   await page.goto("/leads?view=everyone");
   await expect(page.getByRole("main").getByRole("link", { name: /Rahul Sharma/ })).toHaveCount(1);

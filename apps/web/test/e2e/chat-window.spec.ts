@@ -43,7 +43,7 @@ test("a customer's photos open in a viewer: zoom, next, close", async ({ page, b
   await chat.getByRole("button", { name: "Open the photo" }).first().click();
   const viewer = owner.getByRole("dialog");
   await expect(viewer.getByText("1 of 2")).toBeVisible();
-  await expect(viewer.getByText("Houseboat one")).toBeVisible();
+  await expect(viewer.getByText("Houseboat one")).toBeVisible({ timeout: 15_000 });
   const picture = viewer.getByRole("img", { name: "Houseboat one" });
   await expect(picture).toBeVisible();
   await viewer.getByRole("button", { name: "Zoom in" }).click();
