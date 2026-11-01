@@ -2,12 +2,14 @@
 
 // The bar over the list while leads are chosen (release C): how many, and what can be done to all of them at once:
 // move them to a stage, assign them to someone (leads:assign), add a follow-up, or clear the choice. Each change goes
-// lead by lead on the api, so a lead it can't change is left as it was and counted in the toast.
+// lead by lead on the api, so a lead it can't change is left as it was and counted in the toast. Remove (leads:delete)
+// asks first; a lead with a quote or a booking is kept.
 import { leadStages, MAX_BULK_LEADS } from "@travel-crm/contracts/crm";
 import { useMutation } from "@tanstack/react-query";
 import { ChevronDownIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,11 +33,22 @@ export function BulkBar({ selection }: { selection: LeadSelection }) {
   const tStages = useTranslations("leads.stages");
   const trpc = useTRPC();
   const assigns = useHolds("leads:assign");
+  const removes = useHolds("leads:delete");
   const write = useWriteAccess("change");
   const done = useBulkDone(selection.clear);
-  const [dialog, setDialog] = useState<"assign" | "followUp" | null>(null);
+  const [dialog, setDialog] = useState<"assign" | "followUp" | "remove" | null>(null);
   const assignButton = useRef<HTMLButtonElement>(null);
   const followUpButton = useRef<HTMLButtonElement>(null);
+  const removeButton = useRef<HTMLButtonElement>(null);
+  const removed = useBulkDone(selection.clear, true);
+  const remove = useMutation(
+    trpc.leads.bulkRemove.mutationOptions({
+      onSuccess: async (result) => {
+        setDialog(null);
+        await removed(result);
+      },
+    }),
+  );
   const move = useMutation(trpc.leads.bulkMoveStage.mutationOptions({ onSuccess: done }));
   const leadIds = [...selection.chosen];
   if (leadIds.length === 0) return null;
@@ -89,6 +102,18 @@ export function BulkBar({ selection }: { selection: LeadSelection }) {
           >
             {t("followUp")}
           </Button>
+          {removes && (
+            <Button
+              ref={removeButton}
+              variant="destructive"
+              disabled={disabled}
+              onClick={() => {
+                setDialog("remove");
+              }}
+            >
+              {t("remove")}
+            </Button>
+          )}
           <Button variant="ghost" onClick={selection.clear}>
             <XIcon aria-hidden="true" />
             {t("clear")}
@@ -115,6 +140,20 @@ export function BulkBar({ selection }: { selection: LeadSelection }) {
         }}
         onDone={done}
         returnFocusTo={followUpButton}
+      />
+      <ConfirmDialog
+        open={dialog === "remove"}
+        onOpenChange={(open) => {
+          setDialog(open ? "remove" : null);
+        }}
+        returnFocusTo={removeButton}
+        title={t("removeTitle", { count: leadIds.length })}
+        description={t("removeDescription")}
+        action={t("removeConfirm")}
+        request={remove}
+        onConfirm={() => {
+          remove.mutate({ leadIds });
+        }}
       />
     </Card>
   );

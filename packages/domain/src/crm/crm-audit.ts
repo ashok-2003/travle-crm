@@ -26,7 +26,7 @@ interface LeadCallChange {
 /** A change to the lead itself. */
 interface LeadChange {
   entityType: "lead";
-  action: "lead.stage-changed" | "lead.reopened" | "lead.reassigned" | "lead.trip-edited";
+  action: "lead.stage-changed" | "lead.reopened" | "lead.reassigned" | "lead.trip-edited" | "lead.deleted";
 }
 
 interface BlockedContactChange {

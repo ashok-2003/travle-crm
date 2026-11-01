@@ -1,13 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Veeper AI's mark: a V whose right arm climbs on as an arrow (sales that keep going up), on the brand's deep green. -->
-  <defs>
-    <linearGradient id="veeper-ground" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0a7a64"/>
-      <stop offset="1" stop-color="#054a40"/>
-    </linearGradient>
-  </defs>
-  <path fill="url(#veeper-ground)" d="M16 0h32a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H16A16 16 0 0 1 0 48V16A16 16 0 0 1 16 0Z"/>
-  <path fill="none" stroke="#fffdf9" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" d="M15 20l13 26L45 15"/>
-  <path fill="#fffdf9" d="M38.5 12.5 50.5 9 48.4 21.3Z"/>
-  <path fill="#25d366" d="M15 20a3.5 3.5 0 1 1 0 0.01Z"/>
+  <!-- Veeper AI's mark (the owner, 2026-11-01): six rounded petals around an open centre, warm white on ink. -->
+  <path fill="#1a1a1a" d="M16 0h32a16 16 0 0 1 16 16v32a16 16 0 0 1-16 16H16A16 16 0 0 1 0 48V16A16 16 0 0 1 16 0Z"/>
+  <path fill="#fffdf9" stroke="#fffdf9" stroke-width="4.5" stroke-linejoin="round" d="M32 25L27.4 13Q32 11.2 36.6 13ZM38.06 28.5L46.15 18.52Q50.01 21.6 50.75 26.48ZM38.06 35.5L50.75 37.52Q50.01 42.4 46.15 45.48ZM32 39L36.6 51Q32 52.8 27.4 51ZM25.94 35.5L17.85 45.48Q13.99 42.4 13.25 37.52ZM25.94 28.5L13.25 26.48Q13.99 21.6 17.85 18.52Z"/>
 </svg>

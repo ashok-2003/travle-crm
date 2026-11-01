@@ -102,6 +102,7 @@
       "reopened": "Reopened a closed lead",
       "reassigned": "Gave a lead to another owner",
       "trip-edited": "Changed a lead's trip",
+      "deleted": "Removed a lead",
       "call-logged": "Wrote a call up on a lead",
       "call-edited": "Changed a call on a lead",
       "call-deleted": "Deleted a call on a lead"

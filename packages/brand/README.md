@@ -10,8 +10,9 @@ The product's own identity (spec section 10): name, colours, fonts, contacts and
 
 - Code reads the product name only through this package. `test/product-name.test.ts` fails if `brand.productName`
   or `brand.shortName` appears in any file outside `packages/brand/` and `docs/` (it runs in `pnpm check`).
-- `assets/logo.svg` (white on the deep green) and `assets/logo-dark.svg` (deep green on white, for dark surfaces) are
-  Veeper AI's mark: a V whose right arm climbs on as an arrow, drawn with paths only. Other packages can import them as `@travel-crm/brand/assets/<file>`.
+- `assets/logo.svg` (warm white on ink) and `assets/logo-dark.svg` (ink on warm white, for dark surfaces) are
+  Veeper AI's mark (the owner, 2026-11-01): six rounded petals around an open centre, drawn with paths only; the name
+  beside it reads "Veeper" in the text colour and "AI" in grey. Other packages can import them as `@travel-crm/brand/assets/<file>`.
 - The main entry is plain data, safe in the browser (`test/browser-safe.test.ts`). `brandAssets`, the logo files'
   absolute paths, is Node-only and comes from `@travel-crm/brand/files`.
 - `pnpm --filter @travel-crm/brand build` renders the icons from `assets/logo.svg` into `dist/icons`: `favicon.svg`,
