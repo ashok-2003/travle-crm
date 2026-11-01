@@ -21,6 +21,8 @@ export const permissions = [
   "leads:edit",
   // Reassign a lead, choose its owner in the form, give a task to someone else, and block or unblock a contact
   "leads:assign",
+  // Remove a lead, or the chosen leads (a lead with a quote or booking stays); removing every lead is the Owner's alone
+  "leads:delete",
   // WhatsApp chats (own: the chats of people whose leads the member sees), replying, and the message templates
   "inbox:reply",
   "inbox:templates",
