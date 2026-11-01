@@ -27,3 +27,10 @@ export const bulkResult = z.object({
   skipped: z.array(z.object({ leadId: recordId, reason: z.string() })),
 });
 export type BulkResult = z.infer<typeof bulkResult>;
+
+export const bulkRemoveInput = z.strictObject({ leadIds });
+export type BulkRemoveInput = z.infer<typeof bulkRemoveInput>;
+
+/** Every lead removed at once (an Owner, in Settings): how many went, and how many stayed for a quote or a booking. */
+export const removedLeads = z.object({ removed: z.int().min(0), kept: z.int().min(0) });
+export type RemovedLeads = z.infer<typeof removedLeads>;
