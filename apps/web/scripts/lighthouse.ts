@@ -49,8 +49,8 @@ async function waitUntilUp(url: string): Promise<void> {
   throw new Error(`${url} didn't come up within half a minute`);
 }
 
-/** One Lighthouse run on a page, in a fresh headless Chrome, as Playwright starts it (no sandbox). */
-function lighthouseRun(url: string, chromePath: string): Promise<LighthouseRun> {
+/** One try of a Lighthouse run on a page, in a fresh headless Chrome, as Playwright starts it (no sandbox). */
+function lighthouseAttempt(url: string, chromePath: string): Promise<LighthouseRun> {
   const args = [
     url,
     "--output=json",
@@ -70,10 +70,29 @@ function lighthouseRun(url: string, chromePath: string): Promise<LighthouseRun> 
     child.stderr.on("data", (chunk: Buffer) => (problems += chunk.toString()));
     child.once("error", reject);
     child.once("exit", (code) => {
-      if (code === 0) resolve(summarise(JSON.parse(report) as Parameters<typeof summarise>[0]));
+      const parsed =
+        code === 0 ? (JSON.parse(report) as Parameters<typeof summarise>[0] & { runtimeError?: unknown }) : null;
+      // A runtime error (NO_NAVSTART on a busy runner...) is Lighthouse failing to measure, not a page missing a budget.
+      if (parsed !== null && parsed.runtimeError === undefined) resolve(summarise(parsed));
+      else if (parsed !== null)
+        reject(new Error(`Lighthouse hit a runtime error on ${url}: ${JSON.stringify(parsed.runtimeError)}`));
       else reject(new Error(`Lighthouse failed on ${url} with ${String(code)}:\n${problems}`));
     });
   });
+}
+
+/** A run, tried up to two more times when Lighthouse itself fails; a page's low score is never retried. */
+async function lighthouseRun(url: string, chromePath: string): Promise<LighthouseRun> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await lighthouseAttempt(url, chromePath);
+    } catch (error: unknown) {
+      if (attempt === 3) throw error;
+      console.error(
+        `Lighthouse failed on ${url} (try ${String(attempt)} of 3), trying again: ${String(error).slice(0, 300)}`,
+      );
+    }
+  }
 }
 
 await access(path.join(standalone, "server.js")).catch(() => {
