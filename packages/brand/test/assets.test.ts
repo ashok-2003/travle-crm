@@ -12,10 +12,10 @@ describe("brand assets", () => {
     expect(path.basename(brandAssets.logoDark)).toBe("logo-dark.svg");
   });
 
-  it("draw a square mark with paths only: white on deep green, and deep green on white for dark surfaces", () => {
+  it("draw a square mark with paths only: warm white on ink, and ink on warm white for dark surfaces", () => {
     for (const [file, mainColour] of [
       [brandAssets.logo, brand.colours.canvas],
-      [brandAssets.logoDark, brand.colours.sidebar.fill],
+      [brandAssets.logoDark, brand.colours.ink],
     ] as const) {
       const svg = readFileSync(file, "utf8");
       const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
