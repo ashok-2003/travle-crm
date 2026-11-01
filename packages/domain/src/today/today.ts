@@ -13,6 +13,7 @@ import type {
 } from "@travel-crm/contracts/today";
 import type { OrgTx } from "@travel-crm/db";
 import { bookingsMissingDetails } from "../bookings/index.js";
+import { departuresStartingSoon } from "../departures/index.js";
 import { countNewLeadsWaiting, leadBriefs, newLeadsWaiting, type NewLeadWaiting } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { addDays, calendarDateIn, startOfDayIn, type CalendarDate } from "../kernel/index.js";
@@ -107,6 +108,28 @@ async function tripDetailItems(
   });
 }
 
+/** Departures leaving within two weeks, for whoever may see departures; nobody else has the section. */
+async function departureItems(
+  tx: OrgTx,
+  access: MemberAccess,
+  page: { after?: string | undefined; limit: number },
+  day: CalendarDate,
+  now: Date,
+): Promise<TodayItem[]> {
+  if (!access.permissions.has("departures:view")) return [];
+  const all = await departuresStartingSoon(tx, day, now);
+  const from = page.after === undefined ? 0 : all.findIndex((row) => row.departureId === page.after) + 1;
+  return all.slice(from, from + page.limit).map((row) => ({
+    kind: "departure" as const,
+    departureId: row.departureId,
+    title: row.title,
+    startDate: row.startDate,
+    sold: row.sold,
+    seatsTotal: row.seatsTotal,
+    reasons: row.reasons,
+  }));
+}
+
 /** Opened quotes the customer went quiet on, each with its lead in brief. */
 async function openedQuoteItems(
   tx: OrgTx,
@@ -186,6 +209,8 @@ async function sectionItems(
       return paymentItems(tx, access, cursor, day);
     case "trip-details":
       return tripDetailItems(tx, access, cursor, day);
+    case "departures":
+      return departureItems(tx, access, cursor, day, now);
     case "quote-opened":
       return openedQuoteItems(tx, access, cursor, now);
     case "due-today": {
@@ -207,6 +232,8 @@ function itemId(item: TodayItem): string {
       return item.installmentId;
     case "trip-details":
       return item.bookingId;
+    case "departure":
+      return item.departureId;
   }
 }
 
@@ -221,6 +248,7 @@ export async function todaySummary(tx: OrgTx, access: MemberAccess, now: Date): 
     quoteOpened: await countOpenedQuotesNoReply(tx, access, now),
     paymentsDue: await countPaymentsDue(tx, access, day),
     tripDetails: (await bookingsMissingDetails(tx, access.userId, day)).length,
+    departures: access.permissions.has("departures:view") ? (await departuresStartingSoon(tx, day, now)).length : 0,
   };
   const top: TodayItem[] = [];
   for (const section of todaySectionNames) {

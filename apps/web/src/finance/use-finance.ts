@@ -64,7 +64,15 @@ export function useBookingCosts(quoteId: string) {
 export function useFinanceChanges() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const options = { onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.finance.pathKey() }) };
+  // A cost also shows on its departure's profit and its supplier's page and dues.
+  const options = {
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: trpc.finance.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.suppliers.pathKey() }),
+      ]),
+  };
   return {
     addCost: useMutation(trpc.finance.addCost.mutationOptions(options)),
     markCostPaid: useMutation(trpc.finance.markCostPaid.mutationOptions(options)),

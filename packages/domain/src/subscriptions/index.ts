@@ -19,6 +19,7 @@ export {
   type Entitlements,
   type SubscriptionAccess,
 } from "./entitlements.js";
+export { forEachFullAccessAgency, type Agency, type AgencyLoopDependencies } from "./for-each-agency.js";
 export { dueState, nextStep, type LifecycleState, type UnpaidDays } from "./lifecycle.js";
 export { setPaidThrough, setTrialEnd } from "./paid-dates.js";
 export { listPayments, recordPayment, voidPayment, type ProviderPayment } from "./payments.js";

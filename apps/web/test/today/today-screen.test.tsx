@@ -81,7 +81,9 @@ const idOf = (item: TodayItem) =>
       ? item.quote.id
       : item.kind === "payment-due"
         ? item.installmentId
-        : item.lead.id;
+        : item.kind === "departure"
+          ? item.departureId
+          : item.lead.id;
 
 /** The api's answer, keeping what it holds as a change leaves it: a lead marked contacted is no longer new. */
 function answer(call: Call): Reply {
@@ -101,13 +103,15 @@ function answer(call: Call): Reply {
   }
   if (call.path === "today.dismissQuoteOpened") {
     const { leadId } = call.input as { leadId: string };
-    day.sections["quote-opened"] = day.sections["quote-opened"].filter((item) => item.lead?.id !== leadId);
+    day.sections["quote-opened"] = day.sections["quote-opened"].filter(
+      (item) => "lead" in item && item.lead?.id !== leadId,
+    );
     day.summary = { ...day.summary, counts: { ...day.summary.counts, quoteOpened: 0 } };
     return { data: null };
   }
   if (call.path === "leads.moveStage") {
     const { leadId } = call.input as { leadId: string };
-    day.sections["new-leads"] = day.sections["new-leads"].filter((item) => item.lead?.id !== leadId);
+    day.sections["new-leads"] = day.sections["new-leads"].filter((item) => "lead" in item && item.lead?.id !== leadId);
     day.summary = { ...day.summary, counts: { ...day.summary.counts, newLeads: day.summary.counts.newLeads - 1 } };
     return { data: null };
   }
@@ -121,6 +125,7 @@ function busy(summary: TodaySummary = busyDay): Day {
       overdue: [snehaOverdue, vikramOverdue],
       "payments-due": [],
       "trip-details": [],
+      departures: [],
       "new-leads": [rahulNew, arjunNew],
       "quote-opened": [],
       "due-today": [priyaDue, standaloneDue],
@@ -227,6 +232,7 @@ describe("TodayScreen", () => {
         overdue: [],
         "payments-due": [],
         "trip-details": [],
+        departures: [],
         "new-leads": [],
         "quote-opened": [],
         "due-today": [],

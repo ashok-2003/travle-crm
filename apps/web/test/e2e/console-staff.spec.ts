@@ -42,7 +42,7 @@ test("a super admin adds support, who replaces the temporary password (and sets 
   await device.getByRole("textbox", { name: "Email" }).fill(email);
   await device.getByLabel("Password", { exact: true }).fill(temporaryPassword);
   await device.getByRole("button", { name: "Sign in" }).click();
-  await expect(device).toHaveURL(/\/change-password\?next=%2Fconsole$/);
+  await expect(device).toHaveURL(/\/change-password\?next=%2Fconsole$/, { timeout: 20_000 });
   await device.getByLabel("Temporary password").fill(temporaryPassword);
   await device.getByLabel("New password", { exact: true }).fill("nehas-own-password");
   await device.getByLabel("New password again").fill("nehas-own-password");

@@ -93,7 +93,7 @@ function Costs({ quoteId }: { quoteId: string }) {
         </CardTitle>
         {mayAdd && (
           <CardAction>
-            <AddCostDialog quoteId={quoteId} />
+            <AddCostDialog owner={{ quoteId }} />
           </CardAction>
         )}
       </CardHeader>

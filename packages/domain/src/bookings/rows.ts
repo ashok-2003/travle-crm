@@ -14,6 +14,8 @@ export const bookingColumns = {
   status: true,
   startDate: true,
   endDate: true,
+  departureId: true,
+  departure: { select: { id: true, title: true, startDate: true } },
   level: true,
   reportingTime: true,
   reportingPlace: true,

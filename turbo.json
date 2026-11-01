@@ -19,6 +19,13 @@
       "outputs": [],
       "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
     },
+    // The at-scale and query-plan tests: nightly and on demand (ci.yml), never a merge gate.
+    "test:performance": {
+      "dependsOn": ["generate", "^generate"],
+      "cache": false,
+      "outputs": [],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
+    },
     // The product-name check reads every file in the repository, but turbo keys a task's cache on its own package's
     // files only, so a cached run would pass after the name was typed in another package. It is fast: never cache it.
     "@travel-crm/brand#test": {

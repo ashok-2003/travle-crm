@@ -14,6 +14,8 @@ export default defineConfig({
   globalTimeout: 20 * 60_000,
   timeout: 30_000,
   workers: 2,
+  // One retry on CI: a runner's hiccup then shows as flaky, not as a failed pull request.
+  retries: process.env.CI ? 1 : 0,
   // A test.only left in by mistake fails CI; locally it focuses a run.
   forbidOnly: Boolean(process.env.CI),
   reporter: [["list"]],

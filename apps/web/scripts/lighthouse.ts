@@ -9,6 +9,12 @@ import path from "node:path";
 import { chromium } from "@playwright/test";
 import { CATEGORIES, median, missedBudgets, summarise, type LighthouseRun } from "./lighthouse-budgets.js";
 
+/** On GitHub Actions a line like this shows as an annotation on the run, readable without the job's log. */
+const onGitHub = process.env.GITHUB_ACTIONS !== undefined;
+const annotate = (level: "notice" | "error", title: string, message: string): void => {
+  if (onGitHub) console.log(`::${level} title=${title}::${message.replaceAll("\n", "%0A")}`);
+};
+
 /** The pages anyone can open: the rest need a session, which Lighthouse doesn't have. */
 const PAGES = ["/sign-in", "/offline"] as const;
 const RUNS = 3;
@@ -43,8 +49,8 @@ async function waitUntilUp(url: string): Promise<void> {
   throw new Error(`${url} didn't come up within half a minute`);
 }
 
-/** One Lighthouse run on a page, in a fresh headless Chrome, as Playwright starts it (no sandbox). */
-function lighthouseRun(url: string, chromePath: string): Promise<LighthouseRun> {
+/** One try of a Lighthouse run on a page, in a fresh headless Chrome, as Playwright starts it (no sandbox). */
+function lighthouseAttempt(url: string, chromePath: string): Promise<LighthouseRun> {
   const args = [
     url,
     "--output=json",
@@ -64,10 +70,29 @@ function lighthouseRun(url: string, chromePath: string): Promise<LighthouseRun> 
     child.stderr.on("data", (chunk: Buffer) => (problems += chunk.toString()));
     child.once("error", reject);
     child.once("exit", (code) => {
-      if (code === 0) resolve(summarise(JSON.parse(report) as Parameters<typeof summarise>[0]));
+      const parsed =
+        code === 0 ? (JSON.parse(report) as Parameters<typeof summarise>[0] & { runtimeError?: unknown }) : null;
+      // A runtime error (NO_NAVSTART on a busy runner...) is Lighthouse failing to measure, not a page missing a budget.
+      if (parsed !== null && parsed.runtimeError === undefined) resolve(summarise(parsed));
+      else if (parsed !== null)
+        reject(new Error(`Lighthouse hit a runtime error on ${url}: ${JSON.stringify(parsed.runtimeError)}`));
       else reject(new Error(`Lighthouse failed on ${url} with ${String(code)}:\n${problems}`));
     });
   });
+}
+
+/** A run, tried up to two more times when Lighthouse itself fails; a page's low score is never retried. */
+async function lighthouseRun(url: string, chromePath: string): Promise<LighthouseRun> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await lighthouseAttempt(url, chromePath);
+    } catch (error: unknown) {
+      if (attempt === 3) throw error;
+      console.error(
+        `Lighthouse failed on ${url} (try ${String(attempt)} of 3), trying again: ${String(error).slice(0, 300)}`,
+      );
+    }
+  }
 }
 
 await access(path.join(standalone, "server.js")).catch(() => {
@@ -100,11 +125,14 @@ try {
     for (let attempt = 0; attempt < RUNS; attempt += 1) runs.push(await lighthouseRun(`${origin}${page}`, chromePath));
     const scores = CATEGORIES.map((category) => `${category} ${String(median(runs.map((run) => run[category])))}`);
     const layoutShift = median(runs.map((run) => run.layoutShift));
-    console.log(`${page}: ${scores.join(", ")}, layout shift ${String(layoutShift)} (medians of ${String(RUNS)} runs)`);
+    const line = `${scores.join(", ")}, layout shift ${String(layoutShift)} (medians of ${String(RUNS)} runs)`;
+    console.log(`${page}: ${line}`);
+    annotate("notice", `Lighthouse ${page}`, line);
     missed.push(...missedBudgets(page, runs));
   }
   if (missed.length > 0) {
     console.error(missed.join("\n"));
+    for (const miss of missed) annotate("error", "Lighthouse budget missed", miss);
     process.exitCode = 1;
   } else {
     console.log("Every page is within its budgets.");

@@ -21,6 +21,8 @@ export const quoteColumns = {
   leadId: true,
   title: true,
   startDate: true,
+  departureId: true,
+  departure: { select: { id: true, title: true, startDate: true } },
   adults: true,
   children: true,
   days: true,
@@ -155,6 +157,10 @@ export function toDetail(row: QuoteRow): QuoteDetail {
     customerPhone: row.lead.person.phoneE164,
     invoiceDocumentId: row.invoiceDocumentId,
     replacedById: row.replacedById,
+    departure:
+      row.departure === null
+        ? null
+        : { id: row.departure.id, title: row.departure.title, startDate: dayOf(row.departure.startDate) },
     installments: coveredInstallments(
       row.installments.map((due) => ({
         id: due.id,

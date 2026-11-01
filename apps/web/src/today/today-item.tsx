@@ -9,13 +9,14 @@ import type { TripSummary } from "@travel-crm/contracts/crm";
 import { money } from "@travel-crm/domain/kernel";
 import type { TodayItem as TodayItemData } from "@travel-crm/contracts/today";
 import { useTranslations } from "next-intl";
+import { StatusBadge } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
 import { useTripLine } from "@/leads/trip-line";
 import { formatCalendarDay, formatDayTime, formatRupees, formatTime } from "@/lib/format";
 import { dayRelation, elapsed } from "@/lib/relative-time";
-import { bookingRoute, leadRoute } from "@/lib/routes";
+import { bookingRoute, departureRoute, leadRoute } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
 import { useHolds, useMe } from "@/session/me-context";
 import { TaskActions } from "@/tasks/task-actions";
@@ -36,14 +37,18 @@ export function todayItemId(item: TodayItemData): string {
       return item.installmentId;
     case "trip-details":
       return item.bookingId;
+    case "departure":
+      return item.departureId;
   }
 }
+
+type LeadItemData = Exclude<TodayItemData, { kind: "departure" }>;
 
 const tripKnown = (trip: TripSummary) =>
   trip.destinationName !== null || trip.when.kind !== "unknown" || trip.adults !== null || trip.childrenCount > 0;
 
 /** When it is due, as Today words it: "Yesterday, 5:00 pm" overdue, "12 min" waiting, "4:00 pm" later today. */
-function useWhen(item: TodayItemData): { urgency: Urgency; text: string } {
+function useWhen(item: LeadItemData): { urgency: Urgency; text: string } {
   const t = useTranslations("today.item");
   const tNext = useTranslations("leads.next");
   const { timeZone } = useMe().organization;
@@ -79,7 +84,38 @@ function useWhen(item: TodayItemData): { urgency: Urgency; text: string } {
   return { urgency: "overdue", text };
 }
 
+/** A batch leaving within two weeks: its day, name and seats sold, and what needs a look first. */
+function DepartureLine({ item }: { item: Extract<TodayItemData, { kind: "departure" }> }) {
+  const t = useTranslations("today.item");
+  const now = useNow();
+  const urgent = item.reasons.includes("holds-ending") || item.reasons.includes("overbooked");
+  return (
+    <Item size="sm" role="listitem" className="items-start">
+      <ItemContent className="min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-3">
+          <TextLink href={departureRoute(item.departureId)}>{item.title}</TextLink>
+          <WhenMark urgency={urgent ? "overdue" : "today"}>
+            {t("departureLeaves", { day: formatCalendarDay(item.startDate, now) })}
+          </WhenMark>
+        </div>
+        <ItemDescription className="flex flex-wrap items-center gap-2">
+          <span className="numbers">{t("departureSeats", { sold: item.sold, total: item.seatsTotal })}</span>
+          {item.reasons.map((reason) => (
+            <StatusBadge key={reason} tone={reason === "holds-ending" || reason === "overbooked" ? "bad" : "attention"}>
+              {t(`departureReasons.${reason}`)}
+            </StatusBadge>
+          ))}
+        </ItemDescription>
+      </ItemContent>
+    </Item>
+  );
+}
+
 export function TodayItem({ item }: { item: TodayItemData }) {
+  return item.kind === "departure" ? <DepartureLine item={item} /> : <LeadItem item={item} />;
+}
+
+function LeadItem({ item }: { item: LeadItemData }) {
   const tSources = useTranslations("leads.sources");
   const tripLine = useTripLine();
   const mayEdit = useHolds("leads:edit");
