@@ -49,6 +49,18 @@ async function waitUntilUp(url: string): Promise<void> {
   throw new Error(`${url} didn't come up within half a minute`);
 }
 
+type ParsedReport = Parameters<typeof summarise>[0] & { runtimeError?: unknown };
+
+/** The report Lighthouse printed, or null when what it printed is not one. */
+function parseReport(output: string): ParsedReport | null {
+  try {
+    const parsed = JSON.parse(output) as ParsedReport | null;
+    return typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 /** One try of a Lighthouse run on a page, in a fresh headless Chrome, as Playwright starts it (no sandbox). */
 function lighthouseAttempt(url: string, chromePath: string): Promise<LighthouseRun> {
   const args = [
@@ -70,13 +82,20 @@ function lighthouseAttempt(url: string, chromePath: string): Promise<LighthouseR
     child.stderr.on("data", (chunk: Buffer) => (problems += chunk.toString()));
     child.once("error", reject);
     child.once("exit", (code) => {
-      const parsed =
-        code === 0 ? (JSON.parse(report) as Parameters<typeof summarise>[0] & { runtimeError?: unknown }) : null;
-      // A runtime error (NO_NAVSTART on a busy runner...) is Lighthouse failing to measure, not a page missing a budget.
-      if (parsed !== null && parsed.runtimeError === undefined) resolve(summarise(parsed));
-      else if (parsed !== null)
+      if (code !== 0) {
+        reject(new Error(`Lighthouse failed on ${url} with ${String(code)}:\n${problems}`));
+        return;
+      }
+      // Output that isn't a report is as much a failed measurement as a runtime error (NO_NAVSTART on a busy runner...):
+      // neither is a page missing a budget.
+      const parsed = parseReport(report);
+      if (parsed === null) {
+        reject(new Error(`Lighthouse printed no report for ${url}:\n${report.slice(0, 300)}${problems}`));
+      } else if (parsed.runtimeError !== undefined) {
         reject(new Error(`Lighthouse hit a runtime error on ${url}: ${JSON.stringify(parsed.runtimeError)}`));
-      else reject(new Error(`Lighthouse failed on ${url} with ${String(code)}:\n${problems}`));
+      } else {
+        resolve(summarise(parsed));
+      }
     });
   });
 }

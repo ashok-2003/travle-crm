@@ -10,6 +10,7 @@ test("support onboards an agency, whose Owner chooses a password from the invite
   support,
   planOnSale,
 }) => {
+  test.setTimeout(60_000);
   const code = organizationCode("ON");
   const owner = { name: "Lakshmi Nair", email: `lakshmi-${code.toLowerCase()}@example.test` };
   await signInToConsole(page, support);

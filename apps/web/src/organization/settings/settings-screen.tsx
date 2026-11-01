@@ -2,13 +2,14 @@
 
 // The settings screen: the organization's name and sign-in code, read-only here (the platform team sets them),
 // whether everyone must use two-factor sign-in (while features.twoFactor is on), and the way to the organization's
-// other settings.
+// other settings, and, for an Owner, removing every lead at once.
 import { features } from "@travel-crm/contracts/features";
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
 import { PageHeader } from "@/components/page-header";
 import { useMe } from "@/session/me-context";
 import { CopyButton } from "@/components/copy-button";
+import { RemoveAllLeads } from "./remove-all-leads";
 import { SettingsSections } from "./settings-sections";
 import { TwoFactorRequirement } from "./two-factor-requirement";
 
@@ -43,6 +44,7 @@ export function SettingsScreen() {
         </section>
       )}
       <SettingsSections />
+      <RemoveAllLeads />
     </div>
   );
 }
