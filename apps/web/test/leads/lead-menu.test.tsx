@@ -10,6 +10,9 @@ import { stubApi } from "../support/api-stub";
 import { aLead, ids } from "./records";
 import { inputsTo, owner, renderScreen, salesperson } from "./screen";
 
+// Remove, in the same menu, leaves the lead's page through the router.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+
 const { lead: words } = messages.leads;
 
 function renderMenu(me = owner, changes: Parameters<typeof aLead>[0] = {}) {
@@ -56,7 +59,7 @@ describe("LeadMenu", () => {
       within(menu)
         .getAllByRole("menuitem")
         .map((item) => item.textContent),
-    ).toEqual([words.menu.reassign, words.menu.lost, words.menu.notALead, words.menu.block]);
+    ).toEqual([words.menu.reassign, words.menu.lost, words.menu.notALead, words.menu.block, words.menu.remove]);
     await userEvent.keyboard("{Escape}");
 
     await chooseAndConfirm(words.menu.lost, words.lost.confirm, messages.sales.lost.reasons.price);
