@@ -67,6 +67,7 @@ export {
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";
 export { clearTripFields, fillTripGaps, tripFieldValues, type GapField, type TripGaps } from "./trip-gaps.js";
 export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
+export { removeAllLeads, removeLead } from "./lead-removal.js";
 export {
   leadInsights,
   periodTotalsQuery,
