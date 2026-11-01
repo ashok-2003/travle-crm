@@ -19,6 +19,24 @@ export async function cancelOpenTasks(tx: OrgTx, actor: Actor, record: TaskRecor
 }
 
 /**
+ * Cancels every open task on these records of one kind, and returns how many: for many records removed at once (all
+ * of an agency's leads), whose own audit entries say what happened, so the tasks get none of their own.
+ */
+export async function cancelOpenTasksOfRecords(
+  tx: OrgTx,
+  recordType: string,
+  recordIds: readonly string[],
+  now: Date,
+): Promise<number> {
+  if (recordIds.length === 0) return 0;
+  const { count } = await tx.task.updateMany({
+    where: { recordType, recordId: { in: [...recordIds] }, ...openTask },
+    data: { cancelledAt: now },
+  });
+  return count;
+}
+
+/**
  * Closes these tasks if they are still open: done (the work was finished by another route, with the actor named) or
  * cancelled (it no longer applies). Closed ones are left as they are, so a repeat changes nothing. Returns those closed.
  */
