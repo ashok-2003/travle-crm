@@ -8,6 +8,16 @@
     "codeHint": "Staff without email sign in with this code and their username.",
     "copyCode": "Copy the organization code"
   },
+  "removeAllLeads": {
+    "heading": "Remove every lead",
+    "description": "For starting afresh: every lead leaves every list, count and search, and their open follow-ups are cancelled. People, chats and leads with a quote or a booking stay. Only an Owner sees this.",
+    "button": "Remove every lead",
+    "title": "Remove every lead?",
+    "confirmDescription": "Every lead of the agency is removed, but those with a quote or a booking. This can't be undone from here.",
+    "confirm": "Remove every lead",
+    "done": "{removed, plural, one {# lead removed} other {# leads removed}}",
+    "doneKept": "{removed, plural, one {# lead removed} other {# leads removed}}; {kept, plural, one {# lead was} other {# leads were}} kept for a quote or a booking."
+  },
   "security": {
     "heading": "Sign-in security",
     "requireTwoFactor": "Require two-factor sign-in for everyone",

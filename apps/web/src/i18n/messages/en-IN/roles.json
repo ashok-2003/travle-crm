@@ -71,6 +71,7 @@
     "leads:create": "Add leads",
     "leads:edit": "Change leads",
     "leads:assign": "Reassign leads and choose their owner",
+    "leads:delete": "Remove leads",
     "quotes:view": "See quotes",
     "quotes:create": "Create quotes",
     "quotes:edit": "Change quotes",

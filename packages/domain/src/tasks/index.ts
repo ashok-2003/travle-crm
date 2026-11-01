@@ -3,6 +3,7 @@ export { redactTaskTitles } from "./erasure.js";
 export {
   bringTaskForward,
   cancelOpenTasks,
+  cancelOpenTasksOfRecords,
   finishTasks,
   nextOpenTasks,
   openTasksOf,
