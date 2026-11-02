@@ -107,4 +107,11 @@ describe("a chat's flags", () => {
     );
     expect(await unread()).toBe(1);
   });
+
+  it("impersonation leaves a chat unread", async () => {
+    const { conversation, member, inOrg } = await chat();
+    const support = { ...member, source: "impersonation" as const, impersonatedBy: crypto.randomUUID() };
+    await inOrg((tx) => markConversationRead(tx, support, conversation.id, new Date(testNow.getTime() + 60_000)));
+    expect(await inOrg(async (tx) => (await unreadCounts(tx, member, [conversation.id])).get(conversation.id))).toBe(1);
+  });
 });

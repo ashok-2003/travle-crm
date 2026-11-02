@@ -49,13 +49,17 @@ export async function archiveConversation(
   else await recordAudit(tx, access, { action: "inbox.chat-unarchived", ...about });
 }
 
-/** The member has the chat open now: everything the customer wrote so far is read for them. Not audited (it is reading). */
+/**
+ * The member has the chat open now: everything the customer wrote so far is read for them. Not audited (it is reading).
+ * Support opening it while impersonating reads nothing for the member.
+ */
 export async function markConversationRead(
   tx: OrgTx,
   access: MemberAccess,
   conversationId: string,
   now: Date,
 ): Promise<void> {
+  if (access.impersonatedBy !== null) return;
   const chat = await openChat(tx, access, conversationId);
   await tx.conversationRead.upsert({
     where: {
