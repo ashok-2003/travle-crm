@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { rupees } from "@/components/forms/money-field";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { useTRPC } from "@/data/trpc";
 import { useInboxSummary } from "@/inbox/use-sales-inbox";
@@ -29,7 +30,8 @@ import { useTodaySummary } from "@/today/use-today";
 interface Tile {
   key: string;
   icon: LucideIcon;
-  value: string;
+  /** The figure, or null while it loads: a skeleton shows, never a 0 that is not yet known. */
+  value: string | null;
   label: string;
   note: string;
   href: string;
@@ -46,7 +48,7 @@ function TileLink({ tile }: { tile: Tile }) {
         <ItemContent>
           <ItemDescription>{tile.label}</ItemDescription>
           <ItemTitle className={cn("numbers text-section", tile.urgent && "text-status-bad-ink")}>
-            {tile.value}
+            {tile.value ?? <Skeleton aria-hidden="true" className="h-6 w-10" />}
           </ItemTitle>
           <ItemDescription className="text-caption">{tile.note}</ItemDescription>
         </ItemContent>
@@ -88,15 +90,17 @@ function MoneyDueTile({ today }: { today: string }) {
 export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) {
   const t = useTranslations("home.glance");
   const me = useMe();
-  const today = useTodaySummary().data;
+  const todayQuery = useTodaySummary();
+  const today = todayQuery.data;
   const chats = useInboxSummary();
-  const hot = useHotLeads().data;
+  const hotQuery = useHotLeads();
+  const hot = hotQuery.data;
   const counts = today?.counts;
   const tiles: Tile[] = [
     {
       key: "new",
       icon: UserPlusIcon,
-      value: formatCount(counts?.newLeads ?? 0),
+      value: todayQuery.isPending ? null : formatCount(counts?.newLeads ?? 0),
       label: t("newLeads"),
       note: t("newLeadsNote"),
       href: routes.today,
@@ -107,7 +111,7 @@ export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) 
           {
             key: "waiting",
             icon: MessageCircleIcon,
-            value: formatCount(chats.data?.waiting ?? 0),
+            value: chats.isPending ? null : formatCount(chats.data?.waiting ?? 0),
             label: t("waiting"),
             note: (chats.data?.late ?? 0) > 0 ? t("late", { count: chats.data?.late ?? 0 }) : t("waitingNote"),
             href: routes.inbox,
@@ -118,7 +122,7 @@ export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) 
     {
       key: "due",
       icon: CalendarClockIcon,
-      value: formatCount(counts?.dueToday ?? 0),
+      value: todayQuery.isPending ? null : formatCount(counts?.dueToday ?? 0),
       label: t("dueToday"),
       note: t("dueTodayNote"),
       href: routes.today,
@@ -127,7 +131,7 @@ export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) 
     {
       key: "overdue",
       icon: AlarmClockIcon,
-      value: formatCount(counts?.overdue ?? 0),
+      value: todayQuery.isPending ? null : formatCount(counts?.overdue ?? 0),
       label: t("overdue"),
       note: (counts?.overdue ?? 0) > 0 ? t("overdueNote") : t("nothingLate"),
       href: routes.today,
@@ -136,7 +140,7 @@ export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) 
     {
       key: "hot",
       icon: FlameIcon,
-      value: formatCount(hot?.length ?? 0),
+      value: hotQuery.isPending ? null : formatCount(hot?.length ?? 0),
       label: t("hot"),
       note: t("hotNote"),
       href: routes.today,
