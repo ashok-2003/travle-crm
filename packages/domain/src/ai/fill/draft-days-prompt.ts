@@ -8,7 +8,8 @@ export const DRAFT_DAYS_MARKER = "DRAFT_DAYS";
 
 const RULES = `${DRAFT_DAYS_MARKER}: you draft the day-by-day plan of a trip for a travel agency's quotation. A person reads it, changes it and uses it. You save nothing.
 Rules:
-- Answer with ONE JSON object and nothing else: {"days": [{"title": "...", "description": "..."}], "questions": []}. Write exactly the number of days you are told, in order.
+- Answer with ONE JSON object and nothing else: {"days": [{"title": "...", "description": "...", "from": "..."}], "questions": []}. Write exactly the number of days you are told, in order.
+- "from": only when a day is taken from one of the agency's plans, exactly as "<plan name>, day <number>" (for example "Manali 5N, day 3"); otherwise "".
 - A title is short (a place or an activity). A description is one to three plain sentences about what the day holds.
 - Use the agency's own plans, if any are given, as the base: prefer their places, their order and their wording, and adapt them to this party, month and number of days. Do not copy a plan that does not fit.
 - NEVER write an amount of money, a price, a discount or a percentage.

@@ -146,6 +146,28 @@ describe("draft the days and read the travellers", () => {
       expect(JSON.stringify(row)).not.toMatch(/Manali|Solang|Check in/);
     });
 
+    it("carries the package day each day came from, and drops a source the model made up", async () => {
+      const a = await agency();
+      const quoteId = await tripOn(a, { withPackage: true });
+      a.model.answer(
+        JSON.stringify({
+          days: [
+            { title: "Arrive in Manali", description: "x", from: "Manali 5N, day 1" },
+            { title: "Solang Valley", description: "y", from: "manali 5n, DAY 2" },
+            { title: "Atal Tunnel", description: "z", from: "Made Up 9N, day 4" },
+            { title: "Old Manali", description: "w" },
+            { title: "Kasol", description: "v" },
+            { title: "Depart", description: "u" },
+          ],
+        }),
+      );
+      const proposal = await draft(a, quoteId);
+      expect(proposal.fields[0]?.itemHints).toEqual(["Manali 5N, day 1", "Manali 5N, day 2", "", "", "", ""]);
+      expect(JSON.stringify(proposal.fields[0]?.value)).not.toContain("Manali 5N, day");
+      const prompt = a.model.requests[0]?.messages.map((message) => message.content).join("\n") ?? "";
+      expect(prompt).toContain("Day 2: Solang Valley");
+    });
+
     it("drafts without a package, and asks about a missing day", async () => {
       const a = await agency();
       const quoteId = await tripOn(a);

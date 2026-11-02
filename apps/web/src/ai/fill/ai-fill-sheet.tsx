@@ -222,7 +222,15 @@ export function AiFillSheet({
                         {field.path === "quote.days" && (
                           <ol className="list-decimal pl-5 text-people-tint-ink">
                             {(field.value as { title: string }[]).map((day, index) => (
-                              <li key={`${String(index)}-${day.title}`}>{day.title}</li>
+                              <li key={`${String(index)}-${day.title}`}>
+                                {day.title}
+                                {(field.itemHints?.[index] ?? "") !== "" && (
+                                  <span className="text-muted-foreground">
+                                    {" "}
+                                    {days("fromPackage", { source: field.itemHints?.[index] ?? "" })}
+                                  </span>
+                                )}
+                              </li>
                             ))}
                           </ol>
                         )}

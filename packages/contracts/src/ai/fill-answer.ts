@@ -103,7 +103,7 @@ export const quoteAnswer = z.object({
 
 /** Draft the days: the plan, one entry per day, and what the model could not settle. */
 export const draftAnswer = z.object({
-  days: lenient(z.array(z.object({ title: words(120), description: words(2000) })).max(60)),
+  days: lenient(z.array(z.object({ title: words(120), description: words(2000), from: words(80) })).max(60)),
   questions: common.questions,
 });
 

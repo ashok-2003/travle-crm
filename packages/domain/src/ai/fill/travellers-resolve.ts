@@ -62,8 +62,12 @@ export function resolveTravellers(answer: TravellersAnswer, context: TravellersC
     const traveller: Record<string, unknown> = { saidName, travellerId: rowIds[index] ?? null };
     if (saidName !== "") traveller.name = saidName;
     const passport = person.idKind === "passport";
-    let dateOfBirth = person.dateOfBirth === undefined ? null : resolveBirthDate(person.dateOfBirth, context.today);
-    let sex = genderOf(person.gender);
+    // Anything read off an ID (a passport or any other) is kept only for a member who may read IDs.
+    const fromId = person.idKind !== undefined;
+    const keepIdData = !fromId || context.mayReadIds;
+    let dateOfBirth =
+      person.dateOfBirth === undefined || !keepIdData ? null : resolveBirthDate(person.dateOfBirth, context.today);
+    let sex = keepIdData ? genderOf(person.gender) : undefined;
     if (passport && context.mayReadIds) {
       const mrz = readMrz(person.mrzLine1 ?? "", person.mrzLine2 ?? "", context.today);
       if (mrz === null) {
@@ -88,7 +92,7 @@ export function resolveTravellers(answer: TravellersAnswer, context: TravellersC
     else if (person.age !== undefined && person.age >= 0 && person.age <= 120) {
       // An age alone never becomes a date of birth: the row stays incomplete and the sheet says so.
       traveller.ageOnly = person.age;
-    } else if (person.dateOfBirth !== undefined && !(passport && context.mayReadIds)) {
+    } else if (person.dateOfBirth !== undefined && keepIdData && !(passport && context.mayReadIds)) {
       ask(`${label}: the date of birth wasn't a full date: ask for the day, month and year`);
     }
     if (sex !== undefined) traveller.gender = sex;
