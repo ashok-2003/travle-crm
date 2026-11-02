@@ -4,6 +4,7 @@
 import { highlightsOf, type PublicPackageRow } from "./rows.js";
 import type { OrgTx } from "@travel-crm/db";
 import { publicDepartures, type PublicDepartureRow } from "../departures/index.js";
+import { entitlementsOf, isOnDemoPlan } from "../subscriptions/index.js";
 import { publicPageSettingsOf } from "./settings.js";
 
 export type { PublicPackageRow } from "./rows.js";
@@ -25,19 +26,34 @@ const packageColumns = {
   destination: { select: { name: true } },
 } as const;
 
-/** The agency's pages are on. */
-export async function pagesAreOn(tx: OrgTx): Promise<boolean> {
-  return (await publicPageSettingsOf(tx)).enabled;
+/**
+ * Whether the agency's pages are open to visitors now: switched on, and the agency in good standing, as the website form is
+ * (a subscription that is read-only, suspended or cancelled closes them, the demo never opens them, and the plan must hold
+ * quotes for the packages and crm for the leads they make). A visitor is told nothing of which.
+ */
+export async function pagesAreOn(tx: OrgTx, input: { organizationId: string; now: Date }): Promise<boolean> {
+  if (!(await publicPageSettingsOf(tx)).enabled) return false;
+  if (await isOnDemoPlan(tx, input.organizationId)) return false;
+  const entitlements = await entitlementsOf(tx, input.organizationId, input.now);
+  if (entitlements?.access !== "full") return false;
+  return entitlements.modules.has("crm") && entitlements.modules.has("quotes");
 }
 
-export async function publishedPackage(tx: OrgTx, slug: string): Promise<PublicPackageRow | null> {
-  if (!(await pagesAreOn(tx))) return null;
+export async function publishedPackage(
+  tx: OrgTx,
+  slug: string,
+  when: { organizationId: string; now: Date },
+): Promise<PublicPackageRow | null> {
+  if (!(await pagesAreOn(tx, when))) return null;
   const row = await tx.quoteTemplate.findFirst({ where: { slug, published: true }, select: packageColumns });
   return row === null ? null : highlightsOf(row);
 }
 
-export async function publishedPackages(tx: OrgTx): Promise<PublicPackageRow[]> {
-  if (!(await pagesAreOn(tx))) return [];
+export async function publishedPackages(
+  tx: OrgTx,
+  when: { organizationId: string; now: Date },
+): Promise<PublicPackageRow[]> {
+  if (!(await pagesAreOn(tx, when))) return [];
   const rows = await tx.quoteTemplate.findMany({
     where: { published: true, slug: { not: null } },
     orderBy: [{ name: "asc" }, { id: "asc" }],

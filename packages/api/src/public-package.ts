@@ -10,6 +10,7 @@ import type { Identity } from "@travel-crm/domain/identity";
 import { DomainError, calendarDateIn, publicActor } from "@travel-crm/domain/kernel";
 import {
   departuresOf,
+  pagesAreOn,
   publicPageSettingsOf,
   publishedPackage,
   publishedPackages,
@@ -95,7 +96,7 @@ export async function publicPackageOf(
   if (agency === null) return null;
   const today = calendarDateIn(input.now, agency.timeZone);
   const found = await services.db.forOrg(agency.organizationId, async (tx) => {
-    const row = await publishedPackage(tx, input.slug);
+    const row = await publishedPackage(tx, input.slug, { organizationId: agency.organizationId, now: input.now });
     if (row === null) return null;
     return {
       row,
@@ -140,15 +141,16 @@ export async function publicPackageOf(
 /** The agency's published packages for its all-packages page, or null when its pages are off or it has none to show. */
 export async function publicPackageListOf(
   services: PublicPackageServices,
-  input: { code: string },
+  input: { code: string; now: Date },
 ): Promise<PublicPackageList | null> {
   const agency = await findAgency(services, input.code);
   if (agency === null) return null;
   const found = await services.db.forOrg(agency.organizationId, async (tx) => ({
     settings: await publicPageSettingsOf(tx),
-    rows: await publishedPackages(tx),
+    rows: await publishedPackages(tx, { organizationId: agency.organizationId, now: input.now }),
+    open: await pagesAreOn(tx, { organizationId: agency.organizationId, now: input.now }),
   }));
-  if (!found.settings.enabled) return null;
+  if (!found.open) return null;
   const cards = await Promise.all(
     found.rows.map(async (row) => ({
       slug: row.slug,

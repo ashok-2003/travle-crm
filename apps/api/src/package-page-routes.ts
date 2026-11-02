@@ -54,7 +54,7 @@ export function packagePageRoutes(dependencies: WebsiteFormRouteDependencies): H
       kind: "view",
     });
     if (!limited.allowed) return tooManyTries(c, limited.retryAfterSeconds);
-    const page = await publicPackageListOf(services, { code });
+    const page = await publicPackageListOf(services, { code, now: now() });
     if (page === null) return notAvailable(c);
     c.header("Cache-Control", "public, s-maxage=60");
     return c.json({ available: true as const, page });
@@ -120,7 +120,7 @@ export function packagePageRoutes(dependencies: WebsiteFormRouteDependencies): H
         const today = calendarDateIn(at, organization.timeZone);
         // 3. The package, and a submission already in the ledger, answered as it was the first time.
         const known = await db.forOrg(organizationId, async (tx) => {
-          const row = await publishedPackage(tx, slug);
+          const row = await publishedPackage(tx, slug, { organizationId, now: at });
           if (row === null) throw pageUnavailable();
           return { packageId: row.id, prior: await findPackageSubmission(tx, input.submissionId) };
         });

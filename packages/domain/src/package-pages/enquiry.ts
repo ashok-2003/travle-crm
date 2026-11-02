@@ -26,7 +26,7 @@ export async function receiveEnquiryOnPackage(
   slug: string,
   input: PackageEnquiryInput,
 ): Promise<PackageEnquiryOutcome> {
-  const row = await publishedPackage(tx, slug);
+  const row = await publishedPackage(tx, slug, { organizationId: services.organizationId, now: services.now });
   if (row === null) throw pageUnavailable();
   let departure = null;
   if (input.departureId !== undefined) {

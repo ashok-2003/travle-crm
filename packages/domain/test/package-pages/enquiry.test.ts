@@ -19,7 +19,14 @@ import {
 import { updatePackage, savePackage, setPackagePublished, createQuote } from "../../src/quotes/index.js";
 import { aLead, freshPhone } from "../crm/support/records.js";
 import { aDeparture } from "../departures/support.js";
-import { openWorld, type World } from "../bookings/support.js";
+import { memberWithStarterRole } from "../identity/rule-helpers.js";
+import {
+  createSubscribedOrganization,
+  createTestPlan,
+  createTestSubscriptions,
+} from "../subscriptions/test-subscriptions.js";
+import type { OrgTx } from "@travel-crm/db";
+import type { MemberAccess } from "../../src/identity/index.js";
 
 const now = new Date("2026-11-10T06:00:00Z");
 const reasonOf = (promise: Promise<unknown>) =>
@@ -28,14 +35,33 @@ const reasonOf = (promise: Promise<unknown>) =>
     (error: unknown) => (error as { reason?: string }).reason ?? "other",
   );
 
+/** An agency on a plan with crm and quotes, paid up, with a salesperson and a manager. */
+interface Agency {
+  organizationId: string;
+  manager: MemberAccess;
+  seller: MemberAccess;
+  inOrg: <T>(work: (tx: OrgTx) => Promise<T>) => Promise<T>;
+  close: () => Promise<void>;
+}
+
 describe("a public package page and its enquiry", () => {
-  let world: World;
+  let world: Agency;
+  let subscriptions: ReturnType<typeof createTestSubscriptions>;
   let services: PackageEnquiryServices;
   let packageId: string;
   let destinationId: string;
 
   beforeAll(async () => {
-    world = await openWorld("Package pages");
+    subscriptions = createTestSubscriptions();
+    const plan = await createTestPlan(subscriptions, { name: "Pages", modules: ["crm", "quotes"] });
+    const organizationId = await createSubscribedOrganization(subscriptions, plan);
+    world = {
+      organizationId,
+      manager: memberWithStarterRole("org-admin", { organizationId, userId: randomUUID() }),
+      seller: memberWithStarterRole("sales", { organizationId, userId: randomUUID() }),
+      inOrg: (work) => subscriptions.db.forOrg(organizationId, work),
+      close: () => subscriptions.close(),
+    };
     services = {
       organizationId: world.organizationId,
       ownerUserId: world.manager.userId,
@@ -98,6 +124,7 @@ describe("a public package page and its enquiry", () => {
     await world.close();
   });
 
+  const open = () => ({ organizationId: world.organizationId, now });
   const pages = (enabled: boolean) =>
     world.inOrg((tx) => savePublicPageSettings(tx, world.manager, { enabled, about: "", instagramUrl: "" }));
   const input = (
@@ -130,29 +157,44 @@ describe("a public package page and its enquiry", () => {
   describe("what a visitor may read", () => {
     it("is nothing while the agency's pages are off, and the published package once they are on", async () => {
       await pages(false);
-      expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra"))).toBeNull();
-      expect(await world.inOrg((tx) => publishedPackages(tx))).toEqual([]);
+      expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open()))).toBeNull();
+      expect(await world.inOrg((tx) => publishedPackages(tx, open()))).toEqual([]);
       await pages(true);
-      const shown = await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra"));
+      const shown = await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open()));
       expect(shown).toMatchObject({
         name: "Kedarnath yatra",
         destinationName: "Kedarnath",
         fromPricePaise: 3_200_000,
         nights: 5,
       });
-      expect(await world.inOrg((tx) => publishedPackage(tx, "no-such-trip"))).toBeNull();
-      expect((await world.inOrg((tx) => publishedPackages(tx))).map((one) => one.slug)).toEqual(["kedarnath-yatra"]);
+      expect(await world.inOrg((tx) => publishedPackage(tx, "no-such-trip", open()))).toBeNull();
+      expect((await world.inOrg((tx) => publishedPackages(tx, open()))).map((one) => one.slug)).toEqual([
+        "kedarnath-yatra",
+      ]);
       expect(await world.inOrg((tx) => publicPageSettingsOf(tx))).toMatchObject({ enabled: true });
+    });
+
+    it("is nothing while the agency is read only or suspended, whatever its pages say", async () => {
+      await pages(true);
+      const where = { organizationId: world.organizationId };
+      for (const status of ["read_only", "suspended"] as const) {
+        await subscriptions.platform.subscription.update({ where, data: { status, statusChangedAt: now } });
+        expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open()))).toBeNull();
+        expect(await world.inOrg((tx) => publishedPackages(tx, open()))).toEqual([]);
+        expect(await reasonOf(receive(input()))).toBe("PAGE_UNAVAILABLE");
+      }
+      await subscriptions.platform.subscription.update({ where, data: { status: "active", statusChangedAt: now } });
+      expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open()))).not.toBeNull();
     });
 
     it("shows no price when the agency chose 'on enquiry', and nothing of a package taken down", async () => {
       await world.inOrg((tx) =>
         tx.quoteTemplate.update({ where: { id: packageId }, data: { priceDisplay: "on_enquiry" } }),
       );
-      expect((await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra")))?.fromPricePaise).toBeNull();
+      expect((await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open())))?.fromPricePaise).toBeNull();
       await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id: packageId }, data: { priceDisplay: "from" } }));
       await world.inOrg((tx) => setPackagePublished(tx, world.manager, { packageId, published: false }, 1));
-      expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra"))).toBeNull();
+      expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open()))).toBeNull();
       expect(await reasonOf(receive(input()))).toBe("PAGE_UNAVAILABLE");
       await world.inOrg((tx) => setPackagePublished(tx, world.manager, { packageId, published: true }, 1));
     });
