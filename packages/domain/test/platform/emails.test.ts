@@ -18,7 +18,7 @@ import { createTestPlatform, support, type TestPlatform } from "./test-platform.
 
 const message = (): EmailMessage => ({
   to: { name: "Asha Owner", address: `asha-${crypto.randomUUID()}@agency.example` },
-  fromName: "Veeper AI",
+  fromName: "Example Sender",
   subject: "Reset your password",
   text: "Choose a new password: https://app.example/reset-password?token=abc",
   html: '<a href="https://app.example/reset-password?token=abc">Choose a new password</a>',

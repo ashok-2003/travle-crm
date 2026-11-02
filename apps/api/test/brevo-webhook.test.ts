@@ -63,7 +63,7 @@ describe("Brevo's webhook", () => {
     };
     await recordedEmailSender(capturing, emailLogStore(db), createMemoryLogger()).send({
       to: { address: `asha-${crypto.randomUUID()}@agency.example` },
-      fromName: "Veeper AI",
+      fromName: "Example Sender",
       subject: "Reset your password",
       text: "Choose a new password",
       html: "<p>Choose a new password</p>",

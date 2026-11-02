@@ -15,7 +15,7 @@ import {
 
 const message = (): EmailMessage => ({
   to: { address: `meera-${crypto.randomUUID()}@agency.example` },
-  fromName: "Sharma Travels via Veeper AI",
+  fromName: "Sharma Travels via Example Sender",
   subject: "Your account for Sharma Travels",
   text: "Choose your password",
   html: "<p>Choose your password</p>",
