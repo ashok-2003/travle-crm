@@ -141,6 +141,28 @@ describe("the review of a rate sheet", () => {
     expect(batchOf(values, supplierSeasons, { supplierId: SUPPLIER, fillId: FILL })?.rates[0]?.rateId).toBeUndefined();
   });
 
+  it("recognises a rate the supplier has when the row has no meal plan or occupancy, and changes it by id", () => {
+    const values = draftOf(
+      proposal({
+        seasons: [
+          {
+            ref: 0,
+            label: "Winter",
+            startsOn: "2026-10-01",
+            endsOn: "2027-03-31",
+            printed: "",
+            existingSeasonId: SEASON,
+            inPast: false,
+          },
+        ],
+        rates: [row({ mealPlan: "", occupancy: "", existing: { rateId: RATE, costPaise: 400_000 } })],
+      }),
+    );
+    const only = values.rows[0];
+    if (only) only.checked = true;
+    expect(batchOf(values, supplierSeasons, { supplierId: SUPPLIER, fillId: FILL })?.rates[0]?.rateId).toBe(RATE);
+  });
+
   it("names what stops a save: a unit the sheet did not give, a price code could not read, a season with no dates, a duplicate", () => {
     const values = draftOf(
       proposal({

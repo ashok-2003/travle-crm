@@ -15,7 +15,8 @@ import { refuse } from "../refusals.js";
 /** A part is read with at most this many lines, whatever their length. */
 const LINES_PER_PART = 150;
 const LINE_CHARACTERS = 300;
-const TABS_MAX = 12;
+/** More tabs than this is refused outright, never read in part: a tab left out silently would be rates lost. */
+const TABS_MAX = 40;
 const PAGES_MAX = 60;
 const ROWS_PER_TAB_MAX = 3000;
 
@@ -73,7 +74,10 @@ async function readTabs(spreadsheets: Spreadsheets, bytes: Uint8Array): Promise<
   const sheets: ReadSheet[] = [];
   // Known once a tab has been read: the first may be empty.
   let count: number | null = null;
-  for (let number = 1; number <= TABS_MAX && (count === null || number <= count); number += 1) {
+  for (let number = 1; count === null || number <= count; number += 1) {
+    if (number > TABS_MAX) {
+      throw refuse("RATE_SHEET_TOO_BIG", "This workbook has too many sheets to read", "VALIDATION");
+    }
     try {
       const sheet = await spreadsheets.read(bytes, {
         kind: "xlsx",

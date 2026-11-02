@@ -315,6 +315,21 @@ describe("a sheet divided into parts", () => {
     expect(parts[1]?.lines[1]).toEqual({ token: "L2", text: "A: Innova | B: 3,000", source: "Transport, row 2" });
   });
 
+  it("reads every tab of a workbook of more than twelve, and refuses one with too many rather than drop tabs", async () => {
+    const tab = (n: number) => ({
+      sheetName: `Tab ${String(n)}`,
+      header: ["Room", "Rate"],
+      rows: [[`Room ${String(n)}`, "1,000"]],
+    });
+    const many = (count: number) =>
+      spreadsheets.bytesOf({ ...tab(1), more: Array.from({ length: count - 1 }, (_, index) => tab(index + 2)) });
+    const parts = await excelParts(spreadsheets, many(15));
+    expect(parts.map((part) => part.label)).toEqual(
+      Array.from({ length: 15 }, (_, index) => `Tab ${String(index + 1)}`),
+    );
+    await expect(excelParts(spreadsheets, many(41))).rejects.toMatchObject({ reason: "RATE_SHEET_TOO_BIG" });
+  });
+
   it("divides a tab that is too long into row ranges", async () => {
     const bytes = spreadsheets.bytesOf({ header: ["Room", "Plan", "Rate"], rows: rowsOf(400, 1000) });
     const parts = await excelParts(spreadsheets, bytes);

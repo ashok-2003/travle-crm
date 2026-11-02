@@ -99,7 +99,8 @@ export function draftOf(proposal: RateSheetProposal): DraftValues {
           : {
               ...rate.existing,
               seasonKey,
-              key: keyOf({ ...draft, mealPlan: stored(draft.mealPlan), occupancy: stored(draft.occupancy) }),
+              // The form's own values ("none" for no meal plan), as keyOf(row) reads them later.
+              key: keyOf(draft),
             },
     };
   });
