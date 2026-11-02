@@ -255,10 +255,11 @@ Secrets come from the platform's secret manager as environment variables, never 
     process stops if the key has no chat models, if the others come without the key, or if the base URL is not https in
     production. OpenRouter's `provider` zero-data-retention field is sent only to OpenRouter, so a direct endpoint keeps what
     its own terms say (Google's free tier may use prompts: keep billing on for the project). `docker-compose.server.yml`
-    passes all of them to the api, the worker and the console.
+    passes all of them to the api and the worker; the console calls no model, so its AI keys are blank.
   - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` only) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,
-    `AI_BACKUP_CHAT_MODELS` or `AI_BACKUP_FAST_MODELS` say otherwise. A model that answered 429 rests (its Retry-After, else a
+    `AI_BACKUP_CHAT_MODELS` or `AI_BACKUP_FAST_MODELS` say otherwise; a backup on another endpoint must name its own chat
+    models (the start-up check refuses it otherwise). A model that answered 429 rests (its Retry-After, else a
     minute) without being asked, so the backup answers at once. Use a paid key or another provider's, never a second free
     account to get round a provider's limits: its terms forbid that, and its free tier may use the customers' words.
   - Existing plans get no AI: edit each plan in the console to add the module.

@@ -201,6 +201,14 @@ const environmentSchema = z
         problem(name, "is only for use with AI_BACKUP_API_KEY");
       }
     }
+    // Another endpoint names its models its own way: the first's names would only answer 404 there.
+    if (
+      environment.AI_BACKUP_BASE_URL !== undefined &&
+      environment.AI_BACKUP_BASE_URL !== environment.AI_BASE_URL &&
+      environment.AI_BACKUP_CHAT_MODELS === undefined
+    ) {
+      problem("AI_BACKUP_CHAT_MODELS", "is needed when AI_BACKUP_BASE_URL is another endpoint than AI_BASE_URL");
+    }
     if (environment.AI_TEST_SERVER_URL !== undefined && environment.OPENROUTER_API_KEY === undefined) {
       problem("AI_TEST_SERVER_URL", "is only for use with OPENROUTER_API_KEY");
     }
