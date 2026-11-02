@@ -16,7 +16,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle
 import { money } from "@travel-crm/domain/kernel";
 import { formatCalendarDay, formatRupees, formatTime } from "@/lib/format";
 import { elapsed } from "@/lib/relative-time";
-import { leadRoute, routes } from "@/lib/routes";
+import { departureRoute, leadRoute, routes } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
 import { useMe } from "@/session/me-context";
 import { todayItemId } from "./today-item";
@@ -38,7 +38,9 @@ function NudgeItem({ item }: { item: TodayItem }) {
       return { urgency: "waiting", text: t("ago", { elapsed: tNext(`elapsed.${unit}`, { count }) }) };
     }
     if (item.kind === "quote-opened") return { urgency: "waiting", text: t("quoteOpened") };
-    if (item.kind === "trip-details") return { urgency: "waiting", text: formatCalendarDay(item.startDate, now) };
+    if (item.kind === "trip-details" || item.kind === "departure") {
+      return { urgency: "waiting", text: formatCalendarDay(item.startDate, now) };
+    }
     if (item.kind === "payment-due") {
       return {
         urgency: item.missed ? "overdue" : "today",
@@ -50,7 +52,8 @@ function NudgeItem({ item }: { item: TodayItem }) {
       ? { urgency: "overdue", text: t("overdue") }
       : { urgency: "today", text: formatTime(due, { timeZone }) };
   })();
-  const title = item.lead?.personName ?? (item.kind === "task" ? item.task.title : "");
+  const title =
+    item.kind === "departure" ? item.title : (item.lead?.personName ?? (item.kind === "task" ? item.task.title : ""));
   const about =
     item.kind === "new-lead"
       ? t("waiting")
@@ -60,13 +63,23 @@ function NudgeItem({ item }: { item: TodayItem }) {
           ? formatRupees(money(item.amountPaise))
           : item.kind === "trip-details"
             ? t("tripDetails")
-            : item.lead === null
-              ? null
-              : item.task.title;
+            : item.kind === "departure"
+              ? t("departure")
+              : item.lead === null
+                ? null
+                : item.task.title;
   return (
     <div role="listitem">
       <Item size="sm" asChild>
-        <Link href={item.lead === null ? routes.today : leadRoute(item.lead.id)}>
+        <Link
+          href={
+            item.kind === "departure"
+              ? departureRoute(item.departureId)
+              : item.lead === null
+                ? routes.today
+                : leadRoute(item.lead.id)
+          }
+        >
           <ItemContent className="min-w-0">
             <ItemTitle className="script-leading">{title}</ItemTitle>
             {about !== null && <ItemDescription className="break-words script-leading">{about}</ItemDescription>}
@@ -85,8 +98,8 @@ export function TodayNudge() {
   const headingId = useId();
 
   if (summary.data) {
-    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue, tripDetails } = summary.data.counts;
-    const total = overdue + newLeads + dueToday + quoteOpened + paymentsDue + tripDetails;
+    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue, tripDetails, departures } = summary.data.counts;
+    const total = overdue + newLeads + dueToday + quoteOpened + paymentsDue + tripDetails + departures;
     const top = summary.data.top.slice(0, SHOWN);
     return (
       <Card role="region" aria-labelledby={headingId}>

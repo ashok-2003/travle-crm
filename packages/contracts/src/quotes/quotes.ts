@@ -180,6 +180,8 @@ export const quoteDetail = z.object({
   invoiceDocumentId: recordId.nullable(),
   /** The draft that took this quote's place, when it was replaced. */
   replacedById: recordId.nullable(),
+  /** The group departure the quote books seats on; its dates are the quote's (release 7a). */
+  departure: z.object({ id: recordId, title: z.string(), startDate: calendarDate }).nullable(),
   installments: z.array(installment),
   payments: z.array(payment),
 });

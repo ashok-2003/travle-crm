@@ -32,6 +32,7 @@ import { refusalOf } from "@/data/api-error";
 import { leadRoute, quoteRoute, routes } from "@/lib/routes";
 import { formatDay } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
+import { QuoteDepartureCard } from "@/departures/quote-departure-card";
 import { BookingCostsCard } from "@/finance/booking-costs-card";
 import { QuoteForm } from "./quote-form";
 import { QuoteMoney } from "./quote-money";
@@ -305,6 +306,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
             />
             <div className="flex flex-col gap-6 xl:sticky xl:top-6">
               <QuoteMoney quote={data} />
+              <QuoteDepartureCard quote={data} />
               <BookingCostsCard quoteId={data.id} />
             </div>
           </div>

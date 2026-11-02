@@ -65,10 +65,14 @@ export interface PublicTrip {
     emergencyName: string;
     emergencyPhone: string;
     medicalNotes: string;
+    roomRequest: string;
+    roomNote: string;
     complete: boolean;
     hasIdentity: boolean;
   }[];
   level: TravellerLevel;
+  /** The booking holds seats on a group departure: travellers may say what they want of their room. */
+  onDeparture: boolean;
   detailsLocked: boolean;
   detailsCutoffOn: string | null;
   essentials: Essentials;
@@ -193,10 +197,13 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
       emergencyName: row.emergencyName,
       emergencyPhone: row.emergencyPhone,
       medicalNotes: row.medicalNotes,
+      roomRequest: row.roomRequest,
+      roomNote: row.roomNote,
       complete: row.completeAt !== null,
       hasIdentity: identities.some((identity) => identity.travellerId === row.id),
     })),
     level: booking.level as TravellerLevel,
+    onDeparture: booking.departureId !== null,
     detailsLocked: booking.status === "completed" || (cutoff !== null && calendarDateIn(now, timeZone) > cutoff),
     detailsCutoffOn: cutoff,
     essentials: {

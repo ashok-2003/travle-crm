@@ -74,7 +74,7 @@ const moneyEditor = freshProcedure.requires("quotes:edit");
 const paymentRecorder = freshProcedure.requires("quotes:record_payments");
 
 /** What every quote write needs: the agency's GST state, from its business details. */
-async function quoteContext(ctx: MemberContext) {
+export async function quoteContext(ctx: MemberContext) {
   const profile = await ctx.profiles.get(ctx.member.organizationId);
   return { supplierStateCode: profile?.gstStateCode ?? null, now: new Date() };
 }

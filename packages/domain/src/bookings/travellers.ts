@@ -10,6 +10,7 @@ import {
   type TravellerIdentity,
   type TravellerLevel,
 } from "@travel-crm/contracts/bookings";
+import type { RoomRequest } from "@travel-crm/contracts/departures";
 import type { OrgTx } from "@travel-crm/db";
 import { softDeleted } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -74,6 +75,8 @@ async function applyDetails(
     emergencyName: string;
     emergencyPhone: string;
     medicalNotes: string;
+    roomRequest?: RoomRequest | undefined;
+    roomNote?: string | undefined;
     identity: TravellerIdentity | null | undefined;
   },
   now: Date,
@@ -126,6 +129,8 @@ async function applyDetails(
       emergencyName: input.emergencyName,
       emergencyPhone: input.emergencyPhone,
       medicalNotes: input.medicalNotes,
+      ...(input.roomRequest === undefined ? {} : { roomRequest: input.roomRequest }),
+      ...(input.roomNote === undefined ? {} : { roomNote: input.roomNote }),
       completeAt: complete ? now : null,
       updatedAt: now,
     },

@@ -4,6 +4,8 @@
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
+import { departureRef } from "../departures/departures.js";
+import { roomRequest } from "../departures/rooming.js";
 import { installment, payment } from "../quotes/quotes.js";
 
 export const bookingStatuses = ["requested", "confirmed", "cancelled", "completed"] as const;
@@ -74,6 +76,8 @@ export const bookingSummary = z.object({
   title: z.string(),
   startDate: calendarDate.nullable(),
   endDate: calendarDate.nullable(),
+  /** The group departure the booking holds seats on, when it is on one (release 7a). */
+  departure: departureRef.nullable(),
   totalPaise: paise,
   paidPaise: paise,
   balancePaise: paise,
@@ -89,7 +93,13 @@ export const bookingPage = z.object({ items: z.array(bookingSummary), nextCursor
 export type BookingPage = z.infer<typeof bookingPage>;
 
 /** A booking in brief, beside its lead. */
-export const leadBooking = z.object({ id: recordId, number: z.string(), status: bookingStatus, title: z.string() });
+export const leadBooking = z.object({
+  id: recordId,
+  number: z.string(),
+  status: bookingStatus,
+  title: z.string(),
+  departure: departureRef.nullable(),
+});
 export type LeadBooking = z.infer<typeof leadBooking>;
 
 export const essentialsFields = {
@@ -156,6 +166,9 @@ export const travellerFields = {
   emergencyName: text(120),
   emergencyPhone: text(40),
   medicalNotes: text(1000),
+  /** What the traveller asks of their room on a group departure (release 7a). */
+  roomRequest,
+  roomNote: text(200),
 };
 
 /** Staff fill a traveller's row as the traveller would; the ID number only with documents:view_sensitive. */

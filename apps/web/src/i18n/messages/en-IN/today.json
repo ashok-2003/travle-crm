@@ -11,7 +11,8 @@
     "trip-details": "Trips leaving soon, details missing",
     "new-leads": "New leads not contacted yet",
     "quote-opened": "Quote opened, no reply",
-    "due-today": "Due today"
+    "due-today": "Due today",
+    "departures": "Departures leaving soon"
   },
   "sectionLoadFailed": "This part of Today didn't load.",
   "more": {
@@ -20,7 +21,8 @@
     "trip-details": "Show more trips",
     "new-leads": "Show more new leads",
     "quote-opened": "Show more opened quotes",
-    "due-today": "Show more due today"
+    "due-today": "Show more due today",
+    "departures": "Show more departures"
   },
   "item": {
     "yesterday": "Yesterday, {time}",
@@ -39,7 +41,16 @@
     "dueLabel": "Due {day}",
     "tripDetails": "{missing} of {total} travellers' details missing",
     "tripLeaves": "Leaves {day}",
-    "openBooking": "Open booking {number}"
+    "openBooking": "Open booking {number}",
+    "departureSeats": "{sold} of {total} seats sold",
+    "departureReasons": {
+      "holds-ending": "A hold ends soon",
+      "details-incomplete": "Details missing",
+      "rooming-not-drafted": "Rooms not drafted",
+      "overbooked": "Overbooked"
+    },
+    "openDeparture": "Open {title}",
+    "departureLeaves": "Leaves {day}"
   },
   "nudge": {
     "count": "{count, plural, one {# thing today} other {# things today}}",
@@ -51,7 +62,8 @@
     "loadFailed": "Today's work didn't load.",
     "quoteOpened": "Opened the quote, no reply",
     "paymentMissed": "Missed",
-    "tripDetails": "Details missing"
+    "tripDetails": "Details missing",
+    "departure": "Leaving soon"
   },
   "addTask": {
     "action": "Add a task",

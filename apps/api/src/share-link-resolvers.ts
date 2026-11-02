@@ -3,6 +3,7 @@
 // has confirmed the booking made from it, as the trip page (trip-page.ts), where they say "I've paid", fill their details
 // and leave feedback.
 import { publicUploadInput, publicConfirmInput } from "@travel-crm/contracts/bookings";
+import { roomRequests } from "@travel-crm/contracts/departures";
 import type { Database } from "@travel-crm/db";
 import {
   isTripDocument,
@@ -139,6 +140,12 @@ export function shareLinkActions({
                   emergencyName: (form.emergencyName ?? "").trim(),
                   emergencyPhone: (form.emergencyPhone ?? "").trim(),
                   medicalNotes: (form.medicalNotes ?? "").trim(),
+                  ...(form.roomRequest === undefined
+                    ? {}
+                    : {
+                        roomRequest: roomRequests.find((request) => request === form.roomRequest) ?? "none",
+                        roomNote: (form.roomNote ?? "").trim(),
+                      }),
                   identity: hasId
                     ? {
                         kind: "passport",

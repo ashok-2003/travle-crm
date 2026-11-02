@@ -209,7 +209,15 @@
       "problems": {
         "required": "This is needed.",
         "invalid": "Check this."
-      }
+      },
+      "roomRequest": "What they want of their room",
+      "roomRequests": {
+        "none": "Nothing in particular",
+        "single_room": "A room alone",
+        "ground_floor": "A ground-floor room",
+        "near_group": "A room near the group"
+      },
+      "roomNote": "Anything else about their room"
     }
   },
   "essentials": {
