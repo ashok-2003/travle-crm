@@ -137,7 +137,7 @@ export const fillTargetPaths = {
 } as const satisfies Record<FillTarget, readonly FillPath[]>;
 
 /** Where a proposed value came from. */
-export const fillSources = ["voice", "text", "image", "chat"] as const;
+export const fillSources = ["voice", "text", "image", "chat", "package"] as const;
 
 export const aiFillField = z.object({
   path: fillPath,

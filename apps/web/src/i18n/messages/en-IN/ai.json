@@ -395,7 +395,8 @@
       "voice": "your voice",
       "text": "your words",
       "image": "the screenshot",
-      "chat": "the chat"
+      "chat": "the chat",
+      "package": "your packages"
     },
     "sheet": {
       "title": "Fill it for me",

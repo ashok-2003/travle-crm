@@ -53,13 +53,21 @@ async function prepareDays(
       const json = jsonObjectIn(text);
       const answer = draftAnswer.parse(json ?? {});
       const days = resolveDraftDays(answer, gathered.dayCount, answer.questions ?? []);
-      const source =
-        gathered.packageNames.length === 0 ? "" : `Adapted from ${gathered.packageNames.join(", ")}`.slice(0, 200);
+      // A day plan taken from the agency's own packages says which, so staff can see where its places came from.
+      const usedPackages = gathered.packageNames.length > 0;
+      const source = gathered.packageNames.join(", ").slice(0, 200);
       return {
         fields:
           days.days.length === 0
             ? []
-            : [{ path: "quote.days", value: days.days, from: "text" as const, excerpt: source }],
+            : [
+                {
+                  path: "quote.days",
+                  value: days.days,
+                  from: usedPackages ? ("package" as const) : ("text" as const),
+                  excerpt: source,
+                },
+              ],
         questions: days.questions,
         removedAmounts: days.removedAmounts,
       };

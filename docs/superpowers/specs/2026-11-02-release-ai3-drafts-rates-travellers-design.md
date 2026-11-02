@@ -192,3 +192,21 @@ trip-link form using AI.
    audit their contents. Move to the paid key before more agencies (later-review 29).
 6. Not answered; lead's call: (a) an age alone leaves the date of birth empty and asks for it.
 7. Not answered; lead's call: (a) two PRs, ai3a (part 0 feedback, itinerary drafts, travellers) then ai3b (rate sheets).
+
+## RULINGS (ai3a builder, 2026-11-02)
+- Owner answer 5 stands: no `read_ids` switch and no `AI_ID_READING` flag; ID reading is on. Identity fields are read and kept only for a
+  member holding `documents:view_sensitive`; an image source for travellers needs it too (a list photo cannot be told from an ID before it
+  is read); words and a voice note do not.
+- No migration column or table: a travellers' fill has `subject_type = 'lead'` and the booking's lead as subject, so the customer's
+  erasure and the 30-day sweep already find it and its sensitive `ai_input`. Only the `ai_fill_target_value` CHECK grows
+  (`quote_days`, `travellers`). One input file per fill (no photo sets).
+- The travellers fill's row stores the constant `sensitive` where a value hash goes, so no hash of a birth date, phone or ID number
+  exists; `changed_fields` is therefore never recorded for it.
+- "Hidden" packages: only deleted ones are left out; an unpublished package is still the agency's own plan. Packages are picked by the
+  lead's destination (nearest nights first, three at most). A budget reaches the prompt only as the words "has a budget in mind".
+- The trip's length: lead dates, else the note ("5 days", "4 nights"), else quote start plus a package's nights, else the days already on the
+  quote; none is `DRAFT_DAYS_UNKNOWN`, over 21 days `DRAFT_TOO_LONG`, both before a call is taken.
+- Draft the days and Fill with AI are two buttons that wrap on a phone (no menu: simpler). The latest fill applied is the one a quote save
+  is audited with.
+- The MRZ country code (positions 10-12) is covered by no ICAO check digit; it is taken from lines that pass and shown for checking.
+- Part 0: `TRAVELLERS_MAX` now cuts a group at the cap; main has no "not everyone was read" line, so none was added.

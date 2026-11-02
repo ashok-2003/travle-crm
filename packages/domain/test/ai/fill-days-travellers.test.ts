@@ -123,7 +123,7 @@ describe("draft the days and read the travellers", () => {
       expect((days?.value as unknown[]).length).toBe(6);
       expect(JSON.stringify(days?.value)).not.toContain("4,500");
       expect(proposal.removedAmounts).toBe(true);
-      expect(days?.excerpt).toBe("Adapted from Manali 5N");
+      expect(days).toMatchObject({ from: "package", excerpt: "Manali 5N" });
       expect(proposal.fields.map((field) => field.path)).toEqual(["quote.days"]);
       expect(await a.calls()).toBe(1);
       const request = a.model.requests[0];

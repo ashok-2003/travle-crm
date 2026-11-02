@@ -25,8 +25,8 @@ const proposal: AiFillProposal = {
         { title: "Arrive in Manali", description: "Check in." },
         { title: "Solang Valley", description: "Snow play." },
       ],
-      from: "text",
-      excerpt: "Adapted from Manali 5N",
+      from: "package",
+      excerpt: "Manali 5N",
     },
   ],
   questions: ["The AI wrote 2 of the 3 days: add the rest yourself"],
@@ -96,7 +96,7 @@ describe("Draft the days", () => {
     expect(screen.getByText("The AI wrote 2 of the 3 days: add the rest yourself")).toBeInTheDocument();
     expect(screen.getByText("Arrive in Manali")).toBeInTheDocument();
     expect(screen.getByText("Solang Valley")).toBeInTheDocument();
-    expect(screen.getByText(/From your words: “Adapted from Manali 5N”/)).toBeInTheDocument();
+    expect(screen.getByText(/From your packages: “Manali 5N”/)).toBeInTheDocument();
     // Days are already on the quote: replacing them is a choice, unticked, with what is there.
     const replace = screen.getByRole("checkbox", { name: /Replace all days/ });
     expect(replace).not.toBeChecked();
