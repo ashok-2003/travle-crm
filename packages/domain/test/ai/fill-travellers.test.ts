@@ -242,6 +242,37 @@ describe("travellers from an ID photo", () => {
     expect(JSON.stringify(resolved)).not.toContain("Z1234567");
   });
 
+  it("gives a member who may not read IDs neither birth date nor gender from any ID, but a typed list still fills them", () => {
+    const blind = { ...context, mayReadIds: false };
+    const ids = resolveTravellers(
+      people(passport(), {
+        name: "Sunita Sharma",
+        idKind: "aadhaar",
+        dateOfBirth: "05/05/1985",
+        gender: "female",
+      }),
+      blind,
+    );
+    for (const one of ids.fields[0]?.value as Record<string, unknown>[]) {
+      expect(one).not.toHaveProperty("dateOfBirth");
+      expect(one).not.toHaveProperty("gender");
+      expect(one).not.toHaveProperty("identity");
+    }
+    const typed = resolveTravellers(
+      people({ name: "Sunita Sharma", dateOfBirth: "05/05/1985", gender: "female" }),
+      blind,
+    );
+    expect(typed.fields[0]?.value).toEqual([
+      {
+        saidName: "Sunita Sharma",
+        travellerId: T1,
+        name: "Sunita Sharma",
+        dateOfBirth: "1985-05-05",
+        gender: "female",
+      },
+    ]);
+  });
+
   it("keeps nothing of an ID for a member who may not read them", () => {
     const resolved = resolveTravellers(people(passport()), { ...context, mayReadIds: false });
     const [one] = resolved.fields[0]?.value as Record<string, unknown>[];

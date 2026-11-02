@@ -146,6 +146,8 @@ export const aiFillField = z.object({
   from: z.enum(fillSources),
   /** The words that gave it, as spoken or written (up to 200 characters). */
   excerpt: z.string(),
+  /** A hint for each item of a list value (a day taken from a package: "Manali 5N, day 3"); "" for none. */
+  itemHints: z.array(z.string()).optional(),
 });
 export type AiFillField = z.infer<typeof aiFillField>;
 

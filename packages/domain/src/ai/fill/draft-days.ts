@@ -84,6 +84,8 @@ export interface DraftPrepared {
   dayCount: number;
   /** Names of the packages used, for the sheet's "from package X" line. */
   packageNames: string[];
+  /** The package days the model may name as a day's source. */
+  labels: string[];
 }
 
 /**
@@ -131,6 +133,7 @@ export async function gatherDraftFacts(
   return {
     dayCount,
     packageNames: chosen.map((one) => one.name),
+    labels: packageDayLabels(chosen),
     facts: {
       destination: trip.destination?.name ?? null,
       dayCount,
@@ -154,8 +157,14 @@ export async function gatherDraftFacts(
   };
 }
 
+/** The labels a day may say it came from: "Manali 5N, day 3", one for each day of each plan given to the model. */
+export const packageDayLabels = (plans: readonly { name: string; days: readonly unknown[] }[]): string[] =>
+  plans.flatMap((plan) => plan.days.map((_, index) => `${plan.name}, day ${String(index + 1)}`));
+
 export interface DraftResolved {
   days: { title: string; description: string }[];
+  /** For each day, the package day it was taken from, or "". */
+  hints: string[];
   questions: string[];
   /** An amount the model typed was taken out. */
   removedAmounts: boolean;
@@ -163,9 +172,12 @@ export interface DraftResolved {
 
 /** The model's days as exactly `dayCount` days within the quote's limits; a missing day is a question, an extra is dropped. */
 export function resolveDraftDays(
-  answer: { days?: { title?: string | undefined; description?: string | undefined }[] | undefined },
+  answer: {
+    days?: { title?: string | undefined; description?: string | undefined; from?: string | undefined }[] | undefined;
+  },
   dayCount: number,
   questions: readonly string[],
+  labels: readonly string[] = [],
 ): DraftResolved {
   let removedAmounts = false;
   const clean = (text: string) => {
@@ -173,15 +185,19 @@ export function resolveDraftDays(
     removedAmounts ||= result.removed;
     return result.text.trim();
   };
-  const days = (answer.days ?? [])
+  const kept = (answer.days ?? [])
     .flatMap((day) => {
       const title = clean(day.title ?? "").slice(0, 120);
-      return title === "" ? [] : [{ title, description: clean(day.description ?? "").slice(0, 2000) }];
+      // Only a label code gave the model counts: a made-up source is dropped.
+      const from = labels.find((label) => label.toLowerCase() === (day.from ?? "").trim().toLowerCase()) ?? "";
+      return title === "" ? [] : [{ day: { title, description: clean(day.description ?? "").slice(0, 2000) }, from }];
     })
     .slice(0, Math.min(dayCount, MAX_QUOTE_DAYS));
+  const days = kept.map((one) => one.day);
+  const hints = kept.map((one) => one.from);
   const asked = [...questions];
   if (days.length < dayCount) {
     asked.push(`The AI wrote ${String(days.length)} of the ${String(dayCount)} days: add the rest yourself`);
   }
-  return { days, questions: asked.slice(0, 5), removedAmounts };
+  return { days, hints, questions: asked.slice(0, 5), removedAmounts };
 }

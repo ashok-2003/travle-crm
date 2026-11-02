@@ -438,6 +438,7 @@
       "fill": "Draft the days",
       "working": "Drafting…",
       "replace": "Replace all days",
+      "fromPackage": "(from {source})",
       "removedAmounts": "The AI typed an amount of its own and it was taken out. Check the days read right."
     },
     "paths": {
