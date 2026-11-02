@@ -193,7 +193,7 @@ Secrets come from the platform's secret manager as environment variables, never 
     Unassigned notice, so its failed jobs are worth a look the first day. The default mode is "To the Owner": nothing
     changes for an agency until its Owner chooses otherwise in Settings > Lead assignment.
 - **The system's health** (the owner, 2026-11-02; `packages/domain/src/platform/incidents.ts`):
-  - **Migration `20261129100000_platform_incidents` is applied by hand before the release is deployed**, never on
+  - **Migration `20261130100000_platform_incidents` is applied by hand before the release is deployed**, never on
     deploy. It only adds one platform table (`platform_incident`, no rights for the runtime role).
   - The api and the worker report what breaks (an AI call no model answered, a fault no route handled) as jobs on
     `platform.incident`; the console checks every five minutes (`platform.health-check`) for failed jobs and a worker
