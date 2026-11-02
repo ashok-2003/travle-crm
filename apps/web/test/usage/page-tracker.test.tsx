@@ -10,12 +10,19 @@ import { member } from "../support/members";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/leads" }));
 
-function renderTracker(impersonatedBy: string | null = null) {
+function renderTracker(impersonatedBy: string | null = null, hangFirst = false) {
   const sent: unknown[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       sent.push(JSON.parse(typeof init?.body === "string" ? init.body : "{}"));
+      if (hangFirst && sent.length === 1) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new Error("timed out"));
+          });
+        });
+      }
       return Promise.resolve(Response.json({ result: { data: { visitId: "visit-1" } } }));
     }),
   );
@@ -33,7 +40,7 @@ function renderTracker(impersonatedBy: string | null = null) {
 }
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout", "Date"] });
 });
 
 afterEach(() => {
@@ -65,5 +72,13 @@ describe("PageTracker", () => {
     view.unmount();
     await vi.advanceTimersByTimeAsync(1_000);
     expect(sent).toEqual([]);
+  });
+
+  it("gives up on a report that gets no answer, so later reports still go out", async () => {
+    const { sent } = renderTracker(null, true);
+    await vi.advanceTimersByTimeAsync(PAGE_TRACK_BEAT_MS * 2);
+    await vi.waitFor(() => {
+      expect(sent).toHaveLength(2);
+    });
   });
 });

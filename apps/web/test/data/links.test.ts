@@ -1,10 +1,10 @@
 // The api links: queries stream in one batch with a time limit, mutations batch without one, page visits go alone,
 // and a refusal inside a streamed batch is still read as a refusal (a 401 signs out, a pending step redirects).
-import { createTRPCClient } from "@trpc/client";
+import { createTRPCClient, TRPCClientError } from "@trpc/client";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { refusalOf } from "@/data/api-error";
+import { isWorthRetrying, QueryTimeoutError, refusalOf } from "@/data/api-error";
 import { apiLinks, QUERY_TIMEOUT_MS } from "@/data/links";
 import { stubApi } from "./support/fake-api";
 
@@ -21,6 +21,7 @@ const router = t.router({
 const client = () => createTRPCClient<typeof router>({ links: apiLinks("/api/trpc") });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -55,39 +56,98 @@ describe("apiLinks", () => {
     expect(sent.map((call) => call.url).sort()).toEqual(["/api/trpc/change?batch=1", "/api/trpc/usage.track"]);
   });
 
-  it("gives a query a time limit of 30 seconds and ends it when that passes", async () => {
-    const limit = new AbortController();
-    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(limit.signal);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        (_input: RequestInfo | URL, init?: RequestInit) =>
-          new Promise<Response>((_resolve, reject) => {
-            const signal = init?.signal;
-            const fail = () => {
-              reject(new Error("aborted"));
-            };
-            if (signal?.aborted) fail();
-            signal?.addEventListener("abort", fail);
-          }),
-      ),
+  /** A fetch that never answers, but ends with the signal's reason when aborted. */
+  function hangingFetch() {
+    return vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          const fail = () => {
+            reject(signal?.reason instanceof Error ? signal.reason : new Error("aborted"));
+          };
+          if (signal?.aborted) fail();
+          signal?.addEventListener("abort", fail);
+        }),
     );
-    const pending = client().second.query();
-    const outcome = expect(pending).rejects.toBeDefined();
-    await vi.waitFor(() => {
-      expect(fetch).toHaveBeenCalled();
-    });
-    limit.abort(new DOMException("The operation timed out.", "TimeoutError"));
-    await outcome;
-    expect(timeout).toHaveBeenCalledWith(QUERY_TIMEOUT_MS);
+  }
+
+  it("ends a query that gets no answer after 30 seconds, with an error that says it timed out", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.stubGlobal("fetch", hangingFetch());
+    const outcome = client()
+      .second.query()
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    await vi.advanceTimersByTimeAsync(QUERY_TIMEOUT_MS - 1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    const error = await outcome;
+    expect(error).toBeInstanceOf(TRPCClientError);
+    expect((error as TRPCClientError<never>).cause).toBeInstanceOf(QueryTimeoutError);
+    expect(isWorthRetrying(error)).toBe(false);
     expect(QUERY_TIMEOUT_MS).toBe(30_000);
   });
 
-  it("never times a mutation out", async () => {
-    const timeout = vi.spyOn(AbortSignal, "timeout");
+  it("works without AbortSignal.any: queries answer, the limit holds, and a caller's abort aborts", async () => {
+    vi.stubGlobal("AbortSignal", Object.assign(Object.create(AbortSignal) as object, { any: undefined }));
+    expect((AbortSignal as { any?: unknown }).any).toBeUndefined();
     stubApi(router, "/api/trpc");
-    await client().change.mutate();
-    expect(timeout).not.toHaveBeenCalled();
+    expect(await client().second.query()).toBe("second");
+    vi.unstubAllGlobals();
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.stubGlobal("AbortSignal", Object.assign(Object.create(AbortSignal) as object, { any: undefined }));
+    vi.stubGlobal("fetch", hangingFetch());
+    const timedOut = client()
+      .second.query()
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    await vi.advanceTimersByTimeAsync(QUERY_TIMEOUT_MS);
+    expect(((await timedOut) as TRPCClientError<never>).cause).toBeInstanceOf(QueryTimeoutError);
+
+    const caller = new AbortController();
+    const aborted = client()
+      .second.query(undefined, { signal: caller.signal })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    await vi.advanceTimersByTimeAsync(10);
+    caller.abort();
+    const error = await aborted;
+    expect(error).toBeInstanceOf(TRPCClientError);
+    expect((error as TRPCClientError<never>).cause).not.toBeInstanceOf(QueryTimeoutError);
+  });
+
+  it("gives a page-visit report the same limit", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.stubGlobal("fetch", hangingFetch());
+    const outcome = client()
+      .usage.track.mutate()
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    await vi.advanceTimersByTimeAsync(QUERY_TIMEOUT_MS);
+    expect(((await outcome) as TRPCClientError<never>).cause).toBeInstanceOf(QueryTimeoutError);
+  });
+
+  it("never times another mutation out", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.stubGlobal("fetch", hangingFetch());
+    let settled = false;
+    void client()
+      .change.mutate()
+      .catch(() => undefined)
+      .finally(() => {
+        settled = true;
+      });
+    await vi.advanceTimersByTimeAsync(QUERY_TIMEOUT_MS * 10);
+    expect(settled).toBe(false);
   });
 
   it("keeps a streamed refusal readable beside the data of another query", async () => {

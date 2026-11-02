@@ -18,7 +18,6 @@ export const SLOW_DATA_STALE_MS = 10 * 60_000;
 export const SLOW_DATA: readonly string[] = [
   "me.get",
   "subscription.get",
-  "organization.logo.forShell",
   "roles.list",
   "staff.list",
   "leads.owners",

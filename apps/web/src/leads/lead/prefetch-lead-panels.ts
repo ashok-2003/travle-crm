@@ -14,6 +14,12 @@ export function usePrefetchLeadPanels(leadId: string, valid: boolean): void {
   const queryClient = useQueryClient();
   const me = useMe();
   const modules = useSubscription().data?.modules;
+  // Only these answers matter to the effect, so a new `me` object with the same grants does not ask again.
+  const mayInsight = holds(me, "ai:suggest") && (modules?.includes("ai") ?? false);
+  const mayQuotes = holds(me, "quotes:view") && isOnPlan({ module: "quotes" }, modules);
+  const mayBookings = holds(me, "bookings:view") && isOnPlan({ module: "bookings" }, modules);
+  const mayDepartures = holds(me, "departures:view") && isOnPlan({ module: "departures" }, modules);
+  const mayChat = holds(me, "inbox:view") && (modules === undefined || modules.includes("inbox"));
 
   useEffect(() => {
     if (!valid) return;
@@ -28,23 +34,23 @@ export function usePrefetchLeadPanels(leadId: string, valid: boolean): void {
         initialPageParam: null as string | null,
       })
       .catch(() => undefined);
-    if (holds(me, "ai:suggest") && (modules?.includes("ai") ?? false)) {
+    if (mayInsight) {
       ask(queryClient.query(trpc.ai.leadInsight.queryOptions({ leadId })));
       ask(queryClient.query(trpc.ai.leadFields.queryOptions({ leadId })));
     }
-    if (holds(me, "quotes:view") && isOnPlan({ module: "quotes" }, modules)) {
+    if (mayQuotes) {
       ask(queryClient.query(trpc.quotes.forLead.queryOptions({ leadId })));
       ask(queryClient.query(trpc.quotes.settings.queryOptions()));
       ask(queryClient.query(trpc.quotes.packages.queryOptions()));
     }
-    if (holds(me, "bookings:view") && isOnPlan({ module: "bookings" }, modules)) {
+    if (mayBookings) {
       ask(queryClient.query(trpc.bookings.forLead.queryOptions({ leadId })));
     }
-    if (holds(me, "departures:view") && isOnPlan({ module: "departures" }, modules)) {
+    if (mayDepartures) {
       ask(queryClient.query(trpc.departures.forLead.queryOptions({ leadId })));
     }
-    if (holds(me, "inbox:view") && (modules === undefined || modules.includes("inbox"))) {
+    if (mayChat) {
       ask(queryClient.query(trpc.inbox.leadChat.queryOptions({ leadId })));
     }
-  }, [leadId, valid, me, modules, trpc, client, queryClient]);
+  }, [leadId, valid, mayInsight, mayQuotes, mayBookings, mayDepartures, mayChat, trpc, client, queryClient]);
 }
