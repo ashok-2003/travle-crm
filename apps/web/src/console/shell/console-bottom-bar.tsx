@@ -28,7 +28,7 @@ export function ConsoleBottomBar() {
         current: isCurrentConsoleItem(item, pathname),
       }))}
       title={t("title")}
-      description={<SignedInStaff />}
+      description={<SignedInStaff onLight />}
       signOut={{ label: t("navigation.signOut"), onClick: signOut }}
     />
   );

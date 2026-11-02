@@ -6,6 +6,7 @@ export default defineConfig({
     name: "db",
     include: ["test/**/*.test.ts"],
     globalSetup: ["./test/global-setup.ts"],
+    setupFiles: ["./test/transaction-limits.ts"],
     testTimeout: 30_000,
     hookTimeout: 120_000,
   },

@@ -31,6 +31,11 @@ const required: Record<string, Permission> = {
   "tasks.add": "leads:view",
   "tasks.complete": "leads:view",
   "tasks.snooze": "leads:view",
+  "tasks.edit": "leads:view",
+  "tasks.followUps": "leads:view",
+  "leads.remove": "leads:delete",
+  "leads.bulkRemove": "leads:delete",
+  "leads.removeAll": "leads:delete",
   "leads.list": "leads:view",
   "leads.counts": "leads:view",
   "leads.owners": "leads:view",
@@ -80,6 +85,13 @@ function callerWithout(missing: Permission) {
     identity: {
       resolveAccess: () => Promise.resolve(member),
       recordActivity: () => Promise.resolve(),
+      // The session a fresh procedure reads from the database (leads.removeAll).
+      auth: {
+        api: {
+          getSession: () =>
+            Promise.resolve({ headers: new Headers(), response: { session, user: { id: member.userId } } }),
+        },
+      },
     } as unknown as Identity,
     subscriptions: {
       entitlementsOf: () =>

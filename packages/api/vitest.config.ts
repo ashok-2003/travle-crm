@@ -11,6 +11,7 @@ export default defineConfig({
     name: "api",
     include: ["test/**/*.test.ts"],
     globalSetup: [require.resolve("@travel-crm/db/testing/global-setup")],
+    setupFiles: [require.resolve("@travel-crm/db/testing/transaction-limits")],
     testTimeout: 30_000,
     hookTimeout: 120_000,
   },
