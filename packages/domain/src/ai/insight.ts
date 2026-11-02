@@ -1,8 +1,9 @@
 // The AI's guess of how a lead will go: how likely it books (0-100), hot, warm or cold, why, whether it looks fake and what to
 // do next, worked out from the chat and what we know of the lead. Only for an agency with the AI on, whose plan has it and
 // whose subscription isn't suspended or cancelled; it spends one of the agency's monthly AI calls; it runs once for a burst
-// of the customer's messages (the newest one's turn, a few seconds after it), never again for the same one; and it never
-// changes a lead's stage or anything but its own row. Erased with the customer.
+// of the customer's messages (the newest one's turn, a few seconds after it), never again for the same one, at most once in
+// ten minutes for one lead (later lines wait and are read then), and not for an "ok" or a "thanks" once it has a guess;
+// and it never changes a lead's stage or anything but its own row. Erased with the customer.
 import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight } from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
@@ -22,7 +23,44 @@ import { releaseAiCall, reserveAiCall } from "./usage.js";
 export const AI_SCORE_QUEUE = "ai.score";
 /** How long the scoring waits after a customer's message for the next one: a burst of lines is scored once. */
 export const SCORE_SETTLE_MS = 20_000;
+/** The least time between two scorings of one lead: a busy chat is scored again only once this has passed. */
+export const SCORE_REST_MS = 10 * 60_000;
 const CHAT_MESSAGES = 20;
+
+/**
+ * A customer's line that says nothing new (an "ok", a "thanks", an emoji): a lead already scored isn't scored again for
+ * it. Common acknowledgements in English and Hinglish only; a yes or a no ("haan", "ji", "done") may answer a question, so
+ * it is always scored.
+ */
+const ACKNOWLEDGEMENT =
+  /^(ok+|okay|k+|thanks?|thank you|thanku|thx|ty|tq|fine|good|great|nice|cool|hmm+|hm+|theek hai|thik hai|achha|accha|acha|hi|hello|hey)$/u;
+
+/** True when a customer's message is only an acknowledgement or emoji and punctuation. */
+export function saysNothingNew(text: string): boolean {
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return words === "" || ACKNOWLEDGEMENT.test(words);
+}
+
+/**
+ * When the lead this chat is about was last scored, or null: never, or no lead yet (a first message's lead may be made
+ * after this is asked, so the job still goes, and finds it).
+ */
+async function lastScoredAt(tx: OrgTx, conversationId: string): Promise<Date | null> {
+  const chat = await tx.whatsappConversation.findUnique({ where: { id: conversationId }, select: { personId: true } });
+  if (chat?.personId == null) return null;
+  const lead = await tx.lead.findFirst({
+    where: { personId: chat.personId, stage: { in: [...openLeadStages] } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (lead === null) return null;
+  const insight = await tx.leadAiInsight.findFirst({ where: { leadId: lead.id }, select: { updatedAt: true } });
+  return insight?.updatedAt ?? null;
+}
 
 export interface ScoreDependencies {
   db: Database;
@@ -45,7 +83,14 @@ export function scoreOnCustomerWroteListener(dependencies: {
       if (!dependencies.ai.configured) return;
       // Nothing leaves for an agency that hasn't switched the AI on, or has no right to it.
       if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(event.organizationId))) return;
-      if (!(await context.forOrg(async (tx) => (await aiEnabled(tx)) && (await aiScoringOn(tx))))) return;
+      const scoredAt = await context.forOrg(async (tx) =>
+        (await aiEnabled(tx)) && (await aiScoringOn(tx)) ? await lastScoredAt(tx, event.payload.conversationId) : "off",
+      );
+      if (scoredAt === "off") return;
+      // A lead scored a moment ago waits out its rest: every message meanwhile queues for the same time, and only the
+      // newest is scored then, so a busy chat costs a call every few minutes and its last words are still read.
+      const settled = Date.now() + SCORE_SETTLE_MS;
+      const rested = scoredAt === null ? 0 : scoredAt.getTime() + SCORE_REST_MS;
       await dependencies.queue.send(
         AI_SCORE_QUEUE,
         {
@@ -53,7 +98,7 @@ export function scoreOnCustomerWroteListener(dependencies: {
           conversationId: event.payload.conversationId,
           messageId: event.payload.messageId,
         },
-        { startAfter: new Date(Date.now() + SCORE_SETTLE_MS), id: event.payload.messageId },
+        { startAfter: new Date(Math.max(settled, rested)), id: event.payload.messageId },
       );
     },
   });
@@ -119,7 +164,7 @@ async function prepare(
   const newest = await tx.whatsappMessage.findFirst({
     where: { conversationId: job.conversationId, direction: "in" },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    select: { id: true },
+    select: { id: true, body: true, caption: true },
   });
   if (newest?.id !== job.messageId) return "later_message";
   const chat = await tx.whatsappConversation.findUnique({
@@ -143,6 +188,13 @@ async function prepare(
     },
   });
   if (lead === null) return "no_lead";
+  // An "ok" or a "thanks" changes no guess already made: the call is saved. A lead never scored is scored all the same.
+  if (
+    saysNothingNew(newest.body ?? newest.caption ?? "") &&
+    (await tx.leadAiInsight.count({ where: { leadId: lead.id } })) > 0
+  ) {
+    return "nothing_new";
+  }
   const timeZone = await organizationTimeZone(tx, job.organizationId);
   if (!(await reserveAiCall(tx, now, timeZone))) return "limit";
   const destination =
