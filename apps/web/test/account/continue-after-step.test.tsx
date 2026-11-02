@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useContinueAfterStep } from "@/account/current-person";
 import { member } from "../support/members";
 import { renderScreen } from "./render";
+import { wantsStream, wireResponse } from "../support/trpc-wire";
 
 const navigation = vi.hoisted(() => ({ search: "", replace: vi.fn() }));
 
@@ -24,7 +25,9 @@ function Done() {
 function meAnswers(pendingStep: PendingStep | null): void {
   vi.stubGlobal(
     "fetch",
-    vi.fn(() => Promise.resolve(Response.json([{ result: { data: { ...member(), pendingStep } } }]))),
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(wireResponse([{ result: { data: { ...member(), pendingStep } } }], wantsStream(init, input))),
+    ),
   );
 }
 

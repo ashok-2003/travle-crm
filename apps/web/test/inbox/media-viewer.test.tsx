@@ -9,6 +9,7 @@ import { DocumentCard } from "@/inbox/media/document-card";
 import { MediaViewerProvider, useOpenMedia } from "@/inbox/media/media-viewer";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
+import { wantsStream, wireResponse } from "../support/trpc-wire";
 
 const loadPage = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/navigate", () => ({ loadPage, replacePage: vi.fn() }));
@@ -18,7 +19,7 @@ function answerLinks() {
   const asked: { messageId: string; download: boolean }[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn((url: string, init: { body?: string }) => {
+    vi.fn((url: string, init: { body?: string; headers?: unknown }) => {
       const paths = decodeURIComponent(new URL(url, "http://localhost").pathname.replace("/api/trpc/", "")).split(",");
       const body = JSON.parse(init.body ?? "{}") as Record<string, { messageId: string; download?: boolean }>;
       const items = paths.map((_, index) => {
@@ -32,7 +33,7 @@ function answerLinks() {
         };
         return { result: { data: link } };
       });
-      return Promise.resolve(Response.json(items));
+      return Promise.resolve(wireResponse(items, wantsStream(init)));
     }),
   );
   return asked;

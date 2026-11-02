@@ -14,6 +14,7 @@ import { TwoFactorSetupScreen } from "@/account/two-factor-setup-screen";
 import { messages } from "@/i18n/messages";
 import { member } from "../support/members";
 import { renderScreen } from "./render";
+import { wantsStream, wireResponse } from "../support/trpc-wire";
 
 const navigation = vi.hoisted(() => ({ search: "" }));
 
@@ -26,14 +27,16 @@ const { account, common } = messages;
 
 /** me.get answering as the api does: one result in a tRPC batch. */
 function answering(pendingStep: PendingStep | null = null) {
-  return () => Promise.resolve(Response.json([{ result: { data: { ...member(), pendingStep } } }]));
+  return (input: RequestInfo | URL, init?: RequestInit) =>
+    Promise.resolve(wireResponse([{ result: { data: { ...member(), pendingStep } } }], wantsStream(init, input)));
 }
 const offline = () => Promise.reject(new TypeError("Failed to fetch"));
 const stillLoading = () => new Promise<never>(() => undefined);
 
 /** The api as the screens' tRPC client reaches it: each call gets the next answer, and the last one repeats. */
-function apiAnswers(...answers: (() => Promise<Response>)[]): void {
-  const fetch = vi.fn<() => Promise<Response>>();
+type Answer = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+function apiAnswers(...answers: Answer[]): void {
+  const fetch = vi.fn<Answer>();
   for (const answer of answers.slice(0, -1)) fetch.mockImplementationOnce(answer);
   fetch.mockImplementation(answers.at(-1) ?? stillLoading);
   vi.stubGlobal("fetch", fetch);
@@ -112,8 +115,8 @@ describe("the step screens for platform staff", () => {
     const me = member();
     return { ...me, user: { ...me.user, twoFactorEnabled }, isPlatformAdmin: true, organization: null, member: null };
   };
-  const answeringAs = (me: ReturnType<typeof staff>) => () =>
-    Promise.resolve(Response.json([{ result: { data: me } }]));
+  const answeringAs = (me: ReturnType<typeof staff>) => (input: RequestInfo | URL, init?: RequestInit) =>
+    Promise.resolve(wireResponse([{ result: { data: me } }], wantsStream(init, input)));
 
   it("say the console asks for two-factor while theirs is off, not an organization", async () => {
     navigation.search = "next=%2Fconsole";
