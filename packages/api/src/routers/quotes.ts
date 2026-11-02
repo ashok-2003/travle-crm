@@ -149,7 +149,11 @@ export const quotesRouter = router({
             tx,
             ctx.member,
             input.aiFill,
-            { targets: ["quote"], subject: { type: "quote", id: input.quoteId }, saved: quoteSaved(input) },
+            {
+              targets: ["quote", "quote_days"],
+              subject: { type: "quote", id: input.quoteId },
+              saved: quoteSaved(input),
+            },
             context.now,
           );
         }

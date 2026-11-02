@@ -73,6 +73,10 @@ const unscopedTableSelectors = {
     message:
       "Only the inbox module's routes.ts queries whatsapp_number_route and whatsapp_unrouted: they have no row-level security.",
   },
+  emailLog: {
+    selector: rawSqlNaming(["email_log"]),
+    message: "Only the email-log module queries email_log: it has no row-level security and holds every email as sent.",
+  },
 };
 
 /** SQL that switches the organization or the session, in a template or a plain string. Every package but db keeps these. */

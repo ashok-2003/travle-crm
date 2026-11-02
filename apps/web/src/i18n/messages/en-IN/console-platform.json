@@ -132,6 +132,76 @@
     "retried": "Sent to run again",
     "showMore": "Show more failed jobs"
   },
+  "emails": {
+    "title": "Failed emails",
+    "intro": "Emails of the last 30 days that never reached their person: our send failed, or the email provider took it and dropped it. Each opens as it was sent, links included, to send again once the cause is fixed.",
+    "superAdminsOnly": "Only a super admin sees failed emails: they show each email as it was sent, password-reset and invite links included.",
+    "loading": "Loading the failed emails",
+    "loadFailed": "The failed emails didn't load.",
+    "empty": "No email failed in the last 30 days.",
+    "showMore": "Show more failed emails",
+    "columns": {
+      "failedAt": "Failed",
+      "to": "To",
+      "subject": "Subject",
+      "purpose": "Kind",
+      "failure": "What happened"
+    },
+    "resent": "Sent again",
+    "open": "Open the email: {subject}",
+    "purposes": {
+      "notification": "Notification",
+      "password-reset": "Password reset",
+      "staff-invite": "Staff invite",
+      "platform-incident": "Platform alert",
+      "other": "Other"
+    },
+    "sources": {
+      "smtp": "Not sent",
+      "provider": "Dropped by the email provider"
+    },
+    "sourceMeanings": {
+      "smtp": "Our server couldn't hand the email to the email provider: the code is the provider's or the connection's answer.",
+      "provider": "The email provider took the email and dropped it afterwards: a bounce, a block, or the account held for review. The code is its event."
+    },
+    "email": {
+      "back": "Back to the failed emails",
+      "loading": "Loading the email",
+      "loadFailed": "The email didn't load.",
+      "notFound": "This email isn't kept any more: a failed email is kept for 30 days.",
+      "details": "How it was sent",
+      "to": "To",
+      "fromName": "From",
+      "replyTo": "Reply-To",
+      "noReplyTo": "None",
+      "purpose": "Kind",
+      "createdAt": "Sending started",
+      "sentAt": "Sent",
+      "failedAt": "Failed",
+      "failure": "What happened",
+      "code": "Code",
+      "reason": "Reason",
+      "asSent": "The email as sent",
+      "asSentHint": "Shown as it was sent, with nothing in it run or followed: its links work only from the email itself.",
+      "frameTitle": "The email as it was sent: {subject}",
+      "text": "Its plain text",
+      "resends": "Sent again",
+      "noResends": "Not sent again yet.",
+      "resendSent": "Sent",
+      "resendFailed": "Failed",
+      "resendSending": "Sending",
+      "resendCode": "Code {code}"
+    },
+    "resend": {
+      "button": "Send again",
+      "title": "Send this email again?",
+      "description": "It goes to {address} exactly as it was sent, links included, as a new email the page lists under Sent again. A link that has run out since stays run out: a password reset works for an hour, an invite for a few days.",
+      "confirm": "Send again",
+      "sent": "Sent again. If it doesn't arrive, check the email provider's logs.",
+      "failed": "It failed again: Sent again, below, has its code. Fix the cause, then send it again.",
+      "unrecorded": "It was sent, but couldn't be recorded: the list may not show it."
+    }
+  },
   "schedules": {
     "title": "Schedules",
     "intro": "The jobs started on a timetable, by their cron in their time zone. The worker and the console register theirs at every start.",
@@ -208,7 +278,8 @@
       "member": "Member",
       "traveller": "Traveller",
       "person": "Customer",
-      "vip_invite": "Invite"
+      "vip_invite": "Invite",
+      "email": "Email"
     },
     "actions": {
       "organization": {
@@ -268,6 +339,10 @@
         "created": "Made an invite",
         "cancelled": "Cancelled an invite",
         "joined": "An invited company joined"
+      },
+      "email": {
+        "resent": "Sent a failed email again",
+        "resend-failed": "Tried to send a failed email again, and it failed too"
       }
     }
   },

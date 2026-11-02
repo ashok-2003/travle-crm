@@ -17,11 +17,15 @@ async function settledAnimations(page: Page): Promise<void> {
   );
 }
 
-export async function expectAccessible(page: Page): Promise<void> {
+/**
+ * `exclude` leaves parts out, each with its reason at the call: a frame sandboxed with no permissions (an email as it
+ * was sent, in the console) can't take axe's script, and axe would wait on it until the journey timed out.
+ */
+export async function expectAccessible(page: Page, { exclude = [] }: { exclude?: string[] } = {}): Promise<void> {
   await settledAnimations(page);
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
+  const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
+  for (const selector of exclude) builder.exclude(selector);
+  const results = await builder.analyze();
   expect(
     results.violations.map(({ id, nodes }) => ({ id, targets: nodes.map((node) => node.target.join(" ")) })),
   ).toEqual([]);

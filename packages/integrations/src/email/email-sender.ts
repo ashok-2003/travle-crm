@@ -12,6 +12,13 @@ export interface EmailMessage {
   html: string;
   /** Extra headers such as List-Unsubscribe. */
   headers?: Readonly<Record<string, string>> | undefined;
+  /**
+   * What sent it, as lower-case words joined by hyphens: "notification", "password-reset"... The email log records it
+   * (the console's failed emails); the adapters ignore it, and it never becomes a header.
+   */
+  purpose?: string | undefined;
+  /** What ties a retry's attempts together, e.g. "notification:<id>". Recorded like `purpose`, never sent. */
+  sourceRef?: string | undefined;
 }
 
 export interface EmailSender {

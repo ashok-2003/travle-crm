@@ -26,7 +26,7 @@ const WEEKDAYS = [
   ["saturday", "sat", "shanivar"],
 ];
 
-const monthOf = (word: string): number | null => {
+export const monthOf = (word: string): number | null => {
   const index = MONTHS.findIndex((names) => names.includes(word));
   return index < 0 ? null : index + 1;
 };

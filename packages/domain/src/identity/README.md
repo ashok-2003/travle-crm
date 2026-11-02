@@ -44,7 +44,8 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   sign-in, no email, no invite) and finds last night's demo with `findOrganizationByCode(tx, code)`.
 - Permanent deletion's steps, for the platform's jobs (spec 5): `personExport(tx, organizationId, memberId)` and
   `erasePerson(tx, organizationId, memberId)` (a removed person's name, addresses, password, sessions, two-factor
-  secret and reset tokens; the membership row stays, so ids still lead somewhere),
+  secret and reset tokens; the membership row stays, so ids still lead somewhere; it returns their own addresses as they
+  were, for the emails sent to them),
   `organizationUserIds(tx, organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their sessions and
   memberships).
 - `memberActivity(tx, organizationIds)`: seats used and the last activity per organization, for the platform

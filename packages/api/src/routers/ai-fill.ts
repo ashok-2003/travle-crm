@@ -53,6 +53,20 @@ export const aiFillRouter = router({
     .output(aiFillProposal)
     .mutation(({ ctx, input }) => fill(ctx, input, ["quote"])),
 
+  /** A quote's day-by-day plan, drafted from the trip, the agency's packages and its knowledge; no price is ever proposed. */
+  quoteDays: orgProcedure
+    .requires("ai:suggest", "quotes:edit")
+    .input(aiFillInput)
+    .output(aiFillProposal)
+    .mutation(({ ctx, input }) => fill(ctx, input, ["quote_days"])),
+
+  /** A booking's travellers, read from words, a voice note or a photo (an ID needs documents:view_sensitive, checked on the server). */
+  travellers: orgProcedure
+    .requires("ai:suggest", "bookings:edit")
+    .input(aiFillInput)
+    .output(aiFillProposal)
+    .mutation(({ ctx, input }) => fill(ctx, input, ["travellers"])),
+
   /** Step one of a recording or screenshot: where the browser puts it. Any member who may use the AI to fill. */
   requestInput: orgProcedure
     .requires("ai:suggest")

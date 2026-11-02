@@ -142,6 +142,8 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `MSG91_WEBHOOK_TOKEN`: 32+ random characters; the webhook's path                                    | ○   | ○      | ○       |         | yes    |
 | `MSG91_WEBHOOK_KEY`: 32+ random characters; the header's value                                      | ○   | ○      | ○       |         | yes    |
 | `MSG91_TEST_SERVER_URL`: tests only, refused in production                                          | ○   | ○      | ○       |         |        |
+| `BREVO_WEBHOOK_TOKEN`: 32+ random characters; Brevo's webhook path (Brevo's webhook, below)         | ○   | ○      |         |         | yes    |
+| `BREVO_WEBHOOK_KEY`: 32+ random characters; its bearer token                                        | ○   | ○      |         |         | yes    |
 | `OPENROUTER_API_KEY`: the AI (below); unset: off                                                    | ○   | ○      |         |         | yes    |
 | `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS`: OpenRouter slugs (below)                                    | ○   | ○      |         |         |        |
 | `AI_API_KEY`: the AI on any OpenAI-compatible endpoint (below); replaces `OPENROUTER_API_KEY`       | ○   | ○      |         |         | yes    |
@@ -290,6 +292,23 @@ Secrets come from the platform's secret manager as environment variables, never 
     console's page in the web app.
   - The start-up line says `WhatsApp: on` or `WhatsApp: not set up`. The first check after deploying: the console's
     WhatsApp page shows the webhook block and no "not set up" line.
+- **Brevo's webhook** (the failed-emails spec; the owner's steps are in `docs/runbook.md`, "Brevo's reports of dropped
+  emails"):
+  - Every email the api, the worker and the console send is recorded in `email_log`, and one whose send failed shows on
+    the console's Failed emails page, with nothing to set. Brevo's webhook adds the emails Brevo accepted over SMTP and
+    dropped afterwards (bounced, blocked, the account under review).
+  - `BREVO_WEBHOOK_TOKEN` and `BREVO_WEBHOOK_KEY` come together: one without the other stops the process, naming the
+    missing one and printing no value. Neither leaves Brevo's reports off. Give both to the api, which takes the reports,
+    and the worker, which processes them; never to the console. `openssl rand -hex 32` each; production refuses short or
+    repetitive ones.
+  - The webhook is `POST /webhooks/brevo/<token>` with `Authorization: Bearer <key>`, set once in Brevo (Transactional,
+    Settings, Webhooks) for the events hard bounce, soft bounce, blocked, spam, invalid email and error. It is under
+    `/webhooks/*`, which already reaches the api. A request without both secrets gets a bare 401; one with them is
+    stored and answered 200 whatever its body says.
+  - To rotate them, change them here and in Brevo within minutes of each other: reports in between are answered 401 and
+    lost to the page (Brevo's own logs still have them).
+  - The console's `email-log.purge` job deletes sent emails after 7 days and failed ones after 30, and blanks Brevo's
+    stored reports a week after they are processed.
 - **The web app** needs nothing at run time: its image sets `NODE_ENV=production`, `HOSTNAME=0.0.0.0` and
   `PORT=3000`. Its build takes `CACHE_VERSION` and `STORAGE_ORIGIN` (The images, above).
 - **One secret, three processes:** the console reads the api's session cookies, and the worker counts invite emails
@@ -302,7 +321,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `/api/platform/*`               | console, 3002 | the console's tRPC and the invite links' public route; before the next rule |
 | `/api/*`                        | api, 3001     | Better Auth's sign-in and the organization app's tRPC                       |
 | `/p/*`                          | api, 3001     | share links                                                                 |
-| `/webhooks/*`                   | api, 3001     | the webhook intake (Meta's and MSG91's callbacks)                           |
+| `/webhooks/*`                   | api, 3001     | the webhook intake (Meta's, MSG91's and Brevo's callbacks)                  |
 | `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)                      |
 | `/a/*`                          | web, 3000     | an agency's public package pages, server-rendered (the default rule)        |
 | `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)                         |

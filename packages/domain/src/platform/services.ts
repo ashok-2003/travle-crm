@@ -8,10 +8,10 @@ import {
   type ForOrgOptions,
   type PlatformDatabase,
 } from "@travel-crm/db/platform";
-import type { EmailSender } from "@travel-crm/integrations/email";
 import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
+import type { RecordedEmailSender } from "../email-log/index.js";
 import type { Identity } from "../identity/index.js";
 
 import type { PlatformWhatsApp } from "./whatsapp-settings.js";
@@ -51,8 +51,11 @@ export interface PlatformServices {
   appUrl?: string;
   /** What a million AI tokens cost, in paise (AI_PRICE_*), for the usage analytics; null or absent when unset. */
   aiPrices?: AiPrices | null;
-  /** Where the super admins are told of an incident (incidents.ts); absent in tests that send no email. */
-  email?: EmailSender | null;
+  /**
+   * The console's recorded sender (the email log's wrapper): the super admins are told of an incident through it
+   * (incidents.ts), and a failed email is sent again (emails.ts). Absent in tests that send no email.
+   */
+  email?: RecordedEmailSender | null;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {

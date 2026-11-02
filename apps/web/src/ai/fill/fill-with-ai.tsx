@@ -18,6 +18,7 @@ export function FillWithAi({
   marks,
   chatId,
   startOpen = false,
+  withUndo = true,
   onApply,
   extraCurrent,
 }: {
@@ -27,12 +28,15 @@ export function FillWithAi({
   /** A chat to read as soon as the sheet opens. */
   chatId?: string | undefined;
   startOpen?: boolean;
+  /** Offers "Undo AI fill" beside the button; off for a second button on a form that already has one. */
+  withUndo?: boolean;
   /** Extra work when the ticked fields are applied (the call note keeps the lead's trip changes apart). */
   onApply?: (...args: Parameters<FillMarks["apply"]>) => void;
   /** What other values than the form's own hold now (the lead's trip, beside a call note), shown beside the AI's. */
   extraCurrent?: Partial<Record<FillPath, unknown>>;
 }) {
   const t = useTranslations("ai.fill");
+  const draft = useTranslations("ai.fill.draft");
   const available = useFillAvailable(target);
   const write = useWriteAccess("change");
   const [open, setOpen] = useState(startOpen);
@@ -52,9 +56,9 @@ export function FillWithAi({
         }}
       >
         <SparklesIcon aria-hidden="true" />
-        {t("button")}
+        {target === "quote_days" ? draft("button") : t("button")}
       </Button>
-      {marks.active && (
+      {withUndo && marks.active && (
         <Button
           type="button"
           variant="ghost"

@@ -24,11 +24,18 @@ import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { callAnswer, leadAnswer, quoteAnswer, tripAnswer } from "@travel-crm/contracts/ai";
 import { jsonObjectIn } from "./json.js";
-import { fillPrompt, type FillSourceFacts } from "./prompt.js";
+import { fillPrompt, type FillSourceFacts, type PlainFillTarget } from "./prompt.js";
 import { resolveCall, resolveLead, resolveQuote, type ResolveContext, type Resolved } from "./resolve.js";
+import { isSpecial, prepareSpecial, type SpecialPrepared } from "./special-targets.js";
 import { proposalHash, valueHash } from "./values.js";
 
 const CHAT_MESSAGES = 20;
+
+/** A plain form's target: the two special ones never get here (prepare() gave them a preparation of their own). */
+function plainTarget(target: AiFillInput["target"]): PlainFillTarget {
+  if (target === "quote_days" || target === "travellers") throw new Error("A special fill has no plain prompt");
+  return target;
+}
 
 const refuse = (reason: string, message: string, code: "CONFLICT" | "LIMIT_REACHED" = "CONFLICT") =>
   new DomainError(code, reason, message);
@@ -37,7 +44,10 @@ interface Prepared {
   timeZone: string;
   facts: FillSourceFacts;
   from: AiFillField["from"];
-  subjectType: "lead" | "quote" | null;
+  /** The record the fill belongs to; null for a lead not made yet. */
+  subject: { type: "lead" | "quote"; id: string } | null;
+  /** Draft the days and the travellers' details: they ask the model their own way. */
+  special: SpecialPrepared | null;
   attachment: { id: string; recordId: string; contentType: string } | null;
   truncated: boolean;
   /** The chat's number, which is the lead's phone when a lead is made from the chat. */
@@ -52,20 +62,23 @@ const newest = (text: string) =>
     ? { text, truncated: false }
     : { text: text.slice(-AI_FILL_TEXT_MAX), truncated: true };
 
-async function checkSubject(tx: OrgTx, access: MemberAccess, input: AiFillInput): Promise<"lead" | "quote" | null> {
+async function checkSubject(tx: OrgTx, access: MemberAccess, input: AiFillInput): Promise<Prepared["subject"]> {
   switch (input.target) {
     case "lead":
+    case "quote_days":
+    case "travellers":
+      // A new lead has none yet; the special targets check theirs when they prepare.
       return null;
     case "lead_edit":
     case "call_note":
       if (input.subjectId === undefined) throw new DomainError("VALIDATION", "SUBJECT_REQUIRED", "Say which lead");
       // A lead out of the member's scope is "not found".
       await getLead(tx, access, input.subjectId);
-      return "lead";
+      return { type: "lead", id: input.subjectId };
     case "quote":
       if (input.subjectId === undefined) throw new DomainError("VALIDATION", "SUBJECT_REQUIRED", "Say which quote");
       await getQuote(tx, access, input.subjectId);
-      return "quote";
+      return { type: "quote", id: input.subjectId };
   }
 }
 
@@ -74,8 +87,13 @@ async function prepare(tx: OrgTx, access: MemberAccess, input: AiFillInput, now:
     throw refuse("AI_OFF", "The AI is off for this agency: an Owner or Admin turns it on in Settings, AI");
   }
   const timeZone = await organizationTimeZone(tx, access.organizationId);
-  const subjectType = await checkSubject(tx, access, input);
+  const special = isSpecial(input.target);
   const { source } = input;
+  // Nothing said is for "Draft the days" alone; a chat is read for the lead forms, not for these two.
+  if ((source.kind === "none" && input.target !== "quote_days") || (special && source.kind === "chat")) {
+    throw new DomainError("VALIDATION", "SOURCE_NOT_ALLOWED", "This can't be filled from that");
+  }
+  let subject = await checkSubject(tx, access, input);
   let words = source.kind === "text" ? source.text : source.kind === "upload" ? (source.text ?? "") : "";
   let chat: FillSourceFacts["chat"] = [];
   let attachment: Prepared["attachment"] = null;
@@ -85,9 +103,16 @@ async function prepare(tx: OrgTx, access: MemberAccess, input: AiFillInput, now:
     // Only the member's own, finished upload.
     const row = await tx.attachment.findFirst({
       where: { id: source.attachmentId, recordType: AI_INPUT_RECORD_TYPE, createdBy: access.userId, status: "ready" },
-      select: { id: true, recordId: true, contentType: true },
+      select: { id: true, recordId: true, contentType: true, sensitive: true },
     });
     if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+    if (input.target === "travellers") {
+      // A voice note may say a passport number and a photo may be one: stored sensitive, and photos only for those who may open IDs.
+      if (!row.sensitive) throw new DomainError("VALIDATION", "SENSITIVE_INPUT_REQUIRED", "Upload it again to read it");
+      if (row.contentType.startsWith("image/") && !access.permissions.has("documents:view_sensitive")) {
+        throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
+      }
+    }
     attachment = row;
     from = row.contentType.startsWith("audio/") ? "voice" : "image";
   } else if (source.kind === "chat") {
@@ -109,15 +134,19 @@ async function prepare(tx: OrgTx, access: MemberAccess, input: AiFillInput, now:
     if (conversation.profileName) words = `The customer's WhatsApp name is ${conversation.profileName}.`;
   }
   const cut = newest(words);
+  const today = calendarDateIn(now, timeZone);
+  // Before a call is taken: a trip of unknown length, or a booking out of the member's scope, costs nothing.
+  const prepared = special ? await prepareSpecial(tx, access, input, { words: cut.text, today }) : null;
+  if (prepared !== null) subject = prepared.subject;
   // One monthly call, taken before the model is asked and given back when it doesn't answer.
   if (!(await reserveAiCall(tx, now, timeZone))) {
     throw refuse("AI_MONTH_LIMIT", "This agency has used this month's AI suggestions", "LIMIT_REACHED");
   }
-  const today = calendarDateIn(now, timeZone);
   return {
     timeZone,
     from,
-    subjectType,
+    subject,
+    special: prepared,
     attachment,
     truncated: cut.truncated,
     chatPhone,
@@ -152,6 +181,10 @@ async function resolveAnswer(input: AiFillInput, text: string, context: ResolveC
       return resolveCall(callAnswer.parse(json), context);
     case "quote":
       return resolveQuote(quoteAnswer.parse(json), context);
+    case "quote_days":
+    case "travellers":
+      // Resolved by their own preparation (special-targets.ts), never here.
+      return null;
   }
 }
 
@@ -186,11 +219,16 @@ export async function fillForm(
   let attachments: AiPart[] = [];
   try {
     if (prepared.attachment !== null) {
-      const file = await files.systemFile(organizationId, {
-        recordType: AI_INPUT_RECORD_TYPE,
-        recordId: prepared.attachment.recordId,
-        attachmentId: prepared.attachment.id,
-      });
+      // Only the travellers' own sensitive inputs are opened here, and only after prepare() checked the member may.
+      const file = await files.systemFile(
+        organizationId,
+        {
+          recordType: AI_INPUT_RECORD_TYPE,
+          recordId: prepared.attachment.recordId,
+          attachmentId: prepared.attachment.id,
+        },
+        { allowSensitive: prepared.special !== null && input.target === "travellers" },
+      );
       attachments = [partOf(file.body, prepared.attachment.contentType)];
     }
   } catch (error) {
@@ -198,10 +236,13 @@ export async function fillForm(
     throw error;
   }
   const result = await model.complete({
-    feature: "fill_form",
-    messages: fillPrompt(input.target, { ...prepared.facts, attachments }),
+    feature: prepared.special?.feature ?? "fill_form",
+    messages:
+      prepared.special === null
+        ? fillPrompt(plainTarget(input.target), { ...prepared.facts, attachments })
+        : prepared.special.messages(attachments, prepared.facts.text),
     json: true,
-    maxTokens: 2500,
+    maxTokens: prepared.special?.maxTokens ?? 2500,
     // Opaque: the agency's id, never a person's.
     user: organizationId,
   });
@@ -214,11 +255,14 @@ export async function fillForm(
         : refuse("AI_UNAVAILABLE", "The AI didn't answer");
   }
   const saved = await db.forOrg(organizationId, async (tx) => {
-    const resolved = await resolveAnswer(input, result.text, {
-      today: prepared.facts.today,
-      from: prepared.from,
-      matchDestination: destinationMatcher(tx),
-    });
+    const resolved =
+      prepared.special?.resolve(result.text, prepared.from) ??
+      (await resolveAnswer(input, result.text, {
+        today: prepared.facts.today,
+        from: prepared.from,
+        matchDestination: destinationMatcher(tx),
+      }));
+    const removedAmounts = resolved?.removedAmounts === true;
     const allowed: readonly string[] = fillTargetPaths[input.target];
     const fields = (resolved?.fields ?? []).filter((field) => allowed.includes(field.path));
     // A chat's number is the lead's phone, as the chat has it: not the model's reading of it.
@@ -237,8 +281,8 @@ export async function fillForm(
     const row = await tx.aiFill.create({
       data: {
         target: input.target,
-        subjectType: prepared.subjectType,
-        subjectId: input.subjectId ?? null,
+        subjectType: prepared.subject?.type ?? null,
+        subjectId: prepared.subject?.id ?? null,
         requestedBy: access.userId,
         inputKind: prepared.from,
         inputAttachmentId: prepared.attachment?.id ?? null,
@@ -249,7 +293,13 @@ export async function fillForm(
       },
       select: { id: true },
     });
-    return { fillId: row.id, fields, questions, usedThisMonth: await usedThisMonth(tx, now, prepared.timeZone) };
+    return {
+      fillId: row.id,
+      fields,
+      questions,
+      removedAmounts,
+      usedThisMonth: await usedThisMonth(tx, now, prepared.timeZone),
+    };
   });
   if (saved === null) throw refuse("AI_NOTHING_TO_FILL", "The AI found nothing to fill in what it was given");
   return { ...saved, truncated: prepared.truncated, monthlyLimit: MONTHLY_AI_LIMIT };

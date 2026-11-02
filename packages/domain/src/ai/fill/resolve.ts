@@ -19,6 +19,8 @@ export interface ResolveContext {
 export interface Resolved {
   fields: AiFillField[];
   questions: string[];
+  /** An amount the model typed was taken out of what it wrote. */
+  removedAmounts?: boolean;
 }
 
 type Excerpts = Record<string, unknown> | null | undefined;
