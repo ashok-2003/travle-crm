@@ -34,6 +34,11 @@ export const AI_INPUT_KEEP_DAYS = 30;
 export const WHATSAPP_RECORD_TYPE = "whatsapp_message";
 /** The record type of a trip's details (sales inbox, trip details): the photos, videos and PDFs sent with them on WhatsApp. */
 export const TRIP_KIT_RECORD_TYPE = "trip_kit";
+/** The record type of a package's photo (release 7b): shown on its public page, so only pictures a browser draws. */
+export const PACKAGE_PHOTO_RECORD_TYPE = "package_photo";
+export const packagePhotoContentTypes = ["image/jpeg", "image/png", "image/webp"] as const;
+/** A package photo is at most 5 MB. */
+export const MAX_PACKAGE_PHOTO_BYTES = 5 * 1024 * 1024;
 
 /** What a WhatsApp message may carry: the attachment types plus the video, voice notes and Office files people send. */
 export const whatsappContentTypes = [
