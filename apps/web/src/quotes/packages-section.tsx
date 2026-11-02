@@ -8,9 +8,12 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { rupees } from "@/components/forms/money-field";
+import { StatusBadge } from "@/components/status-badge";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { packageRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useQuoteChanges, useQuotePackages } from "./use-quotes";
 
@@ -36,11 +39,26 @@ export function PackagesSection() {
             {(packages.data ?? []).map((one) => (
               <Item key={one.id} size="sm">
                 <ItemContent>
-                  <ItemTitle>{one.name}</ItemTitle>
+                  <ItemTitle>
+                    {mayEdit ? (
+                      <TextLink inline href={packageRoute(one.id)}>
+                        {one.name}
+                      </TextLink>
+                    ) : (
+                      one.name
+                    )}
+                  </ItemTitle>
                   <ItemDescription className="numbers">
-                    {t("summary", { days: one.days, price: rupees(one.subtotalPaise) })}
+                    {one.tierCount > 0
+                      ? t("summaryTiers", { days: one.days, tiers: one.tierCount })
+                      : t("summary", { days: one.days, price: rupees(one.subtotalPaise) })}
                   </ItemDescription>
                 </ItemContent>
+                {one.published && (
+                  <ItemActions>
+                    <StatusBadge tone="good">{t("published")}</StatusBadge>
+                  </ItemActions>
+                )}
                 {mayEdit && (
                   <ItemActions>
                     <Button

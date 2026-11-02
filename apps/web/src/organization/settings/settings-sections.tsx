@@ -14,6 +14,7 @@ import {
   FileSpreadsheetIcon,
   FileTextIcon,
   FolderIcon,
+  GlobeIcon,
   HistoryIcon,
   IndianRupeeIcon,
   SparklesIcon,
@@ -58,6 +59,7 @@ interface Section {
     | "quotes"
     | "bookings"
     | "departures"
+    | "publicPages"
     | "ai"
     | "salesAutomation"
     | "teamNotifications"
@@ -115,6 +117,13 @@ const sections: readonly Section[] = [
     icon: BusIcon,
     requires: "settings:manage",
     module: "departures",
+  },
+  {
+    key: "publicPages",
+    href: routes.publicPageSettings,
+    icon: GlobeIcon,
+    requires: "settings:manage",
+    module: "quotes",
   },
   { key: "teamNotifications", href: routes.teamNotifications, icon: BellRingIcon, requires: "settings:manage" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },

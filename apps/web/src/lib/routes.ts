@@ -63,6 +63,10 @@ export const routes = {
   salesAutomation: "/settings/sales-automation",
   /** How quotes are paid (the agency's UPI id) and taxed. */
   quoteSettings: "/settings/quotes",
+  /** The agency's public package pages: on or off, and what they say about the agency (release 7b). */
+  publicPageSettings: "/settings/public-pages",
+  /** A package's editor is packageRoute(packageId); its public page is /a/<sign-in code>/<package>. */
+  packages: "/packages",
   /** How departures work: how long a hold lasts, when a batch reads Filling fast, beds in a drafted room (release 7a). */
   departureSettings: "/settings/departures",
   /** How bookings run: the payment schedule, reminders, the cancellation steps and the review link (release 6). */
@@ -101,6 +105,11 @@ export function bookingRoute(bookingId: string): string {
 /** One departure's page. */
 export function departureRoute(departureId: string): string {
   return `${routes.departures}/${encodeURIComponent(departureId)}`;
+}
+
+/** One package's page: its words, tiers, photos and publishing. */
+export function packageRoute(packageId: string): string {
+  return `${routes.packages}/${encodeURIComponent(packageId)}`;
 }
 
 /** One supplier's page. */
@@ -180,11 +189,17 @@ export function embeddedFormRoute(key: string): string {
 export const metaDeletionRoute = "/meta/deletion";
 
 /**
- * Whether a path is a visitor's page (the hosted or embedded enquiry form, or the data-deletion status), which must open
+ * Whether a path is a visitor's page (the hosted or embedded enquiry form, an agency's public package pages, or the
+ * data-deletion status), which must open
  * no cache, worker or cookie (W29, ruling F3).
  */
 export function isPublicFormPath(pathname: string): boolean {
-  return pathname.startsWith("/f/") || pathname.startsWith("/embed/") || pathname === metaDeletionRoute;
+  return (
+    pathname.startsWith("/f/") ||
+    pathname.startsWith("/embed/") ||
+    pathname.startsWith("/a/") ||
+    pathname === metaDeletionRoute
+  );
 }
 
 /** A staff import's page, at whichever step it is. */
