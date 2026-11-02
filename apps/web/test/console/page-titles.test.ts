@@ -36,6 +36,8 @@ describe("console page titles", { timeout: 20_000 }, () => {
     ],
     ["plans", () => import("@/app/console/plans/page"), messages.consolePlatform.plans.title],
     ["jobs", () => import("@/app/console/jobs/page"), messages.consolePlatform.jobs.title],
+    ["failed emails", () => import("@/app/console/emails/page"), messages.consolePlatform.emails.title],
+    ["a failed email", () => import("@/app/console/emails/[emailId]/page"), messages.consolePlatform.emails.title],
     ["the log", () => import("@/app/console/log/page"), messages.consolePlatform.log.title],
     ["staff", () => import("@/app/console/staff/page"), messages.consolePlatform.staff.title],
     [

@@ -1,7 +1,8 @@
 // The webhook providers the api accepts at /webhooks/<name> and the worker processes: Meta's lead ads when its settings
-// are set, WhatsApp's when its three are (Razorpay adds its here).
+// are set, WhatsApp's when its three are, Brevo's reports of dropped emails when its two are (Razorpay adds its here).
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import type { Logger } from "@travel-crm/integrations/logging";
+import { brevoSettingsOf, brevoWebhookProvider } from "./brevo-webhook-provider.js";
 import { metaLeadsProvider } from "./meta-webhook-provider.js";
 import { metaProcessDependencies } from "./meta-services.js";
 import type { Services } from "./services.js";
@@ -11,6 +12,8 @@ import { whatsappWebhookProvider } from "./whatsapp-webhook-provider.js";
 export function webhookProvidersOf(services: Services, logger: Logger): readonly WebhookProvider[] {
   const { meta, whatsapp } = services;
   const providers: WebhookProvider[] = [];
+  const brevo = brevoSettingsOf(services.environment);
+  if (brevo !== null) providers.push(brevoWebhookProvider({ settings: brevo, db: services.db }));
   if (whatsapp !== null) {
     providers.push(
       whatsappWebhookProvider({

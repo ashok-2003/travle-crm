@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { OnboardOrganizationInput } from "@travel-crm/contracts/platform";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createDatabase } from "@travel-crm/db";
+import { createMemoryEmailSender, type MemoryEmailSender } from "@travel-crm/integrations/email";
 import {
   createMemoryJobAdministration,
   createMemoryJobQueue,
@@ -13,6 +14,7 @@ import {
 import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
+import { emailLogStore, recordedEmailSender } from "../../src/email-log/index.js";
 import { addDays, calendarDateIn } from "../../src/kernel/index.js";
 import { createPlan, createPlatformServices, type PlatformServices } from "../../src/platform/index.js";
 import { createTestIdentity, type TestIdentity } from "../identity/test-identity.js";
@@ -26,6 +28,8 @@ export interface TestPlatform {
   queue: MemoryJobQueue;
   jobs: MemoryJobAdministration;
   identity: TestIdentity;
+  /** The emails the console sent (incidents, resends), each recorded in the email log as the console's are. */
+  emails: MemoryEmailSender;
   /** What the platform's services logged. */
   logger: MemoryLogger;
   close(): Promise<void>;
@@ -39,6 +43,7 @@ export function createTestPlatform(): TestPlatform {
   const queue = createMemoryJobQueue();
   const jobs = createMemoryJobAdministration();
   const logger = createMemoryLogger();
+  const emails = createMemoryEmailSender();
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -48,6 +53,7 @@ export function createTestPlatform(): TestPlatform {
     queue,
     jobs,
     logger,
+    email: recordedEmailSender(emails, emailLogStore(db), logger),
   });
   return {
     services,
@@ -55,6 +61,7 @@ export function createTestPlatform(): TestPlatform {
     queue,
     jobs,
     identity,
+    emails,
     logger,
     close: async () => {
       await services.platformDb.disconnect();

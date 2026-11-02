@@ -36,6 +36,8 @@ export const KNOWN_ACTIONS = [
   "job.retry-failed",
   "schedule.removed",
   "schedule.removal-failed",
+  "email.resent",
+  "email.resend-failed",
   "demo.reset",
   "invite.created",
   "invite.cancelled",
@@ -52,7 +54,7 @@ export function isKnownAction(action: string): action is KnownAction {
  * The kinds of target the log names by a word (consolePlatform.log.targets); others show their own name. Every record
  * type an erasure may act on is one: a traveller, and crm's customer, the "person".
  */
-const NAMED_TARGETS = ["plan", "platform_staff", "job", "member", "traveller", "person"] as const;
+const NAMED_TARGETS = ["plan", "platform_staff", "job", "email", "member", "traveller", "person"] as const;
 
 export type NamedTarget = (typeof NAMED_TARGETS)[number];
 

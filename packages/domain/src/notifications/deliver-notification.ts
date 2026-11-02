@@ -108,6 +108,9 @@ export function deliverNotificationListener(dependencies: DeliveryDependencies):
             text,
             html,
             headers: { "List-Unsubscribe": `<${preferencesPage}>` },
+            // The email log ties this notification's attempts together: a retry that gets through hides the failure.
+            purpose: "notification",
+            sourceRef: `notification:${id}`,
           });
         } catch (error) {
           // A permanent failure is recorded by the caller, which also drops the claim.

@@ -4,6 +4,7 @@
 import { hkdfSync } from "node:crypto";
 import { createDatabase, type Database, type ForOrgOptions } from "@travel-crm/db";
 import { withIncidentReports } from "@travel-crm/domain/ai";
+import { emailLogStore, recordedEmailSender, type RecordedEmailSender } from "@travel-crm/domain/email-log";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
 import { createIncidentReporter, type IncidentReporter } from "@travel-crm/domain/jobs";
@@ -13,7 +14,7 @@ import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets
 import { createSubscriptionAccess, planLimits, type SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { createTurnstileBotCheck, type BotCheck } from "@travel-crm/integrations/bot-check";
-import { createSmtpEmailSender, type EmailSender } from "@travel-crm/integrations/email";
+import { createSmtpEmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -58,7 +59,8 @@ export interface Services {
   seatLimit: SeatLimit;
   /** pg-boss: the api sends jobs to it (webhooks), the worker also runs them. */
   jobs: PgBossJobs;
-  email: EmailSender;
+  /** SMTP through the email log's wrapper: every email is recorded as sent, for the console's failed emails. */
+  email: RecordedEmailSender;
   push: PushSender;
   rateLimiter: RateLimiter;
   /** Asks Cloudflare Turnstile whether a form's visitor is a person; null when no keys are set (W39). */
@@ -121,14 +123,20 @@ export function createServices(
   // request checks read the same entitlements through an access of their own (server.ts).
   const subscriptions = createSubscriptionAccess({ db });
   const limits = planLimits(subscriptions);
-  const email = createSmtpEmailSender({
-    host: environment.SMTP_HOST,
-    port: environment.SMTP_PORT,
-    secure: environment.SMTP_SECURE,
-    user: environment.SMTP_USER,
-    password: environment.SMTP_PASSWORD,
-    fromAddress: environment.EMAIL_FROM_ADDRESS,
-  });
+  // Every process sends through the email log (the failed-emails spec): a send that fails, or one Brevo reports it
+  // dropped, shows on the console. The record never stops an email.
+  const email = recordedEmailSender(
+    createSmtpEmailSender({
+      host: environment.SMTP_HOST,
+      port: environment.SMTP_PORT,
+      secure: environment.SMTP_SECURE,
+      user: environment.SMTP_USER,
+      password: environment.SMTP_PASSWORD,
+      fromAddress: environment.EMAIL_FROM_ADDRESS,
+    }),
+    emailLogStore(db),
+    logger,
+  );
   // Better Auth and the reset emails run inside requests: their lines carry the request's id.
   const requestLogger = loggerOfRequest(logger);
   const identity = createIdentity({

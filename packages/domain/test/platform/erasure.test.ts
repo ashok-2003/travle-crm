@@ -8,12 +8,14 @@ import type { OrgTx } from "@travel-crm/db";
 import { asOrganization, createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { recordAudit } from "../../src/audit/index.js";
+import { emailLogStore, recordedEmailSender } from "../../src/email-log/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { notify } from "../../src/notifications/index.js";
 import { erasureBlocker } from "../../src/platform/deletion-checks.js";
 import { deleteDueFiles } from "../../src/platform/file-deletions.js";
 import { eraseSubject, ERASE_SUBJECT_QUEUE, exportSubject, requestErasure } from "../../src/platform/index.js";
 import { erasureJobOf } from "../../src/platform/erasure.js";
+import { listPlatformLog } from "../../src/platform/index.js";
 import { createShareLink, findShareLink, recordShareLinkOpen } from "../../src/share-links/index.js";
 import {
   deletionAgency,
@@ -565,5 +567,36 @@ describe("erasing someone an import or an export holds", () => {
     expect(await platform.welcomeSeen.count(left(raviUserId))).toBe(0);
     expect(await platform.pageVisit.count(left(agency.owner.userId))).toBe(1);
     expect(await platform.welcomeSeen.count(left(agency.owner.userId))).toBe(1);
+  });
+
+  it("erases the emails sent to a member, at any of their addresses, and nobody else's", async () => {
+    const agency = await deletionAgency(test, plan);
+    const address = `ravi-${crypto.randomUUID()}@example.test`;
+    const ravi = await test.identity.identity.staff.create(agency.owner, {
+      name: "Ravi Kumar",
+      email: address,
+      roleKey: "sales",
+      temporaryPassword: "temporary-pass-1",
+    });
+    const emails = recordedEmailSender(test.emails, emailLogStore(test.services.db), test.logger);
+    const email = (to: string) => ({
+      to: { address: to },
+      fromName: "Test Sender",
+      subject: "Hi",
+      text: "Hi",
+      html: "Hi",
+    });
+    await emails.send(email(address));
+    await emails.send(email(address.toUpperCase()));
+    const owners = `kept-${crypto.randomUUID()}@example.test`;
+    await emails.send(email(owners));
+    await test.identity.identity.staff.remove(agency.owner, { memberId: ravi.memberId });
+    await erase(agency, { kind: "member", memberId: ravi.memberId });
+    expect(await platform.emailLog.count({ where: { toAddress: { equals: address, mode: "insensitive" } } })).toBe(0);
+    expect(await platform.emailLog.count({ where: { toAddress: owners } })).toBe(1);
+    const log = await test.services.platformDb.transaction((tx) =>
+      listPlatformLog(tx, { targetOrganizationId: agency.organizationId, limit: 10 }),
+    );
+    expect(log.entries.find((entry) => entry.action === "subject.erased")?.after).toMatchObject({ emails: 2 });
   });
 });

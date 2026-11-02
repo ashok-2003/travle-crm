@@ -4,6 +4,7 @@
 import { createPlatformContext } from "@travel-crm/api/platform";
 import { features } from "@travel-crm/contracts/features";
 import { createDatabase } from "@travel-crm/db";
+import type { RecordedEmailSender } from "@travel-crm/domain/email-log";
 import { createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import {
   createMemoryJobAdministration,
@@ -36,6 +37,8 @@ export interface TestConsoleOptions {
   storage?: ObjectStorage;
   queue?: JobQueue;
   jobs?: JobAdministration;
+  /** The console's recorded sender (incidents, resends); none unless given. */
+  email?: RecordedEmailSender;
 }
 
 export function createTestConsole(server: TestServer, options: TestConsoleOptions = {}): TestConsole {
@@ -53,6 +56,7 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     queue: options.queue ?? createMemoryJobQueue(),
     jobs: options.jobs ?? createMemoryJobAdministration(),
     logger: problemLogger(lines),
+    email: options.email ?? null,
   });
   return {
     app: createConsoleApp(services, logger),
