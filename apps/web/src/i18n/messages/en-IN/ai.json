@@ -541,5 +541,85 @@
         "sent": "Sent"
       }
     }
+  },
+  "rates": {
+    "button": "Read a rate sheet",
+    "title": "Read a rate sheet",
+    "description": "Give the supplier's rate sheet: one PDF or Excel file, or up to 4 photos. The AI copies the rates it finds. You check each price and save; nothing is saved until you do.",
+    "reviewDescription": "Each row shows the words it was copied from. Fix what is wrong, tick every price you have checked, then save.",
+    "partsDescription": "This sheet is too big to read at once. Choose a part to read.",
+    "choose": "Choose a file or photos",
+    "chooseMore": "Add another photo",
+    "allowed": "A PDF with text, or an Excel file (.xlsx), up to 10 MB. Or up to 4 photos, 5 MB each.",
+    "removeFile": "Remove {name}",
+    "oneRead": "Reading the sheet uses 1 of this month's AI reads.",
+    "read": "Read the sheet",
+    "uploading": "Sending the file",
+    "reading": "Reading",
+    "readPart": "Read this part",
+    "anotherPart": "Read another part",
+    "save": "{count, plural, =0 {Save} one {Save # rate} other {Save # rates}}",
+    "saved": "{count, plural, one {# rate saved} other {# rates saved}}",
+    "untickedLeft": "{count, plural, one {Tick the price you have checked: 1 left.} other {Tick each price you have checked: # left.}}",
+    "readyToSave": "Every price is ticked.",
+    "fixFirst": "Fix what is marked, or leave that row out.",
+    "partSaved": "{count, plural, one {Part saved.} other {# parts saved.}} Read the next part?",
+    "partsIntro": "The sheet has {count} parts. Each part you read is another AI read.",
+    "partsLabel": "Parts of the sheet",
+    "partUses": "Reading a part uses 1 of this month's AI reads. {used} of {limit} are used.",
+    "thisPart": "Part: {part}",
+    "cut": "This part has more rates than one read takes. The first 60 are shown; the rest are not read.",
+    "rows": "{count, plural, one {# rate found} other {# rates found}}",
+    "usage": "{used} of {limit} AI reads used this month.",
+    "storageUnreachable": "The file could not be sent. Check your connection and try again.",
+    "storageRefused": "The file was not accepted. Choose it again.",
+    "refused": {
+      "old": "That is an old Excel file (.xls). Save it as an Excel Workbook (.xlsx) and choose it again.",
+      "type": "Choose a PDF, an Excel file (.xlsx), or photos (JPEG, PNG or WebP).",
+      "mix": "Give one PDF or Excel file, or up to 4 photos, not a mix.",
+      "size": "That file is too big. A PDF or Excel file is at most 10 MB, a photo at most 5 MB."
+    },
+    "row": {
+      "already": "Already there",
+      "changed": "Price was {old}",
+      "checkThis": "Check this one",
+      "problems": {
+        "season": "Choose the season",
+        "item": "Name the item",
+        "unit": "Choose what it is charged per",
+        "price": "Check the price",
+        "same": "Same as another row"
+      },
+      "leaveOut": "Leave out",
+      "putBack": "Put back",
+      "leaveOutNamed": "Leave out {item}",
+      "putBackNamed": "Put back {item}",
+      "season": "Season",
+      "chooseSeason": "Choose",
+      "item": "Item",
+      "mealPlan": "Meal plan",
+      "occupancy": "Occupancy",
+      "unit": "Charged per",
+      "chooseUnit": "Choose",
+      "price": "Cost to the agency",
+      "note": "Note",
+      "printed": "Printed: {price}",
+      "showSource": "Show the sheet",
+      "checked": "I checked the price of {item}"
+    },
+    "seasons": {
+      "title": "Seasons",
+      "existing": "The supplier has this season already. These rates go in it.",
+      "inPast": "This season has ended",
+      "problems": {
+        "label": "Name the season",
+        "dates": "Choose its first and last day",
+        "order": "The last day can't be before the first"
+      },
+      "printed": "Printed: {dates}",
+      "label": "Season name",
+      "startsOn": "First day",
+      "endsOn": "Last day"
+    }
   }
 }
