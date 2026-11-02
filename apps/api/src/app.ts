@@ -29,6 +29,7 @@ import { noteTrpcError, requestLog, type RequestLogEnv } from "./request-log.js"
 import { shareLinkActions, shareLinkDownloads, shareLinkResolvers } from "./share-link-resolvers.js";
 import { shareLinkRoutes, tooManyRequestsPage } from "./share-link-route.js";
 import { requireTrustedJson } from "./trusted-origin.js";
+import { packagePageRoutes } from "./package-page-routes.js";
 import { websiteFormRoutes } from "./website-form-routes.js";
 import type { Turnstile } from "./website-form-shared.js";
 import { webhookRoutes } from "./webhook-route.js";
@@ -277,20 +278,20 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
 
   // The website form's public routes (spec 5): no session, no cookies, no CORS; each does its own limits and checks.
   app.use("/api/public/*", signalTakenPosts(signalWork));
-  app.route(
-    "/api/public",
-    websiteFormRoutes({
-      db,
-      identity,
-      profiles,
-      files,
-      limiter: rateLimiter,
-      turnstile,
-      authSecret,
-      address: formAddress,
-      logger,
-    }),
-  );
+  const publicFormDependencies = {
+    db,
+    identity,
+    profiles,
+    files,
+    limiter: rateLimiter,
+    turnstile,
+    authSecret,
+    address: formAddress,
+    logger,
+  };
+  app.route("/api/public", websiteFormRoutes(publicFormDependencies));
+  // The package pages' data and enquiries (release 7b): the same limits, bot check and honeypot as the form.
+  app.route("/api/public", packagePageRoutes(publicFormDependencies));
 
   return app;
 }

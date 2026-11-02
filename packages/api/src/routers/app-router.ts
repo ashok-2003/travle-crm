@@ -14,6 +14,8 @@ import { broadcastsRouter } from "./broadcasts.js";
 import { inboxRouter } from "./inbox.js";
 import { salesInboxRouter } from "./sales-inbox.js";
 import { tripKitsRouter } from "./trip-kits.js";
+import { packagesRouter } from "./packages.js";
+import { publicPagesRouter } from "./public-pages.js";
 import { quotesRouter } from "./quotes.js";
 import { aiRouter } from "./ai.js";
 import { financeRouter } from "./finance.js";
@@ -71,6 +73,8 @@ export const appRouter = router({
   salesInbox: salesInboxRouter,
   tripKits: tripKitsRouter,
   quotes: quotesRouter,
+  packages: packagesRouter,
+  publicPages: publicPagesRouter,
   bookings: bookingsRouter,
   departures: departuresRouter,
   suppliers: suppliersRouter,
