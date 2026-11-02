@@ -271,7 +271,9 @@
     "ROOMING_EMPTY": "Nobody is in a room yet: draft the rooms first.",
     "STAY_DATES_BACKWARDS": "Check-out comes before check-in.",
     "SUPPLIER_HAS_UNPAID": "You still owe this supplier money. Mark those costs paid first.",
-    "SUPPLIER_NAME_TAKEN": "Another supplier already has this name."
+    "SUPPLIER_NAME_TAKEN": "Another supplier already has this name.",
+    "EMAIL_NOT_FOUND": "This email isn't kept any more: a failed email is kept for 30 days.",
+    "EMAIL_NOT_FAILED": "Only an email that failed can be sent again."
   },
   "auth": {
     "INVALID_EMAIL_OR_PASSWORD": "That email and password don't match.",
