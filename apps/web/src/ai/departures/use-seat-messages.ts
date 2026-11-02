@@ -9,7 +9,9 @@ import { useWriteSeatMessage } from "./use-ai-departures";
 const AT_A_TIME = 3;
 
 export type SeatMessageState =
-  { status: "writing" } | { status: "ready"; fillId: string; text: string } | { status: "failed"; error: unknown };
+  | { status: "writing" }
+  | { status: "ready"; fillId: string; text: string; removedAmounts: boolean }
+  | { status: "failed"; error: unknown };
 
 export function useSeatMessages(departureId: string, leadIds: readonly string[]) {
   const write = useWriteSeatMessage();
@@ -24,7 +26,12 @@ export function useSeatMessages(departureId: string, leadIds: readonly string[])
         const written = await write.mutateAsync({ departureId, leadId });
         setMessages((before) => ({
           ...before,
-          [leadId]: { status: "ready", fillId: written.fillId, text: written.text },
+          [leadId]: {
+            status: "ready",
+            fillId: written.fillId,
+            text: written.text,
+            removedAmounts: written.removedAmounts,
+          },
         }));
       } catch (error) {
         setMessages((before) => ({ ...before, [leadId]: { status: "failed", error } }));

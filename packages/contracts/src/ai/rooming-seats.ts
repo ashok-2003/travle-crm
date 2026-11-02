@@ -65,6 +65,8 @@ export const seatMessage = z.object({
   fillId: recordId,
   /** The message, with `{price}` filled by code and any amount or seat count the agency doesn't allow taken out. */
   text: z.string(),
+  /** True when an amount or a seat count the model typed itself was taken out, so staff read the message twice. */
+  removedAmounts: z.boolean(),
   usedThisMonth: z.int(),
   monthlyLimit: z.int(),
 });

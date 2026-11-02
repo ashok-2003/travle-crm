@@ -7,7 +7,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError } from "../../kernel/index.js";
-import { valueHash } from "./values.js";
+import { isSensitivePath, valueHash } from "./values.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 
@@ -53,6 +53,8 @@ export async function recordFillApplied(
   }
   const hashes = fill.fieldHashes as Record<string, string>;
   const changed = fresh.filter((path) => {
+    // A sensitive path has no hash to compare with, by design: "changed" is not recorded for it.
+    if (isSensitivePath(path as FillPath)) return false;
     const value = save.saved[path as FillPath];
     return value === undefined || value === null || valueHash(path as FillPath, value) !== hashes[path];
   });

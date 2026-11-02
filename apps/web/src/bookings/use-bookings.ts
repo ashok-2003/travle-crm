@@ -81,6 +81,7 @@ export function useBookingChanges() {
     setLevel: useMutation(trpc.bookings.setLevel.mutationOptions(options)),
     setTravellerCount: useMutation(trpc.bookings.setTravellerCount.mutationOptions(options)),
     saveTraveller: useMutation(trpc.bookings.saveTraveller.mutationOptions(options)),
+    saveTravellers: useMutation(trpc.bookings.saveTravellers.mutationOptions(options)),
     issueVoucher: useMutation(trpc.bookings.issueVoucher.mutationOptions(options)),
     prepareTripPdf: useMutation(trpc.bookings.prepareTripPdf.mutationOptions(options)),
     tripLink: useMutation(trpc.bookings.tripLink.mutationOptions(options)),

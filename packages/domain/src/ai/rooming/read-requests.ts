@@ -92,8 +92,10 @@ async function prepare(tx: OrgTx, access: MemberAccess, input: ReadRoomRequestsI
   const byRef = new Map<string, { traveller: RosterTraveller; corpus: string }>();
   let travellers = 0;
   const grouped = Map.groupBy(roster, (traveller) => traveller.bookingId);
-  for (const [bookingId, people] of grouped) {
+  for (const [bookingId, everyone] of grouped) {
     if (travellers >= TRAVELLERS_MAX) break;
+    // A group that would pass the cap is cut at the cap, so the model never reads more than TRAVELLERS_MAX people.
+    const people = everyone.slice(0, TRAVELLERS_MAX - travellers);
     const lead = notes.get(leadOf.get(bookingId) ?? "") ?? { staff: [], ai: [] };
     const hasWords = people.some((one) => one.roomNote.trim() !== "") || lead.staff.length + lead.ai.length > 0;
     if (!hasWords) continue;

@@ -29,7 +29,8 @@ export async function requestAiInput({ files }: { files: Files }, access: Member
     fileName: isAudio ? "recording.wav" : `screenshot.${input.contentType.slice("image/".length)}`,
     contentType: input.contentType,
     sizeBytes: input.sizeBytes,
-    sensitive: false,
+    // A traveller's voice note or ID photo is opened only by a member who holds documents:view_sensitive.
+    sensitive: input.sensitive === true,
   });
   return { recordId, attachmentId: attachment.id, upload: { ...upload, expiresAt: upload.expiresAt.toISOString() } };
 }

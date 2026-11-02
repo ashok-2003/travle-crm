@@ -22,7 +22,7 @@ function stored(overrides: Partial<StoredEmail> = {}): StoredEmail {
     purpose: "password-reset",
     toAddress: "asha@sharma.example",
     toName: "Asha Owner",
-    fromName: "Veeper AI",
+    fromName: "Test Sender",
     replyTo: null,
     subject: "Reset your password",
     textBody: "Choose a new password: https://app.example/reset-password?token=abc",
@@ -56,7 +56,7 @@ describe("EmailScreen", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Reset your password" })).toBeVisible();
     const details = within(screen.getByRole("region", { name: words.email.details }));
     expect(details.getByText("Asha Owner <asha@sharma.example>")).toBeVisible();
-    expect(details.getByText("Veeper AI")).toBeVisible();
+    expect(details.getByText("Test Sender")).toBeVisible();
     expect(details.getByText(words.email.noReplyTo)).toBeVisible();
     expect(details.getByText(words.purposes["password-reset"])).toBeVisible();
     expect(details.getByText(words.sources.smtp)).toBeVisible();

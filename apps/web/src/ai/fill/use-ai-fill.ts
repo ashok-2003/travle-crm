@@ -15,7 +15,15 @@ export function useFillAvailable(target: FillTarget): AiAvailability {
   const holdsLead = useHolds("leads:create");
   const holdsEdit = useHolds("leads:edit");
   const holdsQuote = useHolds("quotes:edit");
-  const holds = target === "lead" ? holdsLead : target === "quote" ? holdsQuote : holdsEdit;
+  const holdsBooking = useHolds("bookings:edit");
+  const holds =
+    target === "lead"
+      ? holdsLead
+      : target === "quote" || target === "quote_days"
+        ? holdsQuote
+        : target === "travellers"
+          ? holdsBooking
+          : holdsEdit;
   return holds ? available : "off";
 }
 
@@ -24,7 +32,17 @@ export function useFill(target: FillTarget) {
   const lead = useMutation(trpc.ai.fill.lead.mutationOptions());
   const edit = useMutation(trpc.ai.fill.leadEdit.mutationOptions());
   const quote = useMutation(trpc.ai.fill.quote.mutationOptions());
-  return target === "lead" ? lead : target === "quote" ? quote : edit;
+  const days = useMutation(trpc.ai.fill.quoteDays.mutationOptions());
+  const travellers = useMutation(trpc.ai.fill.travellers.mutationOptions());
+  return target === "lead"
+    ? lead
+    : target === "quote"
+      ? quote
+      : target === "quote_days"
+        ? days
+        : target === "travellers"
+          ? travellers
+          : edit;
 }
 
 /** Puts a recording or a screenshot in storage and returns its attachment, ready for the fill to read. */
@@ -32,8 +50,12 @@ export function useUploadAiInput() {
   const trpc = useTRPC();
   const request = useMutation(trpc.ai.fill.requestInput.mutationOptions());
   const confirm = useMutation(trpc.ai.fill.confirmInput.mutationOptions());
-  return async (file: Blob, contentType: "audio/wav" | "image/jpeg" | "image/png" | "image/webp") => {
-    const slot = await request.mutateAsync({ contentType, sizeBytes: file.size });
+  return async (
+    file: Blob,
+    contentType: "audio/wav" | "image/jpeg" | "image/png" | "image/webp",
+    sensitive = false,
+  ) => {
+    const slot = await request.mutateAsync({ contentType, sizeBytes: file.size, ...(sensitive ? { sensitive } : {}) });
     await uploadFile(slot.upload, file);
     await confirm.mutateAsync({ recordId: slot.recordId, attachmentId: slot.attachmentId });
     return slot.attachmentId;
