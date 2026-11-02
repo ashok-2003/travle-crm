@@ -37,6 +37,7 @@ export {
   getStoredEmail,
   listFailedEmails,
   PURGE_EMAIL_LOG_QUEUE,
+  purgeEmailLogNow,
   resendFailedEmail,
 } from "./emails.js";
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";

@@ -12,6 +12,7 @@ import {
   listFailedEmails,
   listPlatformLog,
   PURGE_EMAIL_LOG_QUEUE,
+  purgeEmailLogNow,
   resendFailedEmail,
 } from "../../src/platform/index.js";
 import { createTestPlatform, support, type TestPlatform } from "./test-platform.js";
@@ -134,5 +135,28 @@ describe("the console's failed emails", () => {
     expect(schedule).toMatchObject({ queue: PURGE_EMAIL_LOG_QUEUE, cron: "5 4 * * *", timeZone: "Asia/Kolkata" });
     expect(PURGE_EMAIL_LOG_QUEUE).toBe("email-log.purge");
     await expect(schedule.handle({})).resolves.toBeUndefined();
+  });
+
+  it("blanks Brevo's stored reports a week after they were processed, keeping their ids", async () => {
+    const now = new Date();
+    const report = (daysAgo: number) =>
+      platform.webhookEvent.create({
+        data: {
+          provider: "brevo",
+          providerEventId: crypto.randomUUID(),
+          eventType: "brevo.hard_bounce",
+          headers: {},
+          payload: '{"event":"hard_bounce","email":"asha@agency.example"}',
+          processedAt: new Date(now.getTime() - daysAgo * 86_400_000),
+        },
+      });
+    const old = await report(8);
+    const recent = await report(6);
+    await purgeEmailLogNow(test.services, now);
+    expect(await platform.webhookEvent.findUniqueOrThrow({ where: { id: old.id } })).toMatchObject({
+      payload: "",
+      providerEventId: old.providerEventId,
+    });
+    expect((await platform.webhookEvent.findUniqueOrThrow({ where: { id: recent.id } })).payload).toBe(recent.payload);
   });
 });

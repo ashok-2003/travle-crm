@@ -10,8 +10,16 @@ import type {
   StoredEmail,
 } from "@travel-crm/contracts/platform";
 import { errorFields } from "@travel-crm/integrations/logging";
-import { emailToResend, failedEmails, purgeEmailLog, storedEmailOf } from "../email-log/index.js";
+import {
+  BREVO_PROVIDER,
+  emailToResend,
+  failedEmails,
+  purgeEmailLog,
+  SENT_KEEP_DAYS,
+  storedEmailOf,
+} from "../email-log/index.js";
 import type { ScheduledJob } from "../jobs/index.js";
+import { blankProcessedPayloads } from "../webhooks/index.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -67,14 +75,25 @@ export async function resendFailedEmail(
   return { id: outcome.id, status: outcome.status };
 }
 
-/** Daily at 04:05 India time, away from the other sweeps: sent emails after 7 days, failed ones after 30. */
+/**
+ * Deletes the emails past their days (sent after 7, failed after 30), and blanks Brevo's stored reports processed more
+ * than 7 days ago, which name the recipient and the subject: only the platform role may blank a payload.
+ */
+export async function purgeEmailLogNow(services: PlatformServices, now: Date): Promise<void> {
+  await services.platformDb.transaction(async (tx) => {
+    await purgeEmailLog(tx, now);
+    await blankProcessedPayloads(tx, BREVO_PROVIDER, new Date(now.getTime() - SENT_KEEP_DAYS * 86_400_000));
+  });
+}
+
+/** Daily at 04:05 India time, away from the other sweeps. */
 export function emailLogPurgeSchedule(services: PlatformServices): ScheduledJob {
   return {
     queue: PURGE_EMAIL_LOG_QUEUE,
     cron: "5 4 * * *",
     timeZone: "Asia/Kolkata",
     handle: async () => {
-      await services.platformDb.transaction((tx) => purgeEmailLog(tx, new Date()));
+      await purgeEmailLogNow(services, new Date());
     },
   };
 }

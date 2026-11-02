@@ -5,6 +5,9 @@
 import type { Database } from "@travel-crm/db";
 import { emailLogs } from "@travel-crm/db/email-log";
 
+/** The webhook provider Brevo posts its reports to, /webhooks/brevo/<token> (apps/api's brevo-webhook-provider.ts). */
+export const BREVO_PROVIDER = "brevo";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_FAILURE_CODE = 100;
 const MAX_FAILURE_REASON = 1000;
