@@ -47,6 +47,10 @@ x-api-environment: &api-environment
   AI_API_KEY: ${AI_API_KEY:-}
   AI_CHAT_MODELS: ${AI_CHAT_MODELS:-}
   AI_FAST_MODELS: ${AI_FAST_MODELS:-}
+  AI_BACKUP_BASE_URL: ${AI_BACKUP_BASE_URL:-}
+  AI_BACKUP_API_KEY: ${AI_BACKUP_API_KEY:-}
+  AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
+  AI_BACKUP_FAST_MODELS: ${AI_BACKUP_FAST_MODELS:-}
   AI_ZERO_RETENTION: ${AI_ZERO_RETENTION:-}
   # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
   # webhook block and check a number.

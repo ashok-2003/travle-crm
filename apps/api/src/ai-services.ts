@@ -1,21 +1,36 @@
 // The AI model the features call (ADR 0029), built once per process: from AI_API_KEY with AI_BASE_URL and the models when
-// those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), else OpenRouter with its zero-data-retention
-// routing from OPENROUTER_API_KEY. Null when no key is set: the features then say the AI isn't set up. The journeys' fake
-// (AI_TEST_SERVER_URL, never in production) receives OpenRouter's calls in its place.
-import { createOpenRouterModel, OPENROUTER_BASE_URL, type AiModel } from "@travel-crm/integrations/ai";
+// those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), with AI_BACKUP_API_KEY's AI behind it
+// when that is set, else OpenRouter with its zero-data-retention routing from OPENROUTER_API_KEY. Null when no key is set:
+// the features then say the AI isn't set up. The journeys' fake (AI_TEST_SERVER_URL, never in production) receives
+// OpenRouter's calls in its place.
+import { createOpenRouterModel, OPENROUTER_BASE_URL, withBackupModel, type AiModel } from "@travel-crm/integrations/ai";
 import type { Environment } from "./environment.js";
 
 export function createAiModel(environment: Environment): AiModel | null {
   if (environment.AI_API_KEY !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];
     const fast = environment.AI_FAST_MODELS ?? chat;
-    return createOpenRouterModel({
+    const zeroRetention =
+      environment.AI_ZERO_RETENTION === undefined ? {} : { zeroRetention: environment.AI_ZERO_RETENTION };
+    const first = createOpenRouterModel({
       apiKey: environment.AI_API_KEY,
       // The chat models write for customers and read chats; the fast ones only score leads.
       models: { suggest_reply: chat, autopilot: chat, learn: chat, score_lead: fast },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
-      ...(environment.AI_ZERO_RETENTION === undefined ? {} : { zeroRetention: environment.AI_ZERO_RETENTION }),
+      ...zeroRetention,
     });
+    if (environment.AI_BACKUP_API_KEY === undefined) return first;
+    // The backup keeps the first's endpoint and models unless it names its own.
+    const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
+    const backupFast = environment.AI_BACKUP_FAST_MODELS ?? environment.AI_BACKUP_CHAT_MODELS ?? fast;
+    const backupBaseUrl = environment.AI_BACKUP_BASE_URL ?? environment.AI_BASE_URL;
+    const backup = createOpenRouterModel({
+      apiKey: environment.AI_BACKUP_API_KEY,
+      models: { suggest_reply: backupChat, autopilot: backupChat, learn: backupChat, score_lead: backupFast },
+      ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
+      ...zeroRetention,
+    });
+    return withBackupModel(first, backup);
   }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;

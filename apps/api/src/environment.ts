@@ -192,6 +192,15 @@ const environmentSchema = z
         problem(name, "is only for use with AI_API_KEY");
       }
     }
+    // The backup stands behind AI_API_KEY's AI, and its own settings need its key.
+    if (environment.AI_BACKUP_API_KEY !== undefined && environment.AI_API_KEY === undefined) {
+      problem("AI_BACKUP_API_KEY", "is only for use with AI_API_KEY");
+    }
+    for (const name of ["AI_BACKUP_BASE_URL", "AI_BACKUP_CHAT_MODELS", "AI_BACKUP_FAST_MODELS"] as const) {
+      if (environment[name] !== undefined && environment.AI_BACKUP_API_KEY === undefined) {
+        problem(name, "is only for use with AI_BACKUP_API_KEY");
+      }
+    }
     if (environment.AI_TEST_SERVER_URL !== undefined && environment.OPENROUTER_API_KEY === undefined) {
       problem("AI_TEST_SERVER_URL", "is only for use with OPENROUTER_API_KEY");
     }
@@ -199,6 +208,9 @@ const environmentSchema = z
     // The AI key and the customers' words go in every request: over https only.
     if (environment.AI_BASE_URL !== undefined && !environment.AI_BASE_URL.startsWith("https://")) {
       problem("AI_BASE_URL", "must be an https address in production");
+    }
+    if (environment.AI_BACKUP_BASE_URL !== undefined && !environment.AI_BACKUP_BASE_URL.startsWith("https://")) {
+      problem("AI_BACKUP_BASE_URL", "must be an https address in production");
     }
     if (environment.AI_TEST_SERVER_URL !== undefined) {
       problem("AI_TEST_SERVER_URL", "is for development and tests only: unset it in production");

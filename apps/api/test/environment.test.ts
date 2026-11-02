@@ -61,6 +61,16 @@ describe("environment", () => {
     expect(loadEnvironment({ ...production, AI_BASE_URL: "", AI_API_KEY: "" }).AI_API_KEY).toBeUndefined();
     expect(() => loadEnvironment({ ...production, AI_API_KEY: gemini.AI_API_KEY })).toThrow(/AI_CHAT_MODELS/);
     expect(() => loadEnvironment({ ...production, AI_CHAT_MODELS: "gemini-2.5-flash" })).toThrow(/AI_API_KEY/);
+    // A backup stands behind AI_API_KEY's AI, and its own settings need its key.
+    expect(
+      loadEnvironment({ ...production, ...gemini, AI_BACKUP_API_KEY: "sk-backup-0123456789" }).AI_BACKUP_API_KEY,
+    ).toBe("sk-backup-0123456789");
+    expect(() => loadEnvironment({ ...production, AI_BACKUP_API_KEY: "sk-backup-0123456789" })).toThrow(
+      /AI_BACKUP_API_KEY/,
+    );
+    expect(() => loadEnvironment({ ...production, ...gemini, AI_BACKUP_CHAT_MODELS: "gemini-2.5-flash" })).toThrow(
+      /AI_BACKUP_CHAT_MODELS/,
+    );
     expect(() => loadEnvironment({ ...production, ...gemini, AI_BASE_URL: "http://api.example.com/v1" })).toThrow(
       /AI_BASE_URL/,
     );
