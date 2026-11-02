@@ -32,6 +32,13 @@ export { SWEEP_WHATSAPP_QUEUE, sweepWhatsAppNow, whatsappSweepSchedule } from ".
 export { metaSweepSchedule, SWEEP_META_QUEUE, sweepMetaNow } from "./meta-sweep.js";
 export { organizationsOverview } from "./dashboard.js";
 export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
+export {
+  emailLogPurgeSchedule,
+  getStoredEmail,
+  listFailedEmails,
+  purgeEmailLogNow,
+  resendFailedEmail,
+} from "./emails.js";
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
 export { exportSubject, hasFreshExport } from "./exports.js";
 export { listFailedJobs, listSchedules, removeSchedule, retryFailedJob } from "./failed-jobs.js";

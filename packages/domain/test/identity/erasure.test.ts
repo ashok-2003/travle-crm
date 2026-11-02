@@ -80,8 +80,10 @@ describe("erasure and purge, identity's part", () => {
       joinedAt: expect.any(String) as string,
       removedAt: expect.any(String) as string,
     });
+    // Their own address comes back, for the email log's part of the erasure; never the placeholder removal gave them.
     expect(await platformDb.transaction((tx) => erasePerson(tx, agency.organizationId, person.memberId))).toEqual({
       userId: person.userId,
+      addresses: [person.email],
     });
     const user = await platform.user.findUniqueOrThrow({
       where: { id: person.userId },

@@ -5,6 +5,7 @@
 import type { FailedJobsPage, ListFailedJobsInput, RetryFailedJobInput } from "@travel-crm/contracts/platform";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { errorFields } from "@travel-crm/integrations/logging";
+import { PURGE_EMAIL_LOG_QUEUE } from "../email-log/index.js";
 import { DomainError } from "../kernel/index.js";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "../subscriptions/index.js";
 import { SWEEP_AI_INPUTS_QUEUE } from "./ai-inputs-sweep.js";
@@ -49,6 +50,7 @@ const CONSOLE_SCHEDULES: ReadonlySet<string> = new Set([
   WEBSITE_FORMS_SWEEP_QUEUE,
   RESET_DEMO_QUEUE,
   HEALTH_CHECK_QUEUE,
+  PURGE_EMAIL_LOG_QUEUE,
 ]);
 
 /**

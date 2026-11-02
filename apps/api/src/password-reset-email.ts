@@ -41,7 +41,13 @@ export function passwordResetEmails(
         action: { label: "Choose a new password", url },
         footer: "If you didn't ask for this, ignore this email: your password stays as it is.",
       });
-      await email.send({ to, fromName: brand.emailSenderName, subject: "Reset your password", ...content });
+      await email.send({
+        to,
+        fromName: brand.emailSenderName,
+        subject: "Reset your password",
+        ...content,
+        purpose: "password-reset",
+      });
     } catch (error) {
       // Not awaited by the request (the timing would tell whether the address exists), so this is the only report.
       logger.error(errorFields(error), "Could not send a password-reset email");

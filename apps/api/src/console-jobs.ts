@@ -2,13 +2,14 @@
 // erasing a person or a record, exporting one, deleting stored files), the nightly subscription lifecycle, the hourly
 // sweep of stored files still to delete, the daily sweep of exports past their time, the hourly sweep of imports' and
 // exports' files past theirs, the hourly sweep of the website form's ledger and, when a demo is set, its nightly
-// reset, and the system's health check, which emails the super admins when something breaks. They need the platform
-// role, which only this process holds. No listeners and no outbox relay: those are the
+// reset, the system's health check, which emails the super admins when something breaks, and the email log's daily
+// purge. They need the platform role, which only this process holds. No listeners and no outbox relay: those are the
 // worker's.
 import { startJobHandlers, type JobHandler, type ScheduledJob } from "@travel-crm/domain/jobs";
 import {
   aiInputsSweepSchedule,
   bulkFilesSweepSchedule,
+  emailLogPurgeSchedule,
   expiredExportsSchedule,
   healthCheck,
   incidentHandler,
@@ -89,6 +90,8 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   const websiteFormsSweep = websiteFormsSweepSchedule(services);
   // The system's health: every process's incident reports, and the five-minute check with the worker's ping (incidents.ts).
   const health = healthCheck(services);
+  // The email log's emails past their days (7 sent, 30 failed), and Brevo's stored reports past 7 (the failed-emails spec).
+  const emailLogPurge = emailLogPurgeSchedule(services);
   return {
     handlers: [...platformJobHandlers(services), incidentHandler(services), health.pongHandler],
     schedules: [
@@ -102,6 +105,7 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
       metaSweep,
       whatsappSweep,
       websiteFormsSweep,
+      emailLogPurge,
       ...demoReset,
     ],
   };

@@ -11,6 +11,9 @@ export const consoleRoutes = {
   dataProtection: (organizationId: string) => `/console/organizations/${organizationId}/data-protection`,
   plans: "/console/plans",
   jobs: "/console/jobs",
+  /** The emails that failed, a super admin's; each one's page under it. */
+  emails: "/console/emails",
+  email: (emailId: string) => `/console/emails/${emailId}`,
   /** The WhatsApp numbers agencies use, and the webhook MSG91 calls. */
   whatsapp: "/console/whatsapp",
   log: "/console/log",

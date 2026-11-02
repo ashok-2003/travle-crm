@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./email-log": "./src/email-log.ts",
     "./identity": "./src/identity.ts",
     "./meta-routes": "./src/meta-routes.ts",
     "./platform": "./src/platform.ts",

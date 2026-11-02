@@ -3,18 +3,12 @@
 // gets a bare 401 and nothing is stored. Everything that does carry them is stored and answered 200, whatever the body says,
 // because one 4xx pauses MSG91's webhook for every agency: `identify` never returns null. The stored payload holds personal data
 // and is blanked after 7 days by the console's sweep. The worker's `process` handles each event of a batch on its own.
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
 import { processWhatsAppBody, WHATSAPP_PROVIDER, type InboxDependencies } from "@travel-crm/domain/inbox";
 import type { WebhookProvider } from "@travel-crm/domain/webhooks";
 import { parseMsg91Event, WHATSAPP_WEBHOOK_HEADER } from "@travel-crm/integrations/whatsapp";
+import { PATH_TOKEN_HEADER, sameSecret } from "./webhook-route.js";
 import type { WhatsAppSettings } from "./whatsapp-settings.js";
-
-/** The header the route sets from the path, overwriting anything a caller sent under the name. */
-export const PATH_TOKEN_HEADER = "x-internal-path-token";
-
-const digest = (text: string) => createHash("sha256").update(text).digest();
-const sameSecret = (given: string | null, expected: string) =>
-  given !== null && timingSafeEqual(digest(given), digest(expected));
 
 export function whatsappWebhookProvider(options: {
   settings: Pick<WhatsAppSettings, "webhookToken" | "webhookKey">;

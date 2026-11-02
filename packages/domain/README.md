@@ -16,6 +16,7 @@ Business rules, one folder per module (spec section 8). A module's public API is
 | `share-links`   | links that open one record without signing in ([README](src/share-links/README.md))                                                                              |
 | `webhooks`      | the generic webhook intake ([README](src/webhooks/README.md))                                                                                                    |
 | `rate-limits`   | limits on the public routes ([README](src/rate-limits/README.md))                                                                                                |
+| `email-log`     | every email the product sends, as sent, for the console's failed emails and Brevo's reports ([README](src/email-log/README.md))                                  |
 | `subscriptions` | plans, each organization's subscription and payments, the lifecycle, request checks 2 and 3 ([README](src/subscriptions/README.md))                              |
 | `profile`       | an organization's business profile and setup checklist ([README](src/profile/README.md))                                                                         |
 | `platform`      | the platform console's work across organizations: onboarding, deletion, the demo, the platform log ([README](src/platform/README.md))                            |
