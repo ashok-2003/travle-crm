@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { listPlatformLog, recordPlatformAudit } from "../../src/platform/index.js";
+import { listPlatformLog, onboardOrganization, recordPlatformAudit } from "../../src/platform/index.js";
+import { createTestPlan, createTestPlatform, onboardingInput, support } from "./test-platform.js";
 
 const adminUserId = "0199e7a0-0000-7000-8000-00000000a0a1";
 
@@ -112,5 +113,35 @@ describe("the platform log", () => {
         tx.platformAuditEntry.create({ data: { action: "a.b", targetType: "organization", targetId: "x" } }),
       ),
     ).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe("the platform log's organization names", () => {
+  it("names each entry's organization, and gives null for one that is gone or for no organization", async () => {
+    const test = createTestPlatform();
+    try {
+      const plan = await createTestPlan(test);
+      const { organizationId } = await onboardOrganization(test.services, support, onboardingInput(plan));
+      const goneId = randomUUID();
+      await test.services.platformDb.transaction((tx) =>
+        recordPlatformAudit(tx, support, {
+          action: "organization.purged",
+          targetType: "organization",
+          targetId: goneId,
+          targetOrganizationId: goneId,
+        }),
+      );
+      const named = await test.services.platformDb.transaction((tx) =>
+        listPlatformLog(tx, { targetOrganizationId: organizationId, limit: 10 }),
+      );
+      expect(named.entries.length).toBeGreaterThan(0);
+      expect(named.entries.every((entry) => entry.organizationName === "Sharma Holidays")).toBe(true);
+      const gone = await test.services.platformDb.transaction((tx) =>
+        listPlatformLog(tx, { targetOrganizationId: goneId, limit: 10 }),
+      );
+      expect(gone.entries.map((entry) => entry.organizationName)).toEqual([null]);
+    } finally {
+      await test.close();
+    }
   });
 });

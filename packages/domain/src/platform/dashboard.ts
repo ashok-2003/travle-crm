@@ -1,6 +1,7 @@
 // The platform dashboard (spec 7.4): every organization with its status, days left, seats used, last activity and this
-// month's usage, a page at a time. The page's list in one platform transaction, then one for each organization,
-// stepping into it for what its modules count.
+// month's usage, a page at a time. The page, its activity, subscriptions and policy are read set-based in one platform
+// transaction. What the modules count (stored bytes, changes, documents) must run as the runtime role under row-level
+// security, so each organization steps into its own short transaction, a pool's worth at a time.
 import type {
   ListOrganizationsOverviewInput,
   OrganizationOverview,
@@ -12,8 +13,9 @@ import { documentsIssuedSince } from "../documents/index.js";
 import { bytesStored } from "../files/index.js";
 import { listOrganizationRecords, memberActivity } from "../identity/index.js";
 import { calendarDateIn, parseCalendarDate, startOfDayIn } from "../kernel/index.js";
-import { entitlementsOf } from "../subscriptions/index.js";
-import type { PlatformServices } from "./services.js";
+import { entitlementsFrom, getSubscriptionPolicy, type SubscriptionFacts } from "../subscriptions/index.js";
+import { mapConcurrently } from "./map-concurrently.js";
+import { PLATFORM_POOL_SIZE, type PlatformServices } from "./services.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -28,34 +30,53 @@ export async function organizationsOverview(
   input: ListOrganizationsOverviewInput,
   now: Date = new Date(),
 ): Promise<OrganizationsOverviewPage> {
-  const { organizations, more, activity } = await services.platformDb.transaction(async (tx) => {
+  const { organizations, more, activity, facts } = await services.platformDb.transaction(async (tx) => {
     // One more than the page, to know whether another page follows.
     const found = await listOrganizationRecords(tx, { limit: input.limit + 1, after: input.after });
     const page = found.slice(0, input.limit);
-    const people = await memberActivity(
-      tx,
-      page.map((organization) => organization.id),
-    );
+    const ids = page.map((organization) => organization.id);
+    const people = await memberActivity(tx, ids);
+    // The platform role reads every organization's subscription at once; the policy is one row for all of them.
+    const subscriptions =
+      ids.length === 0
+        ? []
+        : await tx.subscription.findMany({
+            where: { organizationId: { in: ids } },
+            include: { plan: true },
+          });
+    const policy = await getSubscriptionPolicy(tx);
+    const zones = new Map(page.map((organization) => [organization.id, organization.timeZone]));
+    const loaded = new Map<string, SubscriptionFacts>();
+    for (const row of subscriptions) {
+      const timeZone = zones.get(row.organizationId);
+      if (timeZone !== undefined) loaded.set(row.organizationId, { row, timeZone, policy });
+    }
     return {
       organizations: page,
       more: found.length > input.limit,
       activity: new Map(people.map((row) => [row.organizationId, row])),
+      facts: loaded,
     };
   });
-  const overviews: OrganizationOverview[] = [];
-  // A short transaction for each organization's few counts, rather than one that grows with every organization.
-  for (const organization of organizations) {
+  const counts = await mapConcurrently(organizations, PLATFORM_POOL_SIZE, (organization) => {
     const today = calendarDateIn(now, organization.timeZone);
     const monthStart = startOfDayIn(parseCalendarDate(`${today.slice(0, 7)}-01`), organization.timeZone);
-    const counted = await services.platformDb.transaction((tx) =>
+    // A short transaction for each organization's few counts, rather than one that grows with every organization.
+    return services.platformDb.transaction((tx) =>
       asOrganization(tx, organization.id, async (orgTx) => ({
-        entitlements: await entitlementsOf(orgTx, organization.id, now),
         storedBytes: await bytesStored(orgTx, organization.id),
         changes: await auditEntriesSince(orgTx, monthStart),
         documentsIssued: await documentsIssuedSince(orgTx, monthStart),
       })),
     );
-    const { entitlements } = counted;
+  });
+  const overviews: OrganizationOverview[] = [];
+  for (const [index, organization] of organizations.entries()) {
+    const today = calendarDateIn(now, organization.timeZone);
+    const counted = counts[index];
+    if (counted === undefined) throw new Error("A count is missing for an organization on the page");
+    const stored = facts.get(organization.id);
+    const entitlements = stored ? entitlementsFrom(stored, now) : null;
     const people = activity.get(organization.id);
     overviews.push({
       organizationId: organization.id,

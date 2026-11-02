@@ -24,6 +24,8 @@ import { isSuperAdmin, useStaff } from "../session/staff-context";
 import { ConnectDialog } from "./connect-dialog";
 import { connectionTones } from "./whatsapp-screen";
 
+const CONNECTING_POLL_MS = 20_000;
+
 export function OrganizationWhatsapp({
   organizationId,
   organizationName,
@@ -36,7 +38,11 @@ export function OrganizationWhatsapp({
   const queryClient = useQueryClient();
   const staff = useStaff();
   const mayChange = isSuperAdmin(staff);
-  const group = useQuery({ ...trpc.whatsapp.get.queryOptions({ organizationId }), refetchInterval: 20_000 });
+  const group = useQuery({
+    ...trpc.whatsapp.get.queryOptions({ organizationId }),
+    // Looked at again only while a number is being connected, when its first message is awaited.
+    refetchInterval: (query) => (query.state.data?.connection?.status === "setup" ? CONNECTING_POLL_MS : false),
+  });
   const [confirming, setConfirming] = useState(false);
   const disconnectButton = useRef<HTMLButtonElement>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: trpc.whatsapp.pathKey() });
