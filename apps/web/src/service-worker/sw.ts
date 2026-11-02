@@ -6,13 +6,16 @@
 import { PUSH_ARRIVED } from "../notifications/push/push-message";
 import { notificationFor, openFromNotification, tapTarget } from "./push";
 import {
+  BUILD_ID_PATH,
   fileCacheKey,
   filesNamedIn,
   filesNamedInStylesheet,
   isKeepableFile,
   isKeepablePage,
+  mapLimited,
   pageCacheKey,
   parentShellFor,
+  SHELL_FETCH_CONCURRENCY,
   shellsToKeep,
 } from "./shells";
 import { CACHE_NAMES, cachesToDelete, NAVIGATION_TIMEOUT_MS, OFFLINE_PAGE, strategyFor } from "./strategy";
@@ -20,6 +23,8 @@ import { CACHE_NAMES, cachesToDelete, NAVIGATION_TIMEOUT_MS, OFFLINE_PAGE, strat
 declare const self: ServiceWorkerGlobalScope;
 /** The app's pages ("/staff", "/roles/[key]"), listed from src/app's page files when the worker is bundled. */
 declare const APP_ROUTES: readonly string[];
+/** Names the build this worker shipped with; it changes sw.js, so a deploy installs a new worker. */
+declare const BUILD_ID: string;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -80,8 +85,10 @@ function savedShell(address: string): Promise<Response | undefined> {
  * the connection stalls; the fallbacks of offlineAnswer when there is none. */
 async function page(event: FetchEvent): Promise<Response> {
   const network = fetch(event.request);
-  // The network answered: check the shells in the background, as a new build replaces them.
-  event.waitUntil(network.then((response) => (response.ok ? keepShells() : undefined)).catch(() => undefined));
+  // The network answered: refresh the shells in the background, but only when they are another build's.
+  event.waitUntil(
+    network.then((response) => (response.ok ? keepShellsOfNewBuild() : undefined)).catch(() => undefined),
+  );
   try {
     return await Promise.race([network, shellOnceStalled(event.request.url)]);
   } catch {
@@ -143,8 +150,15 @@ function keepInBackground(event: FetchEvent, key: string, response: Response): v
 
 let keeping: Promise<void> | undefined;
 
-/** Brings every shell and the files it names up to date; at install and after each page load the network answered.
- * One run at a time. */
+/** After a page load the network answered: refreshes only when the shells kept belong to another build than this
+ * worker's (a failed refresh leaves that so, and the next load tries again). */
+async function keepShellsOfNewBuild(): Promise<void> {
+  const stored = await (await caches.match(absolute(BUILD_ID_PATH), { cacheName: CACHE_NAMES.pages }))?.text();
+  if (stored !== BUILD_ID) await keepShells();
+}
+
+/** Brings every shell and the files it names up to date; at install, and for a new build after a page load. One run
+ * at a time. */
 function keepShells(): Promise<void> {
   keeping ??= refreshShells().finally(() => {
     keeping = undefined;
@@ -155,9 +169,10 @@ function keepShells(): Promise<void> {
 async function refreshShells(): Promise<void> {
   const [pages, files] = await Promise.all([caches.open(CACHE_NAMES.pages), caches.open(CACHE_NAMES.static)]);
   const keys = shellsToKeep(APP_ROUTES).map((path) => pageCacheKey(absolute(path)));
-  const shells = await Promise.all(keys.map((key) => refreshShell(pages, key)));
+  const buildKey = absolute(BUILD_ID_PATH);
+  const shells = await mapLimited(keys, SHELL_FETCH_CONCURRENCY, (key) => refreshShell(pages, key));
   // A page no longer in the app leaves with its shell.
-  await deleteAllBut(pages, new Set(keys));
+  await deleteAllBut(pages, new Set([...keys, buildKey]));
   // Shells share most of their files: each is fetched once.
   const named = [
     ...new Set(
@@ -166,13 +181,17 @@ async function refreshShells(): Promise<void> {
         .map((file) => fileCacheKey(absolute(file))),
     ),
   ];
-  await Promise.all(named.map((file) => keepFile(files, file)));
+  const kept = await mapLimited(named, SHELL_FETCH_CONCURRENCY, (file) => keepFile(files, file));
   // A changed shell means a new build: the files neither its shells nor its stylesheets name were the old build's.
   // Fonts the stylesheets name stay without being fetched ahead (some 1.5 MB): a page loads one when it shows that
   // script.
   if (shells.some(({ changed }) => changed)) {
     const fonts = await Promise.all(named.map((file) => fontsNamedBy(files, file)));
     await deleteAllBut(files, new Set([...named, ...fonts.flat()]));
+  }
+  // Only a complete refresh counts for this build; offline or half done, the next page load tries again.
+  if (shells.every(({ failed }) => !failed) && kept.every(Boolean)) {
+    await pages.put(buildKey, new Response(BUILD_ID)).catch(() => undefined);
   }
 }
 
@@ -187,30 +206,41 @@ async function fontsNamedBy(files: Cache, url: string): Promise<string[]> {
  * Fetches a shell again and keeps it if it changed. Without cookies: a shell is the same for everyone, so the copy
  * kept can't hold anyone's data. "no-cache": the browser asks the server, which answers 304 when nothing changed.
  */
-async function refreshShell(pages: Cache, key: string): Promise<{ html: string | null; changed: boolean }> {
+async function refreshShell(
+  pages: Cache,
+  key: string,
+): Promise<{ html: string | null; changed: boolean; failed: boolean }> {
   const kept = (await (await pages.match(key))?.text()) ?? null;
   const response = await fetch(key, { credentials: "omit", cache: "no-cache" }).catch(() => null);
   // Offline: the kept copy stays until a later page load the network answers.
-  if (response === null) return { html: kept, changed: false };
+  if (response === null) return { html: kept, changed: false, failed: true };
   if (!isKeepablePage(response)) {
     // A failure (a 502 mid-deploy) leaves the kept copy. A page that is now something else (rendered per request,
     // redirected): the old copy would show an old build offline, so it goes.
-    if (!response.ok) return { html: kept, changed: false };
+    // Only a server error is worth asking again for; a 4xx won't change, so it doesn't hold the refresh open.
+    if (response.status >= 500) return { html: kept, changed: false, failed: true };
+    if (!response.ok) return { html: kept, changed: false, failed: false };
     await pages.delete(key);
-    return { html: null, changed: false };
+    return { html: null, changed: false, failed: false };
   }
   const html = await response.clone().text();
-  if (html === kept) return { html, changed: false };
+  if (html === kept) return { html, changed: false, failed: false };
   await pages.put(key, response);
-  return { html, changed: true };
+  return { html, changed: true, failed: false };
 }
 
 /** Keeps one build file a shell names, unless it is kept already (its name changes with its content). */
-async function keepFile(files: Cache, url: string): Promise<void> {
-  if (await files.match(url)) return;
+async function keepFile(files: Cache, url: string): Promise<boolean> {
+  if (await files.match(url)) return true;
   const response = await fetch(url, { credentials: "omit" }).catch(() => null);
   // Offline or storage full: the next refresh tries again.
-  if (response && isKeepableFile(response)) await files.put(url, response).catch(() => undefined);
+  if (!response || response.status >= 500) return false;
+  // A file the server refuses (a 404) won't change by asking again, so it doesn't hold the build's refresh open.
+  if (!isKeepableFile(response)) return true;
+  return files.put(url, response).then(
+    () => true,
+    () => false,
+  );
 }
 
 async function deleteAllBut(cache: Cache, urls: ReadonlySet<string>): Promise<void> {
