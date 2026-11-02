@@ -14,6 +14,7 @@ import {
 import type { OrgTx } from "@travel-crm/db";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { marginOf, needsRateLines, withoutCosts, type MarginSettings } from "./margin.js";
 import { coveredInstallments } from "./totals.js";
 
 export const quoteColumns = {
@@ -139,12 +140,21 @@ export function toSummary(row: QuoteRow): QuoteSummary {
   });
 }
 
-export function toDetail(row: QuoteRow): QuoteDetail {
+/** What the reader of a quote may see of its costs: the agency's minimum margin, and whether they may see figures. */
+export interface DetailView {
+  settings: MarginSettings;
+  seesMargin: boolean;
+}
+
+export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
   const totals = totalsOf(row);
+  const items = itemsOf(row);
   return quoteDetail.parse({
     ...toSummary(row),
     days: daysOf(row),
-    items: itemsOf(row),
+    items: view.seesMargin ? items : withoutCosts(items),
+    margin: marginOf(items, row.adults + row.children, view.settings, view.seesMargin),
+    needsRateLines: needsRateLines(items),
     adults: row.adults,
     children: row.children,
     inclusions: row.inclusions,

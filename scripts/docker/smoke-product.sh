@@ -50,6 +50,10 @@ expect_header "$work/share-link" Referrer-Policy no-referrer
 expect_status "$app/webhooks/not-a-provider" 404 --request POST --header "Content-Type: application/json" --data "{}" \
   --dump-header "$work/webhook"
 expect_header "$work/webhook" Content-Type application/json
+# An agency's public package pages are the web app's, which asks the api for them (API_ORIGIN): a page that is not there is the
+# web app's 404 with the form's policy (Turnstile allowed), which it can only make after the api said so.
+expect_status "$app/a/zzzzzz/not-a-package" 404 --dump-header "$work/package-page"
+expect_header "$work/package-page" Content-Security-Policy "challenges.cloudflare.com"
 echo "Mail and files"
 expect_status "http://localhost:$PRODUCT_MAIL_PORT/" 200
 # Where presigned links point, from this computer as from the containers.

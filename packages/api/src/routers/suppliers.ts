@@ -3,28 +3,40 @@
 // (accounts:view); linking costs to a supplier needs accounts:edit too. Money is read from a session read afresh.
 import {
   contactIdInput,
+  copySeasonInput,
   createSupplierInput,
   dues,
   linkCostsResult,
   listSuppliersInput,
+  rateIdInput,
   saveContactInput,
+  saveRateInput,
+  saveSeasonInput,
+  seasonIdInput,
   supplierDetail,
   supplierIdInput,
   supplierPage,
+  supplierRateCatalog,
   updateSupplierInput,
 } from "@travel-crm/contracts/suppliers";
 import {
+  copySeason,
   createSupplier,
+  deleteRate,
+  deleteSeason,
   deleteSupplier,
   getSupplier,
   linkSimilarCosts,
   listSuppliers,
   removeSupplierContact,
+  saveRate,
+  saveSeason,
   saveSupplierContact,
   supplierDues,
+  supplierRates,
   updateSupplier,
 } from "@travel-crm/domain/suppliers";
-import { calendarDateIn } from "@travel-crm/domain/kernel";
+import { calendarDateIn, DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -36,6 +48,9 @@ const editor = orgProcedure.requires("suppliers:view", "suppliers:edit");
 const detailViewer = freshProcedure.requires("suppliers:view");
 const linker = freshProcedure.requires("suppliers:view", "suppliers:edit", "accounts:view", "accounts:edit");
 const duesViewer = freshProcedure.requires("accounts:view");
+// A supplier's rates are what the agency pays: money, read from the database. Whoever keeps suppliers or may see margins reads them.
+const rateViewer = freshProcedure.requires("suppliers:view");
+const rateEditor = freshProcedure.requires("suppliers:view", "suppliers:edit");
 
 export const suppliersRouter = router({
   list: viewer
@@ -90,6 +105,45 @@ export const suppliersRouter = router({
         linkSimilarCosts(tx, ctx.member, input.supplierId),
       ),
     })),
+
+  /** The supplier's seasons with their rates (release 7b): for whoever edits suppliers or may see margins. */
+  rates: rateViewer
+    .input(supplierIdInput)
+    .output(supplierRateCatalog)
+    .query(({ ctx, input }) => {
+      if (!ctx.member.permissions.has("suppliers:edit") && !ctx.member.permissions.has("money:view_margin")) {
+        throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires suppliers:edit or money:view_margin");
+      }
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => supplierRates(tx, input.supplierId));
+    }),
+
+  saveSeason: rateEditor
+    .input(saveSeasonInput)
+    .output(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => saveSeason(tx, ctx.member, input))),
+
+  deleteSeason: rateEditor
+    .input(seasonIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteSeason(tx, ctx.member, input.seasonId)),
+    ),
+
+  /** The season and its rates for other dates (next year), every cost changed by a share. */
+  copySeason: rateEditor
+    .input(copySeasonInput)
+    .output(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => copySeason(tx, ctx.member, input))),
+
+  saveRate: rateEditor
+    .input(saveRateInput)
+    .output(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => saveRate(tx, ctx.member, input))),
+
+  deleteRate: rateEditor
+    .input(rateIdInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteRate(tx, ctx.member, input.rateId)),
+    ),
 
   /** What the agency owes: unpaid costs by supplier, the overdue first. */
   dues: duesViewer.output(dues).query(async ({ ctx }) => {

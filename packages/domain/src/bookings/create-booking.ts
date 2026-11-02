@@ -45,6 +45,7 @@ export async function createBookingFromQuote(
       status: true,
       startDate: true,
       departureId: true,
+      template: { select: { defaultTravellerLevel: true } },
       days: true,
       adults: true,
       children: true,
@@ -94,7 +95,8 @@ export async function createBookingFromQuote(
       startDate: quote.startDate,
       endDate: endDay === null ? null : new Date(`${endDay}T00:00:00Z`),
       departureId: quote.departureId,
-      level: settings.defaultLevel,
+      // A quote made from a package may ask more of its travellers than the agency's usual level (release 7b).
+      level: quote.template?.defaultTravellerLevel ?? settings.defaultLevel,
       policySnapshot: policy,
       emergencyName: settings.emergencyName,
       emergencyPhone: settings.emergencyPhone,

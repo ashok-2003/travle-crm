@@ -36,6 +36,7 @@ import { recordMemberActivity } from "./member-activity.js";
 import { chooseOwnPassword, hasOwnPasswordToChoose } from "./own-password.js";
 import {
   memberContacts,
+  organizationByCode,
   organizationProfile,
   organizationsPage,
   type MemberContact,
@@ -95,6 +96,8 @@ export interface Identity {
   describeSignedInPerson(session: SignedInSession): Promise<MeOutput | null>;
   /** The organization's name, code, time zone and contact email, for modules that can't read it themselves. */
   organizationProfile(organizationId: string): Promise<OrganizationProfile | null>;
+  /** The organization with this sign-in code, in any case; null when none: a public package page finds its agency by it. */
+  organizationByCode(code: string): Promise<OrganizationProfile | null>;
   /** The organizations by id, a page after the given one: for a job that acts once for every agency. */
   organizationsPage(input: { after?: string | undefined; limit: number }): Promise<OrganizationSlice[]>;
   /** Names and real email addresses of the organization's active members among userIds, for notifications. */
@@ -196,6 +199,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     resolveAccess: (userId, organizationId, session) => resolveAccess(database, userId, organizationId, session),
     describeSignedInPerson: (session) => describeSignedInPerson(database, session),
     organizationProfile: (organizationId) => organizationProfile(database, organizationId),
+    organizationByCode: (code) => organizationByCode(database, code),
     organizationsPage: (input) => organizationsPage(database, input),
     memberContacts: (organizationId, userIds) => memberContacts(database, organizationId, userIds),
     leadWorkers: (organizationId) => leadWorkers(database, organizationId),

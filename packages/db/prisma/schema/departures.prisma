@@ -34,6 +34,7 @@ model Departure {
   quotes          Quote[]
   bookings        Booking[]
   costs           TripCost[]
+  enquiries       PackageEnquiry[]
 
   @@unique([organizationId, id])
   @@index([organizationId, startDate], map: "departure_by_start")

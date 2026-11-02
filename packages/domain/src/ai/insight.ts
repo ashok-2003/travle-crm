@@ -237,8 +237,8 @@ async function prepare(
   });
   const wantFill = filling && firstMessages.length <= FILL_MESSAGES && !(await leadIsComplete(tx, lead.id));
   if (!scoring && !wantFill) return "nothing_to_do";
-  // Only an "ok" or a "thanks" since the last guess, and nothing to fill in: the call is saved.
-  if (!wantFill && (await nothingNewSince(tx, job.conversationId, lead.id))) return "nothing_new";
+  // Only an "ok" or a "thanks" since the last guess: the call is saved. Such a line has nothing to fill in either.
+  if (await nothingNewSince(tx, job.conversationId, lead.id)) return "nothing_new";
   const timeZone = await organizationTimeZone(tx, job.organizationId);
   if (!(await reserveAiCall(tx, now, timeZone))) return "limit";
   const destination =

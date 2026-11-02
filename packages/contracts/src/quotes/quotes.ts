@@ -38,6 +38,15 @@ export const quoteItem = z.strictObject({
   detail: text(200),
   quantity: z.int().min(1).max(1000),
   unitPricePaise: paise,
+  /**
+   * What the supplier charges for one unit, copied from a rate when the line was priced from it (release 7b): a snapshot,
+   * so later rate edits never change a quote. Only whoever may see margins reads it; the customer never does.
+   */
+  costUnitPaise: paise.optional(),
+  /** The rate the cost was copied from. */
+  rateId: recordId.optional(),
+  /** A line from a package with no rate for these dates: priced at zero until a person prices it, and a quote with one is not sent. */
+  needsRate: z.boolean().optional(),
 });
 export type QuoteItem = z.infer<typeof quoteItem>;
 
@@ -114,6 +123,12 @@ export const quoteSettingsFields = {
   defaultTaxRateBasisPoints: quoteTaxRate,
   /** Printed under every quote: payment and cancellation terms. */
   defaultTerms: text(3000),
+  /** Added to a rate's cost to give a line's price, in basis points (500 = 5 %); 0 prices a line at its cost. */
+  defaultMarkupBasisPoints: z.int().min(0).max(100_000),
+  /** The least margin a quote should earn, as a share of its subtotal in basis points; null for no minimum. */
+  minMarginBasisPoints: z.int().min(0).max(10_000).nullable(),
+  /** The least margin a quote should earn for each traveller, in paise; null for no minimum. */
+  minMarginPerPersonPaise: z.int().min(0).max(MAX_QUOTE_PAISE).nullable(),
 };
 export const saveQuoteSettingsInput = z.strictObject(quoteSettingsFields);
 export type SaveQuoteSettingsInput = z.infer<typeof saveQuoteSettingsInput>;
@@ -122,6 +137,9 @@ export const quoteSettings = z.object({
   upiName: z.string(),
   defaultTaxRateBasisPoints: quoteTaxRate,
   defaultTerms: z.string(),
+  defaultMarkupBasisPoints: z.int(),
+  minMarginBasisPoints: z.int().nullable(),
+  minMarginPerPersonPaise: z.int().nullable(),
 });
 export type QuoteSettings = z.infer<typeof quoteSettings>;
 
@@ -134,6 +152,21 @@ export const quoteTotals = z.object({
   balancePaise: z.int(),
 });
 export type QuoteTotals = z.infer<typeof quoteTotals>;
+
+/**
+ * How much a quote earns, over the lines that have a cost (release 7b). `belowMinimum` is for everyone: the figures are null for
+ * whoever may not see margins (money:view_margin), who read only the sentence.
+ */
+export const quoteMargin = z.object({
+  /** Lines with a cost, and all lines: "margin known for 3 of 5 lines". */
+  pricedLines: z.int(),
+  totalLines: z.int(),
+  belowMinimum: z.boolean(),
+  marginBasisPoints: z.int().nullable(),
+  marginPaise: z.int().nullable(),
+  perPersonPaise: z.int().nullable(),
+});
+export type QuoteMargin = z.infer<typeof quoteMargin>;
 
 export const installment = z.object({
   id: recordId,
@@ -185,6 +218,9 @@ export const quoteDetail = z.object({
   departure: z.object({ id: recordId, title: z.string(), startDate: calendarDate }).nullable(),
   installments: z.array(installment),
   payments: z.array(payment),
+  margin: quoteMargin,
+  /** Lines a package could not price for these dates: the quote can't be sent until they are priced. */
+  needsRateLines: z.int(),
 });
 export type QuoteDetail = z.infer<typeof quoteDetail>;
 
@@ -216,6 +252,10 @@ export const quotePackage = z.object({
   /** Its lines' total before GST. */
   subtotalPaise: z.int(),
   taxRateBasisPoints: quoteTaxRate,
+  /** Release 7b: whether its public page is published, the page's address, and how many tiers it has. */
+  published: z.boolean(),
+  slug: z.string().nullable(),
+  tierCount: z.int(),
 });
 export type QuotePackage = z.infer<typeof quotePackage>;
 export const quotePackageList = z.array(quotePackage);

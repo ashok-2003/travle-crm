@@ -212,8 +212,18 @@
     "loading": "Loading",
     "problems": {
       "required": "Fill this in.",
-      "invalid": "Check this."
-    }
+      "invalid": "Check this.",
+      "percent": "Give a percentage such as 10 or 12.5.",
+      "amount": "Give an amount in rupees."
+    },
+    "marginTitle": "Prices from rates and the minimum margin",
+    "marginIntro": "A line priced from a supplier's rate starts at its cost plus your markup. A quote below your minimum margin shows a warning and can still be sent.",
+    "markup": "Markup on a rate's cost (%)",
+    "markupHint": "Added to the cost to give the selling price, rounded up to a whole rupee. 0 sells at cost; you then type your price.",
+    "minMargin": "Least margin on a quote (%)",
+    "minMarginHint": "The share of the price you keep after costs. Leave empty for no minimum.",
+    "minMarginPerPerson": "Least margin for each traveller",
+    "minMarginPerPersonHint": "In rupees. Leave empty for no minimum."
   },
   "dashboard": {
     "title": "Money",
@@ -247,7 +257,9 @@
     "delete": "Delete",
     "deleteNamed": "Delete {name}",
     "deleteTitle": "Delete {name}?",
-    "deleteDescription": "Quotes made from it stay as they are."
+    "deleteDescription": "Quotes made from it stay as they are.",
+    "published": "Page published",
+    "summaryTiers": "{days} days · {tiers, plural, one {# tier} other {# tiers}}"
   },
   "frozen": {
     "adults": "{count, plural, one {# adult} other {# adults}}",
@@ -256,5 +268,51 @@
     "day": "Day {day}: {title}",
     "line": "{quantity} × {price}",
     "place": "GST place of supply: {place}"
+  },
+  "margin": {
+    "title": "Margin",
+    "share": "Of the price",
+    "amount": "Earned",
+    "perPerson": "Each traveller",
+    "known": "Margin known for {priced} of {total} lines: the others have no cost.",
+    "knownAll": "Worked out from the cost of every line.",
+    "minimum": "Your minimum is {minimum}%.",
+    "belowTitle": "Below the agency's minimum margin",
+    "belowFigures": "{hasMinimum, select, true {This quote earns {share}% ({amount}) over the lines with a cost; the minimum is {minimum}%.} other {This quote earns {share}% ({amount}) over the lines with a cost, below your minimum.}}",
+    "belowSentence": "Below the agency's minimum margin, check with your manager.",
+    "stillSends": "You can still send it.",
+    "needsRateTitle": "{count, plural, one {# line needs a rate} other {# lines need a rate}}",
+    "needsRateBody": "A package had no rate for these dates, so the line is at zero. Price it, or remove it, before you send this quote.",
+    "sendTitle": "Send below the minimum margin?",
+    "sendDescription": "This quote is below the agency's minimum margin. It will go to the customer as it is.",
+    "sendAnyway": "Send anyway"
+  },
+  "rates": {
+    "priceFromRate": "Price from rate",
+    "title": "Price a line from a rate",
+    "description": "Choose a supplier and one of its rates for the quote's travel dates. The cost is copied into the line and your markup is added.",
+    "needDate": "Set the quote's start date first: rates are chosen for those dates.",
+    "noRate": "No rate for these dates. Add a season to this supplier's rates, or type the price yourself.",
+    "rate": "Rate ({season})",
+    "choose": "Choose a rate",
+    "quantity": "How many",
+    "quantityHint": "Rooms times nights for a room rate, people times nights for a person rate, days for a vehicle.",
+    "add": "Add the line",
+    "adding": "Adding",
+    "added": "Line added. Check its price.",
+    "problem": "Check this.",
+    "needsRate": "Needs a rate",
+    "costEach": "Cost {amount} each"
+  },
+  "makeFromPackage": {
+    "title": "Make quotes from {name}",
+    "description": "Each tier you choose becomes a quote for this customer, priced from your suppliers' rates for the travel dates.",
+    "tiers": "Tiers",
+    "startDate": "Travel from",
+    "startDateHint": "Decides which season's rates are used. Leave it empty and every rate line needs a price.",
+    "submit": "Make the quotes",
+    "submitting": "Making",
+    "made": "Quotes made. Check their prices.",
+    "problem": "Check this."
   }
 }

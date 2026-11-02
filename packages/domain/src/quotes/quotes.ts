@@ -19,15 +19,18 @@ import { advanceLeadStage, getLead } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { keepStoredCosts, marginOf, needsRateLines, settledItems, withoutCosts } from "./margin.js";
 import {
   assertDraft,
   copyOf,
   findQuoteForChange,
   findQuoteInScope,
+  itemsOf,
   quoteColumns,
   toDetail,
   toSummary,
 } from "./quote-rows.js";
+import { quoteSettingsOf } from "./settings.js";
 import { quoteMoney } from "./totals.js";
 
 /** What every quote write needs from outside: the agency's GST state (its profile), and the one time of the change. */
@@ -63,6 +66,28 @@ function columnsOf(fields: Fields, context: QuoteContext) {
   };
 }
 
+const seesMargin = (access: MemberAccess) => access.permissions.has("money:view_margin");
+
+/** A quote row as the member reads it: the margin warning for all, its figures and the lines' costs only for whoever may see them. */
+async function detailOf(tx: OrgTx, access: MemberAccess, row: Parameters<typeof toDetail>[0]): Promise<QuoteDetail> {
+  return toDetail(row, { settings: await quoteSettingsOf(tx), seesMargin: seesMargin(access) });
+}
+
+/**
+ * The items as saved: a typed price settles a "needs a rate" line, and a member who may not see costs neither reads nor sets one,
+ * so the costs the quote already held stay on their lines.
+ */
+function savedItems(
+  access: MemberAccess,
+  incoming: Fields["items"],
+  stored: Fields["items"] | null,
+  keepCosts = false,
+): Fields["items"] {
+  const settled = settledItems(incoming);
+  if (keepCosts || seesMargin(access)) return settled;
+  return stored === null ? withoutCosts(settled) : keepStoredCosts(settled, stored);
+}
+
 /** A quote's amounts in an audit entry: what changed in money, never the customer's words. */
 const auditView = (row: { title: string; totalPaise: bigint; status: string }) => ({
   title: row.title,
@@ -75,11 +100,17 @@ export async function createQuote(
   access: MemberAccess,
   input: CreateQuoteInput,
   context: QuoteContext,
+  /** For a quote the system makes from a package, a copy or a rate: the costs it priced stay, whoever asks. */
+  keepCosts = false,
 ): Promise<QuoteDetail> {
   // The lead must be the member's to see; another's is "not found", as everywhere.
   const lead = await getLead(tx, access, input.leadId);
   const created = await tx.quote.create({
-    data: { leadId: lead.id, ...columnsOf(input, context), createdBy: access.userId },
+    data: {
+      leadId: lead.id,
+      ...columnsOf({ ...input, items: savedItems(access, input.items, null, keepCosts) }, context),
+      createdBy: access.userId,
+    },
     select: { id: true, title: true, totalPaise: true, status: true },
   });
   await recordAudit(tx, access, {
@@ -88,7 +119,7 @@ export async function createQuote(
     entityId: created.id,
     after: auditView(created),
   });
-  return toDetail(await findQuoteInScope(tx, access, created.id));
+  return detailOf(tx, access, await findQuoteInScope(tx, access, created.id));
 }
 
 export async function updateQuote(
@@ -100,7 +131,7 @@ export async function updateQuote(
   const before = await findQuoteForChange(tx, access, input.quoteId);
   assertDraft(before);
   // A quote on a group departure leaves on the departure's day, whatever the form says.
-  const columns = columnsOf(input, context);
+  const columns = columnsOf({ ...input, items: savedItems(access, input.items, itemsOf(before)) }, context);
   const after = await tx.quote.update({
     where: { id: before.id },
     data: {
@@ -117,7 +148,7 @@ export async function updateQuote(
     before: auditView(before),
     after: auditView(after),
   });
-  return toDetail(await findQuoteInScope(tx, access, before.id));
+  return detailOf(tx, access, await findQuoteInScope(tx, access, before.id));
 }
 
 /** What each status may move to by hand: a draft is sent, a sent quote is accepted or declined, nothing else moves. */
@@ -136,7 +167,17 @@ export async function setQuoteStatus(
     if (!(allowedMoves[before.status] ?? []).includes(input.status)) {
       throw new DomainError("CONFLICT", "QUOTE_STATUS_LOCKED", "This quote can't be moved to that status");
     }
-    if (input.status === "sent") assertInstallmentsAddUp(before);
+    if (input.status === "sent") {
+      assertInstallmentsAddUp(before);
+      // A package could not price a line for these dates: prices are never invented, so the quote waits for a person.
+      if (needsRateLines(itemsOf(before)) > 0) {
+        throw new DomainError(
+          "CONFLICT",
+          "QUOTE_NEEDS_RATES",
+          "Price the lines marked 'needs a rate' before you send this quote",
+        );
+      }
+    }
     await tx.quote.update({
       where: { id: before.id },
       data: {
@@ -150,7 +191,12 @@ export async function setQuoteStatus(
       entityType: "quote",
       entityId: before.id,
       before: { status: before.status },
-      after: { status: input.status },
+      after: {
+        status: input.status,
+        ...(input.status === "sent" && belowMinimumMargin(before, await quoteSettingsOf(tx))
+          ? { belowMinimumMargin: true }
+          : {}),
+      },
     });
     if (input.status === "sent")
       await advanceLeadStage(tx, access, { leadId: before.leadId, stage: "quote_sent" }, now);
@@ -162,7 +208,15 @@ export async function setQuoteStatus(
       });
     }
   }
-  return toDetail(await findQuoteInScope(tx, access, before.id));
+  return detailOf(tx, access, await findQuoteInScope(tx, access, before.id));
+}
+
+/** Sent below the agency's minimum margin: the quote goes, and the audit entry says so. */
+function belowMinimumMargin(
+  quote: Parameters<typeof itemsOf>[0] & { adults: number; children: number },
+  settings: Awaited<ReturnType<typeof quoteSettingsOf>>,
+): boolean {
+  return marginOf(itemsOf(quote), quote.adults + quote.children, settings, false).belowMinimum;
 }
 
 /** The payments due, when there are any, add up to the total: what the customer reads is what they can pay. */
@@ -192,7 +246,7 @@ export async function newQuoteVersion(
       "Only a quote that was sent or declined can have a new version",
     );
   }
-  const draft = await createQuote(tx, access, copyOf(old), context);
+  const draft = await createQuote(tx, access, copyOf(old), context, true);
   if (old.departureId !== null)
     await tx.quote.update({ where: { id: draft.id }, data: { departureId: old.departureId } });
   await tx.quoteInstallment.createMany({
@@ -240,7 +294,7 @@ export async function deleteQuote(tx: OrgTx, access: MemberAccess, quoteId: stri
 }
 
 export async function getQuote(tx: OrgTx, access: MemberAccess, quoteId: string): Promise<QuoteDetail> {
-  return toDetail(await findQuoteInScope(tx, access, quoteId));
+  return detailOf(tx, access, await findQuoteInScope(tx, access, quoteId));
 }
 
 /** A lead's quotes, newest first. */

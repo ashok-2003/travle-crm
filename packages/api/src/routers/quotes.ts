@@ -2,6 +2,7 @@
 // scope (the lead's owner), shared with the customer by link (/p/<token>), and the money on them: what is due, what was
 // paid (recorded from a session read afresh, as money is), the quotation's PDF, its tax invoice and each receipt.
 import { downloadLink } from "@travel-crm/contracts/files";
+import { priceLineInput, pricedLine, ratesOnDate, ratesOnDateInput } from "@travel-crm/contracts/suppliers";
 import {
   addInstallmentInput,
   createQuoteInput,
@@ -49,6 +50,7 @@ import {
   listQuotes,
   moneySummaryOf,
   newQuoteVersion,
+  priceLine,
   QUOTE_RECORD_TYPE,
   quoteSettingsOf,
   recordPayment,
@@ -60,6 +62,7 @@ import {
   type DocumentContext,
 } from "@travel-crm/domain/quotes";
 import { createShareLink } from "@travel-crm/domain/share-links";
+import { ratesOnDate as ratesOnDateOf } from "@travel-crm/domain/suppliers";
 import type { Context } from "../context.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -316,9 +319,29 @@ export const quotesRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => duplicateQuote(tx, ctx.member, input.quoteId, context));
     }),
 
-  settings: viewer
-    .output(quoteSettings)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => quoteSettingsOf(tx))),
+  /** The agency's quote settings. The markup and the minimum margin are for whoever may see margins or manage settings. */
+  settings: viewer.output(quoteSettings).query(async ({ ctx }) => {
+    const settings = await ctx.db.forOrg(ctx.member.organizationId, (tx) => quoteSettingsOf(tx));
+    if (ctx.member.permissions.has("money:view_margin") || ctx.member.permissions.has("settings:manage"))
+      return settings;
+    return { ...settings, defaultMarkupBasisPoints: 0, minMarginBasisPoints: null, minMarginPerPersonPaise: null };
+  }),
+
+  /** The rates a supplier has on a date, for "Price from rate": costs, so for whoever may see margins. */
+  ratesOnDate: orgProcedure
+    .requires("quotes:edit", "suppliers:view", "money:view_margin")
+    .input(ratesOnDateInput)
+    .output(ratesOnDate)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => ratesOnDateOf(tx, input.supplierId, input.date)),
+    ),
+
+  /** A line priced from a rate for the quote's start date: the cost copied, the price the cost plus the agency's markup. */
+  priceLine: orgProcedure
+    .requires("quotes:edit", "suppliers:view", "money:view_margin")
+    .input(priceLineInput)
+    .output(pricedLine)
+    .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => priceLine(tx, input))),
 
   saveSettings: freshProcedure
     .requires("settings:manage")

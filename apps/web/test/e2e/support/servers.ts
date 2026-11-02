@@ -298,7 +298,14 @@ export async function startServers({
     });
     const web = start(process.execPath, ["server.js"], {
       cwd: standalone,
-      env: { ...process.env, NODE_ENV: "production", PORT: String(webPort), HOSTNAME: "127.0.0.1" },
+      // API_ORIGIN at run time is where the web server reads an agency's public package pages from (/a/...).
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        PORT: String(webPort),
+        HOSTNAME: "127.0.0.1",
+        API_ORIGIN: apiUrl,
+      },
     });
     started.push(api, worker, platformConsole, web);
     await waitUntilUp(`${apiUrl}/health`, api);

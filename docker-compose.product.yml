@@ -227,6 +227,9 @@ services:
       args:
         # The storage address the browser uploads to and loads logos from, which its Content-Security-Policy allows.
         STORAGE_ORIGIN: http://storage.localhost:${PRODUCT_STORAGE_PORT:-58090}
+    environment:
+      # Where the web server reads an agency's public package pages from (/a/...), so a link preview sees them.
+      API_ORIGIN: http://api:3001
     read_only: true
     tmpfs: [/tmp]
     healthcheck:

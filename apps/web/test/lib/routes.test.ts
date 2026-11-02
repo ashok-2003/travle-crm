@@ -126,6 +126,9 @@ describe("routes", () => {
     for (const path of ["/f/x", "/embed/x", "/f/x/y", "/embed/abc?x=1".split("?")[0] ?? ""]) {
       expect(isPublicFormPath(path), path).toBe(true);
     }
+    // An agency's public package pages (release 7b) keep no cache, worker or cookie either.
+    for (const path of ["/a/sharma", "/a/sharma/kedarnath-yatra"]) expect(isPublicFormPath(path), path).toBe(true);
+    for (const path of ["/a", "/account", "/audit"]) expect(isPublicFormPath(path), path).toBe(false);
     expect(isPublicFormPath("/meta/deletion")).toBe(true);
     expect(isPublicFormPath("/meta/deletions")).toBe(false);
     for (const path of ["/fx", "/f", "/settings", "/embedded", "/embed", "/settings/lead-sources/website-form", "/"]) {

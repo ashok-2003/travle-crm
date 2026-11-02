@@ -29,7 +29,7 @@ import { createTestConsole, type TestConsole } from "./support/console.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const healthCheck = { queue: HEALTH_CHECK_QUEUE, cron: "*/5 * * * *", timeZone: "Asia/Kolkata", data: {} };
+// Every day, the email log's emails past their days go (the failed-emails spec).
 const emailLogPurge = { queue: PURGE_EMAIL_LOG_QUEUE, cron: "5 4 * * *", timeZone: "Asia/Kolkata", data: {} };
 const lifecycleSchedule = {
   queue: ADVANCE_SUBSCRIPTIONS_QUEUE,
@@ -37,6 +37,8 @@ const lifecycleSchedule = {
   timeZone: "Asia/Kolkata",
   data: {},
 };
+// Every five minutes, the system's health is checked: failed jobs and a worker that stopped answering (incidents).
+const healthCheck = { queue: HEALTH_CHECK_QUEUE, cron: "*/5 * * * *", timeZone: "Asia/Kolkata", data: {} };
 // Every hour, the deletions' outbox is swept for what no job will reach: pg-boss drops a follow-up whose id it already
 // holds, and a job can be lost before it is sent or run out of retries (ADR 0023).
 const storedFilesSweep = { queue: SWEEP_STORED_FILES_QUEUE, cron: "0 * * * *", timeZone: "Asia/Kolkata", data: {} };

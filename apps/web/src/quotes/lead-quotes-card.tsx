@@ -7,6 +7,7 @@ import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -27,6 +28,7 @@ import { LeadCard } from "@/leads/lead/lead-card";
 import { quoteRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { MakeQuotesDialog } from "./make-quotes-dialog";
 import { QuoteStatusBadge } from "./quote-status";
 import { useLeadQuotes, useQuoteChanges, useQuotePackages, useQuoteSettings } from "./use-quotes";
 
@@ -37,9 +39,11 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
   const access = useWriteAccess("change");
   const quotes = useLeadQuotes(lead.id);
   const settings = useQuoteSettings();
-  const { create, fromPackage } = useQuoteChanges();
+  const { create } = useQuoteChanges();
   const packages = useQuotePackages();
-  const busy = create.isPending || fromPackage.isPending;
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const [making, setMaking] = useState<{ id: string; name: string } | null>(null);
+  const busy = create.isPending;
   const { trip } = lead;
   const start = () => {
     create.mutate(
@@ -102,7 +106,7 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
         mayCreate && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={busy || !access.allowed}>
+              <Button ref={menuButton} variant="outline" disabled={busy || !access.allowed}>
                 {busy ? <Spinner aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
                 {t("new")}
               </Button>
@@ -115,14 +119,7 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
                 <DropdownMenuItem
                   key={one.id}
                   onSelect={() => {
-                    fromPackage.mutate(
-                      { leadId: lead.id, packageId: one.id },
-                      {
-                        onSuccess: (quote) => {
-                          router.push(quoteRoute(quote.id));
-                        },
-                      },
-                    );
+                    setMaking({ id: one.id, name: one.name });
                   }}
                 >
                   {one.name}
@@ -133,8 +130,20 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
         )
       }
     >
-      <RefusalAlert error={create.error ?? fromPackage.error} />
+      <RefusalAlert error={create.error} />
       {body()}
+      {making !== null && (
+        <MakeQuotesDialog
+          lead={lead}
+          packageId={making.id}
+          packageName={making.name}
+          open
+          onOpenChange={(next) => {
+            if (!next) setMaking(null);
+          }}
+          returnFocusTo={menuButton}
+        />
+      )}
     </LeadCard>
   );
 }
