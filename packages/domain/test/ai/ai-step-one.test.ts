@@ -354,6 +354,46 @@ describe("the AI, step one", () => {
       expect(job.organizationId).toBe(organizationId);
     });
 
+    it("reads a burst whole: real words with an ok at the end are scored, an ok alone is not", async () => {
+      const { inOrg, chat, model, score, organizationId } = await agency();
+      model.answer(JSON.stringify(answer));
+      expect(await score()).toBe("scored");
+      // Each line is written now: after the guess made before it, before the next one.
+      const write = (body: string) =>
+        inOrg((tx) =>
+          tx.whatsappMessage.create({
+            data: {
+              conversationId: chat.id,
+              direction: "in",
+              origin: "customer",
+              kind: "text",
+              body,
+              wamid: randomUUID(),
+              status: "received",
+              occurredAt: new Date(),
+            },
+            select: { id: true },
+          }),
+        );
+      const scoreFor = (messageId: string) =>
+        scoreLead(
+          {
+            db: test.db,
+            ai: model,
+            subscriptions: { entitlementsOf: () => Promise.resolve(entitlements("active")) },
+          },
+          { organizationId, conversationId: chat.id, messageId },
+          testNow,
+        );
+      await write("We are six now, and want Kasol too");
+      const trailingOk = await write("ok");
+      model.answer(JSON.stringify(answer));
+      expect(await scoreFor(trailingOk.id)).toBe("scored");
+      const onlyThanks = await write("thanks 👍");
+      expect(await scoreFor(onlyThanks.id)).toBe("nothing_new");
+      expect(model.requests).toHaveLength(2);
+    });
+
     it("stops at the monthly limit shared with Suggest reply, and gives the call back when the AI doesn't answer", async () => {
       const { inOrg, model, score } = await agency();
       await inOrg((tx) =>

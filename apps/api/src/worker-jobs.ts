@@ -40,7 +40,7 @@ import {
   readImportFileListener,
   type ImportJobDependencies,
 } from "@travel-crm/domain/imports";
-import type { EventListener, JobHandler, ScheduledJob } from "@travel-crm/domain/jobs";
+import { workerPingHandler, type EventListener, type JobHandler, type ScheduledJob } from "@travel-crm/domain/jobs";
 import {
   attentionListener as metaAttentionListener,
   checkAllPages,
@@ -394,6 +394,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       ...metaListeners,
     ],
     handlers: [
+      // The console's ping, answered so it knows the worker takes jobs (incidents.ts).
+      ...(dependencies.jobs === undefined ? [] : [workerPingHandler(dependencies.jobs)]),
       ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
       ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
       {

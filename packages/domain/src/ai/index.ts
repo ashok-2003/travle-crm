@@ -9,6 +9,7 @@ export type { AiModel } from "@travel-crm/integrations/ai";
 export { aiAllowed } from "./allowed.js";
 export { withdrawAiParts } from "./erasure.js";
 export { recordDraftSent } from "./drafts.js";
+export { withIncidentReports } from "./reported-model.js";
 export { AI_SCORE_QUEUE, leadInsightOf, scoreHandler, scoreLead, scoreOnCustomerWroteListener } from "./insight.js";
 export {
   addKnowledge,
@@ -58,3 +59,8 @@ export { confirmAiInput, requestAiInput } from "./fill/input.js";
 export { callSaved, leadSaved, quoteSaved, tripSaved } from "./fill/saved.js";
 export { chooseReport, chosenFrom, type CatalogueEntry, type Chosen } from "./ask/choose.js";
 export { writeUpQuote } from "./write-up/write-up.js";
+export { readRoomRequests } from "./rooming/read-requests.js";
+export { recordRoomRequestsApplied } from "./rooming/applied.js";
+export { findInterestedPeople } from "./seats/interested.js";
+export { writeSeatMessage } from "./seats/write-message.js";
+export { recordOfferSent } from "./seats/sent.js";

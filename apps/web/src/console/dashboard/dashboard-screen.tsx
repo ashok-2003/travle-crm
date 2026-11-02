@@ -2,7 +2,7 @@
 
 // The console's dashboard (spec 7.4): every organization with its status, days left, seats used of the limit, last
 // activity and this month's usage, oldest first, a page at a time. Loading shows rows of skeleton; an empty platform
-// leads to onboarding the first organization; a failure says so with a Retry.
+// leads to onboarding the first organization; a failure says so with a Retry. The system's health comes first.
 import { BuildingIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -14,6 +14,7 @@ import { useWideScreen } from "@/lib/use-wide-screen";
 import { consoleRoutes } from "../routes";
 import { OrganizationsList } from "./organizations-list";
 import { OrganizationsTable } from "./organizations-table";
+import { SystemHealth } from "./system-health";
 import { useOrganizationsOverview } from "./use-organizations-overview";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
@@ -65,6 +66,7 @@ export function DashboardScreen() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} />
+      <SystemHealth />
       {content}
     </div>
   );

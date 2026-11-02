@@ -24,6 +24,7 @@ export async function withdrawAiParts(
   lessons: number;
   bookings: number;
   fills: number;
+  offers: number;
   fields: number;
   inputFiles: number;
 }> {
@@ -43,6 +44,9 @@ export async function withdrawAiParts(
     where: { organizationId: input.organizationId, lead: { personId: input.personId } },
   });
   const leadIds = [...input.leadIds];
+  const offers = await tx.departureOffer.deleteMany({
+    where: { organizationId: input.organizationId, leadId: { in: leadIds } },
+  });
   const fields = await tx.leadAiField.deleteMany({
     where: { organizationId: input.organizationId, leadId: { in: leadIds } },
   });
@@ -70,6 +74,7 @@ export async function withdrawAiParts(
   });
   return {
     fills: fills.count,
+    offers: offers.count,
     fields: fields.count,
     inputFiles,
     drafts: drafts.count,

@@ -22,6 +22,7 @@ import { formatCalendarDay } from "@/lib/format";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { SectionCard } from "@/bookings/section-card";
+import { ReadRequestsButton } from "@/ai/departures/read-requests-button";
 import { BedDoubleIcon } from "lucide-react";
 import { RoomDialog } from "./room-dialog";
 import { StayDialog } from "./stay-dialog";
@@ -305,8 +306,9 @@ export function RoomingTab({ departure }: { departure: DepartureDetail }) {
         ))
       )}
       {mayEdit && (
-        <div>
+        <div className="flex flex-wrap gap-2">
           <StayDialog departureId={departure.id} stay={null} />
+          <ReadRequestsButton departureId={departure.id} />
         </div>
       )}
     </div>

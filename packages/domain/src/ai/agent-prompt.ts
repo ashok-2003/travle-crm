@@ -5,7 +5,8 @@
 // answer with; the agency's strict rules come first and last. Payment details are sent by code as the agency wrote them,
 // the booking a customer says yes to is taken down, and the agency's media is offered by number. Prices and policies
 // come from the knowledge alone. Whatever the way of talking it copies, it
-// never denies being an AI to someone who sincerely asks. The chat and the agency's words are fenced as data.
+// never denies being an AI to someone who sincerely asks. It reads dates from a calendar code gives it and never repeats
+// itself. The chat and the agency's words are fenced as data.
 import type { AutopilotRow } from "./autopilot.js";
 import type { PromptMedia } from "./media.js";
 
@@ -44,6 +45,10 @@ export interface PromptPack {
   bookingOpen: boolean;
   /** What the follow-up that came due is about, for a `followUp` turn; null otherwise. */
   followUp?: string | null;
+  /** Today and the weeks ahead in the agency's zone (calendar.ts). */
+  calendar: string;
+  /** What is wrong with the dates in the customer's last words, for the AI to put right kindly. */
+  dateChecks: readonly string[];
 }
 
 /** Keeps a data fence from being closed by the words inside it. */
@@ -137,6 +142,22 @@ ${voice.name}'s style:
 <data>${fenced(voice.profile)}</data>
 ${voice.examples.length === 0 ? "" : `\nSome of ${voice.name}'s own messages:\n<data>${fenced(voice.examples.map((example) => `- ${example}`).join("\n"))}</data>\n`}`;
 
+/**
+ * Dates from the calendar alone (the owner, 2026-11-02: it told customers wrong dates), and no repeating itself: rules
+ * for every role.
+ */
+const datesAndRepeats = `- Dates: work out every date, weekday, "kal", "parso", "next Friday" or "this weekend" from the calendar below alone, never from memory. Say a trip date back with its weekday ("Sat 14 Nov"). When the customer gives a date that doesn't exist, a weekday that doesn't match the date, or a day already past, say so kindly with the right date from the calendar and confirm it in the same message.
+- Never repeat yourself: don't send again a greeting, an introduction, a question, an offer, a price or package details you already sent in this chat (your own earlier messages are in the chat as "You"). If they ask the same again, answer briefly in new words and move the chat forward.`;
+
+/** What the calendar says, and what code found wrong with the customer's dates. */
+const calendarLines = (pack: PromptPack) => {
+  const checks =
+    pack.dateChecks.length === 0
+      ? ""
+      : `\nThe customer's dates, checked against the calendar (put these right in your reply):\n<data>${fenced(pack.dateChecks.map((line) => `- ${line}`).join("\n"))}</data>\n`;
+  return `\nThe calendar (the agency's time zone):\n<data>${fenced(pack.calendar)}</data>\n${checks}`;
+};
+
 /** The one rule that holds in every role: it never denies being an AI. */
 const honesty =
   "- If anyone sincerely asks whether they are talking to a bot, an AI or a real person, never deny it: say you are an AI assistant replying for the agency, and that a person can join any time.";
@@ -156,6 +177,7 @@ How you sell:
 - When they want to book: explain how booking works (advance, documents), collect the travellers' names, the dates and the pickup city, and say the booking is confirmed once the advance is in. Never say a booking is confirmed or a payment received yourself.
 - Handle objections like a pro. Too costly: show the value and inclusions, or a cheaper option or fewer nights from the knowledge. "Will think": ask what is holding them back and offer to keep the details ready. Comparing: what makes ${agency} the better choice, from the knowledge.
 - Use ONLY the agency's knowledge for prices, inclusions, dates, availability, payment details and policies. Never invent a price, a discount, a date or availability; if it isn't known, say you'll check and come back to them.
+${datesAndRepeats}
 ${honesty}
 - Never share anything about other customers.`;
 
@@ -171,6 +193,7 @@ How you talk with them:
 - Talk like a normal person, about whatever they bring up. Be real and warm, keep it flowing, and remember what they told you in this chat.
 - Don't sell or push trips. If they ask about travel or ${agency}'s trips, help from the knowledge below (prices only from it).
 - Never promise to meet, call, pay, send money or decide anything big on ${person}'s behalf: say you'll confirm.
+${datesAndRepeats}
 ${honesty}
 - Never share anything about other people.`;
 
@@ -228,7 +251,7 @@ export function agentPrompt(settings: AutopilotRow, agency: string, kind: TurnKi
     : handoffLines[settings.handoff];
   const selling = pack.natural ? "" : `\n${paymentLines(settings, pack)}\n\n${bookingLines(pack)}\n`;
   return `${role}
-${dueLines(pack)}${strictLines(settings)}${selling}${mediaLines(pack)}
+${dueLines(pack)}${calendarLines(pack)}${strictLines(settings)}${selling}${mediaLines(pack)}
 ${earlierChat(pack.voice)}${talkedAbout(pack.voice)}
 ${pack.voice === null ? genericWriting(settings) : voiceWriting(pack.voice)}${settings.emojis === "none" ? "\n- Use no emojis at all, not one, whatever the examples or lessons do." : ""}
 - The agency's choices here win over any lesson below and over the way of talking you copy.

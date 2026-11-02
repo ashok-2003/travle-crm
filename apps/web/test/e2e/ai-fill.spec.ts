@@ -23,14 +23,15 @@ import {
 } from "./support/whatsapp";
 
 const shots = path.join(process.cwd(), "..", "..", "shots", "ai2a");
+const ai2cShots = path.join(process.cwd(), "..", "..", "shots", "ai2c");
 const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 
 /** A picture of the screen at the sizes the review looks at (a phone 390 wide, a desktop 1440), then the journey's own size again. */
-async function shoot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
-  mkdirSync(shots, { recursive: true });
+async function shoot(page: Page, testInfo: TestInfo, name: string, folder = shots): Promise<void> {
+  mkdirSync(folder, { recursive: true });
   const before = page.viewportSize();
   await page.setViewportSize(isPhone(testInfo) ? { width: 390, height: 844 } : { width: 1440, height: 900 });
-  await page.screenshot({ path: path.join(shots, `${testInfo.project.name}-${name}.png`) });
+  await page.screenshot({ path: path.join(folder, `${testInfo.project.name}-${name}.png`) });
   if (before !== null) await page.setViewportSize(before);
 }
 
@@ -43,6 +44,8 @@ test("a new lead is filled from words, checked in violet and saved, drafted by A
   await signInByEmail(page, agency.owner);
   await turnOnAi(page);
   await page.goto("/leads/new");
+  await expect(page.getByRole("button", { name: "Fill with AI" })).toBeVisible();
+  await shoot(page, testInfo, "new-lead-ai-button", ai2cShots);
   await page.getByRole("button", { name: "Fill with AI" }).click();
   const sheet = page.getByRole("dialog", { name: "Fill it for me" });
   await sheet
@@ -130,6 +133,9 @@ test("a call is written up from a recording in one tap, with the follow-up and t
   }
   const dialog = page.getByRole("dialog", { name: "How did the call go?" });
   await expect(dialog).toBeVisible();
+  // The sheet slides up: the picture is taken once it has settled.
+  await page.waitForTimeout(800);
+  await shoot(page, testInfo, "call-note-ai-button", ai2cShots);
   await dialog.getByRole("button", { name: "Fill with AI" }).click();
   const sheet = page.getByRole("dialog", { name: "Fill it for me" });
   await sheet.getByRole("button", { name: "Speak" }).click();

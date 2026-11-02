@@ -315,7 +315,7 @@ model AiFollowUpTouch {
 model AiFill {
   organizationId    String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   id                String       @id @default(uuid(7)) @db.Uuid
-  /// lead, lead_edit, quote or call_note (CHECK ai_fill_target_value).
+  /// lead, lead_edit, quote, call_note, room_requests or departure_offer (CHECK ai_fill_target_value).
   target            String
   /// What the form is for (lead, quote, ...) and its id: polymorphic, so no key. Null for a lead not made yet.
   subjectType       String?      @map("subject_type")
@@ -367,4 +367,26 @@ model LeadAiField {
   @@unique([organizationId, id])
   @@unique([organizationId, leadId, field], map: "lead_ai_field_one_per_field")
   @@map("lead_ai_field")
+}
+
+/// A message offering a departure's empty seats to a lead, opened in the staff member's own WhatsApp and marked Sent (ai3). One
+/// row for each lead and departure: offering again after the 14-day pause updates it. It keeps no words (the AI's text is
+/// kept nowhere); `fill_id` names the ai_fill row that proves "drafted by AI, approved by X". Erased with the customer.
+model DepartureOffer {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  departureId    String       @map("departure_id") @db.Uuid
+  leadId         String       @map("lead_id") @db.Uuid
+  draftedBy      String       @map("drafted_by") @db.Uuid
+  /// The ai_fill row of the message; no key: a customer's erasure deletes both.
+  fillId         String?      @map("fill_id") @db.Uuid
+  sentAt         DateTime     @map("sent_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  departure      Departure    @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, departureId, leadId], map: "departure_offer_once")
+  @@index([organizationId, leadId], map: "departure_offer_lead")
+  @@map("departure_offer")
 }

@@ -32,9 +32,8 @@ export function SuggestButton({
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="ai"
       size="icon"
-      className="text-primary"
       aria-label={t("button")}
       title={t("button")}
       disabled={disabled || suggest.isPending}

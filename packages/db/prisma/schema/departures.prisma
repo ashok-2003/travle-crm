@@ -29,6 +29,7 @@ model Departure {
   destination     Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   holds           DepartureHold[]
   waitlist        DepartureWaitlist[]
+  offers          DepartureOffer[]
   stays           DepartureStay[]
   quotes          Quote[]
   bookings        Booking[]
@@ -163,6 +164,8 @@ model DepartureSettings {
   fillingFastPercent  Int          @default(20) @map("filling_fast_percent")
   /// Heads to a room when drafting the rooming list.
   defaultRoomCapacity Int          @default(2) @map("default_room_capacity")
+  /// Whether an AI-written message about empty seats may say how many are left (ai3): off, it says "a few" or "some".
+  shareSeatCounts     Boolean      @default(false) @map("share_seat_counts")
   updatedBy           String?      @map("updated_by") @db.Uuid
   updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)

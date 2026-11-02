@@ -24,7 +24,8 @@ export { departureMoneyOf } from "./money.js";
 export { makeQuoteFromHold, setQuoteDeparture } from "./quote-link.js";
 export { draftRooms, needRoommateDecision } from "./rooming-draft.js";
 export { issueRoomingList, roomingCsvOf } from "./rooming-export.js";
-export { getRooming } from "./rooming-rows.js";
+export { getRooming, nameOf, rosterOf, type RosterTraveller } from "./rooming-rows.js";
+export { setRoomRequests } from "./room-requests.js";
 export {
   addRoom,
   copyStayLayout,
@@ -35,7 +36,7 @@ export {
   saveRoomingStay,
   updateRoom,
 } from "./rooming.js";
-export { countsOf, departureSettingsOf, seatsSoldAndHeld } from "./rows.js";
+export { countsOf, departureSettingsOf, findDeparture, seatsSoldAndHeld, stateOf, type DepartureRow } from "./rows.js";
 export { departureSettingsView, saveDepartureSettings } from "./settings.js";
 export { publicDepartures, type PublicDepartureRow } from "./public-list.js";
 export { departuresStartingSoon, type DepartureSoon } from "./today-source.js";

@@ -1,6 +1,7 @@
 // Public API of @travel-crm/contracts/platform: the Zod schemas of the platform console.
 export * from "./console-dashboard.js";
 export * from "./data-protection.js";
+export * from "./incidents.js";
 export * from "./invites.js";
 export * from "./organizations.js";
 export * from "./platform-log.js";

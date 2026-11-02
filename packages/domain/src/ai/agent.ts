@@ -17,7 +17,7 @@ import { chatOptedOut, queueSystemText, windowIsOpen } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
-import { agentPrompt, type TurnKind } from "./agent-prompt.js";
+import { agentPrompt, fenced, type TurnKind } from "./agent-prompt.js";
 import { applyAnswer, type ChatFacts } from "./agent-effects.js";
 import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./agent-context.js";
 import { autopilotOf, type AutopilotRow } from "./autopilot.js";
@@ -27,7 +27,9 @@ import { activeLessons } from "./learning-store.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { aiEnabled } from "./settings.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
+import { calendarText, dateChecks, fixWeekdays } from "./calendar.js";
 import { chatVoiceOf } from "./chat-voice.js";
+import { repeatsEarlier } from "./repeats.js";
 import { naturalIn } from "./voice.js";
 
 export { AI_HANDOFF_KIND } from "./agent-effects.js";
@@ -43,6 +45,15 @@ export interface AgentDependencies {
   /** The agency's managers, told of every booking the AI takes. */
   managers: BookingRecipients;
 }
+
+/** The messages sent in the chat that a reply is checked against for a repeat. */
+const RECENT_SENT = 10;
+/** The team's note when the AI's reply only said again what was sent, so nothing went. */
+const REPEAT_ATTENTION = "The AI's reply repeated an earlier message, so it wasn't sent: please answer this customer.";
+
+/** Asks again for a reply that doesn't say again what was sent. */
+const repeatCorrection = (reply: string) =>
+  `Your reply repeats a message already sent in this chat:\n<data>${fenced(reply)}</data>\nWrite a different reply that answers their last message in new words and moves the chat forward, as the same ONE JSON object.`;
 
 /** The marker of a message the AI wrote: its client token starts with this. */
 export const AI_TOKEN_PREFIX = "ai:";
@@ -189,6 +200,14 @@ export async function runAgentTurn(
         .join(" "),
     );
     const instructions = (await tx.aiSettings.findFirst({ select: { instructions: true } }))?.instructions ?? "";
+    // The AI's own last messages, so a reply that says them again is caught.
+    const sent = await tx.whatsappMessage.findMany({
+      where: { conversationId: chat.id, direction: "out", body: { not: null } },
+      orderBy: { occurredAt: "desc" },
+      take: RECENT_SENT,
+      select: { body: true },
+    });
+    const lastTurn = history.messages.at(-1);
     const paymentSent =
       (await tx.whatsappMessage.findFirst({
         where: { conversationId: chat.id, clientToken: { startsWith: PAYMENT_TOKEN } },
@@ -206,6 +225,11 @@ export async function runAgentTurn(
       voice: await chatVoiceOf(tx, chat.id),
       natural: await naturalIn(tx, chat.id, settings),
       timeZone,
+      sent: sent.map((row) => row.body ?? ""),
+      calendar: calendarText(now, timeZone),
+      // The customer's own last words, read for a date that is wrong; a nudge or a follow-up answers nothing they said.
+      dateChecks:
+        input.kind === "reply" && lastTurn?.role === "user" ? dateChecks(lastTurn.content, now, timeZone) : [],
       media: settings.sendMedia ? await mediaForPrompt(tx, chat.id) : [],
       paymentSent,
       bookingOpen: facts.leadId !== null && (await openBookingOf(tx, facts.leadId)) !== null,
@@ -227,14 +251,16 @@ export async function runAgentTurn(
         paymentSent: prepared.paymentSent,
         bookingOpen: prepared.bookingOpen,
         followUp: input.followUp ?? null,
+        calendar: prepared.calendar,
+        dateChecks: prepared.dateChecks,
       }),
     },
     asTranscript(prepared.history.messages, input.kind),
   ];
-  const ask = async () => {
+  const ask = async (correction?: string) => {
     const result = await ai.complete({
       feature: "autopilot",
-      messages,
+      messages: correction === undefined ? messages : [...messages, { role: "user", content: correction }],
       json: true,
       // Room for a thinking model's own tokens too: a cut-off answer is no JSON.
       maxTokens: 2500,
@@ -252,13 +278,29 @@ export async function runAgentTurn(
     const more = await db.forOrg(input.organizationId, (tx) => reserveAiCall(tx, now, prepared.timeZone));
     if (more) asked = await ask();
   }
+  // A reply that says again what was sent already is asked for once more, the repeat named; repeated again, it isn't sent
+  // and the team is asked to answer.
+  let repeated = false;
+  if (asked.answer !== null && repeatsEarlier(asked.answer.reply, prepared.sent)) {
+    const more = await db.forOrg(input.organizationId, (tx) => reserveAiCall(tx, now, prepared.timeZone));
+    if (more) {
+      const again = await ask(repeatCorrection(asked.answer.reply));
+      if (again.result.ok && again.answer !== null) asked = again;
+      else await db.forOrg(input.organizationId, (tx) => releaseAiCall(tx, now, prepared.timeZone));
+    }
+    repeated = asked.answer !== null && repeatsEarlier(asked.answer.reply, prepared.sent);
+  }
   const { result } = asked;
   if (!result.ok || asked.answer === null) {
     // The AI gave nothing to use: the call wasn't one.
     await db.forOrg(input.organizationId, (tx) => releaseAiCall(tx, now, prepared.timeZone));
     return result.ok ? "unreadable" : result.reason;
   }
-  const answer = withSettings(asked.answer, prepared.settings, prepared.natural);
+  const settled = withSettings(asked.answer, prepared.settings, prepared.natural);
+  // A weekday the AI wrote beside a date is that date's own, whatever the model worked out.
+  const answer = repeated
+    ? { ...settled, reply: "", attention: settled.attention.trim() === "" ? REPEAT_ATTENTION : settled.attention }
+    : { ...settled, reply: fixWeekdays(settled.reply, now, prepared.timeZone) };
 
   const booking = answer.booking.confirmed && !prepared.natural;
   const managers = booking ? await dependencies.managers(input.organizationId) : [];

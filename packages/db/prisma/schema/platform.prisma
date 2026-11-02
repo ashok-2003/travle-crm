@@ -140,3 +140,22 @@ model VipInviteOpen {
   @@index([inviteId, openedAt(sort: Desc)], map: "vip_invite_open_invite")
   @@map("vip_invite_open")
 }
+
+/// Something in the system that broke (the owner, 2026-11-02): the AI, jobs, the api, the worker. The platform's: no
+/// organization_id, no row-level security, and the runtime role has no rights on it (the api and the worker report
+/// through a job the console handles). One open incident per kind; it is resolved once it has been quiet a while.
+model PlatformIncident {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  /// ai.unavailable, ai.rate-limited, jobs.failed, api.errors or worker.stalled (CHECK platform_incident_kind_value).
+  kind       String
+  /// A short code: the AI feature, the failed queues, the error's name. Never personal data.
+  detail     String    @default("")
+  openedAt   DateTime  @default(now()) @map("opened_at") @db.Timestamptz(6)
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+  reports    Int       @default(1)
+
+  @@unique([kind], map: "platform_incident_one_open", where: { resolvedAt: null })
+  @@index([openedAt(sort: Desc)], map: "platform_incident_newest")
+  @@map("platform_incident")
+}
