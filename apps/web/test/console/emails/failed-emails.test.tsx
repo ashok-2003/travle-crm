@@ -35,7 +35,7 @@ function email(overrides: Partial<FailedEmail> = {}): FailedEmail {
 }
 
 function open(failed: Answer, { wide = true, staff = platformStaff("super-admin") } = {}) {
-  screenIs(wide ? "wide" : "narrow");
+  screenIs(wide ? "wide" : "phone");
   const api = stubApi({ "platform.emails.failed": failed });
   renderConsole(<FailedEmailsScreen />, staff);
   return api;
