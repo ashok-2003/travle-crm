@@ -27,6 +27,8 @@ export interface PromptFacts {
   quickReplies: readonly { title: string; body: string }[];
   /** The chat, oldest first. */
   chat: readonly { fromCustomer: boolean; text: string }[];
+  /** Today and the weeks ahead in the agency's zone (calendar.ts), so dates in the draft are right. */
+  calendar?: string;
 }
 
 const cut = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
@@ -36,6 +38,9 @@ const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "�
 export function promptOf(facts: PromptFacts): AiMessage[] {
   const parts = [
     `Agency: ${fenced(facts.agencyName)}`,
+    facts.calendar === undefined
+      ? ""
+      : `The calendar (work out every date, weekday, "kal" or "next Friday" from it alone, never from memory):\n<data>${fenced(facts.calendar)}</data>`,
     facts.instructions === ""
       ? ""
       : `The agency's instructions:\n<data>${fenced(cut(facts.instructions, AI_INSTRUCTIONS_MAX))}</data>`,
