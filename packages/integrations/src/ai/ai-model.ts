@@ -13,6 +13,7 @@ export const aiFeatures = [
   "ask_report",
   "read_requests",
   "reach_out",
+  "read_rates",
 ] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 

@@ -41,9 +41,38 @@ describe("reading an .xlsx", () => {
     expect(sheet).toEqual({
       sheetName: "Leads Oct",
       sheetCount: 3,
+      sheetNames: ["Leads Oct", "Old", "Notes & more"],
+      headerRowNumber: 1,
       header: ["Name"],
       rows: [{ rowNumber: 2, cells: ["Asha"] }],
     });
+  });
+
+  it("reads the sheet asked for by its number, in the workbook's order", async () => {
+    const bytes = workbookOf([
+      {
+        name: "Leads Oct",
+        part: "worksheets/sheet3.xml",
+        sheetData: rowOf(1, textCell("A1", "Name")) + rowOf(2, textCell("A2", "Asha")),
+      },
+      {
+        name: "Old",
+        part: "worksheets/sheet1.xml",
+        sheetData: rowOf(3, textCell("A3", "Other")) + rowOf(4, textCell("A4", "x")),
+      },
+      { name: "Notes &amp; more", part: "worksheets/sheet2.xml", sheetData: rowOf(1, textCell("A1", "N")) },
+    ]);
+    const limits = { kind: "xlsx", maxRows: 50, maxColumns: 10, maxCellLength: 40, sheetNumber: 2 } as const;
+    const second = await spreadsheets.read(bytes, limits);
+    expect(second).toMatchObject({
+      sheetName: "Old",
+      headerRowNumber: 3,
+      header: ["Other"],
+      rows: [{ rowNumber: 4, cells: ["x"] }],
+    });
+    await expect(spreadsheets.read(bytes, { ...limits, sheetNumber: 4 })).rejects.toEqual(
+      new SpreadsheetUnreadableError("not_a_spreadsheet"),
+    );
   });
 
   it("reads a formula's last value, never the formula", async () => {

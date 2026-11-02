@@ -27,12 +27,12 @@ const worksheetTypes = new Set([
  * named `sheet` elements, and the last worksheet relationship with the first one's id. An element whose attributes
  * meet under one name (two ids) is refused: which one the reader keeps depends on its copy of the parser.
  */
-function firstSheetOf(unpacked: UnpackedWorkbook) {
+function sheetOf(unpacked: UnpackedWorkbook, number: number) {
   const sheets = readerElementsOf(unpacked.workbook ?? "", new Set(["sheet"]))?.filter((element) =>
     Boolean(element.attributes.name),
   );
   const relations = readerElementsOf(unpacked.workbookRelations ?? "", new Set(["Relationship"]));
-  const first = sheets?.[0];
+  const first = sheets?.[number - 1];
   if (sheets === undefined || relations === null || first === undefined || first.ambiguous) {
     throw new SpreadsheetUnreadableError("not_a_spreadsheet");
   }
@@ -46,7 +46,12 @@ function firstSheetOf(unpacked: UnpackedWorkbook) {
     throw new SpreadsheetUnreadableError("not_a_spreadsheet");
   }
   const part = target.startsWith("/") ? target.slice(1) : `xl/${target}`;
-  return { name: first.attributes.name ?? "", count: sheets.length, part };
+  return {
+    name: first.attributes.name ?? "",
+    names: sheets.map((one) => one.attributes.name ?? ""),
+    count: sheets.length,
+    part,
+  };
 }
 
 /**
@@ -66,17 +71,18 @@ export async function readXlsx(bytes: Uint8Array, limits: ReadLimits): Promise<R
   }
   if (!startsWith(bytes, zipSignature)) throw new SpreadsheetUnreadableError("not_a_spreadsheet");
   const unpacked = unpackWorkbook(bytes, { maxRowNumber: limits.maxRows * 2 + 1, maxColumn: limits.maxColumns });
-  const sheet = firstSheetOf(unpacked);
+  const number = limits.sheetNumber ?? 1;
+  const sheet = sheetOf(unpacked, number);
   assertSheetFits(unpacked, sheet.part);
   let data: unknown;
   try {
-    data = await readSheet(Buffer.from(bytes), 1);
+    data = await readSheet(Buffer.from(bytes), number);
   } catch {
     // InvalidInputError, InvalidSpreadsheetError, SheetNotFoundError: a zip that isn't a workbook read-excel-file knows.
     throw new SpreadsheetUnreadableError("not_a_spreadsheet");
   }
   if (!Array.isArray(data)) throw new SpreadsheetUnreadableError("not_a_spreadsheet");
-  const shaper = sheetShaper(limits, { sheetName: sheet.name, sheetCount: sheet.count });
+  const shaper = sheetShaper(limits, { sheetName: sheet.name, sheetCount: sheet.count, sheetNames: sheet.names });
   (data as RawCell[][]).forEach((cells, index) => {
     shaper.add({ rowNumber: index + 1, cells: cells.map((cell) => cellText(cell, limits.maxCellLength)) });
   });

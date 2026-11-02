@@ -26,6 +26,8 @@ export function createAiModel(environment: Environment): AiModel | null {
         ask_report: fast,
         // Reading a traveller's notes is short; a message to a customer is written well.
         read_requests: fast,
+        // A rate sheet is long and its prices matter: the chat models read it.
+        read_rates: chat,
         reach_out: chat,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
@@ -67,6 +69,7 @@ export function createAiModel(environment: Environment): AiModel | null {
       write_up: environment.AI_SUGGEST_MODELS,
       ask_report: environment.AI_SCORE_MODELS,
       read_requests: environment.AI_SCORE_MODELS,
+      read_rates: environment.AI_SUGGEST_MODELS,
       reach_out: environment.AI_SUGGEST_MODELS,
     },
     ...(testServer === undefined

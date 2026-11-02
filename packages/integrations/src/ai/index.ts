@@ -18,4 +18,4 @@ export {
 } from "./openrouter.js";
 export { createMemoryAiModel, type MemoryAiModel } from "./memory-ai.js";
 export { withBackupModel } from "./fallback.js";
-export { documentText } from "./document-text.js";
+export { documentPages, documentText } from "./document-text.js";
