@@ -37,13 +37,15 @@ export function FillWithAi({
   const write = useWriteAccess("change");
   const [open, setOpen] = useState(startOpen);
   const opener = useRef<HTMLButtonElement>(null);
-  if (!available) return null;
+  // While the plan or the switch is still being read the button's place is kept, so the form below doesn't move.
+  if (available === "loading") return <div aria-hidden="true" className="h-11" />;
+  if (available === "off") return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
         ref={opener}
         type="button"
-        variant="outline"
+        variant="ai"
         disabled={!write.allowed}
         onClick={() => {
           setOpen(true);

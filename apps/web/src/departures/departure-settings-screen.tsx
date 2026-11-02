@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
 import { checked } from "@/components/forms/checked";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { FormAlert } from "@/components/forms/form-dialog";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
@@ -26,6 +27,7 @@ interface Values {
   holdHours: string;
   fillingFastPercent: string;
   defaultRoomCapacity: string;
+  shareSeatCounts: "yes" | "no";
 }
 const whole = (text: string) => (/^\d+$/.test(text.trim()) ? Number(text) : -1);
 
@@ -36,6 +38,7 @@ function SettingsForm({ saved }: { saved: DepartureSettingsView }) {
     holdHours: String(saved.holdHours),
     fillingFastPercent: String(saved.fillingFastPercent),
     defaultRoomCapacity: String(saved.defaultRoomCapacity),
+    shareSeatCounts: saved.shareSeatCounts ? "yes" : "no",
   };
   const { form, onSubmit, formProblem } = useCheckedForm<Values, SaveDepartureSettingsInput, Problem>(
     values,
@@ -45,6 +48,7 @@ function SettingsForm({ saved }: { saved: DepartureSettingsView }) {
           holdHours: whole(typed.holdHours),
           fillingFastPercent: whole(typed.fillingFastPercent),
           defaultRoomCapacity: whole(typed.defaultRoomCapacity),
+          shareSeatCounts: typed.shareSeatCounts === "yes",
         }),
         typed,
         (path) => (Object.keys(values) as (keyof Values)[]).find((field) => field === String(path[0])),
@@ -79,6 +83,15 @@ function SettingsForm({ saved }: { saved: DepartureSettingsView }) {
         name="defaultRoomCapacity"
         label={t("defaultRoomCapacity")}
         inputMode="numeric"
+      />
+      <ChoiceField
+        control={form.control}
+        name="shareSeatCounts"
+        legend={t("shareSeatCounts")}
+        options={[
+          { value: "no", label: t("shareSeatCountsNo"), description: t("shareSeatCountsNoHint") },
+          { value: "yes", label: t("shareSeatCountsYes") },
+        ]}
       />
       <FormAlert sending={saveSettings} problem={formProblem} />
       <div>

@@ -492,5 +492,54 @@
     "removedAmounts": "The AI typed an amount of its own and it was taken out. Check the message reads right: only the quote's total and advance are filled in.",
     "noDays": "Add the day-by-day plan to the quote first, so the AI has something to write about.",
     "noChat": "This customer has no chat you can use here, so copy the message instead."
+  },
+  "departures": {
+    "rooming": {
+      "button": "Read requests",
+      "title": "Read room requests",
+      "description": "The AI reads each traveller's room note, the notes on their booking's lead and what it kept from the chat, and proposes which travellers asked for a single room, the ground floor or to be near the group. Nothing changes until you apply. This uses one AI call.",
+      "reviewDescription": "Tick the requests to set. The rooms are still drafted by Draft rooms.",
+      "read": "Read the notes",
+      "reading": "Reading",
+      "apply": "{count, plural, =0 {Apply} one {Apply # request} other {Apply # requests}}",
+      "applied": "{count, plural, one {# request set} other {# requests set}}",
+      "from": "read from \"{words}\"",
+      "nothing": "The AI found no clear room request in the notes. Travellers who already have a request are left as they are.",
+      "usage": "{used} of {limit} AI calls used this month."
+    },
+    "seats": {
+      "button": "Find interested people",
+      "title": "Find interested people",
+      "description": "People who asked about this place in the last year and could be offered the empty seats. Nobody who is blocked, asked to stop or was offered this departure in the last 14 days is listed.",
+      "messagesDescription": "One message for each person. Read it, change it, then open it in your own WhatsApp and send it from there. Nothing is sent by the product.",
+      "choose": "Tick up to {max} people to write to.",
+      "more": "More people qualify than are shown here.",
+      "none": "Nobody to ask right now.",
+      "loading": "Looking for people",
+      "loadFailed": "The list didn't load.",
+      "write": "{count, plural, =0 {Write messages} one {Write # message} other {Write # messages}}",
+      "asked": "Asked about {place}",
+      "party": "{count, plural, one {# traveller} other {# travellers}}",
+      "enquired": "enquired {day}",
+      "labels": {
+        "hot": "Hot",
+        "warm": "Warm",
+        "cold": "Cold"
+      },
+      "message": {
+        "writing": "Writing for {name}",
+        "tryAgain": "Write again",
+        "label": "Message for {name}",
+        "hint": "Change it as you like. Open it in WhatsApp, send it there, then mark it sent.",
+        "sentHint": "Marked as sent. This person is left alone for 14 days.",
+        "open": "Open in WhatsApp",
+        "openNamed": "Open the message for {name} in WhatsApp",
+        "openFirst": "Open it in WhatsApp first.",
+        "mark": "Mark as sent",
+        "markNamed": "Mark the message to {name} as sent",
+        "marked": "Marked as sent to {name}",
+        "sent": "Sent"
+      }
+    }
   }
 }

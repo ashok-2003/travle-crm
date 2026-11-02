@@ -63,7 +63,7 @@ export const brand = {
     actionTint: "#eef2ff",
     /** Text on an action fill: 5.17:1 on action. */
     onAction: "#ffffff",
-    /** People and conversations: the inbox, follow-ups, assignees. Information, never a button. */
+    /** People and conversations: the inbox, follow-ups, assignees. Information, and the fill of the AI's action buttons (owner, 2026-11-02): white on it is 6.26:1. */
     people: "#6a4bbd",
     peoplePressed: "#5b3fa6",
     peopleTint: "#efe7fd",

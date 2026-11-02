@@ -110,6 +110,7 @@ export async function eraseCustomerParts(
     aiDrafts: ai.drafts,
     aiInsights: ai.insights,
     aiFills: ai.fills,
+    departureOffersDeleted: ai.offers,
     aiInputFiles: ai.inputFiles,
     notifications,
     files,

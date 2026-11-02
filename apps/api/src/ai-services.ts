@@ -24,6 +24,9 @@ export function createAiModel(environment: Environment): AiModel | null {
         fill_form: chat,
         write_up: chat,
         ask_report: fast,
+        // Reading a traveller's notes is short; a message to a customer is written well.
+        read_requests: fast,
+        reach_out: chat,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
@@ -63,6 +66,8 @@ export function createAiModel(environment: Environment): AiModel | null {
       fill_form: environment.AI_SUGGEST_MODELS,
       write_up: environment.AI_SUGGEST_MODELS,
       ask_report: environment.AI_SCORE_MODELS,
+      read_requests: environment.AI_SCORE_MODELS,
+      reach_out: environment.AI_SUGGEST_MODELS,
     },
     ...(testServer === undefined
       ? {}

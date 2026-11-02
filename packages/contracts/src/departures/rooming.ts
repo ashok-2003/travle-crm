@@ -45,6 +45,17 @@ export const moveTravellerInput = z.strictObject({
 });
 export type MoveTravellerInput = z.infer<typeof moveTravellerInput>;
 
+/** Sets travellers' room requests together (staff ticked what the AI read, or chose them by hand). `aiFill` names the AI's reading. */
+export const setRoomRequestsInput = z.strictObject({
+  departureId: recordId,
+  changes: z
+    .array(z.strictObject({ travellerId: recordId, roomRequest }))
+    .min(1)
+    .max(200),
+  aiFill: z.strictObject({ fillId: recordId }).optional(),
+});
+export type SetRoomRequestsInput = z.infer<typeof setRoomRequestsInput>;
+
 export const roomingTraveller = z.object({
   travellerId: recordId,
   /** The name they gave, or "Traveller 2 of BK-2026-0004" until they do. */

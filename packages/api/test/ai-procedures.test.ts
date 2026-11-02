@@ -71,3 +71,77 @@ describe("Suggest reply's request checks", () => {
     expect(await checked(off.leadInsight({ leadId: crypto.randomUUID() }))).toBe("MODULE_NOT_ON_PLAN");
   });
 });
+
+describe("AI on a departure: request checks", () => {
+  const plan = ["ai", "departures", "crm"] as const;
+  const id = () => crypto.randomUUID();
+
+  it("needs both the AI and the departures modules on the plan", async () => {
+    const granted = [
+      "ai:suggest",
+      "departures:view",
+      "departures:edit",
+      "departures:create",
+      "leads:view",
+      "leads:edit",
+    ];
+    const noAi = callerFor({ modules: ["departures", "crm"], granted }).caller.ai.departures;
+    expect(await checked(noAi.readRoomRequests({ departureId: id() }))).toBe("MODULE_NOT_ON_PLAN");
+    expect(await checked(noAi.findInterested({ departureId: id() }))).toBe("MODULE_NOT_ON_PLAN");
+    const noDepartures = callerFor({ modules: ["ai", "crm"], granted }).caller.ai.departures;
+    expect(await checked(noDepartures.readRoomRequests({ departureId: id() }))).toBe("MODULE_NOT_ON_PLAN");
+    expect(await checked(noDepartures.writeSeatMessage({ departureId: id(), leadId: id() }))).toBe(
+      "MODULE_NOT_ON_PLAN",
+    );
+  });
+
+  it("lets only departures:edit read room requests, and only departures:create with leads:view find people", async () => {
+    const seller = callerFor({
+      modules: [...plan],
+      granted: ["ai:suggest", "departures:view", "departures:create", "leads:view"],
+    }).caller.ai.departures;
+    expect(await checked(seller.readRoomRequests({ departureId: id() }))).toBe("MISSING_PERMISSION");
+    expect(await checked(seller.findInterested({ departureId: id() }))).not.toBe("MISSING_PERMISSION");
+    const noAi = callerFor({ modules: [...plan], granted: ["departures:view", "departures:edit"] }).caller.ai
+      .departures;
+    expect(await checked(noAi.readRoomRequests({ departureId: id() }))).toBe("MISSING_PERMISSION");
+    const noLeads = callerFor({
+      modules: [...plan],
+      granted: ["ai:suggest", "departures:view", "departures:create"],
+    }).caller.ai.departures;
+    expect(await checked(noLeads.findInterested({ departureId: id() }))).toBe("MISSING_PERMISSION");
+    expect(await checked(noLeads.writeSeatMessage({ departureId: id(), leadId: id() }))).toBe("MISSING_PERMISSION");
+    // Marking an offer sent adds a note to the lead's timeline, so it needs leads:edit as well.
+    const noEdit = callerFor({
+      modules: [...plan],
+      granted: ["ai:suggest", "departures:view", "departures:create", "leads:view"],
+    }).caller.ai.departures;
+    expect(await checked(noEdit.markOfferSent({ departureId: id(), leadId: id(), fillId: id(), text: "Hello" }))).toBe(
+      "MISSING_PERMISSION",
+    );
+  });
+
+  it("refuses a read-only agency the AI's calls and the offer's mark", async () => {
+    const granted = [
+      "ai:suggest",
+      "departures:view",
+      "departures:edit",
+      "departures:create",
+      "leads:view",
+      "leads:edit",
+    ];
+    const { caller } = callerFor({ status: "read_only", modules: [...plan], granted });
+    expect(await checked(caller.ai.departures.readRoomRequests({ departureId: id() }))).toBe("ORGANIZATION_READ_ONLY");
+    expect(await checked(caller.ai.departures.writeSeatMessage({ departureId: id(), leadId: id() }))).toBe(
+      "ORGANIZATION_READ_ONLY",
+    );
+    expect(
+      await checked(
+        caller.departures.rooming.setRequests({
+          departureId: id(),
+          changes: [{ travellerId: id(), roomRequest: "single_room" }],
+        }),
+      ),
+    ).toBe("ORGANIZATION_READ_ONLY");
+  });
+});

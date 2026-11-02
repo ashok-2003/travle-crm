@@ -84,7 +84,7 @@ export function WriteUpButton({
     <>
       <Button
         ref={opener}
-        variant="outline"
+        variant="ai"
         onClick={() => {
           setOpen(true);
         }}

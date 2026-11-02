@@ -183,6 +183,8 @@ export const departureSettingsFields = {
   holdHours: z.int().min(1).max(720),
   fillingFastPercent: z.int().min(0).max(100),
   defaultRoomCapacity: z.int().min(1).max(4),
+  /** Whether an AI-written message about empty seats may say how many are left. */
+  shareSeatCounts: z.boolean(),
 };
 export const departureSettings = z.object(departureSettingsFields);
 export type DepartureSettingsView = z.infer<typeof departureSettings>;

@@ -14,6 +14,26 @@ export const fixtures: OrgTableFixtures = {
       }),
     undeletable: true,
   },
+  departure_offer: {
+    create: async (tx: OrgTx) => {
+      const person = await tx.person.create({
+        data: { name: "Isolation", email: `offer-${randomUUID()}@example.test` },
+      });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "walk_in" } });
+      const departure = await tx.departure.create({
+        data: {
+          title: "Isolation departure",
+          startDate: new Date("2026-12-01"),
+          endDate: new Date("2026-12-05"),
+          seatsTotal: 10,
+        },
+      });
+      return tx.departureOffer.create({
+        data: { departureId: departure.id, leadId: lead.id, draftedBy: randomUUID(), sentAt: new Date() },
+      });
+    },
+    undeletable: true,
+  },
   lead_ai_field: {
     create: async (tx: OrgTx) => {
       const person = await tx.person.create({ data: { name: "Isolation", email: `ai-${randomUUID()}@example.test` } });

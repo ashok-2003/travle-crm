@@ -83,6 +83,7 @@ export function useRoomingChanges() {
     updateRoom: useMutation(trpc.departures.rooming.updateRoom.mutationOptions(options)),
     removeRoom: useMutation(trpc.departures.rooming.removeRoom.mutationOptions(options)),
     move: useMutation(trpc.departures.rooming.move.mutationOptions(options)),
+    setRequests: useMutation(trpc.departures.rooming.setRequests.mutationOptions(options)),
     draft: useMutation(trpc.departures.rooming.draft.mutationOptions(options)),
     copyLayout: useMutation(trpc.departures.rooming.copyLayout.mutationOptions(options)),
   };

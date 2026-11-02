@@ -25,6 +25,7 @@ import {
   saveDepartureSettingsInput,
   saveRoomingStayInput,
   setDepartureStatusInput,
+  setRoomRequestsInput,
   setQuoteDepartureInput,
   stayIdInput,
   updateDepartureInput,
@@ -57,10 +58,12 @@ import {
   saveDepartureSettings,
   saveRoomingStay,
   setDepartureStatus,
+  setRoomRequests,
   setQuoteDeparture,
   updateDeparture,
   updateRoom,
 } from "@travel-crm/domain/departures";
+import { recordRoomRequestsApplied } from "@travel-crm/domain/ai";
 import { assertPdfCanBeMade, getIssuedDocument } from "@travel-crm/domain/documents";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
@@ -226,6 +229,29 @@ export const departuresRouter = router({
       .input(moveTravellerInput)
       .mutation(({ ctx, input }) =>
         ctx.db.forOrg(ctx.member.organizationId, (tx) => moveTraveller(tx, ctx.member, input)),
+      ),
+
+    /**
+     * Sets travellers' room requests together: ticked by staff from the AI's reading (`aiFill`, audited as drafted by AI,
+     * approved by the member) or chosen by hand. The rooms are still drafted by the rooming list's own plain code.
+     */
+    setRequests: editor
+      .input(setRoomRequestsInput)
+      .output(z.object({ changed: z.int() }))
+      .mutation(({ ctx, input }) =>
+        ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+          const now = new Date();
+          const result = await setRoomRequests(tx, ctx.member, input, now);
+          if (input.aiFill !== undefined) {
+            await recordRoomRequestsApplied(
+              tx,
+              ctx.member,
+              { fillId: input.aiFill.fillId, departureId: input.departureId, applied: input.changes },
+              now,
+            );
+          }
+          return result;
+        }),
       ),
 
     draft: editor
