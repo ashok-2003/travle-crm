@@ -8,6 +8,7 @@ import {
   PURGE_ORGANIZATION_QUEUE,
   removeSchedule,
   RESET_DEMO_QUEUE,
+  SWEEP_AI_INPUTS_QUEUE,
   SWEEP_BULK_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
   SWEEP_META_QUEUE,
@@ -45,6 +46,7 @@ const expiredExportsSweep = {
 
 // Every hour, at 17 past, the imports a week past their last change and the exports a day past ready lose their
 // files (B53, B54).
+const aiInputsSweep = { queue: SWEEP_AI_INPUTS_QUEUE, cron: "30 3 * * *", timeZone: "Asia/Kolkata", data: {} };
 const bulkFilesSweep = { queue: SWEEP_BULK_FILES_QUEUE, cron: "17 * * * *", timeZone: "Asia/Kolkata", data: {} };
 
 // Every hour, at 41 past, the Sheets sync's drafts, resolved problems, schedule rows and claims past their time are dropped
@@ -84,6 +86,7 @@ describe("the console's jobs", () => {
       storedFilesSweep,
       expiredExportsSweep,
       bulkFilesSweep,
+      aiInputsSweep,
       sheetsSweep,
       metaSweep,
       whatsappSweep,
@@ -109,6 +112,7 @@ describe("the console's jobs", () => {
       storedFilesSweep,
       expiredExportsSweep,
       bulkFilesSweep,
+      aiInputsSweep,
       sheetsSweep,
       metaSweep,
       whatsappSweep,
@@ -226,7 +230,7 @@ describe("the console's jobs", () => {
   it("refuses to remove a schedule the console registers, which would stop it until the next start", async () => {
     const demo = { code: "DEMOCODE", password: "demo-password-123" };
     const queues = consoleJobs(testConsole.services, demo).schedules.map((schedule) => schedule.queue);
-    expect(queues).toHaveLength(9);
+    expect(queues).toHaveLength(10);
     for (const queue of queues) {
       await expect(removeSchedule(testConsole.services, { userId: randomUUID() }, queue), queue).rejects.toMatchObject({
         code: "CONFLICT",

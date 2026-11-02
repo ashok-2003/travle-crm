@@ -330,7 +330,8 @@
     "discard": "Discard",
     "unreadDivider": "{count, plural, one {# unread message} other {# unread messages}}",
     "toBottom": "Go to the newest message",
-    "toBottomCount": "{count, plural, one {# new message} other {# new messages}} below. Go to the newest"
+    "toBottomCount": "{count, plural, one {# new message} other {# new messages}} below. Go to the newest",
+    "makeLead": "Make a lead from this chat"
   },
   "leadSection": {
     "title": "WhatsApp",

@@ -3,6 +3,7 @@
 // The AI's reads and changes: whether the composer offers Suggest reply, the agency's settings and knowledge, the draft itself, and a lead's insight.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
+import { useRefreshWork } from "@/data/use-refresh-work";
 import { useHolds } from "@/session/me-context";
 import { useSubscription } from "@/subscription/use-subscription";
 
@@ -187,4 +188,29 @@ export function useSetChatAi(conversationId: string) {
 export function useResumeChatAi(conversationId: string) {
   const trpc = useTRPC();
   return useMutation(trpc.ai.resumeChat.mutationOptions({ onSuccess: useChatAiChange(conversationId) }));
+}
+
+/** What the AI filled in on a new lead from its first messages and nobody has confirmed: only where the member and the plan have the AI. */
+export function useLeadAiFields(leadId: string) {
+  const trpc = useTRPC();
+  const modules = useSubscription().data?.modules;
+  const enabled = useHolds("ai:suggest") && (modules?.includes("ai") ?? false);
+  return useQuery({ ...trpc.ai.leadFields.queryOptions({ leadId }), enabled, staleTime: 15_000 });
+}
+
+/** Confirm keeps the AI's values; dismiss clears what is still the AI's. The lead and its suggestions load again. */
+export function useDecideLeadAiFields(leadId: string) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const refresh = useRefreshWork();
+  return useMutation(
+    trpc.ai.decideLeadFields.mutationOptions({
+      onSuccess: async () => {
+        await Promise.all([
+          refresh(),
+          queryClient.invalidateQueries({ queryKey: trpc.ai.leadFields.queryKey({ leadId }) }),
+        ]);
+      },
+    }),
+  );
 }

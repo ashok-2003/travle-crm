@@ -490,6 +490,14 @@
         "description": "Everything can wait; change what you know now.",
         "submit": "Save",
         "submitting": "Saving"
+      },
+      "suggested": {
+        "title": "The AI filled in from the customer's messages: {fields}.",
+        "hint": "Check them with the customer. Confirm keeps them; Dismiss clears what the AI wrote.",
+        "confirm": "Confirm",
+        "dismiss": "Dismiss",
+        "term": "this AI-filled detail",
+        "said": "The customer wrote: “{words}”"
       }
     },
     "owner": {
@@ -714,7 +722,11 @@
         "tooLong": "Keep the note to 2,000 characters.",
         "day": "Choose a day.",
         "time": "Choose a time."
-      }
+      },
+      "followUpTitle": "What for",
+      "followUpTitleHint": "Optional. The reminder is called \"Call back\" if you leave it empty.",
+      "alsoUpdates": "This tap also updates the lead: {details}.",
+      "leadNotUpdated": "The call is saved, but the lead's details weren't updated. {reason}"
     },
     "delete": {
       "label": "Delete",

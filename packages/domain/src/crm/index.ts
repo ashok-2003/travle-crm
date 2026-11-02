@@ -46,7 +46,7 @@ export {
   sendCallToMyPhone,
   type DialLimiter,
 } from "./calls.js";
-export { createLead } from "./create-lead.js";
+export { createLead, type AfterLeadSaved } from "./create-lead.js";
 export { customerContacts, type CustomerContacts } from "./customer-contacts.js";
 export { eraseCustomer, exportCustomer, type CustomerSubject, type ErasedCustomer } from "./customer-erasure.js";
 export { addDemoLeads } from "./demo-leads.js";
@@ -65,6 +65,7 @@ export {
   sheetsCheckHandler,
 } from "./lead-sheets/index.js";
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";
+export { clearTripFields, fillTripGaps, tripFieldValues, type GapField, type TripGaps } from "./trip-gaps.js";
 export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
 export { removeAllLeads, removeLead } from "./lead-removal.js";
 export {

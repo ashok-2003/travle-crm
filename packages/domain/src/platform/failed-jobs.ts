@@ -7,6 +7,7 @@ import { describeError } from "@travel-crm/integrations/jobs";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { DomainError } from "../kernel/index.js";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "../subscriptions/index.js";
+import { SWEEP_AI_INPUTS_QUEUE } from "./ai-inputs-sweep.js";
 import { SWEEP_BULK_FILES_QUEUE } from "./bulk-files-sweep.js";
 import { RESET_DEMO_QUEUE } from "./demo.js";
 import { ERASE_SUBJECT_QUEUE } from "./erasure.js";
@@ -40,6 +41,7 @@ const CONSOLE_SCHEDULES: ReadonlySet<string> = new Set([
   SWEEP_STORED_FILES_QUEUE,
   SWEEP_EXPIRED_EXPORTS_QUEUE,
   SWEEP_BULK_FILES_QUEUE,
+  SWEEP_AI_INPUTS_QUEUE,
   SWEEP_SHEETS_QUEUE,
   SWEEP_META_QUEUE,
   SWEEP_WHATSAPP_QUEUE,

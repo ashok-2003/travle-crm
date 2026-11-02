@@ -135,4 +135,37 @@ describe("the OpenRouter adapter", () => {
     }
     expect(calls).toHaveLength(0);
   });
+
+  it("sends a recording and a screenshot as the endpoint's parts, and words alone as a plain string", async () => {
+    const { fetcher, calls } = fakeFetch(answer("{}"));
+    const model = createOpenRouterModel({
+      apiKey: KEY,
+      models: { fill_form: ["gemini-x"] },
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      fetch: fetcher,
+    });
+    await model.complete({
+      feature: "fill_form",
+      messages: [
+        { role: "system", content: "Fill the form." },
+        {
+          role: "user",
+          content: "Here it is",
+          attachments: [
+            { type: "audio", format: "wav", bytes: new Uint8Array([1, 2, 3]) },
+            { type: "image", mimeType: "image/png", bytes: new Uint8Array([4, 5]) },
+          ],
+        },
+      ],
+    });
+    const call = calls[0];
+    if (call === undefined) throw new Error("no request was sent");
+    const sent = bodyOf(call).messages as { content: unknown }[];
+    expect(sent[0]?.content).toBe("Fill the form.");
+    expect(sent[1]?.content).toEqual([
+      { type: "text", text: "Here it is" },
+      { type: "input_audio", input_audio: { data: "AQID", format: "wav" } },
+      { type: "image_url", image_url: { url: "data:image/png;base64,BAU=" } },
+    ]);
+  });
 });

@@ -18,6 +18,19 @@ export const aiKnowledgeFileTypes = ["application/pdf", "text/plain"] as const;
 /** The record type of a photo, video or PDF the agency's AI sends in chats (its media). */
 export const AI_MEDIA_RECORD_TYPE = "ai_media";
 export const aiMediaFileTypes = ["image/jpeg", "image/png", "video/mp4", "application/pdf"] as const;
+/**
+ * The record type of what "Fill it for me" reads: a voice recording (WAV, which the browser encodes itself because Gemini's
+ * OpenAI-compatible endpoint takes only WAV and MP3) or a screenshot. Kept 30 days, then deleted; erased with the customer.
+ */
+export const AI_INPUT_RECORD_TYPE = "ai_input";
+export const aiInputAudioTypes = ["audio/wav"] as const;
+export const aiInputImageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
+export const aiInputFileTypes = [...aiInputAudioTypes, ...aiInputImageTypes] as const;
+/** A recording is at most 2 minutes of 16 kHz mono WAV (3.84 MB); a screenshot at most 5 MB. */
+export const MAX_AI_AUDIO_BYTES = 4 * 1024 * 1024;
+export const MAX_AI_IMAGE_BYTES = 5 * 1024 * 1024;
+/** How long those files are kept, in days, before a nightly sweep deletes them. */
+export const AI_INPUT_KEEP_DAYS = 30;
 export const WHATSAPP_RECORD_TYPE = "whatsapp_message";
 /** The record type of a trip's details (sales inbox, trip details): the photos, videos and PDFs sent with them on WhatsApp. */
 export const TRIP_KIT_RECORD_TYPE = "trip_kit";
@@ -83,7 +96,7 @@ export const requestUploadInput = z.strictObject({
   recordId: z.uuid(),
   fileName: attachmentFileName,
   /** The files module decides which types a record takes (an import's file is a spreadsheet, nothing else is). */
-  contentType: z.enum([...whatsappContentTypes, ...spreadsheetContentTypes]),
+  contentType: z.enum([...whatsappContentTypes, ...spreadsheetContentTypes, ...aiInputAudioTypes]),
   sizeBytes: z.number().int().min(1).max(MAX_ATTACHMENT_BYTES),
   /** Traveller ID documents (passport, Aadhaar): viewing them needs documents:view_sensitive. */
   sensitive: z.boolean().default(false),

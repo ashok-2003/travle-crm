@@ -9,10 +9,14 @@
 import type { KnownContactResult } from "@travel-crm/contracts/crm";
 import { useMutation } from "@tanstack/react-query";
 import { CircleAlertIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { toast } from "sonner";
+import { AiMark } from "@/ai/fill/ai-mark";
+import { leadConverter } from "@/ai/fill/fill-converters";
+import { FillWithAi } from "@/ai/fill/fill-with-ai";
+import { FillMarksProvider, useFillMarks } from "@/ai/fill/use-fill-marks";
 import { FormAlert } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { PageHeader } from "@/components/page-header";
@@ -58,6 +62,10 @@ export function NewLeadScreen() {
     (values) => toCreateLeadInput(values, { userId: me.user.id }),
     (problem) => t(`problems.${problem}`),
   );
+  const marks = useFillMarks(form, leadConverter);
+  // "Make a lead from this chat" opens this form with the chat's id: the AI reads the chat at once.
+  const chat = useSearchParams().get("chat");
+  const chatId = chat !== null && /^[0-9a-f-]{36}$/i.test(chat) ? chat : undefined;
   const [phone, email, instagramHandle] = form.watch(["phone", "email", "instagramHandle"]);
   const known = useKnownContact(knownContactsOf({ phone, email, instagramHandle }));
 
@@ -88,7 +96,11 @@ export function NewLeadScreen() {
   const send = onSubmit((input) => {
     if (askOpenLead && input.whenOpenLead === null) {
       form.setError("whenOpenLead", { message: t("problems.openLead") }, { shouldFocus: true });
-    } else create.mutate(input);
+    } else {
+      // A form the AI filled carries which fill and which fields, so the save is audited as drafted by AI.
+      const aiFill = marks.use();
+      create.mutate(aiFill === undefined ? input : { ...input, aiFill });
+    }
   });
   const choiceMissing = form.formState.errors.whenOpenLead !== undefined;
   // Above Save, so a phone's person sees why nothing was sent, though the choice is far up the form.
@@ -101,43 +113,48 @@ export function NewLeadScreen() {
     <div className="flex max-w-[720px] flex-col gap-6">
       <BackLink href={routes.leads} label={t("back")} />
       <PageHeader title={t("title")} intro={t("intro")} />
-      <form noValidate onSubmit={send} className="flex flex-col gap-8">
-        <FieldSet disabled={saving}>
-          <FieldLegend className={legend}>{t("person.legend")}</FieldLegend>
-          <PersonFields form={form} />
-          {known.data && <KnownContactAlert known={known.data} form={form} />}
-        </FieldSet>
-        <FieldSet disabled={saving}>
-          <FieldLegend className={legend}>{t("trip.legend")}</FieldLegend>
-          <TripFields form={form} disabled={saving} />
-          <NoteField control={form.control} name="note" label={t("note")} hint={t("noteHint")} />
-        </FieldSet>
-        <FieldSet disabled={saving}>
-          <FieldLegend className={legend}>{t("source.legend")}</FieldLegend>
-          <SourceFields form={form} disabled={saving} />
-          {assigns && <OwnerField form={form} disabled={saving} />}
-        </FieldSet>
-        {choiceSentence ? (
-          <Alert variant="destructive">
-            <CircleAlertIcon aria-hidden="true" />
-            <AlertDescription>{choiceSentence}</AlertDescription>
-          </Alert>
-        ) : (
-          <FormAlert sending={create} problem={formProblem} />
-        )}
-        <div className="flex flex-col gap-1">
-          <Button
-            type="submit"
-            disabled={saving || !write.allowed}
-            aria-describedby={write.hint === null ? undefined : hintId}
-            className="w-full md:w-auto md:self-start"
-          >
-            {saving && <Spinner />}
-            {saving ? t("saving") : t("save")}
-          </Button>
-          <WriteHint id={hintId} hint={write.hint} />
-        </div>
-      </form>
+      <FillMarksProvider marks={marks}>
+        <FillWithAi target="lead" marks={marks} chatId={chatId} startOpen={chatId !== undefined} />
+        <form noValidate onSubmit={send} className="flex flex-col gap-8">
+          <FieldSet disabled={saving}>
+            <FieldLegend className={legend}>{t("person.legend")}</FieldLegend>
+            <PersonFields form={form} />
+            {known.data && <KnownContactAlert known={known.data} form={form} />}
+          </FieldSet>
+          <FieldSet disabled={saving}>
+            <FieldLegend className={legend}>{t("trip.legend")}</FieldLegend>
+            <TripFields form={form} disabled={saving} />
+            <AiMark paths={["note"]}>
+              <NoteField control={form.control} name="note" label={t("note")} hint={t("noteHint")} />
+            </AiMark>
+          </FieldSet>
+          <FieldSet disabled={saving}>
+            <FieldLegend className={legend}>{t("source.legend")}</FieldLegend>
+            <SourceFields form={form} disabled={saving} />
+            {assigns && <OwnerField form={form} disabled={saving} />}
+          </FieldSet>
+          {choiceSentence ? (
+            <Alert variant="destructive">
+              <CircleAlertIcon aria-hidden="true" />
+              <AlertDescription>{choiceSentence}</AlertDescription>
+            </Alert>
+          ) : (
+            <FormAlert sending={create} problem={formProblem} />
+          )}
+          <div className="flex flex-col gap-1">
+            <Button
+              type="submit"
+              disabled={saving || !write.allowed}
+              aria-describedby={write.hint === null ? undefined : hintId}
+              className="w-full md:w-auto md:self-start"
+            >
+              {saving && <Spinner />}
+              {saving ? t("saving") : t("save")}
+            </Button>
+            <WriteHint id={hintId} hint={write.hint} />
+          </div>
+        </form>
+      </FillMarksProvider>
     </div>
   );
 }

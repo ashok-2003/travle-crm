@@ -7,6 +7,21 @@ import type { OrgTableFixtures } from "../org-table-fixture.js";
 const digits = () => `91${String(Math.floor(Math.random() * 1e10)).padStart(10, "0")}`;
 
 export const fixtures: OrgTableFixtures = {
+  ai_fill: {
+    create: (tx) =>
+      tx.aiFill.create({
+        data: { target: "lead", requestedBy: randomUUID(), inputKind: "text", model: "isolation", proposalHash: "x" },
+      }),
+    undeletable: true,
+  },
+  lead_ai_field: {
+    create: async (tx: OrgTx) => {
+      const person = await tx.person.create({ data: { name: "Isolation", email: `ai-${randomUUID()}@example.test` } });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "walk_in" } });
+      return tx.leadAiField.create({ data: { leadId: lead.id, field: "destination", valueHash: "x" } });
+    },
+    undeletable: true,
+  },
   ai_settings: { create: (tx) => tx.aiSettings.create({ data: { enabled: true } }), undeletable: true },
   ai_autopilot: { create: (tx) => tx.aiAutopilot.create({ data: { autopilot: false } }), undeletable: true },
   ai_learning: {

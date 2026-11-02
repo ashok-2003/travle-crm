@@ -3,12 +3,22 @@
 // the in-memory one tests script. Domain code never sees a vendor's SDK or URL.
 
 /** The features that call the model; each has its own list of models in the settings. */
-export const aiFeatures = ["suggest_reply", "score_lead", "autopilot", "learn"] as const;
+export const aiFeatures = ["suggest_reply", "score_lead", "autopilot", "learn", "fill_form"] as const;
 export type AiFeature = (typeof aiFeatures)[number];
+
+/**
+ * Something besides words that a user message carries. Gemini's OpenAI-compatible endpoint takes only WAV and MP3 audio
+ * (checked 2026-10-30: webm, ogg and mp4 are refused), so the browser encodes WAV itself.
+ */
+export type AiPart =
+  | { type: "image"; mimeType: "image/jpeg" | "image/png" | "image/webp"; bytes: Uint8Array }
+  | { type: "audio"; format: "wav" | "mp3"; bytes: Uint8Array };
 
 export interface AiMessage {
   role: "system" | "user" | "assistant";
   content: string;
+  /** Images and recordings the words go with; only a user message has them, and only a multimodal model reads them. */
+  attachments?: readonly AiPart[];
 }
 
 export interface AiRequest {
