@@ -51,6 +51,8 @@ export interface PlatformServices {
   appUrl?: string;
   /** What a million AI tokens cost, in paise (AI_PRICE_*), for the usage analytics; null or absent when unset. */
   aiPrices?: AiPrices | null;
+  /** Rupees to a US dollar for the AI usage's cost (AI_USD_INR_RATE); 96 when absent. */
+  usdInrRate?: number;
   /** Where the super admins are told of an incident (incidents.ts); absent in tests that send no email. */
   email?: EmailSender | null;
 }

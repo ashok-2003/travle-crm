@@ -31,6 +31,8 @@ export type { PlatformWhatsApp } from "./whatsapp-settings.js";
 export { SWEEP_WHATSAPP_QUEUE, sweepWhatsAppNow, whatsappSweepSchedule } from "./whatsapp-sweep.js";
 export { metaSweepSchedule, SWEEP_META_QUEUE, sweepMetaNow } from "./meta-sweep.js";
 export { organizationsOverview } from "./dashboard.js";
+export { listAiCalls } from "./ai-calls.js";
+export { aiOverviewOf } from "./ai-overview.js";
 export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
 export { exportSubject, hasFreshExport } from "./exports.js";

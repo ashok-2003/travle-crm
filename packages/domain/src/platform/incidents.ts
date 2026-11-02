@@ -2,6 +2,7 @@
 // limit, the api's errors) and the console's own checks every five minutes (jobs that used all their retries, a worker
 // that stopped answering its ping) open an incident, one per kind at a time. Each super admin is emailed when one opens
 // and when it is resolved, after half an hour without a report; the dashboard shows what is open and the last week's.
+// The same check prunes the AI's call log.
 import {
   incidentKind,
   incidentReport,
@@ -22,6 +23,7 @@ import {
   type ScheduledJob,
 } from "../jobs/index.js";
 import { formatDateTime } from "../kernel/index.js";
+import { pruneAiCalls } from "./ai-calls.js";
 import type { PlatformServices } from "./services.js";
 
 export const HEALTH_CHECK_QUEUE = "platform.health-check";
@@ -196,6 +198,8 @@ export function healthCheck(services: PlatformServices): { schedule: ScheduledJo
         await reportPlatformIncident(services, "jobs.failed", queues, now);
       }
       await resolveQuiet(services, now);
+      // The AI's call log keeps 90 days.
+      await pruneAiCalls(services, now);
     },
   };
   const pongHandler: JobHandler = {
