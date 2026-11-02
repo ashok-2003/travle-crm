@@ -15,6 +15,9 @@ import { stubApi } from "./support/api-stub";
 import { member } from "./support/members";
 import { busyDay, now } from "./today/records";
 
+// Home shows the inbox count, which polls faster or slower by the page it is on.
+vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
+
 const words = messages.today.nudge;
 const setupCardName = messages.business.setup.homeHeading.replace("{organization}", "Sharma Travels");
 
