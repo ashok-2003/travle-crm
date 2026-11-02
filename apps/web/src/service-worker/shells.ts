@@ -122,3 +122,23 @@ function matchesRoute(pathname: string, routeSegments: readonly string[]): boole
     })
   );
 }
+
+/** Where the build a worker's shells belong to is kept, in the pages cache: a path no page has. */
+export const BUILD_ID_PATH = "/__build-id";
+
+/** How many shells and files are fetched at once: all ~50 together held a page's own requests for seconds. */
+export const SHELL_FETCH_CONCURRENCY = 4;
+
+/** Maps in order with at most `limit` calls in flight, so a refresh never fills the connection. */
+export async function mapLimited<T, R>(items: readonly T[], limit: number, run: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array<R>(items.length);
+  let next = 0;
+  const lane = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await run(items[index] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  return results;
+}

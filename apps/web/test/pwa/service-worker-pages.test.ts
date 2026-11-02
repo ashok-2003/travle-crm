@@ -3,8 +3,14 @@
 // never keeps it (no api answer, no token), then checks its shells for a new build; offline it answers every screen
 // from its shell; on a stalled connection it shows the shell after 4 seconds.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BUILD_ID_PATH } from "@/service-worker/shells";
 import { app, at, installed, PAGES, pageLoad, STATIC } from "./fake-app";
-import { answer } from "./worker-sandbox";
+import { answer, type Worker } from "./worker-sandbox";
+
+/** Makes the kept shells another build's, as when a deploy brought a new worker whose shells aren't kept yet. */
+async function forgetBuild(worker: Worker): Promise<void> {
+  await worker.storage.caches.get(PAGES)?.put(at(BUILD_ID_PATH), new Response("an older build"));
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -32,14 +38,15 @@ describe("page loads online", () => {
   it("hand over the network's answer whatever its status, and keep only HTML pages", async () => {
     const worker = await installed();
     expect((await pageLoad(worker, "/nowhere"))?.status).toBe(404);
-    for (const url of worker.storage.contents()[PAGES] ?? []) {
+    for (const url of (worker.storage.contents()[PAGES] ?? []).filter((kept) => !kept.endsWith(BUILD_ID_PATH))) {
       const kept = await worker.storage.caches.get(PAGES)?.match(url);
       expect(kept?.headers.get("content-type"), url).toMatch(/^text\/html/);
     }
   });
 
-  it("check every shell again afterwards: a new build's shells and files replace the old ones", async () => {
+  it("check the shells again afterwards, for a new build: a new build's shells and files replace the old ones", async () => {
     const worker = await installed(app("a"));
+    await forgetBuild(worker);
     worker.site = app("b");
     await pageLoad(worker, "/");
     expect(await worker.storage.text(PAGES, at("/settings"))).toContain("build b");
@@ -52,6 +59,7 @@ describe("page loads online", () => {
   it("keep the fonts the new build's stylesheet names, without fetching ahead those never used", async () => {
     const worker = await installed(app("a"));
     for (const font of ["devanagari", "only-a"]) await worker.fetch(`/_next/static/media/${font}.woff2`).settled();
+    await forgetBuild(worker);
     worker.site = app("b");
     await pageLoad(worker, "/");
     const kept = worker.storage.contents()[STATIC];
@@ -65,6 +73,7 @@ describe("page loads online", () => {
   it("keep a shell the server failed to give again, as during a deploy", async () => {
     const worker = await installed();
     const site = app();
+    await forgetBuild(worker);
     worker.site = (url) => (url.pathname === "/staff" ? answer("bad gateway", { status: 502 }) : site(url));
     await pageLoad(worker, "/");
     expect(await worker.storage.text(PAGES, at("/staff"))).toContain("/staff of build a");
@@ -74,6 +83,7 @@ describe("page loads online", () => {
     const worker = await installed();
     const site = app();
     const perRequest = { "content-type": "text/html", "cache-control": "private, no-store" };
+    await forgetBuild(worker);
     worker.site = (url) => (url.pathname === "/staff" ? answer("per request", { headers: perRequest }) : site(url));
     await pageLoad(worker, "/");
     expect(worker.storage.contents()[PAGES]).not.toContain(at("/staff"));
