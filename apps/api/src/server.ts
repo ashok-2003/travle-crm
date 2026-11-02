@@ -42,6 +42,7 @@ const app = createApp({
   incidents: services.incidents,
   whatsappProvider: services.whatsapp?.provider ?? null,
   ai: services.ai,
+  spreadsheets: services.spreadsheets,
   logger,
   authSecret: environment.BETTER_AUTH_SECRET,
   appUrl: environment.APP_URL,
