@@ -10,6 +10,7 @@ const anyMember = orgProcedure.meta({ planModule: "core", lifecycle: "always" })
 export const usageRouter = router({
   /** A page opened, or still open with its seconds so far. */
   track: anyMember
+    .meta({ keepsAccess: true })
     .input(trackVisitInput)
     .output(trackedVisit)
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => trackVisit(tx, ctx.member, input))),
@@ -18,7 +19,7 @@ export const usageRouter = router({
     .output(welcome)
     .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => welcomeOf(tx, ctx.member))),
 
-  welcomeSeen: anyMember.mutation(({ ctx }) =>
-    ctx.db.forOrg(ctx.member.organizationId, (tx) => markWelcomeSeen(tx, ctx.member)),
-  ),
+  welcomeSeen: anyMember
+    .meta({ keepsAccess: true })
+    .mutation(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => markWelcomeSeen(tx, ctx.member))),
 });

@@ -52,8 +52,9 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   left out) with their role's name, whether it is the Owner's, their real email or none, whether they have a password
   yet and their last activity, for the console's organization page; read inside the organization (`asOrganization`).
   `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it, as
-  `Identity.recordActivity(access)`, on each request it lets through, and it writes at most once a day, never for
-  support's impersonation. Signing out keeps it.
+  `Identity.recordActivity(access)` (through `createActivityRecorder`, which also skips the statement for a member it
+  wrote for less than a day ago in this process), on each request it lets through, and it writes at most once a day,
+  never for support's impersonation. Signing out keeps it.
 - `IdentityOptions.seatLimit` (a `SeatLimit`): the seats an organization's plan gives. `staff.create` refuses past them
   (`LIMIT_REACHED`, `SEAT_LIMIT_REACHED`), holding the organization's row (`FOR NO KEY UPDATE`, so it never deadlocks
   with a role edit) so two additions can't both take the last.

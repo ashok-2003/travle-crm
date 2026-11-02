@@ -147,7 +147,7 @@ export const salesInboxRouter = router({
    * chat the member may see: a chat out of their scope is "not found", as everywhere.
    */
   typing: reader
-    .meta({ lifecycle: "always" })
+    .meta({ lifecycle: "always", keepsAccess: true })
     .input(conversationIdInput)
     .mutation(async ({ ctx, input }) => {
       await ctx.db.forOrg(ctx.member.organizationId, (tx) => visibleConversation(tx, ctx.member, input.conversationId));

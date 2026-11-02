@@ -1,5 +1,6 @@
 // The request checks of spec 6.5 through the HTTP app: signed in (1), role permission (4), membership read on every
 // request, fresh sessions for sensitive procedures (spec 6.4), and the steps a member must take before using the app.
+import { ACCESS_CACHE_MAX_ENTRIES, ACCESS_CACHE_TTL_MS, createAccessCache } from "@travel-crm/api";
 import type { MeOutput } from "@travel-crm/contracts/identity";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { CookieJar } from "./support/cookie-jar.js";
@@ -87,10 +88,8 @@ describe("request checks", () => {
     const meera = await addStaff(server, agency, { username: "meera", roleKey: "operations" });
     const jar = await signedInStaff(server, agency, meera);
     expect((await query(server, "settings.get", jar)).status).toBe(200);
-    await server.platform.member.update({
-      where: { id: meera.memberId },
-      data: { deletedAt: new Date(), deletedBy: agency.owner.userId },
-    });
+    const owner = await signedInOwner(server, agency);
+    await dataOf(await mutate(server, "staff.remove", { memberId: meera.memberId }, owner));
     expect(await refusalOf(await query(server, "settings.get", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
   });
 
@@ -221,5 +220,42 @@ describe("request checks", () => {
     expect(sensitive.headers.getSetCookie().some((cookie) => cookie.startsWith("better-auth.session_data="))).toBe(
       true,
     );
+  });
+
+  describe("the access cache's five minutes", () => {
+    const clock = { now: 1_000_000 };
+    let timed: TestServer;
+    let timedAgency: TestAgency;
+
+    beforeAll(async () => {
+      const accessCache = createAccessCache({
+        ttlMs: ACCESS_CACHE_TTL_MS,
+        maxEntries: ACCESS_CACHE_MAX_ENTRIES,
+        now: () => clock.now,
+      });
+      timed = createTestServer({}, { accessCache });
+      timedAgency = await createTestAgency(timed);
+    });
+
+    afterAll(async () => {
+      await timed.close();
+    });
+
+    it("lets a member removed directly in the database through until the cache expires", async () => {
+      const kavya = await addStaff(timed, timedAgency, { username: "kavya", roleKey: "operations" });
+      const jar = await signedInStaff(timed, timedAgency, kavya);
+      expect((await query(timed, "settings.get", jar)).status).toBe(200);
+      await timed.platform.member.update({
+        where: { id: kavya.memberId },
+        data: { deletedAt: new Date(), deletedBy: timedAgency.owner.userId },
+      });
+      clock.now += ACCESS_CACHE_TTL_MS;
+      expect((await query(timed, "settings.get", jar)).status).toBe(200);
+      clock.now += 1;
+      expect(await refusalOf(await query(timed, "settings.get", jar))).toEqual({
+        status: 403,
+        reason: "NOT_A_MEMBER",
+      });
+    });
   });
 });

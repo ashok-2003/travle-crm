@@ -3,7 +3,7 @@
 import type { PlanModule, SubscriptionStatus } from "@travel-crm/contracts/subscriptions";
 import type { Identity, MemberAccess } from "@travel-crm/domain/identity";
 import { PermissionSet } from "@travel-crm/domain/identity";
-import { lifecycleAccessOf, type Entitlements } from "@travel-crm/domain/subscriptions";
+import { noAccessCache } from "../src/access-cache.js";
 import type { Context } from "../src/context.js";
 import { freshProcedure, orgProcedure, protectedProcedure } from "../src/procedures.js";
 import { aiRouter } from "../src/routers/ai.js";
@@ -12,6 +12,7 @@ import { financeRouter } from "../src/routers/finance.js";
 import { quotesRouter } from "../src/routers/quotes.js";
 import { subscriptionRouter } from "../src/routers/subscription.js";
 import { router, t } from "../src/trpc.js";
+import { stubSubscriptions } from "./stub-subscription.js";
 
 const organizationId = "0199e7a0-0000-7000-8000-0000000000c1";
 const userId = "0199e7a0-0000-7000-8000-0000000000c2";
@@ -90,23 +91,10 @@ export function callerFor(setup: Setup) {
     recordActivity: () => Promise.resolve(),
     isPlatformAdmin: () => Promise.resolve(setup.adminStillStaff ?? true),
   } as unknown as Identity;
-  const status = setup.status ?? "active";
-  const entitlements: Entitlements | null =
-    status === "none"
-      ? null
-      : {
-          status,
-          access: lifecycleAccessOf(status),
-          planName: "Starter",
-          modules: new Set(setup.modules ?? []),
-          limits: { seats: 5, whatsappNumbers: 1, storageBytes: 1 },
-          trialEndsOn: null,
-          paidThrough: null,
-          nextChangeOn: null,
-        };
   const ctx = {
     identity,
-    subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },
+    subscriptions: stubSubscriptions(setup.status ?? "active", setup.modules ?? []),
+    accessCache: noAccessCache,
     headers: new Headers(),
     resHeaders: new Headers(),
     session,

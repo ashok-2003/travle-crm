@@ -10,12 +10,14 @@ import {
   assertLifecycleAllows,
   assertModulesOnPlan,
   assertOnPlan,
+  entitlementsFrom,
   planModuleOf,
   type CallKind,
   type Entitlements,
   type ProcedureModule,
   type SubscriptionAccess,
 } from "@travel-crm/domain/subscriptions";
+import type { AccessCache } from "./access-cache.js";
 import { forwardCookies } from "./context.js";
 import { domainErrorsAsStatus } from "./errors.js";
 import { t, type ProcedureMeta } from "./trpc.js";
@@ -80,6 +82,7 @@ const freshlySignedIn = base.use(async ({ ctx, next }) => {
 interface SignedInContext {
   identity: Identity;
   subscriptions: SubscriptionAccess;
+  accessCache: AccessCache;
   session: { activeOrganizationId?: string | null | undefined; impersonatedBy?: string | null | undefined };
   user: { id: string };
 }
@@ -107,20 +110,32 @@ function callOf(type: string, meta: ProcedureMeta | undefined): Call {
 }
 
 /**
- * The member's access in the session's organization, read from the database on every request, so a removal or role
- * change applies to the next request. Members with a password change or two-factor setup still to do are refused
- * here; the endpoints they need for it (Better Auth's /change-password and /two-factor/*, and me.get) stay open.
- * The session's impersonatedBy goes with the access, so whatever support does while impersonating is recorded as such.
- * The member's last activity is noted, then check 2, what the organization's subscription allows today, and check 3
- * for the procedure's own module.
+ * The member's access in the session's organization. It is read from the database at most every five minutes (the
+ * access cache), at once after any change made through the api, and on every request for a freshProcedure, so a
+ * removal or role change made in the app applies to the next request. Members with a password change or two-factor
+ * setup still to do are refused here, and never kept; the endpoints they need for it (Better Auth's /change-password
+ * and /two-factor/*, and me.get) stay open. The session's impersonatedBy goes with the access, so whatever support
+ * does while impersonating is recorded as such. The member's last activity is noted, then check 2, what the
+ * organization's subscription allows today (the stored facts may be cached; the state is computed from them with the
+ * clock on every call), and check 3 for the procedure's own module.
  */
 async function memberAccessFor(
   ctx: SignedInContext,
   call: Call,
+  options: { fresh: boolean },
 ): Promise<{ member: MemberAccess; entitlements: Entitlements | null }> {
   const organizationId = ctx.session.activeOrganizationId;
   const session = { impersonatedBy: ctx.session.impersonatedBy ?? null };
-  const access = organizationId ? await ctx.identity.resolveAccess(ctx.user.id, organizationId, session) : null;
+  if (!organizationId) throw new DomainError("FORBIDDEN", "NOT_A_MEMBER", "You are not a member of an organization");
+  const userId = ctx.user.id;
+  const [access, facts] = await Promise.all([
+    ctx.accessCache.member(
+      { userId, organizationId, impersonatedBy: session.impersonatedBy },
+      () => ctx.identity.resolveAccess(userId, organizationId, session),
+      options,
+    ),
+    ctx.accessCache.subscription(organizationId, () => ctx.subscriptions.factsOf(organizationId), options),
+  ]);
   if (!access) throw new DomainError("FORBIDDEN", "NOT_A_MEMBER", "You are not a member of an organization");
   const step = pendingStep(access);
   if (step === "CHANGE_PASSWORD") throw new DomainError("FORBIDDEN", step, "Choose a new password first");
@@ -128,7 +143,7 @@ async function memberAccessFor(
   // The member is using the app, whatever the subscription allows today: one indexed UPDATE, matching no row on most
   // requests (it writes once a day), and none during support's impersonation.
   await ctx.identity.recordActivity(access);
-  const entitlements = await ctx.subscriptions.entitlementsOf(access.organizationId);
+  const entitlements = facts && entitlementsFrom(facts, ctx.subscriptions.now());
   assertLifecycleAllows(entitlements, { kind: call.kind, isOwner: access.role.isOwner });
   assertOnPlan(entitlements, [call.planModule]);
   return { member: access, entitlements };
@@ -150,12 +165,40 @@ function planModuleOfPermissions(permissions: RequiredPermissions): ProcedureMod
   return planModuleOf(moduleOf(permissions[0])) ?? "core";
 }
 
-const member = protectedProcedure.use(async ({ ctx, type, meta, next }) =>
-  next({ ctx: await memberAccessFor(ctx, callOf(type, meta)) }),
-);
-const freshMember = freshlySignedIn.use(async ({ ctx, type, meta, next }) =>
-  next({ ctx: await memberAccessFor(ctx, callOf(type, meta)) }),
-);
+/**
+ * After a mutation that succeeded, whatever it changed (a role, a member, the plan's use) applies to the very next
+ * call: the organization's cached access is dropped, unless the procedure declares `keepsAccess` (telemetry and read
+ * marks that run on timers and cannot change anyone's access).
+ */
+function forgetAccessAfterChange(
+  ctx: SignedInContext,
+  call: { type: string; meta: ProcedureMeta | undefined },
+  result: { ok: boolean },
+): void {
+  const organizationId = ctx.session.activeOrganizationId;
+  if (call.type === "mutation" && result.ok && call.meta?.keepsAccess !== true && organizationId) {
+    ctx.accessCache.forgetOrganization(organizationId);
+  }
+}
+
+const member = protectedProcedure
+  .use(async ({ ctx, type, meta, next }) =>
+    next({ ctx: await memberAccessFor(ctx, callOf(type, meta), { fresh: false }) }),
+  )
+  .use(async ({ ctx, type, meta, next }) => {
+    const result = await next();
+    forgetAccessAfterChange(ctx, { type, meta }, result);
+    return result;
+  });
+const freshMember = freshlySignedIn
+  .use(async ({ ctx, type, meta, next }) =>
+    next({ ctx: await memberAccessFor(ctx, callOf(type, meta), { fresh: true }) }),
+  )
+  .use(async ({ ctx, type, meta, next }) => {
+    const result = await next();
+    forgetAccessAfterChange(ctx, { type, meta }, result);
+    return result;
+  });
 
 /**
  * Any member of the session's organization. `.requires("leads:create")` declares the procedure's plan module and adds

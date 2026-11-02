@@ -19,6 +19,12 @@ export interface ProcedureMeta {
    * organization procedure without one refuses every call, and a test walks the app router for any that has none.
    */
   planModule?: PlanModule | "core";
+  /**
+   * A mutation that can change nobody's access (no role, member, subscription or permission) and runs often (a timer,
+   * a screen opening) leaves the access cache alone. Every other mutation clears its organization's cached access once
+   * it succeeds, so declare this only where that is certain.
+   */
+  keepsAccess?: boolean;
 }
 
 export const t = initTRPC.context<Context>().meta<ProcedureMeta>().create({

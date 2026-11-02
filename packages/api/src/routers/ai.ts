@@ -363,7 +363,7 @@ export const aiRouter = router({
     .input(conversationAiInput)
     .output(chatAi)
     .query(async ({ ctx, input }) => {
-      const allowed = aiAllowed(await ctx.subscriptions.entitlementsOf(ctx.member.organizationId));
+      const allowed = aiAllowed(ctx.entitlements);
       return ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
         chatAiOf(tx, input.conversationId, ctx.ai?.configured === true && allowed && (await aiEnabled(tx))),
       );

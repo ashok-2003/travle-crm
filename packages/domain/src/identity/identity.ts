@@ -32,7 +32,7 @@ import { matchLeadWorkers, matchRoles, type LeadWorkerMatch, type RoleMatch } fr
 import { firstOwner, leadWorkers, membersHolding } from "./lead-workers.js";
 import type { Permission } from "./permissions.js";
 import type { MemberAccess } from "./member-access.js";
-import { recordMemberActivity } from "./member-activity.js";
+import { createActivityRecorder } from "./member-activity.js";
 import { chooseOwnPassword, hasOwnPasswordToChoose } from "./own-password.js";
 import {
   memberContacts,
@@ -207,7 +207,7 @@ export function createIdentity(options: IdentityOptions): Identity {
     membersHolding: (organizationId, permission) => membersHolding(database, organizationId, permission),
     matchLeadWorkers: (organizationId, values) => matchLeadWorkers(database, organizationId, values),
     matchRoles: (organizationId, values) => matchRoles(database, organizationId, values),
-    recordActivity: (access) => recordMemberActivity(database, access),
+    recordActivity: createActivityRecorder(database),
     isPlatformAdmin: (user) => isPlatformAdmin(database, user),
     describePlatformStaff: (userId) => describePlatformStaff(database.client, userId),
     staff: {
