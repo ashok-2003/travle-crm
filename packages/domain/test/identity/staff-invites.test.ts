@@ -62,6 +62,7 @@ describe("the invite email", () => {
       to: { name: "Lakshmi Nair", address: email },
       subject: "Your account for Kerala Trails",
       replyTo: contactEmail,
+      purpose: "staff-invite",
     });
     expect(message?.fromName).toMatch(/^Kerala Trails via /);
     expect(message?.text).toContain("https://app.example.in/crm/reset-password?token=");
