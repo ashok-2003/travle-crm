@@ -123,8 +123,9 @@ function matchesRoute(pathname: string, routeSegments: readonly string[]): boole
   );
 }
 
-/** Where the build a worker's shells belong to is kept, in the pages cache: a path no page has. */
-export const BUILD_ID_PATH = "/__build-id";
+/** Where the build a worker's shells belong to is kept, in the pages cache. It has a query, which pageCacheKey strips
+ * from every page address, so no navigation can ever look it up and be answered with it. */
+export const BUILD_ID_PATH = "/__build-id?kept";
 
 /** How many shells and files are fetched at once: all ~50 together held a page's own requests for seconds. */
 export const SHELL_FETCH_CONCURRENCY = 4;

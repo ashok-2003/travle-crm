@@ -34,13 +34,12 @@ export function pageRoutes(files: readonly string[]): string[] {
  * for every build.
  */
 export function currentBuildId(routes: readonly string[]): string {
-  const named = [
-    process.env.CACHE_VERSION,
-    process.env.VERCEL_GIT_COMMIT_SHA,
-    process.env.GITHUB_SHA,
-    gitCommit(),
-  ].find((id) => id !== undefined && id.trim() !== "");
-  if (named !== undefined) return named.trim();
+  const named = [process.env.CACHE_VERSION, process.env.VERCEL_GIT_COMMIT_SHA, process.env.GITHUB_SHA].find(
+    (id) => id !== undefined && id.trim() !== "",
+  );
+  // git runs only when no variable names the build.
+  const commit = named ?? gitCommit();
+  if (commit !== undefined && commit.trim() !== "") return commit.trim();
   return createHash("sha256")
     .update(routes.join(",") + "@" + String(Date.now()))
     .digest("hex")

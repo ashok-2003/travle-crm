@@ -60,6 +60,28 @@ describe("page loads of a new build", () => {
     expect(await worker.storage.text(PAGES, at(BUILD_ID_PATH))).toBe("build-1");
   });
 
+  it("remember the build when a shell answers 404, which asking again won't change", async () => {
+    const worker = await installed(app("a"));
+    await worker.storage.caches.get(PAGES)?.put(at(BUILD_ID_PATH), new Response("build-0"));
+    const site = app("b");
+    worker.site = (url) => (url.pathname === "/staff" ? answer("gone", { status: 404 }) : site(url));
+    await pageLoad(worker, "/");
+    expect(await worker.storage.text(PAGES, at(BUILD_ID_PATH))).toBe("build-1");
+    const before = worker.requests.length;
+    await pageLoad(worker, "/");
+    expect(worker.requests.length - before).toBe(1);
+  });
+
+  it("never answer a page load of the build id's address with the stored id", async () => {
+    const worker = await installed();
+    worker.offline = true;
+    for (const path of ["/__build-id", "/__build-id?kept"]) {
+      const text = await (await pageLoad(worker, path))?.text();
+      expect(text, path).not.toBe("build-1");
+      expect(text, path).toContain("/offline of build a");
+    }
+  });
+
   it("fetch at most four shells or files at once", async () => {
     const site = app();
     let inFlight = 0;

@@ -30,7 +30,10 @@ describe("page loads online", () => {
     const worker = await installed();
     const response = await pageLoad(worker, "/reset-password?token=secret-token");
     expect(await response?.text()).toContain("/reset-password of build a");
-    const kept = Object.values(worker.storage.contents()).flat();
+    // The kept build id has a fixed query on purpose (no page address can match it); it holds no token.
+    const kept = Object.values(worker.storage.contents())
+      .flat()
+      .filter((url) => !url.endsWith(BUILD_ID_PATH));
     expect(kept.filter((url) => url.includes("token") || new URL(url).search !== "")).toEqual([]);
     expect(kept).not.toContain(at("/reset-password"));
   });

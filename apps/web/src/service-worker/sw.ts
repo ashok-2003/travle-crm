@@ -153,9 +153,7 @@ let keeping: Promise<void> | undefined;
 /** After a page load the network answered: refreshes only when the shells kept belong to another build than this
  * worker's (a failed refresh leaves that so, and the next load tries again). */
 async function keepShellsOfNewBuild(): Promise<void> {
-  const stored = await (
-    await caches.match(pageCacheKey(absolute(BUILD_ID_PATH)), { cacheName: CACHE_NAMES.pages })
-  )?.text();
+  const stored = await (await caches.match(absolute(BUILD_ID_PATH), { cacheName: CACHE_NAMES.pages }))?.text();
   if (stored !== BUILD_ID) await keepShells();
 }
 
@@ -171,7 +169,7 @@ function keepShells(): Promise<void> {
 async function refreshShells(): Promise<void> {
   const [pages, files] = await Promise.all([caches.open(CACHE_NAMES.pages), caches.open(CACHE_NAMES.static)]);
   const keys = shellsToKeep(APP_ROUTES).map((path) => pageCacheKey(absolute(path)));
-  const buildKey = pageCacheKey(absolute(BUILD_ID_PATH));
+  const buildKey = absolute(BUILD_ID_PATH);
   const shells = await mapLimited(keys, SHELL_FETCH_CONCURRENCY, (key) => refreshShell(pages, key));
   // A page no longer in the app leaves with its shell.
   await deleteAllBut(pages, new Set([...keys, buildKey]));
@@ -219,7 +217,9 @@ async function refreshShell(
   if (!isKeepablePage(response)) {
     // A failure (a 502 mid-deploy) leaves the kept copy. A page that is now something else (rendered per request,
     // redirected): the old copy would show an old build offline, so it goes.
-    if (!response.ok) return { html: kept, changed: false, failed: true };
+    // Only a server error is worth asking again for; a 4xx won't change, so it doesn't hold the refresh open.
+    if (response.status >= 500) return { html: kept, changed: false, failed: true };
+    if (!response.ok) return { html: kept, changed: false, failed: false };
     await pages.delete(key);
     return { html: null, changed: false, failed: false };
   }
