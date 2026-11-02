@@ -3,6 +3,7 @@
 import { listPlatformLogInput, platformLogPage, platformWhoAmIOutput } from "@travel-crm/contracts/platform";
 import { listPlatformLog } from "@travel-crm/domain/platform";
 import { staffProcedure } from "./procedures.js";
+import { aiUsageRouter } from "./routers/ai-usage.js";
 import { dataProtectionRouter } from "./routers/data-protection.js";
 import { dashboardRouter, jobsRouter } from "./routers/operations.js";
 import { invitesRouter } from "./routers/invites.js";
@@ -29,6 +30,7 @@ export const platformRouter = platformT.router({
   platformStaff: platformStaffRouter,
   invites: invitesRouter,
   usage: usageRouter,
+  aiUsage: aiUsageRouter,
   log: platformT.router({
     /** What platform staff and the platform's jobs did, newest first. */
     list: staffProcedure
