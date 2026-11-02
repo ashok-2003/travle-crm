@@ -11,11 +11,17 @@ import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { TemplateDependencies } from "@travel-crm/domain/inbox";
 import type { AiModel } from "@travel-crm/domain/ai";
+import { noAccessCache, type AccessCache } from "./access-cache.js";
 
 export interface ApiDependencies {
   identity: Identity;
   /** What each organization may use today: request checks 2 and 3. */
   subscriptions: SubscriptionAccess;
+  /**
+   * Keeps a member's access and the subscription's stored facts for a few minutes; the server passes one per process.
+   * Left out, every request reads them (no cache), as the tests expect.
+   */
+  accessCache?: AccessCache;
   /** The organization's business profile (spec 7.1). */
   profiles: Profiles;
   /** The organization's data, inside db.forOrg(): notifications, documents, share links, the audit log. */
@@ -58,6 +64,7 @@ export async function createContext(
   {
     identity,
     subscriptions,
+    accessCache = noAccessCache,
     profiles,
     db,
     files,
@@ -83,6 +90,7 @@ export async function createContext(
   return {
     identity,
     subscriptions,
+    accessCache,
     profiles,
     db,
     files,

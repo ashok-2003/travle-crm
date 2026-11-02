@@ -8,12 +8,13 @@ import {
   type MemberAccess,
   type Permission,
 } from "@travel-crm/domain/identity";
-import { lifecycleAccessOf } from "@travel-crm/domain/subscriptions";
 import { describe, expect, it } from "vitest";
+import { noAccessCache } from "../src/access-cache.js";
 import type { Context } from "../src/context.js";
 import { appRouter } from "../src/routers/app-router.js";
 import { t } from "../src/trpc.js";
 import { outcome } from "./request-probe.js";
+import { stubSubscriptions } from "./stub-subscription.js";
 
 const procedures = Object.keys(appRouter._def.procedures as unknown as Record<string, unknown>);
 
@@ -54,19 +55,8 @@ function callerWithout(missing: Permission[]) {
       resolveAccess: () => Promise.resolve(member),
       recordActivity: () => Promise.resolve(),
     } as unknown as Identity,
-    subscriptions: {
-      entitlementsOf: () =>
-        Promise.resolve({
-          status: "active",
-          access: lifecycleAccessOf("active"),
-          planName: "Everything",
-          modules: new Set(["crm", "inbox"]),
-          limits: { seats: 5, whatsappNumbers: 1, storageBytes: 1 },
-          trialEndsOn: null,
-          paidThrough: null,
-          nextChangeOn: null,
-        }),
-    },
+    subscriptions: stubSubscriptions("active", ["crm", "inbox"], "Everything"),
+    accessCache: noAccessCache,
     headers: new Headers(),
     resHeaders: new Headers(),
     session,

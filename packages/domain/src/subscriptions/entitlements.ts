@@ -85,6 +85,8 @@ export function overviewOf(entitlements: Entitlements): SubscriptionOverview {
 /** The api's view of subscriptions: one read per request, in the organization's own transaction. */
 export interface SubscriptionAccess {
   entitlementsOf(organizationId: string): Promise<Entitlements | null>;
+  /** The access's clock: the time the state is computed at (tests pass a fixed one). */
+  now(): Date;
   /** The stored facts entitlements are computed from, in one transaction: for callers that keep them a while. */
   factsOf(organizationId: string): Promise<SubscriptionFacts | null>;
 }
@@ -98,6 +100,7 @@ export function createSubscriptionAccess(dependencies: {
   return {
     entitlementsOf: (organizationId) =>
       dependencies.db.forOrg(organizationId, (tx) => entitlementsOf(tx, organizationId, now())),
+    now,
     factsOf: (organizationId) =>
       dependencies.db.forOrg(organizationId, (tx) => loadSubscriptionFacts(tx, organizationId)),
   };

@@ -1,7 +1,14 @@
 // The api's HTTP app: a health check, Better Auth's sign-in endpoints under /api/auth, tRPC at /api/trpc, and the
 // public routes that need no session: share links at /p and the webhook intake at /webhooks, both rate-limited.
 import { trpcServer } from "@hono/trpc-server";
-import { appRouter, createContext } from "@travel-crm/api";
+import {
+  ACCESS_CACHE_MAX_ENTRIES,
+  ACCESS_CACHE_TTL_MS,
+  appRouter,
+  createAccessCache,
+  type AccessCache,
+  createContext,
+} from "@travel-crm/api";
 import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
@@ -41,6 +48,8 @@ export interface ServerDependencies {
   identity: Identity;
   /** What each organization may use today, for the request checks 2 and 3. */
   subscriptions: SubscriptionAccess;
+  /** Members' access and subscriptions' facts, kept five minutes; one is made for the process unless a test passes its own. */
+  accessCache?: AccessCache;
   /** The organization's business profile, for the profile router. */
   profiles: Profiles;
   /** The public routes' database (share links, webhook events, rate-limit counters), and the procedures'. */
@@ -105,6 +114,9 @@ const publicLimits = {
 const BODY_LIMIT = 64 * 1024;
 
 export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv> {
+  // One per process (createApp runs once): cleared after any change made through tRPC.
+  const accessCache =
+    dependencies.accessCache ?? createAccessCache({ ttlMs: ACCESS_CACHE_TTL_MS, maxEntries: ACCESS_CACHE_MAX_ENTRIES });
   const {
     identity,
     subscriptions,
@@ -163,6 +175,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
           {
             identity,
             subscriptions,
+            accessCache,
             profiles,
             db,
             files,

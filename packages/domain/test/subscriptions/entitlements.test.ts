@@ -3,6 +3,7 @@
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { parseCalendarDate } from "../../src/kernel/index.js";
 import {
   createSubscriptionAccess,
   dueState,
@@ -149,9 +150,14 @@ describe("entitlements", () => {
     // 00:00 on 17 October in India, with no further database read.
     const afterTheDay = new Date("2026-10-16T18:30:00Z");
     const due = dueState(
-      { status: "trial", since: "2026-10-16", trialEndsOn: "2026-10-16", paidThrough: null },
+      {
+        status: "trial",
+        since: parseCalendarDate("2026-10-16"),
+        trialEndsOn: parseCalendarDate("2026-10-16"),
+        paidThrough: null,
+      },
       facts.policy,
-      "2026-10-17",
+      parseCalendarDate("2026-10-17"),
     );
     expect(due.status).not.toBe("trial");
     expect(entitlementsFrom(facts, afterTheDay).status).toBe(due.status);

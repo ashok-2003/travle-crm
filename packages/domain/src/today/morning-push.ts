@@ -22,7 +22,7 @@ const LATE_AFTER_MINUTES = 120;
 export interface MorningPushDependencies {
   db: Database;
   identity: Pick<Identity, "organizationsPage" | "memberContacts" | "resolveAccess">;
-  subscriptions: SubscriptionAccess;
+  subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   logger: Logger;
 }
 

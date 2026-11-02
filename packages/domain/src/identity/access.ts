@@ -1,5 +1,6 @@
-// Who is acting, for request checks 1 and 4 (spec 6.5). Read from the database on every request, so a role change
-// or a removal takes effect on the next request rather than when the 5-minute session cookie expires.
+// Who is acting, for request checks 1 and 4 (spec 6.5). Read from the database, not the 5-minute session cookie: the
+// api keeps the result at most five minutes, drops it at once after any change made through the api (a role change
+// or a removal applies to the next request), and reads it on every request for a freshProcedure.
 import type { MeOutput, PendingStep } from "@travel-crm/contracts/identity";
 import type { PlatformStaffLevel } from "@travel-crm/contracts/platform";
 import { withDeleted } from "@travel-crm/db";

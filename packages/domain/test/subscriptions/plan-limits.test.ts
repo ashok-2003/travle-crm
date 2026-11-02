@@ -15,7 +15,7 @@ const growth: Entitlements = {
   nextChangeOn: parseCalendarDate("2027-01-01"),
 };
 
-const accessTo = (byOrganization: Record<string, Entitlements>): SubscriptionAccess => ({
+const accessTo = (byOrganization: Record<string, Entitlements>): Pick<SubscriptionAccess, "entitlementsOf"> => ({
   entitlementsOf: (organizationId) => Promise.resolve(byOrganization[organizationId] ?? null),
 });
 
