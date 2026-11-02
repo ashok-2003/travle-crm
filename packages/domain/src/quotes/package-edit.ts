@@ -43,6 +43,7 @@ export const packageColumns = {
   published: true,
   defaultTravellerLevel: true,
   cancellationNotes: true,
+  destination: { select: { name: true } },
 } as const;
 
 type PackageRow = NonNullable<Awaited<ReturnType<typeof readPackage>>>;
@@ -65,14 +66,33 @@ export function publishGaps(row: Pick<PackageRow, "name" | "slug" | "summary">, 
   return gaps;
 }
 
-export const tiersOf = async (tx: OrgTx, packageId: string) =>
-  (
+/** The package's tiers in order, each line with the name of the rate it prices from (a rate since removed has none). */
+export async function tiersOf(tx: OrgTx, packageId: string) {
+  const tiers = (
     await tx.quoteTemplateTier.findMany({
       where: { templateId: packageId },
       orderBy: [{ position: "asc" }, { id: "asc" }],
       select: { id: true, name: true, position: true, lines: true },
     })
-  ).map((tier) => packageTier.parse({ ...tier, lines: tierLine.array().catch([]).parse(tier.lines) }));
+  ).map((tier) => ({ ...tier, lines: tierLine.array().catch([]).parse(tier.lines) }));
+  const rateIds = [
+    ...new Set(tiers.flatMap((tier) => tier.lines.flatMap((line) => (line.rateId === null ? [] : [line.rateId])))),
+  ];
+  const rates = await tx.supplierRate.findMany({
+    where: { id: { in: rateIds } },
+    select: { id: true, item: true, season: { select: { supplier: { select: { name: true } } } } },
+  });
+  const labels = new Map(rates.map((rate) => [rate.id, `${rate.season.supplier.name}: ${rate.item}`]));
+  return tiers.map((tier) =>
+    packageTier.parse({
+      ...tier,
+      lines: tier.lines.map((line) => ({
+        ...line,
+        rateLabel: line.rateId === null ? null : (labels.get(line.rateId) ?? null),
+      })),
+    }),
+  );
+}
 
 /** The package for its editor. Costs in its lines are shown only to whoever may see margins. */
 export async function getPackage(
@@ -103,6 +123,7 @@ export async function getPackage(
     defaultTravellerLevel: row.defaultTravellerLevel,
     cancellationNotes: row.cancellationNotes,
     published: row.published,
+    destinationName: row.destination?.name ?? null,
     items: access.permissions.has("money:view_margin") ? items : withoutCosts(items),
     tiers: await tiersOf(tx, row.id),
     photoCount: context.photoCount,
@@ -189,12 +210,9 @@ export async function setPackagePublished(
     );
   }
   await tx.quoteTemplate.update({ where: { id: row.id }, data: { published: input.published } });
-  await recordAudit(tx, access, {
-    action: input.published ? "quote-package.published" : "quote-package.unpublished",
-    entityType: "quote_template",
-    entityId: row.id,
-    after: { name: row.name, slug: row.slug },
-  });
+  const audited = { entityType: "quote_template", entityId: row.id, after: { name: row.name, slug: row.slug } };
+  if (input.published) await recordAudit(tx, access, { action: "quote-package.published", ...audited });
+  else await recordAudit(tx, access, { action: "quote-package.unpublished", ...audited });
 }
 
 /** Adds a tier, or changes one: its name and its lines. */

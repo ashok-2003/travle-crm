@@ -4,6 +4,7 @@
 import {
   calculatedFromPrice,
   madeQuotes,
+  packageChoices,
   makeQuotesFromPackageInput,
   packageDetail,
   packageIdInput,
@@ -27,6 +28,7 @@ import {
   removePackagePhoto,
   removeTier,
   requestPackagePhotoUpload,
+  tiersOf,
   saveTier,
   setPackagePublished,
   updatePackage,
@@ -86,6 +88,16 @@ export const packagesRouter = router({
       const today = calendarDateIn(new Date(), timeZone);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => calculateFromPrice(tx, input.packageId, today));
     }),
+
+  /** The tiers a quote can start from, by name: for whoever makes quotes, who need not see the lines. */
+  choices: maker
+    .input(packageIdInput)
+    .output(packageChoices)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        tiers: (await tiersOf(tx, input.packageId)).map(({ id, name }) => ({ id, name })),
+      })),
+    ),
 
   /** A quote for each tier chosen, as options of the lead's enquiry, priced from the season of the start date. */
   makeQuotes: maker

@@ -79,13 +79,23 @@ export const setPackagePublishedInput = z.strictObject({ packageId: recordId, pu
 export const publishGaps = ["name", "slug", "summary", "photo"] as const;
 export type PublishGap = (typeof publishGaps)[number];
 
-export const packageTier = z.object({ id: recordId, name: z.string(), position: z.int(), lines: z.array(tierLine) });
+/** A tier's line as the editor reads it: with the name of the rate it prices from ("Hotel Aurora: Deluxe room"), if it has one. */
+export const tierLineView = tierLine.extend({ rateLabel: z.string().nullable() });
+export type TierLineView = z.infer<typeof tierLineView>;
+export const packageTier = z.object({
+  id: recordId,
+  name: z.string(),
+  position: z.int(),
+  lines: z.array(tierLineView),
+});
 export type PackageTier = z.infer<typeof packageTier>;
 
 export const packageDetail = z.object({
   id: recordId,
   ...z.object(packageFields).shape,
   published: z.boolean(),
+  /** The destination's name, for the picker. */
+  destinationName: z.string().nullable(),
   /** The lines of a package with no tiers (its one implicit tier); costs only for whoever may see margins. */
   items: z.array(quoteItem).max(MAX_QUOTE_ITEMS),
   tiers: z.array(packageTier),
@@ -98,6 +108,12 @@ export const packageDetail = z.object({
   agencyCode: z.string(),
 });
 export type PackageDetail = z.infer<typeof packageDetail>;
+
+/** What a member who makes quotes picks from: the package's tiers by name (they need not see the lines or the rates). */
+export const packageChoices = z.object({
+  tiers: z.array(z.object({ id: recordId, name: z.string() })),
+});
+export type PackageChoices = z.infer<typeof packageChoices>;
 
 /** One quote for each tier chosen, as options of the same enquiry, priced from the season covering the start date. */
 export const makeQuotesFromPackageInput = z.strictObject({

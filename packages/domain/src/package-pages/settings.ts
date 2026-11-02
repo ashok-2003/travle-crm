@@ -34,7 +34,7 @@ export async function savePublicPageSettings(
           select: columns,
         });
   await recordAudit(tx, access, {
-    action: row.enabled ? "public-pages.settings-changed" : "public-pages.turned-off",
+    action: "public-pages.settings-changed",
     entityType: "public_page_settings",
     entityId: access.organizationId,
     before: { enabled: before.enabled },
