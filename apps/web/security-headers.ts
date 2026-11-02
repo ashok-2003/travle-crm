@@ -2,7 +2,7 @@
 // can read them.
 import { API_PATHS } from "./src/lib/routes";
 
-/** Turnstile's origin, allowed on /f and /embed only. */
+/** Turnstile's origin, allowed on /f, /embed and the public package pages (/a) only. */
 const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 
 /** What differs between the pages' policies: who may frame the page, and whether Turnstile's widget may run. */
@@ -100,6 +100,8 @@ export function securityHeaderRules(settings: PolicySettings) {
     ...TOKEN_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "strict-origin" }] })),
     // The visitor's form (spec 5.3): the catch-all's set, with Turnstile's origins in its policy.
     { source: "/f/:path*", headers: securityHeaders(settings, { turnstile: true }) },
+    // An agency's public package pages (release 7b): the same set, with Turnstile for the enquiry form.
+    { source: "/a/:path*", headers: securityHeaders(settings, { turnstile: true }) },
     // The same form in an iframe on the agency's own site: any https site may frame it (W30), so no X-Frame-Options.
     {
       source: "/embed/:path*",

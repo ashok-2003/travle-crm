@@ -284,6 +284,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `/p/*`                          | api, 3001     | share links                                                                 |
 | `/webhooks/*`                   | api, 3001     | the webhook intake (Meta's and MSG91's callbacks)                           |
 | `/f/*`, `/embed/*`, `/embed.js` | web, 3000     | the website form's pages and script (the default rule)                      |
+| `/a/*`                          | web, 3000     | an agency's public package pages, server-rendered (the default rule)        |
 | `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)                         |
 | everything else                 | web, 3000     | the app's pages, build files, manifest and service worker                   |
 
@@ -294,6 +295,12 @@ Secrets come from the platform's secret manager as environment variables, never 
   needs no new line), and `/api/public/website-forms/*` and `/api/public/client-address` are the api's under the
   `/api/*` rule. The web image's content security policy gains Turnstile's origins on `/f` and `/embed` only, and `/embed`
   alone may be framed (by any https site).
+- **The public package pages' paths** (release 7b): `/a/<sign-in code>` and `/a/<sign-in code>/<package>` are the web app's
+  (the default rule; `docker/Caddyfile` names it), server-rendered so a link preview and a search engine read them. The web
+  server reads their data from the api at `/api/public/packages/*` (the api's under the `/api/*` rule, cacheable for a minute).
+  Set `API_ORIGIN` for the web **container** to where it reaches the api (`http://api:3001` in the compose files); unset, it uses
+  the address the visitor came by, which the load balancer routes `/api/*` from (Vercel). The web image's content security policy
+  gains Turnstile's origins on `/a` as on `/f`, and `/a` keeps no service worker cache.
 - **Two small servers** (`docs/runbook.md`): Vercel's rewrites are this table, sending the first row to the console's
   server and the next three to the api's. Each server's Caddy (`docker/server/Caddyfile`, by `SERVER_ROLE`) routes only
   its own rows and `/health`, answering 404 to the rest, and every other path is Vercel's. `BETTER_AUTH_URL` and

@@ -24,6 +24,11 @@
 	handle /webhooks/* {
 		reverse_proxy api:3001
 	}
+	# An agency's public package pages (/a/<sign-in code>/<package>) are the web app's, server-rendered; listed here so the
+	# table in docs/deploy-checklist.md and this file agree, though the last rule would send them there anyway.
+	handle /a/* {
+		reverse_proxy web:3000
+	}
 	handle /health {
 		reverse_proxy api:3001
 	}
