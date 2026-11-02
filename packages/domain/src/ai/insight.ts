@@ -46,6 +46,24 @@ export function saysNothingNew(text: string): boolean {
 }
 
 /**
+ * True when the lead has a guess and every line the customer wrote since it was made is an "ok", a "thanks" or an emoji:
+ * the call is saved. A burst of real words with an "ok" at its end is read whole, and a lead never scored is scored.
+ */
+async function nothingNewSince(tx: OrgTx, conversationId: string, leadId: string): Promise<boolean> {
+  const insight = await tx.leadAiInsight.findFirst({ where: { leadId }, select: { updatedAt: true } });
+  if (insight === null) return false;
+  const since = await tx.whatsappMessage.findMany({
+    where: { conversationId, direction: "in", occurredAt: { gt: insight.updatedAt } },
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    take: CHAT_MESSAGES,
+    select: { body: true, caption: true },
+  });
+  // A page full of lines may have real words beyond it: read it all.
+  if (since.length === CHAT_MESSAGES) return false;
+  return since.every((message) => saysNothingNew(message.body ?? message.caption ?? ""));
+}
+
+/**
  * When the lead this chat is about was last scored, or null: never, or no lead yet (a first message's lead may be made
  * after this is asked, so the job still goes, and finds it).
  */
@@ -164,7 +182,7 @@ async function prepare(
   const newest = await tx.whatsappMessage.findFirst({
     where: { conversationId: job.conversationId, direction: "in" },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    select: { id: true, body: true, caption: true },
+    select: { id: true },
   });
   if (newest?.id !== job.messageId) return "later_message";
   const chat = await tx.whatsappConversation.findUnique({
@@ -188,13 +206,7 @@ async function prepare(
     },
   });
   if (lead === null) return "no_lead";
-  // An "ok" or a "thanks" changes no guess already made: the call is saved. A lead never scored is scored all the same.
-  if (
-    saysNothingNew(newest.body ?? newest.caption ?? "") &&
-    (await tx.leadAiInsight.count({ where: { leadId: lead.id } })) > 0
-  ) {
-    return "nothing_new";
-  }
+  if (await nothingNewSince(tx, job.conversationId, lead.id)) return "nothing_new";
   const timeZone = await organizationTimeZone(tx, job.organizationId);
   if (!(await reserveAiCall(tx, now, timeZone))) return "limit";
   const destination =
