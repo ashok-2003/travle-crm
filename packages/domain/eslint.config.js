@@ -1,7 +1,7 @@
-// ESLint for @travel-crm/domain: the shared strict config. Four places may write raw SQL naming a table without
+// ESLint for @travel-crm/domain: the shared strict config. A few places may write raw SQL naming a table without
 // row-level security, each only its own: identity the sign-in tables, webhooks webhook_event, rate-limits
-// rate_limit_counter, and the sheets module's schedule.ts the check schedule and the spreadsheet claim. They keep the
-// rest of the raw-database guard.
+// rate_limit_counter, email-log email_log, and the sheets module's schedule.ts the check schedule and the spreadsheet
+// claim (the meta-leads' and the inbox's routes.ts likewise). They keep the rest of the raw-database guard.
 import { base, rawSqlSelectorsAllowing } from "@travel-crm/eslint-config";
 import { defineConfig } from "eslint/config";
 
@@ -26,4 +26,5 @@ export default defineConfig(
   allowingInFiles(["src/sheets/schedule.ts", "test/sheets/**", "test/performance/sheets-*"], "sheetSchedule"),
   allowingInFiles(["src/meta-leads/routes.ts", "test/meta-leads/**", "test/performance/meta-*"], "metaRoutes"),
   allowingInFiles(["src/inbox/routes.ts", "test/inbox/**", "test/performance/whatsapp-*"], "whatsappRoutes"),
+  allowingInModule("email-log", "emailLog"),
 );

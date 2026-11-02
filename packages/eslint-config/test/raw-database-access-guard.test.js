@@ -33,7 +33,7 @@ const insideWebhooks = "src/webhooks/sample.ts";
 const insideRateLimits = "src/rate-limits/sample.ts";
 
 describe("raw database access guard", () => {
-  it("reads the domain package's six overrides", () => {
+  it("reads the domain package's seven overrides", () => {
     expect(domainOverrides.map((config) => config.files)).toEqual([
       ["src/identity/**", "test/identity/**"],
       ["src/webhooks/**", "test/webhooks/**"],
@@ -44,6 +44,7 @@ describe("raw database access guard", () => {
       ["src/meta-leads/routes.ts", "test/meta-leads/**", "test/performance/meta-*"],
       // And the inbox's.
       ["src/inbox/routes.ts", "test/inbox/**", "test/performance/whatsapp-*"],
+      ["src/email-log/**", "test/email-log/**"],
     ]);
   });
 
@@ -216,6 +217,22 @@ describe("raw database access guard", () => {
   it.each(whatsappRouteQueries)("allows %s inside the inbox module's routes.ts", async (sql) => {
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "src/inbox/routes.ts")).toEqual([]);
     expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/inbox/sample.test.ts")).toEqual([]);
+  });
+
+  const emailLogQueries = [
+    "SELECT html_body FROM email_log WHERE id = ${id}::uuid",
+    'DELETE FROM "public"."email_log" WHERE created_at < ${before}',
+  ];
+
+  it.each(emailLogQueries)("reports %s outside the email-log module", async (sql) => {
+    for (const filePath of [undefined, insideIdentity, insideWebhooks, "src/platform/erasure.ts"]) {
+      expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", filePath)).toEqual(["no-restricted-syntax"]);
+    }
+  });
+
+  it.each(emailLogQueries)("allows %s inside the email-log module", async (sql) => {
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "src/email-log/purge.ts")).toEqual([]);
+    expect(await rulesReportedFor("await tx.$queryRaw`" + sql + "`;", "test/email-log/sample.test.ts")).toEqual([]);
   });
 
   it("keeps the sign-in tables and the organization switch refused inside the webhooks and rate-limits modules", async () => {

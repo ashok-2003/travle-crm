@@ -23,8 +23,9 @@ type RawStringMethod = "$executeRawUnsafe" | "$queryRawUnsafe";
  * transaction hides them, and so the sheets hash key's check row (no organization_id); only their own modules reach
  * them, in db.withoutOrg(), through @travel-crm/db/webhooks, @travel-crm/db/rate-limits, @travel-crm/db/sheet-schedule
  * and @travel-crm/db/sheets-key-check. The same holds for the Meta lead ads' Page route (an organization_id, but ids
- * and times only), through @travel-crm/db/meta-routes, and the WhatsApp number route and unrouted numbers (ids, numbers
- * and counts only), through @travel-crm/db/whatsapp-routes.
+ * and times only), through @travel-crm/db/meta-routes, the WhatsApp number route and unrouted numbers (ids, numbers
+ * and counts only), through @travel-crm/db/whatsapp-routes, and the email log (no organization_id), through
+ * @travel-crm/db/email-log.
  */
 export type UnscopedModel =
   | "webhookEvent"
@@ -34,7 +35,8 @@ export type UnscopedModel =
   | "sheetsKeyCheck"
   | "metaPageRoute"
   | "whatsappNumberRoute"
-  | "whatsappUnrouted";
+  | "whatsappUnrouted"
+  | "emailLog";
 const unscopedModels: readonly string[] = [
   "webhookEvent",
   "rateLimitCounter",
@@ -44,6 +46,7 @@ const unscopedModels: readonly string[] = [
   "metaPageRoute",
   "whatsappNumberRoute",
   "whatsappUnrouted",
+  "emailLog",
 ] satisfies UnscopedModel[];
 
 /** A transaction with every model, which this package's entry points unwrap. */
