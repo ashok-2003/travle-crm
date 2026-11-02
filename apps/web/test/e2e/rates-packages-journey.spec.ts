@@ -2,6 +2,7 @@
 // minimum-margin warning that warns and never blocks, what a salesperson sees of costs, and a package with two tiers made into
 // quotes for a lead, one with a line that needs a rate. Each on a phone and a desktop.
 import { inputDay } from "./support/departures";
+import { expectAccessible } from "./support/accessibility";
 import { saveBusinessProfile } from "./support/documents";
 import { expect, signInByCode, signInByEmail, test } from "./support/fixtures";
 import {
@@ -244,6 +245,7 @@ test("a package with two tiers makes a quote for each, and a date with no rate m
   await dialog.getByRole("button", { name: "Save tier" }).click();
   await expect(page.getByRole("region", { name: "Tiers" })).toContainText("Standard");
   await expect(page.getByRole("region", { name: "Tiers" })).toContainText("2 lines");
+  await expectAccessible(page);
 
   // Deluxe, through the api: the suite instead of the deluxe room.
   await aTier(page, packageId, "Deluxe", [

@@ -173,16 +173,6 @@ const TWO_FACTOR_SHOTS = [
   { name: "r7a-today", screen: "Today with a departure leaving soon and what needs a look", as: owner },
   { name: "r7a-supplier", screen: "A supplier with its contact and the costs linked to it", as: owner },
   { name: "r7a-dues", screen: "What the agency owes, supplier by supplier, the overdue first", as: owner },
-  // Release 7b: rates, priced quote lines, packages and their public pages (2026-11-02).
-  { name: "r7b-rates", screen: "A supplier's rates: two seasons, each with its rates", as: owner },
-  {
-    name: "r7b-quote-margin",
-    screen: "A quote with lines priced from rates and the minimum-margin warning",
-    as: owner,
-  },
-  { name: "r7b-package", screen: "A package with its two tiers, photos and publishing", as: owner },
-  { name: "r7b-public-page", screen: "A package's public page", as: visitor },
-  { name: "r7b-public-form", screen: "The public page's enquiry form, joining a departure", as: visitor },
 ] as const satisfies readonly Shot[];
 
 export const SHOTS = [
@@ -622,6 +612,16 @@ export const SHOTS = [
   { name: "r6-cancelled", screen: "A cancelled booking with its refund due", as: owner },
   { name: "r6-trip-cancelled", screen: "The trip page of a cancelled booking", as: visitor },
   { name: "r6-settings", screen: "Settings, Bookings: the schedule, reminders and cancellation steps", as: owner },
+  // Release 7b: rates, priced quote lines, packages and their public pages (2026-11-02).
+  { name: "r7b-rates", screen: "A supplier's rates: two seasons, each with its rates", as: owner },
+  {
+    name: "r7b-quote-margin",
+    screen: "A quote with lines priced from rates and the minimum-margin warning",
+    as: owner,
+  },
+  { name: "r7b-package", screen: "A package with its two tiers, photos and publishing", as: owner },
+  { name: "r7b-public-page", screen: "A package's public page", as: visitor },
+  { name: "r7b-public-form", screen: "The public page's enquiry form, joining a departure", as: visitor },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

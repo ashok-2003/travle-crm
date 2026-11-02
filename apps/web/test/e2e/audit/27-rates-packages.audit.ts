@@ -119,7 +119,10 @@ test("rates, a priced quote with the warning, a package with tiers, and its publ
   await visit.goto(address);
   await expect(visit.getByRole("heading", { level: 1, name: "Kedarnath yatra" })).toBeVisible();
   await shoot(visit, "r7b-public-page");
-  await visit.getByRole("button", { name: /^Join the departure on/ }).click();
+  await visit
+    .getByRole("button", { name: /^Join the departure on/ })
+    .first()
+    .click();
   await expect(visit.getByRole("heading", { name: /^Join the departure on/ })).toBeVisible();
   await shoot(visit, "r7b-public-form");
   await visitor.close();

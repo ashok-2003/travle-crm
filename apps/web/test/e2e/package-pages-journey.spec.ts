@@ -1,6 +1,7 @@
 // An agency's public package pages (release 7b): a published package at /a/<sign-in code>/<package> with its photos, plan and
 // price, the enquiry that arrives as a lead, joining a departure (and the waitlist of a full one) as a lead with a task, and
 // the plain page for one that is not there. Nothing private is on the page: no cost, supplier or seat count.
+import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { callApi, dayInIndia } from "./support/leads";
 import {
@@ -73,6 +74,7 @@ test("a visitor reads a published package and the enquiry arrives as a lead; a p
   await expect(visit.getByText("Darshan at Kedarnath")).toBeVisible();
   await expect(visit.getByText("Free to cancel 30 days before.")).toBeVisible();
   await expect(visit.getByText("A family agency in Dehradun, running yatras since 2009.")).toBeVisible();
+  await expectAccessible(visit);
   // The page holds what the agency published and nothing it paid or keeps.
   const html = await visit.content();
   for (const secret of ["Hotel Aurora", "3500", "350000", "costUnitPaise", "seatsTotal"]) {
@@ -106,6 +108,7 @@ test("a visitor reads a published package and the enquiry arrives as a lead; a p
   await list.goto(`/a/${agency.code.toLowerCase()}`);
   await expect(list.getByRole("heading", { level: 1, name: "Our packages" })).toBeVisible();
   await expect(list.getByRole("link", { name: /See the package/ })).toBeVisible();
+  await expectAccessible(list);
   await list.getByLabel("Search packages").fill("zzzz");
   await expect(list.getByText("No package matches.")).toBeVisible();
   const missing = await visitor.newPage();
@@ -154,6 +157,7 @@ test("a visitor joins an open departure and a full one's waitlist, each landing 
   await fillTime(visit);
   await visit.getByRole("button", { name: /^Join the departure on/ }).click();
   await expect(visit.getByRole("heading", { name: /^Join the departure on/ })).toBeVisible();
+  await expectAccessible(visit);
   const phone = newPhone();
   await fillVisitor(visit, { name: "Dev Malhotra", phone });
   await visit.getByLabel("How many seats").fill("2");

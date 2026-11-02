@@ -196,13 +196,7 @@ export function EnquiryForm({
         <PhoneField control={form.control} name="phone" label={t("phone")} autoComplete="tel-national" />
         <TextField control={form.control} name="email" label={t("email")} type="email" autoComplete="email" />
         {joining ? (
-          <TextField
-            control={form.control}
-            name="travellers"
-            label={t("seats")}
-            inputMode="numeric"
-            className="numbers"
-          />
+          <TextField control={form.control} name="travellers" label={t("seats")} inputMode="numeric" />
         ) : (
           <>
             <SelectField
@@ -220,13 +214,7 @@ export function EnquiryForm({
                 { value: NOT_SURE, label: t("unsure") },
               ]}
             />
-            <TextField
-              control={form.control}
-              name="travellers"
-              label={t("travellers")}
-              inputMode="numeric"
-              className="numbers"
-            />
+            <TextField control={form.control} name="travellers" label={t("travellers")} inputMode="numeric" />
           </>
         )}
         <NoteField
