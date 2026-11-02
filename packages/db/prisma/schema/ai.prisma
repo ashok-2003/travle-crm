@@ -315,16 +315,18 @@ model AiFollowUpTouch {
 model AiFill {
   organizationId    String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   id                String       @id @default(uuid(7)) @db.Uuid
-  /// lead, lead_edit, quote, call_note, room_requests or departure_offer (CHECK ai_fill_target_value).
+  /// lead, lead_edit, quote, call_note, room_requests, departure_offer, quote_days, rate_sheet or travellers (CHECK ai_fill_target_value).
   target            String
   /// What the form is for (lead, quote, ...) and its id: polymorphic, so no key. Null for a lead not made yet.
   subjectType       String?      @map("subject_type")
   subjectId         String?      @map("subject_id") @db.Uuid
   requestedBy       String       @map("requested_by") @db.Uuid
-  /// text, voice, image or chat (CHECK ai_fill_input_kind_value).
+  /// text, voice, image, chat or file (CHECK ai_fill_input_kind_value).
   inputKind         String       @map("input_kind")
   /// The recording or screenshot, an attachment of record type ai_input; no key: the sweep deletes the attachment row.
   inputAttachmentId String?      @map("input_attachment_id") @db.Uuid
+  /// The rest of a photo set (a rate sheet's other photos), also ai_input attachments; null for a fill of one file.
+  inputAttachmentIds String[]    @default([]) @map("input_attachment_ids") @db.Uuid
   model             String
   /// A hash of the whole proposal.
   proposalHash      String       @map("proposal_hash")
