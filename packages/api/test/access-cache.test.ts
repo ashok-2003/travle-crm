@@ -146,10 +146,17 @@ describe("access cache", () => {
       const load = vi.fn(
         () =>
           new Promise<MemberAccess>((resolve) => {
-            settle = () => { resolve(value); };
+            settle = () => {
+              resolve(value);
+            };
           }),
       );
-      return { load, settle: () => { settle(); } };
+      return {
+        load,
+        settle: () => {
+          settle();
+        },
+      };
     }
 
     it("hands the stale load to its caller but does not keep it", async () => {
