@@ -5,6 +5,7 @@ import { z } from "zod";
 import { aiKnowledgeFileTypes, presignedUpload } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 import { tripAnswer } from "./fill-answer.js";
+import { writeStyle } from "./write-up.js";
 
 export const AI_INSTRUCTIONS_MAX = 4000;
 
@@ -15,6 +16,8 @@ export const saveAiSettingsInput = z.strictObject({
   scoring: z.boolean(),
   /** New WhatsApp leads are filled in from their first messages, as suggestions (release ai2a); left as it was when omitted. */
   fillLeads: z.boolean().optional(),
+  /** How the quote write-up sounds (release ai2b); left as it was when omitted. */
+  writeStyle: writeStyle.optional(),
   /** What the agency tells its AI: its tone and language, what to offer, what never to say. */
   instructions: z.string().trim().max(AI_INSTRUCTIONS_MAX),
 });
@@ -24,6 +27,7 @@ export const aiSettings = z.object({
   enabled: z.boolean(),
   scoring: z.boolean(),
   fillLeads: z.boolean(),
+  writeStyle,
   instructions: z.string(),
   /** False when this server has no AI key: the switch can be on but no suggestion is made, and the screen says so. */
   providerReady: z.boolean(),

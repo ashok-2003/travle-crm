@@ -143,5 +143,114 @@
     "activityTitle": "Recent activity",
     "activityIntro": "What they changed last, newest first.",
     "noActivity": "Nothing yet."
+  },
+  "ask": {
+    "title": "Ask your reports",
+    "intro": "Ask in your own words, like \"how many leads came from Instagram last month\". The AI only picks which report answers it, and sees none of your data: the figures are your reports' own, for the leads you may see. Your question is not kept.",
+    "label": "Your question",
+    "placeholder": "How many leads came from Instagram last month?",
+    "ask": "Ask",
+    "asking": "Looking",
+    "usage": "{used} of {limit} AI calls used this month, by every AI feature.",
+    "understood": "I understood this as:",
+    "rangeLabel": "Change the period",
+    "period": "{from} to {to}",
+    "declinedTitle": "I can't answer that one",
+    "declinedBody": "The reports can't answer this question. These are the nearest questions they can answer:",
+    "noRows": "Nothing in this report for that period.",
+    "formerStaff": "Former staff member",
+    "ranges": {
+      "7d": "last 7 days",
+      "30d": "last 30 days",
+      "90d": "last 90 days",
+      "month": "this month",
+      "last_month": "last month",
+      "quarter": "this quarter",
+      "last_quarter": "last quarter"
+    },
+    "queries": {
+      "overview": {
+        "title": "Key figures",
+        "question": "How did we do overall?"
+      },
+      "team": {
+        "title": "Team performance",
+        "question": "How is each person doing?"
+      },
+      "leads_by_source": {
+        "title": "Leads by source",
+        "question": "Where do our leads come from?"
+      },
+      "leads_by_destination": {
+        "title": "Leads by destination",
+        "question": "Which destinations are asked for most?"
+      },
+      "leads_by_stage": {
+        "title": "Leads by stage",
+        "question": "Where are the new leads now?"
+      },
+      "lost_leads": {
+        "title": "Lost leads by reason",
+        "question": "Why do we lose leads?"
+      },
+      "quotes": {
+        "title": "Quotes sent and accepted",
+        "question": "How many quotes were sent and accepted?"
+      },
+      "payments_collected": {
+        "title": "Payments collected",
+        "question": "How much money did we collect?"
+      },
+      "payments_due": {
+        "title": "Payments still due",
+        "question": "How much is still to be paid?"
+      },
+      "follow_ups_overdue": {
+        "title": "Overdue follow-ups by person",
+        "question": "Who has overdue follow-ups?"
+      }
+    },
+    "columns": {
+      "metric": "Figure",
+      "now": "This period",
+      "before": "Before",
+      "source": "Source",
+      "leads": "Leads",
+      "won": "Won",
+      "sales": "Sales",
+      "destination": "Destination",
+      "stage": "Stage",
+      "reason": "Reason",
+      "count": "Quotes",
+      "amount": "Amount",
+      "method": "Paid by",
+      "payments": "Payments",
+      "person": "Person",
+      "quotesSent": "Quotes sent",
+      "lost": "Lost",
+      "firstReply": "First reply",
+      "overdue": "Overdue"
+    },
+    "metrics": {
+      "newLeads": "New leads",
+      "contacted": "Contacted",
+      "quoted": "Quoted",
+      "bookingRequested": "Asked to book",
+      "won": "Won",
+      "lost": "Lost",
+      "quotesSent": "Quotes sent",
+      "quotesAccepted": "Quotes accepted",
+      "quotesOpen": "Quotes waiting for an answer, now",
+      "outstanding": "Still to be paid",
+      "overdue": "Overdue"
+    },
+    "methods": {
+      "upi": "UPI",
+      "bank": "Bank transfer",
+      "cash": "Cash",
+      "card": "Card",
+      "other": "Other",
+      "refunds": "Refunds"
+    }
   }
 }

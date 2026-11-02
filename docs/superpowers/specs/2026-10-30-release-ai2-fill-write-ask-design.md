@@ -221,3 +221,45 @@ The owner accepted every recommendation: about 10 fixed report questions (b), pe
   card (30 minutes of silence) is not in ai2a.
 - The violet is the people tint (`bg-people-tint`); a field stays marked while it still holds the value the AI gave. A lead's
   suggested fields are marked by comparing the lead's value with the stored hash, so crm never calls the ai module.
+
+## RULINGS OF THE ai2b PART 1 BUILD (2026-10-30): quote write-up and ask reports
+
+- **One migration, `20261128100000_ai_write_ask`:** `ai_settings.write_style` (warm, premium or short; CHECK; default warm). Nothing else
+  is stored: the write-up and the ask have no `ai_fill` row and no new table. A fill's row proves "drafted by AI, approved by X" for a
+  form; a write-up is proved by the existing `ai_draft` row when it is sent from the chat box (`ai.draft-sent`), and a copied write-up
+  or an answered question is only the month's count (`ai_usage`). So there is no `ai.writeup-used` audit action. Words are kept nowhere.
+- **Write-up numbers are code's:** the model writes `{total}`, `{advance}` and `{link}`; `domain/ai/write-up/tokens.ts` fills the total
+  and the advance (the quote's first payment due, by date) and removes a typed amount (₹, Rs, INR, "rupees", "/-"), flagging it
+  (`removedAmounts`, shown as a notice). A line whose value the quote lacks is dropped: the advance line when there is no payment
+  schedule, the link line on a draft quote. The prompt carries day titles and descriptions, line descriptions and quantities, inclusions,
+  exclusions, notes, travellers and the start date; never a unit price or a total.
+- **The link** is not known to the server (a share link's token is shown once, at creation). For a quote that has been sent the text
+  keeps `{link}`, and the screen fills it with the quote's own `quotes.share` (the same link "Make link" makes, kept by the quote
+  screen) as soon as the draft arrives. The write-up never makes a draft quote "sent" by itself: a draft has no link line. Side effect,
+  accepted: `ai.draft-sent` says `changedByMember: true` for a write-up, because the link replaced the token the hash was taken with.
+- **"Put in the chat box"** hands the words to the customer's most recent open chat (the lead's person; the member needs `inbox:view`
+  and `inbox:reply`, in their scope) through the tab (`ai/write-up/chat-box.ts`, under the inbox's own draft key, plus the `ai_draft`
+  it will be audited with), then opens that chat; the composer reads both once. A person presses Send. Email is Copy only; a quote whose
+  customer has no usable chat offers Copy only. The write-up needs `ai:suggest` and `quotes:view`, and is refused for a declined or
+  replaced quote (`QUOTE_NOT_WRITABLE`) and for one with no days (`QUOTE_HAS_NO_DAYS`). "Stale after the quote changes" is the screen
+  comparing the quote's `updatedAt` with the one the write-up was made from.
+- **Ask reports, the catalogue:** ten entries in `domain/reports/queries/`: overview, team, leads by source, by destination, by stage,
+  lost leads by reason, quotes (sent, accepted, waiting), payments collected (by method, less refunds), payments still due, and overdue
+  follow-ups by person. Each says what it needs: the money reports need `money:view_reports` (a member without it is not offered them, and
+  the others drop their money columns), the team report needs a role that sees every lead (`leads:view` "all"); the leads, quotes and
+  payments run for the same owner scope the reports always used (`leads:view`'s), the follow-ups for the asker's own when they see only
+  their own leads. A report a member may not run is "not found". Departures' fill waits for release 7a. A report answers as columns and
+  rows (key, kind), and the screen has the words (`reports.ask`), so no sentence travels in the answer; a `person` cell holds a user id
+  that `reports.ask` and `reports.run` replace with a name from identity.
+- **What the model sees and says:** the question and, for each report the member may run, its id, title and whether it takes a range;
+  never agency data. It answers `{ queryId, params: { range } }` or `{ cannot, closest }`. Ranges are the named set `7d, 30d, 90d, month,
+  last_month, quarter, last_quarter` (calendar quarters), resolved to days by code in the agency's zone; none named means 30 days. An
+  unknown report, a report the member isn't offered, or JSON the model got wrong is read as "cannot". On "cannot" the three nearest are
+  the model's `closest` (checked against what the member may run), filled up with overview, leads by source and quotes. The model's
+  reason is never shown. The question is not stored, audited or logged anywhere; the month's count is all that remembers it.
+- **`reports.ask` is a mutation** (it spends one of the month's calls and must not repeat on a refetch), not a query as section 5 of
+  the design says, so a read-only subscription refuses it, as it refuses every AI call. Changing the range or choosing a suggestion is
+  `reports.run`, a query that asks the AI nothing and costs no call. The call is reserved first and given back when the model fails.
+- **Settings:** the write style is a three-way choice in Settings, AI, saved with the rest (`ai.saveSettings` takes an optional
+  `writeStyle`, left as it was when omitted), audited with the other settings.
+- **Features added to the port:** `write_up` (the chat models) and `ask_report` (the fast models, as scoring uses).

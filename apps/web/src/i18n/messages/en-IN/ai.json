@@ -33,7 +33,15 @@
     "scoring": "Let the AI score each lead",
     "scoringHint": "After each message from a customer: its chance to book, a line on how the lead stands, the next step, and whether it looks fake. Shown on the lead's page.",
     "fillLeads": "Let the AI fill in new WhatsApp leads",
-    "fillLeadsHint": "From a new customer's first messages: where, when, how many and the budget, put on the lead as suggestions in violet for your team to confirm. It never changes what a person already wrote. It uses the same AI call as scoring."
+    "fillLeadsHint": "From a new customer's first messages: where, when, how many and the budget, put on the lead as suggestions in violet for your team to confirm. It never changes what a person already wrote. It uses the same AI call as scoring.",
+    "writeStyleTitle": "How the quote write-up sounds",
+    "writeStyle": "Style of the message for the customer",
+    "writeStyleHint": "Used by \"Write for the customer\" on a quote. The AI never types a price: the total and the advance come from the quote.",
+    "writeStyles": {
+      "warm": "Warm and friendly",
+      "premium": "Polished and premium",
+      "short": "Short and to the point"
+    }
   },
   "suggest": {
     "button": "Suggest a reply",
@@ -456,5 +464,33 @@
       "days": "{count, plural, one {# day} other {# days}}",
       "items": "{count, plural, one {# line, price to add} other {# lines, prices to add}}"
     }
+  },
+  "writeUp": {
+    "button": "Write for the customer",
+    "title": "Write for the customer",
+    "description": "The AI writes a message about this quote from its plan, inclusions and notes. The total and the advance are the quote's own. Nothing is sent.",
+    "reviewDescription": "Read it, change what you like, then copy it or put it in the customer's chat box. Nothing is sent from here.",
+    "language": "Language",
+    "languages": {
+      "en": "English",
+      "hi": "Hindi"
+    },
+    "channel": "For",
+    "channels": {
+      "whatsapp": "WhatsApp",
+      "email": "Email"
+    },
+    "channelHint": "WhatsApp is short with a few emojis. Email has a greeting, sections and a sign-off, and is copied: the product sends no email to customers.",
+    "write": "Write it",
+    "writing": "Writing",
+    "writeAgain": "Write again",
+    "copy": "Copy",
+    "putInChat": "Put in the chat box",
+    "textLabel": "The message",
+    "textHint": "{used} of {limit} AI calls used this month.",
+    "stale": "The quote changed. Write again, so the message matches it.",
+    "removedAmounts": "The AI typed an amount of its own and it was taken out. Check the message reads right: only the quote's total and advance are filled in.",
+    "noDays": "Add the day-by-day plan to the quote first, so the AI has something to write about.",
+    "noChat": "This customer has no chat you can use here, so copy the message instead."
   }
 }

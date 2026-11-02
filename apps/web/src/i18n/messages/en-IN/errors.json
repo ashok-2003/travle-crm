@@ -227,6 +227,8 @@
     "AI_BUSY": "The AI is busy right now. Try again in a minute, or write the reply yourself.",
     "AI_UNAVAILABLE": "The AI didn't answer. Try again in a minute, or write the reply yourself.",
     "AI_MONTH_LIMIT": "This agency has used this month's AI suggestions. They start again next month.",
+    "QUOTE_NOT_WRITABLE": "This quote was declined or replaced, so there is nothing to write about it. Open the current quote.",
+    "QUOTE_HAS_NO_DAYS": "Add the day-by-day plan to the quote first, so the AI has something to write about.",
     "AI_NOTHING_TO_FILL": "The AI found nothing to fill in. Say a little more, or fill the form yourself.",
     "AI_INPUT_TOO_LARGE": "That recording or picture is too big. A recording is at most 2 minutes, a picture at most 5 MB.",
     "SUBJECT_REQUIRED": "Open the lead or quote first, then ask the AI to fill it.",
