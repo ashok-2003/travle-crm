@@ -143,5 +143,116 @@
     "add": "Add \"{name}\"",
     "added": "{name} added to your suppliers",
     "addKind": "New suppliers are added as a hotel; change it on the supplier's page."
+  },
+  "rates": {
+    "title": "Rates",
+    "intro": "What this supplier charges the agency, by season. A date with no season has no rate: a quote never guesses one.",
+    "none": "No seasons yet. Add one, then its rates.",
+    "addSeason": "Add a season",
+    "editSeason": "Change",
+    "editSeasonNamed": "Change {name}",
+    "copySeason": "Copy to next year",
+    "copySeasonNamed": "Copy {name} to other dates",
+    "removeSeason": "Remove",
+    "removeSeasonNamed": "Remove {name}",
+    "removeSeasonTitle": "Remove this season?",
+    "removeSeasonDescription": "The season and its rates go. Quotes already priced from them keep their prices.",
+    "seasonRemoved": "Season removed",
+    "range": "{from} to {to}",
+    "noRates": "No rates in this season yet.",
+    "addRate": "Add a rate",
+    "editRate": "Change",
+    "editRateNamed": "Change {item}",
+    "removeRate": "Remove",
+    "removeRateNamed": "Remove {item}",
+    "removeRateTitle": "Remove this rate?",
+    "removeRateDescription": "Quotes already priced from it keep their prices.",
+    "rateRemoved": "Rate removed",
+    "columns": {
+      "item": "Item",
+      "mealPlan": "Meal plan",
+      "occupancy": "Occupancy",
+      "unit": "Unit",
+      "cost": "Cost"
+    },
+    "mealPlans": {
+      "none": "None",
+      "EP": "EP (room only)",
+      "CP": "CP (with breakfast)",
+      "MAP": "MAP (breakfast and one meal)",
+      "AP": "AP (all meals)"
+    },
+    "occupancies": {
+      "none": "None",
+      "single": "Single",
+      "double": "Double",
+      "triple": "Triple",
+      "extra_bed": "Extra bed",
+      "child_with_bed": "Child with bed",
+      "child_no_bed": "Child without bed"
+    },
+    "units": {
+      "per_room_night": "Per room night",
+      "per_person_night": "Per person night",
+      "per_day": "Per day",
+      "per_trip": "Per trip"
+    },
+    "season": {
+      "addTitle": "Add a season",
+      "editTitle": "Change this season",
+      "description": "The dates its rates hold. Seasons of one supplier never overlap.",
+      "label": "Name",
+      "labelHint": "Such as Peak 2026 or Monsoon.",
+      "startsOn": "First day",
+      "endsOn": "Last day",
+      "save": "Save",
+      "saving": "Saving",
+      "saved": "Season saved",
+      "problems": {
+        "required": "Fill this in.",
+        "invalid": "Check this.",
+        "order": "The last day can't be before the first."
+      }
+    },
+    "copy": {
+      "title": "Copy this season",
+      "description": "The season and its rates are copied to other dates, every cost changed by the share you give. Nothing is changed in the original.",
+      "label": "Name of the new season",
+      "startsOn": "First day",
+      "endsOn": "Last day",
+      "change": "Change every cost by (%)",
+      "changeHint": "5 adds 5 %, -3 takes 3 % off. Costs round to a whole rupee.",
+      "save": "Copy",
+      "saving": "Copying",
+      "saved": "Season copied",
+      "problems": {
+        "required": "Fill this in.",
+        "invalid": "Check this.",
+        "order": "The last day can't be before the first.",
+        "change": "Give a percentage such as 5 or -2.5."
+      }
+    },
+    "rate": {
+      "addTitle": "Add a rate",
+      "editTitle": "Change this rate",
+      "description": "What the supplier charges for one item in this season.",
+      "item": "Item",
+      "itemHint": "A room type, or a vehicle and route.",
+      "mealPlan": "Meal plan",
+      "occupancy": "Occupancy",
+      "unit": "Charged",
+      "cost": "Cost to the agency",
+      "note": "Note",
+      "save": "Save",
+      "saving": "Saving",
+      "saved": "Rate saved",
+      "problems": {
+        "required": "Fill this in.",
+        "invalid": "Check this.",
+        "cost": "Give an amount in rupees."
+      }
+    },
+    "loading": "Loading the rates",
+    "loadFailed": "The rates didn't load."
   }
 }

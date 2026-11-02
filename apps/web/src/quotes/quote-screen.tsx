@@ -34,12 +34,15 @@ import { formatDay } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
 import { WriteUpButton } from "@/ai/write-up/write-up-sheet";
 import { QuoteDepartureCard } from "@/departures/quote-departure-card";
+import { rupees } from "@/components/forms/money-field";
+import { percentText } from "@/lib/percent";
 import { BookingCostsCard } from "@/finance/booking-costs-card";
+import { MarginFigures, MarginNotice } from "./margin-notice";
 import { QuoteForm } from "./quote-form";
 import { QuoteMoney } from "./quote-money";
 import { QuoteStatusBadge } from "./quote-status";
 import { SavePackageDialog } from "./save-package-dialog";
-import { useOpenDocument, useQuote, useQuoteChanges } from "./use-quotes";
+import { useOpenDocument, useQuote, useQuoteChanges, useQuoteSettings } from "./use-quotes";
 
 /** The customer's link as WhatsApp shows it, with the words before it. */
 const whatsappHref = (phone: string, words: string) =>
@@ -47,7 +50,10 @@ const whatsappHref = (phone: string, words: string) =>
 
 function QuoteActions({ quote }: { quote: QuoteDetail }) {
   const t = useTranslations("quotes.quote");
+  const tMargin = useTranslations("quotes.margin");
   const router = useRouter();
+  const seesMargin = useHolds("money:view_margin");
+  const settings = useQuoteSettings();
   const mayEdit = useHolds("quotes:edit");
   const mayCreate = useHolds("quotes:create");
   const mayRecord = useHolds("quotes:record_payments");
@@ -56,11 +62,21 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
   const open = useOpenDocument(quote.id);
   const [link, setLink] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // A draft below the agency's minimum margin asks first; "Send anyway" goes on (release 7b: it warns, never blocks).
+  const [askBelowMinimum, setAskBelowMinimum] = useState<(() => void) | null>(null);
+  const unpriced = quote.needsRateLines > 0;
   const share = (then: (url: string) => void) => {
     if (link !== null) {
       then(link);
       return;
     }
+    const send = () => {
+      sendShared(then);
+    };
+    if (quote.status === "draft" && quote.margin.belowMinimum) setAskBelowMinimum(() => send);
+    else send();
+  };
+  const sendShared = (then: (url: string) => void) => {
     changes.share.mutate(
       { quoteId: quote.id },
       {
@@ -80,7 +96,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
         {mayEdit && live && (
           <Button
             variant="send"
-            disabled={changes.share.isPending}
+            disabled={changes.share.isPending || unpriced}
             onClick={() => {
               share((url) => {
                 if (quote.customerPhone === null) {
@@ -99,7 +115,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
         {mayEdit && live && (
           <Button
             variant="outline"
-            disabled={changes.share.isPending}
+            disabled={changes.share.isPending || unpriced}
             onClick={() => {
               share(() => undefined);
             }}
@@ -221,6 +237,30 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
         }
       />
       <ConfirmDialog
+        open={askBelowMinimum !== null}
+        onOpenChange={(next) => {
+          if (!next) setAskBelowMinimum(null);
+        }}
+        title={tMargin("sendTitle")}
+        description={
+          seesMargin && quote.margin.marginBasisPoints !== null
+            ? tMargin("belowFigures", {
+                share: percentText(quote.margin.marginBasisPoints),
+                amount: rupees(quote.margin.marginPaise ?? 0),
+                minimum: percentText(settings.data?.minMarginBasisPoints ?? 0),
+                hasMinimum: String(settings.data?.minMarginBasisPoints != null),
+              })
+            : tMargin("belowSentence")
+        }
+        action={tMargin("sendAnyway")}
+        request={changes.share}
+        onConfirm={() => {
+          const go = askBelowMinimum;
+          setAskBelowMinimum(null);
+          go?.();
+        }}
+      />
+      <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
         title={t("deleteTitle")}
@@ -297,6 +337,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
           <PageHeader title={data.title} intro={<QuoteStatusBadge status={data.status} />} />
           <QuoteActions quote={data} />
           <FrozenNotice quote={data} />
+          <MarginNotice quote={data} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
             <QuoteForm
               key={data.updatedAt}
@@ -308,6 +349,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
             />
             <div className="flex flex-col gap-6 xl:sticky xl:top-6">
               <QuoteMoney quote={data} />
+              <MarginFigures quote={data} />
               <QuoteDepartureCard quote={data} />
               <BookingCostsCard quoteId={data.id} />
             </div>
