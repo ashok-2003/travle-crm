@@ -25,10 +25,21 @@ export const aiMediaFileTypes = ["image/jpeg", "image/png", "video/mp4", "applic
 export const AI_INPUT_RECORD_TYPE = "ai_input";
 export const aiInputAudioTypes = ["audio/wav"] as const;
 export const aiInputImageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
-export const aiInputFileTypes = [...aiInputAudioTypes, ...aiInputImageTypes] as const;
+/** What "Fill it for me" reads: a recording or a screenshot. */
+export const aiFillInputTypes = [...aiInputAudioTypes, ...aiInputImageTypes] as const;
+/** A supplier's rate sheet (release ai3b): a PDF or an Excel file, or photos of it. */
+export const aiRateSheetFileTypes = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const;
+export const aiRateSheetInputTypes = [...aiInputImageTypes, ...aiRateSheetFileTypes] as const;
+/** Every type an ai_input file may have; the target that reads it refuses the ones it can't use. */
+export const aiInputFileTypes = [...aiFillInputTypes, ...aiRateSheetFileTypes] as const;
 /** A recording is at most 2 minutes of 16 kHz mono WAV (3.84 MB); a screenshot at most 5 MB. */
 export const MAX_AI_AUDIO_BYTES = 4 * 1024 * 1024;
 export const MAX_AI_IMAGE_BYTES = 5 * 1024 * 1024;
+/** A rate sheet's PDF or Excel file is at most 10 MB. */
+export const MAX_AI_RATE_SHEET_BYTES = 10 * 1024 * 1024;
 /** How long those files are kept, in days, before a nightly sweep deletes them. */
 export const AI_INPUT_KEEP_DAYS = 30;
 export const WHATSAPP_RECORD_TYPE = "whatsapp_message";

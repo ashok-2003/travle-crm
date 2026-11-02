@@ -114,7 +114,17 @@ function overlapOnExclusionViolation(error: unknown): never {
   throw error;
 }
 
-export async function saveSeason(tx: OrgTx, access: MemberAccess, input: SaveSeasonInput): Promise<{ id: string }> {
+/** Set when a season or rate is saved from an AI reading of a rate sheet: the audit then says which reading. */
+export interface SaveOptions {
+  aiFillId?: string;
+}
+
+export async function saveSeason(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SaveSeasonInput,
+  options: SaveOptions = {},
+): Promise<{ id: string }> {
   const supplier = await requireSupplier(tx, input.supplierId);
   const range = { startsOn: input.startsOn, endsOn: input.endsOn };
   await assertNoOverlap(tx, supplier.id, range, input.seasonId ?? null);
@@ -139,7 +149,13 @@ export async function saveSeason(tx: OrgTx, access: MemberAccess, input: SaveSea
     action: "supplier.season-saved",
     entityType: "supplier",
     entityId: supplier.id,
-    after: { seasonId: id, label: input.label, startsOn: input.startsOn, endsOn: input.endsOn },
+    after: {
+      seasonId: id,
+      label: input.label,
+      startsOn: input.startsOn,
+      endsOn: input.endsOn,
+      ...(options.aiFillId === undefined ? {} : { aiFillId: options.aiFillId }),
+    },
   });
   return { id };
 }
@@ -215,7 +231,12 @@ export async function copySeason(tx: OrgTx, access: MemberAccess, input: CopySea
 const isUniqueViolation = (error: unknown) =>
   typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 
-export async function saveRate(tx: OrgTx, access: MemberAccess, input: SaveRateInput): Promise<{ id: string }> {
+export async function saveRate(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SaveRateInput,
+  options: SaveOptions = {},
+): Promise<{ id: string }> {
   const season = await tx.supplierRateSeason.findUnique({
     where: { id: input.seasonId },
     select: { id: true, supplierId: true },
@@ -250,7 +271,13 @@ export async function saveRate(tx: OrgTx, access: MemberAccess, input: SaveRateI
     action: "supplier.rate-saved",
     entityType: "supplier",
     entityId: season.supplierId,
-    after: { rateId: id, item: input.item, costPaise: input.costPaise, unit: input.unit },
+    after: {
+      rateId: id,
+      item: input.item,
+      costPaise: input.costPaise,
+      unit: input.unit,
+      ...(options.aiFillId === undefined ? {} : { aiFillId: options.aiFillId }),
+    },
   });
   return { id };
 }

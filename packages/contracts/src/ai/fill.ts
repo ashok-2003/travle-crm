@@ -16,7 +16,7 @@ import {
 } from "../crm/fields.js";
 import { emailAddress, recordId } from "../identity/fields.js";
 import { wallClockTime, calendarDate } from "../kernel/time.js";
-import { aiInputFileTypes, MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES, presignedUpload } from "../files/attachments.js";
+import { aiFillInputTypes, MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES, presignedUpload } from "../files/attachments.js";
 import { quoteDay, quoteItem } from "../quotes/quotes.js";
 
 export const fillTargets = ["lead", "lead_edit", "quote", "call_note"] as const;
@@ -157,7 +157,7 @@ export type AiFillProposal = z.infer<typeof aiFillProposal>;
 
 /** Step one of a recording or a screenshot: where the browser puts it. */
 export const requestAiInputInput = z.strictObject({
-  contentType: z.enum(aiInputFileTypes),
+  contentType: z.enum(aiFillInputTypes),
   sizeBytes: z.int().min(1).max(Math.max(MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES)),
 });
 export type RequestAiInputInput = z.infer<typeof requestAiInputInput>;
