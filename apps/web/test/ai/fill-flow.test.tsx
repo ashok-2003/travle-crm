@@ -25,6 +25,7 @@ const proposal: AiFillProposal = {
   ],
   questions: ["Which month?"],
   truncated: false,
+  removedAmounts: false,
   usedThisMonth: 1,
   monthlyLimit: 3000,
 };
