@@ -125,6 +125,7 @@ model Organization {
   aiFollowUpTouches           AiFollowUpTouch[]
   notificationRouting         NotificationRouting?
   aiUsage                     AiUsage[]
+  aiCalls                     AiCall[]
   aiKnowledge                 AiKnowledge[]
   leadAiInsights              LeadAiInsight[]
   aiDrafts                    AiDraft[]

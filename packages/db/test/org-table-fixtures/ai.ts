@@ -1,5 +1,5 @@
 // Isolation fixtures for the AI: the agency's settings, a month's usage, a draft, a piece of knowledge, a lead's insight, a
-// file it sends and a booking it took. The runtime role deletes none of them.
+// file it sends, a booking it took and a call's log line. The runtime role deletes none of them.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
@@ -7,6 +7,10 @@ import type { OrgTableFixtures } from "../org-table-fixture.js";
 const digits = () => `91${String(Math.floor(Math.random() * 1e10)).padStart(10, "0")}`;
 
 export const fixtures: OrgTableFixtures = {
+  ai_call: {
+    create: (tx) => tx.aiCall.create({ data: { feature: "autopilot", outcome: "ok", model: "isolation" } }),
+    appendOnly: true,
+  },
   ai_fill: {
     create: (tx) =>
       tx.aiFill.create({

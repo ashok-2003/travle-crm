@@ -390,3 +390,28 @@ model DepartureOffer {
   @@index([organizationId, leadId], map: "departure_offer_lead")
   @@map("departure_offer")
 }
+
+/// One call to the AI model (the owner, 2026-11-02: every call logged for the console): which feature asked, which model
+/// answered, the tokens, how long it took and how it ended. No words of the chat. Append-only; the console's health check
+/// removes rows older than 90 days.
+model AiCall {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  occurredAt     DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// The AI feature that asked: suggest_reply, autopilot, score_lead and the rest (integrations' aiFeatures).
+  feature        String
+  /// The model that answered; empty when none did.
+  model          String       @default("")
+  /// ok, rate_limited, unavailable, refused or not_configured (CHECK ai_call_outcome_value).
+  outcome        String
+  inputTokens    Int          @default(0) @map("input_tokens")
+  outputTokens   Int          @default(0) @map("output_tokens")
+  durationMs     Int          @default(0) @map("duration_ms")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, occurredAt(sort: Desc)], map: "ai_call_newest")
+  @@index([occurredAt], map: "ai_call_when")
+  @@map("ai_call")
+}
