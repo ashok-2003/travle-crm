@@ -14,7 +14,8 @@
     "./whatsapp-routes": "./src/whatsapp-routes.ts",
     "./webhooks": "./src/webhooks.ts",
     "./testing": "./test/testing.ts",
-    "./testing/global-setup": "./test/global-setup.ts"
+    "./testing/global-setup": "./test/global-setup.ts",
+    "./testing/transaction-limits": "./test/transaction-limits.ts"
   },
   "scripts": {
     "generate": "prisma generate",

@@ -9,7 +9,9 @@ export default defineConfig({
     include: ["test/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     setupFiles: ["test/setup.ts"],
-    // The form tests click through a screen with userEvent: 5 s is not enough for them on a busy or shared machine.
-    testTimeout: 15_000,
+    // The form tests click through a screen with userEvent: 5 s is not enough for them on a busy or shared machine,
+    // and GitHub's shared runners are slower still, so CI gives them 30 s and one retry.
+    testTimeout: process.env.CI === undefined ? 15_000 : 30_000,
+    retry: process.env.CI === undefined ? 0 : 1,
   },
 });

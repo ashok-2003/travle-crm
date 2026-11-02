@@ -9,28 +9,29 @@ and verify here, and the lessons that cost us time), and for screens [docs/ui-bu
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command                                        | What it does                                                    |
-| ---------------------------------------------- | --------------------------------------------------------------- |
-| `pnpm install`                                 | install dependencies                                            |
-| `pnpm db:up` / `pnpm db:down`                  | start / stop local Postgres (Docker)                            |
-| `pnpm services:up`                             | start Postgres, MinIO (files) and Mailpit (email) locally       |
-| `pnpm db:migrate`                              | apply migrations to local Postgres                              |
-| `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)             |
-| `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules        |
-| `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs |
-| `pnpm dev`                                     | services and migrations, then api, worker, console and web      |
-| `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)        |
-| `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080          |
-| `pnpm format`                                  | format every file with Prettier                                 |
-| `pnpm check`                                   | format, scripts:test, typecheck, lint, tests, journeys, imports |
-| `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)             |
-| `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)        |
-| `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)  |
-| `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)       |
-| `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)         |
-| `pnpm scripts:test`                            | the scripts' tests: compose project names, working hours (CI)   |
-| `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`    |
-| `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                  |
+| Command                                        | What it does                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| `pnpm install`                                 | install dependencies                                                           |
+| `pnpm db:up` / `pnpm db:down`                  | start / stop local Postgres (Docker)                                           |
+| `pnpm services:up`                             | start Postgres, MinIO (files) and Mailpit (email) locally                      |
+| `pnpm db:migrate`                              | apply migrations to local Postgres                                             |
+| `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)                            |
+| `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules                       |
+| `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs                |
+| `pnpm dev`                                     | services and migrations, then api, worker, console and web                     |
+| `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)                       |
+| `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080                         |
+| `pnpm format`                                  | format every file with Prettier                                                |
+| `pnpm check`                                   | format, scripts:test, typecheck, lint, tests, journeys, imports                |
+| `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)                            |
+| `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)                       |
+| `pnpm test:performance`                        | the at-scale and query-plan tests; CI runs them nightly, not on a pull request |
+| `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)                 |
+| `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)                      |
+| `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)                        |
+| `pnpm scripts:test`                            | the scripts' tests: compose project names, working hours (CI)                  |
+| `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`                   |
+| `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                                 |
 
 `pnpm check` is not all of CI: CI runs its parts and every command marked CI, each as a job of its own
 (`.github/workflows/ci.yml`), and CodeQL (`codeql.yml`).

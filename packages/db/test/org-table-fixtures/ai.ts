@@ -53,7 +53,14 @@ export const fixtures: OrgTableFixtures = {
     create: async (tx: OrgTx) => {
       const due = new Date("2026-11-02T04:30:00Z");
       const task = await tx.task.create({
-        data: { kind: "follow-up", title: "Isolation", dueAt: due, firstDueAt: due },
+        data: {
+          kind: "follow-up",
+          title: "Isolation",
+          dueAt: due,
+          firstDueAt: due,
+          recordType: "lead",
+          recordId: randomUUID(),
+        },
       });
       return tx.aiFollowUpTouch.create({ data: { taskId: task.id, dueAt: due, outcome: "no_chat" } });
     },
