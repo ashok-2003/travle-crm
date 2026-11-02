@@ -20,6 +20,7 @@ import { bookingRoute, leadRoute, quoteRoute } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
 import { useHolds, useMe } from "@/session/me-context";
 import { SectionCard } from "@/bookings/section-card";
+import { InterestedPeopleButton } from "@/ai/departures/interested-people-button";
 import { HoldDialog } from "./hold-dialog";
 import { useDepartureChanges } from "./use-departures";
 import { WaitlistDialog } from "./waitlist-dialog";
@@ -129,8 +130,15 @@ export function SeatsTab({ departure }: { departure: DepartureDetail }) {
   const changes = useDepartureChanges();
   const [releasing, setReleasing] = useState<string | null>(null);
   const open = departure.status === "open";
+  // Empty seats to offer: the departure is Open or Filling fast (never Full, Closed or Cancelled).
+  const hasEmptySeats = departure.state === "open" || departure.state === "filling";
   return (
     <div className="flex flex-col gap-6">
+      {mayHold && hasEmptySeats && (
+        <div>
+          <InterestedPeopleButton departureId={departure.id} />
+        </div>
+      )}
       <SectionCard title={t("bookings.title")}>
         {departure.bookings.length === 0 ? (
           <p className="text-muted-foreground">{t("bookings.none")}</p>
