@@ -102,26 +102,47 @@ model LeadSignal {
   @@map("lead_signal")
 }
 
-/// A ready package ("Manali 5 days") a quote starts from in one tap. Soft-deleted (ADR 0004).
+/// A ready package ("Manali 5 days") a quote starts from in one tap, and (release 7b) a page of its own the agency may publish at
+/// /a/<sign-in code>/<slug>. Soft-deleted (ADR 0004).
 model QuoteTemplate {
-  organizationId     String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id                 String       @id @default(uuid(7)) @db.Uuid
-  name               String
-  title              String
-  days               Json         @default("[]")
-  items              Json         @default("[]")
-  inclusions         String       @default("")
-  exclusions         String       @default("")
-  notes              String       @default("")
-  taxRateBasisPoints Int          @default(500) @map("tax_rate_basis_points")
-  createdBy          String?      @map("created_by") @db.Uuid
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz(6)
-  deletedBy          String?      @map("deleted_by") @db.Uuid
-  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organizationId        String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                    String              @id @default(uuid(7)) @db.Uuid
+  name                  String
+  title                 String
+  days                  Json                @default("[]")
+  items                 Json                @default("[]")
+  inclusions            String              @default("")
+  exclusions            String              @default("")
+  notes                 String              @default("")
+  taxRateBasisPoints    Int                 @default(500) @map("tax_rate_basis_points")
+  /// Lower-case letters, digits and hyphens (CHECK quote_template_slug_shape); null until the agency gives the package a page.
+  slug                  String?
+  destinationId         String?             @map("destination_id") @db.Uuid
+  nights                Int?
+  summary               String              @default("")
+  /// ["short line", ...] (CHECK quote_template_highlights_array).
+  highlights            Json                @default("[]")
+  /// from or on_enquiry (CHECK quote_template_price_display_value).
+  priceDisplay          String              @default("on_enquiry") @map("price_display")
+  /// Per person, in paise, entered by staff; never refreshed by itself.
+  fromPricePaise        BigInt?             @map("from_price_paise")
+  published             Boolean             @default(false)
+  /// basic, detailed or international (release 6's booking level), or null for the agency's default.
+  defaultTravellerLevel String?             @map("default_traveller_level")
+  cancellationNotes     String              @default("") @map("cancellation_notes")
+  createdBy             String?             @map("created_by") @db.Uuid
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  deletedBy             String?             @map("deleted_by") @db.Uuid
+  organization          Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  destination           Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  tiers                 QuoteTemplateTier[]
+  quotes                Quote[]
+  enquiries             PackageEnquiry[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, name], map: "quote_template_live_name", where: { deletedAt: null })
+  @@unique([organizationId, slug], map: "quote_template_live_slug", where: { deletedAt: null })
   @@map("quote_template")
 }

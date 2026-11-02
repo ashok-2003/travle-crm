@@ -117,6 +117,17 @@ describe("security headers", () => {
       }
     });
 
+    it("give an agency's public package pages (/a) the form's policy: unframable, Turnstile only where it runs", () => {
+      const headers = headersFor("/a/sharma/kedarnath-yatra");
+      const policy = directives(headers["Content-Security-Policy"]);
+      expect(headers["X-Frame-Options"]).toBe("DENY");
+      expect(policy["frame-ancestors"]).toEqual(["'none'"]);
+      expect(policy["script-src"]).toContain(TURNSTILE);
+      expect(policy["frame-src"]).toEqual([TURNSTILE]);
+      // A package's photos come from storage, which the policy already allows for images.
+      expect(policy["img-src"]).not.toContain(TURNSTILE);
+    });
+
     it("let any https site frame /embed/x, with no X-Frame-Options anywhere in the response headers", () => {
       const headers = headersFor("/embed/AAAAAAAAAAAAAAAAAAAAAAbbbbbbbbbbbbbbbb");
       const policy = directives(headers["Content-Security-Policy"]);

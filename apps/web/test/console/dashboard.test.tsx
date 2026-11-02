@@ -16,6 +16,9 @@ import { screenIs } from "../organization/render";
 
 const { dashboard, status } = messages.console;
 
+// The system-health panel above the organizations asks for its incidents too: none here, so it shows nothing.
+const noIncidents = { "platform.dashboard.incidents": { data: { open: [], recent: [] } } };
+
 const lastActiveAt = "2026-10-14T06:30:00.000Z";
 
 function overview(overrides: Partial<OrganizationOverview> = {}): OrganizationOverview {
@@ -52,7 +55,10 @@ afterEach(() => {
 describe("DashboardScreen", () => {
   it("shows each organization's row in a table on wide screens, leading to its page", async () => {
     screenIs("wide");
-    stubApi({ "platform.dashboard.organizations": { data: { organizations: [overview()], nextCursor: null } } });
+    stubApi({
+      ...noIncidents,
+      "platform.dashboard.organizations": { data: { organizations: [overview()], nextCursor: null } },
+    });
     renderDashboard();
     const link = await screen.findByRole("link", { name: /Sharma Travels/ });
     expect(link).toHaveAttribute("href", "/console/organizations/0199a000-0000-7000-8000-000000000002");
@@ -80,7 +86,10 @@ describe("DashboardScreen", () => {
       seats: { used: 1, limit: null },
       lastActiveAt: null,
     });
-    stubApi({ "platform.dashboard.organizations": { data: { organizations: [bare], nextCursor: null } } });
+    stubApi({
+      ...noIncidents,
+      "platform.dashboard.organizations": { data: { organizations: [bare], nextCursor: null } },
+    });
     renderDashboard();
     const row = within((await screen.findByRole("link", { name: /Sharma Travels/ })).closest("tr") ?? document.body);
     expect(row.getByText(status.none)).toBeVisible();
@@ -92,7 +101,10 @@ describe("DashboardScreen", () => {
 
   it("lists organizations on a phone, name and status first", async () => {
     screenIs("phone");
-    stubApi({ "platform.dashboard.organizations": { data: { organizations: [overview()], nextCursor: null } } });
+    stubApi({
+      ...noIncidents,
+      "platform.dashboard.organizations": { data: { organizations: [overview()], nextCursor: null } },
+    });
     renderDashboard();
     const link = await screen.findByRole("link", { name: /Sharma Travels/ });
     expect(link).toHaveAttribute("href", "/console/organizations/0199a000-0000-7000-8000-000000000002");
@@ -109,6 +121,7 @@ describe("DashboardScreen", () => {
     const first = overview({ organizationId: "0199a000-0000-7000-8000-000000000011", name: "Sharma Travels" });
     const second = overview({ organizationId: "0199a000-0000-7000-8000-000000000012", name: "Iyer Holidays" });
     const api = stubApi({
+      ...noIncidents,
       "platform.dashboard.organizations": { data: { organizations: [first], nextCursor: first.organizationId } },
     });
     renderDashboard();
@@ -124,6 +137,7 @@ describe("DashboardScreen", () => {
     screenIs("wide");
     const first = overview({ organizationId: "0199a000-0000-7000-8000-000000000011" });
     const api = stubApi({
+      ...noIncidents,
       "platform.dashboard.organizations": { data: { organizations: [first], nextCursor: first.organizationId } },
     });
     renderDashboard();
@@ -137,7 +151,7 @@ describe("DashboardScreen", () => {
 
   it("says when there are no organizations yet, and leads to onboarding the first", async () => {
     screenIs("wide");
-    stubApi({ "platform.dashboard.organizations": { data: { organizations: [], nextCursor: null } } });
+    stubApi({ ...noIncidents, "platform.dashboard.organizations": { data: { organizations: [], nextCursor: null } } });
     renderDashboard();
     expect(await screen.findByText(dashboard.empty)).toBeVisible();
     expect(screen.getByRole("link", { name: dashboard.onboardFirst })).toHaveAttribute(
@@ -148,7 +162,7 @@ describe("DashboardScreen", () => {
 
   it("says when the organizations didn't load, and loads them on Try again", async () => {
     screenIs("wide");
-    const api = stubApi({ "platform.dashboard.organizations": { status: 403 } });
+    const api = stubApi({ ...noIncidents, "platform.dashboard.organizations": { status: 403 } });
     renderDashboard();
     expect(await screen.findByText(dashboard.loadFailed)).toBeVisible();
     api.answer("platform.dashboard.organizations", { data: { organizations: [overview()], nextCursor: null } });
@@ -157,11 +171,16 @@ describe("DashboardScreen", () => {
   });
 });
 
-/** The inputs the dashboard's calls sent, read from the stubbed fetch's bodies: the console posts its queries. */
+/**
+ * The organizations' inputs the dashboard sent, read from the stubbed fetch's bodies: the console posts its queries, and
+ * the batch link may send the system-health panel's call in the same request.
+ */
 function inputsSent(): unknown[] {
   const fetch = vi.mocked(globalThis.fetch);
-  return fetch.mock.calls.map(([, init]) => {
+  return fetch.mock.calls.flatMap(([url, init]) => {
+    const href = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+    const paths = (new URL(href, "http://localhost").pathname.split("/trpc/")[1] ?? "").split(",");
     const batch = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as Record<string, unknown>;
-    return batch["0"];
+    return paths.flatMap((path, index) => (path === "dashboard.organizations" ? [batch[String(index)]] : []));
   });
 }

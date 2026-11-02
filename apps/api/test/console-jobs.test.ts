@@ -5,6 +5,7 @@
 // admin can't remove any of these schedules from the console.
 import { randomUUID } from "node:crypto";
 import {
+  HEALTH_CHECK_QUEUE,
   PURGE_ORGANIZATION_QUEUE,
   removeSchedule,
   RESET_DEMO_QUEUE,
@@ -32,6 +33,8 @@ const lifecycleSchedule = {
   timeZone: "Asia/Kolkata",
   data: {},
 };
+// Every five minutes, the system's health is checked: failed jobs and a worker that stopped answering (incidents).
+const healthCheck = { queue: HEALTH_CHECK_QUEUE, cron: "*/5 * * * *", timeZone: "Asia/Kolkata", data: {} };
 // Every hour, the deletions' outbox is swept for what no job will reach: pg-boss drops a follow-up whose id it already
 // holds, and a job can be lost before it is sent or run out of retries (ADR 0023).
 const storedFilesSweep = { queue: SWEEP_STORED_FILES_QUEUE, cron: "0 * * * *", timeZone: "Asia/Kolkata", data: {} };
@@ -83,6 +86,7 @@ describe("the console's jobs", () => {
     await startConsoleJobs(runner, testConsole.services, demo);
     expect(runner.schedules).toEqual([
       lifecycleSchedule,
+      healthCheck,
       storedFilesSweep,
       expiredExportsSweep,
       bulkFilesSweep,
@@ -109,6 +113,7 @@ describe("the console's jobs", () => {
     await startConsoleJobs(runner, testConsole.services, null);
     expect(runner.schedules).toEqual([
       lifecycleSchedule,
+      healthCheck,
       storedFilesSweep,
       expiredExportsSweep,
       bulkFilesSweep,
@@ -230,7 +235,7 @@ describe("the console's jobs", () => {
   it("refuses to remove a schedule the console registers, which would stop it until the next start", async () => {
     const demo = { code: "DEMOCODE", password: "demo-password-123" };
     const queues = consoleJobs(testConsole.services, demo).schedules.map((schedule) => schedule.queue);
-    expect(queues).toHaveLength(10);
+    expect(queues).toHaveLength(11);
     for (const queue of queues) {
       await expect(removeSchedule(testConsole.services, { userId: randomUUID() }, queue), queue).rejects.toMatchObject({
         code: "CONFLICT",

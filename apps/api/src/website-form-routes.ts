@@ -32,11 +32,14 @@ export function websiteFormRoutes(dependencies: WebsiteFormRouteDependencies): H
   const tokenKey = formTokenKey(authSecret);
   const app = new Hono<RequestLogEnv>();
 
-  // The state must be exact, and a forwarding cache must never hold a visitor's page.
-  app.use("*", async (c, next) => {
-    await next();
-    c.header("Cache-Control", "no-store");
-  });
+  // The state must be exact, and a forwarding cache must never hold a visitor's page. Only the form's own paths: mounted
+  // beside the package pages' routes (package-page-routes.ts), which a cache may hold for a minute.
+  for (const path of ["/website-forms/*", "/client-address"]) {
+    app.use(path, async (c, next) => {
+      await next();
+      c.header("Cache-Control", "no-store");
+    });
+  }
 
   app.get("/website-forms/:key", async (c) => {
     const key = c.req.param("key");

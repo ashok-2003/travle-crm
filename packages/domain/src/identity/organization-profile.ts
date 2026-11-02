@@ -32,6 +32,21 @@ export async function organizationProfile(
   });
 }
 
+/**
+ * The organization with this sign-in code, in any case ("sharma" for SHARMA), or null: how a public package page at
+ * /a/<code>/<package> finds its agency. The code is public (it is on every sign-in); nothing else is read.
+ */
+export async function organizationByCode(
+  database: IdentityDatabase,
+  code: string,
+): Promise<OrganizationProfile | null> {
+  if (!/^[A-Za-z0-9]{3,12}$/.test(code)) return null;
+  return database.client.organization.findUnique({
+    where: { code: code.toUpperCase() },
+    select: { id: true, name: true, code: true, timeZone: true, contactEmail: true },
+  });
+}
+
 /** One organization as a scheduled job walks them: its id and the zone its days are counted in. */
 export interface OrganizationSlice {
   id: string;

@@ -23,6 +23,8 @@ import inbox from "./messages/en-IN/inbox.json";
 import consoleWhatsapp from "./messages/en-IN/console-whatsapp.json";
 import leads from "./messages/en-IN/leads.json";
 import metaLeads from "./messages/en-IN/meta-leads.json";
+import packagePages from "./messages/en-IN/package-pages.json";
+import packages from "./messages/en-IN/packages.json";
 import notifications from "./messages/en-IN/notifications.json";
 import home from "./messages/en-IN/home.json";
 import pwa from "./messages/en-IN/pwa.json";
@@ -71,6 +73,8 @@ export const messages = {
   leads,
   metaLeads,
   notifications,
+  packages,
+  packagePages,
   home,
   pwa,
   quotes,

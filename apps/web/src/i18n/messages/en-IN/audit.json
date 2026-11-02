@@ -254,7 +254,12 @@
     },
     "quote-package": {
       "saved": "Saved a quote package",
-      "deleted": "Deleted a quote package"
+      "deleted": "Deleted a quote package",
+      "changed": "Changed a quote package",
+      "published": "Published a package's public page",
+      "unpublished": "Took a package's public page down",
+      "tier-saved": "Saved a package's tier",
+      "tier-removed": "Removed a package's tier"
     },
     "ai-settings": {
       "changed": "Changed the AI settings"
@@ -351,7 +356,15 @@
       "deleted": "Deleted a supplier",
       "contact-saved": "Saved a supplier's contact",
       "contact-removed": "Removed a supplier's contact",
-      "costs-linked": "Linked costs to a supplier"
+      "costs-linked": "Linked costs to a supplier",
+      "season-saved": "Saved a supplier's season",
+      "season-deleted": "Removed a supplier's season",
+      "season-copied": "Copied a supplier's season to other dates",
+      "rate-saved": "Saved a supplier's rate",
+      "rate-removed": "Removed a supplier's rate"
+    },
+    "public-pages": {
+      "settings-changed": "Changed the public package pages (on or off, and what they say)"
     }
   },
   "fields": {
@@ -441,7 +454,20 @@
     "messages": "Messages",
     "added": "Added",
     "updated": "Updated",
-    "state": "State"
+    "state": "State",
+    "belowMinimumMargin": "Sent below the minimum margin",
+    "slug": "Address",
+    "label": "Season",
+    "startsOn": "First day",
+    "endsOn": "Last day",
+    "copiedFrom": "Copied from",
+    "changeBasisPoints": "Costs changed by (basis points)",
+    "costPaise": "Cost",
+    "item": "Item",
+    "unit": "Charged",
+    "defaultMarkupBasisPoints": "Markup (basis points)",
+    "minMarginBasisPoints": "Least margin (basis points)",
+    "lines": "Lines"
   },
   "recordTypes": {
     "issued_document": "A document",
@@ -480,6 +506,7 @@
     "notification_routing": "Team notifications",
     "departure": "A departure",
     "supplier": "A supplier",
-    "departure_settings": "Departure settings"
+    "departure_settings": "Departure settings",
+    "public_page_settings": "The public package pages"
   }
 }

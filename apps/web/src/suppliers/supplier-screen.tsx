@@ -25,6 +25,7 @@ import { formatCalendarDay } from "@/lib/format";
 import { departureRoute, quoteRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { ContactDialog } from "./contact-dialog";
+import { RatesSection } from "./rates/rates-section";
 import { SupplierFormDialog } from "./supplier-form-dialog";
 import { useSupplier, useSupplierChanges } from "./use-suppliers";
 
@@ -36,6 +37,9 @@ export function SupplierScreen({ supplierId }: { supplierId: string }) {
   const supplier = useSupplier(supplierId);
   const mayEdit = useHolds("suppliers:edit");
   const mayLink = useHolds("accounts:edit");
+  // Rates are what the agency pays: for whoever edits suppliers or may see margins.
+  const mayViewMargin = useHolds("money:view_margin");
+  const seesRates = mayEdit || mayViewMargin;
   const changes = useSupplierChanges();
   const [deleting, setDeleting] = useState(false);
   const [removingContact, setRemovingContact] = useState<string | null>(null);
@@ -137,6 +141,7 @@ export function SupplierScreen({ supplierId }: { supplierId: string }) {
               </div>
             )}
           </SectionCard>
+          {seesRates && <RatesSection supplierId={data.id} mayEdit={mayEdit} />}
           {data.costs !== null && (
             <SectionCard title={t("costs.title")}>
               <p className="text-muted-foreground">

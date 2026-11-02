@@ -19,3 +19,15 @@ export {
   saveSupplierContact,
   updateSupplier,
 } from "./suppliers.js";
+export {
+  changedCost,
+  copySeason,
+  deleteRate,
+  deleteSeason,
+  rateOnDate,
+  ratesOnDate,
+  saveRate,
+  saveSeason,
+  supplierRates,
+  type RateOnDate,
+} from "./rates.js";

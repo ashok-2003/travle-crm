@@ -197,3 +197,42 @@ online payment on public pages, instalment plans per departure, review display o
 
 ## OWNER ANSWERS (2026-10-30)
 The owner accepted every recommendation in OWNER QUESTIONS above: departure-level costs (b), public address /a/<sign-in code>/<package> now (a), 48-hour default hold (a), 7a first (a). Build 7a now; 7b after.
+
+## RULINGS (release 7b build, 2026-11-02)
+Decided while building 7b; each is `what, why, cost if wrong`.
+- **Who sees rates.** The rate catalog is read by whoever holds `suppliers:edit` or `money:view_margin` and written with `suppliers:edit`
+  (read from a fresh session). "Price from rate" in the quote editor (`quotes.ratesOnDate`, `quotes.priceLine`) needs `money:view_margin`;
+  a quote made from a package is priced on the server for anyone with `quotes:create`, who never sees a cost. Why: a rate is the supplier's
+  price to the agency, and Sales/Operations have no margin permission. Cost if wrong: one more permission check to relax.
+- **Selling price = cost plus markup, never zero.** With the default markup of 0 a rate line sells at its cost (the margin then reads 0 % and
+  warns when a minimum is set) instead of at ₹0, which a customer could be sent by mistake. The markup is rounded up to a whole rupee.
+- **Margin** is over the lines that carry a cost, floored to a basis point; the per-traveller minimum divides by adults plus children. A
+  quote with no priced line is never judged. The audit entry of `quote.status-changed` carries `belowMinimumMargin: true` when sent below it.
+- **Costs stay with the agency.** `costUnitPaise`, `rateId` and `needsRate` are optional keys of a quote item. A member without
+  `money:view_margin` reads items without the first two and the margin without figures, cannot set a cost, and on saving keeps the stored cost
+  of a line only when its place and words are unchanged. Internal copies (new version, another option, from a package) keep every cost.
+  The customer's link, the PDFs and the invoice already map their fields by name and show none.
+- **Needs a rate.** A package line with no rate for the start date (or no start date) becomes an item at zero with `needsRate: true`; the quote
+  is refused `QUOTE_NEEDS_RATES` on sending until a typed price settles it (the server clears the marker when the price is above zero).
+- **Which rate.** A tier line names one rate; for a date the rate used is the same supplier's rate with the same item, meal plan, occupancy and
+  unit in the season covering that date. Quantity rules are the five of the web form: fixed, per traveller, per night, per room night
+  (rooms = travellers over two, rounded up) and per person night (added: a per-person-night rate needs it). A day trip counts as one night.
+- **Tier lines are JSON** on `quote_template_tier` (five tiers at most, thirty lines each), not rows: they are read and written whole and
+  nothing queries inside them. A package with no tier makes one quote from the items it was saved with.
+- **`quote.template_id`** (added) records the package a quote came from, so a booking made from it takes the package's default traveller
+  level (`create-booking.ts`); the package's cancellation notes are copied into the quote's notes at making.
+- **The enquiry ledger is `package_enquiry`**, not columns on `lead_enquiry` (a new lead has no `lead_enquiry` row): submission id, package,
+  departure, outcome, lead and person, append only for the runtime role, swept after 90 days with the website form's ledger, and emptied of
+  person and lead by a customer's erasure. It also keeps one person to three enquiries a day. `lead_source_value` already held `package_page`.
+- **Which departures a page lists:** those at the package's destination that are open, not past their cut-off and starting today or later,
+  with a word (Open, Filling fast, Full) and never a count; closed and cancelled ones are not shown. There is no package-to-departure column
+  in 7a. Cost if wrong: two packages to one destination share their dates; a `departure.template_id` would separate them.
+- **Joining** a departure checks it is one the page lists, makes the lead as any enquiry does and a task for its owner ("Hold seats or make a
+  quote: ..., 2 seats on ..." or "Add to the waitlist: ..." when full). It adds nobody to the waitlist or holds a seat by itself.
+- **A page is open** only while the agency's pages are on and the agency is in good standing, as the website form is: not read-only, suspended,
+  cancelled or on the demo plan, with crm and quotes on its plan. Anything else is the one "not available" 404.
+- **Server rendering.** `/a/...` is rendered by the web server, which reads `/api/public/packages/*` from `API_ORIGIN` (the compose files set
+  it; Vercel falls back to the visitor's own address), forwarding the visitor's `X-Forwarded-For` so the per-address limits count them. The
+  api marks a package answer `public, s-maxage=60`; the web server asks with `no-store`. Photo and logo links are the system's presigned
+  links (five minutes), the same as the logo's, so a link preview must be fetched soon after the page is.
+- **Rate limits** reuse the website form's, keyed `pkg:<sign-in code>` (views and submissions, per address and per agency).
