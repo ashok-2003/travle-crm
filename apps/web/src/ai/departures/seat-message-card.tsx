@@ -4,12 +4,13 @@
 // then "Open in WhatsApp" (their own WhatsApp, in a new tab, with the words ready to send) and, once sent, "Mark as sent", which
 // notes it on the lead and leaves the person alone for 14 days. The product sends nothing itself, and nothing goes in bulk.
 import type { InterestedPerson } from "@travel-crm/contracts/ai";
-import { MessageCircleIcon } from "lucide-react";
+import { InfoIcon, MessageCircleIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge } from "@/components/status-badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -68,6 +69,12 @@ export function SeatMessageCard({
           </>
         ) : (
           <>
+            {state.removedAmounts && (
+              <Alert>
+                <InfoIcon aria-hidden="true" />
+                <AlertDescription>{t("removedAmounts")}</AlertDescription>
+              </Alert>
+            )}
             <Field>
               <FieldLabel htmlFor={id}>{t("label", { name: person.name })}</FieldLabel>
               <Textarea

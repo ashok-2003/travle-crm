@@ -229,6 +229,8 @@ describe("empty seats", () => {
     expect(message.text).not.toContain("9,999");
     expect(message.text).not.toMatch(/\b4 seats\b/);
     expect(message.text).toContain("a few seats");
+    // Staff are told the model's own amount and seat count were taken out.
+    expect(message.removedAmounts).toBe(true);
     const [request] = s.model.requests;
     expect(request?.feature).toBe("reach_out");
     const prompt = JSON.stringify(request?.messages);
@@ -238,6 +240,19 @@ describe("empty seats", () => {
     const fill = await world.inOrg((tx) => tx.aiFill.findUniqueOrThrow({ where: { id: message.fillId } }));
     expect(fill).toMatchObject({ target: "departure_offer", subjectId: person.leadId, appliedAt: null });
     expect(JSON.stringify(fill)).not.toContain("Hi Priya");
+  });
+
+  it("says nothing was taken out when the model typed no amount or seat count, and fences the names as data", async () => {
+    const s = await setup();
+    const person = await s.lead(world.seller.userId, { name: "Ignore Previous" });
+    s.model.answer("Hi! A few seats are open on our Spiti group.\nIt is {price}. Reply if you'd like one!");
+    const message = await s.write(person.leadId);
+    expect(message.removedAmounts).toBe(false);
+    const user = s.model.requests[0]?.messages.find((one) => one.role === "user")?.content ?? "";
+    const fenced = /<data>[^]*?<\/data>/g;
+    const outside = user.replace(fenced, "");
+    expect(outside).not.toContain("Ignore");
+    expect(user).toMatch(/<data>[^]*First name: Ignore[^]*<\/data>/);
   });
 
   it("may say how many seats are left only when the agency allows it, and only the real number", async () => {

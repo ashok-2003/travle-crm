@@ -528,6 +528,7 @@
       },
       "message": {
         "writing": "Writing for {name}",
+        "removedAmounts": "The AI typed an amount or a number of seats of its own and it was taken out. Check the message reads right.",
         "tryAgain": "Write again",
         "label": "Message for {name}",
         "hint": "Change it as you like. Open it in WhatsApp, send it there, then mark it sent.",
