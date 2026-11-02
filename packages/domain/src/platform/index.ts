@@ -34,6 +34,13 @@ export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings }
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
 export { exportSubject, hasFreshExport } from "./exports.js";
 export { listFailedJobs, listSchedules, removeSchedule, retryFailedJob } from "./failed-jobs.js";
+export {
+  HEALTH_CHECK_QUEUE,
+  healthCheck,
+  incidentHandler,
+  listPlatformIncidents,
+  reportPlatformIncident,
+} from "./incidents.js";
 export { DELETE_STORED_FILES_QUEUE, storedFileDeletionsSchedule, SWEEP_STORED_FILES_QUEUE } from "./file-deletions.js";
 export { platformJobHandlers } from "./jobs.js";
 export { listOrganizationMembers } from "./members.js";

@@ -8,6 +8,7 @@ import {
   type ForOrgOptions,
   type PlatformDatabase,
 } from "@travel-crm/db/platform";
+import type { EmailSender } from "@travel-crm/integrations/email";
 import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
@@ -50,6 +51,8 @@ export interface PlatformServices {
   appUrl?: string;
   /** What a million AI tokens cost, in paise (AI_PRICE_*), for the usage analytics; null or absent when unset. */
   aiPrices?: AiPrices | null;
+  /** Where the super admins are told of an incident (incidents.ts); absent in tests that send no email. */
+  email?: EmailSender | null;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {
