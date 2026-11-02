@@ -7,6 +7,7 @@ import bookings from "./messages/en-IN/bookings.json";
 import business from "./messages/en-IN/business.json";
 import calendar from "./messages/en-IN/calendar.json";
 import common from "./messages/en-IN/common.json";
+import consoleAi from "./messages/en-IN/console-ai.json";
 import consoleGrowth from "./messages/en-IN/console-growth.json";
 import consoleOrganizations from "./messages/en-IN/console-organizations.json";
 import consolePlatform from "./messages/en-IN/console-platform.json";
@@ -56,6 +57,7 @@ export const messages = {
   common,
   // "console" would shadow the global console in this module, hence the import's longer name.
   console: consoleMessages,
+  consoleAi,
   consoleGrowth,
   consoleOrganizations,
   consolePlatform,

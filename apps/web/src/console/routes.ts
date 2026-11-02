@@ -19,5 +19,7 @@ export const consoleRoutes = {
   /** How every organization uses the product; one organization's under it. */
   usage: "/console/usage",
   organizationUsage: (organizationId: string) => `/console/usage/${organizationId}`,
+  /** Every AI call, its cost, and which agency's AI works now. */
+  ai: "/console/ai",
   staff: "/console/staff",
 } as const;

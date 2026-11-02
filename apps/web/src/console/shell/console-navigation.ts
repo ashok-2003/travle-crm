@@ -9,6 +9,7 @@ import {
   MessageCircleIcon,
   ScrollTextIcon,
   ServerCogIcon,
+  SparklesIcon,
   UserCogIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -17,7 +18,7 @@ import { isSuperAdmin, type ConsoleStaff } from "../session/staff-context";
 
 export interface ConsoleNavigationItem {
   /** Also the message key in the "console.navigation" namespace. */
-  key: "home" | "onboard" | "invites" | "usage" | "plans" | "whatsapp" | "jobs" | "log" | "staff";
+  key: "home" | "onboard" | "invites" | "usage" | "ai" | "plans" | "whatsapp" | "jobs" | "log" | "staff";
   href: string;
   icon: LucideIcon;
   /** Shown to super admins only. */
@@ -29,6 +30,7 @@ export const consoleNavigationItems: readonly ConsoleNavigationItem[] = [
   { key: "onboard", href: consoleRoutes.onboard, icon: CirclePlusIcon, superAdminOnly: false },
   { key: "invites", href: consoleRoutes.invites, icon: GiftIcon, superAdminOnly: false },
   { key: "usage", href: consoleRoutes.usage, icon: ActivityIcon, superAdminOnly: false },
+  { key: "ai", href: consoleRoutes.ai, icon: SparklesIcon, superAdminOnly: false },
   { key: "plans", href: consoleRoutes.plans, icon: LayersIcon, superAdminOnly: false },
   { key: "whatsapp", href: consoleRoutes.whatsapp, icon: MessageCircleIcon, superAdminOnly: false },
   { key: "jobs", href: consoleRoutes.jobs, icon: ServerCogIcon, superAdminOnly: false },

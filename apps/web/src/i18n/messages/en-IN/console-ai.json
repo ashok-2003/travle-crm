@@ -1,0 +1,112 @@
+{
+  "title": "AI usage",
+  "intro": "Every AI call, what it cost and which agency's AI works now. Prices are Google's published ones, in rupees at ₹{rate} to a dollar.",
+  "loading": "Loading the AI usage",
+  "loadFailed": "The AI usage didn't load.",
+  "figures": {
+    "label": "This month, every agency together",
+    "calls": "Calls this month",
+    "failed": "Failed this month",
+    "inputTokens": "Tokens read",
+    "outputTokens": "Tokens written",
+    "cost": "Cost this month",
+    "projected": "By the month's end, at this pace"
+  },
+  "today": "Today: {calls, plural, one {# call} other {# calls}}, {failed} failed, {cost}.",
+  "days": {
+    "heading": "The last 30 days",
+    "calls": "Calls",
+    "failed": "Failed",
+    "cost": "Cost",
+    "label": "AI calls each day of the last 30 days",
+    "table": "AI calls and cost each day"
+  },
+  "organizations": {
+    "heading": "Agencies",
+    "empty": "No agencies yet.",
+    "columns": {
+      "agency": "Agency",
+      "state": "AI now",
+      "why": "Why, since",
+      "calls": "Calls this month",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "last": "Last call"
+    },
+    "of": "{used} of {limit}",
+    "never": "Never",
+    "failedToday": "{count, plural, one {# failed today} other {# failed today}}",
+    "states": {
+      "working": "Working",
+      "off": "Off",
+      "not_on_plan": "Not on plan",
+      "subscription_blocked": "Blocked",
+      "limit_reached": "Limit reached",
+      "failing": "Failing",
+      "unused": "Not used yet"
+    },
+    "why": {
+      "working": "Answering since {since}",
+      "workingNoTime": "Answering",
+      "off": "The agency switched its AI off in Settings, AI",
+      "not_on_plan": "Its plan has no AI: add the module to the plan",
+      "subscription_blocked": "Its subscription is read-only, suspended or cancelled",
+      "limit_reached": "This month's calls are used up; they come back on the 1st",
+      "failingRateLimited": "Every model and key is out of its limit",
+      "failingUnavailable": "No model answered: the provider may be down or its key wrong",
+      "unused": "On, but nothing has asked the AI yet",
+      "since": "Since {when}"
+    }
+  },
+  "breakdown": {
+    "features": "By feature, this month",
+    "models": "By model, this month",
+    "feature": "Feature",
+    "model": "Model",
+    "calls": "Calls",
+    "failed": "Failed",
+    "tokens": "Tokens read / written",
+    "cost": "Cost",
+    "unpriced": "No price known",
+    "empty": "No calls this month."
+  },
+  "features": {
+    "suggest_reply": "Suggest reply",
+    "score_lead": "Lead scoring",
+    "autopilot": "Autopilot",
+    "learn": "Learning",
+    "fill_form": "Fill it for me",
+    "write_up": "Write-up",
+    "ask_report": "Ask a report",
+    "read_requests": "Room requests",
+    "reach_out": "Empty seats"
+  },
+  "prices": {
+    "heading": "Prices",
+    "intro": "Per million tokens, from Google's pricing page; thinking counts as written. ₹{rate} to a dollar (AI_USD_INR_RATE).",
+    "model": "Model",
+    "input": "Read",
+    "output": "Written",
+    "change": "From {day}: {input} read, {output} written"
+  },
+  "calls": {
+    "heading": "Every call",
+    "label": "AI calls, newest first",
+    "agency": "Agency",
+    "allAgencies": "Every agency",
+    "failedOnly": "Failed calls only",
+    "empty": "No calls to show.",
+    "showMore": "Show more calls",
+    "line": "{feature} · {model}",
+    "noModel": "no model answered",
+    "tokens": "{input} read, {output} written",
+    "took": "{seconds}s",
+    "outcomes": {
+      "ok": "Answered",
+      "rate_limited": "Rate limited",
+      "unavailable": "Unavailable",
+      "refused": "Refused",
+      "not_configured": "Not set up"
+    }
+  }
+}
