@@ -1,8 +1,9 @@
 // The AI adapter (ADR 0029): any OpenAI-compatible chat endpoint, OpenRouter's by default (Google's Gemini, called directly,
 // is https://generativelanguage.googleapis.com/v1beta/openai). Each feature's models are configuration: its list is tried in
-// order, the next one when a model is rate limited, overloaded or gone. OpenRouter's own fields (`provider.zdr`, zero data
-// retention on every request) are sent ONLY to OpenRouter: other endpoints reject fields they don't know, and keep what
-// their own terms say. The key is sent as a header and appears nowhere else: not in a message, a log or an error.
+// order, the next one when a model is rate limited, overloaded or gone, and a rate-limited one rests a while unasked.
+// OpenRouter's own fields (`provider.zdr`, zero data retention on every request) are sent ONLY to OpenRouter: other
+// endpoints reject fields they don't know, and keep what their own terms say. The key is sent as a header and appears
+// nowhere else: not in a message, a log or an error.
 import type { AiMessage, AiModel, AiRequest, AiResult, AiFeature } from "./ai-model.js";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -28,6 +29,19 @@ interface ChatCompletion {
 
 /** Statuses after which the next model is tried. */
 const TRY_NEXT = new Set([404, 408, 409, 429, 500, 502, 503, 504, 529]);
+
+/**
+ * How long a model that said 429 is left alone: the provider's Retry-After when it gives one, within these bounds, else a
+ * minute. Meanwhile the model is skipped without a request, so a call goes straight to the next model (or the backup key)
+ * instead of waiting for the same refusal again.
+ */
+const REST_DEFAULT_MS = 60_000;
+const REST_MAX_MS = 15 * 60_000;
+
+function restOf(response: Response): number {
+  const seconds = Number(response.headers.get("retry-after"));
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, REST_MAX_MS) : REST_DEFAULT_MS;
+}
 
 /** A message as the endpoint takes it: words alone stay a string; a message with an image or a recording becomes parts. */
 export function wireMessage(message: AiMessage): { role: AiMessage["role"]; content: unknown } {
@@ -76,6 +90,8 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   const base = aiBaseUrl(options.baseUrl);
   const openRouter = isOpenRouterUrl(base);
   const send = options.fetch ?? fetch;
+  /** Each rate-limited model, with the time it may be asked again. Per process, so it is forgotten on a restart. */
+  const restingUntil = new Map<string, number>();
   return {
     configured: options.apiKey !== "" && Object.values(options.models).some((list) => list.length > 0),
     async complete(request: AiRequest): Promise<AiResult> {
@@ -83,6 +99,10 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
       if (options.apiKey === "" || list.length === 0) return { ok: false, reason: "not_configured" };
       let limited = false;
       for (const model of list) {
+        if ((restingUntil.get(model) ?? 0) > Date.now()) {
+          limited = true;
+          continue;
+        }
         const controller = new AbortController();
         const timer = setTimeout(() => {
           controller.abort();
@@ -105,7 +125,10 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
             }),
           });
           if (!response.ok) {
-            if (response.status === 429) limited = true;
+            if (response.status === 429) {
+              limited = true;
+              restingUntil.set(model, Date.now() + restOf(response));
+            }
             if (TRY_NEXT.has(response.status)) continue;
             return { ok: false, reason: "unavailable" };
           }
@@ -114,6 +137,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           if (choice?.finish_reason === "content_filter") return { ok: false, reason: "refused" };
           const text = choice?.message?.content ?? "";
           if (text.trim() === "") continue;
+          restingUntil.delete(model);
           return {
             ok: true,
             text,

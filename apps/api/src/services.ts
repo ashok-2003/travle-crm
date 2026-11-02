@@ -3,8 +3,10 @@
 // close() releases every pool.
 import { hkdfSync } from "node:crypto";
 import { createDatabase, type Database, type ForOrgOptions } from "@travel-crm/db";
+import { withIncidentReports } from "@travel-crm/domain/ai";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
+import { createIncidentReporter, type IncidentReporter } from "@travel-crm/domain/jobs";
 import { createProfiles, type Profiles } from "@travel-crm/domain/profile";
 import { createRateLimiter, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { createSheetsHashes, type SheetsHashes } from "@travel-crm/domain/sheets";
@@ -46,6 +48,8 @@ export interface Services {
   meta: MetaServices | null;
   /** The AI that drafts replies (ADR 0029); null when OPENROUTER_API_KEY is not set: Suggest reply says it isn't set up. */
   ai: AiModel | null;
+  /** Tells the console something broke (the AI, the api): it emails the super admins and shows it (incidents.ts). */
+  incidents: IncidentReporter;
   /** WhatsApp through MSG91 (ADR 0035); null when the three MSG91 settings are not set: WhatsApp is off. */
   whatsapp: WhatsAppServices | null;
   /** What each organization's plan allows today, for the jobs that act for a person (an import's add). */
@@ -157,6 +161,8 @@ export function createServices(
     ...jobQueuePollingOf(environment),
     ...jobQueueRoleOf(processName, environment),
   });
+  const incidents = createIncidentReporter(jobs, logger);
+  const ai = createAiModel(environment);
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,
     privateKey: environment.VAPID_PRIVATE_KEY,
@@ -184,7 +190,9 @@ export function createServices(
     google: googleSheetsOf(environment, logger),
     sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     meta: createMetaServices(environment, { db, rateLimiter, logger }),
-    ai: createAiModel(environment),
+    // A call no model answers is told to the console.
+    ai: ai === null ? null : withIncidentReports(ai, incidents),
+    incidents,
     whatsapp: createWhatsAppServices(environment),
     subscriptions,
     seatLimit: limits.seats,

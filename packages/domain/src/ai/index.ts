@@ -9,6 +9,7 @@ export type { AiModel } from "@travel-crm/integrations/ai";
 export { aiAllowed } from "./allowed.js";
 export { withdrawAiParts } from "./erasure.js";
 export { recordDraftSent } from "./drafts.js";
+export { withIncidentReports } from "./reported-model.js";
 export { AI_SCORE_QUEUE, leadInsightOf, scoreHandler, scoreLead, scoreOnCustomerWroteListener } from "./insight.js";
 export {
   addKnowledge,

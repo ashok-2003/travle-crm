@@ -8,6 +8,7 @@ import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { cleanReply, parseAnswer } from "./agent.js";
 import { agentPrompt } from "./agent-prompt.js";
+import { calendarText, dateChecks } from "./calendar.js";
 import { knowledgePack } from "./agent-context.js";
 import { autopilotOf, type AutopilotRow } from "./autopilot.js";
 import { activeLessons } from "./learning-store.js";
@@ -63,6 +64,9 @@ export async function testAnswer(
           media: [],
           paymentSent: false,
           bookingOpen: false,
+          calendar: calendarText(now, prepared.timeZone),
+          // The test box checks the customer's question as the autopilot checks a customer's words.
+          dateChecks: dateChecks(question, now, prepared.timeZone),
         }),
       },
       {

@@ -56,5 +56,37 @@
     "seats": "<n>{used}</n> of <n>{limit}</n>",
     "seatsNoLimit": "<n>{used}</n>, no limit",
     "neverActive": "Never"
+  },
+  "health": {
+    "heading": "System health",
+    "loadFailed": "The system's health didn't load.",
+    "allWorking": "Everything is working. Super admins get an email if something breaks.",
+    "since": "Since {when}, reported {count, plural, one {once} other {# times}}.",
+    "where": "Where: {detail}",
+    "seeJobs": "See the failed jobs",
+    "recent": "Resolved in the last week",
+    "resolved": "{from} to {to}, resolved",
+    "kinds": {
+      "aiUnavailable": {
+        "title": "The AI isn't answering",
+        "meaning": "No AI model answered: the provider may be down or its key wrong. The AI answers no customer meanwhile."
+      },
+      "aiRateLimited": {
+        "title": "The AI's limit is used up",
+        "meaning": "Every AI model and key said its limit is used up. It answers again when the limit resets; billing or a backup key ends the wait."
+      },
+      "jobsFailed": {
+        "title": "Background jobs are failing",
+        "meaning": "Jobs used all their retries and stopped: emails, PDFs, imports or WhatsApp sends among them."
+      },
+      "apiErrors": {
+        "title": "The api is hitting errors",
+        "meaning": "Requests ended in errors nothing handled. The server's log has their names and codes."
+      },
+      "workerStalled": {
+        "title": "The worker isn't taking jobs",
+        "meaning": "The worker didn't answer the console's ping. Follow-ups, WhatsApp replies, the AI and emails wait until it runs again."
+      }
+    }
   }
 }

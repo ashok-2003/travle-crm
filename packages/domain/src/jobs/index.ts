@@ -9,6 +9,14 @@ export {
   type ListenerContext,
   type PayloadSchema,
 } from "./events.js";
+export {
+  createIncidentReporter,
+  PLATFORM_INCIDENT_QUEUE,
+  WORKER_PING_QUEUE,
+  WORKER_PONG_QUEUE,
+  workerPingHandler,
+  type IncidentReporter,
+} from "./incidents.js";
 export { listenerJobId } from "./listener-job-id.js";
 export { publishEvent } from "./publish-event.js";
 export {

@@ -38,6 +38,8 @@ const app = createApp({
   }),
   webhookProviders: webhookProvidersOf(services, logger),
   meta: services.meta,
+  // A fault no route handled is told to the console, which emails the super admins.
+  incidents: services.incidents,
   whatsappProvider: services.whatsapp?.provider ?? null,
   ai: services.ai,
   logger,

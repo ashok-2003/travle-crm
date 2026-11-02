@@ -1,7 +1,8 @@
 // What the api answers, and logs, for an error no route handled (spec 9.1, 9.7). Hono's own handler would print the
 // whole error, whose message can quote a person's data: here the log gets the error's names, code and frames, and the
 // caller gets an answer that says nothing about it. That is the share-link page under /p, which people open in a
-// browser, and plan 2's internal-error JSON everywhere else.
+// browser, and plan 2's internal-error JSON everywhere else. The console is told, so the super admins hear of it.
+import type { IncidentReporter } from "@travel-crm/domain/jobs";
 import { errorFields, type Logger } from "@travel-crm/integrations/logging";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -15,7 +16,7 @@ function areaOf(path: string): string {
 }
 
 /** `logger` is for an error with no request line to carry it; inside a request the line has the request's id. */
-export function apiErrorHandler(logger: Logger): ErrorHandler {
+export function apiErrorHandler(logger: Logger, incidents: IncidentReporter | null = null): ErrorHandler {
   return (error, c) => {
     // A deliberate answer (Hono's HTTPException), not a fault.
     if (error instanceof HTTPException) {
@@ -26,6 +27,8 @@ export function apiErrorHandler(logger: Logger): ErrorHandler {
     const request = requestOf(c);
     if (request !== undefined) request.error = error;
     (request?.logger ?? logger).error({ method: c.req.method, area, ...errorFields(error) }, "unhandled error");
+    // The console is told, by the path's area and the error's name only.
+    incidents?.report("api.errors", `${area} ${error.name}`);
     if (area === "/p") return linkFailedPage();
     return c.json({ code: "INTERNAL_SERVER_ERROR", message: "Something went wrong" }, 500);
   };

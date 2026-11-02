@@ -5,6 +5,7 @@ import { appRouter, createContext } from "@travel-crm/api";
 import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
+import type { IncidentReporter } from "@travel-crm/domain/jobs";
 import type { Profiles } from "@travel-crm/domain/profile";
 import { assertNoSheetCheckSaving, type SheetsHashes } from "@travel-crm/domain/sheets";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
@@ -62,6 +63,8 @@ export interface ServerDependencies {
   meta?: MetaServices | null;
   /** The AI that drafts replies; null or absent when no key is set. */
   ai?: AiModel | null;
+  /** Tells the console of a fault no route handled (incidents.ts); absent in tests. */
+  incidents?: IncidentReporter | null;
   /** The MSG91 provider, for the templates screens; null when WhatsApp is off. */
   whatsappProvider?: WhatsAppProvider | null;
   /** The structured log (ADR 0032): a line per request, and every unexpected error. */
@@ -117,6 +120,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     meta = null,
     whatsappProvider = null,
     ai = null,
+    incidents = null,
     logger,
     authSecret,
     appUrl,
@@ -127,7 +131,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
-  app.onError(apiErrorHandler(logger));
+  app.onError(apiErrorHandler(logger, incidents));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -189,6 +193,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
         // Refusals (401, 403, 404...) are answers, not faults: the request line carries them. A fault is logged by
         // names, code and frames: tRPC copies the cause's message into its own, and a Prisma message can quote values.
         noteTrpcError(request, error, path);
+        if (error.code === "INTERNAL_SERVER_ERROR") incidents?.report("api.errors", path ?? "trpc");
       },
     })(c as Context<RequestLogEnv, string>, next);
   });

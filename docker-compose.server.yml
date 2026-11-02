@@ -62,6 +62,10 @@ x-api-environment: &api-environment
   AI_API_KEY: ${AI_API_KEY:-}
   AI_CHAT_MODELS: ${AI_CHAT_MODELS:-}
   AI_FAST_MODELS: ${AI_FAST_MODELS:-}
+  AI_BACKUP_BASE_URL: ${AI_BACKUP_BASE_URL:-}
+  AI_BACKUP_API_KEY: ${AI_BACKUP_API_KEY:-}
+  AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
+  AI_BACKUP_FAST_MODELS: ${AI_BACKUP_FAST_MODELS:-}
   AI_ZERO_RETENTION: ${AI_ZERO_RETENTION:-}
   # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
   # webhook block and check a number.
@@ -214,6 +218,16 @@ services:
       META_WEBHOOK_VERIFY_TOKEN: ""
       META_LOGIN_CONFIG_ID: ""
       META_TOKEN_KEY: ""
+      # Nor the AI's keys: it calls no model (each key goes with its endpoint and models, or the start-up check refuses).
+      OPENROUTER_API_KEY: ""
+      AI_BASE_URL: ""
+      AI_API_KEY: ""
+      AI_CHAT_MODELS: ""
+      AI_FAST_MODELS: ""
+      AI_BACKUP_BASE_URL: ""
+      AI_BACKUP_API_KEY: ""
+      AI_BACKUP_CHAT_MODELS: ""
+      AI_BACKUP_FAST_MODELS: ""
     depends_on: *api-depends-on
     healthcheck:
       test:

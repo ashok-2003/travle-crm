@@ -10,6 +10,7 @@ import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { listQuickReplies, tripKitWords, visibleConversation } from "../inbox/index.js";
 import { DomainError } from "../kernel/index.js";
+import { calendarText } from "./calendar.js";
 import { knowledgeWords } from "./knowledge.js";
 import { promptOf, type PromptFacts } from "./prompt.js";
 import { aiEnabled } from "./settings.js";
@@ -92,6 +93,7 @@ async function prepare(
     timeZone,
     facts: {
       agencyName: context.agencyName,
+      calendar: calendarText(context.now, timeZone),
       instructions: settings.instructions,
       firstName: firstName === "" ? null : firstName,
       lead,
