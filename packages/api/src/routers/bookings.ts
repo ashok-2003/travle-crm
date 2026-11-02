@@ -29,6 +29,7 @@ import {
   saveScheduleInput,
   saveStayInput,
   saveTravellerInput,
+  saveTravellersInput,
   scheduleRow,
   setLevelInput,
   setTravellerCountInput,
@@ -61,12 +62,14 @@ import {
   saveSchedule,
   saveStay,
   saveTravellerByStaff,
+  saveTravellersByStaff,
   setLevel,
   setRemindersPaused,
   setTravellerCount,
   travellerIdentityOf,
   removeStay,
 } from "@travel-crm/domain/bookings";
+import { recordFillApplied } from "@travel-crm/domain/ai";
 import type { MemberAccess } from "@travel-crm/domain/identity";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { QUOTE_RECORD_TYPE } from "@travel-crm/domain/quotes";
@@ -269,6 +272,24 @@ export const bookingsRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => saveTravellerByStaff(tx, ctx.member, input, new Date())),
     ),
+
+  /** Several travellers at once, as the AI read them from words, a voice note or a photo and staff ticked: all or nothing. */
+  saveTravellers: editor.input(saveTravellersInput).mutation(({ ctx, input }) => {
+    const now = new Date();
+    return ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+      const { leadId } = await saveTravellersByStaff(tx, ctx.member, input, now);
+      // Audited as drafted by AI, approved by the member. What the AI read is in no log: only that it was used.
+      if (input.aiFill !== undefined) {
+        await recordFillApplied(
+          tx,
+          ctx.member,
+          input.aiFill,
+          { targets: ["travellers"], subject: { type: "lead", id: leadId }, saved: {} },
+          now,
+        );
+      }
+    });
+  }),
 
   /** A traveller's ID numbers, for a member who may read them; every reading is audited. */
   identity: freshProcedure

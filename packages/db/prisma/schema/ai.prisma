@@ -315,7 +315,7 @@ model AiFollowUpTouch {
 model AiFill {
   organizationId    String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   id                String       @id @default(uuid(7)) @db.Uuid
-  /// lead, lead_edit, quote, call_note, room_requests or departure_offer (CHECK ai_fill_target_value).
+  /// lead, lead_edit, quote, call_note, room_requests, departure_offer, quote_days or travellers (CHECK ai_fill_target_value).
   target            String
   /// What the form is for (lead, quote, ...) and its id: polymorphic, so no key. Null for a lead not made yet.
   subjectType       String?      @map("subject_type")

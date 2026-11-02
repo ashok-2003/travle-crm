@@ -7,6 +7,7 @@ import {
   publicTravellerInput,
   type PublicTravellerInput,
   type SaveTravellerInput,
+  type SaveTravellersInput,
   type TravellerIdentity,
   type TravellerLevel,
 } from "@travel-crm/contracts/bookings";
@@ -62,7 +63,7 @@ export async function travellerProgress(tx: OrgTx, bookingId: string): Promise<{
 }
 
 /** Writes a traveller's details, works out whether the row is complete, and tells the timeline when the last one is. */
-async function applyDetails(
+export async function applyDetails(
   tx: OrgTx,
   actor: Actor,
   booking: BookingRow,
@@ -196,6 +197,61 @@ export async function saveTravellerByStaff(
     throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
   }
   await applyDetails(tx, access, booking, input, now);
+}
+
+/**
+ * Several rows at once, as staff ticked them after the AI read a voice note, a list or an ID: all or nothing, each row merged with
+ * what it holds (a field not sent keeps its value) and saved as one save is, so a row is complete or not by the same rule. An ID
+ * number needs documents:view_sensitive. Returns the booking's lead, which the fill that proposed them belongs to.
+ */
+export async function saveTravellersByStaff(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SaveTravellersInput,
+  now: Date,
+): Promise<{ leadId: string }> {
+  const booking = await findBookingForChange(tx, access, input.bookingId);
+  assertOpen(booking);
+  const ids = input.travellers.map((one) => one.travellerId);
+  if (new Set(ids).size !== ids.length) {
+    throw new DomainError("VALIDATION", "TRAVELLER_REPEATED", "A traveller is named twice");
+  }
+  if (
+    input.travellers.some((one) => one.identity !== undefined) &&
+    !access.permissions.has("documents:view_sensitive")
+  ) {
+    throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires documents:view_sensitive");
+  }
+  const rows = await tx.bookingTraveller.findMany({ where: { bookingId: booking.id, id: { in: ids } } });
+  for (const entry of input.travellers) {
+    const row = rows.find((one) => one.id === entry.travellerId);
+    if (row === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such traveller");
+    await applyDetails(
+      tx,
+      access,
+      booking,
+      {
+        travellerId: row.id,
+        name: entry.name ?? row.name,
+        dateOfBirth:
+          entry.dateOfBirth === undefined
+            ? row.dateOfBirth === null
+              ? null
+              : dayOf(row.dateOfBirth)
+            : entry.dateOfBirth,
+        gender: entry.gender === undefined ? (row.gender as "female" | "male" | "other" | null) : entry.gender,
+        phone: entry.phone ?? row.phone,
+        emergencyName: entry.emergencyName ?? row.emergencyName,
+        emergencyPhone: entry.emergencyPhone ?? row.emergencyPhone,
+        medicalNotes: entry.medicalNotes ?? row.medicalNotes,
+        roomRequest: entry.roomRequest ?? (row.roomRequest as RoomRequest),
+        roomNote: entry.roomNote ?? row.roomNote,
+        identity: entry.identity,
+      },
+      now,
+    );
+  }
+  return { leadId: booking.leadId };
 }
 
 /** The ID numbers of one traveller, for a member who may read them; the reading is audited. */

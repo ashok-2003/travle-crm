@@ -18,8 +18,9 @@ import { emailAddress, recordId } from "../identity/fields.js";
 import { wallClockTime, calendarDate } from "../kernel/time.js";
 import { aiInputFileTypes, MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES, presignedUpload } from "../files/attachments.js";
 import { quoteDay, quoteItem } from "../quotes/quotes.js";
+import { fillTraveller, MAX_FILL_TRAVELLERS } from "./fill-travellers.js";
 
-export const fillTargets = ["lead", "lead_edit", "quote", "call_note"] as const;
+export const fillTargets = ["lead", "lead_edit", "quote", "call_note", "quote_days", "travellers"] as const;
 export const fillTarget = z.enum(fillTargets);
 export type FillTarget = z.infer<typeof fillTarget>;
 
@@ -36,6 +37,8 @@ export const fillSource = z.discriminatedUnion("kind", [
     attachmentId: recordId,
     text: z.string().trim().max(AI_FILL_TEXT_SEND_MAX).optional(),
   }),
+  /** Nothing said: "Draft the days" writes from what the system already knows. Only for that target. */
+  z.strictObject({ kind: z.literal("none") }),
   /** A conversation the member can see: its last 20 messages are read on the server. */
   z.strictObject({ kind: z.literal("chat"), conversationId: recordId }),
 ]);
@@ -43,7 +46,7 @@ export type FillSource = z.infer<typeof fillSource>;
 
 export const aiFillInput = z.strictObject({
   target: fillTarget,
-  /** The lead or quote being changed, for the targets that change one. */
+  /** The lead, quote or booking being changed (a booking for the travellers), for the targets that change one. */
   subjectId: recordId.optional(),
   source: fillSource,
 });
@@ -93,6 +96,8 @@ export const fillValueSchemas = {
   "quote.inclusions": z.string().trim().max(3000),
   "quote.exclusions": z.string().trim().max(3000),
   "quote.notes": z.string().trim().max(3000),
+  /** The people of one booking: sensitive (dates of birth, an ID number), so never hashed or logged. */
+  travellers: z.array(fillTraveller).min(1).max(MAX_FILL_TRAVELLERS),
 } as const;
 export type FillPath = keyof typeof fillValueSchemas;
 export const fillPaths = Object.keys(fillValueSchemas) as FillPath[];
@@ -127,6 +132,8 @@ export const fillTargetPaths = {
     "quote.notes",
   ],
   call_note: ["call.outcome", "call.note", "call.followUp", ...tripPaths],
+  quote_days: ["quote.days"],
+  travellers: ["travellers"],
 } as const satisfies Record<FillTarget, readonly FillPath[]>;
 
 /** Where a proposed value came from. */
@@ -150,6 +157,8 @@ export const aiFillProposal = z.object({
   questions: z.array(z.string()),
   /** The source was longer than the limit: only its newest part was read. */
   truncated: z.boolean(),
+  /** An amount the model typed itself was taken out of the words (Draft the days). */
+  removedAmounts: z.boolean(),
   usedThisMonth: z.int(),
   monthlyLimit: z.int(),
 });
@@ -158,6 +167,8 @@ export type AiFillProposal = z.infer<typeof aiFillProposal>;
 /** Step one of a recording or a screenshot: where the browser puts it. */
 export const requestAiInputInput = z.strictObject({
   contentType: z.enum(aiInputFileTypes),
+  /** A traveller's voice note or ID photo: stored as a sensitive file, opened only with documents:view_sensitive. */
+  sensitive: z.boolean().optional(),
   sizeBytes: z.int().min(1).max(Math.max(MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES)),
 });
 export type RequestAiInputInput = z.infer<typeof requestAiInputInput>;

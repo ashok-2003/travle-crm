@@ -101,6 +101,44 @@ export const quoteAnswer = z.object({
   ...common,
 });
 
+/** Draft the days: the plan, one entry per day, and what the model could not settle. */
+export const draftAnswer = z.object({
+  days: lenient(z.array(z.object({ title: words(120), description: words(2000) })).max(60)),
+  questions: common.questions,
+});
+
+/** The people read from a voice note, a list or an ID photo: everything as said or printed, for code to check. */
+export const travellersAnswer = z.object({
+  people: lenient(
+    z
+      .array(
+        z.object({
+          name: words(120),
+          dateOfBirth: words(60),
+          age: whole,
+          gender: words(20),
+          phone: words(40),
+          emergencyName: words(120),
+          emergencyPhone: words(40),
+          medicalNotes: words(1000),
+          roomRequest: words(60),
+          roomNote: words(200),
+          /** What kind of ID was shown, if one was: passport, aadhaar, pan, driving_licence, voter_id, other. */
+          idKind: words(30),
+          /** A passport's two machine-readable lines, copied exactly as printed. */
+          mrzLine1: words(60),
+          mrzLine2: words(60),
+          /** The passport's date of issue, as printed. */
+          issueDate: words(60),
+        }),
+      )
+      .max(40),
+  ),
+  questions: common.questions,
+});
+
+export type DraftAnswer = z.infer<typeof draftAnswer>;
+export type TravellersAnswer = z.infer<typeof travellersAnswer>;
 export type LeadAnswer = z.infer<typeof leadAnswer>;
 export type TripAnswer = z.infer<typeof tripAnswer>;
 export type CallAnswer = z.infer<typeof callAnswer>;
