@@ -353,7 +353,11 @@ describe("NewLeadScreen", () => {
     await userEvent.type(screen.getByPlaceholderText(form.destination.searchOrAdd), "Spiti");
     expect(await screen.findByRole("option", { name: form.destination.add.replace("{name}", "Spiti") })).toBeVisible();
     // Enter on Try again asks again; it never picks the highlighted option, and the failure isn't in the listbox.
-    // Wait for the search for "Spiti" to fail before the api answers again: on a slow machine it is still in flight.
+    // Wait for the search for "Spiti" to be sent before the api answers again: on a slow machine it is still waiting out
+    // its pause, and the Try again on screen is the first failure's.
+    await vi.waitFor(() => {
+      expect(inputsTo("destinations.search").some((input) => JSON.stringify(input).includes("Spiti"))).toBe(true);
+    });
     const retry = await screen.findByRole("button", { name: messages.common.tryAgain });
     api.answer("destinations.search", { data: [{ id: ids.goa, name: "Spiti Valley" }] });
     const asked = inputsTo("destinations.search").length;
