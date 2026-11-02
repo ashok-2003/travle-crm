@@ -8,6 +8,7 @@ import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { TextLink } from "@/components/text-link";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { LeadCard } from "@/leads/lead/lead-card";
+import { formatCalendarDay } from "@/lib/format";
 import { bookingRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { isOnPlan } from "@/shell/navigation";
@@ -17,6 +18,7 @@ import { useLeadBookings } from "./use-bookings";
 
 export function LeadBookingsCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("bookings.lead");
+  const tDeparture = useTranslations("departures.booking");
   const modules = useSubscription().data?.modules;
   const shown = useHolds("bookings:view") && isOnPlan({ module: "bookings" }, modules);
   const bookings = useLeadBookings(lead.id, shown);
@@ -40,7 +42,11 @@ export function LeadBookingsCard({ lead }: { lead: LeadDetail }) {
                   {booking.title}
                 </TextLink>
               </ItemTitle>
-              <ItemDescription className="numbers">{booking.number}</ItemDescription>
+              <ItemDescription>
+                <span className="numbers">{booking.number}</span>
+                {booking.departure !== null &&
+                  ` · ${tDeparture("onDeparture", { day: formatCalendarDay(booking.departure.startDate), title: booking.departure.title })}`}
+              </ItemDescription>
             </ItemContent>
             <ItemActions>
               <BookingStatusBadge status={booking.status} />

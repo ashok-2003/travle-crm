@@ -22,6 +22,9 @@ export const VOUCHER_DOCUMENT_PREFIX = "VCH";
 /** A booking's itinerary PDF: ITN-2026-0001. */
 export const ITINERARY_DOCUMENT_PREFIX = "ITN";
 
+/** A departure's rooming list for one hotel: RML-2026-0001. */
+export const ROOMING_DOCUMENT_PREFIX = "RML";
+
 /** An invoice of an agency that has not chosen its own prefix: INV-2026-0001. */
 export const DEFAULT_INVOICE_PREFIX = "INV";
 
@@ -38,4 +41,5 @@ export const reservedDocumentPrefixes: readonly string[] = [
   BOOKING_DOCUMENT_PREFIX,
   VOUCHER_DOCUMENT_PREFIX,
   ITINERARY_DOCUMENT_PREFIX,
+  ROOMING_DOCUMENT_PREFIX,
 ];

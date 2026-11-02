@@ -34,6 +34,12 @@ export const routes = {
   quotes: "/quotes",
   /** Accepted quotes as bookings the agency confirms and runs (release 6); one booking's page is bookingRoute(bookingId). */
   bookings: "/bookings",
+  /** Group departures with seats, holds and a rooming list (release 7a); one departure's page is departureRoute(departureId). */
+  departures: "/departures",
+  /** The hotels, transport operators and guides the agency buys from; one supplier's page is supplierRoute(supplierId). */
+  suppliers: "/suppliers",
+  /** What the agency owes its suppliers. */
+  supplierDues: "/suppliers/dues",
   /** Reports and analytics; one staff member's is staffReportRoute(userId). */
   reports: "/reports",
   /** The agency's money: profit, bookings and running costs (step 6, P0). */
@@ -57,6 +63,8 @@ export const routes = {
   salesAutomation: "/settings/sales-automation",
   /** How quotes are paid (the agency's UPI id) and taxed. */
   quoteSettings: "/settings/quotes",
+  /** How departures work: how long a hold lasts, when a batch reads Filling fast, beds in a drafted room (release 7a). */
+  departureSettings: "/settings/departures",
   /** How bookings run: the payment schedule, reminders, the cancellation steps and the review link (release 6). */
   bookingSettings: "/settings/bookings",
   /** Suggest reply's switch and the agency's instructions to the AI. */
@@ -88,6 +96,16 @@ export function quoteRoute(quoteId: string): string {
 /** One booking's page. */
 export function bookingRoute(bookingId: string): string {
   return `${routes.bookings}/${encodeURIComponent(bookingId)}`;
+}
+
+/** One departure's page. */
+export function departureRoute(departureId: string): string {
+  return `${routes.departures}/${encodeURIComponent(departureId)}`;
+}
+
+/** One supplier's page. */
+export function supplierRoute(supplierId: string): string {
+  return `${routes.suppliers}/${encodeURIComponent(supplierId)}`;
 }
 
 /** A WhatsApp chat's page. */

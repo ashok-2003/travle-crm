@@ -9,6 +9,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { nextDocumentNumber } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { noticeKey } from "../crm/index.js";
+import { announceSeatsFreed, bookingJoinedDeparture } from "../departures/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { defineListener, publishEvent, type EventListener } from "../jobs/index.js";
 import { addDays, parseCalendarDate, systemActor, yearIn } from "../kernel/index.js";
@@ -43,6 +44,7 @@ export async function createBookingFromQuote(
       title: true,
       status: true,
       startDate: true,
+      departureId: true,
       days: true,
       adults: true,
       children: true,
@@ -91,6 +93,7 @@ export async function createBookingFromQuote(
       status: input.confirmed ? "confirmed" : "requested",
       startDate: quote.startDate,
       endDate: endDay === null ? null : new Date(`${endDay}T00:00:00Z`),
+      departureId: quote.departureId,
       level: settings.defaultLevel,
       policySnapshot: policy,
       emergencyName: settings.emergencyName,
@@ -103,6 +106,19 @@ export async function createBookingFromQuote(
   await tx.bookingTraveller.createMany({
     data: Array.from({ length: heads }, (_, position) => ({ bookingId: booking.id, position })),
   });
+  // On a group departure the booking takes the seats: the lead's hold becomes it, and going over the seats is noted.
+  if (quote.departureId !== null) {
+    await bookingJoinedDeparture(
+      tx,
+      {
+        organizationId: input.organizationId,
+        bookingId: booking.id,
+        departureId: quote.departureId,
+        leadId: quote.leadId,
+      },
+      now,
+    );
+  }
   await recordAudit(tx, actor, {
     action: "booking.created",
     entityType: "booking",
@@ -166,7 +182,7 @@ export function quoteRevertedListener(): EventListener {
       await context.forOrg(async (tx) => {
         const booking = await tx.booking.findFirst({
           where: { quoteId: event.payload.quoteId, status: { in: ["requested", "confirmed"] } },
-          select: { id: true, confirmTaskId: true, leadId: true },
+          select: { id: true, confirmTaskId: true, leadId: true, departureId: true },
         });
         if (booking === null) return;
         const actor = systemActor(event.organizationId);
@@ -179,6 +195,7 @@ export function quoteRevertedListener(): EventListener {
           entityId: booking.id,
           after: { reason: "quote_reverted" },
         });
+        if (booking.departureId !== null) await announceSeatsFreed(tx, booking.departureId);
       });
     },
   });
