@@ -57,6 +57,9 @@ logs, and what is still open.
   addresses. Otherwise every client shares one rate limit, and three failed sign-ins lock everyone out.
 - **Rate limits are kept in memory**, per instance: with more than one api instance, move them to the database or a
   shared store (Better Auth's `rateLimit.storage`) before launch.
+- **The access cache is kept in memory**, per instance (members' access and subscriptions, five minutes): with more
+  than one api instance, a change made through one instance reaches the others only when their entries expire, within
+  five minutes.
 - **The reset link's token** is in the path of `GET /api/auth/reset-password/<token>`: keep the load balancer's access
   logs short-lived, or strip that path from them.
 

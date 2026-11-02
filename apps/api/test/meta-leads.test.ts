@@ -14,7 +14,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { aMeta, deliveryOf, META_APP_SECRET, META_VERIFY_TOKEN, signed } from "./support/meta.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
-import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
+import {
+  createTestAgency,
+  createTestServer,
+  everyRequestReads,
+  type TestAgency,
+  type TestServer,
+} from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 
 describe("the Meta lead ads over HTTP", () => {
@@ -29,7 +35,7 @@ describe("the Meta lead ads over HTTP", () => {
   };
 
   beforeAll(async () => {
-    server = createTestServer({}, { metaFor: aMeta });
+    server = createTestServer({}, { metaFor: aMeta, accessCache: everyRequestReads });
     agency = await createTestAgency(server);
     owner = await signedInOwner(server, agency);
     admin = await signedInStaff(
