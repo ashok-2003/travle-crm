@@ -151,7 +151,7 @@
   },
   "log": {
     "title": "Platform log",
-    "intro": "What platform staff and the platform's own jobs did, newest first. Entries keep ids and codes, never an organization's name, so they outlive a deletion.",
+    "intro": "What platform staff and the platform's own jobs did, newest first. Entries keep only ids and codes, so they outlive a deletion; an organization's name is shown from its record as it is now.",
     "loading": "Loading the platform log",
     "loadFailed": "The platform log didn't load.",
     "empty": "Nothing is recorded yet.",
@@ -159,7 +159,6 @@
     "you": "You",
     "automatic": "Automatic",
     "platformStaff": "Platform staff",
-    "organization": "Organization",
     "deletedOrganization": "Deleted organization {code}",
     "deletedOrganizationWithoutCode": "A deleted organization",
     "changes": "What changed",

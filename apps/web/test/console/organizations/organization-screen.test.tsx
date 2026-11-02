@@ -1,9 +1,8 @@
 // An organization's page in the console: its name, code and status today; after onboarding, that the Owner's invite
 // is on its way; its row, profile and members; the way to data protection for super admins only; an organization
 // that doesn't exist, or a page that didn't load, said plainly.
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OrganizationScreen } from "@/console/organizations/organization/organization-screen";
 import { messages } from "@/i18n/messages";

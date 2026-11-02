@@ -14,29 +14,10 @@ import { bytesStored } from "../files/index.js";
 import { listOrganizationRecords, memberActivity } from "../identity/index.js";
 import { calendarDateIn, parseCalendarDate, startOfDayIn } from "../kernel/index.js";
 import { entitlementsFrom, getSubscriptionPolicy, type SubscriptionFacts } from "../subscriptions/index.js";
-import type { PlatformServices } from "./services.js";
+import { mapConcurrently } from "./map-concurrently.js";
+import { PLATFORM_POOL_SIZE, type PlatformServices } from "./services.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** The console's connection pool: how many organizations are counted at once. */
-const COUNT_CONCURRENCY = 3;
-
-/** Maps items with at most `limit` calls in flight, keeping the order of the items. */
-async function mapConcurrently<T, R>(items: readonly T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const index = next;
-      next += 1;
-      const item = items[index];
-      if (item === undefined) continue;
-      results[index] = await work(item);
-    }
-  });
-  await Promise.all(lanes);
-  return results;
-}
 
 /** Whole days from one calendar date to another. */
 function daysBetween(from: string, to: string): number {
@@ -77,7 +58,7 @@ export async function organizationsOverview(
       facts: loaded,
     };
   });
-  const counts = await mapConcurrently(organizations, COUNT_CONCURRENCY, (organization) => {
+  const counts = await mapConcurrently(organizations, PLATFORM_POOL_SIZE, (organization) => {
     const today = calendarDateIn(now, organization.timeZone);
     const monthStart = startOfDayIn(parseCalendarDate(`${today.slice(0, 7)}-01`), organization.timeZone);
     // A short transaction for each organization's few counts, rather than one that grows with every organization.
