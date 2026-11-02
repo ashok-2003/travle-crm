@@ -5,7 +5,7 @@ import { createDatabase, type Database } from "@travel-crm/db";
 import { createMemoryJobQueue } from "@travel-crm/integrations/jobs";
 import { hmacSha256Signature, receiveWebhook, type WebhookRequest } from "@travel-crm/domain/webhooks";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { MAX_WEBHOOK_BODY_BYTES, webhookRoutes } from "../src/webhook-route.js";
+import { MAX_WEBHOOK_BODY_BYTES, PATH_TOKEN_HEADER, webhookRoutes } from "../src/webhook-route.js";
 
 describe("webhook route", () => {
   it("passes the provider name, headers and exact raw body to the intake, and answers its status", async () => {
@@ -49,6 +49,24 @@ describe("webhook route", () => {
     const streamed = await app.request("/example", { method: "POST", body: stream, duplex: "half" });
     expect(streamed.status).toBe(413);
     expect(called).toBe(false);
+  });
+
+  it("hands a provider the token in its path as an internal header, which no caller can send itself", async () => {
+    const received: { provider: string; token: string | null }[] = [];
+    const app = webhookRoutes({
+      receive: (provider, request) => {
+        received.push({ provider, token: request.headers.get(PATH_TOKEN_HEADER) });
+        return Promise.resolve({ status: 200 });
+      },
+    });
+    const forged = { [PATH_TOKEN_HEADER]: "forged" };
+    expect((await app.request("/brevo/the-token", { method: "POST", headers: forged, body: "{}" })).status).toBe(200);
+    expect((await app.request("/brevo", { method: "POST", headers: forged, body: "{}" })).status).toBe(200);
+    expect(received).toEqual([
+      { provider: "brevo", token: "the-token" },
+      { provider: "brevo", token: null },
+    ]);
+    expect((await app.request("/brevo/a/b", { method: "POST", body: "{}" })).status).toBe(404);
   });
 
   it("only takes POST", async () => {
