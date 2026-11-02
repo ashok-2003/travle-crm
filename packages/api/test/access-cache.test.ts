@@ -138,4 +138,70 @@ describe("access cache", () => {
     await noAccessCache.member(key("a"), load);
     expect(load).toHaveBeenCalledTimes(2);
   });
+
+  describe("a change while a load is in flight", () => {
+    /** A load the test settles by hand. */
+    function slowLoad(value: MemberAccess) {
+      let settle: () => void = () => undefined;
+      const load = vi.fn(
+        () =>
+          new Promise<MemberAccess>((resolve) => {
+            settle = () => { resolve(value); };
+          }),
+      );
+      return { load, settle: () => { settle(); } };
+    }
+
+    it("hands the stale load to its caller but does not keep it", async () => {
+      const { cache } = setup();
+      const slow = slowLoad(access());
+      const stale = cache.member(key("a"), slow.load);
+      cache.forgetOrganization("a");
+      slow.settle();
+      await expect(stale).resolves.toBeDefined();
+      const load = vi.fn(() => Promise.resolve(access()));
+      await cache.member(key("a"), load);
+      expect(load).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not keep a fresh load that began before the change either", async () => {
+      const { cache } = setup();
+      const slow = slowLoad(access());
+      const stale = cache.member(key("a"), slow.load, { fresh: true });
+      cache.forgetOrganization("a");
+      slow.settle();
+      await stale;
+      const load = vi.fn(() => Promise.resolve(access()));
+      await cache.member(key("a"), load);
+      expect(load).toHaveBeenCalledTimes(1);
+    });
+
+    it("starts a new read for a caller that arrives after the change instead of joining the old one", async () => {
+      const { cache } = setup();
+      const slow = slowLoad(access());
+      const stale = cache.member(key("a"), slow.load);
+      cache.forgetOrganization("a");
+      const next = vi.fn(() => Promise.resolve(access({ mustChangePassword: false })));
+      await cache.member(key("a"), next);
+      expect(next).toHaveBeenCalledTimes(1);
+      slow.settle();
+      await stale;
+      await cache.member(key("a"), next);
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves another organization's loads alone", async () => {
+      const { cache } = setup();
+      const slow = slowLoad(access());
+      const other = cache.member(key("b"), slow.load);
+      cache.forgetOrganization("a");
+      const joined = vi.fn(() => Promise.resolve(access()));
+      const joining = cache.member(key("b"), joined);
+      slow.settle();
+      await Promise.all([other, joining]);
+      expect(joined).not.toHaveBeenCalled();
+      await cache.member(key("b"), joined);
+      expect(joined).not.toHaveBeenCalled();
+    });
+  });
 });

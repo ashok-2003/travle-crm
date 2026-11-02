@@ -95,6 +95,7 @@ describe("the access cache in the request checks", () => {
       list: orgProcedure.requires("leads:view").query(() => "listed"),
       ping: orgProcedure.meta(core).query(() => "pinged"),
       change: orgProcedure.meta(core).mutation(() => "changed"),
+      telemetry: orgProcedure.meta({ ...core, keepsAccess: true }).mutation(() => "beat"),
       create: orgProcedure.requires("leads:create").mutation(() => "created"),
       fresh: freshProcedure.meta(core).query(() => "fresh"),
       // What the Staff screen's role change and removal do, to the stand-in identity.
@@ -165,6 +166,17 @@ describe("the access cache in the request checks", () => {
     expect(await outcome(callerOf(salesperson).list())).toBe("NOT_A_MEMBER");
   });
 
+  it("a keepsAccess mutation leaves the cache warm and an ordinary one clears it", async () => {
+    const { salesperson, resolveAccess, callerOf } = await setup();
+    await callerOf(salesperson).ping();
+    await callerOf(salesperson).telemetry();
+    await callerOf(salesperson).ping();
+    expect(resolveAccess).toHaveBeenCalledTimes(1);
+    await callerOf(salesperson).change();
+    await callerOf(salesperson).ping();
+    expect(resolveAccess).toHaveBeenCalledTimes(2);
+  });
+
   it("a refused mutation leaves the cache alone", async () => {
     const { salesperson, resolveAccess, callerOf } = await setup();
     await callerOf(salesperson).list();
@@ -190,7 +202,7 @@ describe("the access cache in the request checks", () => {
     expect(await outcome(callerOf(salesperson).list())).toBe("listed");
   });
 
-  it("a trial ends at its minute", async () => {
+  it("a trial ends with its days though its facts are cached", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-22T06:00:00Z"));
     const { owner, factsOf, callerOf } = await setup("2026-10-22");

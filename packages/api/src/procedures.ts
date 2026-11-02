@@ -167,25 +167,38 @@ function planModuleOfPermissions(permissions: RequiredPermissions): ProcedureMod
 
 /**
  * After a mutation that succeeded, whatever it changed (a role, a member, the plan's use) applies to the very next
- * call: the organization's cached access is dropped.
+ * call: the organization's cached access is dropped, unless the procedure declares `keepsAccess` (telemetry and read
+ * marks that run on timers and cannot change anyone's access).
  */
-const forgetAccessAfterChange = t.middleware(async ({ ctx, type, next }) => {
-  const result = await next();
-  const organizationId = ctx.session?.activeOrganizationId;
-  if (type === "mutation" && result.ok && organizationId) ctx.accessCache.forgetOrganization(organizationId);
-  return result;
-});
+function forgetAccessAfterChange(
+  ctx: SignedInContext,
+  call: { type: string; meta: ProcedureMeta | undefined },
+  result: { ok: boolean },
+): void {
+  const organizationId = ctx.session.activeOrganizationId;
+  if (call.type === "mutation" && result.ok && call.meta?.keepsAccess !== true && organizationId) {
+    ctx.accessCache.forgetOrganization(organizationId);
+  }
+}
 
 const member = protectedProcedure
   .use(async ({ ctx, type, meta, next }) =>
     next({ ctx: await memberAccessFor(ctx, callOf(type, meta), { fresh: false }) }),
   )
-  .use(forgetAccessAfterChange);
+  .use(async ({ ctx, type, meta, next }) => {
+    const result = await next();
+    forgetAccessAfterChange(ctx, { type, meta }, result);
+    return result;
+  });
 const freshMember = freshlySignedIn
   .use(async ({ ctx, type, meta, next }) =>
     next({ ctx: await memberAccessFor(ctx, callOf(type, meta), { fresh: true }) }),
   )
-  .use(forgetAccessAfterChange);
+  .use(async ({ ctx, type, meta, next }) => {
+    const result = await next();
+    forgetAccessAfterChange(ctx, { type, meta }, result);
+    return result;
+  });
 
 /**
  * Any member of the session's organization. `.requires("leads:create")` declares the procedure's plan module and adds

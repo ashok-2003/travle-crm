@@ -38,8 +38,9 @@ interface Entry<Value> {
 /** One kind of entry: a map whose insertion order is the least-recently-used order, and the loads in flight. */
 class Store<Value> {
   private readonly entries = new Map<string, Entry<Value>>();
-  private readonly inFlight = new Map<string, Promise<Value | null>>();
-  private generation = 0;
+  private readonly inFlight = new Map<string, { organizationId: string; loading: Promise<Value | null> }>();
+  /** Bumped when an organization is forgotten; a load that began under an older number is not kept. */
+  private readonly generations = new Map<string, number>();
 
   constructor(
     private readonly options: { ttlMs: number; maxEntries: number; now: () => number },
@@ -60,27 +61,28 @@ class Store<Value> {
         return Promise.resolve(hit.value);
       }
       const pending = this.inFlight.get(key);
-      if (pending) return pending;
+      if (pending) return pending.loading;
     }
-    const startedIn = this.generation;
+    const startedIn = this.generations.get(organizationId) ?? 0;
     const loading = load().then((value) => {
       // A change made while this was loading may have made it stale: hand it back, but do not keep it.
-      if (value !== null && this.keepable(value) && startedIn === this.generation)
+      if (value !== null && this.keepable(value) && startedIn === (this.generations.get(organizationId) ?? 0))
         this.keep(key, organizationId, value);
       else if (fresh) this.entries.delete(key);
       return value;
     });
     const tracked = loading.finally(() => {
-      if (this.inFlight.get(key) === tracked) this.inFlight.delete(key);
+      if (this.inFlight.get(key)?.loading === tracked) this.inFlight.delete(key);
     });
-    this.inFlight.set(key, tracked);
+    this.inFlight.set(key, { organizationId, loading: tracked });
     return tracked;
   }
 
   forget(organizationId: string): void {
-    this.generation += 1;
+    this.generations.set(organizationId, (this.generations.get(organizationId) ?? 0) + 1);
     for (const [key, entry] of this.entries) if (entry.organizationId === organizationId) this.entries.delete(key);
-    this.inFlight.clear();
+    for (const [key, pending] of this.inFlight)
+      if (pending.organizationId === organizationId) this.inFlight.delete(key);
   }
 
   private keep(key: string, organizationId: string, value: Value): void {
