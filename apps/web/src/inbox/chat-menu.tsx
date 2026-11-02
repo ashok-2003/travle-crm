@@ -16,7 +16,9 @@ import {
   PinIcon,
   PinOffIcon,
   SearchIcon,
+  SparklesIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,7 +32,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useFillAvailable } from "@/ai/fill/use-ai-fill";
 import { useErrorMessage } from "@/lib/error-message";
+import { routes } from "@/lib/routes";
 import { formatDayTime, formatPhoneNumber } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -82,6 +86,8 @@ export function ChatMenu({
   const answered = useMarkAnswered();
   const snooze = useSnooze();
   const acts = mayReply && header.state === "open";
+  // "Make a lead from this chat": the new-lead form opens with the AI's reading of the chat, for the person to check and save.
+  const mayMakeLead = useFillAvailable("lead") && header.state === "open" && header.lead?.open !== true;
   const name = header.name ?? formatPhoneNumber(header.phone);
   const failed = { onError: (error: unknown) => toast.error(apiError(error)) };
   const off = !access.allowed;
@@ -168,6 +174,14 @@ export function ChatMenu({
               >
                 <AlarmClockOffIcon aria-hidden="true" />
                 {t("wake")}
+              </DropdownMenuItem>
+            )}
+            {mayMakeLead && (
+              <DropdownMenuItem asChild disabled={off}>
+                <Link href={`${routes.newLead}?chat=${header.id}`}>
+                  <SparklesIcon aria-hidden="true" />
+                  {t("makeLead")}
+                </Link>
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

@@ -8,6 +8,9 @@ import { DomainError } from "../kernel/index.js";
 import { isLeadInScope } from "./lead-detail.js";
 import { saveEnquiry } from "./save-enquiry.js";
 
+/** Work the caller does in the save's own transaction, once the lead or enquiry is saved (an AI fill's audit). */
+export type AfterLeadSaved = (tx: OrgTx, saved: { leadId: string }) => Promise<void>;
+
 /**
  * Adds the lead, or the enquiry to the person's open lead. Takes the database, not a transaction: a save that races
  * another for the same new contact reruns once in a new transaction (R23), where it finds the person the other save
@@ -17,7 +20,7 @@ export async function createLead(
   database: Database,
   access: MemberAccess,
   input: CreateLeadInput,
-  context: { owners: ReadonlySet<string>; now: Date },
+  context: { owners: ReadonlySet<string>; now: Date; after?: AfterLeadSaved },
 ): Promise<CreatedLead> {
   const ownerUserId = input.ownerUserId ?? access.userId;
   if (ownerUserId !== access.userId) {
@@ -29,7 +32,9 @@ export async function createLead(
     }
   }
   const save = () =>
-    database.forOrg(access.organizationId, (tx) => saveLead(tx, access, input, ownerUserId, context.now));
+    database.forOrg(access.organizationId, (tx) =>
+      saveLead(tx, access, input, ownerUserId, context.now, context.after),
+    );
   try {
     return await save();
   } catch (error) {
@@ -45,12 +50,14 @@ async function saveLead(
   input: CreateLeadInput,
   ownerUserId: string,
   now: Date,
+  after?: AfterLeadSaved,
 ): Promise<CreatedLead> {
   const saved = await saveEnquiry(tx, access, input, now, {
     from: "form",
     ownerUserId,
     whenOpenLead: input.whenOpenLead,
   });
+  await after?.(tx, { leadId: saved.leadId });
   // A lead the person can't see is never named to them (R24).
   return {
     outcome: saved.outcome,

@@ -25,6 +25,7 @@ import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { AiDraftNote, SuggestButton, type AiDraft } from "@/ai/suggest-button";
+import { forgetAiDraft, readAiDraft } from "@/ai/write-up/chat-box";
 import { useSuggestReplyAvailable } from "@/ai/use-ai";
 import { AttachedFile } from "./attached-file";
 import { useDroppedFile } from "./chat-drop";
@@ -58,7 +59,12 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
     keepTabValue(draftKey(header.id), next);
   };
   // The AI's draft the box began as (Suggest reply): kept for the audit when the reply is sent, whatever the person changes.
-  const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
+  // Words handed over from the quote screen's write-up arrive with theirs, kept in the tab beside the words.
+  const [aiDraft, setAiDraftState] = useState<AiDraft | null>(() => readAiDraft(header.id));
+  const setAiDraft = (next: AiDraft | null) => {
+    setAiDraftState(next);
+    if (next === null) forgetAiDraft(header.id);
+  };
   const canSuggest = useSuggestReplyAvailable();
   const [file, setFile] = useState<File | null>(null);
   const [fileProblem, setFileProblem] = useState<"fileType" | "fileSize" | null>(null);

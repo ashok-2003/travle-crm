@@ -260,7 +260,7 @@ describe("the AI, step one", () => {
         saveAiSettings(
           tx,
           owner,
-          { enabled: true, scoring: false, instructions: "" },
+          { enabled: true, scoring: false, fillLeads: false, instructions: "" },
           { providerReady: true, now: testNow },
         ),
       );
@@ -307,7 +307,7 @@ describe("the AI, step one", () => {
         saveAiSettings(
           tx,
           owner,
-          { enabled: true, scoring: false, instructions: "" },
+          { enabled: true, scoring: false, fillLeads: false, instructions: "" },
           { providerReady: true, now: testNow },
         ),
       );

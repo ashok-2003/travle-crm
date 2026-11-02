@@ -3,7 +3,7 @@
 // /settings/ai: the agent's head (its name, whether it is live, the model, its last day), the agency's own switches for the
 // AI and for scoring leads, and what it tells its AI (its tone, what to offer, what never to say, with ready lines to add).
 // Off until an Owner or Admin turns it on. What the AI reads, and what it never does, are said here in plain words.
-import { AI_INSTRUCTIONS_MAX, type AiSettings } from "@travel-crm/contracts/ai";
+import { AI_INSTRUCTIONS_MAX, writeStyles, type AiSettings, type WriteStyle } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useWriteAccess } from "@/subscription/write-access";
 import { AiHero } from "./ai-hero";
 import { AutopilotSection } from "./autopilot-section";
@@ -36,8 +37,15 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
   const save = useSaveAiSettings();
   const [enabled, setEnabled] = useState(saved.enabled);
   const [scoring, setScoring] = useState(saved.scoring);
+  const [fillLeads, setFillLeads] = useState(saved.fillLeads);
+  const [writeStyle, setWriteStyle] = useState<WriteStyle>(saved.writeStyle);
   const [instructions, setInstructions] = useState(saved.instructions);
-  const changed = enabled !== saved.enabled || scoring !== saved.scoring || instructions.trim() !== saved.instructions;
+  const changed =
+    writeStyle !== saved.writeStyle ||
+    enabled !== saved.enabled ||
+    scoring !== saved.scoring ||
+    fillLeads !== saved.fillLeads ||
+    instructions.trim() !== saved.instructions;
   return (
     <form
       noValidate
@@ -45,7 +53,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(
-          { enabled, scoring, instructions: instructions.trim() },
+          { enabled, scoring, fillLeads, writeStyle, instructions: instructions.trim() },
           { onSuccess: () => toast.success(t("saved")) },
         );
       }}
@@ -70,9 +78,40 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
             <Label htmlFor="ai-scoring">{t("scoring")}</Label>
           </div>
           <p className="text-label text-muted-foreground">{t("scoringHint")}</p>
+          <div className="flex items-center gap-3">
+            <Switch id="ai-fill-leads" checked={fillLeads} onCheckedChange={setFillLeads} disabled={save.isPending} />
+            <Label htmlFor="ai-fill-leads">{t("fillLeads")}</Label>
+          </div>
+          <p className="text-label text-muted-foreground">{t("fillLeadsHint")}</p>
           <p className="text-muted-foreground">
             {t("usage", { used: saved.usedThisMonth, limit: saved.monthlyLimit })}
           </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("writeStyleTitle")}</CardTitle>
+          <CardDescription>{t("writeStyleHint")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            aria-label={t("writeStyle")}
+            value={writeStyle}
+            disabled={save.isPending}
+            onValueChange={(chosen) => {
+              const style = writeStyles.find((one) => one === chosen);
+              if (style !== undefined) setWriteStyle(style);
+            }}
+            className="flex-wrap"
+          >
+            {writeStyles.map((one) => (
+              <ToggleGroupItem key={one} value={one} className="min-h-11 px-4">
+                {t(`writeStyles.${one}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </CardContent>
       </Card>
       <Card>

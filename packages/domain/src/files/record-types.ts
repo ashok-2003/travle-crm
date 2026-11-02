@@ -3,7 +3,9 @@
 // sweep and erasure delete them for good.
 import {
   AI_KNOWLEDGE_RECORD_TYPE,
+  AI_INPUT_RECORD_TYPE,
   AI_MEDIA_RECORD_TYPE,
+  aiInputFileTypes,
   aiMediaFileTypes,
   aiKnowledgeFileTypes,
   attachmentContentTypes,
@@ -57,6 +59,8 @@ export function maxUploadBytes(recordType: string): number {
 export function allowedContentTypes(recordType: string): readonly string[] {
   // The AI reads what it is given: a PDF or plain words.
   if (recordType === AI_KNOWLEDGE_RECORD_TYPE) return aiKnowledgeFileTypes;
+  // What "Fill it for me" reads: a WAV recording or a screenshot.
+  if (recordType === AI_INPUT_RECORD_TYPE) return aiInputFileTypes;
   // What the AI sends is what WhatsApp takes as a photo, a video or a document.
   if (recordType === AI_MEDIA_RECORD_TYPE) return aiMediaFileTypes;
   // A trip's details are sent on WhatsApp, so they take what a WhatsApp message does (videos and voice notes too).

@@ -105,6 +105,7 @@ model Lead {
   cadence           LeadCadence[]
   signals           LeadSignal[]
   aiInsights        LeadAiInsight[]
+  aiFields          LeadAiField[]
   enquiries         LeadEnquiry[]
   formSubmissions   WebsiteFormSubmission[]
 

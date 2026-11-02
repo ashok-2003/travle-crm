@@ -15,7 +15,16 @@ export function createAiModel(environment: Environment): AiModel | null {
     const first = createOpenRouterModel({
       apiKey: environment.AI_API_KEY,
       // The chat models write for customers and read chats; the fast ones only score leads.
-      models: { suggest_reply: chat, autopilot: chat, learn: chat, score_lead: fast },
+      // Fill it for me reads recordings and screenshots, so it needs a multimodal model: Gemini's chat models are.
+      models: {
+        suggest_reply: chat,
+        autopilot: chat,
+        learn: chat,
+        score_lead: fast,
+        fill_form: chat,
+        write_up: chat,
+        ask_report: fast,
+      },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
     });
@@ -26,7 +35,15 @@ export function createAiModel(environment: Environment): AiModel | null {
     const backupBaseUrl = environment.AI_BACKUP_BASE_URL ?? environment.AI_BASE_URL;
     const backup = createOpenRouterModel({
       apiKey: environment.AI_BACKUP_API_KEY,
-      models: { suggest_reply: backupChat, autopilot: backupChat, learn: backupChat, score_lead: backupFast },
+      models: {
+        suggest_reply: backupChat,
+        autopilot: backupChat,
+        learn: backupChat,
+        score_lead: backupFast,
+        fill_form: backupChat,
+        write_up: backupChat,
+        ask_report: backupFast,
+      },
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
     });
@@ -43,6 +60,9 @@ export function createAiModel(environment: Environment): AiModel | null {
       // The autopilot and the nightly lessons write for customers and read many chats: the chat models do both.
       autopilot: environment.AI_SUGGEST_MODELS,
       learn: environment.AI_SUGGEST_MODELS,
+      fill_form: environment.AI_SUGGEST_MODELS,
+      write_up: environment.AI_SUGGEST_MODELS,
+      ask_report: environment.AI_SCORE_MODELS,
     },
     ...(testServer === undefined
       ? {}

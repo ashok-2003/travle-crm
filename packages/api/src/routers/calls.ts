@@ -10,6 +10,7 @@ import {
   logCallInput,
   sendToMyPhoneInput,
 } from "@travel-crm/contracts/crm";
+import { callSaved, recordFillApplied } from "@travel-crm/domain/ai";
 import { callTargetOf, deleteCall, editCall, limitDials, logCall, sendCallToMyPhone } from "@travel-crm/domain/crm";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -41,7 +42,21 @@ export const callsRouter = router({
     .input(logCallInput)
     .output(callLogged)
     .mutation(async ({ ctx, input }) => ({
-      callId: await ctx.db.forOrg(ctx.member.organizationId, (tx) => logCall(tx, ctx.member, input, new Date())),
+      callId: await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const now = new Date();
+        const callId = await logCall(tx, ctx.member, input, now);
+        // A note the AI drafted from a recording: audited as drafted by AI, approved by the member (the words stay out of it).
+        if (input.aiFill !== undefined) {
+          await recordFillApplied(
+            tx,
+            ctx.member,
+            input.aiFill,
+            { targets: ["call_note"], subject: { type: "lead", id: input.leadId }, saved: callSaved(input) },
+            now,
+          );
+        }
+        return callId;
+      }),
     })),
 
   edit: editor.input(editCallInput).mutation(async ({ ctx, input }) => {

@@ -4,6 +4,9 @@
 // the lead for anyone who sees it, and whoever may work the lead confirms or cancels one. The plan's AI module is checked
 // on every call.
 import {
+  decideLeadAiFieldsInput,
+  leadAiFields,
+  leadAiFieldsInput,
   addAiKnowledgeInput,
   aiBookingList,
   aiBookingsInput,
@@ -44,8 +47,12 @@ import {
   suggestedReply,
   suggestReplyInput,
   updateAiKnowledgeInput,
+  writeUp,
+  writeUpInput,
 } from "@travel-crm/contracts/ai";
 import {
+  decideSuggestions,
+  suggestedFieldsOf,
   addKnowledge,
   aiAllowed,
   bookingsOfLead,
@@ -81,13 +88,18 @@ import {
   saveAiSettings,
   suggestReply,
   updateKnowledge,
+  writeUpQuote,
 } from "@travel-crm/domain/ai";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { freshProcedure, orgProcedure } from "../procedures.js";
+import { aiFillRouter } from "./ai-fill.js";
 import { router } from "../trpc.js";
 
 export const aiRouter = router({
+  /** "Fill it for me": the AI proposes values for a form; a person applies and saves. */
+  fill: aiFillRouter,
+
   /** Whether the agency has Suggest reply on, for the composer to offer the button. */
   status: orgProcedure
     .requires("ai:suggest")
@@ -234,6 +246,30 @@ export const aiRouter = router({
       }),
     ),
 
+  /** What the AI filled in on a new lead from its first messages and a person has not confirmed: only for a lead the member may see. */
+  leadFields: orgProcedure
+    .requires("ai:suggest", "leads:view")
+    .input(leadAiFieldsInput)
+    .output(leadAiFields)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const lead = await getLead(tx, ctx.member, input.leadId);
+        return { fields: await suggestedFieldsOf(tx, lead.id) };
+      }),
+    ),
+
+  /** Confirm keeps what the AI filled in; dismiss clears what is still the AI's. */
+  decideLeadFields: orgProcedure
+    .requires("ai:suggest", "leads:edit")
+    .input(decideLeadAiFieldsInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        // A lead out of the member's scope is "not found".
+        const lead = await getLead(tx, ctx.member, input.leadId);
+        await decideSuggestions(tx, ctx.member, lead.id, input.decision);
+      }),
+    ),
+
   /** A draft reply for the chat, in the composer's box: never sent by itself. */
   suggestReply: orgProcedure
     .requires("ai:suggest", "inbox:view", "inbox:reply")
@@ -245,6 +281,19 @@ export const aiRouter = router({
       }
       const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
       return suggestReply(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
+    }),
+
+  /** A message for the customer about a quote, in the chosen language and for the chosen channel; never sent by itself. */
+  writeUp: orgProcedure
+    .requires("ai:suggest", "quotes:view")
+    .input(writeUpInput)
+    .output(writeUp)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.ai?.configured) {
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      }
+      const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
+      return writeUpQuote(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
     }),
 
   /** The autopilot's settings: off until an Owner or Admin turns it on. */

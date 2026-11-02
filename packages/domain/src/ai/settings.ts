@@ -6,7 +6,7 @@ import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "./usage.js";
 
-const columns = { enabled: true, scoring: true, instructions: true } as const;
+const columns = { enabled: true, scoring: true, fillLeads: true, writeStyle: true, instructions: true } as const;
 
 /** Whether the agency has turned Suggest reply on. */
 export async function aiEnabled(tx: OrgTx): Promise<boolean> {
@@ -18,6 +18,11 @@ export async function aiScoringOn(tx: OrgTx): Promise<boolean> {
   return (await tx.aiSettings.findFirst({ select: { scoring: true } }))?.scoring ?? true;
 }
 
+/** Whether new WhatsApp leads are filled in from their first messages: on unless the agency turned it off. */
+export async function aiFillLeadsOn(tx: OrgTx): Promise<boolean> {
+  return (await tx.aiSettings.findFirst({ select: { fillLeads: true } }))?.fillLeads ?? true;
+}
+
 export async function aiSettingsOf(
   tx: OrgTx,
   context: { organizationId: string; providerReady: boolean; now: Date },
@@ -27,6 +32,8 @@ export async function aiSettingsOf(
   return aiSettings.parse({
     enabled: row?.enabled ?? false,
     scoring: row?.scoring ?? true,
+    fillLeads: row?.fillLeads ?? true,
+    writeStyle: row?.writeStyle ?? "warm",
     instructions: row?.instructions ?? "",
     providerReady: context.providerReady,
     monthlyLimit: MONTHLY_AI_LIMIT,
@@ -44,6 +51,8 @@ export async function saveAiSettings(
   const data = {
     enabled: input.enabled,
     scoring: input.scoring,
+    fillLeads: input.fillLeads ?? before?.fillLeads ?? true,
+    writeStyle: input.writeStyle ?? before?.writeStyle ?? "warm",
     instructions: input.instructions,
     updatedBy: access.userId,
   };
@@ -59,9 +68,17 @@ export async function saveAiSettings(
     before: {
       enabled: before?.enabled ?? false,
       scoring: before?.scoring ?? true,
+      fillLeads: before?.fillLeads ?? true,
+      writeStyle: before?.writeStyle ?? "warm",
       instructionsLength: before?.instructions.length ?? 0,
     },
-    after: { enabled: input.enabled, scoring: input.scoring, instructionsLength: input.instructions.length },
+    after: {
+      enabled: input.enabled,
+      scoring: input.scoring,
+      fillLeads: data.fillLeads,
+      writeStyle: data.writeStyle,
+      instructionsLength: input.instructions.length,
+    },
   });
   return aiSettingsOf(tx, { organizationId: access.organizationId, ...context });
 }

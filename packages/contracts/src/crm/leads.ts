@@ -1,6 +1,7 @@
 // Adding leads, the known-contact check, and the list (spec 3.2, 3.3). A known contact's open lead is named by its
 // destination and owner; its id only when the asker can see it (R24), so no client names a lead it can't see.
 import { z } from "zod";
+import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
 import { taskKind } from "../tasks/tasks.js";
 import {
@@ -31,6 +32,8 @@ export const createLeadInput = z.strictObject({
    * the form has asked; the server then answers OPEN_LEAD_EXISTS.
    */
   whenOpenLead: z.enum(["add-to-it", "new-lead"]).nullable(),
+  /** Set when the form was filled by the AI ("Fill it for me"): the save is then audited as drafted by AI. */
+  aiFill: aiFillUse.optional(),
 });
 export type CreateLeadInput = z.infer<typeof createLeadInput>;
 

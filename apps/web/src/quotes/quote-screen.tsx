@@ -32,6 +32,7 @@ import { refusalOf } from "@/data/api-error";
 import { leadRoute, quoteRoute, routes } from "@/lib/routes";
 import { formatDay } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
+import { WriteUpButton } from "@/ai/write-up/write-up-sheet";
 import { QuoteDepartureCard } from "@/departures/quote-departure-card";
 import { BookingCostsCard } from "@/finance/booking-costs-card";
 import { QuoteForm } from "./quote-form";
@@ -94,6 +95,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
             {t("sendWhatsapp")}
           </Button>
         )}
+        {live && <WriteUpButton quote={quote} shareLink={share} />}
         {mayEdit && live && (
           <Button
             variant="outline"
