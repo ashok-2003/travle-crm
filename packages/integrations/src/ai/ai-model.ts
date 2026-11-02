@@ -11,6 +11,8 @@ export const aiFeatures = [
   "fill_form",
   "write_up",
   "ask_report",
+  "read_requests",
+  "reach_out",
 ] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 

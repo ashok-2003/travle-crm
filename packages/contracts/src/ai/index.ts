@@ -8,3 +8,4 @@ export * from "./fill.js";
 export * from "./fill-use.js";
 export * from "./fill-answer.js";
 export * from "./write-up.js";
+export * from "./rooming-seats.js";
