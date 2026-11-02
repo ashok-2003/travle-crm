@@ -67,6 +67,10 @@ x-api-environment: &api-environment
   AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
   AI_BACKUP_FAST_MODELS: ${AI_BACKUP_FAST_MODELS:-}
   AI_ZERO_RETENTION: ${AI_ZERO_RETENTION:-}
+  # The console's AI usage: the cost of models without a listed price, and rupees to a dollar for those with one.
+  AI_PRICE_INPUT_PAISE_PER_MILLION: ${AI_PRICE_INPUT_PAISE_PER_MILLION:-}
+  AI_PRICE_OUTPUT_PAISE_PER_MILLION: ${AI_PRICE_OUTPUT_PAISE_PER_MILLION:-}
+  AI_USD_INR_RATE: ${AI_USD_INR_RATE:-}
   # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
   # webhook block and check a number.
   MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}

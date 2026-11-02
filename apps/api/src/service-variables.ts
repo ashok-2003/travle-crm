@@ -218,4 +218,9 @@ export const serviceVariables = {
    */
   AI_PRICE_INPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
   AI_PRICE_OUTPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
+  /**
+   * Rupees to a US dollar, for the console's AI usage, which prices the listed models from their published dollar
+   * prices (packages/domain/src/platform/ai-pricing.ts). 96 when unset (the rate in mid 2026); set the day's rate.
+   */
+  AI_USD_INR_RATE: emptyAsUnset(z.coerce.number().positive().max(1000).default(96)),
 };

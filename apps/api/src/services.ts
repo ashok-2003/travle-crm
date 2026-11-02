@@ -3,7 +3,7 @@
 // close() releases every pool.
 import { hkdfSync } from "node:crypto";
 import { createDatabase, type Database, type ForOrgOptions } from "@travel-crm/db";
-import { withIncidentReports } from "@travel-crm/domain/ai";
+import { withCallLog, withIncidentReports } from "@travel-crm/domain/ai";
 import { createFiles, type Files } from "@travel-crm/domain/files";
 import { createIdentity, type Identity, type SeatLimit } from "@travel-crm/domain/identity";
 import { createIncidentReporter, type IncidentReporter } from "@travel-crm/domain/jobs";
@@ -190,8 +190,8 @@ export function createServices(
     google: googleSheetsOf(environment, logger),
     sheetsHashes: environment.SHEETS_HASH_KEY === undefined ? null : createSheetsHashes(environment.SHEETS_HASH_KEY),
     meta: createMetaServices(environment, { db, rateLimiter, logger }),
-    // A call no model answers is told to the console.
-    ai: ai === null ? null : withIncidentReports(ai, incidents),
+    // A call no model answers is told to the console, and every call is logged for its AI usage.
+    ai: ai === null ? null : withCallLog(withIncidentReports(ai, incidents), db, logger),
     incidents,
     whatsapp: createWhatsAppServices(environment),
     subscriptions,

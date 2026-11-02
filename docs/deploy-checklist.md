@@ -148,6 +148,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
+| `AI_USD_INR_RATE`: rupees to a dollar for the AI usage's cost of the listed models (96 when unset)  |     |        | ○       |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                                                    | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)                                       | ○   | ○      | ○       |         | yes    |
 | `AXIOM_URL`: only for Axiom's EU region                                                             | ○   | ○      | ○       |         |        |

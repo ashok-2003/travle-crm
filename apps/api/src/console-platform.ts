@@ -34,6 +34,7 @@ export async function startConsolePlatform({ environment, services, logger }: Pr
     // The erasure of a customer of an agency with sheets keeps keyed hashes of their rows and contacts (S43, S6).
     sheetsHashes: settings.sheetsHashKey === null ? null : createSheetsHashes(settings.sheetsHashKey),
     logger,
+    usdInrRate: environment.AI_USD_INR_RATE,
     // The super admins are emailed when something breaks (incidents.ts).
     email: services.email,
     // The invite program's links are the web app's.
