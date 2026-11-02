@@ -41,7 +41,10 @@ export function nameHeaders(raw: readonly string[]): string[] {
  * Collects rows one at a time, refusing a row past the limit as soon as it comes (B4: "stops one row past"), then
  * shapes the sheet. A reader calls `add` for every row in order and `finish` at the end.
  */
-export function sheetShaper(limits: ReadLimits, sheet: { sheetName: string | null; sheetCount: number }) {
+export function sheetShaper(
+  limits: ReadLimits,
+  sheet: { sheetName: string | null; sheetCount: number; sheetNames?: readonly string[] },
+) {
   let header: FoundRow | null = null;
   const rows: FoundRow[] = [];
   let width = 0;
@@ -60,7 +63,10 @@ export function sheetShaper(limits: ReadLimits, sheet: { sheetName: string | nul
       const padded = (cells: readonly (string | null)[]) =>
         Array.from({ length: width }, (_, index) => cells[index] ?? null);
       return {
-        ...sheet,
+        sheetName: sheet.sheetName,
+        sheetCount: sheet.sheetCount,
+        sheetNames: sheet.sheetNames ?? [sheet.sheetName ?? ""],
+        headerRowNumber: header.rowNumber,
         header: nameHeaders(padded(header.cells).map((cell) => cell ?? "")),
         rows: rows.map((row): SheetRow => ({ rowNumber: row.rowNumber, cells: padded(row.cells) })),
       };

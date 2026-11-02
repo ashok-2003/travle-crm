@@ -10,7 +10,7 @@ import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { TemplateDependencies } from "@travel-crm/domain/inbox";
-import type { AiModel } from "@travel-crm/domain/ai";
+import type { AiModel, Spreadsheets } from "@travel-crm/domain/ai";
 
 export interface ApiDependencies {
   identity: Identity;
@@ -46,6 +46,8 @@ export interface ApiDependencies {
   whatsappProvider?: TemplateDependencies["provider"];
   /** The AI that drafts replies (OpenRouter, zero data retention); null or absent when no key is set: Suggest reply is off. */
   ai?: AiModel | null;
+  /** Reads an Excel rate sheet for the AI (release ai3b); null or absent: an Excel file is refused as unreadable. */
+  spreadsheets?: Spreadsheets | null;
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
   appUrl: string;
 }
@@ -70,6 +72,7 @@ export async function createContext(
     whatsappConfigured = false,
     whatsappProvider = null,
     ai = null,
+    spreadsheets = null,
     appUrl,
   }: ApiDependencies,
   request: Request,
@@ -95,6 +98,7 @@ export async function createContext(
     whatsappConfigured,
     whatsappProvider,
     ai,
+    spreadsheets,
     appUrl,
     headers: request.headers,
     resHeaders,

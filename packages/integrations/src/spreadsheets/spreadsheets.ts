@@ -33,6 +33,8 @@ export interface ReadLimits {
   maxColumns: number;
   /** A cell is cut to one character past this, so the caller's own limit still refuses what was longer (D10). */
   maxCellLength: number;
+  /** An .xlsx's sheet to read, counting from 1 (the first when left out): a rate sheet's tab. */
+  sheetNumber?: number;
 }
 
 /** A data row: its number in the file (the header is row 1), its cells as text, null when empty. */
@@ -45,6 +47,10 @@ export interface SheetRow {
 export interface ReadSheet {
   sheetName: string | null;
   sheetCount: number;
+  /** Every sheet's name in the workbook's order (one entry for a CSV, whose name is empty). */
+  sheetNames: readonly string[];
+  /** The row number in the file of the header row (the first with anything in it). */
+  headerRowNumber: number;
   header: readonly string[];
   rows: readonly SheetRow[];
 }

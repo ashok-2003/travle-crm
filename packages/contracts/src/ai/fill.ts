@@ -16,7 +16,7 @@ import {
 } from "../crm/fields.js";
 import { emailAddress, recordId } from "../identity/fields.js";
 import { wallClockTime, calendarDate } from "../kernel/time.js";
-import { aiInputFileTypes, MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES, presignedUpload } from "../files/attachments.js";
+import { aiFillInputTypes, MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES, presignedUpload } from "../files/attachments.js";
 import { quoteDay, quoteItem } from "../quotes/quotes.js";
 import { fillTraveller, MAX_FILL_TRAVELLERS } from "./fill-travellers.js";
 
@@ -168,7 +168,7 @@ export type AiFillProposal = z.infer<typeof aiFillProposal>;
 
 /** Step one of a recording or a screenshot: where the browser puts it. */
 export const requestAiInputInput = z.strictObject({
-  contentType: z.enum(aiInputFileTypes),
+  contentType: z.enum(aiFillInputTypes),
   /** A traveller's voice note or ID photo: stored as a sensitive file, opened only with documents:view_sensitive. */
   sensitive: z.boolean().optional(),
   sizeBytes: z.int().min(1).max(Math.max(MAX_AI_AUDIO_BYTES, MAX_AI_IMAGE_BYTES)),

@@ -1,6 +1,7 @@
 // suppliers.*: the hotels, transport operators and guides an agency buys from (release 7a): seen with suppliers:view, added
 // with suppliers:create, changed and deleted with suppliers:edit. A supplier's costs, amounts and the dues need the accounts
 // (accounts:view); linking costs to a supplier needs accounts:edit too. Money is read from a session read afresh.
+import { saveRateBatchInput, saveRateBatchResult } from "@travel-crm/contracts/ai";
 import {
   contactIdInput,
   copySeasonInput,
@@ -19,6 +20,7 @@ import {
   supplierRateCatalog,
   updateSupplierInput,
 } from "@travel-crm/contracts/suppliers";
+import { recordRatesApplied } from "@travel-crm/domain/ai";
 import {
   copySeason,
   createSupplier,
@@ -30,6 +32,7 @@ import {
   listSuppliers,
   removeSupplierContact,
   saveRate,
+  saveRateBatch,
   saveSeason,
   saveSupplierContact,
   supplierDues,
@@ -138,6 +141,37 @@ export const suppliersRouter = router({
     .input(saveRateInput)
     .output(z.object({ id: z.uuid() }))
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => saveRate(tx, ctx.member, input))),
+
+  /**
+   * The rows of a rate sheet the AI read, as the person checked and edited them: new seasons and rates in one transaction, all or
+   * nothing, through the seasons' and rates' own writes. The reading is audited as drafted by AI, approved by the member.
+   */
+  saveRateBatch: rateEditor
+    .input(saveRateBatchInput)
+    .output(saveRateBatchResult)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const saved = await saveRateBatch(tx, ctx.member, input);
+        await recordRatesApplied(
+          tx,
+          ctx.member,
+          {
+            fillId: input.fillId,
+            supplierId: input.supplierId,
+            saved: input.rates.map((rate) => ({
+              ref: rate.ref,
+              item: rate.item,
+              mealPlan: rate.mealPlan,
+              occupancy: rate.occupancy,
+              unit: rate.unit,
+              costPaise: rate.costPaise,
+            })),
+          },
+          new Date(),
+        );
+        return saved;
+      }),
+    ),
 
   deleteRate: rateEditor
     .input(rateIdInput)

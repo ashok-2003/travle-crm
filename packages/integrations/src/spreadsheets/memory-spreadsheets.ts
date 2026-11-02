@@ -13,7 +13,7 @@ import {
 
 export interface MemorySpreadsheets extends Spreadsheets {
   /** A sheet as the bytes this adapter reads: the header is row 1, each row after it the next. */
-  bytesOf(sheet: { header: string[]; rows: (string | null)[][]; sheetName?: string }): Uint8Array;
+  bytesOf(sheet: MemorySheet): Uint8Array;
   /** The next read throws SpreadsheetUnreadableError with this reason. */
   failNextRead(reason: UnreadableReason): void;
   /** What each finished writer wrote, oldest first. */
@@ -24,6 +24,8 @@ interface MemorySheet {
   header: (string | null)[];
   rows: (string | null)[][];
   sheetName?: string;
+  /** The workbook's other sheets, after this one, which a read with a sheetNumber reaches. */
+  more?: { header: (string | null)[]; rows: (string | null)[][]; sheetName: string }[];
 }
 
 function parsed(bytes: Uint8Array): MemorySheet {
@@ -52,9 +54,16 @@ export function createMemorySpreadsheets(): MemorySpreadsheets {
       nextFailure = null;
       if (failure !== null) return Promise.reject(new SpreadsheetUnreadableError(failure));
       try {
-        const sheet = parsed(bytes);
-        const sheetName = limits.kind === "csv" ? null : (sheet.sheetName ?? "Sheet1");
-        const shaper = sheetShaper(limits, { sheetName, sheetCount: 1 });
+        const workbook = parsed(bytes);
+        const all = [{ ...workbook, sheetName: workbook.sheetName ?? "Sheet1" }, ...(workbook.more ?? [])];
+        const sheet = all[(limits.sheetNumber ?? 1) - 1];
+        if (sheet === undefined) throw new SpreadsheetUnreadableError("not_a_spreadsheet");
+        const sheetName = limits.kind === "csv" ? null : sheet.sheetName;
+        const shaper = sheetShaper(limits, {
+          sheetName,
+          sheetCount: all.length,
+          sheetNames: all.map((one) => one.sheetName),
+        });
         [sheet.header, ...sheet.rows].forEach((cells, index) => {
           shaper.add({ rowNumber: index + 1, cells: cells.map((cell) => cellText(cell, limits.maxCellLength)) });
         });

@@ -18,3 +18,25 @@ export async function documentText(
     .trim()
     .slice(0, maxCharacters);
 }
+
+/**
+ * A PDF's text page by page (a page with no text is an empty string), each page cut to `maxCharacters`; a rate sheet is read a
+ * few pages at a time. Null for anything but a PDF.
+ */
+export async function documentPages(
+  bytes: Uint8Array,
+  contentType: string,
+  maxCharacters = 60_000,
+): Promise<string[] | null> {
+  if (contentType !== "application/pdf") return null;
+  const { extractText, getDocumentProxy } = await import("unpdf");
+  const pdf = await getDocumentProxy(bytes);
+  const { text } = await extractText(pdf, { mergePages: false });
+  return text.map((page) =>
+    page
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+      .slice(0, maxCharacters),
+  );
+}

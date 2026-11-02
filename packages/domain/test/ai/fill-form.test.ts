@@ -326,4 +326,44 @@ describe("fill it for me", () => {
     expect(await inOrg((tx) => tx.leadAiField.count({ where: { leadId: lead.id } }))).toBe(0);
     expect(await test.files.list(owner, { recordType: AI_INPUT_RECORD_TYPE, recordId: slot.recordId })).toEqual([]);
   });
+
+  it("erases every photo of a photo set with the customer's fill, not only the first", async () => {
+    const { owner, inOrg, organizationId } = await agency();
+    const lead = await inOrg((tx) => aLead(tx, {}));
+    const upload = async () => {
+      const slot = await requestAiInput({ files: test.files }, owner, { contentType: "image/png", sizeBytes: 3 });
+      await test.storage.upload(
+        { ...slot.upload, expiresAt: new Date(slot.upload.expiresAt) },
+        new Uint8Array([1, 2, 3]),
+        "image/png",
+      );
+      await confirmAiInput({ files: test.files }, owner, { recordId: slot.recordId, attachmentId: slot.attachmentId });
+      return slot;
+    };
+    const [first, second, third] = [await upload(), await upload(), await upload()];
+    await inOrg((tx) =>
+      tx.aiFill.create({
+        data: {
+          target: "lead_edit",
+          subjectType: "lead",
+          subjectId: lead.id,
+          requestedBy: owner.userId,
+          inputKind: "image",
+          inputAttachmentId: first.attachmentId,
+          inputAttachmentIds: [second.attachmentId, third.attachmentId],
+          model: "m",
+          proposalHash: "x",
+        },
+      }),
+    );
+    const person = await inOrg((tx) =>
+      tx.lead.findUniqueOrThrow({ where: { id: lead.id }, select: { personId: true } }),
+    );
+    await platformDb.transaction((tx) =>
+      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: person.personId }, NOW),
+    );
+    for (const slot of [first, second, third]) {
+      expect(await test.files.list(owner, { recordType: AI_INPUT_RECORD_TYPE, recordId: slot.recordId })).toEqual([]);
+    }
+  });
 });

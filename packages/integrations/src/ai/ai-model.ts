@@ -14,6 +14,7 @@ export const aiFeatures = [
   "read_requests",
   "reach_out",
   "draft_days",
+  "read_rates",
 ] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 
