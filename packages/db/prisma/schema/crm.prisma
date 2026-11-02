@@ -30,6 +30,7 @@ model Person {
   consents              PersonConsent[]
   whatsappConversations WhatsappConversation[]
   formSubmissions       WebsiteFormSubmission[]
+  packageEnquiries      PackageEnquiry[]
 
   /// Lets lead point at (organization_id, id).
   @@unique([organizationId, id])
@@ -108,6 +109,7 @@ model Lead {
   aiFields          LeadAiField[]
   enquiries         LeadEnquiry[]
   formSubmissions   WebsiteFormSubmission[]
+  packageEnquiries  PackageEnquiry[]
 
   /// Lets the timeline, notes and enquiries point at (organization_id, id).
   @@unique([organizationId, id])

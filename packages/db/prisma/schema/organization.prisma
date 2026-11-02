@@ -131,6 +131,11 @@ model Organization {
   aiFills                     AiFill[]
   leadAiFields                LeadAiField[]
   quoteTemplates              QuoteTemplate[]
+  quoteTemplateTiers          QuoteTemplateTier[]
+  supplierRateSeasons         SupplierRateSeason[]
+  supplierRates               SupplierRate[]
+  publicPageSettings          PublicPageSettings?
+  packageEnquiries            PackageEnquiry[]
   pageVisits                  PageVisit[]
   welcome                     OrganizationWelcome?
   welcomesSeen                WelcomeSeen[]

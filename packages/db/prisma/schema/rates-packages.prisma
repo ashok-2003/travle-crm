@@ -1,0 +1,110 @@
+// Rates and packages (release 7b): what suppliers charge by season, the tiers of a package, the agency's public package pages,
+// and the ledger of enquiries those pages received. Organization-owned, under row-level security.
+
+/// A supplier's season (Peak 2026, Monsoon): the dates its rates hold. Seasons of one supplier never overlap
+/// (the migration's EXCLUDE constraint supplier_rate_season_no_overlap). A date with no season has no rate.
+model SupplierRateSeason {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String         @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String         @id @default(uuid(7)) @db.Uuid
+  supplierId     String         @map("supplier_id") @db.Uuid
+  label          String
+  startsOn       DateTime       @map("starts_on") @db.Date
+  endsOn         DateTime       @map("ends_on") @db.Date
+  createdBy      String?        @map("created_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  supplier       Supplier       @relation(fields: [organizationId, supplierId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  rates          SupplierRate[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, supplierId, startsOn], map: "supplier_rate_season_supplier")
+  @@map("supplier_rate_season")
+}
+
+/// What the supplier charges the agency for one item in a season, in paise.
+model SupplierRate {
+  organizationId String             @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String             @id @default(uuid(7)) @db.Uuid
+  seasonId       String             @map("season_id") @db.Uuid
+  /// A room type, or a vehicle and route ("Deluxe room", "Tempo Traveller Dehradun-Kedarnath").
+  item           String
+  /// EP, CP, MAP or AP for a hotel; empty for none (CHECK supplier_rate_meal_plan_value).
+  mealPlan       String             @default("") @map("meal_plan")
+  /// single, double, triple, extra_bed, child_with_bed or child_no_bed; empty for none (CHECK supplier_rate_occupancy_value).
+  occupancy      String             @default("")
+  /// per_room_night, per_person_night, per_day or per_trip (CHECK supplier_rate_unit_value).
+  unit           String
+  costPaise      BigInt             @map("cost_paise")
+  note           String             @default("")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  season         SupplierRateSeason @relation(fields: [organizationId, seasonId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  /// One rate per item, meal plan, occupancy and unit in a season.
+  @@unique([organizationId, seasonId, item, mealPlan, occupancy, unit], map: "supplier_rate_once")
+  @@map("supplier_rate")
+}
+
+/// A package's tier (Standard, Deluxe): its priced lines. The lines are JSON, [{ description, detail, rateId, quantityRule,
+/// quantity, unitPricePaise }] (CHECK quote_template_tier_lines_array); a package with no tiers has one implicit tier, its items.
+model QuoteTemplateTier {
+  organizationId String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String        @id @default(uuid(7)) @db.Uuid
+  templateId     String        @map("template_id") @db.Uuid
+  name           String
+  position       Int           @default(0)
+  lines          Json          @default("[]")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  template       QuoteTemplate @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, templateId, name], map: "quote_template_tier_name_once")
+  @@map("quote_template_tier")
+}
+
+/// Whether the agency's public package pages are on, and what they say about the agency. One row each.
+model PublicPageSettings {
+  organizationId String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  enabled        Boolean      @default(false)
+  about          String       @default("")
+  /// https only (CHECK public_page_settings_instagram_https); empty for none.
+  instagramUrl   String       @default("") @map("instagram_url")
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("public_page_settings")
+}
+
+/// One enquiry from a public package page that got as far as the ledger: append only, ids and outcome names. The page's
+/// submission id is unique with the organization, so a double tap or a retry finds its row. Swept after 90 days with the
+/// website form's ledger; a customer's erasure empties its person and lead.
+model PackageEnquiry {
+  organizationId String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String        @id @default(uuid(7)) @db.Uuid
+  submissionId   String        @map("submission_id") @db.Uuid
+  packageId      String        @map("package_id") @db.Uuid
+  departureId    String?       @map("departure_id") @db.Uuid
+  /// new_lead, repeat_enquiry, blocked, duplicate or spam (CHECK package_enquiry_outcome_value).
+  outcome        String
+  leadId         String?       @map("lead_id") @db.Uuid
+  personId       String?       @map("person_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  package        QuoteTemplate @relation(fields: [organizationId, packageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  departure      Departure?    @relation(fields: [organizationId, departureId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead?         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  person         Person?       @relation(fields: [organizationId, personId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, submissionId])
+  @@index([organizationId, personId, createdAt], map: "package_enquiry_person", where: raw("(person_id IS NOT NULL)"))
+  @@index([organizationId, packageId, createdAt], map: "package_enquiry_package")
+  /// The console's hourly sweep of rows older than 90 days pages by created_at across every organization (platform role).
+  @@index([createdAt], map: "package_enquiry_sweep")
+  @@map("package_enquiry")
+}

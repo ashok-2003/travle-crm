@@ -24,6 +24,7 @@ model Destination {
   enquiries       LeadEnquiry[]
   assignmentRules AssignmentRule[]
   departures      Departure[]
+  packages        QuoteTemplate[]
 
   /// Lets leads, enquiries and merged destinations point at (organization_id, id).
   @@unique([organizationId, id])
