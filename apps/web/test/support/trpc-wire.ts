@@ -12,7 +12,7 @@ export function wantsStream(init?: RequestInit | { headers?: unknown }, input?: 
   return headers.get("trpc-accept") === "application/jsonl";
 }
 
-function jsonl(items: WireItem[]): string {
+export function jsonl(items: WireItem[]): string {
   const header: Record<string, unknown> = {};
   const chunks: string[] = [];
   let next = items.length;

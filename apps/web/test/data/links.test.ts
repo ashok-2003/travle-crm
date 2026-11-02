@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { isWorthRetrying, QueryTimeoutError, refusalOf } from "@/data/api-error";
 import { apiLinks, QUERY_TIMEOUT_MS } from "@/data/links";
+import { jsonl } from "../support/trpc-wire";
 import { stubApi } from "./support/fake-api";
 
 const t = initTRPC.create();
@@ -121,6 +122,62 @@ describe("apiLinks", () => {
     const error = await aborted;
     expect(error).toBeInstanceOf(TRPCClientError);
     expect((error as TRPCClientError<never>).cause).not.toBeInstanceOf(QueryTimeoutError);
+  });
+
+  const twoOk = [{ result: { data: "first" } }, { result: { data: "second" } }];
+
+  /** A streamed answer whose headers come at once and whose body sends `lines` and then stalls (or ends). */
+  function stalledAfter(lines: number, end: boolean) {
+    const text = jsonl(twoOk).split("\n").filter(Boolean).slice(0, lines);
+    return vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(stream) {
+          for (const line of text) stream.enqueue(encoder.encode(`${line}\n`));
+          if (end) stream.close();
+          init?.signal?.addEventListener("abort", () => {
+            if (!end) stream.error(init.signal?.reason);
+          });
+        },
+      });
+      return Promise.resolve(new Response(body, { status: 200, headers: { "content-type": "application/json" } }));
+    });
+  }
+
+  it("cuts a stalled body at 30 seconds: the query that came through stays answered, the other times out", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const fetchSpy = stalledAfter(4, false);
+    vi.stubGlobal("fetch", fetchSpy);
+    const api = client();
+    const first = api.first.query({ phone: "1" }).then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    );
+    const second = api.second.query().then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    );
+    await vi.advanceTimersByTimeAsync(QUERY_TIMEOUT_MS - 1);
+    expect(await first).toEqual({ value: "first" });
+    await vi.advanceTimersByTimeAsync(1);
+    const late = await second;
+    expect(late).toHaveProperty("error");
+    const error = (late as { error: TRPCClientError<never> }).error;
+    expect(error).toBeInstanceOf(TRPCClientError);
+    expect(error.cause).toBeInstanceOf(QueryTimeoutError);
+    expect(isWorthRetrying(error)).toBe(false);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops the timer when the body completes, so nothing aborts later", async () => {
+    const started = vi.spyOn(globalThis, "setTimeout");
+    const stopped = vi.spyOn(globalThis, "clearTimeout");
+    stubApi(router, "/api/trpc");
+    expect(await client().second.query()).toBe("second");
+    const limitIndex = started.mock.calls.findIndex(([, delay]) => delay === QUERY_TIMEOUT_MS);
+    expect(limitIndex).toBeGreaterThanOrEqual(0);
+    const limit = started.mock.results[limitIndex]?.value as unknown;
+    expect(stopped).toHaveBeenCalledWith(limit);
   });
 
   it("gives a page-visit report the same limit", async () => {

@@ -12,11 +12,13 @@ export const QUERY_TIMEOUT_MS = 30_000;
 const PAGE_VISIT_PATH = "usage.track";
 
 /**
- * A fetch that aborts when the caller does or when the time limit passes, whichever comes first. Combined by hand:
- * AbortSignal.any is missing from browsers still in use (Safari before 17.4, Chrome before 116, Firefox before 124).
- * The limit runs until the response starts (its headers); a streamed body is not cut short once it is flowing.
+ * A fetch that aborts when the caller does or when the time limit passes, whichever comes first. The limit covers the
+ * whole answer: a streamed batch whose headers came at once but whose body stalls (a procedure stuck waiting for the
+ * database) is cut when it passes too, and the calls still waiting in it fail with QueryTimeoutError, while those that
+ * already came through stay answered. Combined by hand: AbortSignal.any is missing from browsers still in use (Safari
+ * before 17.4, Chrome before 116, Firefox before 124).
  */
-const fetchWithTimeout: NonNullable<Parameters<typeof httpBatchStreamLink>[0]["fetch"]> = (input, init) => {
+const fetchWithTimeout: NonNullable<Parameters<typeof httpBatchStreamLink>[0]["fetch"]> = async (input, init) => {
   const controller = new AbortController();
   const caller = init?.signal;
   const onCallerAbort = () => {
@@ -27,10 +29,50 @@ const fetchWithTimeout: NonNullable<Parameters<typeof httpBatchStreamLink>[0]["f
   const timer = setTimeout(() => {
     controller.abort(new QueryTimeoutError());
   }, QUERY_TIMEOUT_MS);
-  return fetch(input, { ...(init as RequestInit | undefined), signal: controller.signal }).finally(() => {
+  const finish = () => {
     clearTimeout(timer);
     caller?.removeEventListener("abort", onCallerAbort);
+  };
+  let response: Response;
+  try {
+    response = await fetch(input, { ...(init as RequestInit | undefined), signal: controller.signal });
+  } catch (error) {
+    finish();
+    throw error;
+  }
+  if (response.body === null) {
+    finish();
+    return response;
+  }
+  // The same answer, read through a stream that keeps the timer until the body ends, fails or is cancelled, and that
+  // fails with the abort's reason the moment the signal fires (a body that is stalled never rejects its own read).
+  const reader = response.body.getReader();
+  const body = new ReadableStream<Uint8Array>({
+    start(stream) {
+      controller.signal.addEventListener("abort", () => {
+        finish();
+        stream.error(controller.signal.reason);
+        void reader.cancel(controller.signal.reason).catch(() => undefined);
+      });
+    },
+    async pull(stream) {
+      try {
+        const chunk = await reader.read();
+        if (chunk.done) {
+          finish();
+          stream.close();
+        } else stream.enqueue(chunk.value);
+      } catch (error) {
+        finish();
+        stream.error(error);
+      }
+    },
+    cancel(reason) {
+      finish();
+      return reader.cancel(reason);
+    },
   });
+  return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
 };
 
 export function apiLinks(url: string): TRPCLink<AnyRouter>[] {
