@@ -18,7 +18,10 @@ Rules:
 
 const TRIP_KEYS = `"destination": the place, "dateFrom" and "dateTo": the first and last day as said, "month": a month as said when only that is known, "flexible": true when they say dates are flexible, "adults": number, "childrenAges": [numbers] only when ages are said, "childrenCount": number, "budget": the amount as said, "budgetBasis": "per_person" or "for_everyone", "departureCity", "tripType": one of family, honeymoon, friends, solo, corporate, pilgrimage, trek, "hotelCategory": one of 3_star, 4_star, 5_star, any, "food": one of veg, jain, non_veg, "roomType"`;
 
-const KEYS: Record<FillTarget, string> = {
+/** The targets whose keys are a plain form's: Draft the days and the travellers have prompts of their own. */
+export type PlainFillTarget = Exclude<FillTarget, "quote_days" | "travellers">;
+
+const KEYS: Record<PlainFillTarget, string> = {
   lead: `A new lead. Keys: "name", "phone", "phone2" (a second number), "email", "instagram", ${TRIP_KEYS}, "note": other useful facts from the source in one or two plain sentences, "excerpts", "questions".`,
   lead_edit: `Changes to a lead's trip. Keys: ${TRIP_KEYS}, "excerpts", "questions".`,
   call_note: `What was said after a call with a customer. Keys: "outcome": one of spoke, no_answer, busy, wrong_number, "note": the call written up cleanly in the speaker's own language, up to 2000 characters, "followUpDay" and "followUpTime" as said and "followUpTitle": a short title, only if a follow-up was asked for; and, only if the call mentioned them, the trip keys ${TRIP_KEYS}; "excerpts", "questions".`,
@@ -38,7 +41,7 @@ export interface FillSourceFacts {
   attachments: readonly AiPart[];
 }
 
-export function fillPrompt(target: FillTarget, facts: FillSourceFacts): AiMessage[] {
+export function fillPrompt(target: PlainFillTarget, facts: FillSourceFacts): AiMessage[] {
   const parts = [
     `Today is ${facts.weekday} ${facts.today}.`,
     KEYS[target],

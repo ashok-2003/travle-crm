@@ -2,6 +2,7 @@
 // trip page for. The shapes the staff screens read: the list, and one booking with its stays, travellers, payment
 // claims, reminders, feedback and refund. Amounts are integer paise. Money itself stays on the quote.
 import { z } from "zod";
+import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { departureRef } from "../departures/departures.js";
@@ -178,6 +179,27 @@ export const saveTravellerInput = z.strictObject({
   identity: z.strictObject(identityFields).nullable(),
 });
 export type SaveTravellerInput = z.infer<typeof saveTravellerInput>;
+
+/**
+ * Several travellers' rows in one save, as the AI proposed and staff ticked: a field left out keeps what the row holds, so
+ * nothing the AI did not read is blanked. The ID number needs documents:view_sensitive, as in a single save.
+ */
+export const saveTravellersInput = z.strictObject({
+  bookingId: recordId,
+  travellers: z
+    .array(
+      z.strictObject({
+        travellerId: recordId,
+        ...z.object(travellerFields).partial().shape,
+        identity: z.strictObject(identityFields).optional(),
+      }),
+    )
+    .min(1)
+    .max(40),
+  /** The fill the values came from, so the save is audited as drafted by AI. */
+  aiFill: aiFillUse.optional(),
+});
+export type SaveTravellersInput = z.infer<typeof saveTravellersInput>;
 export const travellerIdInput = z.strictObject({ travellerId: recordId });
 
 export const traveller = z.object({

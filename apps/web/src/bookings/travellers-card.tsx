@@ -8,6 +8,7 @@ import { MinusIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge } from "@/components/status-badge";
+import { FillTravellersWithAi } from "@/ai/travellers/fill-travellers-with-ai";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "./section-card";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -39,6 +40,7 @@ export function TravellersCard({ booking }: { booking: BookingDetail }) {
           </span>
         )}
       </p>
+      {mayEdit && <FillTravellersWithAi booking={booking} />}
       {mayEdit && (
         <div className="flex flex-wrap items-end gap-4">
           <Field className="max-w-64">

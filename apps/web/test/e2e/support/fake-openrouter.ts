@@ -74,6 +74,56 @@ function filled(user: string): object {
   return { adults: 3, roomType: "Twin beds", excerpts: { adults: "3 log" }, questions: [] };
 }
 
+/**
+ * Draft the days: as many days as the prompt asks for, and an amount on the first, which the product must take out. A day is
+ * taken from the agency's own plan when the prompt gives one.
+ */
+function draftedDays(user: string): object {
+  const count = Number(/Days: (\d+)/.exec(user)?.[1] ?? "3");
+  const fromPlan = user.includes("The agency's own plans for this place");
+  return {
+    days: Array.from({ length: count }, (_, index) => ({
+      title:
+        index === 0
+          ? "Arrive in Manali"
+          : `Day ${String(index + 1)}: ${fromPlan ? "Solang Valley" : "Local sightseeing"}`,
+      description:
+        index === 0 ? "Check in and rest. The hotel is Rs 4,500 a night." : "A relaxed day with time to spare.",
+    })),
+    questions: [],
+  };
+}
+
+/** The first line of a passport's machine-readable zone, and the second, with every check digit right. */
+const MRZ_LINE_1 = "P<INDSHARMA<<RAHUL<<<<<<<<<<<<<<<<<<<<<<<<<<";
+const MRZ_LINE_2 = "Z1234567<1IND8006123M3501014<<<<<<<<<<<<<<00";
+
+/** Travellers: a passport photo reads as one passport; a voice note, a list or a photo of a list as a family. */
+function readTravellers(user: string): object {
+  if (user.includes("image_url")) {
+    return {
+      people: [
+        {
+          name: "Rahul Sharma",
+          idKind: "passport",
+          mrzLine1: MRZ_LINE_1,
+          mrzLine2: MRZ_LINE_2,
+          issueDate: "02/01/2025",
+        },
+      ],
+      questions: [],
+    };
+  }
+  return {
+    people: [
+      { name: "Ramesh Sharma", dateOfBirth: "12 June 1980", gender: "male" },
+      { name: "Sunita Sharma", gender: "female", roomRequest: "ground floor", roomNote: "needs a ground-floor room" },
+      { name: "Aarav", age: 12 },
+    ],
+    questions: [],
+  };
+}
+
 /** The quote write-up: tokens for the total, the advance and the link, a price the model was told never to type, in the language asked. */
 function writtenUp(user: string): string {
   const hindi = user.includes("Language: Hindi");
@@ -142,7 +192,8 @@ function readRates(user: string): object {
 
 /** An empty-seats message: the person's first name, a seat count and an amount the model must not type, and the price token. */
 function reachedOut(user: string): string {
-  const name = /first name: ([^\\\n]+?)(?:\\n|$)/.exec(user)?.[1]?.trim() ?? "there";
+  // The first name sits in the data fence with the agency's name, after "First name:".
+  const name = /[Ff]irst name: ([^\\\n<]+?)(?:\\n|<|$)/.exec(user)?.[1]?.trim() ?? "there";
   return [
     `Hi ${name}! You asked us about Spiti, and our group leaves soon with only 4 seats left.`,
     "It is just Rs 9,999 for you.",
@@ -184,56 +235,67 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
         const readRequestsCall = system.includes("READ_REQUESTS.");
         const readRatesCall = system.includes("READ_RATES.");
         const reachOut = system.includes("REACH_OUT.");
+        const draftDays = system.includes("DRAFT_DAYS:");
+        const travellers = system.includes("FILL_TRAVELLERS:");
         const autopilot = system.includes("WhatsApp travel sales agent");
         const scoring =
           (requests.at(-1)?.body as { response_format?: unknown } | undefined)?.response_format !== undefined;
         const content = readRatesCall
           ? JSON.stringify(readRates(user))
-          : readRequestsCall
-            ? JSON.stringify(readRequests(user))
-            : reachOut
-              ? reachedOut(user)
-              : writeUp
-                ? writtenUp(user)
-                : askReport
-                  ? JSON.stringify(chosenReport(user))
-                  : fill
-                    ? JSON.stringify(filled(user))
-                    : autopilot
-                      ? JSON.stringify({
-                          reply: "Namaste! Kerala 5 nights is Rs 18,500 per person. Which dates are you planning?",
-                          handoff: false,
-                          handoffReason: "",
-                          attention: "",
-                          memory: "Wants Kerala for 4.",
-                          followUp: { needed: false, inHours: 4, why: "" },
-                        })
-                      : scoring
-                        ? JSON.stringify({
-                            score: 78,
-                            label: "hot",
-                            reasons: ["Asked about a Kerala package for four"],
-                            fake: false,
-                            fakeReason: "",
-                            summary: "Wants a Kerala package for four in December and has asked the price.",
-                            nextStep: "Call today and offer the Kerala 5-night package.",
-                            facts: { destination: "Kerala", when: "December", travellers: "4 adults", budget: null },
-                            // Asked for only while a new lead's empty fields are being filled in from its first messages.
-                            ...(system.includes('"trip"')
-                              ? {
-                                  trip: {
-                                    destination: "Manali",
-                                    dateFrom: "15 Dec",
-                                    dateTo: "20 Dec",
-                                    adults: 4,
-                                    budget: "1 lakh",
-                                    budgetBasis: "for_everyone",
-                                    excerpts: { destination: "Manali jana hai", budget: "1 lakh tak" },
-                                  },
-                                }
-                              : {}),
-                          })
-                        : next;
+          : draftDays
+            ? JSON.stringify(draftedDays(user))
+            : travellers
+              ? JSON.stringify(readTravellers(user))
+              : readRequestsCall
+                ? JSON.stringify(readRequests(user))
+                : reachOut
+                  ? reachedOut(user)
+                  : writeUp
+                    ? writtenUp(user)
+                    : askReport
+                      ? JSON.stringify(chosenReport(user))
+                      : fill
+                        ? JSON.stringify(filled(user))
+                        : autopilot
+                          ? JSON.stringify({
+                              reply: "Namaste! Kerala 5 nights is Rs 18,500 per person. Which dates are you planning?",
+                              handoff: false,
+                              handoffReason: "",
+                              attention: "",
+                              memory: "Wants Kerala for 4.",
+                              followUp: { needed: false, inHours: 4, why: "" },
+                            })
+                          : scoring
+                            ? JSON.stringify({
+                                score: 78,
+                                label: "hot",
+                                reasons: ["Asked about a Kerala package for four"],
+                                fake: false,
+                                fakeReason: "",
+                                summary: "Wants a Kerala package for four in December and has asked the price.",
+                                nextStep: "Call today and offer the Kerala 5-night package.",
+                                facts: {
+                                  destination: "Kerala",
+                                  when: "December",
+                                  travellers: "4 adults",
+                                  budget: null,
+                                },
+                                // Asked for only while a new lead's empty fields are being filled in from its first messages.
+                                ...(system.includes('"trip"')
+                                  ? {
+                                      trip: {
+                                        destination: "Manali",
+                                        dateFrom: "15 Dec",
+                                        dateTo: "20 Dec",
+                                        adults: 4,
+                                        budget: "1 lakh",
+                                        budgetBasis: "for_everyone",
+                                        excerpts: { destination: "Manali jana hai", budget: "1 lakh tak" },
+                                      },
+                                    }
+                                  : {}),
+                              })
+                            : next;
         response.end(
           JSON.stringify({ model: "fake/model", choices: [{ message: { content }, finish_reason: "stop" }] }),
         );

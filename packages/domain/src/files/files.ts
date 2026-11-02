@@ -48,7 +48,11 @@ export interface Files {
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
   /** An ordinary file's bytes, named by its record, for server code that draws it (a logo on a PDF). */
-  systemFile(organizationId: string, input: AttachmentRefInput): Promise<StoredFile>;
+  systemFile(
+    organizationId: string,
+    input: AttachmentRefInput,
+    options?: { allowSensitive?: boolean },
+  ): Promise<StoredFile>;
   /** Bytes the organization keeps in storage, deleted files included until a purge. */
   storageUsedBytes(organizationId: string): Promise<number>;
 }
@@ -65,7 +69,7 @@ export function createFiles(dependencies: FilesDependencies): Files {
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
     copyFile: (actor, from, to) => copyFile(dependencies, actor, from, to),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
-    systemFile: (organizationId, input) => systemFile(dependencies, organizationId, input),
+    systemFile: (organizationId, input, options) => systemFile(dependencies, organizationId, input, options),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),
   };
 }

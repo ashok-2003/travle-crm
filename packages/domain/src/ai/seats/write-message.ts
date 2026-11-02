@@ -136,10 +136,10 @@ export async function writeSeatMessage(
     throw modelRefusal(result.reason);
   }
   const typed = withoutTypedAmounts(result.text.trim().replace(/^["“](.*)["”]$/s, "$1"));
-  const text = withPrice(withoutSeatCounts(typed.text, prepared.allowedCount), prepared.departure.pricePaise).slice(
-    0,
-    MAX_CHARS,
-  );
+  const counted = withoutSeatCounts(typed.text, prepared.allowedCount);
+  // Staff are told when the model's own amount or seat count was taken out, as they are for a write-up.
+  const removedAmounts = typed.removed || counted !== typed.text;
+  const text = withPrice(counted, prepared.departure.pricePaise).slice(0, MAX_CHARS);
   if (text === "") {
     await giveBack();
     throw refuse("AI_UNAVAILABLE", "The AI didn't answer");
@@ -164,6 +164,7 @@ export async function writeSeatMessage(
     return {
       fillId: row.id,
       text,
+      removedAmounts,
       usedThisMonth: await usedThisMonth(tx, context.now, prepared.timeZone),
       monthlyLimit: MONTHLY_AI_LIMIT,
     };

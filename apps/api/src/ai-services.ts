@@ -29,6 +29,8 @@ export function createAiModel(environment: Environment): AiModel | null {
         // A rate sheet is long and its prices matter: the chat models read it.
         read_rates: chat,
         reach_out: chat,
+        // Drafting a plan is longer writing than a reply: the chat models.
+        draft_days: chat,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
@@ -48,6 +50,7 @@ export function createAiModel(environment: Environment): AiModel | null {
         fill_form: backupChat,
         write_up: backupChat,
         ask_report: backupFast,
+        draft_days: backupChat,
       },
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
@@ -71,6 +74,7 @@ export function createAiModel(environment: Environment): AiModel | null {
       read_requests: environment.AI_SCORE_MODELS,
       read_rates: environment.AI_SUGGEST_MODELS,
       reach_out: environment.AI_SUGGEST_MODELS,
+      draft_days: environment.AI_SUGGEST_MODELS,
     },
     ...(testServer === undefined
       ? {}

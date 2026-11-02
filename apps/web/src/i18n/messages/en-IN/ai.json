@@ -395,7 +395,8 @@
       "voice": "your voice",
       "text": "your words",
       "image": "the screenshot",
-      "chat": "the chat"
+      "chat": "the chat",
+      "package": "your packages"
     },
     "sheet": {
       "title": "Fill it for me",
@@ -428,6 +429,17 @@
       },
       "micUnreadable": "That recording couldn't be read. Try again, or type it."
     },
+    "draft": {
+      "button": "Draft the days",
+      "title": "Draft the days",
+      "description": "The AI writes the day-by-day plan from the lead, your packages and what your agency knows. A note is optional. You check everything before it is saved.",
+      "textLabel": "Anything to keep in mind? (optional)",
+      "textHint": "For example: relaxed, no long drives, one day free. Type or speak.",
+      "fill": "Draft the days",
+      "working": "Drafting…",
+      "replace": "Replace all days",
+      "removedAmounts": "The AI typed an amount of its own and it was taken out. Check the days read right."
+    },
     "paths": {
       "person_name": "Name",
       "person_phone": "Phone",
@@ -455,7 +467,8 @@
       "quote_items": "Lines",
       "quote_inclusions": "Included",
       "quote_exclusions": "Not included",
-      "quote_notes": "Notes"
+      "quote_notes": "Notes",
+      "travellers": "Travellers"
     },
     "values": {
       "flexible": "Dates are open",
@@ -463,6 +476,55 @@
       "newDestination": "{name} (new)",
       "days": "{count, plural, one {# day} other {# days}}",
       "items": "{count, plural, one {# line, price to add} other {# lines, prices to add}}"
+    }
+  },
+  "travellers": {
+    "button": "Fill with AI",
+    "sheet": {
+      "title": "Fill in the travellers",
+      "description": "Say who is travelling, type or paste a list, or show a photo of a list or an ID. You check everything before it is saved.",
+      "reviewDescription": "Tick what to take. Nothing is saved until you save.",
+      "textLabel": "Who is travelling",
+      "textHint": "For example: Ramesh 45, wife Sunita, son Aarav 12. Sunita needs a ground-floor room. Hindi, English or Hinglish.",
+      "textHintNoPhotos": "For example: Ramesh 45, wife Sunita, son Aarav 12. Photos of IDs need permission to see ID numbers.",
+      "addPhoto": "Add a photo of a list or an ID",
+      "read": "Read the travellers",
+      "reading": "Reading…",
+      "back": "Change what I said",
+      "save": "Save {count, plural, one {# traveller} other {# travellers}}",
+      "saved": "{count, plural, one {# traveller saved} other {# travellers saved}}",
+      "nobody": "The AI found nobody to fill in."
+    },
+    "review": {
+      "unnamed": "Person {number}",
+      "rowFor": "Row for {name}",
+      "row": "Traveller {number}",
+      "rowNamed": "Traveller {number}: {name}",
+      "noRow": "Don't save this person",
+      "noRowHint": "No row fits. There are {rows, plural, one {# row} other {# rows}}: add a row on the booking first, or pick one.",
+      "sameRow": "Two people are on the same row. Give each their own.",
+      "ageOnly": "Only an age was said ({age}): the date of birth is still needed.",
+      "idUnreadable": "The ID number couldn't be read with certainty. Type it in the traveller's details.",
+      "idChecked": "Read from the passport's printed code lines, which passed their checks.",
+      "now": "Now: {value}."
+    },
+    "fields": {
+      "name": "Name",
+      "dateOfBirth": "Born",
+      "gender": "Gender",
+      "phone": "Phone",
+      "emergencyName": "Emergency contact",
+      "emergencyPhone": "Emergency phone",
+      "medicalNotes": "Medical notes",
+      "roomRequest": "Room",
+      "roomNote": "Room note",
+      "identity": "Passport"
+    },
+    "values": {
+      "idOnFile": "ID on file",
+      "passport": "{number}",
+      "issued": "issued {day}",
+      "expires": "expires {day}"
     }
   },
   "writeUp": {
@@ -528,6 +590,7 @@
       },
       "message": {
         "writing": "Writing for {name}",
+        "removedAmounts": "The AI typed an amount or a number of seats of its own and it was taken out. Check the message reads right.",
         "tryAgain": "Write again",
         "label": "Message for {name}",
         "hint": "Change it as you like. Open it in WhatsApp, send it there, then mark it sent.",
