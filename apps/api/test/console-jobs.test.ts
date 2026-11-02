@@ -5,9 +5,9 @@
 // 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes. A super admin can't remove any
 // of these schedules from the console.
 import { randomUUID } from "node:crypto";
+import { PURGE_EMAIL_LOG_QUEUE } from "@travel-crm/domain/email-log";
 import {
   HEALTH_CHECK_QUEUE,
-  PURGE_EMAIL_LOG_QUEUE,
   PURGE_ORGANIZATION_QUEUE,
   removeSchedule,
   RESET_DEMO_QUEUE,

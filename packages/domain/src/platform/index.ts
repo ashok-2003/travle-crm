@@ -36,7 +36,6 @@ export {
   emailLogPurgeSchedule,
   getStoredEmail,
   listFailedEmails,
-  PURGE_EMAIL_LOG_QUEUE,
   purgeEmailLogNow,
   resendFailedEmail,
 } from "./emails.js";

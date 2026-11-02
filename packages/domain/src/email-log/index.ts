@@ -9,5 +9,5 @@ export {
   type RecordedEmailSender,
   type ResendOutcome,
 } from "./recorded-email-sender.js";
-export { deleteEmailsTo, FAILED_KEEP_DAYS, purgeEmailLog, SENT_KEEP_DAYS } from "./retention.js";
+export { deleteEmailsTo, FAILED_KEEP_DAYS, PURGE_EMAIL_LOG_QUEUE, purgeEmailLog, SENT_KEEP_DAYS } from "./retention.js";
 export { emailLogStore, type EmailLogStore } from "./store.js";

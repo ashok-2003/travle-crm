@@ -19,7 +19,9 @@ webhook).
 - For the console, in a platform transaction: `failedEmails(tx, { cursor, limit }, now)` (the last 30 days' failed
   emails, newest first), `storedEmailOf(tx, id)` (one email as sent, with its resends), `emailToResend(tx, id)` (the
   failed email a resend copies), `purgeEmailLog(tx, now)` and `deleteEmailsTo(tx, addresses)` (an erasure).
-- `SENT_KEEP_DAYS` (7) and `FAILED_KEEP_DAYS` (30); the types `RecordedEmailSender`, `ResendOutcome`,
+- `SENT_KEEP_DAYS` (7) and `FAILED_KEEP_DAYS` (30); `PURGE_EMAIL_LOG_QUEUE` (`email-log.purge`), the console's daily
+  job (`emailLogPurgeSchedule` in the platform module), which also blanks Brevo's stored reports after 7 days;
+  `BREVO_PROVIDER` (`brevo`), the webhook provider's name; the types `RecordedEmailSender`, `ResendOutcome`,
   `EmailLogStore`, `ProviderFailure`.
 
 ## Events

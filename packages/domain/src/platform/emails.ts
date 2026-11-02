@@ -14,6 +14,7 @@ import {
   BREVO_PROVIDER,
   emailToResend,
   failedEmails,
+  PURGE_EMAIL_LOG_QUEUE,
   purgeEmailLog,
   SENT_KEEP_DAYS,
   storedEmailOf,
@@ -22,8 +23,6 @@ import type { ScheduledJob } from "../jobs/index.js";
 import { blankProcessedPayloads } from "../webhooks/index.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
-
-export const PURGE_EMAIL_LOG_QUEUE = "email-log.purge";
 
 /** A page of the failed emails, newest first. */
 export async function listFailedEmails(

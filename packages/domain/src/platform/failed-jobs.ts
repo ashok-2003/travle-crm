@@ -5,12 +5,12 @@
 import type { FailedJobsPage, ListFailedJobsInput, RetryFailedJobInput } from "@travel-crm/contracts/platform";
 import { describeError } from "@travel-crm/integrations/jobs";
 import { errorFields } from "@travel-crm/integrations/logging";
+import { PURGE_EMAIL_LOG_QUEUE } from "../email-log/index.js";
 import { DomainError } from "../kernel/index.js";
 import { ADVANCE_SUBSCRIPTIONS_QUEUE } from "../subscriptions/index.js";
 import { SWEEP_AI_INPUTS_QUEUE } from "./ai-inputs-sweep.js";
 import { SWEEP_BULK_FILES_QUEUE } from "./bulk-files-sweep.js";
 import { RESET_DEMO_QUEUE } from "./demo.js";
-import { PURGE_EMAIL_LOG_QUEUE } from "./emails.js";
 import { ERASE_SUBJECT_QUEUE } from "./erasure.js";
 import { SWEEP_STORED_FILES_QUEUE } from "./file-deletions.js";
 import { EXPORT_ORGANIZATION_QUEUE, SWEEP_EXPIRED_EXPORTS_QUEUE } from "./organization-export.js";

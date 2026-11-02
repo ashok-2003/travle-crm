@@ -5,13 +5,12 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import type { EmailMessage } from "@travel-crm/integrations/email";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { emailLogStore, recordedEmailSender } from "../../src/email-log/index.js";
+import { emailLogStore, PURGE_EMAIL_LOG_QUEUE, recordedEmailSender } from "../../src/email-log/index.js";
 import {
   emailLogPurgeSchedule,
   getStoredEmail,
   listFailedEmails,
   listPlatformLog,
-  PURGE_EMAIL_LOG_QUEUE,
   purgeEmailLogNow,
   resendFailedEmail,
 } from "../../src/platform/index.js";

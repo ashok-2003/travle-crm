@@ -4,6 +4,9 @@
 import type { OrgTx } from "@travel-crm/db";
 import { emailLogs } from "@travel-crm/db/email-log";
 
+/** The console's daily job that runs purgeEmailLog. */
+export const PURGE_EMAIL_LOG_QUEUE = "email-log.purge";
+
 export const SENT_KEEP_DAYS = 7;
 export const FAILED_KEEP_DAYS = 30;
 
