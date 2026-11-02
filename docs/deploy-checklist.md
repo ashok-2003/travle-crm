@@ -192,6 +192,15 @@ Secrets come from the platform's secret manager as environment variables, never 
   - No new setting. The worker runs the slow-reply check (a delayed job on `crm.first-reply-check`) and the
     Unassigned notice, so its failed jobs are worth a look the first day. The default mode is "To the Owner": nothing
     changes for an agency until its Owner chooses otherwise in Settings > Lead assignment.
+- **The system's health** (the owner, 2026-11-02; `packages/domain/src/platform/incidents.ts`):
+  - **Migration `20261127100000_platform_incidents` is applied by hand before the release is deployed**, never on
+    deploy. It only adds one platform table (`platform_incident`, no rights for the runtime role).
+  - The api and the worker report what breaks (an AI call no model answered, a fault no route handled) as jobs on
+    `platform.incident`; the console checks every five minutes (`platform.health-check`) for failed jobs and a worker
+    that stopped answering its ping (`health.worker-ping`). Each super admin is emailed when an incident opens and
+    when it is resolved after half an hour of quiet, and the console's dashboard shows it. No new setting: the console
+    sends through the same SMTP settings as the api. The check runs only while the console's jobs do (`CONSOLE_JOBS`),
+    and a database or a whole server that is down can't report itself: watch `/health` from outside too.
 - **Google Sheets** (the Sheets sync, ADR 0031; the owner's steps are in the spec's section 14):
   - Create a Google Cloud project with a company account, enable the **Google Sheets API** (the Drive API is not
     needed), create a **service account** with no roles (its email is the address agencies share their sheets with, so
