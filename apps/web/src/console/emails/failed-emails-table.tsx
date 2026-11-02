@@ -29,7 +29,7 @@ export function FailedEmailsTable({ emails }: { emails: FailedEmail[] }) {
       <TableBody>
         {emails.map((email) => (
           <TableRow key={email.id}>
-            <TableCell className="numbers">{instantText(email.failedAt)}</TableCell>
+            <TableCell className="numbers whitespace-nowrap">{instantText(email.failedAt)}</TableCell>
             <TableCell className="whitespace-normal">
               <TextLink href={consoleRoutes.email(email.id)} inline>
                 <span className="wrap-anywhere">{email.subject}</span>
@@ -44,10 +44,8 @@ export function FailedEmailsTable({ emails }: { emails: FailedEmail[] }) {
             <TableCell>{words.purpose(email.purpose)}</TableCell>
             <TableCell className="whitespace-normal">
               <div className="flex flex-col items-start gap-1">
-                <span>
-                  {words.source(email.failureSource)}{" "}
-                  <span className="numbers text-caption break-all">{email.failureCode}</span>
-                </span>
+                <span>{words.source(email.failureSource)}</span>
+                <span className="numbers text-caption wrap-anywhere">{email.failureCode}</span>
                 {email.failureReason !== null && (
                   <span className="text-caption wrap-anywhere text-muted-foreground">{email.failureReason}</span>
                 )}

@@ -31,10 +31,8 @@ export function FailedEmailsList({ emails }: { emails: FailedEmail[] }) {
                   </ItemTitle>
                   <ItemDescription className="wrap-anywhere">{email.toAddress}</ItemDescription>
                   <span className="flex flex-wrap gap-x-3 gap-y-1 text-label">
-                    <span>
-                      {words.source(email.failureSource)}{" "}
-                      <span className="numbers text-caption break-all">{email.failureCode}</span>
-                    </span>
+                    <span>{words.source(email.failureSource)}</span>
+                    <span className="numbers text-caption wrap-anywhere">{email.failureCode}</span>
                     <span className="numbers text-muted-foreground">{instantText(email.failedAt)}</span>
                   </span>
                 </ItemContent>
