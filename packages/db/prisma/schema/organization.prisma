@@ -129,6 +129,7 @@ model Organization {
   leadAiInsights              LeadAiInsight[]
   aiDrafts                    AiDraft[]
   aiFills                     AiFill[]
+  departureOffers             DepartureOffer[]
   leadAiFields                LeadAiField[]
   quoteTemplates              QuoteTemplate[]
   pageVisits                  PageVisit[]
