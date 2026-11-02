@@ -12,6 +12,27 @@ export {
   type DocumentContext,
 } from "./quote-documents.js";
 export { deletePackage, duplicateQuote, listPackages, quoteFromPackage, savePackage } from "./packages.js";
+export {
+  findPackage,
+  getPackage,
+  publishGaps,
+  removeTier,
+  saveTier,
+  setPackagePublished,
+  tiersOf,
+  updatePackage,
+} from "./package-edit.js";
+export {
+  confirmPackagePhoto,
+  listPackagePhotos,
+  packagePhotoCount,
+  removePackagePhoto,
+  requestPackagePhotoUpload,
+  type PackagePhotoDependencies,
+} from "./package-photos.js";
+export { calculateFromPrice, makeQuotesFromPackage, quantityFor, tierItems } from "./package-quote.js";
+export { marginOf } from "./margin.js";
+export { noRateForDates, priceLine, pricedLineOn, sellingPrice } from "./rate-pricing.js";
 export { quoteOwedSql, quoteSalesSql, quoteTaxSql } from "./sales-sql.js";
 export { eraseQuoteParts, type QuotesErased } from "./erasure.js";
 export { assertDraft, findQuoteForChange, findQuoteInScope } from "./quote-rows.js";

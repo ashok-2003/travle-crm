@@ -96,6 +96,11 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
       where: { organizationId, OR: [{ personId }, { leadId: { in: leadIds } }] },
       data: { personId: null, leadId: null },
     });
+    // A public package page's ledger (release 7b) is the same: ids and outcomes only, emptied of the person and the lead.
+    const packageLedgerRows = await tx.packageEnquiry.updateMany({
+      where: { organizationId, OR: [{ personId }, { leadId: { in: leadIds } }] },
+      data: { personId: null, leadId: null },
+    });
     await tx.lead.updateMany({ where: { organizationId, personId }, data: { sourceDetail: null } });
     await tx.lead.updateMany({ where: { organizationId, personId, deletedAt: null }, data: { deletedAt: now } });
     const emptied = { name: "", phoneE164: null, email: null, instagramHandle: null, erasedAt: person.erasedAt ?? now };
@@ -109,7 +114,7 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
       timelineEntries: timelineEntries.count,
       blockedContacts,
       consentRows: consentRows.count,
-      ledgerRows: ledgerRows.count,
+      ledgerRows: ledgerRows.count + packageLedgerRows.count,
     };
   });
 }

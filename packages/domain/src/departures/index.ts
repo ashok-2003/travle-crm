@@ -37,6 +37,7 @@ export {
 } from "./rooming.js";
 export { countsOf, departureSettingsOf, seatsSoldAndHeld } from "./rows.js";
 export { departureSettingsView, saveDepartureSettings } from "./settings.js";
+export { publicDepartures, type PublicDepartureRow } from "./public-list.js";
 export { departuresStartingSoon, type DepartureSoon } from "./today-source.js";
 export {
   addToWaitlist,

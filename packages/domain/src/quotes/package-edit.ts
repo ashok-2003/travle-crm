@@ -1,0 +1,251 @@
+// Editing a package (release 7b): its words for the public page, its tiers, and publishing the page. A package is a quote
+// template with a name; publishing is outward-facing, so it needs a name, an address (slug), a summary and a photo, and
+// whoever holds settings:manage does it. The address is unique among live packages. Tiers hold lines priced from rates when
+// a quote is made, never now.
+import {
+  packageDetail,
+  MAX_TIERS,
+  packageTier,
+  tierLine,
+  type PackageDetail,
+  type PublishGap,
+  type SaveTierInput,
+  type UpdatePackageInput,
+} from "@travel-crm/contracts/quotes";
+import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
+import { recordAudit } from "../audit/index.js";
+import type { MemberAccess } from "../identity/index.js";
+import { DomainError } from "../kernel/index.js";
+import { withoutCosts } from "./margin.js";
+import { itemsOf } from "./quote-rows.js";
+
+const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+const nameTaken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
+const slugTaken = () => new DomainError("CONFLICT", "PACKAGE_SLUG_TAKEN", "Another package already has this address");
+
+export const packageColumns = {
+  id: true,
+  name: true,
+  title: true,
+  days: true,
+  items: true,
+  inclusions: true,
+  exclusions: true,
+  notes: true,
+  taxRateBasisPoints: true,
+  slug: true,
+  destinationId: true,
+  nights: true,
+  summary: true,
+  highlights: true,
+  priceDisplay: true,
+  fromPricePaise: true,
+  published: true,
+  defaultTravellerLevel: true,
+  cancellationNotes: true,
+} as const;
+
+type PackageRow = NonNullable<Awaited<ReturnType<typeof readPackage>>>;
+const readPackage = (tx: OrgTx, packageId: string) =>
+  tx.quoteTemplate.findUnique({ where: { id: packageId }, select: packageColumns });
+
+export async function findPackage(tx: OrgTx, packageId: string): Promise<PackageRow> {
+  const row = await readPackage(tx, packageId);
+  if (row === null) throw notFound();
+  return row;
+}
+
+/** What a package still lacks before its page can be published. */
+export function publishGaps(row: Pick<PackageRow, "name" | "slug" | "summary">, photoCount: number): PublishGap[] {
+  const gaps: PublishGap[] = [];
+  if (row.name.trim() === "") gaps.push("name");
+  if (row.slug === null) gaps.push("slug");
+  if (row.summary.trim() === "") gaps.push("summary");
+  if (photoCount < 1) gaps.push("photo");
+  return gaps;
+}
+
+export const tiersOf = async (tx: OrgTx, packageId: string) =>
+  (
+    await tx.quoteTemplateTier.findMany({
+      where: { templateId: packageId },
+      orderBy: [{ position: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, position: true, lines: true },
+    })
+  ).map((tier) => packageTier.parse({ ...tier, lines: tierLine.array().catch([]).parse(tier.lines) }));
+
+/** The package for its editor. Costs in its lines are shown only to whoever may see margins. */
+export async function getPackage(
+  tx: OrgTx,
+  access: MemberAccess,
+  packageId: string,
+  context: { photoCount: number; agencyCode: string },
+): Promise<PackageDetail> {
+  const row = await findPackage(tx, packageId);
+  const settings = await tx.publicPageSettings.findFirst({ select: { enabled: true } });
+  const items = itemsOf(row);
+  return packageDetail.parse({
+    id: row.id,
+    name: row.name,
+    title: row.title,
+    days: row.days,
+    inclusions: row.inclusions,
+    exclusions: row.exclusions,
+    notes: row.notes,
+    taxRateBasisPoints: row.taxRateBasisPoints,
+    slug: row.slug,
+    destinationId: row.destinationId,
+    nights: row.nights,
+    summary: row.summary,
+    highlights: row.highlights,
+    priceDisplay: row.priceDisplay,
+    fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
+    defaultTravellerLevel: row.defaultTravellerLevel,
+    cancellationNotes: row.cancellationNotes,
+    published: row.published,
+    items: access.permissions.has("money:view_margin") ? items : withoutCosts(items),
+    tiers: await tiersOf(tx, row.id),
+    photoCount: context.photoCount,
+    gaps: publishGaps(row, context.photoCount),
+    pagesEnabled: settings?.enabled ?? false,
+    agencyCode: context.agencyCode,
+  });
+}
+
+export async function updatePackage(tx: OrgTx, access: MemberAccess, input: UpdatePackageInput): Promise<void> {
+  const before = await findPackage(tx, input.packageId);
+  const { packageId, ...fields } = input;
+  if (fields.priceDisplay === "from" && fields.fromPricePaise === null) {
+    throw new DomainError("VALIDATION", "FROM_PRICE_REQUIRED", "Enter the price to show, or choose 'Price on enquiry'");
+  }
+  if (before.published && fields.slug === null) {
+    throw new DomainError(
+      "CONFLICT",
+      "PACKAGE_PUBLISHED_NEEDS_SLUG",
+      "Unpublish the page before you remove its address",
+    );
+  }
+  if (
+    fields.destinationId !== null &&
+    (await tx.destination.findUnique({ where: { id: fields.destinationId } })) === null
+  ) {
+    throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such destination");
+  }
+  if (
+    (await tx.quoteTemplate.findFirst({
+      where: { name: fields.name, id: { not: packageId } },
+      select: { id: true },
+    })) !== null
+  ) {
+    throw nameTaken();
+  }
+  if (
+    fields.slug !== null &&
+    (await tx.quoteTemplate.findFirst({
+      where: { slug: fields.slug, id: { not: packageId } },
+      select: { id: true },
+    })) !== null
+  ) {
+    throw slugTaken();
+  }
+  try {
+    await tx.quoteTemplate.update({
+      where: { id: packageId },
+      data: {
+        ...fields,
+        fromPricePaise: fields.fromPricePaise === null ? null : BigInt(fields.fromPricePaise),
+      },
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      const target = JSON.stringify((error as { meta?: unknown }).meta ?? "");
+      throw target.includes("slug") ? slugTaken() : nameTaken();
+    }
+    throw error;
+  }
+  await recordAudit(tx, access, {
+    action: "quote-package.changed",
+    entityType: "quote_template",
+    entityId: packageId,
+    before: { name: before.name, slug: before.slug },
+    after: { name: fields.name, slug: fields.slug },
+  });
+}
+
+/** Switches the package's public page on or off. Publishing needs everything the page shows. */
+export async function setPackagePublished(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: { packageId: string; published: boolean },
+  photoCount: number,
+): Promise<void> {
+  const row = await findPackage(tx, input.packageId);
+  if (row.published === input.published) return;
+  if (input.published && publishGaps(row, photoCount).length > 0) {
+    throw new DomainError(
+      "CONFLICT",
+      "PACKAGE_NOT_READY",
+      "Give the package a name, an address, a summary and a photo first",
+    );
+  }
+  await tx.quoteTemplate.update({ where: { id: row.id }, data: { published: input.published } });
+  await recordAudit(tx, access, {
+    action: input.published ? "quote-package.published" : "quote-package.unpublished",
+    entityType: "quote_template",
+    entityId: row.id,
+    after: { name: row.name, slug: row.slug },
+  });
+}
+
+/** Adds a tier, or changes one: its name and its lines. */
+export async function saveTier(tx: OrgTx, access: MemberAccess, input: SaveTierInput): Promise<{ id: string }> {
+  const row = await findPackage(tx, input.packageId);
+  const fields = { name: input.name, lines: input.lines };
+  let id: string;
+  try {
+    if (input.tierId === undefined) {
+      const position = await tx.quoteTemplateTier.count({ where: { templateId: row.id } });
+      if (position >= MAX_TIERS) {
+        throw new DomainError("LIMIT_REACHED", "PACKAGE_TIER_LIMIT", "A package has five tiers at most");
+      }
+      id = (
+        await tx.quoteTemplateTier.create({ data: { templateId: row.id, position, ...fields }, select: { id: true } })
+      ).id;
+    } else {
+      const found = await tx.quoteTemplateTier.findFirst({
+        where: { id: input.tierId, templateId: row.id },
+        select: { id: true },
+      });
+      if (found === null) throw notFound();
+      id = found.id;
+      await tx.quoteTemplateTier.update({ where: { id }, data: fields });
+    }
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new DomainError("CONFLICT", "TIER_NAME_TAKEN", "This package already has a tier with this name");
+    }
+    throw error;
+  }
+  await recordAudit(tx, access, {
+    action: "quote-package.tier-saved",
+    entityType: "quote_template",
+    entityId: row.id,
+    after: { tierId: id, name: input.name, lines: input.lines.length },
+  });
+  return { id };
+}
+
+export async function removeTier(tx: OrgTx, access: MemberAccess, tierId: string): Promise<void> {
+  const tier = await tx.quoteTemplateTier.findUnique({
+    where: { id: tierId },
+    select: { id: true, name: true, templateId: true },
+  });
+  if (tier === null) throw notFound();
+  await tx.quoteTemplateTier.delete({ where: { id: tier.id } });
+  await recordAudit(tx, access, {
+    action: "quote-package.tier-removed",
+    entityType: "quote_template",
+    entityId: tier.templateId,
+    before: { tierId: tier.id, name: tier.name },
+  });
+}

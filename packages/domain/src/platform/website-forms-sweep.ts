@@ -18,6 +18,10 @@ const MOST_PAGES = 50;
 export const dueLedgerRowsQuery = (cutoff: Date, limit: number): Sql => sql`
   SELECT id FROM website_form_submission WHERE created_at < ${cutoff} ORDER BY created_at ASC LIMIT ${limit}`;
 
+/** The same for the public package pages' ledger (release 7b), kept as long. */
+export const duePackageRowsQuery = (cutoff: Date, limit: number): Sql => sql`
+  SELECT id FROM package_enquiry WHERE created_at < ${cutoff} ORDER BY created_at ASC LIMIT ${limit}`;
+
 /** Deletes ledger rows older than 90 days, a page at a time until a page comes back short. */
 export async function sweepWebsiteFormsNow(
   services: PlatformServices,
@@ -29,6 +33,15 @@ export async function sweepWebsiteFormsNow(
     const deleted = await services.platformDb.transaction(async (tx) => {
       const due = await tx.$queryRaw<{ id: string }[]>(dueLedgerRowsQuery(cutoff, PAGE));
       const { count } = await tx.websiteFormSubmission.deleteMany({ where: { id: { in: due.map((row) => row.id) } } });
+      return count;
+    });
+    ledgerRowsDeleted += deleted;
+    if (deleted < PAGE) break;
+  }
+  for (let page = 0; page < MOST_PAGES; page += 1) {
+    const deleted = await services.platformDb.transaction(async (tx) => {
+      const due = await tx.$queryRaw<{ id: string }[]>(duePackageRowsQuery(cutoff, PAGE));
+      const { count } = await tx.packageEnquiry.deleteMany({ where: { id: { in: due.map((row) => row.id) } } });
       return count;
     });
     ledgerRowsDeleted += deleted;

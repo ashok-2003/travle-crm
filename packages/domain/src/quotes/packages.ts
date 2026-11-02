@@ -21,7 +21,17 @@ const taken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another p
 export async function listPackages(tx: OrgTx): Promise<QuotePackage[]> {
   const rows = await tx.quoteTemplate.findMany({
     orderBy: { name: "asc" },
-    select: { id: true, name: true, title: true, days: true, items: true, taxRateBasisPoints: true },
+    select: {
+      id: true,
+      name: true,
+      title: true,
+      days: true,
+      items: true,
+      taxRateBasisPoints: true,
+      published: true,
+      slug: true,
+      _count: { select: { tiers: true } },
+    },
   });
   return quotePackageList.parse(
     rows.map((row) => ({
@@ -31,6 +41,9 @@ export async function listPackages(tx: OrgTx): Promise<QuotePackage[]> {
       days: daysOf(row).length,
       subtotalPaise: itemsOf(row).reduce((sum, item) => sum + item.unitPricePaise * item.quantity, 0),
       taxRateBasisPoints: row.taxRateBasisPoints,
+      published: row.published,
+      slug: row.slug,
+      tierCount: row._count.tiers,
     })),
   );
 }
@@ -89,7 +102,7 @@ export async function quoteFromPackage(
   const lead = await getLead(tx, access, input.leadId);
   const row = await tx.quoteTemplate.findUnique({ where: { id: input.packageId } });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-  return createQuote(
+  const quote = await createQuote(
     tx,
     access,
     {
@@ -107,7 +120,10 @@ export async function quoteFromPackage(
       placeOfSupply: null,
     },
     context,
+    true,
   );
+  await tx.quote.update({ where: { id: quote.id }, data: { templateId: row.id } });
+  return quote;
 }
 
 /** Another option of the quote: a draft copy beside it, to change (a 4-star hotel), which the link shows beside it. */
@@ -125,5 +141,6 @@ export async function duplicateQuote(
     access,
     { ...copy, title: `${quote.title.replace(/ \(option \d+\)$/, "")} (option ${String(options + 1)})`.slice(0, 120) },
     context,
+    true,
   );
 }
