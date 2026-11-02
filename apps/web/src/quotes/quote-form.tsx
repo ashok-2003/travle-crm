@@ -11,6 +11,7 @@ import { gstStates, paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { QuoteDetail, UpdateQuoteInput } from "@travel-crm/contracts/quotes";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 import { useFieldArray, useForm, useWatch, type Control } from "react-hook-form";
 import { DateField } from "@/components/date-field";
 import { FormField } from "@/components/form-field";
@@ -140,6 +141,7 @@ export function QuoteForm({
   // Only a draft is written: a sent quote keeps its prices, and a new version is the way to change it.
   const frozen = quote.status !== "draft";
   const t = useTranslations("quotes.form");
+  const tRates = useTranslations("quotes.rates");
   const access = useWriteAccess("change");
   const form = useForm<Values>({ defaultValues: valuesOf(quote) });
   const marks = useFillMarks(form, quoteConverter);
@@ -151,6 +153,8 @@ export function QuoteForm({
   const seesSuppliers = useHolds("suppliers:view");
   const mayPriceFromRate = seesMargin && seesSuppliers;
   const startDate = useWatch({ control: form.control, name: "startDate" });
+  const [pricing, setPricing] = useState(false);
+  const priceButton = useRef<HTMLButtonElement>(null);
   const submit = form.handleSubmit((values) => {
     form.clearErrors();
     const input = inputOf(quote.id, values);
@@ -170,6 +174,26 @@ export function QuoteForm({
   if (frozen) return <FrozenQuote quote={quote} />;
   return (
     <FillMarksProvider marks={marks}>
+      {/* Beside the form, not in it: a submit in a dialog would reach the form around it and save the quote. */}
+      {mayPriceFromRate && (
+        <PriceFromRateDialog
+          startDate={startDate}
+          open={pricing}
+          onOpenChange={setPricing}
+          returnFocusTo={priceButton}
+          priced={(line) => {
+            items.append({
+              description: line.description,
+              detail: line.detail,
+              quantity: String(line.quantity),
+              price: rupeesFieldText(line.unitPricePaise),
+              costUnitPaise: line.costUnitPaise,
+              rateId: line.rateId,
+              needsRate: undefined,
+            });
+          }}
+        />
+      )}
       <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
         <FillWithAi target="quote" subjectId={quote.id} marks={marks} />
         <Card>
@@ -278,20 +302,16 @@ export function QuoteForm({
             </CardTitle>
             <CardAction className="flex flex-wrap justify-end gap-2">
               {mayPriceFromRate && !busy && (
-                <PriceFromRateDialog
-                  startDate={startDate}
-                  priced={(line) => {
-                    items.append({
-                      description: line.description,
-                      detail: line.detail,
-                      quantity: String(line.quantity),
-                      price: rupeesFieldText(line.unitPricePaise),
-                      costUnitPaise: line.costUnitPaise,
-                      rateId: line.rateId,
-                      needsRate: undefined,
-                    });
+                <Button
+                  ref={priceButton}
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setPricing(true);
                   }}
-                />
+                >
+                  {tRates("priceFromRate")}
+                </Button>
               )}
               <Button
                 type="button"

@@ -149,7 +149,7 @@ export function TierLines({ form, mayPickRates }: { form: UseFormReturn<TierValu
                 <TextField
                   control={form.control}
                   name={lineField(index, "description")}
-                  label={t("description")}
+                  label={t("lineDescription")}
                   hint={t("descriptionHint")}
                 />
                 <NoteField control={form.control} name={lineField(index, "detail")} label={t("detail")} />

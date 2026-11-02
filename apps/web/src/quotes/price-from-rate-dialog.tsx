@@ -8,7 +8,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { priceLineInput, type PricedLine } from "@travel-crm/contracts/suppliers";
 import { useTranslations } from "next-intl";
 import { checked } from "@/components/forms/checked";
-import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-dialog";
+import { FormAlert, FormDialog, useFormDialog, type OpenState } from "@/components/forms/form-dialog";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { rupees } from "@/components/forms/money-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
@@ -127,20 +128,37 @@ function usePricing() {
   });
 }
 
-export function PriceFromRateDialog({ startDate, priced }: { startDate: string; priced: (line: PricedLine) => void }) {
+/**
+ * The dialog alone, opened from a button the quote form holds: it sits beside the form, never inside it, because a submit in a
+ * dialog reaches the form around it through React's tree (portals included) and would save the quote under it.
+ */
+export function PriceFromRateDialog({
+  startDate,
+  priced,
+  open,
+  onOpenChange,
+  returnFocusTo,
+}: {
+  startDate: string;
+  priced: (line: PricedLine) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("quotes.rates");
-  const dialog = useFormDialog(t("added"));
+  const held: OpenState = { open, setOpen: onOpenChange };
+  const dialog = useFormDialog(t("added"), () => Promise.resolve(), held);
   const pricing = usePricing();
   return (
     <FormDialog
       dialog={dialog}
       sending={pricing}
-      trigger={{ label: t("priceFromRate"), variant: "outline" }}
       title={t("title")}
       description={startDate === "" ? t("needDate") : t("description")}
       submit={t("add")}
       submitting={t("adding")}
       canSubmit={startDate !== ""}
+      returnFocusTo={returnFocusTo}
     >
       {(formId) => (
         <PriceForm formId={formId} startDate={startDate} priced={priced} dialog={dialog} pricing={pricing} />

@@ -92,7 +92,7 @@
     "saving": "Saving",
     "saved": "Tier saved",
     "detail": "Detail",
-    "descriptionHint": "What the customer reads on the quote.",
+    "descriptionHint": "What the customer reads on the quote, such as Hotel in Guptkashi.",
     "quantityRule": "How many a quote gets",
     "quantity": "How many",
     "rules": {
@@ -111,7 +111,8 @@
     "rateHint": "Priced from the same item in the season covering the quote's start date.",
     "chooseRate": "Choose a rate",
     "pricedFrom": "Priced from {rate}",
-    "noRatePermission": "Choosing a rate needs permission to see margins."
+    "noRatePermission": "Choosing a rate needs permission to see margins.",
+    "lineDescription": "What it is"
   },
   "photos": {
     "title": "Photos",
