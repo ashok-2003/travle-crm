@@ -3,6 +3,7 @@
 import type { ListPlatformLogInput, PlatformLogEntry, PlatformLogPage } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
 import { assertAuditable, type AuditSnapshot } from "../audit/index.js";
+import { organizationNames } from "../identity/index.js";
 
 /** Who acts on the platform: a platform admin by user id, or null for the platform's own jobs. */
 export interface PlatformActor {
@@ -58,6 +59,10 @@ export async function listPlatformLog(tx: PlatformTx, input: ListPlatformLogInpu
     take: input.limit + 1,
   });
   const page = rows.slice(0, input.limit);
+  // Names are read here, so the screen never asks for each organization on its own; a purged one has none.
+  const names = await organizationNames(tx, [
+    ...new Set(page.flatMap((row) => (row.targetOrganizationId === null ? [] : [row.targetOrganizationId]))),
+  ]);
   return {
     entries: page.map((row): PlatformLogEntry => ({
       id: row.id,
@@ -67,6 +72,7 @@ export async function listPlatformLog(tx: PlatformTx, input: ListPlatformLogInpu
       targetType: row.targetType,
       targetId: row.targetId,
       targetOrganizationId: row.targetOrganizationId,
+      organizationName: row.targetOrganizationId === null ? null : (names.get(row.targetOrganizationId) ?? null),
       before: snapshotOf(row.before),
       after: snapshotOf(row.after),
     })),
