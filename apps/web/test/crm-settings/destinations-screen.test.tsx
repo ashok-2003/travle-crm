@@ -62,7 +62,7 @@ async function choose(destination: string, action: string) {
   await userEvent.click(await screen.findByRole("menuitem", { name: action }));
 }
 
-describe("DestinationsScreen", { timeout: 15_000 }, () => {
+describe("DestinationsScreen", () => {
   it("lists destinations alphabetically with search, renames one, and shows DESTINATION_NAME_TAKEN's sentence", async () => {
     const api = stubApi({
       "destinations.search": { data: [goa, goaTrip, kashmir, kerala] },
