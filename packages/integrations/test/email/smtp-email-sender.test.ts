@@ -53,6 +53,25 @@ describe("SMTP email sender", () => {
     expect(headers["List-Unsubscribe"]).toEqual(["<https://app.example/settings/notifications>"]);
   });
 
+  it("keeps the message's purpose and source to the caller: neither becomes a header", async () => {
+    await sender.send({
+      ...message,
+      subject: "With a purpose",
+      purpose: "notification",
+      sourceRef: "notification:0199a000-0000-7000-8000-000000000001",
+    });
+
+    await sender.send({ ...message, subject: "Without a purpose" });
+
+    const headerNames = async (subject: string) => {
+      const received = (await mailpit.messages()).find((sent) => sent.Subject === subject);
+      return Object.keys(await mailpit.headers(received?.ID ?? "")).sort();
+    };
+    const withPurpose = await headerNames("With a purpose");
+    expect(withPurpose).toEqual(await headerNames("Without a purpose"));
+    expect(withPurpose.length).toBeGreaterThan(5);
+  });
+
   it("sends without a Reply-To when the organization has no contact email", async () => {
     await sender.send({ ...message, replyTo: undefined, subject: "No reply-to" });
 

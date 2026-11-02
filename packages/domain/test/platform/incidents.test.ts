@@ -1,7 +1,9 @@
 // The system's health: a report opens an incident of its kind, a second report of an open one is counted on it, the
 // incident jobs every process sends are recorded, and the list says what is open.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { platformStaffRoles } from "../../src/identity/index.js";
 import { incidentHandler, listPlatformIncidents, reportPlatformIncident } from "../../src/platform/index.js";
+import { createPlatformAdmin } from "../identity/test-identity.js";
 import { createTestPlatform, type TestPlatform } from "./test-platform.js";
 
 describe("the system's health", () => {
@@ -21,6 +23,19 @@ describe("the system's health", () => {
     const ai = open.filter((incident) => incident.kind === "ai.unavailable");
     expect(ai).toHaveLength(1);
     expect(ai[0]).toMatchObject({ detail: "score_lead", reports: 2, resolvedAt: null });
+  });
+
+  it("emails each super admin when one opens, as a platform incident in the email log", async () => {
+    const admin = await createPlatformAdmin(test.identity, "super-password-1");
+    await test.identity.database.client.user.update({
+      where: { id: admin.userId },
+      data: { role: platformStaffRoles["super-admin"] },
+    });
+    await reportPlatformIncident(test.services, "worker.stalled", "", new Date());
+    const toAdmin = test.emails.sent.filter((message) => message.to.address === admin.email);
+    expect(toAdmin.map((message) => [message.subject, message.purpose])).toEqual([
+      ["Platform alert: The worker isn't taking jobs", "platform-incident"],
+    ]);
   });
 
   it("records the incident jobs every process sends, and refuses one of no known kind", async () => {

@@ -7,6 +7,7 @@ import type { ErasureSubject, QueuedJob, RequestErasureInput } from "@travel-crm
 import { erasureSubject } from "@travel-crm/contracts/platform";
 import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { recordAudit, redactAuditEntries } from "../audit/index.js";
+import { deleteEmailsTo } from "../email-log/index.js";
 import { withdrawExportFiles } from "../exports/index.js";
 import { deleteRecordFiles } from "../files/index.js";
 import { erasePerson, findOrganizationRecord, personExport } from "../identity/index.js";
@@ -109,7 +110,8 @@ export async function requestErasure(
 
 /**
  * The job: erases the subject in every module that keeps something about it, in one platform transaction. For a
- * member: identity's sign-in data, their notifications, opt-outs and browsers. For a customer (a "person" record):
+ * member: identity's sign-in data, their notifications, opt-outs and browsers, and the emails sent to them (the email
+ * log, which holds them as sent). For a customer (a "person" record):
  * crm's part, with their leads' tasks, notifications and files (eraseCustomerParts). For any: the record's files, its
  * share links and their opens, the notifications about it, its audit entries' snapshots, and the organization's
  * processed webhook payloads (any may quote the person, and none is needed once processed). Then every import and
@@ -144,8 +146,10 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
     }
     const actor =
       job.requestedBy === null ? systemActor(organizationId) : platformActor(organizationId, job.requestedBy);
+    let emails = 0;
     if (subject.kind === "member") {
-      const { userId } = await erasePerson(tx, organizationId, subject.memberId);
+      const { userId, addresses } = await erasePerson(tx, organizationId, subject.memberId);
+      emails = await deleteEmailsTo(tx, addresses);
       await forgetRecipient(tx, { organizationId, userId });
       // What the usage analytics kept about them: the pages they opened and the welcome they saw.
       await tx.pageVisit.deleteMany({ where: { organizationId, userId } });
@@ -210,6 +214,7 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
           bulkFiles: imports.files + dataExports.files,
           webhooksTombstoned: webhooks.tombstoned,
           webhooksWaiting: webhooks.waiting,
+          ...(subject.kind === "member" ? { emails } : {}),
           ...(customer === null ? {} : { customer }),
         },
       },

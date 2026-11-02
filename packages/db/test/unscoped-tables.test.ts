@@ -8,6 +8,7 @@ import { createDatabase, type Database } from "../src/database.js";
 import { UnscopedModelError } from "../src/errors.js";
 import type { IdentityTx, OrgTx } from "../src/for-org.js";
 import { createIdentityDatabase, type IdentityClient, type IdentityDatabase } from "../src/identity.js";
+import { emailLogs } from "../src/email-log.js";
 import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 import { rateLimitCounters } from "../src/rate-limits.js";
 import { whatsappNumberRoutes, whatsappUnrouted } from "../src/whatsapp-routes.js";
@@ -49,6 +50,10 @@ describe("tables without organization_id", () => {
       identityTx.webhookEvent,
       // @ts-expect-error nor sheets_key_check
       tx.sheetsKeyCheck,
+      // @ts-expect-error nor email_log
+      tx.emailLog,
+      // @ts-expect-error nor email_log
+      identityTx.emailLog,
       // @ts-expect-error nor rate_limit_counter
       identityTx.rateLimitCounter,
       // @ts-expect-error the client Better Auth uses reaches its own tables, not webhook_event
@@ -77,6 +82,7 @@ describe("tables without organization_id", () => {
       "sheetsKeyCheck",
       "whatsappNumberRoute",
       "whatsappUnrouted",
+      "emailLog",
     ]) {
       await expect(identity.client.$transaction((tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
         UnscopedModelError,
@@ -94,6 +100,7 @@ describe("tables without organization_id", () => {
       "sheetsKeyCheck",
       "whatsappNumberRoute",
       "whatsappUnrouted",
+      "emailLog",
     ]) {
       await expect(db.forOrg(organizationId, (tx) => reachFor(tx, model))).rejects.toBeInstanceOf(UnscopedModelError);
       await expect(identity.forOrg(organizationId, (tx) => reachFor(tx, model))).rejects.toBeInstanceOf(
@@ -122,6 +129,7 @@ describe("tables without organization_id", () => {
     await expect(db.forOrg(organizationId, (tx) => whatsappUnrouted(tx).count())).rejects.toBeInstanceOf(
       UnscopedModelError,
     );
+    await expect(db.forOrg(organizationId, (tx) => emailLogs(tx).count())).rejects.toBeInstanceOf(UnscopedModelError);
   });
 
   it("are reached through their entry points inside withoutOrg()", async () => {

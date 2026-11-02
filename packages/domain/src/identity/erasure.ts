@@ -54,18 +54,23 @@ export async function personExport(tx: IdentityTx, organizationId: string, membe
  * two-factor secret and reset tokens. The rows that point at them (the membership, audit entries) keep the ids,
  * which now lead nowhere personal; the membership's last activity stays too, a time with no one behind it. Someone
  * still a member must be removed first. Erasing twice is harmless: the second time finds nothing more to clear.
- * Returns the user's id, for the other modules' parts of the erasure.
+ * Returns the user's id and their own addresses as they were (none the second time), for the other modules' parts of
+ * the erasure: the emails sent to them.
  */
 export async function erasePerson(
   tx: IdentityTx,
   organizationId: string,
   memberId: string,
-): Promise<{ userId: string }> {
+): Promise<{ userId: string; addresses: string[] }> {
   const member = await memberOf(tx, organizationId, memberId);
   if (member.deletedAt === null) {
     throw new DomainError("CONFLICT", "REMOVE_FIRST", "Remove this person from the organization before erasing them");
   }
   const { userId } = member;
+  // A removed person's address is a placeholder, their own one the former email; an erased person's is a placeholder.
+  const addresses = [member.user.email, member.user.formerEmail].flatMap((address) =>
+    address === null || shownEmail(address) === null || address.endsWith(".invalid") ? [] : [address],
+  );
   await withDeleted(() => tx.member.update({ where: { id: member.id }, data: { phoneE164: null } }));
   await tx.user.update({
     where: { id: userId },
@@ -85,7 +90,7 @@ export async function erasePerson(
   await tx.twoFactor.deleteMany({ where: { userId } });
   // Better Auth's reset tokens name the user in their value.
   await tx.verification.deleteMany({ where: { value: userId } });
-  return { userId };
+  return { userId, addresses };
 }
 
 /** Every user who has ever been a member of the organization: whose rows a purge deletes. */

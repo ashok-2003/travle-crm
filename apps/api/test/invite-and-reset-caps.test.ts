@@ -76,7 +76,8 @@ describe("the invite and reset caps", () => {
       expect(answer.status).toBe(200);
     }
     await resets.settled();
-    expect(resetEmails.sent.filter((message) => message.to.address === email)).toHaveLength(3);
+    const resetsTo = resetEmails.sent.filter((message) => message.to.address === email);
+    expect(resetsTo.map((message) => message.purpose)).toEqual(["password-reset", "password-reset", "password-reset"]);
 
     const event = await server.db.forOrg(organizationId, (tx) =>
       tx.outboxEvent.findFirstOrThrow({ where: { type: "staff.invited" } }),
@@ -86,6 +87,8 @@ describe("the invite and reset caps", () => {
       listener: server.identity.inviteListener({ email: inviteEmails, appUrl: ORIGIN, limiter, now: () => at }),
       data: { organizationId, eventId: event.id, eventType: event.type },
     });
-    expect(inviteEmails.sent.map((message) => message.to.address)).toEqual([email]);
+    expect(inviteEmails.sent.map((message) => [message.to.address, message.purpose])).toEqual([
+      [email, "staff-invite"],
+    ]);
   });
 });

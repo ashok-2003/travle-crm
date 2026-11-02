@@ -145,6 +145,7 @@ settings changed.
 | `BETTER_AUTH_SECRET`                                   | `openssl rand -base64 32 \| sudo scripts/server/secrets.sh set BETTER_AUTH_SECRET`                                                                                                                                                     | everyone signs in again |
 | A database role's password (the server's own Postgres) | pick `NEW=$(openssl rand -hex 32)`, run `ALTER ROLE app_runtime PASSWORD '<new>'` through `compose.sh exec -T postgres psql -U postgres`, then `secrets.sh set` both `RUNTIME_DB_PASSWORD` and `DATABASE_URL` (the password inside it) | a restart               |
 | R2 tokens, Brevo's SMTP key                            | make the new one in its dashboard, `secrets.sh set` it, restart, then revoke the old one                                                                                                                                               | a restart               |
+| Brevo's webhook token and key                          | `openssl rand -hex 32 \| sudo scripts/server/secrets.sh set BREVO_WEBHOOK_TOKEN` (and `..._KEY`), restart, then change the webhook in Brevo at once ("Brevo's reports of dropped emails", below)                                       | reports in between      |
 | The VAPID pair                                         | never, unless it leaked: a new pair silently drops every browser's push subscription                                                                                                                                                   | every subscription      |
 | The backup key                                         | make a new one with `age-keygen`, then `secrets.sh set BACKUP_AGE_RECIPIENT` to its public key. Keep the old private key until the old backups expire, 14 days later.                                                                  | nothing                 |
 | The SSH key                                            | add the new public key to `~/.ssh/authorized_keys` on the server, check that it works, then remove the old one                                                                                                                         | nothing                 |
@@ -467,6 +468,8 @@ server, where the worker runs. What the timers did:
 - **Quotas:**
   - R2's free 10 GB, in the Cloudflare dashboard;
   - Brevo's 300 emails a day, and its bounces and blocks, in Brevo's dashboard.
+- **Emails that didn't arrive:** the console's **Failed emails** page (super admins), and Brevo's own logs beside it
+  (below).
 - **Security updates:** they install themselves, and a reboot happens at 03:30 India time when one is needed. Their
   log is `/var/log/unattended-upgrades/`.
 
@@ -522,6 +525,35 @@ GOOGLE_SHEETS_SERVICE_ACCOUNTS`, from a terminal of your own so the key doesn't 
    private key's newlines as the file has them; a key pasted with `\n` typed for its newlines is refused at start-up.
 3. Release again (`scripts/server/release.sh`). The api's and the worker's log say `Google Sheets: 1 service account`;
    the console's does not and never holds the accounts.
+
+## Brevo's reports of dropped emails
+
+Every email the product sends is recorded, and one whose send failed shows on the console's **Failed emails** page
+(super admins only: the page shows each email as sent, reset and invite links included). A super admin opens it and
+sends it again once the cause is fixed. Brevo can also accept an email and drop it later (a bounce, a block, the account
+held in review, as for three days in November 2026); its transactional webhook tells the api, and the email shows there
+too. Until the webhook is set up, only our own failed sends show.
+
+1. On the server, make the two secrets, from a terminal of your own (on a server set up before this change, first add
+   the lines `BREVO_WEBHOOK_TOKEN=''` and `BREVO_WEBHOOK_KEY=''` to `/srv/travel-crm/production.env`):
+   `openssl rand -hex 32 | sudo scripts/server/secrets.sh set BREVO_WEBHOOK_TOKEN`, then the same for
+   `BREVO_WEBHOOK_KEY`. Print them once to copy into Brevo: `sudo grep BREVO_ /srv/travel-crm/production.env`.
+2. Release again (`scripts/server/release.sh`): the api and the worker take them; the console never does.
+3. In Brevo: **Transactional**, **Settings**, **Webhooks**, add a webhook:
+   - URL: `https://<the app's address>/webhooks/brevo/<BREVO_WEBHOOK_TOKEN>`;
+   - authentication: a bearer token, `<BREVO_WEBHOOK_KEY>`, so Brevo sends `Authorization: Bearer <key>`. If the form
+     doesn't offer one, create the webhook through Brevo's API instead (`POST https://api.brevo.com/v3/webhooks`, type
+     `transactional`, with `"auth": {"type": "bearer", "token": "<key>"}`);
+   - events: **hard bounce**, **soft bounce**, **blocked**, **spam**, **invalid email** and **error**. The others
+     (delivered, opened...) change nothing and only fill the log.
+4. Check: Brevo's webhook test, or a send to an address that can't exist, answers 200 in the api's log
+   (`"route":"/webhooks/brevo/..."`). A real bounce then shows on the Failed emails page within a minute or two.
+5. **Also look at Brevo's own logs** (Transactional, Logs) when emails go missing. We haven't confirmed that Brevo sends
+   a webhook event for every drop: its account-review drop may only be in its logs (once a day), and then the page misses
+   it.
+
+The console's `email-log.purge` job deletes sent emails after 7 days and failed ones after 30, and blanks Brevo's stored
+reports after 7. Erasing a member deletes the emails sent to them at once.
 
 ## Before the next agency
 

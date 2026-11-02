@@ -4,6 +4,7 @@ import { listPlatformLogInput, platformLogPage, platformWhoAmIOutput } from "@tr
 import { listPlatformLog } from "@travel-crm/domain/platform";
 import { staffProcedure } from "./procedures.js";
 import { dataProtectionRouter } from "./routers/data-protection.js";
+import { emailsRouter } from "./routers/emails.js";
 import { dashboardRouter, jobsRouter } from "./routers/operations.js";
 import { invitesRouter } from "./routers/invites.js";
 import { organizationsRouter } from "./routers/organizations.js";
@@ -25,6 +26,7 @@ export const platformRouter = platformT.router({
   plans: plansRouter,
   subscriptions: subscriptionsRouter,
   jobs: jobsRouter,
+  emails: emailsRouter,
   whatsapp: whatsappRouter,
   platformStaff: platformStaffRouter,
   invites: invitesRouter,

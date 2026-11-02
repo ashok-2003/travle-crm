@@ -1,0 +1,50 @@
+// The email log (the owner, 2026-11-02; docs/superpowers/specs/2026-11-02-failed-emails-design.md): every email the
+// product sends, as sent, so the console can show the ones that failed and send them again. No organization_id: staff
+// alerts, password resets and invites are for people, and the platform's own emails for no organization, so this table
+// is outside row-level security. OrgTx leaves the model out; only the email-log module reaches it, in db.withoutOrg(),
+// through @travel-crm/db/email-log (dependency-cruiser keeps that entry point to the module). The platform role reads
+// it and deletes from it (the console's list, its purge, an erasure); it never writes a row.
+
+/// One email, recorded as its send starts. Its id is also the X-Mailin-custom header on the message, which Brevo
+/// returns in its webhook events. Sent and sending rows are deleted after 7 days, failed rows after 30.
+model EmailLog {
+  id            String     @id @default(uuid(7)) @db.Uuid
+  /// What sent it, e.g. "notification", "password-reset" (CHECK email_log_purpose_format).
+  purpose       String
+  /// What ties a retry's attempts together, e.g. "notification:<id>".
+  sourceRef     String?    @map("source_ref")
+  toAddress     String     @map("to_address")
+  toName        String?    @map("to_name")
+  fromName      String     @map("from_name")
+  replyTo       String?    @map("reply_to")
+  subject       String
+  textBody      String     @map("text_body")
+  htmlBody      String     @map("html_body")
+  /// The message's own extra headers, e.g. List-Unsubscribe, so a resend carries them. Never our reference header.
+  headers       Json       @default("{}")
+  /// sending, sent or failed (CHECK email_log_status_value).
+  status        String     @default("sending")
+  /// smtp (our send failed) or provider (Brevo reported it), on a failed row only.
+  failureSource String?    @map("failure_source")
+  /// Ours: the adapter's safe code, e.g. "EAUTH (SMTP 535)". The provider's: its event, e.g. "hard_bounce".
+  failureCode   String?    @map("failure_code")
+  /// The provider's reason, at most 1,000 characters.
+  failureReason String?    @map("failure_reason")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  sentAt        DateTime?  @map("sent_at") @db.Timestamptz(6)
+  failedAt      DateTime?  @map("failed_at") @db.Timestamptz(6)
+  /// The failed email this one sends again. Set to null when the purge deletes that one first.
+  resentFromId  String?    @map("resent_from_id") @db.Uuid
+  resentFrom    EmailLog?  @relation("EmailResends", fields: [resentFromId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  resends       EmailLog[] @relation("EmailResends")
+
+  /// The failed list, newest first.
+  @@index([id(sort: Desc)], map: "email_log_failed", where: { status: "failed" })
+  /// The purge.
+  @@index([createdAt], map: "email_log_created")
+  /// Whether a retry of the same thing later got through.
+  @@index([sourceRef], map: "email_log_source_ref")
+  /// An email's resends, and the purge's SET NULL.
+  @@index([resentFromId], map: "email_log_resent_from")
+  @@map("email_log")
+}
