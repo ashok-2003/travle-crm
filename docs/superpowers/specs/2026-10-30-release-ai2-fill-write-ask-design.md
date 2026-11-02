@@ -263,3 +263,41 @@ The owner accepted every recommendation: about 10 fixed report questions (b), pe
 - **Settings:** the write style is a three-way choice in Settings, AI, saved with the rest (`ai.saveSettings` takes an optional
   `writeStyle`, left as it was when omitted), audited with the other settings.
 - **Features added to the port:** `write_up` (the chat models) and `ask_report` (the fast models, as scoring uses).
+
+## RULINGS OF THE ai2c BUILD (2026-11-02): rooming requests and empty seats
+
+- **One migration, `20261129100000_ai_rooming_seats`:** the `departure_offer` table (3.8, section 4: one row per organization, departure and
+  lead; it holds no words, `fill_id` has no key because a customer's erasure deletes both, and the runtime role cannot delete it),
+  `departure_settings.share_seat_counts` (default false: the "agency's setting" that lets a message say how many seats are left,
+  chosen in Settings, Departures), and two more values for `ai_fill.target`: `room_requests` and `departure_offer`. New `AiFeature`s
+  `read_requests` (the fast models) and `reach_out` (the chat models).
+- **Rooming, what is read:** only travellers whose request is still `none`; what staff or the traveller chose is left alone. The words
+  are the traveller's `room_note`, the notes staff wrote on the booking's lead and the notes the AI kept from its chat (the three newest
+  of each; a booking has no notes of its own, so "the booking's notes" are its lead's). Lead notes are read only for a lead the member
+  may see (`leads:view` scope). At most 80 travellers are read in a call. A traveller no note speaks of is not sent at all, and when no
+  traveller has any words the reading is refused (`ROOMING_NOTHING_TO_READ`) before a call is taken.
+- **Rooming, what is kept:** only a known traveller, one of `single_room`, `ground_floor`, `near_group`, and an excerpt that really is in
+  the notes read (case and spacing ignored; a paraphrase is dropped). A reading with nothing left gives the call back and has no fill.
+  The reading's `ai_fill` row (target `room_requests`, subject the departure) holds traveller ids and a hash of each request, no words.
+- **Rooming, the apply:** `departures.rooming.setRequests` (`departures:edit`, `setRoomRequests` in departures) sets the ticked requests in
+  one transaction under the departure's lock; with `aiFill: { fillId }` the same transaction records `ai.fill-applied` (counts, and how
+  many the member changed from what was proposed) once per request. The rooms are still drafted by 7a's plain code.
+- **Empty seats, the query:** `ai.departures.findInterested` (`ai:suggest`, `departures:create`, `leads:view`) applies exactly 3.8:
+  destination equal to the departure's, lead made in the last 365 days, not Not a lead, no live booking, active hold or waitlist place on
+  it, a person with a phone, not on the blocked list (phone, email or Instagram), neither marketing nor WhatsApp consent withdrawn (the
+  newest row of each purpose decides), not offered this departure in the last 14 days, the viewer's own leads when their scope is own;
+  one lead per person (the newest); ranked by the enquiry's month (newest first), then the score, then the newest; 50 shown, `more` says
+  there are others. Only an Open or Filling fast departure with a destination is offered (`DEPARTURE_NOT_OPEN`, `SEATS_NONE_FREE`,
+  `DEPARTURE_NEEDS_DESTINATION`). Up to 20 are ticked.
+- **Empty seats, the message:** `ai.departures.writeSeatMessage` is one `reach_out` call for one person and checks the same rules again
+  (`SEAT_OFFER_NOT_ALLOWED`) before taking the call, so a person who opted out meanwhile is never written to. The browser asks for the
+  ticked people three at a time; "Write again" is another call. The prompt holds the first name, the earlier enquiry (place, when, party
+  size), the departure's title, place and dates, and whether a price exists; never a phone or an amount. `{price}` becomes "₹12,500.00
+  per person plus GST" (the departure's price is before GST), a line asking for a price when there is none is dropped, an amount the model
+  typed is taken out, and a count of seats other than the real free number (and every count unless the setting allows) becomes "a few".
+- **Empty seats, the send:** the screen builds `https://wa.me/<digits>?text=<the edited words>` and opens it in a new tab (the staff
+  member's own WhatsApp). "Mark as sent" is enabled only after that link was opened and calls `ai.departures.markOfferSent`
+  (`leads:edit` too, since it writes the lead's note): it upserts `departure_offer`, adds the timeline note "Offered seats on <title> by
+  WhatsApp (message written with AI)", and audits `ai.offer-sent` with whether the member changed the words (compared by hash; the words are
+  kept nowhere). Marking twice changes nothing more. There is no bulk send and no send by the product.
+- **Erasure:** `withdrawAiParts` deletes the customer's `departure_offer` rows with their fills (the fills have the lead as subject).

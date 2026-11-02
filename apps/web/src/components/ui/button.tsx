@@ -15,6 +15,7 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
           "text-primary hover:bg-accent hover:text-accent-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+        ai: "bg-people text-on-action hover:bg-people-pressed active:bg-people-pressed",
         send: "bg-send-fill text-send-ink hover:bg-send-pressed",
         quiet: "text-foreground hover:bg-accent hover:text-accent-foreground",
         destructive:

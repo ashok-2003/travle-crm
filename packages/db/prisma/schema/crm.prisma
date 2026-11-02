@@ -99,6 +99,7 @@ model Lead {
   bookings          Booking[]
   departureHolds    DepartureHold[]
   departureWaitlist DepartureWaitlist[]
+  departureOffers   DepartureOffer[]
   aiBookings        AiBooking[]
   calls             LeadCall[]
   quotes            Quote[]

@@ -87,7 +87,7 @@ export function ChatMenu({
   const snooze = useSnooze();
   const acts = mayReply && header.state === "open";
   // "Make a lead from this chat": the new-lead form opens with the AI's reading of the chat, for the person to check and save.
-  const mayMakeLead = useFillAvailable("lead") && header.state === "open" && header.lead?.open !== true;
+  const mayMakeLead = useFillAvailable("lead") === "on" && header.state === "open" && header.lead?.open !== true;
   const name = header.name ?? formatPhoneNumber(header.phone);
   const failed = { onError: (error: unknown) => toast.error(apiError(error)) };
   const off = !access.allowed;

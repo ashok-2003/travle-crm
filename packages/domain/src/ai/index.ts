@@ -58,3 +58,8 @@ export { confirmAiInput, requestAiInput } from "./fill/input.js";
 export { callSaved, leadSaved, quoteSaved, tripSaved } from "./fill/saved.js";
 export { chooseReport, chosenFrom, type CatalogueEntry, type Chosen } from "./ask/choose.js";
 export { writeUpQuote } from "./write-up/write-up.js";
+export { readRoomRequests } from "./rooming/read-requests.js";
+export { recordRoomRequestsApplied } from "./rooming/applied.js";
+export { findInterestedPeople } from "./seats/interested.js";
+export { writeSeatMessage } from "./seats/write-message.js";
+export { recordOfferSent } from "./seats/sent.js";

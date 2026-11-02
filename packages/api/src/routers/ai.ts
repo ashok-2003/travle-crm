@@ -93,12 +93,16 @@ import {
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { freshProcedure, orgProcedure } from "../procedures.js";
+import { aiDeparturesRouter } from "./ai-departures.js";
 import { aiFillRouter } from "./ai-fill.js";
 import { router } from "../trpc.js";
 
 export const aiRouter = router({
   /** "Fill it for me": the AI proposes values for a form; a person applies and saves. */
   fill: aiFillRouter,
+
+  /** AI on a departure: rooming requests read from notes, and personal messages that offer empty seats. */
+  departures: aiDeparturesRouter,
 
   /** Whether the agency has Suggest reply on, for the composer to offer the button. */
   status: orgProcedure

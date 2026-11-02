@@ -98,6 +98,33 @@ function chosenReport(user: string): object {
   return { cannot: "not about the reports", closest: ["lost_leads", "quotes"] };
 }
 
+/**
+ * Rooming requests: each traveller line in the prompt whose note speaks of the ground floor or a room alone is read as that
+ * request, with the words copied from the note; a traveller the note says nothing about is left out.
+ */
+function readRequests(user: string): object {
+  const requests = [...user.matchAll(/(B\d+T\d+): [^\\"]*?note about their room: \\"([^"\\]*)\\"/g)].flatMap(
+    ([, traveller, note]) => {
+      const words = note ?? "";
+      if (/ground floor/i.test(words)) return [{ traveller, request: "ground_floor", excerpt: words }];
+      if (/room (to )?(myself|alone)|single room/i.test(words))
+        return [{ traveller, request: "single_room", excerpt: words }];
+      return [];
+    },
+  );
+  return { requests };
+}
+
+/** An empty-seats message: the person's first name, a seat count and an amount the model must not type, and the price token. */
+function reachedOut(user: string): string {
+  const name = /first name: ([^\\\n]+?)(?:\\n|$)/.exec(user)?.[1]?.trim() ?? "there";
+  return [
+    `Hi ${name}! You asked us about Spiti, and our group leaves soon with only 4 seats left.`,
+    "It is just Rs 9,999 for you.",
+    "The price is {price}. Reply here if you would like to join!",
+  ].join("\n");
+}
+
 export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
   const requests: { authorization: string | undefined; body: unknown }[] = [];
   let next =
@@ -129,50 +156,56 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
         const fill = system.includes("FILL_FORM");
         const writeUp = system.includes("WRITE_UP.");
         const askReport = system.includes("ASK_REPORT.");
+        const readRequestsCall = system.includes("READ_REQUESTS.");
+        const reachOut = system.includes("REACH_OUT.");
         const autopilot = system.includes("WhatsApp travel sales agent");
         const scoring =
           (requests.at(-1)?.body as { response_format?: unknown } | undefined)?.response_format !== undefined;
-        const content = writeUp
-          ? writtenUp(user)
-          : askReport
-            ? JSON.stringify(chosenReport(user))
-            : fill
-              ? JSON.stringify(filled(user))
-              : autopilot
-                ? JSON.stringify({
-                    reply: "Namaste! Kerala 5 nights is Rs 18,500 per person. Which dates are you planning?",
-                    handoff: false,
-                    handoffReason: "",
-                    attention: "",
-                    memory: "Wants Kerala for 4.",
-                    followUp: { needed: false, inHours: 4, why: "" },
-                  })
-                : scoring
-                  ? JSON.stringify({
-                      score: 78,
-                      label: "hot",
-                      reasons: ["Asked about a Kerala package for four"],
-                      fake: false,
-                      fakeReason: "",
-                      summary: "Wants a Kerala package for four in December and has asked the price.",
-                      nextStep: "Call today and offer the Kerala 5-night package.",
-                      facts: { destination: "Kerala", when: "December", travellers: "4 adults", budget: null },
-                      // Asked for only while a new lead's empty fields are being filled in from its first messages.
-                      ...(system.includes('"trip"')
-                        ? {
-                            trip: {
-                              destination: "Manali",
-                              dateFrom: "15 Dec",
-                              dateTo: "20 Dec",
-                              adults: 4,
-                              budget: "1 lakh",
-                              budgetBasis: "for_everyone",
-                              excerpts: { destination: "Manali jana hai", budget: "1 lakh tak" },
-                            },
-                          }
-                        : {}),
-                    })
-                  : next;
+        const content = readRequestsCall
+          ? JSON.stringify(readRequests(user))
+          : reachOut
+            ? reachedOut(user)
+            : writeUp
+              ? writtenUp(user)
+              : askReport
+                ? JSON.stringify(chosenReport(user))
+                : fill
+                  ? JSON.stringify(filled(user))
+                  : autopilot
+                    ? JSON.stringify({
+                        reply: "Namaste! Kerala 5 nights is Rs 18,500 per person. Which dates are you planning?",
+                        handoff: false,
+                        handoffReason: "",
+                        attention: "",
+                        memory: "Wants Kerala for 4.",
+                        followUp: { needed: false, inHours: 4, why: "" },
+                      })
+                    : scoring
+                      ? JSON.stringify({
+                          score: 78,
+                          label: "hot",
+                          reasons: ["Asked about a Kerala package for four"],
+                          fake: false,
+                          fakeReason: "",
+                          summary: "Wants a Kerala package for four in December and has asked the price.",
+                          nextStep: "Call today and offer the Kerala 5-night package.",
+                          facts: { destination: "Kerala", when: "December", travellers: "4 adults", budget: null },
+                          // Asked for only while a new lead's empty fields are being filled in from its first messages.
+                          ...(system.includes('"trip"')
+                            ? {
+                                trip: {
+                                  destination: "Manali",
+                                  dateFrom: "15 Dec",
+                                  dateTo: "20 Dec",
+                                  adults: 4,
+                                  budget: "1 lakh",
+                                  budgetBasis: "for_everyone",
+                                  excerpts: { destination: "Manali jana hai", budget: "1 lakh tak" },
+                                },
+                              }
+                            : {}),
+                        })
+                      : next;
         response.end(
           JSON.stringify({ model: "fake/model", choices: [{ message: { content }, finish_reason: "stop" }] }),
         );

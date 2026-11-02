@@ -279,7 +279,8 @@
       "fill-applied": "Saved a form the AI filled in",
       "lead-filled": "The AI filled in a new lead from its first messages",
       "lead-fields-confirmed": "Confirmed what the AI filled in on a lead",
-      "lead-fields-dismissed": "Cleared what the AI filled in on a lead"
+      "lead-fields-dismissed": "Cleared what the AI filled in on a lead",
+      "offer-sent": "Offered a departure's seats to a lead with a message the AI wrote"
     },
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"
@@ -338,6 +339,7 @@
       "room-moved": "Moved a traveller to a room",
       "rooms-drafted": "Drafted the rooms",
       "layout-copied": "Copied a stay's rooms to the other stays",
+      "room-requests-set": "Set travellers' room requests",
       "rooming-issued": "Made a rooming list PDF"
     },
     "departure-settings": {
@@ -423,6 +425,10 @@
     "lostReason": "Why it was lost",
     "instructionsLength": "Instructions' length",
     "changedByMember": "Changed before sending",
+    "count": "How many",
+    "travellers": "Travellers",
+    "roomRequest": "Room request",
+    "shareSeatCounts": "Messages may say how many seats are left",
     "enabled": "On",
     "model": "Model",
     "messageId": "Message",

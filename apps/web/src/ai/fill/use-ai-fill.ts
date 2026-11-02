@@ -7,15 +7,16 @@ import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
 import { uploadFile } from "@/files/upload";
 import { useHolds } from "@/session/me-context";
-import { useSuggestReplyAvailable } from "../use-ai";
+import { useAiAvailability, type AiAvailability } from "../use-ai";
 
 /** Whether to offer the button for a target: the plan has the AI, the agency turned it on, the role holds both permissions. */
-export function useFillAvailable(target: FillTarget): boolean {
-  const available = useSuggestReplyAvailable();
+export function useFillAvailable(target: FillTarget): AiAvailability {
+  const available = useAiAvailability();
   const holdsLead = useHolds("leads:create");
   const holdsEdit = useHolds("leads:edit");
   const holdsQuote = useHolds("quotes:edit");
-  return available && (target === "lead" ? holdsLead : target === "quote" ? holdsQuote : holdsEdit);
+  const holds = target === "lead" ? holdsLead : target === "quote" ? holdsQuote : holdsEdit;
+  return holds ? available : "off";
 }
 
 export function useFill(target: FillTarget) {

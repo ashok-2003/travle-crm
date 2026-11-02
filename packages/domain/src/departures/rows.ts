@@ -58,17 +58,20 @@ export interface DepartureSettingsRow {
   holdHours: number;
   fillingFastPercent: number;
   defaultRoomCapacity: number;
+  /** Whether an AI-written message about empty seats may say how many are left. */
+  shareSeatCounts: boolean;
 }
 
 export const defaultDepartureSettings: DepartureSettingsRow = {
   holdHours: 48,
   fillingFastPercent: 20,
   defaultRoomCapacity: 2,
+  shareSeatCounts: false,
 };
 
 export async function departureSettingsOf(tx: OrgTx): Promise<DepartureSettingsRow> {
   const row = await tx.departureSettings.findFirst({
-    select: { holdHours: true, fillingFastPercent: true, defaultRoomCapacity: true },
+    select: { holdHours: true, fillingFastPercent: true, defaultRoomCapacity: true, shareSeatCounts: true },
   });
   return row ?? defaultDepartureSettings;
 }
