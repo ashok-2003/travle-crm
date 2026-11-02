@@ -9,7 +9,7 @@ import { useHolds } from "@/session/me-context";
 export function useOwners() {
   const trpc = useTRPC();
   const mayView = useHolds("leads:view");
-  const query = useQuery({ ...trpc.leads.owners.queryOptions(), enabled: mayView, staleTime: 5 * 60_000 });
+  const query = useQuery({ ...trpc.leads.owners.queryOptions(), enabled: mayView });
   const names = new Map((query.data ?? []).map((owner) => [owner.userId, owner.name]));
   return {
     owners: query.data ?? [],
