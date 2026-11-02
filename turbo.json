@@ -1,7 +1,7 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
-  "globalPassThroughEnv": ["PRISMA_HIDE_UPDATE_MESSAGE"],
+  "globalPassThroughEnv": ["PRISMA_HIDE_UPDATE_MESSAGE", "CI"],
   "tasks": {
     "generate": {
       "dependsOn": ["^generate"],
