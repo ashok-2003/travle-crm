@@ -1,15 +1,18 @@
-// The console's running of the platform: the dashboard of organizations (spec 7.4) and the failed-jobs list (spec 9.1).
+// The console's running of the platform: the dashboard of organizations (spec 7.4) and the system's health (what broke,
+// the owner, 2026-11-02), and the failed-jobs list (spec 9.1).
 import {
   failedJobsPage,
   jobSchedule,
   listFailedJobsInput,
   listOrganizationsOverviewInput,
   organizationsOverviewPage,
+  platformIncidents,
   retryFailedJobInput,
   unscheduleInput,
 } from "@travel-crm/contracts/platform";
 import {
   listFailedJobs,
+  listPlatformIncidents,
   listSchedules,
   organizationsOverview,
   removeSchedule,
@@ -25,6 +28,8 @@ export const dashboardRouter = platformT.router({
     .input(listOrganizationsOverviewInput)
     .output(organizationsOverviewPage)
     .query(({ ctx, input }) => organizationsOverview(ctx.services, input)),
+  /** What is broken now, and the last week's incidents that were resolved. */
+  incidents: staffProcedure.output(platformIncidents).query(({ ctx }) => listPlatformIncidents(ctx.services)),
 });
 
 export const jobsRouter = platformT.router({
