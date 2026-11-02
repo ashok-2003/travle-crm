@@ -11,7 +11,7 @@ import { createPlatformClient, type PlatformClient } from "../src/platform.js";
 const sending = (overrides: Record<string, unknown> = {}) => ({
   purpose: "password-reset",
   toAddress: `asha-${randomUUID()}@example.test`,
-  fromName: "Veeper AI",
+  fromName: "Test Sender",
   subject: "Reset your password",
   textBody: "Choose a new password",
   htmlBody: "<p>Choose a new password</p>",

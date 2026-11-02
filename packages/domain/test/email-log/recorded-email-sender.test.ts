@@ -16,7 +16,7 @@ import {
 
 const message = (overrides: Partial<EmailMessage> = {}): EmailMessage => ({
   to: { name: "Asha Owner", address: `asha-${crypto.randomUUID()}@agency.example` },
-  fromName: "Sharma Travels via Veeper AI",
+  fromName: "Sharma Travels via Test Sender",
   replyTo: "hello@sharma.example",
   subject: "Your quotation was opened",
   text: "Meera opened it. https://app.example/leads/1",
@@ -73,7 +73,7 @@ describe("the recorded email sender", () => {
       purpose: "notification",
       sourceRef: "notification:0199a000-0000-7000-8000-000000000001",
       toName: "Asha Owner",
-      fromName: "Sharma Travels via Veeper AI",
+      fromName: "Sharma Travels via Test Sender",
       replyTo: "hello@sharma.example",
       subject: "Your quotation was opened",
       textBody: sent.text,

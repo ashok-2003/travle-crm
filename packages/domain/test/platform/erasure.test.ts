@@ -581,7 +581,7 @@ describe("erasing someone an import or an export holds", () => {
     const emails = recordedEmailSender(test.emails, emailLogStore(test.services.db), test.logger);
     const email = (to: string) => ({
       to: { address: to },
-      fromName: "Veeper AI",
+      fromName: "Test Sender",
       subject: "Hi",
       text: "Hi",
       html: "Hi",

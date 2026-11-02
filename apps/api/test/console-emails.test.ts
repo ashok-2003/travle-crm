@@ -52,7 +52,7 @@ describe("the console's failed emails", () => {
   async function failedInvite(): Promise<{ id: string; message: EmailMessage }> {
     const message: EmailMessage = {
       to: { name: "Meera", address: `meera-${crypto.randomUUID()}@agency.example` },
-      fromName: "Sharma Travels via Veeper AI",
+      fromName: "Sharma Travels via Test Sender",
       subject: "Your account for Sharma Travels",
       text: "Choose your password: https://app.example/reset-password?token=abc",
       html: '<a href="https://app.example/reset-password?token=abc">Choose your password</a>',
