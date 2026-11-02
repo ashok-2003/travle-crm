@@ -13,6 +13,7 @@ export type { ConsoleActor } from "./console-actor.js";
 export { demoPlan, isOnDemoPlan } from "./demo-plan.js";
 export {
   createSubscriptionAccess,
+  entitlementsFrom,
   entitlementsOf,
   lifecycleAccessOf,
   overviewOf,
@@ -36,4 +37,5 @@ export {
   type CallKind,
   type ProcedureModule,
 } from "./request-rules.js";
+export { loadSubscriptionFacts, subscriptionTodayFrom, type SubscriptionFacts } from "./state.js";
 export { changePlan, getSubscription, lockSubscription, setOverrides, startSubscription } from "./subscriptions.js";

@@ -9,8 +9,8 @@ import type {
 } from "@travel-crm/contracts/subscriptions";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { CalendarDate } from "../kernel/index.js";
-import { modulesOf, withPlan } from "./rows.js";
-import { subscriptionToday } from "./state.js";
+import { modulesOf } from "./rows.js";
+import { loadSubscriptionFacts, subscriptionTodayFrom, type SubscriptionFacts } from "./state.js";
 
 export interface Entitlements {
   /** The state today, even before the nightly job records it. */
@@ -42,11 +42,10 @@ export function lifecycleAccessOf(status: SubscriptionStatus): LifecycleAccess {
   }
 }
 
-/** The organization's entitlements at `now`, or null when it has no subscription. */
-export async function entitlementsOf(tx: OrgTx, organizationId: string, now: Date): Promise<Entitlements | null> {
-  const row = await tx.subscription.findUnique({ where: { organizationId }, include: withPlan });
-  if (!row) return null;
-  const today = await subscriptionToday(tx, row, now);
+/** The entitlements at `now` from facts already loaded: pure, so a cached copy still follows the clock. */
+export function entitlementsFrom(facts: SubscriptionFacts, now: Date): Entitlements {
+  const { row } = facts;
+  const today = subscriptionTodayFrom(facts, now);
   return {
     status: today.status,
     access: lifecycleAccessOf(today.status),
@@ -61,6 +60,12 @@ export async function entitlementsOf(tx: OrgTx, organizationId: string, now: Dat
     paidThrough: today.due.paidThrough,
     nextChangeOn: today.nextChangeOn,
   };
+}
+
+/** The organization's entitlements at `now`, or null when it has no subscription. */
+export async function entitlementsOf(tx: OrgTx, organizationId: string, now: Date): Promise<Entitlements | null> {
+  const facts = await loadSubscriptionFacts(tx, organizationId);
+  return facts && entitlementsFrom(facts, now);
 }
 
 /** What subscription.get shows staff about their own subscription: no price. */
@@ -80,6 +85,8 @@ export function overviewOf(entitlements: Entitlements): SubscriptionOverview {
 /** The api's view of subscriptions: one read per request, in the organization's own transaction. */
 export interface SubscriptionAccess {
   entitlementsOf(organizationId: string): Promise<Entitlements | null>;
+  /** The stored facts entitlements are computed from, in one transaction: for callers that keep them a while. */
+  factsOf(organizationId: string): Promise<SubscriptionFacts | null>;
 }
 
 export function createSubscriptionAccess(dependencies: {
@@ -91,5 +98,7 @@ export function createSubscriptionAccess(dependencies: {
   return {
     entitlementsOf: (organizationId) =>
       dependencies.db.forOrg(organizationId, (tx) => entitlementsOf(tx, organizationId, now())),
+    factsOf: (organizationId) =>
+      dependencies.db.forOrg(organizationId, (tx) => loadSubscriptionFacts(tx, organizationId)),
   };
 }

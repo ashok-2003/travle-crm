@@ -3,7 +3,15 @@
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createSubscriptionAccess, overviewOf, setOverrides, suspend } from "../../src/subscriptions/index.js";
+import {
+  createSubscriptionAccess,
+  dueState,
+  entitlementsFrom,
+  loadSubscriptionFacts,
+  overviewOf,
+  setOverrides,
+  suspend,
+} from "../../src/subscriptions/index.js";
 import {
   byAdmin,
   createSubscribedOrganization,
@@ -112,5 +120,40 @@ describe("entitlements", () => {
   it("are null for an organization without a subscription", async () => {
     const organizationId = await createTestOrganization(test.platform, "Unsubscribed");
     expect(await accessAt(october16).entitlementsOf(organizationId)).toBeNull();
+  });
+
+  it("entitlementsFrom gives what entitlementsOf gives", async () => {
+    const organizationId = await createSubscribedOrganization(
+      test,
+      plan,
+      { trialEndsOn: "2026-10-31", paidThrough: null },
+      { now: october16 },
+    );
+    const facts = await test.db.forOrg(organizationId, (tx) => loadSubscriptionFacts(tx, organizationId));
+    expect(facts).not.toBeNull();
+    if (!facts) return;
+    expect(entitlementsFrom(facts, october16)).toEqual(await accessAt(october16).entitlementsOf(organizationId));
+    expect(await accessAt(october16).factsOf(organizationId)).toEqual(facts);
+  });
+
+  it("a trial ends at its day with facts loaded before it", async () => {
+    const organizationId = await createSubscribedOrganization(
+      test,
+      plan,
+      { trialEndsOn: "2026-10-16", paidThrough: null },
+      { now: october16 },
+    );
+    const facts = await accessAt(october16).factsOf(organizationId);
+    if (!facts) throw new Error("expected facts");
+    expect(entitlementsFrom(facts, october16).status).toBe("trial");
+    // 00:00 on 17 October in India, with no further database read.
+    const afterTheDay = new Date("2026-10-16T18:30:00Z");
+    const due = dueState(
+      { status: "trial", since: "2026-10-16", trialEndsOn: "2026-10-16", paidThrough: null },
+      facts.policy,
+      "2026-10-17",
+    );
+    expect(due.status).not.toBe("trial");
+    expect(entitlementsFrom(facts, afterTheDay).status).toBe(due.status);
   });
 });
