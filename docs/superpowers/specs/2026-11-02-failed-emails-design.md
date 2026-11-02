@@ -151,3 +151,54 @@ after the send, and by then the content must already be kept.
   logs record that error once a day. The page then misses those drops. The runbook should say to check Brevo's own
   logs too.
 - **Storage:** about 100 rows a day today, under a megabyte of the database. The purge keeps it small.
+
+## Rulings (the build, 2026-11-02)
+
+- Ruling: `email_log` gets a `headers` column (JSON object, the message's own extra headers, never our reference) —
+  a resend "as it was" must carry a notification's `List-Unsubscribe`, which the table as listed would drop — a column
+  that holds nothing a resend needs, if headers never matter.
+- Ruling: the runtime role may insert and update only the outcome columns (`status`, `failure_*`, `sent_at`,
+  `failed_at`); it keeps SELECT, and has no DELETE. The platform role reads and deletes and writes nothing; a resend is
+  recorded by the console's runtime connection like any send — a broader runtime grant would let a bug rewrite what
+  was sent; if the console ever needs to write a row itself, a grant.
+- Ruling: `sent` replaces only `sending`, and a provider report replaces any status — Brevo's report can be processed
+  before our own send is marked sent, and must not be overwritten — none known.
+- Ruling: the failed list shows each `source_ref`'s last automatic attempt only (a later attempt that failed again
+  hides the earlier failure too, not only one that got through), and never a resend; the email a resend copies stays
+  listed with `resent` (a resend of it was sent), and its page lists every resend — a notification retried five times
+  would otherwise show five times, and a resend with the same `source_ref` would hide the very email it copies — a
+  super admin who wanted every attempt listed opens the email instead.
+- Ruling: only a `failed` email is sent again (`EMAIL_NOT_FAILED`), and one already resent can be sent again — the
+  page is for failures; a second resend is the super admin's call, asked in a ConfirmDialog — a duplicate email if
+  they press it twice on purpose.
+- Ruling: the resend is logged first (`email.resent`, target type `email`, after `{ purpose }`, no address), and again
+  as `email.resend-failed` with the code when it fails too, as the failed jobs' retry is — nothing is sent that the log
+  doesn't show — two entries for one failed resend.
+- Ruling: resends are kept 30 days like failed emails, not 7 like other sent ones, and `sending` rows go after 7 —
+  the email a resend copies says how it went for as long as it is listed; a send that never finished has nothing to
+  wait for — links in a resend kept 30 days, the owner's limit.
+- Ruling: the purge also blanks Brevo's stored webhook payloads processed more than 7 days ago (the webhooks module's
+  `blankProcessedPayloads`, as MSG91's are) — they name the recipient and the subject, and `webhook_event` would
+  otherwise keep them for good — none.
+- Ruling: an organization's purge doesn't delete its people's emails at once; the 30-day purge does — the spec names
+  the erasure only, and the purge has no list of addresses without a new identity query — up to 30 days of a purged
+  organization's emails in the log.
+- Ruling: a purpose the email log can't store (not lower-case words, or none) is recorded as `other`, and the
+  incident emails' purpose is `platform-incident` — the record never stops an email, and a CHECK failure would lose
+  the row — a mislabelled kind on the page.
+- Ruling: Brevo's events are identified by a SHA-256 of `message-id`, `event` and the event's time, one event or each
+  of a batch (type `brevo.<event>`, `brevo.batch` for several, `brevo.unknown` for an unreadable body), and every body
+  that carries both secrets is stored and answered 200, as MSG91's are — a delivery repeated with other fields is the
+  same event, and a 4xx could make Brevo pause the webhook — an unreadable body stored, then blanked after 7 days.
+- Ruling: `ts_epoch` is read as milliseconds, or as seconds when it is below 10^12, falling back to `ts` (seconds) and
+  then to when we received it — Brevo's documents show both — a failure time off by the delivery delay.
+- Ruling: a path token reaches any provider at `/webhooks/<provider>/<token>` (the generic route sets the internal
+  header, and removes one a caller sent on `/webhooks/<provider>`), and `sameSecret` moved to `webhook-route.ts` for
+  MSG91's provider and Brevo's — one route and one comparison instead of a copy per provider — none.
+- Ruling: `PURGE_EMAIL_LOG_QUEUE` lives in the email-log module, as `RATE_LIMIT_PURGE_QUEUE` lives in rate-limits —
+  the platform log's action test reads every `"x.y"` constant in the platform module as an action — none.
+- Ruling: the console's frame is `<iframe sandbox="" srcDoc>` in a Card, 36rem tall, scrolling inside; the
+  `no-inner-html` test now allows `srcDoc` only in that one file and only with `sandbox=""` — no script can size it,
+  and the HTML is shown only where it can do nothing — a long email scrolls in its frame. The journey checks the frame
+  renders under the console's Content-Security-Policy, and runs axe on the page with the frame left out: axe can't
+  inject its script into a frame with no permissions and waits on it until the journey times out.
