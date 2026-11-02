@@ -161,7 +161,6 @@
     "platformStaff": "Platform staff",
     "organization": "Organization",
     "deletedOrganization": "Deleted organization {code}",
-    "nameFailed": "(its name didn't load)",
     "deletedOrganizationWithoutCode": "A deleted organization",
     "changes": "What changed",
     "hideChanges": "Hide the changes",

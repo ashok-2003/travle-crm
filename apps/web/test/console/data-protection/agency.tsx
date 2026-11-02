@@ -48,6 +48,7 @@ export function logged(action: string, overrides: Partial<PlatformLogEntry> = {}
     targetType: "organization",
     targetId: organizationId,
     targetOrganizationId: organizationId,
+    organizationName: "Kerala Trails",
     before: null,
     after: null,
     ...overrides,

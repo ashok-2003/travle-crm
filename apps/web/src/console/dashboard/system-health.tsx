@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { consoleRoutes } from "../routes";
+import { DASHBOARD_STALE_MS } from "./use-organizations-overview";
 
 const READ_EVERY_MS = 60_000;
 
@@ -30,7 +31,9 @@ export function SystemHealth() {
   const t = useTranslations("console.health");
   const trpc = useConsoleTRPC();
   const instantText = useInstantText();
-  const incidents = useQuery(trpc.dashboard.incidents.queryOptions(undefined, { refetchInterval: READ_EVERY_MS }));
+  const incidents = useQuery(
+    trpc.dashboard.incidents.queryOptions(undefined, { refetchInterval: READ_EVERY_MS, staleTime: DASHBOARD_STALE_MS }),
+  );
   if (incidents.isError) {
     return (
       <LoadFailedAlert message={t("loadFailed")} error={incidents.error} onRetry={() => void incidents.refetch()} />

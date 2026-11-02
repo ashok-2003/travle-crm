@@ -3,10 +3,11 @@
 // that doesn't exist, or a page that didn't load, said plainly.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OrganizationScreen } from "@/console/organizations/organization/organization-screen";
 import { messages } from "@/i18n/messages";
-import { stubApi } from "../../support/api-stub";
+import { heldAnswer, stubApi } from "../../support/api-stub";
 import { platformStaff } from "../../support/platform-staff";
 import { screenIs } from "../../organization/render";
 import { organizationDetails, organizationId } from "./organization-details";
@@ -21,6 +22,34 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/** An organization's WhatsApp group as whatsapp.get gives it, with a number in the given state. */
+function group(status: "setup" | "connected") {
+  return {
+    configured: true,
+    cannotConnectReason: null,
+    usage: [],
+    connection: {
+      id: "0199a000-0000-7000-8000-0000000000d1",
+      organizationId,
+      organizationName: "Kerala Trails",
+      displayNumber: "919876543210",
+      mode: "shared",
+      status,
+      connectedAt: null,
+      lastEventAt: null,
+      webhookSeenAt: null,
+      messagesThisMonth: { inbound: 0, outbound: 0, marketing: 0 },
+      marketingCapMonth: 1000,
+      templateCapDay: 100,
+      overFairUse: false,
+      cancelledButConnected: false,
+      problemSince: null,
+      qualityRating: null,
+      note: null,
+    },
+  };
+}
 
 describe("OrganizationScreen", () => {
   it("shows the organization's name, code and status today", async () => {
@@ -38,6 +67,53 @@ describe("OrganizationScreen", () => {
       expect(screen.getByRole("heading", { level: 2, name: section })).toBeVisible();
     }
   });
+
+  it("asks for the details, the members and the WhatsApp group in the same render, not one after another", async () => {
+    const held = heldAnswer({ data: organizationDetails() });
+    const api = stubApi({
+      "platform.organizations.get": held.answer,
+      "platform.organizations.members": { data: [] },
+      "platform.whatsapp.get": { data: group("connected") },
+    });
+    renderConsoleScreen(<OrganizationScreen organizationId={organizationId} onboarded={false} />);
+    // The details are still on their way: the other two have already been asked for.
+    await vi.waitFor(() => {
+      expect(api.calls).toEqual(expect.arrayContaining(["platform.organizations.members", "platform.whatsapp.get"]));
+    });
+    expect(api.calls).toContain("platform.organizations.get");
+    held.release();
+    await screen.findByRole("heading", { level: 1, name: "Kerala Trails" });
+    expect(api.calls.filter((call) => call === "platform.whatsapp.get")).toHaveLength(1);
+    expect(api.calls.filter((call) => call === "platform.organizations.members")).toHaveLength(1);
+  });
+
+  it.each([
+    ["connected", 1],
+    ["setup", 2],
+  ] as const)(
+    "looks at the WhatsApp group again only while a number is being connected (%s)",
+    async (status, asked) => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const api = stubApi({
+          "platform.organizations.get": { data: organizationDetails() },
+          "platform.organizations.members": { data: [] },
+          "platform.whatsapp.get": { data: group(status) },
+        });
+        renderConsoleScreen(<OrganizationScreen organizationId={organizationId} onboarded={false} />);
+        await screen.findByRole("heading", { level: 1, name: "Kerala Trails" });
+        await vi.waitFor(() => {
+          expect(api.calls).toContain("platform.whatsapp.get");
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(25_000);
+        });
+        expect(api.calls.filter((call) => call === "platform.whatsapp.get")).toHaveLength(asked);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it("leads super admins to the organization's data protection, and support not", async () => {
     stubApi({ "platform.organizations.get": { data: organizationDetails() } });
