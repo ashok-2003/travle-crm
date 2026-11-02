@@ -7,13 +7,32 @@ import { useRefreshWork } from "@/data/use-refresh-work";
 import { useHolds } from "@/session/me-context";
 import { useSubscription } from "@/subscription/use-subscription";
 
-/** Whether the composer offers Suggest reply: the plan has the module, the role the permission, the agency switched it on. */
-export function useSuggestReplyAvailable(): boolean {
+/** How long the agency's AI switch is kept before it is asked again; Settings, AI refreshes it when it changes. */
+const AI_STATUS_STALE = 5 * 60_000;
+
+export type AiAvailability = "off" | "loading" | "on";
+
+/**
+ * Whether the AI's buttons are offered: the role holds ai:suggest, the plan has the module, the agency switched it on.
+ * "loading" while the plan or the switch is not known yet, so a screen can keep the button's place and nothing moves when it
+ * arrives. The app shell asks for the switch as soon as the plan says `ai` (AiStatusPrefetch), and a saved copy answers at once.
+ */
+export function useAiAvailability(): AiAvailability {
   const trpc = useTRPC();
+  const holds = useHolds("ai:suggest");
   const modules = useSubscription().data?.modules;
-  const mayAsk = useHolds("ai:suggest") && (modules?.includes("ai") ?? false);
-  const status = useQuery({ ...trpc.ai.status.queryOptions(), enabled: mayAsk, staleTime: 60_000 });
-  return mayAsk && status.data?.enabled === true;
+  const mayAsk = holds && (modules?.includes("ai") ?? false);
+  const status = useQuery({ ...trpc.ai.status.queryOptions(), enabled: mayAsk, staleTime: AI_STATUS_STALE });
+  if (!holds) return "off";
+  if (modules === undefined) return "loading";
+  if (!mayAsk) return "off";
+  if (status.data === undefined) return status.isError ? "off" : "loading";
+  return status.data.enabled ? "on" : "off";
+}
+
+/** Whether the composer offers Suggest reply and the other AI buttons. */
+export function useSuggestReplyAvailable(): boolean {
+  return useAiAvailability() === "on";
 }
 
 export function useSuggestReply() {

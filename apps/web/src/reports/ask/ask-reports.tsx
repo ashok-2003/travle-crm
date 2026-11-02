@@ -106,7 +106,7 @@ export function AskReports() {
                   setQuestion(event.target.value);
                 }}
               />
-              <Button type="submit" disabled={ask.isPending || question.trim().length < 3}>
+              <Button type="submit" variant="ai" disabled={ask.isPending || question.trim().length < 3}>
                 {ask.isPending ? <Spinner aria-hidden="true" /> : <SparklesIcon aria-hidden="true" />}
                 {ask.isPending ? t("asking") : t("ask")}
               </Button>

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { AppFrame } from "@/components/app-frame";
 import { CallReturn } from "@/leads/call/call-return";
 import { SessionGate } from "@/session/session-gate";
+import { AiStatusPrefetch } from "@/shell/ai-status-prefetch";
 import { Banners } from "@/shell/banners";
 import { BottomBar } from "@/shell/bottom-bar";
 import { RefreshOnPush } from "@/shell/refresh-on-push";
@@ -25,6 +26,7 @@ export default function SignedInLayout({ children }: { children: ReactNode }) {
           foldable
           above={
             <>
+              <AiStatusPrefetch />
               <RefreshOnPush />
               <CallReturn />
               <PageTracker />

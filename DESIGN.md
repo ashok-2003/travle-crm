@@ -84,23 +84,23 @@ Principles:
 
 Strategy: **Full palette with strict roles.** Neutral ink on warm canvas, plus three role colours and a status set.
 
-| Role                | Colour                                                           | Used for (and only for)                                                                                                 |
-| ------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Canvas              | `#fffdf9`                                                        | Page background                                                                                                         |
-| Surface             | `#f5f4f0`                                                        | Sidebar, inset panels, input-adjacent wells                                                                             |
-| Hairline            | `#e6e3dc`                                                        | Dividers, card and table borders (decorative only)                                                                      |
-| Ink                 | `#1a1a1a`                                                        | Primary text                                                                                                            |
-| Ink muted           | `#6b6b6b`                                                        | Secondary text, captions, placeholders                                                                                  |
-| **Action (blue)**   | `#2563eb`, hover `#1d4ed8`, tint `#eef2ff`                       | Primary buttons, links, focus rings, active nav item, selected filters                                                  |
-| **People (violet)** | `#6a4bbd`, pressed `#5b3fa6`, tint `#efe7fd`, tint ink `#4c2f97` | WhatsApp inbox, unread messages and counts, follow-ups and reminders, assignment and assignee avatars, later AI helpers |
-| **Money (forest)**  | `#034f46`, pressed `#07352f`, tint `#e3f1ee`                     | Amounts received, profit and margin, invoices, the Accounts area                                                        |
-| **Status**          | red / amber / green / neutral                                    | State of a record only: confirmed, payment due, overdue, lost                                                           |
-| **Stage**           | sky, teal, lime, plus status amber, green, red, neutral          | A lead's stage, wherever it shows (see Stage Colours)                                                                   |
-| **Role badge**      | orchid for Owner, five tints for the other roles                 | A staff role on Staff and Roles (see Role Badges)                                                                       |
+| Role                | Colour                                                           | Used for (and only for)                                                                                                                                                                                                                                                                                |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Canvas              | `#fffdf9`                                                        | Page background                                                                                                                                                                                                                                                                                        |
+| Surface             | `#f5f4f0`                                                        | Sidebar, inset panels, input-adjacent wells                                                                                                                                                                                                                                                            |
+| Hairline            | `#e6e3dc`                                                        | Dividers, card and table borders (decorative only)                                                                                                                                                                                                                                                     |
+| Ink                 | `#1a1a1a`                                                        | Primary text                                                                                                                                                                                                                                                                                           |
+| Ink muted           | `#6b6b6b`                                                        | Secondary text, captions, placeholders                                                                                                                                                                                                                                                                 |
+| **Action (blue)**   | `#2563eb`, hover `#1d4ed8`, tint `#eef2ff`                       | Primary buttons, links, focus rings, active nav item, selected filters                                                                                                                                                                                                                                 |
+| **People (violet)** | `#6a4bbd`, pressed `#5b3fa6`, tint `#efe7fd`, tint ink `#4c2f97` | WhatsApp inbox, unread messages and counts, follow-ups and reminders, assignment and assignee avatars, AI-filled fields, and the solid fill of every AI action button (Fill with AI, Write for the customer, Ask, Read requests, Find interested people, Suggest reply; white text, pressed `#5b3fa6`) |
+| **Money (forest)**  | `#034f46`, pressed `#07352f`, tint `#e3f1ee`                     | Amounts received, profit and margin, invoices, the Accounts area                                                                                                                                                                                                                                       |
+| **Status**          | red / amber / green / neutral                                    | State of a record only: confirmed, payment due, overdue, lost                                                                                                                                                                                                                                          |
+| **Stage**           | sky, teal, lime, plus status amber, green, red, neutral          | A lead's stage, wherever it shows (see Stage Colours)                                                                                                                                                                                                                                                  |
+| **Role badge**      | orchid for Owner, five tints for the other roles                 | A staff role on Staff and Roles (see Role Badges)                                                                                                                                                                                                                                                      |
 
 Named rules:
 
-- **One Action Colour.** Blue is the only interactive colour. A violet or forest element is never a button; it is information. If it is clickable, it gets blue treatment (underline or hover) on top.
+- **One Action Colour.** Blue is the only interactive colour. A forest element is never a button; a violet one is a button only for an AI action (the `ai` button variant, owner 2026-11-02), otherwise it is information. If it is clickable, it gets blue treatment (underline or hover) on top.
 - **Status Is Only Status.** Red, amber and green never decorate, never colour a chart series for variety, never tint a card for emphasis.
 - **Dot Plus Word.** Status is always a dot and a word, never colour alone.
 - **Forest Is Not Green.** Status green is a bright, light-bodied green (`#168f43` dot, `#e3f4e7` bg); forest is a deep blue-green used for money text and Accounts chrome. Never use forest for a status badge or green for a money total.
@@ -215,7 +215,7 @@ Do:
 
 Don't:
 
-- Use violet or forest for buttons, or green/red/amber for anything but status.
+- Use violet for any button but an AI action, or forest for buttons, or green/red/amber for anything but status.
 - Use eyebrows (small uppercase tracked kickers), gradient text, hero-metric blocks, side-stripe borders, nested cards, glassmorphism, or identical icon-heading-text card grids.
 - Use Garamond outside page titles.
 - Put shadows on resting surfaces.
@@ -237,7 +237,7 @@ Target WCAG 2.2 AA. Contrast checked with the WCAG relative-luminance formula (c
 | White on blue `#2563eb`                                                               | 5.17:1 | Primary button                                          |
 | White on blue hover `#1d4ed8`                                                         | 6.7:1  | Button hover                                            |
 | Blue `#1d4ed8` on tint `#eef2ff`                                                      | 5.99:1 | Active nav, selected chip                               |
-| White on violet `#6a4bbd`                                                             | 6.26:1 | Violet fills (unread counts)                            |
+| White on violet `#6a4bbd`                                                             | 6.26:1 | Violet fills (unread counts, AI buttons)                |
 | Tint ink `#4c2f97` on lavender `#efe7fd`                                              | 8.11:1 | Violet badges                                           |
 | Forest `#034f46` on canvas                                                            | 9.35:1 | Money text                                              |
 | Forest on tint `#e3f1ee`                                                              | 8.18:1 | Money badges                                            |

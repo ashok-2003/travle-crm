@@ -78,7 +78,7 @@ export function ReadRequestsButton({ departureId }: { departureId: string }) {
     <>
       <Button
         ref={opener}
-        variant="outline"
+        variant="ai"
         onClick={() => {
           setOpen(true);
         }}
