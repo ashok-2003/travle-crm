@@ -20,6 +20,7 @@ import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 import { TodayNudge } from "@/today/today-nudge";
 import { AtAGlance } from "@/home/at-a-glance";
+import { greetingName } from "@/home/greeting-name";
 import { MonthCard } from "@/home/month-card";
 import { HotLeadsCard } from "@/sales/hot-leads-card";
 
@@ -124,7 +125,7 @@ export default function HomePage() {
   return (
     <div className="flex max-w-[1400px] flex-col gap-8">
       <PageHeader
-        title={t("greeting", { part: partOfDay, name: me.user.name.split(/\s+/)[0] ?? me.user.name })}
+        title={t("greeting", { part: partOfDay, name: greetingName(me.user.name) })}
         intro={t("todayIs", { day: today })}
         action={actions}
       />

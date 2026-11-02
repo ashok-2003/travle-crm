@@ -2,6 +2,7 @@
 // console's (/api/platform/trpc, recorded as "platform.<path>") and Better Auth's calls, answered from handlers a test
 // sets, with every call recorded in the order it was made.
 import { vi } from "vitest";
+import { wantsStream, wireResponse, type WireItem } from "./trpc-wire";
 
 /** What the api sends for one procedure: its data or a refusal (for an auth call, `reason` is Better Auth's code). */
 type Sent = { data: unknown } | { status: number; reason?: string | null };
@@ -28,7 +29,7 @@ export interface ApiStub {
   answer(path: string, answer: Answer): void;
 }
 
-function itemFor(answer: Sent) {
+function itemFor(answer: Sent): WireItem {
   if ("data" in answer) return { result: { data: answer.data } };
   return {
     error: {
@@ -58,7 +59,7 @@ export function stubApi(answers: Record<string, Answer>): ApiStub {
   };
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input), "http://localhost");
       if (url.pathname.startsWith("/api/auth/")) {
         const path = url.pathname.slice("/api/".length);
@@ -79,7 +80,7 @@ export function stubApi(answers: Record<string, Answer>): ApiStub {
       const items = sent.map(itemFor);
       const [only] = items;
       const status = items.length === 1 && only && "error" in only ? only.error.data.httpStatus : 200;
-      return Response.json(items, { status });
+      return wireResponse(items, wantsStream(init, input), status);
     }),
   );
   return {

@@ -9,7 +9,7 @@ import { useInvalidate } from "./use-sales-inbox";
 
 export function useTags() {
   const trpc = useTRPC();
-  return useQuery({ ...trpc.inbox.tags.queryOptions(), staleTime: 60_000 });
+  return useQuery(trpc.inbox.tags.queryOptions());
 }
 
 export function useQuickReplies() {

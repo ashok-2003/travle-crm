@@ -15,6 +15,7 @@ import { DataProviders } from "@/data/providers";
 import { member } from "../support/members";
 import { pause, staffNamed } from "../support/saved-copy";
 import { forgetRenders, renderApp } from "../support/staff-screen";
+import { wantsStream, wireResponse } from "../support/trpc-wire";
 
 vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
 
@@ -38,7 +39,7 @@ function stubDevice(signOut: SignOutAnswers) {
   const refused = { error: { message: "Signed out", code: -32001, data: { httpStatus: 401, reason: null } } };
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = new URL(input instanceof Request ? input.url : String(input), "http://localhost").pathname;
       if (path === "/api/auth/sign-out") {
         device.calls.push(`sign-out with the ${device.cookie ?? "no"} cookie`);
@@ -55,12 +56,16 @@ function stubDevice(signOut: SignOutAnswers) {
       const procedures = decodeURIComponent(path.slice("/api/trpc/".length)).split(",");
       device.calls.push(...procedures);
       if (device.cookie !== "new")
-        return Response.json(
+        return wireResponse(
           procedures.map(() => refused),
-          { status: 401 },
+          wantsStream(init, input),
+          401,
         );
       const data = (procedure: string) => (procedure === "me.get" ? member() : [staffNamed("Ravi")]);
-      return Response.json(procedures.map((procedure) => ({ result: { data: data(procedure) } })));
+      return wireResponse(
+        procedures.map((procedure) => ({ result: { data: data(procedure) } })),
+        wantsStream(init, input),
+      );
     }),
   );
   return device;

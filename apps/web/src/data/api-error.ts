@@ -17,8 +17,18 @@ export function refusalOf(error: unknown): ApiRefusal | null {
   return { status: data.httpStatus, reason: data.reason };
 }
 
+/** What a call fails with when it hit the time limit (links.ts): told apart from a caller's own abort or an offline device. */
+export class QueryTimeoutError extends Error {
+  constructor() {
+    super("The call took too long");
+    this.name = "TimeoutError";
+  }
+}
+
 /** A refusal is the api's answer: trying again gives the same one. Only unanswered calls and server faults retry. */
 export function isWorthRetrying(error: unknown): boolean {
+  // A call that already waited out the time limit shows its error now, not after two more waits.
+  if (error instanceof TRPCClientError && error.cause instanceof QueryTimeoutError) return false;
   const refusal = refusalOf(error);
   return refusal === null || refusal.status >= 500;
 }

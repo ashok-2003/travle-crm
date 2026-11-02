@@ -36,6 +36,7 @@ import { PersonCard } from "./person-card";
 import { StageBar } from "./stage-bar";
 import { Timeline } from "./timeline";
 import { TripCard } from "./trip-card";
+import { usePrefetchLeadPanels } from "./prefetch-lead-panels";
 import { useLead } from "./use-lead";
 import { WorkCard } from "./work-card";
 
@@ -84,6 +85,7 @@ export function LeadScreen({ leadId }: { leadId: string }) {
   const scope = viewScope(useMe(), "leads:view") === "all" ? "all" : "own";
   const back = listFiltersHref(listFiltersOf(useSearchParams(), scope));
   const lead = useLead(leadId);
+  usePrefetchLeadPanels(leadId, lead.valid);
 
   const body = (): ReactNode => {
     if (lead.data) {

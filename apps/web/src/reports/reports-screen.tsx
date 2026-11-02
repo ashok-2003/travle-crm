@@ -5,6 +5,7 @@
 // (sources, destinations, lost reasons), Team (each person's performance, for a role that sees every lead) and Timing
 // (when leads arrive).
 import { dashboardRanges, type DashboardRange } from "@travel-crm/contracts/insights";
+import { usePrefetchQuery } from "@tanstack/react-query";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -14,6 +15,7 @@ import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LeadFlow } from "@/dashboard/lead-flow";
+import { useTRPC } from "@/data/trpc";
 import { formatCalendarDay } from "@/lib/format";
 import { AskReports } from "./ask/ask-reports";
 import { MoneyCard } from "@/quotes/money-card";
@@ -30,6 +32,8 @@ export function ReportsScreen() {
   const tRange = useTranslations("dashboard.range");
   const [range, setRange] = useState<DashboardRange>("30d");
   const report = useSalesReport(range);
+  // The overview tab's lead-flow chart needs only the period: asked for with the report, not after it.
+  usePrefetchQuery(useTRPC().insights.dashboard.queryOptions({ range }));
   const data = report.data;
   return (
     <div className="flex max-w-[1400px] flex-col gap-6">
