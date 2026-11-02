@@ -7,6 +7,7 @@ import { lifecycleAccessOf, type Entitlements } from "@travel-crm/domain/subscri
 import type { Context } from "../src/context.js";
 import { freshProcedure, orgProcedure, protectedProcedure } from "../src/procedures.js";
 import { aiRouter } from "../src/routers/ai.js";
+import { departuresRouter } from "../src/routers/departures.js";
 import { financeRouter } from "../src/routers/finance.js";
 import { quotesRouter } from "../src/routers/quotes.js";
 import { subscriptionRouter } from "../src/routers/subscription.js";
@@ -36,6 +37,7 @@ const probe = router({
   ai: aiRouter,
   /** The real money routers: what they read or delete must come from a session read afresh. */
   finance: financeRouter,
+  departures: departuresRouter,
   quotes: quotesRouter,
   whoAmI: protectedProcedure.query(({ ctx }) => ctx.session.impersonatedBy ?? "nobody"),
 });
