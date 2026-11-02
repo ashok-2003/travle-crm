@@ -126,7 +126,17 @@ describe("onboarding", () => {
       before: { timeZone: "Asia/Kolkata", contactEmail: true },
       after: { nameChanged: true, timeZone: "Asia/Kolkata", contactEmail: false },
     });
-    expect(JSON.stringify(log.entries[0])).not.toContain("Sharma");
+    // The stored row holds no name at all; the listing adds the organization's live name beside it.
+    const stored = await test.services.platformDb.transaction((tx) =>
+      tx.platformAuditEntry.findFirstOrThrow({
+        where: { targetOrganizationId: organizationId, action: "organization.updated" },
+      }),
+    );
+    expect(JSON.stringify(stored)).not.toContain("Sharma");
+    expect(log.entries[0]?.organizationName).toBe("Sharma Holidays & Tours");
+    const { organizationName, ...entryWithoutName } = log.entries[0] ?? {};
+    expect(organizationName).toBe("Sharma Holidays & Tours");
+    expect(JSON.stringify(entryWithoutName)).not.toContain("Sharma");
   });
 
   it("shows the organization's bank account by its last four digits only", async () => {
