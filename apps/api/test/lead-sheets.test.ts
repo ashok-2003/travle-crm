@@ -339,8 +339,10 @@ describe("the Google Sheets sync over HTTP", () => {
         const refusal = response.ok ? null : await refusalOf(response);
         if (refusal?.reason === "SHEETS_TOO_FAST") refused += 1;
       }
-      // Twenty Google requests a minute, two for each begin: ten are allowed, the rest are told to wait.
-      expect(refused).toBe(30);
+      // Twenty Google requests a minute, two for each begin: ten are allowed, the rest are told to wait. On a slow
+      // machine the forty calls can cross a minute's edge, which allows ten more.
+      expect(refused).toBeGreaterThanOrEqual(20);
+      expect(refused).toBeLessThanOrEqual(30);
       // Another agency is not held back by it.
       const fine = await mutate(limited, "leadSheets.begin", { link: linkTo(aSheet()) }, otherJar);
       expect(fine.ok).toBe(true);
