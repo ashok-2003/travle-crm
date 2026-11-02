@@ -7,9 +7,10 @@ import type { LeadStage } from "@travel-crm/contracts/crm";
 import { INBOX_POLL_MS, type ConversationFilter, type ConversationPeriod } from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
+import { useHolds } from "@/session/me-context";
 
 const POLL_MS = INBOX_POLL_MS;
 /** While one of our messages is still on its way (queued, sending or sent, not yet delivered), the chat looks more often. */
@@ -30,6 +31,21 @@ export function useRefreshInbox(): () => Promise<unknown> {
 export function useInboxStatus() {
   const trpc = useTRPC();
   return useQuery(trpc.inbox.status.queryOptions());
+}
+
+/**
+ * Asks for what the chat list shows beside its chats (the people's names for the owner initials, and the tags) together
+ * with the inbox's status, instead of after the list has loaded. Both are slow-changing data kept ten minutes.
+ */
+export function usePrefetchInboxLists() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const mayViewLeads = useHolds("leads:view");
+  useEffect(() => {
+    // Errors are swallowed: the list asks again on its own.
+    if (mayViewLeads) queryClient.query(trpc.leads.owners.queryOptions()).catch(() => undefined);
+    queryClient.query(trpc.inbox.tags.queryOptions()).catch(() => undefined);
+  }, [mayViewLeads, queryClient, trpc]);
 }
 
 export interface ConversationQuery {

@@ -23,6 +23,7 @@ import { formatCount } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useHotLeads } from "@/sales/use-sales";
+import { useMe } from "@/session/me-context";
 import { useTodaySummary } from "@/today/use-today";
 
 interface Tile {
@@ -54,6 +55,13 @@ function TileLink({ tile }: { tile: Tile }) {
   );
 }
 
+/** Today's date in the organization's time zone, yyyy-mm-dd: the same day Today's summary names, known without it. */
+function dayIn(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+    new Date(),
+  );
+}
+
 function MoneyDueTile({ today }: { today: string }) {
   const t = useTranslations("home.glance");
   const trpc = useTRPC();
@@ -79,6 +87,7 @@ function MoneyDueTile({ today }: { today: string }) {
 
 export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) {
   const t = useTranslations("home.glance");
+  const me = useMe();
   const today = useTodaySummary().data;
   const chats = useInboxSummary();
   const hot = useHotLeads().data;
@@ -143,7 +152,7 @@ export function AtAGlance({ inbox, money }: { inbox: boolean; money: boolean }) 
         {tiles.map((tile) => (
           <TileLink key={tile.key} tile={tile} />
         ))}
-        {money && today !== undefined && <MoneyDueTile today={today.day} />}
+        {money && <MoneyDueTile today={dayIn(me.organization.timeZone)} />}
       </div>
     </section>
   );

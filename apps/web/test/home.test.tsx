@@ -192,4 +192,23 @@ describe("Home", () => {
     expect(await within(glance).findByText("₹12,34,56,789")).toBeVisible();
     expect(await within(glance).findByText(/2 payments late: ₹5,000/)).toBeVisible();
   });
+
+  it("asks for the money figure with the rest of the day, not after Today's summary has answered", async () => {
+    const { calls } = stubApi({
+      "organization.setup.get": { data: halfway },
+      "today.summary": "never",
+      "salesInbox.summary": "never",
+      "sales.hotLeads": "never",
+      "quotes.moneySummary": "never",
+    });
+    renderWithApi(
+      <HomePage />,
+      newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "quotes"] as never }),
+      member({ isOwner: true }),
+    );
+    await waitFor(() => {
+      expect(calls).toContain("quotes.moneySummary");
+    });
+    expect(calls).toContain("today.summary");
+  });
 });
