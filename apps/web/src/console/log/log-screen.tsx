@@ -20,7 +20,7 @@ export function LogScreen() {
   const tCommon = useTranslations("common");
   const log = usePlatformLog();
   const { items: entries } = log;
-  const names = useLogNames(entries);
+  const names = useLogNames();
 
   let content;
   if (entries === undefined) {

@@ -20,17 +20,14 @@ export function LogOrganization({ entry, names }: { entry: PlatformLogEntry; nam
   const organizationId = entry.targetOrganizationId;
   if (organizationId === null) return null;
   const code = storedText(entry, "code");
-  const known = names.organization(organizationId);
+  const known = names.organization(entry);
   if (known.state === "deleted") {
     return <span>{code === null ? t("deletedOrganizationWithoutCode") : t("deletedOrganization", { code })}</span>;
   }
   return (
-    <>
-      <TextLink href={consoleRoutes.organization(organizationId)} inline>
-        <span className="script-leading">{known.state === "found" ? known.name : (code ?? t("organization"))}</span>
-      </TextLink>
-      {known.state === "failed" && <span className="text-caption text-muted-foreground"> {t("nameFailed")}</span>}
-    </>
+    <TextLink href={consoleRoutes.organization(organizationId)} inline>
+      <span className="script-leading">{known.name}</span>
+    </TextLink>
   );
 }
 

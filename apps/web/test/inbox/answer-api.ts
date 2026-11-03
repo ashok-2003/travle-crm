@@ -1,6 +1,7 @@
 // A fake api for the inbox's component tests that answers every call at once, by procedure, and records each call with its
 // input: unlike organization/api.tsx, nothing waits for the test, so a whole screen can load.
 import { vi } from "vitest";
+import { wantsStream, wireResponse } from "../support/trpc-wire";
 
 export interface AnsweredCall {
   path: string;
@@ -15,7 +16,7 @@ export function answerApi(handlers: Record<string, Answer>) {
   const calls: AnsweredCall[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn((url: string, init: { body?: string }) => {
+    vi.fn((url: string, init: { body?: string; headers?: unknown }) => {
       const paths = decodeURIComponent(new URL(url, "http://localhost").pathname.replace("/api/trpc/", "")).split(",");
       const body = JSON.parse(init.body ?? "{}") as Record<string, unknown>;
       const items = paths.map((path, index) => {
@@ -27,7 +28,7 @@ export function answerApi(handlers: Record<string, Answer>) {
         }
         return { result: { data: typeof handler === "function" ? (handler as Handler)(input) : handler } };
       });
-      return Promise.resolve(Response.json(items));
+      return Promise.resolve(wireResponse(items, wantsStream(init)));
     }),
   );
   return { calls, of: (path: string) => calls.filter((call) => call.path === path) };

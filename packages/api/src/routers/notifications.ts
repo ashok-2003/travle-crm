@@ -155,6 +155,7 @@ export const notificationsRouter = router({
 
   /** Returns how many were unread. Refused to support impersonating the person (IMPERSONATING). */
   markRead: ownRows
+    .meta({ keepsAccess: true })
     .input(markReadInput)
     .output(z.number().int().nonnegative())
     .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => markRead(tx, ctx.member, input))),

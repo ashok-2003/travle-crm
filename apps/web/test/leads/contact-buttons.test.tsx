@@ -101,4 +101,20 @@ describe("the contact buttons", () => {
       "/account/notifications",
     );
   });
+
+  it("asks for nothing while its call dialog is closed, and for the lead once it opens", async () => {
+    screenIs("wide");
+    const api = stubApi({
+      "notifications.push.hasDevice": { data: true },
+      "leads.get": { status: 404 },
+    });
+    renderWithApi(<CallButton phone={phone} name="Rahul Sharma" leadId={leadId} />, newQueryClient());
+    await userEvent.click(screen.getByRole("button", { name: "Call Rahul Sharma" }));
+    await screen.findByRole("dialog");
+    expect(api.calls).not.toContain("leads.get");
+    await userEvent.click(screen.getByRole("button", { name: "Log the call" }));
+    await waitFor(() => {
+      expect(api.calls.filter((call) => call === "leads.get")).toHaveLength(1);
+    });
+  });
 });

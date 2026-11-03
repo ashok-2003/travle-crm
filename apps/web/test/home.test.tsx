@@ -15,6 +15,9 @@ import { stubApi } from "./support/api-stub";
 import { member } from "./support/members";
 import { busyDay, now } from "./today/records";
 
+// Home shows the inbox count, which polls faster or slower by the page it is on.
+vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
+
 const words = messages.today.nudge;
 const setupCardName = messages.business.setup.homeHeading.replace("{organization}", "Sharma Travels");
 
@@ -188,5 +191,50 @@ describe("Home", () => {
     const glance = await screen.findByRole("region", { name: messages.home.glance.title });
     expect(await within(glance).findByText("₹12,34,56,789")).toBeVisible();
     expect(await within(glance).findByText(/2 payments late: ₹5,000/)).toBeVisible();
+  });
+
+  it("asks for the money figure with the rest of the day, not after Today's summary has answered", async () => {
+    const { calls } = stubApi({
+      "organization.setup.get": { data: halfway },
+      "today.summary": "never",
+      "salesInbox.summary": "never",
+      "sales.hotLeads": "never",
+      "quotes.moneySummary": "never",
+    });
+    renderWithApi(
+      <HomePage />,
+      newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "quotes"] as never }),
+      member({ isOwner: true }),
+    );
+    await waitFor(() => {
+      expect(calls).toContain("quotes.moneySummary");
+    });
+    expect(calls).toContain("today.summary");
+  });
+
+  it("greets a titled name by the first name, not the title", async () => {
+    renderHome(member({ isOwner: true, name: "Mr. Anish Sharma" }));
+    expect(await screen.findByRole("heading", { level: 1, name: /, Anish$/ })).toBeVisible();
+  });
+
+  it("shows a skeleton, not a 0, on each tile whose figure is still loading", async () => {
+    stubApi({
+      "organization.setup.get": { data: halfway },
+      "today.summary": "never",
+      "salesInbox.summary": "never",
+      "sales.hotLeads": "never",
+    });
+    renderWithApi(
+      <HomePage />,
+      newQueryClient({ ...paidSubscription, modules: ["crm", "inbox"] as never }),
+      member({ isOwner: true }),
+    );
+    const glance = await screen.findByRole("region", { name: messages.home.glance.title });
+    const tiles = within(glance).getAllByRole("link");
+    expect(tiles).toHaveLength(5);
+    for (const tile of tiles) {
+      expect(tile.querySelector("[data-slot=skeleton]")).not.toBeNull();
+      expect(within(tile).queryByText("0")).toBeNull();
+    }
   });
 });

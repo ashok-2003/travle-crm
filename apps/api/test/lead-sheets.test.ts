@@ -9,7 +9,13 @@ import { createMemoryGoogleSheets, type MemoryGoogleSheets } from "@travel-crm/i
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff } from "./support/people.js";
-import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
+import {
+  createTestAgency,
+  createTestServer,
+  everyRequestReads,
+  type TestAgency,
+  type TestServer,
+} from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 
 const spreadsheetId = () => `${randomUUID().replaceAll("-", "")}-sheet_${randomUUID().slice(0, 6)}`;
@@ -35,7 +41,12 @@ describe("the Google Sheets sync over HTTP", () => {
     // The steps of many tests run in a minute: the limit has its own test below.
     server = createTestServer(
       {},
-      { google, sheetsHashes: createSheetsHashes("test-sheets-hash-key-0123456789-abc"), rateLimiter: unlimited },
+      {
+        google,
+        sheetsHashes: createSheetsHashes("test-sheets-hash-key-0123456789-abc"),
+        rateLimiter: unlimited,
+        accessCache: everyRequestReads,
+      },
     );
     agency = await createTestAgency(server);
     owner = await signedInOwner(server, agency);

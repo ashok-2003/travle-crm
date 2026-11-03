@@ -2,6 +2,7 @@
 // storage and job queue unless a test passes real ones), held to the plan limits as in services.ts, and a platform
 // client for creating organizations (which the api itself can never do). Requests go through app.request(), so no
 // port is opened.
+import { createAccessCache, type AccessCache } from "@travel-crm/api";
 import { planModules } from "@travel-crm/contracts/subscriptions";
 import { createDatabase, isUniqueViolation, type Database } from "@travel-crm/db";
 import type { PlatformClient } from "@travel-crm/db/platform";
@@ -69,6 +70,13 @@ export interface TestServer {
   close(): Promise<void>;
 }
 
+/**
+ * An access cache that keeps nothing: every request reads access and the subscription. For a test that changes the
+ * database directly (a status, a payment through the console) and expects the very next request to see it, which the
+ * real five-minute cache doesn't promise.
+ */
+export const everyRequestReads: AccessCache = createAccessCache({ ttlMs: 0, maxEntries: 1 });
+
 export interface TestServerOptions {
   webhookProviders?: readonly WebhookProvider[];
   /** Where files go; in memory unless given, e.g. S3 on MinIO. */
@@ -94,6 +102,8 @@ export interface TestServerOptions {
   turnstile?: Turnstile;
   /** How the website form reads the visitor's address (W32): sign-in's rule unless given. */
   formAddress?: FormAddressSettings;
+  /** The cache of members' access and subscriptions' facts; the real one with the real clock unless a test passes its own. */
+  accessCache?: AccessCache;
   /** Told when work for the worker came in (the host's wake-up signal): nothing unless given. */
   signalWork?: () => void;
 }
@@ -144,6 +154,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     turnstile: options.turnstile ?? null,
     ...(options.formAddress === undefined ? {} : { formAddress: options.formAddress }),
     ...(options.signalWork === undefined ? {} : { signalWork: options.signalWork }),
+    ...(options.accessCache === undefined ? {} : { accessCache: options.accessCache }),
   });
   return {
     app,

@@ -1,5 +1,6 @@
 // Staff management through the HTTP app (spec 6.3): an owner adds people with and without email, changes their
 // roles, resets passwords and removes them, and nobody reaches above their own access.
+import { ACCESS_CACHE_MAX_ENTRIES, ACCESS_CACHE_TTL_MS, createAccessCache } from "@travel-crm/api";
 import type { MeOutput, StaffMember } from "@travel-crm/contracts/identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CookieJar } from "./support/cookie-jar.js";
@@ -214,13 +215,33 @@ describe("staff management", () => {
     });
   });
 
-  it("stops a banned member who still holds a session, on their next request", async () => {
-    const vik = await addStaff(server, agency, { username: "vik", roleKey: "sales" });
-    const jar = await signedInStaff(server, agency, vik);
-    expect((await query(server, "settings.get", jar)).status).toBe(200);
-    await server.platform.user.update({ where: { id: vik.userId }, data: { banned: true } });
-    expect(await refusalOf(await query(server, "settings.get", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
-    expect(await refusalOf(await query(server, "roles.list", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
+  it("stops a banned member within five minutes, and at once on a sensitive request", async () => {
+    // A ban is made in the console, never through a tRPC mutation, so the api's cached access catches up with the TTL.
+    const clock = { now: 1_000_000 };
+    const accessCache = createAccessCache({
+      ttlMs: ACCESS_CACHE_TTL_MS,
+      maxEntries: ACCESS_CACHE_MAX_ENTRIES,
+      now: () => clock.now,
+    });
+    const timed = createTestServer({}, { accessCache });
+    try {
+      const timedAgency = await createTestAgency(timed);
+      const vik = await addStaff(timed, timedAgency, { username: "vik", roleKey: "sales" });
+      const jar = await signedInStaff(timed, timedAgency, vik);
+      expect((await query(timed, "settings.get", jar)).status).toBe(200);
+      await timed.platform.user.update({ where: { id: vik.userId }, data: { banned: true } });
+      clock.now += ACCESS_CACHE_TTL_MS;
+      expect((await query(timed, "settings.get", jar)).status).toBe(200);
+      clock.now += 1;
+      expect(await refusalOf(await query(timed, "settings.get", jar))).toEqual({
+        status: 403,
+        reason: "NOT_A_MEMBER",
+      });
+      // A fresh procedure reads the database every time.
+      expect(await refusalOf(await query(timed, "roles.list", jar))).toEqual({ status: 403, reason: "NOT_A_MEMBER" });
+    } finally {
+      await timed.close();
+    }
   });
 
   it("resets a password: the person is signed out everywhere and must choose a new one", async () => {

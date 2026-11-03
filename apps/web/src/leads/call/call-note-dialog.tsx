@@ -265,7 +265,8 @@ export function CallNoteDialog({
   const refresh = useRefreshWork();
   const write = useWriteAccess("change");
   const dialog = useFormDialog(t("saved"), refresh, held);
-  const lead = useLead(leadId);
+  // Every Call button on a screen mounts this dialog: its lead is asked for only once the dialog opens.
+  const lead = useLead(leadId, { enabled: held.open });
   const [leadFill, setLeadFill] = useState<LeadFill | null>(null);
   const editTrip = useMutation(trpc.leads.editTrip.mutationOptions());
   const { apiError } = useErrorMessage();

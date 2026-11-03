@@ -15,7 +15,7 @@ import {
   fakeMeta,
   FORM_QUESTIONS,
 } from "../support/meta";
-import { setSubscriptionState } from "../support/subscription-states";
+import { forgetSavedCopy, setSubscriptionState } from "../support/subscription-states";
 import { screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -202,6 +202,7 @@ test("Facebook and Instagram lead ads: connecting, a Page's page and each state 
 
   // The subscription is read-only.
   await setSubscriptionState(database.platform, agency.organizationId, "read_only");
+  await forgetSavedCopy(page);
   await page.goto(pageUrl);
   await expect(page.getByText("Your agency can't change anything right now")).toBeVisible();
   await shoot(page, "meta-page-read-only");

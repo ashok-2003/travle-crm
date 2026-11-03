@@ -4,7 +4,7 @@
 // and status today; just after onboarding, that the Owner's invite is on its way; its row with corrections, its
 // subscription, its business profile and its members; for super admins, the way to its data protection. An
 // organization that doesn't exist (purged, or a mistyped address) is said so, with the way back to the dashboard.
-import { useQuery } from "@tanstack/react-query";
+import { usePrefetchQuery, useQuery } from "@tanstack/react-query";
 import { CircleCheckIcon, SearchXIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -31,6 +31,10 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
   const trpc = useConsoleTRPC();
   const staff = useStaff();
   const details = useQuery(trpc.organizations.get.queryOptions({ organizationId }));
+  // The sections below ask for their own data once the details are in; asked for here, in this render, all three
+  // requests go out together instead of one after another (the id is all they need).
+  usePrefetchQuery(trpc.organizations.members.queryOptions({ organizationId }));
+  usePrefetchQuery(trpc.whatsapp.get.queryOptions({ organizationId }));
 
   if (!details.data) {
     const status = refusalOf(details.error)?.status;

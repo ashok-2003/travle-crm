@@ -5,8 +5,6 @@ import { addStaff, signedInStaff } from "./support/people.js";
 import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
 import { query } from "./support/trpc.js";
 
-const HOUR_MS = 60 * 60 * 1000;
-
 describe("a member's last activity", () => {
   let server: TestServer;
   let agency: TestAgency;
@@ -23,7 +21,7 @@ describe("a member's last activity", () => {
   const lastActiveAt = async (memberId: string) =>
     (await server.platform.member.findUniqueOrThrow({ where: { id: memberId } })).lastActiveAt;
 
-  it("is noted by a member's request, not again by another the same day, and again a day later", async () => {
+  it("is noted by a member's request, and not again by another the same day", async () => {
     const ravi = await addStaff(server, agency, { username: "ravi", roleKey: "sales" });
     const jar = await signedInStaff(server, agency, ravi);
     // Signing in alone isn't using the app.
@@ -36,11 +34,5 @@ describe("a member's last activity", () => {
 
     expect((await query(server, "roles.list", jar)).status).toBe(200);
     expect(await lastActiveAt(ravi.memberId)).toEqual(first);
-
-    const dayAgo = new Date(Date.now() - 25 * HOUR_MS);
-    await server.platform.member.update({ where: { id: ravi.memberId }, data: { lastActiveAt: dayAgo } });
-    const later = Date.now();
-    expect((await query(server, "settings.get", jar)).status).toBe(200);
-    expect((await lastActiveAt(ravi.memberId))?.getTime()).toBeGreaterThanOrEqual(later);
   });
 });

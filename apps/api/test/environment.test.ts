@@ -22,7 +22,12 @@ const valid = {
 describe("environment", () => {
   it("fills in development defaults", () => {
     const environment = loadEnvironment({ ...valid, NODE_ENV: "development" });
-    expect(environment).toMatchObject({ NODE_ENV: "development", PORT: 3001, AUTH_RATE_LIMIT: true });
+    expect(environment).toMatchObject({
+      NODE_ENV: "development",
+      PORT: 3001,
+      AUTH_RATE_LIMIT: true,
+      ACCESS_CACHE: true,
+    });
     expect(authSettingsFrom(environment)).toMatchObject({
       secureCookies: false,
       // The web app's development address (APP_URL's default).
@@ -145,6 +150,10 @@ describe("environment", () => {
     for (const NODE_ENV of ["development", "test"]) {
       expect(loadEnvironment({ ...valid, NODE_ENV, AUTH_RATE_LIMIT: "false" }).AUTH_RATE_LIMIT).toBe(false);
     }
+  });
+
+  it("turns the access cache off when asked, as the journeys do", () => {
+    expect(loadEnvironment({ ...valid, NODE_ENV: "development", ACCESS_CACHE: "false" }).ACCESS_CACHE).toBe(false);
   });
 
   it("refuses weak secrets in production, naming the variable and never the value", () => {

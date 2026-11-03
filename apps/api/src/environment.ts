@@ -114,6 +114,11 @@ const environmentSchema = z
     TRUSTED_ORIGINS: commaSeparated.pipe(z.array(origin)),
     /** Sign-in rate limiting. Only development and tests may turn it off. */
     AUTH_RATE_LIMIT: z.stringbool().default(true),
+    /**
+     * The api keeps members' access and subscriptions in memory for five minutes (packages/api/src/access-cache.ts).
+     * Off, every request reads them: the journeys change subscriptions straight in the database and expect it at once.
+     */
+    ACCESS_CACHE: z.stringbool().default(true),
     /** Headers the load balancer puts the client's IP address in, comma-separated. Public routes' limits use it too. */
     AUTH_IP_ADDRESS_HEADERS: commaSeparated.pipe(z.array(z.string()).min(1)).default(["x-forwarded-for"]),
     /**

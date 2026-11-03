@@ -29,9 +29,24 @@ export function statusWith(lifecycle: SubscriptionStatus, manuallySuspended: boo
   return manuallySuspended && lifecycle !== "cancelled" ? "suspended" : lifecycle;
 }
 
-export async function subscriptionToday(tx: OrgTx, row: StoredSubscription, now: Date): Promise<SubscriptionToday> {
-  const timeZone = await organizationTimeZone(tx, row.organizationId);
-  const policy = await getSubscriptionPolicy(tx);
+/** What the checks read from the database, once: the stored row, its organization's zone and the lifecycle's policy. */
+export interface SubscriptionFacts {
+  row: StoredSubscription;
+  timeZone: string;
+  policy: SubscriptionPolicy;
+}
+
+/** The organization's subscription facts (three reads), or null without a subscription. */
+export async function loadSubscriptionFacts(tx: OrgTx, organizationId: string): Promise<SubscriptionFacts | null> {
+  const row = await tx.subscription.findUnique({ where: { organizationId }, include: withPlan });
+  if (!row) return null;
+  const timeZone = await organizationTimeZone(tx, organizationId);
+  return { row, timeZone, policy: await getSubscriptionPolicy(tx) };
+}
+
+/** The state at `now` from facts already loaded: pure, so cached facts still turn over at the right minute. */
+export function subscriptionTodayFrom(facts: SubscriptionFacts, now: Date): SubscriptionToday {
+  const { row, timeZone, policy } = facts;
   const today = calendarDateIn(now, timeZone);
   const recorded: LifecycleState = {
     status: statusOf(row.status),
@@ -50,6 +65,11 @@ export async function subscriptionToday(tx: OrgTx, row: StoredSubscription, now:
     status: statusWith(due.status, held),
     nextChangeOn: held ? null : (nextStep(due, policy)?.on ?? null),
   };
+}
+
+export async function subscriptionToday(tx: OrgTx, row: StoredSubscription, now: Date): Promise<SubscriptionToday> {
+  const timeZone = await organizationTimeZone(tx, row.organizationId);
+  return subscriptionTodayFrom({ row, timeZone, policy: await getSubscriptionPolicy(tx) }, now);
 }
 
 /**

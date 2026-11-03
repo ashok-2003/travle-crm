@@ -1,0 +1,81 @@
+// The query cache keeps slow-changing data (a role, the plan, the logo) for ten minutes and everything else for 30 s.
+import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
+import type { AppRouter } from "@travel-crm/api";
+import { QueryObserver } from "@tanstack/react-query";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createApiClient } from "@/data/trpc";
+import { createQueryClient, SLOW_DATA, SLOW_DATA_STALE_MS } from "@/data/query-client";
+
+const handlers = { onSignedOut: () => undefined, onPendingStep: () => undefined };
+
+describe("the query client", () => {
+  it("keeps ten minutes of slow-changing data, found by the keys the tRPC hooks build", () => {
+    const queryClient = createQueryClient(handlers);
+    const trpc = createTRPCOptionsProxy<AppRouter>({ client: createApiClient(), queryClient });
+    const keys = [
+      trpc.me.get.queryKey(),
+      trpc.subscription.get.queryKey(),
+      trpc.roles.list.queryKey(),
+      trpc.staff.list.queryKey(),
+      trpc.leads.owners.queryKey(),
+      trpc.settings.get.queryKey(),
+      trpc.quotes.settings.queryKey(),
+      trpc.inbox.status.queryKey(),
+      trpc.inbox.tags.queryKey(),
+      trpc.usage.welcome.queryKey(),
+      trpc.me.ownPassword.queryKey(),
+      trpc.organization.setup.get.queryKey(),
+    ];
+    for (const key of keys) {
+      expect(queryClient.getQueryDefaults(key)).toMatchObject({
+        staleTime: SLOW_DATA_STALE_MS,
+        refetchOnWindowFocus: false,
+      });
+    }
+    expect(SLOW_DATA_STALE_MS).toBe(600_000);
+  });
+
+  it("leaves the shell's logo link, which lapses in five minutes, at the default", () => {
+    const queryClient = createQueryClient(handlers);
+    const trpc = createTRPCOptionsProxy<AppRouter>({ client: createApiClient(), queryClient });
+    expect(queryClient.getQueryDefaults(trpc.organization.logo.forShell.queryKey()).staleTime).toBeUndefined();
+  });
+
+  it("keeps the console's slow data too, and every other query at 30 seconds", () => {
+    const queryClient = createQueryClient(handlers);
+    for (const path of ["whoAmI", "plans.list", "plans.policy", "platformStaff.list"]) {
+      expect(SLOW_DATA).toContain(path);
+      expect(queryClient.getQueryDefaults([path.split("."), { type: "query" }]).staleTime).toBe(SLOW_DATA_STALE_MS);
+    }
+    const trpc = createTRPCOptionsProxy<AppRouter>({ client: createApiClient(), queryClient });
+    expect(queryClient.getQueryDefaults(trpc.leads.list.queryKey({})).staleTime).toBeUndefined();
+    expect(queryClient.getDefaultOptions().queries?.staleTime).toBe(30_000);
+  });
+
+  it("shows a query that got no answer in 30 seconds as an error at once, after exactly one request", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const fetchSpy = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(init.signal?.reason instanceof Error ? init.signal.reason : new Error("aborted"));
+          });
+        }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    const queryClient = createQueryClient(handlers);
+    const trpc = createTRPCOptionsProxy<AppRouter>({ client: createApiClient(), queryClient });
+    const observer = new QueryObserver(queryClient, trpc.leads.owners.queryOptions());
+    const stop = observer.subscribe(() => undefined);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(observer.getCurrentResult().status).toBe("error");
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    stop();
+  });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});

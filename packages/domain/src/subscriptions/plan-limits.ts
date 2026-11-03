@@ -14,7 +14,7 @@ export interface PlanLimits {
  * Null without a subscription means no limit here: request check 2 already refuses every change such an
  * organization's staff make.
  */
-export function planLimits(access: SubscriptionAccess): PlanLimits {
+export function planLimits(access: Pick<SubscriptionAccess, "entitlementsOf">): PlanLimits {
   const limitsOf = async (organizationId: string) => (await access.entitlementsOf(organizationId))?.limits ?? null;
   return {
     seats: async (organizationId) => (await limitsOf(organizationId))?.seats ?? null,

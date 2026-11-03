@@ -67,12 +67,18 @@ export interface PlatformServicesOptions extends Omit<PlatformServices, "platfor
   transactionLimits?: ForOrgOptions;
 }
 
+/** The platform pool's default size: also how many organizations the dashboard counts at once. */
+export const PLATFORM_POOL_SIZE = 3;
+
 /** Connects the platform role. Close it with `services.platformDb.disconnect()`; the rest belong to the caller. */
 export function createPlatformServices(options: PlatformServicesOptions): PlatformServices {
   const { platformDatabaseUrl, maxConnections, transactionLimits, ...shared } = options;
   return {
     ...shared,
-    platformDb: createPlatformDatabase(platformDatabaseUrl, { maxConnections: maxConnections ?? 3, transactionLimits }),
+    platformDb: createPlatformDatabase(platformDatabaseUrl, {
+      maxConnections: maxConnections ?? PLATFORM_POOL_SIZE,
+      transactionLimits,
+    }),
   };
 }
 

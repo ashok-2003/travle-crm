@@ -3,8 +3,9 @@
 // the console process (a rewrite in development, the load balancer when deployed), batched like the api's, and like
 // the api's every call a JSON POST, so no input is ever in a URL.
 import type { PlatformRouter } from "@travel-crm/api/platform";
-import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import { createTRPCClient } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
+import { apiLinks } from "@/data/links";
 
 export const {
   TRPCProvider: ConsoleTRPCProvider,
@@ -14,6 +15,6 @@ export const {
 
 export function createConsoleClient() {
   return createTRPCClient<PlatformRouter>({
-    links: [httpBatchLink({ url: "/api/platform/trpc", methodOverride: "POST" })],
+    links: apiLinks("/api/platform/trpc"),
   });
 }

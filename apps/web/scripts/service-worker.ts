@@ -1,6 +1,8 @@
 // Bundles the service worker (src/service-worker/sw.ts) into one classic script, public/sw.js, which every browser
 // that has service workers can run. The bundle carries the app's pages, listed from the page files under src/app, so
 // the worker keeps every screen's shell for offline use without anyone keeping a list.
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { build } from "esbuild";
@@ -25,9 +27,37 @@ export function pageRoutes(files: readonly string[]): string[] {
   return [...routes].sort();
 }
 
-/** The worker's code, bundled with the app's pages as APP_ROUTES. */
-export async function bundleServiceWorker(appDirectory: string): Promise<string> {
+/**
+ * What names this build, so every deploy changes sw.js and the worker refreshes its shells once per build. The script
+ * runs before `next build`, so Next's own build id isn't there yet: the commit instead (CACHE_VERSION, which the Docker
+ * build passes; Vercel's and GitHub's commit variables; git), else a hash of the page list and the time, which is new
+ * for every build.
+ */
+export function currentBuildId(routes: readonly string[]): string {
+  const named = [process.env.CACHE_VERSION, process.env.VERCEL_GIT_COMMIT_SHA, process.env.GITHUB_SHA].find(
+    (id) => id !== undefined && id.trim() !== "",
+  );
+  // git runs only when no variable names the build.
+  const commit = named ?? gitCommit();
+  if (commit !== undefined && commit.trim() !== "") return commit.trim();
+  return createHash("sha256")
+    .update(routes.join(",") + "@" + String(Date.now()))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function gitCommit(): string | undefined {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return undefined;
+  }
+}
+
+/** The worker's code, bundled with the app's pages as APP_ROUTES and the build's name as BUILD_ID. */
+export async function bundleServiceWorker(appDirectory: string, buildId?: string): Promise<string> {
   const pageFiles = await readdir(path.join(appDirectory, "src/app"), { recursive: true });
+  const routes = pageRoutes(pageFiles);
   const result = await build({
     entryPoints: [path.join(appDirectory, "src/service-worker/sw.ts")],
     write: false,
@@ -36,7 +66,7 @@ export async function bundleServiceWorker(appDirectory: string): Promise<string>
     target: "es2022",
     minify: true,
     logLevel: "warning",
-    define: { APP_ROUTES: JSON.stringify(pageRoutes(pageFiles)) },
+    define: { APP_ROUTES: JSON.stringify(routes), BUILD_ID: JSON.stringify(buildId ?? currentBuildId(routes)) },
   });
   const [bundle] = result.outputFiles;
   if (!bundle) throw new Error("esbuild wrote no service worker");

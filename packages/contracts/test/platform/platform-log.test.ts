@@ -25,6 +25,7 @@ describe("platform log contracts", () => {
       targetType: "organization",
       targetId: organizationId,
       targetOrganizationId: organizationId,
+      organizationName: null,
       before: { code: "SHARMA" },
       after: null,
     };

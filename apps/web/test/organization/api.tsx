@@ -13,6 +13,7 @@ import { createApiClient, TRPCProvider } from "@/data/trpc";
 import { locale, messages } from "@/i18n/messages";
 import { MeProvider, type SignedInMember } from "@/session/me-context";
 import { member } from "../support/members";
+import { wantsStream, wireResponse, type WireItem } from "../support/trpc-wire";
 
 export interface PendingCall {
   /** The procedure, e.g. "staff.updateRole". */
@@ -28,11 +29,10 @@ export function fakeApi() {
   const calls: PendingCall[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn((url: string, init: { body?: string }) => {
+    vi.fn((url: string, init: { body?: string; headers?: unknown }) => {
       const path = new URL(url, "http://localhost").pathname.replace("/api/trpc/", "");
       const body = JSON.parse(init.body ?? "{}") as Record<string, unknown>;
-      const json = (status: number, payload: unknown) =>
-        new Response(JSON.stringify([payload]), { status, headers: { "content-type": "application/json" } });
+      const json = (status: number, payload: unknown) => wireResponse([payload as WireItem], wantsStream(init), status);
       return new Promise<Response>((resolve, reject) => {
         calls.push({
           path,

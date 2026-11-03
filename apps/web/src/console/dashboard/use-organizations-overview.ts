@@ -6,6 +6,8 @@ import { useCursorPages } from "@/data/use-cursor-pages";
 import { useConsoleTRPC, useConsoleTRPCClient } from "../data/console-trpc";
 
 const ORGANIZATIONS_PER_PAGE = 25;
+/** The counts take a while to build and move slowly: a minute old is fresh enough to show again at once. */
+export const DASHBOARD_STALE_MS = 60_000;
 
 export function useOrganizationsOverview() {
   const trpc = useConsoleTRPC();
@@ -18,5 +20,6 @@ export function useOrganizationsOverview() {
         ...(cursor === null ? {} : { after: cursor }),
       }),
     items: (page) => page.organizations,
+    staleTime: DASHBOARD_STALE_MS,
   });
 }

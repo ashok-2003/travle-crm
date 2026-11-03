@@ -8,7 +8,7 @@ import { expect, signInByEmail, test } from "../support/fixtures";
 import { logoPng, saveBusinessProfile } from "../support/documents";
 import { embedHost } from "../support/embed-host";
 import { callApi } from "../support/leads";
-import { setSubscriptionState } from "../support/subscription-states";
+import { forgetSavedCopy, setSubscriptionState } from "../support/subscription-states";
 import {
   backToActive,
   backToPlan,
@@ -133,6 +133,7 @@ test("website form: the agency's screens", async ({ page, request, agency, datab
 
   // Read-only: the row says Unavailable, Save is off, Turn off stays open.
   await setSubscriptionState(platform, agency.organizationId, "read_only");
+  await forgetSavedCopy(page);
   await page.goto("/settings/lead-sources");
   await expect(page.getByText("Unavailable", { exact: true }).first()).toBeVisible();
   await shoot(page, "website-form-row-unavailable");

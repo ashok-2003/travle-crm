@@ -57,6 +57,9 @@ logs, and what is still open.
   addresses. Otherwise every client shares one rate limit, and three failed sign-ins lock everyone out.
 - **Rate limits are kept in memory**, per instance: with more than one api instance, move them to the database or a
   shared store (Better Auth's `rateLimit.storage`) before launch.
+- **The access cache is kept in memory**, per instance (members' access and subscriptions, five minutes): with more
+  than one api instance, a change made through one instance reaches the others only when their entries expire, within
+  five minutes.
 - **The reset link's token** is in the path of `GET /api/auth/reset-password/<token>`: keep the load balancer's access
   logs short-lived, or strip that path from them.
 
@@ -120,6 +123,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `BETTER_AUTH_URL`, `APP_URL`: both the app's https address                                          | ●   | ●      | ●       |         |        |
 | `TRUSTED_ORIGINS`                                                                                   | ○   | ○      | ○       |         |        |
 | `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                                                        | ○   | ○      | ○       |         |        |
+| `ACCESS_CACHE`: `false` reads access on every request (tests); leave it on                          | ○   |        |         |         |        |
 | `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting)                                     | ●   | ●      | ●       |         |        |
 | `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`)                                     | ●   | ●      | ●       |         |        |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)                                      | ●   | ●      | ●       |         | yes    |
