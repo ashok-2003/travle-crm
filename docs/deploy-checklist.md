@@ -123,6 +123,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `BETTER_AUTH_URL`, `APP_URL`: both the app's https address                                          | ●   | ●      | ●       |         |        |
 | `TRUSTED_ORIGINS`                                                                                   | ○   | ○      | ○       |         |        |
 | `AUTH_RATE_LIMIT`, `AUTH_IP_ADDRESS_HEADERS`                                                        | ○   | ○      | ○       |         |        |
+| `ACCESS_CACHE`: `false` reads access on every request (tests); leave it on                          | ○   |        |         |         |        |
 | `AUTH_TRUSTED_PROXIES`: the load balancer's addresses (Hosting)                                     | ●   | ●      | ●       |         |        |
 | `S3_BUCKET`, `S3_REGION` (`S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`)                                     | ●   | ●      | ●       |         |        |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)                                      | ●   | ●      | ●       |         | yes    |

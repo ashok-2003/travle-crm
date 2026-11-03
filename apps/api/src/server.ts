@@ -1,5 +1,6 @@
 // Starts the api on Node (`pnpm --filter @travel-crm/api-server dev`). All settings come from the environment.
 import { serve } from "@hono/node-server";
+import { noAccessCache } from "@travel-crm/api";
 import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { createApp } from "./app.js";
@@ -20,6 +21,8 @@ const { environment, services, logger } = await startProcess("api", async ({ ser
 });
 
 const app = createApp({
+  // Off (ACCESS_CACHE=false), every request reads access afresh; on, createApp keeps it for five minutes.
+  ...(environment.ACCESS_CACHE ? {} : { accessCache: noAccessCache }),
   identity: services.identity,
   // Only the api's request checks read what each organization may use today: the worker and the console never do.
   subscriptions: createSubscriptionAccess({ db: services.db }),
