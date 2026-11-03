@@ -9,7 +9,7 @@ import { expect, signInByEmail, test } from "../support/fixtures";
 import { csvOf } from "../support/imports";
 import { checkTheRows, csvFile, importAsGuessed, startLeadImport, WORKER_STEP_MS } from "../support/lead-import-steps";
 import { addLeadThroughApi, callApi, leadInput, leadWorkerAgency } from "../support/leads";
-import { setSubscriptionState } from "../support/subscription-states";
+import { forgetSavedCopy, setSubscriptionState } from "../support/subscription-states";
 import { screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -177,6 +177,7 @@ test("the lead import, from choosing a file to the end", async ({ page, agency, 
 
   // The agency stops paying: Leads keeps Import off, with its hint.
   await setSubscriptionState(database.platform, agency.organizationId, "read_only");
+  await forgetSavedCopy(page);
   await page.goto("/leads");
   await expect(page.getByRole("main").getByRole("button", { name: "Import" })).toBeDisabled();
   await shoot(page, "lead-import-read-only");

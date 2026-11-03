@@ -245,6 +245,9 @@ export async function startServers({
       TRUSTED_ORIGINS: "",
       // Journeys sign in many times from one address.
       AUTH_RATE_LIMIT: "false",
+      // Journeys move a subscription along straight in the database (support/subscription-states.ts) and expect the
+      // api to see it at once, not after its five-minute cache.
+      ACCESS_CACHE: "false",
       // Plan 3's services are configured from the environment, all of them real: the api refuses to start without
       // a bucket it can use, and journeys read the email it sends.
       ...storage,

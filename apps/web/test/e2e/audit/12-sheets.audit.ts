@@ -8,7 +8,7 @@ import type { Page } from "@playwright/test";
 import { expect, signInByEmail, test } from "../support/fixtures";
 import { addLeadThroughApi, leadInput } from "../support/leads";
 import { aGoogleForm, answer, connectSheet, fakeGoogle, FORM_HEADER, linkTo, pasteSheetLink } from "../support/sheets";
-import { setSubscriptionState } from "../support/subscription-states";
+import { forgetSavedCopy, setSubscriptionState } from "../support/subscription-states";
 import { screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -183,6 +183,7 @@ test("Google Sheets: Lead sources, connecting, a sheet's page and each state tha
   await shoot(page, "sheet-disconnect");
   await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
   await setSubscriptionState(database.platform, agency.organizationId, "read_only");
+  await forgetSavedCopy(page);
   await page.goto(sheetUrl);
   await expect(page.getByText("Paused while your subscription is read-only")).toBeVisible();
   await shoot(page, "sheet-read-only");
