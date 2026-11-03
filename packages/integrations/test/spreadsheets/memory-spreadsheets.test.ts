@@ -20,6 +20,8 @@ describe("memory spreadsheets", () => {
     expect(await spreadsheets.read(bytes, limits)).toEqual({
       sheetName: "Leads Oct",
       sheetCount: 1,
+      sheetNames: ["Leads Oct"],
+      headerRowNumber: 1,
       header: ["Name", "Column B", "Name (2)"],
       rows: [
         { rowNumber: 2, cells: ["Asha", null, "x"] },

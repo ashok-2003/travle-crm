@@ -30,4 +30,6 @@ export {
   saveSeason,
   supplierRates,
   type RateOnDate,
+  type SaveOptions,
 } from "./rates.js";
+export { saveRateBatch } from "./rate-batch.js";

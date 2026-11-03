@@ -21,6 +21,7 @@ import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
 import { receiveWebhook, type WebhookProvider, type WebhookRequest } from "@travel-crm/domain/webhooks";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -73,6 +74,8 @@ export interface ServerDependencies {
   meta?: MetaServices | null;
   /** The AI that drafts replies; null or absent when no key is set. */
   ai?: AiModel | null;
+  /** Reads an Excel rate sheet for the AI; null or absent: such a file is refused as unreadable. */
+  spreadsheets?: Spreadsheets | null;
   /** Tells the console of a fault no route handled (incidents.ts); absent in tests. */
   incidents?: IncidentReporter | null;
   /** The MSG91 provider, for the templates screens; null when WhatsApp is off. */
@@ -133,6 +136,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     meta = null,
     whatsappProvider = null,
     ai = null,
+    spreadsheets = null,
     incidents = null,
     logger,
     authSecret,
@@ -188,6 +192,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
             whatsappProvider,
             ai,
+            spreadsheets,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },
