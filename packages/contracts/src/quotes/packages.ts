@@ -5,7 +5,8 @@ import { travellerLevel } from "../bookings/bookings.js";
 import { MAX_PACKAGE_PHOTO_BYTES, packagePhotoContentTypes } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
-import { roomPrices } from "./room-prices.js";
+import { MAX_SEATS } from "../departures/departures.js";
+import { roomPrices, roomType } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -52,6 +53,13 @@ export const packageSlug = z
 export const priceDisplays = ["from", "on_enquiry"] as const;
 export const priceDisplay = z.enum(priceDisplays);
 
+/** A custom package is quoted trip by trip; a group package sells seats on departures, priced by room type. */
+export const packageKinds = ["custom", "group"] as const;
+export const packageKind = z.enum(packageKinds);
+export type PackageKind = (typeof packageKinds)[number];
+
+const unique = (values: readonly unknown[]) => new Set(values).size === values.length;
+
 export const packageFields = {
   name: text(80).min(1),
   title: text(120).min(1),
@@ -71,14 +79,35 @@ export const packageFields = {
   fromPricePaise: paise.nullable(),
   defaultTravellerLevel: travellerLevel.nullable(),
   cancellationNotes: text(2000),
+  kind: packageKind,
+  /** The room types a group package sells. */
+  roomTypes: z.array(roomType).max(6).refine(unique, "Each room type once"),
+  /** Whether the prices already include GST (the usual way a group trip is advertised). */
+  pricesIncludeGst: z.boolean(),
+  /** What a person pays to hold a seat, in paise. */
+  advancePerPersonPaise: paise.nullable(),
+  paymentDetails: text(1000),
+  pickupPoints: text(500),
+  startCity: text(80),
+  /** The days it departs, 0 Sunday to 6 Saturday. */
+  weeklyDays: z.array(z.int().min(0).max(6)).max(7).refine(unique, "Each day once"),
+  /** The months it departs, 1 to 12; empty means every month. */
+  departureMonths: z.array(z.int().min(1).max(12)).max(12).refine(unique, "Each month once"),
+  seatsPerDeparture: z.int().min(1).max(MAX_SEATS).nullable(),
 };
 export const updatePackageInput = z.strictObject({ packageId: recordId, ...packageFields });
 export type UpdatePackageInput = z.infer<typeof updatePackageInput>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
+export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
+export type SetPackageSellableInput = z.infer<typeof setPackageSellableInput>;
 
 /** What a package still needs before its page can be published. */
 export const publishGaps = ["name", "slug", "summary", "photo"] as const;
 export type PublishGap = (typeof publishGaps)[number];
+
+/** What a package still needs before the AI may sell it. */
+export const sellGaps = ["room_types", "prices", "advance", "departures", "from_price"] as const;
+export type SellGap = (typeof sellGaps)[number];
 
 /** A tier's line as the editor reads it: with the name of the rate it prices from ("Hotel Aurora: Deluxe room"), if it has one. */
 export const tierLineView = tierLine.extend({ rateLabel: z.string().nullable() });
@@ -136,6 +165,10 @@ export const packageDetail = z.object({
   photoCount: z.int(),
   /** What is missing to publish; empty when it can be. */
   gaps: z.array(z.enum(publishGaps)),
+  /** Whether the AI may sell this package. */
+  sellable: z.boolean(),
+  /** What is missing before it may; empty when it can be switched on. */
+  sellGaps: z.array(z.enum(sellGaps)),
   /** Whether the agency's public pages are switched on at all. */
   pagesEnabled: z.boolean(),
   /** The agency's sign-in code in lower case, the first part of the public address. */

@@ -9,6 +9,9 @@ import {
   tierLine,
   type PackageDetail,
   type PublishGap,
+  type SellGap,
+  type SetPackageSellableInput,
+  type RoomType,
   type SaveTierInput,
   type UpdatePackageInput,
 } from "@travel-crm/contracts/quotes";
@@ -16,6 +19,7 @@ import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import type { CalendarDate } from "../kernel/index.js";
 import { withoutCosts } from "./margin.js";
 import { seasonsOf } from "./package-seasons.js";
 import { itemsOf } from "./quote-rows.js";
@@ -44,6 +48,17 @@ export const packageColumns = {
   published: true,
   defaultTravellerLevel: true,
   cancellationNotes: true,
+  kind: true,
+  roomTypes: true,
+  pricesIncludeGst: true,
+  advancePerPersonPaise: true,
+  paymentDetails: true,
+  pickupPoints: true,
+  startCity: true,
+  weeklyDays: true,
+  departureMonths: true,
+  seatsPerDeparture: true,
+  aiSellable: true,
   destination: { select: { name: true } },
 } as const;
 
@@ -96,11 +111,82 @@ export async function tiersOf(tx: OrgTx, packageId: string) {
 }
 
 /** The package for its editor. Costs in its lines are shown only to whoever may see margins. */
+/** The departures of a group package that can still be sold from today: open, not past their cut-off. */
+const sellableDepartures = (tx: OrgTx, packageId: string, today: CalendarDate) =>
+  tx.departure.findMany({
+    where: {
+      templateId: packageId,
+      status: "open",
+      startDate: { gte: asDay(today) },
+      OR: [{ cutoffOn: null }, { cutoffOn: { gte: asDay(today) } }],
+    },
+    select: {
+      priceSinglePaise: true,
+      priceDoublePaise: true,
+      priceTriplePaise: true,
+      priceQuadPaise: true,
+      priceChildBedPaise: true,
+      priceChildNoBedPaise: true,
+    },
+  });
+const asDay = (day: CalendarDate) => new Date(`${day}T00:00:00Z`);
+
+const departurePriceColumn = {
+  single: "priceSinglePaise",
+  double: "priceDoublePaise",
+  triple: "priceTriplePaise",
+  quad: "priceQuadPaise",
+  child_bed: "priceChildBedPaise",
+  child_no_bed: "priceChildNoBedPaise",
+} as const;
+
+/** What a package still needs before the AI may sell it, in the order the editor shows them. */
+export async function packageSellGaps(tx: OrgTx, packageId: string, today: CalendarDate): Promise<SellGap[]> {
+  const row = await findPackage(tx, packageId);
+  if (row.kind !== "group") return row.fromPricePaise === null ? ["from_price"] : [];
+  const gaps: SellGap[] = [];
+  const offered = row.roomTypes as RoomType[];
+  if (offered.length === 0) gaps.push("room_types");
+  const departures = await sellableDepartures(tx, packageId, today);
+  const seasonPriced = (await seasonsOf(tx, packageId)).some(
+    (season) => season.endsOn >= today && offered.some((type) => season.prices[type] !== null),
+  );
+  const departurePriced = departures.some((departure) =>
+    offered.some((type) => departure[departurePriceColumn[type]] !== null),
+  );
+  if (!seasonPriced && !departurePriced) gaps.push("prices");
+  if (row.advancePerPersonPaise === null || row.advancePerPersonPaise <= 0n) gaps.push("advance");
+  if (departures.length === 0) gaps.push("departures");
+  return gaps;
+}
+
+/** Lets the AI sell the package, or stops it. Turning on needs nothing missing; turning off always works. */
+export async function setPackageSellable(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SetPackageSellableInput,
+  today: CalendarDate,
+): Promise<void> {
+  const row = await findPackage(tx, input.packageId);
+  if (row.aiSellable === input.sellable) return;
+  if (input.sellable && (await packageSellGaps(tx, row.id, today)).length > 0) {
+    throw new DomainError("VALIDATION", "PACKAGE_NOT_READY_TO_SELL", "Fill in what the package still needs first");
+  }
+  await tx.quoteTemplate.update({ where: { id: row.id }, data: { aiSellable: input.sellable } });
+  await recordAudit(tx, access, {
+    action: "package.sellable-changed",
+    entityType: "quote_template",
+    entityId: row.id,
+    before: { sellable: row.aiSellable },
+    after: { sellable: input.sellable, name: row.name },
+  });
+}
+
 export async function getPackage(
   tx: OrgTx,
   access: MemberAccess,
   packageId: string,
-  context: { photoCount: number; agencyCode: string },
+  context: { photoCount: number; agencyCode: string; today: CalendarDate },
 ): Promise<PackageDetail> {
   const row = await findPackage(tx, packageId);
   const settings = await tx.publicPageSettings.findFirst({ select: { enabled: true } });
@@ -123,6 +209,18 @@ export async function getPackage(
     fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
     defaultTravellerLevel: row.defaultTravellerLevel,
     cancellationNotes: row.cancellationNotes,
+    kind: row.kind,
+    roomTypes: row.roomTypes,
+    pricesIncludeGst: row.pricesIncludeGst,
+    advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
+    paymentDetails: row.paymentDetails,
+    pickupPoints: row.pickupPoints,
+    startCity: row.startCity,
+    weeklyDays: row.weeklyDays,
+    departureMonths: row.departureMonths,
+    seatsPerDeparture: row.seatsPerDeparture,
+    sellable: row.aiSellable,
+    sellGaps: await packageSellGaps(tx, row.id, context.today),
     published: row.published,
     destinationName: row.destination?.name ?? null,
     items: access.permissions.has("money:view_margin") ? items : withoutCosts(items),
@@ -177,6 +275,7 @@ export async function updatePackage(tx: OrgTx, access: MemberAccess, input: Upda
       data: {
         ...fields,
         fromPricePaise: fields.fromPricePaise === null ? null : BigInt(fields.fromPricePaise),
+        advancePerPersonPaise: fields.advancePerPersonPaise === null ? null : BigInt(fields.advancePerPersonPaise),
       },
     });
   } catch (error) {

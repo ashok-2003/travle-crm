@@ -2,6 +2,7 @@
 // one package (but free to repeat across packages), changed and removed with an audit entry each, and invisible to another agency.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RoomPrices } from "@travel-crm/contracts/quotes";
+import { parseCalendarDate } from "../../src/kernel/index.js";
 import { aLead } from "../crm/support/records.js";
 import { openWorld, type World } from "../bookings/support.js";
 import {
@@ -89,7 +90,11 @@ describe("package seasons", () => {
     expect(seasons[0]?.prices.double).toBe(4_500_000);
     expect(await reasonOf(save(id, "Clash", "2026-11-25", "2026-12-05"))).toBe("PACKAGE_SEASON_OVERLAPS");
     const detail = await world.inOrg((tx) =>
-      getPackage(tx, world.manager, id, { photoCount: 0, agencyCode: "seasons" }),
+      getPackage(tx, world.manager, id, {
+        photoCount: 0,
+        agencyCode: "seasons",
+        today: parseCalendarDate("2026-11-10"),
+      }),
     );
     expect(detail.seasons).toHaveLength(2);
     const another = await aPackage();

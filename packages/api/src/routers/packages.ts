@@ -15,6 +15,7 @@ import {
   savePackageSeasonInput,
   saveTierInput,
   setPackagePublishedInput,
+  setPackageSellableInput,
   tierIdInput,
   updatePackageInput,
 } from "@travel-crm/contracts/quotes";
@@ -35,6 +36,7 @@ import {
   tiersOf,
   saveTier,
   setPackagePublished,
+  setPackageSellable,
   updatePackage,
 } from "@travel-crm/domain/quotes";
 import { z } from "zod";
@@ -53,11 +55,13 @@ export const packagesRouter = router({
     .output(packageDetail)
     .query(async ({ ctx, input }) => {
       const photoCount = await packagePhotoCount(ctx, ctx.member, input.packageId);
+      const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
+      const today = calendarDateIn(new Date(), timeZone);
       const agencyCode = (
         (await ctx.identity.organizationProfile(ctx.member.organizationId))?.code ?? ""
       ).toLowerCase();
       return ctx.db.forOrg(ctx.member.organizationId, (tx) =>
-        getPackage(tx, ctx.member, input.packageId, { photoCount, agencyCode }),
+        getPackage(tx, ctx.member, input.packageId, { photoCount, agencyCode, today }),
       );
     }),
 
@@ -70,6 +74,13 @@ export const packagesRouter = router({
   setPublished: publisher.input(setPackagePublishedInput).mutation(async ({ ctx, input }) => {
     const photoCount = await packagePhotoCount(ctx, ctx.member, input.packageId);
     await ctx.db.forOrg(ctx.member.organizationId, (tx) => setPackagePublished(tx, ctx.member, input, photoCount));
+  }),
+
+  /** Lets the AI sell the package, or stops it: a business-critical switch, so it reads the session from the database. */
+  setSellable: publisher.input(setPackageSellableInput).mutation(async ({ ctx, input }) => {
+    const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
+    const today = calendarDateIn(new Date(), timeZone);
+    await ctx.db.forOrg(ctx.member.organizationId, (tx) => setPackageSellable(tx, ctx.member, input, today));
   }),
 
   saveTier: editor

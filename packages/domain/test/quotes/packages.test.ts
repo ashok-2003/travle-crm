@@ -48,6 +48,16 @@ const words = (overrides: Partial<UpdatePackageInput> = {}): Omit<UpdatePackageI
   fromPricePaise: null,
   defaultTravellerLevel: null,
   cancellationNotes: "",
+  kind: "custom",
+  roomTypes: [],
+  pricesIncludeGst: true,
+  advancePerPersonPaise: null,
+  paymentDetails: "",
+  pickupPoints: "",
+  startCity: "",
+  weeklyDays: [],
+  departureMonths: [],
+  seatsPerDeparture: null,
   ...overrides,
 });
 const line = (overrides: Partial<TierLine> = {}): TierLine => ({
@@ -152,7 +162,13 @@ describe("packages and the quotes made from them", () => {
     return made.id;
   }
   const detail = (packageId: string, photoCount = 0) =>
-    world.inOrg((tx) => getPackage(tx, world.manager, packageId, { photoCount, agencyCode: "sharma" }));
+    world.inOrg((tx) =>
+      getPackage(tx, world.manager, packageId, {
+        photoCount,
+        agencyCode: "sharma",
+        today: parseCalendarDate("2026-11-10"),
+      }),
+    );
   const lead = () => world.inOrg((tx) => aLead(tx, { ownerUserId: world.seller.userId, stage: "contacted" }));
 
   describe("its words and its page", () => {

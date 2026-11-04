@@ -263,7 +263,8 @@
     },
     "package": {
       "season-saved": "Saved a package's season and room prices",
-      "season-removed": "Removed a package's season"
+      "season-removed": "Removed a package's season",
+      "sellable-changed": "Let the AI sell a package, or stopped it"
     },
     "ai-settings": {
       "changed": "Changed the AI settings"

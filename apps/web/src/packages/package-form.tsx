@@ -101,6 +101,17 @@ function toInput(packageId: string, detail: PackageDetail, typed: Values) {
     fromPricePaise: price,
     defaultTravellerLevel: typed.level === DEFAULT_LEVEL ? null : typed.level,
     cancellationNotes: typed.cancellationNotes,
+    // The group-trip fields have no screen yet: they are sent back as loaded.
+    kind: detail.kind,
+    roomTypes: detail.roomTypes,
+    pricesIncludeGst: detail.pricesIncludeGst,
+    advancePerPersonPaise: detail.advancePerPersonPaise,
+    paymentDetails: detail.paymentDetails,
+    pickupPoints: detail.pickupPoints,
+    startCity: detail.startCity,
+    weeklyDays: detail.weeklyDays,
+    departureMonths: detail.departureMonths,
+    seatsPerDeparture: detail.seatsPerDeparture,
   });
 }
 

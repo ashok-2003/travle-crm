@@ -116,6 +116,16 @@ describe("a public package page and its enquiry", () => {
         fromPricePaise: 3_200_000,
         defaultTravellerLevel: null,
         cancellationNotes: "",
+        kind: "custom",
+        roomTypes: [],
+        pricesIncludeGst: true,
+        advancePerPersonPaise: null,
+        paymentDetails: "",
+        pickupPoints: "",
+        startCity: "",
+        weeklyDays: [],
+        departureMonths: [],
+        seatsPerDeparture: null,
       }),
     );
     await world.inOrg((tx) => setPackagePublished(tx, world.manager, { packageId, published: true }, 1));

@@ -15,10 +15,12 @@ export { deletePackage, duplicateQuote, listPackages, quoteFromPackage, savePack
 export {
   findPackage,
   getPackage,
+  packageSellGaps,
   publishGaps,
   removeTier,
   saveTier,
   setPackagePublished,
+  setPackageSellable,
   tiersOf,
   updatePackage,
 } from "./package-edit.js";
