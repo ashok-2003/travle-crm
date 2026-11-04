@@ -130,6 +130,22 @@ model QuoteTemplate {
   /// basic, detailed or international (release 6's booking level), or null for the agency's default.
   defaultTravellerLevel String?             @map("default_traveller_level")
   cancellationNotes     String              @default("") @map("cancellation_notes")
+  /// custom or group (CHECK quote_template_kind_value). A group package sells departures: seasons price it per person.
+  kind                  String              @default("custom")
+  /// Room types a group package sells: single, double, triple, quad, child_bed, child_no_bed (CHECK quote_template_room_types_value).
+  roomTypes             String[]            @default([]) @map("room_types")
+  pricesIncludeGst      Boolean             @default(true) @map("prices_include_gst")
+  advancePerPersonPaise BigInt?             @map("advance_per_person_paise")
+  paymentDetails        String              @default("") @map("payment_details")
+  pickupPoints          String              @default("") @map("pickup_points")
+  startCity             String              @default("") @map("start_city")
+  /// Days it departs, 0 Sunday to 6 Saturday (CHECK quote_template_weekly_days_value).
+  weeklyDays            Int[]               @default([]) @map("weekly_days")
+  /// Months it departs, 1 to 12; empty means every month (CHECK quote_template_departure_months_value).
+  departureMonths       Int[]               @default([]) @map("departure_months")
+  seatsPerDeparture     Int?                @map("seats_per_departure")
+  /// The AI may sell this package (a group package only, decided in the domain).
+  aiSellable            Boolean             @default(false) @map("ai_sellable")
   createdBy             String?             @map("created_by") @db.Uuid
   createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -138,6 +154,8 @@ model QuoteTemplate {
   organization          Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   destination           Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   tiers                 QuoteTemplateTier[]
+  seasons               PackageSeason[]
+  departures            Departure[]
   quotes                Quote[]
   enquiries             PackageEnquiry[]
 

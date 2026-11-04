@@ -15,6 +15,8 @@ model AiSettings {
   fillLeads      Boolean      @default(true) @map("fill_leads")
   /// How the quote write-up sounds: warm, premium or short (CHECK ai_settings_write_style_value).
   writeStyle     String       @default("warm") @map("write_style")
+  /// The AI may also plan a custom trip for a lead, not only sell group packages.
+  customTrips    Boolean      @default(false) @map("custom_trips")
   updatedBy      String?      @map("updated_by") @db.Uuid
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -313,32 +315,32 @@ model AiFollowUpTouch {
 /// changed, so the audit can say "drafted by AI, approved by X". Used once. Its recording or screenshot is an `ai_input`
 /// attachment, deleted 30 days after upload (and with the customer or the organization).
 model AiFill {
-  organizationId    String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id                String       @id @default(uuid(7)) @db.Uuid
+  organizationId     String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                 String       @id @default(uuid(7)) @db.Uuid
   /// lead, lead_edit, quote, call_note, room_requests, departure_offer, quote_days, rate_sheet or travellers (CHECK ai_fill_target_value).
-  target            String
+  target             String
   /// What the form is for (lead, quote, ...) and its id: polymorphic, so no key. Null for a lead not made yet.
-  subjectType       String?      @map("subject_type")
-  subjectId         String?      @map("subject_id") @db.Uuid
-  requestedBy       String       @map("requested_by") @db.Uuid
+  subjectType        String?      @map("subject_type")
+  subjectId          String?      @map("subject_id") @db.Uuid
+  requestedBy        String       @map("requested_by") @db.Uuid
   /// text, voice, image, chat or file (CHECK ai_fill_input_kind_value).
-  inputKind         String       @map("input_kind")
+  inputKind          String       @map("input_kind")
   /// The recording or screenshot, an attachment of record type ai_input; no key: the sweep deletes the attachment row.
-  inputAttachmentId String?      @map("input_attachment_id") @db.Uuid
+  inputAttachmentId  String?      @map("input_attachment_id") @db.Uuid
   /// The rest of a photo set (a rate sheet's other photos), also ai_input attachments; null for a fill of one file.
-  inputAttachmentIds String[]    @default([]) @map("input_attachment_ids") @db.Uuid
-  model             String
+  inputAttachmentIds String[]     @default([]) @map("input_attachment_ids") @db.Uuid
+  model              String
   /// A hash of the whole proposal.
-  proposalHash      String       @map("proposal_hash")
+  proposalHash       String       @map("proposal_hash")
   /// The paths proposed, and a hash of each proposed value ({ path: hash }).
-  fields            String[]     @default([])
-  fieldHashes       Json         @default("{}") @map("field_hashes")
-  appliedAt         DateTime?    @map("applied_at") @db.Timestamptz(6)
-  appliedBy         String?      @map("applied_by") @db.Uuid
-  appliedFields     String[]     @default([]) @map("applied_fields")
-  changedFields     String[]     @default([]) @map("changed_fields")
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fields             String[]     @default([])
+  fieldHashes        Json         @default("{}") @map("field_hashes")
+  appliedAt          DateTime?    @map("applied_at") @db.Timestamptz(6)
+  appliedBy          String?      @map("applied_by") @db.Uuid
+  appliedFields      String[]     @default([]) @map("applied_fields")
+  changedFields      String[]     @default([]) @map("changed_fields")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([organizationId, id])
   @@index([organizationId, subjectId], map: "ai_fill_subject")

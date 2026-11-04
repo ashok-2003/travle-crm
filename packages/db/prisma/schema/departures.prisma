@@ -5,38 +5,49 @@
 /// A group departure. Soft-deleted (ADR 0004); cancelling keeps it, with a reason.
 model Departure {
   /// Filled from db.forOrg()'s organization when omitted.
-  organizationId  String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id              String              @id @default(uuid(7)) @db.Uuid
-  title           String
-  destinationId   String?             @map("destination_id") @db.Uuid
-  startDate       DateTime            @map("start_date") @db.Date
-  endDate         DateTime            @map("end_date") @db.Date
-  seatsTotal      Int                 @map("seats_total")
+  organizationId       String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                   String              @id @default(uuid(7)) @db.Uuid
+  title                String
+  destinationId        String?             @map("destination_id") @db.Uuid
+  startDate            DateTime            @map("start_date") @db.Date
+  endDate              DateTime            @map("end_date") @db.Date
+  seatsTotal           Int                 @map("seats_total")
   /// Per person, in paise, or null when each quote sets its own.
-  pricePaise      BigInt?             @map("price_paise")
+  pricePaise           BigInt?             @map("price_paise")
   /// The last day a seat is sold, or null.
-  cutoffOn        DateTime?           @map("cutoff_on") @db.Date
+  cutoffOn             DateTime?           @map("cutoff_on") @db.Date
   /// open, closed or cancelled (CHECK departure_status_value). Full and Filling fast are worked out from the seats.
-  status          String              @default("open")
-  notes           String              @default("")
-  cancelledReason String?             @map("cancelled_reason")
-  createdBy       String?             @map("created_by") @db.Uuid
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  deletedBy       String?             @map("deleted_by") @db.Uuid
-  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  destination     Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
-  holds           DepartureHold[]
-  waitlist        DepartureWaitlist[]
-  offers          DepartureOffer[]
-  stays           DepartureStay[]
-  quotes          Quote[]
-  bookings        Booking[]
-  costs           TripCost[]
-  enquiries       PackageEnquiry[]
+  status               String              @default("open")
+  notes                String              @default("")
+  cancelledReason      String?             @map("cancelled_reason")
+  /// The group package this departure sells, or null (one departure per package per day while live).
+  templateId           String?             @map("template_id") @db.Uuid
+  /// Per person, in paise, by room type; null when this departure has no price for it.
+  priceSinglePaise     BigInt?             @map("price_single_paise")
+  priceDoublePaise     BigInt?             @map("price_double_paise")
+  priceTriplePaise     BigInt?             @map("price_triple_paise")
+  priceQuadPaise       BigInt?             @map("price_quad_paise")
+  priceChildBedPaise   BigInt?             @map("price_child_bed_paise")
+  priceChildNoBedPaise BigInt?             @map("price_child_no_bed_paise")
+  createdBy            String?             @map("created_by") @db.Uuid
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  deletedBy            String?             @map("deleted_by") @db.Uuid
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  destination          Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  template             QuoteTemplate?      @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  holds                DepartureHold[]
+  waitlist             DepartureWaitlist[]
+  offers               DepartureOffer[]
+  stays                DepartureStay[]
+  quotes               Quote[]
+  bookings             Booking[]
+  costs                TripCost[]
+  enquiries            PackageEnquiry[]
 
   @@unique([organizationId, id])
+  @@unique([organizationId, templateId, startDate], map: "departure_package_day", where: { templateId: { not: null }, deletedAt: null })
   @@index([organizationId, startDate], map: "departure_by_start")
   @@map("departure")
 }

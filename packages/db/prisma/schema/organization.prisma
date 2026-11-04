@@ -134,6 +134,7 @@ model Organization {
   quoteTemplates              QuoteTemplate[]
   quoteTemplateTiers          QuoteTemplateTier[]
   supplierRateSeasons         SupplierRateSeason[]
+  packageSeasons              PackageSeason[]
   supplierRates               SupplierRate[]
   publicPageSettings          PublicPageSettings?
   packageEnquiries            PackageEnquiry[]
