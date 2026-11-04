@@ -13,12 +13,12 @@ const seasons: SeasonPrices[] = [
   { label: "Peak", startsOn: day("2026-12-20"), endsOn: day("2027-01-05"), prices: { ...none, triple: 799_900 } },
 ];
 
-function taxFor(supplierState: "27" | "07") {
+function taxFor(supplierState: "27" | "07", rateBasisPoints: number) {
   return (subtotalPaise: number) =>
     indiaGst.compute({
       supplierStateCode: "27",
       placeOfSupplyStateCode: supplierState,
-      lines: [{ description: "Trip", sacCode: "998555", taxableValue: money(subtotalPaise), rateBasisPoints: 500 }],
+      lines: [{ description: "Trip", sacCode: "998555", taxableValue: money(subtotalPaise), rateBasisPoints }],
     }).tax.amountPaise;
 }
 
@@ -71,17 +71,50 @@ describe("totalFor", () => {
 });
 
 describe("exTaxSubtotal", () => {
-  it("takes GST out so the quote's total is the price told", () => {
-    const taxOf = taxFor("27");
-    const subtotal = exTaxSubtotal(699_900, 500, taxOf);
-    expect(subtotal + taxOf(subtotal)).toBe(699_900);
+  const sumFor = (tax: (subtotal: number) => number, subtotal: number) => subtotal + tax(subtotal);
+
+  function checkTotals(rate: number, totals: Iterable<number>) {
     for (const state of ["27", "07"] as const) {
-      const tax = taxFor(state);
-      for (let rupees = 1_000; rupees <= 50_000; rupees += 1) {
-        const total = rupees * 100;
-        const part = exTaxSubtotal(total, 500, tax);
-        expect(Math.abs(part + tax(part) - total)).toBeLessThanOrEqual(2);
+      const tax = taxFor(state, rate);
+      for (const total of totals) {
+        const part = exTaxSubtotal(total, rate, tax);
+        const estimate = Math.round((total * 10_000) / (10_000 + rate));
+        const reachable = [-2, -1, 0, 1, 2].some((offset) => sumFor(tax, estimate + offset) === total);
+        // Exact whenever any subtotal near the estimate sums to the total; never more than 2 paise away.
+        if (reachable) expect(sumFor(tax, part)).toBe(total);
+        expect(Math.abs(sumFor(tax, part) - total)).toBeLessThanOrEqual(2);
       }
     }
+  }
+
+  it("takes GST out so the quote's total is the price told", () => {
+    const taxOf = taxFor("27", 500);
+    const subtotal = exTaxSubtotal(699_900, 500, taxOf);
+    expect(sumFor(taxOf, subtotal)).toBe(699_900);
+  });
+
+  it("is exact where an exact subtotal exists, at 5 %, 12 % and 18 %, for whole rupees", () => {
+    const rupees = Array.from({ length: 49_001 }, (_, index) => (1_000 + index) * 100);
+    for (const rate of [500, 1200, 1800])
+      checkTotals(
+        rate,
+        rupees.filter((_, index) => index % 7 === 0),
+      );
+    checkTotals(500, rupees);
+  });
+
+  it("is exact where possible for totals that are not whole rupees", () => {
+    const paise = Array.from({ length: 4_000 }, (_, index) => 100_000 + index * 7);
+    for (const rate of [500, 1200, 1800]) checkTotals(rate, paise);
+  });
+
+  it("picks the closest sum when no subtotal sums exactly", () => {
+    // A tax that rounds odd subtotals up to an even number can never reach a total of 4k + 1.
+    const taxOf = (subtotal: number) => 2 * Math.round(subtotal / 2);
+    expect(exTaxSubtotal(1_001, 10_000, taxOf)).toBe(500);
+  });
+
+  it("refuses a tax function that cannot come near the total", () => {
+    expect(() => exTaxSubtotal(1_000, 5_000, () => 0)).toThrow(Error);
   });
 });

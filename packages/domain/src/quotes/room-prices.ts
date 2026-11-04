@@ -70,6 +70,8 @@ export function totalFor(prices: RoomPrices, rooms: readonly RoomBooking[]): Roo
   return { ok: true, totalPaise: lines.reduce((sum, line) => sum + line.amountPaise, 0), lines };
 }
 
+const MAX_GST_ROUNDING_GAP_PAISE = 2;
+
 /**
  * The pre-tax subtotal of a price that includes GST: the one whose subtotal plus tax is the total, searched around
  * total ÷ (1 + rate). Rounding can leave no such subtotal; then the closest sum wins, never more than 2 paise away.
@@ -89,6 +91,12 @@ export function exTaxSubtotal(
       best = candidate;
       bestGap = gap;
     }
+  }
+  // A programming error, not a business refusal: a tax function that can't come near the total is wrong.
+  if (bestGap > MAX_GST_ROUNDING_GAP_PAISE) {
+    throw new Error(
+      `No subtotal within ${String(MAX_GST_ROUNDING_GAP_PAISE)} paise of the total ${String(totalPaise)}`,
+    );
   }
   return best;
 }
