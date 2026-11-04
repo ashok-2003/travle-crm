@@ -5,6 +5,7 @@ import { travellerLevel } from "../bookings/bookings.js";
 import { MAX_PACKAGE_PHOTO_BYTES, packagePhotoContentTypes } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
+import { roomPrices } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -90,6 +91,37 @@ export const packageTier = z.object({
 });
 export type PackageTier = z.infer<typeof packageTier>;
 
+/** A season of a group package: the dates a set of per-person room prices holds. */
+export const packageSeason = z.object({
+  id: recordId,
+  label: z.string(),
+  startsOn: calendarDate,
+  endsOn: calendarDate,
+  prices: roomPrices,
+});
+export type PackageSeasonView = z.infer<typeof packageSeason>;
+
+export const savePackageSeasonInput = z
+  .strictObject({
+    packageId: recordId,
+    /** Set to change a season; left out to add one. */
+    seasonId: recordId.optional(),
+    label: text(60).min(1),
+    startsOn: calendarDate,
+    endsOn: calendarDate,
+    prices: roomPrices,
+  })
+  .refine((value) => value.endsOn >= value.startsOn, {
+    message: "The season must end on or after its first day",
+    path: ["endsOn"],
+  })
+  .refine((value) => Object.values(value.prices).some((price) => price !== null), {
+    message: "Give at least one room type a price",
+    path: ["prices"],
+  });
+export type SavePackageSeasonInput = z.infer<typeof savePackageSeasonInput>;
+export const removePackageSeasonInput = z.strictObject({ seasonId: recordId });
+
 export const packageDetail = z.object({
   id: recordId,
   ...z.object(packageFields).shape,
@@ -99,6 +131,8 @@ export const packageDetail = z.object({
   /** The lines of a package with no tiers (its one implicit tier); costs only for whoever may see margins. */
   items: z.array(quoteItem).max(MAX_QUOTE_ITEMS),
   tiers: z.array(packageTier),
+  /** Group-trip seasons with their room prices, by first day. */
+  seasons: z.array(packageSeason),
   photoCount: z.int(),
   /** What is missing to publish; empty when it can be. */
   gaps: z.array(z.enum(publishGaps)),

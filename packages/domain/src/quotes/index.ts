@@ -22,6 +22,7 @@ export {
   tiersOf,
   updatePackage,
 } from "./package-edit.js";
+export { removePackageSeason, savePackageSeason, seasonsOf } from "./package-seasons.js";
 export {
   confirmPackagePhoto,
   listPackagePhotos,

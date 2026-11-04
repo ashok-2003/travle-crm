@@ -261,6 +261,10 @@
       "tier-saved": "Saved a package's tier",
       "tier-removed": "Removed a package's tier"
     },
+    "package": {
+      "season-saved": "Saved a package's season and room prices",
+      "season-removed": "Removed a package's season"
+    },
     "ai-settings": {
       "changed": "Changed the AI settings"
     },

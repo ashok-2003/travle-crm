@@ -11,6 +11,8 @@ import {
   packagePhotoList,
   packagePhotoRefInput,
   requestPackagePhotoInput,
+  removePackageSeasonInput,
+  savePackageSeasonInput,
   saveTierInput,
   setPackagePublishedInput,
   tierIdInput,
@@ -26,7 +28,9 @@ import {
   makeQuotesFromPackage,
   packagePhotoCount,
   removePackagePhoto,
+  removePackageSeason,
   removeTier,
+  savePackageSeason,
   requestPackagePhotoUpload,
   tiersOf,
   saveTier,
@@ -77,6 +81,19 @@ export const packagesRouter = router({
     .input(tierIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => removeTier(tx, ctx.member, input.tierId)),
+    ),
+
+  saveSeason: editor
+    .input(savePackageSeasonInput)
+    .output(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => savePackageSeason(tx, ctx.member, input)),
+    ),
+
+  removeSeason: editor
+    .input(removePackageSeasonInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => removePackageSeason(tx, ctx.member, input.seasonId)),
     ),
 
   /** "Calculate from the catalog": a suggestion for "From ₹X", never saved by itself. */

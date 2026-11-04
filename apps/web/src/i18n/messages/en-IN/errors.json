@@ -291,6 +291,7 @@
     "PACKAGE_NOT_READY": "Give the package a name, an address, a summary and a photo first.",
     "PACKAGE_PUBLISHED_NEEDS_SLUG": "Take the page down before you remove its address.",
     "FROM_PRICE_REQUIRED": "Enter the price to show, or choose 'Price on enquiry'.",
+    "PACKAGE_SEASON_OVERLAPS": "Another season of this package already covers some of these dates.",
     "PACKAGE_TIER_LIMIT": "A package has five tiers at most.",
     "PACKAGE_TIER_REQUIRED": "Choose at least one tier.",
     "TIER_NAME_TAKEN": "This package already has a tier with this name.",

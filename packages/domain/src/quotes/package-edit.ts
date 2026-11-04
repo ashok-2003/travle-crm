@@ -17,6 +17,7 @@ import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { withoutCosts } from "./margin.js";
+import { seasonsOf } from "./package-seasons.js";
 import { itemsOf } from "./quote-rows.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
@@ -126,6 +127,7 @@ export async function getPackage(
     destinationName: row.destination?.name ?? null,
     items: access.permissions.has("money:view_margin") ? items : withoutCosts(items),
     tiers: await tiersOf(tx, row.id),
+    seasons: await seasonsOf(tx, row.id),
     photoCount: context.photoCount,
     gaps: publishGaps(row, context.photoCount),
     pagesEnabled: settings?.enabled ?? false,
