@@ -3,7 +3,8 @@ import type { UpdatePackageInput } from "@travel-crm/contracts/quotes";
 import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import type { Permission } from "@travel-crm/domain/identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { anAgency, callerOf, createHarness, type Harness } from "./forms-support.js";
+import { randomUUID } from "node:crypto";
+import { anAgency, callerOf, createHarness, refusal, type Harness } from "./forms-support.js";
 
 const words = (name: string): Omit<UpdatePackageInput, "packageId"> => ({
   name,
@@ -62,5 +63,39 @@ describe("packages.update and departures", () => {
     expect(
       await savedDepartures(["crm", "quotes", "departures"], ["quotes:edit", "departures:create"]),
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("packages.makeGroupQuote", () => {
+  let harness: Harness;
+  beforeAll(() => {
+    harness = createHarness();
+  });
+  afterAll(() => harness.close());
+
+  const call = (modules: PlanModule[], granted: Permission[]) =>
+    anAgency(harness, { modules }).then((organizationId) =>
+      callerOf(harness, { organizationId, granted }).caller.packages.makeGroupQuote({
+        leadId: randomUUID(),
+        packageId: randomUUID(),
+        departureId: randomUUID(),
+        rooms: [{ roomType: "double", people: 2 }],
+      }),
+    );
+
+  it("needs departures:view as well as quotes:create", async () => {
+    expect(await refusal(call(["crm", "quotes", "departures"], ["quotes:create"]))).toBe("MISSING_PERMISSION");
+  });
+
+  it("needs the plan's departures module", async () => {
+    const reason = await refusal(call(["crm", "quotes"], ["quotes:create", "departures:view"]));
+    expect(reason).not.toBe("MISSING_PERMISSION");
+    expect(reason).not.toBe("NOT_FOUND");
+  });
+
+  it("goes past the checks for a member with both, on a plan with the module", async () => {
+    expect(await refusal(call(["crm", "quotes", "departures"], ["quotes:create", "departures:view"]))).toBe(
+      "NOT_FOUND",
+    );
   });
 });

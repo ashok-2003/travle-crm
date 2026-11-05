@@ -173,8 +173,9 @@ export const packagesRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => makeQuotesFromPackage(tx, ctx.member, input, context));
     }),
 
-  /** A quote for a group trip: one open departure of the package and the rooms the party takes. */
-  makeGroupQuote: maker
+  /** A quote for a group trip: one open departure (so departures:view, and the plan's departures module, as the other quote-departure calls need) of the package and the rooms the party takes. */
+  makeGroupQuote: orgProcedure
+    .requires("departures:view", "quotes:create")
     .input(makeGroupQuoteInput)
     .output(quoteDetail)
     .mutation(async ({ ctx, input }) => {
