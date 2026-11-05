@@ -66,8 +66,8 @@ export async function publishedPackages(
 /** The package's upcoming departures, by words. */
 export function departuresOf(
   tx: OrgTx,
-  row: Pick<PublicPackageRow, "destinationId">,
+  row: Pick<PublicPackageRow, "id" | "destinationId">,
   when: { today: string; now: Date },
 ): Promise<PublicDepartureRow[]> {
-  return publicDepartures(tx, { destinationId: row.destinationId, ...when });
+  return publicDepartures(tx, { destinationId: row.destinationId, packageId: row.id, ...when });
 }

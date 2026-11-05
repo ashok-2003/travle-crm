@@ -32,7 +32,12 @@ export async function receiveEnquiryOnPackage(
   if (input.departureId !== undefined) {
     // Only a departure the page lists: at the package's destination, upcoming and not closed.
     const listed = (
-      await publicDepartures(tx, { destinationId: row.destinationId, today: services.today, now: services.now })
+      await publicDepartures(tx, {
+        destinationId: row.destinationId,
+        packageId: row.id,
+        today: services.today,
+        now: services.now,
+      })
     ).find((candidate) => candidate.id === input.departureId);
     if (listed === undefined) throw departureUnavailable();
     departure = {
