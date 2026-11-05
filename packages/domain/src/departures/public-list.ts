@@ -24,20 +24,27 @@ const wordOf = (state: string): PublicSeatWord | null =>
   state === "open" || state === "filling" || state === "full" ? state : null;
 
 /**
- * Upcoming departures that still take seats or a waitlist, the next first: a package's own when it has any linked to it
- * (each priced by its season or its own prices, the lowest offered), otherwise those at the destination.
+ * Upcoming departures that still take seats or a waitlist, the next first. A group package lists only its own, each priced
+ * by its season or its own prices (the lowest offered), even when that leaves none; any other package lists those at its
+ * destination.
  */
 export async function publicDepartures(
   tx: OrgTx,
   input: { destinationId: string | null; packageId?: string; today: string; now: Date; onlyId?: string },
 ): Promise<PublicDepartureRow[]> {
-  const owned =
-    input.packageId !== undefined && (await tx.departure.count({ where: { templateId: input.packageId } })) > 0;
-  if (!owned && input.destinationId === null && input.onlyId === undefined) return [];
+  const group =
+    input.packageId === undefined
+      ? null
+      : await tx.quoteTemplate.findUnique({ where: { id: input.packageId }, select: { kind: true, roomTypes: true } });
+  const pricing =
+    group?.kind === "group" && input.packageId !== undefined
+      ? await pricingOf(tx, input.packageId, group.roomTypes as RoomType[])
+      : null;
+  if (pricing === null && input.destinationId === null && input.onlyId === undefined) return [];
   const scope =
     input.onlyId !== undefined
       ? { id: input.onlyId }
-      : owned && input.packageId !== undefined
+      : pricing !== null && input.packageId !== undefined
         ? { templateId: input.packageId }
         : { destinationId: input.destinationId };
   const rows = await tx.departure.findMany({
@@ -66,7 +73,6 @@ export async function publicDepartures(
       priceChildNoBedPaise: true,
     },
   });
-  const pricing = owned && input.packageId !== undefined ? await pricingOf(tx, input.packageId) : null;
   const [seats, settings] = await Promise.all([
     seatsSoldAndHeld(
       tx,
@@ -95,12 +101,8 @@ export async function publicDepartures(
 }
 
 /** The package's seasons and offered room types, as a function from a departure to its lowest offered price. */
-async function pricingOf(tx: OrgTx, packageId: string) {
-  const [seasons, template] = await Promise.all([
-    seasonsOf(tx, packageId),
-    tx.quoteTemplate.findUnique({ where: { id: packageId }, select: { roomTypes: true } }),
-  ]);
-  const offered = (template?.roomTypes ?? []) as RoomType[];
+async function pricingOf(tx: OrgTx, packageId: string, offered: readonly RoomType[]) {
+  const seasons = await seasonsOf(tx, packageId);
   return (row: {
     title: string;
     startDate: Date;

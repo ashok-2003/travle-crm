@@ -395,5 +395,52 @@ describe("a public package page and its enquiry", () => {
         );
       }
     });
+
+    describe("on a group package's page", () => {
+      const makeKind = (kind: "group" | "custom") =>
+        world.inOrg((tx) =>
+          tx.quoteTemplate.update({
+            where: { id: packageId },
+            data: { kind, roomTypes: kind === "group" ? ["double"] : [] },
+          }),
+        );
+      const departureAt = (title: string, link: boolean) =>
+        world.inOrg(async (tx) => {
+          const made = await aDeparture(tx, { title, startDate: "2026-12-14", endDate: "2026-12-18" });
+          await tx.departure.update({
+            where: { id: made.id },
+            data: { destinationId, ...(link ? { templateId: packageId } : {}) },
+          });
+          return made.id;
+        });
+
+      it("lists nothing when the package has no departure of its own, whatever the destination has", async () => {
+        await departureAt("Same place, nobody's", false);
+        await makeKind("group");
+        try {
+          expect(
+            await world.inOrg((tx) => departuresOf(tx, { id: packageId, destinationId }, { today: "2026-11-10", now })),
+          ).toEqual([]);
+        } finally {
+          await makeKind("custom");
+        }
+      });
+
+      it("lets a visitor join its own departure, and refuses another package's at the same destination", async () => {
+        const own = await departureAt("Own batch", true);
+        const other = await departureAt("Another package's batch", false);
+        await makeKind("group");
+        try {
+          expect(await reasonOf(receive(input({}, { departureId: own })))).toBeNull();
+          expect(await reasonOf(receive(input({}, { departureId: other })))).toBe("DEPARTURE_UNAVAILABLE");
+        } finally {
+          await makeKind("custom");
+          await world.inOrg((tx) =>
+            tx.departure.updateMany({ where: { templateId: packageId }, data: { templateId: null } }),
+          );
+        }
+        expect(await reasonOf(receive(input({}, { departureId: other })))).toBeNull();
+      });
+    });
   });
 });
