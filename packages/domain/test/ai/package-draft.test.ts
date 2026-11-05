@@ -173,6 +173,29 @@ describe("drafting one trip", () => {
     expect(price?.evidence).toHaveLength(1);
   });
 
+  it("a price counts as printed only when its amount is in the line, not a number that merely starts alike", async () => {
+    const { draft, model } = await agency();
+    const season = (printed: string, token: string) => [
+      {
+        label: "Winter",
+        fromMonth: 12,
+        toMonth: 1,
+        tokens: [token],
+        prices: [{ room: "double", printed, tokens: [token] }],
+      },
+    ];
+    // "6k" is 6,000; the line holds a 6 (days) and 6,999, but no 6,000.
+    model.answer(answer({ seasons: season("6k", "P1.L1") }));
+    expect((await draft()).seasons[0]?.prices.double[0]).toMatchObject({ value: 600000, checkThis: true });
+    model.answer(answer({ seasons: season("6k", "P1.L2") }));
+    expect((await draft()).seasons[0]?.prices.double[0]).toMatchObject({ value: 600000, checkThis: true });
+    // The same amount in another spelling is the printed price.
+    model.answer(answer({ seasons: season("₹6,999 only", "P1.L2") }));
+    expect((await draft()).seasons[0]?.prices.double[0]).toMatchObject({ value: 699900, checkThis: false });
+    model.answer(answer({ seasons: season("6999", "P1.L2") }));
+    expect((await draft()).seasons[0]?.prices.double[0]).toMatchObject({ value: 699900, checkThis: false });
+  });
+
   it("₹6,999 in one document and ₹7,499 in another are both kept", async () => {
     const { draft, model } = await agency();
     model.answer(

@@ -18,7 +18,7 @@ import { organizationTimeZone, type MemberAccess } from "../../identity/index.js
 import { DomainError, calendarDateIn, type CalendarDate } from "../../kernel/index.js";
 import { fenced } from "../agent-prompt.js";
 import { jsonObjectIn } from "../fill/json.js";
-import { parsePrintedPrice, priceInLine } from "../rates/price.js";
+import { amountInLine, parsePrintedPrice } from "../rates/price.js";
 import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
@@ -129,7 +129,7 @@ function buildDraft(
     if (evidence.length === 0) return null;
     const paise = parsePrintedPrice(printed);
     const value = paise !== null && paise <= MAX_QUOTE_PAISE ? paise : null;
-    return { value, evidence, checkThis: value === null || !evidence.some((ref) => priceInLine(printed, ref.excerpt)) };
+    return { value, evidence, checkThis: value === null || !evidence.some((ref) => amountInLine(value, ref.excerpt)) };
   };
   const same = <T>(first: T, second: T) => first === second;
 
