@@ -1,7 +1,7 @@
 // Departures made from a group package's weekly days, against the real database.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cancelDeparture, createDeparture, getDeparture, listDepartures } from "../../src/departures/index.js";
-import { generatePackageDepartures } from "../../src/departures/package-departures.js";
+import { generatePackageDepartures, runPackageDepartures } from "../../src/departures/package-departures.js";
 import { parseCalendarDate, systemActor } from "../../src/kernel/index.js";
 import { deletePackage } from "../../src/quotes/index.js";
 import { now, openWorld, type World } from "./support.js";
@@ -116,6 +116,53 @@ describe("departures of a package", () => {
         (error: unknown) => (error as { reason?: string }).reason ?? "other",
       );
     expect(refusal).toBe("PACKAGE_HAS_DEPARTURES");
+  });
+
+  it("a package can go once its departures are cancelled or past, not while one is coming", async () => {
+    const reasonOf = (id: string) =>
+      world
+        .inOrg((tx) => deletePackage(tx, world.manager, id))
+        .then(
+          () => null,
+          (error: unknown) => (error as { reason?: string }).reason ?? "other",
+        );
+    const make = async (startDate: string, status: string) => {
+      const pack = await aGroupPackage();
+      await world.inOrg((tx) =>
+        tx.departure.create({
+          data: {
+            title: pack.name,
+            templateId: pack.id,
+            startDate: new Date(`${startDate}T00:00:00Z`),
+            endDate: new Date(`${startDate}T00:00:00Z`),
+            seatsTotal: 5,
+            status,
+            ...(status === "cancelled" ? { cancelledReason: "Road closed" } : {}),
+          },
+        }),
+      );
+      return pack.id;
+    };
+    expect(await reasonOf(await make("2999-01-01", "cancelled"))).toBeNull();
+    expect(await reasonOf(await make("2020-01-01", "open"))).toBeNull();
+    expect(await reasonOf(await make("2999-01-01", "open"))).toBe("PACKAGE_HAS_DEPARTURES");
+  });
+
+  it("the nightly run makes none for an agency whose plan lacks the departures module", async () => {
+    await aGroupPackage();
+    const dependencies = (modules: string[]) => ({
+      db: world.db,
+      identity: { organizationsPage: () => Promise.resolve([{ id: world.organizationId }]) },
+      subscriptions: { entitlementsOf: () => Promise.resolve({ access: "full", modules: new Set(modules) }) },
+      logger: { error: () => undefined },
+    });
+    const run = (modules: string[]) =>
+      runPackageDepartures(
+        dependencies(modules) as unknown as Parameters<typeof runPackageDepartures>[0],
+        new Date("2026-11-02T06:00:00Z"),
+      );
+    expect(await run(["crm"])).toBe(0);
+    expect(await run(["departures"])).toBeGreaterThan(0);
   });
 
   it("lists a package's departures", async () => {

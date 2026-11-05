@@ -251,7 +251,7 @@
     "TOO_MANY_INSTALLMENTS": "A quote has 12 payments due at most.",
     "NAME_REQUIRED": "Type your name to accept.",
     "PACKAGE_NAME_TAKEN": "Another package already has this name.",
-    "PACKAGE_HAS_DEPARTURES": "This package has departures. Remove them before you delete the package.",
+    "PACKAGE_HAS_DEPARTURES": "This package has upcoming departures. Cancel them before you delete the package.",
     "DEPARTURE_DAY_TAKEN": "This package already has a departure starting that day.",
     "CALL_LOCKED": "A call can be changed for a day after you write it, by you. After that, ask an Owner or Admin.",
     "LEAD_HAS_NO_PHONE": "This lead has no phone number.",

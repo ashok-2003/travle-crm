@@ -90,18 +90,24 @@ export async function generatePackageDepartures(
 
 /** Every agency's group packages get their coming departures. Returns how many were made. */
 export async function runPackageDepartures(dependencies: DepartureJobDependencies, now: Date): Promise<number> {
-  return forEachFullAccessAgency(dependencies, "Making the departures of a package failed for an agency", (agency) =>
-    dependencies.db.forOrg(agency.id, async (tx) => {
-      const timeZone = await organizationTimeZone(tx, agency.id);
-      const today = calendarDateIn(now, timeZone);
-      const packages = await tx.quoteTemplate.findMany({
-        where: { kind: "group", weeklyDays: { isEmpty: false } },
-        select: { id: true },
+  return forEachFullAccessAgency(
+    dependencies,
+    "Making the departures of a package failed for an agency",
+    async (agency) => {
+      // A plan without the departures module gets none made for it.
+      if (!(await dependencies.subscriptions.entitlementsOf(agency.id))?.modules.has("departures")) return 0;
+      return dependencies.db.forOrg(agency.id, async (tx) => {
+        const timeZone = await organizationTimeZone(tx, agency.id);
+        const today = calendarDateIn(now, timeZone);
+        const packages = await tx.quoteTemplate.findMany({
+          where: { kind: "group", weeklyDays: { isEmpty: false } },
+          select: { id: true },
+        });
+        let made = 0;
+        for (const pack of packages)
+          made += (await generatePackageDepartures(tx, systemActor(agency.id), pack.id, today)).created;
+        return made;
       });
-      let made = 0;
-      for (const pack of packages)
-        made += (await generatePackageDepartures(tx, systemActor(agency.id), pack.id, today)).created;
-      return made;
-    }),
+    },
   );
 }

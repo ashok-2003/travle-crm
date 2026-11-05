@@ -10,8 +10,8 @@ import {
 import { isUniqueViolation, softDeleted, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { getLead } from "../crm/index.js";
-import type { MemberAccess } from "../identity/index.js";
-import { DomainError } from "../kernel/index.js";
+import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
+import { calendarDateIn, DomainError } from "../kernel/index.js";
 import { copyOf, daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
 import { createQuote, type QuoteContext } from "./quotes.js";
 import { quoteTaxRate } from "@travel-crm/contracts/quotes";
@@ -83,8 +83,12 @@ export async function savePackage(tx: OrgTx, access: MemberAccess, input: SavePa
 export async function deletePackage(tx: OrgTx, access: MemberAccess, packageId: string): Promise<void> {
   const row = await tx.quoteTemplate.findUnique({ where: { id: packageId }, select: { id: true, name: true } });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-  if ((await tx.departure.count({ where: { templateId: row.id } })) > 0) {
-    throw new DomainError("CONFLICT", "PACKAGE_HAS_DEPARTURES", "Cancel or remove the package's departures first");
+  const today = calendarDateIn(new Date(), await organizationTimeZone(tx, access.organizationId));
+  const upcoming = await tx.departure.count({
+    where: { templateId: row.id, status: { not: "cancelled" }, startDate: { gte: new Date(`${today}T00:00:00Z`) } },
+  });
+  if (upcoming > 0) {
+    throw new DomainError("CONFLICT", "PACKAGE_HAS_DEPARTURES", "Cancel the package's upcoming departures first");
   }
   await tx.quoteTemplate.update({ where: { id: row.id }, data: softDeleted(access.userId) });
   await recordAudit(tx, access, {

@@ -82,7 +82,9 @@ export const packagesRouter = router({
         !same(before.departureMonths, input.departureMonths) ||
         before.nights !== input.nights ||
         before.seatsPerDeparture !== input.seatsPerDeparture;
-      if (changed) await generatePackageDepartures(tx, ctx.member, input.packageId, today);
+      // Making departures is departures work: skipped, silently, for a member or a plan without it.
+      const mayMake = ctx.member.permissions.has("departures:create") && ctx.entitlements?.modules.has("departures");
+      if (changed && mayMake) await generatePackageDepartures(tx, ctx.member, input.packageId, today);
     });
   }),
 
