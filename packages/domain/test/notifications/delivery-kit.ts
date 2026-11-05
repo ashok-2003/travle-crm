@@ -15,6 +15,7 @@ import {
   deliverNotificationListener,
   notify,
   savePushSubscription,
+  setPreference,
   type DeliveryDependencies,
 } from "../../src/notifications/index.js";
 import { eventsOfType, personIn } from "./test-support.js";
@@ -40,8 +41,11 @@ export interface DeliveryKit {
   logs: string[];
   dependencies(overrides?: Partial<DeliveryDependencies>): DeliveryDependencies;
   context(): ListenerContext;
-  /** A new active member; `email: null` is staff without email. */
-  addMember(email: string | null): string;
+  /**
+   * A new active member; `email: null` is staff without email. Email is off for a person who never chose, so the
+   * member has turned it on for every kind, unless `emailTurnedOn: false` leaves them with no choice at all.
+   */
+  addMember(email: string | null, options?: { emailTurnedOn?: boolean }): Promise<string>;
   /** Saves a push subscription for the member on a known push service, and returns its endpoint. */
   subscribe(userId: string, name: string): Promise<string>;
   /** Notifies the member by email and push, returns the notification id and the event that asks for delivery. */
@@ -104,9 +108,14 @@ export function useDeliveryKit(name: string): DeliveryKit {
     actor: systemActor(kit.organizationId),
     forOrg: (fn) => kit.db.forOrg(kit.organizationId, fn),
   });
-  state.addMember = (email) => {
+  state.addMember = async (email, { emailTurnedOn = true } = {}) => {
     const userId = randomUUID();
     contacts.push({ userId, name: email === null ? "Staff" : "Asha Owner", email });
+    if (emailTurnedOn) {
+      await kit.db.forOrg(kit.organizationId, (tx) =>
+        setPreference(tx, personIn(kit.organizationId, userId), { channel: "email", kind: "*", optedOut: false }),
+      );
+    }
     return userId;
   };
   state.subscribe = async (userId, subscriptionName) => {

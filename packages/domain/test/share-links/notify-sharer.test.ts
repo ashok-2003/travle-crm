@@ -52,7 +52,7 @@ describe("telling the sharer a link was opened", () => {
   }
 
   it("puts a notification in the sharer's bell, to be emailed and pushed, keyed on the event", async () => {
-    const agent = personIn(kit.organizationId, kit.addMember("asha@agency.example"));
+    const agent = personIn(kit.organizationId, await kit.addMember("asha@agency.example"));
     const { outcome, event } = await shareOpenAndListen(agent, "Quotation DOC-2026-0007");
     expect(outcome).toBe("handled");
     const notifications = await notificationsFor(agent.userId);
@@ -87,7 +87,7 @@ describe("telling the sharer a link was opened", () => {
   });
 
   it("puts an opted-out sharer's notification in the bell, and pushes it, but doesn't email it", async () => {
-    const agent = personIn(kit.organizationId, kit.addMember("ravi@agency.example"));
+    const agent = personIn(kit.organizationId, await kit.addMember("ravi@agency.example"));
     await kit.db.forOrg(kit.organizationId, (tx) =>
       setPreference(tx, agent, { channel: "email", kind: "share-link.opened", optedOut: true }),
     );
@@ -116,7 +116,7 @@ describe("telling the sharer a link was opened", () => {
     };
     const titles: Record<string, string | undefined> = {};
     for (const [name, label] of Object.entries(labels)) {
-      const agent = personIn(kit.organizationId, kit.addMember(`${name.toLowerCase()}@agency.example`));
+      const agent = personIn(kit.organizationId, await kit.addMember(`${name.toLowerCase()}@agency.example`));
       expect((await shareOpenAndListen(agent, label)).outcome).toBe("handled");
       titles[name] = (await notificationsFor(agent.userId))[0]?.title;
     }
@@ -132,7 +132,7 @@ describe("telling the sharer a link was opened", () => {
   });
 
   it("tells the sharer once, however often the listener runs for the same event", async () => {
-    const agent = personIn(kit.organizationId, kit.addMember("meera@agency.example"));
+    const agent = personIn(kit.organizationId, await kit.addMember("meera@agency.example"));
     const { data, event } = await shareOpenAndListen(agent, "Quotation DOC-2026-0009");
     expect(await runListenerJob({ db: kit.db, listener: listener(), data })).toBe("already-handled");
     // Even a run that gets past the processed-event record (two overlapping deliveries) adds nothing.

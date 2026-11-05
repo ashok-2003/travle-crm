@@ -45,7 +45,7 @@ model Notification {
 }
 
 /// One person's choice about email or push for one kind of notification, or for every kind ("*"). A kind's own
-/// row wins over "*". No row: they get it.
+/// row wins over "*". No row: push yes, email no (optedOutByDefault in the contracts; the owner, 2026-11-05).
 model NotificationPreference {
   /// Filled from db.forOrg()'s organization when omitted.
   organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
