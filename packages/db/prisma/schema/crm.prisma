@@ -102,6 +102,7 @@ model Lead {
   departureWaitlist DepartureWaitlist[]
   departureOffers   DepartureOffer[]
   aiBookings        AiBooking[]
+  paymentProofs     PaymentProof[]
   calls             LeadCall[]
   quotes            Quote[]
   cadence           LeadCadence[]
