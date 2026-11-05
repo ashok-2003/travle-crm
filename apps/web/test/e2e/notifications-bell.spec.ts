@@ -1,6 +1,6 @@
 // The bell (spec 9.4): a customer opens a quotation the Owner shared, the worker tells the Owner, and the Owner's bell
-// shows it with the unread count until it is marked read. The Owner chooses from their account that link opens no
-// longer reach them by email, and the choice stays.
+// shows it with the unread count until it is marked read. Email starts off: the Owner chooses from their account that
+// link opens reach them by email too, and the choice stays.
 import { signInByEmail } from "./support/fixtures";
 import { expect, test } from "./support/notifications";
 
@@ -42,7 +42,7 @@ test("a customer opens a shared link, and the sharer's bell says so until it is 
   await expect(panel.getByText(`Opened: ${shared.label}`)).toBeVisible();
 });
 
-test("an Owner turns off email for opened links, and the choice stays", async ({ page, agency }) => {
+test("an Owner turns on email for opened links, and the choice stays", async ({ page, agency }) => {
   await signInByEmail(page, agency.owner);
   await page.goto("/account");
   await page.getByRole("link", { name: "Choose what reaches you" }).click();
@@ -51,13 +51,14 @@ test("an Owner turns off email for opened links, and the choice stays", async ({
 
   const opens = page.getByRole("group", { name: "A customer opens a link you shared" });
   const email = opens.getByRole("switch", { name: "Email" });
-  await expect(email).toBeChecked();
+  await expect(page.getByText("Email is off until you turn it on")).toBeVisible();
+  await expect(email).not.toBeChecked();
   const saved = page.waitForResponse((response) => response.url().includes("notifications.preferences.set"));
   await email.click();
   expect((await saved).ok()).toBe(true);
-  await expect(email).not.toBeChecked();
+  await expect(email).toBeChecked();
 
   await page.reload();
-  await expect(opens.getByRole("switch", { name: "Email" })).not.toBeChecked();
+  await expect(opens.getByRole("switch", { name: "Email" })).toBeChecked();
   await expect(opens.getByRole("switch", { name: "Push" })).toBeChecked();
 });
