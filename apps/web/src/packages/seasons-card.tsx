@@ -14,7 +14,8 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { formatCalendarDay } from "@/lib/format";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
-import { SeasonDialog, shownRooms } from "./season-dialog";
+import { shownRoomTypes } from "@/room-prices/room-prices";
+import { SeasonDialog } from "./season-dialog";
 import { usePackageChanges } from "./use-packages";
 
 export function SeasonsCard({ detail }: { detail: PackageDetail }) {
@@ -50,7 +51,7 @@ export function SeasonsCard({ detail }: { detail: PackageDetail }) {
                     {t("dates", { from: formatCalendarDay(season.startsOn), to: formatCalendarDay(season.endsOn) })}
                   </p>
                   <ul className="numbers">
-                    {shownRooms(detail.roomTypes, season).map((room) => {
+                    {shownRoomTypes(detail.roomTypes, season.prices).map((room) => {
                       const price = season.prices[room];
                       return (
                         <li key={room}>

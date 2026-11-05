@@ -19,13 +19,14 @@ import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { DestinationField, type DestinationValue } from "@/leads/form/destination-field";
 import { NoteField } from "@/leads/form/note-field";
 import {
-  roomPriceKey,
   roomPriceFieldAt,
-  roomPricesOf,
-  roomPriceValues,
-  useShownRoomTypes,
+  roomPriceKey,
+  roomPricesFromText,
+  roomPricesToText,
+  shownRoomTypes,
+  usePackageRoomTypes,
   type RoomPriceValues,
-} from "./room-price-fields";
+} from "@/room-prices/room-prices";
 import { useDepartureChanges } from "./use-departures";
 
 type Problem = "required" | "invalid";
@@ -96,13 +97,13 @@ function DepartureForm({
     price: departure?.pricePaise == null ? "" : rupeesFieldText(departure.pricePaise),
     cutoffOn: departure?.cutoffOn ?? "",
     notes: departure?.notes ?? "",
-    ...roomPriceValues(departure?.prices),
+    ...roomPricesToText(departure?.prices),
   };
   const { form, onSubmit, formProblem } = useCheckedForm<Values, CreateDepartureInput, Problem>(
     values,
     (typed) => {
       // A linked departure's prices are the room prices typed; any other has none, and its one price above.
-      const { prices, unreadable } = roomPricesOf(typed);
+      const { prices, unreadable } = roomPricesFromText(typed);
       return checked(
         toInput(typed, departure?.templateId ?? null, prices),
         typed,
@@ -119,7 +120,7 @@ function DepartureForm({
   );
   const busy = sending.isPending;
   const linked = departure?.templateId ?? null;
-  const rooms = useShownRoomTypes(linked, departure?.prices);
+  const rooms = shownRoomTypes(usePackageRoomTypes(linked), departure?.prices);
   return (
     <form
       id={formId}

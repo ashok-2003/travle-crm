@@ -299,6 +299,8 @@
     "removeNamed": "Remove {name}",
     "loading": "Loading files",
     "loadFailed": "The files didn't load.",
-    "qrAlt": "The payment QR"
+    "qrAlt": "The payment QR",
+    "removeTitle": "Remove {name}?",
+    "removeDescription": "Customers will no longer be sent this file."
   }
 }

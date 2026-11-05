@@ -1,5 +1,5 @@
 // A group package's departures and files, and the room prices on a linked departure's form.
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DepartureFormDialog } from "@/departures/departure-form-dialog";
@@ -71,6 +71,28 @@ describe("PackageFilesCard", () => {
     expect(await screen.findByRole("link", { name: "kedar.pdf" })).toBeTruthy();
     expect(screen.getByText(messages.packages.files.noQr)).toBeTruthy();
     expect(screen.getByRole("button", { name: messages.packages.files.addQr })).toBeTruthy();
+  });
+
+  it("asks before removing a brochure, then removes it by kind and id", async () => {
+    const api = fakeApi();
+    renderWithApi(<PackageFilesCard packageId={packageId} />, newQueryClient());
+    await waitFor(() => {
+      expect(api.calls.length).toBe(1);
+    });
+    const attachmentId = "0190a000-0000-7000-8000-0000000000f1";
+    api.last().answer({
+      brochures: [{ attachmentId, fileName: "kedar.pdf", contentType: "application/pdf", url: null }],
+      paymentQr: null,
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Remove kedar.pdf" }));
+    expect(api.calls).toHaveLength(1);
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.packages.files.remove }));
+    await waitFor(() => {
+      expect(api.calls.length).toBe(2);
+    });
+    expect(api.last().path).toBe("packages.removeFile");
+    expect(api.last().input).toEqual({ packageId, kind: "brochure", attachmentId });
   });
 
   it("asks where to put a brochure before sending it", async () => {

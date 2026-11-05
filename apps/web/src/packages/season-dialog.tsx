@@ -2,12 +2,9 @@
 
 // A season of a group package (group packages): its name, its dates and the price per person of each room type sold.
 // Checked by the api's own schema; dates that overlap another season are refused, and said on the dates.
-import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import {
-  roomTypes,
   savePackageSeasonInput,
   type PackageSeasonView,
-  type RoomPrices,
   type RoomType,
   type SavePackageSeasonInput,
 } from "@travel-crm/contracts/quotes";
@@ -15,42 +12,30 @@ import { useTranslations } from "next-intl";
 import { DateField } from "@/components/date-field";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog, type OpenState } from "@/components/forms/form-dialog";
-import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
+import { MoneyField } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import type { ReturnFocusTo } from "@/components/return-focus";
+import {
+  roomPriceFieldAt,
+  roomPriceKey,
+  roomPricesFromText,
+  roomPricesToText,
+  shownRoomTypes,
+  type RoomPriceKey,
+  type RoomPriceValues,
+} from "@/room-prices/room-prices";
 import { usePackageChanges } from "./use-packages";
 
 type Problem = "required" | "invalid" | "noPrice";
-type PriceKey = `price_${RoomType}`;
-type Values = { label: string; startsOn: string; endsOn: string } & Record<PriceKey, string>;
+type Values = { label: string; startsOn: string; endsOn: string } & RoomPriceValues;
 
-const priceKey = (room: RoomType): PriceKey => `price_${room}`;
 const plainFields = ["label", "startsOn", "endsOn"] as const;
 
-/** The room types a season shows: those the package sells, and any the season already prices. */
-export function shownRooms(offered: readonly RoomType[], season: PackageSeasonView | null): RoomType[] {
-  return roomTypes.filter((room) => offered.includes(room) || (season !== null && season.prices[room] !== null));
-}
-
 function toInput(typed: Values, packageId: string, season: PackageSeasonView | null, rooms: readonly RoomType[]) {
-  const found: Partial<Record<PriceKey, "invalid" | "noPrice">> = {};
-  const price = (room: RoomType): number | null => {
-    const text = typed[priceKey(room)].trim();
-    if (text === "") return null;
-    const paise = paiseFromRupeesText(text);
-    if (paise === null) found[priceKey(room)] = "invalid";
-    return paise;
-  };
-  const prices: RoomPrices = {
-    single: price("single"),
-    double: price("double"),
-    triple: price("triple"),
-    quad: price("quad"),
-    child_bed: price("child_bed"),
-    child_no_bed: price("child_no_bed"),
-  };
+  const { prices, unreadable } = roomPricesFromText(typed);
+  const found: Partial<Record<RoomPriceKey, "invalid" | "noPrice">> = { ...unreadable };
   const parsed = savePackageSeasonInput.safeParse({
     packageId,
     ...(season === null ? {} : { seasonId: season.id }),
@@ -65,7 +50,7 @@ function toInput(typed: Values, packageId: string, season: PackageSeasonView | n
     first !== undefined &&
     parsed.error?.issues.some((issue) => issue.path[0] === "prices" && issue.path.length === 1)
   ) {
-    found[priceKey(first)] ??= "noPrice";
+    found[roomPriceKey(first)] ??= "noPrice";
   }
   return { parsed, found };
 }
@@ -87,20 +72,11 @@ function SeasonForm({
 }) {
   const t = useTranslations("packages.season");
   const tRooms = useTranslations("packages.form.roomTypeNames");
-  const start = (room: RoomType) => {
-    const paise = season?.prices[room] ?? null;
-    return paise === null ? "" : rupeesFieldText(paise);
-  };
   const defaults: Values = {
     label: season?.label ?? "",
     startsOn: season?.startsOn ?? "",
     endsOn: season?.endsOn ?? "",
-    price_single: start("single"),
-    price_double: start("double"),
-    price_triple: start("triple"),
-    price_quad: start("quad"),
-    price_child_bed: start("child_bed"),
-    price_child_no_bed: start("child_no_bed"),
+    ...roomPricesToText(season?.prices),
   };
   const { form, onSubmit, formProblem } = useCheckedForm<Values, SavePackageSeasonInput, Problem>(
     defaults,
@@ -112,8 +88,8 @@ function SeasonForm({
         (path) => {
           const key = String(path[0]);
           if (key === "prices") {
-            const room = path.length === 1 ? rooms[0] : roomTypes.find((type) => type === path[1]);
-            return room === undefined ? undefined : priceKey(room);
+            const first = rooms[0];
+            return path.length === 1 && first !== undefined ? roomPriceKey(first) : roomPriceFieldAt(path);
           }
           return plainFields.find((field) => field === key);
         },
@@ -140,7 +116,7 @@ function SeasonForm({
         <MoneyField
           key={room}
           control={form.control}
-          name={priceKey(room)}
+          name={roomPriceKey(room)}
           label={t("price", { room: tRooms(room) })}
         />
       ))}
@@ -182,7 +158,7 @@ export function SeasonDialog({
           formId={formId}
           packageId={packageId}
           season={season}
-          rooms={shownRooms(offered, season)}
+          rooms={shownRoomTypes(offered, season?.prices)}
           changes={changes}
           dialog={dialog}
         />

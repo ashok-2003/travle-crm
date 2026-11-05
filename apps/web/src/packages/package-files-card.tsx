@@ -5,8 +5,9 @@
 import { MAX_PACKAGE_BROCHURES, type PackageFile, type PackageFileKind } from "@travel-crm/contracts/quotes";
 import { FilePlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { SectionCard } from "@/bookings/section-card";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -26,6 +27,8 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
   const { add, remove } = usePackageFileChanges(packageId);
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
+  const [removing, setRemoving] = useState<{ kind: PackageFileKind; file: PackageFile } | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
   const brochurePicker = useRef<HTMLInputElement>(null);
   const qrPicker = useRef<HTMLInputElement>(null);
   const brochures = files.data?.brochures ?? [];
@@ -50,8 +53,9 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         aria-label={t("removeNamed", { name: file.fileName })}
         disabled={remove.isPending || !access.allowed}
         aria-describedby={access.allowed ? undefined : hintId}
-        onClick={() => {
-          remove.mutate({ packageId, kind, attachmentId: file.attachmentId });
+        onClick={(event) => {
+          opener.current = event.currentTarget;
+          setRemoving({ kind, file });
         }}
       >
         <Trash2Icon aria-hidden="true" />
@@ -79,7 +83,7 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
           {qr === null ? <p className="text-muted-foreground">{t("noQr")}</p> : <ul>{row("payment_qr", qr)}</ul>}
         </>
       )}
-      <RefusalAlert error={add.error ?? remove.error} />
+      <RefusalAlert error={add.error} />
       <input
         ref={brochurePicker}
         type="file"
@@ -120,6 +124,28 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         </Button>
       </div>
       <WriteHint id={hintId} hint={access.hint} />
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(next) => {
+          if (!next) setRemoving(null);
+        }}
+        title={t("removeTitle", { name: removing?.file.fileName ?? "" })}
+        description={t("removeDescription")}
+        action={t("remove")}
+        request={remove}
+        returnFocusTo={opener}
+        onConfirm={() => {
+          if (removing === null) return;
+          remove.mutate(
+            { packageId, kind: removing.kind, attachmentId: removing.file.attachmentId },
+            {
+              onSuccess: () => {
+                setRemoving(null);
+              },
+            },
+          );
+        }}
+      />
     </SectionCard>
   );
 }
