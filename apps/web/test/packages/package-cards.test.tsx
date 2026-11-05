@@ -69,8 +69,7 @@ describe("PackageFilesCard", () => {
       paymentQr: null,
     });
     expect(await screen.findByRole("link", { name: "kedar.pdf" })).toBeTruthy();
-    expect(screen.getByText(messages.packages.files.noQr)).toBeTruthy();
-    expect(screen.getByRole("button", { name: messages.packages.files.addQr })).toBeTruthy();
+    expect(screen.queryByTestId("package-qr-input")).toBeNull();
   });
 
   it("asks before removing a brochure, then removes it by kind and id", async () => {

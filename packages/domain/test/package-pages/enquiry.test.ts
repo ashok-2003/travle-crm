@@ -127,7 +127,6 @@ describe("a public package page and its enquiry", () => {
         roomTypes: [],
         pricesIncludeGst: true,
         advancePerPersonPaise: null,
-        paymentDetails: "",
         pickupPoints: "",
         startCity: "",
         weeklyDays: [],

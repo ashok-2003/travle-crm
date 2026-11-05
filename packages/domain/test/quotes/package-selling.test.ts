@@ -7,6 +7,7 @@ import {
   packageSellGaps,
   savePackage,
   savePackageSeason,
+  setPackagePaymentDetails,
   setPackageSellable,
   updatePackage,
 } from "../../src/quotes/index.js";
@@ -50,7 +51,6 @@ const words = (overrides: Partial<UpdatePackageInput> = {}): Omit<UpdatePackageI
   roomTypes: [],
   pricesIncludeGst: true,
   advancePerPersonPaise: null,
-  paymentDetails: "",
   pickupPoints: "",
   startCity: "",
   weeklyDays: [],
@@ -112,13 +112,65 @@ describe("a package the AI may sell", () => {
   const sell = (id: string, sellable: boolean) =>
     world.inOrg((tx) => setPackageSellable(tx, world.manager, { packageId: id, sellable }, today));
 
+  it("saving the package never touches where customers pay, which has its own change and audit", async () => {
+    const id = await aPackage();
+    const pay = (paymentDetails: string) =>
+      world.inOrg((tx) => setPackagePaymentDetails(tx, world.manager, { packageId: id, paymentDetails }));
+    await pay("UPI to the agency");
+    expect((await detail(id)).paymentDetails).toBe("UPI to the agency");
+    await world.inOrg((tx) =>
+      updatePackage(tx, world.manager, { packageId: id, ...words({ name: "Selling renamed", title: "T" }) }),
+    );
+    expect((await detail(id)).paymentDetails).toBe("UPI to the agency");
+    await pay("UPI to the agency");
+    const entries = await world.inOrg((tx) =>
+      tx.auditEntry.findMany({ where: { entityId: id, action: "package.payment-changed" } }),
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.before).toEqual({ paymentDetailsLength: 0 });
+    expect(entries[0]?.after).toEqual({ paymentDetailsLength: 17 });
+    expect(JSON.stringify(entries)).not.toContain("UPI to the agency");
+  });
+
+  it("the package's own audit keeps its kind, room types, GST switch and advance", async () => {
+    const id = await aPackage({ kind: "group", roomTypes: ["double"], advancePerPersonPaise: 100_000 });
+    await world.inOrg((tx) =>
+      updatePackage(tx, world.manager, {
+        packageId: id,
+        ...words({
+          name: "Selling audited",
+          title: "T",
+          kind: "group",
+          roomTypes: ["double", "triple"],
+          pricesIncludeGst: false,
+        }),
+      }),
+    );
+    const last = await world.inOrg((tx) =>
+      tx.auditEntry.findFirst({
+        where: { entityId: id, action: "quote-package.changed" },
+        orderBy: { occurredAt: "desc" },
+      }),
+    );
+    expect(last?.before).toMatchObject({
+      kind: "group",
+      roomTypes: ["double"],
+      pricesIncludeGst: true,
+      advancePerPersonPaise: 100_000,
+    });
+    expect(last?.after).toMatchObject({
+      roomTypes: ["double", "triple"],
+      pricesIncludeGst: false,
+      advancePerPersonPaise: null,
+    });
+  });
+
   it("saving group fields keeps them", async () => {
     const id = await aPackage({
       kind: "group",
       roomTypes: ["double", "triple"],
       pricesIncludeGst: false,
       advancePerPersonPaise: 500_000,
-      paymentDetails: "UPI to the agency",
       pickupPoints: "Chandigarh ISBT",
       startCity: "Chandigarh",
       weeklyDays: [5, 6],
@@ -131,7 +183,6 @@ describe("a package the AI may sell", () => {
       roomTypes: ["double", "triple"],
       pricesIncludeGst: false,
       advancePerPersonPaise: 500_000,
-      paymentDetails: "UPI to the agency",
       pickupPoints: "Chandigarh ISBT",
       startCity: "Chandigarh",
       weeklyDays: [5, 6],

@@ -108,6 +108,19 @@ export function callerOf(
 ) {
   const owner = options.owner === undefined ? randomUUID() : options.owner;
   const identity = {
+    // The session a fresh procedure reads from the database: the member's own, in this organization.
+    auth: {
+      api: {
+        getSession: () =>
+          Promise.resolve({
+            headers: new Headers(),
+            response: {
+              session: { activeOrganizationId: options.organizationId, impersonatedBy: null },
+              user: { id: member.userId },
+            },
+          }),
+      },
+    },
     resolveAccess: () => Promise.resolve(member),
     recordActivity: () => Promise.resolve(),
     firstOwner: () => Promise.resolve(owner),

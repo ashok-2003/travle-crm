@@ -12,7 +12,6 @@ export interface GroupValues {
   seatsPerDeparture: string;
   pricesIncludeGst: boolean;
   advancePerPerson: string;
-  paymentDetails: string;
   pickupPoints: string;
   startCity: string;
 }

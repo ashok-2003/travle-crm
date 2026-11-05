@@ -128,6 +128,25 @@ describe("a package's files", () => {
     ).toHaveLength(1);
   });
 
+  it("audits the payment QR coming, being replaced and going, but not a brochure", async () => {
+    const packageId = await aPackage();
+    const first = await add(packageId, "payment_qr");
+    const second = await add(packageId, "payment_qr", "image/webp");
+    await removePackageFile(dependencies, world.manager, { packageId, kind: "payment_qr", attachmentId: second });
+    await add(packageId, "brochure");
+    const entries = await world.inOrg((tx) =>
+      tx.auditEntry.findMany({
+        where: { entityId: packageId, action: "package.payment-changed" },
+        orderBy: { occurredAt: "asc" },
+      }),
+    );
+    expect(entries.map((entry) => [entry.before, entry.after])).toEqual([
+      [null, { qrAttachmentId: first }],
+      [{ qrAttachmentId: first }, { qrAttachmentId: second }],
+      [{ qrAttachmentId: second }, null],
+    ]);
+  });
+
   it("refuses a PDF as the QR and a sixth brochure", async () => {
     const packageId = await aPackage();
     const request = (kind: "brochure" | "payment_qr", contentType: string, sizeBytes = 8) =>

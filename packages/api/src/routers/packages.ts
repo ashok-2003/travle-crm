@@ -1,6 +1,6 @@
 // packages.*: the agency's packages (release 7b): a ready trip a quote starts from, its tiers priced from the supplier rates, the
 // words and photos of its public page, and publishing that page. Editing needs quotes:edit; making quotes from a package,
-// quotes:create; publishing a page is outward-facing and needs settings:manage. Photos go straight from the browser to storage.
+// quotes:create; publishing a page, and changing where customers pay, are outward-facing and need settings:manage. Photos go straight from the browser to storage.
 import {
   calculatedFromPrice,
   madeQuotes,
@@ -10,10 +10,13 @@ import {
   packageDetail,
   packageIdInput,
   quoteDetail,
-  packageFileRefInput,
+  brochureRefInput,
+  paymentQrRefInput,
+  requestBrochureInput,
+  requestPaymentQrInput,
+  setPackagePaymentDetailsInput,
   packageFiles,
   packagePhotoList,
-  requestPackageFileInput,
   packagePhotoRefInput,
   requestPackagePhotoInput,
   removePackageSeasonInput,
@@ -46,6 +49,7 @@ import {
   requestPackagePhotoUpload,
   tiersOf,
   saveTier,
+  setPackagePaymentDetails,
   setPackagePublished,
   setPackageSellable,
   updatePackage,
@@ -101,6 +105,13 @@ export const packagesRouter = router({
     const photoCount = await packagePhotoCount(ctx, ctx.member, input.packageId);
     await ctx.db.forOrg(ctx.member.organizationId, (tx) => setPackagePublished(tx, ctx.member, input, photoCount));
   }),
+
+  /** Where customers pay: money, so read from the database and held by whoever manages settings, as the agency's UPI id is. */
+  setPaymentDetails: publisher
+    .input(setPackagePaymentDetailsInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setPackagePaymentDetails(tx, ctx.member, input)),
+    ),
 
   /** Lets the AI sell the package, or stops it: a business-critical switch, so it reads the session from the database. */
   setSellable: publisher.input(setPackageSellableInput).mutation(async ({ ctx, input }) => {
@@ -196,14 +207,26 @@ export const packagesRouter = router({
     .output(packageFiles)
     .query(({ ctx, input }) => listPackageFiles(ctx, ctx.member, input.packageId)),
 
+  /** Brochures go with the package's words; the payment QR, where customers pay, has procedures of its own below. */
   requestFileUpload: editor
-    .input(requestPackageFileInput)
+    .input(requestBrochureInput)
     .output(z.object({ attachmentId: z.uuid(), upload: presignedUpload }))
     .mutation(({ ctx, input }) => requestPackageFileUpload(ctx, ctx.member, input)),
 
-  confirmFile: editor
-    .input(packageFileRefInput)
-    .mutation(({ ctx, input }) => confirmPackageFile(ctx, ctx.member, input)),
+  confirmFile: editor.input(brochureRefInput).mutation(({ ctx, input }) => confirmPackageFile(ctx, ctx.member, input)),
 
-  removeFile: editor.input(packageFileRefInput).mutation(({ ctx, input }) => removePackageFile(ctx, ctx.member, input)),
+  removeFile: editor.input(brochureRefInput).mutation(({ ctx, input }) => removePackageFile(ctx, ctx.member, input)),
+
+  requestPaymentQrUpload: publisher
+    .input(requestPaymentQrInput)
+    .output(z.object({ attachmentId: z.uuid(), upload: presignedUpload }))
+    .mutation(({ ctx, input }) => requestPackageFileUpload(ctx, ctx.member, { ...input, kind: "payment_qr" })),
+
+  confirmPaymentQr: publisher
+    .input(paymentQrRefInput)
+    .mutation(({ ctx, input }) => confirmPackageFile(ctx, ctx.member, { ...input, kind: "payment_qr" })),
+
+  removePaymentQr: publisher
+    .input(paymentQrRefInput)
+    .mutation(({ ctx, input }) => removePackageFile(ctx, ctx.member, { ...input, kind: "payment_qr" })),
 });

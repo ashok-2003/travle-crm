@@ -1,7 +1,7 @@
 "use client";
 
 // The kind of a package and, for a group trip, what it sells (release 7b, group packages): the room types, the days and
-// months it departs, seats, GST, the advance, how to pay, pickup and where it starts. The form holds them as text and
+// months it departs, seats, GST, the advance, pickup and where it starts. The form holds them as text and
 // lists of text; the input is made here so package-form.tsx stays about the quote.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { packageKinds, roomTypes, type PackageDetail } from "@travel-crm/contracts/quotes";
@@ -27,7 +27,6 @@ export function groupValuesOf(detail: PackageDetail): GroupValues {
     seatsPerDeparture: detail.seatsPerDeparture === null ? "" : String(detail.seatsPerDeparture),
     pricesIncludeGst: detail.pricesIncludeGst,
     advancePerPerson: detail.advancePerPersonPaise === null ? "" : rupeesFieldText(detail.advancePerPersonPaise),
-    paymentDetails: detail.paymentDetails,
     pickupPoints: detail.pickupPoints,
     startCity: detail.startCity,
   };
@@ -42,7 +41,6 @@ export function groupInputOf(typed: GroupValues) {
     roomTypes: typed.roomTypes,
     pricesIncludeGst: typed.pricesIncludeGst,
     advancePerPersonPaise: advance === "" ? null : (paiseFromRupeesText(advance) ?? -1),
-    paymentDetails: typed.paymentDetails,
     pickupPoints: typed.pickupPoints,
     startCity: typed.startCity,
     weeklyDays: typed.weeklyDays.map(Number),
@@ -57,7 +55,6 @@ export const groupInputFields: Partial<Record<string, keyof GroupValues>> = {
   kind: "kind",
   roomTypes: "roomTypes",
   pricesIncludeGst: "pricesIncludeGst",
-  paymentDetails: "paymentDetails",
   pickupPoints: "pickupPoints",
   startCity: "startCity",
   weeklyDays: "weeklyDays",
@@ -179,13 +176,6 @@ export function GroupFields({ control, disabled }: { control: Control<PackageFor
                   </FieldLabel>
                 </Field>
               )}
-            />
-            <NoteField
-              control={control}
-              name={"paymentDetails"}
-              label={t("paymentDetails")}
-              hint={t("paymentDetailsHint")}
-              disabled={disabled}
             />
             <NoteField
               control={control}

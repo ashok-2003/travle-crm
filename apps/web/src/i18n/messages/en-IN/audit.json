@@ -264,7 +264,8 @@
     "package": {
       "season-saved": "Saved a package's season and room prices",
       "season-removed": "Removed a package's season",
-      "sellable-changed": "Let the AI sell a package, or stopped it"
+      "sellable-changed": "Let the AI sell a package, or stopped it",
+      "payment-changed": "Changed where customers pay for a package"
     },
     "ai-settings": {
       "changed": "Changed the AI settings"

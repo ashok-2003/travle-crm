@@ -1,8 +1,8 @@
 "use client";
 
-// A package's brochures and payment QR (group packages): files that go straight to storage and that the AI shares with a
-// customer on request. Up to five brochures (PDF or a picture) and one QR (a picture).
-import { MAX_PACKAGE_BROCHURES, type PackageFile, type PackageFileKind } from "@travel-crm/contracts/quotes";
+// A package's brochures (group packages): files that go straight to storage and that the AI shares with a customer on
+// request. Up to five (PDF or a picture). The payment QR, where customers pay, is in the payments card.
+import { MAX_PACKAGE_BROCHURES, type PackageFile } from "@travel-crm/contracts/quotes";
 import { FilePlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
@@ -19,7 +19,6 @@ import { WriteHint } from "@/subscription/write-hint";
 import { usePackageFileChanges, usePackageFiles } from "./use-package-files";
 
 const BROCHURE_TYPES = "application/pdf,image/jpeg,image/png,image/webp";
-const QR_TYPES = "image/jpeg,image/png,image/webp";
 
 export function PackageFilesCard({ packageId }: { packageId: string }) {
   const t = useTranslations("packages.files");
@@ -27,18 +26,16 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
   const { add, remove } = usePackageFileChanges(packageId);
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
-  const [removing, setRemoving] = useState<{ kind: PackageFileKind; file: PackageFile } | null>(null);
+  const [removing, setRemoving] = useState<PackageFile | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const brochurePicker = useRef<HTMLInputElement>(null);
-  const qrPicker = useRef<HTMLInputElement>(null);
   const brochures = files.data?.brochures ?? [];
-  const qr = files.data?.paymentQr ?? null;
-  const picked = (kind: PackageFileKind) => (event: { target: HTMLInputElement }) => {
+  const picked = (event: { target: HTMLInputElement }) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (file !== undefined) add.mutate({ kind, file });
+    if (file !== undefined) add.mutate(file);
   };
-  const row = (kind: PackageFileKind, file: PackageFile) => (
+  const row = (file: PackageFile) => (
     <li key={file.attachmentId} className="flex items-center justify-between gap-2">
       {file.url === null ? (
         <span>{file.fileName}</span>
@@ -55,7 +52,7 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         aria-describedby={access.allowed ? undefined : hintId}
         onClick={(event) => {
           opener.current = event.currentTarget;
-          setRemoving({ kind, file });
+          setRemoving(file);
         }}
       >
         <Trash2Icon aria-hidden="true" />
@@ -71,17 +68,10 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         ) : (
           <LoadingRows shape="twoLines" label={t("loading")} />
         )
+      ) : brochures.length === 0 ? (
+        <p className="text-muted-foreground">{t("noBrochures")}</p>
       ) : (
-        <>
-          <h3 className="font-medium">{t("brochures")}</h3>
-          {brochures.length === 0 ? (
-            <p className="text-muted-foreground">{t("noBrochures")}</p>
-          ) : (
-            <ul>{brochures.map((file) => row("brochure", file))}</ul>
-          )}
-          <h3 className="font-medium">{t("qr")}</h3>
-          {qr === null ? <p className="text-muted-foreground">{t("noQr")}</p> : <ul>{row("payment_qr", qr)}</ul>}
-        </>
+        <ul>{brochures.map(row)}</ul>
       )}
       <RefusalAlert error={add.error} />
       <input
@@ -92,17 +82,7 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         tabIndex={-1}
         aria-hidden="true"
         data-testid="package-brochure-input"
-        onChange={picked("brochure")}
-      />
-      <input
-        ref={qrPicker}
-        type="file"
-        accept={QR_TYPES}
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden="true"
-        data-testid="package-qr-input"
-        onChange={picked("payment_qr")}
+        onChange={picked}
       />
       <div className="flex flex-wrap gap-2">
         <Button
@@ -114,14 +94,6 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
           {add.isPending ? <Spinner aria-hidden="true" /> : <FilePlusIcon aria-hidden="true" />}
           {add.isPending ? t("adding") : t("addBrochure")}
         </Button>
-        <Button
-          variant="outline"
-          disabled={add.isPending || !access.allowed}
-          aria-describedby={access.allowed ? undefined : hintId}
-          onClick={() => qrPicker.current?.click()}
-        >
-          {qr === null ? t("addQr") : t("replaceQr")}
-        </Button>
       </div>
       <WriteHint id={hintId} hint={access.hint} />
       <ConfirmDialog
@@ -129,7 +101,7 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         onOpenChange={(next) => {
           if (!next) setRemoving(null);
         }}
-        title={t("removeTitle", { name: removing?.file.fileName ?? "" })}
+        title={t("removeTitle", { name: removing?.fileName ?? "" })}
         description={t("removeDescription")}
         action={t("remove")}
         request={remove}
@@ -137,7 +109,7 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         onConfirm={() => {
           if (removing === null) return;
           remove.mutate(
-            { packageId, kind: removing.kind, attachmentId: removing.file.attachmentId },
+            { packageId, kind: "brochure", attachmentId: removing.attachmentId },
             {
               onSuccess: () => {
                 setRemoving(null);

@@ -11,6 +11,7 @@ import {
   type PublishGap,
   type SellGap,
   type SetPackageSellableInput,
+  type SetPackagePaymentDetailsInput,
   type RoomType,
   type SaveTierInput,
   type UpdatePackageInput,
@@ -243,12 +244,44 @@ export async function updatePackage(tx: OrgTx, access: MemberAccess, input: Upda
     }
     throw error;
   }
+  const kept = (row: {
+    kind: string;
+    roomTypes: readonly string[];
+    pricesIncludeGst: boolean;
+    advancePerPersonPaise: number | bigint | null;
+  }) => ({
+    kind: row.kind,
+    roomTypes: [...row.roomTypes],
+    pricesIncludeGst: row.pricesIncludeGst,
+    advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
+  });
   await recordAudit(tx, access, {
     action: "quote-package.changed",
     entityType: "quote_template",
     entityId: packageId,
-    before: { name: before.name, slug: before.slug },
-    after: { name: fields.name, slug: fields.slug },
+    before: { name: before.name, slug: before.slug, ...kept(before) },
+    after: { name: fields.name, slug: fields.slug, ...kept(fields) },
+  });
+}
+
+/**
+ * Where customers pay. Apart from the package's words because it is money: changed by whoever manages settings. The audit
+ * keeps the text's length, never the text (it is bank details).
+ */
+export async function setPackagePaymentDetails(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SetPackagePaymentDetailsInput,
+): Promise<void> {
+  const before = await findPackage(tx, input.packageId);
+  if (before.paymentDetails === input.paymentDetails) return;
+  await tx.quoteTemplate.update({ where: { id: before.id }, data: { paymentDetails: input.paymentDetails } });
+  await recordAudit(tx, access, {
+    action: "package.payment-changed",
+    entityType: "quote_template",
+    entityId: before.id,
+    before: { paymentDetailsLength: before.paymentDetails.length },
+    after: { paymentDetailsLength: input.paymentDetails.length },
   });
 }
 

@@ -41,7 +41,6 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await page.getByLabel("Starts from").fill("Delhi");
   await page.getByLabel("Advance to hold a seat (each person)").fill("2,000");
   await page.getByRole("switch", { name: "Prices include GST" }).check();
-  await page.getByLabel("How to pay").fill("UPI manali@agency");
   await page.getByLabel("Pickup points").fill("Kashmere Gate\nMajnu ka Tilla");
   await page.getByRole("button", { name: "Save package" }).click();
   await expect(page.getByText("Saved").first()).toBeVisible();
@@ -77,16 +76,20 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await expect(departuresCard.getByRole("link", { name: "Manali 5N6D" }).first()).toBeVisible();
   await expect(departuresCard).toContainText("20 of 20");
 
-  // A brochure and a payment QR go straight to storage.
-  const files = page.getByRole("region", { name: "Brochures and payment QR" });
+  // A brochure goes straight to storage; where customers pay (the details and a QR) is its own card, for whoever manages settings.
+  const files = page.getByRole("region", { name: "Brochures" });
   await page
     .getByTestId("package-brochure-input")
     .setInputFiles({ name: "manali.png", mimeType: "image/png", buffer: PIXEL });
   await expect(files.getByRole("link", { name: "manali.png" })).toBeVisible();
+  const payments = page.getByRole("region", { name: "Where customers pay" });
+  await payments.getByLabel("How to pay").fill("UPI manali@agency");
+  await payments.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Payment details saved")).toBeVisible();
   await page
     .getByTestId("package-qr-input")
     .setInputFiles({ name: "pay-qr.png", mimeType: "image/png", buffer: PIXEL });
-  await expect(files.getByRole("link", { name: "pay-qr.png" })).toBeVisible();
+  await expect(payments.getByRole("link", { name: "pay-qr.png" })).toBeVisible();
 
   // Everything the AI needs is there, so it may be turned on.
   const sell = page.getByRole("switch", { name: "AI can sell this package" });

@@ -197,7 +197,6 @@ export async function updatePackage(
     roomTypes: detail.roomTypes,
     pricesIncludeGst: detail.pricesIncludeGst,
     advancePerPersonPaise: detail.advancePerPersonPaise,
-    paymentDetails: detail.paymentDetails,
     pickupPoints: detail.pickupPoints,
     startCity: detail.startCity,
     weeklyDays: detail.weeklyDays,

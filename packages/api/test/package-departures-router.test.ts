@@ -26,7 +26,6 @@ const words = (name: string): Omit<UpdatePackageInput, "packageId"> => ({
   roomTypes: [],
   pricesIncludeGst: true,
   advancePerPersonPaise: null,
-  paymentDetails: "",
   pickupPoints: "",
   startCity: "",
   weeklyDays: [5],

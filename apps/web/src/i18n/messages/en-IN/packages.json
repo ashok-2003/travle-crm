@@ -106,8 +106,6 @@
     "seatsPerDeparture": "Seats on each departure",
     "pricesIncludeGst": "Prices include GST",
     "advancePerPerson": "Advance to hold a seat (each person)",
-    "paymentDetails": "How to pay",
-    "paymentDetailsHint": "Bank or UPI details a customer is told when they pay.",
     "pickupPoints": "Pickup points",
     "pickupPointsHint": "Where the group boards, one a line.",
     "startCity": "Starts from"
@@ -285,22 +283,36 @@
     "all": "All departures"
   },
   "files": {
-    "title": "Brochures and payment QR",
-    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each) and one payment QR (a picture, 2 MB). The AI shares them with customers.",
+    "title": "Brochures",
+    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each). The AI shares them with customers who ask for details.",
     "brochures": "Brochures",
-    "qr": "Payment QR",
     "noBrochures": "No brochures yet.",
-    "noQr": "No payment QR yet.",
     "addBrochure": "Add a brochure",
     "adding": "Adding",
-    "replaceQr": "Replace the QR",
-    "addQr": "Add the QR",
     "remove": "Remove",
     "removeNamed": "Remove {name}",
     "loading": "Loading files",
     "loadFailed": "The files didn't load.",
-    "qrAlt": "The payment QR",
     "removeTitle": "Remove {name}?",
     "removeDescription": "Customers will no longer be sent this file."
+  },
+  "payments": {
+    "title": "Where customers pay",
+    "details": "How to pay",
+    "detailsHint": "Bank or UPI details a customer is told when they pay.",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Payment details saved",
+    "qr": "Payment QR",
+    "noQr": "No payment QR yet.",
+    "addQr": "Add the QR",
+    "replaceQr": "Replace the QR",
+    "adding": "Adding",
+    "remove": "Remove",
+    "removeNamed": "Remove {name}",
+    "removeTitle": "Remove {name}?",
+    "removeDescription": "Customers will no longer be sent this picture.",
+    "loadFailed": "The payment QR didn't load.",
+    "managerOnly": "Only people who manage settings change where customers pay."
   }
 }

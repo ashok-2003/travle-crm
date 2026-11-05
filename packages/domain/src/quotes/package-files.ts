@@ -15,6 +15,7 @@ import {
   type PackageFileKind,
 } from "@travel-crm/contracts/quotes";
 import type { Database } from "@travel-crm/db";
+import { recordAudit, type AuditSnapshot } from "../audit/index.js";
 import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
@@ -109,9 +110,35 @@ export async function confirmPackageFile(
     await requireRoomForBrochure(dependencies, access, input.packageId, input.attachmentId);
   await dependencies.files.confirmUpload(access, { ...record, attachmentId: input.attachmentId });
   if (input.kind !== "payment_qr") return;
+  const replaced: string[] = [];
   for (const old of await dependencies.files.list(access, record)) {
-    if (old.id !== input.attachmentId) await dependencies.files.remove(access, { ...record, attachmentId: old.id });
+    if (old.id === input.attachmentId) continue;
+    await dependencies.files.remove(access, { ...record, attachmentId: old.id });
+    replaced.push(old.id);
   }
+  const previous = replaced[replaced.length - 1];
+  await auditQr(dependencies, access, input.packageId, {
+    ...(previous === undefined ? {} : { before: { qrAttachmentId: previous } }),
+    after: { qrAttachmentId: input.attachmentId },
+  });
+}
+
+/** Where customers pay is audited like the details beside it: which picture came, which went. */
+async function auditQr(
+  dependencies: PackageFileDependencies,
+  access: MemberAccess,
+  packageId: string,
+  change: { before?: AuditSnapshot; after?: AuditSnapshot },
+): Promise<void> {
+  await dependencies.db.forOrg(access.organizationId, (tx) =>
+    recordAudit(tx, access, {
+      action: "package.payment-changed",
+      entityType: "quote_template",
+      entityId: packageId,
+      ...(change.before === undefined ? {} : { before: change.before }),
+      ...(change.after === undefined ? {} : { after: change.after }),
+    }),
+  );
 }
 
 export async function removePackageFile(
@@ -124,4 +151,7 @@ export async function removePackageFile(
     ...recordOf(input.packageId, input.kind),
     attachmentId: input.attachmentId,
   });
+  if (input.kind === "payment_qr") {
+    await auditQr(dependencies, access, input.packageId, { before: { qrAttachmentId: input.attachmentId } });
+  }
 }

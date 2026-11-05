@@ -52,7 +52,6 @@ const words = (overrides: Partial<UpdatePackageInput> = {}): Omit<UpdatePackageI
   roomTypes: [],
   pricesIncludeGst: true,
   advancePerPersonPaise: null,
-  paymentDetails: "",
   pickupPoints: "",
   startCity: "",
   weeklyDays: [],

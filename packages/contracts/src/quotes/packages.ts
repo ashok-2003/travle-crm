@@ -95,7 +95,6 @@ export const packageFields = {
   pricesIncludeGst: z.boolean(),
   /** What a person pays to hold a seat, in paise. */
   advancePerPersonPaise: paise.nullable(),
-  paymentDetails: text(1000),
   pickupPoints: text(500),
   startCity: text(80),
   /** The days it departs, 0 Sunday to 6 Saturday. */
@@ -105,6 +104,9 @@ export const packageFields = {
   seatsPerDeparture: z.int().min(1).max(MAX_SEATS).nullable(),
 };
 export const updatePackageInput = z.strictObject({ packageId: recordId, ...packageFields });
+/** Where customers pay (bank or UPI details): changed apart from the package's words, by whoever manages settings. */
+export const setPackagePaymentDetailsInput = z.strictObject({ packageId: recordId, paymentDetails: text(1000) });
+export type SetPackagePaymentDetailsInput = z.infer<typeof setPackagePaymentDetailsInput>;
 export type UpdatePackageInput = z.infer<typeof updatePackageInput>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
 export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
@@ -164,6 +166,8 @@ export const packageDetail = z.object({
   id: recordId,
   ...z.object(packageFields).shape,
   published: z.boolean(),
+  /** Bank or UPI details a customer is told when they pay; changed apart from the rest (setPaymentDetails). */
+  paymentDetails: z.string(),
   /** The destination's name, for the picker. */
   destinationName: z.string().nullable(),
   /** The lines of a package with no tiers (its one implicit tier); costs only for whoever may see margins. */
@@ -256,3 +260,8 @@ export const packageFileRefInput = z.strictObject({
   kind: z.enum(packageFileKinds),
   attachmentId: z.uuid(),
 });
+/** Brochures are staff's to manage with the package; the payment QR is where customers pay, so it has procedures of its own. */
+export const requestBrochureInput = requestPackageFileInput.extend({ kind: z.literal("brochure") });
+export const brochureRefInput = packageFileRefInput.extend({ kind: z.literal("brochure") });
+export const requestPaymentQrInput = requestPackageFileInput.omit({ kind: true });
+export const paymentQrRefInput = packageFileRefInput.omit({ kind: true });
