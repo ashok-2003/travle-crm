@@ -30,7 +30,10 @@ export function DraftFields({ draft, control, setValue }: Props) {
   const gstId = useId();
   const weeklyChoice = useWatch({ control, name: "weeklyDaysChoice" });
   const advanceChoice = useWatch({ control, name: "advanceChoice" });
-  const dayName = (day: number) => form(`weekdays.${String(day) as "0"}`);
+  const dayName = (day: number) => {
+    const key = WEEKDAYS[day];
+    return key === undefined ? "" : form(`weekdays.${key}`);
+  };
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">

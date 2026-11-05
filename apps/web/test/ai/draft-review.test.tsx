@@ -1,5 +1,7 @@
 // The review of a drafted package: every value beside the line it came from, "check this" and "not found" marked, the
 // documents' disagreements held until chosen, and nothing saved until "Save as package".
+import { createGroupPackageInput, type CreateGroupPackageInput } from "@travel-crm/contracts/ai";
+import { z } from "zod";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -37,12 +39,15 @@ function render(
   );
 }
 
-function sentTo(path: string): Record<string, unknown> | undefined {
+/** What the browser sent to the create call, checked against the contract. */
+function sentTo(path: string): CreateGroupPackageInput | undefined {
   for (const [input, init] of vi.mocked(fetch).mock.calls) {
     const url = input instanceof Request ? input.url : String(input);
     if (!url.includes(path)) continue;
     const body = init?.body ?? undefined;
-    return typeof body === "string" ? (JSON.parse(body) as Record<string, Record<string, unknown>>)["0"] : undefined;
+    return typeof body === "string"
+      ? createGroupPackageInput.parse(z.record(z.string(), z.unknown()).parse(JSON.parse(body))["0"])
+      : undefined;
   }
   return undefined;
 }
@@ -96,7 +101,7 @@ describe("Draft review", () => {
       advancePerPersonPaise: 500000,
       seasons: [{ label: "Winter", startsOn: "2026-12-01", endsOn: "2027-02-28" }],
     });
-    expect((sent as { seasons: { prices: Record<string, number | null> }[] }).seasons[0]?.prices).toMatchObject({
+    expect(sent?.seasons[0]?.prices).toMatchObject({
       double: 699900,
       triple: 650000,
       single: null,

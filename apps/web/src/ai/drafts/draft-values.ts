@@ -196,9 +196,9 @@ export function inputOf(draft: PackageDraft, values: ReviewValues): CreateGroupP
   };
 }
 
-/* The form's paths through its lists: the lint rule refuses a number in a template, and the form's types need the number. */
-/* eslint-disable @typescript-eslint/restrict-template-expressions */
+// The form's paths through its lists: the lint rule refuses a number in a template, and the form's types need the number.
+// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 export const seasonPath = (index: number): `seasons.${number}` => `seasons.${index}`;
 export const dayPath = (index: number, field: "title" | "description"): `days.${number}.${typeof field}` =>
+  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
   `days.${index}.${field}`;
-/* eslint-enable @typescript-eslint/restrict-template-expressions */
