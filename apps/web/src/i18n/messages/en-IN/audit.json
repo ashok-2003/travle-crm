@@ -297,6 +297,9 @@
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"
     },
+    "payment-proof": {
+      "dismissed": "Dismissed a payment screenshot"
+    },
     "booking": {
       "created": "A booking was made from an accepted quote",
       "removed": "A booking was removed with its quote",

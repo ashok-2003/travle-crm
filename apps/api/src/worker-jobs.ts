@@ -369,7 +369,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // AI on, a lead is scored once for each burst of the customer's messages.
       aiDocumentListener({ files, readText: documentText }),
       // A photo or PDF from a customer whose AI booking waits for payment is kept as their proof; the team is told.
-      aiPaymentProofListener({ recipients: bookingManagers }),
+      aiPaymentProofListener({ recipients: bookingManagers, subscriptions: dependencies.subscriptions }),
       ...(dependencies.jobs === undefined || ai === null
         ? []
         : [

@@ -151,4 +151,41 @@ describe("erasing a customer who is in the sales inbox", () => {
     expect(notes).not.toContain(`Neha wants a Spiti trip (${mine.id})`);
     expect(notes).toContain(`Neha wants a Spiti trip (${other.id})`);
   });
+  it("deletes the payment proofs kept from their chat and leaves another customer's", async () => {
+    const connection = await aConnectedAgency(test);
+    const { organizationId } = connection;
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const phones = [freshPhone(), freshPhone()];
+    for (const phone of phones) {
+      await deliver(test, fromCustomer(connection, { customerNumber: phone.replace("+", ""), text: "Hi" }));
+    }
+    const chats = await inOrg((tx) => tx.whatsappConversation.findMany({ orderBy: { phoneE164: "asc" } }));
+    const mine = chats.find((chat) => chat.phoneE164 === phones[0]);
+    const other = chats.find((chat) => chat.phoneE164 === phones[1]);
+    if (mine === undefined || mine.personId === null || other === undefined) throw new Error("Both need a chat");
+    const personId = mine.personId;
+    await inOrg(async (tx) => {
+      for (const chat of [mine, other]) {
+        const shot = await tx.whatsappMessage.create({
+          data: {
+            conversationId: chat.id,
+            direction: "in",
+            origin: "customer",
+            kind: "image",
+            wamid: `wamid.${randomUUID()}`,
+            status: "received",
+            occurredAt: testNow,
+          },
+        });
+        await tx.paymentProof.create({ data: { conversationId: chat.id, messageId: shot.id } });
+      }
+    });
+
+    await platformDb.transaction((tx) =>
+      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
+    );
+
+    expect(await inOrg((tx) => tx.paymentProof.count({ where: { conversationId: mine.id } }))).toBe(0);
+    expect(await inOrg((tx) => tx.paymentProof.count({ where: { conversationId: other.id } }))).toBe(1);
+  });
 });

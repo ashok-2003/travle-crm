@@ -7,7 +7,7 @@ import { aiBookingList, aiBookingStatus, type AgentAnswer, type AiBooking } from
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
-import { linkAiBooking } from "../bookings/index.js";
+import { linkAiBooking, recordUnmatchedProof } from "../bookings/index.js";
 import { addAiLeadNote, advanceLeadStage, noticeKey } from "../crm/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
@@ -15,6 +15,7 @@ import { defineListener, type EventListener } from "../jobs/index.js";
 import { recordAudit } from "../audit/index.js";
 import { DomainError, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
+import type { SubscriptionAccess } from "../subscriptions/index.js";
 
 export const AI_BOOKING_KIND = "ai.booking";
 export const AI_PAYMENT_PROOF_KIND = "ai.payment-proof";
@@ -109,27 +110,62 @@ export async function takeBooking(
   return row.id;
 }
 
-/** A photo or PDF from a customer whose booking waits for payment is kept as their proof, and the team is told. */
-export function aiPaymentProofListener(dependencies: { recipients: BookingRecipients }): EventListener {
+/**
+ * A photo or PDF from a customer whose booking waits for payment is kept as their proof, and the team is told. With no
+ * booking waiting it is kept as a proof to match (payments to check), when the agency has the bookings module.
+ */
+export function aiPaymentProofListener(dependencies: {
+  recipients: BookingRecipients;
+  subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
+}): EventListener {
   return defineListener({
     name: "ai.payment-proof",
     eventType: CUSTOMER_WROTE_EVENT,
     payload: whatsappCustomerWroteEvent,
     handle: async (event, context) => {
       const { conversationId, messageId } = event.payload;
-      const found = await context.forOrg(async (tx) => {
+      const looked = await context.forOrg(async (tx) => {
         const message = await tx.whatsappMessage.findUnique({
           where: { id: messageId },
           select: { kind: true, occurredAt: true },
         });
         if (message === null || !PROOF_KINDS.includes(message.kind)) return null;
-        return tx.aiBooking.findFirst({
+        const open = await tx.aiBooking.findFirst({
           where: { conversationId, status: { in: OPEN_STATUSES }, createdAt: { lte: message.occurredAt } },
           orderBy: { createdAt: "desc" },
           select: { id: true, leadId: true, summary: true, proofMessageIds: true },
         });
+        return { open };
       });
-      if (found === null || found.proofMessageIds.includes(messageId)) return;
+      if (looked === null) return;
+      const found = looked.open;
+      if (found === null) {
+        const modules = (await dependencies.subscriptions.entitlementsOf(event.organizationId))?.modules;
+        if (modules?.has("bookings") !== true) return;
+        const managerUserIds = await dependencies.recipients(event.organizationId);
+        await context.forOrg(async (tx) => {
+          const chat = await tx.whatsappConversation.findUnique({
+            where: { id: conversationId },
+            select: { personId: true },
+          });
+          const lead =
+            chat?.personId == null
+              ? null
+              : await tx.lead.findFirst({
+                  where: { personId: chat.personId },
+                  orderBy: { createdAt: "desc" },
+                  select: { id: true },
+                });
+          await recordUnmatchedProof(tx, context.actor, {
+            conversationId,
+            messageId,
+            leadId: lead?.id ?? null,
+            managerUserIds,
+          });
+        });
+        return;
+      }
+      if (found.proofMessageIds.includes(messageId)) return;
       const recipients = await dependencies.recipients(event.organizationId);
       await context.forOrg(async (tx) => {
         await tx.aiBooking.update({

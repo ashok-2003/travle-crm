@@ -267,6 +267,7 @@
     "BOOKING_NOT_CONFIRMED": "Confirm the booking first.",
     "BOOKING_NOT_OPEN": "This can't be done on this booking now.",
     "BOOKING_NOT_REQUESTED": "Only a booking waiting for confirmation can be confirmed.",
+    "PROOF_DECIDED": "This payment screenshot was already checked.",
     "CLAIM_DECIDED": "This payment was already checked.",
     "CLAIM_EXCEEDS_BALANCE": "That is more than is left to pay on this booking.",
     "CLAIM_NEEDS_PROOF": "Add the UPI reference or a screenshot, so the payment can be found.",

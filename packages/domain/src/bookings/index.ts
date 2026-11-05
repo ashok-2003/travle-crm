@@ -43,6 +43,7 @@ export {
   publicTripOf,
   type PublicTrip,
 } from "./public-trip.js";
+export { dismissProof, PAYMENT_PROOF_KIND, recordUnmatchedProof } from "./payment-proofs.js";
 export { publicUploadRecord, publicUploadTarget, type UploadTarget } from "./public-uploads.js";
 export { getBooking, listBookings, listLeadBookings } from "./reads.js";
 export {

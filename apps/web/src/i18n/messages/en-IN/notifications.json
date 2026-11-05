@@ -150,6 +150,10 @@
         "label": "A customer sent a payment screenshot",
         "hint": "When a customer whose booking waits for payment sends a photo or PDF."
       },
+      "paymentProofToMatch": {
+        "label": "A payment screenshot needs matching",
+        "hint": "When a customer sends a photo or PDF and no booking is waiting for payment."
+      },
       "departureSeatsFree": {
         "label": "Seats free up on a full departure",
         "hint": "When a lead of yours is waiting and their party now fits."

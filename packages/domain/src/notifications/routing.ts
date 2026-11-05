@@ -11,6 +11,7 @@ export const TEAM_ALERT_KINDS: readonly string[] = [
   "ai.handoff",
   "ai.booking",
   "ai.payment-proof",
+  "payment.proof-to-match",
   "sales.hot-lead",
   "lead.slow-reply",
   "lead.unassigned",
