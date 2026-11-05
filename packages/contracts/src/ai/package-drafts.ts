@@ -48,17 +48,23 @@ export type FoundTrips = z.infer<typeof foundTrips>;
 
 /** What the model answers to "find the trips": checked before anything is trusted; a bad field is emptied, a bad shape refused. */
 export const foundTripsAnswer = z.object({
+  /** A trip that is not valid becomes null, so every valid one still arrives. */
   trips: z.array(
-    z.object({
-      name: z.string().trim().min(1).max(120),
-      place: z.string().trim().max(80).catch(""),
-      nights: z.int().min(0).max(60).nullable().catch(null),
-      lines: z.array(z.string()).max(200).catch([]),
-    }),
+    z
+      .union([
+        z.object({
+          name: z.string().trim().min(1).max(120),
+          place: z.string().trim().max(80).catch(""),
+          nights: z.int().min(0).max(60).nullable().catch(null),
+          lines: z.array(z.string()).max(200).catch([]),
+        }),
+        z.null(),
+      ])
+      .catch(null),
   ),
 });
 
-export const findTripsInput = z.strictObject({ part: z.string().optional() });
+export const findTripsInput = z.strictObject({ part: z.string().max(20).optional() });
 export type FindTripsInput = z.infer<typeof findTripsInput>;
 
 /** The trip to draft, as the screen got it from "find trips": the fill it came from, and the trip's name and line tokens. */
@@ -75,9 +81,7 @@ export type DraftPackageInput = z.infer<typeof draftPackageInput>;
 const cited = z.array(z.string().max(20)).max(50).catch([]);
 /** A field the model answers: a value and the tokens of the lines that say it; a bad one is emptied, never fatal. */
 const answered = <T extends z.ZodType>(value: T) =>
-  z
-    .object({ value: z.union([value, z.null()]).catch(null), tokens: cited })
-    .catch(() => ({ value: null, tokens: [] }) as never);
+  z.object({ value: z.union([value, z.null()]).catch(null), tokens: cited }).catch(() => ({ value: null, tokens: [] }));
 /** A list of candidates: an item that is not valid is dropped to null, so every valid one still arrives. */
 const candidates = <T extends z.ZodType>(item: T) =>
   z

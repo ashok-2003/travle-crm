@@ -107,6 +107,7 @@ export async function findTrips(
     const trips: FoundTrip[] = [];
     for (const one of parsed.success ? parsed.data.trips : []) {
       if (trips.length === MAX_FOUND_TRIPS) break;
+      if (one === null) continue;
       const evidence = resolveTokens(one.lines, part.pieces);
       // A trip no real line describes is not a trip.
       if (evidence.length === 0) continue;

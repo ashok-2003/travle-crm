@@ -96,6 +96,20 @@ describe("finding the trips in an agency's documents", () => {
     expect(await calls()).toBe(1);
   });
 
+  it("keeps the valid trips when one in the answer is malformed", async () => {
+    const { find, model } = await agency();
+    model.answer(
+      JSON.stringify({
+        trips: [
+          { place: "Nameless" },
+          "Kerala",
+          { name: "Spiti 7 Nights 8 Days", place: "Spiti", nights: 7, lines: ["P2.L1"] },
+        ],
+      }),
+    );
+    expect((await find()).trips.map((trip) => trip.name)).toEqual(["Spiti 7 Nights 8 Days"]);
+  });
+
   it("drops a trip that cites only lines that don't exist", async () => {
     const { find, model } = await agency();
     model.answer(

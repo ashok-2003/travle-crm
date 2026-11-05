@@ -4,7 +4,9 @@ import {
   createGroupPackageInput,
   draftPackageInput,
   draftSeason,
+  findTripsInput,
   foundTrips,
+  foundTripsAnswer,
   MAX_DRAFT_DAYS,
   MAX_FOUND_TRIPS,
   packageDraftAnswer,
@@ -108,5 +110,27 @@ describe("package drafts", () => {
     expect(answer.seasons.map((season) => season?.label)).toEqual(["Winter", undefined]);
     expect(answer.seasons[0]?.prices.map((one) => one?.printed ?? null)).toEqual([null, "6,999/-"]);
     expect(answer.days).toEqual([]);
+  });
+
+  it("one malformed trip in the model's answer does not lose the others", () => {
+    const answer = foundTripsAnswer.parse({
+      trips: [
+        { name: "Manali 5N", place: "Manali", nights: 5, lines: ["P1.L1"] },
+        { name: "", place: "Nowhere" },
+        "Spiti",
+        { name: "Spiti 7N", place: 7, nights: "seven", lines: "P2.L1" },
+      ],
+    });
+    expect(answer.trips).toEqual([
+      { name: "Manali 5N", place: "Manali", nights: 5, lines: ["P1.L1"] },
+      null,
+      null,
+      { name: "Spiti 7N", place: "", nights: null, lines: [] },
+    ]);
+  });
+
+  it("bounds the part a read names", () => {
+    expect(findTripsInput.safeParse({ part: "part-2" }).success).toBe(true);
+    expect(findTripsInput.safeParse({ part: "x".repeat(21) }).success).toBe(false);
   });
 });

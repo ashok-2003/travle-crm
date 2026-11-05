@@ -31,16 +31,19 @@ import { linesAsText, linesHash, packageSources, resolveTokens, type SourcePiece
 const RULES = `DRAFT_PACKAGE. You work for a travel agency in India. Below are lines from the agency's own documents, each "[P1.L3] text", about ONE trip.
 Fill in a draft of that trip's group package. Every field is {"value": ..., "tokens": [...]}: the tokens are the lines that say it.
 Reply with one JSON object only:
-{"name":{"value":"Manali 5N6D","tokens":["P1.L1"]},"title":{},"destination":{},"nights":{"value":5,"tokens":[]},
-"roomTypes":{"value":["double","triple"],"tokens":[]},
-"weeklyDays":[{"value":["Friday"],"tokens":[]}],
-"departureMonths":{"value":[12,1],"tokens":[]},
-"seasons":[{"label":"Winter","fromMonth":12,"toMonth":1,"tokens":[],"prices":[{"room":"double","printed":"6,999/-","tokens":["P1.L2"]}]}],
-"pricesIncludeGst":{"value":true,"tokens":[]},
-"advancePerPerson":[{"printed":"2,000/-","tokens":[]}],
-"pickupPoints":{},"startCity":{},"inclusions":{},"exclusions":{},"cancellationNotes":{},"summary":{},
-"highlights":{"value":["..."],"tokens":[]},
-"days":[{"title":"Day 1: Delhi to Manali","description":"...","tokens":[]}]}
+{"name":{"value":"Manali 5N6D","tokens":["P1.L1"]},"title":{"value":"Manali 5 Nights 6 Days","tokens":["P1.L1"]},
+"destination":{"value":"Manali","tokens":["P1.L1"]},"nights":{"value":5,"tokens":["P1.L1"]},
+"roomTypes":{"value":["double","triple"],"tokens":["P1.L2"]},
+"weeklyDays":[{"value":["Friday"],"tokens":["P1.L3"]}],
+"departureMonths":{"value":[12,1],"tokens":["P1.L2"]},
+"seasons":[{"label":"Winter","fromMonth":12,"toMonth":1,"tokens":["P1.L2"],"prices":[{"room":"double","printed":"6,999/-","tokens":["P1.L2"]}]}],
+"pricesIncludeGst":{"value":true,"tokens":["P1.L4"]},
+"advancePerPerson":[{"printed":"2,000/-","tokens":["P1.L5"]}],
+"pickupPoints":{"value":"Delhi ISBT at 6 pm","tokens":["P1.L3"]},"startCity":{"value":"Delhi","tokens":["P1.L3"]},
+"inclusions":{"value":"Hotel and breakfast","tokens":["P1.L6"]},"exclusions":{"value":"Lunch","tokens":["P1.L6"]},
+"cancellationNotes":{"value":"50% charged within 15 days","tokens":["P1.L7"]},"summary":{"value":"A short trip to Manali","tokens":["P1.L1"]},
+"highlights":{"value":["Solang Valley"],"tokens":["P1.L8"]},
+"days":[{"title":"Day 1: Delhi to Manali","description":"Overnight Volvo","tokens":["P1.L9"]}]}
 Rules:
 - Only what the lines say. Leave a field empty ({"value":null,"tokens":[]}, or an empty list) rather than guess. Use only tokens that appear in the lines.
 - Prices: copy them exactly as printed ("6,999/-", "₹7,499"), one entry per room type (${roomTypes.join(", ")}) and season, with the months the season covers (fromMonth, toMonth, 1 to 12).
@@ -71,12 +74,15 @@ const prompt = (tripName: string, pieces: readonly SourcePiece[]): AiMessage[] =
   },
 ];
 
-/** The hash the fill row keeps for a name; anything else stored there is no hash. */
-const storedHash = (hashes: unknown, name: string): string | undefined => {
-  if (typeof hashes !== "object" || hashes === null) return undefined;
-  const found: unknown = Object.entries(hashes).find(([key]) => key === name)?.[1];
-  return typeof found === "string" ? found : undefined;
-};
+/** The fill row's hashes by name; anything stored there that is not text is no hash. */
+const storedHashes = (value: unknown): Record<string, string> =>
+  typeof value !== "object" || value === null
+    ? {}
+    : Object.fromEntries(
+        Object.entries(value).flatMap(([name, hash]): [string, string][] =>
+          typeof hash === "string" ? [[name, hash]] : [],
+        ),
+      );
 
 const nothing = () => refuse("PACKAGE_DRAFT_NOTHING", "The AI found nothing to draft in your documents", "VALIDATION");
 
@@ -311,7 +317,7 @@ export async function draftPackage(
     if (fill === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
     const pieces = await packageSources(tx);
     // The tokens name positions, which editing a document renumbers: draft only from the lines the trip was found with.
-    const stored = storedHash(fill.fieldHashes, input.trip.ref);
+    const stored = storedHashes(fill.fieldHashes)[input.trip.ref];
     if (stored !== linesHash(resolveTokens(input.trip.tokens, pieces))) {
       throw refuse("PACKAGE_DRAFT_STALE", "Your documents changed since the trips were found. Find the trips again.");
     }
@@ -363,7 +369,7 @@ export async function draftPackage(
       select: { fields: true, fieldHashes: true },
     });
     const hashes: Record<string, string> = {
-      ...(fill?.fieldHashes as Record<string, string> | undefined),
+      ...storedHashes(fill?.fieldHashes),
       ...Object.fromEntries(
         Object.entries(draft)
           .filter(([name]) => name !== "fillId" && name !== "tripRef")
