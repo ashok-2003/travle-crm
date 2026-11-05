@@ -31,6 +31,7 @@ export function createAiModel(environment: Environment): AiModel | null {
         reach_out: chat,
         // Drafting a plan is longer writing than a reply: the chat models.
         draft_days: chat,
+        draft_packages: chat,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
@@ -51,6 +52,7 @@ export function createAiModel(environment: Environment): AiModel | null {
         write_up: backupChat,
         ask_report: backupFast,
         draft_days: backupChat,
+        draft_packages: backupChat,
       },
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
@@ -75,6 +77,7 @@ export function createAiModel(environment: Environment): AiModel | null {
       read_rates: environment.AI_SUGGEST_MODELS,
       reach_out: environment.AI_SUGGEST_MODELS,
       draft_days: environment.AI_SUGGEST_MODELS,
+      draft_packages: environment.AI_SUGGEST_MODELS,
     },
     ...(testServer === undefined
       ? {}
