@@ -51,4 +51,17 @@ describe("PaymentsCard", () => {
     expect(screen.getByRole("button", { name: words.addQr }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByText(words.managerOnly)).toBeTruthy();
   });
+
+  it("refuses a QR that is not a picture or is over 2 MB, without sending anything", async () => {
+    const api = fakeApi();
+    renderWithApi(<PaymentsCard detail={group} />, newQueryClient());
+    const input = screen.getByTestId("package-qr-input");
+    await userEvent.upload(input, new File(["x"], "qr.pdf", { type: "application/pdf" }), { applyAccept: false });
+    expect(await screen.findByText(words.problems.wrongType)).toBeTruthy();
+    const big = new File(["x"], "qr.png", { type: "image/png" });
+    Object.defineProperty(big, "size", { value: 2 * 1024 * 1024 + 1 });
+    await userEvent.upload(input, big);
+    expect(await screen.findByText(/Choose a picture of up to 2 MB/)).toBeTruthy();
+    expect(api.calls.some((call) => call.path === "packages.requestPaymentQrUpload")).toBe(false);
+  });
 });

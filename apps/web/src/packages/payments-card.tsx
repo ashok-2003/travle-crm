@@ -3,6 +3,7 @@
 // Where customers pay (group packages): the bank or UPI details a customer is told, and the payment QR. Money, so only
 // whoever manages settings changes it (the api checks); others read it here, disabled, with a line that says why.
 import type { PackageDetail } from "@travel-crm/contracts/quotes";
+import { CircleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { TextLink } from "@/components/text-link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
@@ -18,7 +20,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
-import { usePaymentQrChanges, usePackageFiles } from "./use-package-files";
+import { formatFileSize } from "@/files/file-size";
+import { packageFileLimit, packageFileProblem } from "./package-file-check";
+import { usePackageFiles, usePaymentQrChanges } from "./use-package-files";
 import { usePackageChanges } from "./use-packages";
 
 const QR_TYPES = "image/jpeg,image/png,image/webp";
@@ -35,6 +39,7 @@ export function PaymentsCard({ detail }: { detail: PackageDetail }) {
   const { add, remove } = usePaymentQrChanges(detail.id);
   const [typed, setTyped] = useState(detail.paymentDetails);
   const [removing, setRemoving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const qr = files.data?.paymentQr ?? null;
@@ -100,6 +105,12 @@ export function PaymentsCard({ detail }: { detail: PackageDetail }) {
           </Button>
         </div>
       )}
+      {problem !== null && (
+        <Alert variant="destructive">
+          <CircleAlertIcon aria-hidden="true" />
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
+      )}
       <RefusalAlert error={add.error} />
       <input
         ref={picker}
@@ -112,7 +123,12 @@ export function PaymentsCard({ detail }: { detail: PackageDetail }) {
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
-          if (file !== undefined) add.mutate(file);
+          if (file === undefined) return;
+          const wrong = packageFileProblem("payment_qr", file);
+          setProblem(
+            wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(packageFileLimit.payment_qr) }),
+          );
+          if (wrong === null) add.mutate(file);
         }}
       />
       <div>

@@ -12,8 +12,8 @@ import {
 } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
-import { MAX_SEATS } from "../departures/departures.js";
-import { roomBooking, roomPrices, roomType } from "./room-prices.js";
+import { MAX_SEATS } from "../departures/seat-limit.js";
+import { roomBooking, roomPrices, roomPricesOutput, roomType } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -137,7 +137,7 @@ export const packageSeason = z.object({
   label: z.string(),
   startsOn: calendarDate,
   endsOn: calendarDate,
-  prices: roomPrices,
+  prices: roomPricesOutput,
 });
 export type PackageSeasonView = z.infer<typeof packageSeason>;
 

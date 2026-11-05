@@ -81,7 +81,8 @@ export function SeasonsCard({ detail }: { detail: PackageDetail }) {
                     aria-label={t("removeNamed", { name: season.label })}
                     disabled={!access.allowed}
                     aria-describedby={access.allowed ? undefined : hintId}
-                    onClick={() => {
+                    onClick={(event) => {
+                      opener.current = event.currentTarget;
                       setRemoving(season);
                     }}
                   >
@@ -124,6 +125,7 @@ export function SeasonsCard({ detail }: { detail: PackageDetail }) {
         description={t("removeDescription")}
         action={t("remove")}
         request={removeSeason}
+        returnFocusTo={opener}
         onConfirm={() => {
           if (removing === null) return;
           removeSeason.mutate(

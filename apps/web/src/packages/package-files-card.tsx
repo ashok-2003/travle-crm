@@ -3,7 +3,7 @@
 // A package's brochures (group packages): files that go straight to storage and that the AI shares with a customer on
 // request. Up to five (PDF or a picture). The payment QR, where customers pay, is in the payments card.
 import { MAX_PACKAGE_BROCHURES, type PackageFile } from "@travel-crm/contracts/quotes";
-import { FilePlusIcon, Trash2Icon } from "lucide-react";
+import { CircleAlertIcon, FilePlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { SectionCard } from "@/bookings/section-card";
@@ -12,10 +12,13 @@ import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { TextLink } from "@/components/text-link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
+import { formatFileSize } from "@/files/file-size";
+import { packageFileLimit, packageFileProblem } from "./package-file-check";
 import { usePackageFileChanges, usePackageFiles } from "./use-package-files";
 
 const BROCHURE_TYPES = "application/pdf,image/jpeg,image/png,image/webp";
@@ -30,10 +33,14 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
   const opener = useRef<HTMLElement | null>(null);
   const brochurePicker = useRef<HTMLInputElement>(null);
   const brochures = files.data?.brochures ?? [];
+  const [problem, setProblem] = useState<string | null>(null);
   const picked = (event: { target: HTMLInputElement }) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (file !== undefined) add.mutate(file);
+    if (file === undefined) return;
+    const wrong = packageFileProblem("brochure", file);
+    setProblem(wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(packageFileLimit.brochure) }));
+    if (wrong === null) add.mutate(file);
   };
   const row = (file: PackageFile) => (
     <li key={file.attachmentId} className="flex items-center justify-between gap-2">
@@ -72,6 +79,12 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         <p className="text-muted-foreground">{t("noBrochures")}</p>
       ) : (
         <ul>{brochures.map(row)}</ul>
+      )}
+      {problem !== null && (
+        <Alert variant="destructive">
+          <CircleAlertIcon aria-hidden="true" />
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
       )}
       <RefusalAlert error={add.error} />
       <input

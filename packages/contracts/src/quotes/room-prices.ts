@@ -22,15 +22,18 @@ export const roomCapacity: Record<RoomType, number | null> = {
 /** The room types an adult takes: the ones a lowest "from" price is taken over (a child's place is cheaper by design). */
 export const adultRoomTypes = roomTypes.filter((type) => roomCapacity[type] !== null);
 
-/** The price per person of each room type; null where the agency does not sell it. */
-export const roomPrices = z.strictObject({
+const roomPriceShape = {
   single: paise.nullable(),
   double: paise.nullable(),
   triple: paise.nullable(),
   quad: paise.nullable(),
   child_bed: paise.nullable(),
   child_no_bed: paise.nullable(),
-});
+};
+/** The price per person of each room type; null where the agency does not sell it. As an input: unknown keys are refused. */
+export const roomPrices = z.strictObject(roomPriceShape);
+/** The same as an output, where unknown keys are stripped. */
+export const roomPricesOutput = z.object(roomPriceShape);
 export type RoomPrices = z.infer<typeof roomPrices>;
 
 /** How many people take rooms of one type. */

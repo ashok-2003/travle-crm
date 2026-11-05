@@ -5,7 +5,7 @@ import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { MAX_QUOTE_PAISE } from "../quotes/quotes.js";
-import { roomPrices } from "../quotes/room-prices.js";
+import { roomPrices, roomPricesOutput } from "../quotes/room-prices.js";
 import { MAX_SEATS } from "./seat-limit.js";
 
 export { MAX_SEATS };
@@ -144,7 +144,7 @@ export const departureDetail = z.object({
   cutoffOn: calendarDate.nullable(),
   notes: z.string(),
   templateId: recordId.nullable(),
-  prices: roomPrices,
+  prices: roomPricesOutput,
   cancelledReason: z.string().nullable(),
   bookings: z.array(departureBooking),
   holds: z.array(departureHold),

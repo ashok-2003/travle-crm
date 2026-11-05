@@ -295,7 +295,11 @@
     "loading": "Loading files",
     "loadFailed": "The files didn't load.",
     "removeTitle": "Remove {name}?",
-    "removeDescription": "Customers will no longer be sent this file."
+    "removeDescription": "Customers will no longer be sent this file.",
+    "problems": {
+      "wrongType": "Choose a PDF or a picture (JPEG, PNG or WebP).",
+      "tooLarge": "Choose a file of up to {size}."
+    }
   },
   "payments": {
     "title": "Where customers pay",
@@ -314,6 +318,10 @@
     "removeTitle": "Remove {name}?",
     "removeDescription": "Customers will no longer be sent this picture.",
     "loadFailed": "The payment QR didn't load.",
-    "managerOnly": "Only people who manage settings change where customers pay."
+    "managerOnly": "Only people who manage settings change where customers pay.",
+    "problems": {
+      "wrongType": "Choose a picture (JPEG, PNG or WebP).",
+      "tooLarge": "Choose a picture of up to {size}."
+    }
   }
 }

@@ -84,4 +84,15 @@ describe("SeasonsCard", () => {
     await userEvent.click(screen.getByRole("button", { name: words.seasons.add }));
     expect(await screen.findByText(/each room type sold, before GST\./)).toBeTruthy();
   });
+
+  it("gives the focus back to the Remove button when the removal is cancelled", async () => {
+    renderWithApi(<SeasonsCard detail={group()} />, newQueryClient());
+    const remove = screen.getByRole("button", { name: "Remove Peak" });
+    await userEvent.click(remove);
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Cancel/ }));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(remove);
+    });
+  });
 });

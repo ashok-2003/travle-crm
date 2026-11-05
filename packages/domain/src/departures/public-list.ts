@@ -30,7 +30,7 @@ const wordOf = (state: string): PublicSeatWord | null =>
  */
 export async function publicDepartures(
   tx: OrgTx,
-  input: { destinationId: string | null; packageId?: string; today: string; now: Date; onlyId?: string },
+  input: { destinationId: string | null; packageId?: string; today: string; now: Date },
 ): Promise<PublicDepartureRow[]> {
   const group =
     input.packageId === undefined
@@ -40,14 +40,12 @@ export async function publicDepartures(
     group?.kind === "group" && input.packageId !== undefined
       ? await pricingOf(tx, input.packageId, group.roomTypes as RoomType[])
       : null;
-  if (pricing === null && input.destinationId === null && input.onlyId === undefined) return [];
+  if (pricing === null && input.destinationId === null) return [];
   const scope =
-    input.onlyId !== undefined
-      ? { id: input.onlyId }
-      : pricing !== null && input.packageId !== undefined
-        ? { templateId: input.packageId }
-        : // A custom package lists the free-standing departures at its destination, never another package's batches.
-          { destinationId: input.destinationId, templateId: null };
+    pricing !== null && input.packageId !== undefined
+      ? { templateId: input.packageId }
+      : // A custom package lists the free-standing departures at its destination, never another package's batches.
+        { destinationId: input.destinationId, templateId: null };
   const rows = await tx.departure.findMany({
     where: {
       status: "open",

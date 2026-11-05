@@ -7,6 +7,7 @@ import {
   packageSellGaps,
   savePackage,
   savePackageSeason,
+  sellablePackages,
   setPackagePaymentDetails,
   setPackageSellable,
   updatePackage,
@@ -274,6 +275,28 @@ describe("a package the AI may sell", () => {
     expect(await gaps(id)).toEqual([]);
     await sell(id, true);
     expect((await detail(id)).sellable).toBe(true);
+  });
+
+  it("sellablePackages offers only what is switched on and still has nothing missing", async () => {
+    const ready = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
+    const off = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
+    const idsOfSellable = async () => (await world.inOrg((tx) => sellablePackages(tx, today))).map((one) => one.id);
+    await sell(ready, true);
+    expect(await idsOfSellable()).toContain(ready);
+    expect(await idsOfSellable()).not.toContain(off);
+    expect((await world.inOrg((tx) => sellablePackages(tx, today))).find((one) => one.id === ready)).toEqual({
+      id: ready,
+      kind: "custom",
+    });
+    // The price goes away after the switch was turned on: the switch stays on but the AI is no longer offered it.
+    await world.inOrg((tx) =>
+      updatePackage(tx, world.manager, {
+        packageId: ready,
+        ...words({ name: "Lost price", title: "Lost price", priceDisplay: "on_enquiry", fromPricePaise: null }),
+      }),
+    );
+    expect((await detail(ready)).sellable).toBe(true);
+    expect(await idsOfSellable()).not.toContain(ready);
   });
 
   it("turning selling off always works, and both are audited", async () => {

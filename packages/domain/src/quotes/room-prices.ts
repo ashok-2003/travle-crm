@@ -74,7 +74,8 @@ const MAX_GST_ROUNDING_GAP_PAISE = 2;
 
 /**
  * The pre-tax subtotal of a price that includes GST: the one whose subtotal plus tax is the total, searched around
- * total ÷ (1 + rate). Rounding can leave no such subtotal; then the closest sum wins, never more than 2 paise away.
+ * total ÷ (1 + rate). Rounding can leave no such subtotal; then the one whose sum is closest to the total without going
+ * above it wins (a customer is never quoted more than they were told), never more than 2 paise away.
  */
 export function exTaxSubtotal(
   totalPaise: number,
@@ -82,20 +83,21 @@ export function exTaxSubtotal(
   taxOf: (subtotalPaise: number) => number,
 ): number {
   const estimate = Math.round((totalPaise * 10_000) / (10_000 + rateBasisPoints));
-  let best = estimate;
+  let best: number | null = null;
   let bestGap = Number.POSITIVE_INFINITY;
-  for (const offset of [0, -1, 1, -2, 2]) {
+  for (const offset of [0, -1, 1, -2, 2, -3, 3]) {
     const candidate = estimate + offset;
-    const gap = Math.abs(candidate + taxOf(candidate) - totalPaise);
-    if (gap < bestGap) {
+    const sum = candidate + taxOf(candidate);
+    const gap = totalPaise - sum;
+    if (gap >= 0 && gap < bestGap) {
       best = candidate;
       bestGap = gap;
     }
   }
   // A programming error, not a business refusal: a tax function that can't come near the total is wrong.
-  if (bestGap > MAX_GST_ROUNDING_GAP_PAISE) {
+  if (best === null || bestGap > MAX_GST_ROUNDING_GAP_PAISE) {
     throw new Error(
-      `No subtotal within ${String(MAX_GST_ROUNDING_GAP_PAISE)} paise of the total ${String(totalPaise)}`,
+      `No subtotal within ${String(MAX_GST_ROUNDING_GAP_PAISE)} paise below the total ${String(totalPaise)}`,
     );
   }
   return best;

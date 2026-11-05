@@ -119,6 +119,23 @@ export async function packageSellGaps(tx: OrgTx, packageId: string, today: Calen
   return gaps;
 }
 
+/**
+ * The packages the AI may sell today: switched on, and with nothing missing. The only way to ask (a package that has lost
+ * its seasons or departures since the switch was turned on is not offered), so callers never read the switch alone.
+ */
+export async function sellablePackages(tx: OrgTx, today: CalendarDate): Promise<{ id: string; kind: string }[]> {
+  const switchedOn = await tx.quoteTemplate.findMany({
+    where: { aiSellable: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: { id: true, kind: true },
+  });
+  const ready: { id: string; kind: string }[] = [];
+  for (const one of switchedOn) {
+    if ((await packageSellGaps(tx, one.id, today)).length === 0) ready.push(one);
+  }
+  return ready;
+}
+
 /** Lets the AI sell the package, or stops it. Turning on needs nothing missing; turning off always works. */
 export async function setPackageSellable(
   tx: OrgTx,

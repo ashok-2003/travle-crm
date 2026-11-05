@@ -19,6 +19,7 @@ import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-di
 import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { FieldDescription, FieldLegend, FieldSet } from "@/components/ui/field";
 import { DestinationField, type DestinationValue } from "@/leads/form/destination-field";
 import { NoteField } from "@/leads/form/note-field";
 import {
@@ -176,9 +177,9 @@ function DepartureForm({
       <DateField control={form.control} name="endDate" label={t("endDate")} />
       <TextField control={form.control} name="seatsTotal" label={t("seatsTotal")} inputMode="numeric" disabled={busy} />
       {linked ? (
-        <fieldset className="flex flex-col gap-4">
-          <legend className="font-medium">{t("roomPrices", { gst: gstWording(pricing) })}</legend>
-          <p className="text-muted-foreground">{t("roomPricesHint")}</p>
+        <FieldSet>
+          <FieldLegend>{t("roomPrices", { gst: gstWording(pricing) })}</FieldLegend>
+          <FieldDescription>{t("roomPricesHint")}</FieldDescription>
           {rooms.map((room) => (
             <MoneyField
               key={room}
@@ -187,7 +188,7 @@ function DepartureForm({
               label={t("roomPrice", { room: tRooms(room) })}
             />
           ))}
-        </fieldset>
+        </FieldSet>
       ) : (
         <MoneyField control={form.control} name="price" label={t("price")} hint={t("priceHint")} />
       )}

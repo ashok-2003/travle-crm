@@ -82,7 +82,8 @@ describe("exTaxSubtotal", () => {
         const reachable = [-2, -1, 0, 1, 2].some((offset) => sumFor(tax, estimate + offset) === total);
         // Exact whenever any subtotal near the estimate sums to the total; never more than 2 paise away.
         if (reachable) expect(sumFor(tax, part)).toBe(total);
-        expect(Math.abs(sumFor(tax, part) - total)).toBeLessThanOrEqual(2);
+        expect(total - sumFor(tax, part)).toBeGreaterThanOrEqual(0);
+        expect(total - sumFor(tax, part)).toBeLessThanOrEqual(2);
       }
     }
   }
@@ -108,10 +109,18 @@ describe("exTaxSubtotal", () => {
     for (const rate of [500, 1200, 1800]) checkTotals(rate, paise);
   });
 
-  it("picks the closest sum when no subtotal sums exactly", () => {
+  it("picks the closest sum at or below the total when no subtotal sums exactly", () => {
     // A tax that rounds odd subtotals up to an even number can never reach a total of 4k + 1.
     const taxOf = (subtotal: number) => 2 * Math.round(subtotal / 2);
     expect(exTaxSubtotal(1_001, 10_000, taxOf)).toBe(500);
+  });
+
+  it("never goes above the total told, even when a sum above is as close", () => {
+    // Odd subtotals gain one paise of tax: 1001 sums to 1002 (one above) and 1000 to 1000 (one below) for a total of 1001.
+    const taxOf = (subtotal: number) => (subtotal % 2 === 0 ? 0 : 1);
+    const part = exTaxSubtotal(1_001, 0, taxOf);
+    expect(part).toBe(1_000);
+    expect(part + taxOf(part)).toBeLessThanOrEqual(1_001);
   });
 
   it("refuses a tax function that cannot come near the total", () => {
