@@ -8,9 +8,9 @@ import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { uploadFile } from "@/files/upload";
 import { useRefreshWork } from "@/data/use-refresh-work";
 
-export function usePackage(packageId: string) {
+export function usePackage(packageId: string, enabled = true) {
   const trpc = useTRPC();
-  return useQuery(trpc.packages.get.queryOptions({ packageId }));
+  return useQuery({ ...trpc.packages.get.queryOptions({ packageId }), enabled });
 }
 
 export function usePackagePhotos(packageId: string) {
@@ -34,6 +34,8 @@ export function usePackageChanges() {
     setSellable: useMutation(trpc.packages.setSellable.mutationOptions(options)),
     saveTier: useMutation(trpc.packages.saveTier.mutationOptions(options)),
     removeTier: useMutation(trpc.packages.removeTier.mutationOptions(options)),
+    saveSeason: useMutation(trpc.packages.saveSeason.mutationOptions(options)),
+    removeSeason: useMutation(trpc.packages.removeSeason.mutationOptions(options)),
   };
 }
 

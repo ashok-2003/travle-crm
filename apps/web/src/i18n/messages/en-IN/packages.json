@@ -238,5 +238,67 @@
     "nowOff": "The AI no longer sells this package",
     "stillNeeds": "The AI will not sell this package until this is fixed:",
     "managerOnly": "Whoever manages settings lets the AI sell a package."
+  },
+  "seasons": {
+    "title": "Seasons and room prices",
+    "intro": "The price per person of each room type, for the dates a season covers. A booking is priced from the season of its first day.",
+    "none": "No seasons yet. Add one to give the room types a price.",
+    "dates": "{from} to {to}",
+    "priceLine": "{room}: {price}",
+    "notOffered": "Not sold",
+    "add": "Add a season",
+    "edit": "Change",
+    "editNamed": "Change {name}",
+    "remove": "Remove",
+    "removeNamed": "Remove {name}",
+    "removeTitle": "Remove {name}?",
+    "removeDescription": "Bookings already made keep their price. New ones on these dates are no longer priced from it.",
+    "removed": "Season removed",
+    "noRoomTypes": "Choose the room types sold first, in the form on the left."
+  },
+  "season": {
+    "addTitle": "Add a season",
+    "editTitle": "Change this season",
+    "description": "The dates, and the price per person of each room type sold, before GST.",
+    "label": "Name",
+    "labelHint": "Such as \"Peak, Oct to Dec\".",
+    "startsOn": "First day",
+    "endsOn": "Last day",
+    "price": "{room}, per person",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Season saved",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this.",
+      "noPrice": "Give at least one room type a price."
+    }
+  },
+  "packageDepartures": {
+    "title": "Departures",
+    "intro": "The next batches of this trip, with the seats left.",
+    "none": "No departures of this package yet.",
+    "loading": "Loading departures",
+    "loadFailed": "The departures didn't load.",
+    "seatsLeft": "{free} of {total} seats left",
+    "full": "Full",
+    "all": "All departures"
+  },
+  "files": {
+    "title": "Brochures and payment QR",
+    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each) and one payment QR (a picture, 2 MB). The AI shares them with customers.",
+    "brochures": "Brochures",
+    "qr": "Payment QR",
+    "noBrochures": "No brochures yet.",
+    "noQr": "No payment QR yet.",
+    "addBrochure": "Add a brochure",
+    "adding": "Adding",
+    "replaceQr": "Replace the QR",
+    "addQr": "Add the QR",
+    "remove": "Remove",
+    "removeNamed": "Remove {name}",
+    "loading": "Loading files",
+    "loadFailed": "The files didn't load.",
+    "qrAlt": "The payment QR"
   }
 }

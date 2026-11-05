@@ -18,12 +18,20 @@ import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { DestinationField, type DestinationValue } from "@/leads/form/destination-field";
 import { NoteField } from "@/leads/form/note-field";
+import {
+  roomPriceKey,
+  roomPriceFieldAt,
+  roomPricesOf,
+  roomPriceValues,
+  useShownRoomTypes,
+  type RoomPriceValues,
+} from "./room-price-fields";
 import { useDepartureChanges } from "./use-departures";
 
 type Problem = "required" | "invalid";
 type Changes = ReturnType<typeof useDepartureChanges>;
 
-interface Values {
+interface Values extends RoomPriceValues {
   title: string;
   destination: DestinationValue | null;
   startDate: string;
@@ -34,7 +42,6 @@ interface Values {
   notes: string;
 }
 
-const noPrices = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
 const fields = ["title", "destination", "startDate", "endDate", "seatsTotal", "price", "cutoffOn", "notes"] as const;
 const renamed: Partial<Record<string, (typeof fields)[number]>> = {
   destinationId: "destination",
@@ -43,7 +50,8 @@ const renamed: Partial<Record<string, (typeof fields)[number]>> = {
 
 function toInput(
   typed: Values,
-  kept: Pick<CreateDepartureInput, "templateId" | "prices">,
+  templateId: string | null,
+  prices: CreateDepartureInput["prices"],
 ): ReturnType<typeof createDepartureInput.safeParse> {
   const price = typed.price.trim() === "" ? null : (paiseFromRupeesText(typed.price) ?? -1);
   return createDepartureInput.safeParse({
@@ -55,8 +63,8 @@ function toInput(
     pricePaise: price,
     cutoffOn: typed.cutoffOn === "" ? null : typed.cutoffOn,
     notes: typed.notes,
-    templateId: kept.templateId,
-    prices: kept.prices,
+    templateId,
+    prices,
   });
 }
 
@@ -74,6 +82,7 @@ function DepartureForm({
   onSaved?: ((id: string) => void) | undefined;
 }) {
   const t = useTranslations("departures.form");
+  const tRooms = useTranslations("packages.form.roomTypeNames");
   const sending = departure === null ? changes.create : changes.update;
   const values: Values = {
     title: departure?.title ?? "",
@@ -87,25 +96,30 @@ function DepartureForm({
     price: departure?.pricePaise == null ? "" : rupeesFieldText(departure.pricePaise),
     cutoffOn: departure?.cutoffOn ?? "",
     notes: departure?.notes ?? "",
+    ...roomPriceValues(departure?.prices),
   };
   const { form, onSubmit, formProblem } = useCheckedForm<Values, CreateDepartureInput, Problem>(
     values,
-    (typed) =>
-      checked(
-        toInput(typed, {
-          templateId: departure?.templateId ?? null,
-          prices: departure?.prices ?? noPrices,
-        }),
+    (typed) => {
+      // A linked departure's prices are the room prices typed; any other has none, and its one price above.
+      const { prices, unreadable } = roomPricesOf(typed);
+      return checked(
+        toInput(typed, departure?.templateId ?? null, prices),
         typed,
         (path) => {
           const key = String(path[0]);
+          if (key === "prices") return roomPriceFieldAt(path);
           return renamed[key] ?? fields.find((field) => field === key);
         },
         () => "invalid",
-      ),
+        unreadable,
+      );
+    },
     (problem) => t(`problems.${problem}`),
   );
   const busy = sending.isPending;
+  const linked = departure?.templateId ?? null;
+  const rooms = useShownRoomTypes(linked, departure?.prices);
   return (
     <form
       id={formId}
@@ -129,7 +143,22 @@ function DepartureForm({
       <DateField control={form.control} name="startDate" label={t("startDate")} />
       <DateField control={form.control} name="endDate" label={t("endDate")} />
       <TextField control={form.control} name="seatsTotal" label={t("seatsTotal")} inputMode="numeric" disabled={busy} />
-      <MoneyField control={form.control} name="price" label={t("price")} hint={t("priceHint")} />
+      {linked ? (
+        <fieldset className="flex flex-col gap-4">
+          <legend className="font-medium">{t("roomPrices")}</legend>
+          <p className="text-muted-foreground">{t("roomPricesHint")}</p>
+          {rooms.map((room) => (
+            <MoneyField
+              key={room}
+              control={form.control}
+              name={roomPriceKey(room)}
+              label={t("roomPrice", { room: tRooms(room) })}
+            />
+          ))}
+        </fieldset>
+      ) : (
+        <MoneyField control={form.control} name="price" label={t("price")} hint={t("priceHint")} />
+      )}
       <DateField control={form.control} name="cutoffOn" label={t("cutoff")} hint={t("cutoffHint")} />
       <NoteField control={form.control} name="notes" label={t("notes")} disabled={busy} />
       <FormAlert sending={sending} problem={formProblem} />
