@@ -37,7 +37,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
             <PackageForm key={savedKey(data)} detail={data} />
             <div className="flex flex-col gap-6 xl:sticky xl:top-6">
               <PublishCard detail={data} />
-              {data.kind === "group" && <SellCard detail={data} />}
+              <SellCard detail={data} />
               {data.kind === "group" && <SeasonsCard detail={data} />}
               {data.kind === "group" && <PackageDeparturesCard detail={data} />}
               {data.kind === "group" && <PaymentsCard detail={data} />}

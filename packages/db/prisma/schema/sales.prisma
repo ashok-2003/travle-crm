@@ -144,7 +144,7 @@ model QuoteTemplate {
   /// Months it departs, 1 to 12; empty means every month (CHECK quote_template_departure_months_value).
   departureMonths       Int[]               @default([]) @map("departure_months")
   seatsPerDeparture     Int?                @map("seats_per_departure")
-  /// The AI may sell this package (a group package only, decided in the domain).
+  /// The AI may sell this package (any kind, once its gaps are closed: decided in the domain).
   aiSellable            Boolean             @default(false) @map("ai_sellable")
   createdBy             String?             @map("created_by") @db.Uuid
   createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
