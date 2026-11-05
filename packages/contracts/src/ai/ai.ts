@@ -18,6 +18,8 @@ export const saveAiSettingsInput = z.strictObject({
   fillLeads: z.boolean().optional(),
   /** How the quote write-up sounds (release ai2b); left as it was when omitted. */
   writeStyle: writeStyle.optional(),
+  /** Whether the agency also plans custom trips, for a place with no package; left as it was when omitted. */
+  customTrips: z.boolean().optional(),
   /** What the agency tells its AI: its tone and language, what to offer, what never to say. */
   instructions: z.string().trim().max(AI_INSTRUCTIONS_MAX),
 });
@@ -28,6 +30,7 @@ export const aiSettings = z.object({
   scoring: z.boolean(),
   fillLeads: z.boolean(),
   writeStyle,
+  customTrips: z.boolean(),
   instructions: z.string(),
   /** False when this server has no AI key: the switch can be on but no suggestion is made, and the screen says so. */
   providerReady: z.boolean(),

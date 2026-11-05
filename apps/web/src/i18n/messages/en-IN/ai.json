@@ -34,6 +34,8 @@
     "scoringHint": "After each message from a customer: its chance to book, a line on how the lead stands, the next step, and whether it looks fake. Shown on the lead's page.",
     "fillLeads": "Let the AI fill in new WhatsApp leads",
     "fillLeadsHint": "From a new customer's first messages: where, when, how many and the budget, put on the lead as suggestions in violet for your team to confirm. It never changes what a person already wrote. It uses the same AI call as scoring.",
+    "customTrips": "We also plan custom trips",
+    "customTripsInfo": "On: when a customer asks for a place you have no package for, the AI offers a custom trip and your team gets the details. Off: the AI says you don't run that place and suggests your nearest packages.",
     "writeStyleTitle": "How the quote write-up sounds",
     "writeStyle": "Style of the message for the customer",
     "writeStyleHint": "Used by \"Write for the customer\" on a quote. The AI never types a price: the total and the advance come from the quote.",

@@ -17,6 +17,7 @@ import {
   listKnowledge,
   MONTHLY_AI_LIMIT,
   requestDocument,
+  aiSettingsOf,
   saveAiSettings,
   scoreLead,
   scoreOnCustomerWroteListener,
@@ -418,6 +419,26 @@ describe("the AI, step one", () => {
         eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: chat.personId ?? "" }, testNow),
       );
       expect(await inOrg((tx) => tx.leadAiInsight.count({ where: { leadId: lead.id } }))).toBe(0);
+    });
+  });
+
+  describe("the settings", () => {
+    it("saves whether the agency plans custom trips", async () => {
+      const { organizationId, inOrg, owner } = await agency();
+      const context = { providerReady: true, now: testNow };
+      expect((await inOrg((tx) => aiSettingsOf(tx, { organizationId, ...context }))).customTrips).toBe(false);
+      const on = await inOrg((tx) =>
+        saveAiSettings(tx, owner, { enabled: true, scoring: true, customTrips: true, instructions: "" }, context),
+      );
+      expect(on.customTrips).toBe(true);
+      const unchanged = await inOrg((tx) =>
+        saveAiSettings(tx, owner, { enabled: true, scoring: true, instructions: "" }, context),
+      );
+      expect(unchanged.customTrips).toBe(true);
+      const off = await inOrg((tx) =>
+        saveAiSettings(tx, owner, { enabled: true, scoring: true, customTrips: false, instructions: "" }, context),
+      );
+      expect(off.customTrips).toBe(false);
     });
   });
 

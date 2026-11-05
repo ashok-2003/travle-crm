@@ -6,7 +6,14 @@ import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "./usage.js";
 
-const columns = { enabled: true, scoring: true, fillLeads: true, writeStyle: true, instructions: true } as const;
+const columns = {
+  enabled: true,
+  scoring: true,
+  fillLeads: true,
+  writeStyle: true,
+  customTrips: true,
+  instructions: true,
+} as const;
 
 /** Whether the agency has turned Suggest reply on. */
 export async function aiEnabled(tx: OrgTx): Promise<boolean> {
@@ -34,6 +41,7 @@ export async function aiSettingsOf(
     scoring: row?.scoring ?? true,
     fillLeads: row?.fillLeads ?? true,
     writeStyle: row?.writeStyle ?? "warm",
+    customTrips: row?.customTrips ?? false,
     instructions: row?.instructions ?? "",
     providerReady: context.providerReady,
     monthlyLimit: MONTHLY_AI_LIMIT,
@@ -53,6 +61,7 @@ export async function saveAiSettings(
     scoring: input.scoring,
     fillLeads: input.fillLeads ?? before?.fillLeads ?? true,
     writeStyle: input.writeStyle ?? before?.writeStyle ?? "warm",
+    customTrips: input.customTrips ?? before?.customTrips ?? false,
     instructions: input.instructions,
     updatedBy: access.userId,
   };
@@ -70,6 +79,7 @@ export async function saveAiSettings(
       scoring: before?.scoring ?? true,
       fillLeads: before?.fillLeads ?? true,
       writeStyle: before?.writeStyle ?? "warm",
+      customTrips: before?.customTrips ?? false,
       instructionsLength: before?.instructions.length ?? 0,
     },
     after: {
@@ -77,6 +87,7 @@ export async function saveAiSettings(
       scoring: input.scoring,
       fillLeads: data.fillLeads,
       writeStyle: data.writeStyle,
+      customTrips: data.customTrips,
       instructionsLength: input.instructions.length,
     },
   });

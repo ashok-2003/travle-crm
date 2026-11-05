@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
+import { InfoHint } from "@/components/info-hint";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -38,6 +39,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
   const [enabled, setEnabled] = useState(saved.enabled);
   const [scoring, setScoring] = useState(saved.scoring);
   const [fillLeads, setFillLeads] = useState(saved.fillLeads);
+  const [customTrips, setCustomTrips] = useState(saved.customTrips);
   const [writeStyle, setWriteStyle] = useState<WriteStyle>(saved.writeStyle);
   const [instructions, setInstructions] = useState(saved.instructions);
   const changed =
@@ -45,6 +47,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
     enabled !== saved.enabled ||
     scoring !== saved.scoring ||
     fillLeads !== saved.fillLeads ||
+    customTrips !== saved.customTrips ||
     instructions.trim() !== saved.instructions;
   return (
     <form
@@ -53,7 +56,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(
-          { enabled, scoring, fillLeads, writeStyle, instructions: instructions.trim() },
+          { enabled, scoring, fillLeads, customTrips, writeStyle, instructions: instructions.trim() },
           { onSuccess: () => toast.success(t("saved")) },
         );
       }}
@@ -83,6 +86,16 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
             <Label htmlFor="ai-fill-leads">{t("fillLeads")}</Label>
           </div>
           <p className="text-label text-muted-foreground">{t("fillLeadsHint")}</p>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="ai-custom-trips"
+              checked={customTrips}
+              onCheckedChange={setCustomTrips}
+              disabled={save.isPending}
+            />
+            <Label htmlFor="ai-custom-trips">{t("customTrips")}</Label>
+            <InfoHint term={t("customTrips")}>{t("customTripsInfo")}</InfoHint>
+          </div>
           <p className="text-muted-foreground">
             {t("usage", { used: saved.usedThisMonth, limit: saved.monthlyLimit })}
           </p>
