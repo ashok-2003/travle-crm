@@ -281,6 +281,7 @@
     "NOT_ENOUGH_SEATS": "This departure doesn't have that many seats free.",
     "NO_PRICE_FOR_DATE": "No season prices this departure's day. Add a season for it first.",
     "ROOM_SPLIT": "The people don't fill whole rooms of that type.",
+    "CHILDREN_NEED_ADULT": "Children can't be booked without an adult. Add the adults' rooms.",
     "ROOM_NOT_PRICED": "This trip has no price for that room type on this departure.",
     "HOLD_EXISTS": "This lead already holds seats on this departure. Release them first.",
     "SEAT_HOLD_EXPIRED": "These seats are no longer held. Hold them again first.",

@@ -140,7 +140,7 @@ describe("a group trip's quote", () => {
   const make = async (
     packageId: string,
     departureId: string,
-    rooms: { roomType: "triple" | "double"; people: number }[],
+    rooms: { roomType: "triple" | "double" | "child_bed"; people: number }[],
   ) => {
     const lead = await leadId();
     return world.inOrg((tx) =>
@@ -192,6 +192,27 @@ describe("a group trip's quote", () => {
         make(id, await aDepartureOf(id, { startDate: "2026-11-25" }), [{ roomType: "triple", people: 4 }]),
       ),
     ).toBe("ROOM_SPLIT");
+  });
+
+  it("carries the package's itinerary", async () => {
+    const { id } = await aPackage({ days: [{ title: "Arrive in Kaza", description: "Check in" }] });
+    const quote = await make(id, await aDepartureOf(id), [{ roomType: "triple", people: 3 }]);
+    expect(quote.days.map((day) => day.title)).toEqual(["Arrive in Kaza"]);
+  });
+
+  it("a party of children alone is quoted or refused, never a server error", async () => {
+    const { id } = await aPackage({ roomTypes: ["double", "child_bed"] });
+    await world.inOrg((tx) =>
+      savePackageSeason(tx, world.manager, {
+        packageId: id,
+        label: "Spring",
+        startsOn: "2027-04-01",
+        endsOn: "2027-04-30",
+        prices: { ...noPrices, child_bed: 500_000 },
+      }),
+    );
+    const departureId = await aDepartureOf(id, { startDate: "2027-04-10" });
+    expect(await reasonOf(make(id, departureId, [{ roomType: "child_bed", people: 2 }]))).toBe("CHILDREN_NEED_ADULT");
   });
 
   it("refuses a date no season prices", async () => {

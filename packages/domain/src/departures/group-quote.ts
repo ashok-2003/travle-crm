@@ -7,6 +7,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { DomainError, parseCalendarDate, type CalendarDate } from "../kernel/index.js";
 import {
   createQuote,
+  daysOf,
   exTaxSubtotal,
   findPackage,
   getQuote,
@@ -51,6 +52,11 @@ export async function makeGroupQuote(
     throw new DomainError("CONFLICT", "DEPARTURE_NOT_OPEN", "This departure is not open for booking");
   }
   const people = input.rooms.reduce((sum, room) => sum + room.people, 0);
+  const children = input.rooms.reduce((sum, room) => sum + (roomCapacity[room.roomType] === null ? room.people : 0), 0);
+  // A child's place is booked beside an adult's; a party of children alone has nobody to travel with.
+  if (children === people) {
+    throw new DomainError("VALIDATION", "CHILDREN_NEED_ADULT", "Children travel with at least one adult");
+  }
   const found = (await seatsSoldAndHeld(tx, [departure.id], context.now)).get(departure.id) ?? { sold: 0, held: 0 };
   if (people > countsOf(departure.seatsTotal, found.sold, found.held).free) {
     throw new DomainError("CONFLICT", "NOT_ENOUGH_SEATS", "There aren't that many seats free on this departure");
@@ -91,7 +97,6 @@ export async function makeGroupQuote(
     given += share;
     return lineOf(`${row.name}, ${roomLabel[line.roomType]} × ${String(line.people)}`, share);
   });
-  const children = input.rooms.reduce((sum, room) => sum + (roomCapacity[room.roomType] === null ? room.people : 0), 0);
   const quote = await createQuote(
     tx,
     access,
@@ -101,7 +106,7 @@ export async function makeGroupQuote(
       startDate,
       adults: people - children,
       children,
-      days: [],
+      days: daysOf(row),
       items,
       inclusions: row.inclusions,
       exclusions: row.exclusions,

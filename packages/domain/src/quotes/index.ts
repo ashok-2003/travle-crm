@@ -14,7 +14,6 @@ export {
 export { deletePackage, duplicateQuote, listPackages, quoteFromPackage, savePackage } from "./packages.js";
 export {
   departurePriceColumn,
-  findPackage,
   getPackage,
   packageSellGaps,
   publishGaps,
@@ -26,6 +25,7 @@ export {
   updatePackage,
 } from "./package-edit.js";
 export { exTaxSubtotal, priceOn, totalFor, type SeasonPrices } from "./room-prices.js";
+export { findPackage } from "./package-row.js";
 export { removePackageSeason, savePackageSeason, seasonsOf } from "./package-seasons.js";
 export {
   confirmPackagePhoto,
@@ -40,7 +40,7 @@ export { marginOf } from "./margin.js";
 export { noRateForDates, priceLine, pricedLineOn, sellingPrice } from "./rate-pricing.js";
 export { quoteOwedSql, quoteSalesSql, quoteTaxSql } from "./sales-sql.js";
 export { eraseQuoteParts, type QuotesErased } from "./erasure.js";
-export { assertDraft, findQuoteForChange, findQuoteInScope } from "./quote-rows.js";
+export { assertDraft, daysOf, findQuoteForChange, findQuoteInScope } from "./quote-rows.js";
 export {
   createQuote,
   deleteQuote,

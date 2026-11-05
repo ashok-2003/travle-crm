@@ -5,7 +5,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError, parseCalendarDate } from "../kernel/index.js";
-import { findPackage } from "./package-edit.js";
+import { findPackage } from "./package-row.js";
 import type { SeasonPrices } from "./room-prices.js";
 
 const asDate = (day: string) => new Date(`${day}T00:00:00Z`);

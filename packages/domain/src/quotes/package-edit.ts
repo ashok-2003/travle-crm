@@ -21,56 +21,13 @@ import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { CalendarDate } from "../kernel/index.js";
 import { withoutCosts } from "./margin.js";
+import { findPackage, type PackageRow } from "./package-row.js";
 import { seasonsOf } from "./package-seasons.js";
 import { itemsOf } from "./quote-rows.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 const nameTaken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
 const slugTaken = () => new DomainError("CONFLICT", "PACKAGE_SLUG_TAKEN", "Another package already has this address");
-
-export const packageColumns = {
-  id: true,
-  name: true,
-  title: true,
-  days: true,
-  items: true,
-  inclusions: true,
-  exclusions: true,
-  notes: true,
-  taxRateBasisPoints: true,
-  slug: true,
-  destinationId: true,
-  nights: true,
-  summary: true,
-  highlights: true,
-  priceDisplay: true,
-  fromPricePaise: true,
-  published: true,
-  defaultTravellerLevel: true,
-  cancellationNotes: true,
-  kind: true,
-  roomTypes: true,
-  pricesIncludeGst: true,
-  advancePerPersonPaise: true,
-  paymentDetails: true,
-  pickupPoints: true,
-  startCity: true,
-  weeklyDays: true,
-  departureMonths: true,
-  seatsPerDeparture: true,
-  aiSellable: true,
-  destination: { select: { name: true } },
-} as const;
-
-type PackageRow = NonNullable<Awaited<ReturnType<typeof readPackage>>>;
-const readPackage = (tx: OrgTx, packageId: string) =>
-  tx.quoteTemplate.findUnique({ where: { id: packageId }, select: packageColumns });
-
-export async function findPackage(tx: OrgTx, packageId: string): Promise<PackageRow> {
-  const row = await readPackage(tx, packageId);
-  if (row === null) throw notFound();
-  return row;
-}
 
 /** What a package still lacks before its page can be published. */
 export function publishGaps(row: Pick<PackageRow, "name" | "slug" | "summary">, photoCount: number): PublishGap[] {
