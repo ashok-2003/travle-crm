@@ -39,7 +39,7 @@ function TripRow({
   const where = trip.destinationName ?? trip.placeWords;
   const nights = trip.nights === null ? null : t("nights", { count: trip.nights });
   return (
-    <Item variant="muted">
+    <Item variant="muted" role="listitem">
       <ItemContent>
         <ItemTitle>{trip.name}</ItemTitle>
         <ItemDescription>{[where, nights].filter((part) => part !== null && part !== "").join(" · ")}</ItemDescription>
