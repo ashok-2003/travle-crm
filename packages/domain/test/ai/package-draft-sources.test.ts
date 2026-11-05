@@ -1,5 +1,4 @@
-// An agency's documents as numbered lines for package drafting: every line has a token the AI cites, left-out pieces, parts under
-// the budget, and tokens that do not exist dropped.
+// An agency's documents as numbered lines: tokens, left-out pieces, parts under the budget, graphemes kept whole, unknown tokens dropped.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { linesAsText, packageSources, partsOf, resolveTokens, type SourcePiece } from "../../src/ai/drafts/sources.js";
 import { anAgency, createTestImports, type TestImports } from "../imports/support/test-imports.js";
@@ -78,7 +77,7 @@ describe("package draft sources", () => {
     const b = piece("b", "B", ["bbbb", "bbbb"], 2);
     const c = piece("c", "C", ["cccccc", "cccccc", "cccccc"], 3);
     expect(partsOf([a, b], 100)).toHaveLength(1);
-    const parts = partsOf([a, b, c], 10);
+    const parts = partsOf([a, b, c], 30);
     expect(parts.map((p) => p.pieces.map((x) => [x.key, x.lines.length]))).toEqual([
       [["a", 2]],
       [["b", 2]],
@@ -89,6 +88,48 @@ describe("package draft sources", () => {
     expect(new Set(parts.map((p) => p.ref)).size).toBe(parts.length);
     expect(parts[2]?.pieces[0]?.lines[0]?.token).toBe("P3.L1");
     expect(parts[3]?.pieces[0]?.lines[0]?.token).toBe("P3.L2");
+  });
+
+  it("counts the token and heading of each line against the budget", () => {
+    const pieces = Array.from({ length: 30 }, (_, n) =>
+      piece(
+        `k${String(n)}`,
+        `Knowledge: Doc ${String(n)}`,
+        Array.from({ length: 40 }, () => "ab"),
+        n + 1,
+      ),
+    );
+    const parts = partsOf(pieces, 500);
+    expect(parts.length).toBeGreaterThan(1);
+    for (const part of parts) expect(linesAsText(part.pieces).length).toBeLessThanOrEqual(500);
+    const one = partsOf(
+      [
+        piece(
+          "big",
+          "Big",
+          Array.from({ length: 200 }, () => "ab"),
+        ),
+      ],
+      500,
+    );
+    expect(one.length).toBeGreaterThan(1);
+    for (const part of one) expect(linesAsText(part.pieces).length).toBeLessThanOrEqual(500);
+  });
+
+  it("cuts a long Hindi line between graphemes and the parts join back", async () => {
+    const organizationId = await anAgency(test, "Sources hindi agency");
+    const line = "क्षत्रिय नमस्ते 🇮🇳👨‍👩‍👧 ".repeat(60).trim();
+    const pieces = await test.db.forOrg(organizationId, async (tx) => {
+      await tx.aiKnowledge.create({ data: { title: "Hindi", body: line } });
+      return packageSources(tx);
+    });
+    const texts = (pieces[0]?.lines ?? []).map((l) => l.text);
+    expect(texts.length).toBeGreaterThan(1);
+    for (const text of texts) {
+      expect(text.length).toBeLessThanOrEqual(400);
+      expect(text.isWellFormed()).toBe(true);
+    }
+    expect(texts.join("")).toBe(line);
   });
 
   it("drops tokens that don't exist", () => {

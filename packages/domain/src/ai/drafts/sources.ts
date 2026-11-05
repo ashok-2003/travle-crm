@@ -1,11 +1,11 @@
-// An agency's own documents as numbered lines (P1.L3: piece 1, line 3) for package drafting: the AI cites tokens, code turns each
-// back into the real line, so the words a reviewer sees beside a value are the agency's own, never the model's copy of them.
+// An agency's documents as numbered lines (P1.L3: piece 1, line 3): the AI cites tokens, code turns each back into the real line.
 import { PACKAGE_DRAFT_CHARACTERS, type SourceRef } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { autopilotOf } from "../autopilot.js";
 
 /** A longer line is cut into numbered parts of this many characters. */
 const LINE_CHARACTERS = 400;
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 export interface SourceLine {
   /** "P2.L3": how the AI names it. */
@@ -40,8 +40,16 @@ function linesOf(text: string): string[] {
     .filter((line) => line !== "")
     .flatMap((line) => {
       const cuts: string[] = [];
-      for (let start = 0; start < line.length; start += LINE_CHARACTERS)
-        cuts.push(line.slice(start, start + LINE_CHARACTERS));
+      // Cut between graphemes, so a Devanagari conjunct or an emoji is never split.
+      let cut = "";
+      for (const { segment } of graphemes.segment(line)) {
+        if (cut.length + segment.length > LINE_CHARACTERS) {
+          cuts.push(cut);
+          cut = "";
+        }
+        cut += segment;
+      }
+      cuts.push(cut);
       return cuts;
     });
 }
@@ -110,7 +118,11 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
     }));
 }
 
-const sizeOf = (lines: readonly SourceLine[]) => lines.reduce((sum, line) => sum + line.text.length, 0);
+/** What a line takes in the text the AI reads: "[P1.L3] text" and its newline. */
+const lineSize = (line: SourceLine) => `[${line.token}] ${line.text}`.length + 1;
+/** A piece's heading and its separator from the piece before, which linesAsText adds around the lines. */
+const headingSize = (piece: SourcePiece) => piece.label.length + 2;
+const sizeOf = (piece: SourcePiece) => headingSize(piece) + piece.lines.reduce((sum, line) => sum + lineSize(line), 0);
 
 /** Whole pieces packed into parts under the budget; one piece over it becomes parts of its own, cut by lines. */
 export function partsOf(
@@ -126,19 +138,19 @@ export function partsOf(
     size = 0;
   };
   for (const piece of pieces) {
-    const pieceSize = sizeOf(piece.lines);
+    const pieceSize = sizeOf(piece);
     if (pieceSize > budget) {
       flush();
       let lines: SourceLine[] = [];
-      let linesSize = 0;
+      let linesSize = headingSize(piece);
       for (const line of piece.lines) {
-        if (lines.length > 0 && linesSize + line.text.length > budget) {
+        if (lines.length > 0 && linesSize + lineSize(line) > budget) {
           groups.push([{ ...piece, lines }]);
           lines = [];
-          linesSize = 0;
+          linesSize = headingSize(piece);
         }
         lines.push(line);
-        linesSize += line.text.length;
+        linesSize += lineSize(line);
       }
       if (lines.length > 0) groups.push([{ ...piece, lines }]);
       continue;
