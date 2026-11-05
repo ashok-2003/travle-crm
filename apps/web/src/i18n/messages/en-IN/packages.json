@@ -274,13 +274,14 @@
   },
   "packageDepartures": {
     "title": "Departures",
-    "intro": "The next batches of this trip, with the seats left.",
+    "intro": "The next batches of this trip, with the seats left. The weekly days make most of them; add a one-off date here.",
     "none": "No departures of this package yet.",
     "loading": "Loading departures",
     "loadFailed": "The departures didn't load.",
     "seatsLeft": "{free} of {total} seats left",
     "full": "Full",
-    "all": "All departures"
+    "all": "All departures",
+    "add": "Add a departure"
   },
   "files": {
     "title": "Brochures",

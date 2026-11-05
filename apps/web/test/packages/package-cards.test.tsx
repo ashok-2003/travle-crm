@@ -18,9 +18,46 @@ beforeEach(() => {
 });
 
 describe("PackageDeparturesCard", () => {
+  it("adds a departure of the package, the form starting from the package", async () => {
+    const api = fakeApi();
+    renderWithApi(
+      <PackageDeparturesCard detail={aPackage({ kind: "group", nights: 5, seatsPerDeparture: 20 })} />,
+      newQueryClient(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: messages.packages.packageDepartures.add }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole<HTMLInputElement>("textbox", { name: messages.departures.form.title }).value).toBe(
+      "Kedarnath 6 days",
+    );
+    expect(
+      within(dialog).getByRole<HTMLInputElement>("textbox", { name: messages.departures.form.seatsTotal }).value,
+    ).toBe("20");
+    await userEvent.type(
+      within(dialog).getByRole("textbox", { name: messages.departures.form.startDate }),
+      "03/11/2027",
+    );
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole<HTMLInputElement>("textbox", { name: messages.departures.form.endDate }).value,
+      ).toBe("08/11/2027");
+    });
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.departures.form.save }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "departures.create")).toBe(true);
+    });
+    expect(api.calls.find((call) => call.path === "departures.create")?.input).toMatchObject({
+      templateId: packageId,
+      title: "Kedarnath 6 days",
+      startDate: "2027-11-03",
+      endDate: "2027-11-08",
+      seatsTotal: 20,
+      pricePaise: null,
+    });
+  });
+
   it("asks for this package's departures and shows the day, the name and the seats left", async () => {
     const api = fakeApi();
-    renderWithApi(<PackageDeparturesCard packageId={packageId} />, newQueryClient());
+    renderWithApi(<PackageDeparturesCard detail={aPackage({ kind: "group" })} />, newQueryClient());
     await waitFor(() => {
       expect(api.calls.length).toBe(1);
     });

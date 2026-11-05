@@ -171,15 +171,16 @@ export async function getDeparture(tx: OrgTx, departureId: string, now: Date): P
   });
 }
 
-/** The package's destination wins for a departure linked to it, so the two never disagree. */
+/** The package's destination wins for a departure linked to it, so the two never disagree. It must be a group package. */
 async function columnsOf(tx: OrgTx, input: CreateDepartureInput) {
   let destinationId = input.destinationId;
   if (input.templateId !== null) {
     const pack = await tx.quoteTemplate.findUnique({
       where: { id: input.templateId },
-      select: { destinationId: true },
+      select: { destinationId: true, kind: true },
     });
-    if (pack === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such package");
+    // Only a group package of this agency sells seats on departures; any other id is as good as none.
+    if (pack?.kind !== "group") throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such group package");
     destinationId = pack.destinationId;
   }
   const own = priceColumnsOf(input.prices);

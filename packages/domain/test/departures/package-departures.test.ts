@@ -253,6 +253,33 @@ describe("departures of a package", () => {
       expect((await world.inOrg((tx) => getDeparture(tx, created.id, now))).pricePaise).toBeNull();
     });
 
+    it("refuses a package that is not a group package of the agency, on create and on change", async () => {
+      const { updateDeparture } = await import("../../src/departures/index.js");
+      const custom = await world.inOrg((tx) =>
+        tx.quoteTemplate.create({ data: { name: "Plain trip", title: "Plain" }, select: { id: true } }),
+      );
+      const reason = (promise: Promise<unknown>) =>
+        promise.then(
+          () => null,
+          (error: unknown) => (error as { reason?: string }).reason ?? "other",
+        );
+      expect(await reason(world.inOrg((tx) => createDeparture(tx, world.manager, input(custom.id, null))))).toBe(
+        "NOT_FOUND",
+      );
+      expect(
+        await reason(
+          world.inOrg((tx) => createDeparture(tx, world.manager, input("0190a000-0000-7000-8000-00000000dead", null))),
+        ),
+      ).toBe("NOT_FOUND");
+      const group = await aGroupPackage();
+      const made = await world.inOrg((tx) => createDeparture(tx, world.manager, input(group.id, null)));
+      expect(
+        await reason(
+          world.inOrg((tx) => updateDeparture(tx, world.manager, { departureId: made.id, ...input(custom.id, null) })),
+        ),
+      ).toBe("NOT_FOUND");
+    });
+
     it("a departure with no package keeps the one price typed", async () => {
       const created = await world.inOrg((tx) =>
         createDeparture(tx, world.manager, { ...input("", 1_250_000), templateId: null }),

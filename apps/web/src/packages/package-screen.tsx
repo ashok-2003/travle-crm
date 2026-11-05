@@ -39,7 +39,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
               <PublishCard detail={data} />
               {data.kind === "group" && <SellCard detail={data} />}
               {data.kind === "group" && <SeasonsCard detail={data} />}
-              {data.kind === "group" && <PackageDeparturesCard packageId={data.id} />}
+              {data.kind === "group" && <PackageDeparturesCard detail={data} />}
               {data.kind === "group" && <PaymentsCard detail={data} />}
               <TiersCard detail={data} />
               <PackagePhotos packageId={data.id} />
