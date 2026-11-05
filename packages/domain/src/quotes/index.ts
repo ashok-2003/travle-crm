@@ -13,6 +13,7 @@ export {
 } from "./quote-documents.js";
 export { deletePackage, duplicateQuote, listPackages, quoteFromPackage, savePackage } from "./packages.js";
 export {
+  departurePriceColumn,
   findPackage,
   getPackage,
   packageSellGaps,

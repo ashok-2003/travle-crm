@@ -10,6 +10,12 @@ export {
   updateDeparture,
 } from "./departures.js";
 export { DEPARTURE_HOLDS_QUEUE, runDepartureHoldExpiry, type DepartureJobDependencies } from "./due-work.js";
+export {
+  DEPARTURE_HORIZON_DAYS,
+  generatePackageDepartures,
+  PACKAGE_DEPARTURES_QUEUE,
+  runPackageDepartures,
+} from "./package-departures.js";
 export { eraseDepartureParts, type DeparturesErased } from "./erasure.js";
 export {
   bookingJoinedDeparture,

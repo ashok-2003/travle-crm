@@ -12,10 +12,10 @@ import {
   type ListDeparturesInput,
   type UpdateDepartureInput,
 } from "@travel-crm/contracts/departures";
-import type { OrgTx } from "@travel-crm/db";
+import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
-import { calendarDateIn } from "../kernel/index.js";
+import { calendarDateIn, DomainError, type Actor } from "../kernel/index.js";
 import {
   asDate,
   countsOf,
@@ -24,6 +24,8 @@ import {
   departureSettingsOf,
   findDeparture,
   findDepartureForChange,
+  ownPricesOf,
+  priceColumnsOf,
   seatsSoldAndHeld,
   stateOf,
   type DepartureRow,
@@ -73,7 +75,7 @@ export async function listDepartures(
         ? { status: { not: "cancelled" }, endDate: { gte: today } }
         : { status: { not: "cancelled" }, endDate: { lt: today } };
   const rows = await tx.departure.findMany({
-    where,
+    where: input.templateId === undefined ? where : { ...where, templateId: input.templateId },
     orderBy: [{ startDate: input.filter === "upcoming" ? "asc" : "desc" }, { id: "asc" }],
     take: DEPARTURES_LIST_LIMIT,
     select: departureColumns,
@@ -138,6 +140,8 @@ export async function getDeparture(tx: OrgTx, departureId: string, now: Date): P
     destinationId: row.destinationId,
     cutoffOn: row.cutoffOn === null ? null : dayOf(row.cutoffOn),
     notes: row.notes,
+    templateId: row.templateId,
+    prices: ownPricesOf(row),
     cancelledReason: row.cancelledReason,
     bookings: bookings.map((booking) => ({
       bookingId: booking.id,
@@ -167,42 +171,68 @@ export async function getDeparture(tx: OrgTx, departureId: string, now: Date): P
   });
 }
 
-const columnsOf = (input: CreateDepartureInput) => ({
-  title: input.title,
-  destinationId: input.destinationId,
-  startDate: asDate(input.startDate),
-  endDate: asDate(input.endDate),
-  seatsTotal: input.seatsTotal,
-  pricePaise: input.pricePaise === null ? null : BigInt(input.pricePaise),
-  cutoffOn: input.cutoffOn === null ? null : asDate(input.cutoffOn),
-  notes: input.notes,
-});
+/** The package's destination wins for a departure linked to it, so the two never disagree. */
+async function columnsOf(tx: OrgTx, input: CreateDepartureInput) {
+  let destinationId = input.destinationId;
+  if (input.templateId !== null) {
+    const pack = await tx.quoteTemplate.findUnique({
+      where: { id: input.templateId },
+      select: { destinationId: true },
+    });
+    if (pack === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such package");
+    destinationId = pack.destinationId;
+  }
+  const own = priceColumnsOf(input.prices);
+  return {
+    title: input.title,
+    destinationId,
+    startDate: asDate(input.startDate),
+    endDate: asDate(input.endDate),
+    seatsTotal: input.seatsTotal,
+    // A departure with prices of its own shows its lowest as the per-person figure the lists use.
+    pricePaise: own.lowest ?? (input.pricePaise === null ? null : BigInt(input.pricePaise)),
+    cutoffOn: input.cutoffOn === null ? null : asDate(input.cutoffOn),
+    notes: input.notes,
+    templateId: input.templateId,
+    ...own.columns,
+  };
+}
 
-export async function createDeparture(
-  tx: OrgTx,
-  access: MemberAccess,
-  input: CreateDepartureInput,
-): Promise<{ id: string }> {
-  const created = await tx.departure.create({
-    data: { ...columnsOf(input), createdBy: access.userId },
-    select: { id: true, title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
-  });
-  await recordAudit(tx, access, {
-    action: "departure.created",
-    entityType: "departure",
-    entityId: created.id,
-    after: auditView(created),
-  });
-  return { id: created.id };
+const dayTaken = () =>
+  new DomainError("CONFLICT", "DEPARTURE_DAY_TAKEN", "This package already has a departure starting that day");
+
+export async function createDeparture(tx: OrgTx, actor: Actor, input: CreateDepartureInput): Promise<{ id: string }> {
+  const columns = await columnsOf(tx, input);
+  try {
+    const created = await tx.departure.create({
+      data: { ...columns, createdBy: actor.userId },
+      select: { id: true, title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
+    });
+    await recordAudit(tx, actor, {
+      action: "departure.created",
+      entityType: "departure",
+      entityId: created.id,
+      after: auditView(created),
+    });
+    return { id: created.id };
+  } catch (error) {
+    if (isUniqueViolation(error)) throw dayTaken();
+    throw error;
+  }
 }
 
 export async function updateDeparture(tx: OrgTx, access: MemberAccess, input: UpdateDepartureInput): Promise<void> {
   const before = await findDepartureForChange(tx, input.departureId);
-  const after = await tx.departure.update({
-    where: { id: before.id },
-    data: columnsOf(input),
-    select: { title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
-  });
+  const data = await columnsOf(tx, input);
+  const after = await tx.departure
+    .update({
+      where: { id: before.id },
+      data,
+      select: { title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
+    })
+    .catch((error: unknown) => {
+      throw isUniqueViolation(error) ? dayTaken() : error;
+    });
   await recordAudit(tx, access, {
     action: "departure.changed",
     entityType: "departure",

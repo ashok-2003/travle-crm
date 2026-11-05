@@ -131,7 +131,8 @@ const sellableDepartures = (tx: OrgTx, packageId: string, today: CalendarDate) =
   });
 const asDay = (day: CalendarDate) => new Date(`${day}T00:00:00Z`);
 
-const departurePriceColumn = {
+/** The departure column holding the price of each room type. */
+export const departurePriceColumn = {
   single: "priceSinglePaise",
   double: "priceDoublePaise",
   triple: "priceTriplePaise",

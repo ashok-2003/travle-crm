@@ -26,6 +26,8 @@ const dayInput = {
   pricePaise: null,
   cutoffOn: null,
   notes: "",
+  templateId: null,
+  prices: { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null },
 };
 
 describe("departures and their seats", () => {

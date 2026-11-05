@@ -34,13 +34,17 @@ interface Values {
   notes: string;
 }
 
+const noPrices = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
 const fields = ["title", "destination", "startDate", "endDate", "seatsTotal", "price", "cutoffOn", "notes"] as const;
 const renamed: Partial<Record<string, (typeof fields)[number]>> = {
   destinationId: "destination",
   pricePaise: "price",
 };
 
-function toInput(typed: Values): ReturnType<typeof createDepartureInput.safeParse> {
+function toInput(
+  typed: Values,
+  kept: Pick<CreateDepartureInput, "templateId" | "prices">,
+): ReturnType<typeof createDepartureInput.safeParse> {
   const price = typed.price.trim() === "" ? null : (paiseFromRupeesText(typed.price) ?? -1);
   return createDepartureInput.safeParse({
     title: typed.title,
@@ -51,6 +55,8 @@ function toInput(typed: Values): ReturnType<typeof createDepartureInput.safePars
     pricePaise: price,
     cutoffOn: typed.cutoffOn === "" ? null : typed.cutoffOn,
     notes: typed.notes,
+    templateId: kept.templateId,
+    prices: kept.prices,
   });
 }
 
@@ -86,7 +92,10 @@ function DepartureForm({
     values,
     (typed) =>
       checked(
-        toInput(typed),
+        toInput(typed, {
+          templateId: departure?.templateId ?? null,
+          prices: departure?.prices ?? noPrices,
+        }),
         typed,
         (path) => {
           const key = String(path[0]);

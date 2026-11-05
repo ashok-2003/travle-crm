@@ -20,10 +20,12 @@ import {
   updatePackageInput,
 } from "@travel-crm/contracts/quotes";
 import { presignedUpload } from "@travel-crm/contracts/files";
+import { generatePackageDepartures } from "@travel-crm/domain/departures";
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import {
   calculateFromPrice,
   confirmPackagePhoto,
+  findPackage,
   getPackage,
   listPackagePhotos,
   makeQuotesFromPackage,
@@ -65,11 +67,24 @@ export const packagesRouter = router({
       );
     }),
 
-  update: editor
-    .input(updatePackageInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => updatePackage(tx, ctx.member, input)),
-    ),
+  /** Saves the package; when its weekly days, months, nights or seats changed, makes the departures that now fit. */
+  update: editor.input(updatePackageInput).mutation(async ({ ctx, input }) => {
+    const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
+    const today = calendarDateIn(new Date(), timeZone);
+    await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+      const before = await findPackage(tx, input.packageId);
+      await updatePackage(tx, ctx.member, input);
+      const same = (left: readonly number[], right: readonly number[]) =>
+        [...left].sort().join() === [...right].sort().join();
+      const changed =
+        before.kind !== input.kind ||
+        !same(before.weeklyDays, input.weeklyDays) ||
+        !same(before.departureMonths, input.departureMonths) ||
+        before.nights !== input.nights ||
+        before.seatsPerDeparture !== input.seatsPerDeparture;
+      if (changed) await generatePackageDepartures(tx, ctx.member, input.packageId, today);
+    });
+  }),
 
   setPublished: publisher.input(setPackagePublishedInput).mutation(async ({ ctx, input }) => {
     const photoCount = await packagePhotoCount(ctx, ctx.member, input.packageId);

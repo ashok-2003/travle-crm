@@ -83,6 +83,9 @@ export async function savePackage(tx: OrgTx, access: MemberAccess, input: SavePa
 export async function deletePackage(tx: OrgTx, access: MemberAccess, packageId: string): Promise<void> {
   const row = await tx.quoteTemplate.findUnique({ where: { id: packageId }, select: { id: true, name: true } });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  if ((await tx.departure.count({ where: { templateId: row.id } })) > 0) {
+    throw new DomainError("CONFLICT", "PACKAGE_HAS_DEPARTURES", "Cancel or remove the package's departures first");
+  }
   await tx.quoteTemplate.update({ where: { id: row.id }, data: softDeleted(access.userId) });
   await recordAudit(tx, access, {
     action: "quote-package.deleted",

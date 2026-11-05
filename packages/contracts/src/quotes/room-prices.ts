@@ -1,6 +1,6 @@
 // Room types of a group trip and the price of each, in paise per person: the shapes a season, a departure and a quote share.
 import { z } from "zod";
-import { MAX_SEATS } from "../departures/departures.js";
+import { MAX_SEATS } from "../departures/seat-limit.js";
 import { MAX_QUOTE_PAISE } from "./quotes.js";
 
 const paise = z.int().min(0).max(MAX_QUOTE_PAISE);
