@@ -687,5 +687,76 @@
       "startsOn": "First day",
       "endsOn": "Last day"
     }
+  },
+  "drafts": {
+    "section": {
+      "title": "Draft packages from your documents",
+      "description": "The AI reads the packages, prices and policies you gave it, lists the trips they describe, and drafts one into a group package. Each value comes with the line it was read from. You check and save; nothing is saved until you do.",
+      "find": "Find trips",
+      "finding": "Reading your documents",
+      "findInPart": "Find trips in this part",
+      "oneCall": "Finding the trips uses 1 of this month's AI calls.",
+      "draftCost": "Each draft uses 1 more of this month's AI calls.",
+      "partsIntro": "Your documents are too long to read at once. They have {count} parts: choose one to find its trips.",
+      "partsLabel": "Parts of your documents",
+      "none": "No trips found in your documents. Add your packages under What the AI knows, then try again.",
+      "nights": "{count, plural, one {# night} other {# nights}}",
+      "sources": "From: {sources}",
+      "draft": "Draft",
+      "draftNamed": "Draft {name}",
+      "drafting": "Drafting"
+    },
+    "review": {
+      "title": "Check the draft package",
+      "description": "Each value is shown with the line of your documents it was read from. Fix what is wrong, choose between prices that differ, then save. Nothing is saved until you do.",
+      "save": "Save as package",
+      "saved": "Package saved",
+      "brochureFailed": "Package saved, but its brochure could not be copied. Add it in the package's Files card.",
+      "choicesLeft": "{count, plural, one {Choose between the options marked above: 1 left.} other {Choose between the options marked above: # left.}}",
+      "ready": "Ready to save.",
+      "fixFirst": "Fill the name, title and destination, and fix any amount or date that is marked.",
+      "seasons": "Seasons and prices",
+      "days": "Day by day"
+    },
+    "evidence": {
+      "notFound": "Not found in your documents",
+      "checkThis": "Check this",
+      "checkThisMeaning": "This figure is not printed in the line it was read from. Check it against your document before you save.",
+      "from": "From {source}: “{excerpt}”",
+      "optionChecked": "{shown} (check this)"
+    },
+    "fields": {
+      "name": "Name",
+      "title": "Title",
+      "destination": "Destination",
+      "nights": "Nights",
+      "startCity": "Starts from",
+      "seats": "Seats per departure",
+      "seatsHint": "Your documents rarely say; leave it empty to set later.",
+      "advance": "Advance per person",
+      "pickupPoints": "Pickup points",
+      "summary": "Summary",
+      "highlights": "Highlights",
+      "highlightsHint": "One highlight on each line.",
+      "inclusions": "Inclusions",
+      "exclusions": "Exclusions",
+      "cancellationNotes": "Cancellation terms",
+      "weeklyDaysChoose": "Your documents give different departure days: choose one",
+      "advanceChoose": "Your documents give different advance amounts: choose one"
+    },
+    "seasons": {
+      "none": "No seasons found in your documents.",
+      "untitled": "Season",
+      "label": "Season name",
+      "startsOn": "From",
+      "endsOn": "To",
+      "price": "{room} price per person",
+      "choosePrice": "Your documents give different {room} prices: choose one"
+    },
+    "days": {
+      "none": "No day-by-day plan found in your documents.",
+      "title": "Day {number} title",
+      "description": "Day {number} details"
+    }
   }
 }

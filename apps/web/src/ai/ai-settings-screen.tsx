@@ -25,6 +25,7 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { AiHero } from "./ai-hero";
 import { AutopilotSection } from "./autopilot-section";
 import { InstructionLines } from "./instruction-lines";
+import { DraftPackagesSection } from "./drafts/draft-packages-section";
 import { KnowledgeSection } from "./knowledge-section";
 import { LearningsSection } from "./learnings-section";
 import { MediaSection } from "./media-section";
@@ -192,6 +193,7 @@ export function AiSettingsScreen() {
           <Hero settings={settings.data} />
           <SettingsForm key={String(settings.dataUpdatedAt)} saved={settings.data} />
           <KnowledgeSection />
+          <DraftPackagesSection />
           <MediaSection />
           <AutopilotParts aiOn={settings.data.enabled} />
         </>

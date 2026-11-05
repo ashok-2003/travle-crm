@@ -7,7 +7,7 @@ import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { packageKinds, roomTypes, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
-import { Controller, useWatch, type Control, type FieldPath } from "react-hook-form";
+import { Controller, useWatch, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { ChoiceField } from "@/components/forms/choice-field";
 import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
@@ -62,13 +62,14 @@ export const groupInputFields: Partial<Record<string, keyof GroupValues>> = {
   seatsPerDeparture: "seatsPerDeparture",
 };
 
-const WEEKDAYS = ["0", "1", "2", "3", "4", "5", "6"] as const;
-const MONTHS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
+export const WEEKDAYS = ["0", "1", "2", "3", "4", "5", "6"] as const;
+export const MONTHS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
 
 /** A toggle group's chosen values: the field holds a list of text. */
 const picked = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
 
-function Picks({
+/** A group of toggles bound to a field that holds a list of text (a package's room types, days or months). */
+export function Picks<Values extends FieldValues>({
   control,
   name,
   legend,
@@ -76,8 +77,8 @@ function Picks({
   options,
   disabled,
 }: {
-  control: Control<PackageFormValues>;
-  name: FieldPath<PackageFormValues>;
+  control: Control<Values>;
+  name: FieldPath<Values>;
   legend: string;
   hint?: string;
   options: { value: string; label: string }[];
