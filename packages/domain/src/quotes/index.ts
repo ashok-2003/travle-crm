@@ -27,6 +27,7 @@ export {
   updatePackage,
 } from "./package-edit.js";
 export { exTaxSubtotal, priceOn, totalFor, type SeasonPrices } from "./room-prices.js";
+export { attachDraftBrochure, createGroupPackage } from "./group-package-create.js";
 export { findPackage } from "./package-row.js";
 export { removePackageSeason, savePackageSeason, seasonsOf } from "./package-seasons.js";
 export {
