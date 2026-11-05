@@ -2,7 +2,7 @@
 // destination, each with a word (Open, Filling fast, Full) and never a seat count. Also the one departure a visitor may join.
 import type { PublicSeatWord } from "@travel-crm/contracts/package-pages";
 import type { OrgTx } from "@travel-crm/db";
-import type { RoomType } from "@travel-crm/contracts/quotes";
+import { adultRoomTypes, type RoomType } from "@travel-crm/contracts/quotes";
 import { parseCalendarDate } from "../kernel/index.js";
 import { departurePriceColumn, priceOn, seasonsOf } from "../quotes/index.js";
 import { asDate, countsOf, dayOf, departureSettingsOf, seatsSoldAndHeld, stateOf } from "./rows.js";
@@ -25,7 +25,7 @@ const wordOf = (state: string): PublicSeatWord | null =>
 
 /**
  * Upcoming departures that still take seats or a waitlist, the next first. A group package lists only its own, each priced
- * by its season or its own prices (the lowest offered), even when that leaves none; any other package lists those at its
+ * by its season or its own prices (the lowest an adult pays), even when that leaves none; any other package lists those at its
  * destination.
  */
 export async function publicDepartures(
@@ -133,7 +133,11 @@ async function pricingOf(tx: OrgTx, packageId: string, offered: readonly RoomTyp
       },
       offered,
     );
-    const given = Object.values(priced?.prices ?? {}).flatMap((price) => (price === null ? [] : [price]));
+    // "From" is the lowest an adult pays: a child's place is cheaper by design and is never "the" price.
+    const given = adultRoomTypes.flatMap((type) => {
+      const price = priced?.prices[type] ?? null;
+      return price === null ? [] : [price];
+    });
     return given.length === 0 ? null : Math.min(...given);
   };
 }

@@ -265,6 +265,31 @@ describe("empty seats", () => {
     expect(JSON.stringify(s.model.requests[0]?.messages)).toContain("Seats left: 10");
   });
 
+  it("says whether the price includes GST from the switch of the package a departure is linked to", async () => {
+    for (const [includes, words] of [
+      [true, "including GST"],
+      [false, "plus GST"],
+    ] as const) {
+      const s = await setup();
+      const pack = await world.inOrg((tx) =>
+        tx.quoteTemplate.create({
+          data: {
+            name: `GST ${String(includes)} ${String(Math.random())}`,
+            title: "T",
+            kind: "group",
+            pricesIncludeGst: includes,
+          },
+          select: { id: true },
+        }),
+      );
+      await world.inOrg((tx) => tx.departure.update({ where: { id: s.departure.id }, data: { templateId: pack.id } }));
+      const person = await s.lead(world.seller.userId, { name: "Priya Nair" });
+      s.model.answer("Hi Priya! A few seats are open.\nIt is {price}. Reply if you'd like one!");
+      const message = await s.write(person.leadId);
+      expect(message.text).toContain(`₹12,500.00 per person ${words}`);
+    }
+  });
+
   it("drops the price line when the departure has none", async () => {
     const s = await setup({ pricePaise: null });
     const person = await s.lead(world.seller.userId);

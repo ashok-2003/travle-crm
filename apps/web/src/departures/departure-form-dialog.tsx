@@ -55,7 +55,8 @@ function toInput(
   templateId: string | null,
   prices: CreateDepartureInput["prices"],
 ): ReturnType<typeof createDepartureInput.safeParse> {
-  const price = typed.price.trim() === "" ? null : (paiseFromRupeesText(typed.price) ?? -1);
+  // A linked departure has no single price to send: its figure is made from its room prices.
+  const price = templateId !== null || typed.price.trim() === "" ? null : (paiseFromRupeesText(typed.price) ?? -1);
   return createDepartureInput.safeParse({
     title: typed.title,
     destinationId: typed.destination?.kind === "existing" ? typed.destination.destinationId : null,

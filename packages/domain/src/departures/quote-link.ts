@@ -33,7 +33,10 @@ export async function setQuoteDeparture(tx: OrgTx, access: MemberAccess, input: 
   });
 }
 
-/** A draft quote for a hold: the lead, the held seats as adults, the departure's price (when it has one) as the one line. */
+/**
+ * A draft quote for a hold: the lead, the held seats as adults, the departure's price (when it has one) as the one line. A
+ * departure of a group package has a price per room type, not one: its line needs a price, as a line without a rate does.
+ */
 export async function makeQuoteFromHold(
   tx: OrgTx,
   access: MemberAccess,
@@ -55,16 +58,18 @@ export async function makeQuoteFromHold(
       children: 0,
       days: [],
       items:
-        departure.pricePaise === null
-          ? []
-          : [
-              {
-                description: departure.title,
-                detail: "",
-                quantity: hold.seats,
-                unitPricePaise: Number(departure.pricePaise),
-              },
-            ],
+        departure.templateId !== null
+          ? [{ description: departure.title, detail: "", quantity: hold.seats, unitPricePaise: 0, needsRate: true }]
+          : departure.pricePaise === null
+            ? []
+            : [
+                {
+                  description: departure.title,
+                  detail: "",
+                  quantity: hold.seats,
+                  unitPricePaise: Number(departure.pricePaise),
+                },
+              ],
       inclusions: "",
       exclusions: "",
       notes: "",

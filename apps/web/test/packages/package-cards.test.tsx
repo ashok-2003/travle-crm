@@ -189,4 +189,19 @@ describe("DepartureFormDialog on a departure of a package", () => {
       ?.answer(aPackage({ pricesIncludeGst: true, roomTypes: ["double"] }));
     expect(await screen.findByText("Prices per person (including GST)")).toBeTruthy();
   });
+
+  it("never resends the hidden single price of a linked departure", async () => {
+    const api = fakeApi();
+    renderWithApi(
+      <DepartureFormDialog departure={{ ...linked, pricePaise: 1250000 }} trigger={{ label: "Change" }} />,
+      newQueryClient(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Change" }));
+    await userEvent.click(await screen.findByRole("button", { name: messages.departures.form.save }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "departures.update")).toBe(true);
+    });
+    const sent = api.calls.find((call) => call.path === "departures.update")?.input as { pricePaise: unknown };
+    expect(sent.pricePaise).toBeNull();
+  });
 });

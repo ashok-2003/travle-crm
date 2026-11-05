@@ -1,4 +1,5 @@
 // Departures made from a group package's weekly days, against the real database.
+import type { RoomPrices } from "@travel-crm/contracts/quotes";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cancelDeparture, createDeparture, getDeparture, listDepartures } from "../../src/departures/index.js";
 import { generatePackageDepartures, runPackageDepartures } from "../../src/departures/package-departures.js";
@@ -202,5 +203,61 @@ describe("departures of a package", () => {
     const detail = await world.inOrg((tx) => getDeparture(tx, created.id, now));
     expect(detail).toMatchObject({ pricePaise: 2_400_000, destinationId: destination.id, templateId: pack.id });
     expect(detail.prices.single).toBe(3_000_000);
+  });
+
+  describe("a linked departure's per-person figure", () => {
+    const none: RoomPrices = {
+      single: null,
+      double: null,
+      triple: null,
+      quad: null,
+      child_bed: null,
+      child_no_bed: null,
+    };
+    const input = (packageId: string, pricePaise: number | null, prices: RoomPrices = none) => ({
+      title: "Figure batch",
+      destinationId: null,
+      startDate: "2027-04-02",
+      endDate: "2027-04-08",
+      seatsTotal: 10,
+      pricePaise,
+      cutoffOn: null,
+      notes: "",
+      templateId: packageId,
+      prices,
+    });
+
+    it("is the lowest adult price, not a child's", async () => {
+      const pack = await aGroupPackage();
+      const created = await world.inOrg((tx) =>
+        createDeparture(tx, world.manager, input(pack.id, null, { ...none, double: 2_400_000, child_bed: 900_000 })),
+      );
+      expect((await world.inOrg((tx) => getDeparture(tx, created.id, now))).pricePaise).toBe(2_400_000);
+    });
+
+    it("is none, not the single price typed, when it has no prices of its own", async () => {
+      const pack = await aGroupPackage();
+      const created = await world.inOrg((tx) => createDeparture(tx, world.manager, input(pack.id, 1_250_000)));
+      expect((await world.inOrg((tx) => getDeparture(tx, created.id, now))).pricePaise).toBeNull();
+    });
+
+    it("goes when the departure's own prices are cleared, even if the form resends the old figure", async () => {
+      const { updateDeparture } = await import("../../src/departures/index.js");
+      const pack = await aGroupPackage();
+      const created = await world.inOrg((tx) =>
+        createDeparture(tx, world.manager, input(pack.id, null, { ...none, double: 2_400_000 })),
+      );
+      await world.inOrg((tx) =>
+        updateDeparture(tx, world.manager, { departureId: created.id, ...input(pack.id, 2_400_000, none) }),
+      );
+      expect((await world.inOrg((tx) => getDeparture(tx, created.id, now))).pricePaise).toBeNull();
+    });
+
+    it("a departure with no package keeps the one price typed", async () => {
+      const created = await world.inOrg((tx) =>
+        createDeparture(tx, world.manager, { ...input("", 1_250_000), templateId: null }),
+      );
+      expect((await world.inOrg((tx) => getDeparture(tx, created.id, now))).pricePaise).toBe(1_250_000);
+    });
   });
 });

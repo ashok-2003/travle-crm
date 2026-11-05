@@ -2,7 +2,7 @@
 // worked out here and nowhere else: sold is the heads of the live Requested and Confirmed bookings on it, held is the active
 // holds not yet past their time, free is what is left. Nothing counts seats in a column.
 import type { SeatCounts, SeatState } from "@travel-crm/contracts/departures";
-import { roomTypes, type RoomPrices, type RoomType } from "@travel-crm/contracts/quotes";
+import { adultRoomTypes, roomTypes, type RoomPrices, type RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
 import { departurePriceColumn } from "../quotes/index.js";
@@ -45,12 +45,15 @@ export function ownPricesOf(row: Partial<Record<(typeof departurePriceColumn)[Ro
   return Object.fromEntries(roomTypes.map((type) => [type, read(type)])) as unknown as RoomPrices;
 }
 
-/** The columns that hold these prices, and the lowest of them (the per-person figure today's lists show), if any. */
+/**
+ * The columns that hold these prices, and the lowest adult price among them (the per-person figure the lists show), if any.
+ * A child's price is a discount on a place beside an adult's, so it is never "the" price.
+ */
 export function priceColumnsOf(prices: RoomPrices) {
   const columns = Object.fromEntries(
     roomTypes.map((type) => [departurePriceColumn[type], prices[type] === null ? null : BigInt(prices[type])]),
   ) as Record<(typeof departurePriceColumn)[RoomType], bigint | null>;
-  const given = roomTypes.flatMap((type) => (prices[type] === null ? [] : [prices[type]]));
+  const given = adultRoomTypes.flatMap((type) => (prices[type] === null ? [] : [prices[type]]));
   return { columns, lowest: given.length === 0 ? null : BigInt(Math.min(...given)) };
 }
 

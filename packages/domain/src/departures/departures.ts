@@ -189,8 +189,10 @@ async function columnsOf(tx: OrgTx, input: CreateDepartureInput) {
     startDate: asDate(input.startDate),
     endDate: asDate(input.endDate),
     seatsTotal: input.seatsTotal,
-    // A departure with prices of its own shows its lowest as the per-person figure the lists use.
-    pricePaise: own.lowest ?? (input.pricePaise === null ? null : BigInt(input.pricePaise)),
+    // A linked departure has its own lowest adult price or none, never a price carried over from the form; any other
+    // keeps the one price typed.
+    pricePaise:
+      input.templateId !== null || input.pricePaise === null ? own.lowest : (own.lowest ?? BigInt(input.pricePaise)),
     cutoffOn: input.cutoffOn === null ? null : asDate(input.cutoffOn),
     notes: input.notes,
     templateId: input.templateId,

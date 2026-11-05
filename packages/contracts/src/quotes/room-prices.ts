@@ -19,6 +19,9 @@ export const roomCapacity: Record<RoomType, number | null> = {
   child_no_bed: null,
 };
 
+/** The room types an adult takes: the ones a lowest "from" price is taken over (a child's place is cheaper by design). */
+export const adultRoomTypes = roomTypes.filter((type) => roomCapacity[type] !== null);
+
 /** The price per person of each room type; null where the agency does not sell it. */
 export const roomPrices = z.strictObject({
   single: paise.nullable(),

@@ -34,6 +34,8 @@ interface Prepared {
   timeZone: string;
   facts: ReachOutFacts;
   departure: DepartureRow;
+  /** Whether the price is stated including GST: the switch of the package a departure is linked to; any other is plus GST. */
+  pricesIncludeGst: boolean;
   /** The count a message may say, or null. */
   allowedCount: number | null;
 }
@@ -67,9 +69,14 @@ async function prepare(
   const state = stateOf(departure, counts, departureSettings.fillingFastPercent);
   const first = person.name.trim().split(/\s+/)[0] ?? "";
   const style = settings.writeStyle === "premium" || settings.writeStyle === "short" ? settings.writeStyle : "warm";
+  const linked =
+    departure.templateId === null
+      ? null
+      : await tx.quoteTemplate.findUnique({ where: { id: departure.templateId }, select: { pricesIncludeGst: true } });
   return {
     timeZone,
     departure,
+    pricesIncludeGst: linked?.pricesIncludeGst ?? false,
     allowedCount,
     facts: {
       agencyName: context.agencyName,
@@ -92,14 +99,16 @@ async function prepare(
 }
 
 /** Puts the departure's price where `{price}` is, and drops a line that wants a price when there is none. */
-function withPrice(text: string, pricePaise: bigint | null): string {
+function withPrice(text: string, pricePaise: bigint | null, includesGst: boolean): string {
   const lines = text
     .split("\n")
     .filter((line) => !(pricePaise === null && line.includes("{price}")))
     .map((line) =>
       line.replaceAll(
         "{price}",
-        pricePaise === null ? "" : `${formatMoney(money(Number(pricePaise)))} per person plus GST`,
+        pricePaise === null
+          ? ""
+          : `${formatMoney(money(Number(pricePaise)))} per person ${includesGst ? "including" : "plus"} GST`,
       ),
     );
   return lines
@@ -139,7 +148,7 @@ export async function writeSeatMessage(
   const counted = withoutSeatCounts(typed.text, prepared.allowedCount);
   // Staff are told when the model's own amount or seat count was taken out, as they are for a write-up.
   const removedAmounts = typed.removed || counted !== typed.text;
-  const text = withPrice(counted, prepared.departure.pricePaise).slice(0, MAX_CHARS);
+  const text = withPrice(counted, prepared.departure.pricePaise, prepared.pricesIncludeGst).slice(0, MAX_CHARS);
   if (text === "") {
     await giveBack();
     throw refuse("AI_UNAVAILABLE", "The AI didn't answer");

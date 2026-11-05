@@ -395,6 +395,43 @@ describe("a public package page and its enquiry", () => {
       }
     });
 
+    it("the price a group page lists is the lowest an adult pays, never a child's place", async () => {
+      const none = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
+      await world.inOrg((tx) =>
+        savePackageSeason(tx, world.manager, {
+          packageId,
+          label: "January",
+          startsOn: "2027-01-01",
+          endsOn: "2027-01-31",
+          prices: { ...none, double: 4_500_000, child_bed: 900_000, child_no_bed: 400_000 },
+        }),
+      );
+      const made = await world.inOrg(async (tx) => {
+        const one = await aDeparture(tx, { title: "January batch", startDate: "2027-01-10", endDate: "2027-01-15" });
+        await tx.departure.update({ where: { id: one.id }, data: { templateId: packageId } });
+        return one.id;
+      });
+      await world.inOrg((tx) =>
+        tx.quoteTemplate.update({
+          where: { id: packageId },
+          data: { kind: "group", roomTypes: ["double", "child_bed", "child_no_bed"] },
+        }),
+      );
+      try {
+        const listed = await world.inOrg((tx) =>
+          departuresOf(tx, { id: packageId, destinationId }, { today: "2026-11-10", now }),
+        );
+        expect(listed.find((one) => one.id === made)?.pricePaise).toBe(4_500_000);
+      } finally {
+        await world.inOrg((tx) =>
+          tx.departure.updateMany({ where: { templateId: packageId }, data: { templateId: null } }),
+        );
+        await world.inOrg((tx) =>
+          tx.quoteTemplate.update({ where: { id: packageId }, data: { kind: "custom", roomTypes: [] } }),
+        );
+      }
+    });
+
     describe("on a group package's page", () => {
       const makeKind = (kind: "group" | "custom") =>
         world.inOrg((tx) =>
