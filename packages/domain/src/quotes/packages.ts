@@ -12,11 +12,10 @@ import { recordAudit } from "../audit/index.js";
 import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { calendarDateIn, DomainError } from "../kernel/index.js";
+import { nameTaken } from "./package-row.js";
 import { copyOf, daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
 import { createQuote, type QuoteContext } from "./quotes.js";
 import { quoteTaxRate } from "@travel-crm/contracts/quotes";
-
-const taken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
 
 export async function listPackages(tx: OrgTx): Promise<QuotePackage[]> {
   const rows = await tx.quoteTemplate.findMany({
@@ -51,7 +50,8 @@ export async function listPackages(tx: OrgTx): Promise<QuotePackage[]> {
 /** Saves the quote's plan and price as a package; a name in use is refused. */
 export async function savePackage(tx: OrgTx, access: MemberAccess, input: SavePackageInput): Promise<{ id: string }> {
   const quote = await findQuoteInScope(tx, access, input.quoteId);
-  if ((await tx.quoteTemplate.findFirst({ where: { name: input.name }, select: { id: true } })) !== null) throw taken();
+  if ((await tx.quoteTemplate.findFirst({ where: { name: input.name }, select: { id: true } })) !== null)
+    throw nameTaken();
   try {
     const row = await tx.quoteTemplate.create({
       data: {
@@ -75,7 +75,7 @@ export async function savePackage(tx: OrgTx, access: MemberAccess, input: SavePa
     });
     return row;
   } catch (error) {
-    if (isUniqueViolation(error)) throw taken();
+    if (isUniqueViolation(error)) throw nameTaken();
     throw error;
   }
 }

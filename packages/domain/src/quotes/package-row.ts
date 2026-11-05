@@ -3,6 +3,10 @@
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../kernel/index.js";
 
+/** The refusal for a name a live package already has, shared by every place a package is named. */
+export const nameTaken = () =>
+  new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
+
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 
 export const packageColumns = {

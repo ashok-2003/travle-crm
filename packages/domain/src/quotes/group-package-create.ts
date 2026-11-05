@@ -9,10 +9,10 @@ import { findOrAddDestination } from "../catalog/index.js";
 import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { nameTaken } from "./package-row.js";
 import { savePackageSeason } from "./package-seasons.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-const nameTaken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
 
 /**
  * Records that the member kept these fields of the draft. The fill must be this member's package draft; anything else is not found.

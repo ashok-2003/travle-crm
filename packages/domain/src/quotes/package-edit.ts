@@ -22,12 +22,11 @@ import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { CalendarDate } from "../kernel/index.js";
 import { withoutCosts } from "./margin.js";
-import { findPackage, type PackageRow } from "./package-row.js";
+import { findPackage, nameTaken, type PackageRow } from "./package-row.js";
 import { seasonsOf } from "./package-seasons.js";
 import { itemsOf } from "./quote-rows.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-const nameTaken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
 const slugTaken = () => new DomainError("CONFLICT", "PACKAGE_SLUG_TAKEN", "Another package already has this address");
 
 /** What a package still lacks before its page can be published. */
