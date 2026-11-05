@@ -3,6 +3,7 @@ import { PACKAGE_DRAFT_CHARACTERS, type SourceRef } from "@travel-crm/contracts/
 import type { OrgTx } from "@travel-crm/db";
 import { autopilotOf } from "../autopilot.js";
 import { hashOf } from "../suggest.js";
+import { redactPayment } from "./payment-details.js";
 
 /** A longer line is cut into numbered parts of this many characters. */
 const LINE_CHARACTERS = 400;
@@ -36,9 +37,9 @@ interface RawPiece {
   texts: string[];
 }
 
-/** Lines of a text: split on newlines, blank ones dropped, a long one cut into parts. */
+/** Lines of a text: payment identifiers removed first (so no cut can split one), then split on newlines, blank ones dropped, a long one cut into parts. */
 function linesOf(text: string): string[] {
-  return text
+  return redactPayment(text)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line !== "")
@@ -108,7 +109,10 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
         kind: "trip_kit" as const,
         knowledgeId: null,
         hasFile: false,
-        texts: [...linesOf(kit.message), ...(kit.keywords.length > 0 ? [`Keywords: ${kit.keywords.join(", ")}`] : [])],
+        texts: [
+          ...linesOf(kit.message),
+          ...(kit.keywords.length > 0 ? linesOf(`Keywords: ${kit.keywords.join(", ")}`) : []),
+        ],
       })),
   ];
   return raws
