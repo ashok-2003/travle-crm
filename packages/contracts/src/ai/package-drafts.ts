@@ -61,8 +61,61 @@ export const foundTripsAnswer = z.object({
 export const findTripsInput = z.strictObject({ part: z.string().optional() });
 export type FindTripsInput = z.infer<typeof findTripsInput>;
 
-export const draftPackageInput = z.strictObject({ fillId: recordId, tripRef: z.string() });
+/** The trip to draft, as the screen got it from "find trips": the fill it came from, and the trip's name and line tokens. */
+export const draftPackageInput = z.strictObject({
+  fillId: recordId,
+  trip: z.strictObject({
+    ref: z.string().max(40),
+    name: z.string().min(1).max(120),
+    tokens: z.array(z.string().max(20)).min(1).max(200),
+  }),
+});
 export type DraftPackageInput = z.infer<typeof draftPackageInput>;
+
+const cited = z.array(z.string().max(20)).max(50).catch([]);
+/** A field the model answers: a value and the tokens of the lines that say it; a bad one is emptied, never fatal. */
+const answered = <T extends z.ZodType>(value: T) =>
+  z
+    .object({ value: z.union([value, z.null()]).catch(null), tokens: cited })
+    .catch(() => ({ value: null, tokens: [] }) as never);
+/** A list of candidates: an item that is not valid is dropped to null, so every valid one still arrives. */
+const candidates = <T extends z.ZodType>(item: T) =>
+  z
+    .array(z.union([item, z.null()]).catch(null))
+    .max(60)
+    .catch([]);
+const printedPrice = z.object({ room: z.string().max(20), printed: z.string().max(40), tokens: cited });
+
+/** What the model answers to "draft this trip": checked before anything is trusted. Prices are printed text; code converts them. */
+export const packageDraftAnswer = z.object({
+  name: answered(z.string().max(200)),
+  title: answered(z.string().max(300)),
+  destination: answered(z.string().max(200)),
+  nights: answered(z.int().min(0).max(60)),
+  roomTypes: answered(z.array(z.string().max(20)).max(12)),
+  /** Weekday names; one item per schedule the lines give. */
+  weeklyDays: candidates(z.object({ value: z.array(z.string().max(20)).max(14), tokens: cited })),
+  departureMonths: answered(z.array(z.int().min(1).max(12)).max(12)),
+  seasons: candidates(
+    z.object({
+      label: z.string().max(80).catch(""),
+      fromMonth: z.int().min(1).max(12),
+      toMonth: z.int().min(1).max(12),
+      tokens: cited,
+      prices: candidates(printedPrice),
+    }),
+  ),
+  pricesIncludeGst: answered(z.boolean()),
+  advancePerPerson: candidates(z.object({ printed: z.string().max(40), tokens: cited })),
+  pickupPoints: answered(z.string().max(3000)),
+  startCity: answered(z.string().max(200)),
+  inclusions: answered(z.string().max(6000)),
+  exclusions: answered(z.string().max(6000)),
+  cancellationNotes: answered(z.string().max(4000)),
+  summary: answered(z.string().max(2000)),
+  highlights: answered(z.array(z.string().max(300)).max(30)),
+  days: candidates(z.object({ title: z.string().max(300), description: z.string().max(4000), tokens: cited })),
+});
 
 /** A room type's array has one item when the sources agree and more when they disagree; the owner picks one. */
 const priceAlternatives = z.array(evidenced(paise));

@@ -1,0 +1,226 @@
+// Drafting one trip: every value carries the real line it came from; a price its line doesn't print is shown with "check this";
+// two sources that disagree are both kept; a value whose lines don't exist is not filled; payment details are never drafted.
+import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { draftPackage, findTrips, saveAiSettings } from "../../src/ai/index.js";
+import { anAgency, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
+
+const NOW = new Date("2026-11-02T06:30:00Z");
+const UPI = "manaliholidays@okhdfc";
+
+const reasonOf = (promise: Promise<unknown>) =>
+  promise.then(
+    () => null,
+    (error: unknown) => (error as { reason?: string }).reason ?? "other",
+  );
+
+const field = (value: unknown, ...tokens: string[]) => ({ value, tokens });
+
+describe("drafting one trip", () => {
+  let test: TestImports;
+  beforeAll(() => {
+    test = createTestImports();
+  });
+  afterAll(() => test.close());
+
+  async function agency() {
+    const organizationId = await anAgency(test, "Draft agency");
+    const owner = memberOf(organizationId, "org-owner");
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    await inOrg((tx) =>
+      saveAiSettings(tx, owner, { enabled: true, scoring: true, instructions: "" }, { providerReady: true, now: NOW }),
+    );
+    // P1 = Manali (L1..L6), P2 = Manali brochure (L1), strict rules come after the knowledge pieces.
+    await inOrg(async (tx) => {
+      await tx.aiKnowledge.create({
+        data: {
+          title: "Manali",
+          body: [
+            "Manali 5 Nights 6 Days",
+            "Double sharing 6,999/- per person for Dec to Jan",
+            "Departs every Friday from Delhi",
+            "Inclusions: 5 nights hotel, daily breakfast",
+            "Day 1: Delhi to Manali overnight Volvo",
+            "Cancellation: 50% charged within 15 days",
+          ].join("\n"),
+        },
+      });
+      await tx.aiKnowledge.create({
+        data: { title: "Manali rates 2", body: "Manali 5 Nights 6 Days double sharing 7,499/- Dec to Jan" },
+      });
+      await tx.aiAutopilot.updateMany({ data: { strictRules: `Pay advance to UPI ${UPI} only` } });
+    });
+    const model = createMemoryAiModel();
+    model.answer(
+      JSON.stringify({
+        trips: [{ name: "Manali 5 Nights 6 Days", place: "Manali", nights: 5, lines: ["P1.L1", "P1.L2", "P2.L1"] }],
+      }),
+    );
+    const found = await findTrips({ db: test.db, model }, owner, {}, NOW);
+    const trip = found.trips[0];
+    if (found.fillId === null || trip === undefined) throw new Error("no trip");
+    const input = {
+      fillId: found.fillId,
+      trip: { ref: trip.ref, name: trip.name, tokens: trip.evidence.map((one) => one.token) },
+    };
+    const draft = (override: Partial<typeof input> = {}) =>
+      draftPackage({ db: test.db, model }, owner, { ...input, ...override }, NOW);
+    const calls = async () => (await inOrg((tx) => tx.aiUsage.findFirst()))?.calls ?? 0;
+    return { owner, inOrg, model, draft, input, calls };
+  }
+
+  const answer = (more: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      name: field("Manali 5N6D", "P1.L1"),
+      destination: field("Manali", "P1.L1"),
+      nights: field(5, "P1.L1"),
+      weeklyDays: [{ value: ["Friday"], tokens: ["P1.L3"] }],
+      startCity: field("Delhi", "P1.L3"),
+      inclusions: field("5 nights hotel, daily breakfast", "P1.L4"),
+      cancellationNotes: field("50% charged within 15 days", "P1.L6"),
+      days: [{ title: "Delhi to Manali", description: "Overnight Volvo", tokens: ["P1.L5"] }],
+      seasons: [
+        {
+          label: "Winter",
+          fromMonth: 12,
+          toMonth: 1,
+          tokens: ["P1.L2"],
+          prices: [{ room: "double", printed: "6,999/-", tokens: ["P1.L2"] }],
+        },
+      ],
+      ...more,
+    });
+
+  it("drafts Manali 5N6D with each value's line", async () => {
+    const { draft, model, calls, inOrg, input } = await agency();
+    model.answer(answer());
+    const result = await draft();
+    expect(result.name).toEqual({
+      value: "Manali 5N6D",
+      evidence: [{ token: "P1.L1", source: "Knowledge: Manali", excerpt: "Manali 5 Nights 6 Days" }],
+      checkThis: false,
+    });
+    expect(result.nights.value).toBe(5);
+    expect(result.weeklyDays.map((one) => one.value)).toEqual([[5]]);
+    expect(result.startCity.value).toBe("Delhi");
+    expect(result.days).toHaveLength(1);
+    expect(result.days[0]?.value).toEqual({ title: "Delhi to Manali", description: "Overnight Volvo" });
+    const [season] = result.seasons;
+    expect(season).toMatchObject({ startsOn: "2026-12-01", endsOn: "2027-01-31" });
+    expect(season?.prices.double.map((one) => [one.value, one.checkThis])).toEqual([[699900, false]]);
+    expect(season?.prices.double[0]?.evidence[0]?.token).toBe("P1.L2");
+    expect(result.tripRef).toBe(input.trip.ref);
+    expect(result.fillId).toBe(input.fillId);
+    expect(await calls()).toBe(2);
+    const fill = await inOrg((tx) => tx.aiFill.findFirst({ where: { id: input.fillId } }));
+    expect(fill?.fields.some((path) => path.startsWith(`${input.trip.ref}.`))).toBe(true);
+    expect(await inOrg((tx) => tx.quoteTemplate.count())).toBe(0);
+    expect(model.requests.at(-1)?.feature).toBe("draft_packages");
+  });
+
+  it("a price that its line doesn't print is shown with check this", async () => {
+    const { draft, model } = await agency();
+    model.answer(
+      answer({
+        seasons: [
+          {
+            label: "Winter",
+            fromMonth: 12,
+            toMonth: 1,
+            tokens: ["P1.L2"],
+            prices: [{ room: "double", printed: "8,888/-", tokens: ["P1.L2"] }],
+          },
+        ],
+      }),
+    );
+    const price = (await draft()).seasons[0]?.prices.double[0];
+    expect(price).toMatchObject({ value: 888800, checkThis: true });
+    expect(price?.evidence).toHaveLength(1);
+  });
+
+  it("₹6,999 in one document and ₹7,499 in another are both kept", async () => {
+    const { draft, model } = await agency();
+    model.answer(
+      answer({
+        seasons: [
+          {
+            label: "Winter",
+            fromMonth: 12,
+            toMonth: 1,
+            tokens: ["P1.L2"],
+            prices: [
+              { room: "double", printed: "6,999/-", tokens: ["P1.L2"] },
+              { room: "double", printed: "7,499/-", tokens: ["P2.L1"] },
+            ],
+          },
+        ],
+      }),
+    );
+    const result = await draft();
+    expect(result.seasons).toHaveLength(1);
+    expect(result.seasons[0]?.prices.double.map((one) => [one.value, one.evidence[0]?.source, one.checkThis])).toEqual([
+      [699900, "Knowledge: Manali", false],
+      [749900, "Knowledge: Manali rates 2", false],
+    ]);
+  });
+
+  it("a value cited only by lines that don't exist is not filled", async () => {
+    const { draft, model } = await agency();
+    model.answer(answer({ startCity: field("Mumbai", "P9.L9"), inclusions: field("Free flights", "P7.L1") }));
+    const result = await draft();
+    expect(result.startCity).toEqual({ value: null, evidence: [], checkThis: false });
+    expect(result.inclusions.value).toBeNull();
+    expect(result.name.value).toBe("Manali 5N6D");
+  });
+
+  it("never drafts payment details, even from strict rules that hold a UPI id", async () => {
+    const { draft, model } = await agency();
+    // The strict rules are the last piece: P3 here, with the UPI line as its first.
+    model.answer(
+      answer({
+        inclusions: field(`Pay to ${UPI}`, "P3.L1"),
+        exclusions: field(`Advance by UPI ${UPI}`, "P1.L4"),
+        summary: field("Hotel and breakfast included", "P1.L4", "P3.L1"),
+      }),
+    );
+    const result = await draft();
+    const sent =
+      model.requests
+        .at(-1)
+        ?.messages.map((message) => message.content)
+        .join("\n") ?? "";
+    expect(sent).not.toContain(UPI);
+    expect(JSON.stringify(result)).not.toContain(UPI);
+    expect(result.inclusions.value).toBeNull();
+    expect(result.exclusions.value).toBeNull();
+    expect(result.summary.evidence.map((one) => one.token)).toEqual(["P1.L4"]);
+  });
+
+  it("drops a token that no longer exists, and refuses a trip whose lines all vanished, without a call", async () => {
+    const { draft, model, calls, inOrg, input } = await agency();
+    expect(await reasonOf(draft({ trip: { ...input.trip, tokens: ["P8.L8"] } }))).toBe("PACKAGE_DRAFT_NOTHING");
+    expect(model.requests).toHaveLength(1);
+    expect(await calls()).toBe(1);
+    // Another agency's fill, or one that is not a package draft, is not found.
+    const other = await inOrg((tx) =>
+      tx.aiFill.create({
+        data: {
+          target: "lead",
+          requestedBy: input.fillId,
+          inputKind: "text",
+          model: "m",
+          proposalHash: "h",
+        },
+        select: { id: true },
+      }),
+    );
+    expect(await reasonOf(draft({ fillId: other.id }))).toBe("NOT_FOUND");
+  });
+
+  it("gives the call back when the answer is unusable", async () => {
+    const { draft, model, calls } = await agency();
+    model.answer("not json");
+    expect(await reasonOf(draft())).toBe("PACKAGE_DRAFT_NOTHING");
+    expect(await calls()).toBe(1);
+  });
+});

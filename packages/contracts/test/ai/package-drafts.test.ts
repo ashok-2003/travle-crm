@@ -2,10 +2,12 @@
 import { describe, expect, it } from "vitest";
 import {
   createGroupPackageInput,
+  draftPackageInput,
   draftSeason,
   foundTrips,
   MAX_DRAFT_DAYS,
   MAX_FOUND_TRIPS,
+  packageDraftAnswer,
 } from "../../src/ai/package-drafts.js";
 
 const evidence = [{ token: "L1", source: "Knowledge: Manali", excerpt: "Double 6,999" }];
@@ -75,5 +77,36 @@ describe("package drafts", () => {
     const fields = Array.from({ length: 41 }, () => "name");
     expect(createGroupPackageInput.safeParse({ ...valid, appliedFields: fields }).success).toBe(false);
     expect(createGroupPackageInput.safeParse({ ...valid, appliedFields: ["x".repeat(41)] }).success).toBe(false);
+  });
+
+  it("draftPackageInput takes the trip itself, strictly", () => {
+    const trip = { ref: "trip-1", name: "Manali 5N", tokens: ["P1.L1"] };
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, trip }).success).toBe(true);
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, trip: { ...trip, extra: 1 } }).success).toBe(false);
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, trip: { ...trip, tokens: [] } }).success).toBe(false);
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, tripRef: "trip-1" }).success).toBe(false);
+  });
+
+  it("an invalid item in the model's answer is dropped, and every valid one still arrives", () => {
+    const answer = packageDraftAnswer.parse({
+      name: { value: "Manali 5N", tokens: ["P1.L1"] },
+      nights: { value: "five", tokens: ["P1.L1"] },
+      seasons: [
+        {
+          label: "Winter",
+          fromMonth: 12,
+          toMonth: 1,
+          tokens: ["P1.L2"],
+          prices: [{ room: "double" }, { room: "double", printed: "6,999/-", tokens: ["P1.L2"] }],
+        },
+        { label: "Broken", fromMonth: 13, toMonth: 1, tokens: [], prices: [] },
+      ],
+      days: "nonsense",
+    });
+    expect(answer.name.value).toBe("Manali 5N");
+    expect(answer.nights.value).toBeNull();
+    expect(answer.seasons.map((season) => season?.label)).toEqual(["Winter", undefined]);
+    expect(answer.seasons[0]?.prices.map((one) => one?.printed ?? null)).toEqual([null, "6,999/-"]);
+    expect(answer.days).toEqual([]);
   });
 });

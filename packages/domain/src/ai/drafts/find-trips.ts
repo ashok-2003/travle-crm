@@ -50,7 +50,7 @@ async function check(tx: OrgTx, access: MemberAccess): Promise<Checked> {
 const nothing = () => refuse("PACKAGE_DRAFT_NOTHING", "The AI found no trips in your documents", "VALIDATION");
 
 /** The existing destination a place names: the one with that name in any case, or the only close one; none is ever created. */
-async function destinationOf(tx: OrgTx, place: string) {
+export async function destinationOf(tx: OrgTx, place: string) {
   if (place === "") return null;
   const close = await searchDestinations(tx, { query: place, limit: 5 });
   return (
