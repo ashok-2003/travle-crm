@@ -35,6 +35,12 @@ describe("redactPayment", () => {
     expect(out).toContain("Kotak");
   });
 
+  it("keeps AC room rates, which are not account numbers", () => {
+    for (const text of ["AC 4500 5500 6500 per night", "Non AC 4500 5500 6500", "AC 4500"])
+      expect(redactPayment(text)).toBe(text);
+    expect(redactPayment("AC 50100123456789")).toContain(REMOVED);
+  });
+
   it("removes an IFSC in any case, and every long digit run on its line", () => {
     expect(redactPayment("ifsc hdfc0001234")).toBe(`ifsc ${REMOVED}`);
     const out = redactPayment("Beneficiary 50100123456789 IFSC HDFC0001234");

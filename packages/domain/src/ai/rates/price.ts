@@ -70,7 +70,7 @@ export function priceInLine(printed: string, line: string): boolean {
 export function amountsIn(line: string): Set<number> {
   const found = new Set<number>();
   for (const match of line.matchAll(/(\d[\d,]*(?:\.\d+)?)(?:\s*(crore|cr|lakhs?|lacs?|l|k)\b)?/gi)) {
-    const paise = parsePrintedPrice(`${match[1] ?? ""}${match[2] ?? ""}`);
+    const paise = parsePrintedPrice(`${(match[1] ?? "").replace(/,$/, "")}${match[2] ?? ""}`);
     if (paise !== null) found.add(paise);
   }
   return found;

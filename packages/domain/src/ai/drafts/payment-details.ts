@@ -8,10 +8,13 @@ const UPI_ID = /[\w.+-]+@[A-Za-z][A-Za-z0-9-]*(?![A-Za-z0-9-])(?!\.[A-Za-z0-9])/
 const IFSC = /\b[A-Za-z]{4}0[A-Za-z0-9]{6}\b/g;
 /** 9 to 18 digits, with a space or hyphen allowed between any two. */
 const DIGIT_RUN = String.raw`\d(?:[ \t-]?\d){8,17}`;
+// The explicit prefixes (and "AC No") allow a spaced number; a bare "AC" takes an unspaced run only, so
+// "AC 4500 5500 6500 per night" (room rates) is left alone.
 const ACCOUNT = new RegExp(
-  String.raw`\b((?:a\/c|ac|acc|acct|account)\b\.?[ \t]*(?:(?:no|num)\b\.?|number\b|#)?[ \t]*[:-]?[ \t]*)${DIGIT_RUN}(?!\d)`,
+  String.raw`\b((?:a\/c|acc|acct|account|ac(?=[ \t]*\.?[ \t]*(?:no|num|number|#)))\b\.?[ \t]*(?:(?:no|num)\b\.?|number\b|#)?[ \t]*[:-]?[ \t]*)${DIGIT_RUN}(?!\d)`,
   "gi",
 );
+const BARE_AC_ACCOUNT = /\b(ac\b\.?[ \t]*[:-]?[ \t]*)\d{9,18}(?!\d)/gi;
 const LONG_NUMBER = new RegExp(`${DIGIT_RUN}(?!\\d)`, "g");
 const PAY_LINK =
   /upi:\/\/\S+|https?:\/\/(?:[\w-]+\.)*(?:rzp\.io|razorpay\.me|paytm\.me|phon\.pe|phonepe\.com|pay\.google\.com|gpay\.app\.goo\.gl)\S*/gi;
@@ -19,7 +22,10 @@ const PAY_LINK =
 function redactLine(line: string): string {
   const hasIfsc = new RegExp(IFSC).test(line);
   const withoutLinks = line.replace(PAY_LINK, REMOVED).replace(UPI_ID, REMOVED);
-  const withoutCodes = withoutLinks.replace(IFSC, REMOVED).replace(ACCOUNT, `$1${REMOVED}`);
+  const withoutCodes = withoutLinks
+    .replace(IFSC, REMOVED)
+    .replace(ACCOUNT, `$1${REMOVED}`)
+    .replace(BARE_AC_ACCOUNT, `$1${REMOVED}`);
   return hasIfsc ? withoutCodes.replace(LONG_NUMBER, REMOVED) : withoutCodes;
 }
 
