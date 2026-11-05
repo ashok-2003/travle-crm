@@ -24,10 +24,11 @@ import { DestinationField, type DestinationValue } from "@/leads/form/destinatio
 import { NoteField } from "@/leads/form/note-field";
 import { useWriteAccess } from "@/subscription/write-access";
 import { CalculateFromButton } from "./calculate-from-button";
+import { GroupFields, groupInputFields, groupInputOf, groupValuesOf, type GroupValues } from "./group-fields";
 import { usePackageChanges } from "./use-packages";
 
 type Problem = "required" | "invalid" | "slug" | "price";
-interface Values {
+interface Values extends GroupValues {
   name: string;
   title: string;
   slug: string;
@@ -75,6 +76,7 @@ const renamed: Partial<Record<string, keyof Values>> = {
   destinationId: "destination",
   fromPricePaise: "fromPrice",
   defaultTravellerLevel: "level",
+  ...groupInputFields,
 };
 
 function toInput(packageId: string, detail: PackageDetail, typed: Values) {
@@ -101,17 +103,7 @@ function toInput(packageId: string, detail: PackageDetail, typed: Values) {
     fromPricePaise: price,
     defaultTravellerLevel: typed.level === DEFAULT_LEVEL ? null : typed.level,
     cancellationNotes: typed.cancellationNotes,
-    // The group-trip fields have no screen yet: they are sent back as loaded.
-    kind: detail.kind,
-    roomTypes: detail.roomTypes,
-    pricesIncludeGst: detail.pricesIncludeGst,
-    advancePerPersonPaise: detail.advancePerPersonPaise,
-    paymentDetails: detail.paymentDetails,
-    pickupPoints: detail.pickupPoints,
-    startCity: detail.startCity,
-    weeklyDays: detail.weeklyDays,
-    departureMonths: detail.departureMonths,
-    seatsPerDeparture: detail.seatsPerDeparture,
+    ...groupInputOf(typed),
   });
 }
 
@@ -135,6 +127,7 @@ function valuesOf(detail: PackageDetail): Values {
     exclusions: detail.exclusions,
     notes: detail.notes,
     days: detail.days,
+    ...groupValuesOf(detail),
   };
 }
 
@@ -156,7 +149,8 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
           const key = String(path[0]);
           return renamed[key] ?? fields.find((field) => field === key);
         },
-        (field) => (field === "slug" ? "slug" : field === "fromPrice" ? "price" : "invalid"),
+        (field) =>
+          field === "slug" ? "slug" : field === "fromPrice" || field === "advancePerPerson" ? "price" : "invalid",
       ),
     (problem) => t(`problems.${problem}`),
   );
@@ -217,6 +211,8 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
           </div>
         </CardContent>
       </Card>
+
+      <GroupFields control={form.control} disabled={busy} />
 
       <Card>
         <CardHeader>

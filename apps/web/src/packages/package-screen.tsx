@@ -14,6 +14,7 @@ import { routes } from "@/lib/routes";
 import { PackageForm, savedKey } from "./package-form";
 import { PackagePhotos } from "./package-photos";
 import { PublishCard } from "./publish-card";
+import { SellCard } from "./sell-card";
 import { TiersCard } from "./tiers-card";
 import { usePackage } from "./use-packages";
 
@@ -32,6 +33,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
             <PackageForm key={savedKey(data)} detail={data} />
             <div className="flex flex-col gap-6 xl:sticky xl:top-6">
               <PublishCard detail={data} />
+              {data.kind === "group" && <SellCard detail={data} />}
               <TiersCard detail={data} />
               <PackagePhotos packageId={data.id} />
             </div>

@@ -61,7 +61,56 @@
       "invalid": "Check this.",
       "slug": "Use lower-case letters, digits and hyphens.",
       "price": "Give an amount in rupees."
-    }
+    },
+    "kind": "What kind of package",
+    "kinds": {
+      "custom": "A custom trip, quoted for each customer",
+      "group": "A group trip that departs on set dates"
+    },
+    "groupTitle": "The group trip",
+    "roomTypes": "Room types sold",
+    "roomTypeNames": {
+      "single": "Single",
+      "double": "Double",
+      "triple": "Triple",
+      "quad": "Quad",
+      "child_bed": "Child with bed",
+      "child_no_bed": "Child without bed"
+    },
+    "weeklyDays": "Departs on",
+    "weekdays": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "departureMonths": "Months it departs",
+    "departureMonthsHint": "Leave all off for every month.",
+    "months": {
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
+    },
+    "seatsPerDeparture": "Seats on each departure",
+    "pricesIncludeGst": "Prices include GST",
+    "advancePerPerson": "Advance to hold a seat (each person)",
+    "paymentDetails": "How to pay",
+    "paymentDetailsHint": "Bank or UPI details a customer is told when they pay.",
+    "pickupPoints": "Pickup points",
+    "pickupPointsHint": "Where the group boards, one a line.",
+    "startCity": "Starts from"
   },
   "tiers": {
     "title": "Tiers",
@@ -171,5 +220,21 @@
       "invalid": "Check this.",
       "https": "Use an https address."
     }
+  },
+  "sell": {
+    "title": "Let the AI sell it",
+    "label": "AI can sell this package",
+    "on": "The AI may offer this package to customers.",
+    "off": "The AI does not offer this package.",
+    "needs": "Before the AI can sell it, it needs:",
+    "gaps": {
+      "room_types": "At least one room type",
+      "prices": "A price for each room type in a season",
+      "advance": "The advance to hold a seat",
+      "departures": "Departure days and seats on each",
+      "from_price": "A \"From\" price"
+    },
+    "nowOn": "The AI can sell this package",
+    "nowOff": "The AI no longer sells this package"
   }
 }
