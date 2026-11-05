@@ -96,7 +96,7 @@ export function valuesOf(draft: PackageDraft): ReviewValues {
     weeklyDaysChoice: "",
     departureMonths: (draft.departureMonths.value ?? []).map(String),
     roomTypes: draft.roomTypes.value ?? [],
-    pricesIncludeGst: draft.pricesIncludeGst.value ?? false,
+    pricesIncludeGst: draft.pricesIncludeGst.value ?? true,
     seasons: draft.seasons.map((season) => {
       const text = (room: RoomType) => {
         const price = onlyOne(season.prices[room]);
