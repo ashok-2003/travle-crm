@@ -18,6 +18,8 @@ export interface SourcePiece {
   key: string;
   /** What a reviewer sees as the source: "Knowledge: Spiti", "Instructions", "Strict rules", "Trip kit: Kerala". */
   label: string;
+  /** The knowledge piece's own title; the label for the other kinds. */
+  title: string;
   kind: "knowledge" | "instructions" | "strict_rules" | "trip_kit";
   knowledgeId: string | null;
   hasFile: boolean;
@@ -27,6 +29,7 @@ export interface SourcePiece {
 interface RawPiece {
   key: string;
   label: string;
+  title: string;
   kind: SourcePiece["kind"];
   knowledgeId: string | null;
   hasFile: boolean;
@@ -72,6 +75,7 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
       .map((row) => ({
         key: `knowledge:${row.id}`,
         label: `Knowledge: ${row.title}`,
+        title: row.title,
         kind: "knowledge" as const,
         knowledgeId: row.id,
         hasFile: row.kind === "file" || row.attachmentId !== null,
@@ -80,6 +84,7 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
     {
       key: "instructions",
       label: "Instructions",
+      title: "Instructions",
       kind: "instructions",
       knowledgeId: null,
       hasFile: false,
@@ -88,6 +93,7 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
     {
       key: "strict_rules",
       label: "Strict rules",
+      title: "Strict rules",
       kind: "strict_rules",
       knowledgeId: null,
       hasFile: false,
@@ -98,6 +104,7 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
       .map((kit) => ({
         key: `trip_kit:${kit.id}`,
         label: `Trip kit: ${kit.name}`,
+        title: kit.name,
         kind: "trip_kit" as const,
         knowledgeId: null,
         hasFile: false,
@@ -109,6 +116,7 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
     .map((raw, pieceIndex) => ({
       key: raw.key,
       label: raw.label,
+      title: raw.title,
       kind: raw.kind,
       knowledgeId: raw.knowledgeId,
       hasFile: raw.hasFile,

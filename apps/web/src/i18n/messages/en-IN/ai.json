@@ -751,7 +751,9 @@
       "exclusions": "Exclusions",
       "cancellationNotes": "Cancellation terms",
       "weeklyDaysChoose": "Your documents give different departure days: choose one",
-      "advanceChoose": "Your documents give different advance amounts: choose one"
+      "advanceChoose": "Your documents give different advance amounts: choose one",
+      "brochure": "Brochure",
+      "brochureNone": "No brochure"
     },
     "seasons": {
       "none": "No seasons found in your documents.",

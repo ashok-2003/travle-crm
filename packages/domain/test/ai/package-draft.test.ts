@@ -24,7 +24,9 @@ describe("drafting one trip", () => {
   });
   afterAll(() => test.close());
 
-  async function agency(options: { big?: boolean; brochure?: boolean; lines?: string[]; part?: string } = {}) {
+  async function agency(
+    options: { big?: boolean; brochure?: boolean; twinBrochure?: boolean; lines?: string[]; part?: string } = {},
+  ) {
     const organizationId = await anAgency(test, "Draft agency");
     const owner = memberOf(organizationId, "org-owner");
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
@@ -61,6 +63,12 @@ describe("drafting one trip", () => {
       if (options.brochure === true) {
         await tx.aiKnowledge.create({
           data: { title: "Zbrochure", kind: "file", body: "Manali 5 Nights 6 Days brochure" },
+        });
+      }
+      if (options.twinBrochure === true) {
+        // Another file with the very same title.
+        await tx.aiKnowledge.create({
+          data: { title: "Zbrochure", kind: "file", body: "Manali 5 Nights 6 Days second brochure" },
         });
       }
       await tx.aiAutopilot.updateMany({ data: { strictRules: `Pay advance to UPI ${UPI} only` } });
@@ -301,6 +309,21 @@ describe("drafting one trip", () => {
     const without = await agency({ brochure: true });
     without.model.answer(answer());
     expect((await without.draft()).brochureKnowledgeId).toBeNull();
+  });
+
+  it("offers every cited brochure, told apart by id when their titles are the same", async () => {
+    const { draft, model, inOrg } = await agency({
+      brochure: true,
+      twinBrochure: true,
+      lines: ["P1.L1", "P3.L1", "P4.L1"],
+    });
+    const files = await inOrg((tx) =>
+      tx.aiKnowledge.findMany({ where: { title: "Zbrochure" }, orderBy: { id: "asc" } }),
+    );
+    model.answer(answer());
+    const result = await draft();
+    expect(result.brochureCandidates).toEqual(files.map((one) => ({ knowledgeId: one.id, title: "Zbrochure" })));
+    expect(result.brochureKnowledgeId).toBe(files[0]?.id);
   });
 
   it("equal prices from two sources are one alternative with both lines; unreadable ones stay apart", async () => {

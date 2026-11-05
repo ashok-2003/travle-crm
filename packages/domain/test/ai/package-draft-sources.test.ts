@@ -6,6 +6,7 @@ import { anAgency, createTestImports, type TestImports } from "../imports/suppor
 const piece = (key: string, label: string, lines: string[], number = 1): SourcePiece => ({
   key,
   label,
+  title: label,
   kind: "knowledge",
   knowledgeId: null,
   hasFile: false,

@@ -52,5 +52,6 @@ export const draft: PackageDraft = {
   summary: none,
   highlights: some(["Key Monastery", "Chandratal"], line("L14", "Key Monastery; Chandratal")),
   days: [some({ title: "Chandigarh to Shimla", description: "Drive up." }, line("L15", "Day 1 Chandigarh to Shimla"))],
+  brochureCandidates: [],
   brochureKnowledgeId: null,
 };

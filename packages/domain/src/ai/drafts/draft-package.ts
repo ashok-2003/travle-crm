@@ -3,6 +3,7 @@
 // else shown with "check this"), months into dates, and keeps every alternative the sources give. It proposes and never saves a package.
 import {
   MAX_DRAFT_DAYS,
+  MAX_FOUND_TRIPS,
   PACKAGE_DRAFT_CHARACTERS,
   packageDraftAnswer,
   type DraftPackageInput,
@@ -245,10 +246,14 @@ function buildDraft(
     const found = evid({ title, description: redactPayment(one.description.trim()).slice(0, 2000) }, one.tokens);
     return found.value === null ? [] : [{ value: found.value, evidence: found.evidence, checkThis: false }];
   });
-  const brochure = cited.flatMap((ref) => {
-    const piece = pieces.find((one) => one.label === ref.source);
-    return piece?.hasFile === true && piece.knowledgeId !== null ? [piece.knowledgeId] : [];
-  })[0];
+  // The brochures the cited lines could be copied from: each cited knowledge piece with a file, by its id (two pieces may share a title).
+  const brochures: { knowledgeId: string; title: string }[] = [];
+  for (const ref of cited) {
+    const piece = pieces.find((one) => one.lines.some((line) => line.token === ref.token));
+    if (piece?.hasFile !== true || piece.knowledgeId === null) continue;
+    const knowledgeId = piece.knowledgeId;
+    if (!brochures.some((one) => one.knowledgeId === knowledgeId)) brochures.push({ knowledgeId, title: piece.title });
+  }
 
   const nights = answer.nights;
   return {
@@ -273,7 +278,8 @@ function buildDraft(
     summary: text(answer.summary),
     highlights: evid(highlights === undefined || highlights.length === 0 ? null : highlights, answer.highlights.tokens),
     days,
-    brochureKnowledgeId: brochure ?? null,
+    brochureCandidates: brochures.slice(0, MAX_FOUND_TRIPS),
+    brochureKnowledgeId: brochures[0]?.knowledgeId ?? null,
   };
 }
 

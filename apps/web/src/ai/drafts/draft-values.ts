@@ -37,9 +37,14 @@ export interface ReviewValues {
   departureMonths: string[];
   roomTypes: string[];
   pricesIncludeGst: boolean;
+  /** The knowledge piece whose file is copied to the package, or NO_BROCHURE. */
+  brochure: string;
   seasons: SeasonValues[];
   days: { title: string; description: string }[];
 }
+
+/** The brochure choice that copies nothing (a radio needs a value). */
+export const NO_BROCHURE = "none";
 
 const textOf = (field: { value: string | null }) => field.value ?? "";
 const emptyChoices = (): Record<RoomType, string> => ({
@@ -98,6 +103,7 @@ export function valuesOf(draft: PackageDraft): ReviewValues {
     departureMonths: (draft.departureMonths.value ?? []).map(String),
     roomTypes: draft.roomTypes.value ?? [],
     pricesIncludeGst: draft.pricesIncludeGst.value ?? true,
+    brochure: draft.brochureKnowledgeId ?? NO_BROCHURE,
     seasons: draft.seasons.map((season) => {
       const text = (room: RoomType) => {
         const price = onlyOne(season.prices[room]);
@@ -224,7 +230,7 @@ export function checkReview(
     days: values.days
       .filter((day) => day.title.trim() !== "")
       .map((day) => ({ title: day.title, description: day.description })),
-    brochureKnowledgeId: draft.brochureKnowledgeId,
+    brochureKnowledgeId: values.brochure === NO_BROCHURE ? null : values.brochure,
     appliedFields: KEPT_FIELDS.filter(
       (key) =>
         JSON.stringify(values[key]) === JSON.stringify(first[key]) &&

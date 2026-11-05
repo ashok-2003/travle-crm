@@ -7,6 +7,7 @@ import { roomTypes } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useId, type ReactNode } from "react";
 import { Controller, useWatch, type Control, type UseFormSetValue } from "react-hook-form";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { MoneyField, rupees, rupeesFieldText } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -14,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { NoteField } from "@/leads/form/note-field";
 import { MONTHS, Picks, WEEKDAYS } from "@/packages/group-fields";
 import { AlternativesChoice, EvidenceNote, SoleEvidence } from "./draft-evidence";
-import type { ReviewValues } from "./draft-values";
+import { NO_BROCHURE, type ReviewValues } from "./draft-values";
 
 interface Props {
   draft: PackageDraft;
@@ -139,6 +140,17 @@ export function DraftFields({ draft, control, setValue }: Props) {
         />
         <EvidenceNote {...draft.pricesIncludeGst} />
       </Group>
+      {draft.brochureCandidates.length > 0 && (
+        <ChoiceField
+          control={control}
+          name="brochure"
+          legend={t("brochure")}
+          options={[
+            ...draft.brochureCandidates.map((one) => ({ value: one.knowledgeId, label: one.title })),
+            { value: NO_BROCHURE, label: t("brochureNone") },
+          ]}
+        />
+      )}
       <Group>
         <NoteField control={control} name="pickupPoints" label={t("pickupPoints")} />
         <EvidenceNote {...draft.pickupPoints} />

@@ -157,6 +157,9 @@ export const packageDraft = z.object({
   summary: evidenced(z.string()),
   highlights: evidenced(z.array(z.string())),
   days: z.array(evidenced(quoteDay)).max(MAX_DRAFT_DAYS),
+  /** Every cited knowledge piece that has a file: the brochure is the owner's choice among them. */
+  brochureCandidates: z.array(z.object({ knowledgeId: recordId, title: z.string() })).max(MAX_FOUND_TRIPS),
+  /** The candidate suggested (the first cited), or null. */
   brochureKnowledgeId: recordId.nullable(),
 });
 export type PackageDraft = z.infer<typeof packageDraft>;

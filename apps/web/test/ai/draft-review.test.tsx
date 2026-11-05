@@ -1,6 +1,6 @@
 // The review of a drafted package: every value beside the line it came from, "check this" and "not found" marked, the
 // documents' disagreements held until chosen, and nothing saved until "Save as package".
-import { createGroupPackageInput, type CreateGroupPackageInput } from "@travel-crm/contracts/ai";
+import { createGroupPackageInput, type CreateGroupPackageInput, type PackageDraft } from "@travel-crm/contracts/ai";
 import { z } from "zod";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -28,12 +28,13 @@ vi.mock("sonner", () => ({
 function render(
   created: { id: string; brochure: "attached" | "failed" | "none" } = { id: "p1", brochure: "none" },
   access: SubscriptionOverview["access"] = "full",
+  shown: PackageDraft = draft,
 ) {
   screenIs("wide");
   const api = stubApi({ "ai.packageDrafts.create": { data: created } });
   const queryClient = newQueryClient({ ...paidSubscription, modules: aiModules, access });
   renderWithApi(
-    <DraftReview draft={draft} open onOpenChange={vi.fn()} />,
+    <DraftReview draft={shown} open onOpenChange={vi.fn()} />,
     queryClient,
     member({ permissions: ["ai:suggest", "quotes:edit"] }),
   );
@@ -170,5 +171,49 @@ describe("Draft review", () => {
       expect(name).toBeInvalid();
     });
     expect(push).not.toHaveBeenCalledWith("/packages/p1");
+  });
+
+  it("offers each cited brochure, even of the same title, suggests the first and sends the chosen one", async () => {
+    const user = userEvent.setup();
+    const first = "0199a000-0000-7000-8000-0000000000a1";
+    const second = "0199a000-0000-7000-8000-0000000000a2";
+    render({ id: "p1", brochure: "attached" }, "full", {
+      ...draft,
+      brochureCandidates: [
+        { knowledgeId: first, title: "Spiti brochure" },
+        { knowledgeId: second, title: "Spiti brochure" },
+      ],
+      brochureKnowledgeId: first,
+    });
+    const dialog = await screen.findByRole("dialog");
+    const group = within(dialog).getByRole("radiogroup", { name: "Brochure" });
+    const options = within(group).getAllByRole("radio");
+    expect(options).toHaveLength(3);
+    expect(options[0]).toBeChecked();
+    await user.click(within(dialog).getByRole("radio", { name: /₹6,999/ }));
+    await user.click(options[1] ?? group);
+    await user.click(within(dialog).getByRole("button", { name: "Save as package" }));
+    await waitFor(() => {
+      expect(sentTo("ai.packageDrafts.create")).toBeDefined();
+    });
+    expect(sentTo("ai.packageDrafts.create")?.brochureKnowledgeId).toBe(second);
+  });
+
+  it("sends no brochure when None is chosen", async () => {
+    const user = userEvent.setup();
+    const only = "0199a000-0000-7000-8000-0000000000a1";
+    render({ id: "p1", brochure: "none" }, "full", {
+      ...draft,
+      brochureCandidates: [{ knowledgeId: only, title: "Spiti brochure" }],
+      brochureKnowledgeId: only,
+    });
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /₹6,999/ }));
+    await user.click(within(dialog).getByRole("radio", { name: "No brochure" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save as package" }));
+    await waitFor(() => {
+      expect(sentTo("ai.packageDrafts.create")).toBeDefined();
+    });
+    expect(sentTo("ai.packageDrafts.create")?.brochureKnowledgeId).toBeNull();
   });
 });
