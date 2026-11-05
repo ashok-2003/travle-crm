@@ -52,8 +52,8 @@
       "required": "Fill this in.",
       "invalid": "Check this."
     },
-    "roomPrices": "Prices per person (before GST)",
-    "roomPricesHint": "This departure's own prices. Leave a room empty to use the package's season price.",
+    "roomPrices": "Prices per person{gst, select, including { (including GST)} before { (before GST)} other {}}",
+    "roomPricesHint": "This departure's own prices. Once it has any price of its own, the package's season prices are not used for it, so a room left empty has no price.",
     "roomPrice": "{room}"
   },
   "page": {

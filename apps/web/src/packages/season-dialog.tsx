@@ -24,6 +24,7 @@ import {
   roomPricesToText,
   shownRoomTypes,
   type RoomPriceKey,
+  gstWording,
   type RoomPriceValues,
 } from "@/room-prices/room-prices";
 import { usePackageChanges } from "./use-packages";
@@ -129,6 +130,7 @@ export function SeasonDialog({
   packageId,
   season,
   offered,
+  pricesIncludeGst,
   held,
   returnFocusTo,
 }: {
@@ -136,6 +138,8 @@ export function SeasonDialog({
   /** Null to add one. */
   season: PackageSeasonView | null;
   offered: readonly RoomType[];
+  /** The package's switch: its prices are stated including GST, or before it. */
+  pricesIncludeGst: boolean;
   held: OpenState;
   returnFocusTo: ReturnFocusTo;
 }) {
@@ -148,7 +152,7 @@ export function SeasonDialog({
       sending={changes.saveSeason}
       returnFocusTo={returnFocusTo}
       title={season === null ? t("addTitle") : t("editTitle")}
-      description={t("description")}
+      description={t("description", { gst: gstWording({ pricesIncludeGst }) })}
       submit={t("save")}
       submitting={t("saving")}
     >

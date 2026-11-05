@@ -24,7 +24,8 @@ import {
   roomPricesFromText,
   roomPricesToText,
   shownRoomTypes,
-  usePackageRoomTypes,
+  usePackagePricing,
+  gstWording,
   type RoomPriceValues,
 } from "@/room-prices/room-prices";
 import { useDepartureChanges } from "./use-departures";
@@ -120,7 +121,8 @@ function DepartureForm({
   );
   const busy = sending.isPending;
   const linked = departure?.templateId ?? null;
-  const rooms = shownRoomTypes(usePackageRoomTypes(linked), departure?.prices);
+  const pricing = usePackagePricing(linked);
+  const rooms = shownRoomTypes(pricing?.roomTypes, departure?.prices);
   return (
     <form
       id={formId}
@@ -146,7 +148,7 @@ function DepartureForm({
       <TextField control={form.control} name="seatsTotal" label={t("seatsTotal")} inputMode="numeric" disabled={busy} />
       {linked ? (
         <fieldset className="flex flex-col gap-4">
-          <legend className="font-medium">{t("roomPrices")}</legend>
+          <legend className="font-medium">{t("roomPrices", { gst: gstWording(pricing) })}</legend>
           <p className="text-muted-foreground">{t("roomPricesHint")}</p>
           {rooms.map((room) => (
             <MoneyField

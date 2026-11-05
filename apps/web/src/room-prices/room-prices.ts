@@ -62,12 +62,20 @@ export function shownRoomTypes(offered: readonly RoomType[] | undefined, priced:
   );
 }
 
-/** The room types a package sells, once it has loaded; undefined for no package. */
-export function usePackageRoomTypes(packageId: string | null): readonly RoomType[] | undefined {
+/** What a package sells and how it states its prices, once it has loaded; undefined for no package. */
+export function usePackagePricing(
+  packageId: string | null,
+): { roomTypes: readonly RoomType[]; pricesIncludeGst: boolean } | undefined {
   const trpc = useTRPC();
   const detail = useQuery({
     ...trpc.packages.get.queryOptions({ packageId: packageId ?? "" }),
     enabled: packageId !== null,
   });
-  return detail.data?.roomTypes;
+  return detail.data === undefined
+    ? undefined
+    : { roomTypes: detail.data.roomTypes, pricesIncludeGst: detail.data.pricesIncludeGst };
 }
+
+/** The word the price wording picks on: the package's switch, or nothing while it loads. */
+export const gstWording = (pricing: { pricesIncludeGst: boolean } | undefined): "including" | "before" | "unknown" =>
+  pricing === undefined ? "unknown" : pricing.pricesIncludeGst ? "including" : "before";

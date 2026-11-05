@@ -163,4 +163,31 @@ describe("DepartureFormDialog on a departure of a package", () => {
     expect(sent.templateId).toBe(packageId);
     expect(sent.prices).toEqual({ ...none, double: 1250000 });
   });
+
+  it("words the prices by the package's GST switch and says the season's prices are not used", async () => {
+    const api = fakeApi();
+    renderWithApi(<DepartureFormDialog departure={linked} trigger={{ label: "Change" }} />, newQueryClient());
+    await userEvent.click(screen.getByRole("button", { name: "Change" }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "packages.get")).toBe(true);
+    });
+    api.calls
+      .find((call) => call.path === "packages.get")
+      ?.answer(aPackage({ pricesIncludeGst: false, roomTypes: ["double"] }));
+    expect(await screen.findByText("Prices per person (before GST)")).toBeTruthy();
+    expect(screen.getByText(/season prices are not used for it/)).toBeTruthy();
+  });
+
+  it("says including GST when the package's prices include it", async () => {
+    const api = fakeApi();
+    renderWithApi(<DepartureFormDialog departure={linked} trigger={{ label: "Change" }} />, newQueryClient());
+    await userEvent.click(screen.getByRole("button", { name: "Change" }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "packages.get")).toBe(true);
+    });
+    api.calls
+      .find((call) => call.path === "packages.get")
+      ?.answer(aPackage({ pricesIncludeGst: true, roomTypes: ["double"] }));
+    expect(await screen.findByText("Prices per person (including GST)")).toBeTruthy();
+  });
 });

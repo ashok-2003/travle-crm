@@ -111,6 +111,7 @@ export function SeasonsCard({ detail }: { detail: PackageDetail }) {
         packageId={detail.id}
         season={editing}
         offered={detail.roomTypes}
+        pricesIncludeGst={detail.pricesIncludeGst}
         held={{ open, setOpen }}
         returnFocusTo={opener}
       />

@@ -71,4 +71,17 @@ describe("SeasonsCard", () => {
     expect(await screen.findByText(words.season.problems.noPrice)).toBeTruthy();
     expect(api.calls).toHaveLength(0);
   });
+
+  it("words the prices by the package's GST switch", async () => {
+    const { unmount } = renderWithApi(<SeasonsCard detail={group([])} />, newQueryClient());
+    await userEvent.click(screen.getByRole("button", { name: words.seasons.add }));
+    expect(await screen.findByText(/each room type sold, including GST\./)).toBeTruthy();
+    unmount();
+    renderWithApi(
+      <SeasonsCard detail={aPackage({ kind: "group", roomTypes: ["double"], pricesIncludeGst: false })} />,
+      newQueryClient(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: words.seasons.add }));
+    expect(await screen.findByText(/each room type sold, before GST\./)).toBeTruthy();
+  });
 });

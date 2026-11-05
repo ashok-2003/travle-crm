@@ -259,7 +259,7 @@
   "season": {
     "addTitle": "Add a season",
     "editTitle": "Change this season",
-    "description": "The dates, and the price per person of each room type sold, before GST.",
+    "description": "The dates, and the price per person of each room type sold, {gst, select, including {including GST} other {before GST}}.",
     "label": "Name",
     "labelHint": "Such as \"Peak, Oct to Dec\".",
     "startsOn": "First day",
