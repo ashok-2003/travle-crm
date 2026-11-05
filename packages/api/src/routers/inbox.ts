@@ -318,7 +318,7 @@ export const inboxRouter = router({
    * mutation that every subscription state may make (a read-only agency still reads its chats).
    */
   markRead: reader
-    .meta({ lifecycle: "always" })
+    .meta({ lifecycle: "always", keepsAccess: true })
     .input(conversationIdInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) =>

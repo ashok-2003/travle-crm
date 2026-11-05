@@ -34,6 +34,13 @@ export { organizationsOverview } from "./dashboard.js";
 export { listAiCalls } from "./ai-calls.js";
 export { aiOverviewOf } from "./ai-overview.js";
 export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
+export {
+  emailLogPurgeSchedule,
+  getStoredEmail,
+  listFailedEmails,
+  purgeEmailLogNow,
+  resendFailedEmail,
+} from "./emails.js";
 export { ERASE_SUBJECT_QUEUE, eraseSubject, requestErasure } from "./erasure.js";
 export { exportSubject, hasFreshExport } from "./exports.js";
 export { listFailedJobs, listSchedules, removeSchedule, retryFailedJob } from "./failed-jobs.js";

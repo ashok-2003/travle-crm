@@ -1,11 +1,13 @@
 // The console's destinations and who sees them: support everything but Staff, which super admins manage alone
-// (spec 5). Hiding is for convenience only; the console's api refuses support's calls there anyway.
+// (spec 5), and Failed emails, which show reset and invite links. Hiding is for convenience only; the console's api
+// refuses support's calls there anyway.
 import {
   ActivityIcon,
   CirclePlusIcon,
   GiftIcon,
   LayersIcon,
   LayoutDashboardIcon,
+  MailWarningIcon,
   MessageCircleIcon,
   ScrollTextIcon,
   ServerCogIcon,
@@ -18,7 +20,7 @@ import { isSuperAdmin, type ConsoleStaff } from "../session/staff-context";
 
 export interface ConsoleNavigationItem {
   /** Also the message key in the "console.navigation" namespace. */
-  key: "home" | "onboard" | "invites" | "usage" | "ai" | "plans" | "whatsapp" | "jobs" | "log" | "staff";
+  key: "home" | "onboard" | "invites" | "usage" | "ai" | "plans" | "whatsapp" | "jobs" | "emails" | "log" | "staff";
   href: string;
   icon: LucideIcon;
   /** Shown to super admins only. */
@@ -34,6 +36,7 @@ export const consoleNavigationItems: readonly ConsoleNavigationItem[] = [
   { key: "plans", href: consoleRoutes.plans, icon: LayersIcon, superAdminOnly: false },
   { key: "whatsapp", href: consoleRoutes.whatsapp, icon: MessageCircleIcon, superAdminOnly: false },
   { key: "jobs", href: consoleRoutes.jobs, icon: ServerCogIcon, superAdminOnly: false },
+  { key: "emails", href: consoleRoutes.emails, icon: MailWarningIcon, superAdminOnly: true },
   { key: "log", href: consoleRoutes.log, icon: ScrollTextIcon, superAdminOnly: false },
   { key: "staff", href: consoleRoutes.staff, icon: UserCogIcon, superAdminOnly: true },
 ];

@@ -10,11 +10,15 @@ export const { pages: PAGES, static: STATIC } = CACHE_NAMES;
 
 export const at = (path: string) => new URL(path, ORIGIN).href;
 
-let bundle: Promise<string> | undefined;
+const bundles = new Map<string, Promise<string>>();
 
-/** The worker's code, with the app's real page list. */
-export function bundledWorker(): Promise<string> {
-  bundle ??= bundleServiceWorker(new URL("../..", import.meta.url).pathname);
+/** The worker's code, with the app's real page list and a build id. */
+export function bundledWorker(buildId = "build-1"): Promise<string> {
+  let bundle = bundles.get(buildId);
+  if (bundle === undefined) {
+    bundle = bundleServiceWorker(new URL("../..", import.meta.url).pathname, buildId);
+    bundles.set(buildId, bundle);
+  }
   return bundle;
 }
 
@@ -46,8 +50,8 @@ export function app(build = "a"): SiteAnswer {
 }
 
 /** The worker, installed and active, in front of the site. */
-export async function installed(site = app()): Promise<Worker> {
-  const worker = startWorker(await bundledWorker(), site);
+export async function installed(site = app(), buildId = "build-1"): Promise<Worker> {
+  const worker = startWorker(await bundledWorker(buildId), site);
   await worker.install();
   await worker.activate();
   return worker;

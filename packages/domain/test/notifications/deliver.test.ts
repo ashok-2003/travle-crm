@@ -28,6 +28,9 @@ describe("delivering notifications", () => {
       replyTo: "hello@sharma.example",
       subject: "Quotation opened",
       headers: { "List-Unsubscribe": "<https://app.example/account/notifications>" },
+      // The email log ties a retry's attempts together by the notification.
+      purpose: "notification",
+      sourceRef: `notification:${id}`,
     });
     expect(kit.email.sent[0]?.text).toContain("https://app.example/quotes/42");
     expect(kit.push.sent.map((sent) => sent.subscription.endpoint).sort()).toEqual([laptop, phone].sort());

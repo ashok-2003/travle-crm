@@ -52,12 +52,13 @@ export {
   tripUpdatesAgreed,
   type ReminderDependencies,
 } from "./reminders.js";
-export { findBookingInScope } from "./rows.js";
+export { assertOpen, findBookingInScope } from "./rows.js";
 export { defaultBookingSettings, defaultPolicyRules, bookingSettingsOf, saveBookingSettings } from "./settings.js";
 export { bookingsMissingDetails, DETAILS_HORIZON_DAYS, type DetailsMissing } from "./today-source.js";
 export {
   isComplete,
   saveTravellerByStaff,
+  saveTravellersByStaff,
   saveTravellerFromLink,
   setLevel,
   setTravellerCount,

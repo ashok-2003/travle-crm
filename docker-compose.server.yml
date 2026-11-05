@@ -76,6 +76,11 @@ x-api-environment: &api-environment
   MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}
   MSG91_WEBHOOK_TOKEN: ${MSG91_WEBHOOK_TOKEN:-}
   MSG91_WEBHOOK_KEY: ${MSG91_WEBHOOK_KEY:-}
+  # Brevo's reports of the emails it accepted and then dropped (the failed-emails spec): both or neither; blank leaves
+  # them off (our own failed sends are still caught). The api takes them and the worker processes them; the console
+  # is never given them.
+  BREVO_WEBHOOK_TOKEN: ${BREVO_WEBHOOK_TOKEN:-}
+  BREVO_WEBHOOK_KEY: ${BREVO_WEBHOOK_KEY:-}
   # Logging (ADR 0032, docs/runbook.md, "Turn on Axiom"): blank leaves LOG_LEVEL at info and Axiom off.
   LOG_LEVEL: ${LOG_LEVEL:-}
   AXIOM_TOKEN: ${AXIOM_TOKEN:-}
@@ -222,6 +227,9 @@ services:
       META_WEBHOOK_VERIFY_TOKEN: ""
       META_LOGIN_CONFIG_ID: ""
       META_TOKEN_KEY: ""
+      # Nor Brevo's webhook secrets: the api and the worker take its reports.
+      BREVO_WEBHOOK_TOKEN: ""
+      BREVO_WEBHOOK_KEY: ""
       # Nor the AI's keys: it calls no model (each key goes with its endpoint and models, or the start-up check refuses).
       OPENROUTER_API_KEY: ""
       AI_BASE_URL: ""

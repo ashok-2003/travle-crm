@@ -65,3 +65,8 @@ export { recordRoomRequestsApplied } from "./rooming/applied.js";
 export { findInterestedPeople } from "./seats/interested.js";
 export { writeSeatMessage } from "./seats/write-message.js";
 export { recordOfferSent } from "./seats/sent.js";
+export { readRateSheet } from "./rates/read-rate-sheet.js";
+export { recordRatesApplied } from "./rates/applied.js";
+export { rateSheetSourceLink } from "./rates/source-link.js";
+export type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
+export { requestRateSheetUpload } from "./rates/input.js";

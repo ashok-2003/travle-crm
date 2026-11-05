@@ -54,6 +54,17 @@ export async function sweepAiInputs(services: PlatformServices, now: Date): Prom
           where: { organizationId: old.organizationId, inputAttachmentId: { in: old.attachmentIds } },
           data: { inputAttachmentId: null },
         });
+        // And from a photo set's other ids, which an array filter finds.
+        const sets = await tx.aiFill.findMany({
+          where: { organizationId: old.organizationId, inputAttachmentIds: { hasSome: old.attachmentIds } },
+          select: { id: true, inputAttachmentIds: true },
+        });
+        for (const one of sets) {
+          await tx.aiFill.update({
+            where: { id: one.id },
+            data: { inputAttachmentIds: one.inputAttachmentIds.filter((id) => !old.attachmentIds.includes(id)) },
+          });
+        }
         count += await deleteRecordFiles(
           tx,
           { organizationId: old.organizationId, recordType: AI_INPUT_RECORD_TYPE, recordId: old.recordId },

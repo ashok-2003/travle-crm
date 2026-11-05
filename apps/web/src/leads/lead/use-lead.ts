@@ -15,10 +15,11 @@ import { useTRPC } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 import { routes } from "@/lib/routes";
 
-export function useLead(leadId: string) {
+/** `enabled: false` loads nothing yet (a closed dialog that only needs the lead once it opens). */
+export function useLead(leadId: string, options?: { enabled?: boolean }) {
   const trpc = useTRPC();
   const valid = recordId.safeParse(leadId).success;
-  const lead = useQuery(trpc.leads.get.queryOptions(valid ? { leadId } : skipToken));
+  const lead = useQuery(trpc.leads.get.queryOptions(valid && options?.enabled !== false ? { leadId } : skipToken));
   return { ...lead, valid };
 }
 

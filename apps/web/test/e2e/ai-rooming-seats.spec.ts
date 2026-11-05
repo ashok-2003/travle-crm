@@ -16,15 +16,16 @@ import { addLeadThroughApi, callApi, dayInIndia, leadInput } from "./support/lea
 import { inAgency } from "./support/whatsapp";
 
 const shots = path.join(process.cwd(), "..", "..", "shots", "ai2c");
+const ai3aShots = path.join(process.cwd(), "..", "..", "shots", "ai3a");
 const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 const fakeOpenRouter = () => process.env.E2E_AI_URL ?? "";
 
 /** A picture of the screen at the sizes the review looks at (a phone 390 wide, a desktop 1440), then the journey's own size again. */
-async function shoot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
-  mkdirSync(shots, { recursive: true });
+async function shoot(page: Page, testInfo: TestInfo, name: string, folder = shots): Promise<void> {
+  mkdirSync(folder, { recursive: true });
   const before = page.viewportSize();
   await page.setViewportSize(isPhone(testInfo) ? { width: 390, height: 844 } : { width: 1440, height: 900 });
-  await page.screenshot({ path: path.join(shots, `${testInfo.project.name}-${name}.png`) });
+  await page.screenshot({ path: path.join(folder, `${testInfo.project.name}-${name}.png`) });
   if (before !== null) await page.setViewportSize(before);
 }
 
@@ -191,8 +192,11 @@ test("empty seats: the AI writes a personal message for each person ticked, open
   expect(await message.inputValue()).not.toContain("9,999");
   expect(await message.inputValue()).not.toMatch(/\b4 seats\b/);
   expect(await message.inputValue()).toContain("a few seats");
+  // Staff are told the model's own amount and seat count were taken out, so they read the message twice.
+  await expect(sheet.getByText(/typed an amount or a number of seats of its own and it was taken out/)).toBeVisible();
   await expectAccessible(page);
   await shoot(page, testInfo, "seats-message");
+  await shoot(page, testInfo, "seat-message-note", ai3aShots);
 
   // Nothing is marked until it is opened in WhatsApp; a person edits the words first.
   await expect(sheet.getByRole("button", { name: "Mark the message to Priya Nair as sent" })).toBeDisabled();

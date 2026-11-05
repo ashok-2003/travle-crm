@@ -138,6 +138,21 @@ export const serviceVariables = {
   ),
   MSG91_WEBHOOK_KEY: emptyAsUnset(z.string().min(32, "must be at least 32 characters").optional()),
   /**
+   * Brevo's transactional webhook (the failed-emails spec): both or neither (environment.ts checks the pair). Two secrets
+   * of at least 32 random characters (`openssl rand -hex 32`) that Brevo's webhook is set to send: the path's last
+   * segment of /webhooks/brevo/<token>, and its bearer token. Unset, Brevo's reports of dropped emails are off; our own
+   * failed sends are still caught. The values are never printed or logged.
+   */
+  BREVO_WEBHOOK_TOKEN: emptyAsUnset(
+    z.string().refine(isWebhookToken, "must be 32 or more letters, digits, - or _ (`openssl rand -hex 32`)").optional(),
+  ),
+  BREVO_WEBHOOK_KEY: emptyAsUnset(
+    z
+      .string()
+      .regex(/^\S{32,200}$/, "must be 32 to 200 characters without spaces (`openssl rand -hex 32`)")
+      .optional(),
+  ),
+  /**
    * Suggest reply's AI (ADR 0029): OpenRouter's key, from openrouter.ai, with zero data retention asked of every request.
    * Unset: the feature says the AI isn't set up. Never printed or logged.
    */

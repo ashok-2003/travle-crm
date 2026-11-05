@@ -42,6 +42,7 @@ export function ResponsiveDialog({
   description,
   footer,
   cancel = true,
+  wide: roomy = false,
   returnFocusTo,
   children,
 }: {
@@ -55,6 +56,8 @@ export function ResponsiveDialog({
   footer?: ReactNode;
   /** Whether the footer starts with Cancel. */
   cancel?: boolean;
+  /** A dialog of a wider frame on desktop, for a long review (a phone's sheet is the screen's width either way). */
+  wide?: boolean;
   /** The button that opened it, which takes the focus back when it closes. */
   returnFocusTo?: ReturnFocusTo | undefined;
   children: ReactNode;
@@ -87,7 +90,10 @@ export function ResponsiveDialog({
     return (
       <Dialog open={open} onOpenChange={changeOpen}>
         <DialogContent
-          className="max-h-[calc(100dvh-4rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-lg"
+          className={cn(
+            "max-h-[calc(100dvh-4rem)] grid-rows-[auto_minmax(0,1fr)_auto]",
+            roomy ? "sm:max-w-4xl" : "sm:max-w-lg",
+          )}
           showCloseButton={!busy}
           onCloseAutoFocus={focusBackTo(returnFocusTo)}
         >

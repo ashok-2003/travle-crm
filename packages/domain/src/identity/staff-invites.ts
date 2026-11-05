@@ -108,6 +108,7 @@ export function staffInviteListener(database: IdentityDatabase, dependencies: In
         replyTo: person.organization.contactEmail ?? undefined,
         subject: `Your account for ${organization}`,
         ...content,
+        purpose: "staff-invite",
       });
     },
   });

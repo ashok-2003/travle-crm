@@ -2,6 +2,7 @@
 // a word, days left, seats used of the limit, last activity and this month's usage, each leading to the
 // organization's page; and honest loading, empty and error states.
 import type { OrganizationOverview } from "@travel-crm/contracts/platform";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
@@ -38,11 +39,18 @@ function overview(overrides: Partial<OrganizationOverview> = {}): OrganizationOv
   };
 }
 
-function renderDashboard() {
+/** Hands the providers' query client to the test. */
+function ClientProbe({ onClient }: { onClient: (client: QueryClient) => void }) {
+  onClient(useQueryClient());
+  return null;
+}
+
+function renderDashboard(onClient: (client: QueryClient) => void = () => undefined) {
   return render(
     <NextIntlClientProvider locale={locale} messages={messages}>
       <ConsoleProviders>
         <DashboardScreen />
+        <ClientProbe onClient={onClient} />
       </ConsoleProviders>
     </NextIntlClientProvider>,
   );
@@ -74,6 +82,25 @@ describe("DashboardScreen", () => {
     expect(row.getByText("1,234")).toBeVisible();
     expect(row.getByText("5")).toBeVisible();
     expect(screen.queryByRole("button", { name: dashboard.showMore })).toBeNull();
+  });
+
+  it("asks for the organizations and the incidents with a minute's staleTime", async () => {
+    screenIs("wide");
+    stubApi({
+      ...noIncidents,
+      "platform.dashboard.organizations": { data: { organizations: [overview()], nextCursor: null } },
+    });
+    let client: QueryClient | undefined;
+    renderDashboard((found) => {
+      client = found;
+    });
+    await screen.findByRole("link", { name: /Sharma Travels/ });
+    const staleTimes = (procedure: string) =>
+      (client?.getQueryCache().getAll() ?? [])
+        .filter((query) => JSON.stringify(query.queryKey).includes(`"${procedure}"`))
+        .flatMap((query) => query.observers.map((observer) => observer.options.staleTime));
+    expect(staleTimes("organizations")).toEqual([60_000]);
+    expect(staleTimes("incidents")).toEqual([60_000]);
   });
 
   it("says what isn't there: no subscription, no limit, no change due, never active", async () => {

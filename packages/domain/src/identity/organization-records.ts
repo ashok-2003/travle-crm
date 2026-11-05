@@ -30,6 +30,13 @@ export async function listOrganizationRecords(
   });
 }
 
+/** The names of the organizations among `ids` that still exist, in one read; a purged one is missing from the map. */
+export async function organizationNames(tx: IdentityTx, ids: readonly string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const found = await tx.organization.findMany({ where: { id: { in: [...ids] } }, select: { id: true, name: true } });
+  return new Map(found.map((organization) => [organization.id, organization.name]));
+}
+
 export async function findOrganizationRecord(tx: IdentityTx, organizationId: string): Promise<OrganizationRecord> {
   const organization = await tx.organization.findUnique({ where: { id: organizationId }, select: recordFields });
   if (!organization) throw new DomainError("NOT_FOUND", "ORGANIZATION_NOT_FOUND", "No such organization");

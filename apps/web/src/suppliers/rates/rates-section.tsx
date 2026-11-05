@@ -6,6 +6,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
+import { RateSheetButton } from "@/ai/rates/rate-sheet-button";
 import { SectionCard } from "@/bookings/section-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState } from "@/components/error-state";
@@ -129,8 +130,9 @@ export function RatesSection({ supplierId, mayEdit }: { supplierId: string; mayE
       <RefusalAlert error={changes.deleteSeason.error ?? changes.deleteRate.error} />
       {body()}
       {mayEdit && (
-        <div>
+        <div className="flex flex-wrap gap-2">
           <SeasonDialog supplierId={supplierId} season={null} />
+          <RateSheetButton supplierId={supplierId} seasons={rates.data?.seasons ?? []} />
         </div>
       )}
       <ConfirmDialog

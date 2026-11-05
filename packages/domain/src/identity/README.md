@@ -44,7 +44,8 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   sign-in, no email, no invite) and finds last night's demo with `findOrganizationByCode(tx, code)`.
 - Permanent deletion's steps, for the platform's jobs (spec 5): `personExport(tx, organizationId, memberId)` and
   `erasePerson(tx, organizationId, memberId)` (a removed person's name, addresses, password, sessions, two-factor
-  secret and reset tokens; the membership row stays, so ids still lead somewhere),
+  secret and reset tokens; the membership row stays, so ids still lead somewhere; it returns their own addresses as they
+  were, for the emails sent to them),
   `organizationUserIds(tx, organizationId)` and `deleteUsers(tx, userIds)` (a purge's people, with their sessions and
   memberships).
 - `memberActivity(tx, organizationIds)`: seats used and the last activity per organization, for the platform
@@ -52,8 +53,9 @@ Who can sign in, to which organization, and what they may do (spec section 6).
   left out) with their role's name, whether it is the Owner's, their real email or none, whether they have a password
   yet and their last activity, for the console's organization page; read inside the organization (`asOrganization`).
   `recordMemberActivity(database, access, now?)` keeps that activity on the member: the api calls it, as
-  `Identity.recordActivity(access)`, on each request it lets through, and it writes at most once a day, never for
-  support's impersonation. Signing out keeps it.
+  `Identity.recordActivity(access)` (through `createActivityRecorder`, which also skips the statement for a member it
+  wrote for less than a day ago in this process), on each request it lets through, and it writes at most once a day,
+  never for support's impersonation. Signing out keeps it.
 - `IdentityOptions.seatLimit` (a `SeatLimit`): the seats an organization's plan gives. `staff.create` refuses past them
   (`LIMIT_REACHED`, `SEAT_LIMIT_REACHED`), holding the organization's row (`FOR NO KEY UPDATE`, so it never deadlocks
   with a role edit) so two additions can't both take the last.

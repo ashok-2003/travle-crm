@@ -52,9 +52,13 @@ export async function withdrawAiParts(
   });
   const fillRows = await tx.aiFill.findMany({
     where: { organizationId: input.organizationId, subjectId: { in: leadIds } },
-    select: { id: true, inputAttachmentId: true },
+    select: { id: true, inputAttachmentId: true, inputAttachmentIds: true },
   });
-  const attachmentIds = fillRows.flatMap((fill) => (fill.inputAttachmentId === null ? [] : [fill.inputAttachmentId]));
+  // The first file of a fill, and the rest of a photo set (a rate sheet's other photos).
+  const attachmentIds = fillRows.flatMap((fill) => [
+    ...(fill.inputAttachmentId === null ? [] : [fill.inputAttachmentId]),
+    ...fill.inputAttachmentIds,
+  ]);
   const inputs = await withDeleted(() =>
     tx.attachment.findMany({
       where: { organizationId: input.organizationId, id: { in: attachmentIds }, recordType: AI_INPUT_RECORD_TYPE },

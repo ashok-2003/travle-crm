@@ -98,6 +98,29 @@ describe("rooming requests read by the AI", () => {
     expect(JSON.stringify(fill)).not.toContain("stairs");
   });
 
+  it("cuts a group that would pass the cap of 80 travellers at the cap", async () => {
+    const departure = await world.inOrg((tx) => aDeparture(tx, { seatsTotal: 200 }));
+    const booking = await aBookingOn(world, departure.id, { adults: 85, confirmed: true });
+    const rows = await world.inOrg((tx) =>
+      tx.bookingTraveller.findMany({ where: { bookingId: booking.bookingId }, orderBy: { position: "asc" } }),
+    );
+    expect(rows.length).toBeGreaterThan(80);
+    await world.inOrg(async (tx) => {
+      await tx.bookingTraveller.update({ where: { id: rows[0]?.id ?? "" }, data: { roomNote: "ground floor please" } });
+      await tx.aiSettings.upsert({
+        where: { organizationId: world.organizationId },
+        create: { enabled: true },
+        update: { enabled: true },
+      });
+    });
+    const model = createMemoryAiModel();
+    model.answer(JSON.stringify({ requests: [] }));
+    await readRoomRequests({ db: world.db, model }, world.manager, { departureId: departure.id }, now);
+    const prompt = JSON.stringify(model.requests[0]?.messages);
+    expect(prompt).toContain("B1T80");
+    expect(prompt).not.toContain("B1T81");
+  });
+
   it("costs no call and asks nothing when no traveller has a note", async () => {
     const departure = await world.inOrg((tx) => aDeparture(tx));
     await aBookingOn(world, departure.id, { adults: 1, confirmed: true });

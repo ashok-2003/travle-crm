@@ -7,8 +7,9 @@ import {
   type PlatformClient,
   type PlatformDatabase,
 } from "@travel-crm/db/platform";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import { memberActivity, recordMemberActivity, type MemberAccess } from "../../src/identity/index.js";
+import { ACTIVITY_STEP_MS, createActivityRecorder } from "../../src/identity/member-activity.js";
 import {
   addStaffMember,
   createTestAgency,
@@ -95,5 +96,34 @@ describe("member activity", () => {
       seatsUsed: 1,
       lastActiveAt: hoursLater(30).toISOString(),
     });
+  });
+
+  it("a busy member costs one update a day", async () => {
+    const { owner } = await agencyWithOwner();
+    const updateMany = vi.spyOn(test.database.client.member, "updateMany");
+    let now = startedAt;
+    const record = createActivityRecorder(test.database, { now: () => now });
+    await record(owner);
+    now = new Date(now.getTime() + 60_000);
+    await record(owner);
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    now = new Date(startedAt.getTime() + ACTIVITY_STEP_MS);
+    await record(owner);
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    updateMany.mockRestore();
+  });
+
+  it("forgets the oldest member past its limit, and writes nothing for an impersonation", async () => {
+    const { owner } = await agencyWithOwner();
+    const { owner: second } = await agencyWithOwner();
+    const updateMany = vi.spyOn(test.database.client.member, "updateMany");
+    const record = createActivityRecorder(test.database, { now: () => startedAt, maxEntries: 1 });
+    await record(owner);
+    await record(second);
+    await record(owner);
+    expect(updateMany).toHaveBeenCalledTimes(3);
+    await record({ ...owner, impersonatedBy: crypto.randomUUID() });
+    expect(updateMany).toHaveBeenCalledTimes(3);
+    updateMany.mockRestore();
   });
 });

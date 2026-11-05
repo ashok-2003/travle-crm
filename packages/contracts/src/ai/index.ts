@@ -6,6 +6,8 @@ export * from "./bookings-media.js";
 export * from "./follow-ups.js";
 export * from "./fill.js";
 export * from "./fill-use.js";
+export * from "./fill-travellers.js";
 export * from "./fill-answer.js";
 export * from "./write-up.js";
 export * from "./rooming-seats.js";
+export * from "./rate-sheets.js";

@@ -49,10 +49,12 @@ export async function systemFile(
   { db, storage }: FilesDependencies,
   organizationId: string,
   input: AttachmentRefInput,
+  options: { allowSensitive?: boolean } = {},
 ): Promise<StoredFile> {
   const row = await db.forOrg(organizationId, (tx) => findAttachment(tx, input));
   assertReady(row);
-  if (row.sensitive) {
+  // Only server code that has checked the member may open a sensitive file sets `allowSensitive` (a traveller's ID photo).
+  if (row.sensitive && options.allowSensitive !== true) {
     throw new DomainError("FORBIDDEN", "SENSITIVE_FILE", "Sensitive files are shown only to staff allowed to see them");
   }
   const body = await storage.get(storageKeyOf(row));

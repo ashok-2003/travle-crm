@@ -114,6 +114,11 @@ const environmentSchema = z
     TRUSTED_ORIGINS: commaSeparated.pipe(z.array(origin)),
     /** Sign-in rate limiting. Only development and tests may turn it off. */
     AUTH_RATE_LIMIT: z.stringbool().default(true),
+    /**
+     * The api keeps members' access and subscriptions in memory for five minutes (packages/api/src/access-cache.ts).
+     * Off, every request reads them: the journeys change subscriptions straight in the database and expect it at once.
+     */
+    ACCESS_CACHE: z.stringbool().default(true),
     /** Headers the load balancer puts the client's IP address in, comma-separated. Public routes' limits use it too. */
     AUTH_IP_ADDRESS_HEADERS: commaSeparated.pipe(z.array(z.string()).min(1)).default(["x-forwarded-for"]),
     /**
@@ -183,6 +188,13 @@ const environmentSchema = z
     if (environment.MSG91_TEST_SERVER_URL !== undefined && whatsappSet.length === 0) {
       problem("MSG91_TEST_SERVER_URL", "is only for use with the WhatsApp settings");
     }
+    // Brevo's webhook needs its path token and its bearer key together.
+    if (environment.BREVO_WEBHOOK_TOKEN !== undefined && environment.BREVO_WEBHOOK_KEY === undefined) {
+      problem("BREVO_WEBHOOK_KEY", "is needed with BREVO_WEBHOOK_TOKEN");
+    }
+    if (environment.BREVO_WEBHOOK_KEY !== undefined && environment.BREVO_WEBHOOK_TOKEN === undefined) {
+      problem("BREVO_WEBHOOK_TOKEN", "is needed with BREVO_WEBHOOK_KEY");
+    }
     // The AI's endpoint, key and models come together: a key needs its chat models, and the others need the key.
     if (environment.AI_API_KEY !== undefined && environment.AI_CHAT_MODELS === undefined) {
       problem("AI_CHAT_MODELS", "is needed with AI_API_KEY");
@@ -226,7 +238,12 @@ const environmentSchema = z
     if (environment.MSG91_TEST_SERVER_URL !== undefined) {
       problem("MSG91_TEST_SERVER_URL", "is for development and tests only: unset it in production");
     }
-    for (const name of ["MSG91_WEBHOOK_TOKEN", "MSG91_WEBHOOK_KEY"] as const) {
+    for (const name of [
+      "MSG91_WEBHOOK_TOKEN",
+      "MSG91_WEBHOOK_KEY",
+      "BREVO_WEBHOOK_TOKEN",
+      "BREVO_WEBHOOK_KEY",
+    ] as const) {
       const value = environment[name];
       if (value !== undefined && whatsappSecretIsWeak(value)) {
         problem(name, "is too weak for production: use `openssl rand -hex 32`");

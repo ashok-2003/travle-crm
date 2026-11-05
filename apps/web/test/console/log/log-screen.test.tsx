@@ -29,6 +29,7 @@ function entry(overrides: Partial<PlatformLogEntry> = {}): PlatformLogEntry {
     targetType: "plan",
     targetId: planId,
     targetOrganizationId: null,
+    organizationName: null,
     before: { name: "Growth", monthlyPricePaise: 499_900 },
     after: { name: "Growth", monthlyPricePaise: 599_900 },
     ...overrides,
@@ -42,13 +43,14 @@ const onboarded = entry({
   targetType: "organization",
   targetId: organizationId,
   targetOrganizationId: organizationId,
+  organizationName: "Sharma Travels",
   before: null,
   after: { code: "SHARMA" },
 });
 
 const page = (entries: PlatformLogEntry[], nextCursor: string | null = null) => ({ data: { entries, nextCursor } });
 
-function open(log: Answer, staff = viewer, organization: Answer = organizationAnswer) {
+function open(log: Answer, staff = viewer) {
   const api = stubApi({
     "platform.log.list": log,
     "platform.platformStaff.list": {
@@ -66,19 +68,10 @@ function open(log: Answer, staff = viewer, organization: Answer = organizationAn
       ],
     },
     "platform.plans.list": { data: [{ id: planId, key: "growth", name: "Growth" }] },
-    "platform.organizations.get": organization,
   });
   renderConsole(<LogScreen />, staff);
   return api;
 }
-
-const organizationAnswer: Answer = {
-  data: {
-    organization: { id: organizationId, name: "Sharma Travels", code: "SHARMA" },
-    profile: null,
-    subscription: null,
-  },
-};
 
 const entryOf = async (what: string) =>
   within((await screen.findByText(what)).closest<HTMLElement>("[role=listitem]") ?? document.body);
@@ -163,9 +156,15 @@ describe("LogScreen", () => {
 
   it("shows a deleted organization by the code its entry kept", async () => {
     open(
-      page([entry({ ...onboarded, action: "organization.purged", before: { code: "SHARMA" }, after: { rows: 12 } })]),
-      viewer,
-      { status: 404, reason: "ORGANIZATION_NOT_FOUND" },
+      page([
+        entry({
+          ...onboarded,
+          action: "organization.purged",
+          organizationName: null,
+          before: { code: "SHARMA" },
+          after: { rows: 12 },
+        }),
+      ]),
     );
     const purged = await entryOf(words.actions.organization.purged);
     expect(await purged.findByText(words.deletedOrganization.replace("{code}", "SHARMA"))).toBeVisible();
@@ -188,27 +187,24 @@ describe("LogScreen", () => {
     expect(screen.queryByRole("button", { name: words.showMore })).toBeNull();
   });
 
-  it("asks only for the names of organizations it hasn't seen when showing more", async () => {
+  it("names organizations from the log's own answer, with no call for each organization", async () => {
     const other = "0199a000-0000-7000-8000-000000000003";
     const api = open(page([onboarded], onboarded.id));
     await screen.findByText("Sharma Travels");
     api.answer(
       "platform.log.list",
       page([
-        entry({ id: "0199a000-0000-7000-8000-0000000000c3", targetOrganizationId: other, targetType: "organization" }),
-        entry({ id: "0199a000-0000-7000-8000-0000000000c4", targetOrganizationId: organizationId }),
+        entry({
+          id: "0199a000-0000-7000-8000-0000000000c3",
+          targetOrganizationId: other,
+          organizationName: "Nair Tours",
+          targetType: "organization",
+        }),
       ]),
     );
     await userEvent.click(screen.getByRole("button", { name: words.showMore }));
-    await vi.waitFor(() => {
-      expect(inputsTo("organizations.get")).toEqual([{ organizationId }, { organizationId: other }]);
-    });
-  });
-
-  it("says when an organization's name didn't load, other than by its being deleted", async () => {
-    open(page([onboarded]), viewer, { status: 500, reason: "INTERNAL" });
-    expect(await screen.findByText(words.nameFailed, { exact: false }, { timeout: 8000 })).toBeVisible();
-    expect(screen.getByRole("link", { name: "SHARMA" })).toBeVisible();
+    expect(await screen.findByRole("link", { name: "Nair Tours" })).toBeVisible();
+    expect(api.calls.filter((call) => call.includes("organizations.get"))).toEqual([]);
   });
 
   it("says when nothing is recorded yet, and when the log didn't load", async () => {

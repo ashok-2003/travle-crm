@@ -1,7 +1,14 @@
 // The api's HTTP app: a health check, Better Auth's sign-in endpoints under /api/auth, tRPC at /api/trpc, and the
 // public routes that need no session: share links at /p and the webhook intake at /webhooks, both rate-limited.
 import { trpcServer } from "@hono/trpc-server";
-import { appRouter, createContext } from "@travel-crm/api";
+import {
+  ACCESS_CACHE_MAX_ENTRIES,
+  ACCESS_CACHE_TTL_MS,
+  appRouter,
+  createAccessCache,
+  type AccessCache,
+  createContext,
+} from "@travel-crm/api";
 import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
@@ -14,6 +21,7 @@ import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
 import { receiveWebhook, type WebhookProvider, type WebhookRequest } from "@travel-crm/domain/webhooks";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -41,6 +49,8 @@ export interface ServerDependencies {
   identity: Identity;
   /** What each organization may use today, for the request checks 2 and 3. */
   subscriptions: SubscriptionAccess;
+  /** Members' access and subscriptions' facts, kept five minutes; one is made for the process unless a test passes its own. */
+  accessCache?: AccessCache;
   /** The organization's business profile, for the profile router. */
   profiles: Profiles;
   /** The public routes' database (share links, webhook events, rate-limit counters), and the procedures'. */
@@ -64,6 +74,8 @@ export interface ServerDependencies {
   meta?: MetaServices | null;
   /** The AI that drafts replies; null or absent when no key is set. */
   ai?: AiModel | null;
+  /** Reads an Excel rate sheet for the AI; null or absent: such a file is refused as unreadable. */
+  spreadsheets?: Spreadsheets | null;
   /** Tells the console of a fault no route handled (incidents.ts); absent in tests. */
   incidents?: IncidentReporter | null;
   /** The MSG91 provider, for the templates screens; null when WhatsApp is off. */
@@ -105,6 +117,9 @@ const publicLimits = {
 const BODY_LIMIT = 64 * 1024;
 
 export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv> {
+  // One per process (createApp runs once): cleared after any change made through tRPC.
+  const accessCache =
+    dependencies.accessCache ?? createAccessCache({ ttlMs: ACCESS_CACHE_TTL_MS, maxEntries: ACCESS_CACHE_MAX_ENTRIES });
   const {
     identity,
     subscriptions,
@@ -121,6 +136,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     meta = null,
     whatsappProvider = null,
     ai = null,
+    spreadsheets = null,
     incidents = null,
     logger,
     authSecret,
@@ -163,6 +179,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
           {
             identity,
             subscriptions,
+            accessCache,
             profiles,
             db,
             files,
@@ -175,6 +192,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
             whatsappProvider,
             ai,
+            spreadsheets,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
           },

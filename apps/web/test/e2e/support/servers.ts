@@ -10,6 +10,7 @@ import { createServer, type Server } from "node:net";
 import path from "node:path";
 import { META_E2E } from "./fake-meta";
 import { OPENROUTER_E2E_KEY } from "./fake-openrouter";
+import { BREVO_E2E } from "./brevo";
 import { MSG91_E2E } from "./fake-msg91";
 import type { EmailVariables } from "./mailpit";
 import type { StorageVariables } from "./minio";
@@ -244,6 +245,9 @@ export async function startServers({
       TRUSTED_ORIGINS: "",
       // Journeys sign in many times from one address.
       AUTH_RATE_LIMIT: "false",
+      // Journeys move a subscription along straight in the database (support/subscription-states.ts) and expect the
+      // api to see it at once, not after its five-minute cache.
+      ACCESS_CACHE: "false",
       // Plan 3's services are configured from the environment, all of them real: the api refuses to start without
       // a bucket it can use, and journeys read the email it sends.
       ...storage,
@@ -255,6 +259,9 @@ export async function startServers({
       ...sheets,
       ...metaVariables(meta.url),
       ...whatsappVariables(msg91.url),
+      // Brevo's reports of dropped emails (the failed-emails spec): the journeys post them as Brevo would (support/brevo.ts).
+      BREVO_WEBHOOK_TOKEN: BREVO_E2E.webhookToken,
+      BREVO_WEBHOOK_KEY: BREVO_E2E.webhookKey,
       // The AI (ADR 0029): the api asks it for a suggested reply and the worker for a lead's guess; both go to the fake.
       OPENROUTER_API_KEY: OPENROUTER_E2E_KEY,
       AI_TEST_SERVER_URL: ai.url,
@@ -287,6 +294,9 @@ export async function startServers({
         SHEETS_CHECK_INTERVAL_SECONDS: "",
         // Nor does it read Meta: the api and the worker hold the app secret and the token key.
         ...Object.fromEntries(Object.keys(metaVariables("")).map((name) => [name, ""])),
+        // Nor Brevo's reports, which the api takes and the worker processes.
+        BREVO_WEBHOOK_TOKEN: "",
+        BREVO_WEBHOOK_KEY: "",
       },
     });
     const web = start(process.execPath, ["server.js"], {

@@ -95,6 +95,7 @@ import { DomainError } from "@travel-crm/domain/kernel";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { aiDeparturesRouter } from "./ai-departures.js";
 import { aiFillRouter } from "./ai-fill.js";
+import { aiRatesRouter } from "./ai-rates.js";
 import { router } from "../trpc.js";
 
 export const aiRouter = router({
@@ -103,6 +104,9 @@ export const aiRouter = router({
 
   /** AI on a departure: rooming requests read from notes, and personal messages that offer empty seats. */
   departures: aiDeparturesRouter,
+
+  /** AI on a supplier's rates: a rate sheet read into rows to check and save. */
+  rates: aiRatesRouter,
 
   /** Whether the agency has Suggest reply on, for the composer to offer the button. */
   status: orgProcedure
@@ -363,7 +367,7 @@ export const aiRouter = router({
     .input(conversationAiInput)
     .output(chatAi)
     .query(async ({ ctx, input }) => {
-      const allowed = aiAllowed(await ctx.subscriptions.entitlementsOf(ctx.member.organizationId));
+      const allowed = aiAllowed(ctx.entitlements);
       return ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
         chatAiOf(tx, input.conversationId, ctx.ai?.configured === true && allowed && (await aiEnabled(tx))),
       );

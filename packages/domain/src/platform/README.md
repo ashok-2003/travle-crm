@@ -105,6 +105,13 @@ organizationId)` records a `platform_export` row and queues `EXPORT_ORGANIZATION
   `SCHEDULE_IS_THE_CONSOLES`), through the `JobAdministration` port. pg-boss acts outside our transactions, so each
   retry and removal is recorded in the platform log first (`job.retried`, `schedule.removed`), in a transaction of its
   own, and a failure after it (`job.retry-failed`, `schedule.removal-failed`, with the reason or the error's names).
+- Failed emails (the failed-emails spec), super admins only: `listFailedEmails(services, { limit, cursor? }, now?)`
+  (the last 30 days', newest first), `getStoredEmail(services, id)` (as sent, with its resends; `EMAIL_NOT_FOUND`),
+  `resendFailedEmail(services, staff, { id })` (through `services.email`, the console's recorded sender; only a failed
+  email, `EMAIL_NOT_FAILED`; logged first as `email.resent`, and again as `email.resend-failed` with the code when the
+  resend fails too), and `emailLogPurgeSchedule(services)` / `purgeEmailLogNow(services, now)`, the daily
+  `email-log.purge` (the email log's retention, and Brevo's stored reports blanked after 7 days). Erasing a member
+  deletes the emails sent to their addresses.
 - Types: `PlatformActor`, `PlatformChange`. The contracts are in `@travel-crm/contracts/platform`.
 
 ## Events

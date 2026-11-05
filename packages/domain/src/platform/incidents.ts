@@ -106,6 +106,7 @@ async function tellSuperAdmins(services: PlatformServices, subject: string, para
         fromName: senderNameFor("Platform health"),
         subject,
         ...content,
+        purpose: "platform-incident",
       });
     } catch (error) {
       services.logger.error(

@@ -142,6 +142,10 @@ META_TOKEN_KEY=''
 MSG91_AUTHKEY=''
 MSG91_WEBHOOK_TOKEN=''
 MSG91_WEBHOOK_KEY=''
+# Brevo's reports of dropped emails (docs/deploy-checklist.md, "Brevo's webhook"): both or none, `openssl rand -hex 32`
+# each, set the same in Brevo (Transactional, Settings, Webhooks); blank leaves them off, and `check` does not ask.
+BREVO_WEBHOOK_TOKEN=''
+BREVO_WEBHOOK_KEY=''
 # Suggest reply's AI (docs/deploy-checklist.md, "Suggest reply"): an OpenRouter key and the models it tries (slugs, comma
 # separated, each with a zero-data-retention endpoint); blank leaves it off, and `check` does not ask for them.
 OPENROUTER_API_KEY=''
@@ -231,14 +235,15 @@ set_one() {
 }
 
 # The settings still empty, one per line, but the optional ones: the heartbeat, and the admin connection string the
-# server's own Postgres doesn't need, the Google service accounts, which leave Google Sheets off while blank, Meta's and
-# MSG91's, which leave them off while blank, the log settings, which leave Axiom off while blank, the website form's,
-# which are blank unless the owner turns Turnstile on, and those with a default (APP_URL, the transactions' limits, the
-# jobs' polling). On the two small servers also the migrator's connection string (the migrations run from the owner's
+# server's own Postgres doesn't need, the Google service accounts, which leave Google Sheets off while blank, Meta's,
+# MSG91's and Brevo's webhook's, which leave them off while blank, the log settings, which leave Axiom off while blank,
+# the website form's, which are blank unless the owner turns Turnstile on, and those with a default (APP_URL, the
+# transactions' limits, the jobs' polling). On the two small servers also the migrator's connection string (the migrations run from the owner's
 # computer) and the backups' settings (the managed database is backed up from GitHub Actions), and on the api's the
 # platform role's, which it must never hold.
 empty_settings() {
   local optional='BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS|META_[A-Z_]+|MSG91_[A-Z_]+'
+  optional+='|BREVO_WEBHOOK_TOKEN|BREVO_WEBHOOK_KEY'
   optional+='|LOG_LEVEL|AXIOM_TOKEN|AXIOM_DATASET|AXIOM_URL|PUBLIC_FORM_PROXY_HOPS|TURNSTILE_SITE_KEY|TURNSTILE_SECRET_KEY'
   optional+='|APP_URL|DATABASE_TRANSACTION_MAX_WAIT_MS|DATABASE_TRANSACTION_TIMEOUT_MS|JOBS_POLLING_SECONDS'
   case "$(server_role)" in

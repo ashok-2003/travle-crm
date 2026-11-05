@@ -2,6 +2,7 @@
 // each section): every call, batched or not, is answered by the test's `reply` from its procedure and input, and
 // recorded in order. A reply is the data, a refusal (with the api's reason, if it gives one), or no answer at all.
 import { vi } from "vitest";
+import { wantsStream, wireResponse } from "../support/trpc-wire";
 
 export interface Call {
   /** The procedure, e.g. "today.section". */
@@ -46,7 +47,7 @@ export function stubCalls(reply: (call: Call) => Reply): { calls: Call[] } {
       const items = answered.map(itemFor);
       const [only] = items;
       const status = items.length === 1 && only && "error" in only ? only.error.data.httpStatus : 200;
-      return Promise.resolve(Response.json(items, { status }));
+      return Promise.resolve(wireResponse(items, wantsStream(init, input), status));
     }),
   );
   return { calls };

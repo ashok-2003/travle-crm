@@ -8,10 +8,10 @@ import {
   type ForOrgOptions,
   type PlatformDatabase,
 } from "@travel-crm/db/platform";
-import type { EmailSender } from "@travel-crm/integrations/email";
 import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
+import type { RecordedEmailSender } from "../email-log/index.js";
 import type { Identity } from "../identity/index.js";
 
 import type { PlatformWhatsApp } from "./whatsapp-settings.js";
@@ -53,8 +53,11 @@ export interface PlatformServices {
   aiPrices?: AiPrices | null;
   /** Rupees to a US dollar for the AI usage's cost (AI_USD_INR_RATE); 96 when absent. */
   usdInrRate?: number;
-  /** Where the super admins are told of an incident (incidents.ts); absent in tests that send no email. */
-  email?: EmailSender | null;
+  /**
+   * The console's recorded sender (the email log's wrapper): the super admins are told of an incident through it
+   * (incidents.ts), and a failed email is sent again (emails.ts). Absent in tests that send no email.
+   */
+  email?: RecordedEmailSender | null;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {
@@ -66,12 +69,18 @@ export interface PlatformServicesOptions extends Omit<PlatformServices, "platfor
   transactionLimits?: ForOrgOptions;
 }
 
+/** The platform pool's default size: also how many organizations the dashboard counts at once. */
+export const PLATFORM_POOL_SIZE = 3;
+
 /** Connects the platform role. Close it with `services.platformDb.disconnect()`; the rest belong to the caller. */
 export function createPlatformServices(options: PlatformServicesOptions): PlatformServices {
   const { platformDatabaseUrl, maxConnections, transactionLimits, ...shared } = options;
   return {
     ...shared,
-    platformDb: createPlatformDatabase(platformDatabaseUrl, { maxConnections: maxConnections ?? 3, transactionLimits }),
+    platformDb: createPlatformDatabase(platformDatabaseUrl, {
+      maxConnections: maxConnections ?? PLATFORM_POOL_SIZE,
+      transactionLimits,
+    }),
   };
 }
 

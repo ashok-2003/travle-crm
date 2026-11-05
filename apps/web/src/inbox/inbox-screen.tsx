@@ -24,7 +24,7 @@ import { useHolds } from "@/session/me-context";
 import { ChatPanel } from "./chat-panel";
 import { InboxList } from "./inbox-list";
 import { NotSetUp } from "./not-set-up";
-import { useInboxStatus } from "./use-inbox";
+import { useInboxStatus, usePrefetchInboxLists } from "./use-inbox";
 import { useInboxKeys } from "./use-inbox-keys";
 
 /** The page's own padding, for the states that are a page of words rather than the inbox itself. */
@@ -52,6 +52,7 @@ export function InboxScreen({ conversationId }: { conversationId: string | null 
   const t = useTranslations("inbox");
   const wide = useWideScreen();
   const status = useInboxStatus();
+  usePrefetchInboxLists();
   useInboxKeys(conversationId);
   useFoldedSidebar();
   const mayBroadcast = useHolds("inbox:templates");

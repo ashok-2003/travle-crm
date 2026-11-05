@@ -74,6 +74,31 @@ describe("the nightly sweep of the AI's inputs", () => {
     expect((await platform.aiFill.findUniqueOrThrow({ where: { id: fill.id } })).inputAttachmentId).toBeNull();
   });
 
+  it("makes a photo set's fill forget the old photos it kept beside the first, and keeps the fresh ones", async () => {
+    const organizationId = await createTestOrganization(platform, "Sweep photo set agency");
+    const first = await stored(organizationId, AI_INPUT_RECORD_TYPE, 31);
+    const second = await stored(organizationId, AI_INPUT_RECORD_TYPE, 31);
+    const fresh = await stored(organizationId, AI_INPUT_RECORD_TYPE, 2);
+    const fill = await platform.aiFill.create({
+      data: {
+        organizationId,
+        target: "rate_sheet",
+        requestedBy: randomUUID(),
+        inputKind: "image",
+        inputAttachmentId: first.id,
+        inputAttachmentIds: [second.id, fresh.id],
+        model: "m",
+        proposalHash: "x",
+      },
+    });
+    await sweepAiInputs(test.services, NOW);
+    expect(await platform.attachment.count({ where: { id: { in: [first.id, second.id] } } })).toBe(0);
+    expect(await test.storage.get(second.key)).toBeNull();
+    const row = await platform.aiFill.findUniqueOrThrow({ where: { id: fill.id } });
+    expect(row.inputAttachmentId).toBeNull();
+    expect(row.inputAttachmentIds).toEqual([fresh.id]);
+  });
+
   it("does nothing when nothing is old", async () => {
     const organizationId = await createTestOrganization(platform, "Quiet agency");
     await stored(organizationId, AI_INPUT_RECORD_TYPE, 29);

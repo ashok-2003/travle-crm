@@ -39,6 +39,7 @@ export {
   findOrganizationRecord,
   holdOrganizationRecord,
   listOrganizationRecords,
+  organizationNames,
   updateOrganizationRecord,
   type OrganizationRecord,
 } from "./organization-records.js";

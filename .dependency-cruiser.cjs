@@ -5,14 +5,14 @@ module.exports = {
       name: "db-internals-stay-in-db",
       comment:
         "Other packages reach @travel-crm/db only through its entry points (index, identity, platform, webhooks, " +
-        "rate-limits, sheet-schedule, sheets-key-check, meta-routes, whatsapp-routes, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
+        "rate-limits, sheet-schedule, sheets-key-check, meta-routes, whatsapp-routes, email-log, and the test-only testing files), so the raw Prisma client and the generated code never leak " +
         "out of the package.",
       severity: "error",
       from: { path: "^(apps|packages)/", pathNot: "^packages/db/" },
       to: {
         path: "^packages/db/(src|test)/",
         pathNot:
-          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check|meta-routes|whatsapp-routes)|test/(testing|global-setup))\\.ts$",
+          "^packages/db/(src/(index|identity|platform|webhooks|rate-limits|sheet-schedule|sheets-key-check|meta-routes|whatsapp-routes|email-log)|test/(testing|global-setup))\\.ts$",
       },
     },
     {
@@ -32,6 +32,15 @@ module.exports = {
       severity: "error",
       from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/webhooks/"] },
       to: { path: "^packages/db/src/webhooks\\.ts$" },
+    },
+    {
+      name: "email-log-only-in-email-log",
+      comment:
+        "@travel-crm/db/email-log reaches email_log, which has no organization_id and no row-level security: every " +
+        "email the product sends, as sent, links included. Only the email-log module may use it (the failed-emails spec).",
+      severity: "error",
+      from: { pathNot: ["^packages/db/", "^packages/domain/(src|test)/email-log/"] },
+      to: { path: "^packages/db/src/email-log\\.ts$" },
     },
     {
       name: "rate-limit-counters-only-in-rate-limits",

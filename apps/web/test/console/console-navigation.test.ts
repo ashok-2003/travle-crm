@@ -20,12 +20,13 @@ describe("visibleConsoleItems", () => {
       "plans",
       "whatsapp",
       "jobs",
+      "emails",
       "log",
       "staff",
     ]);
   });
 
-  it("shows support everything but Staff", () => {
+  it("shows support everything but Failed emails and Staff", () => {
     expect(keys(visibleConsoleItems(platformStaff("support")))).toEqual([
       "home",
       "onboard",
@@ -49,6 +50,7 @@ describe("visibleConsoleItems", () => {
       plans: consoleRoutes.plans,
       whatsapp: consoleRoutes.whatsapp,
       jobs: consoleRoutes.jobs,
+      emails: consoleRoutes.emails,
       log: consoleRoutes.log,
       staff: consoleRoutes.staff,
     });

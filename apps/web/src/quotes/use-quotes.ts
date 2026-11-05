@@ -30,7 +30,7 @@ export function useQuotePackages() {
 
 export function useQuoteSettings() {
   const trpc = useTRPC();
-  return useQuery({ ...trpc.quotes.settings.queryOptions(), staleTime: 60_000 });
+  return useQuery(trpc.quotes.settings.queryOptions());
 }
 
 /** After any change to a quote: every quote list and query, and the leads (a quote moves its lead's stage). */

@@ -4,7 +4,7 @@
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { checkTheRows, csvFile, startLeadImport } from "./support/lead-import-steps";
-import { setSubscriptionState } from "./support/subscription-states";
+import { forgetSavedCopy, setSubscriptionState } from "./support/subscription-states";
 
 const HINT = "Your organization is read-only until its payment is made. You can still view and export.";
 
@@ -23,6 +23,7 @@ test("a read-only agency: Import is off with its hint", async ({ page, agency, d
   const waiting = new URL(page.url()).pathname;
 
   await setSubscriptionState(database.platform, agency.organizationId, "read_only");
+  await forgetSavedCopy(page);
   await page.goto("/leads");
   await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
   const button = page.getByRole("main").getByRole("button", { name: "Import" });

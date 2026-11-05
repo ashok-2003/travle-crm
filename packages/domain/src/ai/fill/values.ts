@@ -43,7 +43,13 @@ export function canonicalValue(path: FillPath, value: unknown): unknown {
   }
 }
 
+/** What a sensitive path stores instead of a hash: dates of birth, phones and ID numbers are guessable from a hash. */
+export const SENSITIVE_HASH = "sensitive";
+const sensitivePaths: readonly FillPath[] = ["travellers"];
+export const isSensitivePath = (path: FillPath): boolean => sensitivePaths.includes(path);
+
 export function valueHash(path: FillPath, value: unknown): string {
+  if (isSensitivePath(path)) return SENSITIVE_HASH;
   return createHash("sha256")
     .update(JSON.stringify(sorted(canonicalValue(path, value))))
     .digest("hex");

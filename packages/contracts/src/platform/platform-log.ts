@@ -17,6 +17,8 @@ export const platformLogEntry = z.object({
   targetId: z.string(),
   /** The organization the entry concerns, when there is one; it may have been purged since. */
   targetOrganizationId: recordId.nullable(),
+  /** That organization's name; null when the entry concerns none or the organization has been purged since. */
+  organizationName: z.string().nullable(),
   before: snapshot,
   after: snapshot,
 });

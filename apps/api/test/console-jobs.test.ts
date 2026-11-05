@@ -1,9 +1,11 @@
 // The console process's jobs (ADR 0019): the platform's purge and erasure jobs, the nightly subscription lifecycle at
 // 00:15 India time, as the platform role, the hourly sweep of the stored files still to delete, the daily sweep of
-// exports past their time, the hourly sweep of imports' and exports' files past theirs, the hourly sweep of the Sheets sync's leftovers, and, when a demo is set, the
-// nightly demo reset at 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes. A super
-// admin can't remove any of these schedules from the console.
+// exports past their time, the hourly sweep of imports' and exports' files past theirs, the hourly sweep of the Sheets sync's leftovers, the
+// health check every five minutes, the email log's daily purge and, when a demo is set, the nightly demo reset at
+// 02:00; with the demo switched off, the schedule an earlier start left in pg-boss goes. A super admin can't remove any
+// of these schedules from the console.
 import { randomUUID } from "node:crypto";
+import { PURGE_EMAIL_LOG_QUEUE } from "@travel-crm/domain/email-log";
 import {
   HEALTH_CHECK_QUEUE,
   PURGE_ORGANIZATION_QUEUE,
@@ -27,6 +29,8 @@ import { createTestConsole, type TestConsole } from "./support/console.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Every day, the email log's emails past their days go (the failed-emails spec).
+const emailLogPurge = { queue: PURGE_EMAIL_LOG_QUEUE, cron: "5 4 * * *", timeZone: "Asia/Kolkata", data: {} };
 const lifecycleSchedule = {
   queue: ADVANCE_SUBSCRIPTIONS_QUEUE,
   cron: "15 0 * * *",
@@ -95,6 +99,7 @@ describe("the console's jobs", () => {
       metaSweep,
       whatsappSweep,
       websiteFormsSweep,
+      emailLogPurge,
       { queue: RESET_DEMO_QUEUE, cron: "0 2 * * *", timeZone: "Asia/Kolkata", data: {} },
     ]);
 
@@ -122,6 +127,7 @@ describe("the console's jobs", () => {
       metaSweep,
       whatsappSweep,
       websiteFormsSweep,
+      emailLogPurge,
     ]);
   });
 
@@ -235,7 +241,7 @@ describe("the console's jobs", () => {
   it("refuses to remove a schedule the console registers, which would stop it until the next start", async () => {
     const demo = { code: "DEMOCODE", password: "demo-password-123" };
     const queues = consoleJobs(testConsole.services, demo).schedules.map((schedule) => schedule.queue);
-    expect(queues).toHaveLength(11);
+    expect(queues).toHaveLength(12);
     for (const queue of queues) {
       await expect(removeSchedule(testConsole.services, { userId: randomUUID() }, queue), queue).rejects.toMatchObject({
         code: "CONFLICT",

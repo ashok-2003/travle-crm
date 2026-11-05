@@ -2,7 +2,7 @@
 // hint, and Pause and Disconnect still work.
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { aGoogleForm, answer, connectSheet, fakeGoogle } from "./support/sheets";
-import { setSubscriptionState } from "./support/subscription-states";
+import { forgetSavedCopy, setSubscriptionState } from "./support/subscription-states";
 
 const HINT = "Your organization is read-only until its payment is made. You can still view and export.";
 
@@ -19,6 +19,7 @@ test("a read-only agency: Sync now and Connect are off with the hint; Pause and 
   const sheetPage = page.url();
 
   await setSubscriptionState(database.platform, agency.organizationId, "read_only");
+  await forgetSavedCopy(page);
   await page.goto(sheetPage);
   await expect(page.getByText("Paused while your subscription is read-only")).toBeVisible();
   const sync = page.getByRole("button", { name: "Sync now" });

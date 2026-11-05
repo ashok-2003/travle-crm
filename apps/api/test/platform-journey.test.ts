@@ -24,7 +24,14 @@ import {
   type TestPlatformStaff,
 } from "./support/console.js";
 import { CookieJar } from "./support/cookie-jar.js";
-import { betterAuthLines, createTestServer, postJson, signInByEmail, type TestServer } from "./support/test-server.js";
+import {
+  betterAuthLines,
+  createTestServer,
+  everyRequestReads,
+  postJson,
+  signInByEmail,
+  type TestServer,
+} from "./support/test-server.js";
 import { dataOf, mutate, query, refusalOf } from "./support/trpc.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -69,7 +76,8 @@ describe("an agency's life on the platform", () => {
   let superAdmin: TestPlatformStaff;
 
   beforeAll(async () => {
-    server = createTestServer();
+    // The journey changes the subscription through the console and expects the agency to feel it at the next request.
+    server = createTestServer({}, { accessCache: everyRequestReads });
     testConsole = createTestConsole(server, { queue: consoleQueue });
     await startConsoleJobs(consoleRunner, testConsole.services, null);
     support = await signedInPlatformStaff(server, "support");

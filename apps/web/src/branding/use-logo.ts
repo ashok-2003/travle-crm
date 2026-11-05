@@ -31,6 +31,8 @@ export function useLogoUpload() {
       queryClient.setQueryDefaults(key, { meta: { persist: false } });
       queryClient.setQueryData(key, logo);
       void queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() });
+      // The shell's copy of the logo is kept ten minutes (SLOW_DATA): the new one must show at once.
+      void queryClient.invalidateQueries({ queryKey: trpc.organization.logo.forShell.queryKey() });
       toast.success(t("saved"));
     },
   });
@@ -50,6 +52,7 @@ export function useRemoveLogo(onRemoved: () => void) {
       onSettled: () =>
         Promise.all([
           queryClient.invalidateQueries({ queryKey: trpc.organization.logo.get.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.organization.logo.forShell.queryKey() }),
           queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() }),
         ]),
     }),

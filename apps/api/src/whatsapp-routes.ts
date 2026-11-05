@@ -6,7 +6,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { PATH_TOKEN_HEADER } from "./whatsapp-webhook-provider.js";
+import { PATH_TOKEN_HEADER } from "./webhook-route.js";
 
 export const MAX_WHATSAPP_BODY_BYTES = 64 * 1024;
 

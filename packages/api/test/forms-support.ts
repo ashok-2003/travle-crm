@@ -12,6 +12,7 @@ import { createTestOrganization } from "@travel-crm/db/testing";
 import { PermissionSet, type Identity, type MemberAccess, type Permission } from "@travel-crm/domain/identity";
 import { createPlan, createSubscriptionAccess, demoPlan, startSubscription } from "@travel-crm/domain/subscriptions";
 import { inject } from "vitest";
+import { noAccessCache } from "../src/access-cache.js";
 import type { Context } from "../src/context.js";
 import { appRouter } from "../src/routers/app-router.js";
 import { t } from "../src/trpc.js";
@@ -121,6 +122,7 @@ export function callerOf(
   const context = {
     identity,
     subscriptions: createSubscriptionAccess({ db: harness.db, now: () => options.now ?? clock.now }),
+    accessCache: noAccessCache,
     profiles: { get: () => Promise.resolve(null) },
     db: harness.db,
     files: { list: () => Promise.resolve([]), systemDownloadLink: () => Promise.reject(new Error("no logo")) },
