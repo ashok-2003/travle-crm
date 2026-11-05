@@ -2,6 +2,7 @@
 import { PACKAGE_DRAFT_CHARACTERS, type SourceRef } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { autopilotOf } from "../autopilot.js";
+import { hashOf } from "../suggest.js";
 
 /** A longer line is cut into numbered parts of this many characters. */
 const LINE_CHARACTERS = 400;
@@ -189,3 +190,10 @@ export function resolveTokens(tokens: readonly string[], pieces: readonly Source
     return [ref];
   });
 }
+
+/**
+ * A hash of the lines a trip was found with: each token and its text. Tokens are positions, so editing a document can
+ * renumber them; a draft is made only when the same tokens still name the same lines.
+ */
+export const linesHash = (refs: readonly SourceRef[]): string =>
+  hashOf(JSON.stringify(refs.map((ref) => [ref.token, ref.excerpt])));

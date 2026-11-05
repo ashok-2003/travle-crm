@@ -24,7 +24,7 @@ import { hashOf } from "../suggest.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "../usage.js";
 import { destinationOf } from "./find-trips.js";
 import { seasonDates } from "./season-dates.js";
-import { linesAsText, packageSources, resolveTokens, type SourcePiece } from "./sources.js";
+import { linesAsText, linesHash, packageSources, resolveTokens, type SourcePiece } from "./sources.js";
 
 const RULES = `DRAFT_PACKAGE. You work for a travel agency in India. Below are lines from the agency's own documents, each "[P1.L3] text", about ONE trip.
 Fill in a draft of that trip's group package. Every field is {"value": ..., "tokens": [...]}: the tokens are the lines that say it.
@@ -88,6 +88,13 @@ const prompt = (tripName: string, pieces: readonly SourcePiece[]): AiMessage[] =
     content: `The trip: ${fenced(tripName)}\nThe lines:\n<data>${fenced(linesAsText(pieces))}</data>\n\nDraft this trip.`,
   },
 ];
+
+/** The hash the fill row keeps for a name; anything else stored there is no hash. */
+const storedHash = (hashes: unknown, name: string): string | undefined => {
+  if (typeof hashes !== "object" || hashes === null) return undefined;
+  const found: unknown = Object.entries(hashes).find(([key]) => key === name)?.[1];
+  return typeof found === "string" ? found : undefined;
+};
 
 const nothing = () => refuse("PACKAGE_DRAFT_NOTHING", "The AI found nothing to draft in your documents", "VALIDATION");
 
@@ -312,13 +319,16 @@ export async function draftPackage(
     // Row-level security makes it this agency's; the target says it is a package draft's.
     const fill = await tx.aiFill.findFirst({
       where: { id: input.fillId, target: "package_draft" },
-      select: { id: true },
+      select: { id: true, fieldHashes: true },
     });
     if (fill === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-    return {
-      timeZone: await organizationTimeZone(tx, organizationId),
-      pieces: redacted(await packageSources(tx)),
-    };
+    const pieces = await packageSources(tx);
+    // The tokens name positions, which editing a document renumbers: draft only from the lines the trip was found with.
+    const stored = storedHash(fill.fieldHashes, input.trip.ref);
+    if (stored !== linesHash(resolveTokens(input.trip.tokens, pieces))) {
+      throw refuse("PACKAGE_DRAFT_STALE", "Your documents changed since the trips were found. Find the trips again.");
+    }
+    return { timeZone: await organizationTimeZone(tx, organizationId), pieces: redacted(pieces) };
   });
   // The trip's lines are looked up again in the agency's documents as they are now: a draft can only cite lines that exist.
   const cited = resolveTokens(input.trip.tokens, checked.pieces);

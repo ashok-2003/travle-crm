@@ -19,7 +19,7 @@ import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "../usage.js";
-import { linesAsText, packageSources, partsOf, resolveTokens, type SourcePiece } from "./sources.js";
+import { linesAsText, linesHash, packageSources, partsOf, resolveTokens, type SourcePiece } from "./sources.js";
 
 const RULES = `FIND_TRIPS. You work for a travel agency in India. Below are the agency's own documents as numbered lines, each "[P1.L3] text".
 List each distinct trip the agency sells: a place and a length. "Manali 5 Nights 6 Days" and "Manali 4 Nights 5 Days" are two trips. For each, give the tokens of the lines that describe it.
@@ -127,8 +127,8 @@ export async function findTrips(
       return null;
     }
     await recordTokens(tx, now, checked.timeZone, { input: result.inputTokens, output: result.outputTokens });
-    const tripHash = (trip: FoundTrip) =>
-      hashOf(JSON.stringify([trip.name, trip.nights, trip.evidence.map((e) => e.token)]));
+    // Per trip, a hash of its lines: drafting checks that the same tokens still name the same lines.
+    const tripHash = (trip: FoundTrip) => linesHash(trip.evidence);
     const row = await tx.aiFill.create({
       data: {
         target: "package_draft",

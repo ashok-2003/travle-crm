@@ -24,7 +24,7 @@ describe("drafting one trip", () => {
   });
   afterAll(() => test.close());
 
-  async function agency(options: { big?: boolean; brochure?: boolean } = {}) {
+  async function agency(options: { big?: boolean; brochure?: boolean; lines?: string[]; part?: string } = {}) {
     const organizationId = await anAgency(test, "Draft agency");
     const owner = memberOf(organizationId, "org-owner");
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
@@ -73,12 +73,17 @@ describe("drafting one trip", () => {
             name: "Manali 5 Nights 6 Days",
             place: "Manali",
             nights: 5,
-            lines: ["P1.L1", "P1.L2", "P2.L1", "P1.L7", "P1.L8", "P1.L9", "P1.L10", "P1.L11"],
+            lines: options.lines ?? ["P1.L1", "P1.L2", "P2.L1", "P1.L7", "P1.L8", "P1.L9", "P1.L10", "P1.L11"],
           },
         ],
       }),
     );
-    const found = await findTrips({ db: test.db, model }, owner, options.big === true ? { part: "part-1" } : {}, NOW);
+    const found = await findTrips(
+      { db: test.db, model },
+      owner,
+      options.big === true ? { part: options.part ?? "part-1" } : {},
+      NOW,
+    );
     const trip = found.trips[0];
     if (found.fillId === null || trip === undefined) throw new Error("no trip");
     const input = {
@@ -277,9 +282,9 @@ describe("drafting one trip", () => {
   });
 
   it("sends a window round the cited lines when the pieces are over one call", async () => {
-    const { draft, model, input } = await agency({ big: true });
+    const { draft, model } = await agency({ big: true, part: "part-2", lines: ["P3.L95"] });
     model.answer(answer({ name: field("Big", "P3.L95") }));
-    const result = await draft({ trip: { ...input.trip, tokens: ["P3.L95"] } });
+    const result = await draft();
     expect(result.name.value).toBe("Big");
     const content = model.requests.at(-1)?.messages.at(-1)?.content ?? "";
     expect(content.length).toBeLessThanOrEqual(PACKAGE_DRAFT_CHARACTERS);
@@ -289,13 +294,13 @@ describe("drafting one trip", () => {
   });
 
   it("offers the brochure of a cited knowledge piece that has a file", async () => {
-    const { draft, model, input, inOrg } = await agency({ brochure: true });
+    const { draft, model, inOrg } = await agency({ brochure: true, lines: ["P1.L1", "P3.L1"] });
     const brochure = await inOrg((tx) => tx.aiKnowledge.findFirst({ where: { title: "Zbrochure" } }));
     model.answer(answer());
-    const result = await draft({ trip: { ...input.trip, tokens: ["P1.L1", "P3.L1"] } });
-    expect(result.brochureKnowledgeId).toBe(brochure?.id);
-    model.answer(answer());
-    expect((await draft()).brochureKnowledgeId).toBeNull();
+    expect((await draft()).brochureKnowledgeId).toBe(brochure?.id);
+    const without = await agency({ brochure: true });
+    without.model.answer(answer());
+    expect((await without.draft()).brochureKnowledgeId).toBeNull();
   });
 
   it("equal prices from two sources are one alternative with both lines; unreadable ones stay apart", async () => {
@@ -317,9 +322,10 @@ describe("drafting one trip", () => {
     expect(prices?.triple.map((one) => one.value)).toEqual([null, null]);
   });
 
-  it("drops a token that no longer exists, and refuses a trip whose lines all vanished, without a call", async () => {
+  it("refuses lines the trip was not found with, and a trip whose lines all vanished, without a call", async () => {
     const { draft, model, calls, inOrg, input } = await agency();
-    expect(await reasonOf(draft({ trip: { ...input.trip, tokens: ["P8.L8"] } }))).toBe("PACKAGE_DRAFT_NOTHING");
+    expect(await reasonOf(draft({ trip: { ...input.trip, tokens: ["P8.L8"] } }))).toBe("PACKAGE_DRAFT_STALE");
+    expect(await reasonOf(draft({ trip: { ...input.trip, ref: "trip-9" } }))).toBe("PACKAGE_DRAFT_STALE");
     expect(model.requests).toHaveLength(1);
     expect(await calls()).toBe(1);
     // Another agency's fill, or one that is not a package draft, is not found.
@@ -336,6 +342,35 @@ describe("drafting one trip", () => {
       }),
     );
     expect(await reasonOf(draft({ fillId: other.id }))).toBe("NOT_FOUND");
+  });
+
+  it("refuses to draft from lines that changed since the trip was found, and uses no call", async () => {
+    const { draft, model, calls, inOrg } = await agency();
+    // A new first line renumbers every line of the piece: the tokens now name other lines.
+    const manali = await inOrg((tx) => tx.aiKnowledge.findFirst({ where: { title: "Manali" } }));
+    await inOrg((tx) =>
+      tx.aiKnowledge.update({
+        where: { id: manali?.id ?? "" },
+        data: { body: `A new first line\n${manali?.body ?? ""}` },
+      }),
+    );
+    model.answer(answer());
+    expect(await reasonOf(draft())).toBe("PACKAGE_DRAFT_STALE");
+    expect(model.requests).toHaveLength(1);
+    expect(await calls()).toBe(1);
+  });
+
+  it("drafts when lines after the trip's own were added", async () => {
+    const { draft, model, inOrg } = await agency();
+    const rates = await inOrg((tx) => tx.aiKnowledge.findFirst({ where: { title: "Manali rates 2" } }));
+    await inOrg((tx) =>
+      tx.aiKnowledge.update({
+        where: { id: rates?.id ?? "" },
+        data: { body: `${rates?.body ?? ""}\nA line added at the end` },
+      }),
+    );
+    model.answer(answer());
+    expect((await draft()).name.value).toBe("Manali 5N6D");
   });
 
   it("gives the call back when the answer is unusable", async () => {
