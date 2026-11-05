@@ -55,6 +55,7 @@ import {
   updatePackage,
 } from "@travel-crm/domain/quotes";
 import { z } from "zod";
+import { mayMakeDepartures } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 import { quoteContext } from "./quotes.js";
@@ -96,8 +97,7 @@ export const packagesRouter = router({
         before.nights !== input.nights ||
         before.seatsPerDeparture !== input.seatsPerDeparture;
       // Making departures is departures work: skipped, silently, for a member or a plan without it.
-      const mayMake = ctx.member.permissions.has("departures:create") && ctx.entitlements?.modules.has("departures");
-      if (changed && mayMake) await generatePackageDepartures(tx, ctx.member, input.packageId, today);
+      if (changed && mayMakeDepartures(ctx)) await generatePackageDepartures(tx, ctx.member, input.packageId, today);
     });
   }),
 

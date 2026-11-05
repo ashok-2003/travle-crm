@@ -195,3 +195,10 @@ export const createGroupPackageInput = z.strictObject({
   appliedFields: z.array(z.string().max(40)).max(40),
 });
 export type CreateGroupPackageInput = z.infer<typeof createGroupPackageInput>;
+
+/** What saving answers: the new package, and what became of the cited brochure ("none" when the draft cited no PDF). */
+export const createdGroupPackage = z.object({
+  id: recordId,
+  brochure: z.enum(["attached", "failed", "none"]),
+});
+export type CreatedGroupPackage = z.infer<typeof createdGroupPackage>;

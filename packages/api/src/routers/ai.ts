@@ -95,6 +95,7 @@ import { DomainError } from "@travel-crm/domain/kernel";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { aiDeparturesRouter } from "./ai-departures.js";
 import { aiFillRouter } from "./ai-fill.js";
+import { aiPackageDraftsRouter } from "./ai-package-drafts.js";
 import { aiRatesRouter } from "./ai-rates.js";
 import { router } from "../trpc.js";
 
@@ -107,6 +108,9 @@ export const aiRouter = router({
 
   /** AI on a supplier's rates: a rate sheet read into rows to check and save. */
   rates: aiRatesRouter,
+
+  /** AI on a group package: trips found in the agency's documents, one drafted with its evidence, and the owner's save. */
+  packageDrafts: aiPackageDraftsRouter,
 
   /** Whether the agency has Suggest reply on, for the composer to offer the button. */
   status: orgProcedure
