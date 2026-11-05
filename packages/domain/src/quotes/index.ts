@@ -25,6 +25,7 @@ export {
   tiersOf,
   updatePackage,
 } from "./package-edit.js";
+export { exTaxSubtotal, priceOn, totalFor, type SeasonPrices } from "./room-prices.js";
 export { removePackageSeason, savePackageSeason, seasonsOf } from "./package-seasons.js";
 export {
   confirmPackagePhoto,

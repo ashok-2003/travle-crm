@@ -25,6 +25,7 @@ export {
   OVERBOOKED_KIND,
   releaseHold,
 } from "./holds.js";
+export { makeGroupQuote } from "./group-quote.js";
 export { listLeadDepartures } from "./lead-departures.js";
 export { departureMoneyOf } from "./money.js";
 export { makeQuoteFromHold, setQuoteDeparture } from "./quote-link.js";

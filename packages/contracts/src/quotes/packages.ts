@@ -6,7 +6,7 @@ import { MAX_PACKAGE_PHOTO_BYTES, packagePhotoContentTypes } from "../files/atta
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { MAX_SEATS } from "../departures/departures.js";
-import { roomPrices, roomType } from "./room-prices.js";
+import { roomBooking, roomPrices, roomType } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -195,6 +195,15 @@ export const madeQuotes = z.object({
   quotes: z.array(z.object({ id: recordId, title: z.string(), needsRateLines: z.int() })),
 });
 export type MadeQuotes = z.infer<typeof madeQuotes>;
+
+/** A group trip's quote: a departure of the package and the rooms the party takes (people per room type). */
+export const makeGroupQuoteInput = z.strictObject({
+  leadId: recordId,
+  packageId: recordId,
+  departureId: recordId,
+  rooms: z.array(roomBooking).min(1).max(6),
+});
+export type MakeGroupQuoteInput = z.infer<typeof makeGroupQuoteInput>;
 
 /** The helper beside "From ₹X": the cheapest tier for two adults in the next season, to accept or ignore. */
 export const calculatedFromPrice = z.object({

@@ -5,9 +5,11 @@ import {
   calculatedFromPrice,
   madeQuotes,
   packageChoices,
+  makeGroupQuoteInput,
   makeQuotesFromPackageInput,
   packageDetail,
   packageIdInput,
+  quoteDetail,
   packagePhotoList,
   packagePhotoRefInput,
   requestPackagePhotoInput,
@@ -20,7 +22,7 @@ import {
   updatePackageInput,
 } from "@travel-crm/contracts/quotes";
 import { presignedUpload } from "@travel-crm/contracts/files";
-import { generatePackageDepartures } from "@travel-crm/domain/departures";
+import { generatePackageDepartures, makeGroupQuote } from "@travel-crm/domain/departures";
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import {
   calculateFromPrice,
@@ -151,6 +153,17 @@ export const packagesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const context = await quoteContext(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => makeQuotesFromPackage(tx, ctx.member, input, context));
+    }),
+
+  /** A quote for a group trip: one open departure of the package and the rooms the party takes. */
+  makeGroupQuote: maker
+    .input(makeGroupQuoteInput)
+    .output(quoteDetail)
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
+      const today = calendarDateIn(new Date(), timeZone);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => makeGroupQuote(tx, ctx.member, input, context, today));
     }),
 
   photos: editor
