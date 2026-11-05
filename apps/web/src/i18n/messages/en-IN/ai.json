@@ -716,7 +716,16 @@
       "ready": "Ready to save.",
       "fixFirst": "Fill the name, title and destination, and fix any amount or date that is marked.",
       "seasons": "Seasons and prices",
-      "days": "Day by day"
+      "days": "Day by day",
+      "problems": {
+        "required": "Fill this in.",
+        "tooLong": "This is too long to save. Shorten it.",
+        "number": "Use a whole number within the allowed range.",
+        "amount": "This amount can't be read. Type it in rupees.",
+        "highlights": "Keep each highlight short, and no more than ten.",
+        "seasons": "Give each season a name, an end date on or after its start, and amounts that can be read.",
+        "days": "A day's title or text is too long to save."
+      }
     },
     "evidence": {
       "notFound": "Not found in your documents",

@@ -3,15 +3,19 @@
 // The review of a package the AI drafted from the agency's documents: every value editable, each beside the line it was read
 // from; "check this" and "not found in your documents" marked; documents that disagree offer each alternative, and Save is held
 // until each is chosen. Nothing is saved until "Save as package"; then the new package's editor opens.
-import type { PackageDraft } from "@travel-crm/contracts/ai";
+import type { CreateGroupPackageInput, PackageDraft } from "@travel-crm/contracts/ai";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useForm, useWatch } from "react-hook-form";
+import { useEffect, useId } from "react";
+import { useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
+import { useCheckedForm } from "@/components/forms/use-checked-form";
+import { useRefusalOnField } from "@/components/forms/use-refusal-on-field";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { packageRoute } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -19,7 +23,7 @@ import { WriteHint } from "@/subscription/write-hint";
 import { DraftDays } from "./draft-days";
 import { DraftFields } from "./draft-fields";
 import { DraftSeasons } from "./draft-seasons";
-import { inputOf, isSaveable, unchosen, valuesOf, type ReviewValues } from "./draft-values";
+import { checkReview, unchosen, valuesOf, type ReviewProblem, type ReviewValues } from "./draft-values";
 import { useCreateGroupPackage } from "./use-package-drafts";
 
 const HINT_ID = "draft-review-hint";
@@ -39,13 +43,28 @@ export function DraftReview({
   const router = useRouter();
   const write = useWriteAccess("change");
   const creator = useCreateGroupPackage();
-  const form = useForm<ReviewValues>({ defaultValues: valuesOf(draft) });
+  const formId = useId();
+  const { form, onSubmit, formProblem } = useCheckedForm<ReviewValues, CreateGroupPackageInput, ReviewProblem>(
+    valuesOf(draft),
+    (typed) => checkReview(draft, typed),
+    (problem) => t(`problems.${problem}`),
+  );
   const values = useWatch({ control: form.control, compute: (all) => all });
   const left = unchosen(draft, values);
-  const canSave = left === 0 && isSaveable(values);
+  const canSave = left === 0 && checkReview(draft, values).ok;
+  // A field is checked as it is changed, so its problem shows as the owner types; the rest show when Save is pressed.
+  useEffect(() => {
+    const subscription = form.watch((_, { name }) => {
+      if (name !== undefined) void form.trigger(name);
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [form]);
+  const refusal = useRefusalOnField(form, creator.error, { PACKAGE_NAME_TAKEN: "name" });
 
-  const save = () => {
-    creator.mutate(inputOf(draft, form.getValues()), {
+  const save = (input: CreateGroupPackageInput) => {
+    creator.mutate(input, {
       onSuccess: (created) => {
         if (created.brochure === "failed")
           toast.warning(t("brochureFailed"), { duration: Infinity, closeButton: true });
@@ -73,7 +92,8 @@ export function DraftReview({
           <Button
             disabled={!canSave || creator.isPending || !write.allowed}
             aria-describedby={`${HINT_ID} ${HINT_ID}-write`}
-            onClick={save}
+            type="submit"
+            form={formId}
           >
             {creator.isPending && <Spinner aria-hidden="true" />}
             {t("save")}
@@ -82,22 +102,25 @@ export function DraftReview({
         </>
       }
     >
-      <div className="flex flex-col gap-6">
+      <form id={formId} noValidate onSubmit={onSubmit(save)} className="flex flex-col gap-6">
         <DraftFields draft={draft} control={form.control} setValue={form.setValue} />
         <section aria-labelledby="draft-seasons" className="flex flex-col gap-3">
           <h3 id="draft-seasons" className="font-semibold">
             {t("seasons")}
           </h3>
           <DraftSeasons seasons={draft.seasons} control={form.control} setValue={form.setValue} />
+          <FieldError>{form.formState.errors.seasons?.message}</FieldError>
         </section>
         <section aria-labelledby="draft-days" className="flex flex-col gap-3">
           <h3 id="draft-days" className="font-semibold">
             {t("days")}
           </h3>
           <DraftDays draft={draft} control={form.control} />
+          <FieldError>{form.formState.errors.days?.message}</FieldError>
         </section>
-        <RefusalAlert error={creator.error} />
-      </div>
+        <FieldError>{formProblem}</FieldError>
+        <RefusalAlert error={refusal} />
+      </form>
     </ResponsiveDialog>
   );
 }

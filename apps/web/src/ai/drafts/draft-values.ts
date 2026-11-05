@@ -1,8 +1,9 @@
 // A drafted package as the review form holds it (text and lists of text), and back as the api's save input. Where the
 // documents disagree the form starts empty and a choice per disagreement must be made before anything can be saved.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
-import type { CreateGroupPackageInput, PackageDraft } from "@travel-crm/contracts/ai";
+import { createGroupPackageInput, type CreateGroupPackageInput, type PackageDraft } from "@travel-crm/contracts/ai";
 import { roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
+import { checked, type Checked } from "@/components/forms/checked";
 import { rupeesFieldText } from "@/components/forms/money-field";
 import { roomPricesFromText, type RoomPriceValues } from "@/room-prices/room-prices";
 
@@ -135,58 +136,94 @@ export function unchosen(draft: PackageDraft, values: ReviewValues): number {
 }
 
 const wholeNumber = (text: string): number | null => (/^\d{1,4}$/.test(text.trim()) ? Number(text) : null);
+/** A typed number for the contract: empty is "not given", and text that is no number is NaN, which the contract refuses. */
+const typedNumber = (text: string): number | null => (text.trim() === "" ? null : (wholeNumber(text) ?? Number.NaN));
 
-/** What blocks saving besides a missing choice: a required field empty, or an amount or number that cannot be read. */
-export function isSaveable(values: ReviewValues): boolean {
-  const filled = [values.name, values.title, values.destination].every((text) => text.trim() !== "");
-  const nights = values.nights.trim() === "" || wholeNumber(values.nights) !== null;
-  const seats = values.seats.trim() === "" || wholeNumber(values.seats) !== null;
-  const advance = values.advance.trim() === "" || paiseFromRupeesText(values.advance) !== null;
-  const seasons = values.seasons.every(
-    (season) =>
-      season.label.trim() !== "" &&
-      season.startsOn !== "" &&
-      season.endsOn >= season.startsOn &&
-      Object.keys(roomPricesFromText(season.prices).unreadable).length === 0,
-  );
-  return filled && nights && seats && advance && seasons;
-}
+/** What the contract can refuse on the form, said on its field; the form's words are `ai.drafts.review.problems`. */
+export type ReviewProblem = "required" | "tooLong" | "number" | "amount" | "seasons" | "days" | "highlights";
 
-/** The api's save input from the checked form; null where the form cannot be read (isSaveable says so first). */
-export function inputOf(draft: PackageDraft, values: ReviewValues): CreateGroupPackageInput {
+/** The form's fields that a refusal can be placed on, by the name the contract gives them. */
+const fieldNames = [
+  "name",
+  "title",
+  "destination",
+  "nights",
+  "seats",
+  "startCity",
+  "pickupPoints",
+  "inclusions",
+  "exclusions",
+  "cancellationNotes",
+  "summary",
+  "highlights",
+  "advance",
+  "seasons",
+  "days",
+] as const;
+const renamed: Record<string, (typeof fieldNames)[number]> = {
+  destinationName: "destination",
+  seatsPerDeparture: "seats",
+  advancePerPersonPaise: "advance",
+};
+const fieldAt = (path: readonly PropertyKey[]): (typeof fieldNames)[number] | undefined => {
+  const key = String(path[0]);
+  return renamed[key] ?? fieldNames.find((field) => field === key);
+};
+const problemOf = (field: keyof ReviewValues): ReviewProblem => {
+  switch (field) {
+    case "nights":
+    case "seats":
+      return "number";
+    case "advance":
+      return "amount";
+    case "seasons":
+    case "days":
+    case "highlights":
+      return field;
+    default:
+      return "tooLong";
+  }
+};
+
+/** The form checked by the same contract the api saves with: the input to send, or what is refused, field by field. */
+export function checkReview(
+  draft: PackageDraft,
+  values: ReviewValues,
+): Checked<ReviewValues, CreateGroupPackageInput, ReviewProblem> {
   const first = valuesOf(draft);
   const advance = values.advance.trim();
-  return {
+  const seasons = values.seasons.map((season) => ({ season, read: roomPricesFromText(season.prices) }));
+  const raw = {
     fillId: draft.fillId,
-    name: values.name.trim(),
-    title: values.title.trim(),
-    destinationName: values.destination.trim(),
-    nights: wholeNumber(values.nights),
+    name: values.name,
+    title: values.title,
+    destinationName: values.destination,
+    nights: typedNumber(values.nights),
     roomTypes: roomTypes.filter((room) => values.roomTypes.includes(room)),
     weeklyDays: values.weeklyDays.map(Number),
     departureMonths: values.departureMonths.map(Number),
-    seatsPerDeparture: wholeNumber(values.seats),
-    seasons: values.seasons.map((season) => ({
-      label: season.label.trim(),
+    seatsPerDeparture: typedNumber(values.seats),
+    seasons: seasons.map(({ season, read }) => ({
+      label: season.label,
       startsOn: season.startsOn,
       endsOn: season.endsOn,
-      prices: roomPricesFromText(season.prices).prices,
+      prices: read.prices,
     })),
     pricesIncludeGst: values.pricesIncludeGst,
-    advancePerPersonPaise: advance === "" ? null : paiseFromRupeesText(advance),
-    pickupPoints: values.pickupPoints.trim(),
-    startCity: values.startCity.trim(),
-    inclusions: values.inclusions.trim(),
-    exclusions: values.exclusions.trim(),
-    cancellationNotes: values.cancellationNotes.trim(),
-    summary: values.summary.trim(),
+    advancePerPersonPaise: advance === "" ? null : (paiseFromRupeesText(advance) ?? Number.NaN),
+    pickupPoints: values.pickupPoints,
+    startCity: values.startCity,
+    inclusions: values.inclusions,
+    exclusions: values.exclusions,
+    cancellationNotes: values.cancellationNotes,
+    summary: values.summary,
     highlights: values.highlights
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line !== ""),
     days: values.days
       .filter((day) => day.title.trim() !== "")
-      .map((day) => ({ title: day.title.trim(), description: day.description.trim() })),
+      .map((day) => ({ title: day.title, description: day.description })),
     brochureKnowledgeId: draft.brochureKnowledgeId,
     appliedFields: KEPT_FIELDS.filter(
       (key) =>
@@ -194,6 +231,15 @@ export function inputOf(draft: PackageDraft, values: ReviewValues): CreateGroupP
         ![`""`, "[]"].includes(JSON.stringify(first[key])),
     ),
   };
+  // An amount that cannot be read is null in the input, which the contract accepts: say it here.
+  const unreadable = seasons.some(({ read }) => Object.keys(read.unreadable).length > 0);
+  return checked(
+    createGroupPackageInput.safeParse(raw),
+    values,
+    fieldAt,
+    problemOf,
+    unreadable ? { seasons: "seasons" } : {},
+  );
 }
 
 // The form's paths through its lists: the lint rule refuses a number in a template, and the form's types need the number.

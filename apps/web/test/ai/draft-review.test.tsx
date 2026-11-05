@@ -30,13 +30,14 @@ function render(
   access: SubscriptionOverview["access"] = "full",
 ) {
   screenIs("wide");
-  stubApi({ "ai.packageDrafts.create": { data: created } });
+  const api = stubApi({ "ai.packageDrafts.create": { data: created } });
   const queryClient = newQueryClient({ ...paidSubscription, modules: aiModules, access });
   renderWithApi(
     <DraftReview draft={draft} open onOpenChange={vi.fn()} />,
     queryClient,
     member({ permissions: ["ai:suggest", "quotes:edit"] }),
   );
+  return api;
 }
 
 /** What the browser sent to the create call, checked against the contract. */
@@ -131,5 +132,43 @@ describe("Draft review", () => {
       expect.stringContaining("Files card"),
       expect.objectContaining({ duration: Infinity }),
     );
+  });
+
+  it("shows a text the contract would refuse on its field and holds Save until it is shortened", async () => {
+    const user = userEvent.setup();
+    render();
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /₹6,999/ }));
+    const save = within(dialog).getByRole("button", { name: "Save as package" });
+    await waitFor(() => {
+      expect(save).toBeEnabled();
+    });
+    const summary = within(dialog).getByLabelText("Summary");
+    await user.click(summary);
+    await user.paste("x".repeat(601));
+    await waitFor(() => {
+      expect(summary).toBeInvalid();
+    });
+    expect(within(dialog).getByText("This is too long to save. Shorten it.")).toBeInTheDocument();
+    expect(save).toBeDisabled();
+    await user.clear(summary);
+    await user.paste("A short summary");
+    await waitFor(() => {
+      expect(save).toBeEnabled();
+    });
+  });
+
+  it("says a name another package already has on the name field", async () => {
+    const user = userEvent.setup();
+    const api = render();
+    api.answer("ai.packageDrafts.create", { status: 409, reason: "PACKAGE_NAME_TAKEN" });
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /₹6,999/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Save as package" }));
+    const name = within(dialog).getByLabelText("Name");
+    await waitFor(() => {
+      expect(name).toBeInvalid();
+    });
+    expect(push).not.toHaveBeenCalledWith("/packages/p1");
   });
 });
