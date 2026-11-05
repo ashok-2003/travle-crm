@@ -53,6 +53,23 @@ describe("a package's files", () => {
     return row.id;
   }
 
+  /** Requests and uploads a file but leaves it unconfirmed. */
+  async function upload(packageId: string, kind: "brochure" | "payment_qr", contentType = "application/pdf") {
+    const { attachmentId, upload: target } = await requestPackageFileUpload(dependencies, world.manager, {
+      packageId,
+      kind,
+      fileName: `${kind}-pending`,
+      contentType: contentType as "application/pdf",
+      sizeBytes: 8,
+    });
+    await storage.upload(
+      { ...target, expiresAt: new Date(target.expiresAt) },
+      new TextEncoder().encode("12345678"),
+      contentType,
+    );
+    return attachmentId;
+  }
+
   /** Requests, uploads and confirms a file, as the browser does. */
   async function add(
     packageId: string,
@@ -148,5 +165,42 @@ describe("a package's files", () => {
     expect(await reasonOf(listPackageFiles(dependencies, world.manager, "0199e7a0-0000-7000-8000-0000000000aa"))).toBe(
       "NOT_FOUND",
     );
+  });
+
+  it("holds five brochures even when six were requested before any was confirmed", async () => {
+    const packageId = await aPackage();
+    const pending: string[] = [];
+    for (let count = 0; count < 6; count += 1) pending.push(await upload(packageId, "brochure"));
+    for (const attachmentId of pending.slice(0, 5)) {
+      await confirmPackageFile(dependencies, world.manager, { packageId, kind: "brochure", attachmentId });
+    }
+    const sixth = pending[5] ?? "";
+    expect(
+      await reasonOf(
+        confirmPackageFile(dependencies, world.manager, { packageId, kind: "brochure", attachmentId: sixth }),
+      ),
+    ).toBe("PACKAGE_BROCHURE_LIMIT");
+    expect((await listPackageFiles(dependencies, world.manager, packageId)).brochures).toHaveLength(5);
+    // Confirming one of the five again is still fine.
+    await confirmPackageFile(dependencies, world.manager, {
+      packageId,
+      kind: "brochure",
+      attachmentId: pending[0] ?? "",
+    });
+  });
+
+  it("shows the newest QR when two are ready, and the next confirmation leaves only the newest", async () => {
+    const packageId = await aPackage();
+    // Two ready QRs, as after a replacement whose removal failed: both confirmed straight through the files service.
+    const first = await upload(packageId, "payment_qr", "image/png");
+    const second = await upload(packageId, "payment_qr", "image/png");
+    const record = { recordType: "package_payment_qr", recordId: packageId };
+    await dependencies.files.confirmUpload(world.manager, { ...record, attachmentId: first });
+    await dependencies.files.confirmUpload(world.manager, { ...record, attachmentId: second });
+    expect((await listPackageFiles(dependencies, world.manager, packageId)).paymentQr?.attachmentId).toBe(second);
+
+    const third = await add(packageId, "payment_qr");
+    expect((await listPackageFiles(dependencies, world.manager, packageId)).paymentQr?.attachmentId).toBe(third);
+    expect(await dependencies.files.list(world.manager, record)).toHaveLength(1);
   });
 });

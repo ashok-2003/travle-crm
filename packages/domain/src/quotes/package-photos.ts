@@ -10,26 +10,14 @@ import type { Database } from "@travel-crm/db";
 import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { filesWithLinks, requirePackage } from "./package-file-links.js";
 
 export interface PackagePhotoDependencies {
   db: Pick<Database, "forOrg">;
   files: Files;
 }
 
-const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-
 const recordOf = (packageId: string) => ({ recordType: PACKAGE_PHOTO_RECORD_TYPE, recordId: packageId });
-
-async function requirePackage(
-  { db }: PackagePhotoDependencies,
-  access: MemberAccess,
-  packageId: string,
-): Promise<void> {
-  const found = await db.forOrg(access.organizationId, (tx) =>
-    tx.quoteTemplate.findUnique({ where: { id: packageId }, select: { id: true } }),
-  );
-  if (found === null) throw notFound();
-}
 
 /** How many photos the package holds, for the page's readiness. */
 export async function packagePhotoCount(
@@ -47,22 +35,7 @@ export async function listPackagePhotos(
   packageId: string,
 ): Promise<PackagePhoto[]> {
   await requirePackage(dependencies, access, packageId);
-  const photos = await dependencies.files.list(access, recordOf(packageId));
-  return packagePhotoList.parse(
-    await Promise.all(
-      photos.map(async (photo) => ({
-        id: photo.id,
-        fileName: photo.fileName,
-        url: (
-          await dependencies.files.downloadLink(
-            access,
-            { ...recordOf(packageId), attachmentId: photo.id },
-            { inline: true },
-          )
-        ).url,
-      })),
-    ),
-  );
+  return packagePhotoList.parse(await filesWithLinks(dependencies.files, access, recordOf(packageId)));
 }
 
 /** Step one of adding a photo: a picture a browser draws, within the size and the six photos, and a place to put it. */
