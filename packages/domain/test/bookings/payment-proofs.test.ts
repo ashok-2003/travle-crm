@@ -101,6 +101,7 @@ describe("payment proofs with no booking waiting", () => {
       status: "pending",
     });
     const notices = await inOrg((tx) => tx.notification.findMany({ where: { kind: "payment.proof-to-match" } }));
+    expect(notices.every((notice) => notice.link === `/inbox/${chatId}`)).toBe(true);
     expect(notices.map((notice) => notice.recipientUserId).sort()).toEqual([ownerUserId, managerId].sort());
     // A booking the AI takes later in the chat leaves the proof as it was.
     await inOrg((tx) =>

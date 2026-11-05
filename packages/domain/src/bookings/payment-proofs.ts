@@ -38,7 +38,8 @@ export async function recordUnmatchedProof(
     kind: PAYMENT_PROOF_KIND,
     title: `${lead?.person.name ?? "A customer"} sent a payment screenshot`.slice(0, 120),
     body: "No booking is waiting for it. Check it against your bank and match it to a payment.",
-    link: input.leadId === null ? "/inbox" : `/leads/${input.leadId}`,
+    // The chat holds the screenshot; erasing the customer finds this notice by the chat id in its link.
+    link: `/inbox/${input.conversationId}`,
     channels: ["email", "push"],
   });
   return true;

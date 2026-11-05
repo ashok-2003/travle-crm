@@ -15,6 +15,7 @@ import {
 } from "../../src/inbox/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import { systemActor } from "../../src/kernel/index.js";
+import { aLead } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
@@ -151,6 +152,18 @@ describe("erasing a customer who is in the sales inbox", () => {
     expect(notes).not.toContain(`Neha wants a Spiti trip (${mine.id})`);
     expect(notes).toContain(`Neha wants a Spiti trip (${other.id})`);
   });
+  const recordUnmatchedNotice = (tx: Parameters<Parameters<TestInbox["db"]["forOrg"]>[1]>[0], chatId: string) =>
+    tx.notification.create({
+      data: {
+        recipientUserId: randomUUID(),
+        kind: "payment.proof-to-match",
+        title: "Neha sent a payment screenshot",
+        body: "Check it.",
+        link: `/inbox/${chatId}`,
+        sourceEventId: randomUUID(),
+      },
+    });
+
   it("deletes the payment proofs kept from their chat and leaves another customer's", async () => {
     const connection = await aConnectedAgency(test);
     const { organizationId } = connection;
@@ -166,6 +179,7 @@ describe("erasing a customer who is in the sales inbox", () => {
     const personId = mine.personId;
     await inOrg(async (tx) => {
       for (const chat of [mine, other]) {
+        const lead = await aLead(tx, { personId: chat.personId ?? personId });
         const shot = await tx.whatsappMessage.create({
           data: {
             conversationId: chat.id,
@@ -177,7 +191,8 @@ describe("erasing a customer who is in the sales inbox", () => {
             occurredAt: testNow,
           },
         });
-        await tx.paymentProof.create({ data: { conversationId: chat.id, messageId: shot.id } });
+        await tx.paymentProof.create({ data: { conversationId: chat.id, messageId: shot.id, leadId: lead.id } });
+        await recordUnmatchedNotice(tx, chat.id);
       }
     });
 
@@ -187,5 +202,7 @@ describe("erasing a customer who is in the sales inbox", () => {
 
     expect(await inOrg((tx) => tx.paymentProof.count({ where: { conversationId: mine.id } }))).toBe(0);
     expect(await inOrg((tx) => tx.paymentProof.count({ where: { conversationId: other.id } }))).toBe(1);
+    expect(await inOrg((tx) => tx.notification.count({ where: { link: { contains: mine.id } } }))).toBe(0);
+    expect(await inOrg((tx) => tx.notification.count({ where: { link: { contains: other.id } } }))).toBe(1);
   });
 });
