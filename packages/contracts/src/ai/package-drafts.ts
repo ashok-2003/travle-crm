@@ -37,13 +37,26 @@ export const foundTrip = z.object({
 export type FoundTrip = z.infer<typeof foundTrip>;
 
 export const foundTrips = z.object({
-  fillId: recordId,
+  /** Null while only the parts are offered: no call has been made. */
+  fillId: recordId.nullable(),
   trips: z.array(foundTrip).max(MAX_FOUND_TRIPS),
   /** Parts of sources longer than one call; nothing is sent until one is chosen. */
   parts: z.array(z.object({ ref: z.string(), label: z.string() })),
   readPart: z.string().nullable(),
 });
 export type FoundTrips = z.infer<typeof foundTrips>;
+
+/** What the model answers to "find the trips": checked before anything is trusted; a bad field is emptied, a bad shape refused. */
+export const foundTripsAnswer = z.object({
+  trips: z.array(
+    z.object({
+      name: z.string().trim().min(1).max(120),
+      place: z.string().trim().max(80).catch(""),
+      nights: z.int().min(0).max(60).nullable().catch(null),
+      lines: z.array(z.string()).max(200).catch([]),
+    }),
+  ),
+});
 
 export const findTripsInput = z.strictObject({ part: z.string().optional() });
 export type FindTripsInput = z.infer<typeof findTripsInput>;

@@ -245,6 +245,8 @@
     "RATE_SHEET_SCANNED": "This PDF is a picture of a sheet, with no text to copy. Upload photos of its pages instead.",
     "RATE_SHEET_MIXED": "Give one PDF or Excel file, or up to 4 photos of the sheet, not a mix.",
     "RATE_SHEET_PART": "That part of the sheet isn't there. Open the dialog again and choose one.",
+    "PACKAGE_DRAFT_NOTHING": "The AI found no trips in your documents. Add a brochure or a rate list in Settings, AI, then try again.",
+    "PACKAGE_DRAFT_PART": "That part of your documents isn't there. Start again and choose one.",
     "RATE_SHEET_NOTHING": "The AI found no rates on this sheet. Check that it is the right file, or add the rates yourself.",
     "SUBJECT_REQUIRED": "Open the lead or quote first, then ask the AI to fill it.",
     "GSTIN_REQUIRED": "Save your GSTIN in the business details before you issue an invoice with tax.",
