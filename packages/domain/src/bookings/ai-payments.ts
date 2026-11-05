@@ -50,7 +50,8 @@ async function lockedAiBooking(tx: OrgTx, bookingId: string) {
 }
 
 /** The quote a booking stands on. */
-async function quoteOfBooking(tx: OrgTx, bookingId: string): Promise<string> {
+async function quoteOfBooking(tx: OrgTx, bookingId: string | null): Promise<string> {
+  if (bookingId === null) throw new Error("The AI booking has neither a quote nor a booking to pay on");
   const booking = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, select: { quoteId: true } });
   return booking.quoteId;
 }
@@ -74,11 +75,9 @@ export async function confirmAiPayment(
   if (!OPEN_STATUSES.includes(row.status))
     throw new DomainError("CONFLICT", "AI_BOOKING_NOT_OPEN", "This booking was decided already");
   const details = (row.details ?? {}) as Record<string, unknown>;
-  // A quote set for it (plan 4) is the one paid; otherwise link it, which finds or makes the agreed quote and the booking.
-  let bookingId = row.bookingId;
   const written = paiseFromRupeesText(textOf(details.amount)) ?? 0;
-  if (row.quoteId === null) {
-    bookingId = await linkAiBooking(
+  const link = (quoteId: string | null) =>
+    linkAiBooking(
       tx,
       access,
       {
@@ -94,13 +93,21 @@ export async function confirmAiPayment(
         },
         proofMessageIds: row.proofMessageIds,
         linkedBookingId: row.bookingId,
+        quoteId,
       },
       now,
     );
-  }
-  const quoteId = row.quoteId ?? (await quoteOfBooking(tx, bookingId ?? ""));
+  // A quote set for it (plan 4) is the one paid, even if only sent: its first payment accepts it, so then it is linked.
+  // Otherwise linking finds or makes the agreed quote and the booking first. Either way one quote, one booking.
+  const chosen =
+    row.quoteId === null
+      ? null
+      : await tx.quote.findUniqueOrThrow({ where: { id: row.quoteId }, select: { status: true } });
+  let bookingId: string | null = null;
+  if (chosen === null || chosen.status === "accepted") bookingId = await link(row.quoteId);
+  const quoteId = row.quoteId ?? (await quoteOfBooking(tx, bookingId));
   const timeZone = await organizationTimeZone(tx, access.organizationId);
-  const { paymentId } = await recordPayment(
+  const paid = await recordPayment(
     tx,
     access,
     {
@@ -112,8 +119,13 @@ export async function confirmAiPayment(
       requestId: requestIdOf(row.id),
     },
     now,
-  );
-  // The payment already wins the lead when it is the quote's first; otherwise this moves it, and is a no-op when won.
+  ).catch((error: unknown) => {
+    if (error instanceof DomainError && error.reason === "PAYMENT_EXCEEDS_BALANCE")
+      throw new DomainError("CONFLICT", "AI_PAYMENT_OVER_TOTAL", "That is more than the trip's total");
+    throw error;
+  });
+  bookingId ??= await link(row.quoteId);
+  // Moves the lead to won; a no-op (no second change or notice) when the payment already did.
   await advanceLeadStage(tx, access, { leadId: row.leadId, stage: "won" }, now);
   await tx.aiBooking.update({
     where: { id: row.id },
@@ -121,14 +133,14 @@ export async function confirmAiPayment(
       status: "confirmed",
       decidedBy: access.userId,
       decidedAt: now,
-      ...(bookingId === null ? {} : { bookingId }),
+      bookingId,
     },
   });
   await recordAudit(tx, access, {
     action: "ai.booking-decided",
     entityType: "ai_booking",
     entityId: row.id,
-    after: { status: "confirmed", paymentId, amountPaise: input.amountPaise },
+    after: { status: "confirmed", paymentId: paid.paymentId, quoteId, bookingId, amountPaise: input.amountPaise },
   });
   return { leadId: row.leadId, quoteId };
 }
@@ -141,8 +153,8 @@ export async function refuseAiPayment(
   now: Date,
 ): Promise<{ leadId: string }> {
   const row = await lockedAiBooking(tx, input.bookingId);
-  if (!OPEN_STATUSES.includes(row.status))
-    throw new DomainError("CONFLICT", "AI_BOOKING_NOT_OPEN", "This booking was decided already");
+  if (row.status !== "proof_received")
+    throw new DomainError("CONFLICT", "AI_BOOKING_NOT_OPEN", "There is no payment proof to refuse");
   await tx.aiBooking.update({
     where: { id: row.id },
     data: { status: "awaiting_payment", decidedBy: access.userId, decidedAt: now },

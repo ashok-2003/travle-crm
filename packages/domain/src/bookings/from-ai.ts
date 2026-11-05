@@ -4,7 +4,7 @@
 // travellers and amount when written, the dates, pickup and package in its notes), which a real quote accepted later replaces.
 // The customer's proof messages are kept on the booking. Confirming again finds the same booking.
 import type { OrgTx } from "@travel-crm/db";
-import type { Actor } from "../kernel/index.js";
+import { DomainError, type Actor } from "../kernel/index.js";
 import { agreedQuote } from "../quotes/index.js";
 import { confirmBookingAs } from "./confirm.js";
 import { createBookingFromQuote } from "./create-booking.js";
@@ -18,6 +18,8 @@ export interface AiBookingFacts {
   proofMessageIds: readonly string[];
   /** The booking an earlier confirmation made, if any. */
   linkedBookingId: string | null;
+  /** A quote chosen for it (payments to check): its booking is the one, and no quote is made from the chat. */
+  quoteId?: string | null;
 }
 
 /** How many travellers the AI wrote down: the first whole number in its words, one if there is none. */
@@ -40,6 +42,14 @@ const notesOf = (facts: AiBookingFacts) =>
 /** The booking for an AI request being confirmed: the one already linked, the lead's accepted quote's, or a new one. */
 export async function linkAiBooking(tx: OrgTx, actor: Actor, facts: AiBookingFacts, now: Date): Promise<string> {
   let bookingId = facts.linkedBookingId;
+  if (bookingId === null && facts.quoteId != null) {
+    bookingId = await createBookingFromQuote(
+      tx,
+      { organizationId: actor.organizationId, quoteId: facts.quoteId, confirmed: false },
+      now,
+    );
+    if (bookingId === null) throw new DomainError("CONFLICT", "QUOTE_NOT_ACCEPTED", "The quote is not accepted yet");
+  }
   if (bookingId === null) {
     const accepted = await tx.quote.findFirst({
       where: { leadId: facts.leadId, status: "accepted" },

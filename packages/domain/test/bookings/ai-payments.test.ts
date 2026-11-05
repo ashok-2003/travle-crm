@@ -2,9 +2,10 @@
 // lead has none), once whatever the taps, and the lead is won; refusing sends the booking back to waiting with its proofs.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { takeBooking } from "../../src/ai/booking.js";
+import { createBookingFromQuote } from "../../src/bookings/index.js";
 import { confirmAiPayment, expectedAdvanceOf, refuseAiPayment } from "../../src/bookings/ai-payments.js";
 import { aLead } from "../crm/support/records.js";
-import { openWorld, type World } from "./support.js";
+import { aQuote, openWorld, type World } from "./support.js";
 
 const now = new Date("2026-10-30T06:30:00Z");
 
@@ -105,5 +106,56 @@ describe("the payment behind an AI booking", () => {
     } finally {
       await other.close();
     }
+  });
+
+  async function aChosenQuote(status: "sent" | "accepted") {
+    return world.inOrg(async (tx) => {
+      const { lead, quote } = await aQuote(tx, { ownerUserId: world.seller.userId, status, totalPaise: 4_000_000 });
+      const ai = await tx.aiBooking.create({
+        data: {
+          leadId: lead.id,
+          conversationId: crypto.randomUUID(),
+          summary: "Spiti",
+          details: { amount: "" },
+          status: "proof_received",
+          quoteId: quote.id,
+          expectedPaise: 1_000_000n,
+        },
+        select: { id: true },
+      });
+      return { aiBookingId: ai.id, quoteId: quote.id };
+    });
+  }
+
+  it.each(["sent", "accepted"] as const)(
+    "a %s chosen quote is paid, with one booking linked, even after the listener",
+    async (status) => {
+      const { aiBookingId, quoteId } = await aChosenQuote(status);
+      const result = await confirm(aiBookingId);
+      expect(result.quoteId).toBe(quoteId);
+      await world.inOrg((tx) =>
+        createBookingFromQuote(tx, { organizationId: world.organizationId, quoteId, confirmed: true }, now),
+      );
+      const seen = await world.inOrg(async (tx) => ({
+        bookings: await tx.booking.findMany({ where: { quoteId }, select: { id: true } }),
+        payments: await tx.quotePayment.count({ where: { quoteId } }),
+        ai: await tx.aiBooking.findUniqueOrThrow({ where: { id: aiBookingId } }),
+      }));
+      expect(seen.bookings).toHaveLength(1);
+      expect(seen.payments).toBe(1);
+      expect(seen.ai.bookingId).toBe(seen.bookings[0]?.id);
+    },
+  );
+
+  it("more than the trip's total is refused with its own reason", async () => {
+    const { aiBookingId } = await aChosenQuote("accepted");
+    await expect(confirm(aiBookingId, 5_000_000)).rejects.toMatchObject({ reason: "AI_PAYMENT_OVER_TOTAL" });
+  });
+
+  it("a booking still waiting for a proof can't be refused", async () => {
+    const { aiBookingId } = await aWaiting();
+    await expect(
+      world.inOrg((tx) => refuseAiPayment(tx, world.accounts, { bookingId: aiBookingId, reason: "other" }, now)),
+    ).rejects.toMatchObject({ reason: "AI_BOOKING_NOT_OPEN" });
   });
 });
