@@ -20,33 +20,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
-import { DestinationField, type DestinationValue } from "@/leads/form/destination-field";
+import { DestinationField } from "@/leads/form/destination-field";
 import { NoteField } from "@/leads/form/note-field";
 import { useWriteAccess } from "@/subscription/write-access";
 import { CalculateFromButton } from "./calculate-from-button";
-import { GroupFields, groupInputFields, groupInputOf, groupValuesOf, type GroupValues } from "./group-fields";
+import { GroupFields, groupInputFields, groupInputOf, groupValuesOf } from "./group-fields";
+import type { PackageFormValues as Values } from "./package-form-values";
 import { usePackageChanges } from "./use-packages";
 
 type Problem = "required" | "invalid" | "slug" | "price";
-interface Values extends GroupValues {
-  name: string;
-  title: string;
-  slug: string;
-  destination: DestinationValue | null;
-  nights: string;
-  summary: string;
-  /** One highlight a line. */
-  highlights: string;
-  priceDisplay: string;
-  fromPrice: string;
-  level: string;
-  cancellationNotes: string;
-  inclusions: string;
-  exclusions: string;
-  notes: string;
-  days: { title: string; description: string }[];
-}
-
 /** An address from a name: lower-case words joined by hyphens ("Kedarnath Yatra" is "kedarnath-yatra"). */
 export function slugOf(name: string): string {
   return name

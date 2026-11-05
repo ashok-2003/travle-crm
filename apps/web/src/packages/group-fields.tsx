@@ -4,10 +4,10 @@
 // months it departs, seats, GST, the advance, how to pay, pickup and where it starts. The form holds them as text and
 // lists of text; the input is made here so package-form.tsx stays about the quote.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
-import { packageKinds, roomTypes, type PackageDetail, type PackageKind } from "@travel-crm/contracts/quotes";
+import { packageKinds, roomTypes, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
-import { Controller, useWatch, type Control, type FieldPath, type FieldValues } from "react-hook-form";
+import { Controller, useWatch, type Control, type FieldPath } from "react-hook-form";
 import { ChoiceField } from "@/components/forms/choice-field";
 import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
@@ -16,20 +16,7 @@ import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/co
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { NoteField } from "@/leads/form/note-field";
-
-export interface GroupValues {
-  kind: PackageKind;
-  roomTypes: string[];
-  /** Days as "0" (Sunday) to "6", months as "1" to "12": a toggle group's values are text. */
-  weeklyDays: string[];
-  departureMonths: string[];
-  seatsPerDeparture: string;
-  pricesIncludeGst: boolean;
-  advancePerPerson: string;
-  paymentDetails: string;
-  pickupPoints: string;
-  startCity: string;
-}
+import type { GroupValues, PackageFormValues } from "./package-form-values";
 
 export function groupValuesOf(detail: PackageDetail): GroupValues {
   return {
@@ -84,7 +71,7 @@ const MONTHS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] a
 /** A toggle group's chosen values: the field holds a list of text. */
 const picked = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
 
-function Picks<Values extends FieldValues>({
+function Picks({
   control,
   name,
   legend,
@@ -92,8 +79,8 @@ function Picks<Values extends FieldValues>({
   options,
   disabled,
 }: {
-  control: Control<Values>;
-  name: FieldPath<Values>;
+  control: Control<PackageFormValues>;
+  name: FieldPath<PackageFormValues>;
   legend: string;
   hint?: string;
   options: { value: string; label: string }[];
@@ -128,20 +115,9 @@ function Picks<Values extends FieldValues>({
   );
 }
 
-/** Its fields are named by GroupValues' keys; a form of more values holds them under the same names. */
-function at<Values extends FieldValues>(name: keyof GroupValues) {
-  return name as FieldPath<Values>;
-}
-
-export function GroupFields<Values extends FieldValues>({
-  control,
-  disabled,
-}: {
-  control: Control<Values>;
-  disabled: boolean;
-}) {
+export function GroupFields({ control, disabled }: { control: Control<PackageFormValues>; disabled: boolean }) {
   const t = useTranslations("packages.form");
-  const kind = useWatch({ control, name: at<Values>("kind") });
+  const kind = useWatch({ control, name: "kind" });
   const gstId = useId();
   return (
     <Card>
@@ -153,7 +129,7 @@ export function GroupFields<Values extends FieldValues>({
       <CardContent className="flex flex-col gap-4">
         <ChoiceField
           control={control}
-          name={at<Values>("kind")}
+          name={"kind"}
           legend={t("kind")}
           options={packageKinds.map((value) => ({ value, label: t(`kinds.${value}`) }))}
         />
@@ -161,21 +137,21 @@ export function GroupFields<Values extends FieldValues>({
           <>
             <Picks
               control={control}
-              name={at<Values>("roomTypes")}
+              name={"roomTypes"}
               legend={t("roomTypes")}
               options={roomTypes.map((value) => ({ value, label: t(`roomTypeNames.${value}`) }))}
               disabled={disabled}
             />
             <Picks
               control={control}
-              name={at<Values>("weeklyDays")}
+              name={"weeklyDays"}
               legend={t("weeklyDays")}
               options={WEEKDAYS.map((value) => ({ value, label: t(`weekdays.${value}`) }))}
               disabled={disabled}
             />
             <Picks
               control={control}
-              name={at<Values>("departureMonths")}
+              name={"departureMonths"}
               legend={t("departureMonths")}
               hint={t("departureMonthsHint")}
               options={MONTHS.map((value) => ({ value, label: t(`months.${value}`) }))}
@@ -184,25 +160,20 @@ export function GroupFields<Values extends FieldValues>({
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
                 control={control}
-                name={at<Values>("seatsPerDeparture")}
+                name={"seatsPerDeparture"}
                 label={t("seatsPerDeparture")}
                 inputMode="numeric"
                 disabled={disabled}
               />
-              <TextField control={control} name={at<Values>("startCity")} label={t("startCity")} disabled={disabled} />
-              <MoneyField control={control} name={at<Values>("advancePerPerson")} label={t("advancePerPerson")} />
+              <TextField control={control} name={"startCity"} label={t("startCity")} disabled={disabled} />
+              <MoneyField control={control} name={"advancePerPerson"} label={t("advancePerPerson")} />
             </div>
             <Controller
               control={control}
-              name={at<Values>("pricesIncludeGst")}
+              name={"pricesIncludeGst"}
               render={({ field }) => (
                 <Field orientation="horizontal" className="min-h-11">
-                  <Switch
-                    id={gstId}
-                    checked={field.value === true}
-                    disabled={disabled}
-                    onCheckedChange={field.onChange}
-                  />
+                  <Switch id={gstId} checked={field.value} disabled={disabled} onCheckedChange={field.onChange} />
                   <FieldLabel htmlFor={gstId} className="font-normal">
                     {t("pricesIncludeGst")}
                   </FieldLabel>
@@ -211,14 +182,14 @@ export function GroupFields<Values extends FieldValues>({
             />
             <NoteField
               control={control}
-              name={at<Values>("paymentDetails")}
+              name={"paymentDetails"}
               label={t("paymentDetails")}
               hint={t("paymentDetailsHint")}
               disabled={disabled}
             />
             <NoteField
               control={control}
-              name={at<Values>("pickupPoints")}
+              name={"pickupPoints"}
               label={t("pickupPoints")}
               hint={t("pickupPointsHint")}
               disabled={disabled}
