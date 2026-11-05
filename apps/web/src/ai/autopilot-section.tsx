@@ -7,7 +7,7 @@
 import type { AutopilotSettings } from "@travel-crm/contracts/ai";
 import { aiEmojiLevels, aiHandoffPolicies, aiLanguages, aiPersonas, aiStyles, aiTones } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { InfoHint } from "@/components/info-hint";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -39,9 +39,10 @@ function Choice<Value extends string>({
   disabled: boolean;
   onChange: (value: Value) => void;
 }) {
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Select
         value={value}
         disabled={disabled}
@@ -50,7 +51,7 @@ function Choice<Value extends string>({
           if (chosen !== undefined) onChange(chosen);
         }}
       >
-        <SelectTrigger className="h-auto w-full">
+        <SelectTrigger id={id} className="h-auto w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent position="popper">
