@@ -29,7 +29,6 @@ import {
 } from "@travel-crm/contracts/quotes";
 import { presignedUpload } from "@travel-crm/contracts/files";
 import { generatePackageDepartures, makeGroupQuote } from "@travel-crm/domain/departures";
-import { calendarDateIn } from "@travel-crm/domain/kernel";
 import {
   calculateFromPrice,
   confirmPackageFile,
@@ -55,7 +54,7 @@ import {
   updatePackage,
 } from "@travel-crm/domain/quotes";
 import { z } from "zod";
-import { mayMakeDepartures } from "../package-departures-gate.js";
+import { agencyToday, mayMakeDepartures } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 import { quoteContext } from "./quotes.js";
@@ -71,8 +70,7 @@ export const packagesRouter = router({
     .output(packageDetail)
     .query(async ({ ctx, input }) => {
       const photoCount = await packagePhotoCount(ctx, ctx.member, input.packageId);
-      const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
-      const today = calendarDateIn(new Date(), timeZone);
+      const today = await agencyToday(ctx);
       const agencyCode = (
         (await ctx.identity.organizationProfile(ctx.member.organizationId))?.code ?? ""
       ).toLowerCase();
@@ -83,8 +81,7 @@ export const packagesRouter = router({
 
   /** Saves the package; when its weekly days, months, nights or seats changed, makes the departures that now fit. */
   update: editor.input(updatePackageInput).mutation(async ({ ctx, input }) => {
-    const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
-    const today = calendarDateIn(new Date(), timeZone);
+    const today = await agencyToday(ctx);
     await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
       const before = await findPackage(tx, input.packageId);
       await updatePackage(tx, ctx.member, input);
@@ -115,8 +112,7 @@ export const packagesRouter = router({
 
   /** Lets the AI sell the package, or stops it: a business-critical switch, so it reads the session from the database. */
   setSellable: publisher.input(setPackageSellableInput).mutation(async ({ ctx, input }) => {
-    const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
-    const today = calendarDateIn(new Date(), timeZone);
+    const today = await agencyToday(ctx);
     await ctx.db.forOrg(ctx.member.organizationId, (tx) => setPackageSellable(tx, ctx.member, input, today));
   }),
 
@@ -149,8 +145,7 @@ export const packagesRouter = router({
     .input(packageIdInput)
     .output(calculatedFromPrice)
     .query(async ({ ctx, input }) => {
-      const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
-      const today = calendarDateIn(new Date(), timeZone);
+      const today = await agencyToday(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => calculateFromPrice(tx, input.packageId, today));
     }),
 
@@ -180,8 +175,7 @@ export const packagesRouter = router({
     .output(quoteDetail)
     .mutation(async ({ ctx, input }) => {
       const context = await quoteContext(ctx);
-      const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
-      const today = calendarDateIn(new Date(), timeZone);
+      const today = await agencyToday(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => makeGroupQuote(tx, ctx.member, input, context, today));
     }),
 

@@ -1,6 +1,4 @@
-// ai.packageDrafts.*: AI plan 2, a group package drafted from the agency's own documents. find and draft only propose (each is
-// one of the month's AI calls, so the session is read afresh); create is the owner's "Save as package", which saves what a
-// person chose, then makes the departures as packages.update does and copies the cited PDF as a brochure.
+// ai.packageDrafts.*: find and draft propose a group package from the agency's documents (AI calls); create is the owner's save.
 import {
   createdGroupPackage,
   createGroupPackageInput,
@@ -11,9 +9,9 @@ import {
 } from "@travel-crm/contracts/ai";
 import { draftPackage, findTrips } from "@travel-crm/domain/ai";
 import { generatePackageDepartures } from "@travel-crm/domain/departures";
-import { calendarDateIn, DomainError } from "@travel-crm/domain/kernel";
+import { DomainError } from "@travel-crm/domain/kernel";
 import { attachDraftBrochure, createGroupPackage } from "@travel-crm/domain/quotes";
-import { mayMakeDepartures } from "../package-departures-gate.js";
+import { agencyToday, mayMakeDepartures } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
@@ -46,8 +44,7 @@ export const aiPackageDraftsRouter = router({
     .input(createGroupPackageInput)
     .output(createdGroupPackage)
     .mutation(async ({ ctx, input }) => {
-      const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
-      const today = calendarDateIn(new Date(), timeZone);
+      const today = await agencyToday(ctx);
       const { id } = await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
         const created = await createGroupPackage(tx, ctx.member, input);
         if (mayMakeDepartures(ctx)) await generatePackageDepartures(tx, ctx.member, created.id, today);
@@ -59,8 +56,8 @@ export const aiPackageDraftsRouter = router({
         return { id, brochure: "attached" as const };
       } catch (error) {
         // Names and codes only: no stack, no message, nothing that could hold a person's words.
-        const { name, code, reason } = error as { name?: string; code?: string; reason?: string };
-        console.error("package brochure not attached", { name, code, reason });
+        const named = typeof error === "object" && error !== null ? (error as Record<string, unknown>) : {};
+        console.error("package brochure not attached", { name: named.name, code: named.code, reason: named.reason });
         return { id, brochure: "failed" as const };
       }
     }),

@@ -81,6 +81,8 @@ export interface CallerOptions {
   /** The permissions the member holds, all records; every one when left out. */
   granted?: Permission[];
   now?: Date;
+  /** Services to put in the request context (an AI model, a files service) over the defaults. */
+  context?: Partial<Context>;
 }
 
 export function memberOf(organizationId: string, granted?: Permission[]): MemberAccess {
@@ -148,6 +150,7 @@ export function callerOf(
     resHeaders: new Headers(),
     session: { activeOrganizationId: options.organizationId, impersonatedBy: null },
     user: { id: member.userId },
+    ...options.context,
   } as unknown as Context;
   return { caller: t.createCallerFactory(appRouter)(context), member, owner };
 }
