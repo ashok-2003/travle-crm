@@ -205,7 +205,8 @@ function foundTrips(user: string): object {
 
 /**
  * Draft a package: each field cites the lines that say it. The triple price is cited from two lines that print different figures,
- * so the draft keeps both; every figure is copied as printed.
+ * so the draft keeps both. Every price and the advance are copied as printed from their cited line; the name, nights, room types,
+ * weekdays and the season's months are fixed for the journey's Manali trip.
  */
 function draftedPackage(user: string): object {
   const lines = numberedLines(user);
@@ -233,7 +234,9 @@ function draftedPackage(user: string): object {
         prices: [...pricesFor("Double"), ...pricesFor("Triple")],
       },
     ],
-    advancePerPerson: tokensOf(/Advance/).map((token) => ({ printed: "2,000/-", tokens: [token] })),
+    advancePerPerson: lines
+      .filter((line) => line.text.includes("Advance"))
+      .map((line) => ({ printed: priceOf(line.text), tokens: [line.token] })),
   };
 }
 

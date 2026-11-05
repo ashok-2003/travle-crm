@@ -9,7 +9,7 @@ import { inAgency } from "./support/whatsapp";
 
 test.use({ actionTimeout: 15_000 });
 
-// Piece 1 is the knowledge (the only one with words but the strict rules, piece 2), so these lines are P1.L1 to P1.L5 and P2.L1.
+// The knowledge is piece 1 (lines P1.L1 to P1.L5) and the strict rules piece 2 (P2.L1): the instructions are empty.
 const KNOWLEDGE = [
   "Manali 5 Nights 6 Days group package",
   "Triple sharing Rs 6,999/- per person",
@@ -17,9 +17,6 @@ const KNOWLEDGE = [
   "Departures every Friday and Saturday",
   "Advance Rs 2,000/- per person to book",
 ].join("\n");
-// Settings, AI has two faults of its own that this journey does not touch: the autopilot's select buttons have no name, and the
-// knowledge list's items are not marked as list items. Axe leaves them out here; the draft section and the review are checked.
-const SETTINGS_FAULTS = ['[data-slot="select-trigger"]', '[data-slot="card-content"] > [role="list"]'];
 const STRICT_RULES = "Manali 5N6D triple sharing is Rs 7,499/- per person";
 
 test("the Owner drafts a group package from the agency's documents, chooses between two triple prices, and saves it", async ({
@@ -45,7 +42,7 @@ test("the Owner drafts a group package from the agency's documents, chooses betw
   await section.getByRole("button", { name: "Find trips" }).click();
   await expect(section.getByText("Manali 5 Nights 6 Days")).toBeVisible();
   await expect(section.getByText("From: Knowledge: Manali 5N6D, Strict rules")).toBeVisible();
-  await expectAccessible(page, { exclude: SETTINGS_FAULTS });
+  await expectAccessible(page);
 
   await section.getByRole("button", { name: "Draft Manali 5 Nights 6 Days" }).click();
   const dialog = page.getByRole("dialog", { name: "Check the draft package" });
