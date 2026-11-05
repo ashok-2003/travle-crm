@@ -97,10 +97,25 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await expectAccessible(page);
 
   // A quote for a lead, three in a triple room on the first departure of the first season.
-  const departures = await callApi<{ id: string; startDate: string }[]>(page, "departures.list", {
-    filter: "upcoming",
-    templateId: packageId,
-  });
+  const departures = await callApi<{ id: string; startDate: string; endDate: string; seatsTotal: number }[]>(
+    page,
+    "departures.list",
+    { filter: "upcoming", templateId: packageId },
+  );
+  // Twelve weeks of Fridays and Saturdays is far under the list's limit of 100, so nothing is cut off.
+  expect(departures.length).toBeGreaterThan(0);
+  expect(departures.length).toBeLessThan(100);
+  const dayMilliseconds = 24 * 60 * 60 * 1000;
+  for (const one of departures) {
+    const start = new Date(`${one.startDate}T00:00:00Z`);
+    expect([5, 6], `${one.startDate} is not a Friday or a Saturday`).toContain(start.getUTCDay());
+    expect(one.seatsTotal).toBe(20);
+    expect((new Date(`${one.endDate}T00:00:00Z`).getTime() - start.getTime()) / dayMilliseconds).toBe(5);
+  }
+  const inSeason = (season: { from: string; to: string }) =>
+    departures.filter((one) => one.startDate >= season.from && one.startDate <= season.to);
+  expect(inSeason(first).length).toBeGreaterThan(0);
+  expect(inSeason(second).length).toBeGreaterThan(0);
   const departure = departures.find((one) => one.startDate >= first.from && one.startDate <= first.to);
   if (departure === undefined) throw new Error("no departure fell in the first season");
   const leadId = await aLeadFor(page, "Priya Nair", "+919876500611");
