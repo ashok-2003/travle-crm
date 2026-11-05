@@ -16,7 +16,8 @@ in build step 2.
 - The bell, always the acting person's own: `listNotifications(tx, actor, { cursor?, limit? })` (newest first),
   `unreadCount(tx, actor)`, `markRead(tx, actor, { notificationIds } | { all: true })`.
 - Opt-outs: `setPreference(tx, actor, { channel, kind, optedOut })`, `listPreferences(tx, actor)`,
-  `isOptedOut(preferences, channel, kind)`.
+  `isOptedOut(preferences, channel, kind)`. With no choice, email is off and push on (`optedOutByDefault` in the
+  contracts; the owner, 2026-11-05).
 - Push: `savePushSubscription(tx, actor, subscription)`, `removePushSubscription(tx, actor, { endpoint })`.
 - `forgetPushSubscriptionsListener`: the worker's listener `notifications.forget-push-subscriptions`. When identity
   removes a member (`staff.removed`), it deletes all their push subscriptions in the event's organization.
