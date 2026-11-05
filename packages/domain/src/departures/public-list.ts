@@ -25,8 +25,8 @@ const wordOf = (state: string): PublicSeatWord | null =>
 
 /**
  * Upcoming departures that still take seats or a waitlist, the next first. A group package lists only its own, each priced
- * by its season or its own prices (the lowest an adult pays), even when that leaves none; any other package lists those at its
- * destination.
+ * by its season or its own prices (the lowest an adult pays), even when that leaves none; any other package lists the ones at its
+ * destination that belong to no package.
  */
 export async function publicDepartures(
   tx: OrgTx,
@@ -46,7 +46,8 @@ export async function publicDepartures(
       ? { id: input.onlyId }
       : pricing !== null && input.packageId !== undefined
         ? { templateId: input.packageId }
-        : { destinationId: input.destinationId };
+        : // A custom package lists the free-standing departures at its destination, never another package's batches.
+          { destinationId: input.destinationId, templateId: null };
   const rows = await tx.departure.findMany({
     where: {
       status: "open",

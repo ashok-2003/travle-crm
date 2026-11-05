@@ -432,6 +432,30 @@ describe("a public package page and its enquiry", () => {
       }
     });
 
+    it("a custom package's page lists the free-standing dates at its destination, not a group package's batches", async () => {
+      const group = await world.inOrg((tx) =>
+        tx.quoteTemplate.create({
+          data: { name: `Elsewhere group ${String(Math.random())}`, title: "G", kind: "group", destinationId },
+          select: { id: true },
+        }),
+      );
+      const make = (title: string, templateId: string | null) =>
+        world.inOrg(async (tx) => {
+          const one = await aDeparture(tx, { title, startDate: "2026-12-22", endDate: "2026-12-26" });
+          await tx.departure.update({ where: { id: one.id }, data: { destinationId, templateId } });
+          return one.id;
+        });
+      const free = await make("Free-standing date", null);
+      const batch = await make("A group package's batch", group.id);
+      const listed = (
+        await world.inOrg((tx) => departuresOf(tx, { id: packageId, destinationId }, { today: "2026-11-10", now }))
+      ).map((one) => one.id);
+      expect(listed).toContain(free);
+      expect(listed).not.toContain(batch);
+      expect(await reasonOf(receive(input({}, { departureId: batch })))).not.toBeNull();
+      expect(await reasonOf(receive(input({}, { departureId: free })))).toBeNull();
+    });
+
     describe("on a group package's page", () => {
       const makeKind = (kind: "group" | "custom") =>
         world.inOrg((tx) =>
