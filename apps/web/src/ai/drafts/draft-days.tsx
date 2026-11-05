@@ -8,7 +8,7 @@ import { TextField } from "@/components/forms/text-field";
 import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { NoteField } from "@/leads/form/note-field";
 import { EvidenceNote } from "./draft-evidence";
-import type { ReviewValues } from "./draft-values";
+import { dayPath, type ReviewValues } from "./draft-values";
 
 export function DraftDays({ draft, control }: { draft: PackageDraft; control: Control<ReviewValues> }) {
   const t = useTranslations("ai.drafts.days");
@@ -18,21 +18,12 @@ export function DraftDays({ draft, control }: { draft: PackageDraft; control: Co
   return (
     <ItemGroup className="gap-3">
       {found.map((day, index) => (
-        <Item
-          key={day.evidence[0]?.token ?? String(index)}
-          variant="outline"
-          role="listitem"
-          className="flex-col items-stretch"
-        >
+        <Item key={index} variant="outline" role="listitem" className="flex-col items-stretch">
           <ItemContent className="w-full gap-2">
-            <TextField
-              control={control}
-              name={`days.${String(index)}.title` as `days.${number}.title`}
-              label={t("title", { number: index + 1 })}
-            />
+            <TextField control={control} name={dayPath(index, "title")} label={t("title", { number: index + 1 })} />
             <NoteField
               control={control}
-              name={`days.${String(index)}.description` as `days.${number}.description`}
+              name={dayPath(index, "description")}
               label={t("description", { number: index + 1 })}
             />
             <EvidenceNote {...day} />

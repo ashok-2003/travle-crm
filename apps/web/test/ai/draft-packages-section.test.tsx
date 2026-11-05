@@ -7,7 +7,7 @@ import { newQueryClient, paidSubscription, renderWithApi } from "../organization
 import { screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
-import { draft, line } from "./package-draft-fixtures";
+import { aiModules, draft, line } from "./package-draft-fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -24,7 +24,7 @@ const trip = (ref: string, name: string) => ({
 function render(answers: Record<string, never> | Parameters<typeof stubApi>[0]) {
   screenIs("wide");
   stubApi(answers);
-  const queryClient = newQueryClient({ ...paidSubscription, modules: ["crm", "ai"] as never });
+  const queryClient = newQueryClient({ ...paidSubscription, modules: aiModules });
   renderWithApi(<DraftPackagesSection />, queryClient, member({ permissions: ["ai:suggest", "quotes:edit"] }));
 }
 
@@ -64,7 +64,7 @@ describe("Draft packages from your documents", () => {
       },
     });
     screenIs("wide");
-    const queryClient = newQueryClient({ ...paidSubscription, modules: ["crm", "ai"] as never });
+    const queryClient = newQueryClient({ ...paidSubscription, modules: aiModules });
     renderWithApi(<DraftPackagesSection />, queryClient, member({ permissions: ["ai:suggest", "quotes:edit"] }));
     await user.click(await screen.findByRole("button", { name: "Find trips" }));
     const choose = await screen.findByRole("radio", { name: "Spiti brochure, part 2" });

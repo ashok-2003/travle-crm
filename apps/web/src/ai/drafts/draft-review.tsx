@@ -40,14 +40,15 @@ export function DraftReview({
   const write = useWriteAccess("change");
   const creator = useCreateGroupPackage();
   const form = useForm<ReviewValues>({ defaultValues: valuesOf(draft) });
-  const values = useWatch({ control: form.control }) as ReviewValues;
+  const values = useWatch({ control: form.control, compute: (all) => all });
   const left = unchosen(draft, values);
   const canSave = left === 0 && isSaveable(values);
 
   const save = () => {
     creator.mutate(inputOf(draft, form.getValues()), {
       onSuccess: (created) => {
-        if (created.brochure === "failed") toast.warning(t("brochureFailed"));
+        if (created.brochure === "failed")
+          toast.warning(t("brochureFailed"), { duration: Infinity, closeButton: true });
         else toast.success(t("saved"));
         router.push(packageRoute(created.id));
         onOpenChange(false);
@@ -69,7 +70,11 @@ export function DraftReview({
           <p id={HINT_ID} className="text-caption text-muted-foreground sm:order-first sm:mr-auto sm:self-center">
             {left > 0 ? t("choicesLeft", { count: left }) : canSave ? t("ready") : t("fixFirst")}
           </p>
-          <Button disabled={!canSave || creator.isPending || !write.allowed} aria-describedby={HINT_ID} onClick={save}>
+          <Button
+            disabled={!canSave || creator.isPending || !write.allowed}
+            aria-describedby={`${HINT_ID} ${HINT_ID}-write`}
+            onClick={save}
+          >
             {creator.isPending && <Spinner aria-hidden="true" />}
             {t("save")}
           </Button>

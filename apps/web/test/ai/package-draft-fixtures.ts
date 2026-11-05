@@ -1,5 +1,8 @@
 // A drafted package as the api answers "draft": one price the documents disagree on, one figure to check, and a field they never say.
 import type { PackageDraft, SourceRef } from "@travel-crm/contracts/ai";
+import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
+
+export const aiModules: SubscriptionOverview["modules"] = ["crm", "ai"];
 
 export const line = (token: string, excerpt: string, source = "Spiti brochure"): SourceRef => ({
   token,

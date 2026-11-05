@@ -3,20 +3,33 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import { DraftReview } from "@/ai/drafts/draft-review";
 import { newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
-import { draft } from "./package-draft-fixtures";
+import { aiModules, draft } from "./package-draft-fixtures";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const warning = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    warning: (...args: unknown[]): void => {
+      warning(...args);
+    },
+  },
+}));
 
-function render(created: { id: string; brochure: "attached" | "failed" | "none" } = { id: "p1", brochure: "none" }) {
+function render(
+  created: { id: string; brochure: "attached" | "failed" | "none" } = { id: "p1", brochure: "none" },
+  access: SubscriptionOverview["access"] = "full",
+) {
   screenIs("wide");
   stubApi({ "ai.packageDrafts.create": { data: created } });
-  const queryClient = newQueryClient({ ...paidSubscription, modules: ["crm", "ai"] as never });
+  const queryClient = newQueryClient({ ...paidSubscription, modules: aiModules, access });
   renderWithApi(
     <DraftReview draft={draft} open onOpenChange={vi.fn()} />,
     queryClient,
@@ -88,5 +101,30 @@ describe("Draft review", () => {
       triple: 650000,
       single: null,
     });
+  });
+
+  it("holds Save described by the subscription's refusal when the agency is read-only", async () => {
+    const user = userEvent.setup();
+    render({ id: "p1", brochure: "none" }, "read_only");
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /₹6,999/ }));
+    const save = within(dialog).getByRole("button", { name: "Save as package" });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription(/read-only|read only/i);
+  });
+
+  it("keeps the brochure notice until dismissed and still opens the package", async () => {
+    const user = userEvent.setup();
+    render({ id: "p2", brochure: "failed" });
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /₹6,999/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Save as package" }));
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/packages/p2");
+    });
+    expect(warning).toHaveBeenCalledWith(
+      expect.stringContaining("Files card"),
+      expect.objectContaining({ duration: Infinity }),
+    );
   });
 });

@@ -4,7 +4,7 @@ import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { CreateGroupPackageInput, PackageDraft } from "@travel-crm/contracts/ai";
 import { roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
 import { rupeesFieldText } from "@/components/forms/money-field";
-import { roomPriceKey, roomPricesFromText, type RoomPriceValues } from "@/room-prices/room-prices";
+import { roomPricesFromText, type RoomPriceValues } from "@/room-prices/room-prices";
 
 export interface SeasonValues {
   label: string;
@@ -106,7 +106,14 @@ export function valuesOf(draft: PackageDraft): ReviewValues {
         label: textOf(season.label),
         startsOn: season.startsOn,
         endsOn: season.endsOn,
-        prices: Object.fromEntries(roomTypes.map((room) => [roomPriceKey(room), text(room)])) as RoomPriceValues,
+        prices: {
+          room_single: text("single"),
+          room_double: text("double"),
+          room_triple: text("triple"),
+          room_quad: text("quad"),
+          room_child_bed: text("child_bed"),
+          room_child_no_bed: text("child_no_bed"),
+        },
         choices: emptyChoices(),
       };
     }),
@@ -188,3 +195,10 @@ export function inputOf(draft: PackageDraft, values: ReviewValues): CreateGroupP
     ),
   };
 }
+
+/* The form's paths through its lists: the lint rule refuses a number in a template, and the form's types need the number. */
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+export const seasonPath = (index: number): `seasons.${number}` => `seasons.${index}`;
+export const dayPath = (index: number, field: "title" | "description"): `days.${number}.${typeof field}` =>
+  `days.${index}.${field}`;
+/* eslint-enable @typescript-eslint/restrict-template-expressions */

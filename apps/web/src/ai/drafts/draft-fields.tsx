@@ -13,7 +13,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { NoteField } from "@/leads/form/note-field";
 import { MONTHS, Picks, WEEKDAYS } from "@/packages/group-fields";
-import { AlternativesChoice, EvidenceNote } from "./draft-evidence";
+import { AlternativesChoice, EvidenceNote, SoleEvidence } from "./draft-evidence";
 import type { ReviewValues } from "./draft-values";
 
 interface Props {
@@ -89,13 +89,7 @@ export function DraftFields({ draft, control, setValue }: Props) {
           disabled={false}
           options={WEEKDAYS.map((value) => ({ value, label: form(`weekdays.${value}`) }))}
         />
-        {draft.weeklyDays.length === 1 && (
-          <EvidenceNote
-            evidence={draft.weeklyDays[0]?.evidence ?? []}
-            checkThis={draft.weeklyDays[0]?.checkThis ?? false}
-          />
-        )}
-        {draft.weeklyDays.length === 0 && <EvidenceNote evidence={[]} checkThis={false} />}
+        <SoleEvidence alternatives={draft.weeklyDays} />
       </Group>
       <Group>
         <Picks
@@ -125,13 +119,7 @@ export function DraftFields({ draft, control, setValue }: Props) {
       )}
       <Group>
         <MoneyField control={control} name="advance" label={t("advance")} />
-        {draft.advancePerPersonPaise.length === 1 && (
-          <EvidenceNote
-            evidence={draft.advancePerPersonPaise[0]?.evidence ?? []}
-            checkThis={draft.advancePerPersonPaise[0]?.checkThis ?? false}
-          />
-        )}
-        {draft.advancePerPersonPaise.length === 0 && <EvidenceNote evidence={[]} checkThis={false} />}
+        <SoleEvidence alternatives={draft.advancePerPersonPaise} />
       </Group>
       <Group>
         <Controller

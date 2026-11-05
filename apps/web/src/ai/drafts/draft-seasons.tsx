@@ -11,8 +11,8 @@ import { MoneyField, rupees, rupeesFieldText } from "@/components/forms/money-fi
 import { TextField } from "@/components/forms/text-field";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { roomPriceKey } from "@/room-prices/room-prices";
-import { AlternativesChoice, EvidenceNote } from "./draft-evidence";
-import type { ReviewValues } from "./draft-values";
+import { AlternativesChoice, EvidenceNote, SoleEvidence } from "./draft-evidence";
+import { seasonPath, type ReviewValues } from "./draft-values";
 
 interface Props {
   seasons: readonly DraftSeason[];
@@ -28,7 +28,7 @@ function SeasonItem({
 }: Omit<Props, "seasons"> & { season: DraftSeason; index: number }) {
   const t = useTranslations("ai.drafts.seasons");
   const form = useTranslations("packages.form");
-  const at = `seasons.${String(index)}` as `seasons.${number}`;
+  const at = seasonPath(index);
   const chosen = useWatch({ control, name: `${at}.choices` });
   const offered = useWatch({ control, name: "roomTypes" });
   // Each room the package sells, and any the documents price.
@@ -69,13 +69,7 @@ function SeasonItem({
                   name={`${at}.prices.${roomPriceKey(room)}`}
                   label={t("price", { room: form(`roomTypeNames.${room}`) })}
                 />
-                {alternatives.length === 1 && (
-                  <EvidenceNote
-                    evidence={alternatives[0]?.evidence ?? []}
-                    checkThis={alternatives[0]?.checkThis ?? false}
-                  />
-                )}
-                {alternatives.length === 0 && <EvidenceNote evidence={[]} checkThis={false} />}
+                <SoleEvidence alternatives={alternatives} />
               </div>
             );
           })}

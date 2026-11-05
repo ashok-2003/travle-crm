@@ -71,3 +71,13 @@ export function AlternativesChoice({
     />
   );
 }
+
+/** The note for a value with at most one alternative: that one's line, or "not found" when there is none. */
+export function SoleEvidence({
+  alternatives,
+}: {
+  alternatives: readonly { evidence: readonly SourceRef[]; checkThis: boolean }[];
+}) {
+  if (alternatives.length > 1) return null;
+  return <EvidenceNote evidence={alternatives[0]?.evidence ?? []} checkThis={alternatives[0]?.checkThis ?? false} />;
+}
