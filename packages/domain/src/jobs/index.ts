@@ -1,4 +1,5 @@
 // Public API of the jobs module: domain events, their listeners, and the relay that queues them (spec 9.1).
+export { uuidFromKey } from "./ids.js";
 export {
   assertEventType,
   defineListener,

@@ -11,6 +11,7 @@ export {
   rejectClaim,
   submitPaymentClaim,
 } from "./claims.js";
+export { confirmAiPayment, expectedAdvanceOf, refuseAiPayment, type PaymentRefusalReason } from "./ai-payments.js";
 export { linkAiBooking, travellersOf, type AiBookingFacts } from "./from-ai.js";
 export { confirmBooking, confirmBookingAs, defaultSchedule, offeredSchedule, saveSchedule } from "./confirm.js";
 export { recordTripUpdatesConsentByStaff, setRemindersPaused } from "./controls.js";
