@@ -1,5 +1,5 @@
 // Whether a member's save may also make a group package's departures: departures work, so they need the permission and the plan's module.
-import { calendarDateIn } from "@travel-crm/domain/kernel";
+import { calendarDateIn, type CalendarDate } from "@travel-crm/domain/kernel";
 import type { Identity, MemberAccess } from "@travel-crm/domain/identity";
 import type { Entitlements } from "@travel-crm/domain/subscriptions";
 
@@ -14,7 +14,7 @@ export function mayMakeDepartures(ctx: {
 export async function agencyToday(ctx: {
   identity: Pick<Identity, "organizationProfile">;
   member: Pick<MemberAccess, "organizationId">;
-}): Promise<string> {
+}): Promise<CalendarDate> {
   const timeZone = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.timeZone ?? "Asia/Kolkata";
   return calendarDateIn(new Date(), timeZone);
 }
