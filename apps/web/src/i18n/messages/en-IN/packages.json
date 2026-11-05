@@ -235,6 +235,8 @@
       "from_price": "A \"From\" price"
     },
     "nowOn": "The AI can sell this package",
-    "nowOff": "The AI no longer sells this package"
+    "nowOff": "The AI no longer sells this package",
+    "stillNeeds": "The AI will not sell this package until this is fixed:",
+    "managerOnly": "Whoever manages settings lets the AI sell a package."
   }
 }

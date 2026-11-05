@@ -7,7 +7,7 @@ import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { packageKinds, roomTypes, type PackageDetail, type PackageKind } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
-import { Controller, useWatch, type Control } from "react-hook-form";
+import { Controller, useWatch, type Control, type FieldPath, type FieldValues } from "react-hook-form";
 import { ChoiceField } from "@/components/forms/choice-field";
 import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
@@ -81,7 +81,10 @@ export const groupInputFields: Partial<Record<string, keyof GroupValues>> = {
 const WEEKDAYS = ["0", "1", "2", "3", "4", "5", "6"] as const;
 const MONTHS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
 
-function Picks({
+/** A toggle group's chosen values: the field holds a list of text. */
+const picked = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+
+function Picks<Values extends FieldValues>({
   control,
   name,
   legend,
@@ -89,8 +92,8 @@ function Picks({
   options,
   disabled,
 }: {
-  control: Control<GroupValues>;
-  name: "roomTypes" | "weeklyDays" | "departureMonths";
+  control: Control<Values>;
+  name: FieldPath<Values>;
   legend: string;
   hint?: string;
   options: { value: string; label: string }[];
@@ -109,7 +112,7 @@ function Picks({
             spacing={1}
             disabled={disabled}
             className="flex-wrap"
-            value={field.value}
+            value={picked(field.value)}
             onValueChange={field.onChange}
           >
             {options.map((option) => (
@@ -125,17 +128,20 @@ function Picks({
   );
 }
 
-/** The form's control is a form of more values than these; react-hook-form's Control is invariant, so it is narrowed once here. */
-export function GroupFields<Values extends GroupValues>({
-  control: formControl,
+/** Its fields are named by GroupValues' keys; a form of more values holds them under the same names. */
+function at<Values extends FieldValues>(name: keyof GroupValues) {
+  return name as FieldPath<Values>;
+}
+
+export function GroupFields<Values extends FieldValues>({
+  control,
   disabled,
 }: {
   control: Control<Values>;
   disabled: boolean;
 }) {
-  const control = formControl as unknown as Control<GroupValues>;
   const t = useTranslations("packages.form");
-  const kind = useWatch({ control, name: "kind" });
+  const kind = useWatch({ control, name: at<Values>("kind") });
   const gstId = useId();
   return (
     <Card>
@@ -147,7 +153,7 @@ export function GroupFields<Values extends GroupValues>({
       <CardContent className="flex flex-col gap-4">
         <ChoiceField
           control={control}
-          name="kind"
+          name={at<Values>("kind")}
           legend={t("kind")}
           options={packageKinds.map((value) => ({ value, label: t(`kinds.${value}`) }))}
         />
@@ -155,21 +161,21 @@ export function GroupFields<Values extends GroupValues>({
           <>
             <Picks
               control={control}
-              name="roomTypes"
+              name={at<Values>("roomTypes")}
               legend={t("roomTypes")}
               options={roomTypes.map((value) => ({ value, label: t(`roomTypeNames.${value}`) }))}
               disabled={disabled}
             />
             <Picks
               control={control}
-              name="weeklyDays"
+              name={at<Values>("weeklyDays")}
               legend={t("weeklyDays")}
               options={WEEKDAYS.map((value) => ({ value, label: t(`weekdays.${value}`) }))}
               disabled={disabled}
             />
             <Picks
               control={control}
-              name="departureMonths"
+              name={at<Values>("departureMonths")}
               legend={t("departureMonths")}
               hint={t("departureMonthsHint")}
               options={MONTHS.map((value) => ({ value, label: t(`months.${value}`) }))}
@@ -178,20 +184,25 @@ export function GroupFields<Values extends GroupValues>({
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
                 control={control}
-                name="seatsPerDeparture"
+                name={at<Values>("seatsPerDeparture")}
                 label={t("seatsPerDeparture")}
                 inputMode="numeric"
                 disabled={disabled}
               />
-              <TextField control={control} name="startCity" label={t("startCity")} disabled={disabled} />
-              <MoneyField control={control} name="advancePerPerson" label={t("advancePerPerson")} />
+              <TextField control={control} name={at<Values>("startCity")} label={t("startCity")} disabled={disabled} />
+              <MoneyField control={control} name={at<Values>("advancePerPerson")} label={t("advancePerPerson")} />
             </div>
             <Controller
               control={control}
-              name="pricesIncludeGst"
+              name={at<Values>("pricesIncludeGst")}
               render={({ field }) => (
                 <Field orientation="horizontal" className="min-h-11">
-                  <Switch id={gstId} checked={field.value} disabled={disabled} onCheckedChange={field.onChange} />
+                  <Switch
+                    id={gstId}
+                    checked={field.value === true}
+                    disabled={disabled}
+                    onCheckedChange={field.onChange}
+                  />
                   <FieldLabel htmlFor={gstId} className="font-normal">
                     {t("pricesIncludeGst")}
                   </FieldLabel>
@@ -200,14 +211,14 @@ export function GroupFields<Values extends GroupValues>({
             />
             <NoteField
               control={control}
-              name="paymentDetails"
+              name={at<Values>("paymentDetails")}
               label={t("paymentDetails")}
               hint={t("paymentDetailsHint")}
               disabled={disabled}
             />
             <NoteField
               control={control}
-              name="pickupPoints"
+              name={at<Values>("pickupPoints")}
               label={t("pickupPoints")}
               hint={t("pickupPointsHint")}
               disabled={disabled}

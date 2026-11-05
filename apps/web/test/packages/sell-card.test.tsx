@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { SellCard } from "@/packages/sell-card";
 import { messages } from "@/i18n/messages";
-import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
+import { fakeApi, newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
+import { member } from "../support/members";
 import { aPackage } from "./detail";
 
 const words = messages.packages.sell;
@@ -36,5 +37,31 @@ describe("SellCard", () => {
       newQueryClient(),
     );
     expect(screen.getByRole("switch", { name: words.label }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("shows the gaps and says the AI will not sell while it is on", () => {
+    renderWithApi(
+      <SellCard detail={aPackage({ kind: "group", sellable: true, sellGaps: ["prices"] })} />,
+      newQueryClient(),
+    );
+    expect(screen.getByText(words.gaps.prices)).toBeTruthy();
+    expect(screen.getByText(words.stillNeeds)).toBeTruthy();
+  });
+
+  it("is disabled and described by the hint when the subscription refuses changes", () => {
+    renderWithApi(
+      <SellCard detail={aPackage({ kind: "group" })} />,
+      newQueryClient({ ...paidSubscription, status: "read_only", access: "read_only" }),
+    );
+    const toggle = screen.getByRole("switch", { name: words.label });
+    expect(toggle.hasAttribute("disabled")).toBe(true);
+    expect(toggle.getAttribute("aria-describedby")).toBeTruthy();
+    expect(toggle.getAttribute("aria-describedby")).toContain("-write");
+  });
+
+  it("says who manages it to a member without settings access", () => {
+    renderWithApi(<SellCard detail={aPackage({ kind: "group" })} />, newQueryClient(), member({ permissions: [] }));
+    expect(screen.getByText(words.managerOnly)).toBeTruthy();
+    expect(screen.getByRole("switch", { name: words.label }).hasAttribute("disabled")).toBe(true);
   });
 });
