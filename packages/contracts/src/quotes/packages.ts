@@ -2,7 +2,14 @@
 // Deluxe) priced from the supplier rates, and the words and photos of its public page. Amounts are integer paise.
 import { z } from "zod";
 import { travellerLevel } from "../bookings/bookings.js";
-import { MAX_PACKAGE_PHOTO_BYTES, packagePhotoContentTypes } from "../files/attachments.js";
+import {
+  MAX_PACKAGE_BROCHURE_BYTES,
+  MAX_PACKAGE_PAYMENT_QR_BYTES,
+  MAX_PACKAGE_PHOTO_BYTES,
+  packageBrochureContentTypes,
+  packagePaymentQrContentTypes,
+  packagePhotoContentTypes,
+} from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { MAX_SEATS } from "../departures/departures.js";
@@ -20,6 +27,8 @@ export type QuantityRule = z.infer<typeof quantityRule>;
 export const MAX_TIER_LINES = 30;
 export const MAX_TIERS = 5;
 export const MAX_PACKAGE_PHOTOS = 6;
+/** A package holds five brochures at most. */
+export const MAX_PACKAGE_BROCHURES = 5;
 export const MAX_HIGHLIGHTS = 10;
 
 /** A tier's line: priced from a rate when it has one, else at its fixed price; neither makes a "needs a rate" line. */
@@ -224,3 +233,26 @@ export const requestPackagePhotoInput = z.strictObject({
   sizeBytes: z.int().min(1).max(MAX_PACKAGE_PHOTO_BYTES),
 });
 export const packagePhotoRefInput = z.strictObject({ packageId: recordId, attachmentId: z.uuid() });
+
+export const packageFileKinds = ["brochure", "payment_qr"] as const;
+export type PackageFileKind = (typeof packageFileKinds)[number];
+export const packageFile = z.object({
+  attachmentId: recordId,
+  fileName: z.string(),
+  contentType: z.string(),
+  url: z.string().nullable(),
+});
+export type PackageFile = z.infer<typeof packageFile>;
+export const packageFiles = z.object({ brochures: z.array(packageFile), paymentQr: packageFile.nullable() });
+export const requestPackageFileInput = z.strictObject({
+  packageId: recordId,
+  kind: z.enum(packageFileKinds),
+  fileName: z.string().trim().min(1).max(200),
+  contentType: z.enum([...packageBrochureContentTypes, ...packagePaymentQrContentTypes]),
+  sizeBytes: z.int().min(1).max(Math.max(MAX_PACKAGE_BROCHURE_BYTES, MAX_PACKAGE_PAYMENT_QR_BYTES)),
+});
+export const packageFileRefInput = z.strictObject({
+  packageId: recordId,
+  kind: z.enum(packageFileKinds),
+  attachmentId: z.uuid(),
+});

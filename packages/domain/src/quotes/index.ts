@@ -35,6 +35,13 @@ export {
   requestPackagePhotoUpload,
   type PackagePhotoDependencies,
 } from "./package-photos.js";
+export {
+  confirmPackageFile,
+  listPackageFiles,
+  removePackageFile,
+  requestPackageFileUpload,
+  type PackageFileDependencies,
+} from "./package-files.js";
 export { calculateFromPrice, makeQuotesFromPackage, quantityFor, tierItems } from "./package-quote.js";
 export { marginOf } from "./margin.js";
 export { noRateForDates, priceLine, pricedLineOn, sellingPrice } from "./rate-pricing.js";

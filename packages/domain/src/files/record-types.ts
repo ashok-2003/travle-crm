@@ -9,7 +9,11 @@ import {
   aiMediaFileTypes,
   aiKnowledgeFileTypes,
   attachmentContentTypes,
+  PACKAGE_BROCHURE_RECORD_TYPE,
+  PACKAGE_PAYMENT_QR_RECORD_TYPE,
   PACKAGE_PHOTO_RECORD_TYPE,
+  packageBrochureContentTypes,
+  packagePaymentQrContentTypes,
   packagePhotoContentTypes,
   TRIP_KIT_RECORD_TYPE,
   WHATSAPP_RECORD_TYPE,
@@ -67,6 +71,9 @@ export function allowedContentTypes(recordType: string): readonly string[] {
   if (recordType === AI_MEDIA_RECORD_TYPE) return aiMediaFileTypes;
   // A package's photo is drawn on a public page.
   if (recordType === PACKAGE_PHOTO_RECORD_TYPE) return packagePhotoContentTypes;
+  // A brochure is a PDF or a picture; the payment QR is a picture only.
+  if (recordType === PACKAGE_BROCHURE_RECORD_TYPE) return packageBrochureContentTypes;
+  if (recordType === PACKAGE_PAYMENT_QR_RECORD_TYPE) return packagePaymentQrContentTypes;
   // A trip's details are sent on WhatsApp, so they take what a WhatsApp message does (videos and voice notes too).
   if (recordType === WHATSAPP_RECORD_TYPE || recordType === TRIP_KIT_RECORD_TYPE) return whatsappContentTypes;
   return spreadsheetRecordTypes.includes(recordType) ? spreadsheetContentTypes : attachmentContentTypes;

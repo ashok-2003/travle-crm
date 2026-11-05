@@ -304,6 +304,7 @@
     "PACKAGE_TIER_REQUIRED": "Choose at least one tier.",
     "TIER_NAME_TAKEN": "This package already has a tier with this name.",
     "PACKAGE_PHOTO_LIMIT": "A package holds six photos at most.",
+    "PACKAGE_BROCHURE_LIMIT": "A package holds five brochures at most.",
     "PAGE_UNAVAILABLE": "This page is not available.",
     "DEPARTURE_UNAVAILABLE": "This departure is not taking requests any more. Choose another date.",
     "EMAIL_NOT_FOUND": "This email isn't kept any more: a failed email is kept for 30 days.",

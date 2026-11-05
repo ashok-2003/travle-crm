@@ -10,7 +10,10 @@ import {
   packageDetail,
   packageIdInput,
   quoteDetail,
+  packageFileRefInput,
+  packageFiles,
   packagePhotoList,
+  requestPackageFileInput,
   packagePhotoRefInput,
   requestPackagePhotoInput,
   removePackageSeasonInput,
@@ -26,13 +29,17 @@ import { generatePackageDepartures, makeGroupQuote } from "@travel-crm/domain/de
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import {
   calculateFromPrice,
+  confirmPackageFile,
   confirmPackagePhoto,
   findPackage,
   getPackage,
+  listPackageFiles,
   listPackagePhotos,
   makeQuotesFromPackage,
   packagePhotoCount,
+  removePackageFile,
   removePackagePhoto,
+  requestPackageFileUpload,
   removePackageSeason,
   removeTier,
   savePackageSeason,
@@ -183,4 +190,20 @@ export const packagesRouter = router({
   removePhoto: editor
     .input(packagePhotoRefInput)
     .mutation(({ ctx, input }) => removePackagePhoto(ctx, ctx.member, input)),
+
+  files: editor
+    .input(packageIdInput)
+    .output(packageFiles)
+    .query(({ ctx, input }) => listPackageFiles(ctx, ctx.member, input.packageId)),
+
+  requestFileUpload: editor
+    .input(requestPackageFileInput)
+    .output(z.object({ attachmentId: z.uuid(), upload: presignedUpload }))
+    .mutation(({ ctx, input }) => requestPackageFileUpload(ctx, ctx.member, input)),
+
+  confirmFile: editor
+    .input(packageFileRefInput)
+    .mutation(({ ctx, input }) => confirmPackageFile(ctx, ctx.member, input)),
+
+  removeFile: editor.input(packageFileRefInput).mutation(({ ctx, input }) => removePackageFile(ctx, ctx.member, input)),
 });
