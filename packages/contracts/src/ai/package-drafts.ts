@@ -38,7 +38,7 @@ export type FoundTrip = z.infer<typeof foundTrip>;
 
 export const foundTrips = z.object({
   fillId: recordId,
-  trips: z.array(foundTrip),
+  trips: z.array(foundTrip).max(MAX_FOUND_TRIPS),
   /** Parts of sources longer than one call; nothing is sent until one is chosen. */
   parts: z.array(z.object({ ref: z.string(), label: z.string() })),
   readPart: z.string().nullable(),
@@ -90,7 +90,7 @@ export const packageDraft = z.object({
   cancellationNotes: evidenced(z.string()),
   summary: evidenced(z.string()),
   highlights: evidenced(z.array(z.string())),
-  days: z.array(evidenced(quoteDay)),
+  days: z.array(evidenced(quoteDay)).max(MAX_DRAFT_DAYS),
   brochureKnowledgeId: recordId.nullable(),
 });
 export type PackageDraft = z.infer<typeof packageDraft>;
@@ -123,9 +123,9 @@ export const createGroupPackageInput = z.strictObject({
   cancellationNotes: text(2000),
   summary: text(600),
   highlights: z.array(text(160).min(1)).max(MAX_HIGHLIGHTS),
-  days: z.array(quoteDay).max(MAX_QUOTE_DAYS),
+  days: z.array(quoteDay).max(Math.min(MAX_DRAFT_DAYS, MAX_QUOTE_DAYS)),
   brochureKnowledgeId: recordId.nullable(),
   /** The draft's fields the owner kept as proposed, for the audit. */
-  appliedFields: z.array(z.string()),
+  appliedFields: z.array(z.string().max(40)).max(40),
 });
 export type CreateGroupPackageInput = z.infer<typeof createGroupPackageInput>;

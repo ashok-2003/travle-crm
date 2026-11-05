@@ -1,6 +1,12 @@
 // Package drafts: a price keeps every alternative a source gave, and the create input is strict.
 import { describe, expect, it } from "vitest";
-import { createGroupPackageInput, draftSeason } from "../../src/ai/package-drafts.js";
+import {
+  createGroupPackageInput,
+  draftSeason,
+  foundTrips,
+  MAX_DRAFT_DAYS,
+  MAX_FOUND_TRIPS,
+} from "../../src/ai/package-drafts.js";
 
 const evidence = [{ token: "L1", source: "Knowledge: Manali", excerpt: "Double 6,999" }];
 const price = (value: number) => ({ value, evidence, checkThis: false });
@@ -48,5 +54,26 @@ describe("package drafts", () => {
     expect(createGroupPackageInput.safeParse({ ...valid, extra: 1 }).success).toBe(false);
     const backwards = { ...valid.seasons[0], startsOn: "2027-07-01" };
     expect(createGroupPackageInput.safeParse({ ...valid, seasons: [backwards] }).success).toBe(false);
+  });
+
+  it("an over-long trips list, days list or applied-fields list is refused", () => {
+    const trip = {
+      ref: "t",
+      name: "n",
+      placeWords: "p",
+      destinationId: null,
+      destinationName: null,
+      nights: null,
+      evidence: [],
+    };
+    const trips = Array.from({ length: MAX_FOUND_TRIPS + 1 }, () => trip);
+    const list = { fillId: valid.fillId, trips, parts: [], readPart: null };
+    expect(foundTrips.safeParse(list).success).toBe(false);
+    expect(foundTrips.safeParse({ ...list, trips: trips.slice(1) }).success).toBe(true);
+    const days = Array.from({ length: MAX_DRAFT_DAYS + 1 }, () => ({ title: "Day", description: "" }));
+    expect(createGroupPackageInput.safeParse({ ...valid, days }).success).toBe(false);
+    const fields = Array.from({ length: 41 }, () => "name");
+    expect(createGroupPackageInput.safeParse({ ...valid, appliedFields: fields }).success).toBe(false);
+    expect(createGroupPackageInput.safeParse({ ...valid, appliedFields: ["x".repeat(41)] }).success).toBe(false);
   });
 });
