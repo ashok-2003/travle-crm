@@ -4,14 +4,14 @@
 -- A package can sell a group trip: its kind, rooms, payment terms, when it departs, and whether the AI may sell it.
 ALTER TABLE "quote_template"
   ADD COLUMN "kind" TEXT NOT NULL DEFAULT 'custom',
-  ADD COLUMN "room_types" TEXT[] DEFAULT ARRAY[]::TEXT[],
+  ADD COLUMN "room_types" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
   ADD COLUMN "prices_include_gst" BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN "advance_per_person_paise" BIGINT,
   ADD COLUMN "payment_details" TEXT NOT NULL DEFAULT '',
   ADD COLUMN "pickup_points" TEXT NOT NULL DEFAULT '',
   ADD COLUMN "start_city" TEXT NOT NULL DEFAULT '',
-  ADD COLUMN "weekly_days" INTEGER[] DEFAULT ARRAY[]::INTEGER[],
-  ADD COLUMN "departure_months" INTEGER[] DEFAULT ARRAY[]::INTEGER[],
+  ADD COLUMN "weekly_days" INTEGER[] NOT NULL DEFAULT ARRAY[]::INTEGER[],
+  ADD COLUMN "departure_months" INTEGER[] NOT NULL DEFAULT ARRAY[]::INTEGER[],
   ADD COLUMN "seats_per_departure" INTEGER,
   ADD COLUMN "ai_sellable" BOOLEAN NOT NULL DEFAULT false;
 
