@@ -160,7 +160,7 @@ function MediaRow({ item, disabled }: { item: AiMediaItem; disabled: boolean }) 
     });
   };
   return (
-    <Item variant="muted">
+    <Item variant="muted" role="listitem">
       <ItemMedia variant="icon">
         <MediaIcon contentType={item.contentType} />
       </ItemMedia>
