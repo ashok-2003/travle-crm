@@ -98,8 +98,12 @@ function SettingsForm({ saved }: { saved: BookingSettingsView }) {
     }
     const parsed = saveBookingSettingsInput.safeParse({ ...settings, balanceReminderDays: days });
     if (!parsed.success) {
-      const rules = parsed.error.issues.some((issue) => issue.path[0] === "rules");
-      setProblem(rules ? t("problems.rules") : t("problems.check"));
+      const { issues } = parsed.error;
+      if (issues.some((issue) => issue.message === "UNKNOWN_BLANK")) {
+        setProblem(t("problems.unknownBlank", { blanks: paymentBlankNames.map((name) => `{${name}}`).join(", ") }));
+        return;
+      }
+      setProblem(issues.some((issue) => issue.path[0] === "rules") ? t("problems.rules") : t("problems.check"));
       return;
     }
     save.mutate(parsed.data, { onSuccess: () => toast.success(t("saved")) });

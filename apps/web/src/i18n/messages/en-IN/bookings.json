@@ -481,6 +481,7 @@
     "problems": {
       "reminderDays": "Type the reminder days as numbers separated by commas.",
       "rules": "The first step starts at 0 days, and no two steps start on the same day.",
+      "unknownBlank": "A payment message can use only these blanks: {blanks}.",
       "check": "Check the settings and try again."
     },
     "paymentMessages": {
