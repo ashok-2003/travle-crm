@@ -3,61 +3,15 @@
 import type { ChatFacts } from "@travel-crm/contracts/ai";
 import { adultRoomTypes, type RoomPrices, type RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
-import { openDepartureDetails, type OpenDeparture } from "../../departures/index.js";
-import { parseCalendarDate, type CalendarDate } from "../../kernel/index.js";
+import { openDepartureDetails, openDeparturesOf } from "../../departures/index.js";
+import { addDays, parseCalendarDate, type CalendarDate } from "../../kernel/index.js";
 import { fromPrices, packageFilesIn, priceOn, sellablePackages, seasonsOf, totalFor } from "../../quotes/index.js";
 import { autopilotOf } from "../autopilot.js";
 import { aiCustomTripsOn } from "../settings.js";
 
 export const MOST_PACKAGES = 5;
-
-/** Why a package is in the lookup. */
-export type PackageWhy = { kind: "chosen" } | { kind: "place"; words: string } | { kind: "nearest"; words: string[] };
-
-export interface LookupPackage {
-  id: string;
-  why: PackageWhy;
-  name: string;
-  title: string;
-  kind: "custom" | "group";
-  destination: string | null;
-  nights: number | null;
-  summary: string;
-  highlights: string[];
-  inclusions: string;
-  exclusions: string;
-  dayTitles: string[];
-  startCity: string;
-  pickupPoints: string;
-  pricesIncludeGst: boolean;
-  offered: RoomType[];
-  /** Per person by room type on the asked date; null when no date is asked or the date has no open departure or season. */
-  prices: RoomPrices | null;
-  /** The lowest coming price per room type (a group package only). */
-  from: RoomPrices;
-  /** The lowest per-person price: for a group package an adult's, for a custom one the figure staff entered. */
-  fromPaise: number | null;
-  /** The next open departures, at most three (none for a custom package). */
-  departures: OpenDeparture[];
-  /** The open departure on the asked date, or the one the chat settled on. */
-  chosenDeparture: OpenDeparture | null;
-  /** What the chat's rooms add up to on the asked date, only when every traveller has a priced room. */
-  total: number | null;
-  advancePerPersonPaise: number | null;
-  hasPaymentQr: boolean;
-  hasPaymentText: boolean;
-  /** Brochures the chat has not been sent yet. */
-  brochures: { id: string; fileName: string }[];
-}
-
-export interface Lookup {
-  packages: LookupPackage[];
-  notRun: string[];
-  customTrips: boolean;
-  today: CalendarDate;
-  travellers: number | null;
-  startsOn: CalendarDate | null;
-}
+import type { Lookup, LookupPackage, PackageWhy } from "./lookup-types.js";
+export type { Lookup, LookupPackage, PackageWhy };
 
 const noPrices: RoomPrices = {
   single: null,
@@ -91,6 +45,15 @@ async function chosenPackages(tx: OrgTx, facts: ChatFacts, today: CalendarDate, 
     if (ids.includes(id) && !picked.has(id)) picked.set(id, { kind: "nearest", words: facts.notRun });
   }
   return [...picked].slice(0, MOST_PACKAGES);
+}
+
+/** Where the listed departures start: the day (or month) the customer asked for, never before tomorrow; else today. */
+function listFrom(facts: ChatFacts, today: CalendarDate): CalendarDate {
+  const asked = facts.startsOn ?? (facts.month === null ? null : `${facts.month}-01`);
+  if (asked === null) return today;
+  const tomorrow = addDays(today, 1);
+  const day = parseCalendarDate(asked);
+  return day > tomorrow ? day : tomorrow;
 }
 
 export async function lookUp(
@@ -151,9 +114,7 @@ async function lookUpOne(
   const offered = row.roomTypes as RoomType[];
   const details = group ? await openDepartureDetails(tx, id, today, now) : [];
   const seasons = group ? await seasonsOf(tx, id) : [];
-  const departures = details
-    .slice(0, 3)
-    .map(({ id: departureId, startsOn, freeSeats }) => ({ id: departureId, startsOn, freeSeats }));
+  const departures = group ? await openDeparturesOf(tx, id, today, now, listFrom(facts, today)) : [];
   const onDay = facts.startsOn === null ? undefined : details.find((one) => one.startsOn === facts.startsOn);
   const settled = onDay ?? details.find((one) => one.id === facts.departureId);
   const chosenDeparture =

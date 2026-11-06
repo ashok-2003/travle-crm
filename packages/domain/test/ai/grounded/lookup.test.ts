@@ -299,4 +299,31 @@ describe("looking up a chat's packages", () => {
     expect(found.packages).toHaveLength(5);
     expect(found.customTrips).toBe(true);
   });
+
+  it("a December ask lists December's departures, not November's", async () => {
+    const destination = await world.inOrg(async (tx) => {
+      const place = await aDestination(tx, "Auli");
+      await aGroup(tx, place, [
+        { start: "2026-11-20" },
+        { start: "2026-11-27" },
+        { start: "2026-12-05" },
+        { start: "2026-12-12" },
+        { start: "2026-12-19" },
+        { start: "2026-12-26" },
+      ]);
+      return place;
+    });
+    const places = [{ destinationId: destination, words: "Auli" }];
+    const days = async (changes: Partial<ChatFacts>) =>
+      (await look({ places, ...changes })).packages[0]?.departures.map((one) => one.startsOn);
+    expect(await days({ month: "2026-12" })).toEqual(["2026-12-05", "2026-12-12", "2026-12-19"]);
+    expect(await days({ startsOn: parseCalendarDate("2026-12-12") })).toEqual([
+      "2026-12-12",
+      "2026-12-19",
+      "2026-12-26",
+    ]);
+    expect(await days({})).toEqual(["2026-11-20", "2026-11-27", "2026-12-05"]);
+    // Never before tomorrow, even when the asked day is today.
+    expect(await days({ startsOn: today })).toEqual(["2026-11-20", "2026-11-27", "2026-12-05"]);
+  });
 });

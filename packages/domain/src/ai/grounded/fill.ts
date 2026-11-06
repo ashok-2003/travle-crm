@@ -2,7 +2,7 @@
 import type { Card } from "./card.js";
 
 /** [words P<n> more]: letters, then a package key, then optional words or a number. */
-const SHAPE = /\[\s*[A-Za-z]+(?:\s+[A-Za-z]+)*\s+P\d+(?:\s+[A-Za-z0-9]+)*\s*\]/g;
+const SHAPE = /\[\s*[A-Za-z]+(?:\s+[A-Za-z]+)*\s+[Pp]\d+(?:\s+[A-Za-z0-9]+)*\s*\]/g;
 
 /** The same placeholder however the model spaced or capitalised it: "[Price  P1 Double]" is "[price P1 double]". */
 const canonical = (found: string): string => {

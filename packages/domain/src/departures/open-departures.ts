@@ -24,12 +24,13 @@ export async function openDepartureDetails(
   packageId: string,
   today: CalendarDate,
   now: Date,
+  from: CalendarDate = today,
 ): Promise<OpenDepartureDetail[]> {
   const rows = await tx.departure.findMany({
     where: {
       templateId: packageId,
       status: "open",
-      startDate: { gte: asDate(today) },
+      startDate: { gte: asDate(from) },
       OR: [{ cutoffOn: null }, { cutoffOn: { gte: asDate(today) } }],
     },
     orderBy: [{ startDate: "asc" }, { id: "asc" }],
@@ -56,13 +57,14 @@ export async function openDepartureDetails(
   });
 }
 
-/** The next three open departures with free seats, soonest first. */
+/** The next three open departures with free seats on or after `from` (today by default), soonest first. */
 export async function openDeparturesOf(
   tx: OrgTx,
   packageId: string,
   today: CalendarDate,
   now: Date,
+  from: CalendarDate = today,
 ): Promise<OpenDeparture[]> {
-  const details = await openDepartureDetails(tx, packageId, today, now);
+  const details = await openDepartureDetails(tx, packageId, today, now, from);
   return details.slice(0, MOST_OFFERED).map(({ id, startsOn, freeSeats }) => ({ id, startsOn, freeSeats }));
 }

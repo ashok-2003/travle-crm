@@ -110,4 +110,10 @@ describe("filling placeholders", () => {
     expect(filled.text).toBe("Day [3] of 5N6D, ₹6,999");
     expect(filled.unknown).toEqual([]);
   });
+
+  it("keys are case-insensitive: a lowercase p fills, an unknown one is reported", () => {
+    const filled = fillPlaceholders("[price p1 double] and [price p7 double]", card);
+    expect(filled.text).toBe("₹6,999 and [price p7 double]");
+    expect(filled.unknown).toEqual(["[price p7 double]"]);
+  });
 });
