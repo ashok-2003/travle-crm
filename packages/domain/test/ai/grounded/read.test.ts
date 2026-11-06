@@ -221,6 +221,12 @@ describe("checkedRead", () => {
       expect(after("Would you like the itinerary?")).toBe("other");
     });
 
+    it("needs the agency's line to end in a question about booking, not to mention booking anywhere", () => {
+      expect(after("Bookings close soon. Want the brochure?")).toBe("other");
+      expect(after("Shall I book it for you")).toBe("other");
+      expect(after("Shall I book it for you? 😊")).toBe("book");
+    });
+
     it("never stands for paid, or after a customer line, without that question", () => {
       expect(after("Would you like the itinerary?", read({ wants: "paid", wantsEvidence: "yes" }))).toBe("other");
       const buried = [{ from: "agency", text: "Shall I book it?" }, ...lines("Hmm", "Yes")] as ChatLine[];
@@ -236,6 +242,27 @@ describe("checkedRead", () => {
         const answer = read({ wants: "book", wantsEvidence: text });
         expect(checkedRead(answer, lines(text), keys).wants, text).toBe("other");
       }
+    });
+
+    it("never reads a question as a wish to book or a payment", () => {
+      const asked = (text: string, evidence = text, wants: "book" | "paid" = "book") =>
+        checkedRead(read({ wants, wantsEvidence: evidence }), lines(text), keys).wants;
+      for (const text of [
+        "how do I book?",
+        "is booking open for Dec?",
+        "final price?",
+        "can I pay by card?",
+        "Can you book it for me",
+        "kya booking ho sakti hai",
+        "kitna advance dena hai",
+        "booking kab tak karni hai?",
+      ]) {
+        expect(asked(text), text).toBe("other");
+      }
+      expect(asked("How do I book? Thanks", "book")).toBe("other");
+      expect(asked("should I pay now?", "pay now", "paid")).toBe("other");
+      expect(asked("Book it. Is pickup from Delhi?", "Book it")).toBe("book");
+      expect(asked("ok book karo")).toBe("book");
     });
 
     it("never reads '2 people' or 'double sharing' as a booking", () => {

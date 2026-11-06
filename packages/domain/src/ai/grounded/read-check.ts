@@ -8,8 +8,10 @@ import {
   containsWords,
   hasAWishCue,
   hasAWord,
+  isAQuestion,
   isAffirmation,
   normalised,
+  sentencesIn,
   sharesAWord,
 } from "./read-words.js";
 
@@ -89,11 +91,26 @@ export function checkedRead(read: ReadAnswer, transcript: ChatLine[], keys: Read
   };
 }
 
-/** A wish nobody wrote is "other". Book and paid need a cue of their own, or a bare yes that answers a question about booking. */
+/** Whether the customer said the evidence as a statement somewhere: a sentence that holds it and asks nothing. */
+function saidAsAStatement(evidence: string, transcript: ChatLine[]): boolean {
+  if (isAQuestion(evidence)) return false;
+  return transcript.some((line) => {
+    if (line.from !== "customer" || !containsWords(line.text, evidence)) return false;
+    const holding = sentencesIn(line.text).filter((sentence) => containsWords(sentence, evidence));
+    // Evidence across two sentences is judged by the whole message.
+    return holding.length === 0 ? !isAQuestion(line.text) : holding.some((sentence) => !isAQuestion(sentence));
+  });
+}
+
+/**
+ * A wish nobody wrote is "other". Book and paid must be said, never asked ("how do I book?", "final price?"), and need a
+ * cue of their own, or a bare yes that answers the agency's question about booking.
+ */
 function wish(read: ReadAnswer, transcript: ChatLine[], found: (evidence: string) => boolean) {
   const other = { wants: "other" as const, wantsEvidence: "" };
   if (!found(read.wantsEvidence)) return other;
   if (read.wants !== "book" && read.wants !== "paid") return { wants: read.wants, wantsEvidence: read.wantsEvidence };
+  if (!saidAsAStatement(read.wantsEvidence, transcript)) return other;
   if (hasAWishCue(read.wantsEvidence)) return { wants: read.wants, wantsEvidence: read.wantsEvidence };
   if (!isAffirmation(read.wantsEvidence)) return other;
   // The agency's line right before the customer line that says it must have asked about booking.

@@ -38,6 +38,30 @@ const wishCues =
   /\b(book\w*|reserve\w*|confirm\w*|pay\w*|paid|advance|transfer\w*|sent|proceed|lock|bhej diya|bhej diye|bhej di|mil gaya|le lenge|lena hai|go ahead|take it|final\w*|pakka|chalo|count me in|im in|i m in)\b|बुक|पेमेंट|पैसे|भुगतान|कन्फर्म|पक्का/u;
 export const hasAWishCue = (evidence: string): boolean => wishCues.test(normalised(evidence));
 
-/** Whether the agency's message asks about booking (book, booking, reserve, confirm your seats; Hinglish book karein/karu). */
-export const asksToBook = (text: string): boolean =>
-  /\b(book\w*|reserve\w*|confirm your seats?)\b|बुक/u.test(normalised(text));
+/** The words that open a question: English, Hinglish and Hindi. */
+const QUESTION_OPENER =
+  /^(?:how|what|when|is|are|can|could|do|does|kya|kaise|kab|kitna|kitne|kitni|क्या|कैसे|कब|कितना|कितने|कितनी)$/u;
+
+/** A message's sentences, split after . ! ? । and new lines. */
+export const sentencesIn = (text: string): string[] =>
+  text
+    .split(/(?<=[.!?।\n])/u)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence !== "");
+
+/** Ends with "?" (an emoji or a space after it aside) or opens with a question word: "how do I book", "final price?". */
+export function isAQuestion(sentence: string): boolean {
+  const end = sentence.replace(/[^\p{L}\p{M}\p{N}?]+$/u, "");
+  return end.endsWith("?") || QUESTION_OPENER.test(wordsOf(sentence)[0] ?? "");
+}
+
+/**
+ * Whether the agency's message ends by asking about booking: its last sentence is a question that holds book, reserve
+ * or "confirm your seats" ("Shall I book the 12 Dec departure?", "book karein?"). A mention of booking before a question
+ * about something else ("Bookings close soon. Want the brochure?") is no such question.
+ */
+export function asksToBook(text: string): boolean {
+  const end = text.replace(/[^\p{L}\p{M}\p{N}?]+$/u, "");
+  if (!end.endsWith("?")) return false;
+  return /\b(book\w*|reserve\w*|confirm your seats?)\b|बुक/u.test(normalised(sentencesIn(end).at(-1) ?? ""));
+}
