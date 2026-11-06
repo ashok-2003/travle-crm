@@ -16,6 +16,7 @@ export {
   PACKAGE_DEPARTURES_QUEUE,
   runPackageDepartures,
 } from "./package-departures.js";
+export { reconcilePackageDepartures, SCHEDULE_KEPT_KIND, type Reconciled } from "./reconcile-departures.js";
 export { eraseDepartureParts, type DeparturesErased } from "./erasure.js";
 export {
   bookingJoinedDeparture,
@@ -45,7 +46,7 @@ export {
 } from "./rooming.js";
 export { countsOf, departureSettingsOf, findDeparture, seatsSoldAndHeld, stateOf, type DepartureRow } from "./rows.js";
 export { departureSettingsView, saveDepartureSettings } from "./settings.js";
-export { publicDepartures, type PublicDepartureRow } from "./public-list.js";
+export { pricingOf as departurePricing, publicDepartures, type PublicDepartureRow } from "./public-list.js";
 export { departuresStartingSoon, type DepartureSoon } from "./today-source.js";
 export {
   addToWaitlist,

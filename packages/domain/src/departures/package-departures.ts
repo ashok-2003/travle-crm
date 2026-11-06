@@ -71,7 +71,7 @@ export async function generatePackageDepartures(
     if (!pack.weeklyDays.includes(weekday)) continue;
     if (pack.departureMonths.length > 0 && !pack.departureMonths.includes(month)) continue;
     if (taken.has(day)) continue;
-    await createDeparture(tx, actor, {
+    const made = await createDeparture(tx, actor, {
       title: pack.name,
       destinationId: pack.destinationId,
       startDate: day,
@@ -83,6 +83,8 @@ export async function generatePackageDepartures(
       templateId: packageId,
       prices: noPrices,
     });
+    // The day the schedule made it for: a schedule change tells it from one staff added or moved.
+    await tx.departure.update({ where: { id: made.id }, data: { scheduledOn: asDate(day) } });
     created += 1;
   }
   return { created };

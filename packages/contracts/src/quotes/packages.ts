@@ -214,7 +214,12 @@ export const makeGroupQuoteInput = z.strictObject({
   leadId: recordId,
   packageId: recordId,
   departureId: recordId,
-  rooms: z.array(roomBooking).min(1).max(6),
+  // One line a room type: the same type twice would be priced as two lines of one.
+  rooms: z
+    .array(roomBooking)
+    .min(1)
+    .max(6)
+    .refine((rooms) => unique(rooms.map((room) => room.roomType)), "Each room type once"),
 });
 export type MakeGroupQuoteInput = z.infer<typeof makeGroupQuoteInput>;
 

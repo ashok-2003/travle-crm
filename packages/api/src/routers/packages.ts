@@ -28,7 +28,7 @@ import {
   updatePackageInput,
 } from "@travel-crm/contracts/quotes";
 import { presignedUpload } from "@travel-crm/contracts/files";
-import { generatePackageDepartures, makeGroupQuote } from "@travel-crm/domain/departures";
+import { generatePackageDepartures, makeGroupQuote, reconcilePackageDepartures } from "@travel-crm/domain/departures";
 import {
   calculateFromPrice,
   confirmPackageFile,
@@ -94,7 +94,10 @@ export const packagesRouter = router({
         before.nights !== input.nights ||
         before.seatsPerDeparture !== input.seatsPerDeparture;
       // Making departures is departures work: skipped, silently, for a member or a plan without it.
-      if (changed && mayMakeDepartures(ctx)) await generatePackageDepartures(tx, ctx.member, input.packageId, today);
+      if (changed && mayMakeDepartures(ctx)) {
+        await reconcilePackageDepartures(tx, ctx.member, input.packageId, today);
+        await generatePackageDepartures(tx, ctx.member, input.packageId, today);
+      }
     });
   }),
 

@@ -22,6 +22,8 @@ model Departure {
   cancelledReason      String?             @map("cancelled_reason")
   /// The group package this departure sells, or null (one departure per package per day while live).
   templateId           String?             @map("template_id") @db.Uuid
+  /// The day the package's schedule made this departure for, or null when staff added it by hand. Staff moving the start leaves it behind.
+  scheduledOn          DateTime?           @map("scheduled_on") @db.Date
   /// Per person, in paise, by room type; null when this departure has no price for it.
   priceSinglePaise     BigInt?             @map("price_single_paise")
   priceDoublePaise     BigInt?             @map("price_double_paise")

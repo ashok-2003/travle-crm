@@ -277,17 +277,62 @@ describe("empty seats", () => {
             name: `GST ${String(includes)} ${String(Math.random())}`,
             title: "T",
             kind: "group",
+            roomTypes: ["double"],
             pricesIncludeGst: includes,
           },
           select: { id: true },
         }),
       );
-      await world.inOrg((tx) => tx.departure.update({ where: { id: s.departure.id }, data: { templateId: pack.id } }));
+      await world.inOrg((tx) =>
+        tx.departure.update({
+          where: { id: s.departure.id },
+          data: { templateId: pack.id, priceDoublePaise: 1_250_000n },
+        }),
+      );
       const person = await s.lead(world.seller.userId, { name: "Priya Nair" });
       s.model.answer("Hi Priya! A few seats are open.\nIt is {price}. Reply if you'd like one!");
       const message = await s.write(person.leadId);
       expect(message.text).toContain(`₹12,500.00 per person ${words}`);
     }
+  });
+
+  it("the seats message reads the departure's price from priceOn", async () => {
+    const s = await setup({ pricePaise: null });
+    const pack = await world.inOrg((tx) =>
+      tx.quoteTemplate.create({
+        data: { name: `Season ${String(Math.random())}`, title: "T", kind: "group", roomTypes: ["double", "triple"] },
+        select: { id: true },
+      }),
+    );
+    await world.inOrg((tx) => tx.departure.update({ where: { id: s.departure.id }, data: { templateId: pack.id } }));
+    const person = await s.lead(world.seller.userId);
+    const ask = async () => {
+      s.model.answer("Hi! A few seats are open.\nIt is {price}. Reply if you'd like one!");
+      return s.write(person.leadId);
+    };
+    // No own price and no season on its day: the "no price" wording.
+    expect((await ask()).text).toBe("Hi! A few seats are open.");
+    expect(JSON.stringify(s.model.requests[0]?.messages)).toContain("No price is known");
+    // The season of its day prices it: the lowest adult price offered, not a child's.
+    await world.inOrg((tx) =>
+      tx.packageSeason.create({
+        data: {
+          templateId: pack.id,
+          label: "Winter",
+          startsOn: new Date("2026-11-01T00:00:00Z"),
+          endsOn: new Date("2027-03-31T00:00:00Z"),
+          priceDoublePaise: 800_000n,
+          priceTriplePaise: 699_900n,
+          priceChildBedPaise: 500_000n,
+        },
+      }),
+    );
+    expect((await ask()).text).toContain("₹6,999.00 per person including GST");
+    // The departure's own prices win over the season's.
+    await world.inOrg((tx) =>
+      tx.departure.update({ where: { id: s.departure.id }, data: { priceDoublePaise: 900_000n } }),
+    );
+    expect((await ask()).text).toContain("₹9,000.00 per person including GST");
   });
 
   it("drops the price line when the departure has none", async () => {

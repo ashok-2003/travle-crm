@@ -1,11 +1,18 @@
 // Departures made from a group package's weekly days, against the real database.
 import type { RoomPrices } from "@travel-crm/contracts/quotes";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { cancelDeparture, createDeparture, getDeparture, listDepartures } from "../../src/departures/index.js";
+import {
+  cancelDeparture,
+  createDeparture,
+  getDeparture,
+  listDepartures,
+  reconcilePackageDepartures,
+  updateDeparture,
+} from "../../src/departures/index.js";
 import { generatePackageDepartures, runPackageDepartures } from "../../src/departures/package-departures.js";
 import { parseCalendarDate, systemActor } from "../../src/kernel/index.js";
 import { deletePackage } from "../../src/quotes/index.js";
-import { now, openWorld, type World } from "./support.js";
+import { aBookingOn, aSellersLead, now, openWorld, type World } from "./support.js";
 
 const FRIDAY_AND_SATURDAY = [5, 6];
 
@@ -164,6 +171,161 @@ describe("departures of a package", () => {
       );
     expect(await run(["crm"])).toBe(0);
     expect(await run(["departures"])).toBeGreaterThan(0);
+  });
+
+  describe("a schedule change", () => {
+    const TODAY = "2026-11-02";
+    const reconcile = (packageId: string) =>
+      world.inOrg((tx) =>
+        reconcilePackageDepartures(tx, systemActor(world.organizationId), packageId, parseCalendarDate(TODAY)),
+      );
+    const rowOn = (packageId: string, day: string) =>
+      world.inOrg((tx) =>
+        tx.departure.findFirstOrThrow({ where: { templateId: packageId, startDate: new Date(`${day}T00:00:00Z`) } }),
+      );
+    const noticesAbout = (departureId: string) =>
+      world.inOrg((tx) =>
+        tx.notification.count({
+          where: { kind: "departure.schedule-kept", link: { contains: departureId } },
+        }),
+      );
+
+    it("generated departures carry the day they were made for", async () => {
+      const pack = await aGroupPackage({ weeklyDays: [5] });
+      await generate(pack.id, TODAY);
+      const rows = await world.inOrg((tx) => tx.departure.findMany({ where: { templateId: pack.id } }));
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((row) => row.scheduledOn?.getTime() === row.startDate.getTime())).toBe(true);
+    });
+
+    it("cancels future generated departures that no longer match, and keeps any with a booking or hold, telling the team", async () => {
+      const pack = await aGroupPackage();
+      await generate(pack.id, TODAY);
+      // 2026-11-07 is a Saturday: one with a booking, one with a hold, one with nothing, one staff added by hand.
+      const booked = await rowOn(pack.id, "2026-11-07");
+      const held = await rowOn(pack.id, "2026-11-14");
+      const plain = await rowOn(pack.id, "2026-11-21");
+      const movedByStaff = await rowOn(pack.id, "2026-11-28");
+      const handMade = await world.inOrg((tx) =>
+        tx.departure.create({
+          data: {
+            title: "Added by staff",
+            templateId: pack.id,
+            startDate: new Date("2027-02-06T00:00:00Z"),
+            endDate: new Date("2027-02-12T00:00:00Z"),
+            seatsTotal: 8,
+          },
+        }),
+      );
+      await world.inOrg((tx) =>
+        tx.departure.update({
+          where: { id: movedByStaff.id },
+          data: { scheduledOn: new Date("2026-11-27T00:00:00Z") },
+        }),
+      );
+      await aBookingOn(world, booked.id, { leadId: (await aSellersLead(world)).id });
+      const holder = await aSellersLead(world);
+      await world.inOrg((tx) =>
+        tx.departureHold.create({
+          data: { departureId: held.id, leadId: holder.id, seats: 2, expiresAt: new Date("2999-01-01T00:00:00Z") },
+        }),
+      );
+      await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id: pack.id }, data: { weeklyDays: [5] } }));
+
+      const result = await reconcile(pack.id);
+
+      const status = async (id: string) =>
+        (await world.inOrg((tx) => tx.departure.findUniqueOrThrow({ where: { id } }))).status;
+      expect(await status(plain.id)).toBe("cancelled");
+      expect(await status(booked.id)).toBe("open");
+      expect(await status(held.id)).toBe("open");
+      expect(await status(movedByStaff.id)).toBe("open");
+      expect(await status(handMade.id)).toBe("open");
+      expect(result.kept).toBe(2);
+      expect(result.cancelled).toBeGreaterThan(2);
+      const audit = await world.inOrg((tx) =>
+        tx.auditEntry.count({ where: { action: "departure.cancelled", entityId: plain.id } }),
+      );
+      expect(audit).toBe(1);
+      expect(await noticesAbout(booked.id)).toBe(1);
+      expect(await noticesAbout(held.id)).toBe(1);
+      expect(await noticesAbout(plain.id)).toBe(0);
+      // Said once: a second look tells the team nothing new.
+      await reconcile(pack.id);
+      expect(await noticesAbout(booked.id)).toBe(1);
+    });
+
+    it("changes the end and seats of matching departures with no sales, and keeps the ones with a hold, telling the team", async () => {
+      const pack = await aGroupPackage({ weeklyDays: [5] });
+      await generate(pack.id, TODAY);
+      const free = await rowOn(pack.id, "2026-11-06");
+      const held = await rowOn(pack.id, "2026-11-13");
+      const holder = await aSellersLead(world);
+      await world.inOrg((tx) =>
+        tx.departureHold.create({
+          data: { departureId: held.id, leadId: holder.id, seats: 1, expiresAt: new Date("2999-01-01T00:00:00Z") },
+        }),
+      );
+      await world.inOrg((tx) =>
+        tx.quoteTemplate.update({ where: { id: pack.id }, data: { nights: 8, seatsPerDeparture: 15 } }),
+      );
+      const result = await reconcile(pack.id);
+      const after = await rowOn(pack.id, "2026-11-06");
+      expect(after).toMatchObject({ seatsTotal: 15 });
+      expect(after.endDate.toISOString().slice(0, 10)).toBe("2026-11-14");
+      const kept = await rowOn(pack.id, "2026-11-13");
+      expect(kept).toMatchObject({ seatsTotal: 12 });
+      expect(result.updated).toBeGreaterThan(0);
+      expect(result.kept).toBe(1);
+      expect(await noticesAbout(held.id)).toBe(1);
+      expect(await noticesAbout(free.id)).toBe(0);
+    });
+  });
+
+  it("updating a departure audits its package and own prices", async () => {
+    const pack = await aGroupPackage();
+    const made = await world.inOrg((tx) =>
+      createDeparture(tx, world.manager, {
+        title: "Audited",
+        destinationId: null,
+        startDate: "2027-05-07",
+        endDate: "2027-05-13",
+        seatsTotal: 10,
+        pricePaise: null,
+        cutoffOn: null,
+        notes: "",
+        templateId: pack.id,
+        prices: { single: null, double: 2_400_000, triple: null, quad: null, child_bed: null, child_no_bed: null },
+      }),
+    );
+    await world.inOrg((tx) =>
+      updateDeparture(tx, world.manager, {
+        departureId: made.id,
+        title: "Audited",
+        destinationId: null,
+        startDate: "2027-05-07",
+        endDate: "2027-05-13",
+        seatsTotal: 10,
+        pricePaise: null,
+        cutoffOn: null,
+        notes: "",
+        templateId: pack.id,
+        prices: { single: 3_000_000, double: 2_400_000, triple: null, quad: null, child_bed: null, child_no_bed: null },
+      }),
+    );
+    const entry = await world.inOrg((tx) =>
+      tx.auditEntry.findFirstOrThrow({ where: { action: "departure.changed", entityId: made.id } }),
+    );
+    expect(entry.before).toMatchObject({ templateId: pack.id, priceSinglePaise: null, priceDoublePaise: "2400000" });
+    expect(entry.after).toMatchObject({
+      templateId: pack.id,
+      priceSinglePaise: "3000000",
+      priceDoublePaise: "2400000",
+    });
+    const created = await world.inOrg((tx) =>
+      tx.auditEntry.findFirstOrThrow({ where: { action: "departure.created", entityId: made.id } }),
+    );
+    expect(created.after).toMatchObject({ templateId: pack.id, priceDoublePaise: "2400000" });
   });
 
   it("lists a package's departures", async () => {

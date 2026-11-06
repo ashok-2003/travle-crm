@@ -51,6 +51,10 @@ export async function makeGroupQuote(
   ) {
     throw new DomainError("CONFLICT", "DEPARTURE_NOT_OPEN", "This departure is not open for booking");
   }
+  // For callers that skip the contract: two lines of one room type are one line.
+  if (new Set(input.rooms.map((room) => room.roomType)).size !== input.rooms.length) {
+    throw new DomainError("VALIDATION", "DUPLICATE_ROOM_TYPE", "Each room type may appear once");
+  }
   const people = input.rooms.reduce((sum, room) => sum + room.people, 0);
   const children = input.rooms.reduce((sum, room) => sum + (roomCapacity[room.roomType] === null ? room.people : 0), 0);
   // A child's place is booked beside an adult's; a party of children alone has nobody to travel with.

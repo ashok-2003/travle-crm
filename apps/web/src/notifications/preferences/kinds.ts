@@ -43,6 +43,7 @@ export const notificationKinds = [
   { kind: "departure.seats-free", messageKey: "departureSeatsFree" },
   { kind: "departure.hold-expired", messageKey: "departureHoldExpired" },
   { kind: "departure.overbooked", messageKey: "departureOverbooked" },
+  { kind: "departure.schedule-kept", messageKey: "departureScheduleKept" },
   { kind: "supplier-cost.due-soon", messageKey: "supplierCostDueSoon" },
 ] as const;
 

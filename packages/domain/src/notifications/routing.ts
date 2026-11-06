@@ -9,6 +9,7 @@ import type { MemberAccess } from "../identity/index.js";
 /** The alerts about the business that a manager may want a copy of; a person's own notices (a mention, an export) are not. */
 export const TEAM_ALERT_KINDS: readonly string[] = [
   "ai.handoff",
+  "departure.schedule-kept",
   "ai.booking",
   "ai.payment-proof",
   "payment.proof-to-match",

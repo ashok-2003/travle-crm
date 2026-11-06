@@ -100,7 +100,7 @@ export async function publicDepartures(
 }
 
 /** The package's seasons and offered room types, as a function from a departure to its lowest offered price. */
-async function pricingOf(tx: OrgTx, packageId: string, offered: readonly RoomType[]) {
+export async function pricingOf(tx: OrgTx, packageId: string, offered: readonly RoomType[]) {
   const seasons = await seasonsOf(tx, packageId);
   return (row: {
     title: string;

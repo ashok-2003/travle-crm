@@ -193,6 +193,19 @@ describe("a group trip's quote", () => {
     ).toBe("ROOM_SPLIT");
   });
 
+  it("a group quote with the same room type twice is refused", async () => {
+    const { id } = await aPackage();
+    const departureId = await aDepartureOf(id);
+    expect(
+      await reasonOf(
+        make(id, departureId, [
+          { roomType: "triple", people: 3 },
+          { roomType: "triple", people: 3 },
+        ]),
+      ),
+    ).toBe("DUPLICATE_ROOM_TYPE");
+  });
+
   it("carries the package's itinerary", async () => {
     const { id } = await aPackage({ days: [{ title: "Arrive in Kaza", description: "Check in" }] });
     const quote = await make(id, await aDepartureOf(id), [{ roomType: "triple", people: 3 }]);

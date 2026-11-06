@@ -32,14 +32,39 @@ import {
 } from "./rows.js";
 import { announceSeatsFreed } from "./waitlist.js";
 
-/** A departure's figures in an audit entry: what changed, never the staff's notes. */
-const auditView = (row: Pick<DepartureRow, "title" | "startDate" | "endDate" | "seatsTotal" | "status">) => ({
-  title: row.title,
-  startDate: dayOf(row.startDate),
-  endDate: dayOf(row.endDate),
-  seatsTotal: row.seatsTotal,
-  status: row.status,
-});
+const auditColumns = {
+  title: true,
+  startDate: true,
+  endDate: true,
+  seatsTotal: true,
+  status: true,
+  templateId: true,
+  priceSinglePaise: true,
+  priceDoublePaise: true,
+  priceTriplePaise: true,
+  priceQuadPaise: true,
+  priceChildBedPaise: true,
+  priceChildNoBedPaise: true,
+} as const;
+
+/** A departure's figures in an audit entry: what changed, never the staff's notes. Money is paise as a string. */
+const auditView = (row: Pick<DepartureRow, keyof typeof auditColumns>) => {
+  const paise = (value: bigint | null) => (value === null ? null : value.toString());
+  return {
+    title: row.title,
+    startDate: dayOf(row.startDate),
+    endDate: dayOf(row.endDate),
+    seatsTotal: row.seatsTotal,
+    status: row.status,
+    templateId: row.templateId,
+    priceSinglePaise: paise(row.priceSinglePaise),
+    priceDoublePaise: paise(row.priceDoublePaise),
+    priceTriplePaise: paise(row.priceTriplePaise),
+    priceQuadPaise: paise(row.priceQuadPaise),
+    priceChildBedPaise: paise(row.priceChildBedPaise),
+    priceChildNoBedPaise: paise(row.priceChildNoBedPaise),
+  };
+};
 
 function summaryOf(
   row: DepartureRow,
@@ -209,7 +234,7 @@ export async function createDeparture(tx: OrgTx, actor: Actor, input: CreateDepa
   try {
     const created = await tx.departure.create({
       data: { ...columns, createdBy: actor.userId },
-      select: { id: true, title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
+      select: { id: true, ...auditColumns },
     });
     await recordAudit(tx, actor, {
       action: "departure.created",
@@ -231,7 +256,7 @@ export async function updateDeparture(tx: OrgTx, access: MemberAccess, input: Up
     .update({
       where: { id: before.id },
       data,
-      select: { title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
+      select: auditColumns,
     })
     .catch((error: unknown) => {
       throw isUniqueViolation(error) ? dayTaken() : error;
@@ -271,12 +296,7 @@ export async function setDepartureStatus(
  * Cancels a departure with a reason. Its bookings are not cancelled: staff move or cancel each (they are listed on the
  * departure). Its active holds are released, and its waitlist cleared, since nobody can join a cancelled batch.
  */
-export async function cancelDeparture(
-  tx: OrgTx,
-  access: MemberAccess,
-  input: CancelDepartureInput,
-  now: Date,
-): Promise<void> {
+export async function cancelDeparture(tx: OrgTx, access: Actor, input: CancelDepartureInput, now: Date): Promise<void> {
   const before = await findDepartureForChange(tx, input.departureId);
   if (before.status === "cancelled") return;
   await tx.departure.update({
@@ -295,4 +315,27 @@ export async function cancelDeparture(
     before: { status: before.status },
     after: { status: "cancelled", reason: input.reason },
   });
+}
+
+/** The schedule moved a generated departure's last day or seats: one audited change, and a waiting lead hears of more seats. */
+export async function changeScheduledDeparture(
+  tx: OrgTx,
+  actor: Actor,
+  departureId: string,
+  change: { endDate: string; seatsTotal: number },
+): Promise<void> {
+  const before = await findDepartureForChange(tx, departureId);
+  const after = await tx.departure.update({
+    where: { id: before.id },
+    data: { endDate: asDate(change.endDate), seatsTotal: change.seatsTotal },
+    select: auditColumns,
+  });
+  await recordAudit(tx, actor, {
+    action: "departure.changed",
+    entityType: "departure",
+    entityId: before.id,
+    before: auditView(before),
+    after: auditView(after),
+  });
+  if (after.seatsTotal > before.seatsTotal) await announceSeatsFreed(tx, before.id);
 }

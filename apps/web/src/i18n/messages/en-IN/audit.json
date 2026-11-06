@@ -479,7 +479,14 @@
     "unit": "Charged",
     "defaultMarkupBasisPoints": "Markup (basis points)",
     "minMarginBasisPoints": "Least margin (basis points)",
-    "lines": "Lines"
+    "lines": "Lines",
+    "templateId": "Package",
+    "priceSinglePaise": "Single room price",
+    "priceDoublePaise": "Double sharing price",
+    "priceTriplePaise": "Triple sharing price",
+    "priceQuadPaise": "Quad sharing price",
+    "priceChildBedPaise": "Child with bed price",
+    "priceChildNoBedPaise": "Child without bed price"
   },
   "recordTypes": {
     "issued_document": "A document",
