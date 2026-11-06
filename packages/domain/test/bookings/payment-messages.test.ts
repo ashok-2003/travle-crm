@@ -1,5 +1,6 @@
 // Telling the customer a person's decision about their payment: the agency's own words inside the 24-hour window, its approved
 // template outside it, else one task for the lead's owner; a repeat of the same decision changes nothing.
+import { saveBookingSettingsInput } from "@travel-crm/contracts/bookings";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseCalendarDate } from "../../src/kernel/index.js";
 import { bookingSettingsOf, saveBookingSettings } from "../../src/bookings/settings.js";
@@ -20,7 +21,7 @@ describe("telling the customer about their payment", () => {
   });
 
   /** A lead whose chat last heard from the customer `hoursAgo` hours before now, with a live number. */
-  async function aChat(hoursAgo: number, options: { template?: boolean } = {}) {
+  async function aChat(hoursAgo: number, options: { template?: boolean; withdrawn?: boolean } = {}) {
     return world.inOrg(async (tx) => {
       const connection = await tx.whatsappConnection.create({
         data: {
@@ -56,6 +57,19 @@ describe("telling the customer about their payment", () => {
           recordedAt: new Date(now.getTime() - 100 * HOUR),
         },
       });
+      if (options.withdrawn === true) {
+        await tx.personConsent.create({
+          data: {
+            personId: person.id,
+            purpose: "whatsapp",
+            action: "withdrawn",
+            wording: "test",
+            wordingVersion: 1,
+            source: "customer",
+            recordedAt: new Date(now.getTime() - 24 * HOUR),
+          },
+        });
+      }
       if (options.template === true) {
         const template = await tx.whatsappTemplate.create({
           data: {
@@ -79,18 +93,23 @@ describe("telling the customer about their payment", () => {
     });
   }
 
-  const tell = (leadId: string, recordKey: string, outcome: "confirmed" | "not_found" = "confirmed") =>
+  const tell = (
+    leadId: string | null,
+    recordKey: string,
+    outcome: "confirmed" | "not_found" = "confirmed",
+    more: { conversationId?: string; date?: string } = {},
+  ) =>
     world.inOrg((tx) =>
       tellPaymentOutcome(
         tx,
         {
           organizationId: world.organizationId,
           leadId,
-          conversationId: null,
+          conversationId: more.conversationId ?? null,
           outcome,
           amountPaise: 1_250_000,
           trip: "Manali 5N",
-          date: parseCalendarDate("2026-10-16"),
+          date: parseCalendarDate(more.date ?? "2026-10-16"),
           recordKey,
         },
         now,
@@ -110,7 +129,47 @@ describe("telling the customer about their payment", () => {
     expect(messages[0]?.body).toBe(
       "Thank you Asha! We have received ₹12,500.00 for Manali 5N on 16 Oct. Your booking is confirmed.",
     );
+    expect(messages[0]?.origin).toBe("automation");
+    expect(messages[0]?.sentBy).toBeNull();
     expect(await tasksOf(leadId)).toHaveLength(0);
+  });
+
+  it("inside the window the not-found words go", async () => {
+    const { leadId, chatId } = await aChat(1);
+    expect(await tell(leadId, "proof-6", "not_found")).toBe("sent");
+    expect((await outgoing(chatId))[0]?.body).toBe(
+      "Hi Asha, we could not find your payment of ₹12,500.00 yet. Could you send the transaction reference or a clearer screenshot?",
+    );
+  });
+
+  it("a day in another year shows its year", async () => {
+    const { leadId, chatId } = await aChat(1);
+    await tell(leadId, "proof-7", "confirmed", { date: "2027-10-16" });
+    expect((await outgoing(chatId))[0]?.body).toContain("on 16 Oct 2027.");
+  });
+
+  it("outside the window, after the customer asked to stop, the owner gets a task and nothing is sent", async () => {
+    const { leadId, chatId } = await aChat(48, { template: true, withdrawn: true });
+    expect(await tell(leadId, "proof-8")).toBe("task");
+    expect(await outgoing(chatId)).toHaveLength(0);
+    expect(await tasksOf(leadId)).toHaveLength(1);
+  });
+
+  it("a conversation with no lead is written to directly", async () => {
+    const { chatId } = await aChat(1);
+    expect(await tell(null, "proof-9", "confirmed", { conversationId: chatId })).toBe("sent");
+    expect(await outgoing(chatId)).toHaveLength(1);
+  });
+
+  it("a stored text with a blank nobody fills never goes as free text", async () => {
+    const { leadId, chatId } = await aChat(1);
+    await world.inOrg(async (tx) => {
+      const current = await bookingSettingsOf(tx);
+      await saveBookingSettings(tx, world.manager, current);
+      await tx.bookingSettings.updateMany({ data: { paymentConfirmedText: "Hi {name}, your {agent} says thanks" } });
+    });
+    expect(await tell(leadId, "proof-10")).toBe("task");
+    expect(await outgoing(chatId)).toHaveLength(0);
   });
 
   it("outside the window the approved template goes", async () => {
@@ -146,12 +205,19 @@ describe("telling the customer about their payment", () => {
     expect(await tasksOf(outside.leadId)).toHaveLength(1);
   });
 
-  it("a text with an unknown blank is refused in settings", async () => {
-    await expect(
-      world.inOrg(async (tx) => {
-        const current = await bookingSettingsOf(tx);
-        return saveBookingSettings(tx, world.manager, { ...current, paymentConfirmedText: "Hi {nmae}, thanks" });
-      }),
-    ).rejects.toMatchObject({ reason: "UNKNOWN_BLANK" });
+  it("a text with an unknown blank, or one a payment can't fill, is refused in settings", async () => {
+    const current = await world.inOrg((tx) => bookingSettingsOf(tx));
+    const rules = [{ daysBeforeMin: 0, chargeBasisPoints: 10_000 }];
+    for (const paymentConfirmedText of ["Hi {nmae}, thanks", "Hi {agent}, thanks"]) {
+      const parsed = saveBookingSettingsInput.safeParse({ ...current, rules, paymentConfirmedText });
+      expect(parsed.success).toBe(false);
+    }
+    expect(
+      saveBookingSettingsInput.safeParse({
+        ...current,
+        rules,
+        paymentConfirmedText: "Hi {name}, {amount} {trip} {date}",
+      }).success,
+    ).toBe(true);
   });
 });

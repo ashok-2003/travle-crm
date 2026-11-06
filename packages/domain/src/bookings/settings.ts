@@ -2,7 +2,7 @@
 // reminders and their WhatsApp templates, the packing list, the emergency contact, the bank details, the cancellation steps
 // and notes, and the review link. Saved by whoever manages settings, each template checked to be one of the agency's
 // approved ones with a value for every blank; audited. The cancellation policy of the day is copied onto each booking.
-import { markersOf, unknownBlanks } from "@travel-crm/contracts/inbox";
+import { markersOf } from "@travel-crm/contracts/inbox";
 import {
   bookingSettingsView,
   type BookingSettingsView,
@@ -125,11 +125,6 @@ export async function saveBookingSettings(
   await assertTemplate(tx, input.detailsTemplateId, input.detailsParams);
   await assertTemplate(tx, input.paymentConfirmedTemplateId, input.paymentConfirmedParams);
   await assertTemplate(tx, input.paymentNotFoundTemplateId, input.paymentNotFoundParams);
-  for (const text of [input.paymentConfirmedText, input.paymentNotFoundText]) {
-    if (unknownBlanks(text).length > 0) {
-      throw new DomainError("VALIDATION", "UNKNOWN_BLANK", "That message has a blank the library does not know");
-    }
-  }
   await assertTemplate(tx, input.reportingTemplateId, input.reportingParams);
   await assertTemplate(tx, input.feedbackTemplateId, input.feedbackParams);
   const before = await bookingSettingsOf(tx);

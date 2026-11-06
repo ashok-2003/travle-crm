@@ -15,6 +15,18 @@ export interface FillContext {
 }
 
 const dayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+const dayWordsWithYear = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** A day as "16 Oct", or "16 Oct 2027" in another year than the reference moment's. */
+export function formatDayWords(date: Date, reference: Date): string {
+  return (date.getUTCFullYear() === reference.getUTCFullYear() ? dayWords : dayWordsWithYear).format(date);
+}
+
 const monthWords = new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" });
 
 /** The lead's facts the blanks may show. */

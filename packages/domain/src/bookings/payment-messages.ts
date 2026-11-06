@@ -3,11 +3,11 @@
 // agency's approved template for that message; with neither, one task for the lead's owner to tell them by hand. Every id
 // and client token comes from the record's key, so a repeat sends and makes nothing more. Only code after a person's
 // decision calls this: the AI never sends it.
-import { fillBlanks } from "@travel-crm/contracts/inbox";
+import { blanksIn, fillBlanks } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import { uuidFromKey } from "../jobs/index.js";
 import { formatMoney, money, systemActor, type CalendarDate } from "../kernel/index.js";
-import { chatForLead, fillParams, sendToChat, type AutoSendResult } from "../sales/index.js";
+import { chatForLead, fillParams, formatDayWords, sendToChat, type AutoSendResult } from "../sales/index.js";
 import { createTask } from "../tasks/index.js";
 import { tripUpdatesAgreed } from "./reminders.js";
 import { bookingSettingsOf } from "./settings.js";
@@ -18,20 +18,6 @@ const TASK_TITLE: Record<PaymentOutcome, string> = {
   confirmed: "Tell {name} their payment was confirmed",
   not_found: "Tell {name} their payment wasn't found",
 };
-
-const dayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
-const dayWordsWithYear = new Intl.DateTimeFormat("en-IN", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-/** A calendar day as "16 Oct", or "16 Oct 2027" in another year than now's; no day means today. */
-function dayText(day: CalendarDate | null, now: Date): string {
-  const date = day === null ? now : new Date(`${day}T00:00:00Z`);
-  return (date.getUTCFullYear() === now.getUTCFullYear() ? dayWords : dayWordsWithYear).format(date);
-}
 
 /** The chat to write to: the lead's (found or made), else the conversation the booking came from. */
 async function chatToTellIn(tx: OrgTx, input: { leadId: string | null; conversationId: string | null }) {
@@ -95,8 +81,17 @@ export async function tellPaymentOutcome(
     personId === null ? null : await tx.person.findUnique({ where: { id: personId }, select: { name: true } });
   const fullName = person?.name.trim() ?? "";
   const first = fullName.split(/\s+/)[0] ?? "";
-  const dated = dayText(input.date, now);
+  const dated = formatDayWords(input.date === null ? now : new Date(`${input.date}T00:00:00Z`), now);
   const agencyName = input.agencyName ?? "our team";
+
+  // A blank left unfilled (an old stored text) never reaches the customer as free text: the template or a task takes over.
+  const filled = fillBlanks(text, {
+    name: first === "" || first.startsWith("WhatsApp") ? "there" : first,
+    amount: formatMoney(money(input.amountPaise)),
+    trip: input.trip,
+    date: dated,
+  });
+  const freeText = blanksIn(filled).length === 0 ? filled : null;
 
   let result: AutoSendResult = { kind: "never", reason: "no_chat" };
   if (chat !== null) {
@@ -116,12 +111,7 @@ export async function tellPaymentOutcome(
             link: agencyName,
           },
         }),
-        sessionText: fillBlanks(text, {
-          name: first === "" || first.startsWith("WhatsApp") ? "there" : first,
-          amount: formatMoney(money(input.amountPaise)),
-          trip: input.trip,
-          date: dated,
-        }),
+        ...(freeText === null ? {} : { sessionText: freeText }),
         agreed: personId === null ? false : await tripUpdatesAgreed(tx, personId),
         clientToken: token,
       },

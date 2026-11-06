@@ -10,7 +10,7 @@ export {
   workingMoment,
   type CadenceDependencies,
 } from "./cadence.js";
-export { fillParams, leadFacts, type FillContext } from "./fill-params.js";
+export { fillParams, formatDayWords, leadFacts, type FillContext } from "./fill-params.js";
 export {
   countOpenedQuotesNoReply,
   countPaymentsDue,
