@@ -73,6 +73,7 @@ const context: ActionContext = {
   hasLead: true,
   settings: { leadNotes: true, followUpTasks: true },
   latest: ["book it"],
+  notRunBefore: [],
 };
 const money = (allowed: ReturnType<typeof allowedActions>) => [allowed.sendPayment, allowed.requestBooking];
 
@@ -260,8 +261,9 @@ describe("allowedActions", () => {
     const notRun = { destination: "none", words: "Meghalaya", evidence: "Meghalaya" };
     expect(allowedActions(lookup(), facts(), read({ places: [notRun] }), context).forcedFlag).toBe("not_run");
     const special = { kind: "discount" as const, evidence: "any discount" };
-    expect(allowedActions(lookup(), facts(), read({ special }), context).forcedFlag).toBe("special_price");
-    expect(allowedActions(lookup(), facts(), read({ places: [notRun], special }), context).forcedFlag).toBe(
+    const asking = { ...context, latest: ["Meghalaya? any discount"] };
+    expect(allowedActions(lookup(), facts(), read({ special }), asking).forcedFlag).toBe("special_price");
+    expect(allowedActions(lookup(), facts(), read({ places: [notRun], special }), asking).forcedFlag).toBe(
       "not_run,special_price",
     );
     expect(allowedActions(lookup(), facts(), read(), context).forcedFlag).toBeNull();
@@ -269,6 +271,24 @@ describe("allowedActions", () => {
     expect(
       allowedActions(lookup({ notRun: ["Meghalaya"] }), facts({ notRun: ["Meghalaya"] }), read(), context).forcedFlag,
     ).toBeNull();
+  });
+});
+
+describe("flags once (M1)", () => {
+  it("an old Spiti ask the read sees again doesn't flag again next turn", () => {
+    const spitiAsk = { destination: "none", words: "Spiti", evidence: "Spiti?" };
+    const next = { ...context, notRunBefore: ["spiti"], latest: ["ok and the dates?"] };
+    expect(allowedActions(lookup(), facts(), read({ places: [spitiAsk] }), next).forcedFlag).toBeNull();
+    const newPlace = { destination: "none", words: "Ladakh", evidence: "Ladakh too" };
+    expect(allowedActions(lookup(), facts(), read({ places: [spitiAsk, newPlace] }), next).forcedFlag).toBe("not_run");
+  });
+
+  it("a special price is flagged only when asked in the messages this turn answers", () => {
+    const special = { kind: "b2b" as const, evidence: "B2B rate" };
+    const earlier = { ...context, latest: ["ok and the dates?"] };
+    expect(allowedActions(lookup(), facts(), read({ special }), earlier).forcedFlag).toBeNull();
+    const now = { ...context, latest: ["what is your B2B rate"] };
+    expect(allowedActions(lookup(), facts(), read({ special }), now).forcedFlag).toBe("special_price");
   });
 });
 
@@ -357,7 +377,7 @@ describe("chosenActions", () => {
         places: [{ destination: "none", words: "Goa", evidence: "Goa" }],
         special: { kind: "discount", evidence: "discount" },
       }),
-      context,
+      { ...context, latest: ["Goa, discount?"] },
     );
     expect(chosenActions(asked({ flag: "angry" }), both).flag).toBe("not_run,special_price: angry");
     expect(chosenActions(asked({ flag: "wants_call" }), forced).flag).toBe("not_run: wants_call");

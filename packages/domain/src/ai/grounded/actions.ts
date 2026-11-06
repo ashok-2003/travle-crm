@@ -13,6 +13,8 @@ export interface ActionContext {
   settings: Pick<AutopilotRow, "leadNotes" | "followUpTasks">;
   /** The customer's messages this turn answers (after the agency's last line): what is asked "this turn". */
   latest: string[];
+  /** The places not run the chat's facts held before this turn's read: the team was told of those already. */
+  notRunBefore: string[];
 }
 
 /** Whether the evidence is in a message this turn answers, not an earlier one the read saw again. */
@@ -79,9 +81,14 @@ export function allowedActions(
 ): AllowedActions {
   const wantsFiles = read.wants === "brochure" || read.wants === "information" || read.wants === "price";
   const money = mayTakeMoney(lookup, facts, read, context);
+  // The read reads the whole chat, so each flag is for what is new this turn: the team hears of a place or an ask once.
+  const known = new Set(context.notRunBefore.map((words) => words.trim().toLowerCase()));
+  const newNotRun = read.places.some(
+    (place) => place.destination === "none" && !known.has(place.words.trim().toLowerCase()),
+  );
   const codes = [
-    ...(read.places.some((place) => place.destination === "none") ? ["not_run"] : []),
-    ...(read.special === null ? [] : ["special_price"]),
+    ...(newNotRun ? ["not_run"] : []),
+    ...(read.special !== null && saidNow(read.special.evidence, context) ? ["special_price"] : []),
   ];
   const forcedFlag = codes.length === 0 ? null : codes.join(",");
   return {

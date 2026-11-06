@@ -112,6 +112,7 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     hasLead: looked.hasLead,
     settings: prepared.settings,
     latest: latestOf(prepared),
+    notRunBefore: prepared.facts.notRun,
   });
   const pack: GroundedPack = packOf(prepared, input, card, allowed, read);
 

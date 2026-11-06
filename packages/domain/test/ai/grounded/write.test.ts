@@ -68,6 +68,7 @@ const context = {
   hasLead: true,
   settings: { leadNotes: true, followUpTasks: true },
   latest: ["Price for Spiti?"],
+  notRunBefore: [],
 };
 const pack = (changes: Partial<GroundedPack> = {}): GroundedPack => ({
   knowledge: "## Cancellation\nFull refund up to 15 days before.",
