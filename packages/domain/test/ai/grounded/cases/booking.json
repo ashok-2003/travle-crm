@@ -1,0 +1,180 @@
+[
+  {
+    "name": "A QR is not sent on 2 people alone",
+    "chat": [
+      { "from": "customer", "text": "Manali on 14 Nov please" },
+      { "from": "agency", "text": "Sure, how many people are travelling?" },
+      { "from": "customer", "text": "2 people" }
+    ],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "wants": "information",
+        "wantsEvidence": "2 people"
+      },
+      "write": [
+        {
+          "reply": "For 2 people on [departure P1], double sharing is [price P1 double] per person. How will you share the rooms?",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["₹6,999", "share"],
+      "actions": { "payment": false, "booking": false },
+      "records": { "bookings": 0, "holds": 0, "quotes": 0 },
+      "messages": 1
+    }
+  },
+  {
+    "name": "A QR is not sent on double sharing alone",
+    "chat": [
+      { "from": "customer", "text": "Manali on 14 Nov for 2 people" },
+      { "from": "agency", "text": "It is a lovely trip. Do you want double or triple sharing?" },
+      { "from": "customer", "text": "double sharing" }
+    ],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "rooms": [{ "type": "double", "count": 1, "evidence": "double sharing" }],
+        "wants": "information",
+        "wantsEvidence": "double sharing"
+      },
+      "write": [
+        {
+          "reply": "Double sharing for 2 people on [departure P1] is [total P1] together. Shall I book it for you?",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["₹13,998", "Shall I book"],
+      "actions": { "payment": false, "booking": false },
+      "records": { "bookings": 0, "holds": 0, "quotes": 0 },
+      "messages": 1
+    }
+  },
+  {
+    "name": "A bare yes to booking sends the QR, the details and takes one booking",
+    "chat": [
+      { "from": "customer", "text": "Manali on 14 Nov for 2 people, double sharing" },
+      { "from": "agency", "text": "That is 2 in one double room. Shall I book it for you?" },
+      { "from": "customer", "text": "yes" }
+    ],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "rooms": [{ "type": "double", "count": 1, "evidence": "double sharing" }],
+        "wants": "book",
+        "wantsEvidence": "yes"
+      },
+      "write": [
+        {
+          "reply": "Wonderful! I am holding 2 seats on [departure P1] for you. The total is [total P1] and the advance to pay now is [advance total P1].",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["₹13,998", "₹8,000", "Pay to UPI"],
+      "excludes": ["received"],
+      "actions": { "payment": true, "booking": true },
+      "records": { "bookings": 1, "holds": 1, "quotes": 1 },
+      "messages": 3
+    }
+  },
+  {
+    "name": "A retried job sends one message and makes one booking, one hold, one quote",
+    "retry": true,
+    "chat": [
+      { "from": "customer", "text": "Manali on 14 Nov for 2 people, double sharing" },
+      { "from": "agency", "text": "That is 2 in one double room. Shall I book it for you?" },
+      { "from": "customer", "text": "yes" }
+    ],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "rooms": [{ "type": "double", "count": 1, "evidence": "double sharing" }],
+        "wants": "book",
+        "wantsEvidence": "yes"
+      },
+      "write": [
+        {
+          "reply": "Wonderful! I am holding 2 seats on [departure P1] for you. The total is [total P1] and the advance to pay now is [advance total P1].",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        },
+        {
+          "reply": "Wonderful! I am holding 2 seats on [departure P1] for you. The total is [total P1] and the advance to pay now is [advance total P1].",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "actions": { "payment": true, "booking": true },
+      "records": { "bookings": 1, "holds": 1, "quotes": 1 },
+      "messages": 3
+    }
+  },
+  {
+    "name": "Book it with five people and no room split: no QR, no booking, asks how they share",
+    "chat": [
+      { "from": "customer", "text": "Manali on 14 Nov for 5 people" },
+      { "from": "agency", "text": "We can do that. Would you like to book it?" },
+      { "from": "customer", "text": "Book it" }
+    ],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 5, "evidence": "5 people" },
+        "wants": "book",
+        "wantsEvidence": "Book it"
+      },
+      "write": [
+        {
+          "reply": "Happy to! How will the 5 of you share rooms: doubles or triples?",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["share rooms"],
+      "excludes": ["₹"],
+      "actions": { "payment": false, "booking": false },
+      "records": { "bookings": 0, "holds": 0, "quotes": 0 },
+      "messages": 1
+    }
+  },
+  {
+    "name": "A brochure is sent when it is asked for",
+    "chat": [{ "from": "customer", "text": "Spiti on 14 Nov? Please send the PDF" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D3", "words": "Spiti", "evidence": "Spiti on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "wants": "brochure",
+        "wantsEvidence": "send the PDF"
+      },
+      "write": [{ "reply": "Here is the Spiti brochure for you.", "actions": { "sendFiles": ["P1"] } }]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["Spiti brochure"],
+      "actions": { "files": true, "payment": false },
+      "messages": 2
+    }
+  }
+]

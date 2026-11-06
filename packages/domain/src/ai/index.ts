@@ -71,3 +71,11 @@ export { recordRatesApplied } from "./rates/applied.js";
 export { rateSheetSourceLink } from "./rates/source-link.js";
 export type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 export { requestRateSheetUpload } from "./rates/input.js";
+export {
+  CASE_NOW,
+  runAgentCase,
+  scriptedModel,
+  seedCaseAgency,
+  type CaseCheck,
+  type CaseResult,
+} from "./grounded/evaluate.js";

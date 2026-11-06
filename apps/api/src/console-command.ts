@@ -1,18 +1,33 @@
 // Runs one of the console's one-off commands once, with the console's environment, then exits with its code:
-// `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>`, or `run demo`. It
-// starts as the console does (the same variables and checks, the same "console start-up failed" message), but serves
-// nothing and runs no jobs. Never over HTTP: only whoever can run the console's image with its environment can run it.
+// `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>`, `run demo`, or
+// `run agent-cases` (the test chats). It starts as the console does (the same variables and checks, the same "console
+// start-up failed" message), but serves nothing and runs no jobs. Never over HTTP: only whoever can run the console's image with its environment can run it.
 import { createPinoLogger, errorFields } from "@travel-crm/integrations/logging";
+import { agentCasesCommand } from "./console-agent-cases.js";
 import { demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsolePlatform, type ConsolePlatform } from "./console-platform.js";
+import type { Services } from "./services.js";
 import { startProcess } from "./start-up.js";
 
-type Command = (started: ConsolePlatform, args: readonly string[], output: CommandOutput) => Promise<number>;
+type Command = (
+  started: ConsolePlatform,
+  args: readonly string[],
+  output: CommandOutput,
+  services: Services,
+) => Promise<number>;
 
 const commands: Readonly<Record<string, Command>> = {
   "first-super-admin": ({ platform }, args, output) => firstSuperAdminCommand(platform, args, output),
   demo: ({ platform, settings }, args, output) => demoCommand(platform, settings.demo, args, output),
+  // Test chats against a throwaway organization on the local database, with the real model or --fake.
+  "agent-cases": ({ platform, settings }, args, output, { ai }) =>
+    agentCasesCommand(
+      platform,
+      { ai, databaseUrls: [settings.platformDatabaseUrl, process.env.DATABASE_URL ?? ""] },
+      args,
+      output,
+    ),
 };
 
 const output: CommandOutput = {
@@ -48,7 +63,7 @@ const { services, logger, running } = await startProcess("console", startConsole
 });
 let code = 1;
 try {
-  code = await command(running, args, output);
+  code = await command(running, args, output, services);
 } catch (error) {
   // As the console logs a failure: name, code and frames, never the message, which can quote someone's data.
   logger.error({ command: name, ...errorFields(error) }, "console command failed");
