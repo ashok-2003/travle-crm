@@ -230,6 +230,7 @@
       "installment-removed": "Removed a payment due on a quote",
       "payment-recorded": "Recorded a payment",
       "payment-voided": "Voided a payment",
+      "payments-moved": "Payments made on a chat's booking moved onto the accepted quote",
       "replaced": "Replaced a quote with a new version",
       "departure-changed": "Put a quote on a departure, or took it off"
     },

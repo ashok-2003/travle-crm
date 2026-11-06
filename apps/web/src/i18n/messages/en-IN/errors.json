@@ -266,6 +266,7 @@
     "BOOKING_NOT_CANCELLABLE": "Only a requested or confirmed booking can be cancelled.",
     "BOOKING_NOT_CONFIRMED": "Confirm the booking first.",
     "AI_PAYMENT_OVER_TOTAL": "This is more than the trip's total. Check the amount, or change the quote first.",
+    "QUOTE_BELOW_PAID": "The customer already paid more than this quote's total on their booking. Change the quote's total, then accept it.",
     "AI_BOOKING_NOT_OPEN": "This booking was already decided.",
     "BOOKING_NOT_OPEN": "This can't be done on this booking now.",
     "BOOKING_NOT_REQUESTED": "Only a booking waiting for confirmation can be confirmed.",

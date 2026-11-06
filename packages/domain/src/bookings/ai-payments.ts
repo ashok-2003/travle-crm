@@ -1,6 +1,7 @@
-// A person checks the payment behind an AI booking's proof (payments to check): confirming records the money on the
-// booking's quote (made first when the lead has none), wins the lead and marks the AI booking confirmed; refusing sends it
-// back to waiting for payment, its proofs kept. The agent never decides this. Confirming twice records one payment: the
+// A person checks the payment behind an AI booking's proof (payments to check): confirming records the money on the quote
+// chosen for it, else its booking's, else the lead's accepted quote, else its newest sent one, and only with none of those on
+// a quote made from the chat; it wins the lead and marks the AI booking confirmed. Refusing sends it back to waiting for
+// payment, its proofs kept. The agent never decides this. Confirming twice records one payment: the
 // payment's request id is made from the AI booking's id, and the booking is locked while a person decides.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
@@ -10,7 +11,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { uuidFromKey } from "../jobs/index.js";
 import { calendarDateIn, DomainError } from "../kernel/index.js";
-import { recordPayment } from "../quotes/index.js";
+import { raiseAgreedQuote, recordPayment } from "../quotes/index.js";
 import { linkAiBooking } from "./from-ai.js";
 
 const OPEN_STATUSES = ["awaiting_payment", "proof_received"];
@@ -56,6 +57,43 @@ async function quoteOfBooking(tx: OrgTx, bookingId: string | null): Promise<stri
   return booking.quoteId;
 }
 
+const quoteColumns = { id: true, status: true } as const;
+
+/**
+ * The quote the money goes on: the one chosen for the AI booking (plan 4), its booking's, the lead's accepted quote, else
+ * its newest sent one (the payment accepts it, as release 6's does). Null when the lead has none: a quote is made from the chat.
+ */
+async function quoteToPay(
+  tx: OrgTx,
+  row: { leadId: string; quoteId: string | null; bookingId: string | null },
+): Promise<{ id: string; status: string } | null> {
+  if (row.quoteId !== null) return tx.quote.findUniqueOrThrow({ where: { id: row.quoteId }, select: quoteColumns });
+  if (row.bookingId !== null) {
+    const booking = await tx.booking.findUniqueOrThrow({
+      where: { id: row.bookingId },
+      select: { quote: { select: quoteColumns } },
+    });
+    return booking.quote;
+  }
+  const accepted = await tx.quote.findFirst({
+    where: { leadId: row.leadId, status: "accepted" },
+    orderBy: [{ acceptedAt: "desc" }, { id: "desc" }],
+    select: quoteColumns,
+  });
+  return (
+    accepted ??
+    tx.quote.findFirst({
+      where: { leadId: row.leadId, status: "sent" },
+      orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+      select: quoteColumns,
+    })
+  );
+}
+
+/** Whether the quote stands in for one (made from a chat for an AI booking's booking). */
+const isStandIn = async (tx: OrgTx, quoteId: string) =>
+  (await tx.booking.findFirst({ where: { quoteId, quotePlaceholder: true }, select: { id: true } })) !== null;
+
 /** A person confirms the money arrived. Returns the lead and the quote it was recorded on; a repeat returns the same. */
 export async function confirmAiPayment(
   tx: OrgTx,
@@ -88,8 +126,8 @@ export async function confirmAiPayment(
           dates: textOf(details.dates),
           travellers: textOf(details.travellers),
           pickup: textOf(details.pickup),
-          // With no amount written, the quote is for what the person confirmed, so the payment fits it.
-          amountPaise: written > 0 ? written : input.amountPaise,
+          // A quote made from the chat holds at least what the person confirmed, so the payment always fits it.
+          amountPaise: Math.max(written, input.amountPaise),
         },
         proofMessageIds: row.proofMessageIds,
         linkedBookingId: row.bookingId,
@@ -97,15 +135,15 @@ export async function confirmAiPayment(
       },
       now,
     );
-  // A quote set for it (plan 4) is the one paid, even if only sent: its first payment accepts it, so then it is linked.
-  // Otherwise linking finds or makes the agreed quote and the booking first. Either way one quote, one booking.
-  const chosen =
-    row.quoteId === null
-      ? null
-      : await tx.quote.findUniqueOrThrow({ where: { id: row.quoteId }, select: { status: true } });
+  // An accepted quote's booking is found (or made) first; a sent one is accepted by the payment, then its booking made.
+  // With no quote at all, linking makes one from the chat and its booking. Either way one quote, one booking.
+  const target = await quoteToPay(tx, row);
   let bookingId: string | null = null;
-  if (chosen === null || chosen.status === "accepted") bookingId = await link(row.quoteId);
-  const quoteId = row.quoteId ?? (await quoteOfBooking(tx, bookingId));
+  if (target === null || target.status === "accepted") bookingId = await link(target?.id ?? null);
+  const quoteId = target?.id ?? (await quoteOfBooking(tx, bookingId));
+  // A quote made from an earlier chat grows to take the money; only a quote a person made refuses more than its total.
+  if (target !== null && (await isStandIn(tx, quoteId)))
+    await raiseAgreedQuote(tx, access, { quoteId, payingPaise: input.amountPaise });
   const timeZone = await organizationTimeZone(tx, access.organizationId);
   const paid = await recordPayment(
     tx,
@@ -124,7 +162,7 @@ export async function confirmAiPayment(
       throw new DomainError("CONFLICT", "AI_PAYMENT_OVER_TOTAL", "That is more than the trip's total");
     throw error;
   });
-  bookingId ??= await link(row.quoteId);
+  bookingId ??= await link(quoteId);
   // Moves the lead to won; a no-op (no second change or notice) when the payment already did.
   await advanceLeadStage(tx, access, { leadId: row.leadId, stage: "won" }, now);
   await tx.aiBooking.update({

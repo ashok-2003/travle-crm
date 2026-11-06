@@ -30,6 +30,7 @@ import {
   toDetail,
   toSummary,
 } from "./quote-rows.js";
+import { assertTakesStandInPayments } from "./placeholder-payments.js";
 import { quoteSettingsOf } from "./settings.js";
 import { quoteMoney } from "./totals.js";
 
@@ -178,6 +179,8 @@ export async function setQuoteStatus(
         );
       }
     }
+    // Money paid on the lead's chat-made quote moves to the one accepted: it must fit.
+    if (input.status === "accepted") await assertTakesStandInPayments(tx, before.id);
     await tx.quote.update({
       where: { id: before.id },
       data: {

@@ -2,8 +2,9 @@
 // lead has none), once whatever the taps, and the lead is won; refusing sends the booking back to waiting with its proofs.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { takeBooking } from "../../src/ai/booking.js";
-import { createBookingFromQuote } from "../../src/bookings/index.js";
+import { createBookingFromQuote, getBooking } from "../../src/bookings/index.js";
 import { confirmAiPayment, expectedAdvanceOf, refuseAiPayment } from "../../src/bookings/ai-payments.js";
+import { recordPayment, setQuoteStatus } from "../../src/quotes/index.js";
 import { aLead } from "../crm/support/records.js";
 import { aQuote, openWorld, type World } from "./support.js";
 
@@ -154,6 +155,130 @@ describe("the payment behind an AI booking", () => {
   it("more than the trip's total is refused with its own reason", async () => {
     const { aiBookingId } = await aChosenQuote("accepted");
     await expect(confirm(aiBookingId, 5_000_000)).rejects.toMatchObject({ reason: "AI_PAYMENT_OVER_TOTAL" });
+  });
+
+  /** A quote a person made for the lead, sent unless told otherwise. */
+  const aRealQuote = (leadId: string, totalPaise: number) =>
+    world.inOrg(async (tx) => {
+      const row = await tx.quote.create({
+        data: {
+          leadId,
+          title: "Manali 5N, priced",
+          status: "sent",
+          sentAt: now,
+          subtotalPaise: BigInt(totalPaise),
+          totalPaise: BigInt(totalPaise),
+        },
+        select: { id: true },
+      });
+      return row.id;
+    });
+  const linkedBooking = async (aiBookingId: string) =>
+    (await world.inOrg((tx) => tx.aiBooking.findUniqueOrThrow({ where: { id: aiBookingId } }))).bookingId ?? "";
+
+  it("confirm, then accept a real quote: the booking still shows the advance paid", async () => {
+    const { leadId, aiBookingId } = await aWaiting();
+    const standIn = await confirm(aiBookingId);
+    const bookingId = await linkedBooking(aiBookingId);
+    const realId = await aRealQuote(leadId, 5_000_000);
+    await world.inOrg((tx) => setQuoteStatus(tx, world.manager, { quoteId: realId, status: "accepted" }, now));
+    await world.inOrg((tx) =>
+      createBookingFromQuote(tx, { organizationId: world.organizationId, quoteId: realId, confirmed: false }, now),
+    );
+    const booking = await world.inOrg((tx) => getBooking(tx, world.manager, bookingId));
+    expect(booking).toMatchObject({ quoteId: realId, paidPaise: 1_000_000, balancePaise: 4_000_000 });
+    const seen = await world.inOrg(async (tx) => ({
+      left: await tx.quotePayment.count({ where: { quoteId: standIn.quoteId } }),
+      moved: await tx.auditEntry.findMany({ where: { entityId: realId, action: "quote.payments-moved" } }),
+    }));
+    expect(seen.left).toBe(0);
+    expect(seen.moved).toHaveLength(1);
+    expect(seen.moved[0]?.after).toMatchObject({ quoteId: realId, payments: [{ amountPaise: 1_000_000 }] });
+  });
+
+  it("a lead with a sent quote is paid on it, no placeholder", async () => {
+    const { leadId, aiBookingId } = await aWaiting();
+    const sentId = await aRealQuote(leadId, 5_000_000);
+    const result = await confirm(aiBookingId);
+    expect(result.quoteId).toBe(sentId);
+    const seen = await world.inOrg(async (tx) => ({
+      quotes: await tx.quote.findMany({ where: { leadId }, select: { id: true, status: true } }),
+      bookings: await tx.booking.findMany({ where: { leadId }, select: { quoteId: true, quotePlaceholder: true } }),
+    }));
+    expect(seen.quotes).toEqual([{ id: sentId, status: "accepted" }]);
+    expect(seen.bookings).toEqual([{ quoteId: sentId, quotePlaceholder: false }]);
+  });
+
+  it("accepting a quote smaller than what was paid on the placeholder is refused", async () => {
+    const { leadId, aiBookingId } = await aWaiting();
+    await confirm(aiBookingId);
+    const smallId = await aRealQuote(leadId, 500_000);
+    await expect(
+      world.inOrg((tx) => setQuoteStatus(tx, world.manager, { quoteId: smallId, status: "accepted" }, now)),
+    ).rejects.toMatchObject({ reason: "QUOTE_BELOW_PAID" });
+    // Money recorded on it would accept it just the same.
+    await expect(
+      world.inOrg((tx) =>
+        recordPayment(
+          tx,
+          world.manager,
+          {
+            quoteId: smallId,
+            amountPaise: 1_000,
+            receivedOn: "2026-10-30",
+            method: "upi",
+            reference: "",
+            requestId: crypto.randomUUID(),
+          },
+          now,
+        ),
+      ),
+    ).rejects.toMatchObject({ reason: "QUOTE_BELOW_PAID" });
+    // Accepted all the same (a race the check missed): the booking is not moved onto it, and the money stays put.
+    await world.inOrg((tx) =>
+      tx.quote.update({ where: { id: smallId }, data: { status: "accepted", acceptedAt: now } }),
+    );
+    await expect(
+      world.inOrg((tx) =>
+        createBookingFromQuote(tx, { organizationId: world.organizationId, quoteId: smallId, confirmed: false }, now),
+      ),
+    ).rejects.toMatchObject({ reason: "QUOTE_BELOW_PAID" });
+  });
+
+  it("an AI amount below what the person entered makes the stand-in quote's total the entered amount", async () => {
+    const { aiBookingId } = await aWaiting("₹4,000");
+    const result = await confirm(aiBookingId, 1_600_000);
+    const quote = await world.inOrg((tx) => tx.quote.findUniqueOrThrow({ where: { id: result.quoteId } }));
+    expect(quote.totalPaise).toBe(1_600_000n);
+    expect(await world.inOrg((tx) => tx.quotePayment.count({ where: { quoteId: result.quoteId } }))).toBe(1);
+  });
+
+  it("a second AI booking paid on the stand-in quote raises its total instead of refusing", async () => {
+    const { leadId, aiBookingId } = await aWaiting("₹4,000");
+    const first = await confirm(aiBookingId, 400_000);
+    const secondId = await world.inOrg(async (tx) => {
+      const id = await takeBooking(tx, {
+        organizationId: world.organizationId,
+        conversationId: crypto.randomUUID(),
+        leadId,
+        booking: {
+          confirmed: true,
+          summary: "Balance",
+          package: "",
+          dates: "",
+          travellers: "",
+          pickup: "",
+          amount: "₹2,000",
+        },
+        recipients: [],
+        now,
+      });
+      return id ?? "";
+    });
+    const second = await confirm(secondId, 1_000_000);
+    expect(second.quoteId).toBe(first.quoteId);
+    const quote = await world.inOrg((tx) => tx.quote.findUniqueOrThrow({ where: { id: first.quoteId } }));
+    expect(quote.totalPaise).toBe(1_400_000n);
   });
 
   it("a booking still waiting for a proof can't be refused", async () => {
