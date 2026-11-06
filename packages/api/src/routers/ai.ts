@@ -92,6 +92,7 @@ import {
 } from "@travel-crm/domain/ai";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
+import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { aiDeparturesRouter } from "./ai-departures.js";
 import { aiFillRouter } from "./ai-fill.js";
@@ -319,9 +320,10 @@ export const aiRouter = router({
     .requires("ai:manage")
     .input(saveAutopilotInput)
     .output(autopilotSettings)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input)),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input, today));
+    }),
 
   /** The autopilot's last day at a glance. */
   overview: freshProcedure

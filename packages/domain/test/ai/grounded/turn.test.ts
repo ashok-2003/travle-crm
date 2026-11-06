@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MONTHLY_AI_LIMIT, runAgentTurn, saveAiSettings, saveAutopilot } from "../../../src/ai/index.js";
 import { saveFacts } from "../../../src/ai/grounded/facts.js";
 import { monthStartOf } from "../../../src/inbox/index.js";
-import { formatRupees } from "../../../src/kernel/index.js";
+import { formatRupees, parseCalendarDate } from "../../../src/kernel/index.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { memberOf } from "../../imports/support/test-imports.js";
@@ -92,26 +92,32 @@ describe("the grounded turn", () => {
         { enabled: true, scoring: true, instructions: "" },
         { providerReady: true, now: testNow },
       );
-      await saveAutopilot(tx, owner, {
-        autopilot: true,
-        agentName: "Riya",
-        followUpHours: 4,
-        maxRepliesPerDay: 25,
-        language: "customer",
-        languageOther: "",
-        style: "human",
-        emojis: "few",
-        tone: "friendly",
-        handoff: "alert",
-        smartFollowUp: true,
-        learning: false,
-        persona: "sales",
-        leadNotes: true,
-        sendMedia: true,
-        paymentDetails: "",
-        strictRules: "",
-        followUpTasks: true,
-      });
+      await saveAutopilot(
+        tx,
+        owner,
+        {
+          autopilot: true,
+          grounded: false,
+          agentName: "Riya",
+          followUpHours: 4,
+          maxRepliesPerDay: 25,
+          language: "customer",
+          languageOther: "",
+          style: "human",
+          emojis: "few",
+          tone: "friendly",
+          handoff: "alert",
+          smartFollowUp: true,
+          learning: false,
+          persona: "sales",
+          leadNotes: true,
+          sendMedia: true,
+          paymentDetails: "",
+          strictRules: "",
+          followUpTasks: true,
+        },
+        parseCalendarDate("2026-11-10"),
+      );
       await tx.aiAutopilot.updateMany({ data: { grounded } });
       const destination = await tx.destination.create({ data: { name: "Spiti" }, select: { id: true } });
       const template = await tx.quoteTemplate.create({

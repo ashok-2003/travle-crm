@@ -25,6 +25,8 @@ export const aiPersonas = ["sales", "natural"] as const;
 
 export const autopilotFields = {
   autopilot: z.boolean(),
+  /** It answers only from the packages marked sellable, with prices and dates written by the system; needs one. */
+  grounded: z.boolean(),
   agentName: text(80),
   followUpHours: z.int().min(0).max(23),
   maxRepliesPerDay: z.int().min(1).max(200),

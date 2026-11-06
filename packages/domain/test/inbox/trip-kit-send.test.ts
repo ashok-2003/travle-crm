@@ -3,7 +3,7 @@
 // once; and the automatic send is once per chat per trip, whichever message held the keyword.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { sendTripKit, sendTripKitOnKeyword } from "../../src/inbox/index.js";
+import { automationCouldAct, sendTripKit, sendTripKitOnKeyword } from "../../src/inbox/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import {
@@ -64,6 +64,20 @@ describe("sending a trip's details", () => {
     expect(await keyword(said)).toBe(false);
     expect((await sentOut()).map((message) => message.body)).toEqual(["Kerala: itinerary and price"]);
     expect(await sends()).toHaveLength(1);
+  });
+
+  it("a grounded agency's keyword kits don't send, and staff still send a kit from the chat", async () => {
+    const { inOrg, kit, customerSays, keyword, sentOut, sends } = await agency();
+    await kit("Kerala", ["kerala"]);
+    // Nothing else listens in this agency, so only the trip's keywords could make the automation act.
+    await inOrg((tx) => tx.salesAutomation.create({ data: { hotKeywords: [], followEnabled: false } }));
+    await inOrg((tx) => tx.aiAutopilot.create({ data: { grounded: true } }));
+    expect(await keyword(await customerSays("Any Kerala packages?"))).toBe(false);
+    expect(await sentOut()).toHaveLength(0);
+    expect(await sends()).toHaveLength(0);
+    expect(await inOrg((tx) => automationCouldAct(tx))).toBe(false);
+    await inOrg((tx) => tx.aiAutopilot.updateMany({ data: { grounded: false } }));
+    expect(await inOrg((tx) => automationCouldAct(tx))).toBe(true);
   });
 
   it("sends a trip once a chat, whichever later message says its keyword, and each trip once", async () => {

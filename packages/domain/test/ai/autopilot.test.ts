@@ -11,6 +11,7 @@ import {
   AI_TOKEN_PREFIX,
   MONTHLY_AI_LIMIT,
   learnChatVoice,
+  learnFromChats,
   learnVoice,
   testAnswer,
   runAgentTurn,
@@ -18,7 +19,7 @@ import {
   saveAutopilot,
 } from "../../src/ai/index.js";
 import { monthStartOf } from "../../src/inbox/index.js";
-import { systemActor } from "../../src/kernel/index.js";
+import { parseCalendarDate, systemActor } from "../../src/kernel/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -53,6 +54,8 @@ const reply = (text = "Manali 5N/6D is Rs 18,500 per person. How many are travel
     followUp: { needed: true, inHours: 3, why: "Waiting for the count" },
   });
 const turnAt = new Date(testNow.getTime() + 60_000);
+const today = parseCalendarDate("2026-11-10");
+const day = (text: string) => new Date(`${text}T00:00:00Z`);
 
 describe("the autopilot", () => {
   let test: TestInbox;
@@ -91,6 +94,7 @@ describe("the autopilot", () => {
     );
     const settings = {
       autopilot,
+      grounded: false,
       agentName: "Riya",
       followUpHours: 4,
       maxRepliesPerDay: 25,
@@ -109,7 +113,7 @@ describe("the autopilot", () => {
       strictRules: "",
       followUpTasks: true,
     };
-    await inOrg((tx) => saveAutopilot(tx, owner, settings));
+    await inOrg((tx) => saveAutopilot(tx, owner, settings, today));
     const model = createMemoryAiModel();
     const turn = (status: Entitlements["status"] = "active", modules?: string[], at = turnAt) =>
       runAgentTurn(
@@ -124,8 +128,105 @@ describe("the autopilot", () => {
         { organizationId, conversationId: chat.id, kind: "reply", token: message.id },
         at,
       );
-    return { organizationId, inOrg, owner, chat, message, model, turn, settings };
+    return { connection, organizationId, inOrg, owner, chat, message, model, turn, settings };
   }
+
+  /** A package the AI may sell today: priced for the season, an advance, one open departure. */
+  async function aSellablePackage(on: Awaited<ReturnType<typeof agency>>) {
+    await on.inOrg(async (tx) => {
+      const template = await tx.quoteTemplate.create({
+        data: {
+          name: "Spiti",
+          title: "Spiti",
+          kind: "group",
+          roomTypes: ["double"],
+          advancePerPersonPaise: 500_000n,
+          aiSellable: true,
+          nights: 6,
+        },
+        select: { id: true },
+      });
+      await tx.packageSeason.create({
+        data: {
+          templateId: template.id,
+          label: "Nov",
+          startsOn: day("2026-11-01"),
+          endsOn: day("2026-11-30"),
+          priceDoublePaise: 699_900n,
+        },
+      });
+      await tx.departure.create({
+        data: {
+          title: "Batch",
+          startDate: day("2026-11-14"),
+          endDate: day("2026-11-20"),
+          seatsTotal: 12,
+          templateId: template.id,
+        },
+      });
+    });
+  }
+
+  it("turning grounded on needs a sellable package", async () => {
+    const on = await agency();
+    const turnOn = () => on.inOrg((tx) => saveAutopilot(tx, on.owner, { ...on.settings, grounded: true }, today));
+    const reason = await turnOn().then(
+      () => null,
+      (error: unknown) => (error as { reason?: string }).reason ?? "other",
+    );
+    expect(reason).toBe("NO_SELLABLE_PACKAGES");
+    expect((await on.inOrg((tx) => tx.aiAutopilot.findFirstOrThrow())).grounded).toBe(false);
+    await aSellablePackage(on);
+    expect((await turnOn()).grounded).toBe(true);
+    const entries = await on.inOrg((tx) => tx.auditEntry.findMany({ where: { action: "ai-autopilot.changed" } }));
+    expect(entries.at(-1)?.after).toMatchObject({ grounded: true });
+    expect(entries.at(-1)?.before).toMatchObject({ grounded: false });
+    // Turning it off always works, even with no package left to sell.
+    await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { aiSellable: false } }));
+    expect(
+      (await on.inOrg((tx) => saveAutopilot(tx, on.owner, { ...on.settings, grounded: false }, today))).grounded,
+    ).toBe(false);
+  });
+
+  it("a lesson keeps no amount or date", async () => {
+    const lessons = async (grounded: boolean) => {
+      const on = await agency({ autopilot: true });
+      for (const [name, number] of [
+        ["Meera", freshPhone()],
+        ["Dev", freshPhone()],
+      ] as const) {
+        for (const text of ["Spiti trip?", "How many days?"]) {
+          await deliver(
+            test,
+            fromCustomer(on.connection, { customerNumber: number.replace("+", ""), customerName: name, text }),
+          );
+        }
+      }
+      await on.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { learning: true, grounded } }));
+      on.model.answer(
+        JSON.stringify({
+          learnings: [
+            { id: null, kind: "faq", text: "Customers ask if Spiti is Rs 6,999 from 14 Nov", evidence: 2 },
+            { id: null, kind: "need", text: "12 Dec", evidence: 1 },
+          ],
+        }),
+      );
+      await learnFromChats(
+        { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
+        on.organizationId,
+        turnAt,
+      );
+      const stored = (await on.inOrg((tx) => tx.aiLearning.findMany())).map((row) => row.text);
+      return { stored, prompt: JSON.stringify(on.model.requests[0]?.messages[0]) };
+    };
+    const grounded = await lessons(true);
+    expect(grounded.stored).toEqual(["Customers ask if Spiti is from"]);
+    expect(grounded.prompt).not.toContain("winning");
+    expect(grounded.prompt).toContain("how customers talk");
+    const old = await lessons(false);
+    expect(old.stored.join(" ")).toContain("6,999");
+    expect(old.prompt).toContain("winning");
+  });
 
   it("is off by default: it answers nothing and asks the AI nothing until the autopilot is turned on", async () => {
     const off = await agency();

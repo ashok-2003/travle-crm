@@ -5,7 +5,9 @@
 import { autopilotSettings, type AutopilotSettings, type SaveAutopilotInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
+import { sellablePackages } from "../quotes/index.js";
 import type { MemberAccess } from "../identity/index.js";
+import { DomainError, type CalendarDate } from "../kernel/index.js";
 
 /** The settings as the agent reads them: every field has its default when the agency saved none. */
 export interface AutopilotRow {
@@ -111,16 +113,28 @@ export async function saveAutopilot(
   tx: OrgTx,
   access: MemberAccess,
   input: SaveAutopilotInput,
+  today: CalendarDate,
 ): Promise<AutopilotSettings> {
   const before = await autopilotOf(tx);
+  // Turning it on needs a package to answer from; leaving it on, or turning it off, never does.
+  if (input.grounded && !before.grounded && (await sellablePackages(tx, today)).length === 0) {
+    throw new DomainError("VALIDATION", "NO_SELLABLE_PACKAGES", "Make at least one package sellable by the AI first.");
+  }
   const data = { ...input, updatedBy: access.userId };
   await tx.aiAutopilot.upsert({
     where: { organizationId: access.organizationId },
     create: { organizationId: access.organizationId, ...data },
     update: data,
   });
-  const switches = (row: { autopilot: boolean; learning: boolean; persona: string; handoff: string }) => ({
+  const switches = (row: {
+    autopilot: boolean;
+    grounded: boolean;
+    learning: boolean;
+    persona: string;
+    handoff: string;
+  }) => ({
     autopilot: row.autopilot,
+    grounded: row.grounded,
     learning: row.learning,
     persona: row.persona,
     handoff: row.handoff,
