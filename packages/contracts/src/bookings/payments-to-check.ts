@@ -1,5 +1,6 @@
 // Payments to check: the one list a person works through, of every payment that waits for their word (a customer's claim, an
-// AI booking's proof, a screenshot no booking waits for). Outputs only; the page shape is `useCursorPages`'.
+// AI booking's proof, a screenshot no booking waits for), ordered by when each record was created (its id), not by
+// waitingSince. The cursor is the last id shown. Outputs only; the page shape is `useCursorPages`'.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
@@ -8,6 +9,8 @@ export const paymentToCheck = z.object({
   kind: z.enum(["claim", "ai_booking", "proof"]),
   id: recordId,
   createdAt: z.iso.datetime(),
+  /** When it started waiting for a person: an AI booking's latest proof message, else the record's own creation. */
+  waitingSince: z.iso.datetime(),
   person: z.object({ name: z.string(), leadId: recordId.nullable() }),
   trip: z.string().nullable(),
   date: calendarDate.nullable(),
@@ -25,5 +28,5 @@ export type PaymentToCheck = z.infer<typeof paymentToCheck>;
 export const paymentsToCheckPage = z.object({ items: z.array(paymentToCheck), nextCursor: z.string().nullable() });
 export type PaymentsToCheckPage = z.infer<typeof paymentsToCheckPage>;
 
-export const paymentsToCheckInput = z.strictObject({ cursor: z.string().max(100).optional() });
+export const paymentsToCheckInput = z.strictObject({ cursor: recordId.optional() });
 export type PaymentsToCheckInput = z.input<typeof paymentsToCheckInput>;

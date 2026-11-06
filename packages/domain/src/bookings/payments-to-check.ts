@@ -43,6 +43,7 @@ async function claims(tx: OrgTx, access: MemberAccess, cursor: string | undefine
     kind: "claim",
     id: row.id,
     createdAt: row.createdAt.toISOString(),
+    waitingSince: row.createdAt.toISOString(),
     person: { name: row.booking.lead.person.name, leadId: row.booking.leadId },
     trip: row.booking.quote.title,
     date: day(row.booking.startDate),
@@ -73,12 +74,20 @@ async function aiBookings(tx: OrgTx, access: MemberAccess, cursor: string | unde
       lead: { select: { person: { select: { name: true } } } },
     },
   });
+  const proofIds = rows.flatMap((row) => row.proofMessageIds.slice(-1));
+  const proofTimes = new Map(
+    (
+      await tx.whatsappMessage.findMany({ where: { id: { in: proofIds } }, select: { id: true, occurredAt: true } })
+    ).map((message) => [message.id, message.occurredAt]),
+  );
   return rows.map((row) => {
     const proofId = row.proofMessageIds.at(-1);
+    const proofAt = proofId === undefined ? undefined : proofTimes.get(proofId);
     return {
       kind: "ai_booking",
       id: row.id,
       createdAt: row.createdAt.toISOString(),
+      waitingSince: (proofAt ?? row.createdAt).toISOString(),
       person: { name: row.lead.person.name, leadId: row.leadId },
       trip: row.summary,
       // The AI wrote the dates as the customer said them, so there is no calendar day to show.
@@ -105,15 +114,21 @@ async function proofs(tx: OrgTx, access: MemberAccess, cursor: string | undefine
       conversationId: true,
       leadId: true,
       lead: { select: { person: { select: { name: true } } } },
-      conversation: { select: { profileName: true, person: { select: { name: true } } } },
+      conversation: { select: { profileName: true, phoneE164: true, person: { select: { name: true } } } },
     },
   });
   return rows.map((row) => ({
     kind: "proof",
     id: row.id,
     createdAt: row.createdAt.toISOString(),
+    waitingSince: row.createdAt.toISOString(),
     person: {
-      name: row.lead?.person.name ?? row.conversation.person?.name ?? row.conversation.profileName ?? "",
+      name:
+        row.lead?.person.name ??
+        row.conversation.person?.name ??
+        row.conversation.profileName ??
+        // An erased chat's number is replaced by a marker, which is no number to show.
+        (row.conversation.phoneE164.startsWith("erased:") ? "" : row.conversation.phoneE164),
       leadId: row.leadId,
     },
     trip: null,
