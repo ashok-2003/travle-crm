@@ -152,9 +152,12 @@ describe("PaymentsScreen", () => {
         { kind: "ai_booking", id: aiBooking.id, amountPaise: 1_750_000, reference: "UTR77" },
       ]);
     });
-    // Decided, it leaves the list.
+    // Decided, it leaves the list, and the focus goes to the page's heading, not to nowhere.
     await waitFor(() => {
       expect(screen.queryByRole("link", { name: "Rahul Sharma" })).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
     });
   });
 

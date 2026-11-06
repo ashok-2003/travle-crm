@@ -2,7 +2,8 @@
 
 // Payments to check: the list a page at a time, and a person's word on each (confirm, refuse, dismiss). A decision loads
 // again this list, the bookings and quotes it changed, and Today (its count and tasks). Its toast says how the customer
-// was told, and lives here in the mutation's options, not in a caller's mutate(), because the row is gone once it is decided.
+// was told, and it and the focus (on the page's heading) live here in the mutation's options, not in a caller's mutate(),
+// because the row is gone once it is decided.
 import type { PaymentTold } from "@travel-crm/contracts/bookings";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -21,13 +22,23 @@ export function usePaymentsToCheck() {
   });
 }
 
-/** After any decision: this screen's queries, then everything a booking's change loads again. */
+/** A decided row is gone, and the button that opened its dialog with it: the focus goes to the page's heading. */
+function focusPageHeading() {
+  const heading = document.querySelector<HTMLElement>("h1");
+  if (heading === null) return;
+  heading.tabIndex = -1;
+  heading.focus();
+}
+
+/** After any decision: this screen's queries, then everything a booking's change loads again; then the focus is kept. */
 function useRefreshPayments() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const refreshBookings = useRefreshBookings();
-  return () =>
-    Promise.all([queryClient.invalidateQueries({ queryKey: trpc.paymentsToCheck.pathKey() }), refreshBookings()]);
+  return async () => {
+    await Promise.all([queryClient.invalidateQueries({ queryKey: trpc.paymentsToCheck.pathKey() }), refreshBookings()]);
+    focusPageHeading();
+  };
 }
 
 export function useConfirmPayment() {
