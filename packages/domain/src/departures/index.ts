@@ -15,12 +15,13 @@ export { eraseDepartureParts, type DeparturesErased } from "./erasure.js";
 export {
   bookingJoinedDeparture,
   createHold,
+  createHoldFor,
   expireHolds,
   HOLD_EXPIRED_KIND,
   OVERBOOKED_KIND,
   releaseHold,
 } from "./holds.js";
-export { makeGroupQuote } from "./group-quote.js";
+export { makeGroupQuote, makeGroupQuoteFor } from "./group-quote.js";
 export {
   openDepartureDetails,
   openDeparturesOf,

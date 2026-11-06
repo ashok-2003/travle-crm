@@ -55,6 +55,7 @@ export { eraseQuoteParts, type QuotesErased } from "./erasure.js";
 export { assertDraft, daysOf, findQuoteForChange, findQuoteInScope } from "./quote-rows.js";
 export {
   createQuote,
+  createQuoteFor,
   deleteQuote,
   getQuote,
   listLeadQuotes,

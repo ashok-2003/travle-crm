@@ -1,13 +1,14 @@
 // Builds the files module (spec 9.2): files attached to any record, kept in object storage, counted per
 // organization. Callers check that the actor may see or change the record itself; this module checks the rest.
 import type { AttachmentRefInput, AttachmentSummary, RequestUploadInput } from "@travel-crm/contracts/files";
+import type { OrgTx } from "@travel-crm/db";
 import type { PresignedUpload } from "@travel-crm/integrations/storage";
 import type { MemberAccess } from "../identity/index.js";
 import type { Actor } from "../kernel/index.js";
 import { listAttachments, listAttachmentsOfRecords, removeAttachment, storageUsedBytes } from "./attachments.js";
 import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
-import { copyFile } from "./copies.js";
+import { copyFile, copyFileIn } from "./copies.js";
 import { confirmUpload, requestUpload, storeGeneratedFile, type StoredBytesCheck } from "./uploads.js";
 
 export interface Files {
@@ -45,6 +46,13 @@ export interface Files {
     from: AttachmentRefInput,
     to: { recordType: string; recordId: string },
   ): Promise<AttachmentSummary>;
+  /** `copyFile` inside a transaction already open: the copy's rows join it and go if it rolls back. */
+  copyFileIn(
+    tx: OrgTx,
+    actor: Actor,
+    from: AttachmentRefInput,
+    to: { recordType: string; recordId: string },
+  ): Promise<AttachmentSummary>;
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
   /** An ordinary file's bytes, named by its record, for server code that draws it (a logo on a PDF). */
@@ -68,6 +76,7 @@ export function createFiles(dependencies: FilesDependencies): Files {
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
     copyFile: (actor, from, to) => copyFile(dependencies, actor, from, to),
+    copyFileIn: (tx, actor, from, to) => copyFileIn(dependencies, tx, actor, from, to),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
     systemFile: (organizationId, input, options) => systemFile(dependencies, organizationId, input, options),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),

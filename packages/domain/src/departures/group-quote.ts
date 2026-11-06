@@ -4,9 +4,9 @@
 import { quoteTaxRate, roomCapacity, type MakeGroupQuoteInput, type RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
-import { DomainError, parseCalendarDate, type CalendarDate } from "../kernel/index.js";
+import { DomainError, parseCalendarDate, type Actor, type CalendarDate } from "../kernel/index.js";
 import {
-  createQuote,
+  createQuoteFor,
   daysOf,
   exTaxSubtotal,
   findPackage,
@@ -38,7 +38,20 @@ export async function makeGroupQuote(
   context: QuoteContext,
   today: CalendarDate,
 ) {
-  const lead = await getLead(tx, access, input.leadId);
+  // The lead must be the member's to see; another's is "not found", as everywhere.
+  await getLead(tx, access, input.leadId);
+  const made = await makeGroupQuoteFor(tx, access, input, context, today);
+  return getQuote(tx, access, made.id);
+}
+
+/** The same quote for whoever acts, the lead already known to exist (the AI's booking acts as the system). Returns its id and total. */
+export async function makeGroupQuoteFor(
+  tx: OrgTx,
+  actor: Actor,
+  input: MakeGroupQuoteInput,
+  context: QuoteContext,
+  today: CalendarDate,
+): Promise<{ id: string; totalPaise: bigint }> {
   const row = await findPackage(tx, input.packageId);
   const departure = await findDeparture(tx, input.departureId);
   const startDate = parseCalendarDate(dayOf(departure.startDate));
@@ -101,11 +114,11 @@ export async function makeGroupQuote(
     given += share;
     return lineOf(`${row.name}, ${roomLabel[line.roomType]} × ${String(line.people)}`, share);
   });
-  const quote = await createQuote(
+  const quote = await createQuoteFor(
     tx,
-    access,
+    actor,
     {
-      leadId: lead.id,
+      leadId: input.leadId,
       title: `${row.title} · ${departure.title}`.slice(0, 120),
       startDate,
       adults: people - children,
@@ -119,8 +132,7 @@ export async function makeGroupQuote(
       placeOfSupply: null,
     },
     context,
-    true,
   );
   await tx.quote.update({ where: { id: quote.id }, data: { templateId: row.id, departureId: departure.id } });
-  return getQuote(tx, access, quote.id);
+  return quote;
 }
