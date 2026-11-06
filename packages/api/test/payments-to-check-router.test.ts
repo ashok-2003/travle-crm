@@ -336,4 +336,62 @@ describe("paymentsToCheck", () => {
     ).toBe("PAYMENT_CONFIRMED_OTHER_AMOUNT");
     expect(await nothingChanged(organizationId)).toEqual(before);
   });
+
+  /** Stand-in files: every record holds one picture, and its link names the record and the file. */
+  const files = {
+    list: (_actor: unknown, record: { recordType: string; recordId: string }) =>
+      Promise.resolve([
+        {
+          id: record.recordId,
+          fileName: "screenshot.png",
+          contentType: "image/png",
+          sizeBytes: 100,
+          sensitive: false,
+          createdAt: new Date().toISOString(),
+        },
+      ]),
+    downloadLink: (_actor: unknown, ref: { recordType: string; recordId: string; attachmentId: string }) =>
+      Promise.resolve({
+        url: `https://files.test/${ref.recordType}/${ref.recordId}/${ref.attachmentId}`,
+        expiresAt: new Date(),
+      }),
+  };
+
+  it("a member who records payments and sees bookings, and nothing else, gets the screenshot's link", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const ai = await anAiBooking(organizationId);
+    const proofId = await harness.db.forOrg(organizationId, async (tx) => {
+      const row = await tx.aiBooking.findUniqueOrThrow({ where: { id: ai.bookingId } });
+      return row.proofMessageIds.at(-1) ?? "";
+    });
+    const accounts = callerOf(harness, {
+      organizationId,
+      granted: ["bookings:view", "quotes:record_payments"],
+      context: { files: files as never },
+    }).caller;
+    const link = await accounts.paymentsToCheck.screenshotLink({ kind: "ai_booking", id: ai.bookingId });
+    expect(link.url).toBe(`https://files.test/whatsapp_message/${proofId}/${proofId}`);
+    // Without the right to record payments, no link.
+    const viewer = callerOf(harness, {
+      organizationId,
+      granted: ["bookings:view"],
+      context: { files: files as never },
+    });
+    expect(await refusal(viewer.caller.paymentsToCheck.screenshotLink({ kind: "ai_booking", id: ai.bookingId }))).toBe(
+      "MISSING_PERMISSION",
+    );
+  });
+
+  it("a screenshot on a lead the member can't see answers as one that isn't there", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const ai = await anAiBooking(organizationId, randomUUID());
+    const { caller } = callerOf(
+      harness,
+      { organizationId, context: { files: files as never } },
+      ownMember(organizationId),
+    );
+    expect(await refusal(caller.paymentsToCheck.screenshotLink({ kind: "ai_booking", id: ai.bookingId }))).toBe(
+      "NOT_FOUND",
+    );
+  });
 });

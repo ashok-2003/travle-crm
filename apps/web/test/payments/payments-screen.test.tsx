@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { messages } from "@/i18n/messages";
 import { PaymentsScreen } from "@/payments/payments-screen";
 import { renderAs, screenIs } from "../organization/render";
+import { member } from "../support/members";
 import { stubCalls, type Call, type Reply } from "../today/api";
 
 const words = messages.payments;
@@ -64,6 +65,7 @@ let told: "sent" | "template" | "task" | "none";
 
 function answer(call: Call): Reply {
   if (call.path === "paymentsToCheck.list") return { data: { items: waiting, nextCursor: null } };
+  if (call.path === "paymentsToCheck.screenshotLink") return { data: { url: "https://files.test/screenshot.png" } };
   if (call.path === "paymentsToCheck.preview") {
     const asked = call.input as { outcome: string; amountPaise?: number };
     return asked.outcome === "confirm"
@@ -78,13 +80,14 @@ function answer(call: Call): Reply {
   return { status: 404, reason: "NOT_FOUND" };
 }
 
-function renderPayments() {
+function renderPayments(me?: Parameters<typeof renderAs>[1]) {
   const api = stubCalls(answer);
   renderAs(
     <>
       <PaymentsScreen />
       <Toaster />
     </>,
+    me,
   );
   return api;
 }
@@ -205,5 +208,31 @@ describe("PaymentsScreen", () => {
     expect(await screen.findByText(words.preview.task)).toBeVisible();
     await userEvent.click(screen.getByRole("checkbox", { name: words.refuse.tell }));
     expect(screen.queryByText(words.preview.task)).toBeNull();
+  });
+
+  it("someone who checks payments but reads no leads or chats sees every screenshot, with no lead or chat links", async () => {
+    const api = renderPayments(member({ permissions: ["bookings:view", "quotes:record_payments"] }));
+    const tab = { location: { href: "" }, close: vi.fn() };
+    vi.stubGlobal(
+      "open",
+      vi.fn(() => tab),
+    );
+    expect(await screen.findByText("Priya Nair")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Priya Nair" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Rahul Sharma" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open Kiran Joshi's chat" })).toBeNull();
+    for (const name of ["Priya Nair", "Rahul Sharma", "Kiran Joshi"]) {
+      await userEvent.click(screen.getByRole("button", { name: `See screenshot of ${name}'s payment` }));
+    }
+    await waitFor(() => {
+      expect(decisions(api.calls, "paymentsToCheck.screenshotLink")).toEqual([
+        { kind: "claim", id: claim.id },
+        { kind: "ai_booking", id: aiBooking.id },
+        { kind: "proof", id: proof.id },
+      ]);
+    });
+    await waitFor(() => {
+      expect(tab.location.href).toBe("https://files.test/screenshot.png");
+    });
   });
 });

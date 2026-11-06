@@ -6,6 +6,8 @@ import {
   paymentDecision,
   paymentPreview,
   paymentPreviewInput,
+  paymentScreenshotInput,
+  paymentScreenshotLink,
   paymentsToCheckCount,
   paymentsToCheckInput,
   paymentsToCheckPage,
@@ -16,6 +18,7 @@ import {
   countPaymentsToCheck,
   dismissProof,
   paymentMessagePreview,
+  paymentScreenshotLink as screenshotLinkOf,
   paymentsToCheck,
   refusePayment,
 } from "@travel-crm/domain/bookings";
@@ -42,6 +45,12 @@ export const paymentsToCheckRouter = router({
     .query(({ ctx }) =>
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({ count: await countPaymentsToCheck(tx, ctx.member) })),
     ),
+
+  /** A 5-minute link to a payment's screenshot, for whoever may check payments, within their lead scope. */
+  screenshotLink: viewer
+    .input(paymentScreenshotInput)
+    .output(paymentScreenshotLink)
+    .query(({ ctx, input }) => screenshotLinkOf(ctx, ctx.member, input)),
 
   /** What confirming (the amount typed so far) or a not found would tell the customer, before the person decides. */
   preview: viewer

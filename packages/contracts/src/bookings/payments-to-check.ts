@@ -74,6 +74,13 @@ export const paymentPreview = z.discriminatedUnion("way", [
 ]);
 export type PaymentPreview = z.infer<typeof paymentPreview>;
 
+/** The screenshot of one payment to check, by the record it waits on. */
+export const paymentScreenshotInput = z.strictObject({ kind: z.enum(["claim", "ai_booking", "proof"]), id: recordId });
+export type PaymentScreenshotInput = z.infer<typeof paymentScreenshotInput>;
+
+/** A short-lived link to open it. */
+export const paymentScreenshotLink = z.object({ url: z.string() });
+
 export const dismissProofInput = z.strictObject({ proofId: recordId });
 export type DismissProofInput = z.infer<typeof dismissProofInput>;
 
