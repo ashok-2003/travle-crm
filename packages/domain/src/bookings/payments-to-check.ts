@@ -1,0 +1,158 @@
+// The list of payments waiting for a person to check: customers' claims, AI bookings with a proof, and screenshots no booking
+// waits for. Oldest first by id (UUID v7, so by time), 25 a page, within the member's lead scope. Only a person decides them.
+import type { PaymentToCheck, PaymentsToCheckPage } from "@travel-crm/contracts/bookings";
+import type { OrgTx } from "@travel-crm/db";
+import { scopeFilter, type MemberAccess } from "../identity/index.js";
+import { expectedAdvanceOf } from "./ai-payments.js";
+
+const PAGE_SIZE = 25;
+
+/** Which leads the member sees: every one, or only their own (a proof with no lead is then not theirs to see). */
+function leadScope(access: MemberAccess) {
+  const owned = scopeFilter(access, "bookings:view", "ownerUserId");
+  return Object.keys(owned).length === 0 ? null : owned;
+}
+
+const afterCursor = (cursor: string | undefined) => (cursor === undefined ? {} : { id: { gt: cursor } });
+const day = (date: Date | null) => (date === null ? null : date.toISOString().slice(0, 10));
+
+async function claims(tx: OrgTx, access: MemberAccess, cursor: string | undefined): Promise<PaymentToCheck[]> {
+  const scope = leadScope(access);
+  const rows = await tx.paymentClaim.findMany({
+    where: { status: "pending", ...afterCursor(cursor), ...(scope === null ? {} : { booking: { lead: scope } }) },
+    orderBy: { id: "asc" },
+    take: PAGE_SIZE + 1,
+    select: {
+      id: true,
+      createdAt: true,
+      amountPaise: true,
+      reference: true,
+      screenshotFileId: true,
+      installment: { select: { amountPaise: true } },
+      booking: {
+        select: {
+          leadId: true,
+          startDate: true,
+          quote: { select: { title: true } },
+          lead: { select: { person: { select: { name: true } } } },
+        },
+      },
+    },
+  });
+  return rows.map((row) => ({
+    kind: "claim",
+    id: row.id,
+    createdAt: row.createdAt.toISOString(),
+    person: { name: row.booking.lead.person.name, leadId: row.booking.leadId },
+    trip: row.booking.quote.title,
+    date: day(row.booking.startDate),
+    // The instalment the customer paid against; a claim on no instalment has no amount asked.
+    expectedPaise: row.installment === null ? null : Number(row.installment.amountPaise),
+    claimedPaise: Number(row.amountPaise),
+    reference: row.reference === "" ? null : row.reference,
+    screenshot: row.screenshotFileId === null ? null : { kind: "claim_file", id: row.screenshotFileId },
+    conversationId: null,
+  }));
+}
+
+async function aiBookings(tx: OrgTx, access: MemberAccess, cursor: string | undefined): Promise<PaymentToCheck[]> {
+  const scope = leadScope(access);
+  const rows = await tx.aiBooking.findMany({
+    where: { status: "proof_received", ...afterCursor(cursor), ...(scope === null ? {} : { lead: scope }) },
+    orderBy: { id: "asc" },
+    take: PAGE_SIZE + 1,
+    select: {
+      id: true,
+      createdAt: true,
+      summary: true,
+      details: true,
+      expectedPaise: true,
+      proofMessageIds: true,
+      conversationId: true,
+      leadId: true,
+      lead: { select: { person: { select: { name: true } } } },
+    },
+  });
+  return rows.map((row) => {
+    const proofId = row.proofMessageIds.at(-1);
+    return {
+      kind: "ai_booking",
+      id: row.id,
+      createdAt: row.createdAt.toISOString(),
+      person: { name: row.lead.person.name, leadId: row.leadId },
+      trip: row.summary,
+      // The AI wrote the dates as the customer said them, so there is no calendar day to show.
+      date: null,
+      expectedPaise: expectedAdvanceOf(row),
+      claimedPaise: null,
+      reference: null,
+      screenshot: proofId === undefined ? null : { kind: "chat_message", id: proofId },
+      conversationId: row.conversationId,
+    };
+  });
+}
+
+async function proofs(tx: OrgTx, access: MemberAccess, cursor: string | undefined): Promise<PaymentToCheck[]> {
+  const scope = leadScope(access);
+  const rows = await tx.paymentProof.findMany({
+    where: { status: "pending", ...afterCursor(cursor), ...(scope === null ? {} : { lead: scope }) },
+    orderBy: { id: "asc" },
+    take: PAGE_SIZE + 1,
+    select: {
+      id: true,
+      createdAt: true,
+      messageId: true,
+      conversationId: true,
+      leadId: true,
+      lead: { select: { person: { select: { name: true } } } },
+      conversation: { select: { profileName: true, person: { select: { name: true } } } },
+    },
+  });
+  return rows.map((row) => ({
+    kind: "proof",
+    id: row.id,
+    createdAt: row.createdAt.toISOString(),
+    person: {
+      name: row.lead?.person.name ?? row.conversation.person?.name ?? row.conversation.profileName ?? "",
+      leadId: row.leadId,
+    },
+    trip: null,
+    date: null,
+    expectedPaise: null,
+    claimedPaise: null,
+    reference: null,
+    screenshot: { kind: "chat_message", id: row.messageId },
+    conversationId: row.conversationId,
+  }));
+}
+
+/** One page of what waits, oldest first. The cursor is the last id shown; ids of all three kinds are UUID v7. */
+export async function paymentsToCheck(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: { cursor?: string | undefined },
+): Promise<PaymentsToCheckPage> {
+  // Each source gives at most a page past the cursor, so the merged first page is exactly the oldest 25.
+  const merged = [
+    ...(await claims(tx, access, input.cursor)),
+    ...(await aiBookings(tx, access, input.cursor)),
+    ...(await proofs(tx, access, input.cursor)),
+  ].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const items = merged.slice(0, PAGE_SIZE);
+  return { items, nextCursor: merged.length > PAGE_SIZE ? (items.at(-1)?.id ?? null) : null };
+}
+
+/** How many payments wait for the member, for the badge. */
+export async function countPaymentsToCheck(tx: OrgTx, access: MemberAccess): Promise<number> {
+  const scope = leadScope(access);
+  const claimCount = await tx.paymentClaim.count({
+    where: { status: "pending", ...(scope === null ? {} : { booking: { lead: scope } }) },
+  });
+  const aiCount = await tx.aiBooking.count({
+    where: { status: "proof_received", ...(scope === null ? {} : { lead: scope }) },
+  });
+  const proofCount = await tx.paymentProof.count({
+    where: { status: "pending", ...(scope === null ? {} : { lead: scope }) },
+  });
+  return claimCount + aiCount + proofCount;
+}
