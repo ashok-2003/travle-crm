@@ -9,23 +9,26 @@
 // (exactly as it wrote them) when the AI says so, then the media it chose; a yes from the customer becomes a booking.
 import { agentAnswer, type AgentAnswer } from "@travel-crm/contracts/ai";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
-import type { Database, OrgTx } from "@travel-crm/db";
+import type { Database } from "@travel-crm/db";
+import type { Logger } from "@travel-crm/integrations/logging";
 import { recordAudit } from "../audit/index.js";
 import type { Files } from "../files/index.js";
 import { organizationTimeZone } from "../identity/index.js";
-import { chatOptedOut, queueSystemText, windowIsOpen } from "../inbox/index.js";
+import { queueSystemText } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { agentPrompt, fenced, type TurnKind } from "./agent-prompt.js";
-import { applyAnswer, type ChatFacts } from "./agent-effects.js";
+import { applyAnswer } from "./agent-effects.js";
 import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./agent-context.js";
 import { autopilotOf, type AutopilotRow } from "./autopilot.js";
 import { openBookingOf, takeBooking, type BookingRecipients } from "./booking.js";
 import { mediaForPrompt, sendChosenMedia } from "./media.js";
 import { activeLessons } from "./learning-store.js";
-import { personAnsweringUntil } from "./person-pause.js";
+import { cleanReply } from "./clean-reply.js";
+import { AI_TOKEN_PREFIX, agentAnswers, mayWrite } from "./may-write.js";
 import { aiEnabled } from "./settings.js";
+import { runGroundedTurn } from "./grounded/turn.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
 import { calendarText, dateChecks, fixWeekdays } from "./calendar.js";
 import { chatVoiceOf } from "./chat-voice.js";
@@ -34,6 +37,7 @@ import { naturalIn } from "./voice.js";
 import { PAYMENT_DETAILS_TOKEN } from "./payment-likely.js";
 
 export { AI_HANDOFF_KIND } from "./agent-effects.js";
+export { AI_TOKEN_PREFIX, agentAnswers, cleanReply, mayWrite };
 
 export interface AgentDependencies {
   db: Database;
@@ -45,6 +49,8 @@ export interface AgentDependencies {
   files: Files;
   /** The agency's managers, told of every booking the AI takes. */
   managers: BookingRecipients;
+  /** Where the grounded turn logs its outcome (codes only); the worker passes its own. */
+  logger?: Logger;
 }
 
 /** The messages sent in the chat that a reply is checked against for a repeat. */
@@ -55,9 +61,6 @@ const REPEAT_ATTENTION = "The AI's reply repeated an earlier message, so it wasn
 /** Asks again for a reply that doesn't say again what was sent. */
 const repeatCorrection = (reply: string) =>
   `Your reply repeats a message already sent in this chat:\n<data>${fenced(reply)}</data>\nWrite a different reply that answers their last message in new words and moves the chat forward, as the same ONE JSON object.`;
-
-/** The marker of a message the AI wrote: its client token starts with this. */
-export const AI_TOKEN_PREFIX = "ai:";
 
 /**
  * The model's answer, read leniently: the JSON object (words or a code fence around it are dropped, and a reply under
@@ -82,19 +85,6 @@ export function parseAnswer(text: string): AgentAnswer | null {
   }
 }
 
-/** Emojis and their parts: pictographs, flags' letters, skin tones, the variation selector, joiners and keycaps. */
-const EMOJI = /\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|[\u{1F3FB}-\u{1F3FF}]|️|‍|⃣/gu;
-
-/** A reply as the agency's settings allow: no emoji at all when it chose none, whatever the model or the voice did. */
-export function cleanReply(text: string, settings: Pick<AutopilotRow, "emojis">): string {
-  if (settings.emojis !== "none") return text.trim();
-  return text
-    .replace(EMOJI, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/ +\n/g, "\n")
-    .trim();
-}
-
 /**
  * The model's answer held to what the agency chose, in code: with "never by itself" it never steps back (a hand-over it
  * asked for becomes a flag for the team), and with no emojis none are sent.
@@ -108,48 +98,6 @@ function withSettings(answer: AgentAnswer, settings: AutopilotRow, natural: bool
     handoff: false,
     attention: answer.attention.trim() === "" ? answer.handoffReason : answer.attention,
   };
-}
-
-/** Whether the autopilot answers in a chat: its own mode, else the agency's autopilot. */
-export const agentAnswers = (mode: string | undefined, autopilot: boolean) =>
-  mode === "on" || (mode !== "off" && autopilot);
-
-/** Whether the AI may write in this chat now, and why not when it may not. */
-async function mayWrite(
-  tx: OrgTx,
-  chat: ChatFacts,
-  settings: AutopilotRow,
-  kind: TurnKind,
-  now: Date,
-): Promise<string | null> {
-  if (chat.state !== "open" || chat.hidden) return "closed";
-  // STOP wins first, in every chat: a withdrawn consent, or a STOP in a chat with no person linked.
-  if (await chatOptedOut(tx, chat)) return "opted_out";
-  if (!windowIsOpen(chat.lastInboundAt, now)) return "window_closed";
-  // A reply answers the customer's last message once: a person or the AI itself did if either wrote after it. Other
-  // automation (a trip kit for a keyword, a greeting) is no answer, so the AI still replies after it.
-  if (kind === "reply" && chat.lastInboundAt !== null) {
-    // The team giving the chat back ("Let AI answer now") ends what their earlier messages answered.
-    const given = (await tx.aiChat.findFirst({ where: { conversationId: chat.id }, select: { resumedAt: true } }))
-      ?.resumedAt;
-    const answered = await tx.whatsappMessage.findFirst({
-      where: {
-        conversationId: chat.id,
-        direction: "out",
-        occurredAt: { gt: new Date(Math.max(chat.lastInboundAt.getTime(), given?.getTime() ?? 0)) },
-        OR: [{ origin: { in: ["staff_crm", "staff_phone"] } }, { clientToken: { startsWith: AI_TOKEN_PREFIX } }],
-      },
-      select: { id: true },
-    });
-    if (answered !== null) return "answered";
-  }
-  const state = await tx.aiChat.findFirst({ where: { conversationId: chat.id } });
-  if (!agentAnswers(state?.mode, settings.autopilot)) return "off";
-  if (state?.handedOffAt != null) return "handed_off";
-  const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
-  if (state?.repliesOn?.getTime() === today.getTime() && state.repliesCount >= settings.maxRepliesPerDay)
-    return "day_limit";
-  return (await personAnsweringUntil(tx, chat.id, now)) === null ? null : "person_answering";
 }
 
 /**
@@ -173,6 +121,12 @@ export async function runAgentTurn(
   if (!ai.configured) return "not_configured";
   // No AI for an agency whose plan lacks it or whose subscription is read-only, suspended or cancelled.
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(input.organizationId))) return "not_allowed";
+  // An agency switched to the grounded turn gets it; the others keep this agent exactly as it is.
+  const grounded = await db.forOrg(
+    input.organizationId,
+    async (tx) => (await aiEnabled(tx)) && (await autopilotOf(tx)).grounded,
+  );
+  if (grounded) return runGroundedTurn(dependencies, input, now);
   const agency = await dependencies.agencyName(input.organizationId);
   const prepared = await db.forOrg(input.organizationId, async (tx) => {
     if (!(await aiEnabled(tx))) return "off";

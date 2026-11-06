@@ -10,6 +10,8 @@ import type { MemberAccess } from "../identity/index.js";
 /** The settings as the agent reads them: every field has its default when the agency saved none. */
 export interface AutopilotRow {
   autopilot: boolean;
+  /** The grounded turn answers instead of the first one (an owner's switch, set by hand for now). */
+  grounded: boolean;
   agentName: string;
   followUpHours: number;
   maxRepliesPerDay: number;
@@ -35,6 +37,7 @@ export interface AutopilotRow {
 
 export const autopilotDefaults: AutopilotRow = {
   autopilot: false,
+  grounded: false,
   agentName: "",
   followUpHours: 4,
   maxRepliesPerDay: 25,
@@ -60,6 +63,7 @@ export const autopilotDefaults: AutopilotRow = {
 
 const columns = {
   autopilot: true,
+  grounded: true,
   agentName: true,
   followUpHours: true,
   maxRepliesPerDay: true,
