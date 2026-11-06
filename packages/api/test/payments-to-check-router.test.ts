@@ -11,12 +11,12 @@ describe("paymentsToCheck", () => {
   });
   afterAll(() => harness.close());
 
-  async function anAiBooking(organizationId: string) {
+  async function anAiBooking(organizationId: string, ownerUserId: string | null = null) {
     return harness.db.forOrg(organizationId, async (tx) => {
       const person = await tx.person.create({
         data: { name: "Rahul Sharma", phoneE164: `+9198${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}` },
       });
-      const lead = await tx.lead.create({ data: { personId: person.id, source: "web_form" } });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "web_form", ownerUserId } });
       const booking = await tx.aiBooking.create({
         data: {
           leadId: lead.id,
@@ -100,17 +100,52 @@ describe("paymentsToCheck", () => {
       ...member,
       permissions: PermissionSet.of([
         { permission: "bookings:view", scope: "own" },
+        { permission: "quotes:view", scope: "own" },
         { permission: "quotes:record_payments", scope: "all" },
       ]),
     };
   }
 
-  async function aClaim(organizationId: string) {
+  async function aClaim(organizationId: string, ownerUserId: string | null = null, withChat = false) {
     return harness.db.forOrg(organizationId, async (tx) => {
       const person = await tx.person.create({
         data: { name: "Rahul Sharma", phoneE164: `+9198${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}` },
       });
-      const lead = await tx.lead.create({ data: { personId: person.id, source: "web_form" } });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "web_form", ownerUserId } });
+      if (withChat) {
+        // An open chat inside the 24-hour window, and the customer's consent: the confirmation goes as free text.
+        const connection = await tx.whatsappConnection.create({
+          data: {
+            integratedNumber: `91${String(Math.floor(Math.random() * 1e8))}`,
+            displayNumber: "+919800000000",
+            mode: "new_number",
+            status: "connected",
+            connectedAt: new Date(),
+          },
+          select: { id: true },
+        });
+        const phone = await tx.person.findUniqueOrThrow({ where: { id: person.id }, select: { phoneE164: true } });
+        await tx.whatsappConversation.create({
+          data: {
+            connectionId: connection.id,
+            phoneE164: phone.phoneE164 ?? "",
+            personId: person.id,
+            lastInboundAt: new Date(),
+            lastMessageAt: new Date(),
+          },
+        });
+        await tx.personConsent.create({
+          data: {
+            personId: person.id,
+            purpose: "trip_updates",
+            action: "granted",
+            wording: "test",
+            wordingVersion: 1,
+            source: "staff",
+            recordedAt: new Date(Date.now() - 100 * 3_600_000),
+          },
+        });
+      }
       const quote = await tx.quote.create({
         data: {
           leadId: lead.id,
@@ -153,8 +188,9 @@ describe("paymentsToCheck", () => {
 
   it("a member who sees only their own leads can't confirm or refuse another member's", async () => {
     const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
-    const ai = await anAiBooking(organizationId);
-    const theirs = await aClaim(organizationId);
+    const someoneElse = randomUUID();
+    const ai = await anAiBooking(organizationId, someoneElse);
+    const theirs = await aClaim(organizationId, someoneElse);
     const { caller } = callerOf(harness, { organizationId }, ownMember(organizationId));
     const before = await nothingChanged(organizationId);
     const decisions = [
@@ -175,9 +211,25 @@ describe("paymentsToCheck", () => {
     ).toBe("NOT_FOUND");
   });
 
+  it("the same member confirms an AI booking and a claim on leads they own", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const member = ownMember(organizationId);
+    const ai = await anAiBooking(organizationId, member.userId);
+    const mine = await aClaim(organizationId, member.userId);
+    const { caller } = callerOf(harness, { organizationId }, member);
+    await caller.paymentsToCheck.confirm({
+      kind: "ai_booking",
+      id: ai.bookingId,
+      amountPaise: 2_000_000,
+      reference: "",
+    });
+    await caller.paymentsToCheck.confirm({ kind: "claim", id: mine.claimId, amountPaise: 1_000_000, reference: "" });
+    expect((await nothingChanged(organizationId)).payments).toBe(2);
+  });
+
   it("confirming a claim records and tells the amount the person entered", async () => {
     const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
-    const { claimId } = await aClaim(organizationId);
+    const { claimId } = await aClaim(organizationId, null, true);
     const { caller } = callerOf(harness, { organizationId });
     const told = await caller.paymentsToCheck.confirm({
       kind: "claim",
@@ -185,7 +237,14 @@ describe("paymentsToCheck", () => {
       amountPaise: 900_000,
       reference: "",
     });
-    expect(told).toEqual({ told: "task" });
+    expect(told).toEqual({ told: "sent" });
+    // The message carries what the person entered (₹9,000.00), not what the customer claimed (₹10,000.00).
+    const sent = await harness.db.forOrg(organizationId, (tx) =>
+      tx.whatsappMessage.findMany({ select: { body: true } }),
+    );
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.body).toContain("₹9,000.00");
+    expect(sent[0]?.body).not.toContain("10,000");
     const recorded = await harness.db.forOrg(organizationId, (tx) => tx.quotePayment.findMany());
     expect(recorded.map((payment) => Number(payment.amountPaise))).toEqual([900_000]);
   });
@@ -195,6 +254,7 @@ describe("paymentsToCheck", () => {
     const { claimId } = await aClaim(organizationId);
     const { caller } = callerOf(harness, { organizationId });
     const before = await nothingChanged(organizationId);
+    expect(before.pendingClaims).toBe(1);
     expect(
       await caller.paymentsToCheck.refuse({ kind: "claim", id: claimId, reason: "not_found", tell: false }),
     ).toEqual({ told: "none" });
