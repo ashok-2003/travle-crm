@@ -21,10 +21,10 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
 }) => {
   test.setTimeout(420_000);
   // The console runs in a page of its own; the owner uses the test's page, which keeps the device and can be checked by axe.
-  const console = await browser.newPage();
-  await signInToConsole(console, superAdmin);
-  const business = await connectNumber(console, agency.organizationId);
-  await console.close();
+  const consolePage = await browser.newPage();
+  await signInToConsole(consolePage, superAdmin);
+  const business = await connectNumber(consolePage, agency.organizationId);
+  await consolePage.close();
   const owner = page;
   await signInByEmail(owner, agency.owner);
   await saveBusinessProfile(owner);
@@ -73,10 +73,16 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
         leadId: ashaLead,
         conversationId: chat.id,
         summary: "Manali 5N for 4",
-        details: { package: "Manali 5N", amount: "₹4,000" },
+        // As the old agent leaves it: the amount only in the details' words, no expected amount of its own yet.
+        details: {
+          package: "Manali 5N",
+          dates: "12 Dec",
+          travellers: "4",
+          pickup: "Delhi",
+          amount: "₹4,000",
+        },
         status: "proof_received",
         proofMessageIds: [screenshot.id],
-        expectedPaise: 400_000n,
       },
       select: { id: true },
     });
@@ -112,14 +118,10 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
   await traveller.close();
 
   // Today counts both, and leads to the list.
+  // The inbox folds the sidebar on a computer and a reload keeps it folded: the rest of the journey runs with the rail folded.
+  await owner.context().addCookies([{ name: "sidebar_state", value: "false", url: owner.url() }]);
   await owner.goto("/today");
-  // Visiting the inbox folded the sidebar on a computer, and a reload keeps it folded; open it as a person would.
   await expect(owner.getByRole("button", { name: /^Notifications/ })).toBeVisible();
-  const expand = owner.getByRole("button", { name: "Open the sidebar" });
-  if (await expand.isVisible()) {
-    await expand.click();
-    await expect(owner.getByRole("link", { name: "Payments to check", exact: true })).toBeVisible();
-  }
   await expect(owner.getByText("2 payments are waiting for your word")).toBeVisible();
   await expectAccessible(owner);
   await owner.getByRole("link", { name: /Open payments to check/ }).click();
@@ -136,30 +138,50 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
   await expect(dialog.getByLabel("Amount received")).toHaveValue("4,000");
   await expectAccessible(owner);
   await dialog.getByRole("button", { name: "Record the payment" }).click();
-  await expect(owner.getByText("Sent on WhatsApp")).toBeVisible();
+  const toasts = owner.locator("[data-sonner-toaster]");
+  await expect(toasts.getByText("Sent on WhatsApp")).toBeVisible();
   await expect(owner.getByRole("row", { name: /Asha Verma/ })).toHaveCount(0);
   const recorded = await inAgency(agency.organizationId, async (tx) => {
     const ai = await tx.aiBooking.findUniqueOrThrow({ where: { id: ashaBookingId } });
-    // With no quote of its own the booking makes one, which the booking points to.
-    const quoteId = (await tx.booking.findUniqueOrThrow({ where: { id: ai.bookingId ?? "" } })).quoteId;
+    expect(ai.bookingId).not.toBeNull();
+    const booking = await tx.booking.findUniqueOrThrow({ where: { id: ai.bookingId ?? "" } });
     return {
       status: ai.status,
       stage: (await tx.lead.findUniqueOrThrow({ where: { id: ashaLead } })).stage,
-      paid: (await tx.quotePayment.findMany({ where: { quoteId } })).map((row) => Number(row.amountPaise)),
+      quoteKept: ai.quoteId === booking.quoteId,
+      quoteId: booking.quoteId,
+      conversationId: ai.conversationId,
+      paid: (await tx.quotePayment.findMany({ where: { quoteId: booking.quoteId } })).map((row) =>
+        Number(row.amountPaise),
+      ),
     };
   });
-  expect(recorded).toEqual({ status: "confirmed", stage: "won", paid: [400_000] });
+  expect(recorded).toMatchObject({ status: "confirmed", stage: "won", quoteKept: true, paid: [400_000] });
   await expect
     .poll(async () => (await sentTo(asha)).map((message) => message.text ?? ""), { timeout: 60_000 })
     .toContainEqual(
       expect.stringMatching(/Thank you .* We have received ₹4,000\.00 for .* Your booking is confirmed\./),
     );
 
+  // The quote the owner would open shows the ₹4,000 as received, and the customer's chat shows the words as a message.
+  await owner.goto(`/quotes/${recorded.quoteId}`);
+  await expect(owner.getByText("Payments received")).toBeVisible();
+  await expect(owner.getByText("₹4,000").first()).toBeVisible();
+  await owner.goto(`/inbox/${recorded.conversationId}`);
+  await expect(
+    owner
+      .getByRole("region", { name: "Chat with Asha Verma" })
+      .getByText(/We have received ₹4,000\.00 for .* Your booking is confirmed\./),
+  ).toBeVisible();
+
+  // Back on the list, with the rail still folded.
+  await owner.goto("/payments");
+  await expect(owner.getByRole("heading", { level: 1, name: "Payments to check" })).toBeVisible();
+
   // Refusing the claim: nothing is recorded, and the traveller hears the not-found words.
   await owner.getByRole("button", { name: "Meera Iyer's payment not received" }).click();
-  const refusal = owner.getByRole("alertdialog").or(owner.getByRole("dialog"));
-  await refusal.getByRole("button", { name: "Not received", exact: true }).click();
-  await expect(owner.getByText("Sent on WhatsApp")).toBeVisible();
+  await owner.getByRole("alertdialog").getByRole("button", { name: "Not received", exact: true }).click();
+  await expect(toasts.getByText("Sent on WhatsApp")).toBeVisible();
   await expect(owner.getByText(/Nothing to check/)).toBeVisible();
   await expectAccessible(owner);
   await expect
