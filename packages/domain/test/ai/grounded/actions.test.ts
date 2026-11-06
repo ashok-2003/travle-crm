@@ -2,7 +2,7 @@
 // departure with seats, a priced split, an advance, a QR or text, a lead and a chat that isn't natural.
 import { chatFacts, type ChatFacts, type ReadAnswer, type WriteAnswer } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
-import { allowedActions, chosenActions, type ActionContext } from "../../../src/ai/grounded/actions.js";
+import { allowedActions, bookingPackage, chosenActions, type ActionContext } from "../../../src/ai/grounded/actions.js";
 import type { Lookup, LookupPackage } from "../../../src/ai/grounded/lookup.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -179,6 +179,23 @@ describe("allowedActions", () => {
         true,
       ]);
     });
+    it("a chosen custom trip is never booked as the only group package in play", () => {
+      // Kashmir (custom) chosen, Manali named earlier: "book it" must not send Manali's QR.
+      const kashmir: LookupPackage = {
+        ...spiti,
+        id: "kashmir",
+        kind: "custom",
+        departures: [],
+        chosenDeparture: null,
+        why: { kind: "chosen" },
+      };
+      const manali: LookupPackage = { ...spiti, id: "manali", why: { kind: "place", words: "Manali" } };
+      expect(bookingPackage(lookup({}, kashmir, manali))).toBeNull();
+      expect(money(allowedActions(lookup({}, kashmir, manali), facts(), read(), context))).toEqual([false, false]);
+      expect(bookingPackage(lookup({}, { ...manali, why: { kind: "chosen" } }))?.id).toBe("manali");
+      expect(bookingPackage(lookup({}, manali))?.id).toBe("manali");
+    });
+
     it("a chosen package wins over a second group package in the lookup", () => {
       const second = {
         ...spiti,

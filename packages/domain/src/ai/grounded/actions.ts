@@ -35,10 +35,15 @@ export interface AllowedActions {
 
 const keyOf = (index: number) => `P${String(index + 1)}`;
 
-/** The group package the booking is about: the chosen one, else the only group package in play. */
+/**
+ * The group package the booking is about: the chosen one, else the only group package in play. A chosen custom trip is
+ * the team's to price and book, so nothing is.
+ */
 export function bookingPackage(lookup: Lookup): LookupPackage | null {
+  const chosen = lookup.packages.find((one) => one.why.kind === "chosen");
+  if (chosen !== undefined) return chosen.kind === "group" ? chosen : null;
   const groups = lookup.packages.filter((one) => one.kind === "group");
-  return groups.find((one) => one.why.kind === "chosen") ?? (groups.length === 1 ? (groups[0] ?? null) : null);
+  return groups.length === 1 ? (groups[0] ?? null) : null;
 }
 
 /**
