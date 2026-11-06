@@ -70,8 +70,11 @@ export function allowedActions(
   ];
   const forcedFlag = codes.length === 0 ? null : codes.join(",");
   return {
+    // A package only suggested for a place the agency doesn't run is words and a flag: its files wait until it is chosen.
     sendFiles: wantsFiles
-      ? lookup.packages.flatMap((one, index) => (one.brochures.length > 0 ? [keyOf(index)] : []))
+      ? lookup.packages.flatMap((one, index) =>
+          one.brochures.length > 0 && one.why.kind !== "nearest" ? [keyOf(index)] : [],
+        )
       : [],
     sendAgencyFiles: read.wants === "about_agency",
     sendPayment: money,

@@ -209,6 +209,14 @@ describe("allowedActions", () => {
     expect(allowedActions(lookup(), facts(), read({ wants: "other" }), context).sendFiles).toEqual([]);
   });
 
+  it("never sends a suggested package's files for a place the agency doesn't run", () => {
+    // Meghalaya asked, Spiti only suggested: the Spiti PDF waits until they pick it (the audit's incident).
+    const suggested: LookupPackage = { ...spiti, why: { kind: "nearest", words: ["Meghalaya"] } };
+    const place: LookupPackage = { ...spiti, id: "b", why: { kind: "place", words: "Manali" } };
+    const allowed = allowedActions(lookup({}, suggested, place), facts(), read({ wants: "brochure" }), context);
+    expect(allowed.sendFiles).toEqual(["P2"]);
+  });
+
   it("sends the agency's files only when they want to know about the agency", () => {
     expect(allowedActions(lookup(), facts(), read({ wants: "about_agency" }), context).sendAgencyFiles).toBe(true);
     expect(allowedActions(lookup(), facts(), read({ wants: "price" }), context).sendAgencyFiles).toBe(false);
