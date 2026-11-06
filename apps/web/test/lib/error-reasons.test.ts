@@ -135,6 +135,9 @@ describe("errors.json's reasons", () => {
 
 describe("the attachment sentence", () => {
   it("is true of an upload as well as a WhatsApp attachment", () => {
-    expect(errors.reasons.ATTACHMENT_TYPE).not.toMatch(/whatsapp/i);
+    const sentence = errors.reasons.ATTACHMENT_TYPE;
+    expect(sentence).not.toMatch(/whatsapp/i);
+    expect(sentence).toMatch(/kind of file/i);
+    expect(sentence).toMatch(/upload/i);
   });
 });

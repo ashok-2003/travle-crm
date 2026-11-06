@@ -6,6 +6,7 @@ import { organizationTimeZone } from "../identity/index.js";
 import { addDays, calendarDateIn, systemActor, type Actor, type CalendarDate } from "../kernel/index.js";
 import type { RoomPrices } from "@travel-crm/contracts/quotes";
 import { forEachFullAccessAgency } from "../subscriptions/index.js";
+import { reopenScheduledDeparture, SCHEDULE_CANCEL_REASON } from "./departure-changes.js";
 import { createDeparture } from "./departures.js";
 import type { DepartureJobDependencies } from "./due-work.js";
 import { asDate, dayOf } from "./rows.js";
@@ -24,7 +25,7 @@ const noPrices: RoomPrices = {
   child_no_bed: null,
 };
 
-/** Makes the package's missing departures from tomorrow on. Returns how many it made. */
+/** Makes the package's missing departures from tomorrow on. Returns how many it made or opened again. */
 export async function generatePackageDepartures(
   tx: OrgTx,
   actor: Actor,
@@ -53,16 +54,13 @@ export async function generatePackageDepartures(
   }
   const first = addDays(today, 1);
   const last = addDays(today, DEPARTURE_HORIZON_DAYS);
-  const taken = new Set(
-    (
-      await withDeleted(() =>
-        tx.departure.findMany({
-          where: { templateId: packageId, startDate: { gte: asDate(first), lte: asDate(last) } },
-          select: { startDate: true },
-        }),
-      )
-    ).map((row) => dayOf(row.startDate)),
+  const rows = await withDeleted(() =>
+    tx.departure.findMany({
+      where: { templateId: packageId, startDate: { gte: asDate(first), lte: asDate(last) } },
+      select: { id: true, startDate: true, scheduledOn: true, status: true, cancelledReason: true, deletedAt: true },
+    }),
   );
+  const existing = Map.groupBy(rows, (row) => dayOf(row.startDate));
   let created = 0;
   for (let offset = 1; offset <= DEPARTURE_HORIZON_DAYS; offset += 1) {
     const day = addDays(today, offset);
@@ -70,7 +68,24 @@ export async function generatePackageDepartures(
     const month = Number(day.slice(5, 7));
     if (!pack.weeklyDays.includes(weekday)) continue;
     if (pack.departureMonths.length > 0 && !pack.departureMonths.includes(month)) continue;
-    if (taken.has(day)) continue;
+    const there = existing.get(day)?.[0];
+    if (there !== undefined) {
+      // A day this schedule cancelled itself (and nobody deleted) is the schedule's to open again; staff's days are not.
+      const ours =
+        existing.get(day)?.length === 1 &&
+        there.status === "cancelled" &&
+        there.cancelledReason === SCHEDULE_CANCEL_REASON &&
+        there.deletedAt === null &&
+        there.scheduledOn?.getTime() === there.startDate.getTime();
+      if (ours) {
+        await reopenScheduledDeparture(tx, actor, there.id, {
+          endDate: addDays(day, pack.nights),
+          seatsTotal: pack.seatsPerDeparture,
+        });
+        created += 1;
+      }
+      continue;
+    }
     const made = await createDeparture(tx, actor, {
       title: pack.name,
       destinationId: pack.destinationId,

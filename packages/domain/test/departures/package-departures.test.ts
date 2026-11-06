@@ -12,6 +12,7 @@ import {
 import { generatePackageDepartures, runPackageDepartures } from "../../src/departures/package-departures.js";
 import { parseCalendarDate, systemActor } from "../../src/kernel/index.js";
 import { deletePackage } from "../../src/quotes/index.js";
+import { aQuote } from "../bookings/support.js";
 import { aBookingOn, aSellersLead, now, openWorld, type World } from "./support.js";
 
 const FRIDAY_AND_SATURDAY = [5, 6];
@@ -279,6 +280,78 @@ describe("departures of a package", () => {
       expect(result.kept).toBe(1);
       expect(await noticesAbout(held.id)).toBe(1);
       expect(await noticesAbout(free.id)).toBe(0);
+    });
+    it("a schedule changed Friday to Saturday and back to Friday reopens the Fridays it cancelled", async () => {
+      const pack = await aGroupPackage({ weeklyDays: [5] });
+      await generate(pack.id, TODAY);
+      const friday = await rowOn(pack.id, "2026-11-13");
+      await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id: pack.id }, data: { weeklyDays: [6] } }));
+      await reconcile(pack.id);
+      expect((await rowOn(pack.id, "2026-11-13")).status).toBe("cancelled");
+      await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id: pack.id }, data: { weeklyDays: [5] } }));
+      await generate(pack.id, TODAY);
+      const again = await rowOn(pack.id, "2026-11-13");
+      expect(again).toMatchObject({ id: friday.id, status: "open", cancelledReason: null });
+      const reopened = await world.inOrg((tx) =>
+        tx.auditEntry.count({ where: { action: "departure.reopened", entityId: friday.id } }),
+      );
+      expect(reopened).toBe(1);
+    });
+
+    it("a Friday staff cancelled stays cancelled", async () => {
+      const pack = await aGroupPackage({ weeklyDays: [5] });
+      await generate(pack.id, TODAY);
+      const friday = await rowOn(pack.id, "2026-11-13");
+      await world.inOrg((tx) =>
+        cancelDeparture(tx, world.manager, { departureId: friday.id, reason: "Road closed" }, now),
+      );
+      await generate(pack.id, TODAY);
+      expect((await rowOn(pack.id, "2026-11-13")).status).toBe("cancelled");
+    });
+
+    it("a declined quote does not stop a cancel, a live one does", async () => {
+      const pack = await aGroupPackage({ weeklyDays: [5] });
+      await generate(pack.id, TODAY);
+      const declined = await rowOn(pack.id, "2026-11-13");
+      const live = await rowOn(pack.id, "2026-11-20");
+      for (const [row, status] of [
+        [declined, "declined"],
+        [live, "sent"],
+      ] as const) {
+        const { quote } = await world.inOrg((tx) => aQuote(tx, { ownerUserId: world.seller.userId }));
+        await world.inOrg((tx) => tx.quote.update({ where: { id: quote.id }, data: { departureId: row.id, status } }));
+      }
+      await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id: pack.id }, data: { weeklyDays: [6] } }));
+      await reconcile(pack.id);
+      expect((await rowOn(pack.id, "2026-11-13")).status).toBe("cancelled");
+      expect((await rowOn(pack.id, "2026-11-20")).status).toBe("open");
+    });
+
+    it("a kept departure whose leads have no owner tells the members who manage departures", async () => {
+      const pack = await aGroupPackage({ weeklyDays: [5] });
+      await generate(pack.id, TODAY);
+      const row = await rowOn(pack.id, "2026-11-13");
+      const lead = await world.inOrg(async (tx) => {
+        const { aLead } = await import("../crm/support/records.js");
+        return aLead(tx, { ownerUserId: null });
+      });
+      await world.inOrg((tx) =>
+        tx.departureHold.create({
+          data: { departureId: row.id, leadId: lead.id, seats: 1, expiresAt: new Date("2999-01-01T00:00:00Z") },
+        }),
+      );
+      await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id: pack.id }, data: { weeklyDays: [6] } }));
+      await world.inOrg((tx) =>
+        reconcilePackageDepartures(tx, systemActor(world.organizationId), pack.id, parseCalendarDate(TODAY), [
+          world.manager.userId,
+        ]),
+      );
+      const told = await world.inOrg((tx) =>
+        tx.notification.count({
+          where: { kind: "departure.schedule-kept", link: { contains: row.id }, recipientUserId: world.manager.userId },
+        }),
+      );
+      expect(told).toBe(1);
     });
   });
 

@@ -1,11 +1,11 @@
 // What a change to a group package's schedule does to the departures the schedule already made: a generated departure
 // (one still on the day it was made for) that no longer fits is cancelled, or has its last day and seats brought in line,
-// unless it has sales or holds, when it is left alone and the team is told once. A departure staff added or moved is theirs.
+// unless it has sales, holds or a quote that could still sell, when it is left alone and the team is told once. A departure staff added or moved is theirs.
 import type { OrgTx } from "@travel-crm/db";
 import { noticeKey } from "../crm/index.js";
 import { addDays, parseCalendarDate, type Actor, type CalendarDate } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
-import { cancelDeparture, changeScheduledDeparture } from "./departures.js";
+import { cancelDeparture, changeScheduledDeparture, SCHEDULE_CANCEL_REASON } from "./departure-changes.js";
 import { asDate, dayOf, dayWords, findDepartureForChange } from "./rows.js";
 
 /** The notice that a schedule change left a departure with sales as it was. */
@@ -16,6 +16,9 @@ export interface Reconciled {
   updated: number;
   kept: number;
 }
+
+/** Quotes that could still sell: a declined or replaced one is over, so it never holds a departure back. */
+const LIVE_QUOTE_STATUSES = ["draft", "sent", "accepted"];
 
 /** The owners of the leads that hold, booked or were quoted seats on the departure: who must hear it was left alone. */
 async function ownersOfSales(tx: OrgTx, departureId: string, now: Date): Promise<{ busy: boolean; owners: string[] }> {
@@ -28,7 +31,7 @@ async function ownersOfSales(tx: OrgTx, departureId: string, now: Date): Promise
       where: { departureId, status: { in: ["requested", "confirmed"] } },
       select: { leadId: true },
     }),
-    tx.quote.findMany({ where: { departureId }, select: { leadId: true } }),
+    tx.quote.findMany({ where: { departureId, status: { in: LIVE_QUOTE_STATUSES } }, select: { leadId: true } }),
   ]);
   const leadIds = [...new Set([...holds, ...bookings, ...quotes].map((row) => row.leadId))];
   const leads = await tx.lead.findMany({ where: { id: { in: leadIds } }, select: { ownerUserId: true } });
@@ -42,6 +45,8 @@ export async function reconcilePackageDepartures(
   actor: Actor,
   packageId: string,
   today: CalendarDate,
+  /** Who hears of a kept departure whose leads have no owner: the members who manage departures. */
+  managerUserIds: readonly string[] = [],
 ): Promise<Reconciled> {
   const result: Reconciled = { cancelled: 0, updated: 0, kept: 0 };
   const pack = await tx.quoteTemplate.findUnique({
@@ -76,7 +81,7 @@ export async function reconcilePackageDepartures(
     if (sales.busy) {
       result.kept += 1;
       await notify(tx, actor, {
-        recipientUserIds: sales.owners,
+        recipientUserIds: sales.owners.length > 0 ? sales.owners : [...managerUserIds],
         sourceEventId: noticeKey(row.id, SCHEDULE_KEPT_KIND),
         kind: SCHEDULE_KEPT_KIND,
         title: `Schedule changed: ${row.title}`.slice(0, 200),
@@ -88,12 +93,7 @@ export async function reconcilePackageDepartures(
       await changeScheduledDeparture(tx, actor, row.id, { endDate: wantedEnd, seatsTotal: wantedSeats });
       result.updated += 1;
     } else {
-      await cancelDeparture(
-        tx,
-        actor,
-        { departureId: row.id, reason: "The package no longer departs on this day" },
-        now,
-      );
+      await cancelDeparture(tx, actor, { departureId: row.id, reason: SCHEDULE_CANCEL_REASON }, now);
       result.cancelled += 1;
     }
   }

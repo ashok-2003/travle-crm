@@ -1,14 +1,8 @@
 // Public API of @travel-crm/domain/departures: group departures with seats, holds and a waitlist, the rooming list for their
 // hotels, and what Today shows about them (release 7a). It sits above crm, tasks and notifications, and bookings call it:
 // an accepted quote on a departure turns its hold into the booking there. Seats are worked out, never stored.
-export {
-  cancelDeparture,
-  createDeparture,
-  getDeparture,
-  listDepartures,
-  setDepartureStatus,
-  updateDeparture,
-} from "./departures.js";
+export { cancelDeparture } from "./departure-changes.js";
+export { createDeparture, getDeparture, listDepartures, setDepartureStatus, updateDeparture } from "./departures.js";
 export { DEPARTURE_HOLDS_QUEUE, runDepartureHoldExpiry, type DepartureJobDependencies } from "./due-work.js";
 export {
   DEPARTURE_HORIZON_DAYS,

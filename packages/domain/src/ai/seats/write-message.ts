@@ -44,6 +44,17 @@ interface Prepared {
   pricePaise: bigint | null;
 }
 
+/** As the public list shows it: a linked departure's own prices, else its season's; any other keeps its one price. */
+async function priceOfDeparture(
+  tx: OrgTx,
+  departure: DepartureRow,
+  roomTypes: readonly string[],
+): Promise<bigint | null> {
+  if (departure.templateId === null) return departure.pricePaise;
+  const lowest = (await departurePricing(tx, departure.templateId, roomTypes as RoomType[]))(departure);
+  return lowest === null ? null : BigInt(lowest);
+}
+
 async function prepare(
   tx: OrgTx,
   access: MemberAccess,
@@ -80,13 +91,7 @@ async function prepare(
           where: { id: departure.templateId },
           select: { pricesIncludeGst: true, roomTypes: true },
         });
-  // As the public list shows it: a linked departure's own prices, else its season's; any other keeps its one price.
-  const linkedPrice =
-    departure.templateId === null || linked === null
-      ? null
-      : (await departurePricing(tx, departure.templateId, linked.roomTypes as RoomType[]))(departure);
-  const pricePaise =
-    departure.templateId === null ? departure.pricePaise : linkedPrice === null ? null : BigInt(linkedPrice);
+  const pricePaise = await priceOfDeparture(tx, departure, linked?.roomTypes ?? []);
   return {
     timeZone,
     departure,

@@ -126,6 +126,7 @@ export function callerOf(
     resolveAccess: () => Promise.resolve(member),
     recordActivity: () => Promise.resolve(),
     firstOwner: () => Promise.resolve(owner),
+    membersHolding: () => Promise.resolve([]),
     organizationProfile: () =>
       Promise.resolve({
         id: options.organizationId,

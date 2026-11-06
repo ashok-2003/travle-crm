@@ -5,7 +5,6 @@ import {
   DEPARTURES_LIST_LIMIT,
   departureDetail,
   departureList,
-  type CancelDepartureInput,
   type CreateDepartureInput,
   type DepartureDetail,
   type DepartureSummary,
@@ -30,41 +29,8 @@ import {
   stateOf,
   type DepartureRow,
 } from "./rows.js";
+import { auditColumns, auditView } from "./departure-changes.js";
 import { announceSeatsFreed } from "./waitlist.js";
-
-const auditColumns = {
-  title: true,
-  startDate: true,
-  endDate: true,
-  seatsTotal: true,
-  status: true,
-  templateId: true,
-  priceSinglePaise: true,
-  priceDoublePaise: true,
-  priceTriplePaise: true,
-  priceQuadPaise: true,
-  priceChildBedPaise: true,
-  priceChildNoBedPaise: true,
-} as const;
-
-/** A departure's figures in an audit entry: what changed, never the staff's notes. Money is paise as a string. */
-const auditView = (row: Pick<DepartureRow, keyof typeof auditColumns>) => {
-  const paise = (value: bigint | null) => (value === null ? null : value.toString());
-  return {
-    title: row.title,
-    startDate: dayOf(row.startDate),
-    endDate: dayOf(row.endDate),
-    seatsTotal: row.seatsTotal,
-    status: row.status,
-    templateId: row.templateId,
-    priceSinglePaise: paise(row.priceSinglePaise),
-    priceDoublePaise: paise(row.priceDoublePaise),
-    priceTriplePaise: paise(row.priceTriplePaise),
-    priceQuadPaise: paise(row.priceQuadPaise),
-    priceChildBedPaise: paise(row.priceChildBedPaise),
-    priceChildNoBedPaise: paise(row.priceChildNoBedPaise),
-  };
-};
 
 function summaryOf(
   row: DepartureRow,
@@ -290,52 +256,4 @@ export async function setDepartureStatus(
   if (input.status === "closed") await recordAudit(tx, access, { action: "departure.closed", ...change });
   else await recordAudit(tx, access, { action: "departure.reopened", ...change });
   if (input.status === "open") await announceSeatsFreed(tx, before.id);
-}
-
-/**
- * Cancels a departure with a reason. Its bookings are not cancelled: staff move or cancel each (they are listed on the
- * departure). Its active holds are released, and its waitlist cleared, since nobody can join a cancelled batch.
- */
-export async function cancelDeparture(tx: OrgTx, access: Actor, input: CancelDepartureInput, now: Date): Promise<void> {
-  const before = await findDepartureForChange(tx, input.departureId);
-  if (before.status === "cancelled") return;
-  await tx.departure.update({
-    where: { id: before.id },
-    data: { status: "cancelled", cancelledReason: input.reason },
-  });
-  await tx.departureHold.updateMany({
-    where: { departureId: before.id, status: "active" },
-    data: { status: "released", endedAt: now },
-  });
-  await tx.departureWaitlist.deleteMany({ where: { departureId: before.id } });
-  await recordAudit(tx, access, {
-    action: "departure.cancelled",
-    entityType: "departure",
-    entityId: before.id,
-    before: { status: before.status },
-    after: { status: "cancelled", reason: input.reason },
-  });
-}
-
-/** The schedule moved a generated departure's last day or seats: one audited change, and a waiting lead hears of more seats. */
-export async function changeScheduledDeparture(
-  tx: OrgTx,
-  actor: Actor,
-  departureId: string,
-  change: { endDate: string; seatsTotal: number },
-): Promise<void> {
-  const before = await findDepartureForChange(tx, departureId);
-  const after = await tx.departure.update({
-    where: { id: before.id },
-    data: { endDate: asDate(change.endDate), seatsTotal: change.seatsTotal },
-    select: auditColumns,
-  });
-  await recordAudit(tx, actor, {
-    action: "departure.changed",
-    entityType: "departure",
-    entityId: before.id,
-    before: auditView(before),
-    after: auditView(after),
-  });
-  if (after.seatsTotal > before.seatsTotal) await announceSeatsFreed(tx, before.id);
 }

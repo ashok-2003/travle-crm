@@ -82,6 +82,8 @@ export const packagesRouter = router({
   /** Saves the package; when its weekly days, months, nights or seats changed, makes the departures that now fit. */
   update: editor.input(updatePackageInput).mutation(async ({ ctx, input }) => {
     const today = await agencyToday(ctx);
+    // Told of a departure the change left alone when its leads have no owner: those who manage departures.
+    const managers = await ctx.identity.membersHolding(ctx.member.organizationId, "departures:edit");
     await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
       const before = await findPackage(tx, input.packageId);
       await updatePackage(tx, ctx.member, input);
@@ -95,7 +97,7 @@ export const packagesRouter = router({
         before.seatsPerDeparture !== input.seatsPerDeparture;
       // Making departures is departures work: skipped, silently, for a member or a plan without it.
       if (changed && mayMakeDepartures(ctx)) {
-        await reconcilePackageDepartures(tx, ctx.member, input.packageId, today);
+        await reconcilePackageDepartures(tx, ctx.member, input.packageId, today, managers);
         await generatePackageDepartures(tx, ctx.member, input.packageId, today);
       }
     });
