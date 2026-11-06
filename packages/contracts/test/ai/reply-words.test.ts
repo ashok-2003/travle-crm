@@ -7,7 +7,9 @@ import {
   teamClaimPhrases,
   notRunPhrases,
   customTripPhrases,
+  paymentDetailsIn,
   withoutAmountsAndDates,
+  withoutPaymentDetails,
 } from "../../src/ai/reply-words.js";
 
 const kinds = (text: string) => amountsAndDatesIn(text).map((m) => `${m.kind}:${text.slice(m.start, m.end)}`);
@@ -91,5 +93,49 @@ describe("word lists", () => {
     for (const list of [paymentClaimPhrases, teamClaimPhrases, notRunPhrases, customTripPhrases]) {
       expect(list.some((p) => /[ऀ-ॿ]/.test(p))).toBe(true);
     }
+  });
+});
+
+describe("paymentDetailsIn", () => {
+  const found = (text: string) => paymentDetailsIn(text).map((span) => text.slice(span.start, span.end));
+
+  it.each([
+    ["Pay the advance to UPI dadhichtrips@ybl", "dadhichtrips@ybl"],
+    ["upi: 9876543210@paytm.", "9876543210@paytm"],
+    ["GPay to himalaya.trails@okhdfcbank", "himalaya.trails@okhdfcbank"],
+    ["a/c 50100234567890, IFSC HDFC0001234", "50100234567890"],
+    ["a/c 50100234567890, IFSC HDFC0001234", "HDFC0001234"],
+    ["IFSC: sbin0004321", "sbin0004321"],
+    ["Account no 123456789", "123456789"],
+    ["Pay here https://rzp.io/l/manali", "https://rzp.io/l/manali"],
+    ["Pay at rzp.io/l/manali", "rzp.io/l/manali"],
+    ["Use upi://pay?pa=x@ybl&am=5000", "upi://pay?pa=x@ybl&am=5000"],
+    ["Link: https://razorpay.me/@himalaya", "https://razorpay.me/@himalaya"],
+    ["Pay on https://paytm.me/abc-xyz", "https://paytm.me/abc-xyz"],
+    ["https://pay.google.com/abc", "https://pay.google.com/abc"],
+    ["www.phonepe.com/pay/xyz", "www.phonepe.com/pay/xyz"],
+  ])("finds %s", (text, expected) => {
+    expect(found(text)).toContain(expected);
+  });
+
+  it.each([
+    "Write to asha@gmail.com for the itinerary",
+    "Mail bookings@himalaya-trails.co.in",
+    "Pickup: Delhi, call +91 98765 43210",
+    "Call +919876543210 for the pickup",
+    "Call 9876543210 at the pickup",
+    "You can pay by GPay, PhonePe or Paytm",
+    "Manali 5N6D, 4,500 ft, Day 3",
+    "₹1,20,000 for 4",
+    "See https://himalaya-trails.in/manali",
+  ])("finds nothing in %s", (text) => {
+    expect(found(text)).toEqual([]);
+  });
+
+  it("withoutPaymentDetails takes them out and keeps the words", () => {
+    expect(withoutPaymentDetails("Pay to dadhichtrips@ybl or a/c 50100234567890 (IFSC HDFC0001234).")).toBe(
+      "Pay to or a/c (IFSC).",
+    );
+    expect(withoutPaymentDetails("Mail asha@gmail.com")).toBe("Mail asha@gmail.com");
   });
 });

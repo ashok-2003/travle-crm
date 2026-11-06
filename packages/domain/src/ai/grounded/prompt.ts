@@ -1,8 +1,8 @@
 // What the writing model is told for one grounded turn: a helpful travel salesperson who never invents a fact, the card
 // (every amount and date a placeholder), the actions code allows, and the rules for money, places not run and bookings.
-// Everything the agency typed (instructions, strict rules, lessons, knowledge) loses its amounts and dates first, so no
-// stale figure reaches the model. The chat and the agency's words are fenced as data.
-import { withoutAmountsAndDates, type ReadAnswer } from "@travel-crm/contracts/ai";
+// Everything the agency typed (instructions, strict rules, lessons, knowledge) loses its payment details, amounts and dates
+// first, so no stale figure or account reaches the model. The chat and the agency's words are fenced as data.
+import { withoutAmountsAndDates, withoutPaymentDetails, type ReadAnswer } from "@travel-crm/contracts/ai";
 import type { AutopilotRow } from "../autopilot.js";
 import {
   calendarLines,
@@ -103,7 +103,7 @@ export function groundedPrompt(settings: AutopilotRow, agency: string, kind: Tur
   const name = settings.agentName.trim() === "" ? `the team at ${agency}` : settings.agentName.trim();
   const person = pack.natural && pack.voice !== null ? pack.voice.name : name;
   const role = pack.natural ? naturalRole(person, agency, kind) : salesRole(name, agency, kind);
-  const clean = (text: string) => withoutAmountsAndDates(text);
+  const clean = (text: string) => withoutAmountsAndDates(withoutPaymentDetails(text));
   const lessons =
     pack.learnings.length === 0
       ? ""

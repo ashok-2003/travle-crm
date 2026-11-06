@@ -104,6 +104,30 @@ describe("the grounded prompt", () => {
     expect(text).toContain("[price P1 double]");
   });
 
+  it("gives the writer no payment detail the agency typed anywhere", () => {
+    const text = groundedPrompt(
+      { ...settings, strictRules: "Advance only to dadhichtrips@ybl." },
+      "Himalaya Trails",
+      "reply",
+      pack({
+        instructions: "Account 50100234567890, IFSC HDFC0001234.",
+        learnings: ["Share https://rzp.io/l/manali when they ask"],
+        knowledge: "## Payment\nPay by UPI to trails@okhdfcbank or upi://pay?pa=trails@okhdfcbank",
+      }),
+    );
+    for (const detail of [
+      "dadhichtrips@ybl",
+      "50100234567890",
+      "HDFC0001234",
+      "rzp.io",
+      "trails@okhdfcbank",
+      "upi://",
+    ]) {
+      expect(text).not.toContain(detail);
+    }
+    expect(text).toContain("Pay by UPI to");
+  });
+
   it("is a salesperson who never invents facts, marked WRITE_REPLY, with the rules said plainly", () => {
     const text = groundedPrompt(settings, "Himalaya Trails", "reply", pack());
     expect(text.startsWith("WRITE_REPLY.")).toBe(true);

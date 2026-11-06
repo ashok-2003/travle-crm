@@ -1,5 +1,6 @@
-// Finds the amounts and dates in a reply, and re-exports the word lists the reply check and the settings warnings share.
+// Finds the amounts and dates in a reply, and re-exports the word lists and payment details the reply check shares.
 export * from "./indian-travel-places.js";
+export * from "./payment-words.js";
 export * from "./reply-phrases.js";
 
 export interface AmountOrDate {

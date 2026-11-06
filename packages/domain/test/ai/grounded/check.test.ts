@@ -117,6 +117,22 @@ describe("checkReply", () => {
     }
   });
 
+  it.each([
+    "Pay the advance to UPI dadhichtrips@ybl",
+    "a/c 50100234567890, IFSC HDFC0001234",
+    "Pay here: https://rzp.io/l/manali",
+    "Scan or pay at upi://pay?pa=trails@okhdfcbank",
+  ])("payment detail the model typed: %s", (text) => {
+    expect(reason(text)).toBe("payment_detail");
+  });
+
+  it("lets an email address, a phone in a pickup line and code's own text through", () => {
+    expect(reason("Mail asha@gmail.com and we will share the itinerary")).toBe("ok");
+    expect(reason("Pickup: call +91 98765 43210")).toBe("ok");
+    const text = "Pay to trails@ybl";
+    expect(reason(text, manaliOnly, [{ start: text.indexOf("trails"), end: text.length }])).toBe("ok");
+  });
+
   it("gives a short excerpt around the match", () => {
     const result = checkReply(`${"word ".repeat(40)}₹7,999 ${"word ".repeat(40)}`, [], manaliOnly);
     expect(result.ok).toBe(false);

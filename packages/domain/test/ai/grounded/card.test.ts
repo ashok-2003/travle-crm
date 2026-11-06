@@ -146,11 +146,11 @@ describe("filling placeholders", () => {
       summary: "Leaves 14 Nov 2026. Seven days over the passes.",
       highlights: ["Key monastery from ₹9,999"],
       inclusions: "Stay at 4,500 ft, breakfast",
-      exclusions: "Flights, GST 5%",
+      exclusions: "Flights, GST 5%, advance to trails@ybl",
       dayTitles: ["Day 3 Kaza on 16 Nov"],
     };
     const text = buildCard(lookup(stale)).text;
-    for (const gone of ["18,500", "14 Nov", "9,999", "16 Nov"]) expect(text).not.toContain(gone);
+    for (const gone of ["18,500", "14 Nov", "9,999", "16 Nov", "trails@ybl"]) expect(text).not.toContain(gone);
     for (const kept of ["Spiti 5N6D", "Seven days over the passes", "Key monastery", "4,500 ft", "Day 3 Kaza"])
       expect(text).toContain(kept);
   });

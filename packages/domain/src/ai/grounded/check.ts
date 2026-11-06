@@ -1,15 +1,17 @@
-// The last gate before a written reply reaches a customer: refuses an amount or date code didn't write, a place the turn doesn't sell, and a claim of payment or of the team's word.
+// The last gate before a written reply reaches a customer: refuses an amount, a date or a payment detail code didn't
+// write, a place the turn doesn't sell, and a claim of payment or of the team's word.
 import {
   amountsAndDatesIn,
   customTripPhrases,
   indianTravelPlaces,
   notRunPhrases,
   paymentClaimPhrases,
+  paymentDetailsIn,
   teamClaimPhrases,
 } from "@travel-crm/contracts/ai";
 import { clausesOf, findPhrases, findWord, hasPhrase, sentencesOf, type Found } from "./phrase-match.js";
 
-export type ReplyRefusal = "amount" | "date" | "place" | "payment_claim" | "team_claim";
+export type ReplyRefusal = "amount" | "date" | "place" | "payment_claim" | "team_claim" | "payment_detail";
 export type ReplyCheck = { ok: true } | { ok: false; reason: ReplyRefusal; excerpt: string };
 
 export interface ReplyContext {
@@ -104,6 +106,9 @@ export function checkReply(text: string, filled: Found[], context: ReplyContext)
     const team = claimIn(sentence, teamClaimPhrases);
     if (team) return refuse("team_claim", team);
   }
+  // A UPI handle, an account, an IFSC or a payment link only ever goes as code's own message, never in the reply.
+  const detail = paymentDetailsIn(text).find((span) => !insideOne(span, filled));
+  if (detail) return refuse("payment_detail", detail);
   const typed = amountsAndDatesIn(text).find((span) => !insideOne(span, filled));
   if (typed) return refuse(typed.kind === "money" ? "amount" : "date", typed);
   const place = placeProblem(text, filled, context);
