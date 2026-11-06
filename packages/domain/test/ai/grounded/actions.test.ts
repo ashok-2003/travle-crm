@@ -72,6 +72,7 @@ const context: ActionContext = {
   natural: false,
   hasLead: true,
   settings: { leadNotes: true, followUpTasks: true },
+  latest: ["book it"],
 };
 const money = (allowed: ReturnType<typeof allowedActions>) => [allowed.sendPayment, allowed.requestBooking];
 
@@ -188,6 +189,14 @@ describe("allowedActions", () => {
       };
       expect(money(allowedActions(lookup({}, spiti, second), facts(), read(), context))).toEqual([true, true]);
     });
+  });
+
+  it("a price only the team can give, asked this turn, moves no money this turn", () => {
+    const special = { kind: "discount" as const, evidence: "any discount" };
+    const now = { ...context, latest: ["any discount? book it"] };
+    expect(money(allowedActions(lookup(), facts(), read({ special }), now))).toEqual([false, false]);
+    // Asked in an earlier message and flagged then: today's "book it" may go ahead.
+    expect(money(allowedActions(lookup(), facts(), read({ special }), context))).toEqual([true, true]);
   });
 
   it("natural chats never get payment or booking", () => {

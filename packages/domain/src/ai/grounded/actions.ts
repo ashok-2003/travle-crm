@@ -1,15 +1,23 @@
 // What the writing model may do this turn, decided by code: the model picks among these actions and anything else it picks
-// is dropped. Money actions (payment details, a booking) need a customer who said they want to book, one open departure
-// with seats, every traveller in a priced room, an advance, something to pay with, a lead, and no payment sent for it yet.
+// is dropped. Money actions (payment details, a booking) need a customer who said they want to book and asked for no
+// special price this turn, one open departure with seats, every traveller in a priced room, an advance, something to pay
+// with, a lead, and no payment sent for it yet.
 import type { ChatFacts, ReadAnswer, WriteAnswer } from "@travel-crm/contracts/ai";
 import type { AutopilotRow } from "../autopilot.js";
 import type { Lookup, LookupPackage } from "./lookup-types.js";
+import { containsWords } from "./read-words.js";
 
 export interface ActionContext {
   natural: boolean;
   hasLead: boolean;
   settings: Pick<AutopilotRow, "leadNotes" | "followUpTasks">;
+  /** The customer's messages this turn answers (after the agency's last line): what is asked "this turn". */
+  latest: string[];
 }
+
+/** Whether the evidence is in a message this turn answers, not an earlier one the read saw again. */
+const saidNow = (evidence: string, context: ActionContext): boolean =>
+  context.latest.some((text) => containsWords(text, evidence));
 
 export interface AllowedActions {
   /** Card keys (`P1`...) of packages with brochures to send. */
@@ -45,6 +53,8 @@ function knownDeparture(one: LookupPackage, facts: ChatFacts) {
 
 function mayTakeMoney(lookup: Lookup, facts: ChatFacts, read: ReadAnswer, context: ActionContext): boolean {
   if (read.wants !== "book" || context.natural || !context.hasLead) return false;
+  // A price only the team can give (a discount, a B2B rate) asked this turn: the team talks price first.
+  if (read.special !== null && saidNow(read.special.evidence, context)) return false;
   const one = bookingPackage(lookup);
   if (one === null || facts.travellers === null) return false;
   const departure = knownDeparture(one, facts);

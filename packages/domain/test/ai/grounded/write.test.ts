@@ -63,7 +63,12 @@ const read: ReadAnswer = {
   special: null,
   nearest: [],
 };
-const context = { natural: false, hasLead: true, settings: { leadNotes: true, followUpTasks: true } };
+const context = {
+  natural: false,
+  hasLead: true,
+  settings: { leadNotes: true, followUpTasks: true },
+  latest: ["Price for Spiti?"],
+};
 const pack = (changes: Partial<GroundedPack> = {}): GroundedPack => ({
   knowledge: "## Cancellation\nFull refund up to 15 days before.",
   learnings: [],

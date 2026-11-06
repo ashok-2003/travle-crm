@@ -36,6 +36,12 @@ const quiet: ReadAnswer = {
   nearest: [],
 };
 
+/** The customer's messages after the agency's last line: what this turn answers. */
+const latestOf = (prepared: Prepared): string[] => {
+  const after = prepared.transcript.map((line) => line.from).lastIndexOf("agency") + 1;
+  return prepared.transcript.slice(after).flatMap((line) => (line.from === "customer" ? [line.text] : []));
+};
+
 const reasonFor = (input: TurnInput): string | undefined =>
   input.kind === "nudge"
     ? "they went quiet"
@@ -105,6 +111,7 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     natural: prepared.natural,
     hasLead: looked.hasLead,
     settings: prepared.settings,
+    latest: latestOf(prepared),
   });
   const pack: GroundedPack = packOf(prepared, input, card, allowed, read);
 
