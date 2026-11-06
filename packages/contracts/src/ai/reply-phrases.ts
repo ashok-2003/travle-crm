@@ -17,7 +17,12 @@ export const paymentClaimPhrases: string[] = [
   "payment confirmed",
   "payment is confirmed",
   "payment has been confirmed",
-  "{bk} … {done}",
+  "{bk} {done}",
+  "{bk} {be} {done}",
+  "{pay} went through",
+  "we have your {pay}",
+  "i have your {pay}",
+  "it {be} {got}",
   "confirmed your {bk}",
   // Hinglish
   "payment mil gaya",

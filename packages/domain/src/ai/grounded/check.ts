@@ -23,10 +23,13 @@ const MAX_EXCERPT = 80;
 // What can govern an English claim: a condition before it in its clause, a negation on it, or a modal before its verb.
 const CONDITION = /\b(?:once|after|when|whenever|as soon as|if|until|till)\b/i;
 const NEGATION = /n't\b|\b(?:not|never|no|yet to|cannot)\b/i;
-const MODAL = /\b(?:will|shall|would|can|may|to be|get|gets|getting)\b/i;
+const MODAL = /\b(?:will|shall|would|can|may|to be)\b/i;
 // "To get your booking confirmed": a bare noun-participle after a verb that asks for it is a wish, not news.
 const BARE_BOOKING = /^(?:booking|seats?|trip|slot|tour)(?:['’]s)?\s+\S+$/i;
-const CAUSATIVE = /\b(?:to|get|gets|getting|have|has|having|want|wants|need|needs|help)\b/i;
+const WISH_BEFORE =
+  /(?:\b(?:get|gets|getting)|\bto\s+(?:have|see)|\bhelp\s+(?:you\s+)?get)\s+(?:(?:your|the|this|our|my)\s+)?$/i;
+// "it has been received" is a payment claim only when the sentence names a payment.
+const PAYMENT_NOUN = /\b(?:payments?|advance|amount|money|balance|transfer|deposit|upi|funds?|token)\b/i;
 const NON_ENGLISH =
   /[\u0900-\u097F]|\b(?:gaya|gayi|gaye|gya|mila|mili|bataya|kaha|bola|diya|bheja|hui|karte|karate|liya)\b/i;
 
@@ -51,7 +54,8 @@ function claimIn(sentence: { text: string; start: number }, phrases: readonly st
         CONDITION.test(`${before} ${matched}`) ||
         NEGATION.test(`${wordsBefore(3)} ${matched}`) ||
         MODAL.test(`${wordsBefore(2)} ${matched}`) ||
-        (BARE_BOOKING.test(matched) && CAUSATIVE.test(wordsBefore(4)));
+        (BARE_BOOKING.test(matched) && WISH_BEFORE.test(before)) ||
+        (/^it\s/i.test(matched) && !PAYMENT_NOUN.test(sentence.text));
       if (hedged && !NON_ENGLISH.test(matched)) continue;
       const start = sentence.start + clause.start + found.start;
       return { start, end: start + (found.end - found.start) };

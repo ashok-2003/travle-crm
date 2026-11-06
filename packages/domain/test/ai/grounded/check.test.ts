@@ -213,3 +213,31 @@ describe("checkReply: the booking flow's own sentences (P4-24)", () => {
     expect(reason("Team will say the team said it is fine")).toBe("team_claim");
   });
 });
+
+describe("checkReply: wishes and gaps (P4-25)", () => {
+  it.each([
+    "We are happy to say booking confirmed",
+    "We have your booking confirmed",
+    "We have your booking confirmed, thanks",
+    "Payment gets received",
+    "Your payment went through",
+    "We have your payment",
+    "Thanks for the payment, it has been received",
+    "Thanks for the advance, it is credited",
+  ])("refused: %s", (text) => {
+    expect(reason(text)).toBe("payment_claim");
+  });
+
+  it.each([
+    "We'd love to get your booking confirmed \u2014 shall I share the payment details?",
+    "Want to get your seats confirmed? The advance is ",
+    "The team needs to see your screenshot to confirm the payment",
+    "Thanks, we've received your details",
+    "We have received it",
+    "We want to help you get your seats confirmed",
+    "Seats get confirmed after the advance is received",
+    "It is received well by travellers",
+  ])("allowed: %s", (text) => {
+    expect(reason(text)).toBe("ok");
+  });
+});
