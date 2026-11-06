@@ -29,6 +29,14 @@ export function expectedAdvanceOf(booking: { expectedPaise: bigint | null; detai
 
 const requestIdOf = (aiBookingId: string) => uuidFromKey(`ai-payment:${aiBookingId}`);
 
+/** A second confirmation naming another amount than the one recorded: refused, so nobody is told a wrong amount. */
+export const confirmedOtherAmount = () =>
+  new DomainError(
+    "CONFLICT",
+    "PAYMENT_CONFIRMED_OTHER_AMOUNT",
+    "Someone already confirmed this payment with another amount",
+  );
+
 /** The AI booking, locked: two people deciding at once take turns, and the second finds what the first did. */
 async function lockedAiBooking(tx: OrgTx, bookingId: string) {
   await tx.$queryRaw`SELECT id FROM ai_booking WHERE id = ${bookingId}::uuid FOR UPDATE`;
@@ -105,9 +113,10 @@ export async function confirmAiPayment(
   if (row.status === "confirmed") {
     const earlier = await tx.quotePayment.findFirst({
       where: { requestId: requestIdOf(row.id) },
-      select: { quoteId: true },
+      select: { quoteId: true, amountPaise: true },
     });
     if (earlier === null) throw new DomainError("CONFLICT", "AI_BOOKING_NOT_OPEN", "This booking was decided already");
+    if (Number(earlier.amountPaise) !== input.amountPaise) throw confirmedOtherAmount();
     return { leadId: row.leadId, quoteId: earlier.quoteId };
   }
   if (!OPEN_STATUSES.includes(row.status))

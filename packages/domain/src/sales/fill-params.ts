@@ -10,8 +10,8 @@ export interface FillContext {
   agencyName: string;
   /** The lead's owner's name, from identity; null when the lead has none. */
   agentName: string | null;
-  /** For a payment reminder. */
-  payment?: { amountPaise: number; dueOn: string; link: string };
+  /** For a payment reminder or message; an amount nobody knows (null) is never shown as ₹0.00. */
+  payment?: { amountPaise: number | null; dueOn: string; link: string };
 }
 
 const dayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -80,7 +80,9 @@ export function fillParams(
       case "agency":
         return context.agencyName;
       case "amount":
-        return context.payment === undefined ? "the amount due" : formatMoney(money(context.payment.amountPaise));
+        return context.payment?.amountPaise == null
+          ? "the amount due"
+          : formatMoney(money(context.payment.amountPaise));
       case "due":
         return context.payment === undefined ? "soon" : dayWords.format(new Date(`${context.payment.dueOn}T00:00:00Z`));
       case "link":

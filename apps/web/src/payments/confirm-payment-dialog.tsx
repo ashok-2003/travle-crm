@@ -7,6 +7,7 @@ import type { PaymentToCheck } from "@travel-crm/contracts/bookings";
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { useWatch } from "react-hook-form";
 import { z } from "zod";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog } from "@/components/forms/form-dialog";
@@ -14,7 +15,9 @@ import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Button } from "@/components/ui/button";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { useWriteAccess } from "@/subscription/write-access";
+import { MessagePreview } from "./message-preview";
 import { useConfirmPayment } from "./use-payments";
 
 type Problem = "required" | "invalid" | "reference";
@@ -48,6 +51,8 @@ function ConfirmForm({
       ),
     (problem) => t(`problems.${problem}`),
   );
+  // The message for the amount typed, once typing pauses.
+  const typed = paiseFromRupeesText(useDebouncedValue(useWatch({ control: form.control, name: "amount" })));
   return (
     <form
       id={formId}
@@ -65,6 +70,14 @@ function ConfirmForm({
           <p className="text-muted-foreground">{t("claimReference", { reference: payment.reference })}</p>
         )
       )}
+      <MessagePreview
+        input={{
+          kind: payment.kind,
+          id: payment.id,
+          outcome: "confirm",
+          ...(typed === null || typed < 1 ? {} : { amountPaise: typed }),
+        }}
+      />
       <FormAlert sending={confirm} problem={formProblem} />
     </form>
   );

@@ -65,6 +65,11 @@
     "description": "It isn't a payment to match, and it leaves this list. The customer is not told.",
     "submit": "Dismiss"
   },
+  "preview": {
+    "label": "What the customer gets",
+    "template": "Your WhatsApp template for this message, as their chat window is closed.",
+    "task": "No message can go now: a task asks the lead's owner to tell them."
+  },
   "told": {
     "sent": "Sent on WhatsApp",
     "template": "Sent as a template",

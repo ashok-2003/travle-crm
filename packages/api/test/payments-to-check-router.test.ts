@@ -263,4 +263,77 @@ describe("paymentsToCheck", () => {
     expect(after.pendingClaims).toBe(0);
     expect(after.tasks).toBe(before.tasks);
   });
+
+  it("the preview needs the list's permissions, and its words are what the confirmation then sends", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const { claimId } = await aClaim(organizationId, null, true);
+    const input = { kind: "claim", id: claimId, outcome: "confirm", amountPaise: 900_000 } as const;
+    const { caller: accountsless } = callerOf(harness, { organizationId, granted: ["bookings:view"] });
+    expect(await refusal(accountsless.paymentsToCheck.preview(input))).toBe("MISSING_PERMISSION");
+    const { caller } = callerOf(harness, { organizationId });
+    const preview = await caller.paymentsToCheck.preview(input);
+    expect(preview).toMatchObject({ way: "message", text: expect.stringContaining("₹9,000.00") as unknown });
+    // The preview changes nothing.
+    expect(await harness.db.forOrg(organizationId, (tx) => tx.whatsappMessage.count())).toBe(0);
+    await caller.paymentsToCheck.confirm({ kind: "claim", id: claimId, amountPaise: 900_000, reference: "" });
+    const sent = await harness.db.forOrg(organizationId, (tx) => tx.whatsappMessage.findFirstOrThrow());
+    expect(sent.body).toBe(preview.way === "message" ? preview.text : null);
+  });
+
+  it("an AI booking with nothing to say its amount previews a task for a not found, never ₹0.00", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const ai = await anAiBooking(organizationId);
+    const { caller } = callerOf(harness, { organizationId });
+    expect(
+      await caller.paymentsToCheck.preview({ kind: "ai_booking", id: ai.bookingId, outcome: "not_found" }),
+    ).toEqual({ way: "task" });
+  });
+
+  it("refusing an AI booking again after a new screenshot tells the customer again; one refusal tells once", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const ai = await anAiBooking(organizationId);
+    const { caller } = callerOf(harness, { organizationId });
+    const refuse = () =>
+      caller.paymentsToCheck.refuse({ kind: "ai_booking", id: ai.bookingId, reason: "not_found", tell: true });
+    const tasks = () =>
+      harness.db.forOrg(organizationId, (tx) => tx.task.count({ where: { title: { contains: "wasn't found" } } }));
+    expect(await refuse()).toEqual({ told: "task" });
+    expect(await refusal(refuse())).toBe("AI_BOOKING_NOT_OPEN");
+    expect(await tasks()).toBe(1);
+    // The customer sends a new screenshot: the booking waits for a person again, and a second refusal is a new telling.
+    await harness.db.forOrg(organizationId, (tx) =>
+      tx.aiBooking.update({
+        where: { id: ai.bookingId },
+        data: { status: "proof_received", proofMessageIds: { push: randomUUID() } },
+      }),
+    );
+    expect(await refuse()).toEqual({ told: "task" });
+    expect(await tasks()).toBe(2);
+  });
+
+  it("a second confirmation with another amount is refused and tells nobody", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const ai = await anAiBooking(organizationId);
+    const { claimId } = await aClaim(organizationId);
+    const { caller } = callerOf(harness, { organizationId });
+    await caller.paymentsToCheck.confirm({
+      kind: "ai_booking",
+      id: ai.bookingId,
+      amountPaise: 2_000_000,
+      reference: "",
+    });
+    await caller.paymentsToCheck.confirm({ kind: "claim", id: claimId, amountPaise: 1_000_000, reference: "" });
+    const before = await nothingChanged(organizationId);
+    expect(
+      await refusal(
+        caller.paymentsToCheck.confirm({ kind: "ai_booking", id: ai.bookingId, amountPaise: 1_500_000, reference: "" }),
+      ),
+    ).toBe("PAYMENT_CONFIRMED_OTHER_AMOUNT");
+    expect(
+      await refusal(
+        caller.paymentsToCheck.confirm({ kind: "claim", id: claimId, amountPaise: 900_000, reference: "" }),
+      ),
+    ).toBe("PAYMENT_CONFIRMED_OTHER_AMOUNT");
+    expect(await nothingChanged(organizationId)).toEqual(before);
+  });
 });

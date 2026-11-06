@@ -64,6 +64,12 @@ let told: "sent" | "template" | "task" | "none";
 
 function answer(call: Call): Reply {
   if (call.path === "paymentsToCheck.list") return { data: { items: waiting, nextCursor: null } };
+  if (call.path === "paymentsToCheck.preview") {
+    const asked = call.input as { outcome: string; amountPaise?: number };
+    return asked.outcome === "confirm"
+      ? { data: { way: "message", text: `Thank you! We have received ${String(asked.amountPaise ?? "it")}.` } }
+      : { data: { way: "task" } };
+  }
   if (call.path === "paymentsToCheck.confirm" || call.path === "paymentsToCheck.refuse") {
     const decided = (call.input as { id: string }).id;
     waiting = waiting.filter((one) => one.id !== decided);
@@ -181,5 +187,23 @@ describe("PaymentsScreen", () => {
     expect(await screen.findByLabelText(words.confirm.amount)).toHaveValue("20,000");
     await userEvent.click(screen.getByRole("button", { name: words.confirm.submit }));
     expect(await screen.findByText(words.told.task)).toBeVisible();
+  });
+
+  it("the confirm dialog shows what the customer gets for the amount typed", async () => {
+    renderPayments();
+    await userEvent.click(await screen.findByRole("button", { name: "Confirm Rahul Sharma's payment" }));
+    const amount = await screen.findByLabelText(words.confirm.amount);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "17500");
+    expect(await screen.findByText("Thank you! We have received 1750000.")).toBeVisible();
+    expect(screen.getByText(words.preview.label)).toBeVisible();
+  });
+
+  it("the refuse dialog shows how the customer is told while Tell the customer is ticked", async () => {
+    renderPayments();
+    await userEvent.click(await screen.findByRole("button", { name: "Rahul Sharma's payment not received" }));
+    expect(await screen.findByText(words.preview.task)).toBeVisible();
+    await userEvent.click(screen.getByRole("checkbox", { name: words.refuse.tell }));
+    expect(screen.queryByText(words.preview.task)).toBeNull();
   });
 });

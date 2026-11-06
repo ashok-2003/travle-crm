@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { useWriteAccess } from "@/subscription/write-access";
+import { MessagePreview } from "./message-preview";
 import { useDismissProof, useRefusePayment } from "./use-payments";
 
 type Refusing = PaymentToCheck & { kind: "claim" | "ai_booking" };
@@ -81,6 +82,7 @@ export function RefusePaymentDialog({ payment, describedBy }: { payment: Refusin
             <FieldDescription>{t("tellHint")}</FieldDescription>
           </FieldContent>
         </Field>
+        {tell && open && <MessagePreview input={{ kind: payment.kind, id: payment.id, outcome: "not_found" }} />}
       </ConfirmDialog>
     </>
   );

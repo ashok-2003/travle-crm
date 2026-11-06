@@ -4,6 +4,8 @@ import {
   confirmPaymentInput,
   dismissProofInput,
   paymentDecision,
+  paymentPreview,
+  paymentPreviewInput,
   paymentsToCheckCount,
   paymentsToCheckInput,
   paymentsToCheckPage,
@@ -13,6 +15,7 @@ import {
   confirmPayment,
   countPaymentsToCheck,
   dismissProof,
+  paymentMessagePreview,
   paymentsToCheck,
   refusePayment,
 } from "@travel-crm/domain/bookings";
@@ -38,6 +41,14 @@ export const paymentsToCheckRouter = router({
     .output(paymentsToCheckCount)
     .query(({ ctx }) =>
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({ count: await countPaymentsToCheck(tx, ctx.member) })),
+    ),
+
+  /** What confirming (the amount typed so far) or a not found would tell the customer, before the person decides. */
+  preview: viewer
+    .input(paymentPreviewInput)
+    .output(paymentPreview)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => paymentMessagePreview(tx, ctx.member, input, new Date())),
     ),
 
   confirm: checker

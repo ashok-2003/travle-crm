@@ -57,6 +57,23 @@ export const refusePaymentInput = z.strictObject({
 });
 export type RefusePaymentInput = z.infer<typeof refusePaymentInput>;
 
+/** What a confirmation (of the amount typed so far) or a not found would tell the customer, before the person decides. */
+export const paymentPreviewInput = z.strictObject({
+  kind: z.enum(["claim", "ai_booking"]),
+  id: recordId,
+  outcome: z.enum(["confirm", "not_found"]),
+  amountPaise: z.int().min(1).optional(),
+});
+export type PaymentPreviewInput = z.infer<typeof paymentPreviewInput>;
+
+/** The words that would go as a message, or that a template or a task for a person would tell them instead. */
+export const paymentPreview = z.discriminatedUnion("way", [
+  z.object({ way: z.literal("message"), text: z.string() }),
+  z.object({ way: z.literal("template") }),
+  z.object({ way: z.literal("task") }),
+]);
+export type PaymentPreview = z.infer<typeof paymentPreview>;
+
 export const dismissProofInput = z.strictObject({ proofId: recordId });
 export type DismissProofInput = z.infer<typeof dismissProofInput>;
 

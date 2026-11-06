@@ -16,6 +16,7 @@ import { calendarDateIn, DomainError, formatMoney, money, publicActor, systemAct
 import { notify } from "../notifications/index.js";
 import { recordPayment } from "../quotes/index.js";
 import { bringTaskForward, createTask, finishTasks } from "../tasks/index.js";
+import { confirmedOtherAmount } from "./ai-payments.js";
 import { rebuildReminders } from "./reminders.js";
 import { findBookingForChange, findBookingForSystem, paidOnQuote, type BookingRow } from "./rows.js";
 import { recordBookingEvent } from "./timeline.js";
@@ -123,7 +124,7 @@ async function pendingClaim(tx: OrgTx, access: MemberAccess, claimId: string) {
   const booking = await findBookingForChange(tx, access, found.bookingId);
   const claim = await tx.paymentClaim.findUniqueOrThrow({
     where: { id: claimId },
-    select: { id: true, status: true, amountPaise: true, reference: true, taskId: true },
+    select: { id: true, status: true, amountPaise: true, reference: true, taskId: true, paymentId: true },
   });
   return { booking, claim };
 }
@@ -136,7 +137,16 @@ export async function confirmClaim(
   now: Date,
 ): Promise<void> {
   const { booking, claim } = await pendingClaim(tx, access, input.claimId);
-  if (claim.status === "confirmed") return;
+  if (claim.status === "confirmed") {
+    // A repeat with another amount than the one recorded is someone else's word: nobody is told a wrong amount.
+    const recorded =
+      claim.paymentId === null
+        ? null
+        : await tx.quotePayment.findUnique({ where: { id: claim.paymentId }, select: { amountPaise: true } });
+    if (input.amountPaise !== undefined && recorded !== null && Number(recorded.amountPaise) !== input.amountPaise)
+      throw confirmedOtherAmount();
+    return;
+  }
   if (claim.status !== "pending")
     throw new DomainError("CONFLICT", "CLAIM_DECIDED", "This payment was already decided");
   const timeZone = await organizationTimeZone(tx, access.organizationId);
