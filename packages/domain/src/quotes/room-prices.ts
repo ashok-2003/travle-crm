@@ -46,6 +46,34 @@ export function priceOn(
   return { prices: offeredOnly(season.prices, offered), source: "season", label: season.label };
 }
 
+/**
+ * The lowest price per offered room type that is still to come: over the seasons that have not ended and the open
+ * departures' own prices. A room type nothing prices stays null.
+ */
+export function fromPrices(
+  seasons: readonly SeasonPrices[],
+  departures: readonly RoomPrices[],
+  today: CalendarDate,
+  offered: readonly RoomType[],
+): RoomPrices {
+  const sets = [...seasons.filter((season) => season.endsOn >= today).map((season) => season.prices), ...departures];
+  const lowest = { ...emptyPrices };
+  for (const type of roomTypes) {
+    const given = offered.includes(type) ? sets.flatMap((set) => (set[type] === null ? [] : [set[type]])) : [];
+    lowest[type] = given.length === 0 ? null : Math.min(...given);
+  }
+  return lowest;
+}
+
+const emptyPrices: RoomPrices = {
+  single: null,
+  double: null,
+  triple: null,
+  quad: null,
+  child_bed: null,
+  child_no_bed: null,
+};
+
 export interface RoomLine {
   roomType: RoomType;
   people: number;

@@ -2,7 +2,7 @@
 import type { RoomPrices } from "@travel-crm/contracts/quotes";
 import { describe, expect, it } from "vitest";
 import { indiaGst, money, parseCalendarDate } from "../../src/kernel/index.js";
-import { exTaxSubtotal, priceOn, totalFor, type SeasonPrices } from "../../src/quotes/room-prices.js";
+import { exTaxSubtotal, fromPrices, priceOn, totalFor, type SeasonPrices } from "../../src/quotes/room-prices.js";
 
 const day = parseCalendarDate;
 const none: RoomPrices = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
@@ -125,5 +125,27 @@ describe("exTaxSubtotal", () => {
 
   it("refuses a tax function that cannot come near the total", () => {
     expect(() => exTaxSubtotal(1_000, 5_000, () => 0)).toThrow(Error);
+  });
+});
+
+describe("fromPrices", () => {
+  it("from prices take the lowest coming season per room type", () => {
+    const today = day("2026-11-10");
+    const mixed: SeasonPrices[] = [
+      { label: "Past", startsOn: day("2026-10-01"), endsOn: day("2026-11-05"), prices: { ...none, double: 100_000 } },
+      {
+        label: "Nov",
+        startsOn: day("2026-11-06"),
+        endsOn: day("2026-11-30"),
+        prices: { ...none, double: 699_900, triple: 650_000 },
+      },
+      { label: "Peak", startsOn: day("2026-12-20"), endsOn: day("2027-01-05"), prices: { ...none, double: 799_900 } },
+    ];
+    const own = [{ ...none, double: 620_000, single: 900_000 }];
+    const from = fromPrices(mixed, own, today, ["single", "double", "triple"]);
+    expect(from).toEqual({ ...none, single: 900_000, double: 620_000, triple: 650_000 });
+    // A room type the package doesn't offer keeps no price, and nothing priced is null.
+    expect(fromPrices(mixed, own, today, ["triple"])).toEqual({ ...none, triple: 650_000 });
+    expect(fromPrices([], [], today, ["double"])).toEqual(none);
   });
 });

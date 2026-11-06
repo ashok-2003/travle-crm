@@ -1,6 +1,13 @@
 // Numbers and money are shown the Indian way: ₹12,50,000.00, grouped in lakhs and crores.
 import { describe, expect, it } from "vitest";
-import { formatIndianNumber, formatMoney, money } from "../../src/kernel/index.js";
+import {
+  formatIndianNumber,
+  formatMoney,
+  formatRupees,
+  formatShortDay,
+  money,
+  parseCalendarDate,
+} from "../../src/kernel/index.js";
 
 describe("Indian number format", () => {
   it("groups the last three digits, then pairs", () => {
@@ -52,5 +59,21 @@ describe("fraction digits", () => {
     expect(() => formatIndianNumber(Number.POSITIVE_INFINITY, { fractionDigits: 2 })).toThrow(RangeError);
     expect(formatIndianNumber(-0.001, { fractionDigits: 2 })).toBe("0.00");
     expect(formatIndianNumber(-0)).toBe("0");
+  });
+});
+
+describe("customer-facing rupees and days", () => {
+  it("shows whole rupees with lakh grouping and paise only when they are not zero", () => {
+    expect(formatRupees(699_900)).toBe("₹6,999");
+    expect(formatRupees(12_500_000)).toBe("₹1,25,000");
+    expect(formatRupees(699_950)).toBe("₹6,999.50");
+    expect(formatRupees(5)).toBe("₹0.05");
+    expect(formatRupees(0)).toBe("₹0");
+  });
+
+  it("writes a day as 'Sat 14 Nov', with the year when it is not this year's", () => {
+    const today = parseCalendarDate("2026-11-06");
+    expect(formatShortDay(parseCalendarDate("2026-11-14"), today)).toBe("Sat 14 Nov");
+    expect(formatShortDay(parseCalendarDate("2027-01-02"), today)).toBe("Sat 2 Jan 2027");
   });
 });

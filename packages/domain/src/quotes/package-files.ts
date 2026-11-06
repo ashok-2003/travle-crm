@@ -14,9 +14,9 @@ import {
   type PackageFile,
   type PackageFileKind,
 } from "@travel-crm/contracts/quotes";
-import type { Database } from "@travel-crm/db";
+import type { Database, OrgTx } from "@travel-crm/db";
 import { recordAudit, type AuditSnapshot } from "../audit/index.js";
-import type { Files } from "../files/index.js";
+import { readyAttachmentsIn, type Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { filesWithLinks, requirePackage } from "./package-file-links.js";
@@ -30,6 +30,22 @@ const recordOf = (packageId: string, kind: PackageFileKind) => ({
   recordType: kind === "brochure" ? PACKAGE_BROCHURE_RECORD_TYPE : PACKAGE_PAYMENT_QR_RECORD_TYPE,
   recordId: packageId,
 });
+
+/** A package's brochures and the newest payment QR inside a transaction already open, for the AI's turn: ids, never links. */
+export async function packageFilesIn(
+  tx: OrgTx,
+  packageId: string,
+): Promise<{ brochures: { id: string; fileName: string }[]; paymentQrId: string | null }> {
+  const [brochures, qrs] = await Promise.all([
+    readyAttachmentsIn(tx, recordOf(packageId, "brochure")),
+    readyAttachmentsIn(tx, recordOf(packageId, "payment_qr")),
+  ]);
+  // The newest QR wins, as in listPackageFiles.
+  return {
+    brochures: brochures.map(({ id, fileName }) => ({ id, fileName })),
+    paymentQrId: qrs[qrs.length - 1]?.id ?? null,
+  };
+}
 
 const withAttachmentId = (
   file: { id: string; fileName: string; contentType: string; url: string | null } | undefined,

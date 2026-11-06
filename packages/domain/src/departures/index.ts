@@ -21,6 +21,12 @@ export {
   releaseHold,
 } from "./holds.js";
 export { makeGroupQuote } from "./group-quote.js";
+export {
+  openDepartureDetails,
+  openDeparturesOf,
+  type OpenDeparture,
+  type OpenDepartureDetail,
+} from "./open-departures.js";
 export { listLeadDepartures } from "./lead-departures.js";
 export { departureMoneyOf } from "./money.js";
 export { makeQuoteFromHold, setQuoteDeparture } from "./quote-link.js";
