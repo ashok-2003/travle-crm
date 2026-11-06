@@ -157,15 +157,26 @@ describe("allowedActions", () => {
         true,
       ]);
     });
-    it("knows the departure from the chat's departure id before its date", () => {
-      const other = { id: "d2", startsOn: day("2026-12-01"), freeSeats: 8 };
-      const pkg = { ...spiti, chosenDeparture: null, departures: [spiti.departures[0] ?? other, other] };
-      expect(
-        money(allowedActions(lookup({}, pkg), facts({ startsOn: null, departureId: "d2" }), read(), context)),
-      ).toEqual([true, true]);
-      expect(
-        money(allowedActions(lookup({}, pkg), facts({ startsOn: null, departureId: "gone" }), read(), context)),
-      ).toEqual([false, false]);
+    it("the known departure is the one the lookup priced, and a different departureId blocks money", () => {
+      const b = { id: "d2", startsOn: day("2026-12-01"), freeSeats: 8 };
+      const pkg = { ...spiti, chosenDeparture: b, departures: [...spiti.departures, b] };
+      const atB = { startsOn: "2026-12-01" as const };
+      expect(money(allowedActions(lookup({}, pkg), facts({ ...atB, departureId: "d1" }), read(), context))).toEqual([
+        false,
+        false,
+      ]);
+      expect(money(allowedActions(lookup({}, pkg), facts({ ...atB, departureId: "gone" }), read(), context))).toEqual([
+        false,
+        false,
+      ]);
+      expect(money(allowedActions(lookup({}, pkg), facts({ ...atB, departureId: "d2" }), read(), context))).toEqual([
+        true,
+        true,
+      ]);
+      expect(money(allowedActions(lookup({}, pkg), facts({ ...atB, departureId: null }), read(), context))).toEqual([
+        true,
+        true,
+      ]);
     });
     it("a chosen package wins over a second group package in the lookup", () => {
       const second = {
@@ -216,7 +227,9 @@ describe("allowedActions", () => {
     expect(allowedActions(lookup(), facts(), read({ places: [notRun] }), context).forcedFlag).toBe("not_run");
     const special = { kind: "discount" as const, evidence: "any discount" };
     expect(allowedActions(lookup(), facts(), read({ special }), context).forcedFlag).toBe("special_price");
-    expect(allowedActions(lookup(), facts(), read({ places: [notRun], special }), context).forcedFlag).toBe("not_run");
+    expect(allowedActions(lookup(), facts(), read({ places: [notRun], special }), context).forcedFlag).toBe(
+      "not_run,special_price",
+    );
     expect(allowedActions(lookup(), facts(), read(), context).forcedFlag).toBeNull();
     // A place not run in an earlier turn is not this turn's.
     expect(
@@ -291,6 +304,16 @@ describe("chosenActions", () => {
       context,
     );
     expect(chosenActions(asked(), forced).flag).toBe("not_run");
+    const both = allowedActions(
+      lookup(),
+      facts(),
+      read({
+        places: [{ destination: "none", words: "Goa", evidence: "Goa" }],
+        special: { kind: "discount", evidence: "discount" },
+      }),
+      context,
+    );
+    expect(chosenActions(asked({ flag: "angry" }), both).flag).toBe("not_run,special_price: angry");
     expect(chosenActions(asked({ flag: "wants_call" }), forced).flag).toBe("not_run: wants_call");
   });
 });

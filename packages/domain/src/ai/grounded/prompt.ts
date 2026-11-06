@@ -6,7 +6,6 @@ import { withoutAmountsAndDates, type ReadAnswer } from "@travel-crm/contracts/a
 import type { AutopilotRow } from "../autopilot.js";
 import {
   calendarLines,
-  datesAndRepeats,
   dueLines,
   earlierChat,
   fenced,
@@ -66,9 +65,13 @@ ${taskLines[kind]}
 How you help:
 - Understand the trip: where, when, how many travel, how they'd share rooms. Ask at most one question per message, and never ask again what is known.
 - Recommend only what the card shows. When something is not on the card, say the team will confirm; never guess.
-${datesAndRepeats}
+${datesRule}
 ${honesty}
 - Never share anything about other customers.`;
+
+/** Dates reach customers only through the card's placeholders; and no repeating, as in every role. */
+const datesRule = `- Dates: write every date only as a placeholder from the card, like [departure P1 1] (code fills in the weekday and day). Work out what "kal" or "parso" mean (a day relative to today) from the calendar below alone, never from memory. When the customer gives a date that doesn't exist, a weekday that doesn't match the date, or a day already past, say so kindly and ask which day they mean.
+- Never repeat yourself: don't send again a greeting, an introduction, a question or an offer you already sent in this chat (your own earlier messages are in the chat as "You"). If they ask the same again, answer briefly in new words and move the chat forward.`;
 
 const rules = `Rules for what you write (code checks every reply, and a reply with a figure it didn't write is thrown away):
 - Write every amount, date, seat count and pickup point only as a placeholder from the card, copied exactly, like [price P1 double]. Never type a figure, a date or a phone number yourself, and never use a placeholder the card doesn't list.

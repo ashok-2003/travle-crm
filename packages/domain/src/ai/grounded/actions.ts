@@ -21,8 +21,8 @@ export interface AllowedActions {
   handOver: true;
   note: boolean;
   task: boolean;
-  /** The reason code code flags the chat for, whatever the model chose; null when there is none. */
-  forcedFlag: "not_run" | "special_price" | null;
+  /** The reason codes (comma-joined) code flags the chat for, whatever the model chose; null when there is none. */
+  forcedFlag: string | null;
 }
 
 const keyOf = (index: number) => `P${String(index + 1)}`;
@@ -33,13 +33,14 @@ function bookingPackage(lookup: Lookup): LookupPackage | null {
   return groups.find((one) => one.why.kind === "chosen") ?? (groups.length === 1 ? (groups[0] ?? null) : null);
 }
 
-/** The package's departure the chat settled on: by the chat's departure id, else by the asked day. */
+/**
+ * The departure the lookup priced (`chosenDeparture`: its prices, total and advance come from it). When the chat names a
+ * departure id that is not that one, no money moves: the price and the departure would disagree.
+ */
 function knownDeparture(one: LookupPackage, facts: ChatFacts) {
-  const all = [...(one.chosenDeparture === null ? [] : [one.chosenDeparture]), ...one.departures];
-  const byId = facts.departureId === null ? undefined : all.find((departure) => departure.id === facts.departureId);
-  if (byId !== undefined) return byId;
-  if (facts.departureId !== null) return undefined;
-  return facts.startsOn === null ? undefined : all.find((departure) => departure.startsOn === facts.startsOn);
+  const departure = one.chosenDeparture;
+  if (departure === null) return undefined;
+  return facts.departureId !== null && facts.departureId !== departure.id ? undefined : departure;
 }
 
 function mayTakeMoney(lookup: Lookup, facts: ChatFacts, read: ReadAnswer, context: ActionContext): boolean {
@@ -63,11 +64,11 @@ export function allowedActions(
 ): AllowedActions {
   const wantsFiles = read.wants === "brochure" || read.wants === "information" || read.wants === "price";
   const money = mayTakeMoney(lookup, facts, read, context);
-  const forcedFlag = read.places.some((place) => place.destination === "none")
-    ? "not_run"
-    : read.special !== null
-      ? "special_price"
-      : null;
+  const codes = [
+    ...(read.places.some((place) => place.destination === "none") ? ["not_run"] : []),
+    ...(read.special === null ? [] : ["special_price"]),
+  ];
+  const forcedFlag = codes.length === 0 ? null : codes.join(",");
   return {
     sendFiles: wantsFiles
       ? lookup.packages.flatMap((one, index) => (one.brochures.length > 0 ? [keyOf(index)] : []))

@@ -1,6 +1,7 @@
 // Writing the reply: the prompt carries the card and the allowed actions but no stale figure and no payment detail, and
 // writeReply asks for the contract's shape with the re-ask's reason.
 import { chatFacts, type ReadAnswer } from "@travel-crm/contracts/ai";
+import { amountsAndDatesIn } from "@travel-crm/contracts/ai";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { describe, expect, it } from "vitest";
 import { allowedActions } from "../../../src/ai/grounded/actions.js";
@@ -118,6 +119,19 @@ describe("the grounded prompt", () => {
     ]) {
       expect(text.toLowerCase()).toContain(rule.toLowerCase());
     }
+  });
+
+  it("holds no literal date, and states its own rule for dates", () => {
+    const text = groundedPrompt(settings, "Himalaya Trails", "reply", pack());
+    expect(text).not.toContain("Sat 14 Nov");
+    expect(text).toContain("[departure P1");
+    // The calendar is code's own words; nowhere else may the prompt name a date.
+    const rest = text.replace(pack().calendar, "");
+    expect(
+      amountsAndDatesIn(rest)
+        .filter((span) => span.kind === "date")
+        .map((span) => rest.slice(span.start, span.end)),
+    ).toEqual([]);
   });
 
   it("lists only the actions code allows", () => {
