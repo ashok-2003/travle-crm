@@ -309,6 +309,7 @@
     "QUOTE_NEEDS_RATES": "Price the lines marked 'needs a rate' before you send this quote.",
     "PACKAGE_SLUG_TAKEN": "Another package already has this address.",
     "PACKAGE_NOT_READY": "Give the package a name, an address, a summary and a photo first.",
+    "NO_SELLABLE_PACKAGES": "Make at least one package sellable by the AI first.",
     "PACKAGE_NOT_READY_TO_SELL": "Fill in what the package still needs before the AI can sell it.",
     "PACKAGE_PUBLISHED_NEEDS_SLUG": "Take the page down before you remove its address.",
     "FROM_PRICE_REQUIRED": "Enter the price to show, or choose 'Price on enquiry'.",

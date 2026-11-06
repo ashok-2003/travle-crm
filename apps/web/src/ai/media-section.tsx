@@ -25,6 +25,7 @@ import { uploadFile } from "@/files/upload";
 import { useErrorMessage } from "@/lib/error-message";
 import { openInNewTab } from "@/lib/open-in-new-tab";
 import { useWriteAccess } from "@/subscription/write-access";
+import { useAutopilot } from "./use-ai";
 import { useAiMedia, useConfirmMedia, useDeleteMedia, useRequestMedia, useUpdateMedia } from "./use-ai-media";
 
 function MediaIcon({ contentType }: { contentType: string }) {
@@ -39,11 +40,14 @@ function MediaDialog({
   onOpenChange,
   file,
   editing,
+  askWhen,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   file: File | null;
   editing: AiMediaItem | null;
+  /** False for an agency that answers from its packages: its general files are not chosen by a "when to send". */
+  askWhen: boolean;
 }) {
   const t = useTranslations("ai.media");
   const { apiError } = useErrorMessage();
@@ -125,27 +129,29 @@ function MediaDialog({
             }}
           />
         </Field>
-        <Field>
-          <FieldLabel htmlFor={ids.when}>{t("whenLabel")}</FieldLabel>
-          <Textarea
-            id={ids.when}
-            rows={3}
-            value={whenToSend}
-            maxLength={400}
-            placeholder={t("whenPlaceholder")}
-            onChange={(event) => {
-              setWhenToSend(event.target.value);
-            }}
-          />
-          <FieldDescription>{t("whenHint")}</FieldDescription>
-        </Field>
+        {askWhen && (
+          <Field>
+            <FieldLabel htmlFor={ids.when}>{t("whenLabel")}</FieldLabel>
+            <Textarea
+              id={ids.when}
+              rows={3}
+              value={whenToSend}
+              maxLength={400}
+              placeholder={t("whenPlaceholder")}
+              onChange={(event) => {
+                setWhenToSend(event.target.value);
+              }}
+            />
+            <FieldDescription>{t("whenHint")}</FieldDescription>
+          </Field>
+        )}
         <RefusalAlert error={update.error} />
       </form>
     </ResponsiveDialog>
   );
 }
 
-function MediaRow({ item, disabled }: { item: AiMediaItem; disabled: boolean }) {
+function MediaRow({ item, disabled, askWhen }: { item: AiMediaItem; disabled: boolean; askWhen: boolean }) {
   const t = useTranslations("ai.media");
   const client = useTRPCClient();
   const { apiError } = useErrorMessage();
@@ -177,8 +183,8 @@ function MediaRow({ item, disabled }: { item: AiMediaItem; disabled: boolean }) 
           {!item.ready && <StatusBadge tone="attention">{t("uploading")}</StatusBadge>}
         </ItemTitle>
         <ItemDescription>
-          {item.whenToSend === "" ? t("noWhen") : t("when", { when: item.whenToSend })}
-          {" · "}
+          {askWhen && (item.whenToSend === "" ? t("noWhen") : t("when", { when: item.whenToSend }))}
+          {askWhen && " · "}
           {t("sent", { count: item.sent })}
         </ItemDescription>
       </ItemContent>
@@ -215,7 +221,7 @@ function MediaRow({ item, disabled }: { item: AiMediaItem; disabled: boolean }) 
           <Trash2Icon aria-hidden="true" />
         </Button>
       </ItemActions>
-      {editing && <MediaDialog open={editing} onOpenChange={setEditing} file={null} editing={item} />}
+      {editing && <MediaDialog open={editing} onOpenChange={setEditing} file={null} editing={item} askWhen={askWhen} />}
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}
@@ -246,6 +252,8 @@ export function MediaSection() {
   const [chosen, setChosen] = useState<File | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const items = media.data ?? [];
+  // An agency that answers from its packages keeps only general files here: no "when to send", the AI picks by their names.
+  const askWhen = useAutopilot().data?.grounded !== true;
 
   const choose = (file: File) => {
     if (!aiMediaContentTypes.some((one) => one === file.type)) {
@@ -263,9 +271,9 @@ export function MediaSection() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{t("title")}</h2>
+          <h2>{askWhen ? t("title") : t("groundedTitle")}</h2>
         </CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
+        <CardDescription>{askWhen ? t("description") : t("groundedDescription")}</CardDescription>
         <CardAction>
           <input
             ref={picker}
@@ -293,7 +301,7 @@ export function MediaSection() {
         ) : (
           <ItemGroup className="gap-2">
             {items.map((item) => (
-              <MediaRow key={item.id} item={item} disabled={!access.allowed} />
+              <MediaRow key={item.id} item={item} disabled={!access.allowed} askWhen={askWhen} />
             ))}
           </ItemGroup>
         )}
@@ -307,6 +315,7 @@ export function MediaSection() {
           }}
           file={chosen}
           editing={null}
+          askWhen={askWhen}
         />
       )}
     </Card>

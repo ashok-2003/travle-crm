@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { PaymentsCard } from "./payments-card";
 import { useSaveAutopilot } from "./use-ai";
 
@@ -72,6 +73,7 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
   const save = useSaveAutopilot();
   const [draft, setDraft] = useState<Draft>({
     autopilot: saved.autopilot,
+    grounded: saved.grounded,
     agentName: saved.agentName,
     followUpHours: saved.followUpHours,
     maxRepliesPerDay: saved.maxRepliesPerDay,
@@ -133,6 +135,20 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
             />
             <Label htmlFor="ai-autopilot">{t("on")}</Label>
           </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="ai-grounded"
+              checked={draft.grounded}
+              disabled={busy || !aiOn}
+              aria-describedby={access.hint === null ? undefined : "ai-grounded-hint"}
+              onCheckedChange={(on) => {
+                set("grounded", on);
+              }}
+            />
+            <Label htmlFor="ai-grounded">{t("grounded")}</Label>
+            <InfoHint term={t("grounded")}>{t("groundedInfo")}</InfoHint>
+          </div>
+          <WriteHint id="ai-grounded-hint" hint={access.hint} />
           {!aiOn && <p className="text-muted-foreground">{t("needsAi")}</p>}
           <p className="text-label text-muted-foreground">{t("rules")}</p>
         </CardContent>

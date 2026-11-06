@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useWriteAccess } from "@/subscription/write-access";
 import { AiHero } from "./ai-hero";
+import { AmountsAlert } from "./amounts-alert";
 import { AutopilotSection } from "./autopilot-section";
 import { InstructionLines } from "./instruction-lines";
 import { DraftPackagesSection } from "./drafts/draft-packages-section";
@@ -33,7 +34,7 @@ import { useAiSettings, useAutopilot, useSaveAiSettings } from "./use-ai";
 import { TestSection } from "./test-section";
 import { VoiceSection } from "./voice-section";
 
-function SettingsForm({ saved }: { saved: AiSettings }) {
+export function SettingsForm({ saved }: { saved: AiSettings }) {
   const t = useTranslations("ai.settings");
   const access = useWriteAccess("change");
   const save = useSaveAiSettings();
@@ -149,6 +150,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
           <p className="text-label text-muted-foreground">
             {t("instructionsHint")} {t("instructionsCount", { count: instructions.length, max: AI_INSTRUCTIONS_MAX })}
           </p>
+          <AmountsAlert text={instructions} />
           <InstructionLines instructions={instructions} disabled={save.isPending} onChange={setInstructions} />
         </CardContent>
       </Card>

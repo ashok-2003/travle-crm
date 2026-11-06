@@ -1,4 +1,5 @@
 {
+  "amountsAndDates": "Prices and dates belong in your packages. The AI won't send them from here.",
   "settings": {
     "title": "AI sales agent",
     "intro": "Your best salesperson, on WhatsApp all day: it answers every enquiry in seconds, understands the trip, recommends your packages with prices, handles objections, takes booking details and follows up at the right time. It flags your team when a lead is ready, learns from your chats every night, and scores every lead.",
@@ -113,6 +114,8 @@
     "info": "The AI answers WhatsApp chats by itself, as your sales agent. It is off until you turn it on here, and you can turn it off in any one chat. Every message it sends is marked \"Sent by the AI\" in the chat and kept in the audit log.",
     "intro": "Let the AI answer your customers on WhatsApp by itself, and nudge those who go quiet.",
     "on": "Let the AI answer WhatsApp chats by itself",
+    "grounded": "Answer from your packages only",
+    "groundedInfo": "The AI then answers only from the packages you marked as sellable by the AI. The system writes every price and date, and the AI flags anything else to your team.",
     "needsAi": "Turn on \"Use the AI\" above first.",
     "rules": "It writes only inside the 24 hours a customer opens by writing, never to someone who wrote STOP, never while one of your team is answering that chat, and within this month's AI calls. It quotes prices only from what it knows, never confirms a booking or a payment, and says it is an AI to anyone who asks. Your team can turn it off in any chat or take over at any time.",
     "speakTitle": "How it speaks",
@@ -331,6 +334,8 @@
   },
   "media": {
     "title": "Media the AI sends",
+    "groundedTitle": "Files about your agency",
+    "groundedDescription": "Photos, videos and PDFs about your agency that the AI can send in a chat, such as who you are and how you work. A package's own files go with that package.",
     "description": "Photos, videos and PDFs the AI can send in a chat when they help: brochures, hotel photos, itineraries. Say when to send each one.",
     "upload": "Upload a file",
     "uploading": "Uploading",
