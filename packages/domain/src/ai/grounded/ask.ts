@@ -11,7 +11,11 @@ export type Asked<T> =
   | { ok: true; value: T; model: string; inputTokens: number; outputTokens: number }
   | { ok: false; reason: AiFailure | "unfit" };
 
-/** Calls the model with `request.schema` and keeps the answer only when its JSON object fits the contract. */
+/**
+ * Calls the model with `request.schema` and keeps the answer only when its JSON object fits the contract. It neither
+ * reserves nor releases the monthly limit: the caller reserves one call first (`reserveAiCall`) and gives it back when
+ * the answer is a failure or "unfit".
+ */
 export async function askFor<T>(model: AiModel, request: AiRequest, contract: Contract<T>): Promise<Asked<T>> {
   const result = await model.complete(request);
   if (!result.ok) return { ok: false, reason: result.reason };
