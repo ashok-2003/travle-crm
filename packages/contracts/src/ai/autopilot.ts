@@ -50,7 +50,8 @@ export const autopilotFields = {
   /** It adds follow-ups to leads from its chats, and writes to each lead whose follow-up comes due, inside the window. */
   followUpTasks: z.boolean(),
 };
-export const saveAutopilotInput = z.strictObject(autopilotFields);
+// `grounded` may be left out (an older cached screen): the stored value is kept, as with `customTrips`.
+export const saveAutopilotInput = z.strictObject({ ...autopilotFields, grounded: autopilotFields.grounded.optional() });
 export type SaveAutopilotInput = z.infer<typeof saveAutopilotInput>;
 
 /** A way of talking it copies: whose, the style guide written of it, and how many of their messages it keeps. */

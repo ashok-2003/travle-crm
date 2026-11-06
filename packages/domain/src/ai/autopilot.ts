@@ -116,11 +116,13 @@ export async function saveAutopilot(
   today: CalendarDate,
 ): Promise<AutopilotSettings> {
   const before = await autopilotOf(tx);
+  // Left out (an older screen), it stays as stored.
+  const grounded = input.grounded ?? before.grounded;
   // Turning it on needs a package to answer from; leaving it on, or turning it off, never does.
-  if (input.grounded && !before.grounded && (await sellablePackages(tx, today)).length === 0) {
+  if (grounded && !before.grounded && (await sellablePackages(tx, today)).length === 0) {
     throw new DomainError("VALIDATION", "NO_SELLABLE_PACKAGES", "Make at least one package sellable by the AI first.");
   }
-  const data = { ...input, updatedBy: access.userId };
+  const data = { ...input, grounded, updatedBy: access.userId };
   await tx.aiAutopilot.upsert({
     where: { organizationId: access.organizationId },
     create: { organizationId: access.organizationId, ...data },
@@ -144,7 +146,7 @@ export async function saveAutopilot(
     entityType: "ai_autopilot",
     entityId: access.organizationId,
     before: switches(before),
-    after: switches(input),
+    after: switches({ ...input, grounded }),
   });
   return autopilotSettingsOf(tx);
 }

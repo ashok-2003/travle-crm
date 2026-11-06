@@ -82,6 +82,8 @@ async function stampLearned(tx: OrgTx, now: Date) {
   else await tx.aiAutopilot.update({ where: { organizationId: row.organizationId }, data: { learnedAt: now } });
 }
 
+const groundedLessonKinds = new Set<string>(["need", "style", "faq"]);
+
 /** The lessons a grounded agency's coach asks for: how customers talk and what they ask, never what to answer or charge. */
 function groundedLessonPrompt(
   agency: string,
@@ -131,19 +133,22 @@ export async function learnFromChats(
   const { db, ai } = dependencies;
   const none = { added: 0, updated: 0 };
   if (!ai.configured) return none;
-  const prepared = await db.forOrg(organizationId, async (tx) => ({
-    // Only an agency with the AI on, and learning on, sends its chats anywhere.
-    allowed: (await aiEnabled(tx)) && (await autopilotOf(tx)).learning,
-    grounded: (await autopilotOf(tx)).grounded,
-    timeZone: await organizationTimeZone(tx, organizationId),
-    chats: await transcripts(tx, now),
-    existing: await tx.aiLearning.findMany({
-      where: { state: { in: ["active", "off"] } },
-      orderBy: { evidence: "desc" },
-      take: 40,
-      select: { id: true, kind: true, text: true, evidence: true, state: true },
-    }),
-  }));
+  const prepared = await db.forOrg(organizationId, async (tx) => {
+    const autopilot = await autopilotOf(tx);
+    return {
+      // Only an agency with the AI on, and learning on, sends its chats anywhere.
+      allowed: (await aiEnabled(tx)) && autopilot.learning,
+      grounded: autopilot.grounded,
+      timeZone: await organizationTimeZone(tx, organizationId),
+      chats: await transcripts(tx, now),
+      existing: await tx.aiLearning.findMany({
+        where: { state: { in: ["active", "off"] } },
+        orderBy: { evidence: "desc" },
+        take: 40,
+        select: { id: true, kind: true, text: true, evidence: true, state: true },
+      }),
+    };
+  });
   if (!prepared.allowed) return none;
   if (prepared.chats.length < MIN_CHATS) {
     await db.forOrg(organizationId, (tx) => stampLearned(tx, now));
@@ -183,6 +188,8 @@ export async function learnFromChats(
     let added = 0;
     let updated = 0;
     for (const lesson of lessons) {
+      // The grounded coach is not asked for what won or how to answer an objection: the packages hold that.
+      if (prepared.grounded && !groundedLessonKinds.has(lesson.kind)) continue;
       // A grounded agency's lessons keep no figure: prices and dates come from its packages alone.
       const scrubbedText = scrubbed(lesson.text);
       const text = (prepared.grounded ? withoutAmountsAndDates(scrubbedText) : scrubbedText).trim().slice(0, 400);

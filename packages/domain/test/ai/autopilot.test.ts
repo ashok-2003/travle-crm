@@ -188,6 +188,22 @@ describe("the autopilot", () => {
     ).toBe(false);
   });
 
+  it("a save without grounded keeps it, and saving other settings never needs a package once it is on", async () => {
+    const on = await agency();
+    await aSellablePackage(on);
+    const withoutGrounded: Parameters<typeof saveAutopilot>[2] = { ...on.settings };
+    delete withoutGrounded.grounded;
+    const save = (input: Parameters<typeof saveAutopilot>[2]) =>
+      on.inOrg((tx) => saveAutopilot(tx, on.owner, input, today));
+    expect((await save(withoutGrounded)).grounded).toBe(false);
+    await save({ ...on.settings, grounded: true });
+    expect((await save(withoutGrounded)).grounded).toBe(true);
+    // The last sellable package goes away: other changes still save while it stays on.
+    await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { aiSellable: false } }));
+    expect((await save({ ...on.settings, grounded: true, agentName: "Asha" })).agentName).toBe("Asha");
+    expect((await save({ ...withoutGrounded, agentName: "Meera" })).grounded).toBe(true);
+  });
+
   it("a lesson keeps no amount or date", async () => {
     const lessons = async (grounded: boolean) => {
       const on = await agency({ autopilot: true });
@@ -208,6 +224,8 @@ describe("the autopilot", () => {
           learnings: [
             { id: null, kind: "faq", text: "Customers ask if Spiti is Rs 6,999 from 14 Nov", evidence: 2 },
             { id: null, kind: "need", text: "12 Dec", evidence: 1 },
+            { id: null, kind: "winning", text: "Sending the brochure first got replies", evidence: 2 },
+            { id: null, kind: "objection", text: "Too costly: offer a smaller batch", evidence: 2 },
           ],
         }),
       );
@@ -225,6 +243,7 @@ describe("the autopilot", () => {
     expect(grounded.prompt).toContain("how customers talk");
     const old = await lessons(false);
     expect(old.stored.join(" ")).toContain("6,999");
+    expect(old.stored).toHaveLength(4);
     expect(old.prompt).toContain("winning");
   });
 
