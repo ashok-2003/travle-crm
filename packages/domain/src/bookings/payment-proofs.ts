@@ -2,7 +2,7 @@
 // to match against a payment. Recorded once per chat message; the team is told once; a person may dismiss it (audited).
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
-import type { MemberAccess } from "../identity/index.js";
+import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { noticeKey } from "../crm/index.js";
 import { DomainError, type Actor, type CalendarDate } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -56,18 +56,27 @@ export async function recordUnmatchedProof(
   return true;
 }
 
-/** A person says this proof is nothing to match: it leaves the list. Dismissing twice records one entry. */
+/**
+ * A person says this proof is nothing to match: it leaves the list. Found through its lead in the member's scope (a proof
+ * with no lead is no own-scope member's). Dismissing twice, or after someone else did, records one entry.
+ */
 export async function dismissProof(tx: OrgTx, access: MemberAccess, input: { proofId: string }): Promise<void> {
-  const proof = await tx.paymentProof.findUnique({ where: { id: input.proofId } });
+  const owned = scopeFilter(access, "bookings:view", "ownerUserId");
+  const proof = await tx.paymentProof.findFirst({
+    where: { id: input.proofId, ...(Object.keys(owned).length === 0 ? {} : { lead: owned }) },
+    select: { id: true, status: true },
+  });
   if (proof === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such payment screenshot");
   if (proof.status === "dismissed") return;
   if (proof.status !== "pending") {
     throw new DomainError("CONFLICT", "PROOF_DECIDED", "This payment screenshot was already checked");
   }
-  await tx.paymentProof.update({
-    where: { id: proof.id },
+  // Only a proof still pending moves: one decided meanwhile is left as it was, with no second entry.
+  const moved = await tx.paymentProof.updateMany({
+    where: { id: proof.id, status: "pending" },
     data: { status: "dismissed", decidedBy: access.userId, decidedAt: new Date() },
   });
+  if (moved.count === 0) return;
   await recordAudit(tx, access, {
     action: "payment-proof.dismissed",
     entityType: "payment_proof",

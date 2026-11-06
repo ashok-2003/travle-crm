@@ -305,4 +305,56 @@ describe("payment proofs with no booking waiting", () => {
     const audits = await inOrg((tx) => tx.auditEntry.findMany({ where: { action: "payment-proof.dismissed" } }));
     expect(audits).toHaveLength(1);
   });
+
+  it("a member who sees only their own leads can't dismiss a proof with no lead, or on another's lead", async () => {
+    const connection = await aConnectedAgency(test);
+    const { inOrg, lead, chatId, message, ownerUserId } = await aChat(connection);
+    const proofOf = async (leadId: string | null) => {
+      const file = await message("image");
+      return inOrg((tx) =>
+        tx.paymentProof.create({ data: { conversationId: chatId, messageId: file.id, leadId }, select: { id: true } }),
+      );
+    };
+    const orphan = await proofOf(null);
+    const theirs = await proofOf(lead.id);
+    const own = memberWithStarterRole("sales", { organizationId: connection.organizationId, userId: randomUUID() });
+    for (const proof of [orphan, theirs]) {
+      await expect(inOrg((tx) => dismissProof(tx, own, { proofId: proof.id }))).rejects.toMatchObject({
+        reason: "NOT_FOUND",
+      });
+    }
+    // The lead's owner, seeing only their own, may.
+    const owner = memberWithStarterRole("sales", { organizationId: connection.organizationId, userId: ownerUserId });
+    await inOrg((tx) => dismissProof(tx, owner, { proofId: theirs.id }));
+    expect(await inOrg((tx) => tx.paymentProof.count({ where: { status: "pending" } }))).toBe(1);
+  });
+
+  it("a dismissal that finds the proof dismissed meanwhile writes nothing more", async () => {
+    const connection = await aConnectedAgency(test);
+    const { inOrg, chatId, message } = await aChat(connection);
+    const file = await message("image");
+    const proof = await inOrg((tx) =>
+      tx.paymentProof.create({ data: { conversationId: chatId, messageId: file.id }, select: { id: true } }),
+    );
+    const member = () =>
+      memberWithStarterRole("org-owner", { organizationId: connection.organizationId, userId: randomUUID() });
+    // Someone else dismisses it and hasn't committed yet: this dismissal reads it pending, then waits on the row.
+    const held = Promise.withResolvers<undefined>();
+    const isChanged = Promise.withResolvers<undefined>();
+    const first = inOrg(async (tx) => {
+      await tx.paymentProof.update({ where: { id: proof.id }, data: { status: "dismissed", decidedAt: new Date() } });
+      isChanged.resolve(undefined);
+      await held.promise;
+    });
+    await isChanged.promise;
+    const second = inOrg((tx) => dismissProof(tx, member(), { proofId: proof.id }));
+    setTimeout(() => {
+      held.resolve(undefined);
+    }, 300);
+    await Promise.all([first, second]);
+    const audits = await inOrg((tx) =>
+      tx.auditEntry.count({ where: { action: "payment-proof.dismissed", entityId: proof.id } }),
+    );
+    expect(audits).toBe(0);
+  });
 });
