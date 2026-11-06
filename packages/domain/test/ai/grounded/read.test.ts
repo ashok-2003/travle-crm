@@ -152,6 +152,57 @@ describe("checkedRead", () => {
     expect(checkedRead(room, lines("Spiti"), keys).rooms).toEqual([]);
   });
 
+  describe("a number stands only when the evidence says its own value (I8)", () => {
+    const travellers = (count: number, text: string) =>
+      checkedRead(read({ travellers: { count, evidence: text } }), lines(text), keys).travellers;
+
+    it("reads a count from its digits or its word, never from a trip's nights and days", () => {
+      expect(travellers(5, "Manali 5N6D")).toBeNull();
+      expect(travellers(5, "5 nights in Manali")).toBeNull();
+      expect(travellers(2, "we are 2")).not.toBeNull();
+      expect(travellers(3, "2 adults")).toBeNull();
+      expect(travellers(3, "2 adults 1 child")).not.toBeNull();
+      expect(travellers(4, "hum char log")).not.toBeNull();
+      expect(travellers(4, "हम ४ लोग")).not.toBeNull();
+      expect(travellers(5, "5N6D for 5 of us")).not.toBeNull();
+    });
+
+    it("reads a room count from its value, or one room from its type", () => {
+      const rooms = (count: number, text: string) =>
+        checkedRead(read({ rooms: [{ type: "double", count, evidence: text }] }), lines(text), keys).rooms;
+      expect(rooms(1, "double sharing")).toHaveLength(1);
+      expect(rooms(2, "2 double rooms")).toHaveLength(1);
+      expect(rooms(2, "double sharing")).toEqual([]);
+      expect(rooms(3, "2 double rooms")).toEqual([]);
+    });
+
+    it("reads a day only from its own number, and a month from its name or number", () => {
+      const startsOn = (date: string | null, month: string | null, text: string) =>
+        checkedRead(
+          read({ startsOn: { date: date === null ? null : parseCalendarDate(date), month, evidence: text } }),
+          lines(text),
+          keys,
+        ).startsOn;
+      expect(startsOn("2026-12-12", null, "12 people")).toBeNull();
+      expect(startsOn("2026-12-14", null, "Spiti on 12 Dec")).toBeNull();
+      expect(startsOn("2026-12-14", null, "on 14th Dec")?.date).toBe("2026-12-14");
+      expect(startsOn("2026-12-14", null, "14/12 please")?.date).toBe("2026-12-14");
+      expect(startsOn(null, "2027-01", "in December")).toBeNull();
+      expect(startsOn(null, "2026-12", "in December")?.month).toBe("2026-12");
+      expect(startsOn(null, "2026-12", "around 12/2026")?.month).toBe("2026-12");
+    });
+
+    it("reads a budget only when the evidence holds its amount", () => {
+      const budget = (amount: number, text: string) =>
+        checkedRead(read({ budgetRupees: { amount, evidence: text } }), lines(text), keys).budgetRupees;
+      expect(budget(45000, "budget 45,000")).not.toBeNull();
+      expect(budget(45000, "around 45k")).not.toBeNull();
+      expect(budget(150000, "1.5 lakh total")).not.toBeNull();
+      expect(budget(45000, "for 4 people")).toBeNull();
+      expect(budget(50000, "budget 45,000")).toBeNull();
+    });
+  });
+
   it("falls back to 'other' when the wish has no evidence", () => {
     const answer = read({ wants: "book", wantsEvidence: "book it now" });
     expect(checkedRead(answer, lines("tell me about Spiti"), keys).wants).toBe("other");

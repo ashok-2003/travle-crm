@@ -1,13 +1,11 @@
 // Keeps of a model's read only what the customer's own words back: evidence must sit inside one customer message and
-// must itself hold the value it is given for (P4-26).
+// must itself hold the value it is given for (P4-26), a number its own value (read-numbers.ts).
 import type { ReadAnswer } from "@travel-crm/contracts/ai";
 import type { ChatLine, ReadKeys } from "./read-keys.js";
+import { saysAmount, saysCount, saysDay, saysMonth, saysRoomCount } from "./read-numbers.js";
 import {
   asksToBook,
   containsWords,
-  hasAMonth,
-  hasANumber,
-  hasARoomCount,
   hasAWishCue,
   hasAWord,
   isAffirmation,
@@ -42,12 +40,13 @@ export function checkedRead(read: ReadAnswer, transcript: ChatLine[], keys: Read
   });
 
   const dated = read.startsOn && found(read.startsOn.evidence) ? read.startsOn : null;
-  const date = dated?.date != null && dated.date >= keys.today && hasANumber(dated.evidence) ? dated.date : null;
+  const date =
+    dated?.date != null && dated.date >= keys.today && saysDay(dated.evidence, dated.date) ? dated.date : null;
   const month =
     dated?.month != null &&
     MONTH.test(dated.month) &&
     dated.month >= keys.today.slice(0, 7) &&
-    hasAMonth(dated.evidence)
+    saysMonth(dated.evidence, dated.month)
       ? dated.month
       : null;
 
@@ -67,9 +66,17 @@ export function checkedRead(read: ReadAnswer, transcript: ChatLine[], keys: Read
   return {
     places,
     startsOn: dated && (date !== null || month !== null) ? { date, month, evidence: dated.evidence } : null,
-    rooms: read.rooms.filter((room) => backed(room.evidence, hasARoomCount)),
-    travellers: read.travellers && backed(read.travellers.evidence, hasANumber) ? read.travellers : null,
-    budgetRupees: read.budgetRupees && backed(read.budgetRupees.evidence, hasANumber) ? read.budgetRupees : null,
+    rooms: read.rooms.filter((room) => backed(room.evidence, (evidence) => saysRoomCount(evidence, room.count))),
+    travellers:
+      read.travellers &&
+      backed(read.travellers.evidence, (evidence) => saysCount(evidence, read.travellers?.count ?? 0))
+        ? read.travellers
+        : null,
+    budgetRupees:
+      read.budgetRupees &&
+      backed(read.budgetRupees.evidence, (evidence) => saysAmount(evidence, read.budgetRupees?.amount ?? -1))
+        ? read.budgetRupees
+        : null,
     pickupCity:
       read.pickupCity &&
       backed(read.pickupCity.evidence, (evidence) => containsWords(evidence, read.pickupCity?.words ?? ""))

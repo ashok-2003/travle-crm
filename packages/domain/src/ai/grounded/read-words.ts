@@ -1,4 +1,4 @@
-// Word-level helpers for judging evidence: normalising, whole-word matching, number words, and bare affirmations.
+// Word-level helpers for judging evidence: normalising, whole-word matching, bare affirmations and the wish to book.
 
 /** Lowercase, single spaces, no punctuation (Unicode-aware, so Devanagari letters and marks stay). */
 export function normalised(text: string): string {
@@ -26,29 +26,6 @@ export function sharesAWord(evidence: string, text: string, length: number): boo
   const seen = new Set(wordsOf(evidence));
   return wordsOf(text).some((word) => Array.from(word).length >= length && seen.has(word));
 }
-
-const numberWords = new Set(
-  (
-    "one two three four five six seven eight nine ten " +
-    "ek do teen char paanch panch chhe che saat aath nau das " +
-    "एक दो तीन चार पाँच पांच छह छः सात आठ नौ दस"
-  ).split(" "),
-);
-const roomWords = new Set(["single", "double", "triple", "quad", "twin", "solo", "couple"]);
-
-/** A digit or a number word (English, Hinglish, Hindi: one to ten) in the evidence. */
-export function hasANumber(evidence: string): boolean {
-  return /\p{N}/u.test(evidence) || wordsOf(evidence).some((word) => numberWords.has(word));
-}
-
-/** For a room, its type word says one room. */
-export const hasARoomCount = (evidence: string): boolean =>
-  hasANumber(evidence) || wordsOf(evidence).some((word) => roomWords.has(word));
-
-const monthNames =
-  /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\b/u;
-export const hasAMonth = (evidence: string): boolean =>
-  /\p{N}/u.test(evidence) || monthNames.test(normalised(evidence));
 
 const affirmations = new Set("yes ok okay haan ha ji sure done yep yeah 👍 हाँ हां जी ठीक".split(" "));
 /** Evidence made only of yes, ok, haan... says nothing alone: it answers a question. */
