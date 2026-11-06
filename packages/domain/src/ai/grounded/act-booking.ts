@@ -13,18 +13,6 @@ import { bookingPackage } from "./actions.js";
 
 const refuse = (message: string) => new DomainError("CONFLICT", "AI_ACTION_REFUSED", message);
 
-/** The chat's latest lead: the one a booking, a note and a follow-up belong to. */
-export async function leadOfChat(tx: OrgTx, conversationId: string): Promise<string | null> {
-  const chat = await tx.whatsappConversation.findUnique({ where: { id: conversationId }, select: { personId: true } });
-  if (chat?.personId == null) return null;
-  const lead = await tx.lead.findFirst({
-    where: { personId: chat.personId },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-  return lead?.id ?? null;
-}
-
 /** Makes the quote, holds the seats and takes the booking. Returns the AI booking's id. */
 export async function takeGroundedBooking(
   tx: OrgTx,
@@ -70,7 +58,9 @@ export async function takeGroundedBooking(
   });
   const day = formatShortDay(departure.startsOn, input.lookup.today);
   const total = formatRupees(one.total);
-  const rooms = input.facts.rooms.map((room) => `${String(room.people)} ${room.roomType.replace("_", " ")}`).join(", ");
+  const rooms = input.facts.rooms
+    .map((room) => `${String(room.people)} ${room.roomType.replaceAll("_", " ")}`)
+    .join(", ");
   const summary = `${one.title}, ${day}, ${String(travellers)} travellers`.slice(0, 300);
   const details = {
     package: one.title,

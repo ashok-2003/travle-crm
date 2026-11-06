@@ -55,6 +55,7 @@ export { handOverDepartingMemberListener, type DepartingMemberDependencies } fro
 export { mergeDestinations } from "./destination-merges.js";
 export { findKnownContact } from "./known-contact.js";
 export { getLead, isLeadInScope } from "./lead-detail.js";
+export { openLeadOfChat } from "./lead-of-chat.js";
 export { makeLeadExportListener } from "./lead-export/index.js";
 export { addLeadImportListener, checkLeadImportListener } from "./lead-import/index.js";
 export {

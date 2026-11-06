@@ -91,7 +91,7 @@ interface FileToSend {
   from: AttachmentRefInput;
 }
 
-/** The brochures of the packages the model named and the agency's own media, none that this chat has been sent. */
+/** The brochures of the packages the model named, then the agency's own media, none that this chat has been sent; three at most in all. */
 async function filesToSend(tx: OrgTx, input: ActInput): Promise<FileToSend[]> {
   const sent = new Set(input.facts.sentFileIds);
   const found: FileToSend[] = [];
@@ -99,6 +99,7 @@ async function filesToSend(tx: OrgTx, input: ActInput): Promise<FileToSend[]> {
   input.lookup.packages.forEach((one, index) => {
     if (!keys.has(`P${String(index + 1)}`)) return;
     for (const brochure of one.brochures) {
+      if (found.length >= MAX_AI_MEDIA_PER_REPLY) return;
       if (sent.has(brochure.id) || found.some((file) => file.id === brochure.id)) continue;
       found.push({
         id: brochure.id,
@@ -108,7 +109,7 @@ async function filesToSend(tx: OrgTx, input: ActInput): Promise<FileToSend[]> {
   });
   if (input.actions.sendAgencyFiles) {
     const media = (await mediaForPrompt(tx, input.conversationId)).filter((one) => !one.sentHere && !sent.has(one.id));
-    for (const one of media.slice(0, MAX_AI_MEDIA_PER_REPLY)) {
+    for (const one of media.slice(0, Math.max(0, MAX_AI_MEDIA_PER_REPLY - found.length))) {
       const row = await tx.aiMedia.findUnique({ where: { id: one.id }, select: { attachmentId: true } });
       if (row !== null) {
         found.push({

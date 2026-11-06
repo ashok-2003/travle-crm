@@ -47,7 +47,17 @@ describe("acting on a checked reply", () => {
   const deps = () => ({ files: test.files, recipients: () => Promise.resolve([]), supplierStateCode: "27" });
 
   /** A group package with one open departure, a chat with its lead, and (when asked) a brochure and a payment QR. */
-  async function scene(options: { seats?: number; qr?: boolean; brochure?: boolean; paymentText?: string } = {}) {
+  async function scene(
+    options: {
+      seats?: number;
+      qr?: boolean;
+      brochure?: boolean;
+      brochures?: number;
+      paymentText?: string;
+      pricesIncludeGst?: boolean;
+      childBed?: boolean;
+    } = {},
+  ) {
     counter += 1;
     const ids = await inOrg(async (tx) => {
       const destination = await tx.destination.create({
@@ -60,11 +70,12 @@ describe("acting on a checked reply", () => {
           title: `Spiti ${String(counter)}`,
           kind: "group",
           destinationId: destination.id,
-          roomTypes: ["double", "triple"],
+          roomTypes: options.childBed === true ? ["double", "triple", "child_no_bed"] : ["double", "triple"],
           advancePerPersonPaise: 500_000n,
           aiSellable: true,
           nights: 6,
           paymentDetails: options.paymentText ?? "Pay to UPI spiti@bank",
+          pricesIncludeGst: options.pricesIncludeGst ?? true,
         },
         select: { id: true },
       });
@@ -76,6 +87,7 @@ describe("acting on a checked reply", () => {
           endsOn: day("2026-11-30"),
           priceDoublePaise: 699_900n,
           priceTriplePaise: 599_900n,
+          priceChildNoBedPaise: options.childBed === true ? 400_000n : null,
         },
       });
       const departure = await tx.departure.create({
@@ -132,7 +144,11 @@ describe("acting on a checked reply", () => {
     const qrId = options.qr === true ? await file(PACKAGE_PAYMENT_QR_RECORD_TYPE, "qr.png", "image/png") : null;
     const brochureId =
       options.brochure === true ? await file(PACKAGE_BROCHURE_RECORD_TYPE, "spiti.pdf", "application/pdf") : null;
-    return { ...ids, qrId, brochureId };
+    const more: string[] = [];
+    for (let index = 0; index < (options.brochures ?? 0); index += 1) {
+      more.push(await file(PACKAGE_BROCHURE_RECORD_TYPE, `more-${String(index)}.pdf`, "application/pdf"));
+    }
+    return { ...ids, qrId, brochureId, more };
   }
 
   const factsFor = (
@@ -339,5 +355,67 @@ describe("acting on a checked reply", () => {
     expect(pay?.body).toBe(`Advance to book: ${formatRupees(2_500_000)}\n\nPay to UPI spiti@bank`);
     const saved = await inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: ids.chatId } }));
     expect(saved.facts).toMatchObject({ paymentSentFor: ids.departureId });
+  });
+
+  it("a package priced without GST books at the told total, GST included, and its prices read + GST", async () => {
+    const ids = await scene({ pricesIncludeGst: false });
+    const lookup = await inOrg((tx) => lookUp(tx, factsFor(ids), today, now, []));
+    const card = buildCard(lookup);
+    expect(card.values.get("[price P1 double]")).toBe(`${formatRupees(699_900)} + GST`);
+    const base = 3 * 599_900 + 2 * 699_900;
+    expect(lookup.packages[0]?.total).toBeGreaterThan(base);
+    const result = sentOf(await turn(ids, "Total [total P1].", { requestBooking: true }, "turn-excl"));
+    const quote = await inOrg((tx) => tx.quote.findFirstOrThrow({ where: { leadId: ids.leadId } }));
+    expect(Number(quote.totalPaise)).toBe(lookup.packages[0]?.total);
+    expect(result.bookingId).not.toBeNull();
+    // A GST-inclusive package reads plain.
+    const plain = await scene();
+    const plainCard = buildCard(await inOrg((tx) => lookUp(tx, factsFor(plain), today, now, [])));
+    expect(plainCard.values.get("[price P1 double]")).toBe(formatRupees(699_900));
+  });
+
+  it("the booking goes to the newest open lead, never a closed one; with only closed leads it is refused", async () => {
+    const ids = await scene();
+    const person = await inOrg(async (tx) => {
+      const chat = await tx.whatsappConversation.findUniqueOrThrow({ where: { id: ids.chatId } });
+      await aLead(tx, { personId: chat.personId ?? "", stage: "lost" });
+      return chat.personId ?? "";
+    });
+    const result = sentOf(await turn(ids, "Booked.", { requestBooking: true }, "turn-open"));
+    const booking = await inOrg((tx) => tx.aiBooking.findUniqueOrThrow({ where: { id: result.bookingId ?? "" } }));
+    expect(booking.leadId).toBe(ids.leadId);
+    const only = await scene();
+    await inOrg((tx) => tx.lead.update({ where: { id: only.leadId }, data: { stage: "lost" } }));
+    const reason = await turn(only, "Booked.", { requestBooking: true }, "turn-closed").then(
+      () => null,
+      (error: unknown) => (error as { reason?: string }).reason,
+    );
+    expect(reason).toBe("AI_ACTION_REFUSED");
+    expect(await counts(only)).toEqual({ holds: 0, quotes: 0, bookings: 0 });
+    expect(person).not.toBe("");
+  });
+
+  it("one reply sends at most three files, the package's first", async () => {
+    const ids = await scene({ brochure: true, brochures: 4 });
+    const result = sentOf(await turn(ids, "Brochures.", { sendFiles: ["P1"] }, "turn-cap"));
+    expect(result.sent.fileIds).toHaveLength(3);
+    expect(result.sent.fileIds[0]).toBe(ids.brochureId);
+    expect((await outbound(ids.chatId)).filter((message) => message.clientToken?.includes(":f") === true)).toHaveLength(
+      3,
+    );
+  });
+
+  it("the booking details name every room type in words", async () => {
+    const ids = await scene({ childBed: true });
+    const facts = factsFor(ids, {
+      travellers: 3,
+      rooms: [
+        { roomType: "double", people: 2 },
+        { roomType: "child_no_bed", people: 1 },
+      ],
+    });
+    const result = sentOf(await turn(ids, "Booked.", { requestBooking: true }, "turn-rooms", facts));
+    const booking = await inOrg((tx) => tx.aiBooking.findUniqueOrThrow({ where: { id: result.bookingId ?? "" } }));
+    expect((booking.details as { travellers: string }).travellers).toBe("3: 2 double, 1 child no bed");
   });
 });

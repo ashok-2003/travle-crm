@@ -47,6 +47,7 @@ export {
   requestPackageFileUpload,
   type PackageFileDependencies,
 } from "./package-files.js";
+export { groupTotal, type GroupTax, type GroupTotal } from "./group-total.js";
 export { calculateFromPrice, makeQuotesFromPackage, quantityFor, tierItems } from "./package-quote.js";
 export { marginOf } from "./margin.js";
 export { noRateForDates, priceLine, pricedLineOn, sellingPrice } from "./rate-pricing.js";

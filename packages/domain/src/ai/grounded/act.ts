@@ -2,7 +2,8 @@
 // customer, takes the AI's booking, sends the reply, files and payment details, and saves the chat's facts. The same turn
 // token again changes nothing. A refusal throws a DomainError, so the transaction rolls back and nothing is sent.
 import type { OrgTx } from "@travel-crm/db";
-import { takeGroundedBooking, leadOfChat } from "./act-booking.js";
+import { openLeadOfChat } from "../../crm/index.js";
+import { takeGroundedBooking } from "./act-booking.js";
 import { settleChat } from "./act-chat.js";
 import { sendReply } from "./act-send.js";
 import type { ActDeps, ActInput, ActResult } from "./act-types.js";
@@ -16,7 +17,11 @@ export async function actOnReply(tx: OrgTx, deps: ActDeps, input: ActInput): Pro
     select: { id: true },
   });
   if (earlier !== null) return "already";
-  const leadId = await leadOfChat(tx, input.conversationId);
+  const chat = await tx.whatsappConversation.findUnique({
+    where: { id: input.conversationId },
+    select: { personId: true },
+  });
+  const leadId = (await openLeadOfChat(tx, chat?.personId ?? null))?.id ?? null;
   const bookingId = input.actions.requestBooking ? await takeGroundedBooking(tx, deps, input, leadId) : null;
   const sent = await sendReply(tx, deps, input);
   const departure = bookingPackage(input.lookup)?.chosenDeparture ?? null;

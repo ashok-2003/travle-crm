@@ -1,11 +1,11 @@
 // The grounded turn's lookup: from what the chat settled, code reads the agency's packages, seasons and departures, so
 // that no amount, date or seat count ever comes from a model.
 import type { ChatFacts } from "@travel-crm/contracts/ai";
-import { adultRoomTypes, type RoomPrices, type RoomType } from "@travel-crm/contracts/quotes";
+import { adultRoomTypes, quoteTaxRate, type RoomPrices, type RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { openDepartureDetails, openDeparturesOf } from "../../departures/index.js";
 import { addDays, parseCalendarDate, type CalendarDate } from "../../kernel/index.js";
-import { fromPrices, packageFilesIn, priceOn, sellablePackages, seasonsOf, totalFor } from "../../quotes/index.js";
+import { fromPrices, groupTotal, packageFilesIn, priceOn, sellablePackages, seasonsOf } from "../../quotes/index.js";
 import { autopilotOf } from "../autopilot.js";
 import { aiCustomTripsOn } from "../settings.js";
 
@@ -21,6 +21,8 @@ const noPrices: RoomPrices = {
   child_bed: null,
   child_no_bed: null,
 };
+/** Only splits CGST/SGST from IGST, never the total, so the lookup (which has no GST state) may use any valid one. */
+const ANY_STATE = "27";
 const big = (value: bigint | null) => (value === null ? null : Number(value));
 
 /** Which packages, in which order and for what reason (chosen, then each place's, then the nearest; five at most). */
@@ -103,6 +105,7 @@ async function lookUpOne(
       startCity: true,
       pickupPoints: true,
       pricesIncludeGst: true,
+      taxRateBasisPoints: true,
       roomTypes: true,
       advancePerPersonPaise: true,
       paymentDetails: true,
@@ -138,7 +141,13 @@ async function lookUpOne(
   const files = await packageFilesIn(tx, id);
   const asked = facts.rooms.reduce((sum, room) => sum + room.people, 0);
   const rooms =
-    prices !== null && facts.travellers !== null && asked === facts.travellers ? totalFor(prices, facts.rooms) : null;
+    prices !== null && facts.travellers !== null && asked === facts.travellers
+      ? groupTotal(prices, facts.rooms, {
+          pricesIncludeGst: row.pricesIncludeGst,
+          taxRateBasisPoints: quoteTaxRate.catch(500).parse(row.taxRateBasisPoints),
+          supplierStateCode: ANY_STATE,
+        })
+      : null;
   const days = Array.isArray(row.days) ? (row.days as { title?: unknown }[]) : [];
   return {
     id,

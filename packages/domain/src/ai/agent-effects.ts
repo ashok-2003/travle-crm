@@ -4,7 +4,7 @@
 // asked to be contacted later, and a hand-over to a person when it must step back.
 import type { AgentAnswer } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
-import { addAiFollowUp, addAiLeadNote, noticeKey } from "../crm/index.js";
+import { addAiFollowUp, addAiLeadNote, noticeKey, openLeadOfChat } from "../crm/index.js";
 import { WINDOW_MS } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
@@ -58,19 +58,14 @@ export async function tellOwner(
   chat: ChatFacts,
   notice: { key: string; title: (name: string) => string; body: string },
 ) {
-  if (chat.personId === null) return;
-  const lead = await tx.lead.findFirst({
-    where: { personId: chat.personId },
-    orderBy: { createdAt: "desc" },
-    select: { ownerUserId: true, person: { select: { name: true } } },
-  });
+  const lead = await openLeadOfChat(tx, chat.personId);
   if (lead === null) return;
   // A lead nobody owns still reaches the members the owner chose for copies of team alerts.
   await notify(tx, systemActor(organizationId), {
     recipientUserIds: lead.ownerUserId === null ? [] : [lead.ownerUserId],
     sourceEventId: noticeKey(notice.key, AI_HANDOFF_KIND),
     kind: AI_HANDOFF_KIND,
-    title: notice.title(lead.person.name),
+    title: notice.title(lead.personName),
     body: notice.body,
     link: `/inbox/${chat.id}`,
     channels: ["email", "push"],

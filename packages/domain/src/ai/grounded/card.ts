@@ -22,16 +22,17 @@ function entriesOf(lookup: Lookup, one: LookupPackage, key: string): Entry[] {
   const add = (name: string, meaning: string, value: string) =>
     entries.push({ placeholder: `[${name}]`, meaning, value });
   const day = (value: CalendarDate) => formatShortDay(value, lookup.today);
+  // A price entered without GST is read out as such; the total and the advance are what the customer pays.
+  const perPerson = (paise: number) => formatRupees(paise) + (one.pricesIncludeGst ? "" : " + GST");
   for (const type of one.offered) {
     const price = one.prices?.[type] ?? null;
-    if (price !== null)
-      add(`price ${key} ${type}`, `per person in a ${type} room on the asked date`, formatRupees(price));
+    if (price !== null) add(`price ${key} ${type}`, `per person in a ${type} room on the asked date`, perPerson(price));
   }
   for (const type of one.offered) {
     const price = one.from[type];
-    if (price !== null) add(`from ${key} ${type}`, `lowest coming price per person, ${type} room`, formatRupees(price));
+    if (price !== null) add(`from ${key} ${type}`, `lowest coming price per person, ${type} room`, perPerson(price));
   }
-  if (one.fromPaise !== null) add(`from ${key}`, "lowest price per person", formatRupees(one.fromPaise));
+  if (one.fromPaise !== null) add(`from ${key}`, "lowest price per person", perPerson(one.fromPaise));
   if (one.total !== null) add(`total ${key}`, "the chat's rooms together on the asked date", formatRupees(one.total));
   if (one.chosenDeparture !== null) {
     add(`departure ${key}`, "the departure the customer asked for", day(one.chosenDeparture.startsOn));

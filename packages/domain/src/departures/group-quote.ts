@@ -8,13 +8,11 @@ import { DomainError, parseCalendarDate, type Actor, type CalendarDate } from ".
 import {
   createQuoteFor,
   daysOf,
-  exTaxSubtotal,
   findPackage,
+  groupTotal,
   getQuote,
   priceOn,
-  quoteMoney,
   seasonsOf,
-  totalFor,
   type QuoteContext,
 } from "../quotes/index.js";
 import { getLead } from "../crm/index.js";
@@ -87,7 +85,12 @@ export async function makeGroupQuoteFor(
   if (priced === null) {
     throw new DomainError("CONFLICT", "NO_PRICE_FOR_DATE", "No season prices this departure's day");
   }
-  const total = totalFor(priced.prices, input.rooms);
+  const rate = quoteTaxRate.catch(500).parse(row.taxRateBasisPoints);
+  const total = groupTotal(priced.prices, input.rooms, {
+    pricesIncludeGst: row.pricesIncludeGst,
+    taxRateBasisPoints: rate,
+    supplierStateCode: context.supplierStateCode ?? "",
+  });
   if (!total.ok) {
     throw new DomainError(
       total.reason === "ROOM_SPLIT" ? "VALIDATION" : "CONFLICT",
@@ -95,25 +98,12 @@ export async function makeGroupQuoteFor(
       "These rooms can't be priced",
     );
   }
-  const rate = quoteTaxRate.catch(500).parse(row.taxRateBasisPoints);
-  const supplierState = context.supplierStateCode ?? "";
-  const lineOf = (description: string, unitPricePaise: number) => ({
-    description,
+  const items = total.lines.map((line) => ({
+    description: `${row.name}, ${roomLabel[line.roomType]} × ${String(line.people)}`,
     detail: "",
     quantity: 1,
-    unitPricePaise,
-  });
-  const taxOf = (subtotalPaise: number) =>
-    quoteMoney([lineOf("Tour package", subtotalPaise)], rate, supplierState, null).taxPaise;
-  const subtotal = row.pricesIncludeGst ? exTaxSubtotal(total.totalPaise, rate, taxOf) : total.totalPaise;
-  // Each line takes its share of the subtotal; the last takes what rounding left.
-  let given = 0;
-  const items = total.lines.map((line, index) => {
-    const last = index === total.lines.length - 1;
-    const share = last ? subtotal - given : Math.floor((subtotal * line.amountPaise) / total.totalPaise);
-    given += share;
-    return lineOf(`${row.name}, ${roomLabel[line.roomType]} × ${String(line.people)}`, share);
-  });
+    unitPricePaise: line.sharePaise,
+  }));
   const quote = await createQuoteFor(
     tx,
     actor,
