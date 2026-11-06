@@ -31,6 +31,7 @@ import { calendarText, dateChecks, fixWeekdays } from "./calendar.js";
 import { chatVoiceOf } from "./chat-voice.js";
 import { repeatsEarlier } from "./repeats.js";
 import { naturalIn } from "./voice.js";
+import { PAYMENT_DETAILS_TOKEN } from "./payment-likely.js";
 
 export { AI_HANDOFF_KIND } from "./agent-effects.js";
 
@@ -57,8 +58,6 @@ const repeatCorrection = (reply: string) =>
 
 /** The marker of a message the AI wrote: its client token starts with this. */
 export const AI_TOKEN_PREFIX = "ai:";
-/** The token of the payment details' message in a chat: the AI's, after its reply. */
-const PAYMENT_TOKEN = "ai-pay:";
 
 /**
  * The model's answer, read leniently: the JSON object (words or a code fence around it are dropped, and a reply under
@@ -210,7 +209,7 @@ export async function runAgentTurn(
     const lastTurn = history.messages.at(-1);
     const paymentSent =
       (await tx.whatsappMessage.findFirst({
-        where: { conversationId: chat.id, clientToken: { startsWith: PAYMENT_TOKEN } },
+        where: { conversationId: chat.id, clientToken: { startsWith: PAYMENT_DETAILS_TOKEN } },
         select: { id: true },
       })) !== null;
     return {
@@ -340,7 +339,7 @@ export async function runAgentTurn(
             body: details,
             sentBy: null,
             origin: "automation",
-            clientToken: `${PAYMENT_TOKEN}${input.token}`,
+            clientToken: `${PAYMENT_DETAILS_TOKEN}${input.token}`,
             answers: !answer.handoff,
           },
           now,

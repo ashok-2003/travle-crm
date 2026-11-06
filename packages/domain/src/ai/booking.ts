@@ -7,15 +7,16 @@ import { aiBookingList, aiBookingStatus, type AgentAnswer, type AiBooking } from
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
-import { linkAiBooking, recordUnmatchedProof } from "../bookings/index.js";
+import { linkAiBooking, mayBePaymentTitle, recordUnmatchedProof } from "../bookings/index.js";
 import { addAiLeadNote, advanceLeadStage, noticeKey } from "../crm/index.js";
-import type { MemberAccess } from "../identity/index.js";
+import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { recordAudit } from "../audit/index.js";
-import { DomainError, systemActor } from "../kernel/index.js";
+import { calendarDateIn, DomainError, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
+import { mayBePayment } from "./payment-likely.js";
 
 export const AI_BOOKING_KIND = "ai.booking";
 export const AI_PAYMENT_PROOF_KIND = "ai.payment-proof";
@@ -112,7 +113,8 @@ export async function takeBooking(
 
 /**
  * A photo or PDF from a customer whose booking waits for payment is kept as their proof, and the team is told. With no
- * booking waiting it is kept as a proof to match (payments to check), when the agency has the bookings module.
+ * booking waiting it is kept as a proof to match (payments to check), when the agency has the bookings module and a payment
+ * is likely in the chat. The team hears once a chat a day, however many files come.
  */
 export function aiPaymentProofListener(dependencies: {
   recipients: BookingRecipients;
@@ -135,13 +137,15 @@ export function aiPaymentProofListener(dependencies: {
           orderBy: { createdAt: "desc" },
           select: { id: true, leadId: true, summary: true, proofMessageIds: true },
         });
-        return { open };
+        const day = calendarDateIn(message.occurredAt, await organizationTimeZone(tx, event.organizationId));
+        return { open, at: message.occurredAt, day };
       });
       if (looked === null) return;
       const found = looked.open;
+      const modules = (await dependencies.subscriptions.entitlementsOf(event.organizationId))?.modules;
+      const bookingsOn = modules?.has("bookings") === true;
       if (found === null) {
-        const modules = (await dependencies.subscriptions.entitlementsOf(event.organizationId))?.modules;
-        if (modules?.has("bookings") !== true) return;
+        if (!bookingsOn) return;
         const managerUserIds = await dependencies.recipients(event.organizationId);
         await context.forOrg(async (tx) => {
           const chat = await tx.whatsappConversation.findUnique({
@@ -156,11 +160,14 @@ export function aiPaymentProofListener(dependencies: {
                   orderBy: { createdAt: "desc" },
                   select: { id: true },
                 });
+          const leadId = lead?.id ?? null;
+          if (!(await mayBePayment(tx, { conversationId, leadId, at: looked.at }))) return;
           await recordUnmatchedProof(tx, context.actor, {
             conversationId,
             messageId,
-            leadId: lead?.id ?? null,
+            leadId,
             managerUserIds,
+            day: looked.day,
           });
         });
         return;
@@ -168,10 +175,12 @@ export function aiPaymentProofListener(dependencies: {
       if (found.proofMessageIds.includes(messageId)) return;
       const recipients = await dependencies.recipients(event.organizationId);
       await context.forOrg(async (tx) => {
-        await tx.aiBooking.update({
-          where: { id: found.id },
-          data: { status: "proof_received", proofMessageIds: [...found.proofMessageIds, messageId] },
+        // Only a booking still open takes the proof: one a person decided meanwhile is left as they decided it.
+        const moved = await tx.aiBooking.updateMany({
+          where: { id: found.id, status: { in: OPEN_STATUSES } },
+          data: { status: "proof_received", proofMessageIds: { push: messageId } },
         });
+        if (moved.count === 0) return;
         await addAiLeadNote(
           tx,
           context.actor,
@@ -184,9 +193,9 @@ export function aiPaymentProofListener(dependencies: {
         });
         await notify(tx, context.actor, {
           recipientUserIds: [...new Set([...(lead?.ownerUserId == null ? [] : [lead.ownerUserId]), ...recipients])],
-          sourceEventId: noticeKey(`ai-proof:${messageId}`, AI_PAYMENT_PROOF_KIND),
+          sourceEventId: noticeKey(`ai-proof:${conversationId}:${looked.day}`, AI_PAYMENT_PROOF_KIND),
           kind: AI_PAYMENT_PROOF_KIND,
-          title: `${lead?.person.name ?? "A customer"} sent a payment screenshot`.slice(0, 120),
+          title: mayBePaymentTitle(lead?.person.name),
           body: `${found.summary}. Check it and confirm the booking.`.slice(0, 300),
           link: `/leads/${found.leadId}`,
           channels: ["email", "push"],

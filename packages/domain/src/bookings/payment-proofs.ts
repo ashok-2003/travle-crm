@@ -4,19 +4,30 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { noticeKey } from "../crm/index.js";
-import { DomainError, type Actor } from "../kernel/index.js";
+import { DomainError, type Actor, type CalendarDate } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
 
 export const PAYMENT_PROOF_KIND = "payment.proof-to-match";
 
+/** The title of a notice about a customer's photo or file: it may be a payment, nothing more is claimed. */
+export const mayBePaymentTitle = (name: string | undefined) =>
+  `${name ?? "A customer"} sent a photo or file that may be a payment`.slice(0, 120);
+
 /**
  * Keeps the chat message as a pending proof (a second delivery adds nothing) and tells the lead's owner and the managers
- * once. The lead is the person's newest one, when the chat has a person.
+ * once a chat an agency day, however many files come. The lead is the person's newest one, when the chat has a person.
  */
 export async function recordUnmatchedProof(
   tx: OrgTx,
   actor: Actor,
-  input: { conversationId: string; messageId: string; leadId: string | null; managerUserIds: readonly string[] },
+  input: {
+    conversationId: string;
+    messageId: string;
+    leadId: string | null;
+    managerUserIds: readonly string[];
+    /** The agency's day the file came on. */
+    day: CalendarDate;
+  },
 ): Promise<boolean> {
   const created = await tx.paymentProof.createMany({
     data: [{ conversationId: input.conversationId, messageId: input.messageId, leadId: input.leadId }],
@@ -34,10 +45,10 @@ export async function recordUnmatchedProof(
   if (recipients.length === 0) return true;
   await notify(tx, actor, {
     recipientUserIds: recipients,
-    sourceEventId: noticeKey(input.messageId, PAYMENT_PROOF_KIND),
+    sourceEventId: noticeKey(`${input.conversationId}:${input.day}`, PAYMENT_PROOF_KIND),
     kind: PAYMENT_PROOF_KIND,
-    title: `${lead?.person.name ?? "A customer"} sent a payment screenshot`.slice(0, 120),
-    body: "No booking is waiting for it. Check it against your bank and match it to a payment.",
+    title: mayBePaymentTitle(lead?.person.name),
+    body: "No booking is waiting for it. If it is a payment, check it against your bank and match it.",
     // The chat holds the screenshot; erasing the customer finds this notice by the chat id in its link.
     link: `/inbox/${input.conversationId}`,
     channels: ["email", "push"],

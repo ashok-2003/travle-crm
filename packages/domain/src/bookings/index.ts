@@ -44,7 +44,7 @@ export {
   publicTripOf,
   type PublicTrip,
 } from "./public-trip.js";
-export { dismissProof, PAYMENT_PROOF_KIND, recordUnmatchedProof } from "./payment-proofs.js";
+export { dismissProof, mayBePaymentTitle, PAYMENT_PROOF_KIND, recordUnmatchedProof } from "./payment-proofs.js";
 export { confirmPayment, refusePayment } from "./decide-payment.js";
 export { countPaymentsToCheck, paymentsToCheck } from "./payments-to-check.js";
 export { publicUploadRecord, publicUploadTarget, type UploadTarget } from "./public-uploads.js";

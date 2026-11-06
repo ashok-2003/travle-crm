@@ -1,5 +1,6 @@
 // Payments to check: a screenshot a customer sends while no booking waits for payment is kept as a proof for a person to match,
-// once however often it is delivered; with an open booking it is that booking's proof; dismissing one is audited.
+// once however often it is delivered, but only where a payment is likely (payment details sent lately, money due on a
+// quote); with an open booking it is that booking's proof; one notice a chat a day; dismissing one is audited.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { aiPaymentProofListener, takeBooking } from "../../src/ai/booking.js";
@@ -45,7 +46,7 @@ describe("payment proofs with no booking waiting", () => {
       tx.whatsappConversation.create({
         data: {
           connectionId: connection.connectionId,
-          phoneE164: `+91${String(Date.now())}`.slice(0, 13),
+          phoneE164: `+919${String(Math.floor(Math.random() * 1e9)).padStart(9, "0")}`,
           personId: lead.personId,
         },
         select: { id: true },
@@ -67,7 +68,42 @@ describe("payment proofs with no booking waiting", () => {
           select: { id: true },
         }),
       );
-    return { inOrg, lead, chatId: chat.id, ownerUserId, message };
+    /** Something the agency sent in the chat, marked by its client token, some days before now. */
+    const sent = (clientToken: string, daysAgo = 1) =>
+      inOrg((tx) =>
+        tx.whatsappMessage.create({
+          data: {
+            conversationId: chat.id,
+            direction: "out",
+            origin: "automation",
+            kind: "text",
+            body: "Pay by UPI to agency@upi",
+            clientToken,
+            status: "sent",
+            occurredAt: new Date(Date.now() - daysAgo * 86_400_000),
+          },
+          select: { id: true },
+        }),
+      );
+    /** A quote for the lead with some of it paid. */
+    const quoted = (status: "sent" | "accepted", totalPaise: number, paidPaise = 0) =>
+      inOrg(async (tx) => {
+        const quote = await tx.quote.create({
+          data: {
+            leadId: lead.id,
+            title: "Manali",
+            status,
+            subtotalPaise: BigInt(totalPaise),
+            totalPaise: BigInt(totalPaise),
+          },
+          select: { id: true },
+        });
+        if (paidPaise > 0)
+          await tx.quotePayment.create({
+            data: { quoteId: quote.id, amountPaise: BigInt(paidPaise), receivedOn: new Date(), method: "upi" },
+          });
+      });
+    return { inOrg, lead, chatId: chat.id, ownerUserId, message, sent, quoted };
   }
 
   const deliver = (listener: EventListener, connection: TestConnection, chatId: string, messageId: string) =>
@@ -87,7 +123,8 @@ describe("payment proofs with no booking waiting", () => {
 
   it("a screenshot with no open booking becomes one proof to match, and a second delivery adds nothing", async () => {
     const connection = await aConnectedAgency(test);
-    const { inOrg, lead, chatId, ownerUserId, message } = await aChat(connection);
+    const { inOrg, lead, chatId, ownerUserId, message, sent } = await aChat(connection);
+    await sent(`ai-pay:${randomUUID()}`);
     const image = await message("image");
     const listener = listenerFor();
     await deliver(listener, connection, chatId, image.id);
@@ -120,6 +157,66 @@ describe("payment proofs with no booking waiting", () => {
     });
   });
 
+  it.each(["ai:turn-1:pay", "ai:turn-1:qr"])(
+    "payment details or a QR the AI sent (%s) make a photo a proof",
+    async (token) => {
+      const connection = await aConnectedAgency(test);
+      const { inOrg, chatId, message, sent } = await aChat(connection);
+      await sent(token, 13);
+      const image = await message("image");
+      await deliver(listenerFor(), connection, chatId, image.id);
+      expect(await inOrg((tx) => tx.paymentProof.count())).toBe(1);
+    },
+  );
+
+  it("payment details sent more than 14 days before don't", async () => {
+    const connection = await aConnectedAgency(test);
+    const { inOrg, chatId, message, sent } = await aChat(connection);
+    await sent(`ai-pay:${randomUUID()}`, 15);
+    const image = await message("image");
+    await deliver(listenerFor(), connection, chatId, image.id);
+    expect(await inOrg((tx) => tx.paymentProof.count())).toBe(0);
+  });
+
+  it("money still due on a sent or accepted quote makes a photo a proof; a quote paid in full doesn't", async () => {
+    const connection = await aConnectedAgency(test);
+    const due = await aChat(connection);
+    await due.quoted("accepted", 100_000, 40_000);
+    const image = await due.message("image");
+    await deliver(listenerFor(), connection, due.chatId, image.id);
+    expect(await due.inOrg((tx) => tx.paymentProof.count({ where: { conversationId: due.chatId } }))).toBe(1);
+
+    const paid = await aChat(connection);
+    await paid.quoted("accepted", 100_000, 100_000);
+    const photo = await paid.message("image");
+    await deliver(listenerFor(), connection, paid.chatId, photo.id);
+    expect(await paid.inOrg((tx) => tx.paymentProof.count({ where: { conversationId: paid.chatId } }))).toBe(0);
+  });
+
+  it("a passport photo in a chat with nothing to pay is no proof", async () => {
+    const connection = await aConnectedAgency(test);
+    const { inOrg, chatId, message } = await aChat(connection);
+    const passport = await message("image");
+    await deliver(listenerFor(), connection, chatId, passport.id);
+    expect(await inOrg((tx) => tx.paymentProof.count())).toBe(0);
+    expect(await inOrg((tx) => tx.notification.count())).toBe(0);
+  });
+
+  it("two photos on one day are two proofs but one notice each, which doesn't call them payments", async () => {
+    const connection = await aConnectedAgency(test);
+    const { inOrg, chatId, message, sent, ownerUserId } = await aChat(connection);
+    await sent(`ai-pay:${randomUUID()}`);
+    const listener = listenerFor();
+    for (const kind of ["image", "document"]) {
+      const file = await message(kind);
+      await deliver(listener, connection, chatId, file.id);
+    }
+    expect(await inOrg((tx) => tx.paymentProof.count())).toBe(2);
+    const notices = await inOrg((tx) => tx.notification.findMany({ where: { kind: "payment.proof-to-match" } }));
+    expect(notices.map((notice) => notice.recipientUserId).sort()).toEqual([ownerUserId, managerId].sort());
+    expect(notices[0]?.title).toMatch(/sent a photo or file that may be a payment$/);
+  });
+
   it("keeps nothing in an agency without the bookings module", async () => {
     const connection = await aConnectedAgency(test);
     const { inOrg, chatId, message } = await aChat(connection);
@@ -143,11 +240,18 @@ describe("payment proofs with no booking waiting", () => {
     );
     const image = await message("image");
     await deliver(listenerFor(), connection, chatId, image.id);
+    const second = await message("image");
+    await deliver(listenerFor(), connection, chatId, second.id);
     expect(await inOrg((tx) => tx.paymentProof.count())).toBe(0);
     expect(await inOrg((tx) => tx.aiBooking.findFirstOrThrow())).toMatchObject({
       status: "proof_received",
-      proofMessageIds: [image.id],
+      proofMessageIds: [image.id, second.id],
     });
+    // One notice a day for the chat, however many files came, and it says only that it may be a payment.
+    const notices = await inOrg((tx) => tx.notification.findMany({ where: { kind: "ai.payment-proof" } }));
+    expect(notices).toHaveLength(2);
+    expect(new Set(notices.map((notice) => notice.recipientUserId)).size).toBe(2);
+    expect(notices[0]?.title).toMatch(/sent a photo or file that may be a payment$/);
   });
 
   it("a text message is no proof", async () => {
@@ -160,7 +264,8 @@ describe("payment proofs with no booking waiting", () => {
 
   it("dismissing is audited and leaves the list", async () => {
     const connection = await aConnectedAgency(test);
-    const { inOrg, chatId, message } = await aChat(connection);
+    const { inOrg, chatId, message, quoted } = await aChat(connection);
+    await quoted("sent", 100_000);
     const image = await message("image");
     await deliver(listenerFor(), connection, chatId, image.id);
     const proof = await inOrg((tx) => tx.paymentProof.findFirstOrThrow());
