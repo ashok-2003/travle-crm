@@ -42,6 +42,9 @@ describe("amountsAndDatesIn", () => {
     ["next Friday", "date:next Friday"],
     ["coming Sunday", "date:coming Sunday"],
     ["tomorrow 15", "date:tomorrow 15"],
+    ["on 14.11.2026", "date:14.11.2026"],
+    ["Jan 2027", "date:Jan 2027"],
+    ["in January 2027", "date:January 2027"],
   ])("date: %s", (text, expected) => {
     expect(kinds(text)).toContain(expected);
   });
@@ -67,6 +70,10 @@ describe("amountsAndDatesIn", () => {
     "tomorrow 2 adults",
     "Saturday 5 pm",
     "Room 204",
+    "package 2026",
+    "only 2026",
+    "booking for 2026",
+    "rate 7.5 per km",
   ])("not a match: %s", (text) => {
     expect(amountsAndDatesIn(text)).toEqual([]);
   });

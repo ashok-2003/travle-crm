@@ -126,3 +126,54 @@ describe("checkReply", () => {
     }
   });
 });
+
+describe("checkReply: a hedge excuses a claim only when it governs it (P4-21)", () => {
+  it.each([
+    "Payment received, will share details",
+    "Booking confirmed, we will send tickets",
+    "Your seats are confirmed, you can pay the balance later",
+    "Payment received, can you share your PAN?",
+    "Payment received if any doubt ask",
+    "We've received the advance",
+    "I received the advance",
+    "Payment of 4000 is received",
+    "Payment has reached us",
+    "Amount credited, thanks",
+    "Your slot is locked",
+    "We have received the money",
+    "UPI transfer came through",
+    "Your tour is booked",
+    "Hum ne aapka advance receive kar liya",
+    "payment aa gaya",
+    "paise mil gaye",
+    "booking ho gayi",
+    "The team has confirmed your seats, will share details",
+  ])("refused: %s", (text) => {
+    expect(reason(text)).toMatch(/payment_claim|team_claim/);
+  });
+
+  it.each([
+    "Once we receive your payment, the team will confirm your seats",
+    "Your seats will be confirmed once payment is received",
+    "We will confirm your booking after the advance",
+    "Payment will be received at the office",
+    "I'll confirm as soon as the advance is received",
+    "We haven't received the advance yet",
+    "Payment not received yet",
+    "Have you made the payment?",
+    "Have you received the payment?",
+    "The team will check your payment",
+    "Once the team confirms the payment, we will share tickets",
+    "If the advance is received we can book",
+    "We can confirm your booking once paid",
+    "Share a screenshot after payment",
+  ])("allowed: %s", (text) => {
+    expect(reason(text)).toBe("ok");
+  });
+
+  it("holds the place leniency for a multi-word package place", () => {
+    const valley = { ...manaliOnly, packagePlaces: ["spiti valley"] };
+    expect(reason("Spiti is open in June", valley)).toBe("ok");
+    expect(reason("Spiti is open in June", manaliOnly)).toBe("place");
+  });
+});

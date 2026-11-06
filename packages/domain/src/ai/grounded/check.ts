@@ -7,7 +7,7 @@ import {
   paymentClaimPhrases,
   teamClaimPhrases,
 } from "@travel-crm/contracts/ai";
-import { findPhrase, findWord, hasPhrase, sentencesOf, type Found } from "./phrase-match.js";
+import { clausesOf, findPhrase, findWord, hasPhrase, sentencesOf, type Found } from "./phrase-match.js";
 
 export type ReplyRefusal = "amount" | "date" | "place" | "payment_claim" | "team_claim";
 export type ReplyCheck = { ok: true } | { ok: false; reason: ReplyRefusal; excerpt: string };
@@ -20,10 +20,12 @@ export interface ReplyContext {
 }
 
 const MAX_EXCERPT = 80;
-// An English sentence that makes a payment or team phrase a condition, a denial or a question, not a claim.
-const HEDGES =
-  /\b(?:once|when|whenever|if|as soon as|after|until|till|before|get|getting|want|need|wanna|will|would|can|could|should|help|not|never|haven't|hasn't|didn't|yet to|n't)\b/i;
-const NON_ENGLISH = /[ऀ-ॿ]|\b(?:gaya|gayi|gaye|gya|mila|mili|bataya|kaha|bola|diya|bheja|hui|karte|karate)\b/i;
+// What can govern an English claim: a condition before it in its clause, a negation on it, or a modal before its verb.
+const CONDITION = /\b(?:once|after|when|whenever|as soon as|if|until|till)\b/i;
+const NEGATION = /n't\b|\b(?:not|never|no|yet to|cannot)\b/i;
+const MODAL = /\b(?:will|shall|would|can|may)\b/i;
+const NON_ENGLISH =
+  /[\u0900-\u097F]|\b(?:gaya|gayi|gaye|gya|mila|mili|bataya|kaha|bola|diya|bheja|hui|karte|karate|liya)\b/i;
 
 const excerptOf = (text: string, { start, end }: Found): string => {
   if (end - start >= MAX_EXCERPT) return text.slice(start, start + MAX_EXCERPT);
@@ -32,20 +34,27 @@ const excerptOf = (text: string, { start, end }: Found): string => {
   return text.slice(from, Math.min(text.length, end + (MAX_EXCERPT - (end - from)))).trim();
 };
 
-/** A phrase claim in a sentence, unless an English hedge sits within a few words before it or after it. */
+/** The first claim in a sentence, clause by clause; an English one is excused only by a hedge that governs it. */
 function claimIn(sentence: { text: string; start: number }, phrases: readonly string[]): Found | null {
-  const found = findPhrase(sentence.text, phrases);
-  if (!found) return null;
-  const matched = sentence.text.slice(found.start, found.end);
-  if (!NON_ENGLISH.test(matched)) {
-    if (sentence.text.trimEnd().endsWith("?")) return null;
-    const near = [
-      sentence.text.slice(0, found.start).split(/\s+/).slice(-5).join(" "),
-      sentence.text.slice(found.end).split(/\s+/).slice(0, 4).join(" "),
-    ].join(" ");
-    if (HEDGES.test(near)) return null;
+  const isQuestion = sentence.text.trimEnd().endsWith("?");
+  const clauses = clausesOf(sentence.text);
+  for (const [index, clause] of clauses.entries()) {
+    const found = findPhrase(clause.text, phrases);
+    if (!found) continue;
+    const matched = clause.text.slice(found.start, found.end);
+    const before = clause.text.slice(0, found.start);
+    const lastWords = before.split(/\s+/).slice(-3).join(" ");
+    const tail = before.split(/\s+/).slice(-2).join(" ");
+    const hedged =
+      (isQuestion && index === clauses.length - 1) ||
+      CONDITION.test(`${before} ${matched}`) ||
+      NEGATION.test(`${lastWords} ${matched}`) ||
+      MODAL.test(`${tail} ${matched}`);
+    if (hedged && !NON_ENGLISH.test(matched)) continue;
+    const start = sentence.start + clause.start + found.start;
+    return { start, end: start + (found.end - found.start) };
   }
-  return { start: sentence.start + found.start, end: sentence.start + found.end };
+  return null;
 }
 
 const covers = (a: string, b: string): boolean => a === b || ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `);

@@ -23,6 +23,8 @@ const YEAR = "(?:\\s*,?\\s*(?:20)?\\d{2}(?!\\d))?";
 const DATE_PATTERNS: RegExp[] = [
   new RegExp(`${DAY}\\s*(?:of\\s+)?\\b${MONTH}\\b${YEAR}`, "gi"),
   new RegExp(`\\b${MONTH}\\b\\.?\\s*${DAY}${NOT_A_DAY}${YEAR}`, "gi"),
+  /(?<![\d/.+-])\d{1,2}\.\d{1,2}\.\d{2,4}(?![\d.])/g,
+  new RegExp(`\\b${MONTH}\\b\\.?\\s*,?\\s*20\\d{2}(?!\\d)`, "gi"),
   /(?<![\d/.+-])(?!24\/7)\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?(?![\d/]|\s*(?:nights?|days?|adults?|people|persons?|pax|kids?|children|rooms?|seats?|[nd]\b))/gi,
   new RegExp(`\\b${RELATIVE}\\b\\s*,?\\s*${DAY}${NOT_A_DAY}(?:\\s*(?:ko|tarikh|tareekh))?`, "gi"),
   new RegExp(`${DAY}(?:\\s*(?:ko|tarikh|tareekh))?\\s*,?\\s*\\b${WEEKDAY}\\b`, "gi"),
@@ -42,6 +44,8 @@ const SHORT_FORM = new RegExp(`(?<![\\w.,])${NUMBER}(?:\\s?[kK]|L|\\s[Ll]akhs?|\
 const BIG_NUMBER = /(?<![\d,.+])(?:\d{1,3}(?:,\d{2,3})+|\d{4,9})(?![\d,]\d|\d)/g;
 const MONEY_WORDS =
   /\b(?:per\s+person|per\s+head|per\s+pax|pp|each|total|advance|price|cost|only|rate|package|booking)\b/i;
+// A year (2020-2035) beside a money word is a year, unless a currency mark joins it, which the other patterns catch.
+const PLAUSIBLE_YEAR = /^20(?:2\d|3[0-5])$/;
 const NOT_MONEY_UNIT = /^\s*(?:ft|feet|m\b|metres?|meters?|km|kms|kilomet|mtrs?|mts)/i;
 const PHONE =
   /(?:\+\s?\d{1,3}[\s-]?)?(?<![\d])(?:[6-9]\d{4}[\s-]?\d{5}|\d{3,5}[\s-]\d{3,5}[\s-]\d{3,5})(?!\d)|\+\d{1,3}[\s-]?\d[\d\s-]{6,}\d/g;
@@ -63,6 +67,7 @@ function bareNumbers(text: string): AmountOrDate[] {
   return [...text.matchAll(BIG_NUMBER)]
     .map((m) => ({ start: m.index, end: m.index + m[0].length, kind: "money" as const }))
     .filter(({ start, end }) => !phones.some(({ from, to }) => start >= from && end <= to))
+    .filter(({ start, end }) => !PLAUSIBLE_YEAR.test(text.slice(start, end)))
     .filter(({ start, end }) => !NOT_MONEY_UNIT.test(text.slice(end)) && nearMoneyWord(text, start, end));
 }
 
