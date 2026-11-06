@@ -1,7 +1,8 @@
 // paymentsToCheck: only a member who may view bookings and record payments, on a plan with bookings, lists or decides.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { anAgency, callerOf, createHarness, refusal, type Harness } from "./forms-support.js";
+import { PermissionSet } from "@travel-crm/domain/identity";
+import { anAgency, callerOf, memberOf, createHarness, refusal, type Harness } from "./forms-support.js";
 
 describe("paymentsToCheck", () => {
   let harness: Harness;
@@ -46,8 +47,8 @@ describe("paymentsToCheck", () => {
   it("an agency without the bookings module can't list", async () => {
     const organizationId = await anAgency(harness, { modules: ["crm"] });
     const { caller } = callerOf(harness, { organizationId });
-    expect(await refusal(caller.paymentsToCheck.list({}))).not.toBe("accepted");
-    expect(await refusal(caller.paymentsToCheck.count())).not.toBe("accepted");
+    expect(await refusal(caller.paymentsToCheck.list({}))).toBe("MODULE_NOT_ON_PLAN");
+    expect(await refusal(caller.paymentsToCheck.count())).toBe("MODULE_NOT_ON_PLAN");
   });
 
   it("lists and counts what waits for a member who may", async () => {
@@ -90,5 +91,116 @@ describe("paymentsToCheck", () => {
     expect(
       await caller.paymentsToCheck.refuse({ kind: "ai_booking", id: loud.bookingId, reason: "not_found", tell: true }),
     ).toEqual({ told: "task" });
+  });
+
+  /** A member who sees only the leads they own. */
+  function ownMember(organizationId: string) {
+    const member = memberOf(organizationId, ["bookings:view", "quotes:record_payments"]);
+    return {
+      ...member,
+      permissions: PermissionSet.of([
+        { permission: "bookings:view", scope: "own" },
+        { permission: "quotes:record_payments", scope: "all" },
+      ]),
+    };
+  }
+
+  async function aClaim(organizationId: string) {
+    return harness.db.forOrg(organizationId, async (tx) => {
+      const person = await tx.person.create({
+        data: { name: "Rahul Sharma", phoneE164: `+9198${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}` },
+      });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "web_form" } });
+      const quote = await tx.quote.create({
+        data: {
+          leadId: lead.id,
+          title: "Spiti 6 days",
+          status: "accepted",
+          adults: 2,
+          children: 0,
+          days: [],
+          subtotalPaise: 4_000_000n,
+          totalPaise: 4_000_000n,
+          acceptedAt: new Date("2026-10-29T05:00:00Z"),
+          acceptedName: "Rahul Sharma",
+        },
+        select: { id: true },
+      });
+      const booking = await tx.booking.create({
+        data: {
+          quoteId: quote.id,
+          leadId: lead.id,
+          number: `BK-2026-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+        },
+        select: { id: true },
+      });
+      const claim = await tx.paymentClaim.create({
+        data: { bookingId: booking.id, amountPaise: 1_000_000n, reference: "UTR1" },
+        select: { id: true },
+      });
+      return { claimId: claim.id };
+    });
+  }
+
+  const nothingChanged = (organizationId: string) =>
+    harness.db.forOrg(organizationId, async (tx) => ({
+      payments: await tx.quotePayment.count(),
+      tasks: await tx.task.count(),
+      messages: await tx.whatsappMessage.count(),
+      pendingClaims: await tx.paymentClaim.count({ where: { status: "pending" } }),
+      waitingAi: await tx.aiBooking.count({ where: { status: "proof_received" } }),
+    }));
+
+  it("a member who sees only their own leads can't confirm or refuse another member's", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const ai = await anAiBooking(organizationId);
+    const theirs = await aClaim(organizationId);
+    const { caller } = callerOf(harness, { organizationId }, ownMember(organizationId));
+    const before = await nothingChanged(organizationId);
+    const decisions = [
+      () =>
+        caller.paymentsToCheck.confirm({ kind: "ai_booking", id: ai.bookingId, amountPaise: 2_000_000, reference: "" }),
+      () => caller.paymentsToCheck.refuse({ kind: "ai_booking", id: ai.bookingId, reason: "not_found", tell: true }),
+      () =>
+        caller.paymentsToCheck.confirm({ kind: "claim", id: theirs.claimId, amountPaise: 1_000_000, reference: "" }),
+      () => caller.paymentsToCheck.refuse({ kind: "claim", id: theirs.claimId, reason: "not_found", tell: true }),
+    ];
+    for (const decision of decisions) expect(await refusal(decision())).toBe("NOT_FOUND");
+    expect(await nothingChanged(organizationId)).toEqual(before);
+    // Indistinguishable from an id that doesn't exist.
+    expect(
+      await refusal(
+        caller.paymentsToCheck.confirm({ kind: "ai_booking", id: randomUUID(), amountPaise: 1, reference: "" }),
+      ),
+    ).toBe("NOT_FOUND");
+  });
+
+  it("confirming a claim records and tells the amount the person entered", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const { claimId } = await aClaim(organizationId);
+    const { caller } = callerOf(harness, { organizationId });
+    const told = await caller.paymentsToCheck.confirm({
+      kind: "claim",
+      id: claimId,
+      amountPaise: 900_000,
+      reference: "",
+    });
+    expect(told).toEqual({ told: "task" });
+    const recorded = await harness.db.forOrg(organizationId, (tx) => tx.quotePayment.findMany());
+    expect(recorded.map((payment) => Number(payment.amountPaise))).toEqual([900_000]);
+  });
+
+  it("refusing a claim without telling sends nothing and makes no task", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const { claimId } = await aClaim(organizationId);
+    const { caller } = callerOf(harness, { organizationId });
+    const before = await nothingChanged(organizationId);
+    expect(
+      await caller.paymentsToCheck.refuse({ kind: "claim", id: claimId, reason: "not_found", tell: false }),
+    ).toEqual({ told: "none" });
+    const after = await nothingChanged(organizationId);
+    expect(after.messages).toBe(before.messages);
+    expect(after.pendingClaims).toBe(0);
+    expect(after.tasks).toBe(before.tasks);
   });
 });

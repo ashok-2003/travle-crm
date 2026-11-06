@@ -41,6 +41,7 @@ export const confirmPaymentInput = z.strictObject({
   kind: z.enum(["claim", "ai_booking"]),
   id: recordId,
   amountPaise: z.int().min(1),
+  // Only an AI booking's payment takes this; a claim keeps the reference its customer gave.
   reference: z.string().max(60),
 });
 export type ConfirmPaymentInput = z.infer<typeof confirmPaymentInput>;

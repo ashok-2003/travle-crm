@@ -3,10 +3,11 @@
 import type { ConfirmPaymentInput, PaymentTold, RefusePaymentInput } from "@travel-crm/contracts/bookings";
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
-import type { MemberAccess } from "../identity/index.js";
+import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { DomainError, parseCalendarDate, type CalendarDate } from "../kernel/index.js";
 import { confirmAiPayment, refuseAiPayment } from "./ai-payments.js";
 import { confirmClaim, rejectClaim } from "./claims.js";
+import { findBookingInScope } from "./rows.js";
 import { tellPaymentOutcome, type PaymentOutcome } from "./payment-messages.js";
 
 interface Facts {
@@ -16,16 +17,12 @@ interface Facts {
   date: CalendarDate | null;
 }
 
-async function factsOf(tx: OrgTx, kind: "claim" | "ai_booking", id: string): Promise<Facts> {
+/** The record's facts, found through the member's lead scope first: a record they can't see answers as one that isn't there. */
+async function factsOf(tx: OrgTx, access: MemberAccess, kind: "claim" | "ai_booking", id: string): Promise<Facts> {
   if (kind === "claim") {
-    const claim = await tx.paymentClaim.findUnique({
-      where: { id },
-      select: {
-        booking: { select: { leadId: true, startDate: true, quote: { select: { title: true } } } },
-      },
-    });
+    const claim = await tx.paymentClaim.findUnique({ where: { id }, select: { bookingId: true } });
     if (claim === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such payment claim");
-    const { booking } = claim;
+    const booking = await findBookingInScope(tx, access, claim.bookingId);
     return {
       leadId: booking.leadId,
       conversationId: null,
@@ -33,8 +30,8 @@ async function factsOf(tx: OrgTx, kind: "claim" | "ai_booking", id: string): Pro
       date: booking.startDate === null ? null : parseCalendarDate(booking.startDate.toISOString().slice(0, 10)),
     };
   }
-  const row = await tx.aiBooking.findUnique({
-    where: { id },
+  const row = await tx.aiBooking.findFirst({
+    where: { id, lead: scopeFilter(access, "bookings:view", "ownerUserId") },
     select: { leadId: true, conversationId: true, summary: true },
   });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such booking");
@@ -73,7 +70,7 @@ export async function confirmPayment(
   input: ConfirmPaymentInput & { agencyName?: string },
   now: Date,
 ): Promise<PaymentTold> {
-  const facts = await factsOf(tx, input.kind, input.id);
+  const facts = await factsOf(tx, access, input.kind, input.id);
   if (input.kind === "claim")
     await confirmClaim(tx, access, { claimId: input.id, amountPaise: input.amountPaise }, now);
   else
@@ -93,7 +90,7 @@ export async function refusePayment(
   input: RefusePaymentInput & { agencyName?: string },
   now: Date,
 ): Promise<PaymentTold> {
-  const facts = await factsOf(tx, input.kind, input.id);
+  const facts = await factsOf(tx, access, input.kind, input.id);
   if (input.kind === "claim") await rejectClaim(tx, access, { claimId: input.id, reason: input.reason }, now);
   else await refuseAiPayment(tx, access, { bookingId: input.id, reason: input.reason }, now);
   if (!input.tell) return "none";
