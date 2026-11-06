@@ -378,6 +378,8 @@
     "noProof": "No payment screenshot yet. It shows here as soon as the customer sends one.",
     "proof": "Payment proof {number} · {when}",
     "confirm": "Confirm booking",
+    "confirmOnPayments": "Confirm the payment on Payments to check",
+    "confirmedOnPayments": "Someone who records payments confirms it on Payments to check.",
     "cancel": "Cancel booking",
     "confirmTitle": "Confirm this booking?",
     "confirmDescription": "Do this once the payment is in your account. The lead moves to Won.",

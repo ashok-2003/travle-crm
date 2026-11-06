@@ -252,6 +252,28 @@ describe("payment proofs with no booking waiting", () => {
     expect(notices).toHaveLength(2);
     expect(new Set(notices.map((notice) => notice.recipientUserId)).size).toBe(2);
     expect(notices[0]?.title).toMatch(/sent a photo or file that may be a payment$/);
+    // With bookings, the payment is confirmed on Payments to check; the lead's id lets its erasure find the notice.
+    expect(notices.every((notice) => notice.link === `/payments?lead=${lead.id}`)).toBe(true);
+  });
+
+  it("without the bookings module, the notice about an open booking's proof opens the lead", async () => {
+    const connection = await aConnectedAgency(test);
+    const { inOrg, lead, chatId, message } = await aChat(connection);
+    await inOrg((tx) =>
+      takeBooking(tx, {
+        organizationId: connection.organizationId,
+        conversationId: chatId,
+        leadId: lead.id,
+        booking: { confirmed: true, summary: "Manali", package: "", dates: "", travellers: "", pickup: "", amount: "" },
+        recipients: [],
+        now: new Date(testNow.getTime() - 1000),
+      }),
+    );
+    const image = await message("image");
+    await deliver(listenerFor(["crm", "inbox"]), connection, chatId, image.id);
+    const notices = await inOrg((tx) => tx.notification.findMany({ where: { kind: "ai.payment-proof" } }));
+    expect(notices.length).toBeGreaterThan(0);
+    expect(notices.every((notice) => notice.link === `/leads/${lead.id}`)).toBe(true);
   });
 
   it("a text message is no proof", async () => {

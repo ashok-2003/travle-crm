@@ -45,8 +45,10 @@ describe("a booking the AI took", () => {
     });
   }
 
-  const confirm = (id: string) =>
-    world.inOrg((tx) => setBookingStatus(tx, world.manager, { bookingId: id, status: "confirmed" }, now));
+  // Without the bookings module: with it, the payment is confirmed on Payments to check.
+  const decide = (id: string, status: "confirmed" | "cancelled" | "awaiting_payment", bookingsOn = false) =>
+    world.inOrg((tx) => setBookingStatus(tx, world.manager, { bookingId: id, status }, now, { bookingsOn }));
+  const confirm = (id: string) => decide(id, "confirmed");
   const linked = async (id: string) =>
     (await world.inOrg((tx) => tx.aiBooking.findUniqueOrThrow({ where: { id } }))).bookingId ?? "";
 
@@ -115,4 +117,24 @@ describe("a booking the AI took", () => {
       quotePlaceholder: false,
     });
   });
+
+  it("with the bookings module, the payment is confirmed on Payments to check, not here", async () => {
+    const { aiBookingId } = await aTaken();
+    await expect(decide(aiBookingId, "confirmed", true)).rejects.toMatchObject({ reason: "CONFIRM_ON_PAYMENTS" });
+    // Calling it off still works here.
+    await decide(aiBookingId, "cancelled", true);
+    expect((await world.inOrg((tx) => tx.aiBooking.findUniqueOrThrow({ where: { id: aiBookingId } }))).status).toBe(
+      "cancelled",
+    );
+  });
+
+  it.each(["cancelled", "awaiting_payment"] as const)(
+    "a confirmed booking is never moved back to %s",
+    async (status) => {
+      const { aiBookingId } = await aTaken();
+      await confirm(aiBookingId);
+      await expect(decide(aiBookingId, status)).rejects.toMatchObject({ reason: "AI_BOOKING_NOT_OPEN" });
+      await expect(decide(aiBookingId, status, true)).rejects.toMatchObject({ reason: "AI_BOOKING_NOT_OPEN" });
+    },
+  );
 });

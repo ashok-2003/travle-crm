@@ -197,7 +197,8 @@ export function aiPaymentProofListener(dependencies: {
           kind: AI_PAYMENT_PROOF_KIND,
           title: mayBePaymentTitle(lead?.person.name),
           body: `${found.summary}. Check it and confirm the booking.`.slice(0, 300),
-          link: `/leads/${found.leadId}`,
+          // With bookings it is confirmed on Payments to check; the lead's id in the link lets its erasure find the notice.
+          link: bookingsOn ? `/payments?lead=${found.leadId}` : `/leads/${found.leadId}`,
           channels: ["email", "push"],
         });
       });
@@ -266,18 +267,35 @@ const textsOf = (details: unknown) => {
   };
 };
 
-/** A person decides: the payment is in (the lead is won), the booking is off, or it waits for payment again. */
+/**
+ * A person decides: the payment is in (the lead is won), the booking is off, or it waits for payment again. On a plan with
+ * the bookings module the payment is confirmed on Payments to check, which records the money and tells the customer, so
+ * not here; and a confirmed booking is never moved back, whatever the plan.
+ */
 export async function setBookingStatus(
   tx: OrgTx,
   access: MemberAccess,
   input: { bookingId: string; status: "confirmed" | "cancelled" | "awaiting_payment" },
   now: Date,
+  plan: { bookingsOn: boolean },
 ): Promise<{ leadId: string }> {
   const row = await tx.aiBooking.findUnique({
     where: { id: input.bookingId },
-    select: { id: true, leadId: true, summary: true, details: true, proofMessageIds: true, bookingId: true },
+    select: {
+      id: true,
+      leadId: true,
+      summary: true,
+      details: true,
+      proofMessageIds: true,
+      bookingId: true,
+      status: true,
+    },
   });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  if (input.status === "confirmed" && plan.bookingsOn)
+    throw new DomainError("CONFLICT", "CONFIRM_ON_PAYMENTS", "Confirm this payment on Payments to check");
+  if (row.status === "confirmed" && input.status !== "confirmed")
+    throw new DomainError("CONFLICT", "AI_BOOKING_NOT_OPEN", "This booking was decided already");
   // Confirming also makes (or finds) the release 6 booking for it: the lead's accepted quote's, or one made from what the AI took
   // down. Confirming again finds the same one.
   const bookingId =

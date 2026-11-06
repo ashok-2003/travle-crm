@@ -232,7 +232,7 @@ export const aiRouter = router({
       }),
     ),
 
-  /** The payment is in (the lead is won), the booking is off, or it waits for payment again. */
+  /** The payment is in (the lead is won), the booking is off, or it waits for payment again; with bookings, confirmed on Payments to check. */
   setBookingStatus: freshProcedure
     .requires("leads:edit", "leads:view")
     .input(setAiBookingStatusInput)
@@ -242,7 +242,8 @@ export const aiRouter = router({
         if (booking === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
         // A lead out of the member's scope is not found.
         await getLead(tx, ctx.member, booking.leadId);
-        await setBookingStatus(tx, ctx.member, input, new Date());
+        const bookingsOn = ctx.entitlements?.modules.has("bookings") === true;
+        await setBookingStatus(tx, ctx.member, input, new Date(), { bookingsOn });
       }),
     ),
 
