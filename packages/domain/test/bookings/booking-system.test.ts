@@ -152,7 +152,7 @@ describe("the system's side of bookings", () => {
       expect(mine.every((row) => row.startDate <= day(14))).toBe(true);
       const stranger = await world.inOrg((tx) => bookingsMissingDetails(tx, crypto.randomUUID(), day(0) as never));
       expect(stranger).toEqual([]);
-      const summary = await world.inOrg((tx) => todaySummary(tx, world.seller, now));
+      const summary = await world.inOrg((tx) => todaySummary(tx, world.seller, now, { bookingsOn: true }));
       expect(summary.counts.tripDetails).toBeGreaterThan(0);
       const section = await world.inOrg((tx) =>
         todaySection(tx, world.seller, { section: "trip-details", limit: 20 }, now),

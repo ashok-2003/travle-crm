@@ -41,6 +41,7 @@ async function pushTo(
   access: MemberAccess,
   now: Date,
   day: string,
+  plan: { bookingsOn: boolean },
 ): Promise<boolean> {
   return dependencies.db.forOrg(access.organizationId, async (tx) => {
     // The day is claimed first, under the row's lock, so two runs at once send one.
@@ -52,7 +53,8 @@ async function pushTo(
       data: { lastSentOn: new Date(`${day}T00:00:00Z`) },
     });
     if (claimed.count === 0) return false;
-    const { counts } = await todaySummary(tx, access, now);
+    const { counts } = await todaySummary(tx, access, now, plan);
+    // A pending claim and its "Check payment" task are one thing.
     const total =
       counts.overdue +
       counts.dueToday +
@@ -60,7 +62,8 @@ async function pushTo(
       counts.quoteOpened +
       counts.paymentsDue +
       counts.departures +
-      counts.paymentsToCheck;
+      counts.paymentsToCheck -
+      counts.checkTasks;
     const title = morningWords({ total, overdue: counts.overdue });
     if (title === null) return false;
     await notify(tx, systemActor(access.organizationId), {
@@ -117,7 +120,7 @@ export async function runMorningPushFor(
         update: {},
       }),
     );
-    if (await pushTo(dependencies, access, now, day)) sent += 1;
+    if (await pushTo(dependencies, access, now, day, { bookingsOn: entitlements.modules.has("bookings") })) sent += 1;
   }
   return sent;
 }

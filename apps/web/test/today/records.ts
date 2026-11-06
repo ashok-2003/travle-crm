@@ -123,6 +123,7 @@ export const busyDay: TodaySummary = {
     tripDetails: 0,
     departures: 0,
     paymentsToCheck: 0,
+    checkTasks: 0,
   },
   top: [snehaOverdue, rahulNew, priyaDue],
 };
@@ -138,6 +139,7 @@ export const quietDay: TodaySummary = {
     tripDetails: 0,
     departures: 0,
     paymentsToCheck: 0,
+    checkTasks: 0,
   },
   top: [],
 };

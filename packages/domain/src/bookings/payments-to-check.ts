@@ -184,3 +184,26 @@ export async function countPaymentsToCheck(tx: OrgTx, access: MemberAccess): Pro
   });
   return claimCount + aiCount + proofCount;
 }
+
+/**
+ * Of the member's open tasks due before `before`, the "Check payment" tasks of pending claims they see: Today counts each
+ * such claim once, in the payments to check, not again as a task.
+ */
+export async function countClaimTasks(tx: OrgTx, access: MemberAccess, before: Date): Promise<number> {
+  const scope = leadScope(access);
+  const claims = await tx.paymentClaim.findMany({
+    where: { status: "pending", taskId: { not: null }, ...(scope === null ? {} : { booking: { lead: scope } }) },
+    select: { taskId: true },
+  });
+  const taskIds = claims.flatMap((claim) => (claim.taskId === null ? [] : [claim.taskId]));
+  if (taskIds.length === 0) return 0;
+  return tx.task.count({
+    where: {
+      id: { in: taskIds },
+      assigneeUserId: access.userId,
+      doneAt: null,
+      cancelledAt: null,
+      dueAt: { lt: before },
+    },
+  });
+}

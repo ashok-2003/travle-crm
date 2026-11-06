@@ -246,7 +246,9 @@ describe("the demo reset", () => {
       const { organizationId } = await resetDemoOrganization(test.services, demoSettings(), now);
       const ravi = (await demoUsers(organizationId)).get("ravi") ?? "";
       const access = await memberAccessOf(test.identity.identity, ravi, organizationId);
-      const today = await test.services.db.forOrg(organizationId, (tx) => todaySummary(tx, access, now));
+      const today = await test.services.db.forOrg(organizationId, (tx) =>
+        todaySummary(tx, access, now, { bookingsOn: true }),
+      );
       expect(today.counts.overdue).toBeGreaterThanOrEqual(1);
       expect(today.counts.newLeads).toBeGreaterThanOrEqual(1);
       expect(today.counts.dueToday).toBeGreaterThanOrEqual(1);

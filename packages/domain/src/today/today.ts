@@ -12,7 +12,7 @@ import type {
   TodaySummary,
 } from "@travel-crm/contracts/today";
 import type { OrgTx } from "@travel-crm/db";
-import { bookingsMissingDetails, countPaymentsToCheck } from "../bookings/index.js";
+import { bookingsMissingDetails, countClaimTasks, countPaymentsToCheck } from "../bookings/index.js";
 import { departuresStartingSoon } from "../departures/index.js";
 import { countNewLeadsWaiting, leadBriefs, newLeadsWaiting, type NewLeadWaiting } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
@@ -237,10 +237,21 @@ function itemId(item: TodayItem): string {
   }
 }
 
-/** The day, the counts and the first of each section: overdue, payments due, the oldest new lead, a quote opened, due today. */
-export async function todaySummary(tx: OrgTx, access: MemberAccess, now: Date): Promise<TodaySummary> {
+/**
+ * The day, the counts and the first of each section: overdue, payments due, the oldest new lead, a quote opened, due today.
+ * The payments to check count on a plan with the bookings module, for whoever may check them.
+ */
+export async function todaySummary(
+  tx: OrgTx,
+  access: MemberAccess,
+  now: Date,
+  plan: { bookingsOn: boolean },
+): Promise<TodaySummary> {
   const { day, endsAt } = await dayAt(tx, access, now);
   const assigneeUserId = access.userId;
+  // The list's own two permissions, on a plan that has the list.
+  const checksPayments =
+    plan.bookingsOn && access.permissions.has("quotes:record_payments") && access.permissions.has("bookings:view");
   const counts = {
     overdue: await countOpenTasks(tx, { assigneeUserId, dueBefore: now }),
     newLeads: await countNewLeadsWaiting(tx, access.userId),
@@ -249,11 +260,8 @@ export async function todaySummary(tx: OrgTx, access: MemberAccess, now: Date): 
     paymentsDue: await countPaymentsDue(tx, access, day),
     tripDetails: (await bookingsMissingDetails(tx, access.userId, day)).length,
     departures: access.permissions.has("departures:view") ? (await departuresStartingSoon(tx, day, now)).length : 0,
-    // The payments to check are for whoever may record payments and see bookings: the list's own two permissions.
-    paymentsToCheck:
-      access.permissions.has("quotes:record_payments") && access.permissions.has("bookings:view")
-        ? await countPaymentsToCheck(tx, access)
-        : 0,
+    paymentsToCheck: checksPayments ? await countPaymentsToCheck(tx, access) : 0,
+    checkTasks: checksPayments ? await countClaimTasks(tx, access, endsAt) : 0,
   };
   const top: TodayItem[] = [];
   for (const section of todaySectionNames) {

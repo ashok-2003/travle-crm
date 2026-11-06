@@ -96,13 +96,33 @@ export const todaySummary = z.object({
     paymentsDue: z.int(),
     tripDetails: z.int(),
     departures: z.int(),
-    /** Payments waiting for this member's word (claims, AI bookings' proofs, screenshots); 0 unless they may check them. */
+    /**
+     * Payments waiting for this member's word (claims, AI bookings' proofs, screenshots); 0 unless they may check them on
+     * a plan with bookings.
+     */
     paymentsToCheck: z.int(),
+    /** Of the overdue and due-today tasks, the pending claims' own "Check payment" ones, counted in paymentsToCheck too. */
+    checkTasks: z.int(),
   }),
   /** The first of each section, as far as there are any, in the order Today shows them. */
   top: z.array(todayItem).max(6),
 });
 export type TodaySummary = z.infer<typeof todaySummary>;
+
+/** How many things the day holds, each once: a pending claim and its "Check payment" task are one. */
+export function todayTotal(counts: TodaySummary["counts"]): number {
+  return (
+    counts.overdue +
+    counts.newLeads +
+    counts.dueToday +
+    counts.quoteOpened +
+    counts.paymentsDue +
+    counts.tripDetails +
+    counts.departures +
+    counts.paymentsToCheck -
+    counts.checkTasks
+  );
+}
 
 export const todaySectionInput = z.strictObject({
   section: todaySectionName,

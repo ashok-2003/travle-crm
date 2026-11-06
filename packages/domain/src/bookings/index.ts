@@ -46,7 +46,7 @@ export {
 } from "./public-trip.js";
 export { dismissProof, mayBePaymentTitle, PAYMENT_PROOF_KIND, recordUnmatchedProof } from "./payment-proofs.js";
 export { confirmPayment, paymentMessagePreview, refusePayment } from "./decide-payment.js";
-export { countPaymentsToCheck, paymentsToCheck } from "./payments-to-check.js";
+export { countClaimTasks, countPaymentsToCheck, paymentsToCheck } from "./payments-to-check.js";
 export { paymentScreenshotLink } from "./payment-screenshots.js";
 export { publicUploadRecord, publicUploadTarget, type UploadTarget } from "./public-uploads.js";
 export { getBooking, listBookings, listLeadBookings } from "./reads.js";
