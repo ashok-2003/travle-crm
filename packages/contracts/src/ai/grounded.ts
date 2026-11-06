@@ -22,8 +22,8 @@ export const chatFacts = z.object({
     .nullable()
     .default(null),
   rooms: z.array(storedRoom).default([]),
-  travellers: z.int().nullable().default(null),
-  budgetPaise: z.int().nullable().default(null),
+  travellers: z.int().min(1).nullable().default(null),
+  budgetPaise: z.int().min(0).nullable().default(null),
   pickupCity: z.string().nullable().default(null),
   packageId: recordId.nullable().default(null),
   departureId: recordId.nullable().default(null),
@@ -33,3 +33,29 @@ export const chatFacts = z.object({
   bookingId: recordId.nullable().default(null),
 });
 export type ChatFacts = z.infer<typeof chatFacts>;
+
+const words = z.string().max(120);
+/** The customer's own words that a fact rests on; code keeps the fact only when they are in a message the customer wrote. */
+const evidence = z.string().max(300);
+
+/** What a model labels in a chat: only what the customer said, each with its evidence. Keys are D<n> for destinations and S<n> for packages. */
+export const readAnswer = z.object({
+  /** `destination` is a D-key, or "none" for a place the agency does not run. */
+  places: z.array(z.object({ destination: z.string().max(20), words, evidence })).max(8),
+  startsOn: z.object({ date: calendarDate.nullable(), month: z.string().max(7).nullable(), evidence }).nullable(),
+  rooms: z.array(z.object({ type: roomType, count: z.int().min(1).max(6), evidence })).max(8),
+  travellers: z.object({ count: z.int().min(1).max(40), evidence }).nullable(),
+  budgetRupees: z.object({ amount: z.int().min(0).max(1_000_000_000), evidence }).nullable(),
+  pickupCity: z.object({ words, evidence }).nullable(),
+  chosen: z.object({ package: z.string().max(20), evidence }).nullable(),
+  wants: z.enum(["information", "price", "brochure", "book", "paid", "person", "about_agency", "other"]),
+  wantsEvidence: evidence,
+  /** Any price the packages do not hold (owner decision 4). */
+  special: z.object({ kind: z.enum(["discount", "b2b", "private", "group_rate", "other_price"]), evidence }).nullable(),
+  /** S-keys of the agency's packages nearest to a place it does not run. */
+  nearest: z.array(z.string().max(20)).max(3),
+});
+export type ReadAnswer = z.infer<typeof readAnswer>;
+
+/** The same contract as JSON Schema, for the AI port's structured output (the domain package has no zod). */
+export const readAnswerJsonSchema = z.toJSONSchema(readAnswer) as Record<string, unknown>;

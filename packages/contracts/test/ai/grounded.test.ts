@@ -1,6 +1,6 @@
 // chatFacts: every field has a default, so an empty object parses, and stored rooms keep working when a key is added later.
 import { describe, expect, it } from "vitest";
-import { chatFacts } from "../../src/ai/grounded.js";
+import { chatFacts, readAnswer, readAnswerJsonSchema } from "../../src/ai/grounded.js";
 
 describe("chatFacts", () => {
   it("parses {} to the empty facts", () => {
@@ -29,5 +29,42 @@ describe("chatFacts", () => {
   it("refuses a bad month or date", () => {
     expect(chatFacts.safeParse({ month: "2026-13" }).success).toBe(false);
     expect(chatFacts.safeParse({ startsOn: "tomorrow" }).success).toBe(false);
+  });
+
+  it("keeps travellers a positive count and the budget a non-negative whole number", () => {
+    expect(chatFacts.safeParse({ travellers: 0 }).success).toBe(false);
+    expect(chatFacts.safeParse({ travellers: 2.5 }).success).toBe(false);
+    expect(chatFacts.safeParse({ budgetPaise: -1 }).success).toBe(false);
+    expect(chatFacts.safeParse({ travellers: 2, budgetPaise: 0 }).success).toBe(true);
+  });
+});
+
+describe("readAnswer", () => {
+  const minimal = {
+    places: [],
+    startsOn: null,
+    rooms: [],
+    travellers: null,
+    budgetRupees: null,
+    pickupCity: null,
+    chosen: null,
+    wants: "information",
+    wantsEvidence: "",
+    special: null,
+    nearest: [],
+  };
+
+  it("fits a bare answer, and refuses bad bounds and an unknown wish", () => {
+    expect(readAnswer.safeParse(minimal).success).toBe(true);
+    expect(readAnswer.safeParse({ ...minimal, wants: "refund" }).success).toBe(false);
+    expect(readAnswer.safeParse({ ...minimal, nearest: ["S1", "S2", "S3", "S4"] }).success).toBe(false);
+    expect(readAnswer.safeParse({ ...minimal, travellers: { count: 41, evidence: "41" } }).success).toBe(false);
+    expect(readAnswer.safeParse({ ...minimal, rooms: [{ type: "double", count: 7, evidence: "x" }] }).success).toBe(
+      false,
+    );
+  });
+
+  it("has a JSON schema for the model", () => {
+    expect(readAnswerJsonSchema).toMatchObject({ type: "object" });
   });
 });
