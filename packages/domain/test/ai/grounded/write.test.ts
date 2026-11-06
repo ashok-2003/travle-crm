@@ -69,6 +69,7 @@ const context = {
   settings: { leadNotes: true, followUpTasks: true },
   latest: ["Price for Spiti?"],
   notRunBefore: [],
+  hasGstState: true,
 };
 const pack = (changes: Partial<GroundedPack> = {}): GroundedPack => ({
   knowledge: "## Cancellation\nFull refund up to 15 days before.",
@@ -183,6 +184,26 @@ describe("the grounded prompt", () => {
     );
     expect(open).toContain("sendPayment: allowed");
     expect(open).toContain("requestBooking: allowed");
+  });
+
+  it("tells the writer the team confirms a booking when the agency has no GST state", () => {
+    const wants = { ...read, wants: "book" as const };
+    const facts = chatFacts.parse({ travellers: 4, startsOn: "2026-11-14" });
+    const noState = groundedPrompt(
+      settings,
+      "Himalaya Trails",
+      "reply",
+      pack({ allowed: allowedActions(lookup, facts, wants, { ...context, hasGstState: false }) }),
+    );
+    expect(noState).toContain("sendPayment: not available");
+    expect(noState).toContain("the team confirms bookings and payment in this chat");
+    const withState = groundedPrompt(
+      settings,
+      "Himalaya Trails",
+      "reply",
+      pack({ allowed: allowedActions(lookup, facts, wants, context) }),
+    );
+    expect(withState).not.toContain("the team confirms bookings and payment in this chat");
   });
 
   it("copies the voice, or the natural tone, and fences the agency's words as data", () => {

@@ -74,6 +74,7 @@ const context: ActionContext = {
   settings: { leadNotes: true, followUpTasks: true },
   latest: ["book it"],
   notRunBefore: [],
+  hasGstState: true,
 };
 const money = (allowed: ReturnType<typeof allowedActions>) => [allowed.sendPayment, allowed.requestBooking];
 
@@ -215,6 +216,13 @@ describe("allowedActions", () => {
     expect(money(allowedActions(lookup(), facts(), read({ special }), now))).toEqual([false, false]);
     // Asked in an earlier message and flagged then: today's "book it" may go ahead.
     expect(money(allowedActions(lookup(), facts(), read({ special }), context))).toEqual([true, true]);
+  });
+
+  it("an agency with no GST state takes no booking through the AI: the team confirms it", () => {
+    const allowed = allowedActions(lookup(), facts(), read(), { ...context, hasGstState: false });
+    expect(money(allowed)).toEqual([false, false]);
+    expect(allowed.teamBooks).toBe(true);
+    expect(allowedActions(lookup(), facts(), read(), context).teamBooks).toBe(false);
   });
 
   it("natural chats never get payment or booking", () => {

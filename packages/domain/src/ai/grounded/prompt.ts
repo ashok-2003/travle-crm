@@ -84,13 +84,15 @@ const rules = `Rules for what you write (code checks every reply, and a reply wi
 - Anything a person must decide (a discount, a custom price, a complaint, a request you can't answer from the card) goes to the team: say the team will confirm.`;
 
 const state = (on: boolean) => (on ? "allowed" : "not available");
+const teamBooks =
+  " (the team confirms bookings and payment in this chat: when they want to book, say the team will confirm the booking and send the payment details)";
 
 function actionLines(allowed: AllowedActions): string {
   const files = allowed.sendFiles.length === 0 ? "not available" : `allowed for ${allowed.sendFiles.join(", ")} only`;
   return `Actions you may pick this turn (anything marked not available is ignored):
 - sendFiles: ${files} (card keys of packages whose brochures to send)
 - sendAgencyFiles: ${state(allowed.sendAgencyFiles)}
-- sendPayment: ${state(allowed.sendPayment)}
+- sendPayment: ${state(allowed.sendPayment)}${allowed.teamBooks ? teamBooks : ""}
 - requestBooking: ${state(allowed.requestBooking)}
 - flag: allowed (a short reason code or phrase, when the team should look at this chat)
 - handOver: allowed (a short reason, only when the customer asks for a person or is upset)

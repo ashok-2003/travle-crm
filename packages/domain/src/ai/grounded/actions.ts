@@ -1,7 +1,7 @@
 // What the writing model may do this turn, decided by code: the model picks among these actions and anything else it picks
 // is dropped. Money actions (payment details, a booking) need a customer who said they want to book and asked for no
 // special price this turn, one open departure with seats, every traveller in a priced room, an advance, something to pay
-// with, a lead, and no payment sent for it yet.
+// with, a lead, an agency with a GST state (its quote needs one), and no payment sent for it yet.
 import type { ChatFacts, ReadAnswer, WriteAnswer } from "@travel-crm/contracts/ai";
 import type { AutopilotRow } from "../autopilot.js";
 import type { Lookup, LookupPackage } from "./lookup-types.js";
@@ -15,6 +15,8 @@ export interface ActionContext {
   latest: string[];
   /** The places not run the chat's facts held before this turn's read: the team was told of those already. */
   notRunBefore: string[];
+  /** Whether the agency has a GST state: a quote needs one, so without it no booking is taken by the AI. */
+  hasGstState: boolean;
 }
 
 /** Whether the evidence is in a message this turn answers, not an earlier one the read saw again. */
@@ -33,6 +35,8 @@ export interface AllowedActions {
   task: boolean;
   /** The reason codes (comma-joined) code flags the chat for, whatever the model chose; null when there is none. */
   forcedFlag: string | null;
+  /** The agency takes no booking through the AI (it has no GST state yet): the team confirms one. */
+  teamBooks: boolean;
 }
 
 const keyOf = (index: number) => `P${String(index + 1)}`;
@@ -59,7 +63,7 @@ function knownDeparture(one: LookupPackage, facts: ChatFacts) {
 }
 
 function mayTakeMoney(lookup: Lookup, facts: ChatFacts, read: ReadAnswer, context: ActionContext): boolean {
-  if (read.wants !== "book" || context.natural || !context.hasLead) return false;
+  if (read.wants !== "book" || context.natural || !context.hasLead || !context.hasGstState) return false;
   // A price only the team can give (a discount, a B2B rate) asked this turn: the team talks price first.
   if (read.special !== null && saidNow(read.special.evidence, context)) return false;
   const one = bookingPackage(lookup);
@@ -106,6 +110,7 @@ export function allowedActions(
     note: context.settings.leadNotes,
     task: context.settings.followUpTasks,
     forcedFlag,
+    teamBooks: !context.hasGstState,
   };
 }
 

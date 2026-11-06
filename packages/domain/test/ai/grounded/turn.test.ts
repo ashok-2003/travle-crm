@@ -1,13 +1,16 @@
 // The grounded turn end to end against the real database and a scripted model: it reads, looks up, writes, checks and acts;
 // every model call counts against the month's limit; a reply the check refuses is asked for once more, then the team is told.
 import { randomUUID } from "node:crypto";
+import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
+import type { OrgTx } from "@travel-crm/db";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MONTHLY_AI_LIMIT, runAgentTurn, saveAiSettings, saveAutopilot } from "../../../src/ai/index.js";
 import { saveFacts } from "../../../src/ai/grounded/facts.js";
 import { monthStartOf } from "../../../src/inbox/index.js";
-import { formatRupees, parseCalendarDate } from "../../../src/kernel/index.js";
+import { formatRupees, parseCalendarDate, systemActor } from "../../../src/kernel/index.js";
+import { saveOrganizationProfile } from "../../../src/profile/index.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { memberOf } from "../../imports/support/test-imports.js";
@@ -60,6 +63,28 @@ const read = (changes: object = {}) =>
   });
 const write = (reply: string, actions: object = {}) => JSON.stringify({ reply, actions: { ...noActions, ...actions } });
 const priced = "Spiti on [departure P1] is [price P1 double] per person.";
+
+/** The agency's business details with its GST state, which a booking's group quote needs. */
+const withGstState = (tx: OrgTx, organizationId: string) =>
+  saveOrganizationProfile(
+    tx,
+    systemActor(organizationId),
+    saveOrganizationProfileInput.parse({
+      legalName: "Sharma Holidays Private Limited",
+      gstin: "27AAPFU0939F1ZV",
+      gstStateCode: "27",
+      address: "Linking Road, Bandra West, Mumbai 400050",
+      contactName: "Owner",
+      contactPhone: "+919000000000",
+      bankAccountName: "Sharma Holidays Private Limited",
+      bankAccountNumber: "000123456789",
+      bankIfsc: "HDFC0000001",
+      bankName: "HDFC Bank",
+      invoicePrefix: "SH",
+      brandColour: null,
+      documentTerms: null,
+    }),
+  );
 
 describe("the grounded turn", () => {
   let test: TestInbox;
@@ -436,8 +461,8 @@ describe("the grounded turn", () => {
         return test.db.forOrg(organizationId, () => Promise.resolve([]));
       },
     });
-    // No tax, so the quote needs no state of supply from the agency's profile.
-    await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { taxRateBasisPoints: 0 } }));
+    // The group quote needs the agency's GST state: without one the AI takes no booking.
+    await on.inOrg((tx) => withGstState(tx, on.organizationId));
     on.model.answer(
       read({
         rooms: [{ type: "double", count: 1, evidence: "double sharing" }],
@@ -453,6 +478,25 @@ describe("the grounded turn", () => {
     expect(await on.turn()).toBe("replied");
     expect(asked).toBe(1);
     expect(await on.inOrg((tx) => tx.aiBooking.count())).toBe(1);
+  });
+
+  it("an agency with no GST state takes no booking: the reply says the team will confirm, and no money moves", async () => {
+    const on = await agency({ text: "Book Spiti on 14 Nov for 2 people, double sharing" });
+    on.model.answer(
+      read({
+        rooms: [{ type: "double", count: 1, evidence: "double sharing" }],
+        wants: "book",
+        wantsEvidence: "Book",
+      }),
+      write("The team will confirm your booking and send the payment details.", {
+        sendPayment: true,
+        requestBooking: true,
+      }),
+    );
+    expect(await on.turn()).toBe("replied");
+    expect(JSON.stringify(on.model.requests[1]?.messages)).toContain("the team confirms bookings and payment");
+    expect(await on.inOrg((tx) => tx.aiBooking.count())).toBe(0);
+    expect(await on.sent()).toHaveLength(1);
   });
 
   it("a refusal while acting ends as blocked: nothing sent, flagged once with its reason, the call stays counted", async () => {

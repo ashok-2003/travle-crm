@@ -113,6 +113,7 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     settings: prepared.settings,
     latest: latestOf(prepared),
     notRunBefore: prepared.facts.notRun,
+    hasGstState: (prepared.supplierStateCode ?? "") !== "",
   });
   const pack: GroundedPack = packOf(prepared, input, card, allowed, read);
 
