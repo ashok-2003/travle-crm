@@ -376,10 +376,28 @@ describe("acting on a checked reply", () => {
     expect(files).toHaveLength(1);
   });
 
+  it("book is one action: payment details alone also take the booking, a booking alone also sends them", async () => {
+    const paid = await scene({ qr: true });
+    const payOnly = sentOf(await turn(paid, "Pay below.", { sendPayment: true }, "turn-pay-only"));
+    expect(payOnly.bookingId).toBe(uuidFromKey("ai-booking:turn-pay-only"));
+    expect(payOnly.sent).toMatchObject({ qr: true, pay: true });
+    expect(await counts(paid)).toEqual({ holds: 1, quotes: 1, bookings: 1 });
+    const booked = await scene({ qr: true });
+    const bookOnly = sentOf(await turn(booked, "Booked.", { requestBooking: true }, "turn-book-only"));
+    expect(bookOnly.bookingId).not.toBeNull();
+    expect(bookOnly.sent).toMatchObject({ qr: true, pay: true });
+    expect((await outbound(booked.chatId)).map((message) => message.clientToken)).toEqual([
+      "ai:turn-book-only",
+      "ai:turn-book-only:qr",
+      "ai:turn-book-only:pay",
+    ]);
+  });
+
   it("the payment text carries the code's advance total, then the package's payment text", async () => {
     const ids = await scene({ qr: true, paymentText: "Pay to UPI spiti@bank" });
     const result = sentOf(await turn(ids, "Pay below.", { sendPayment: true }, "turn-pay"));
-    expect(result).toMatchObject({ sent: { qr: true, pay: true }, bookingId: null });
+    expect(result).toMatchObject({ sent: { qr: true, pay: true } });
+    expect(result.bookingId).not.toBeNull();
     const pay = (await outbound(ids.chatId)).find((message) => message.clientToken === "ai:turn-pay:pay");
     expect(pay?.body).toBe(`Advance to book: ${formatRupees(2_500_000)}\n\nPay to UPI spiti@bank`);
     const saved = await inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: ids.chatId } }));

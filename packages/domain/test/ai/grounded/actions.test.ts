@@ -330,6 +330,18 @@ describe("chosenActions", () => {
     ]);
   });
 
+  it("book is one action: either one asked, with money allowed, does both; without it, neither", () => {
+    const open = allowedActions(lookup(), facts(), read(), context);
+    for (const one of [{ sendPayment: true }, { requestBooking: true }]) {
+      const chosen = chosenActions(asked(one), open);
+      expect([chosen.sendPayment, chosen.requestBooking]).toEqual([true, true]);
+    }
+    const shut = chosenActions(asked({ sendPayment: true, requestBooking: true }), closed);
+    expect([shut.sendPayment, shut.requestBooking]).toEqual([false, false]);
+    const neither = chosenActions(asked(), open);
+    expect([neither.sendPayment, neither.requestBooking]).toEqual([false, false]);
+  });
+
   it("flags once, with the code's reason first, whatever the model chose", () => {
     const forced = allowedActions(
       lookup(),

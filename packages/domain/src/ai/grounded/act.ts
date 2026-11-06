@@ -1,6 +1,7 @@
 // Acts on a checked reply in the turn's one transaction: holds the seats and makes the quote at the total code told the
-// customer, takes the AI's booking, sends the reply, files and payment details, and saves the chat's facts. The same turn
-// token again changes nothing. A refusal throws a DomainError, so the transaction rolls back and nothing is sent.
+// customer, takes the AI's booking, sends the reply, files and payment details (the booking and the payment details always
+// together), and saves the chat's facts. The same turn token again changes nothing. A refusal throws a DomainError, so
+// the transaction rolls back and nothing is sent.
 import type { OrgTx } from "@travel-crm/db";
 import { openLeadOfChat } from "../../crm/index.js";
 import { takeGroundedBooking } from "./act-booking.js";
@@ -11,7 +12,10 @@ import { bookingPackage } from "./actions.js";
 
 export type { ActDeps, ActInput, ActResult };
 
-export async function actOnReply(tx: OrgTx, deps: ActDeps, input: ActInput): Promise<ActResult> {
+export async function actOnReply(tx: OrgTx, deps: ActDeps, given: ActInput): Promise<ActResult> {
+  // Book is one action: never payment details without the booking, never a booking without them.
+  const money = given.actions.sendPayment || given.actions.requestBooking;
+  const input = { ...given, actions: { ...given.actions, sendPayment: money, requestBooking: money } };
   const earlier = await tx.whatsappMessage.findFirst({
     where: { clientToken: `ai:${input.token}` },
     select: { id: true },

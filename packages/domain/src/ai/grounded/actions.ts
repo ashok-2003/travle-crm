@@ -102,15 +102,19 @@ export function allowedActions(
   };
 }
 
-/** What the model picked, cut down to what code allows; the code's own flag reason comes first and the chat is flagged once. */
+/**
+ * What the model picked, cut down to what code allows; the code's own flag reason comes first and the chat is flagged
+ * once. Book is one action (P4-35): the payment details or the booking, either one picked, does both, or neither.
+ */
 export function chosenActions(asked: WriteAnswer["actions"], allowed: AllowedActions): WriteAnswer["actions"] {
   const own = asked.flag?.trim() ?? "";
   const reasons = [allowed.forcedFlag, own === "" ? null : own].filter((reason) => reason !== null);
+  const money = (asked.sendPayment || asked.requestBooking) && allowed.sendPayment && allowed.requestBooking;
   return {
     sendFiles: [...new Set(asked.sendFiles.filter((key) => allowed.sendFiles.includes(key)))],
     sendAgencyFiles: asked.sendAgencyFiles && allowed.sendAgencyFiles,
-    sendPayment: asked.sendPayment && allowed.sendPayment,
-    requestBooking: asked.requestBooking && allowed.requestBooking,
+    sendPayment: money,
+    requestBooking: money,
     flag: reasons.length === 0 ? null : reasons.join(": "),
     handOver: asked.handOver,
     note: allowed.note ? asked.note : null,
