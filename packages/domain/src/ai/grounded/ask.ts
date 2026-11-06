@@ -1,0 +1,27 @@
+// Asks the AI port for an answer that fits a contract: the value, or why there is none. Prose and wrong shapes are never repaired.
+import type { AiFailure, AiModel, AiRequest } from "@travel-crm/integrations/ai";
+import { jsonObjectIn } from "../fill/json.js";
+
+/** What askFor needs of a Zod schema, so the domain package takes no dependency on zod itself. */
+export interface Contract<T> {
+  safeParse(input: unknown): { success: true; data: T } | { success: false };
+}
+
+export type Asked<T> =
+  | { ok: true; value: T; model: string; inputTokens: number; outputTokens: number }
+  | { ok: false; reason: AiFailure | "unfit" };
+
+/** Calls the model with `request.schema` and keeps the answer only when its JSON object fits the contract. */
+export async function askFor<T>(model: AiModel, request: AiRequest, contract: Contract<T>): Promise<Asked<T>> {
+  const result = await model.complete(request);
+  if (!result.ok) return { ok: false, reason: result.reason };
+  const parsed = contract.safeParse(jsonObjectIn(result.text));
+  if (!parsed.success) return { ok: false, reason: "unfit" };
+  return {
+    ok: true,
+    value: parsed.data,
+    model: result.model,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+  };
+}

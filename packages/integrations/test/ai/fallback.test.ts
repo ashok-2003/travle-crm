@@ -33,4 +33,15 @@ describe("the AI's backup", () => {
     backup.answer({ ok: false, reason: "unavailable" });
     expect(await withBackupModel(first, backup).complete(request)).toEqual({ ok: false, reason: "rate_limited" });
   });
+
+  it("the backup model gets the same schema", async () => {
+    const first = createMemoryAiModel();
+    const backup = createMemoryAiModel();
+    first.answer({ ok: false, reason: "unavailable" });
+    backup.answer("{}");
+    const schema = { name: "read", jsonSchema: { type: "object" } };
+    await withBackupModel(first, backup).complete({ ...request, schema });
+    expect(first.requests[0]?.schema).toEqual(schema);
+    expect(backup.requests[0]?.schema).toEqual(schema);
+  });
 });

@@ -86,6 +86,38 @@ export function isOpenRouterUrl(baseUrl: string): boolean {
   }
 }
 
+/** The response_format sent: a schema request implies JSON, as json_schema (strict off) or, on the retry, a plain json_object. */
+function responseFormat(request: AiRequest, asJson: boolean): object {
+  if (request.schema !== undefined && !asJson) {
+    const { name, jsonSchema } = request.schema;
+    return { response_format: { type: "json_schema", json_schema: { name, strict: false, schema: jsonSchema } } };
+  }
+  return request.json === true || request.schema !== undefined ? { response_format: { type: "json_object" } } : {};
+}
+
+/** The messages with the schema said in words in the system message (added first when there is none). */
+function withSchemaInSystem(request: AiRequest): readonly AiMessage[] {
+  if (request.schema === undefined) return request.messages;
+  const line = `Answer as JSON matching: ${JSON.stringify(request.schema.jsonSchema)}`;
+  const [first, ...rest] = request.messages;
+  return first?.role === "system"
+    ? [{ ...first, content: `${first.content}\n\n${line}` }, ...rest]
+    : [{ role: "system", content: line }, ...request.messages];
+}
+
+/** Whether the answer says the model cannot do json_schema: a 404, or a 400 saying no endpoint supports the parameters. */
+async function lacksSchemaSupport(response: Response): Promise<boolean> {
+  if (response.status === 404) return true;
+  if (response.status !== 400) return false;
+  const text = (
+    await response
+      .clone()
+      .text()
+      .catch(() => "")
+  ).toLowerCase();
+  return text.includes("no endpoints") || text.includes("support");
+}
+
 export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   const base = aiBaseUrl(options.baseUrl);
   const openRouter = isOpenRouterUrl(base);
@@ -108,22 +140,26 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           controller.abort();
         }, options.timeoutMs ?? 30_000);
         try {
-          const response = await send(`${base}/chat/completions`, {
-            method: "POST",
-            signal: controller.signal,
-            headers: { "content-type": "application/json", authorization: `Bearer ${options.apiKey}` },
-            body: JSON.stringify({
-              model,
-              messages: request.messages.map(wireMessage),
-              max_tokens: request.maxTokens ?? 500,
-              ...(request.json === true ? { response_format: { type: "json_object" } } : {}),
-              ...(request.user === undefined ? {} : { user: request.user }),
-              // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
-              ...(openRouter && options.zeroRetention !== false
-                ? { provider: { zdr: true, require_parameters: true } }
-                : {}),
-            }),
-          });
+          const post = (asJson: boolean) =>
+            send(`${base}/chat/completions`, {
+              method: "POST",
+              signal: controller.signal,
+              headers: { "content-type": "application/json", authorization: `Bearer ${options.apiKey}` },
+              body: JSON.stringify({
+                model,
+                messages: (asJson ? withSchemaInSystem(request) : request.messages).map(wireMessage),
+                max_tokens: request.maxTokens ?? 500,
+                ...responseFormat(request, asJson),
+                ...(request.user === undefined ? {} : { user: request.user }),
+                // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
+                ...(openRouter && options.zeroRetention !== false
+                  ? { provider: { zdr: true, require_parameters: true } }
+                  : {}),
+              }),
+            });
+          let response = await post(false);
+          // No endpoint takes json_schema: the same model once more in json mode, the schema said in words.
+          if (request.schema !== undefined && (await lacksSchemaSupport(response))) response = await post(true);
           if (!response.ok) {
             if (response.status === 429) {
               limited = true;
