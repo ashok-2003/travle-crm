@@ -1,0 +1,128 @@
+// checkReply: the last gate before a reply reaches a customer, as a table of what it refuses and what it lets through.
+import { describe, expect, it } from "vitest";
+import { checkReply, type ReplyContext } from "../../../src/ai/grounded/check.js";
+
+const manaliOnly: ReplyContext = {
+  packagePlaces: ["manali"],
+  notRun: [],
+  customTrips: false,
+  knownPlaces: ["manali", "spiti", "kashmir"],
+};
+const kashmirNotRun = { ...manaliOnly, notRun: ["kashmir"] };
+
+const reason = (text: string, context = manaliOnly, filled: { start: number; end: number }[] = []) => {
+  const result = checkReply(text, filled, context);
+  return result.ok ? "ok" : result.reason;
+};
+
+describe("checkReply", () => {
+  it("refuses a typed amount, accepts the same through a placeholder", () => {
+    expect(reason("Manali 5N6D December peak ₹7,999")).toBe("amount");
+    const text = "Manali 5N6D December peak ₹7,999";
+    const start = text.indexOf("₹");
+    expect(reason(text, manaliOnly, [{ start, end: text.length }])).toBe("ok");
+  });
+
+  it("refuses a date outside the filled spans, and one only partly inside", () => {
+    expect(reason("We leave on 14 Nov")).toBe("date");
+    expect(reason("We leave on 14 Nov", manaliOnly, [{ start: 12, end: 15 }])).toBe("date");
+    expect(reason("We leave on 14 Nov", manaliOnly, [{ start: 12, end: 18 }])).toBe("ok");
+  });
+
+  it.each([
+    ["Spiti is lovely", "place"],
+    ["Try SPITI VALLEY in June", "place"],
+    ["Himachal Pradesh is lovely", "place"],
+    ["Manali is lovely", "ok"],
+    ["I scored a goal", "ok"],
+    ["Goa-like beaches? No, mountains in Manali", "place"],
+  ])("places: %s", (text, expected) => {
+    expect(reason(text)).toBe(expected);
+  });
+
+  it("matches a multi-word place as a whole", () => {
+    const context = { ...manaliOnly, packagePlaces: ["spiti valley"], knownPlaces: ["spiti valley"] };
+    expect(reason("Spiti Valley is open", context)).toBe("ok");
+    expect(reason("Himachal Pradesh is open", context)).toBe("place");
+  });
+
+  it("lets a not-run place be named only with a not-run phrase", () => {
+    expect(reason("We don't run Kashmir, but our Manali trip is great", kashmirNotRun)).toBe("ok");
+    expect(reason("Kashmir is lovely in December", kashmirNotRun)).toBe("place");
+    expect(reason("Hum Kashmir nahi karate, Manali karate hain", kashmirNotRun)).toBe("ok");
+    expect(reason("We do run Manali. We don't operate Kashmir.", kashmirNotRun)).toBe("ok");
+  });
+
+  it("lets a custom-trip phrase stand in only when custom trips are on", () => {
+    const text = "Kashmir: the team will send a quote for a custom trip";
+    expect(reason(text, kashmirNotRun)).toBe("place");
+    expect(reason(text, { ...kashmirNotRun, customTrips: true })).toBe("ok");
+  });
+
+  it.each([
+    "we have received your ₹4,000",
+    "Payment received, thank you",
+    "Your booking is confirmed!",
+    "seats confirmed for you",
+    "Aapka payment mil gaya hai",
+    "booking confirm ho gayi",
+    "आपका पेमेंट मिल गया है",
+    "बुकिंग कन्फर्म हो गई",
+    "4000 mil gaya",
+  ])("payment claim: %s", (text) => {
+    expect(reason(text)).toBe("payment_claim");
+  });
+
+  it.each([
+    "To confirm your booking, please pay the advance",
+    "We have not received your payment yet",
+    "I'll let you know once payment is received",
+    "Have you made the payment?",
+    "Send a screenshot after payment",
+    "Do you want to get your booking confirmed?",
+    "we received your message",
+  ])("not a payment claim: %s", (text) => {
+    expect(reason(text)).toBe("ok");
+  });
+
+  it.each([
+    "the team gave me the pricing",
+    "The team said it's fine",
+    "as discussed with the team",
+    "team ne bataya hai",
+    "टीम ने बताया है",
+    "The team has already approved this",
+  ])("team claim: %s", (text) => {
+    expect(reason(text)).toBe("team_claim");
+  });
+
+  it.each([
+    "The team will confirm",
+    "the team will send you a quote",
+    "our team will call you",
+    "Team will check and tell you tomorrow",
+  ])("allowed about the team: %s", (text) => {
+    expect(reason(text)).toBe("ok");
+  });
+
+  it("holds the numbers that are not money or dates", () => {
+    for (const text of [
+      "Manali 5N6D",
+      "2 adults",
+      "Altitude 4,500 ft",
+      "Day 3 local sightseeing",
+      "Pickup: call +91 98765 43210",
+    ]) {
+      expect(reason(text)).toBe("ok");
+    }
+  });
+
+  it("gives a short excerpt around the match", () => {
+    const result = checkReply(`${"word ".repeat(40)}₹7,999 ${"word ".repeat(40)}`, [], manaliOnly);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.excerpt).toContain("₹7,999");
+      expect(result.excerpt.length).toBeLessThanOrEqual(80);
+    }
+  });
+});
