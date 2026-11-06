@@ -6,7 +6,8 @@ const AMOUNT =
 const GROUPS: Record<string, string> = {
   "{pay}": "(?:payments?|advance|amount|money|balance|transfer|deposit|upi|funds?|token)",
   "{got}": "(?:received|receive[sd]?|got|reached|credited|arrived|came\\s+through)",
-  "{bk}": "(?:booking|seats?|trip|slot|tour)",
+  "{bk}": "(?:booking|seats?|trip|slot|tour)(?:['’]s)?",
+  "{be}": "(?:is|are|was|were|has\\s+been|have\\s+been|been)(?:\\s+now)?",
   "{done}": "(?:confirmed|booked|reserved|locked|done)",
 };
 const ANY_WORDS = "(?:\\S+\\s+){0,4}?";
@@ -14,7 +15,7 @@ const ANY_WORDS = "(?:\\S+\\s+){0,4}?";
 const escape = (word: string): string => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** "hum … nahi karate" -> a pattern; "{pay}", "{got}", "{bk}", "{done}" are word groups, "…" is up to four words, "{amount}" a money amount, a leading "^" the sentence start. */
-export function phraseRegex(phrase: string): RegExp {
+export function phraseRegex(phrase: string, flags = "iu"): RegExp {
   const anchored = phrase.startsWith("^");
   const tokens = phrase.replace(/^\^/, "").split(" ");
   let source = "";
@@ -27,7 +28,7 @@ export function phraseRegex(phrase: string): RegExp {
     if (index < tokens.length - 1) source += "\\s+";
   });
   const front = anchored ? "^\\s*" : WORD_EDGE_BEFORE;
-  return new RegExp(`${front}${source}${WORD_EDGE_AFTER}`, "iu");
+  return new RegExp(`${front}${source}${WORD_EDGE_AFTER}`, flags);
 }
 
 export interface Found {
@@ -43,6 +44,14 @@ export function findPhrase(text: string, phrases: readonly string[]): Found | nu
     if (match && (!best || match.index < best.start)) best = { start: match.index, end: match.index + match[0].length };
   }
   return best;
+}
+
+/** Every place in `text` where any phrase of the list appears, earliest first (they may overlap). */
+export function findPhrases(text: string, phrases: readonly string[]): Found[] {
+  const found = phrases.flatMap((phrase) =>
+    [...text.matchAll(phraseRegex(phrase, "giu"))].map((m) => ({ start: m.index, end: m.index + m[0].length })),
+  );
+  return found.sort((a, b) => a.start - b.start || a.end - b.end);
 }
 
 export const hasPhrase = (text: string, phrases: readonly string[]): boolean => findPhrase(text, phrases) !== null;

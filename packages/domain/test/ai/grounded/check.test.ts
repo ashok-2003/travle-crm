@@ -177,3 +177,39 @@ describe("checkReply: a hedge excuses a claim only when it governs it (P4-21)", 
     expect(reason("Spiti is open in June", manaliOnly)).toBe("place");
   });
 });
+
+describe("checkReply: the booking flow's own sentences (P4-24)", () => {
+  it.each([
+    "Your booking is confirmed",
+    "Your booking's confirmed!",
+    "Booking confirmed \u{1F389}",
+    "Your booking has been confirmed",
+    "If you have any doubt, ask; payment received",
+    "Advance can be received then payment received",
+  ])("refused: %s", (text) => {
+    expect(reason(text)).toBe("payment_claim");
+  });
+
+  it.each([
+    "To get your booking confirmed, pay the advance",
+    "To confirm your booking, please pay the advance",
+    "Your seats will be confirmed once the team checks your payment",
+    "Seats get confirmed after the advance is received",
+    "Once you pay, the team will confirm your booking",
+    "Please share the payment screenshot and the team will check it",
+    "Your booking can be confirmed after the advance",
+    "Seats to be confirmed after payment",
+    "We'll confirm your booking soon",
+  ])("allowed: %s", (text) => {
+    expect(reason(text)).toBe("ok");
+  });
+
+  it("lets the advance's amount stand when code wrote it", () => {
+    const text = "To get your booking confirmed, pay the advance of ₹12,000";
+    expect(reason(text, manaliOnly, [{ start: text.indexOf("₹"), end: text.length }])).toBe("ok");
+  });
+
+  it("examines every team claim in a clause", () => {
+    expect(reason("Team will say the team said it is fine")).toBe("team_claim");
+  });
+});

@@ -2,7 +2,8 @@
 // In a phrase "{pay}", "{got}", "{bk}" and "{done}" are word groups (see phrase-match), "…" stands for up to four words, "{amount}" for a money amount, and a leading "^" for the start of a sentence.
 export const paymentClaimPhrases: string[] = [
   // English. {pay} is a payment noun, {got} received/got/reached/credited/arrived/came through,
-  // {bk} booking/seats/trip/slot/tour, {done} confirmed/booked/reserved/locked.
+  // {bk} booking/seats/trip/slot/tour, {done} confirmed/booked/reserved/locked, {be} is/are/was/were/has been/have been.
+  // Only something that happened is a claim, so "gets confirmed", "to be confirmed" and "can be confirmed" are not here.
   "{pay} … {got}",
   "{got} … {pay}",
   "got your {amount}",

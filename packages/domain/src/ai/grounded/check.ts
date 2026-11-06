@@ -7,7 +7,7 @@ import {
   paymentClaimPhrases,
   teamClaimPhrases,
 } from "@travel-crm/contracts/ai";
-import { clausesOf, findPhrase, findWord, hasPhrase, sentencesOf, type Found } from "./phrase-match.js";
+import { clausesOf, findPhrases, findWord, hasPhrase, sentencesOf, type Found } from "./phrase-match.js";
 
 export type ReplyRefusal = "amount" | "date" | "place" | "payment_claim" | "team_claim";
 export type ReplyCheck = { ok: true } | { ok: false; reason: ReplyRefusal; excerpt: string };
@@ -23,7 +23,10 @@ const MAX_EXCERPT = 80;
 // What can govern an English claim: a condition before it in its clause, a negation on it, or a modal before its verb.
 const CONDITION = /\b(?:once|after|when|whenever|as soon as|if|until|till)\b/i;
 const NEGATION = /n't\b|\b(?:not|never|no|yet to|cannot)\b/i;
-const MODAL = /\b(?:will|shall|would|can|may)\b/i;
+const MODAL = /\b(?:will|shall|would|can|may|to be|get|gets|getting)\b/i;
+// "To get your booking confirmed": a bare noun-participle after a verb that asks for it is a wish, not news.
+const BARE_BOOKING = /^(?:booking|seats?|trip|slot|tour)(?:['’]s)?\s+\S+$/i;
+const CAUSATIVE = /\b(?:to|get|gets|getting|have|has|having|want|wants|need|needs|help)\b/i;
 const NON_ENGLISH =
   /[\u0900-\u097F]|\b(?:gaya|gayi|gaye|gya|mila|mili|bataya|kaha|bola|diya|bheja|hui|karte|karate|liya)\b/i;
 
@@ -39,20 +42,20 @@ function claimIn(sentence: { text: string; start: number }, phrases: readonly st
   const isQuestion = sentence.text.trimEnd().endsWith("?");
   const clauses = clausesOf(sentence.text);
   for (const [index, clause] of clauses.entries()) {
-    const found = findPhrase(clause.text, phrases);
-    if (!found) continue;
-    const matched = clause.text.slice(found.start, found.end);
-    const before = clause.text.slice(0, found.start);
-    const lastWords = before.split(/\s+/).slice(-3).join(" ");
-    const tail = before.split(/\s+/).slice(-2).join(" ");
-    const hedged =
-      (isQuestion && index === clauses.length - 1) ||
-      CONDITION.test(`${before} ${matched}`) ||
-      NEGATION.test(`${lastWords} ${matched}`) ||
-      MODAL.test(`${tail} ${matched}`);
-    if (hedged && !NON_ENGLISH.test(matched)) continue;
-    const start = sentence.start + clause.start + found.start;
-    return { start, end: start + (found.end - found.start) };
+    for (const found of findPhrases(clause.text, phrases)) {
+      const matched = clause.text.slice(found.start, found.end);
+      const before = clause.text.slice(0, found.start);
+      const wordsBefore = (count: number) => before.split(/\s+/).slice(-count).join(" ");
+      const hedged =
+        (isQuestion && index === clauses.length - 1) ||
+        CONDITION.test(`${before} ${matched}`) ||
+        NEGATION.test(`${wordsBefore(3)} ${matched}`) ||
+        MODAL.test(`${wordsBefore(2)} ${matched}`) ||
+        (BARE_BOOKING.test(matched) && CAUSATIVE.test(wordsBefore(4)));
+      if (hedged && !NON_ENGLISH.test(matched)) continue;
+      const start = sentence.start + clause.start + found.start;
+      return { start, end: start + (found.end - found.start) };
+    }
   }
   return null;
 }
