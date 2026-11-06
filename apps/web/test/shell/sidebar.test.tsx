@@ -119,4 +119,24 @@ describe("the agency's sidebar", () => {
     renderSidebar({ data: null });
     expect(document.querySelector("[data-slot=sidebar]")).toHaveAttribute("data-state", "collapsed");
   });
+
+  it("keeps every destination's name for a screen reader when folded: the label is only moved off screen", async () => {
+    const sidebar = renderSidebar({ data: null });
+    await userEvent.click(sidebar.getByRole("button", { name: navigation.collapse }));
+    // jsdom draws no CSS, so this reads the classes: a label that is `hidden` when folded leaves its link and button unnamed.
+    const names = [navigation.account, navigation.signOut, navigation.today, navigation.payments];
+    for (const name of names) {
+      const label = sidebar.getAllByText(name).find((element) => element.closest("a, button") !== null);
+      expect(label, name).toBeDefined();
+      // The label, or the span around it inside the link or button.
+      const classes = [...(label?.closest("a, button")?.querySelectorAll("span") ?? [])]
+        .filter((span) => span.contains(label ?? null))
+        .map((span) => span.className)
+        .join(" ");
+      expect(classes).toContain("group-data-[collapsible=icon]:sr-only");
+      expect(classes).not.toContain("group-data-[collapsible=icon]:hidden");
+    }
+    for (const link of sidebar.getAllByRole("link")) expect(link).toHaveAccessibleName();
+    expect(sidebar.getByRole("button", { name: navigation.signOut })).toBeInTheDocument();
+  });
 });

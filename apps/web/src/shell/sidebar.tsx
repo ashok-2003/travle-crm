@@ -77,7 +77,7 @@ function PersonFooter() {
         <SidebarMenuButton asChild size="lg" isActive={onAccount} tooltip={t("account")}>
           <Link href={routes.account} aria-current={onAccount ? "page" : undefined}>
             <UserIcon aria-hidden="true" />
-            <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+            <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:sr-only">
               <span className="font-medium break-words">{me.user.name}</span>
               <span className="text-caption text-sidebar-foreground">{t("account")}</span>
             </span>
@@ -87,7 +87,7 @@ function PersonFooter() {
       <SidebarMenuItem>
         <SidebarMenuButton onClick={signOut} tooltip={t("signOut")}>
           <LogOutIcon aria-hidden="true" />
-          <span className="group-data-[collapsible=icon]:hidden">{t("signOut")}</span>
+          <span className="group-data-[collapsible=icon]:sr-only">{t("signOut")}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -136,7 +136,7 @@ export function AppSidebar() {
                             })}
                           >
                             <item.icon aria-hidden="true" />
-                            <span className="group-data-[collapsible=icon]:hidden">{t(item.key)}</span>
+                            <span className="group-data-[collapsible=icon]:sr-only">{t(item.key)}</span>
                           </Link>
                         </SidebarMenuButton>
                         {counts[item.key]?.()}
