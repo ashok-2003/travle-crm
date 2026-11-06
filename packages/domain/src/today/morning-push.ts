@@ -54,7 +54,13 @@ async function pushTo(
     if (claimed.count === 0) return false;
     const { counts } = await todaySummary(tx, access, now);
     const total =
-      counts.overdue + counts.dueToday + counts.newLeads + counts.quoteOpened + counts.paymentsDue + counts.departures;
+      counts.overdue +
+      counts.dueToday +
+      counts.newLeads +
+      counts.quoteOpened +
+      counts.paymentsDue +
+      counts.departures +
+      counts.paymentsToCheck;
     const title = morningWords({ total, overdue: counts.overdue });
     if (title === null) return false;
     await notify(tx, systemActor(access.organizationId), {

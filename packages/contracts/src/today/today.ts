@@ -96,6 +96,8 @@ export const todaySummary = z.object({
     paymentsDue: z.int(),
     tripDetails: z.int(),
     departures: z.int(),
+    /** Payments waiting for this member's word (claims, AI bookings' proofs, screenshots); 0 unless they may check them. */
+    paymentsToCheck: z.int(),
   }),
   /** The first of each section, as far as there are any, in the order Today shows them. */
   top: z.array(todayItem).max(6),

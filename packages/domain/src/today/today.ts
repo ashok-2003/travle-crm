@@ -12,7 +12,7 @@ import type {
   TodaySummary,
 } from "@travel-crm/contracts/today";
 import type { OrgTx } from "@travel-crm/db";
-import { bookingsMissingDetails } from "../bookings/index.js";
+import { bookingsMissingDetails, countPaymentsToCheck } from "../bookings/index.js";
 import { departuresStartingSoon } from "../departures/index.js";
 import { countNewLeadsWaiting, leadBriefs, newLeadsWaiting, type NewLeadWaiting } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
@@ -249,6 +249,11 @@ export async function todaySummary(tx: OrgTx, access: MemberAccess, now: Date): 
     paymentsDue: await countPaymentsDue(tx, access, day),
     tripDetails: (await bookingsMissingDetails(tx, access.userId, day)).length,
     departures: access.permissions.has("departures:view") ? (await departuresStartingSoon(tx, day, now)).length : 0,
+    // The payments to check are for whoever may record payments and see bookings: the list's own two permissions.
+    paymentsToCheck:
+      access.permissions.has("quotes:record_payments") && access.permissions.has("bookings:view")
+        ? await countPaymentsToCheck(tx, access)
+        : 0,
   };
   const top: TodayItem[] = [];
   for (const section of todaySectionNames) {

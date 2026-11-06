@@ -18,6 +18,7 @@ import {
   SettingsIcon,
   ShieldCheckIcon,
   UsersIcon,
+  WalletIcon,
   type LucideIcon,
 } from "lucide-react";
 import { holds, type SignedInMember } from "@/session/me-context";
@@ -37,6 +38,7 @@ export interface NavigationItem {
     | "inbox"
     | "quotes"
     | "bookings"
+    | "payments"
     | "departures"
     | "suppliers"
     | "reports"
@@ -75,6 +77,14 @@ export const navigationItems: readonly NavigationItem[] = [
     href: routes.bookings,
     icon: BriefcaseBusinessIcon,
     requires: "bookings:view",
+    module: "bookings",
+  },
+  {
+    key: "payments",
+    group: "work",
+    href: routes.payments,
+    icon: WalletIcon,
+    requires: "quotes:record_payments",
     module: "bookings",
   },
   {

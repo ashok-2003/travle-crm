@@ -98,8 +98,10 @@ export function TodayNudge() {
   const headingId = useId();
 
   if (summary.data) {
-    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue, tripDetails, departures } = summary.data.counts;
-    const total = overdue + newLeads + dueToday + quoteOpened + paymentsDue + tripDetails + departures;
+    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue, tripDetails, departures, paymentsToCheck } =
+      summary.data.counts;
+    const total =
+      overdue + newLeads + dueToday + quoteOpened + paymentsDue + tripDetails + departures + paymentsToCheck;
     const top = summary.data.top.slice(0, SHOWN);
     return (
       <Card role="region" aria-labelledby={headingId}>

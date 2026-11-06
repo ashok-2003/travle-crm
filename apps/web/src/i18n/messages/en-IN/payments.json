@@ -1,0 +1,75 @@
+{
+  "title": "Payments to check",
+  "intro": "Payments waiting for your word. Check each against your bank: only a person confirms a payment.",
+  "loadFailed": "The payments to check didn't load.",
+  "loading": "Loading the payments to check",
+  "empty": "Nothing to check. A payment shows here when a customer says they paid, or sends a screenshot.",
+  "more": "Show more payments",
+  "columns": {
+    "payment": "Payment",
+    "amounts": "Amounts",
+    "actions": "Actions"
+  },
+  "kinds": {
+    "claim": "Says they paid",
+    "ai_booking": "Proof sent to the AI",
+    "proof": "Screenshot to match"
+  },
+  "waitingSince": "Waiting since {day}",
+  "unknownPerson": "Unknown sender",
+  "expected": "Expected {amount}",
+  "claimed": "Says {amount}",
+  "noAmount": "No amount yet",
+  "reference": "Reference {reference}",
+  "screenshot": "See screenshot",
+  "screenshotOf": "See screenshot of {name}'s payment",
+  "openChat": "Open chat",
+  "openChatOf": "Open {name}'s chat",
+  "confirm": {
+    "action": "Confirm",
+    "actionOf": "Confirm {name}'s payment",
+    "title": "Confirm this payment",
+    "description": "Check it against your bank. This records the payment once, and the customer is told.",
+    "amount": "Amount received",
+    "amountHint": "Change it if the bank shows a different amount.",
+    "reference": "Bank reference",
+    "referenceHint": "Optional. The UPI or bank reference from your statement.",
+    "claimReference": "The customer gave reference {reference}.",
+    "submit": "Record the payment",
+    "submitting": "Recording",
+    "problems": {
+      "required": "Type the amount received.",
+      "invalid": "Type the amount as a number of rupees.",
+      "reference": "A reference is at most 60 characters."
+    }
+  },
+  "refuse": {
+    "action": "Not received",
+    "actionOf": "{name}'s payment not received",
+    "title": "Payment not received",
+    "description": "Nothing is recorded. Say why you couldn't match it.",
+    "reason": "Why",
+    "reasons": {
+      "not_found": "I can't find it in the bank",
+      "wrong_amount": "The amount is different",
+      "other": "Another reason"
+    },
+    "tell": "Tell the customer",
+    "tellHint": "They get your \"payment not found\" message.",
+    "submit": "Not received"
+  },
+  "dismiss": {
+    "action": "Dismiss",
+    "actionOf": "Dismiss {name}'s screenshot",
+    "title": "Dismiss this screenshot?",
+    "description": "It isn't a payment to match, and it leaves this list. The customer is not told.",
+    "submit": "Dismiss"
+  },
+  "told": {
+    "sent": "Sent on WhatsApp",
+    "template": "Sent as a template",
+    "task": "A task was added to tell them",
+    "none": "Saved"
+  },
+  "dismissed": "Dismissed"
+}

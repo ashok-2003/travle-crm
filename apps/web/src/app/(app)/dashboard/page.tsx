@@ -35,6 +35,7 @@ type SetUpItem = NavigationItem & {
     | "inbox"
     | "quotes"
     | "bookings"
+    | "payments"
     | "departures"
     | "suppliers"
     | "reports"
@@ -51,6 +52,7 @@ const notSetUp: readonly NavigationItem["key"][] = [
   "inbox",
   "quotes",
   "bookings",
+  "payments",
   "departures",
   "suppliers",
   "reports",

@@ -89,6 +89,7 @@ describe("today", () => {
       paymentsDue: 0,
       tripDetails: 0,
       departures: 0,
+      paymentsToCheck: 0,
     });
     expect(idsOf((await sectionOf(me, "overdue", now)).items)).toEqual([ids.overdueFollowUp, ids.overdueTask]);
     expect(idsOf((await sectionOf(me, "new-leads", now)).items)).toEqual([ids.newLead]);

@@ -24,6 +24,7 @@ import consoleWhatsapp from "./messages/en-IN/console-whatsapp.json";
 import leads from "./messages/en-IN/leads.json";
 import metaLeads from "./messages/en-IN/meta-leads.json";
 import packagePages from "./messages/en-IN/package-pages.json";
+import payments from "./messages/en-IN/payments.json";
 import packages from "./messages/en-IN/packages.json";
 import notifications from "./messages/en-IN/notifications.json";
 import home from "./messages/en-IN/home.json";
@@ -74,6 +75,7 @@ export const messages = {
   metaLeads,
   notifications,
   packages,
+  payments,
   packagePages,
   home,
   pwa,

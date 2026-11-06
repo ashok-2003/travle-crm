@@ -24,6 +24,8 @@ export const paymentToCheck = z.object({
   /** claim_file: the claim's file (bookings files link); chat_message: a chat message (inbox media link). */
   screenshot: z.object({ kind: z.enum(["claim_file", "chat_message"]), id: recordId }).nullable(),
   conversationId: recordId.nullable(),
+  /** A claim's booking: the record its screenshot file is kept under. Null for the other kinds. */
+  bookingId: recordId.nullable(),
 });
 export type PaymentToCheck = z.infer<typeof paymentToCheck>;
 

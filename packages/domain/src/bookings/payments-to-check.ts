@@ -28,6 +28,7 @@ async function claims(tx: OrgTx, access: MemberAccess, cursor: string | undefine
       amountPaise: true,
       reference: true,
       screenshotFileId: true,
+      bookingId: true,
       installment: { select: { amountPaise: true } },
       booking: {
         select: {
@@ -53,6 +54,7 @@ async function claims(tx: OrgTx, access: MemberAccess, cursor: string | undefine
     reference: row.reference === "" ? null : row.reference,
     screenshot: row.screenshotFileId === null ? null : { kind: "claim_file", id: row.screenshotFileId },
     conversationId: null,
+    bookingId: row.bookingId,
   }));
 }
 
@@ -97,6 +99,7 @@ async function aiBookings(tx: OrgTx, access: MemberAccess, cursor: string | unde
       reference: null,
       screenshot: proofId === undefined ? null : { kind: "chat_message", id: proofId },
       conversationId: row.conversationId,
+      bookingId: null,
     };
   });
 }
@@ -138,6 +141,7 @@ async function proofs(tx: OrgTx, access: MemberAccess, cursor: string | undefine
     reference: null,
     screenshot: { kind: "chat_message", id: row.messageId },
     conversationId: row.conversationId,
+    bookingId: null,
   }));
 }
 

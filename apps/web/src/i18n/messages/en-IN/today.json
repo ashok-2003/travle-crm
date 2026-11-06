@@ -91,5 +91,10 @@
       "assignee": "Choose who it's for.",
       "lead": "Choose the lead again."
     }
+  },
+  "paymentsToCheck": {
+    "title": "Payments to check",
+    "count": "{count, plural, one {# payment is waiting for your word} other {# payments are waiting for your word}}",
+    "open": "Open payments to check"
   }
 }
