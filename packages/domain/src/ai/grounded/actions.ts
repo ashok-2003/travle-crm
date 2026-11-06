@@ -28,7 +28,7 @@ export interface AllowedActions {
 const keyOf = (index: number) => `P${String(index + 1)}`;
 
 /** The group package the booking is about: the chosen one, else the only group package in play. */
-function bookingPackage(lookup: Lookup): LookupPackage | null {
+export function bookingPackage(lookup: Lookup): LookupPackage | null {
   const groups = lookup.packages.filter((one) => one.kind === "group");
   return groups.find((one) => one.why.kind === "chosen") ?? (groups.length === 1 ? (groups[0] ?? null) : null);
 }
