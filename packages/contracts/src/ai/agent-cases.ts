@@ -33,7 +33,14 @@ export const agentCase = z.strictObject({
   /** True plays the same job twice with the same token, as a retry does. */
   retry: z.boolean().default(false),
   /** For CI only, with the memory model: the read, then each write (the second when the first is refused). */
-  scripted: z.strictObject({ read: readScript.optional(), write: z.array(writeScript).default([]) }).optional(),
+  scripted: z
+    .strictObject({
+      read: readScript.optional(),
+      write: z.array(writeScript).default([]),
+      /** What a model would answer if the job ran a second time (a retry): a stopped retry never asks for it. */
+      retried: z.strictObject({ read: readScript.optional(), write: z.array(writeScript).default([]) }).optional(),
+    })
+    .optional(),
   expect: z.strictObject({
     /** Whether a reply reached the customer. */
     sent: z.boolean(),

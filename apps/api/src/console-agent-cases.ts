@@ -26,13 +26,19 @@ export interface AgentCasesContext {
   databaseUrls: readonly string[];
 }
 
-const hostOf = (url: string): string => {
+/**
+ * Whether the address surely names this computer. pg-connection-string lets a `host`, `hostaddr` or `service` query
+ * parameter override the hostname, so any of them refuses the address; so does anything that does not parse.
+ */
+export function isLocalDatabaseUrl(url: string): boolean {
   try {
-    return new URL(url).hostname;
+    const parsed = new URL(url);
+    const overridden = ["host", "hostaddr", "service"].some((key) => parsed.searchParams.has(key));
+    return !overridden && LOCAL_HOSTS.has(parsed.hostname);
   } catch {
-    return "";
+    return false;
   }
-};
+}
 
 /** The cases of every .json file in the folder (a file holds one case or a list), or the file that cannot be read. */
 function readCases(folder: string): { cases: AgentCase[]; unreadable: string[] } {
@@ -69,7 +75,7 @@ export async function agentCasesCommand(
     output.stderr(USAGE);
     return 1;
   }
-  if (!context.databaseUrls.every((url) => LOCAL_HOSTS.has(hostOf(url)))) {
+  if (!context.databaseUrls.every(isLocalDatabaseUrl)) {
     output.stderr("Refused: the database is not on this computer (localhost, 127.0.0.1 or ::1).");
     return 1;
   }

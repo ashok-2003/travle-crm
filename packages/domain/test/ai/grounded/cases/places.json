@@ -1,17 +1,31 @@
 [
   {
-    "name": "Meghalaya asked: no Spiti PDF goes",
-    "chat": [{ "from": "customer", "text": "Hi, do you run Meghalaya trips? Please send the PDF" }],
+    "name": "Meghalaya asked: the nearest trip's Spiti PDF is not sent",
+    "chat": [
+      {
+        "from": "customer",
+        "text": "Hi, do you run Meghalaya trips? Please send the PDF"
+      }
+    ],
     "scripted": {
       "read": {
-        "places": [{ "destination": "none", "words": "Meghalaya", "evidence": "run Meghalaya trips" }],
+        "places": [
+          {
+            "destination": "none",
+            "words": "Meghalaya",
+            "evidence": "run Meghalaya trips"
+          }
+        ],
         "wants": "brochure",
-        "wantsEvidence": "send the PDF"
+        "wantsEvidence": "send the PDF",
+        "nearest": ["S3"]
       },
       "write": [
         {
           "reply": "We don't run Meghalaya at the moment. Tell me where else you are thinking of and I will check.",
-          "actions": { "sendFiles": ["P1"] }
+          "actions": {
+            "sendFiles": ["P1"]
+          }
         }
       ]
     },
@@ -19,7 +33,10 @@
       "sent": true,
       "includes": ["Meghalaya", "don't run"],
       "excludes": ["Spiti", "Manali", "₹"],
-      "actions": { "files": false, "payment": false },
+      "actions": {
+        "files": false,
+        "payment": false
+      },
       "flagged": true,
       "notices": 1,
       "blockedReason": "not_run",
@@ -28,14 +45,30 @@
   },
   {
     "name": "Spiti or Kashmir for snow: both answered from their packages",
-    "chat": [{ "from": "customer", "text": "Which is better for snow, Spiti or Kashmir? We are 2 people" }],
+    "chat": [
+      {
+        "from": "customer",
+        "text": "Which is better for snow, Spiti or Kashmir? We are 2 people"
+      }
+    ],
     "scripted": {
       "read": {
         "places": [
-          { "destination": "D3", "words": "Spiti", "evidence": "Spiti or Kashmir" },
-          { "destination": "D1", "words": "Kashmir", "evidence": "Spiti or Kashmir" }
+          {
+            "destination": "D3",
+            "words": "Spiti",
+            "evidence": "Spiti or Kashmir"
+          },
+          {
+            "destination": "D1",
+            "words": "Kashmir",
+            "evidence": "Spiti or Kashmir"
+          }
         ],
-        "travellers": { "count": 2, "evidence": "2 people" },
+        "travellers": {
+          "count": 2,
+          "evidence": "2 people"
+        },
         "wants": "information",
         "wantsEvidence": "better for snow"
       },
@@ -48,19 +81,40 @@
     "expect": {
       "sent": true,
       "includes": ["Spiti", "Kashmir", "₹7,999", "₹18,000"],
-      "actions": { "payment": false, "booking": false },
+      "actions": {
+        "payment": false,
+        "booking": false
+      },
       "flagged": false,
       "messages": 1
     }
   },
   {
     "name": "Kasol asked: Manali is offered as the nearest, with its own price",
-    "chat": [{ "from": "customer", "text": "Kasol for 2 people on 14 Nov, what is the price?" }],
+    "chat": [
+      {
+        "from": "customer",
+        "text": "Kasol for 2 people on 14 Nov, what is the price?"
+      }
+    ],
     "scripted": {
       "read": {
-        "places": [{ "destination": "none", "words": "Kasol", "evidence": "Kasol for 2 people" }],
-        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
-        "travellers": { "count": 2, "evidence": "2 people" },
+        "places": [
+          {
+            "destination": "none",
+            "words": "Kasol",
+            "evidence": "Kasol for 2 people"
+          }
+        ],
+        "startsOn": {
+          "date": "2026-11-14",
+          "month": null,
+          "evidence": "14 Nov"
+        },
+        "travellers": {
+          "count": 2,
+          "evidence": "2 people"
+        },
         "wants": "price",
         "wantsEvidence": "what is the price",
         "nearest": ["S2"]
@@ -74,7 +128,9 @@
     "expect": {
       "sent": true,
       "includes": ["don't run Kasol", "Manali", "₹6,999", "14 Nov"],
-      "actions": { "payment": false },
+      "actions": {
+        "payment": false
+      },
       "flagged": true,
       "blockedReason": "not_run",
       "messages": 1
@@ -82,16 +138,38 @@
   },
   {
     "name": "Spiti and Ladakh in one message: one reply covers both, one flag",
-    "agency": { "customTrips": true },
-    "chat": [{ "from": "customer", "text": "Do you run Spiti and Ladakh? Leaving 14 Nov, 2 people" }],
+    "agency": {
+      "customTrips": true
+    },
+    "chat": [
+      {
+        "from": "customer",
+        "text": "Do you run Spiti and Ladakh? Leaving 14 Nov, 2 people"
+      }
+    ],
     "scripted": {
       "read": {
         "places": [
-          { "destination": "D3", "words": "Spiti", "evidence": "run Spiti and Ladakh" },
-          { "destination": "none", "words": "Ladakh", "evidence": "run Spiti and Ladakh" }
+          {
+            "destination": "D3",
+            "words": "Spiti",
+            "evidence": "run Spiti and Ladakh"
+          },
+          {
+            "destination": "none",
+            "words": "Ladakh",
+            "evidence": "run Spiti and Ladakh"
+          }
         ],
-        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
-        "travellers": { "count": 2, "evidence": "2 people" },
+        "startsOn": {
+          "date": "2026-11-14",
+          "month": null,
+          "evidence": "14 Nov"
+        },
+        "travellers": {
+          "count": 2,
+          "evidence": "2 people"
+        },
         "wants": "information",
         "wantsEvidence": "Do you run"
       },
@@ -112,17 +190,34 @@
   },
   {
     "name": "A custom trip is not offered when the agency does not plan them",
-    "agency": { "customTrips": false },
-    "chat": [{ "from": "customer", "text": "Can you do Ladakh for us?" }],
+    "agency": {
+      "customTrips": false
+    },
+    "chat": [
+      {
+        "from": "customer",
+        "text": "Can you do Ladakh for us?"
+      }
+    ],
     "scripted": {
       "read": {
-        "places": [{ "destination": "none", "words": "Ladakh", "evidence": "do Ladakh" }],
+        "places": [
+          {
+            "destination": "none",
+            "words": "Ladakh",
+            "evidence": "do Ladakh"
+          }
+        ],
         "wants": "information",
         "wantsEvidence": "Can you do"
       },
       "write": [
-        { "reply": "Ladakh? We can plan a custom trip for you." },
-        { "reply": "We don't run Ladakh, sorry. Is there another place you are considering?" }
+        {
+          "reply": "Ladakh? We can plan a custom trip for you."
+        },
+        {
+          "reply": "We don't run Ladakh, sorry. Is there another place you are considering?"
+        }
       ]
     },
     "expect": {

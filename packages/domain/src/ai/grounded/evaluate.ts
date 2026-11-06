@@ -150,6 +150,16 @@ async function observe(tx: OrgTx, chatId: string) {
   };
 }
 
+/**
+ * The reason codes of a flag: "(amount)" in a blocked turn's note, or the comma-joined codes before the first colon of
+ * a flag the reply carried ("not_run,special_price: why"). Compared whole, so "amount" never matches "amount_other".
+ */
+function codesOf(reason: string | null): string[] {
+  if (reason === null) return [];
+  const blocked = /\(([a-z_A-Z0-9]+)\)/.exec(reason);
+  return blocked?.[1] !== undefined ? [blocked[1]] : (reason.split(":")[0] ?? "").split(",").map((code) => code.trim());
+}
+
 /** What the case expects, one check each; the names never hold the words they look for. */
 function checksOf(one: AgentCase, seen: Awaited<ReturnType<typeof observe>>): CaseCheck[] {
   const expect = one.expect;
@@ -169,7 +179,7 @@ function checksOf(one: AgentCase, seen: Awaited<ReturnType<typeof observe>>): Ca
   if (expect.flagged !== undefined) checks.push({ name: "flagged", pass: flagged === expect.flagged });
   if (expect.notices !== undefined) checks.push({ name: "notices", pass: seen.notices === expect.notices });
   if (expect.blockedReason !== undefined) {
-    checks.push({ name: "blockedReason", pass: seen.reason?.includes(expect.blockedReason) === true });
+    checks.push({ name: "blockedReason", pass: codesOf(seen.reason).includes(expect.blockedReason) });
   }
   if (expect.messages !== undefined) checks.push({ name: "messages", pass: seen.messages === expect.messages });
   for (const [key, want] of Object.entries(expect.records ?? {})) {

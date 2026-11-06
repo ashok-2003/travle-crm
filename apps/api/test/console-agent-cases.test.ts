@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createIsolatedDatabase } from "@travel-crm/db/testing";
 import { describe, expect, inject, it } from "vitest";
-import { agentCasesCommand } from "../src/console-agent-cases.js";
+import { removeCaseOrganization } from "@travel-crm/domain/platform";
+import { agentCasesCommand, isLocalDatabaseUrl } from "../src/console-agent-cases.js";
 import { createTestConsole } from "./support/console.js";
 import { createTestServer } from "./support/test-server.js";
 
@@ -26,6 +27,27 @@ const aCase = (name: string, includes: string) => ({
 });
 
 describe("the agent-cases command", () => {
+  it("accepts only a database address that is surely this computer", () => {
+    for (const url of [
+      "postgresql://u@127.0.0.1:5432/db",
+      "postgresql://u@localhost/db",
+      "postgresql://u@[::1]:5432/db",
+    ]) {
+      expect(isLocalDatabaseUrl(url), url).toBe(true);
+    }
+    for (const url of [
+      "postgresql://u@localhost/db?host=evil.example",
+      "postgresql://u@localhost/db?hostaddr=1.2.3.4",
+      "postgresql://u@localhost/db?service=x",
+      "postgresql://u@localhost.evil.com/db",
+      "postgresql:///db?host=/var/run/postgresql",
+      "postgresql://u@db.example.com/db",
+      "",
+    ]) {
+      expect(isLocalDatabaseUrl(url), url).toBe(false);
+    }
+  });
+
   it("refuses a hosted database, plays a folder's cases, fails on a broken expectation and removes its organization", async () => {
     const database = await createIsolatedDatabase(inject("dbUrls"));
     const server = createTestServer({}, { dbUrls: database.urls });
@@ -60,6 +82,17 @@ describe("the agent-cases command", () => {
       // Only the case's name and the expectation's: never what was said.
       expect(printed.stdout.join("\n")).not.toContain("family of six");
       expect(printed.stdout.join("\n")).not.toContain("Meghalaya");
+
+      // Another organization's id is refused, and the organization is still there.
+      const other = await testConsole.services.platformDb.transaction((tx) =>
+        tx.organization.create({
+          data: { name: "Real Holidays", code: "REAL01", timeZone: "Asia/Kolkata" },
+          select: { id: true },
+        }),
+      );
+      await expect(removeCaseOrganization(testConsole.services, other.id)).rejects.toThrow("Only the agent test chats");
+      expect(await testConsole.services.platformDb.transaction((tx) => tx.organization.count())).toBe(1);
+      await testConsole.services.platformDb.transaction((tx) => tx.organization.delete({ where: { id: other.id } }));
 
       const left = await testConsole.services.platformDb.transaction((tx) => tx.organization.count());
       expect(left).toBe(0);
