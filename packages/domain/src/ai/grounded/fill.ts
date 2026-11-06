@@ -1,8 +1,11 @@
 // Fills a written reply's placeholders ("[price P1 double]") from the card, and says which ones had no value.
 import type { Card } from "./card.js";
 
-/** [words P<n> more]: letters, then a package key, then optional words or a number. */
-const SHAPE = /\[\s*[A-Za-z]+(?:\s+[A-Za-z]+)*\s+[Pp]\d+(?:\s+[A-Za-z0-9]+)*\s*\]/g;
+/**
+ * [words P<n> more]: words, then a package key, then optional words or a number. A room type has an underscore
+ * ("child_bed"), and anything else after the key is still read, so a placeholder the card lacks is reported, never sent.
+ */
+const SHAPE = /\[\s*[A-Za-z_]+(?:\s+[A-Za-z_]+)*\s+[Pp]\d+(?:\s+[^\s[\]]+)*\s*\]/g;
 
 /** The same placeholder however the model spaced or capitalised it: "[Price  P1 Double]" is "[price P1 double]". */
 const canonical = (found: string): string => {

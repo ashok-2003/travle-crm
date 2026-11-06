@@ -117,6 +117,28 @@ describe("filling placeholders", () => {
     expect(filled.unknown).toEqual(["[price p7 double]"]);
   });
 
+  it("fills a child's room type, whose name has an underscore, and reports one the card lacks", () => {
+    const family: LookupPackage = {
+      ...spiti,
+      offered: ["double", "child_bed", "child_no_bed"],
+      prices: { ...none, double: 699_900, child_bed: 450_000, child_no_bed: 300_000 },
+      from: { ...none, double: 699_900, child_bed: 450_000, child_no_bed: 300_000 },
+    };
+    const familyCard = buildCard(lookup(family));
+    expect(familyCard.text).toContain("[price P1 child_bed]");
+    expect(familyCard.text).toContain("[from P1 child_no_bed]");
+    const filled = fillPlaceholders(
+      "Kids [price P1 child_bed] each, or [from P1 child_no_bed] without a bed.",
+      familyCard,
+    );
+    expect(filled.text).toBe("Kids ₹4,500 each, or ₹3,000 without a bed.");
+    expect(filled.unknown).toEqual([]);
+    const missing = fillPlaceholders("Kids [price P1 child_bed] each.", card);
+    expect(missing.text).toBe("Kids [price P1 child_bed] each.");
+    expect(missing.unknown).toEqual(["[price P1 child_bed]"]);
+    expect(fillPlaceholders("Kids [price P1 child-bed].", familyCard).unknown).toEqual(["[price P1 child-bed]"]);
+  });
+
   it("writes a package's free text without the amounts and dates the agency typed into it", () => {
     const stale: LookupPackage = {
       ...spiti,
