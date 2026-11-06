@@ -134,6 +134,7 @@ export async function confirmAiPayment(
       decidedBy: access.userId,
       decidedAt: now,
       bookingId,
+      quoteId,
     },
   });
   await recordAudit(tx, access, {

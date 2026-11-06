@@ -59,6 +59,10 @@ describe("the payment behind an AI booking", () => {
     expect(seen.lead.stage).toBe("won");
     expect(seen.ai.status).toBe("confirmed");
     expect(seen.ai.bookingId).not.toBeNull();
+    // The booking's quote is kept on the AI booking too.
+    const booking = await world.inOrg((tx) => tx.booking.findUniqueOrThrow({ where: { id: seen.ai.bookingId ?? "" } }));
+    expect(seen.ai.quoteId).toBe(booking.quoteId);
+    expect(seen.ai.quoteId).toBe(result.quoteId);
   });
 
   it("confirming twice records one payment", async () => {
