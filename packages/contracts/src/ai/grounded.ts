@@ -59,3 +59,23 @@ export type ReadAnswer = z.infer<typeof readAnswer>;
 
 /** The same contract as JSON Schema, for the AI port's structured output (the domain package has no zod). */
 export const readAnswerJsonSchema = z.toJSONSchema(readAnswer) as Record<string, unknown>;
+
+/** What the writing model answers: the reply, with placeholders for every amount and date, and the actions it picks from those code allows. */
+export const writeAnswer = z.object({
+  reply: z.string().min(1).max(1000),
+  actions: z.object({
+    /** Card keys (`P1`...): code sends that package's brochures not sent yet. */
+    sendFiles: z.array(z.string().max(20)).max(5),
+    sendAgencyFiles: z.boolean(),
+    sendPayment: z.boolean(),
+    requestBooking: z.boolean(),
+    /** A short reason for the team to look at this chat. */
+    flag: z.string().max(200).nullable(),
+    handOver: z.string().max(200).nullable(),
+    note: z.string().max(500).nullable(),
+    task: z.object({ title: z.string().min(1).max(200), dueInHours: z.int().min(1).max(168) }).nullable(),
+  }),
+});
+export type WriteAnswer = z.infer<typeof writeAnswer>;
+
+export const writeAnswerJsonSchema = z.toJSONSchema(writeAnswer) as Record<string, unknown>;

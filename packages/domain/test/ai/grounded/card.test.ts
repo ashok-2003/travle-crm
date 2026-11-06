@@ -116,4 +116,20 @@ describe("filling placeholders", () => {
     expect(filled.text).toBe("₹6,999 and [price p7 double]");
     expect(filled.unknown).toEqual(["[price p7 double]"]);
   });
+
+  it("writes a package's free text without the amounts and dates the agency typed into it", () => {
+    const stale: LookupPackage = {
+      ...spiti,
+      title: "Spiti 5N6D just Rs 18,500",
+      summary: "Leaves 14 Nov 2026. Seven days over the passes.",
+      highlights: ["Key monastery from ₹9,999"],
+      inclusions: "Stay at 4,500 ft, breakfast",
+      exclusions: "Flights, GST 5%",
+      dayTitles: ["Day 3 Kaza on 16 Nov"],
+    };
+    const text = buildCard(lookup(stale)).text;
+    for (const gone of ["18,500", "14 Nov", "9,999", "16 Nov"]) expect(text).not.toContain(gone);
+    for (const kept of ["Spiti 5N6D", "Seven days over the passes", "Key monastery", "4,500 ft", "Day 3 Kaza"])
+      expect(text).toContain(kept);
+  });
 });

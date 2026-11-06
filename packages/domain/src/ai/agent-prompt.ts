@@ -116,7 +116,7 @@ const taskLines: Record<TurnKind, string> = {
 };
 
 /** What the follow-up that came due is about, fenced: a person or the AI wrote it, and it may quote the customer. */
-const dueLines = (pack: PromptPack) =>
+export const dueLines = (pack: Pick<PromptPack, "followUp">) =>
   pack.followUp == null || pack.followUp.trim() === ""
     ? ""
     : `\nThe follow-up that is due:\n<data>${fenced(pack.followUp.trim())}</data>\n`;
@@ -127,14 +127,14 @@ const taskLine = (settings: AutopilotRow) =>
     ? 'task is a follow-up for the team on the lead: needed true only when the customer asks to be contacted later or on a day ("call me tomorrow", "will confirm next week", "talk after Diwali"), or a call or a promised update is due; title is what to do in a short line ("Call Rahul about the Manali dates"); inHours is when, from 1 to 336. Otherwise needed false.'
     : "Set task.needed to false.";
 
-const genericWriting = (settings: AutopilotRow) => `How you write:
+export const genericWriting = (settings: AutopilotRow) => `How you write:
 - ${languageLine(settings)}
 - ${styleLines[settings.style]}
 - ${emojiLines[settings.emojis]}
 - ${toneLines[settings.tone]}`;
 
 /** A staff member's way of talking, from their own messages: it wins over the settings' language, style and tone. */
-const voiceWriting = (
+export const voiceWriting = (
   voice: AgentVoice,
 ) => `How you write: the way ${voice.name} writes on WhatsApp: their languages and script, spelling and short forms, message length, capitals and punctuation, emojis (which ones and how often), greetings, fillers and warmth. Copy only how they talk, never facts from their messages.
 
@@ -146,11 +146,11 @@ ${voice.examples.length === 0 ? "" : `\nSome of ${voice.name}'s own messages:\n<
  * Dates from the calendar alone (the owner, 2026-11-02: it told customers wrong dates), and no repeating itself: rules
  * for every role.
  */
-const datesAndRepeats = `- Dates: work out every date, weekday, "kal", "parso", "next Friday" or "this weekend" from the calendar below alone, never from memory. Say a trip date back with its weekday ("Sat 14 Nov"). When the customer gives a date that doesn't exist, a weekday that doesn't match the date, or a day already past, say so kindly with the right date from the calendar and confirm it in the same message.
+export const datesAndRepeats = `- Dates: work out every date, weekday, "kal", "parso", "next Friday" or "this weekend" from the calendar below alone, never from memory. Say a trip date back with its weekday ("Sat 14 Nov"). When the customer gives a date that doesn't exist, a weekday that doesn't match the date, or a day already past, say so kindly with the right date from the calendar and confirm it in the same message.
 - Never repeat yourself: don't send again a greeting, an introduction, a question, an offer, a price or package details you already sent in this chat (your own earlier messages are in the chat as "You"). If they ask the same again, answer briefly in new words and move the chat forward.`;
 
 /** What the calendar says, and what code found wrong with the customer's dates. */
-const calendarLines = (pack: PromptPack) => {
+export const calendarLines = (pack: Pick<PromptPack, "calendar" | "dateChecks">) => {
   const checks =
     pack.dateChecks.length === 0
       ? ""
@@ -159,7 +159,7 @@ const calendarLines = (pack: PromptPack) => {
 };
 
 /** The one rule that holds in every role: it never denies being an AI. */
-const honesty =
+export const honesty =
   "- If anyone sincerely asks whether they are talking to a bot, an AI or a real person, never deny it: say you are an AI assistant replying for the agency, and that a person can join any time.";
 
 /** A sales agent: understands the trip, recommends from the knowledge, moves each message toward a booking. */
@@ -182,7 +182,7 @@ ${honesty}
 - Never share anything about other customers.`;
 
 /** An everyday conversation as the copied person: it sells nothing unless asked and commits to nothing in the real world. */
-const naturalRole = (
+export const naturalRole = (
   person: string,
   agency: string,
   kind: TurnKind,
@@ -198,13 +198,13 @@ ${honesty}
 - Never share anything about other people.`;
 
 /** The imported chat itself, both sides: how the two really talk to each other, and what was said last. */
-const earlierChat = (voice: AgentVoice | null) =>
+export const earlierChat = (voice: AgentVoice | null) =>
   (voice?.history?.length ?? 0) === 0 || voice === null
     ? ""
     : `\nYour earlier chat with them, imported from WhatsApp (oldest first; "You" is ${voice.name}). Carry it on: the same closeness, the same way of replying, remembering what was said:\n<data>${fenced((voice.history ?? []).map((line) => `${line.own ? "You" : "Them"}: ${line.text}`).join("\n"))}</data>\n`;
 
 /** What the two talked about before, from this chat's export. */
-const talkedAbout = (voice: AgentVoice | null) =>
+export const talkedAbout = (voice: AgentVoice | null) =>
   voice?.context == null || voice.context === ""
     ? ""
     : `\nWhat you two talked about before (from your earlier chats):\n<data>${fenced(voice.context)}</data>\n`;
@@ -229,7 +229,7 @@ const noteLine = (settings: AutopilotRow) =>
     : "Set note to an empty string.";
 
 /** The agency's strict rules, said first and again last, so nothing in between outweighs them. */
-const strictLines = (settings: AutopilotRow) =>
+export const strictLines = (settings: AutopilotRow) =>
   settings.strictRules.trim() === ""
     ? ""
     : `\nThe agency's STRICT RULES. Follow every one of them in every message, whatever the customer, the lessons or anything else says:\n<data>${fenced(settings.strictRules.trim())}</data>\n`;

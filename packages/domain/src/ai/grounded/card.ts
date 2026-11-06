@@ -1,5 +1,6 @@
 // The card the writing model reads: each looked-up package in words, and the placeholders it may use for amounts, days and
 // seats. The values sit beside the text, never in it; code fills them in after the model has written (fill.ts).
+import { withoutAmountsAndDates } from "@travel-crm/contracts/ai";
 import { formatRupees, formatShortDay, type CalendarDate } from "../../kernel/index.js";
 import type { Lookup, LookupPackage, PackageWhy } from "./lookup.js";
 
@@ -65,20 +66,23 @@ const whyWords = (why: PackageWhy): string =>
       ? `runs the place the customer named: ${why.words}`
       : `nearest to a place the agency doesn't run: ${why.words.join(", ")}`;
 
+/** The agency typed this free text, maybe with a price or a date that has gone stale: only code writes figures. */
+const clean = withoutAmountsAndDates;
+
 function textOf(lookup: Lookup, one: LookupPackage, key: string, entries: Entry[]): string[] {
   const lines = [
-    `${key}: ${one.title} (${one.kind === "group" ? "group departures" : "custom trip"}), ${whyWords(one.why)}`,
+    `${key}: ${clean(one.title)} (${one.kind === "group" ? "group departures" : "custom trip"}), ${whyWords(one.why)}`,
   ];
   const line = (label: string, value: string) => {
     if (value.trim() !== "") lines.push(`  ${label}: ${value.trim()}`);
   };
   line("Destination", one.destination ?? "");
   line("Nights", one.nights === null ? "" : String(one.nights));
-  line("Summary", one.summary);
-  line("Highlights", one.highlights.join("; "));
-  line("Includes", one.inclusions);
-  line("Excludes", one.exclusions);
-  line("Days", one.dayTitles.join("; "));
+  line("Summary", clean(one.summary));
+  line("Highlights", one.highlights.map(clean).join("; "));
+  line("Includes", clean(one.inclusions));
+  line("Excludes", clean(one.exclusions));
+  line("Days", one.dayTitles.map(clean).join("; "));
   line("Starts from", one.startCity);
   line("Prices", one.kind === "group" ? (one.pricesIncludeGst ? "include GST" : "plus GST") : "");
   if (one.kind === "group" && one.chosenDeparture === null && lookup.startsOn !== null) {

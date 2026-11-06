@@ -1,6 +1,12 @@
 // chatFacts: every field has a default, so an empty object parses, and stored rooms keep working when a key is added later.
 import { describe, expect, it } from "vitest";
-import { chatFacts, readAnswer, readAnswerJsonSchema } from "../../src/ai/grounded.js";
+import {
+  chatFacts,
+  readAnswer,
+  readAnswerJsonSchema,
+  writeAnswer,
+  writeAnswerJsonSchema,
+} from "../../src/ai/grounded.js";
 
 describe("chatFacts", () => {
   it("parses {} to the empty facts", () => {
@@ -66,5 +72,32 @@ describe("readAnswer", () => {
 
   it("has a JSON schema for the model", () => {
     expect(readAnswerJsonSchema).toMatchObject({ type: "object" });
+  });
+});
+
+describe("writeAnswer", () => {
+  const actions = {
+    sendFiles: ["P1"],
+    sendAgencyFiles: false,
+    sendPayment: false,
+    requestBooking: false,
+    flag: null,
+    handOver: null,
+    note: null,
+    task: { title: "Call back", dueInHours: 24 },
+  };
+  it("takes a reply of 1 to 1000 characters and the actions", () => {
+    expect(writeAnswer.safeParse({ reply: "Hi", actions }).success).toBe(true);
+    expect(writeAnswer.safeParse({ reply: "", actions }).success).toBe(false);
+    expect(writeAnswer.safeParse({ reply: "x".repeat(1001), actions }).success).toBe(false);
+    expect(
+      writeAnswer.safeParse({ reply: "Hi", actions: { ...actions, task: { title: "t", dueInHours: 169 } } }).success,
+    ).toBe(false);
+    expect(
+      writeAnswer.safeParse({ reply: "Hi", actions: { ...actions, task: { title: "t", dueInHours: 0 } } }).success,
+    ).toBe(false);
+  });
+  it("has a JSON schema for the model", () => {
+    expect(writeAnswerJsonSchema).toMatchObject({ type: "object" });
   });
 });
