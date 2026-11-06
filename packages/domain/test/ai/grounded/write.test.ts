@@ -213,6 +213,7 @@ describe("writeReply", () => {
     const request = model.requests[0];
     expect(request?.feature).toBe("autopilot");
     expect(request?.schema?.name).toBe("write_answer");
+    expect(request?.maxTokens).toBe(2500);
     expect(request?.messages[0]?.content.startsWith("WRITE_REPLY.")).toBe(true);
     expect(request?.messages.at(-1)?.content).toContain("Price for Spiti?");
   });

@@ -3,7 +3,7 @@ import { readAnswer, readAnswerJsonSchema, type ChatFacts, type ReadAnswer } fro
 import type { AiFailure, AiModel } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../kernel/index.js";
 import { fenced } from "../agent-prompt.js";
-import { askFor } from "./ask.js";
+import { ANSWER_MAX_TOKENS, askFor } from "./ask.js";
 import { checkedRead } from "./read-check.js";
 import type { ChatLine, ReadKeys } from "./read-keys.js";
 
@@ -58,6 +58,7 @@ export async function readChat(model: AiModel, input: ReadInput): Promise<ReadRe
     model,
     {
       feature: "autopilot",
+      maxTokens: ANSWER_MAX_TOKENS,
       messages: [
         { role: "system", content: instructions },
         { role: "user", content: promptOf(input) },

@@ -6,7 +6,7 @@ import type { AiFailure, AiMessage, AiModel } from "@travel-crm/integrations/ai"
 import { fenced, type TurnKind } from "../agent-prompt.js";
 import { asTranscript } from "../agent-context.js";
 import type { AutopilotRow } from "../autopilot.js";
-import { askFor } from "./ask.js";
+import { ANSWER_MAX_TOKENS, askFor } from "./ask.js";
 import { groundedPrompt, type GroundedPack } from "./prompt.js";
 
 export interface WriteInput {
@@ -32,6 +32,7 @@ export async function writeReply(model: AiModel, input: WriteInput, reason?: str
     model,
     {
       feature: "autopilot",
+      maxTokens: ANSWER_MAX_TOKENS,
       messages: [
         { role: "system", content: groundedPrompt(input.settings, input.agency, input.kind, input.pack) },
         reason === undefined ? chat : { ...chat, content: `${chat.content}\n\nReason: <data>${fenced(reason)}</data>` },

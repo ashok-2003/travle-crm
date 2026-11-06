@@ -219,6 +219,8 @@ describe("readChat", () => {
     const request = model.requests[0];
     expect(request?.feature).toBe("autopilot");
     expect(request?.schema?.name).toBe("read_answer");
+    // Room for a thinking model's reasoning too, as the old agent learned: a cut-off answer is no JSON.
+    expect(request?.maxTokens).toBe(2500);
     expect(request?.messages[0]?.content.startsWith("READ_CHAT.")).toBe(true);
     const prompt = request?.messages.map((message) => message.content).join("\n") ?? "";
     expect(prompt).toContain("Spiti ‹b›please‹/b› in December");
