@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { takeBooking } from "../../src/ai/booking.js";
 import { createBookingFromQuote, getBooking } from "../../src/bookings/index.js";
-import { confirmAiPayment, expectedAdvanceOf, refuseAiPayment } from "../../src/bookings/ai-payments.js";
+import { confirmAiPayment, refuseAiPayment } from "../../src/bookings/ai-payments.js";
 import { recordPayment, setQuoteStatus } from "../../src/quotes/index.js";
 import { aLead } from "../crm/support/records.js";
 import { aQuote, openWorld, type World } from "./support.js";
@@ -73,12 +73,6 @@ describe("the payment behind an AI booking", () => {
     expect(second).toEqual(first);
     const count = await world.inOrg((tx) => tx.quotePayment.count({ where: { quoteId: first.quoteId } }));
     expect(count).toBe(1);
-  });
-
-  it("the expected advance is the plan 4 amount when set, else the booking's own amount", () => {
-    expect(expectedAdvanceOf({ expectedPaise: 500_000n, details: { amount: "₹40,000" } })).toBe(500_000);
-    expect(expectedAdvanceOf({ expectedPaise: null, details: { amount: "₹40,000" } })).toBe(4_000_000);
-    expect(expectedAdvanceOf({ expectedPaise: null, details: { amount: "soon" } })).toBeNull();
   });
 
   it("refusing sends the booking back to waiting, with its proofs", async () => {

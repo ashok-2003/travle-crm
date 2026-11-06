@@ -1,7 +1,8 @@
 "use client";
 
-// Confirming a payment: the person types what really arrived (prefilled with what was expected, else what the customer
-// says they paid) and, for a payment the AI took, the bank's reference. Recording it once and telling the customer is the
+// Confirming a payment: the person types what really arrived (a claim prefilled with what the customer says they paid, an
+// AI booking with the advance code worked out, else empty, with the AI's note beside it) and, for a payment the AI took,
+// the bank's reference. Recording it once and telling the customer is the
 // api's; the toast on success says how (use-payments.ts).
 import type { PaymentToCheck } from "@travel-crm/contracts/bookings";
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
@@ -38,7 +39,8 @@ function ConfirmForm({
   close: () => void;
 }) {
   const t = useTranslations("payments.confirm");
-  const asked = payment.expectedPaise ?? payment.claimedPaise;
+  const tPayments = useTranslations("payments");
+  const asked = payment.kind === "claim" ? payment.claimedPaise : payment.expectedPaise;
   const values = { amount: asked === null ? "" : rupeesFieldText(asked), reference: "" };
   const { form, onSubmit, formProblem } = useCheckedForm<typeof values, z.infer<typeof entered>, Problem>(
     values,
@@ -63,6 +65,9 @@ function ConfirmForm({
       })}
     >
       <MoneyField control={form.control} name="amount" label={t("amount")} hint={t("amountHint")} />
+      {payment.aiNote !== null && (
+        <p className="text-muted-foreground">{tPayments("aiNote", { note: payment.aiNote })}</p>
+      )}
       {payment.kind === "ai_booking" ? (
         <TextField control={form.control} name="reference" label={t("reference")} hint={t("referenceHint")} />
       ) : (

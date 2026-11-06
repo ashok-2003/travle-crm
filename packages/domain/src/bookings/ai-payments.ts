@@ -20,13 +20,6 @@ export type PaymentRefusalReason = "not_found" | "wrong_amount" | "other";
 
 const textOf = (value: unknown) => (typeof value === "string" ? value : "");
 
-/** The advance the booking asks: the plan 4 amount when set, else what the AI wrote down as the amount, else unknown. */
-export function expectedAdvanceOf(booking: { expectedPaise: bigint | null; details: unknown }): number | null {
-  if (booking.expectedPaise !== null) return Number(booking.expectedPaise);
-  const details = (booking.details ?? {}) as Record<string, unknown>;
-  return paiseFromRupeesText(textOf(details.amount));
-}
-
 const requestIdOf = (aiBookingId: string) => uuidFromKey(`ai-payment:${aiBookingId}`);
 
 /** A second confirmation naming another amount than the one recorded: refused, so nobody is told a wrong amount. */
@@ -65,7 +58,7 @@ async function quoteOfBooking(tx: OrgTx, bookingId: string | null): Promise<stri
   return booking.quoteId;
 }
 
-const quoteColumns = { id: true, status: true } as const;
+const quoteColumns = { id: true, status: true, title: true } as const;
 
 /**
  * The quote the money goes on: the one chosen for the AI booking (plan 4), its booking's, the lead's accepted quote, else
@@ -74,7 +67,7 @@ const quoteColumns = { id: true, status: true } as const;
 async function quoteToPay(
   tx: OrgTx,
   row: { leadId: string; quoteId: string | null; bookingId: string | null },
-): Promise<{ id: string; status: string } | null> {
+): Promise<{ id: string; status: string; title: string } | null> {
   if (row.quoteId !== null) return tx.quote.findUniqueOrThrow({ where: { id: row.quoteId }, select: quoteColumns });
   if (row.bookingId !== null) {
     const booking = await tx.booking.findUniqueOrThrow({
@@ -96,6 +89,17 @@ async function quoteToPay(
       select: quoteColumns,
     })
   );
+}
+
+/**
+ * The title of the quote confirming will pay, for the customer's {trip}: the one quoteToPay finds, else the quote made from
+ * the chat, which takes the AI's summary as its title (agreedQuote).
+ */
+export async function tripPaidOnConfirm(
+  tx: OrgTx,
+  row: { leadId: string; quoteId: string | null; bookingId: string | null; summary: string },
+): Promise<string> {
+  return (await quoteToPay(tx, row))?.title ?? row.summary.slice(0, 120);
 }
 
 /** Whether the quote stands in for one (made from a chat for an AI booking's booking). */

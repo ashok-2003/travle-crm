@@ -1,7 +1,7 @@
 // Payments to check (plan 3 of the WhatsApp sales agent rebuild), on a phone and a desktop, against the real api and the fake
 // MSG91: a customer's AI booking with a screenshot in the chat (seeded as the old agent leaves it) and a traveller's "I've paid"
-// from the trip page both wait on one list and on Today's count. The owner confirms the AI booking at the prefilled ₹4,000: the
-// lead is won, the quote shows ₹4,000 paid and the customer's chat gets the agency's confirmation. The owner marks the claim
+// from the trip page both wait on one list and on Today's count. The owner reads the AI's note, types the ₹4,000 the bank shows
+// and sees the message first; confirmed, the lead is won, the quote shows ₹4,000 paid and the customer's chat gets it. The owner marks the claim
 // not received: the traveller's chat gets the not-found text. Only a person decides; nothing here is sent by the AI.
 import { expectAccessible } from "./support/accessibility";
 import { acceptOnTheLink, bookingOf } from "./support/bookings";
@@ -127,15 +127,18 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
   await owner.getByRole("link", { name: /Open payments to check/ }).click();
   await expect(owner.getByRole("heading", { level: 1, name: "Payments to check" })).toBeVisible();
   await expect(owner.getByRole("row", { name: /Asha Verma/ })).toContainText("Proof sent to the AI");
-  await expect(owner.getByRole("row", { name: /Asha Verma/ })).toContainText("Expected ₹4,000");
+  await expect(owner.getByRole("row", { name: /Asha Verma/ })).toContainText("The AI's note: ₹4,000");
   await expect(owner.getByRole("row", { name: /Meera Iyer/ })).toContainText("Says they paid");
   await expect(owner.getByRole("row", { name: /Meera Iyer/ })).toContainText("Reference UTR778899");
   await expectAccessible(owner);
 
-  // Confirming the AI booking: the amount is prefilled with what was expected; the lead is won and the quote shows it paid.
+  // Confirming the AI booking: the AI's amount is only a note, so the owner types what the bank shows, and sees the message
+  // the customer will get before recording it. The lead is won and the quote shows it paid.
   await owner.getByRole("button", { name: "Confirm Asha Verma's payment" }).click();
   const dialog = owner.getByRole("dialog");
-  await expect(dialog.getByLabel("Amount received")).toHaveValue("4,000");
+  await expect(dialog.getByLabel("Amount received")).toHaveValue("");
+  await dialog.getByLabel("Amount received").fill("4,000");
+  await expect(dialog.getByText(/We have received ₹4,000\.00 for Manali 5N for 4 on /)).toBeVisible();
   await expectAccessible(owner);
   await dialog.getByRole("button", { name: "Record the payment" }).click();
   const toasts = owner.locator("[data-sonner-toaster]");

@@ -98,11 +98,14 @@ describe("payments to check", () => {
       date: "2026-12-20",
       trip: "Spiti 6 days",
     });
+    // What the AI wrote as the amount is only its note: code asked no amount, so none is expected.
     expect(ai).toMatchObject({
       trip: "Manali 5N",
-      expectedPaise: 2_000_000,
+      expectedPaise: null,
+      aiNote: "₹20,000",
       screenshot: { kind: "chat_message", id: mine.lastProof },
     });
+    expect(claim).toMatchObject({ aiNote: null });
     expect(proof).toMatchObject({
       screenshot: { kind: "chat_message", id: chat.messageId },
       conversationId: chat.conversationId,
@@ -266,5 +269,12 @@ describe("payments to check", () => {
     } while (cursor !== undefined);
     expect(seen).toHaveLength(after);
     expect(new Set(seen).size).toBe(after);
+  });
+
+  it("an AI booking with an advance code worked out expects it, with no note", async () => {
+    const mine = await seed(world.seller.userId);
+    await world.inOrg((tx) => tx.aiBooking.update({ where: { id: mine.aiId }, data: { expectedPaise: 1_500_000n } }));
+    const page = await world.inOrg((tx) => paymentsToCheck(tx, world.manager, {}));
+    expect(page.items.find((item) => item.id === mine.aiId)).toMatchObject({ expectedPaise: 1_500_000, aiNote: null });
   });
 });

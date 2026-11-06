@@ -1,9 +1,9 @@
 // Telling the customer what a person decided about their payment (confirmed, or not found): the agency's own words with
 // {name}, {amount}, {trip} and {date} filled in. Inside WhatsApp's 24-hour window they go as free text; outside it, as the
 // agency's approved template for that message; with neither, one task for the lead's owner to tell them by hand. A blank
-// the record can't fill (no name, no amount known, no quote a person made) keeps the words from going as free text. Every
-// id and client token comes from the record's key, so a repeat sends and makes nothing more. One builder makes the words
-// for the person's preview and for the send. Only code after a person's decision calls this: the AI never sends it.
+// the record can't fill (no name, no amount known, no quote) keeps the words from going as free text. Every id and client
+// token comes from the record's key, so a repeat sends and makes nothing more. One builder makes the words for the
+// person's preview and for the send. Only code after a person's decision calls this: the AI never sends it.
 import { blanksIn, fillBlanks } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import { organizationTimeZone } from "../identity/index.js";
@@ -29,7 +29,7 @@ export interface PaymentTelling {
   outcome: PaymentOutcome;
   /** The amount the words name; null when nobody knows it, so {amount} stays unfilled (never "₹0.00"). */
   amountPaise: number | null;
-  /** The title of the quote a person made for the trip; null when there is none, so {trip} stays unfilled. */
+  /** The title of the trip's quote; null when there is none, so {trip} stays unfilled. */
   trip: string | null;
   /** What the decision is about (the proof or claim), so a repeat of it is the same telling. */
   recordKey: string;

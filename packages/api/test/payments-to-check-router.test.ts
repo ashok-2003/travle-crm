@@ -394,4 +394,49 @@ describe("paymentsToCheck", () => {
       "NOT_FOUND",
     );
   });
+
+  it("confirming an AI booking on a lead with no quote previews and sends its trip as the quote made for it", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "quotes", "bookings"] });
+    const { claimId } = await aClaim(organizationId, null, true);
+    // The AI booking is in the same customer's open chat.
+    const bookingId = await harness.db.forOrg(organizationId, async (tx) => {
+      const claim = await tx.paymentClaim.findUniqueOrThrow({
+        where: { id: claimId },
+        select: { booking: { select: { lead: { select: { personId: true } } } } },
+      });
+      const chat = await tx.whatsappConversation.findFirstOrThrow({
+        where: { personId: claim.booking.lead.personId },
+        select: { id: true },
+      });
+      const lead = await tx.lead.create({ data: { personId: claim.booking.lead.personId, source: "whatsapp" } });
+      const ai = await tx.aiBooking.create({
+        data: {
+          leadId: lead.id,
+          conversationId: chat.id,
+          summary: "Manali 5N",
+          details: { amount: "₹4,000" },
+          status: "proof_received",
+          proofMessageIds: [randomUUID()],
+        },
+        select: { id: true },
+      });
+      return ai.id;
+    });
+    const { caller } = callerOf(harness, { organizationId });
+    const preview = await caller.paymentsToCheck.preview({
+      kind: "ai_booking",
+      id: bookingId,
+      outcome: "confirm",
+      amountPaise: 400_000,
+    });
+    expect(preview).toMatchObject({
+      way: "message",
+      text: expect.stringContaining("₹4,000.00 for Manali 5N") as unknown,
+    });
+    expect(
+      await caller.paymentsToCheck.confirm({ kind: "ai_booking", id: bookingId, amountPaise: 400_000, reference: "" }),
+    ).toEqual({ told: "sent" });
+    const sent = await harness.db.forOrg(organizationId, (tx) => tx.whatsappMessage.findFirstOrThrow());
+    expect(sent.body).toBe(preview.way === "message" ? preview.text : null);
+  });
 });

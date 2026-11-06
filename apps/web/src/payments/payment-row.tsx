@@ -76,11 +76,12 @@ export function PaymentRow({ payment, hintId }: { payment: PaymentToCheck; hintI
         </div>
       </TableCell>
       <TableCell className="numbers">
-        {payment.expectedPaise === null && payment.claimedPaise === null && (
+        {payment.expectedPaise === null && payment.claimedPaise === null && payment.aiNote === null && (
           <span className="text-muted-foreground">{t("noAmount")}</span>
         )}
         {payment.expectedPaise !== null && <p>{t("expected", { amount: rupees(payment.expectedPaise) })}</p>}
         {payment.claimedPaise !== null && <p>{t("claimed", { amount: rupees(payment.claimedPaise) })}</p>}
+        {payment.aiNote !== null && <p className="text-muted-foreground">{t("aiNote", { note: payment.aiNote })}</p>}
         {payment.reference !== null && (
           <p className="text-caption text-muted-foreground">{t("reference", { reference: payment.reference })}</p>
         )}

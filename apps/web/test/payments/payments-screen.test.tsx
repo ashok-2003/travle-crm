@@ -1,5 +1,5 @@
-// Payments to check (plan 3): the list shows each kind with its amounts and a screenshot button; Confirm starts at the
-// expected advance and sends the amount the person typed; Not received tells the customer unless unticked; and the toast
+// Payments to check (plan 3): the list shows each kind with its amounts and a screenshot button; Confirm starts at what
+// the customer claimed or the advance code worked out (never the AI's own note) and sends the amount the person typed; Not received tells the customer unless unticked; and the toast
 // says how the customer was told.
 import type { PaymentToCheck } from "@travel-crm/contracts/bookings";
 import { screen, waitFor, within } from "@testing-library/react";
@@ -25,6 +25,7 @@ const base: PaymentToCheck = {
   date: "2026-12-20",
   expectedPaise: 2_000_000,
   claimedPaise: 1_000_000,
+  aiNote: null,
   reference: "UTR1",
   screenshot: { kind: "claim_file", id: id("f1") },
   conversationId: null,
@@ -186,8 +187,8 @@ describe("PaymentsScreen", () => {
     told = "task";
     renderPayments();
     await userEvent.click(await screen.findByRole("button", { name: "Confirm Priya Nair's payment" }));
-    // A claim's own reference is shown, not asked for again; the amount starts at what was expected.
-    expect(await screen.findByLabelText(words.confirm.amount)).toHaveValue("20,000");
+    // A claim's own reference is shown, not asked for again; the amount starts at what the customer says they paid.
+    expect(await screen.findByLabelText(words.confirm.amount)).toHaveValue("10,000");
     await userEvent.click(screen.getByRole("button", { name: words.confirm.submit }));
     expect(await screen.findByText(words.told.task)).toBeVisible();
   });
@@ -234,5 +235,14 @@ describe("PaymentsScreen", () => {
     await waitFor(() => {
       expect(tab.location.href).toBe("https://files.test/screenshot.png");
     });
+  });
+
+  it("an AI booking with only the AI's note starts empty and shows the note", async () => {
+    waiting = [{ ...aiBooking, expectedPaise: null, aiNote: "₹4,000 advance" }];
+    renderPayments();
+    expect(await screen.findByText("The AI's note: ₹4,000 advance")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Confirm Rahul Sharma's payment" }));
+    expect(await screen.findByLabelText(words.confirm.amount)).toHaveValue("");
+    expect(screen.getAllByText("The AI's note: ₹4,000 advance")).toHaveLength(2);
   });
 });

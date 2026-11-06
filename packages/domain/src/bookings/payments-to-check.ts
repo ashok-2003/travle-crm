@@ -3,7 +3,6 @@
 import type { PaymentToCheck, PaymentsToCheckPage } from "@travel-crm/contracts/bookings";
 import type { OrgTx } from "@travel-crm/db";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
-import { expectedAdvanceOf } from "./ai-payments.js";
 
 const PAGE_SIZE = 25;
 
@@ -12,6 +11,12 @@ function leadScope(access: MemberAccess) {
   const owned = scopeFilter(access, "bookings:view", "ownerUserId");
   return Object.keys(owned).length === 0 ? null : owned;
 }
+
+/** The amount as the AI wrote it down, if it wrote one. */
+const noteOf = (details: unknown) => {
+  const amount = ((details ?? {}) as Record<string, unknown>).amount;
+  return typeof amount === "string" && amount.trim() !== "" ? amount.trim() : null;
+};
 
 const afterCursor = (cursor: string | undefined) => (cursor === undefined ? {} : { id: { gt: cursor } });
 const day = (date: Date | null) => (date === null ? null : date.toISOString().slice(0, 10));
@@ -51,6 +56,7 @@ async function claims(tx: OrgTx, access: MemberAccess, cursor: string | undefine
     // The instalment the customer paid against; a claim on no instalment has no amount asked.
     expectedPaise: row.installment === null ? null : Number(row.installment.amountPaise),
     claimedPaise: Number(row.amountPaise),
+    aiNote: null,
     reference: row.reference === "" ? null : row.reference,
     screenshot: row.screenshotFileId === null ? null : { kind: "claim_file", id: row.screenshotFileId },
     conversationId: null,
@@ -94,7 +100,9 @@ async function aiBookings(tx: OrgTx, access: MemberAccess, cursor: string | unde
       trip: row.summary,
       // The AI wrote the dates as the customer said them, so there is no calendar day to show.
       date: null,
-      expectedPaise: expectedAdvanceOf(row),
+      // Only an advance code worked out is expected; what the AI wrote as the amount is its note, for the person to read.
+      expectedPaise: row.expectedPaise === null ? null : Number(row.expectedPaise),
+      aiNote: row.expectedPaise === null ? noteOf(row.details) : null,
       claimedPaise: null,
       reference: null,
       screenshot: proofId === undefined ? null : { kind: "chat_message", id: proofId },
@@ -138,6 +146,7 @@ async function proofs(tx: OrgTx, access: MemberAccess, cursor: string | undefine
     date: null,
     expectedPaise: null,
     claimedPaise: null,
+    aiNote: null,
     reference: null,
     screenshot: { kind: "chat_message", id: row.messageId },
     conversationId: row.conversationId,

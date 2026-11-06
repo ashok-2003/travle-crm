@@ -1,11 +1,12 @@
 // A person's decision on a payment to check (confirm or refuse a claim or an AI booking), then telling the customer: both in
 // the caller's one transaction, so the facts the message needs (lead, chat, trip, amount) come off the record decided, read
-// before the decision as the preview reads them, so what the person saw is what goes.
+// before the decision as the preview reads them, so what the person saw is what goes. The trip is the quote's title: the
+// claim's booking's, the one confirming an AI booking pays (which may be made from the chat), the one it has for a not found.
 import type { ConfirmPaymentInput, PaymentTold, RefusePaymentInput } from "@travel-crm/contracts/bookings";
 import type { OrgTx } from "@travel-crm/db";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { confirmAiPayment, refuseAiPayment } from "./ai-payments.js";
+import { confirmAiPayment, refuseAiPayment, tripPaidOnConfirm } from "./ai-payments.js";
 import { confirmClaim, rejectClaim } from "./claims.js";
 import { findBookingInScope } from "./rows.js";
 import {
@@ -18,8 +19,8 @@ import {
 interface Facts {
   leadId: string;
   conversationId: string | null;
-  /** The title of the quote a person made for it; null for none (a quote made from a chat holds the AI's words). */
-  trip: string | null;
+  /** The trip's quote title for each telling: what a confirmation pays, what the record has for a not found; null for none. */
+  trip: Record<PaymentOutcome, string | null>;
   /** What the customer said they paid (a claim's), or the advance code asked (an AI booking's); null when nobody knows. */
   claimedPaise: number | null;
   /** What a telling of this record is keyed on. */
@@ -37,7 +38,7 @@ async function factsOf(tx: OrgTx, access: MemberAccess, kind: "claim" | "ai_book
     return {
       leadId: booking.leadId,
       conversationId: null,
-      trip: booking.quotePlaceholder ? null : booking.quote.title,
+      trip: { confirmed: booking.quote.title, not_found: booking.quote.title },
       claimedPaise: Number(claim.amountPaise),
       recordKey: `claim:${id}`,
       latestProofId: null,
@@ -48,16 +49,20 @@ async function factsOf(tx: OrgTx, access: MemberAccess, kind: "claim" | "ai_book
     select: {
       leadId: true,
       conversationId: true,
+      summary: true,
+      quoteId: true,
+      bookingId: true,
       expectedPaise: true,
       proofMessageIds: true,
-      quote: { select: { title: true, bookings: { where: { quotePlaceholder: true }, select: { id: true } } } },
+      quote: { select: { title: true } },
     },
   });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such booking");
   return {
     leadId: row.leadId,
     conversationId: row.conversationId,
-    trip: row.quote === null || row.quote.bookings.length > 0 ? null : row.quote.title,
+    // Confirming pays a quote (made from the chat when the lead has none); a not found names only a quote it already has.
+    trip: { confirmed: await tripPaidOnConfirm(tx, row), not_found: row.quote?.title ?? null },
     // Only an amount code worked out; what the AI wrote down is a note for the person, never the customer's words.
     claimedPaise: row.expectedPaise === null ? null : Number(row.expectedPaise),
     recordKey: `ai_booking:${id}`,
@@ -81,7 +86,7 @@ function tellingOf(
     conversationId: facts.conversationId,
     outcome,
     amountPaise,
-    trip: facts.trip,
+    trip: facts.trip[outcome],
     recordKey: outcome === "not_found" ? notFoundKey : facts.recordKey,
     ...(agencyName === undefined ? {} : { agencyName }),
   };

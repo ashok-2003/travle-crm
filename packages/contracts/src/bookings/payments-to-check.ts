@@ -16,10 +16,12 @@ export const paymentToCheck = z.object({
   person: z.object({ name: z.string(), leadId: recordId.nullable() }),
   trip: z.string().nullable(),
   date: calendarDate.nullable(),
-  /** What was asked, in paise; null when nothing says (a lone screenshot). */
+  /** What was asked, in paise (an instalment, or an advance code worked out); null when nothing says. */
   expectedPaise: z.int().nullable(),
   /** What the customer says they paid, in paise; null for a screenshot nobody has read. */
   claimedPaise: z.int().nullable(),
+  /** An AI booking's amount as the AI wrote it down, when code worked out no advance: a note for the person, never a prefill. */
+  aiNote: z.string().nullable(),
   reference: z.string().nullable(),
   /** claim_file: the claim's file (bookings files link); chat_message: a chat message (inbox media link). */
   screenshot: z.object({ kind: z.enum(["claim_file", "chat_message"]), id: recordId }).nullable(),
