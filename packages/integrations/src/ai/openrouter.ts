@@ -105,18 +105,12 @@ function withSchemaInSystem(request: AiRequest): readonly AiMessage[] {
     : [{ role: "system", content: line }, ...request.messages];
 }
 
-/** Whether the answer says the model cannot do json_schema: a 404, or a 400 saying no endpoint supports the parameters. */
-async function lacksSchemaSupport(response: Response): Promise<boolean> {
-  if (response.status === 404) return true;
-  if (response.status !== 400) return false;
-  const text = (
-    await response
-      .clone()
-      .text()
-      .catch(() => "")
-  ).toLowerCase();
-  return text.includes("no endpoints") || text.includes("support");
-}
+/**
+ * Whether a schema request is asked again in json mode: any 400 or 404. Endpoints word a refused json_schema their own
+ * way (OpenRouter's "no endpoints", Gemini's INVALID_ARGUMENT about a schema keyword), or not readably at all; the retry
+ * costs one call.
+ */
+const refusesSchema = (response: Response): boolean => response.status === 400 || response.status === 404;
 
 export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   const base = aiBaseUrl(options.baseUrl);
@@ -158,8 +152,8 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
               }),
             });
           let response = await post(false);
-          // No endpoint takes json_schema: the same model once more in json mode, the schema said in words.
-          if (request.schema !== undefined && (await lacksSchemaSupport(response))) response = await post(true);
+          // The endpoint refused json_schema: the same model once more in json mode, the schema said in words.
+          if (request.schema !== undefined && refusesSchema(response)) response = await post(true);
           if (!response.ok) {
             if (response.status === 429) {
               limited = true;
