@@ -118,6 +118,8 @@ model AiAutopilot {
   organizationId   String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   /// The AI answers customers by itself in every chat that doesn't say otherwise. Off by default.
   autopilot        Boolean      @default(false)
+  /// The autopilot runs the grounded turn (read the chat, look up packages, write, check, act) instead of the first one.
+  grounded         Boolean      @default(false)
   /// The name it signs as, e.g. "Riya from Sharma Holidays"; empty for the agency's name.
   agentName        String       @default("") @map("agent_name")
   /// Hours of a customer's silence, inside the 24-hour window, before it nudges once; 0 for never.
@@ -176,6 +178,8 @@ model AiChat {
   handoffReason   String?              @map("handoff_reason")
   /// The conversation so far, as the agent keeps it: facts, wishes, what was promised.
   memory          String               @default("")
+  /// What the grounded turn has settled in this chat (places, dates, rooms, budget...), as chatFacts parses it. Holds customer words.
+  facts           Json                 @default("{}")
   lastReplyAt     DateTime?            @map("last_reply_at") @db.Timestamptz(6)
   /// The day (UTC) the reply count is for, and the count.
   repliesOn       DateTime?            @map("replies_on") @db.Date
