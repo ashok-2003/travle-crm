@@ -176,6 +176,17 @@ describe("checkedRead", () => {
       expect(checkedRead(yes, buried, keys).wants).toBe("other");
     });
 
+    it("reads a customer's own go-ahead as a booking, but never a request for details", () => {
+      for (const text of ["chalo pakka", "final kar do", "count me in", "I'm in", "let's go ahead"]) {
+        const answer = read({ wants: "book", wantsEvidence: text });
+        expect(checkedRead(answer, lines(text), keys).wants, text).toBe("book");
+      }
+      for (const text of ["send me the details", "details share kar do"]) {
+        const answer = read({ wants: "book", wantsEvidence: text });
+        expect(checkedRead(answer, lines(text), keys).wants, text).toBe("other");
+      }
+    });
+
     it("never reads '2 people' or 'double sharing' as a booking", () => {
       for (const text of ["2 people", "double sharing"]) {
         const answer = read({ wants: "book", wantsEvidence: text });

@@ -57,7 +57,8 @@ export const isAffirmation = (evidence: string): boolean =>
 
 /** Words that make an evidence a wish to book or to pay by themselves. */
 const wishCues =
-  /\b(book\w*|reserve\w*|confirm\w*|pay\w*|paid|advance|transfer\w*|send|sent|proceed|lock|karo|kar do|kar diya|bhej\w*|mil gaya|le lenge|lena hai|go ahead|take it)\b|बुक|पेमेंट|पैसे|भुगतान|कन्फर्म/u;
+  // Never a bare "send" or "kar do": "send me the details" and "details share kar do" ask for information, not a booking.
+  /\b(book\w*|reserve\w*|confirm\w*|pay\w*|paid|advance|transfer\w*|sent|proceed|lock|bhej diya|bhej diye|bhej di|mil gaya|le lenge|lena hai|go ahead|take it|final\w*|pakka|chalo|count me in|im in|i m in)\b|बुक|पेमेंट|पैसे|भुगतान|कन्फर्म|पक्का/u;
 export const hasAWishCue = (evidence: string): boolean => wishCues.test(normalised(evidence));
 
 /** Whether the agency's message asks about booking (book, booking, reserve, confirm your seats; Hinglish book karein/karu). */
