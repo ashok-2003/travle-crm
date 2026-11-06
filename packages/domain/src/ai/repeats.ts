@@ -2,6 +2,8 @@
 // same words, one inside the other, or nearly all the same words. Short lines ("ok", "thank you") never count: saying
 // them twice is normal.
 
+import { fenced } from "./agent-prompt.js";
+
 const MIN_WORDS = 6;
 const SAME_SHARE = 0.8;
 
@@ -27,3 +29,13 @@ export function repeatsEarlier(reply: string, sent: readonly string[]): boolean 
     return shared / new Set([...own, ...theirs]).size >= SAME_SHARE;
   });
 }
+
+/** The messages sent in the chat that a reply is checked against for a repeat. */
+export const RECENT_SENT = 10;
+/** The team's note when the AI's reply only said again what was sent, so nothing went. */
+export const REPEAT_ATTENTION =
+  "The AI's reply repeated an earlier message, so it wasn't sent: please answer this customer.";
+
+/** Asks again for a reply that doesn't say again what was sent. */
+export const repeatCorrection = (reply: string) =>
+  `Your reply repeats a message already sent in this chat:\n<data>${fenced(reply)}</data>\nWrite a different reply that answers their last message in new words and moves the chat forward, as the same ONE JSON object.`;

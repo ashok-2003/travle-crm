@@ -2,7 +2,8 @@
 // the same ones the old agent uses, keyed on the turn's token so a retried job tells once. The facts the read settled are kept.
 import type { ChatFacts } from "@travel-crm/contracts/ai";
 import type { Database } from "@travel-crm/db";
-import { tellOwner, type ChatFacts as ChatRow } from "../agent-effects.js";
+import { ATTENTION_QUIET_MS, tellOwner, type ChatFacts as ChatRow } from "../agent-effects.js";
+import { REPEAT_ATTENTION } from "../repeats.js";
 import { saveFacts } from "./facts.js";
 
 export async function flagChat(
@@ -31,5 +32,36 @@ export async function flagChat(
       title: (name) => `${name}: the AI needs you (${code})`.slice(0, 120),
       body: "The AI sent nothing. Open the chat to answer this customer.",
     });
+  });
+}
+
+/** What the read settled is kept even when nothing could be written, so the next turn knows what the customer said. */
+export async function keepFacts(db: Database, organizationId: string, conversationId: string, facts: ChatFacts) {
+  await db.forOrg(organizationId, (tx) => saveFacts(tx, conversationId, facts));
+}
+
+/** The old agent's note for a reply that only said again what was sent: kept facts, the attention fields, the owner told (not more than once in a while). */
+export async function noteRepeat(
+  db: Database,
+  input: { organizationId: string; chat: ChatRow; token: string; facts: ChatFacts; now: Date },
+): Promise<void> {
+  const { chat, now, organizationId } = input;
+  await db.forOrg(organizationId, async (tx) => {
+    await saveFacts(tx, chat.id, input.facts);
+    const before = await tx.aiChat.findFirstOrThrow({
+      where: { conversationId: chat.id },
+      select: { attentionAt: true },
+    });
+    await tx.aiChat.updateMany({
+      where: { conversationId: chat.id },
+      data: { attentionReason: REPEAT_ATTENTION, attentionAt: now },
+    });
+    if (before.attentionAt === null || now.getTime() - before.attentionAt.getTime() > ATTENTION_QUIET_MS) {
+      await tellOwner(tx, organizationId, chat, {
+        key: `ai-attention:${input.token}`,
+        title: (name) => `${name}: ${REPEAT_ATTENTION}`.slice(0, 120),
+        body: "The AI is still answering. Open the chat to join or take over.",
+      });
+    }
   });
 }

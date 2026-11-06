@@ -81,7 +81,11 @@ describe("the grounded turn", () => {
     const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
     const message = await inOrg((tx) => tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" } }));
     await inOrg(async (tx) => {
-      await aLead(tx, { ...(chat.personId === null ? {} : { personId: chat.personId }), stage: "contacted" });
+      await aLead(tx, {
+        ...(chat.personId === null ? {} : { personId: chat.personId }),
+        stage: "contacted",
+        ownerUserId: owner.userId,
+      });
       await saveAiSettings(
         tx,
         owner,
@@ -315,14 +319,18 @@ describe("the grounded turn", () => {
       write("We run Spiti from [from P1 double] per person. We don't run Manali, but a custom trip is possible."),
     );
     expect(await on.turn()).toBe("replied_flagged");
-    expect(await on.sent()).toHaveLength(1);
+    const sent = await on.sent();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.body).toContain("Spiti");
+    expect(sent[0]?.body).toContain("Manali");
+    expect(await on.inOrg((tx) => tx.notification.count({ where: { kind: "ai.handoff" } }))).toBe(1);
     const state = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
     expect(state.attentionReason).toContain("not_run");
     expect(await on.calls()).toBe(2);
   });
 
-  it("a nudge writes from the facts without reading", async () => {
-    const on = await agency();
+  /** Stores what a chat has settled about Spiti on 14 Nov, as the read of an earlier turn would have. */
+  async function settled(on: Awaited<ReturnType<typeof agency>>) {
     const destination = await on.inOrg((tx) => tx.destination.findFirstOrThrow());
     await on.inOrg((tx) =>
       saveFacts(tx, on.chat.id, {
@@ -341,6 +349,11 @@ describe("the grounded turn", () => {
         bookingId: null,
       }),
     );
+  }
+
+  it("a nudge writes from the facts without reading", async () => {
+    const on = await agency();
+    await settled(on);
     on.model.answer(
       write("Still thinking about Spiti on [departure P1]? [seats P1] seats are left.", { sendPayment: true }),
     );
@@ -372,5 +385,72 @@ describe("the grounded turn", () => {
     const resets = on.logger.entries.filter((entry) => entry.event === "ai.facts-reset");
     expect(resets).toHaveLength(1);
     expect(JSON.stringify(resets)).not.toContain("Rahul");
+  });
+
+  it("a reply that repeats a recent message sends nothing and leaves the team the old note", async () => {
+    const on = await agency();
+    await on.inOrg((tx) =>
+      tx.whatsappMessage.create({
+        data: {
+          conversationId: on.chat.id,
+          direction: "out",
+          origin: "automation",
+          kind: "text",
+          body: "Spiti on Sat 14 Nov is ₹6,999 per person right now for you",
+          status: "sent",
+          occurredAt: new Date(testNow.getTime() + 30_000),
+          wamid: randomUUID(),
+        },
+      }),
+    );
+    await settled(on);
+    const again = write("Spiti on [departure P1] is [price P1 double] per person right now for you");
+    on.model.answer(again, again);
+    expect(await on.turn("nudge")).toBe("replied_flagged");
+    expect(await on.sent()).toHaveLength(1);
+    expect(on.model.requests).toHaveLength(2);
+    const state = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(state.attentionReason).toBe(
+      "The AI's reply repeated an earlier message, so it wasn't sent: please answer this customer.",
+    );
+    expect(await on.inOrg((tx) => tx.notification.count({ where: { kind: "ai.handoff" } }))).toBe(1);
+  });
+
+  it("a refusal while acting ends as blocked: nothing sent, flagged once with its reason, the call stays counted", async () => {
+    const on = await agency();
+    // The number is paused between the lookup and the send: the send is refused and the turn rolls back.
+    const complete = on.model.complete.bind(on.model);
+    let writes = 0;
+    on.model.complete = async (request) => {
+      const result = await complete(request);
+      writes += 1;
+      if (writes === 2) await on.inOrg((tx) => tx.whatsappConnection.updateMany({ data: { status: "paused" } }));
+      return result;
+    };
+    on.model.answer(read(), write(priced));
+    expect(await on.turn()).toBe("blocked");
+    expect(await on.sent()).toHaveLength(0);
+    const state = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(state.attentionReason).toContain("WHATSAPP_PAUSED");
+    expect(await on.inOrg((tx) => tx.notification.count({ where: { kind: "ai.handoff" } }))).toBe(1);
+    expect(await on.calls()).toBe(2);
+  });
+
+  it("a first write that fails or hits the limit still keeps what the read settled, and flags nothing", async () => {
+    const down = await agency();
+    down.model.answer(read(), { ok: false, reason: "unavailable" });
+    expect(await down.turn()).toBe("unavailable");
+    const full = await agency();
+    await full.inOrg((tx) =>
+      tx.aiUsage.create({ data: { month: monthStartOf(turnAt, "Asia/Kolkata"), calls: MONTHLY_AI_LIMIT - 1 } }),
+    );
+    full.model.answer(read(), write(priced));
+    expect(await full.turn()).toBe("limit");
+    for (const one of [down, full]) {
+      const state = await one.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+      expect(JSON.stringify(state.facts)).toContain("2026-11-14");
+      expect(state.attentionReason).toBeNull();
+      expect(await one.sent()).toHaveLength(0);
+    }
   });
 });

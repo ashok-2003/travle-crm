@@ -14,7 +14,7 @@ import { mergeFacts } from "./merge-facts.js";
 import type { GroundedPack } from "./prompt.js";
 import { readChat } from "./read.js";
 import { countedCall, type CallEnvironment } from "./turn-calls.js";
-import { flagChat } from "./turn-flag.js";
+import { flagChat, keepFacts, noteRepeat } from "./turn-flag.js";
 import { prepareTurn, type Prepared } from "./turn-prepare.js";
 import type { GroundedDependencies, TurnInput, TurnOutcome } from "./turn-types.js";
 import { replyContext, writeChecked } from "./turn-write.js";
@@ -121,9 +121,25 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     },
     card,
     replyContext(looked.lookup, prepared.destinationNames),
+    prepared.sent,
     reasonFor(input),
   );
-  if (written.kind === "ended") return finish(written.outcome);
+  if (written.kind === "ended") {
+    // Nothing usable came back (the model is down, the limit): the read still counts, so the next turn knows it.
+    await keepFacts(deps.db, input.organizationId, prepared.chat.id, facts);
+    return finish(written.outcome);
+  }
+  if (written.kind === "repeated") {
+    await noteRepeat(deps.db, {
+      organizationId: input.organizationId,
+      chat: prepared.chat,
+      token: input.token,
+      facts,
+      now,
+    });
+    // The old agent's outcome for this case.
+    return finish("replied_flagged", "repeat");
+  }
   if (written.kind === "blocked") return block("blocked", written.code, facts);
 
   // ACT.

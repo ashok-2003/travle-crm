@@ -3,6 +3,7 @@
 import { indianTravelPlaces, type WriteAnswer } from "@travel-crm/contracts/ai";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { cleanReply } from "../clean-reply.js";
+import { repeatCorrection, repeatsEarlier } from "../repeats.js";
 import type { Card } from "./card.js";
 import { checkReply, type ReplyContext } from "./check.js";
 import { fillPlaceholders } from "./fill.js";
@@ -14,6 +15,8 @@ import { writeReply, type WriteInput } from "./write.js";
 export type Written =
   | { kind: "ok"; text: string; actions: WriteAnswer["actions"] }
   | { kind: "blocked"; code: string }
+  /** Both asks only said again what the chat was sent: nothing goes, and the team is left the old agent's note. */
+  | { kind: "repeated" }
   /** The turn ends with this outcome and nothing to flag: the limit, or the model being down. */
   | { kind: "ended"; outcome: string };
 
@@ -47,6 +50,8 @@ export async function writeChecked(
   input: WriteInput,
   card: Card,
   context: ReplyContext,
+  /** The chat's last messages sent. */
+  sent: readonly string[],
   /** Why the reply is written at all (a nudge, a follow-up); kept on the second ask. */
   base?: string,
 ): Promise<Written> {
@@ -72,6 +77,11 @@ export async function writeChecked(
       continue;
     }
     const verdict = checkReply(filled.text, filled.filled, context);
+    if (verdict.ok && repeatsEarlier(filled.text, sent)) {
+      code = "repeat";
+      reason = [base, repeatCorrection(filled.text)].filter(Boolean).join(". ");
+      continue;
+    }
     if (verdict.ok) return { kind: "ok", text: filled.text, actions: asked.value.actions };
     code = verdict.reason;
     reason = [
@@ -81,5 +91,6 @@ export async function writeChecked(
       .filter(Boolean)
       .join(". ");
   }
+  if (code === "repeat") return { kind: "repeated" };
   return { kind: "blocked", code: code ?? "unfit" };
 }

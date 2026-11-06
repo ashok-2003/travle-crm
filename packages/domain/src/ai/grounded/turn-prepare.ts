@@ -14,6 +14,7 @@ import { calendarText, dateChecks } from "../calendar.js";
 import { chatVoiceOf } from "../chat-voice.js";
 import { activeLessons } from "../learning-store.js";
 import { mayWrite } from "../may-write.js";
+import { RECENT_SENT } from "../repeats.js";
 import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { naturalIn } from "../voice.js";
@@ -26,6 +27,8 @@ export interface Prepared {
   settings: AutopilotRow;
   chat: ChatRow;
   messages: AiMessage[];
+  /** The chat's last messages sent, newest first: a reply that says one again is not sent. */
+  sent: string[];
   transcript: ChatLine[];
   facts: ChatFacts;
   timeZone: string;
@@ -112,6 +115,14 @@ export async function prepareTurn(deps: GroundedDependencies, input: TurnInput, 
       settings,
       chat,
       messages: history.messages,
+      sent: (
+        await tx.whatsappMessage.findMany({
+          where: { conversationId: chat.id, direction: "out", body: { not: null } },
+          orderBy: { occurredAt: "desc" },
+          take: RECENT_SENT,
+          select: { body: true },
+        })
+      ).map((row) => row.body ?? ""),
       transcript,
       facts: await factsOf(tx, deps, chat.id),
       timeZone,

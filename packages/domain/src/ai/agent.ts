@@ -18,7 +18,7 @@ import { queueSystemText } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
-import { agentPrompt, fenced, type TurnKind } from "./agent-prompt.js";
+import { agentPrompt, type TurnKind } from "./agent-prompt.js";
 import { applyAnswer } from "./agent-effects.js";
 import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./agent-context.js";
 import { autopilotOf, type AutopilotRow } from "./autopilot.js";
@@ -32,7 +32,7 @@ import { runGroundedTurn } from "./grounded/turn.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
 import { calendarText, dateChecks, fixWeekdays } from "./calendar.js";
 import { chatVoiceOf } from "./chat-voice.js";
-import { repeatsEarlier } from "./repeats.js";
+import { REPEAT_ATTENTION, RECENT_SENT, repeatCorrection, repeatsEarlier } from "./repeats.js";
 import { naturalIn } from "./voice.js";
 import { PAYMENT_DETAILS_TOKEN } from "./payment-likely.js";
 
@@ -52,15 +52,6 @@ export interface AgentDependencies {
   /** Where the grounded turn logs its outcome (codes only); the worker passes its own. */
   logger?: Logger;
 }
-
-/** The messages sent in the chat that a reply is checked against for a repeat. */
-const RECENT_SENT = 10;
-/** The team's note when the AI's reply only said again what was sent, so nothing went. */
-const REPEAT_ATTENTION = "The AI's reply repeated an earlier message, so it wasn't sent: please answer this customer.";
-
-/** Asks again for a reply that doesn't say again what was sent. */
-const repeatCorrection = (reply: string) =>
-  `Your reply repeats a message already sent in this chat:\n<data>${fenced(reply)}</data>\nWrite a different reply that answers their last message in new words and moves the chat forward, as the same ONE JSON object.`;
 
 /**
  * The model's answer, read leniently: the JSON object (words or a code fence around it are dropped, and a reply under
