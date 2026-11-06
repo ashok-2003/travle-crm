@@ -44,7 +44,12 @@ describe("acting on a checked reply", () => {
   afterAll(() => test.close());
 
   const inOrg = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(agency.organizationId, work);
-  const deps = () => ({ files: test.files, recipients: () => Promise.resolve([]), supplierStateCode: "27" });
+  const deps = () => ({
+    files: test.files,
+    recipients: () => Promise.resolve([]),
+    storageLimitBytes: null,
+    supplierStateCode: "27",
+  });
 
   /** A group package with one open departure, a chat with its lead, and (when asked) a brochure and a payment QR. */
   async function scene(
@@ -252,6 +257,30 @@ describe("acting on a checked reply", () => {
     const result = sentOf(await turn(ids, "Booked.", { requestBooking: true }, "turn-last"));
     expect(result.bookingId).not.toBeNull();
     expect(await counts(ids)).toEqual({ holds: 1, quotes: 1, bookings: 1 });
+  });
+
+  it("files copied in the turn's transaction are held to the plan's storage limit looked up before it", async () => {
+    // The files module's own lookup of the limit opens a transaction, which cannot run inside the turn's.
+    const ids = await scene({ qr: true });
+    const facts = factsFor(ids);
+    const refused = await inOrg(async (tx) => {
+      const lookup = await lookUp(tx, facts, today, now, []);
+      return actOnReply(
+        tx,
+        { ...deps(), storageLimitBytes: 1 },
+        {
+          organizationId: agency.organizationId,
+          conversationId: ids.chatId,
+          token: "turn-full-plan",
+          text: "Pay here.",
+          actions: { ...none, sendPayment: true },
+          lookup,
+          facts,
+          now,
+        },
+      ).catch((error: unknown) => error);
+    });
+    expect(refused).toMatchObject({ reason: "STORAGE_LIMIT_REACHED" });
   });
 
   it("the same token twice acts once", async () => {

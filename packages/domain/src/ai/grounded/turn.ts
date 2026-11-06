@@ -148,11 +148,24 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     input.kind === "reply"
       ? chosen
       : { ...chosen, sendAgencyFiles: false, sendPayment: false, requestBooking: false, handOver: null, task: null };
+  // Who to tell of a booking is asked before the transaction: the real lookup opens a transaction of its own, which would nest.
+  const managers = actions.requestBooking ? await deps.managers(input.organizationId) : [];
+  // The same for the plan's storage limit, which the files copied in the transaction are held to.
+  const sendsFiles = actions.sendFiles.length > 0 || actions.sendAgencyFiles || actions.sendPayment;
+  const storageLimitBytes =
+    sendsFiles && deps.subscriptions !== undefined
+      ? ((await deps.subscriptions.entitlementsOf(input.organizationId))?.limits.storageBytes ?? null)
+      : null;
   try {
     const result = await deps.db.forOrg(input.organizationId, (tx) =>
       actOnReply(
         tx,
-        { files: deps.files, recipients: deps.managers, supplierStateCode: prepared.supplierStateCode },
+        {
+          files: deps.files,
+          recipients: () => Promise.resolve(managers),
+          storageLimitBytes,
+          supplierStateCode: prepared.supplierStateCode,
+        },
         {
           organizationId: input.organizationId,
           conversationId: prepared.chat.id,

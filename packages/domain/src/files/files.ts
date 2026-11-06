@@ -52,6 +52,8 @@ export interface Files {
     actor: Actor,
     from: AttachmentRefInput,
     to: { recordType: string; recordId: string },
+    /** The storage limit looked up before the transaction opened, when the caller has it (null: none). */
+    knownLimitBytes?: number | null,
   ): Promise<AttachmentSummary>;
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
@@ -76,7 +78,8 @@ export function createFiles(dependencies: FilesDependencies): Files {
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
     copyFile: (actor, from, to) => copyFile(dependencies, actor, from, to),
-    copyFileIn: (tx, actor, from, to) => copyFileIn(dependencies, tx, actor, from, to),
+    copyFileIn: (tx, actor, from, to, knownLimitBytes) =>
+      copyFileIn(dependencies, tx, actor, from, to, knownLimitBytes),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
     systemFile: (organizationId, input, options) => systemFile(dependencies, organizationId, input, options),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),

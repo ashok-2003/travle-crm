@@ -78,10 +78,13 @@ async function queueFile(
   kind: "file" | "qr",
 ): Promise<void> {
   const messageId = uuidFromKey(clientToken);
-  const copy = await deps.files.copyFileIn(tx, systemActor(input.organizationId), from, {
-    recordType: WHATSAPP_RECORD_TYPE,
-    recordId: messageId,
-  });
+  const copy = await deps.files.copyFileIn(
+    tx,
+    systemActor(input.organizationId),
+    from,
+    { recordType: WHATSAPP_RECORD_TYPE, recordId: messageId },
+    deps.storageLimitBytes,
+  );
   await queue(tx, input, clientToken, "", kind, { messageId, kind: kindOf(copy.contentType), fileName: copy.fileName });
 }
 

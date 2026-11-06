@@ -79,6 +79,8 @@ export async function copyFileIn(
   actor: Actor,
   from: AttachmentRefInput,
   to: { recordType: string; recordId: string },
+  /** The storage limit already looked up (null for none): the caller is inside a transaction, where the limit's own lookup cannot run. */
+  knownLimitBytes?: number | null,
 ): Promise<AttachmentSummary> {
   const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "The file is not stored");
   const source = await tx.attachment.findFirst({
@@ -98,7 +100,12 @@ export async function copyFileIn(
     select: attachmentFields,
   });
   if (earlier?.status === "ready") return toSummary(earlier);
-  const limit = storageLimitBytes ? await storageLimitBytes(actor.organizationId) : null;
+  const limit =
+    knownLimitBytes !== undefined
+      ? knownLimitBytes
+      : storageLimitBytes
+        ? await storageLimitBytes(actor.organizationId)
+        : null;
   if (earlier === null && limit !== null && (await bytesStored(tx, actor.organizationId)) + source.sizeBytes > limit) {
     throw new DomainError("LIMIT_REACHED", "STORAGE_LIMIT_REACHED", "This organization's file storage is full");
   }

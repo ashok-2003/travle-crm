@@ -8,6 +8,8 @@ export interface ActDeps {
   files: Files;
   /** Who hears about a booking besides the lead's owner. */
   recipients: BookingRecipients;
+  /** The plan's storage limit, looked up before the transaction opened (null: none), for the files copied in it. */
+  storageLimitBytes: number | null;
   /** The agency's GST state, for the quote. */
   supplierStateCode: string | null;
 }

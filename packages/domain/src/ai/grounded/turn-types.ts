@@ -5,6 +5,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import type { Files } from "../../files/index.js";
 import type { BookingRecipients } from "../booking.js";
 import type { TurnKind } from "../agent-prompt.js";
+import type { SubscriptionAccess } from "../../subscriptions/index.js";
 
 export interface GroundedDependencies {
   db: Database;
@@ -12,6 +13,8 @@ export interface GroundedDependencies {
   agencyName: (organizationId: string) => Promise<string>;
   files: Files;
   managers: BookingRecipients;
+  /** For the plan's storage limit, which files copied in the turn's transaction are held to. */
+  subscriptions?: Pick<SubscriptionAccess, "entitlementsOf">;
   logger?: Logger;
 }
 

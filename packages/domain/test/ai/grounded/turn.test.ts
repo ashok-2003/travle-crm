@@ -69,7 +69,11 @@ describe("the grounded turn", () => {
   afterAll(() => test.close());
 
   /** An agency with the Spiti group package (one open departure on 14 Nov) and a customer who has just written. */
-  async function agency({ grounded = true, text = "Spiti on 14 Nov for 2 people, price?" } = {}) {
+  async function agency({
+    grounded = true,
+    text = "Spiti on 14 Nov for 2 people, price?",
+    managers,
+  }: { grounded?: boolean; text?: string; managers?: (organizationId: string) => Promise<string[]> } = {}) {
     const connection = await aConnectedAgency(test);
     const { organizationId } = connection;
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
@@ -165,7 +169,7 @@ describe("the grounded turn", () => {
           subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },
           agencyName: () => Promise.resolve("Sharma Holidays"),
           files: test.files,
-          managers: () => Promise.resolve([]),
+          managers: managers ?? (() => Promise.resolve([])),
         },
         {
           organizationId,
@@ -420,6 +424,35 @@ describe("the grounded turn", () => {
       "The AI's reply repeated an earlier message, so it wasn't sent: please answer this customer.",
     );
     expect(await on.inOrg((tx) => tx.notification.count({ where: { kind: "ai.handoff" } }))).toBe(1);
+  });
+
+  it("a booking is taken when the lookup of who to tell opens a transaction of its own, as the worker's does", async () => {
+    // The worker's lookup of managers is its own forOrg: asked inside the turn's transaction it would throw NestedForOrgError.
+    let asked = 0;
+    const on = await agency({
+      text: "Book Spiti on 14 Nov for 2 people, double sharing",
+      managers: (organizationId) => {
+        asked += 1;
+        return test.db.forOrg(organizationId, () => Promise.resolve([]));
+      },
+    });
+    // No tax, so the quote needs no state of supply from the agency's profile.
+    await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { taxRateBasisPoints: 0 } }));
+    on.model.answer(
+      read({
+        rooms: [{ type: "double", count: 1, evidence: "double sharing" }],
+        wants: "book",
+        wantsEvidence: "Book",
+        travellers: { count: 2, evidence: "2 people" },
+      }),
+      write("Holding 2 seats on [departure P1]. The total is [total P1], the advance [advance total P1].", {
+        sendPayment: true,
+        requestBooking: true,
+      }),
+    );
+    expect(await on.turn()).toBe("replied");
+    expect(asked).toBe(1);
+    expect(await on.inOrg((tx) => tx.aiBooking.count())).toBe(1);
   });
 
   it("a refusal while acting ends as blocked: nothing sent, flagged once with its reason, the call stays counted", async () => {
