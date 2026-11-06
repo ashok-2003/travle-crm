@@ -58,6 +58,9 @@ export async function moveStandInPayments(
   actor: Actor,
   input: { fromQuoteId: string; toQuoteId: string },
 ): Promise<void> {
+  // Money recorded on the stand-in locks it first (findQuoteForChange), so a payment racing this move waits, then finds
+  // the stand-in replaced; without this lock it could land after the read and stay behind on a replaced quote.
+  await tx.$queryRaw`SELECT id FROM quote WHERE id = ${input.fromQuoteId}::uuid AND deleted_at IS NULL FOR UPDATE`;
   const moving = await tx.quotePayment.findMany({
     where: { quoteId: input.fromQuoteId, voidedAt: null },
     orderBy: { id: "asc" },
