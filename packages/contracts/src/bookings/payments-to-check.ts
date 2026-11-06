@@ -1,9 +1,11 @@
 // Payments to check: the one list a person works through, of every payment that waits for their word (a customer's claim, an
 // AI booking's proof, a screenshot no booking waits for), ordered by when each record was created (its id), not by
-// waitingSince. The cursor is the last id shown. Outputs only; the page shape is `useCursorPages`'.
+// waitingSince. The cursor is the last id shown. Outputs only; the page shape is `useCursorPages`'. A person's decision
+// (confirm, refuse, dismiss) comes with how the customer was then told.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
+import { rejectReason } from "./bookings.js";
 
 export const paymentToCheck = z.object({
   kind: z.enum(["claim", "ai_booking", "proof"]),
@@ -30,3 +32,32 @@ export type PaymentsToCheckPage = z.infer<typeof paymentsToCheckPage>;
 
 export const paymentsToCheckInput = z.strictObject({ cursor: recordId.optional() });
 export type PaymentsToCheckInput = z.input<typeof paymentsToCheckInput>;
+
+export const paymentTold = z.enum(["sent", "template", "task", "none"]);
+export type PaymentTold = z.infer<typeof paymentTold>;
+
+/** Confirm: the amount is the person's entry (prefilled with what was expected); the reference is the bank's, if any. */
+export const confirmPaymentInput = z.strictObject({
+  kind: z.enum(["claim", "ai_booking"]),
+  id: recordId,
+  amountPaise: z.int().min(1),
+  reference: z.string().max(60),
+});
+export type ConfirmPaymentInput = z.infer<typeof confirmPaymentInput>;
+
+/** Refuse: `tell` says whether the customer hears it wasn't found. */
+export const refusePaymentInput = z.strictObject({
+  kind: z.enum(["claim", "ai_booking"]),
+  id: recordId,
+  reason: rejectReason,
+  tell: z.boolean(),
+});
+export type RefusePaymentInput = z.infer<typeof refusePaymentInput>;
+
+export const dismissProofInput = z.strictObject({ proofId: recordId });
+export type DismissProofInput = z.infer<typeof dismissProofInput>;
+
+export const paymentDecision = z.object({ told: paymentTold });
+export type PaymentDecision = z.infer<typeof paymentDecision>;
+
+export const paymentsToCheckCount = z.object({ count: z.int() });
