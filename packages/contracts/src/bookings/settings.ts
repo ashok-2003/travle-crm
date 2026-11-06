@@ -2,6 +2,7 @@
 // the WhatsApp templates they use, the packing list, the emergency contact, the cancellation steps and notes, and the
 // review link. One settings row, and the cancellation policy's rules.
 import { z } from "zod";
+import { libraryMessageBody } from "../inbox/blanks.js";
 import { recordId } from "../identity/fields.js";
 import { templateParam } from "../sales/sales.js";
 import { policyRule, travellerLevel } from "./bookings.js";
@@ -24,6 +25,13 @@ export const bookingSettingsFields = {
   balanceParams: params,
   detailsTemplateId: recordId.nullable(),
   detailsParams: params,
+  /** What goes to the customer when a person confirms their payment, or can't find it: {name}, {amount}, {trip}, {date}. */
+  paymentConfirmedText: libraryMessageBody,
+  paymentNotFoundText: libraryMessageBody,
+  paymentConfirmedTemplateId: recordId.nullable(),
+  paymentConfirmedParams: params,
+  paymentNotFoundTemplateId: recordId.nullable(),
+  paymentNotFoundParams: params,
   reportingTemplateId: recordId.nullable(),
   reportingParams: params,
   feedbackTemplateId: recordId.nullable(),

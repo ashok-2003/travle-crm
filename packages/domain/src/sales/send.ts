@@ -68,7 +68,25 @@ export async function sendToLead(
       ? { kind: "later", reason: found.reason }
       : { kind: "never", reason: found.reason };
   }
-  const chat = found.chat;
+  return sendToChat(tx, found.chat, input, now);
+}
+
+type ChatToSendTo = NonNullable<Awaited<ReturnType<typeof chatForLead>>["chat"]>;
+
+/** The same send, to a chat already in hand (a conversation with no lead): free text in the window, else the template. */
+export async function sendToChat(
+  tx: OrgTx,
+  chat: ChatToSendTo,
+  input: {
+    organizationId: string;
+    templateId: string | null;
+    params: readonly string[];
+    sessionText?: string;
+    agreed: boolean;
+    clientToken: string;
+  },
+  now: Date,
+): Promise<AutoSendResult> {
   if (input.sessionText !== undefined && windowIsOpen(chat.lastInboundAt, now)) {
     const sent = await queueSystemText(
       tx,

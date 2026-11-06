@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 
-export const blankNames = ["name", "destination", "month", "agent", "amount", "link"] as const;
+export const blankNames = ["name", "destination", "month", "agent", "amount", "link", "trip", "date"] as const;
 export type BlankName = (typeof blankNames)[number];
 
 const BLANK = /\{([a-z]+)\}/g;
