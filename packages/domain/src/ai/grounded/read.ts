@@ -67,10 +67,9 @@ export async function readChat(model: AiModel, input: ReadInput): Promise<ReadRe
     readAnswer,
   );
   if (!asked.ok) return asked;
-  const customerTexts = input.transcript.filter((line) => line.from === "customer").map((line) => line.text);
   return {
     ok: true,
-    read: checkedRead(asked.value, customerTexts, input),
+    read: checkedRead(asked.value, input.transcript, input),
     usage: { model: asked.model, inputTokens: asked.inputTokens, outputTokens: asked.outputTokens },
   };
 }

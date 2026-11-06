@@ -17,21 +17,20 @@ function roomsOf(rooms: ReadAnswer["rooms"]): ChatFacts["rooms"] {
 
 export function mergeFacts(facts: ChatFacts, read: ReadAnswer, keys: ReadKeys): ChatFacts {
   const merged: ChatFacts = { ...facts, places: [...facts.places], notRun: [...facts.notRun] };
-  const named = new Set<string>(); // names of the destinations this read mentions
+  const named = new Set<string>(); // ids of the destinations this read mentions
   let newPlace = false;
 
   for (const place of read.places) {
     if (place.destination === "none") {
       const words = place.words.trim();
       if (words !== "" && !merged.notRun.some((seen) => seen.toLowerCase() === words.toLowerCase())) {
-        merged.notRun.push(words);
-        newPlace = true;
+        merged.notRun.push(words); // a place we do not run never moves the chosen package
       }
       continue;
     }
     const destination = keys.destinations.find((entry) => entry.key === place.destination);
     if (!destination) continue;
-    named.add(destination.name.toLowerCase());
+    named.add(destination.id);
     if (!merged.places.some((seen) => seen.destinationId === destination.id)) {
       merged.places.push({ destinationId: destination.id, words: place.words });
       newPlace = true;
@@ -51,7 +50,7 @@ export function mergeFacts(facts: ChatFacts, read: ReadAnswer, keys: ReadKeys): 
   if (read.pickupCity) merged.pickupCity = read.pickupCity.words;
 
   const fitting = keys.packages.find((entry) => entry.id === facts.packageId);
-  if (newPlace && !(fitting && named.has(fitting.destination.toLowerCase()))) {
+  if (newPlace && !(fitting && named.has(fitting.destinationId))) {
     merged.packageId = null;
     merged.departureId = null;
   }

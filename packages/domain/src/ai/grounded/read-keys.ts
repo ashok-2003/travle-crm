@@ -9,8 +9,8 @@ export interface ChatLine {
 
 export interface ReadKeys {
   destinations: { key: string; id: string; name: string }[];
-  /** `destination` is the destination's name. */
-  packages: { key: string; id: string; title: string; destination: string }[];
+  /** `destination` is the destination's name and `destinationId` its id (a package fits a place by id). */
+  packages: { key: string; id: string; title: string; destination: string; destinationId: string }[];
   /** Today in the agency's time zone: a date or month before it is not a start. */
   today: CalendarDate;
 }

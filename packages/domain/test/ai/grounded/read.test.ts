@@ -15,8 +15,8 @@ const keys = {
     { key: "D2", id: "dest-spiti", name: "Spiti" },
   ],
   packages: [
-    { key: "S1", id: "pkg-manali", title: "Manali 5N6D", destination: "Manali" },
-    { key: "S2", id: "pkg-spiti", title: "Spiti 7N8D", destination: "Spiti" },
+    { key: "S1", id: "pkg-manali", title: "Manali 5N6D", destination: "Manali", destinationId: "dest-manali" },
+    { key: "S2", id: "pkg-spiti", title: "Spiti 7N8D", destination: "Spiti", destinationId: "dest-spiti" },
   ],
 };
 const empty: ReadAnswer = {
@@ -37,55 +37,151 @@ const transcript: ChatLine[] = [
   { from: "customer", text: "Hi, 2 people double sharing for Spiti in December. Also Meghalaya?" },
   { from: "agency", text: "We run Manali and Spiti, and a Goa trip from Mumbai" },
 ];
-const customerTexts = transcript.filter((line) => line.from === "customer").map((line) => line.text);
+const lines = (...texts: string[]): ChatLine[] => texts.map((text) => ({ from: "customer", text }));
 
 describe("checkedRead", () => {
   it("drops evidence the customer didn't write, the agency's own words included", () => {
     const answer = read({
       places: [
-        { destination: "D1", words: "Goa", evidence: "a Goa trip from Mumbai" },
+        { destination: "none", words: "Goa", evidence: "a Goa trip from Mumbai" },
         { destination: "D2", words: "Spiti", evidence: "  Spiti, in DECEMBER " },
       ],
       pickupCity: { words: "Mumbai", evidence: "from Mumbai" },
     });
-    const checked = checkedRead(answer, customerTexts, keys);
+    const checked = checkedRead(answer, transcript, keys);
     expect(checked.places).toEqual([{ destination: "D2", words: "Spiti", evidence: "  Spiti, in DECEMBER " }]);
     expect(checked.pickupCity).toBeNull();
   });
 
   it("requires the evidence to sit inside one message, not across two", () => {
-    const answer = read({ travellers: { count: 4, evidence: "december we are" } });
-    expect(checkedRead(answer, ["Spiti in December", "we are 4"], keys).travellers).toBeNull();
+    const answer = read({ travellers: { count: 4, evidence: "december we are 4" } });
+    expect(checkedRead(answer, lines("Spiti in December", "we are 4"), keys).travellers).toBeNull();
   });
 
   it("keeps Devanagari evidence", () => {
     const answer = read({ pickupCity: { words: "दिल्ली", evidence: "दिल्ली से" } });
-    expect(checkedRead(answer, ["हम दिल्ली से, आएंगे।"], keys).pickupCity).not.toBeNull();
+    expect(checkedRead(answer, lines("हम दिल्ली से, आएंगे।"), keys).pickupCity).not.toBeNull();
   });
 
   it("drops unknown keys and a past date, and keeps only real nearest keys", () => {
     const answer = read({
       places: [{ destination: "D9", words: "Spiti", evidence: "Spiti" }],
       chosen: { package: "S9", evidence: "Spiti" },
-      startsOn: { date: parseCalendarDate("2026-11-01"), month: "2026-10", evidence: "Spiti" },
+      startsOn: { date: parseCalendarDate("2026-11-01"), month: "2026-10", evidence: "1 Nov" },
       nearest: ["S2", "S7", "P1", "S2"],
     });
-    const checked = checkedRead(answer, ["Spiti"], keys);
+    const checked = checkedRead(answer, lines("Spiti on 1 Nov"), keys);
     expect(checked.places).toEqual([]);
     expect(checked.chosen).toBeNull();
     expect(checked.startsOn).toBeNull();
     expect(checked.nearest).toEqual(["S2"]);
   });
 
-  it("keeps a future date and this month", () => {
-    const answer = read({ startsOn: { date: null, month: "2026-11", evidence: "Spiti" } });
-    expect(checkedRead(answer, ["Spiti"], keys).startsOn).toEqual(answer.startsOn);
+  it("keeps a future date and this month, and drops a month before this one alone", () => {
+    const thisMonth = read({ startsOn: { date: null, month: "2026-11", evidence: "this november" } });
+    expect(checkedRead(thisMonth, lines("this November"), keys).startsOn).toEqual(thisMonth.startsOn);
+    const past = read({ startsOn: { date: null, month: "2026-10", evidence: "october" } });
+    expect(checkedRead(past, lines("October"), keys).startsOn).toBeNull();
+  });
+
+  it("drops a month that is not YYYY-MM", () => {
+    const answer = read({ startsOn: { date: null, month: "abc", evidence: "december" } });
+    expect(checkedRead(answer, lines("december"), keys).startsOn).toBeNull();
+  });
+
+  it("drops a date whose evidence holds no digit, but keeps the month beside it", () => {
+    const answer = read({
+      startsOn: { date: parseCalendarDate("2026-12-14"), month: "2026-12", evidence: "in december" },
+    });
+    expect(checkedRead(answer, lines("in December"), keys).startsOn).toEqual({
+      date: null,
+      month: "2026-12",
+      evidence: "in december",
+    });
+  });
+
+  it("validates nothing with evidence that is empty or one letter, or a piece of a word", () => {
+    const short = read({ travellers: { count: 2, evidence: "a" }, pickupCity: { words: "a", evidence: "" } });
+    const checked = checkedRead(short, lines("a trip for a family", ""), keys);
+    expect(checked.travellers).toBeNull();
+    expect(checked.pickupCity).toBeNull();
+    const piece = read({ wants: "price", wantsEvidence: "ok" });
+    expect(checkedRead(piece, lines("I will book"), keys).wants).toBe("other");
+  });
+
+  it("needs the place's words inside its evidence", () => {
+    const answer = read({ places: [{ destination: "D1", words: "Manali", evidence: "Spiti in December" }] });
+    expect(checkedRead(answer, lines("Spiti in December"), keys).places).toEqual([]);
+    const pickup = read({ pickupCity: { words: "Pune", evidence: "from Delhi" } });
+    expect(checkedRead(pickup, lines("from Delhi"), keys).pickupCity).toBeNull();
+  });
+
+  it("demotes a destination the evidence does not name to a place the agency does not run", () => {
+    const answer = read({ places: [{ destination: "D1", words: "Spiti", evidence: "Spiti" }] });
+    const checked = checkedRead(answer, lines("Spiti"), keys);
+    expect(checked.places).toEqual([{ destination: "none", words: "Spiti", evidence: "Spiti" }]);
+    expect(mergeFacts(chatFacts.parse({}), checked, keys)).toMatchObject({ places: [], notRun: ["Spiti"] });
+  });
+
+  it("keeps a destination named by a significant word of its name or by the words themselves", () => {
+    const wide = { ...keys, destinations: [{ key: "D1", id: "dest-lahaul", name: "Lahaul Spiti Valley" }] };
+    const byWord = read({ places: [{ destination: "D1", words: "spiti", evidence: "spiti trip" }] });
+    expect(checkedRead(byWord, lines("Spiti trip"), wide).places[0]?.destination).toBe("D1");
+  });
+
+  it("needs a chosen package's name, title or destination in the evidence", () => {
+    const wrong = read({ chosen: { package: "S1", evidence: "the first one" } });
+    expect(checkedRead(wrong, lines("the first one"), keys).chosen).toBeNull();
+    const right = read({ chosen: { package: "S1", evidence: "manali 5n6d" } });
+    expect(checkedRead(right, lines("Manali 5N6D works"), keys).chosen).not.toBeNull();
+  });
+
+  it("needs a digit or a number word in the evidence of a count", () => {
+    expect(
+      checkedRead(read({ travellers: { count: 9, evidence: "Spiti" } }), lines("Spiti"), keys).travellers,
+    ).toBeNull();
+    const counted = (text: string) =>
+      checkedRead(read({ travellers: { count: 4, evidence: text } }), lines(text), keys);
+    expect(counted("we are 4").travellers).not.toBeNull();
+    expect(counted("hum char log").travellers).not.toBeNull();
+    expect(counted("हम चार लोग").travellers).not.toBeNull();
+    expect(counted("four of us").travellers).not.toBeNull();
+    const budget = read({ budgetRupees: { amount: 45000, evidence: "Spiti" } });
+    expect(checkedRead(budget, lines("Spiti"), keys).budgetRupees).toBeNull();
+    const room = read({ rooms: [{ type: "triple", count: 2, evidence: "Spiti" }] });
+    expect(checkedRead(room, lines("Spiti"), keys).rooms).toEqual([]);
   });
 
   it("falls back to 'other' when the wish has no evidence", () => {
     const answer = read({ wants: "book", wantsEvidence: "book it now" });
-    expect(checkedRead(answer, ["tell me about Spiti"], keys).wants).toBe("other");
-    expect(checkedRead(answer, ["ok book it now"], keys).wants).toBe("book");
+    expect(checkedRead(answer, lines("tell me about Spiti"), keys).wants).toBe("other");
+    expect(checkedRead(answer, lines("ok book it now"), keys).wants).toBe("book");
+  });
+
+  describe("a wish said as a bare yes", () => {
+    const yes = read({ wants: "book", wantsEvidence: "yes" });
+    const after = (agency: string, answer = yes): ReadAnswer["wants"] =>
+      checkedRead(answer, [{ from: "agency", text: agency }, ...lines("Yes")], keys).wants;
+
+    it("stands as book only right after the agency asked about booking", () => {
+      expect(after("Shall I book the 12 Dec departure for you?")).toBe("book");
+      expect(after("Spiti ke liye book karein?")).toBe("book");
+      expect(after("Shall I reserve two seats?")).toBe("book");
+      expect(after("Would you like the itinerary?")).toBe("other");
+    });
+
+    it("never stands for paid, or after a customer line, without that question", () => {
+      expect(after("Would you like the itinerary?", read({ wants: "paid", wantsEvidence: "yes" }))).toBe("other");
+      const buried = [{ from: "agency", text: "Shall I book it?" }, ...lines("Hmm", "Yes")] as ChatLine[];
+      expect(checkedRead(yes, buried, keys).wants).toBe("other");
+    });
+
+    it("never reads '2 people' or 'double sharing' as a booking", () => {
+      for (const text of ["2 people", "double sharing"]) {
+        const answer = read({ wants: "book", wantsEvidence: text });
+        expect(checkedRead(answer, lines(text), keys).wants).toBe("other");
+      }
+    });
   });
 });
 
@@ -222,5 +318,36 @@ describe("mergeFacts", () => {
       departureId: null,
       packageId: "pkg-spiti",
     });
+  });
+
+  it("never clears the chosen package for a place the agency does not run", () => {
+    const before = {
+      ...empties,
+      places: [{ destinationId: "dest-spiti", words: "Spiti" }],
+      packageId: "pkg-spiti",
+      departureId: "dep-1",
+    };
+    const facts = mergeFacts(
+      before,
+      read({ places: [{ destination: "none", words: "Meghalaya", evidence: "Meghalaya" }] }),
+      keys,
+    );
+    expect(facts).toMatchObject({ notRun: ["Meghalaya"], packageId: "pkg-spiti", departureId: "dep-1" });
+  });
+
+  it("decides whether a package still fits by destination ids, not names", () => {
+    const twins = {
+      ...keys,
+      destinations: [
+        { key: "D1", id: "dest-a", name: "Goa" },
+        { key: "D2", id: "dest-b", name: "Goa" },
+      ],
+      packages: [{ key: "S1", id: "pkg-a", title: "Goa 3N", destination: "Goa", destinationId: "dest-a" }],
+    };
+    const before = { ...empties, packageId: "pkg-a", departureId: "dep-1" };
+    const other = mergeFacts(before, read({ places: [{ destination: "D2", words: "Goa", evidence: "Goa" }] }), twins);
+    expect(other.packageId).toBeNull();
+    const same = mergeFacts(before, read({ places: [{ destination: "D1", words: "Goa", evidence: "Goa" }] }), twins);
+    expect(same.packageId).toBe("pkg-a");
   });
 });
