@@ -9,7 +9,15 @@ import {
   paymentDetailsIn,
   teamClaimPhrases,
 } from "@travel-crm/contracts/ai";
-import { clausesOf, findPhrases, findWord, hasPhrase, sentencesOf, type Found } from "./phrase-match.js";
+import {
+  clausesOf,
+  findPhrases,
+  findWord,
+  hasPhrase,
+  inAnotherScript,
+  sentencesOf,
+  type Found,
+} from "./phrase-match.js";
 
 export type ReplyRefusal = "amount" | "date" | "place" | "payment_claim" | "team_claim" | "payment_detail";
 export type ReplyCheck = { ok: true } | { ok: false; reason: ReplyRefusal; excerpt: string };
@@ -83,7 +91,8 @@ function placeProblem(text: string, filled: Found[], context: ReplyContext): Fou
   for (const place of known) {
     for (const span of findWord(text, place)) {
       if (insideOne(span, filled) || packagePlaces.some((p) => covers(p, place))) continue;
-      if (notRun.some((n) => covers(n, place))) {
+      // A place not run named in another script may be a package place written in it ("मनाली"): never "we don't run" it.
+      if (notRun.some((n) => covers(n, place)) && !inAnotherScript(place)) {
         const sentence = sentences.find((s) => span.start >= s.start && span.start < s.start + s.text.length);
         const says = sentence?.text ?? text;
         if (hasPhrase(says, notRunPhrases) || (context.customTrips && hasPhrase(says, customTripPhrases))) continue;

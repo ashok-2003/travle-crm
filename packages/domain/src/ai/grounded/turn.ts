@@ -2,10 +2,9 @@
 // WRITE a reply whose figures are placeholders, FILL and CHECK it, then ACT. Every model call is counted against the
 // month's limit; a reply the check refuses twice is not sent and the team is told. The old agent hands over to this one
 // for an agency that switched it on (`ai_autopilot.grounded`); nothing logged holds a customer's word.
-import { type ReadAnswer } from "@travel-crm/contracts/ai";
+import type { ChatFacts, ReadAnswer } from "@travel-crm/contracts/ai";
 import { DomainError } from "../../kernel/index.js";
 import { openLeadOfChat } from "../../crm/index.js";
-import type { ChatFacts } from "@travel-crm/contracts/ai";
 import { allowedActions, chosenActions } from "./actions.js";
 import { actOnReply } from "./act.js";
 import { buildCard } from "./card.js";
@@ -15,39 +14,12 @@ import type { GroundedPack } from "./prompt.js";
 import { readChat } from "./read.js";
 import { countedCall, type CallEnvironment } from "./turn-calls.js";
 import { flagChat, keepFacts, noteRepeat } from "./turn-flag.js";
+import { flagOf, latestOf, newNotRunInAnotherScript, quiet, reasonFor } from "./turn-inputs.js";
 import { prepareTurn, type Prepared } from "./turn-prepare.js";
 import type { GroundedDependencies, TurnInput, TurnOutcome } from "./turn-types.js";
 import { replyContext, writeChecked } from "./turn-write.js";
 
 export type { GroundedDependencies, TurnInput, TurnOutcome };
-
-/** A nudge or a follow-up reads nothing: the write step gets the stored facts and why it writes. */
-const quiet: ReadAnswer = {
-  places: [],
-  startsOn: null,
-  rooms: [],
-  travellers: null,
-  budgetRupees: null,
-  pickupCity: null,
-  chosen: null,
-  wants: "information",
-  wantsEvidence: "",
-  special: null,
-  nearest: [],
-};
-
-/** The customer's messages after the agency's last line: what this turn answers. */
-const latestOf = (prepared: Prepared): string[] => {
-  const after = prepared.transcript.map((line) => line.from).lastIndexOf("agency") + 1;
-  return prepared.transcript.slice(after).flatMap((line) => (line.from === "customer" ? [line.text] : []));
-};
-
-const reasonFor = (input: TurnInput): string | undefined =>
-  input.kind === "nudge"
-    ? "they went quiet"
-    : input.kind === "followUp"
-      ? `this follow-up is due: ${input.followUp ?? ""}`
-      : undefined;
 
 export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInput, now: Date): Promise<TurnOutcome> {
   const finish = (outcome: TurnOutcome, reason?: string): TurnOutcome => {
@@ -66,14 +38,7 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     timeZone: prepared.timeZone,
   };
   const block = async (outcome: "blocked" | "unfit", code: string, facts: ChatFacts | null) => {
-    await flagChat(deps.db, {
-      organizationId: input.organizationId,
-      chat: prepared.chat,
-      token: input.token,
-      code,
-      facts,
-      now,
-    });
+    await flagChat(deps.db, { ...flagOf(input, prepared, now), code, facts });
     return finish(outcome, code);
   };
 
@@ -98,6 +63,12 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     }
     read = asked.read;
     facts = mergeFacts(facts, read, prepared.keys);
+    // A place not run named in another script ("मनाली") may be one the agency runs: a person answers, never "we don't
+    // run it" (P4-33, M6). Only a new one: the facts keep it, and the check never lets a reply say it isn't run.
+    if (newNotRunInAnotherScript(read, prepared.facts)) {
+      await flagChat(deps.db, { ...flagOf(input, prepared, now), code: "not_run_script", facts, handOver: true });
+      return finish("handed_off", "not_run_script");
+    }
     nearest = read.nearest.flatMap((key) => prepared.keys.packages.find((one) => one.key === key)?.id ?? []);
   }
 

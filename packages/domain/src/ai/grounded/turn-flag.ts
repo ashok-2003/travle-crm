@@ -16,22 +16,36 @@ export async function flagChat(
     code: string;
     facts: ChatFacts | null;
     now: Date;
+    /** The chat goes to a person: the AI stops answering it until the team gives it back. */
+    handOver?: boolean;
   },
 ): Promise<void> {
   const { chat, code, now, organizationId } = input;
   const attention = `The AI could not answer safely (${code}): please answer this customer.`;
+  const handedOff = input.handOver === true ? { handedOffAt: now, handoffReason: attention, followUpAt: null } : {};
   await db.forOrg(organizationId, async (tx) => {
     if (input.facts !== null) await saveFacts(tx, chat.id, input.facts);
     await tx.aiChat.upsert({
       where: { organizationId_conversationId: { organizationId, conversationId: chat.id } },
-      create: { conversationId: chat.id, attentionReason: attention, attentionAt: now },
-      update: { attentionReason: attention, attentionAt: now },
+      create: { conversationId: chat.id, attentionReason: attention, attentionAt: now, ...handedOff },
+      update: { attentionReason: attention, attentionAt: now, ...handedOff },
     });
-    await tellOwner(tx, organizationId, chat, {
-      key: `ai-blocked:${input.token}`,
-      title: (name) => `${name}: the AI needs you (${code})`.slice(0, 120),
-      body: "The AI sent nothing. Open the chat to answer this customer.",
-    });
+    await tellOwner(
+      tx,
+      organizationId,
+      chat,
+      input.handOver === true
+        ? {
+            key: `ai-handoff:${input.token}`,
+            title: (name) => `${name} needs you: the AI handed the chat over`,
+            body: attention,
+          }
+        : {
+            key: `ai-blocked:${input.token}`,
+            title: (name) => `${name}: the AI needs you (${code})`.slice(0, 120),
+            body: "The AI sent nothing. Open the chat to answer this customer.",
+          },
+    );
   });
 }
 

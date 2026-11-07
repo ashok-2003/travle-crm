@@ -90,6 +90,12 @@ describe("checkReply", () => {
     expect(context.notRun).toEqual(["Kashmir"]);
   });
 
+  it("never lets a reply say it doesn't run a place named in another script (M6)", () => {
+    const hindi = { ...manaliOnly, notRun: ["मनाली"] };
+    expect(reason("We don't run मनाली, sorry.", hindi)).toBe("place");
+    expect(reason("हम मनाली नहीं करते", hindi)).toBe("place");
+  });
+
   it("lets a custom-trip phrase stand in only when custom trips are on", () => {
     const text = "Kashmir: the team will send a quote for a custom trip";
     expect(reason(text, kashmirNotRun)).toBe("place");

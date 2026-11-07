@@ -88,3 +88,6 @@ export function clausesOf(sentence: string): { text: string; start: number }[] {
   clauses.push({ text: sentence.slice(start), start });
   return clauses.filter((c) => c.text.trim() !== "");
 }
+
+/** Whether words hold a letter of a script other than Latin ("मनाली"): the check can't match them to a package place. */
+export const inAnotherScript = (words: string): boolean => /(?=\p{L})\P{Script=Latin}/u.test(words);

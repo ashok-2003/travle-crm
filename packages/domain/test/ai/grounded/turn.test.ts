@@ -364,6 +364,29 @@ describe("the grounded turn", () => {
     expect(await on.calls()).toBe(2);
   });
 
+  it("a place not run named in another script hands the chat to the team: nothing sent, never a 'we don't run' (M6)", async () => {
+    const on = await agency({ text: "मनाली का पैकेज बताइए" });
+    on.model.answer(
+      read({
+        places: [{ destination: "none", words: "मनाली", evidence: "मनाली" }],
+        startsOn: null,
+        travellers: null,
+        wants: "information",
+        wantsEvidence: "पैकेज बताइए",
+      }),
+      write("We don't run मनाली, sorry."),
+    );
+    expect(await on.turn()).toBe("handed_off");
+    expect(await on.sent()).toHaveLength(0);
+    expect(on.model.requests).toHaveLength(1);
+    const state = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(state.handedOffAt).not.toBeNull();
+    expect(state.attentionReason).toContain("not_run_script");
+    expect(JSON.stringify(state.facts)).toContain("मनाली");
+    expect(await on.inOrg((tx) => tx.notification.count({ where: { kind: "ai.handoff" } }))).toBe(1);
+    expect(on.logger.entries.some((entry) => entry.reason === "not_run_script")).toBe(true);
+  });
+
   /** Stores what a chat has settled about Spiti on 14 Nov, as the read of an earlier turn would have. */
   async function settled(on: Awaited<ReturnType<typeof agency>>) {
     const destination = await on.inOrg((tx) => tx.destination.findFirstOrThrow());
