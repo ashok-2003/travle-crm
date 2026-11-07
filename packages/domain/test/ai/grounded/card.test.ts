@@ -111,6 +111,13 @@ describe("filling placeholders", () => {
     expect(filled.unknown).toEqual([]);
   });
 
+  it("reports a placeholder written without its package key, and leaves other brackets alone (R6)", () => {
+    const filled = fillPlaceholders("Total [total], double [Price double], leaving [departure 1]. Day [3].", card);
+    expect(filled.unknown).toEqual(["[total]", "[Price double]", "[departure 1]"]);
+    expect(filled.text).toBe("Total [total], double [Price double], leaving [departure 1]. Day [3].");
+    expect(fillPlaceholders("[total P1] for all, [from P1] each", card).unknown).toEqual([]);
+  });
+
   it("keys are case-insensitive: a lowercase p fills, an unknown one is reported", () => {
     const filled = fillPlaceholders("[price p1 double] and [price p7 double]", card);
     expect(filled.text).toBe("₹6,999 and [price p7 double]");

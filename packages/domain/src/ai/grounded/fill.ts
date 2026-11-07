@@ -7,6 +7,9 @@ import type { Card } from "./card.js";
  */
 const SHAPE = /\[\s*[A-Za-z_]+(?:\s+[A-Za-z_]+)*\s+[Pp]\d+(?:\s+[^\s[\]]+)*\s*\]/g;
 
+/** A bracket that opens with one of the card's kinds but names no package ("[total]", "[price double]"): never sent as is. */
+const KEYLESS = /\[\s*(?:price|from|total|departure|seats|advance|pickup)\b[^[\]]*\]/gi;
+
 /** The same placeholder however the model spaced or capitalised it: "[Price  P1 Double]" is "[price P1 double]". */
 const canonical = (found: string): string => {
   const words = found
@@ -42,5 +45,10 @@ export function fillPlaceholders(text: string, card: Card): Filled {
     filled.push({ start: output.length, end: output.length + value.length });
     output += value;
   }
-  return { text: output + text.slice(last), filled, unknown };
+  output += text.slice(last);
+  for (const match of output.matchAll(KEYLESS)) {
+    const inside = filled.some(({ start, end }) => match.index >= start && match.index < end);
+    if (!inside && !unknown.includes(match[0])) unknown.push(match[0]);
+  }
+  return { text: output, filled, unknown };
 }
