@@ -159,6 +159,14 @@ describe("a group trip's quote", () => {
     expect(quote.startDate).toBe("2026-11-20");
   });
 
+  it("a package selling triple alone is per person: four in triple are quoted four times the price", async () => {
+    const { id, name } = await aPackage({ roomTypes: ["triple"] });
+    const departureId = await aDepartureOf(id);
+    const quote = await make(id, departureId, [{ roomType: "triple", people: 4 }]);
+    expect(Math.abs(quote.totals.totalPaise - 4 * 699_900)).toBeLessThanOrEqual(2);
+    expect(quote.items[0]).toMatchObject({ description: `${name}, Triple sharing × 4` });
+  });
+
   it("a premium batch is priced from its own prices", async () => {
     const { id } = await aPackage();
     const departureId = await aDepartureOf(id, { own: 999_900n });

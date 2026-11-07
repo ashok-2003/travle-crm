@@ -1,10 +1,11 @@
 // Acting on a checked reply, against the real database: the seats are held, the group quote is made at the total the
 // customer was told, the AI's booking points at it, every message carries the AI's token, and a repeat of the turn does nothing.
-import { chatFacts, type ChatFacts, type WriteAnswer } from "@travel-crm/contracts/ai";
+import { chatFacts, type ChatFacts, type ReadAnswer, type WriteAnswer } from "@travel-crm/contracts/ai";
 import { PACKAGE_BROCHURE_RECORD_TYPE, PACKAGE_PAYMENT_QR_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { actOnReply, type ActResult } from "../../../src/ai/grounded/act.js";
+import { allowedActions, type ActionContext } from "../../../src/ai/grounded/actions.js";
 import { buildCard } from "../../../src/ai/grounded/card.js";
 import { fillPlaceholders } from "../../../src/ai/grounded/fill.js";
 import { lookUp } from "../../../src/ai/grounded/lookup.js";
@@ -63,6 +64,8 @@ describe("acting on a checked reply", () => {
       paymentText?: string;
       pricesIncludeGst?: boolean;
       childBed?: boolean;
+      /** A trek that sells triple sharing alone, at ₹4,998 per person. */
+      tripleOnly?: boolean;
     } = {},
   ) {
     counter += 1;
@@ -77,7 +80,12 @@ describe("acting on a checked reply", () => {
           title: `Spiti ${String(counter)}`,
           kind: "group",
           destinationId: destination.id,
-          roomTypes: options.childBed === true ? ["double", "triple", "child_no_bed"] : ["double", "triple"],
+          roomTypes:
+            options.tripleOnly === true
+              ? ["triple"]
+              : options.childBed === true
+                ? ["double", "triple", "child_no_bed"]
+                : ["double", "triple"],
           advancePerPersonPaise: 500_000n,
           aiSellable: true,
           nights: 6,
@@ -93,7 +101,7 @@ describe("acting on a checked reply", () => {
           startsOn: day("2026-11-01"),
           endsOn: day("2026-11-30"),
           priceDoublePaise: 699_900n,
-          priceTriplePaise: 599_900n,
+          priceTriplePaise: options.tripleOnly === true ? 499_800n : 599_900n,
           priceChildNoBedPaise: options.childBed === true ? 400_000n : null,
         },
       });
@@ -500,5 +508,57 @@ describe("acting on a checked reply", () => {
     const result = sentOf(await turn(ids, "Booked.", { requestBooking: true }, "turn-rooms", facts));
     const booking = await inOrg((tx) => tx.aiBooking.findUniqueOrThrow({ where: { id: result.bookingId ?? "" } }));
     expect((booking.details as { travellers: string }).travellers).toBe("3: 2 double, 1 child no bed");
+  });
+
+  describe("a trek selling triple sharing alone: every traveller takes it, whatever rooms were said", () => {
+    const wantsToBook: ReadAnswer = {
+      places: [],
+      startsOn: null,
+      rooms: [],
+      travellers: null,
+      budgetRupees: null,
+      pickupCity: null,
+      chosen: null,
+      wants: "book",
+      wantsEvidence: "book it",
+      special: null,
+      nearest: [],
+    };
+    const context: ActionContext = {
+      natural: false,
+      hasLead: true,
+      settings: { leadNotes: true, followUpTasks: true, handoff: "asked", sendMedia: true },
+      latest: ["book it"],
+      notRunBefore: [],
+      hasGstState: true,
+    };
+    const cases = [
+      ["no rooms said", []],
+      ["one triple said by four", [{ roomType: "triple", people: 3 }]],
+    ] as const;
+    for (const [name, rooms] of cases) {
+      it(`${name}: four at ₹4,998 told ₹19,992, booked at ₹19,992, advance for four`, async () => {
+        const ids = await scene({ qr: true, tripleOnly: true });
+        const facts = factsFor(ids, { travellers: 4, rooms: [...rooms] });
+        const lookup = await inOrg((tx) => lookUp(tx, facts, today, now, []));
+        expect(lookup.packages[0]?.total).toBe(1_999_200);
+        const allowed = allowedActions(lookup, facts, wantsToBook, context);
+        expect([allowed.sendPayment, allowed.requestBooking]).toEqual([true, true]);
+        const token = `turn-trek-${String(rooms.length)}`;
+        const result = sentOf(
+          await turn(ids, "Total [total P1].", { requestBooking: true, sendPayment: true }, token, facts),
+        );
+        const rows = await inOrg(async (tx) => ({
+          quote: await tx.quote.findFirstOrThrow({ where: { leadId: ids.leadId } }),
+          hold: await tx.departureHold.findFirstOrThrow({ where: { leadId: ids.leadId } }),
+          booking: await tx.aiBooking.findUniqueOrThrow({ where: { id: result.bookingId ?? "" } }),
+        }));
+        expect((await outbound(ids.chatId))[0]?.body).toBe(`Total ${formatRupees(1_999_200)}.`);
+        expect(Number(rows.quote.totalPaise)).toBe(1_999_200);
+        expect(rows.hold.seats).toBe(4);
+        expect(rows.booking).toMatchObject({ quoteId: rows.quote.id, expectedPaise: 4n * 500_000n });
+        expect((rows.booking.details as { travellers: string }).travellers).toBe("4: 4 triple");
+      });
+    }
   });
 });

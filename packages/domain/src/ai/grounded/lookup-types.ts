@@ -33,7 +33,10 @@ export interface LookupPackage {
   departures: OpenDeparture[];
   /** The open departure on the asked date, or the one the chat settled on. */
   chosenDeparture: OpenDeparture | null;
-  /** What the chat's rooms add up to on the asked date, only when every traveller has a priced room. */
+  /**
+   * What the chat's rooms (`roomsFor`: in a package selling one room type, every traveller in it) add up to on the asked
+   * date, only when every traveller has a priced room.
+   */
   total: number | null;
   advancePerPersonPaise: number | null;
   hasPaymentQr: boolean;

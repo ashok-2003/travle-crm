@@ -2,7 +2,14 @@
 import type { RoomPrices } from "@travel-crm/contracts/quotes";
 import { describe, expect, it } from "vitest";
 import { indiaGst, money, parseCalendarDate } from "../../src/kernel/index.js";
-import { exTaxSubtotal, fromPrices, priceOn, totalFor, type SeasonPrices } from "../../src/quotes/room-prices.js";
+import {
+  exTaxSubtotal,
+  fromPrices,
+  onlyRoomType,
+  priceOn,
+  totalFor,
+  type SeasonPrices,
+} from "../../src/quotes/room-prices.js";
 
 const day = parseCalendarDate;
 const none: RoomPrices = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
@@ -56,17 +63,41 @@ describe("priceOn", () => {
 describe("totalFor", () => {
   it("totals by room, and refuses a split that doesn't fit", () => {
     const prices = { ...none, double: 800_000, triple: 699_900 };
-    expect(totalFor(prices, [{ roomType: "triple", people: 3 }])).toMatchObject({ ok: true, totalPaise: 2_099_700 });
-    expect(totalFor(prices, [{ roomType: "double", people: 3 }])).toEqual({
+    expect(totalFor(prices, [{ roomType: "triple", people: 3 }], all)).toMatchObject({
+      ok: true,
+      totalPaise: 2_099_700,
+    });
+    expect(totalFor(prices, [{ roomType: "double", people: 3 }], all)).toEqual({
       ok: false,
       reason: "ROOM_SPLIT",
       roomType: "double",
     });
-    expect(totalFor(prices, [{ roomType: "quad", people: 4 }])).toEqual({
+    expect(totalFor(prices, [{ roomType: "quad", people: 4 }], all)).toEqual({
       ok: false,
       reason: "NO_PRICE",
       roomType: "quad",
     });
+  });
+
+  it("a package selling one room type alone is per person: its people need not fill whole rooms", () => {
+    const prices = { ...none, triple: 499_800 };
+    expect(totalFor(prices, [{ roomType: "triple", people: 4 }], ["triple"])).toMatchObject({
+      ok: true,
+      totalPaise: 4 * 499_800,
+    });
+    // Two room types sold: the split still has to fit.
+    expect(totalFor(prices, [{ roomType: "triple", people: 4 }], ["double", "triple"])).toMatchObject({
+      ok: false,
+      reason: "ROOM_SPLIT",
+    });
+  });
+});
+
+describe("onlyRoomType", () => {
+  it("names the one room type a package sells, else nothing", () => {
+    expect(onlyRoomType(["triple"])).toBe("triple");
+    expect(onlyRoomType(["double", "triple"])).toBeNull();
+    expect(onlyRoomType([])).toBeNull();
   });
 });
 

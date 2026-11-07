@@ -76,21 +76,27 @@ export async function makeGroupQuoteFor(
   if (people > countsOf(departure.seatsTotal, found.sold, found.held).free) {
     throw new DomainError("CONFLICT", "NOT_ENOUGH_SEATS", "There aren't that many seats free on this departure");
   }
+  const offered = row.roomTypes as RoomType[];
   const priced = priceOn(
     startDate,
     await seasonsOf(tx, row.id),
     { title: departure.title, prices: ownPricesOf(departure) },
-    row.roomTypes as RoomType[],
+    offered,
   );
   if (priced === null) {
     throw new DomainError("CONFLICT", "NO_PRICE_FOR_DATE", "No season prices this departure's day");
   }
   const rate = quoteTaxRate.catch(500).parse(row.taxRateBasisPoints);
-  const total = groupTotal(priced.prices, input.rooms, {
-    pricesIncludeGst: row.pricesIncludeGst,
-    taxRateBasisPoints: rate,
-    supplierStateCode: context.supplierStateCode ?? "",
-  });
+  const total = groupTotal(
+    priced.prices,
+    input.rooms,
+    {
+      pricesIncludeGst: row.pricesIncludeGst,
+      taxRateBasisPoints: rate,
+      supplierStateCode: context.supplierStateCode ?? "",
+    },
+    offered,
+  );
   if (!total.ok) {
     throw new DomainError(
       total.reason === "ROOM_SPLIT" ? "VALIDATION" : "CONFLICT",

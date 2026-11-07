@@ -8,6 +8,7 @@ import { addDays, parseCalendarDate, type CalendarDate } from "../../kernel/inde
 import { fromPrices, groupTotal, packageFilesIn, priceOn, sellablePackages, seasonsOf } from "../../quotes/index.js";
 import { autopilotOf } from "../autopilot.js";
 import { aiCustomTripsOn } from "../settings.js";
+import { roomsFor } from "./rooms.js";
 
 export const MOST_PACKAGES = 5;
 import type { Lookup, LookupPackage, PackageWhy } from "./lookup-types.js";
@@ -139,14 +140,20 @@ async function lookUpOne(
   const given = adultRoomTypes.flatMap((type) => (from[type] === null ? [] : [from[type]]));
   const fromPaise = group ? (given.length === 0 ? null : Math.min(...given)) : big(row.fromPricePaise);
   const files = await packageFilesIn(tx, id);
-  const asked = facts.rooms.reduce((sum, room) => sum + room.people, 0);
+  const chatRooms = roomsFor(facts, offered);
+  const asked = chatRooms.reduce((sum, room) => sum + room.people, 0);
   const rooms =
     prices !== null && facts.travellers !== null && asked === facts.travellers
-      ? groupTotal(prices, facts.rooms, {
-          pricesIncludeGst: row.pricesIncludeGst,
-          taxRateBasisPoints: quoteTaxRate.catch(500).parse(row.taxRateBasisPoints),
-          supplierStateCode: ANY_STATE,
-        })
+      ? groupTotal(
+          prices,
+          chatRooms,
+          {
+            pricesIncludeGst: row.pricesIncludeGst,
+            taxRateBasisPoints: quoteTaxRate.catch(500).parse(row.taxRateBasisPoints),
+            supplierStateCode: ANY_STATE,
+          },
+          offered,
+        )
       : null;
   const days = Array.isArray(row.days) ? (row.days as { title?: unknown }[]) : [];
   return {
@@ -173,7 +180,7 @@ async function lookUpOne(
     fromPaise,
     departures,
     chosenDeparture,
-    total: rooms?.ok === true && facts.rooms.length > 0 ? rooms.totalPaise : null,
+    total: rooms?.ok === true && chatRooms.length > 0 ? rooms.totalPaise : null,
     advancePerPersonPaise: big(row.advancePerPersonPaise),
     hasPaymentQr: files.paymentQrId !== null,
     hasPaymentText: row.paymentDetails.trim() !== "" || agencyPaymentText,
