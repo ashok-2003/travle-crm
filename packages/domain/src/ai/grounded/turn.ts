@@ -129,7 +129,7 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
       messages: prepared.messages,
     },
     card,
-    replyContext(looked.lookup, prepared.destinationNames),
+    replyContext(looked.lookup, prepared.destinationNames, facts),
     prepared.sent,
     reasonFor(input),
   );

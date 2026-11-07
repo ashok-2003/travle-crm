@@ -1,6 +1,6 @@
 // The write step of the turn: ask for the reply, fill its placeholders, check it; a reply the check refuses (or an answer
 // that doesn't fit) is asked for once more with the reason, and refused twice it is blocked. Every ask is one counted call.
-import { indianTravelPlaces, type WriteAnswer } from "@travel-crm/contracts/ai";
+import { indianTravelPlaces, type ChatFacts, type WriteAnswer } from "@travel-crm/contracts/ai";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { cleanReply } from "../clean-reply.js";
 import { repeatCorrection, repeatsEarlier } from "../repeats.js";
@@ -20,8 +20,8 @@ export type Written =
   /** The turn ends with this outcome and nothing to flag: the limit, or the model being down. */
   | { kind: "ended"; outcome: string };
 
-/** The check's context: the agency's places and the ones the card's package texts name. */
-export function replyContext(lookup: Lookup, destinationNames: string[]): ReplyContext {
+/** The check's context: the agency's places, the ones the card's package texts name, and the customer's own. */
+export function replyContext(lookup: Lookup, destinationNames: string[], facts: ChatFacts): ReplyContext {
   const knownPlaces = [...new Set([...destinationNames, ...indianTravelPlaces])];
   const texts = lookup.packages
     .flatMap((one) => [
@@ -39,6 +39,9 @@ export function replyContext(lookup: Lookup, destinationNames: string[]): ReplyC
   return {
     knownPlaces,
     packagePlaces: knownPlaces.filter((place) => findWord(texts, place).length > 0),
+    customerPlaces: [facts.pickupCity ?? "", ...facts.places.map((place) => place.words)].filter(
+      (place) => place.trim() !== "",
+    ),
     notRun: lookup.notRun,
     customTrips: lookup.customTrips,
   };

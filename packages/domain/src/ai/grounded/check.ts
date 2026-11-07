@@ -16,6 +16,8 @@ export type ReplyCheck = { ok: true } | { ok: false; reason: ReplyRefusal; excer
 
 export interface ReplyContext {
   packagePlaces: string[];
+  /** The customer's own places (their pickup city, the places they named): saying them back invents nothing. */
+  customerPlaces: string[];
   notRun: string[];
   customTrips: boolean;
   knownPlaces: string[];
@@ -72,8 +74,10 @@ const insideOne = (span: Found, filled: Found[]): boolean =>
 
 function placeProblem(text: string, filled: Found[], context: ReplyContext): Found | null {
   const lower = (list: string[]) => list.map((place) => place.trim().toLowerCase()).filter(Boolean);
-  const packagePlaces = lower(context.packagePlaces);
   const notRun = lower(context.notRun);
+  // A place the customer named that the agency doesn't run still needs its not-run phrase.
+  const ownPlaces = lower(context.customerPlaces).filter((place) => !notRun.some((n) => covers(n, place)));
+  const packagePlaces = [...lower(context.packagePlaces), ...ownPlaces];
   const known = [...new Set([...lower(context.knownPlaces), ...indianTravelPlaces, ...packagePlaces, ...notRun])];
   const sentences = sentencesOf(text);
   for (const place of known) {

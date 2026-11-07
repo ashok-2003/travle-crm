@@ -1,9 +1,14 @@
 // checkReply: the last gate before a reply reaches a customer, as a table of what it refuses and what it lets through.
 import { describe, expect, it } from "vitest";
+import { chatFacts } from "@travel-crm/contracts/ai";
 import { checkReply, type ReplyContext } from "../../../src/ai/grounded/check.js";
+import type { Lookup } from "../../../src/ai/grounded/lookup.js";
+import { replyContext } from "../../../src/ai/grounded/turn-write.js";
+import { parseCalendarDate } from "../../../src/kernel/index.js";
 
 const manaliOnly: ReplyContext = {
   packagePlaces: ["manali"],
+  customerPlaces: [],
   notRun: [],
   customTrips: false,
   knownPlaces: ["manali", "spiti", "kashmir"],
@@ -51,6 +56,38 @@ describe("checkReply", () => {
     expect(reason("Kashmir is lovely in December", kashmirNotRun)).toBe("place");
     expect(reason("Hum Kashmir nahi karate, Manali karate hain", kashmirNotRun)).toBe("ok");
     expect(reason("We do run Manali. We don't operate Kashmir.", kashmirNotRun)).toBe("ok");
+  });
+
+  it("lets the customer's own places through: their pickup city and the places they named (M2)", () => {
+    const delhiStart = {
+      ...manaliOnly,
+      packagePlaces: ["manali", "delhi"],
+      knownPlaces: ["manali", "delhi", "mumbai"],
+    };
+    const text = "From Mumbai you'll join us in Delhi for Manali.";
+    expect(reason(text, delhiStart)).toBe("place");
+    expect(reason(text, { ...delhiStart, customerPlaces: ["Mumbai"] })).toBe("ok");
+    // A place the agency doesn't run still needs its not-run phrase, whoever named it.
+    expect(reason("Kashmir is lovely", { ...kashmirNotRun, customerPlaces: ["Mumbai"] })).toBe("place");
+  });
+
+  it("builds the check's context with the chat's pickup city and place words", () => {
+    const lookup: Lookup = {
+      packages: [],
+      notRun: ["Kashmir"],
+      customTrips: false,
+      today: parseCalendarDate("2026-11-06"),
+      travellers: null,
+      startsOn: null,
+    };
+    const facts = chatFacts.parse({
+      pickupCity: "Mumbai",
+      places: [{ destinationId: null, words: "Lonavala" }],
+      notRun: ["Kashmir"],
+    });
+    const context = replyContext(lookup, ["Manali"], facts);
+    expect(context.customerPlaces).toEqual(["Mumbai", "Lonavala"]);
+    expect(context.notRun).toEqual(["Kashmir"]);
   });
 
   it("lets a custom-trip phrase stand in only when custom trips are on", () => {
