@@ -6,6 +6,7 @@
     "onboard": "Onboard",
     "plans": "Plans",
     "jobs": "Jobs",
+    "health": "Health",
     "emails": "Failed emails",
     "log": "Log",
     "staff": "Staff",
@@ -60,12 +61,16 @@
   },
   "health": {
     "heading": "System health",
+    "title": "System health",
+    "intro": "What is broken now, and what broke in the last week and recovered. Super admins get an email when something breaks.",
     "loadFailed": "The system's health didn't load.",
     "allWorking": "Everything is working. Super admins get an email if something breaks.",
     "since": "Since {when}, reported {count, plural, one {once} other {# times}}.",
     "where": "Where: {detail}",
     "seeJobs": "See the failed jobs",
     "recent": "Resolved in the last week",
+    "noneRecent": "Nothing broke in the last week.",
+    "pastIncidents": "{count, plural, =0 {Past incidents: none in the last week} one {Past incidents: # in the last week} other {Past incidents: # in the last week}}",
     "resolved": "{from} to {to}, resolved",
     "kinds": {
       "aiUnavailable": {

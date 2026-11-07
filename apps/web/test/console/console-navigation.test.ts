@@ -19,6 +19,7 @@ describe("visibleConsoleItems", () => {
       "plans",
       "whatsapp",
       "jobs",
+      "health",
       "emails",
       "log",
       "staff",
@@ -34,6 +35,7 @@ describe("visibleConsoleItems", () => {
       "plans",
       "whatsapp",
       "jobs",
+      "health",
       "log",
     ]);
   });
@@ -47,6 +49,7 @@ describe("visibleConsoleItems", () => {
       plans: consoleRoutes.plans,
       whatsapp: consoleRoutes.whatsapp,
       jobs: consoleRoutes.jobs,
+      health: consoleRoutes.health,
       emails: consoleRoutes.emails,
       log: consoleRoutes.log,
       staff: consoleRoutes.staff,
