@@ -60,7 +60,9 @@ describe("the switch to answer from packages only", () => {
     expect(grounded).not.toBeChecked();
     await userEvent.click(grounded);
     await userEvent.click(screen.getByRole("button", { name: messages.ai.autopilot.save }));
-    expect(await screen.findByText("Make at least one package sellable by the AI first.")).toBeVisible();
+    expect(
+      await screen.findByText("Make at least one package with a destination sellable by the AI first."),
+    ).toBeVisible();
     expect(api.calls).toContain("ai.saveAutopilot");
   });
 });

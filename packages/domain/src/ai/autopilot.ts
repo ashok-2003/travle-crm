@@ -109,6 +109,14 @@ export async function autopilotSettingsOf(tx: OrgTx): Promise<AutopilotSettings>
   return toSettings(await autopilotOf(tx));
 }
 
+/** Whether a package the AI may sell today has a destination: one without is a package the agent never sees. */
+async function sellableWithADestination(tx: OrgTx, today: CalendarDate): Promise<boolean> {
+  const ids = (await sellablePackages(tx, today)).map((one) => one.id);
+  return (
+    ids.length > 0 && (await tx.quoteTemplate.count({ where: { id: { in: ids }, destinationId: { not: null } } })) > 0
+  );
+}
+
 export async function saveAutopilot(
   tx: OrgTx,
   access: MemberAccess,
@@ -118,9 +126,14 @@ export async function saveAutopilot(
   const before = await autopilotOf(tx);
   // Left out (an older screen), it stays as stored.
   const grounded = input.grounded ?? before.grounded;
-  // Turning it on needs a package to answer from; leaving it on, or turning it off, never does.
-  if (grounded && !before.grounded && (await sellablePackages(tx, today)).length === 0) {
-    throw new DomainError("VALIDATION", "NO_SELLABLE_PACKAGES", "Make at least one package sellable by the AI first.");
+  // Turning it on needs a package to answer from, with a destination (the agent knows a package by its place); leaving it
+  // on, or turning it off, never does.
+  if (grounded && !before.grounded && !(await sellableWithADestination(tx, today))) {
+    throw new DomainError(
+      "VALIDATION",
+      "NO_SELLABLE_PACKAGES",
+      "Make at least one package with a destination sellable by the AI first.",
+    );
   }
   const data = { ...input, grounded, updatedBy: access.userId };
   await tx.aiAutopilot.upsert({

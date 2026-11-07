@@ -57,7 +57,7 @@ test("an Owner switches an agency to answering from its packages only, and a cus
   const grounded = owner.getByRole("switch", { name: "Answer from your packages only" });
   await grounded.click();
   await owner.getByRole("button", { name: "Save the autopilot" }).click();
-  await expect(owner.getByText("Make at least one package sellable by the AI first.")).toBeVisible();
+  await expect(owner.getByText("Make at least one package with a destination sellable by the AI first.")).toBeVisible();
   await expectAccessible(owner);
 
   // The Manali group package: rooms, seats, an advance of ₹2,000 each, a regular and a peak season, the payment words and a QR.

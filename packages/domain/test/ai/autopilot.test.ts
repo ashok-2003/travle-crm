@@ -131,14 +131,18 @@ describe("the autopilot", () => {
     return { connection, organizationId, inOrg, owner, chat, message, model, turn, settings };
   }
 
-  /** A package the AI may sell today: priced for the season, an advance, one open departure. */
-  async function aSellablePackage(on: Awaited<ReturnType<typeof agency>>) {
+  /** A package the AI may sell today: priced for the season, an advance, one open departure, a destination unless not. */
+  async function aSellablePackage(on: Awaited<ReturnType<typeof agency>>, { destination = true } = {}) {
     await on.inOrg(async (tx) => {
+      const place = destination
+        ? await tx.destination.create({ data: { name: `Spiti ${randomUUID()}` }, select: { id: true } })
+        : null;
       const template = await tx.quoteTemplate.create({
         data: {
-          name: "Spiti",
+          name: destination ? "Spiti" : "Spiti, no place",
           title: "Spiti",
           kind: "group",
+          destinationId: place?.id ?? null,
           roomTypes: ["double"],
           advancePerPersonPaise: 500_000n,
           aiSellable: true,
@@ -176,6 +180,13 @@ describe("the autopilot", () => {
     );
     expect(reason).toBe("NO_SELLABLE_PACKAGES");
     expect((await on.inOrg((tx) => tx.aiAutopilot.findFirstOrThrow())).grounded).toBe(false);
+    // A sellable package with no destination is one the agent can't see: it doesn't count.
+    await aSellablePackage(on, { destination: false });
+    const unseen = await turnOn().then(
+      () => null,
+      (error: unknown) => (error as { reason?: string }).reason ?? "other",
+    );
+    expect(unseen).toBe("NO_SELLABLE_PACKAGES");
     await aSellablePackage(on);
     expect((await turnOn()).grounded).toBe(true);
     const entries = await on.inOrg((tx) => tx.auditEntry.findMany({ where: { action: "ai-autopilot.changed" } }));
