@@ -94,7 +94,8 @@ describe("exTaxSubtotal", () => {
     expect(sumFor(taxOf, subtotal)).toBe(699_900);
   });
 
-  it("is exact where an exact subtotal exists, at 5 %, 12 % and 18 %, for whole rupees", () => {
+  // About 70,000 totals checked one by one: seconds alone, but a busy CI runner has taken 35, so it gets two minutes.
+  it("is exact where an exact subtotal exists, at 5 %, 12 % and 18 %, for whole rupees", { timeout: 120_000 }, () => {
     const rupees = Array.from({ length: 49_001 }, (_, index) => (1_000 + index) * 100);
     for (const rate of [500, 1200, 1800])
       checkTotals(
