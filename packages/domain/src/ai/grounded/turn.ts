@@ -105,8 +105,9 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
     reasonFor(input),
   );
   if (written.kind === "ended") {
-    // Nothing usable came back (the model is down, the limit): the read still counts, so the next turn knows it.
-    await keepFacts(deps.db, input.organizationId, prepared.chat.id, facts);
+    // Nothing usable came back (the model is down, the limit): the read still counts, so the next turn knows it. Its
+    // places not run stay unknown, though: nobody was told of them, so the next turn flags them as new.
+    await keepFacts(deps.db, input.organizationId, prepared.chat.id, { ...facts, notRun: prepared.facts.notRun });
     return finish(written.outcome);
   }
   if (written.kind === "repeated") {

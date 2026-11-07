@@ -585,6 +585,24 @@ describe("the grounded turn", () => {
     expect(await on.calls()).toBe(2);
   });
 
+  it("a place not run read in a turn that could not write is still news to the team next turn (R1)", async () => {
+    const on = await agency({ text: "Spiti on 14 Nov for 2 people, and Meghalaya too, price?" });
+    const withMeghalaya = read({
+      places: [
+        { destination: "D1", words: "Spiti", evidence: "Spiti" },
+        { destination: "none", words: "Meghalaya", evidence: "Meghalaya" },
+      ],
+    });
+    on.model.answer(withMeghalaya, { ok: false, reason: "unavailable" });
+    expect(await on.turn()).toBe("unavailable");
+    const kept = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(JSON.stringify(kept.facts)).toContain("2026-11-14");
+    expect(kept.attentionReason).toBeNull();
+    on.model.answer(withMeghalaya, write(`${priced} We don't run Meghalaya.`));
+    expect(await on.turn()).toBe("replied_flagged");
+    expect((await on.inOrg((tx) => tx.aiChat.findFirstOrThrow())).attentionReason).toContain("not_run");
+  });
+
   it("a first write that fails or hits the limit still keeps what the read settled, and flags nothing", async () => {
     const down = await agency();
     down.model.answer(read(), { ok: false, reason: "unavailable" });
