@@ -1,9 +1,9 @@
 // A person checks the payment behind an AI booking's proof (payments to check): confirming records the money on the quote
-// chosen for it, else its booking's, else the lead's accepted quote, else its newest sent one, and only with none of those on
-// a quote made from the chat; it wins the lead and marks the AI booking confirmed. Refusing sends it back to waiting for
+// chosen for it, else its booking's, else the lead's accepted quote, and with none of those on a quote made from the chat
+// (a stand-in, its total what the person confirmed: never an amount the AI wrote, never a sent quote guessed at); it wins
+// the lead and marks the AI booking confirmed. Refusing sends it back to waiting for
 // payment, its proofs kept. The agent never decides this. Confirming twice records one payment: the
 // payment's request id is made from the AI booking's id, and the booking is locked while a person decides.
-import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage } from "../crm/index.js";
@@ -61,8 +61,9 @@ async function quoteOfBooking(tx: OrgTx, bookingId: string | null): Promise<stri
 const quoteColumns = { id: true, status: true, title: true } as const;
 
 /**
- * The quote the money goes on: the one chosen for the AI booking (plan 4), its booking's, the lead's accepted quote, else
- * its newest sent one (the payment accepts it, as release 6's does). Null when the lead has none: a quote is made from the chat.
+ * The quote the money goes on: the one chosen for the AI booking (plan 4), its booking's, else the lead's accepted quote.
+ * Null otherwise, and a quote is made from the chat: a sent quote may be an older proposal for another trip, so it is never
+ * guessed at; accepting it later moves the money onto it (moveStandInPayments).
  */
 async function quoteToPay(
   tx: OrgTx,
@@ -76,19 +77,11 @@ async function quoteToPay(
     });
     return booking.quote;
   }
-  const accepted = await tx.quote.findFirst({
+  return tx.quote.findFirst({
     where: { leadId: row.leadId, status: "accepted" },
     orderBy: [{ acceptedAt: "desc" }, { id: "desc" }],
     select: quoteColumns,
   });
-  return (
-    accepted ??
-    tx.quote.findFirst({
-      where: { leadId: row.leadId, status: "sent" },
-      orderBy: [{ sentAt: "desc" }, { id: "desc" }],
-      select: quoteColumns,
-    })
-  );
 }
 
 /**
@@ -126,7 +119,6 @@ export async function confirmAiPayment(
   if (!OPEN_STATUSES.includes(row.status))
     throw new DomainError("CONFLICT", "AI_BOOKING_NOT_OPEN", "This booking was decided already");
   const details = (row.details ?? {}) as Record<string, unknown>;
-  const written = paiseFromRupeesText(textOf(details.amount)) ?? 0;
   const link = (quoteId: string | null) =>
     linkAiBooking(
       tx,
@@ -139,8 +131,9 @@ export async function confirmAiPayment(
           dates: textOf(details.dates),
           travellers: textOf(details.travellers),
           pickup: textOf(details.pickup),
-          // A quote made from the chat holds at least what the person confirmed, so the payment always fits it.
-          amountPaise: Math.max(written, input.amountPaise),
+          // A quote made from the chat holds what the person confirmed, never the amount the AI wrote (it may be invented):
+          // the payment always fits it, and later money raises it (raiseAgreedQuote).
+          amountPaise: input.amountPaise,
         },
         proofMessageIds: row.proofMessageIds,
         linkedBookingId: row.bookingId,
@@ -148,8 +141,8 @@ export async function confirmAiPayment(
       },
       now,
     );
-  // An accepted quote's booking is found (or made) first; a sent one is accepted by the payment, then its booking made.
-  // With no quote at all, linking makes one from the chat and its booking. Either way one quote, one booking.
+  // An accepted quote's booking is found (or made) first. With none, linking makes a quote from the chat and its booking.
+  // Either way one quote, one booking.
   const target = await quoteToPay(tx, row);
   let bookingId: string | null = null;
   if (target === null || target.status === "accepted") bookingId = await link(target?.id ?? null);

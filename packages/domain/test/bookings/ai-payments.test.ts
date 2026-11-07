@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { takeBooking } from "../../src/ai/booking.js";
 import { createBookingFromQuote, getBooking } from "../../src/bookings/index.js";
-import { confirmAiPayment, refuseAiPayment } from "../../src/bookings/ai-payments.js";
+import { confirmAiPayment, refuseAiPayment, tripPaidOnConfirm } from "../../src/bookings/ai-payments.js";
 import { recordPayment, setQuoteStatus } from "../../src/quotes/index.js";
 import { aLead } from "../crm/support/records.js";
 import { aQuote, openWorld, type World } from "./support.js";
@@ -190,17 +190,20 @@ describe("the payment behind an AI booking", () => {
     expect(seen.moved[0]?.after).toMatchObject({ quoteId: realId, payments: [{ amountPaise: 1_000_000 }] });
   });
 
-  it("a lead with a sent quote is paid on it, no placeholder", async () => {
+  it("a lead's sent quote is never guessed: the money goes on a stand-in, and the customer hears the AI's trip", async () => {
     const { leadId, aiBookingId } = await aWaiting();
+    // An older proposal the customer never took: paying the AI booking must not accept it, nor name its trip.
     const sentId = await aRealQuote(leadId, 5_000_000);
+    const row = await world.inOrg((tx) => tx.aiBooking.findUniqueOrThrow({ where: { id: aiBookingId } }));
+    expect(await world.inOrg((tx) => tripPaidOnConfirm(tx, row))).toBe("Manali 5N for 4");
     const result = await confirm(aiBookingId);
-    expect(result.quoteId).toBe(sentId);
+    expect(result.quoteId).not.toBe(sentId);
     const seen = await world.inOrg(async (tx) => ({
-      quotes: await tx.quote.findMany({ where: { leadId }, select: { id: true, status: true } }),
+      sent: await tx.quote.findUniqueOrThrow({ where: { id: sentId }, select: { status: true } }),
       bookings: await tx.booking.findMany({ where: { leadId }, select: { quoteId: true, quotePlaceholder: true } }),
     }));
-    expect(seen.quotes).toEqual([{ id: sentId, status: "accepted" }]);
-    expect(seen.bookings).toEqual([{ quoteId: sentId, quotePlaceholder: false }]);
+    expect(seen.sent.status).toBe("sent");
+    expect(seen.bookings).toEqual([{ quoteId: result.quoteId, quotePlaceholder: true }]);
   });
 
   it("accepting a quote smaller than what was paid on the placeholder is refused", async () => {
@@ -237,6 +240,14 @@ describe("the payment behind an AI booking", () => {
         createBookingFromQuote(tx, { organizationId: world.organizationId, quoteId: smallId, confirmed: false }, now),
       ),
     ).rejects.toMatchObject({ reason: "QUOTE_BELOW_PAID" });
+  });
+
+  it("the stand-in quote's total is what the person confirmed, never the amount the AI wrote", async () => {
+    // The AI's own figure (an invented ₹24,999) must not become the trip's total, nor a balance to chase.
+    const { aiBookingId } = await aWaiting("₹24,999");
+    const result = await confirm(aiBookingId, 400_000);
+    const quote = await world.inOrg((tx) => tx.quote.findUniqueOrThrow({ where: { id: result.quoteId } }));
+    expect(quote.totalPaise).toBe(400_000n);
   });
 
   it("an AI amount below what the person entered makes the stand-in quote's total the entered amount", async () => {
