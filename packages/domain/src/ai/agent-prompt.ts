@@ -99,7 +99,7 @@ const handoffLines = {
     "Set handoff to true when they want to book, pay, confirm or cancel, ask for a discount or a custom price, complain, ask for a person, send something you can't read (a photo, a voice note), or ask anything the knowledge doesn't answer; tell them a colleague will get back shortly.",
 } as const;
 
-const naturalTaskLines: Record<TurnKind, string> = {
+export const naturalTaskLines: Record<TurnKind, string> = {
   reply: "Reply to their last message.",
   nudge:
     "They have gone quiet. Write ONE short, natural message that picks the conversation up again: about something you two were talking about, or a simple check-in. Never needy, never pushy.",

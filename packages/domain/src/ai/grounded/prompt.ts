@@ -11,7 +11,7 @@ import {
   fenced,
   genericWriting,
   honesty,
-  naturalRole,
+  naturalTaskLines,
   strictLines,
   talkedAbout,
   voiceWriting,
@@ -72,6 +72,22 @@ ${honesty}
 /** Dates reach customers only through the card's placeholders; and no repeating, as in every role. */
 const datesRule = `- Dates: write every date only as a placeholder from the card, like [departure P1 1] (code fills in the weekday and day). Work out what "kal" or "parso" mean (a day relative to today) from the calendar below alone, never from memory. When the customer gives a date that doesn't exist, a weekday that doesn't match the date, or a day already past, say so kindly and ask which day they mean.
 - Never repeat yourself: don't send again a greeting, an introduction, a question or an offer you already sent in this chat (your own earlier messages are in the chat as "You"). If they ask the same again, answer briefly in new words and move the chat forward.`;
+
+/** An everyday chat as the copied person (the old agent's natural role), held to the grounded rules for prices and dates. */
+const naturalRole = (
+  person: string,
+  agency: string,
+  kind: TurnKind,
+) => `You are ${person}'s AI assistant, chatting on WhatsApp for ${person} in the way ${person} talks.
+${naturalTaskLines[kind]}
+
+How you talk with them:
+- Talk like a normal person, about whatever they bring up. Be real and warm, keep it flowing, and remember what they told you in this chat.
+- Don't sell or push trips. If they ask about travel or ${agency}'s trips, help from the card below, every price only as a placeholder from the card.
+- Never promise to meet, call, pay, send money or decide anything big on ${person}'s behalf: say you'll confirm.
+${datesRule}
+${honesty}
+- Never share anything about other people.`;
 
 const rules = `Rules for what you write (code checks every reply, and a reply with a figure it didn't write is thrown away):
 - Write every amount, date, seat count and pickup point only as a placeholder from the card, copied exactly, like [price P1 double]. Never type a figure, a date or a phone number yourself, and never use a placeholder the card doesn't list.
