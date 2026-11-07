@@ -48,7 +48,7 @@ export interface Prepared {
 }
 
 /** The keys: D<n> for each destination that has a sellable package, S<n> for each sellable package. */
-async function readKeys(tx: Parameters<typeof sellablePackages>[0], today: CalendarDate): Promise<ReadKeys> {
+export async function readKeys(tx: Parameters<typeof sellablePackages>[0], today: CalendarDate): Promise<ReadKeys> {
   const ids = (await sellablePackages(tx, today)).map((one) => one.id);
   const rows = await tx.quoteTemplate.findMany({
     where: { id: { in: ids }, destinationId: { not: null } },

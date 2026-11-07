@@ -19,7 +19,7 @@ import {
   saveAutopilot,
 } from "../../src/ai/index.js";
 import { monthStartOf } from "../../src/inbox/index.js";
-import { parseCalendarDate, systemActor } from "../../src/kernel/index.js";
+import { formatRupees, parseCalendarDate, systemActor } from "../../src/kernel/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -433,6 +433,77 @@ describe("the autopilot", () => {
     expect(prompt).toContain("Them: Bhai Kerala ka plan hai December mein");
   });
 
+  describe("the test box of an agency answering from its packages (M4)", () => {
+    const groundedRead = JSON.stringify({
+      places: [{ destination: "D1", words: "Spiti", evidence: "Spiti" }],
+      startsOn: { date: "2026-11-14", month: null, evidence: "14 Nov" },
+      rooms: [],
+      travellers: { count: 2, evidence: "2 people" },
+      budgetRupees: null,
+      pickupCity: null,
+      chosen: null,
+      wants: "price",
+      wantsEvidence: "price",
+      special: null,
+      nearest: [],
+    });
+    const groundedWrite = (reply: string, actions: object = {}) =>
+      JSON.stringify({
+        reply,
+        actions: {
+          sendFiles: [],
+          sendAgencyFiles: false,
+          sendPayment: false,
+          requestBooking: false,
+          flag: null,
+          handOver: null,
+          note: null,
+          task: null,
+          ...actions,
+        },
+      });
+    async function switched() {
+      const on = await agency({ autopilot: true });
+      await aSellablePackage(on);
+      await on.inOrg((tx) => saveAutopilot(tx, on.owner, { ...on.settings, autopilot: true, grounded: true }, today));
+      const ask = () =>
+        testAnswer(
+          { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
+          on.owner,
+          "Spiti on 14 Nov for 2 people, price?",
+          turnAt,
+        );
+      return { ...on, ask };
+    }
+
+    it("runs the grounded turn as a dry run: the filled reply and what code would do, nothing sent or kept", async () => {
+      const on = await switched();
+      on.model.answer(
+        groundedRead,
+        groundedWrite("Spiti on [departure P1] is [price P1 double] per person.", {
+          flag: "wants a call",
+          note: "Spiti",
+        }),
+      );
+      const answered = await on.ask();
+      expect(answered.answer).toBe(`Spiti on Sat 14 Nov is ${formatRupees(699_900)} per person.`);
+      expect(answered).toMatchObject({ handoff: false, grounded: { actions: ["flag", "note"], blocked: null } });
+      expect(JSON.stringify(on.model.requests[0]?.messages)).toContain("READ_CHAT.");
+      expect(JSON.stringify(on.model.requests[1]?.messages)).toContain("WRITE_REPLY.");
+      expect(await on.inOrg((tx) => tx.whatsappMessage.count({ where: { direction: "out" } }))).toBe(0);
+      expect(await on.inOrg((tx) => tx.aiChat.count())).toBe(0);
+      expect(await on.inOrg((tx) => tx.departureHold.count())).toBe(0);
+      expect((await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(2);
+    });
+
+    it("shows why nothing would be sent when the check refuses the reply twice", async () => {
+      const on = await switched();
+      on.model.answer(groundedRead, groundedWrite("Spiti is ₹5,000."), groundedWrite("Still ₹5,000."));
+      const answered = await on.ask();
+      expect(answered).toMatchObject({ answer: "", handoff: false, grounded: { actions: [], blocked: "amount" } });
+    });
+  });
+
   it("answers a test question from the knowledge alone, spending one call and sending nothing", async () => {
     const on = await agency();
     await on.inOrg((tx) =>
@@ -445,7 +516,11 @@ describe("the autopilot", () => {
       "How much is Kerala?",
       turnAt,
     );
-    expect(answered).toMatchObject({ answer: "Kerala 5 nights is Rs 18,500 per person.", handoff: false });
+    expect(answered).toMatchObject({
+      answer: "Kerala 5 nights is Rs 18,500 per person.",
+      handoff: false,
+      grounded: null,
+    });
     expect(JSON.stringify(on.model.requests[0]?.messages)).toContain("Kerala 5 nights is Rs 18,500.");
     expect(await on.inOrg((tx) => tx.whatsappMessage.count({ where: { direction: "out" } }))).toBe(0);
     expect((await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(1);

@@ -1,7 +1,9 @@
 "use client";
 
 // Settings, AI: the test box (Ayush's, ported): ask what a customer might and see what the AI would answer from what it knows and
-// has learned, in the green bubble a customer would see. Nothing is sent, and it spends one of the month's AI calls.
+// has learned, in the green bubble a customer would see, and, for an agency answering from its packages, what code would do
+// with it or why nothing would go. Nothing is sent; it spends the month's AI calls the answer takes.
+import type { TestAiAnswer } from "@travel-crm/contracts/ai";
 import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
@@ -12,6 +14,38 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useTestAi } from "./use-ai";
+
+/** The check's reasons the screen has words for; any other reads as a plain safety check. */
+const blockedReasons = [
+  "amount",
+  "date",
+  "place",
+  "payment_claim",
+  "team_claim",
+  "payment_detail",
+  "unknown_placeholder",
+  "unfit",
+  "not_run_script",
+] as const;
+type BlockedReason = (typeof blockedReasons)[number] | "other";
+const reasonOf = (code: string): BlockedReason => blockedReasons.find((known) => known === code) ?? "other";
+
+/** For an agency answering from its packages: what code would do with the reply, or why nothing would be sent. */
+function WouldDo({ grounded }: { grounded: NonNullable<TestAiAnswer["grounded"]> }) {
+  const t = useTranslations("ai.test");
+  if (grounded.blocked !== null) {
+    return (
+      <p className="self-end text-caption text-status-attention-ink">
+        {t("blocked", { reason: t(`blockedReasons.${reasonOf(grounded.blocked)}`) })}
+      </p>
+    );
+  }
+  return grounded.actions.map((action) => (
+    <p key={action} className="self-end text-caption text-muted-foreground">
+      {t(`actions.${action}`)}
+    </p>
+  ));
+}
 
 export function TestSection() {
   const t = useTranslations("ai.test");
@@ -63,6 +97,7 @@ export function TestSection() {
                 {t("handoff", { reason: test.data.reason === "" ? t("noReason") : test.data.reason })}
               </p>
             )}
+            {test.data.grounded !== null && <WouldDo grounded={test.data.grounded} />}
           </div>
         )}
       </CardContent>

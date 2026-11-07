@@ -1,7 +1,7 @@
 // The test box (Ayush's, ported): what the AI would answer a customer's question from the agency's knowledge alone, to check it
 // before turning the autopilot on. Nothing is sent to anyone and no chat is read; it spends one of the agency's monthly AI calls
-// and its tokens are kept.
-import type { AgentAnswer } from "@travel-crm/contracts/ai";
+// and its tokens are kept. An agency answering from its packages gets the grounded turn's dry run instead (grounded/dry-run.ts).
+import type { AgentAnswer, TestAiAnswer } from "@travel-crm/contracts/ai";
 import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
@@ -14,6 +14,7 @@ import { autopilotOf, type AutopilotRow } from "./autopilot.js";
 import { activeLessons } from "./learning-store.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
 import { agencyVoiceOf } from "./voice.js";
+import { groundedDryRun } from "./grounded/dry-run.js";
 
 /** The reply as the customer would read it: the agency's payment details under it when the AI sends them. */
 const withPaymentDetails = (reply: string, answer: AgentAnswer | null, settings: AutopilotRow) =>
@@ -26,10 +27,14 @@ export async function testAnswer(
   access: MemberAccess,
   question: string,
   now: Date,
-): Promise<{ answer: string; handoff: boolean; reason: string }> {
+): Promise<TestAiAnswer> {
   const { db, ai } = dependencies;
   if (!ai.configured)
     throw new DomainError("FEATURE_LOCKED", "AI_NOT_CONFIGURED", "The AI assistant is not set up on this platform");
+  // An agency answering from its packages tests the agent its customers get.
+  if (await db.forOrg(access.organizationId, async (tx) => (await autopilotOf(tx)).grounded)) {
+    return groundedDryRun(dependencies, access, question, now);
+  }
   const agency = await dependencies.agencyName(access.organizationId);
   const prepared = await db.forOrg(access.organizationId, async (tx) => {
     const timeZone = await organizationTimeZone(tx, access.organizationId);
@@ -89,5 +94,6 @@ export async function testAnswer(
     handoff:
       prepared.settings.handoff !== "alert" && prepared.settings.persona !== "natural" && (answer?.handoff ?? false),
     reason: answer?.handoffReason ?? "",
+    grounded: null,
   };
 }

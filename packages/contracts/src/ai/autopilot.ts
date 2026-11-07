@@ -233,7 +233,21 @@ export const voiceAnswer = z.object({
 
 /** A question to try the AI on, from the agency's knowledge alone, before turning it on (Settings, AI). */
 export const testAiInput = z.strictObject({ question: text(1000).min(1) });
-export const testAiAnswer = z.object({ answer: z.string(), handoff: z.boolean(), reason: z.string() });
+/** What code would do after a grounded reply: send brochures, the agency's files, book (payment details and the booking). */
+export const testAiAction = z.enum(["files", "agencyFiles", "book", "flag", "note", "task"]);
+export type TestAiAction = z.infer<typeof testAiAction>;
+
+export const testAiAnswer = z.object({
+  answer: z.string(),
+  handoff: z.boolean(),
+  reason: z.string(),
+  /**
+   * For an agency answering from its packages, the grounded turn's dry run: what code would do with the reply, or the
+   * check's reason code when nothing would be sent. Null for the first agent.
+   */
+  grounded: z.object({ actions: z.array(testAiAction), blocked: z.string().nullable() }).nullable(),
+});
+export type TestAiAnswer = z.infer<typeof testAiAnswer>;
 
 /** The AI's last day at a glance, for the AI screen's head. */
 export const aiOverview = z.object({

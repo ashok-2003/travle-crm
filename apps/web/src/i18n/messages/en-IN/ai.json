@@ -276,7 +276,28 @@
     "ask": "Ask",
     "noAnswer": "(no answer)",
     "handoff": "It would hand the chat to your team: {reason}",
-    "noReason": "a person is needed"
+    "noReason": "a person is needed",
+    "actions": {
+      "files": "It would send the package's brochure.",
+      "agencyFiles": "It would send your agency's photos and files.",
+      "book": "It would send the payment details and take the booking.",
+      "flag": "It would flag the chat for your team.",
+      "note": "It would add a note to the lead.",
+      "task": "It would add a follow-up for your team."
+    },
+    "blocked": "Nothing would be sent: {reason}. Your team would be told.",
+    "blockedReasons": {
+      "amount": "it typed a price itself",
+      "date": "it typed a date itself",
+      "place": "it named a place you don't sell",
+      "payment_claim": "it said a payment arrived or a booking is confirmed",
+      "team_claim": "it said your team had decided something",
+      "payment_detail": "it typed payment details itself",
+      "unknown_placeholder": "it used a figure your packages don't have",
+      "unfit": "its answer couldn't be read",
+      "not_run_script": "it can't check a place written in that script, so a person answers",
+      "other": "a safety check stopped it"
+    }
   },
   "hero": {
     "unnamed": "Your AI agent",
