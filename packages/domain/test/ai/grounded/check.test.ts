@@ -161,7 +161,7 @@ describe("checkReply", () => {
   });
 
   it.each([
-    "Pay the advance to UPI dadhichtrips@ybl",
+    "Pay the advance to UPI sampletrips@ybl",
     "a/c 50100234567890, IFSC HDFC0001234",
     "Pay here: https://rzp.io/l/manali",
     "Scan or pay at upi://pay?pa=trails@okhdfcbank",

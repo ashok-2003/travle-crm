@@ -113,7 +113,7 @@ describe("the grounded prompt", () => {
 
   it("gives the writer no payment detail the agency typed anywhere", () => {
     const text = groundedPrompt(
-      { ...settings, strictRules: "Advance only to dadhichtrips@ybl." },
+      { ...settings, strictRules: "Advance only to sampletrips@ybl." },
       "Himalaya Trails",
       "reply",
       pack({
@@ -123,7 +123,7 @@ describe("the grounded prompt", () => {
       }),
     );
     for (const detail of [
-      "dadhichtrips@ybl",
+      "sampletrips@ybl",
       "50100234567890",
       "HDFC0001234",
       "rzp.io",

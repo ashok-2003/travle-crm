@@ -100,7 +100,7 @@ describe("paymentDetailsIn", () => {
   const found = (text: string) => paymentDetailsIn(text).map((span) => text.slice(span.start, span.end));
 
   it.each([
-    ["Pay the advance to UPI dadhichtrips@ybl", "dadhichtrips@ybl"],
+    ["Pay the advance to UPI sampletrips@ybl", "sampletrips@ybl"],
     ["upi: 9876543210@paytm.", "9876543210@paytm"],
     ["GPay to himalaya.trails@okhdfcbank", "himalaya.trails@okhdfcbank"],
     ["a/c 50100234567890, IFSC HDFC0001234", "50100234567890"],
@@ -154,7 +154,7 @@ describe("paymentDetailsIn", () => {
   });
 
   it("withoutPaymentDetails takes them out and keeps the words", () => {
-    expect(withoutPaymentDetails("Pay to dadhichtrips@ybl or a/c 50100234567890 (IFSC HDFC0001234).")).toBe(
+    expect(withoutPaymentDetails("Pay to sampletrips@ybl or a/c 50100234567890 (IFSC HDFC0001234).")).toBe(
       "Pay to or a/c (IFSC).",
     );
     expect(withoutPaymentDetails("Mail asha@gmail.com")).toBe("Mail asha@gmail.com");

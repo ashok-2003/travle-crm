@@ -48,7 +48,7 @@ describe("drafting one trip", () => {
             "Day 2: Overnight A/C Volvo to Manali",
             "Beas river bank walk",
             "Bookings: info@agency.com",
-            "Advance ₹2,000 per person, UPI dadhich@okaxis",
+            "Advance ₹2,000 per person, UPI sample@okaxis",
             "Bank IFSC HDFC0001234 account no 50100123456789",
           ].join("\n"),
         },
@@ -281,7 +281,7 @@ describe("drafting one trip", () => {
       "Advance ₹2,000 per person, UPI [payment details removed]",
     );
     const everything = JSON.stringify(result) + sent;
-    for (const secret of ["dadhich@okaxis", "HDFC0001234", "50100123456789"]) expect(everything).not.toContain(secret);
+    for (const secret of ["sample@okaxis", "HDFC0001234", "50100123456789"]) expect(everything).not.toContain(secret);
     expect(result.cancellationNotes.value).toContain("[payment details removed]");
   });
 

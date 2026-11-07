@@ -9,7 +9,7 @@ import { anAgency, createTestImports, memberOf, type TestImports } from "../impo
 const REMOVED = "[payment details removed]";
 
 describe("redactPayment", () => {
-  it.each(["x@ptsbi", "x@kotak", "x@okhdfc", "dadhich@okaxis", "manali.holidays@ybl."])(
+  it.each(["x@ptsbi", "x@kotak", "x@okhdfc", "sample@okaxis", "manali.holidays@ybl."])(
     "removes the UPI id %s",
     (id) => {
       expect(redactPayment(`Pay to ${id} today`)).toContain(REMOVED);

@@ -5,7 +5,7 @@ on 2026-10-27/28) with a design whose facts come only from the agency's packages
 
 ## Why
 
-Agencies complain that the WhatsApp agent sends the wrong trips and the wrong prices. We read DadhichTrips' last 30 days
+Agencies complain that the WhatsApp agent sends the wrong trips and the wrong prices. We read one pilot agency's last 30 days
 (read-only, 2026-11-05): 159 chats, 1,254 messages written by the AI, 1 by staff. The AI runs their WhatsApp alone.
 
 - **Wrong place.** In 18 of the 132 chats where the customer named a place, the AI answered with another (34 messages):
@@ -211,7 +211,7 @@ a task to tell the customer. *(My call.)*
 
 ### 7. Test set
 
-Built from real DadhichTrips situations, anonymised: wrong-place cases, price questions by sharing and month, a date in
+Built from a pilot agency's real situations, anonymised: wrong-place cases, price questions by sharing and month, a date in
 no season, a place not run, booking and payment, Hinglish and Hindi, a voice note, a customer asking for a person.
 About 100 cases, each with the checks that must hold (places, amounts, actions). Names, phones and amounts are changed
 before a case is saved. The real cases live privately outside the repository (beside the deploy notes in
