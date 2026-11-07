@@ -132,10 +132,32 @@ describe("paymentDetailsIn", () => {
     expect(found(text)).toEqual([]);
   });
 
+  it.each([
+    ["A/c 5010 0234 5678 90", "5010 0234 5678 90"],
+    ["Transfer to 5010-0234-5678-90", "5010-0234-5678-90"],
+    ["Account 1234 5678 9", "1234 5678 9"],
+    ["khata 5010 0234 56", "5010 0234 56"],
+    ["acct no. 1234-5678-901", "1234-5678-901"],
+  ])("finds an account number written in groups: %s", (text, expected) => {
+    expect(found(text)).toContain(expected);
+  });
+
+  it.each([
+    "Call +91 98765 43210",
+    "Pickup at Kashmere Gate, call 98765 43210",
+    "Call +91-98765-43210",
+    "Manali 5N6D in 2026",
+    "Leaving 14/11, back 20-11-2026",
+    "Ref 1234 5678 9",
+  ])("finds no account number in %s", (text) => {
+    expect(found(text)).toEqual([]);
+  });
+
   it("withoutPaymentDetails takes them out and keeps the words", () => {
     expect(withoutPaymentDetails("Pay to dadhichtrips@ybl or a/c 50100234567890 (IFSC HDFC0001234).")).toBe(
       "Pay to or a/c (IFSC).",
     );
     expect(withoutPaymentDetails("Mail asha@gmail.com")).toBe("Mail asha@gmail.com");
+    expect(withoutPaymentDetails("A/c 5010 0234 5678 90, IFSC HDFC0001234")).toBe("A/c, IFSC");
   });
 });
