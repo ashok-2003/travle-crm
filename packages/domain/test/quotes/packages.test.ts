@@ -7,6 +7,7 @@ import { parseCalendarDate } from "../../src/kernel/index.js";
 import { createBookingFromQuote } from "../../src/bookings/index.js";
 import {
   calculateFromPrice,
+  createPackage,
   getPackage,
   getQuote,
   listPackages,
@@ -26,6 +27,7 @@ import { openWorld, type World } from "../bookings/support.js";
 import type { TierLine, UpdatePackageInput } from "@travel-crm/contracts/quotes";
 
 const context = { supplierStateCode: "27", now: new Date("2026-11-10T06:00:00Z") };
+const today = parseCalendarDate("2026-11-10");
 const reasonOf = (promise: Promise<unknown>) =>
   promise.then(
     () => null,
@@ -252,9 +254,66 @@ describe("packages and the quotes made from them", () => {
     it("lists its address, its page and how many tiers it has", async () => {
       const id = await aPackage();
       await world.inOrg((tx) => saveTier(tx, world.manager, { packageId: id, name: "Standard", lines: [line()] }));
-      const listed = (await world.inOrg((tx) => listPackages(tx))).find((one) => one.id === id);
-      expect(listed).toMatchObject({ tierCount: 1, published: false });
+      const listed = (await world.inOrg((tx) => listPackages(tx, today))).find((one) => one.id === id);
+      expect(listed).toMatchObject({ tierCount: 1, published: false, kind: "custom", nights: 5, aiSellable: false });
       expect(listed?.slug).toMatch(/^package-/);
+    });
+
+    it("starts a new, empty package of either kind, named, and refuses a name in use", async () => {
+      const made = await world.inOrg((tx) =>
+        createPackage(tx, world.manager, { name: "Spiti group trip", kind: "group" }),
+      );
+      expect(await detail(made.id)).toMatchObject({
+        name: "Spiti group trip",
+        title: "Spiti group trip",
+        kind: "group",
+      });
+      expect(
+        await reasonOf(
+          world.inOrg((tx) => createPackage(tx, world.manager, { name: "Spiti group trip", kind: "custom" })),
+        ),
+      ).toBe("PACKAGE_NAME_TAKEN");
+      const audit = await world.inOrg((tx) =>
+        tx.auditEntry.findMany({ where: { entityId: made.id }, select: { action: true, actorUserId: true } }),
+      );
+      expect(audit).toEqual([{ action: "quote-package.created", actorUserId: world.manager.userId }]);
+    });
+
+    it("lists a group trip's departures from today on, and a custom trip's From price", async () => {
+      const group = await world.inOrg((tx) =>
+        createPackage(tx, world.manager, { name: "Manali batches", kind: "group" }),
+      );
+      const departure = (start: string, status: string) =>
+        world.inOrg((tx) =>
+          tx.departure.create({
+            data: {
+              title: `Manali ${start}`,
+              templateId: group.id,
+              startDate: new Date(`${start}T00:00:00Z`),
+              endDate: new Date(`${start}T00:00:00Z`),
+              seatsTotal: 20,
+              status,
+              cancelledReason: status === "cancelled" ? "Too few travellers" : null,
+            },
+          }),
+        );
+      await departure("2026-11-09", "open");
+      await departure("2026-11-10", "open");
+      await departure("2026-11-21", "closed");
+      await departure("2026-11-28", "cancelled");
+      const custom = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
+      const listed = await world.inOrg((tx) => listPackages(tx, today));
+      expect(listed.find((one) => one.id === group.id)).toMatchObject({
+        kind: "group",
+        nights: null,
+        departuresAhead: 2,
+        fromPricePaise: null,
+      });
+      expect(listed.find((one) => one.id === custom)).toMatchObject({
+        kind: "custom",
+        fromPricePaise: 1_800_000,
+        departuresAhead: 0,
+      });
     });
   });
 

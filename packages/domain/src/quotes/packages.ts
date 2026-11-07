@@ -3,6 +3,7 @@
 // (a 4-star beside the 3-star): a copy to change, which the customer sees beside the first on the link.
 import {
   quotePackageList,
+  type CreatePackageInput,
   type QuotePackage,
   type QuoteDetail,
   type SavePackageInput,
@@ -11,13 +12,14 @@ import { isUniqueViolation, softDeleted, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
-import { calendarDateIn, DomainError } from "../kernel/index.js";
+import { calendarDateIn, DomainError, type CalendarDate } from "../kernel/index.js";
 import { nameTaken } from "./package-row.js";
 import { copyOf, daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
 import { createQuote, type QuoteContext } from "./quotes.js";
 import { quoteTaxRate } from "@travel-crm/contracts/quotes";
 
-export async function listPackages(tx: OrgTx): Promise<QuotePackage[]> {
+/** The agency's packages by name; `today` (the agency's) counts a group trip's departures still to come. */
+export async function listPackages(tx: OrgTx, today: CalendarDate): Promise<QuotePackage[]> {
   const rows = await tx.quoteTemplate.findMany({
     orderBy: { name: "asc" },
     select: {
@@ -29,7 +31,16 @@ export async function listPackages(tx: OrgTx): Promise<QuotePackage[]> {
       taxRateBasisPoints: true,
       published: true,
       slug: true,
-      _count: { select: { tiers: true } },
+      kind: true,
+      nights: true,
+      fromPricePaise: true,
+      aiSellable: true,
+      _count: {
+        select: {
+          tiers: true,
+          departures: { where: { status: { not: "cancelled" }, startDate: { gte: new Date(`${today}T00:00:00Z`) } } },
+        },
+      },
     },
   });
   return quotePackageList.parse(
@@ -43,8 +54,39 @@ export async function listPackages(tx: OrgTx): Promise<QuotePackage[]> {
       published: row.published,
       slug: row.slug,
       tierCount: row._count.tiers,
+      kind: row.kind,
+      nights: row.nights,
+      fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
+      aiSellable: row.aiSellable,
+      departuresAhead: row._count.departures,
     })),
   );
+}
+
+/** A new, empty package under a name, filled in on its own page; a name in use is refused. */
+export async function createPackage(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: CreatePackageInput,
+): Promise<{ id: string }> {
+  if ((await tx.quoteTemplate.findFirst({ where: { name: input.name }, select: { id: true } })) !== null)
+    throw nameTaken();
+  try {
+    const row = await tx.quoteTemplate.create({
+      data: { name: input.name, title: input.name, kind: input.kind, createdBy: access.userId },
+      select: { id: true },
+    });
+    await recordAudit(tx, access, {
+      action: "quote-package.created",
+      entityType: "quote_template",
+      entityId: row.id,
+      after: { name: input.name, kind: input.kind },
+    });
+    return row;
+  } catch (error) {
+    if (isUniqueViolation(error)) throw nameTaken();
+    throw error;
+  }
 }
 
 /** Saves the quote's plan and price as a package; a name in use is refused. */

@@ -243,22 +243,6 @@ export const moneySummary = z.object({
 });
 export type MoneySummary = z.infer<typeof moneySummary>;
 
-/** A ready package ("Manali 5 days") a quote starts from in one tap: its plan and its price, saved from a quote. */
-export const quotePackage = z.object({
-  id: recordId,
-  name: z.string(),
-  title: z.string(),
-  days: z.int(),
-  /** Its lines' total before GST. */
-  subtotalPaise: z.int(),
-  taxRateBasisPoints: quoteTaxRate,
-  /** Release 7b: whether its public page is published, the page's address, and how many tiers it has. */
-  published: z.boolean(),
-  slug: z.string().nullable(),
-  tierCount: z.int(),
-});
-export type QuotePackage = z.infer<typeof quotePackage>;
-export const quotePackageList = z.array(quotePackage);
 export const savePackageInput = z.strictObject({ quoteId: recordId, name: text(80).min(1) });
 export type SavePackageInput = z.infer<typeof savePackageInput>;
 export const packageIdInput = z.strictObject({ packageId: recordId });

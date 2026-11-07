@@ -67,6 +67,34 @@ export const packageKinds = ["custom", "group"] as const;
 export const packageKind = z.enum(packageKinds);
 export type PackageKind = (typeof packageKinds)[number];
 
+/** A ready package ("Manali 5 days") in the agency's list: a quote starts from it in one tap, and the AI may sell it. */
+export const quotePackage = z.object({
+  id: recordId,
+  name: z.string(),
+  title: z.string(),
+  days: z.int(),
+  /** Its lines' total before GST. */
+  subtotalPaise: z.int(),
+  taxRateBasisPoints: quoteTaxRate,
+  /** Release 7b: whether its public page is published, the page's address, and how many tiers it has. */
+  published: z.boolean(),
+  slug: z.string().nullable(),
+  tierCount: z.int(),
+  kind: packageKind,
+  nights: z.int().nullable(),
+  /** The "From" price a custom trip shows (each person), when it has one. */
+  fromPricePaise: z.int().nullable(),
+  aiSellable: z.boolean(),
+  /** A group trip's departures from today on that are not cancelled. */
+  departuresAhead: z.int(),
+});
+export type QuotePackage = z.infer<typeof quotePackage>;
+export const quotePackageList = z.array(quotePackage);
+
+/** A new, empty package, filled in on its own page: a custom trip quoted for each customer, or a group trip on set dates. */
+export const createPackageInput = z.strictObject({ name: text(80).min(1), kind: packageKind });
+export type CreatePackageInput = z.infer<typeof createPackageInput>;
+
 const unique = (values: readonly unknown[]) => new Set(values).size === values.length;
 
 export const packageFields = {
