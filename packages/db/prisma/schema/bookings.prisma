@@ -278,32 +278,40 @@ model CancellationPolicyRule {
 /// How an agency's bookings run: the default payment schedule, when travellers' details lock, the reminders and their
 /// templates, the packing list, the emergency contact, the cancellation notes and the review link. One row each.
 model BookingSettings {
-  organizationId      String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  organizationId             String       @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   /// The default schedule offered at Confirm: this share (basis points) now, the rest this many days before departure.
-  advanceBasisPoints  Int          @default(3000) @map("advance_basis_points")
-  balanceDaysBefore   Int          @default(15) @map("balance_days_before")
-  detailsCutoffDays   Int          @default(3) @map("details_cutoff_days")
-  defaultLevel        String       @default("basic") @map("default_level")
+  advanceBasisPoints         Int          @default(3000) @map("advance_basis_points")
+  balanceDaysBefore          Int          @default(15) @map("balance_days_before")
+  detailsCutoffDays          Int          @default(3) @map("details_cutoff_days")
+  defaultLevel               String       @default("basic") @map("default_level")
   /// Days before an unpaid instalment's due day that its reminder goes (0 is the day itself).
-  balanceReminderDays Int[]        @default([3, 0]) @map("balance_reminder_days")
-  detailsReminderDays Int          @default(10) @map("details_reminder_days")
-  balanceTemplateId   String?      @map("balance_template_id") @db.Uuid
-  balanceParams       String[]     @default([]) @map("balance_params")
-  detailsTemplateId   String?      @map("details_template_id") @db.Uuid
-  detailsParams       String[]     @default([]) @map("details_params")
-  reportingTemplateId String?      @map("reporting_template_id") @db.Uuid
-  reportingParams     String[]     @default([]) @map("reporting_params")
-  feedbackTemplateId  String?      @map("feedback_template_id") @db.Uuid
-  feedbackParams      String[]     @default([]) @map("feedback_params")
-  packingList         String       @default("") @map("packing_list")
-  emergencyName       String       @default("") @map("emergency_name")
-  emergencyPhone      String       @default("") @map("emergency_phone")
-  bankDetails         String       @default("") @map("bank_details")
-  cancellationNotes   String       @default("") @map("cancellation_notes")
-  googleReviewUrl     String       @default("") @map("google_review_url")
-  updatedBy           String?      @map("updated_by") @db.Uuid
-  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  balanceReminderDays        Int[]        @default([3, 0]) @map("balance_reminder_days")
+  detailsReminderDays        Int          @default(10) @map("details_reminder_days")
+  balanceTemplateId          String?      @map("balance_template_id") @db.Uuid
+  balanceParams              String[]     @default([]) @map("balance_params")
+  detailsTemplateId          String?      @map("details_template_id") @db.Uuid
+  detailsParams              String[]     @default([]) @map("details_params")
+  /// What goes to a customer once a person confirms their payment, or can't find it: the agency's own words, with
+  /// {name}, {amount}, {trip} and {date}; outside WhatsApp's 24-hour window, the approved template and its parameters.
+  paymentConfirmedText       String       @default("Thank you {name}! We have received {amount} for {trip} on {date}. Your booking is confirmed.") @map("payment_confirmed_text")
+  paymentNotFoundText        String       @default("Hi {name}, we could not find your payment of {amount} yet. Could you send the transaction reference or a clearer screenshot?") @map("payment_not_found_text")
+  paymentConfirmedTemplateId String?      @map("payment_confirmed_template_id") @db.Uuid
+  paymentConfirmedParams     String[]     @default([]) @map("payment_confirmed_params")
+  paymentNotFoundTemplateId  String?      @map("payment_not_found_template_id") @db.Uuid
+  paymentNotFoundParams      String[]     @default([]) @map("payment_not_found_params")
+  reportingTemplateId        String?      @map("reporting_template_id") @db.Uuid
+  reportingParams            String[]     @default([]) @map("reporting_params")
+  feedbackTemplateId         String?      @map("feedback_template_id") @db.Uuid
+  feedbackParams             String[]     @default([]) @map("feedback_params")
+  packingList                String       @default("") @map("packing_list")
+  emergencyName              String       @default("") @map("emergency_name")
+  emergencyPhone             String       @default("") @map("emergency_phone")
+  bankDetails                String       @default("") @map("bank_details")
+  cancellationNotes          String       @default("") @map("cancellation_notes")
+  googleReviewUrl            String       @default("") @map("google_review_url")
+  updatedBy                  String?      @map("updated_by") @db.Uuid
+  updatedAt                  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization               Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@map("booking_settings")
 }

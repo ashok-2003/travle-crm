@@ -1,0 +1,242 @@
+[
+  {
+    "name": "A price the model typed is asked again, then sent through the code",
+    "chat": [{ "from": "customer", "text": "Manali on 14 Nov for 2 people, what is the price?" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "wants": "price",
+        "wantsEvidence": "what is the price"
+      },
+      "write": [
+        { "reply": "Manali is ₹7,999 per person for you." },
+        { "reply": "Manali on [departure P1] is [price P1 double] per person." }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["₹6,999", "14 Nov"],
+      "excludes": ["7,999"],
+      "flagged": false,
+      "messages": 1
+    }
+  },
+  {
+    "name": "A typed price twice: nothing is sent and the team is told",
+    "chat": [{ "from": "customer", "text": "Manali on 14 Nov for 2 people, what is the price?" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "wants": "price",
+        "wantsEvidence": "what is the price"
+      },
+      "write": [{ "reply": "Manali is ₹7,999 per person for you." }, { "reply": "It is only ₹7,999 per person." }]
+    },
+    "expect": {
+      "sent": false,
+      "flagged": true,
+      "notices": 1,
+      "blockedReason": "amount",
+      "messages": 0
+    }
+  },
+  {
+    "name": "The final B2B rate is not made up: the team is told",
+    "chat": [{ "from": "customer", "text": "What is your final B2B rate for Manali on 14 Nov, 2 people?" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "B2B rate for Manali" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "special": { "kind": "b2b", "evidence": "final B2B rate" },
+        "wants": "price",
+        "wantsEvidence": "final B2B rate"
+      },
+      "write": [
+        {
+          "reply": "I can't quote a special rate here. I have passed your request on, so the team can look at it and get back to you."
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["special rate"],
+      "excludes": ["₹"],
+      "flagged": true,
+      "notices": 1,
+      "blockedReason": "special_price",
+      "messages": 1
+    }
+  },
+  {
+    "name": "A discount for a group is the team's to give",
+    "chat": [{ "from": "customer", "text": "We are 10 people for Manali on 14 Nov, any discount?" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "10 people for Manali" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 10, "evidence": "10 people" },
+        "special": { "kind": "group_rate", "evidence": "any discount" },
+        "wants": "price",
+        "wantsEvidence": "any discount"
+      },
+      "write": [{ "reply": "Group rates are something the team looks at. I have flagged your request for them." }]
+    },
+    "expect": {
+      "sent": true,
+      "excludes": ["₹", "% off"],
+      "flagged": true,
+      "blockedReason": "special_price",
+      "messages": 1
+    }
+  },
+  {
+    "name": "A date in no season: the team will confirm, no amount",
+    "chat": [{ "from": "customer", "text": "Manali on 10 Dec for 2 people, what is the price?" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 10 Dec" }],
+        "startsOn": { "date": "2026-12-10", "month": null, "evidence": "10 Dec" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "wants": "price",
+        "wantsEvidence": "what is the price"
+      },
+      "write": [
+        { "reply": "Manali on that day is [price P1 double] per person." },
+        { "reply": "We don't have a set price for that day yet. The team will confirm the price and the seats." }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["team will confirm"],
+      "excludes": ["₹", "[", "Dec"],
+      "actions": { "payment": false, "booking": false },
+      "messages": 1
+    }
+  },
+  {
+    "name": "A closed departure: the team will confirm, no booking",
+    "chat": [{ "from": "customer", "text": "Manali on 21 Nov for 2 people, book it" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 21 Nov" }],
+        "startsOn": { "date": "2026-11-21", "month": null, "evidence": "21 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "rooms": [{ "type": "double", "count": 1, "evidence": "2 people" }],
+        "wants": "book",
+        "wantsEvidence": "book it"
+      },
+      "write": [
+        {
+          "reply": "I can't see an open departure for those dates, so the team will confirm what is available.",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["team will confirm"],
+      "excludes": ["₹"],
+      "actions": { "payment": false, "booking": false },
+      "records": { "bookings": 0, "holds": 0, "quotes": 0 },
+      "messages": 1
+    }
+  },
+  {
+    "name": "One seat left for two travellers: no payment, no booking",
+    "chat": [{ "from": "customer", "text": "Manali on 28 Nov for 2 people, book it" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 28 Nov" }],
+        "startsOn": { "date": "2026-11-28", "month": null, "evidence": "28 Nov" },
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "rooms": [{ "type": "double", "count": 1, "evidence": "2 people" }],
+        "wants": "book",
+        "wantsEvidence": "book it"
+      },
+      "write": [
+        {
+          "reply": "Only [seats P1] seat is left for those dates, so I will ask the team to look at it for 2 people.",
+          "actions": { "sendPayment": true, "requestBooking": true }
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["1 seat"],
+      "actions": { "payment": false, "booking": false },
+      "records": { "bookings": 0, "holds": 0, "quotes": 0 },
+      "messages": 1
+    }
+  },
+  {
+    "name": "A date nobody wrote is ignored: the price is the lowest coming one",
+    "chat": [{ "from": "customer", "text": "Manali price please?" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali price" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "wants": "price",
+        "wantsEvidence": "price please"
+      },
+      "write": [{ "reply": "Manali starts from [from P1 double] per person. Which date are you looking at?" }]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["starts from ₹6,999", "Which date"],
+      "excludes": ["14 Nov"],
+      "messages": 1
+    }
+  },
+  {
+    "name": "Kashmir is a custom trip: its from-price, nothing booked",
+    "chat": [{ "from": "customer", "text": "Kashmir trip for 2 people, how much?" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D1", "words": "Kashmir", "evidence": "Kashmir trip" }],
+        "travellers": { "count": 2, "evidence": "2 people" },
+        "wants": "price",
+        "wantsEvidence": "how much"
+      },
+      "write": [
+        {
+          "reply": "Our Kashmir Classic starts from [from P1] per person. The team can plan the final details with you."
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["Kashmir Classic", "₹18,000"],
+      "actions": { "payment": false, "booking": false },
+      "messages": 1
+    }
+  },
+  {
+    "name": "Facts that are not money or dates never block the reply",
+    "chat": [{ "from": "customer", "text": "Manali on 14 Nov for 2 adults, tell me about the trip" }],
+    "scripted": {
+      "read": {
+        "places": [{ "destination": "D2", "words": "Manali", "evidence": "Manali on 14 Nov" }],
+        "startsOn": { "date": "2026-11-14", "month": null, "evidence": "14 Nov" },
+        "travellers": { "count": 2, "evidence": "2 adults" },
+        "wants": "information",
+        "wantsEvidence": "tell me about the trip"
+      },
+      "write": [
+        {
+          "reply": "It is a 5N6D trip for 2 adults. On Day 3 you go up to 4,500 ft. Pickup: [pickup P1]."
+        }
+      ]
+    },
+    "expect": {
+      "sent": true,
+      "includes": ["5N6D", "2 adults", "Day 3", "4,500 ft", "+91 98765 43210"],
+      "flagged": false,
+      "messages": 1
+    }
+  }
+]

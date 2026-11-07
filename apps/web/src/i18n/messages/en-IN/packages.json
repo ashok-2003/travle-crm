@@ -1,12 +1,45 @@
 {
   "page": {
     "title": "Package",
-    "back": "Quotes and packages",
+    "back": "Packages",
     "intro": "A ready trip a quote starts from, and, once published, a page for visitors with a form that lands in your leads.",
     "loading": "Loading the package",
     "loadFailed": "The package didn't load.",
     "retry": "Try again",
     "notFound": "This package isn't here any more."
+  },
+  "list": {
+    "title": "Packages",
+    "intro": "Your ready trips. A lead's New quote starts from any of them in one tap, and the AI sells the ones you let it.",
+    "loading": "Loading the packages",
+    "loadFailed": "The packages didn't load.",
+    "none": "No packages yet. Choose New package, or save a quote as one.",
+    "summary": "{days, plural, =0 {No days} one {# day} other {# days}} · {price} before GST",
+    "summaryTiers": "{days, plural, =0 {No days} one {# day} other {# days}} · {tiers, plural, one {# tier} other {# tiers}}",
+    "summaryFrom": "{nights, plural, =0 {Custom trip} one {Custom trip · # night} other {Custom trip · # nights}} · From {price}",
+    "summaryCustom": "{nights, plural, =0 {Custom trip} one {Custom trip · # night} other {Custom trip · # nights}}",
+    "summaryGroup": "{nights, plural, =0 {Group trip} one {Group trip · # night} other {Group trip · # nights}} · {departures, plural, =0 {no departures ahead} one {# departure ahead} other {# departures ahead}}",
+    "published": "Page published",
+    "aiSells": "AI sells it",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "Quotes made from it stay as they are."
+  },
+  "create": {
+    "new": "New package",
+    "title": "New package",
+    "description": "Name it and choose its kind. You add its prices, dates and files on its own page next.",
+    "name": "Package name",
+    "nameHint": "What your team calls it, such as Manali 5 days.",
+    "kind": "What kind of package",
+    "create": "Create package",
+    "creating": "Creating…",
+    "created": "Package created",
+    "problems": {
+      "required": "Give it a name.",
+      "tooLong": "Use 80 letters at most."
+    }
   },
   "form": {
     "quoteTitle": "The trip",
@@ -61,7 +94,54 @@
       "invalid": "Check this.",
       "slug": "Use lower-case letters, digits and hyphens.",
       "price": "Give an amount in rupees."
-    }
+    },
+    "kind": "What kind of package",
+    "kinds": {
+      "custom": "A custom trip, quoted for each customer",
+      "group": "A group trip that departs on set dates"
+    },
+    "groupTitle": "The group trip",
+    "roomTypes": "Room types sold",
+    "roomTypeNames": {
+      "single": "Single",
+      "double": "Double",
+      "triple": "Triple",
+      "quad": "Quad",
+      "child_bed": "Child with bed",
+      "child_no_bed": "Child without bed"
+    },
+    "weeklyDays": "Departs on",
+    "weekdays": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "departureMonths": "Months it departs",
+    "departureMonthsHint": "Leave all off for every month.",
+    "months": {
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
+    },
+    "seatsPerDeparture": "Seats on each departure",
+    "pricesIncludeGst": "Prices include GST",
+    "advancePerPerson": "Advance to hold a seat (each person)",
+    "pickupPoints": "Pickup points",
+    "pickupPointsHint": "Where the group boards, one a line.",
+    "startCity": "Starts from"
   },
   "tiers": {
     "title": "Tiers",
@@ -170,6 +250,111 @@
       "required": "Fill this in.",
       "invalid": "Check this.",
       "https": "Use an https address."
+    }
+  },
+  "sell": {
+    "title": "Let the AI sell it",
+    "label": "AI can sell this package",
+    "on": "The AI may offer this package to customers.",
+    "off": "The AI does not offer this package.",
+    "needs": "Before the AI can sell it, it needs:",
+    "gaps": {
+      "room_types": "At least one room type",
+      "prices": "A price for each room type in a season",
+      "advance": "The advance to hold a seat",
+      "departures": "Departure days and seats on each",
+      "from_price": "A \"From\" price"
+    },
+    "nowOn": "The AI can sell this package",
+    "nowOff": "The AI no longer sells this package",
+    "stillNeeds": "The AI will not sell this package until this is fixed:",
+    "managerOnly": "Whoever manages settings lets the AI sell a package."
+  },
+  "seasons": {
+    "title": "Seasons and room prices",
+    "intro": "The price per person of each room type, for the dates a season covers. A booking is priced from the season of its first day.",
+    "none": "No seasons yet. Add one to give the room types a price.",
+    "dates": "{from} to {to}",
+    "priceLine": "{room}: {price}",
+    "notOffered": "Not sold",
+    "add": "Add a season",
+    "edit": "Change",
+    "editNamed": "Change {name}",
+    "remove": "Remove",
+    "removeNamed": "Remove {name}",
+    "removeTitle": "Remove {name}?",
+    "removeDescription": "Bookings already made keep their price. New ones on these dates are no longer priced from it.",
+    "removed": "Season removed",
+    "noRoomTypes": "Choose the room types sold first, in the form on the left."
+  },
+  "season": {
+    "addTitle": "Add a season",
+    "editTitle": "Change this season",
+    "description": "The dates, and the price per person of each room type sold, {gst, select, including {including GST} other {before GST}}.",
+    "label": "Name",
+    "labelHint": "Such as \"Peak, Oct to Dec\".",
+    "startsOn": "First day",
+    "endsOn": "Last day",
+    "price": "{room}, per person",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Season saved",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this.",
+      "noPrice": "Give at least one room type a price."
+    }
+  },
+  "packageDepartures": {
+    "title": "Departures",
+    "intro": "The next batches of this trip, with the seats left. The weekly days make most of them; add a one-off date here.",
+    "none": "No departures of this package yet.",
+    "loading": "Loading departures",
+    "loadFailed": "The departures didn't load.",
+    "seatsLeft": "{free} of {total} seats left",
+    "full": "Full",
+    "all": "All departures",
+    "add": "Add a departure"
+  },
+  "files": {
+    "title": "Brochures",
+    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each). The AI shares them with customers who ask for details.",
+    "brochures": "Brochures",
+    "noBrochures": "No brochures yet.",
+    "addBrochure": "Add a brochure",
+    "adding": "Adding",
+    "remove": "Remove",
+    "removeNamed": "Remove {name}",
+    "loading": "Loading files",
+    "loadFailed": "The files didn't load.",
+    "removeTitle": "Remove {name}?",
+    "removeDescription": "Customers will no longer be sent this file.",
+    "problems": {
+      "wrongType": "Choose a PDF or a picture (JPEG, PNG or WebP).",
+      "tooLarge": "Choose a file of up to {size}."
+    }
+  },
+  "payments": {
+    "title": "Where customers pay",
+    "details": "How to pay",
+    "detailsHint": "Bank or UPI details a customer is told when they pay.",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Payment details saved",
+    "qr": "Payment QR",
+    "noQr": "No payment QR yet.",
+    "addQr": "Add the QR",
+    "replaceQr": "Replace the QR",
+    "adding": "Adding",
+    "remove": "Remove",
+    "removeNamed": "Remove {name}",
+    "removeTitle": "Remove {name}?",
+    "removeDescription": "Customers will no longer be sent this picture.",
+    "loadFailed": "The payment QR didn't load.",
+    "managerOnly": "Only people who manage settings change where customers pay.",
+    "problems": {
+      "wrongType": "Choose a picture (JPEG, PNG or WebP).",
+      "tooLarge": "Choose a picture of up to {size}."
     }
   }
 }

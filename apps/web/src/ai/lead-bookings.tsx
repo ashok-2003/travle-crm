@@ -2,7 +2,8 @@
 
 // The bookings the AI took on a lead (the owner, 2026-10-29): what the customer said yes to, as the AI took it down,
 // whether it waits for payment or the customer sent a proof (each screenshot or PDF opens from here), and, for whoever
-// may work the lead, the decision: the payment is in (the lead is won) or the booking is off. Nothing until there is one.
+// may work the lead, the decision: the payment is in (the lead is won) or the booking is off. On a plan with bookings the
+// payment is confirmed on Payments to check, which records the money and tells the customer. Nothing until there is one.
 import type { AiBooking } from "@travel-crm/contracts/ai";
 import { CalendarCheckIcon, ImageIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -17,10 +18,12 @@ import { Separator } from "@/components/ui/separator";
 import { useTRPCClient } from "@/data/trpc";
 import { TextLink } from "@/components/text-link";
 import { formatDayTime } from "@/lib/format";
-import { bookingRoute } from "@/lib/routes";
+import { bookingRoute, routes } from "@/lib/routes";
 import { openInNewTab } from "@/lib/open-in-new-tab";
 import { useErrorMessage } from "@/lib/error-message";
 import { useHolds, useMe } from "@/session/me-context";
+import { isOnPlan } from "@/shell/navigation";
+import { useSubscription } from "@/subscription/use-subscription";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useLeadBookings, useSetBookingStatus } from "./use-ai-media";
 
@@ -37,6 +40,10 @@ function BookingBlock({ booking }: { booking: AiBooking }) {
   const { apiError } = useErrorMessage();
   const { timeZone } = useMe().organization;
   const canDecide = useHolds("leads:edit");
+  const onPayments = isOnPlan({ module: "bookings" }, useSubscription().data?.modules);
+  const recordsPayments = useHolds("quotes:record_payments");
+  const seesBookings = useHolds("bookings:view");
+  const mayCheckPayments = recordsPayments && seesBookings;
   const access = useWriteAccess("change");
   const decide = useSetBookingStatus(booking.leadId);
   const [confirming, setConfirming] = useState<"confirmed" | "cancelled" | null>(null);
@@ -87,15 +94,21 @@ function BookingBlock({ booking }: { booking: AiBooking }) {
         </div>
       )}
       {open && canDecide && (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!access.allowed}
-            onClick={() => {
-              setConfirming("confirmed");
-            }}
-          >
-            {t("confirm")}
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {!onPayments ? (
+            <Button
+              disabled={!access.allowed}
+              onClick={() => {
+                setConfirming("confirmed");
+              }}
+            >
+              {t("confirm")}
+            </Button>
+          ) : mayCheckPayments ? (
+            <TextLink href={routes.payments}>{t("confirmOnPayments")}</TextLink>
+          ) : (
+            <p className="text-caption text-muted-foreground">{t("confirmedOnPayments")}</p>
+          )}
           <Button
             variant="outline"
             disabled={!access.allowed}

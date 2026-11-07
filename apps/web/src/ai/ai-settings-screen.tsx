@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
+import { InfoHint } from "@/components/info-hint";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -22,8 +23,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useWriteAccess } from "@/subscription/write-access";
 import { AiHero } from "./ai-hero";
+import { AmountsAlert } from "./amounts-alert";
 import { AutopilotSection } from "./autopilot-section";
 import { InstructionLines } from "./instruction-lines";
+import { DraftPackagesSection } from "./drafts/draft-packages-section";
 import { KnowledgeSection } from "./knowledge-section";
 import { LearningsSection } from "./learnings-section";
 import { MediaSection } from "./media-section";
@@ -31,13 +34,14 @@ import { useAiSettings, useAutopilot, useSaveAiSettings } from "./use-ai";
 import { TestSection } from "./test-section";
 import { VoiceSection } from "./voice-section";
 
-function SettingsForm({ saved }: { saved: AiSettings }) {
+export function SettingsForm({ saved }: { saved: AiSettings }) {
   const t = useTranslations("ai.settings");
   const access = useWriteAccess("change");
   const save = useSaveAiSettings();
   const [enabled, setEnabled] = useState(saved.enabled);
   const [scoring, setScoring] = useState(saved.scoring);
   const [fillLeads, setFillLeads] = useState(saved.fillLeads);
+  const [customTrips, setCustomTrips] = useState(saved.customTrips);
   const [writeStyle, setWriteStyle] = useState<WriteStyle>(saved.writeStyle);
   const [instructions, setInstructions] = useState(saved.instructions);
   const changed =
@@ -45,6 +49,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
     enabled !== saved.enabled ||
     scoring !== saved.scoring ||
     fillLeads !== saved.fillLeads ||
+    customTrips !== saved.customTrips ||
     instructions.trim() !== saved.instructions;
   return (
     <form
@@ -53,7 +58,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(
-          { enabled, scoring, fillLeads, writeStyle, instructions: instructions.trim() },
+          { enabled, scoring, fillLeads, customTrips, writeStyle, instructions: instructions.trim() },
           { onSuccess: () => toast.success(t("saved")) },
         );
       }}
@@ -83,6 +88,16 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
             <Label htmlFor="ai-fill-leads">{t("fillLeads")}</Label>
           </div>
           <p className="text-label text-muted-foreground">{t("fillLeadsHint")}</p>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="ai-custom-trips"
+              checked={customTrips}
+              onCheckedChange={setCustomTrips}
+              disabled={save.isPending}
+            />
+            <Label htmlFor="ai-custom-trips">{t("customTrips")}</Label>
+            <InfoHint term={t("customTrips")}>{t("customTripsInfo")}</InfoHint>
+          </div>
           <p className="text-muted-foreground">
             {t("usage", { used: saved.usedThisMonth, limit: saved.monthlyLimit })}
           </p>
@@ -135,6 +150,7 @@ function SettingsForm({ saved }: { saved: AiSettings }) {
           <p className="text-label text-muted-foreground">
             {t("instructionsHint")} {t("instructionsCount", { count: instructions.length, max: AI_INSTRUCTIONS_MAX })}
           </p>
+          <AmountsAlert text={instructions} />
           <InstructionLines instructions={instructions} disabled={save.isPending} onChange={setInstructions} />
         </CardContent>
       </Card>
@@ -179,6 +195,7 @@ export function AiSettingsScreen() {
           <Hero settings={settings.data} />
           <SettingsForm key={String(settings.dataUpdatedAt)} saved={settings.data} />
           <KnowledgeSection />
+          <DraftPackagesSection />
           <MediaSection />
           <AutopilotParts aiOn={settings.data.enabled} />
         </>

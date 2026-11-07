@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { assertFormOpen, parseFormKey } from "@travel-crm/domain/website-forms";
 import { publicFormOf } from "../src/public-form.js";
-import { anAgency, callerOf, createHarness, refusal, type Harness } from "./forms-support.js";
+import { anAgency, callerOf, clock, createHarness, refusal, type Harness } from "./forms-support.js";
 
 vi.mock("@travel-crm/contracts/features", () => ({
   features: { marketingConsent: false },
@@ -27,6 +27,20 @@ const settings = {
   privacyUrl: null,
 } as const;
 
+/**
+ * Runs on the fixture's own day (clock.now, inside the paid month): the router judges the form's state by the real clock,
+ * and the fixture's agency is paid through 31 October 2026 only, so it turned read-only for good on 8 November 2026.
+ */
+async function onFixtureDay<T>(run: () => Promise<T>): Promise<T> {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(clock.now);
+  try {
+    return await run();
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 describe("websiteForm router", () => {
   let harness: Harness;
   beforeAll(() => {
@@ -39,7 +53,7 @@ describe("websiteForm router", () => {
   it("get on an agency with no row returns defaults and writes nothing", async () => {
     const organizationId = await anAgency(harness);
     const { caller } = callerOf(harness, { organizationId });
-    const view = await caller.websiteForm.get();
+    const view = await onFixtureDay(() => caller.websiteForm.get());
     expect(view).toMatchObject({
       key: null,
       link: null,
@@ -65,16 +79,16 @@ describe("websiteForm router", () => {
   it("save makes the form, off, and turnOn then opens it, with links under the app's address", async () => {
     const organizationId = await anAgency(harness);
     const { caller, owner } = callerOf(harness, { organizationId });
-    const saved = await caller.websiteForm.save(settings);
+    const saved = await onFixtureDay(() => caller.websiteForm.save(settings));
     expect(saved.settings).toMatchObject({ enabled: false, heading: "Plan your trip" });
     expect(saved.state).toEqual({ open: false, reason: "off" });
-    const on = await caller.websiteForm.turnOn();
+    const on = await onFixtureDay(() => caller.websiteForm.turnOn());
     expect(on.state).toEqual({ open: true, reason: null });
     expect(on.ownerName).toBe(owner === null ? null : "Asha Rao");
     expect(on.link).toBe(`https://app.example.test/f/${on.key ?? ""}`);
     expect(on.embedLink).toBe(`https://app.example.test/embed/${on.key ?? ""}`);
     expect(parseFormKey(on.key ?? "")?.organizationId).toBe(organizationId);
-    expect((await caller.websiteForm.turnOff()).state).toEqual({ open: false, reason: "off" });
+    expect((await onFixtureDay(() => caller.websiteForm.turnOff())).state).toEqual({ open: false, reason: "off" });
   });
 
   it("turnOn with no Owner is FORM_NEEDS_OWNER, and on the demo FORM_UNAVAILABLE", async () => {

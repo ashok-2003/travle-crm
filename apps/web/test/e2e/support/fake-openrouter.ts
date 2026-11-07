@@ -190,6 +190,56 @@ function readRates(user: string): object {
   };
 }
 
+/** The numbered lines of a package draft's prompt, "[P1.L2] text", as token and text pairs. */
+const numberedLines = (user: string) =>
+  [...user.matchAll(/\[(P\d+\.L\d+)\] ([^\\"]*)/g)].map(([, token, text]) => ({
+    token: token ?? "",
+    text: text ?? "",
+  }));
+
+/** Find trips: one trip, "Manali 5 Nights 6 Days", described by every numbered line the prompt holds. */
+function foundTrips(user: string): object {
+  const lines = numberedLines(user).map((line) => line.token);
+  return { trips: [{ name: "Manali 5 Nights 6 Days", place: "Manali", nights: 5, lines }] };
+}
+
+/**
+ * Draft a package: each field cites the lines that say it. The triple price is cited from two lines that print different figures,
+ * so the draft keeps both. Every price and the advance are copied as printed from their cited line; the name, nights, room types,
+ * weekdays and the season's months are fixed for the journey's Manali trip.
+ */
+function draftedPackage(user: string): object {
+  const lines = numberedLines(user);
+  const tokensOf = (pattern: RegExp) => lines.filter((line) => pattern.test(line.text)).map((line) => line.token);
+  const priceOf = (text: string) => /Rs ([\d,]+\/-)/.exec(text)?.[1] ?? "";
+  const pricesFor = (room: string) =>
+    lines
+      .filter((line) => new RegExp(`${room} sharing`, "i").test(line.text))
+      .map((line) => ({ room, printed: priceOf(line.text), tokens: [line.token] }));
+  const named = tokensOf(/Manali 5 Nights/);
+  return {
+    name: { value: "Manali 5N6D", tokens: named },
+    title: { value: "Manali 5 Nights 6 Days", tokens: named },
+    destination: { value: "Manali", tokens: named },
+    nights: { value: 5, tokens: named },
+    roomTypes: { value: ["double", "triple"], tokens: tokensOf(/sharing/i) },
+    weeklyDays: [{ value: ["Friday", "Saturday"], tokens: tokensOf(/Friday/) }],
+    departureMonths: { value: null, tokens: [] },
+    seasons: [
+      {
+        label: "Regular",
+        fromMonth: 1,
+        toMonth: 12,
+        tokens: named,
+        prices: [...pricesFor("Double"), ...pricesFor("Triple")],
+      },
+    ],
+    advancePerPerson: lines
+      .filter((line) => line.text.includes("Advance"))
+      .map((line) => ({ printed: priceOf(line.text), tokens: [line.token] })),
+  };
+}
+
 /** An empty-seats message: the person's first name, a seat count and an amount the model must not type, and the price token. */
 function reachedOut(user: string): string {
   // The first name sits in the data fence with the agency's name, after "First name:".
@@ -199,6 +249,113 @@ function reachedOut(user: string): string {
     "It is just Rs 9,999 for you.",
     "The price is {price}. Reply here if you would like to join!",
   ].join("\n");
+}
+
+/** The next 12 December on or after the day (yyyy-mm-dd): the departure the grounded journey sells. */
+export function nextTwelfthOfDecember(today: string): string {
+  const year = Number(today.slice(0, 4));
+  return `${String(today > `${String(year)}-12-12` ? year + 1 : year)}-12-12`;
+}
+
+/** The customer's newest message in a grounded read's chat (`Customer: <<...>>`) or write's transcript (`Customer: ...`). */
+function lastCustomerWords(prompt: string): string {
+  // Messages the customer sent one after another reach the model as one turn, a line each: the newest is the last line.
+  const turns = [...prompt.matchAll(/Customer: (?:<<)?([\s\S]*?)(?:>>|<\/data>)/g)];
+  return (
+    (turns.at(-1)?.[1] ?? "")
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .at(-1)
+      ?.replace(/^Customer: (?:<<)?/, "") ?? ""
+  );
+}
+
+/**
+ * The grounded agent's read step: labels the newest customer message by its words, with the keys the prompt lists
+ * (D<n> destinations, S<n> packages). One scripted reading for each message the grounded journey sends.
+ */
+function groundedRead(prompt: string): object {
+  const words = lastCustomerWords(prompt);
+  const today = /Today is (\d{4}-\d{2}-\d{2})/.exec(prompt)?.[1] ?? "2026-01-01";
+  const manali = /^(D\d+) Manali/m.exec(prompt)?.[1] ?? "none";
+  const nearest = /^(S\d+) /m.exec(prompt)?.[1];
+  const twelfth = nextTwelfthOfDecember(today);
+  const base = {
+    places: [{ destination: manali, words: "Manali", evidence: "Manali" }] as object[],
+    startsOn: null as object | null,
+    rooms: [] as object[],
+    travellers: null as object | null,
+    budgetRupees: null,
+    pickupCity: null,
+    chosen: null,
+    wants: "information",
+    wantsEvidence: words.slice(0, 40),
+    special: null,
+    nearest: [] as string[],
+  };
+  if (words.includes("Spiti")) {
+    return {
+      ...base,
+      places: [{ destination: "none", words: "Spiti", evidence: "Spiti" }],
+      travellers: { count: 2, evidence: "2 people" },
+      nearest: nearest === undefined ? [] : [nearest],
+    };
+  }
+  if (words.includes("in December")) {
+    return {
+      ...base,
+      startsOn: { date: twelfth, month: null, evidence: "12 Dec" },
+      rooms: [{ type: "double", count: 1, evidence: "double" }],
+      wants: "price",
+      wantsEvidence: "what is the price",
+    };
+  }
+  if (words.includes("cheaper")) {
+    return {
+      ...base,
+      startsOn: { date: twelfth, month: null, evidence: "12 Dec" },
+      travellers: { count: 2, evidence: "2 people" },
+      wants: "price",
+      wantsEvidence: "What is the price",
+    };
+  }
+  return {
+    ...base,
+    startsOn: { date: twelfth, month: null, evidence: "12 Dec" },
+    travellers: { count: 2, evidence: "for 2" },
+    rooms: [{ type: "double", count: 1, evidence: "double" }],
+    wants: "book",
+    wantsEvidence: "Book",
+  };
+}
+
+/**
+ * The grounded agent's write step: every price and date is a placeholder that code fills in. For the "cheaper" message it
+ * types a price of its own, whenever it is asked (and so again when asked once more), as a model that makes numbers up would.
+ */
+function groundedWrite(prompt: string): object {
+  const words = lastCustomerWords(prompt);
+  const booking = words.startsWith("Book");
+  const reply = words.includes("Spiti")
+    ? "We don't run Spiti at the moment. The nearest trip we have is our Manali group trip."
+    : words.includes("in December")
+      ? "Manali in December is [price P1 double] per person, double sharing."
+      : words.includes("cheaper")
+        ? "It is only ₹7,999 per person."
+        : "Wonderful! I am holding 2 seats on [departure P1] for you. The total is [total P1] and the advance to pay now is [advance total P1].";
+  return {
+    reply,
+    actions: {
+      sendFiles: [],
+      sendAgencyFiles: false,
+      sendPayment: booking,
+      requestBooking: booking,
+      flag: null,
+      handOver: null,
+      note: null,
+      task: null,
+    },
+  };
 }
 
 export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
@@ -235,67 +392,82 @@ export async function startFakeOpenRouter(): Promise<FakeOpenRouter> {
         const readRequestsCall = system.includes("READ_REQUESTS.");
         const readRatesCall = system.includes("READ_RATES.");
         const reachOut = system.includes("REACH_OUT.");
+        const findTripsCall = system.includes("FIND_TRIPS.");
+        const draftPackageCall = system.includes("DRAFT_PACKAGE.");
         const draftDays = system.includes("DRAFT_DAYS:");
         const travellers = system.includes("FILL_TRAVELLERS:");
+        const groundedReadCall = system.includes("READ_CHAT.");
+        const groundedWriteCall = system.includes("WRITE_REPLY.");
         const autopilot = system.includes("WhatsApp travel sales agent");
         const scoring =
           (requests.at(-1)?.body as { response_format?: unknown } | undefined)?.response_format !== undefined;
-        const content = readRatesCall
-          ? JSON.stringify(readRates(user))
-          : draftDays
-            ? JSON.stringify(draftedDays(user))
-            : travellers
-              ? JSON.stringify(readTravellers(user))
-              : readRequestsCall
-                ? JSON.stringify(readRequests(user))
-                : reachOut
-                  ? reachedOut(user)
-                  : writeUp
-                    ? writtenUp(user)
-                    : askReport
-                      ? JSON.stringify(chosenReport(user))
-                      : fill
-                        ? JSON.stringify(filled(user))
-                        : autopilot
-                          ? JSON.stringify({
-                              reply: "Namaste! Kerala 5 nights is Rs 18,500 per person. Which dates are you planning?",
-                              handoff: false,
-                              handoffReason: "",
-                              attention: "",
-                              memory: "Wants Kerala for 4.",
-                              followUp: { needed: false, inHours: 4, why: "" },
-                            })
-                          : scoring
-                            ? JSON.stringify({
-                                score: 78,
-                                label: "hot",
-                                reasons: ["Asked about a Kerala package for four"],
-                                fake: false,
-                                fakeReason: "",
-                                summary: "Wants a Kerala package for four in December and has asked the price.",
-                                nextStep: "Call today and offer the Kerala 5-night package.",
-                                facts: {
-                                  destination: "Kerala",
-                                  when: "December",
-                                  travellers: "4 adults",
-                                  budget: null,
-                                },
-                                // Asked for only while a new lead's empty fields are being filled in from its first messages.
-                                ...(system.includes('"trip"')
-                                  ? {
-                                      trip: {
-                                        destination: "Manali",
-                                        dateFrom: "15 Dec",
-                                        dateTo: "20 Dec",
-                                        adults: 4,
-                                        budget: "1 lakh",
-                                        budgetBasis: "for_everyone",
-                                        excerpts: { destination: "Manali jana hai", budget: "1 lakh tak" },
-                                      },
-                                    }
-                                  : {}),
-                              })
-                            : next;
+        // The grounded agent's two calls both ask for JSON, so they are answered before the scoring guess below.
+        const userText = typeof messages[1]?.content === "string" ? messages[1].content : "";
+        const content = groundedReadCall
+          ? JSON.stringify(groundedRead(userText))
+          : groundedWriteCall
+            ? JSON.stringify(groundedWrite(userText))
+            : findTripsCall
+              ? JSON.stringify(foundTrips(user))
+              : draftPackageCall
+                ? JSON.stringify(draftedPackage(user))
+                : readRatesCall
+                  ? JSON.stringify(readRates(user))
+                  : draftDays
+                    ? JSON.stringify(draftedDays(user))
+                    : travellers
+                      ? JSON.stringify(readTravellers(user))
+                      : readRequestsCall
+                        ? JSON.stringify(readRequests(user))
+                        : reachOut
+                          ? reachedOut(user)
+                          : writeUp
+                            ? writtenUp(user)
+                            : askReport
+                              ? JSON.stringify(chosenReport(user))
+                              : fill
+                                ? JSON.stringify(filled(user))
+                                : autopilot
+                                  ? JSON.stringify({
+                                      reply:
+                                        "Namaste! Kerala 5 nights is Rs 18,500 per person. Which dates are you planning?",
+                                      handoff: false,
+                                      handoffReason: "",
+                                      attention: "",
+                                      memory: "Wants Kerala for 4.",
+                                      followUp: { needed: false, inHours: 4, why: "" },
+                                    })
+                                  : scoring
+                                    ? JSON.stringify({
+                                        score: 78,
+                                        label: "hot",
+                                        reasons: ["Asked about a Kerala package for four"],
+                                        fake: false,
+                                        fakeReason: "",
+                                        summary: "Wants a Kerala package for four in December and has asked the price.",
+                                        nextStep: "Call today and offer the Kerala 5-night package.",
+                                        facts: {
+                                          destination: "Kerala",
+                                          when: "December",
+                                          travellers: "4 adults",
+                                          budget: null,
+                                        },
+                                        // Asked for only while a new lead's empty fields are being filled in from its first messages.
+                                        ...(system.includes('"trip"')
+                                          ? {
+                                              trip: {
+                                                destination: "Manali",
+                                                dateFrom: "15 Dec",
+                                                dateTo: "20 Dec",
+                                                adults: 4,
+                                                budget: "1 lakh",
+                                                budgetBasis: "for_everyone",
+                                                excerpts: { destination: "Manali jana hai", budget: "1 lakh tak" },
+                                              },
+                                            }
+                                          : {}),
+                                      })
+                                    : next;
         response.end(
           JSON.stringify({ model: "fake/model", choices: [{ message: { content }, finish_reason: "stop" }] }),
         );

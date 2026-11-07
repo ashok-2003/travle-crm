@@ -5,17 +5,16 @@ import {
   DEPARTURES_LIST_LIMIT,
   departureDetail,
   departureList,
-  type CancelDepartureInput,
   type CreateDepartureInput,
   type DepartureDetail,
   type DepartureSummary,
   type ListDeparturesInput,
   type UpdateDepartureInput,
 } from "@travel-crm/contracts/departures";
-import type { OrgTx } from "@travel-crm/db";
+import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
-import { calendarDateIn } from "../kernel/index.js";
+import { calendarDateIn, DomainError, type Actor } from "../kernel/index.js";
 import {
   asDate,
   countsOf,
@@ -24,20 +23,14 @@ import {
   departureSettingsOf,
   findDeparture,
   findDepartureForChange,
+  ownPricesOf,
+  priceColumnsOf,
   seatsSoldAndHeld,
   stateOf,
   type DepartureRow,
 } from "./rows.js";
+import { auditColumns, auditView } from "./departure-changes.js";
 import { announceSeatsFreed } from "./waitlist.js";
-
-/** A departure's figures in an audit entry: what changed, never the staff's notes. */
-const auditView = (row: Pick<DepartureRow, "title" | "startDate" | "endDate" | "seatsTotal" | "status">) => ({
-  title: row.title,
-  startDate: dayOf(row.startDate),
-  endDate: dayOf(row.endDate),
-  seatsTotal: row.seatsTotal,
-  status: row.status,
-});
 
 function summaryOf(
   row: DepartureRow,
@@ -73,7 +66,7 @@ export async function listDepartures(
         ? { status: { not: "cancelled" }, endDate: { gte: today } }
         : { status: { not: "cancelled" }, endDate: { lt: today } };
   const rows = await tx.departure.findMany({
-    where,
+    where: input.templateId === undefined ? where : { ...where, templateId: input.templateId },
     orderBy: [{ startDate: input.filter === "upcoming" ? "asc" : "desc" }, { id: "asc" }],
     take: DEPARTURES_LIST_LIMIT,
     select: departureColumns,
@@ -138,6 +131,8 @@ export async function getDeparture(tx: OrgTx, departureId: string, now: Date): P
     destinationId: row.destinationId,
     cutoffOn: row.cutoffOn === null ? null : dayOf(row.cutoffOn),
     notes: row.notes,
+    templateId: row.templateId,
+    prices: ownPricesOf(row),
     cancelledReason: row.cancelledReason,
     bookings: bookings.map((booking) => ({
       bookingId: booking.id,
@@ -167,42 +162,71 @@ export async function getDeparture(tx: OrgTx, departureId: string, now: Date): P
   });
 }
 
-const columnsOf = (input: CreateDepartureInput) => ({
-  title: input.title,
-  destinationId: input.destinationId,
-  startDate: asDate(input.startDate),
-  endDate: asDate(input.endDate),
-  seatsTotal: input.seatsTotal,
-  pricePaise: input.pricePaise === null ? null : BigInt(input.pricePaise),
-  cutoffOn: input.cutoffOn === null ? null : asDate(input.cutoffOn),
-  notes: input.notes,
-});
+/** The package's destination wins for a departure linked to it, so the two never disagree. It must be a group package. */
+async function columnsOf(tx: OrgTx, input: CreateDepartureInput) {
+  let destinationId = input.destinationId;
+  if (input.templateId !== null) {
+    const pack = await tx.quoteTemplate.findUnique({
+      where: { id: input.templateId },
+      select: { destinationId: true, kind: true },
+    });
+    // Only a group package of this agency sells seats on departures; any other id is as good as none.
+    if (pack?.kind !== "group") throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such group package");
+    destinationId = pack.destinationId;
+  }
+  const own = priceColumnsOf(input.prices);
+  return {
+    title: input.title,
+    destinationId,
+    startDate: asDate(input.startDate),
+    endDate: asDate(input.endDate),
+    seatsTotal: input.seatsTotal,
+    // A linked departure has its own lowest adult price or none, never a price carried over from the form; any other
+    // keeps the one price typed.
+    pricePaise:
+      input.templateId !== null || input.pricePaise === null ? own.lowest : (own.lowest ?? BigInt(input.pricePaise)),
+    cutoffOn: input.cutoffOn === null ? null : asDate(input.cutoffOn),
+    notes: input.notes,
+    templateId: input.templateId,
+    ...own.columns,
+  };
+}
 
-export async function createDeparture(
-  tx: OrgTx,
-  access: MemberAccess,
-  input: CreateDepartureInput,
-): Promise<{ id: string }> {
-  const created = await tx.departure.create({
-    data: { ...columnsOf(input), createdBy: access.userId },
-    select: { id: true, title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
-  });
-  await recordAudit(tx, access, {
-    action: "departure.created",
-    entityType: "departure",
-    entityId: created.id,
-    after: auditView(created),
-  });
-  return { id: created.id };
+const dayTaken = () =>
+  new DomainError("CONFLICT", "DEPARTURE_DAY_TAKEN", "This package already has a departure starting that day");
+
+export async function createDeparture(tx: OrgTx, actor: Actor, input: CreateDepartureInput): Promise<{ id: string }> {
+  const columns = await columnsOf(tx, input);
+  try {
+    const created = await tx.departure.create({
+      data: { ...columns, createdBy: actor.userId },
+      select: { id: true, ...auditColumns },
+    });
+    await recordAudit(tx, actor, {
+      action: "departure.created",
+      entityType: "departure",
+      entityId: created.id,
+      after: auditView(created),
+    });
+    return { id: created.id };
+  } catch (error) {
+    if (isUniqueViolation(error)) throw dayTaken();
+    throw error;
+  }
 }
 
 export async function updateDeparture(tx: OrgTx, access: MemberAccess, input: UpdateDepartureInput): Promise<void> {
   const before = await findDepartureForChange(tx, input.departureId);
-  const after = await tx.departure.update({
-    where: { id: before.id },
-    data: columnsOf(input),
-    select: { title: true, startDate: true, endDate: true, seatsTotal: true, status: true },
-  });
+  const data = await columnsOf(tx, input);
+  const after = await tx.departure
+    .update({
+      where: { id: before.id },
+      data,
+      select: auditColumns,
+    })
+    .catch((error: unknown) => {
+      throw isUniqueViolation(error) ? dayTaken() : error;
+    });
   await recordAudit(tx, access, {
     action: "departure.changed",
     entityType: "departure",
@@ -232,34 +256,4 @@ export async function setDepartureStatus(
   if (input.status === "closed") await recordAudit(tx, access, { action: "departure.closed", ...change });
   else await recordAudit(tx, access, { action: "departure.reopened", ...change });
   if (input.status === "open") await announceSeatsFreed(tx, before.id);
-}
-
-/**
- * Cancels a departure with a reason. Its bookings are not cancelled: staff move or cancel each (they are listed on the
- * departure). Its active holds are released, and its waitlist cleared, since nobody can join a cancelled batch.
- */
-export async function cancelDeparture(
-  tx: OrgTx,
-  access: MemberAccess,
-  input: CancelDepartureInput,
-  now: Date,
-): Promise<void> {
-  const before = await findDepartureForChange(tx, input.departureId);
-  if (before.status === "cancelled") return;
-  await tx.departure.update({
-    where: { id: before.id },
-    data: { status: "cancelled", cancelledReason: input.reason },
-  });
-  await tx.departureHold.updateMany({
-    where: { departureId: before.id, status: "active" },
-    data: { status: "released", endedAt: now },
-  });
-  await tx.departureWaitlist.deleteMany({ where: { departureId: before.id } });
-  await recordAudit(tx, access, {
-    action: "departure.cancelled",
-    entityType: "departure",
-    entityId: before.id,
-    before: { status: before.status },
-    after: { status: "cancelled", reason: input.reason },
-  });
 }

@@ -5,7 +5,7 @@
 // wrote never leaves this screen. The AI still tells anyone who sincerely asks that it is an AI.
 import type { AutopilotSettings } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -25,6 +25,7 @@ export function VoiceSection({ voice }: { voice: AutopilotSettings["voice"] }) {
   const learn = useLearnVoice();
   const clear = useClearVoice();
   const [messages, setMessages] = useState<ExportedMessage[] | null>(null);
+  const senderId = useId();
   const [sender, setSender] = useState("");
   const [unreadable, setUnreadable] = useState(false);
   const senders = messages === null ? [] : sendersOf(messages);
@@ -85,9 +86,9 @@ export function VoiceSection({ voice }: { voice: AutopilotSettings["voice"] }) {
         )}
         {messages !== null && senders.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <Label>{t("who")}</Label>
+            <Label htmlFor={senderId}>{t("who")}</Label>
             <Select value={sender} onValueChange={setSender}>
-              <SelectTrigger className="h-auto w-full">
+              <SelectTrigger id={senderId} className="h-auto w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">

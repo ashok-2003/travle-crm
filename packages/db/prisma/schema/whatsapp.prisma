@@ -92,6 +92,7 @@ model WhatsappConversation {
   broadcasts     WhatsappBroadcastRecipient[]
   aiDrafts       AiDraft[]
   aiChats        AiChat[]
+  paymentProofs  PaymentProof[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, connectionId, phoneE164], map: "whatsapp_conversation_phone")
@@ -164,6 +165,7 @@ model WhatsappMessage {
   quotedBy        WhatsappMessage[]            @relation("MessageQuote")
   scheduledFrom   ScheduledMessage[]
   broadcastRows   WhatsappBroadcastRecipient[]
+  paymentProofs   PaymentProof[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, wamid], map: "whatsapp_message_wamid", where: raw("(wamid IS NOT NULL)"))

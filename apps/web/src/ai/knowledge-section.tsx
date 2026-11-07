@@ -118,7 +118,7 @@ function KnowledgeRow({ item, disabled }: { item: AiKnowledgeItem; disabled: boo
   const [removing, setRemoving] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   return (
-    <Item variant="muted">
+    <Item variant="muted" role="listitem">
       <ItemMedia variant="icon">
         <FileTextIcon aria-hidden="true" />
       </ItemMedia>

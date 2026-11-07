@@ -9,6 +9,10 @@ import {
   tierLine,
   type PackageDetail,
   type PublishGap,
+  type SellGap,
+  type SetPackageSellableInput,
+  type SetPackagePaymentDetailsInput,
+  type RoomType,
   type SaveTierInput,
   type UpdatePackageInput,
 } from "@travel-crm/contracts/quotes";
@@ -16,45 +20,14 @@ import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import type { CalendarDate } from "../kernel/index.js";
 import { withoutCosts } from "./margin.js";
+import { findPackage, nameTaken, type PackageRow } from "./package-row.js";
+import { seasonsOf } from "./package-seasons.js";
 import { itemsOf } from "./quote-rows.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-const nameTaken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
 const slugTaken = () => new DomainError("CONFLICT", "PACKAGE_SLUG_TAKEN", "Another package already has this address");
-
-export const packageColumns = {
-  id: true,
-  name: true,
-  title: true,
-  days: true,
-  items: true,
-  inclusions: true,
-  exclusions: true,
-  notes: true,
-  taxRateBasisPoints: true,
-  slug: true,
-  destinationId: true,
-  nights: true,
-  summary: true,
-  highlights: true,
-  priceDisplay: true,
-  fromPricePaise: true,
-  published: true,
-  defaultTravellerLevel: true,
-  cancellationNotes: true,
-  destination: { select: { name: true } },
-} as const;
-
-type PackageRow = NonNullable<Awaited<ReturnType<typeof readPackage>>>;
-const readPackage = (tx: OrgTx, packageId: string) =>
-  tx.quoteTemplate.findUnique({ where: { id: packageId }, select: packageColumns });
-
-export async function findPackage(tx: OrgTx, packageId: string): Promise<PackageRow> {
-  const row = await readPackage(tx, packageId);
-  if (row === null) throw notFound();
-  return row;
-}
 
 /** What a package still lacks before its page can be published. */
 export function publishGaps(row: Pick<PackageRow, "name" | "slug" | "summary">, photoCount: number): PublishGap[] {
@@ -95,11 +68,100 @@ export async function tiersOf(tx: OrgTx, packageId: string) {
 }
 
 /** The package for its editor. Costs in its lines are shown only to whoever may see margins. */
+/** The departures of a group package that can still be sold from today: open, not past their cut-off. */
+const sellableDepartures = (tx: OrgTx, packageId: string, today: CalendarDate) =>
+  tx.departure.findMany({
+    where: {
+      templateId: packageId,
+      status: "open",
+      startDate: { gte: asDay(today) },
+      OR: [{ cutoffOn: null }, { cutoffOn: { gte: asDay(today) } }],
+    },
+    select: {
+      priceSinglePaise: true,
+      priceDoublePaise: true,
+      priceTriplePaise: true,
+      priceQuadPaise: true,
+      priceChildBedPaise: true,
+      priceChildNoBedPaise: true,
+    },
+  });
+const asDay = (day: CalendarDate) => new Date(`${day}T00:00:00Z`);
+
+/** The departure column holding the price of each room type. */
+export const departurePriceColumn = {
+  single: "priceSinglePaise",
+  double: "priceDoublePaise",
+  triple: "priceTriplePaise",
+  quad: "priceQuadPaise",
+  child_bed: "priceChildBedPaise",
+  child_no_bed: "priceChildNoBedPaise",
+} as const;
+
+/** What a package still needs before the AI may sell it, in the order the editor shows them. */
+export async function packageSellGaps(tx: OrgTx, packageId: string, today: CalendarDate): Promise<SellGap[]> {
+  const row = await findPackage(tx, packageId);
+  if (row.kind !== "group") return row.fromPricePaise === null ? ["from_price"] : [];
+  const gaps: SellGap[] = [];
+  const offered = row.roomTypes as RoomType[];
+  if (offered.length === 0) gaps.push("room_types");
+  const departures = await sellableDepartures(tx, packageId, today);
+  const seasonPriced = (await seasonsOf(tx, packageId)).some(
+    (season) => season.endsOn >= today && offered.some((type) => season.prices[type] !== null),
+  );
+  const departurePriced = departures.some((departure) =>
+    offered.some((type) => departure[departurePriceColumn[type]] !== null),
+  );
+  if (!seasonPriced && !departurePriced) gaps.push("prices");
+  if (row.advancePerPersonPaise === null || row.advancePerPersonPaise <= 0n) gaps.push("advance");
+  if (departures.length === 0) gaps.push("departures");
+  return gaps;
+}
+
+/**
+ * The packages the AI may sell today: switched on, and with nothing missing. The only way to ask (a package that has lost
+ * its seasons or departures since the switch was turned on is not offered), so callers never read the switch alone.
+ */
+export async function sellablePackages(tx: OrgTx, today: CalendarDate): Promise<{ id: string; kind: string }[]> {
+  const switchedOn = await tx.quoteTemplate.findMany({
+    where: { aiSellable: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: { id: true, kind: true },
+  });
+  const ready: { id: string; kind: string }[] = [];
+  for (const one of switchedOn) {
+    if ((await packageSellGaps(tx, one.id, today)).length === 0) ready.push(one);
+  }
+  return ready;
+}
+
+/** Lets the AI sell the package, or stops it. Turning on needs nothing missing; turning off always works. */
+export async function setPackageSellable(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SetPackageSellableInput,
+  today: CalendarDate,
+): Promise<void> {
+  const row = await findPackage(tx, input.packageId);
+  if (row.aiSellable === input.sellable) return;
+  if (input.sellable && (await packageSellGaps(tx, row.id, today)).length > 0) {
+    throw new DomainError("VALIDATION", "PACKAGE_NOT_READY_TO_SELL", "Fill in what the package still needs first");
+  }
+  await tx.quoteTemplate.update({ where: { id: row.id }, data: { aiSellable: input.sellable } });
+  await recordAudit(tx, access, {
+    action: "package.sellable-changed",
+    entityType: "quote_template",
+    entityId: row.id,
+    before: { sellable: row.aiSellable },
+    after: { sellable: input.sellable, name: row.name },
+  });
+}
+
 export async function getPackage(
   tx: OrgTx,
   access: MemberAccess,
   packageId: string,
-  context: { photoCount: number; agencyCode: string },
+  context: { photoCount: number; agencyCode: string; today: CalendarDate },
 ): Promise<PackageDetail> {
   const row = await findPackage(tx, packageId);
   const settings = await tx.publicPageSettings.findFirst({ select: { enabled: true } });
@@ -122,10 +184,23 @@ export async function getPackage(
     fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
     defaultTravellerLevel: row.defaultTravellerLevel,
     cancellationNotes: row.cancellationNotes,
+    kind: row.kind,
+    roomTypes: row.roomTypes,
+    pricesIncludeGst: row.pricesIncludeGst,
+    advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
+    paymentDetails: row.paymentDetails,
+    pickupPoints: row.pickupPoints,
+    startCity: row.startCity,
+    weeklyDays: row.weeklyDays,
+    departureMonths: row.departureMonths,
+    seatsPerDeparture: row.seatsPerDeparture,
+    sellable: row.aiSellable,
+    sellGaps: await packageSellGaps(tx, row.id, context.today),
     published: row.published,
     destinationName: row.destination?.name ?? null,
     items: access.permissions.has("money:view_margin") ? items : withoutCosts(items),
     tiers: await tiersOf(tx, row.id),
+    seasons: await seasonsOf(tx, row.id),
     photoCount: context.photoCount,
     gaps: publishGaps(row, context.photoCount),
     pagesEnabled: settings?.enabled ?? false,
@@ -175,6 +250,7 @@ export async function updatePackage(tx: OrgTx, access: MemberAccess, input: Upda
       data: {
         ...fields,
         fromPricePaise: fields.fromPricePaise === null ? null : BigInt(fields.fromPricePaise),
+        advancePerPersonPaise: fields.advancePerPersonPaise === null ? null : BigInt(fields.advancePerPersonPaise),
       },
     });
   } catch (error) {
@@ -184,12 +260,44 @@ export async function updatePackage(tx: OrgTx, access: MemberAccess, input: Upda
     }
     throw error;
   }
+  const kept = (row: {
+    kind: string;
+    roomTypes: readonly string[];
+    pricesIncludeGst: boolean;
+    advancePerPersonPaise: number | bigint | null;
+  }) => ({
+    kind: row.kind,
+    roomTypes: [...row.roomTypes],
+    pricesIncludeGst: row.pricesIncludeGst,
+    advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
+  });
   await recordAudit(tx, access, {
     action: "quote-package.changed",
     entityType: "quote_template",
     entityId: packageId,
-    before: { name: before.name, slug: before.slug },
-    after: { name: fields.name, slug: fields.slug },
+    before: { name: before.name, slug: before.slug, ...kept(before) },
+    after: { name: fields.name, slug: fields.slug, ...kept(fields) },
+  });
+}
+
+/**
+ * Where customers pay. Apart from the package's words because it is money: changed by whoever manages settings. The audit
+ * keeps the text's length, never the text (it is bank details).
+ */
+export async function setPackagePaymentDetails(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SetPackagePaymentDetailsInput,
+): Promise<void> {
+  const before = await findPackage(tx, input.packageId);
+  if (before.paymentDetails === input.paymentDetails) return;
+  await tx.quoteTemplate.update({ where: { id: before.id }, data: { paymentDetails: input.paymentDetails } });
+  await recordAudit(tx, access, {
+    action: "package.payment-changed",
+    entityType: "quote_template",
+    entityId: before.id,
+    before: { paymentDetailsLength: before.paymentDetails.length },
+    after: { paymentDetailsLength: input.paymentDetails.length },
   });
 }
 

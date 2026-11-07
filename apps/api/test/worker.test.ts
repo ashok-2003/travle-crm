@@ -8,6 +8,7 @@ import { getIssuedDocument, issueDocument, sampleQuotation } from "@travel-crm/d
 import { listenerJobId } from "@travel-crm/domain/jobs";
 import { money } from "@travel-crm/domain/kernel";
 import { savePushSubscription, setPreference } from "@travel-crm/domain/notifications";
+import { PACKAGE_DEPARTURES_QUEUE } from "@travel-crm/domain/departures";
 import { createRateLimiter, RATE_LIMIT_PURGE_QUEUE } from "@travel-crm/domain/rate-limits";
 import { createShareLink } from "@travel-crm/domain/share-links";
 import { WEBHOOK_PROCESS_QUEUE } from "@travel-crm/domain/webhooks";
@@ -197,6 +198,14 @@ describe("the api and the worker, end to end", () => {
     expect(await browsers()).toBe(1);
     await server.identity.staff.remove(owner, { memberId: leaving.memberId });
     await eventually(browsers, (count) => count === 0, "the removed member's browsers to be forgotten");
+  });
+
+  it("makes the departures of group packages each night, in India time", async () => {
+    expect(await flow.jobs.schedules()).toContainEqual({
+      queue: PACKAGE_DEPARTURES_QUEUE,
+      cron: "20 3 * * *",
+      timeZone: "Asia/Kolkata",
+    });
   });
 
   it("purges rate-limit windows over a day old, on a daily schedule", async () => {

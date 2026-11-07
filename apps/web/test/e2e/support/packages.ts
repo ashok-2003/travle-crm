@@ -193,6 +193,15 @@ export async function updatePackage(
     fromPricePaise: detail.fromPricePaise,
     defaultTravellerLevel: detail.defaultTravellerLevel,
     cancellationNotes: detail.cancellationNotes,
+    kind: detail.kind,
+    roomTypes: detail.roomTypes,
+    pricesIncludeGst: detail.pricesIncludeGst,
+    advancePerPersonPaise: detail.advancePerPersonPaise,
+    pickupPoints: detail.pickupPoints,
+    startCity: detail.startCity,
+    weeklyDays: detail.weeklyDays,
+    departureMonths: detail.departureMonths,
+    seatsPerDeparture: detail.seatsPerDeparture,
     ...changes,
   });
 }

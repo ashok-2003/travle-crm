@@ -7,14 +7,16 @@ import { aiBookingList, aiBookingStatus, type AgentAnswer, type AiBooking } from
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
-import { linkAiBooking } from "../bookings/index.js";
+import { linkAiBooking, mayBePaymentTitle, recordUnmatchedProof } from "../bookings/index.js";
 import { addAiLeadNote, advanceLeadStage, noticeKey } from "../crm/index.js";
-import type { MemberAccess } from "../identity/index.js";
+import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { CUSTOMER_WROTE_EVENT } from "../inbox/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { recordAudit } from "../audit/index.js";
-import { DomainError, systemActor } from "../kernel/index.js";
+import { calendarDateIn, DomainError, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
+import type { SubscriptionAccess } from "../subscriptions/index.js";
+import { mayBePayment } from "./payment-likely.js";
 
 export const AI_BOOKING_KIND = "ai.booking";
 export const AI_PAYMENT_PROOF_KIND = "ai.payment-proof";
@@ -109,33 +111,76 @@ export async function takeBooking(
   return row.id;
 }
 
-/** A photo or PDF from a customer whose booking waits for payment is kept as their proof, and the team is told. */
-export function aiPaymentProofListener(dependencies: { recipients: BookingRecipients }): EventListener {
+/**
+ * A photo or PDF from a customer whose booking waits for payment is kept as their proof, and the team is told. With no
+ * booking waiting it is kept as a proof to match (payments to check), when the agency has the bookings module and a payment
+ * is likely in the chat. The team hears once a chat a day, however many files come.
+ */
+export function aiPaymentProofListener(dependencies: {
+  recipients: BookingRecipients;
+  subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
+}): EventListener {
   return defineListener({
     name: "ai.payment-proof",
     eventType: CUSTOMER_WROTE_EVENT,
     payload: whatsappCustomerWroteEvent,
     handle: async (event, context) => {
       const { conversationId, messageId } = event.payload;
-      const found = await context.forOrg(async (tx) => {
+      const looked = await context.forOrg(async (tx) => {
         const message = await tx.whatsappMessage.findUnique({
           where: { id: messageId },
           select: { kind: true, occurredAt: true },
         });
         if (message === null || !PROOF_KINDS.includes(message.kind)) return null;
-        return tx.aiBooking.findFirst({
+        const open = await tx.aiBooking.findFirst({
           where: { conversationId, status: { in: OPEN_STATUSES }, createdAt: { lte: message.occurredAt } },
           orderBy: { createdAt: "desc" },
           select: { id: true, leadId: true, summary: true, proofMessageIds: true },
         });
+        const day = calendarDateIn(message.occurredAt, await organizationTimeZone(tx, event.organizationId));
+        return { open, at: message.occurredAt, day };
       });
-      if (found === null || found.proofMessageIds.includes(messageId)) return;
+      if (looked === null) return;
+      const found = looked.open;
+      const modules = (await dependencies.subscriptions.entitlementsOf(event.organizationId))?.modules;
+      const bookingsOn = modules?.has("bookings") === true;
+      if (found === null) {
+        if (!bookingsOn) return;
+        const managerUserIds = await dependencies.recipients(event.organizationId);
+        await context.forOrg(async (tx) => {
+          const chat = await tx.whatsappConversation.findUnique({
+            where: { id: conversationId },
+            select: { personId: true },
+          });
+          const lead =
+            chat?.personId == null
+              ? null
+              : await tx.lead.findFirst({
+                  where: { personId: chat.personId },
+                  orderBy: { createdAt: "desc" },
+                  select: { id: true },
+                });
+          const leadId = lead?.id ?? null;
+          if (!(await mayBePayment(tx, { conversationId, leadId, at: looked.at }))) return;
+          await recordUnmatchedProof(tx, context.actor, {
+            conversationId,
+            messageId,
+            leadId,
+            managerUserIds,
+            day: looked.day,
+          });
+        });
+        return;
+      }
+      if (found.proofMessageIds.includes(messageId)) return;
       const recipients = await dependencies.recipients(event.organizationId);
       await context.forOrg(async (tx) => {
-        await tx.aiBooking.update({
-          where: { id: found.id },
-          data: { status: "proof_received", proofMessageIds: [...found.proofMessageIds, messageId] },
+        // Only a booking still open takes the proof: one a person decided meanwhile is left as they decided it.
+        const moved = await tx.aiBooking.updateMany({
+          where: { id: found.id, status: { in: OPEN_STATUSES } },
+          data: { status: "proof_received", proofMessageIds: { push: messageId } },
         });
+        if (moved.count === 0) return;
         await addAiLeadNote(
           tx,
           context.actor,
@@ -148,11 +193,12 @@ export function aiPaymentProofListener(dependencies: { recipients: BookingRecipi
         });
         await notify(tx, context.actor, {
           recipientUserIds: [...new Set([...(lead?.ownerUserId == null ? [] : [lead.ownerUserId]), ...recipients])],
-          sourceEventId: noticeKey(`ai-proof:${messageId}`, AI_PAYMENT_PROOF_KIND),
+          sourceEventId: noticeKey(`ai-proof:${conversationId}:${looked.day}`, AI_PAYMENT_PROOF_KIND),
           kind: AI_PAYMENT_PROOF_KIND,
-          title: `${lead?.person.name ?? "A customer"} sent a payment screenshot`.slice(0, 120),
+          title: mayBePaymentTitle(lead?.person.name),
           body: `${found.summary}. Check it and confirm the booking.`.slice(0, 300),
-          link: `/leads/${found.leadId}`,
+          // With bookings it is confirmed on Payments to check; the lead's id in the link lets its erasure find the notice.
+          link: bookingsOn ? `/payments?lead=${found.leadId}` : `/leads/${found.leadId}`,
           channels: ["email", "push"],
         });
       });
@@ -221,18 +267,35 @@ const textsOf = (details: unknown) => {
   };
 };
 
-/** A person decides: the payment is in (the lead is won), the booking is off, or it waits for payment again. */
+/**
+ * A person decides: the payment is in (the lead is won), the booking is off, or it waits for payment again. On a plan with
+ * the bookings module the payment is confirmed on Payments to check, which records the money and tells the customer, so
+ * not here; and a confirmed booking is never moved back, whatever the plan.
+ */
 export async function setBookingStatus(
   tx: OrgTx,
   access: MemberAccess,
   input: { bookingId: string; status: "confirmed" | "cancelled" | "awaiting_payment" },
   now: Date,
+  plan: { bookingsOn: boolean },
 ): Promise<{ leadId: string }> {
   const row = await tx.aiBooking.findUnique({
     where: { id: input.bookingId },
-    select: { id: true, leadId: true, summary: true, details: true, proofMessageIds: true, bookingId: true },
+    select: {
+      id: true,
+      leadId: true,
+      summary: true,
+      details: true,
+      proofMessageIds: true,
+      bookingId: true,
+      status: true,
+    },
   });
   if (row === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  if (input.status === "confirmed" && plan.bookingsOn)
+    throw new DomainError("CONFLICT", "CONFIRM_ON_PAYMENTS", "Confirm this payment on Payments to check");
+  if (row.status === "confirmed" && input.status !== "confirmed")
+    throw new DomainError("CONFLICT", "AI_BOOKING_NOT_OPEN", "This booking was decided already");
   // Confirming also makes (or finds) the release 6 booking for it: the lead's accepted quote's, or one made from what the AI took
   // down. Confirming again finds the same one.
   const bookingId =

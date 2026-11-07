@@ -45,6 +45,8 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
   const { nameOf } = useOwners();
   const owner = chat.lead === null ? null : nameOf(chat.lead.ownerUserId);
   const fresh = chat.unread > 0 || chat.needsReply;
+  // The open chat's row is darker (bg-hairline), where the muted grey is too faint to read.
+  const quiet = current ? "text-foreground" : "text-muted-foreground";
   return (
     // The row never grows past the list's width: a long message is cut, so the time stays in view.
     <div role="listitem" className="min-w-0">
@@ -76,19 +78,12 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
               >
                 {chat.name ?? formatPhoneNumber(chat.phone)}
               </span>
-              <span
-                className={cn("shrink-0 text-caption", fresh ? "font-semibold text-primary" : "text-muted-foreground")}
-              >
+              <span className={cn("shrink-0 text-caption", fresh ? "font-semibold text-primary" : quiet)}>
                 {when(chat.lastMessageAt)}
               </span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span
-                className={cn(
-                  "flex min-w-0 items-center gap-1 text-label",
-                  fresh ? "text-foreground" : "text-muted-foreground",
-                )}
-              >
+              <span className={cn("flex min-w-0 items-center gap-1 text-label", fresh ? "text-foreground" : quiet)}>
                 {chat.lastDirection === "out" && chat.lastStatus !== null && <Ticks status={chat.lastStatus} />}
                 <span className="truncate script-leading" dir="auto">
                   {chat.preview}
@@ -112,7 +107,7 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
                 )}
               </span>
             </div>
-            <div className="flex min-w-0 items-center gap-2 pt-0.5 text-caption text-muted-foreground">
+            <div className={cn("flex min-w-0 items-center gap-2 pt-0.5 text-caption", quiet)}>
               {chat.lead === null ? (
                 chat.isNewNumber && <span>{t("newNumber")}</span>
               ) : (

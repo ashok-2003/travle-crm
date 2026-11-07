@@ -29,7 +29,13 @@ import {
   quoteRevertedListener,
   runBookingDueWork,
 } from "@travel-crm/domain/bookings";
-import { DEPARTURE_HOLDS_QUEUE, runDepartureHoldExpiry, seatsFreedListener } from "@travel-crm/domain/departures";
+import {
+  DEPARTURE_HOLDS_QUEUE,
+  PACKAGE_DEPARTURES_QUEUE,
+  runDepartureHoldExpiry,
+  runPackageDepartures,
+  seatsFreedListener,
+} from "@travel-crm/domain/departures";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
 import { makeStaffExportListener, type ExportJobDependencies } from "@travel-crm/domain/exports";
 import type { Files } from "@travel-crm/domain/files";
@@ -363,7 +369,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // AI on, a lead is scored once for each burst of the customer's messages.
       aiDocumentListener({ files, readText: documentText }),
       // A photo or PDF from a customer whose AI booking waits for payment is kept as their proof; the team is told.
-      aiPaymentProofListener({ recipients: bookingManagers }),
+      aiPaymentProofListener({ recipients: bookingManagers, subscriptions: dependencies.subscriptions }),
       ...(dependencies.jobs === undefined || ai === null
         ? []
         : [
@@ -538,6 +544,15 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         timeZone: "Asia/Kolkata",
         handle: async () => {
           await runDepartureHoldExpiry(departureJobs, new Date());
+        },
+      },
+      {
+        // Each night, a group package gets the departures of its next twelve weeks that it does not have yet.
+        queue: PACKAGE_DEPARTURES_QUEUE,
+        cron: "20 3 * * *",
+        timeZone: "Asia/Kolkata",
+        handle: async () => {
+          await runPackageDepartures(departureJobs, new Date());
         },
       },
       {

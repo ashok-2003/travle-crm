@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { AmountsAlert } from "./amounts-alert";
 
 type Values = Pick<SaveAutopilotInput, "leadNotes" | "sendMedia" | "followUpTasks" | "paymentDetails" | "strictRules">;
 
@@ -121,6 +122,7 @@ export function PaymentsCard({
             }}
           />
           <FieldDescription>{t("rulesHint")}</FieldDescription>
+          <AmountsAlert text={values.strictRules} />
         </Field>
       </CardContent>
     </Card>

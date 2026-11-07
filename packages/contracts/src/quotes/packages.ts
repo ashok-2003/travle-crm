@@ -2,9 +2,18 @@
 // Deluxe) priced from the supplier rates, and the words and photos of its public page. Amounts are integer paise.
 import { z } from "zod";
 import { travellerLevel } from "../bookings/bookings.js";
-import { MAX_PACKAGE_PHOTO_BYTES, packagePhotoContentTypes } from "../files/attachments.js";
+import {
+  MAX_PACKAGE_BROCHURE_BYTES,
+  MAX_PACKAGE_PAYMENT_QR_BYTES,
+  MAX_PACKAGE_PHOTO_BYTES,
+  packageBrochureContentTypes,
+  packagePaymentQrContentTypes,
+  packagePhotoContentTypes,
+} from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
+import { MAX_SEATS } from "../departures/seat-limit.js";
+import { roomBooking, roomPrices, roomPricesOutput, roomType } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -18,6 +27,8 @@ export type QuantityRule = z.infer<typeof quantityRule>;
 export const MAX_TIER_LINES = 30;
 export const MAX_TIERS = 5;
 export const MAX_PACKAGE_PHOTOS = 6;
+/** A package holds five brochures at most. */
+export const MAX_PACKAGE_BROCHURES = 5;
 export const MAX_HIGHLIGHTS = 10;
 
 /** A tier's line: priced from a rate when it has one, else at its fixed price; neither makes a "needs a rate" line. */
@@ -51,6 +62,41 @@ export const packageSlug = z
 export const priceDisplays = ["from", "on_enquiry"] as const;
 export const priceDisplay = z.enum(priceDisplays);
 
+/** A custom package is quoted trip by trip; a group package sells seats on departures, priced by room type. */
+export const packageKinds = ["custom", "group"] as const;
+export const packageKind = z.enum(packageKinds);
+export type PackageKind = (typeof packageKinds)[number];
+
+/** A ready package ("Manali 5 days") in the agency's list: a quote starts from it in one tap, and the AI may sell it. */
+export const quotePackage = z.object({
+  id: recordId,
+  name: z.string(),
+  title: z.string(),
+  days: z.int(),
+  /** Its lines' total before GST. */
+  subtotalPaise: z.int(),
+  taxRateBasisPoints: quoteTaxRate,
+  /** Release 7b: whether its public page is published, the page's address, and how many tiers it has. */
+  published: z.boolean(),
+  slug: z.string().nullable(),
+  tierCount: z.int(),
+  kind: packageKind,
+  nights: z.int().nullable(),
+  /** The "From" price a custom trip shows (each person), when it has one. */
+  fromPricePaise: z.int().nullable(),
+  aiSellable: z.boolean(),
+  /** A group trip's departures from today on that are not cancelled. */
+  departuresAhead: z.int(),
+});
+export type QuotePackage = z.infer<typeof quotePackage>;
+export const quotePackageList = z.array(quotePackage);
+
+/** A new, empty package, filled in on its own page: a custom trip quoted for each customer, or a group trip on set dates. */
+export const createPackageInput = z.strictObject({ name: text(80).min(1), kind: packageKind });
+export type CreatePackageInput = z.infer<typeof createPackageInput>;
+
+const unique = (values: readonly unknown[]) => new Set(values).size === values.length;
+
 export const packageFields = {
   name: text(80).min(1),
   title: text(120).min(1),
@@ -70,14 +116,37 @@ export const packageFields = {
   fromPricePaise: paise.nullable(),
   defaultTravellerLevel: travellerLevel.nullable(),
   cancellationNotes: text(2000),
+  kind: packageKind,
+  /** The room types a group package sells. */
+  roomTypes: z.array(roomType).max(6).refine(unique, "Each room type once"),
+  /** Whether the prices already include GST (the usual way a group trip is advertised). */
+  pricesIncludeGst: z.boolean(),
+  /** What a person pays to hold a seat, in paise. */
+  advancePerPersonPaise: paise.nullable(),
+  pickupPoints: text(500),
+  startCity: text(80),
+  /** The days it departs, 0 Sunday to 6 Saturday. */
+  weeklyDays: z.array(z.int().min(0).max(6)).max(7).refine(unique, "Each day once"),
+  /** The months it departs, 1 to 12; empty means every month. */
+  departureMonths: z.array(z.int().min(1).max(12)).max(12).refine(unique, "Each month once"),
+  seatsPerDeparture: z.int().min(1).max(MAX_SEATS).nullable(),
 };
 export const updatePackageInput = z.strictObject({ packageId: recordId, ...packageFields });
+/** Where customers pay (bank or UPI details): changed apart from the package's words, by whoever manages settings. */
+export const setPackagePaymentDetailsInput = z.strictObject({ packageId: recordId, paymentDetails: text(1000) });
+export type SetPackagePaymentDetailsInput = z.infer<typeof setPackagePaymentDetailsInput>;
 export type UpdatePackageInput = z.infer<typeof updatePackageInput>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
+export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
+export type SetPackageSellableInput = z.infer<typeof setPackageSellableInput>;
 
 /** What a package still needs before its page can be published. */
 export const publishGaps = ["name", "slug", "summary", "photo"] as const;
 export type PublishGap = (typeof publishGaps)[number];
+
+/** What a package still needs before the AI may sell it. */
+export const sellGaps = ["room_types", "prices", "advance", "departures", "from_price"] as const;
+export type SellGap = (typeof sellGaps)[number];
 
 /** A tier's line as the editor reads it: with the name of the rate it prices from ("Hotel Aurora: Deluxe room"), if it has one. */
 export const tierLineView = tierLine.extend({ rateLabel: z.string().nullable() });
@@ -90,18 +159,57 @@ export const packageTier = z.object({
 });
 export type PackageTier = z.infer<typeof packageTier>;
 
+/** A season of a group package: the dates a set of per-person room prices holds. */
+export const packageSeason = z.object({
+  id: recordId,
+  label: z.string(),
+  startsOn: calendarDate,
+  endsOn: calendarDate,
+  prices: roomPricesOutput,
+});
+export type PackageSeasonView = z.infer<typeof packageSeason>;
+
+export const savePackageSeasonInput = z
+  .strictObject({
+    packageId: recordId,
+    /** Set to change a season; left out to add one. */
+    seasonId: recordId.optional(),
+    label: text(60).min(1),
+    startsOn: calendarDate,
+    endsOn: calendarDate,
+    prices: roomPrices,
+  })
+  .refine((value) => value.endsOn >= value.startsOn, {
+    message: "The season must end on or after its first day",
+    path: ["endsOn"],
+  })
+  .refine((value) => Object.values(value.prices).some((price) => price !== null), {
+    message: "Give at least one room type a price",
+    path: ["prices"],
+  });
+export type SavePackageSeasonInput = z.infer<typeof savePackageSeasonInput>;
+export const removePackageSeasonInput = z.strictObject({ seasonId: recordId });
+
 export const packageDetail = z.object({
   id: recordId,
   ...z.object(packageFields).shape,
   published: z.boolean(),
+  /** Bank or UPI details a customer is told when they pay; changed apart from the rest (setPaymentDetails). */
+  paymentDetails: z.string(),
   /** The destination's name, for the picker. */
   destinationName: z.string().nullable(),
   /** The lines of a package with no tiers (its one implicit tier); costs only for whoever may see margins. */
   items: z.array(quoteItem).max(MAX_QUOTE_ITEMS),
   tiers: z.array(packageTier),
+  /** Group-trip seasons with their room prices, by first day. */
+  seasons: z.array(packageSeason),
   photoCount: z.int(),
   /** What is missing to publish; empty when it can be. */
   gaps: z.array(z.enum(publishGaps)),
+  /** Whether the AI may sell this package. */
+  sellable: z.boolean(),
+  /** What is missing before it may; empty when it can be switched on. */
+  sellGaps: z.array(z.enum(sellGaps)),
   /** Whether the agency's public pages are switched on at all. */
   pagesEnabled: z.boolean(),
   /** The agency's sign-in code in lower case, the first part of the public address. */
@@ -129,6 +237,20 @@ export const madeQuotes = z.object({
 });
 export type MadeQuotes = z.infer<typeof madeQuotes>;
 
+/** A group trip's quote: a departure of the package and the rooms the party takes (people per room type). */
+export const makeGroupQuoteInput = z.strictObject({
+  leadId: recordId,
+  packageId: recordId,
+  departureId: recordId,
+  // One line a room type: the same type twice would be priced as two lines of one.
+  rooms: z
+    .array(roomBooking)
+    .min(1)
+    .max(6)
+    .refine((rooms) => unique(rooms.map((room) => room.roomType)), "Each room type once"),
+});
+export type MakeGroupQuoteInput = z.infer<typeof makeGroupQuoteInput>;
+
 /** The helper beside "From ₹X": the cheapest tier for two adults in the next season, to accept or ignore. */
 export const calculatedFromPrice = z.object({
   fromPricePaise: z.int().nullable(),
@@ -148,3 +270,31 @@ export const requestPackagePhotoInput = z.strictObject({
   sizeBytes: z.int().min(1).max(MAX_PACKAGE_PHOTO_BYTES),
 });
 export const packagePhotoRefInput = z.strictObject({ packageId: recordId, attachmentId: z.uuid() });
+
+export const packageFileKinds = ["brochure", "payment_qr"] as const;
+export type PackageFileKind = (typeof packageFileKinds)[number];
+export const packageFile = z.object({
+  attachmentId: recordId,
+  fileName: z.string(),
+  contentType: z.string(),
+  url: z.string().nullable(),
+});
+export type PackageFile = z.infer<typeof packageFile>;
+export const packageFiles = z.object({ brochures: z.array(packageFile), paymentQr: packageFile.nullable() });
+export const requestPackageFileInput = z.strictObject({
+  packageId: recordId,
+  kind: z.enum(packageFileKinds),
+  fileName: z.string().trim().min(1).max(200),
+  contentType: z.enum([...packageBrochureContentTypes, ...packagePaymentQrContentTypes]),
+  sizeBytes: z.int().min(1).max(Math.max(MAX_PACKAGE_BROCHURE_BYTES, MAX_PACKAGE_PAYMENT_QR_BYTES)),
+});
+export const packageFileRefInput = z.strictObject({
+  packageId: recordId,
+  kind: z.enum(packageFileKinds),
+  attachmentId: z.uuid(),
+});
+/** Brochures are staff's to manage with the package; the payment QR is where customers pay, so it has procedures of its own. */
+export const requestBrochureInput = requestPackageFileInput.extend({ kind: z.literal("brochure") });
+export const brochureRefInput = packageFileRefInput.extend({ kind: z.literal("brochure") });
+export const requestPaymentQrInput = requestPackageFileInput.omit({ kind: true });
+export const paymentQrRefInput = packageFileRefInput.omit({ kind: true });

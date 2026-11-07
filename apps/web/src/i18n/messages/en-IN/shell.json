@@ -21,7 +21,9 @@
     "expand": "Open the sidebar",
     "inbox": "Inbox",
     "quotes": "Quotes",
+    "packages": "Packages",
     "bookings": "Bookings",
+    "payments": "Payments to check",
     "finance": "Finance",
     "reports": "Reports",
     "notifications": "Notifications",
@@ -33,6 +35,7 @@
   "home": {
     "title": "Welcome, {name}",
     "intro": "Your screens:",
+    "packages": "Add your trips, with their prices and dates",
     "staff": "Add your staff and give each a role",
     "roles": "Decide what each role may see and do",
     "settings": "Choose how your staff sign in",

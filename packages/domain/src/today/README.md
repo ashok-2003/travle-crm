@@ -5,8 +5,10 @@ public queries of crm and tasks below it, and later releases add their own items
 
 ## Public functions (`index.ts`)
 
-- `todaySummary(tx, access, now)`: today's date in the agency's zone, the counts of overdue items, payments due, new
-  leads waiting, opened quotes with no reply and items due today, and the first of each section.
+- `todaySummary(tx, access, now, { bookingsOn })`: today's date in the agency's zone, the counts of overdue items,
+  payments due, new leads waiting, opened quotes with no reply and items due today, the payments to check (on a plan
+  with bookings) with the claims' own tasks among the tasks (`checkTasks`, so `todayTotal` counts each claim once), and
+  the first of each section.
 - `todaySection(tx, access, { section, after?, limit }, now)`: one section (`overdue`, `payments-due`, `new-leads`,
   `quote-opened`, `due-today`, in that order on screen), a page at a time. The two sections of release 5 are the sales
   module's queries (`sales/today-work.ts`): a quote opened over a day ago with no reply, note, call or quote change

@@ -541,7 +541,9 @@
       "month": "The month they want to travel",
       "agent": "Your own first name",
       "amount": "The amount due on the lead's latest quote: its next unpaid instalment, else the whole",
-      "link": "A link to the lead's latest quote, made when the message is used"
+      "link": "A link to the lead's latest quote, made when the message is used",
+      "trip": "The trip a payment is for (payment messages only)",
+      "date": "The day of a payment, like 16 Oct (payment messages only)"
     },
     "previewHeading": "How it reads",
     "previewHint": "With a made-up customer, Asha, who wants Spiti in May.",
@@ -551,7 +553,9 @@
       "month": "May",
       "agent": "Meera",
       "amount": "₹25,000.00",
-      "link": "https://example.in/p/quote"
+      "link": "https://example.in/p/quote",
+      "trip": "Spiti 5N",
+      "date": "16 Oct"
     }
   },
   "tagsSettings": {

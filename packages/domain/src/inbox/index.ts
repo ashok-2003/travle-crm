@@ -14,7 +14,7 @@ export {
 } from "./dependencies.js";
 export { addDemoWhatsApp } from "./demo-seed.js";
 export { withdrawWhatsApp, type WhatsAppWithdrawn } from "./erasure.js";
-export { mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
+export { mediaLinkFor, mediaLinkOf, startLeadFromConversation } from "./chat-actions.js";
 export { listChatMedia } from "./chat-media.js";
 export { discardFailedMessage } from "./discard.js";
 export {

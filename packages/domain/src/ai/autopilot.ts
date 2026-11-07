@@ -5,11 +5,15 @@
 import { autopilotSettings, type AutopilotSettings, type SaveAutopilotInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
+import { sellablePackages } from "../quotes/index.js";
 import type { MemberAccess } from "../identity/index.js";
+import { DomainError, type CalendarDate } from "../kernel/index.js";
 
 /** The settings as the agent reads them: every field has its default when the agency saved none. */
 export interface AutopilotRow {
   autopilot: boolean;
+  /** The grounded turn answers instead of the first one (an owner's switch, set by hand for now). */
+  grounded: boolean;
   agentName: string;
   followUpHours: number;
   maxRepliesPerDay: number;
@@ -35,6 +39,7 @@ export interface AutopilotRow {
 
 export const autopilotDefaults: AutopilotRow = {
   autopilot: false,
+  grounded: false,
   agentName: "",
   followUpHours: 4,
   maxRepliesPerDay: 25,
@@ -60,6 +65,7 @@ export const autopilotDefaults: AutopilotRow = {
 
 const columns = {
   autopilot: true,
+  grounded: true,
   agentName: true,
   followUpHours: true,
   maxRepliesPerDay: true,
@@ -103,20 +109,47 @@ export async function autopilotSettingsOf(tx: OrgTx): Promise<AutopilotSettings>
   return toSettings(await autopilotOf(tx));
 }
 
+/** Whether a package the AI may sell today has a destination: one without is a package the agent never sees. */
+async function sellableWithADestination(tx: OrgTx, today: CalendarDate): Promise<boolean> {
+  const ids = (await sellablePackages(tx, today)).map((one) => one.id);
+  return (
+    ids.length > 0 && (await tx.quoteTemplate.count({ where: { id: { in: ids }, destinationId: { not: null } } })) > 0
+  );
+}
+
 export async function saveAutopilot(
   tx: OrgTx,
   access: MemberAccess,
   input: SaveAutopilotInput,
+  today: CalendarDate,
 ): Promise<AutopilotSettings> {
   const before = await autopilotOf(tx);
-  const data = { ...input, updatedBy: access.userId };
+  // Left out (an older screen), it stays as stored.
+  const grounded = input.grounded ?? before.grounded;
+  // Turning it on needs a package to answer from, with a destination (the agent knows a package by its place); leaving it
+  // on, or turning it off, never does.
+  if (grounded && !before.grounded && !(await sellableWithADestination(tx, today))) {
+    throw new DomainError(
+      "VALIDATION",
+      "NO_SELLABLE_PACKAGES",
+      "Make at least one package with a destination sellable by the AI first.",
+    );
+  }
+  const data = { ...input, grounded, updatedBy: access.userId };
   await tx.aiAutopilot.upsert({
     where: { organizationId: access.organizationId },
     create: { organizationId: access.organizationId, ...data },
     update: data,
   });
-  const switches = (row: { autopilot: boolean; learning: boolean; persona: string; handoff: string }) => ({
+  const switches = (row: {
+    autopilot: boolean;
+    grounded: boolean;
+    learning: boolean;
+    persona: string;
+    handoff: string;
+  }) => ({
     autopilot: row.autopilot,
+    grounded: row.grounded,
     learning: row.learning,
     persona: row.persona,
     handoff: row.handoff,
@@ -126,7 +159,7 @@ export async function saveAutopilot(
     entityType: "ai_autopilot",
     entityId: access.organizationId,
     before: switches(before),
-    after: switches(input),
+    after: switches({ ...input, grounded }),
   });
   return autopilotSettingsOf(tx);
 }

@@ -31,6 +31,7 @@ export type { PlatformWhatsApp } from "./whatsapp-settings.js";
 export { SWEEP_WHATSAPP_QUEUE, sweepWhatsAppNow, whatsappSweepSchedule } from "./whatsapp-sweep.js";
 export { metaSweepSchedule, SWEEP_META_QUEUE, sweepMetaNow } from "./meta-sweep.js";
 export { organizationsOverview } from "./dashboard.js";
+export { createCaseOrganization, removeCaseOrganization } from "./agent-cases.js";
 export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
 export {
   emailLogPurgeSchedule,

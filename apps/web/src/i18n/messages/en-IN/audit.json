@@ -230,6 +230,7 @@
       "installment-removed": "Removed a payment due on a quote",
       "payment-recorded": "Recorded a payment",
       "payment-voided": "Voided a payment",
+      "payments-moved": "Payments made on a chat's booking moved onto the accepted quote",
       "replaced": "Replaced a quote with a new version",
       "departure-changed": "Put a quote on a departure, or took it off"
     },
@@ -253,6 +254,7 @@
       "quote-opened-dismissed": "Marked an opened quote as seen"
     },
     "quote-package": {
+      "created": "Created a package",
       "saved": "Saved a quote package",
       "deleted": "Deleted a quote package",
       "changed": "Changed a quote package",
@@ -260,6 +262,13 @@
       "unpublished": "Took a package's public page down",
       "tier-saved": "Saved a package's tier",
       "tier-removed": "Removed a package's tier"
+    },
+    "package": {
+      "created-from-draft": "Saved a package from an AI draft",
+      "season-saved": "Saved a package's season and room prices",
+      "season-removed": "Removed a package's season",
+      "sellable-changed": "Let the AI sell a package, or stopped it",
+      "payment-changed": "Changed where customers pay for a package"
     },
     "ai-settings": {
       "changed": "Changed the AI settings"
@@ -281,6 +290,7 @@
       "media-changed": "Changed a file the AI sends",
       "media-deleted": "Removed a file the AI sent",
       "booking-decided": "Confirmed or cancelled a booking the AI took",
+      "payment-refused": "Could not match the payment for a booking the AI took",
       "fill-applied": "Saved a form the AI filled in",
       "lead-filled": "The AI filled in a new lead from its first messages",
       "lead-fields-confirmed": "Confirmed what the AI filled in on a lead",
@@ -289,6 +299,9 @@
     },
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"
+    },
+    "payment-proof": {
+      "dismissed": "Dismissed a payment screenshot"
     },
     "booking": {
       "created": "A booking was made from an accepted quote",
@@ -467,7 +480,14 @@
     "unit": "Charged",
     "defaultMarkupBasisPoints": "Markup (basis points)",
     "minMarginBasisPoints": "Least margin (basis points)",
-    "lines": "Lines"
+    "lines": "Lines",
+    "templateId": "Package",
+    "priceSinglePaise": "Single room price",
+    "priceDoublePaise": "Double sharing price",
+    "priceTriplePaise": "Triple sharing price",
+    "priceQuadPaise": "Quad sharing price",
+    "priceChildBedPaise": "Child with bed price",
+    "priceChildNoBedPaise": "Child without bed price"
   },
   "recordTypes": {
     "issued_document": "A document",

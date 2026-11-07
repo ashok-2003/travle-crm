@@ -17,7 +17,11 @@ const editor = orgProcedure.requires("leads:edit");
 export const todayRouter = router({
   summary: viewer
     .output(todaySummaryOutput)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => todaySummary(tx, ctx.member, new Date()))),
+    .query(({ ctx }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        todaySummary(tx, ctx.member, new Date(), { bookingsOn: ctx.entitlements?.modules.has("bookings") === true }),
+      ),
+    ),
 
   section: viewer
     .input(todaySectionInput)

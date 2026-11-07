@@ -146,4 +146,32 @@ export const fixtures: OrgTableFixtures = {
     },
     undeletable: true,
   },
+  payment_proof: {
+    create: async (tx: OrgTx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: digits(),
+          displayNumber: "+910000000000",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const conversation = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+91${digits().slice(2)}` },
+      });
+      const message = await tx.whatsappMessage.create({
+        data: {
+          conversationId: conversation.id,
+          direction: "in",
+          origin: "customer",
+          kind: "image",
+          wamid: randomUUID(),
+          status: "received",
+          occurredAt: new Date(),
+        },
+      });
+      return tx.paymentProof.create({ data: { conversationId: conversation.id, messageId: message.id } });
+    },
+    undeletable: true,
+  },
 };

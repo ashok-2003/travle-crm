@@ -1,6 +1,6 @@
 // A record's files: listing them, removing one (a soft delete), and the organization's storage used.
 import type { AttachmentRefInput, AttachmentSummary } from "@travel-crm/contracts/files";
-import { softDeleted } from "@travel-crm/db";
+import { softDeleted, type OrgTx } from "@travel-crm/db";
 import { DomainError, type Actor } from "../kernel/index.js";
 import { attachmentFields, canViewSensitive, findAttachment, summaryFor } from "./attachment-row.js";
 import type { FilesDependencies } from "./dependencies.js";
@@ -24,6 +24,21 @@ export async function listAttachments(
       orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
     });
     return rows.map((row) => summaryFor(actor, row));
+  });
+}
+
+/**
+ * The record's ready files inside a transaction already open, oldest first, with no links and no member: for system
+ * work (the AI's turn) that holds no MemberAccess. Sensitive files are never listed.
+ */
+export async function readyAttachmentsIn(
+  tx: OrgTx,
+  record: { recordType: string; recordId: string },
+): Promise<{ id: string; fileName: string; contentType: string }[]> {
+  return tx.attachment.findMany({
+    where: { recordType: record.recordType, recordId: record.recordId, status: "ready", sensitive: false },
+    select: { id: true, fileName: true, contentType: true },
+    orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
   });
 }
 

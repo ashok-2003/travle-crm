@@ -5,6 +5,10 @@ import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { MAX_QUOTE_PAISE } from "../quotes/quotes.js";
+import { roomPrices, roomPricesOutput } from "../quotes/room-prices.js";
+import { MAX_SEATS } from "./seat-limit.js";
+
+export { MAX_SEATS };
 
 export const departureStatuses = ["open", "closed", "cancelled"] as const;
 export const departureStatus = z.enum(departureStatuses);
@@ -18,7 +22,6 @@ export type SeatState = z.infer<typeof seatState>;
 export const holdStatuses = ["active", "released", "expired", "converted"] as const;
 export const holdStatus = z.enum(holdStatuses);
 
-export const MAX_SEATS = 1000;
 /** A hold ending within this many hours shows red in Today. */
 export const HOLD_ENDING_SOON_HOURS = 4;
 
@@ -35,6 +38,10 @@ export const departureFields = {
   /** The last day a seat is sold, or null. */
   cutoffOn: calendarDate.nullable(),
   notes: text(1000),
+  /** The group package this departure belongs to, or null for a departure of its own. */
+  templateId: recordId.nullable(),
+  /** The departure's own prices per person by room type; all null when the package's season prices apply. */
+  prices: roomPrices,
 };
 
 const endsAfterStart = (value: { startDate: string; endDate: string }) => value.endDate >= value.startDate;
@@ -66,7 +73,7 @@ export type CancelDepartureInput = z.infer<typeof cancelDepartureInput>;
 export const departureFilters = ["upcoming", "past", "cancelled"] as const;
 export const departureFilter = z.enum(departureFilters);
 export type DepartureFilter = z.infer<typeof departureFilter>;
-export const listDeparturesInput = z.strictObject({ filter: departureFilter });
+export const listDeparturesInput = z.strictObject({ filter: departureFilter, templateId: recordId.optional() });
 export type ListDeparturesInput = z.infer<typeof listDeparturesInput>;
 export const DEPARTURES_LIST_LIMIT = 100;
 
@@ -136,6 +143,8 @@ export const departureDetail = z.object({
   destinationId: recordId.nullable(),
   cutoffOn: calendarDate.nullable(),
   notes: z.string(),
+  templateId: recordId.nullable(),
+  prices: roomPricesOutput,
   cancelledReason: z.string().nullable(),
   bookings: z.array(departureBooking),
   holds: z.array(departureHold),

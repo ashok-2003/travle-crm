@@ -81,6 +81,14 @@ const auditView = (settings: InboxAutomation) => ({
 const minuteText = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
+/**
+ * Whether the agency answers from its packages only. The column is the AI module's switch; inbox reads it in one line
+ * rather than import ai (ai imports inbox), so a grounded agency's chats get no keyword trip kits.
+ */
+export async function answersFromPackagesOnly(tx: OrgTx): Promise<boolean> {
+  return (await tx.aiAutopilot.findFirst({ select: { grounded: true } }))?.grounded === true;
+}
+
 /** Whether anything could act on a customer's message: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   const settings = await automationOf(tx);
@@ -95,6 +103,8 @@ export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   // no settings saved, the buying words are on by default.
   const sales = await tx.salesAutomation.findFirst({ select: { hotKeywords: true, followEnabled: true } });
   if (sales === null || sales.hotKeywords.length > 0 || sales.followEnabled) return true;
+  // A grounded agency's AI sends the files; keyword kits stay for the others (staff still send a kit from the chat).
+  if (await answersFromPackagesOnly(tx)) return false;
   return (await tx.tripKit.count({ where: { autoSend: true, keywords: { isEmpty: false } } })) > 0;
 }
 

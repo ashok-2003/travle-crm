@@ -50,6 +50,16 @@ export const PACKAGE_PHOTO_RECORD_TYPE = "package_photo";
 export const packagePhotoContentTypes = ["image/jpeg", "image/png", "image/webp"] as const;
 /** A package photo is at most 5 MB. */
 export const MAX_PACKAGE_PHOTO_BYTES = 5 * 1024 * 1024;
+/** A package's brochure (group packages): a PDF or a picture the AI agent sends to a customer who asks for details. */
+export const PACKAGE_BROCHURE_RECORD_TYPE = "package_brochure";
+export const packageBrochureContentTypes = ["application/pdf", ...packagePhotoContentTypes] as const;
+/** A brochure is at most 10 MB. */
+export const MAX_PACKAGE_BROCHURE_BYTES = 10 * 1024 * 1024;
+/** A package's payment QR (group packages): one picture, sent when a customer wants to book. */
+export const PACKAGE_PAYMENT_QR_RECORD_TYPE = "package_payment_qr";
+export const packagePaymentQrContentTypes = packagePhotoContentTypes;
+/** A payment QR is at most 2 MB. */
+export const MAX_PACKAGE_PAYMENT_QR_BYTES = 2 * 1024 * 1024;
 
 /** What a WhatsApp message may carry: the attachment types plus the video, voice notes and Office files people send. */
 export const whatsappContentTypes = [

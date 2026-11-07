@@ -262,8 +262,8 @@ Secrets come from the platform's secret manager as environment variables, never 
     burst, and reads the words of documents agencies upload for their AI (PDF and plain text, up to 10 MB).
   - Off for every agency until its plan includes the `ai` module (the console's plan editor) and its Owner or Admin turns it on
     in Settings, AI. A member asks for each draft; it reads the chat's last 12 messages, the lead's first name and trip
-    facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 500
-    suggestions an agency a month (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
+    facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 8,000
+    AI calls an agency a month, suggestions and the autopilot alike (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
   - **Called directly on another endpoint** (the owner, 2026-10-29): `AI_API_KEY` with `AI_BASE_URL` (for Google's Gemini,
     `https://generativelanguage.googleapis.com/v1beta/openai`; OpenRouter's when unset) and `AI_CHAT_MODELS` (and optionally
     `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the

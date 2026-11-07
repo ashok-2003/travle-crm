@@ -17,16 +17,24 @@ const wordsOf = (text: string) =>
       .filter((word) => word.length > 2),
   );
 
-/** The agency's knowledge, the pieces sharing most words with the conversation first, within the budget. */
-export async function knowledgePack(tx: OrgTx, about: string): Promise<string> {
+/**
+ * The agency's knowledge, the pieces sharing most words with the conversation first, within the budget. `ownOnly` keeps
+ * the agency's own knowledge pieces alone, with no trip kits and no quote templates (the grounded turn takes its trips
+ * from the card, so a kit's stale price never reaches it).
+ */
+export async function knowledgePack(tx: OrgTx, about: string, options: { ownOnly?: boolean } = {}): Promise<string> {
   const own = await tx.aiKnowledge.findMany({
     where: { enabled: true, status: "ready" },
     select: { title: true, body: true },
   });
-  const trips = await tx.tripKit.findMany({ select: { name: true, message: true, keywords: true } });
-  const packages = await tx.quoteTemplate.findMany({
-    select: { name: true, title: true, items: true, inclusions: true },
-  });
+  const trips =
+    options.ownOnly === true
+      ? []
+      : await tx.tripKit.findMany({ select: { name: true, message: true, keywords: true } });
+  const packages =
+    options.ownOnly === true
+      ? []
+      : await tx.quoteTemplate.findMany({ select: { name: true, title: true, items: true, inclusions: true } });
   const pieces = [
     ...own.map((piece) => ({ title: piece.title, body: piece.body })),
     ...trips.map((trip) => ({

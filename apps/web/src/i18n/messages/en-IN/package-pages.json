@@ -16,7 +16,7 @@
     "departures": "Departures",
     "departuresIntro": "Fixed dates for a group. Pick one to join.",
     "departureDates": "{from} to {to}",
-    "departurePrice": "{price} per person",
+    "departurePrice": "From {price} per person",
     "words": {
       "open": "Open",
       "filling": "Filling fast",

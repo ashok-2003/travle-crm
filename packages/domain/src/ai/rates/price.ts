@@ -66,6 +66,19 @@ export function priceInLine(printed: string, line: string): boolean {
   return number !== null && numbersIn(line).has(number);
 }
 
+/** Every amount a line prints, in paise, read the way a printed price is ("₹6,999" and "6k" are amounts; the 7 of "7N" is 7 rupees). */
+export function amountsIn(line: string): Set<number> {
+  const found = new Set<number>();
+  for (const match of line.matchAll(/(\d[\d,]*(?:\.\d+)?)(?:\s*(crore|cr|lakhs?|lacs?|l|k)\b)?/gi)) {
+    const paise = parsePrintedPrice(`${(match[1] ?? "").replace(/,$/, "")}${match[2] ?? ""}`);
+    if (paise !== null) found.add(paise);
+  }
+  return found;
+}
+
+/** Whether a line prints exactly this price: its amount, not just digits it starts with. */
+export const amountInLine = (paise: number, line: string): boolean => amountsIn(line).has(paise);
+
 const TAX_WORDS =
   /\+\s*gst|plus\s+(?:gst|taxes|tax)|\bgst\b|\btaxes?\b|\binclusive\b|\bexclusive\b|\bincl\.?|\bexcl\.?/gi;
 

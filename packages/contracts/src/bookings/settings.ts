@@ -2,6 +2,7 @@
 // the WhatsApp templates they use, the packing list, the emergency contact, the cancellation steps and notes, and the
 // review link. One settings row, and the cancellation policy's rules.
 import { z } from "zod";
+import { paymentMessageBody } from "../inbox/blanks.js";
 import { recordId } from "../identity/fields.js";
 import { templateParam } from "../sales/sales.js";
 import { policyRule, travellerLevel } from "./bookings.js";
@@ -24,6 +25,13 @@ export const bookingSettingsFields = {
   balanceParams: params,
   detailsTemplateId: recordId.nullable(),
   detailsParams: params,
+  /** What goes to the customer when a person confirms their payment, or can't find it: {name}, {amount}, {trip}, {date}. */
+  paymentConfirmedText: paymentMessageBody,
+  paymentNotFoundText: paymentMessageBody,
+  paymentConfirmedTemplateId: recordId.nullable(),
+  paymentConfirmedParams: params,
+  paymentNotFoundTemplateId: recordId.nullable(),
+  paymentNotFoundParams: params,
   reportingTemplateId: recordId.nullable(),
   reportingParams: params,
   feedbackTemplateId: recordId.nullable(),
@@ -57,5 +65,11 @@ export const saveBookingSettingsInput = z.strictObject({
 });
 export type SaveBookingSettingsInput = z.infer<typeof saveBookingSettingsInput>;
 
-export const bookingSettingsView = z.object({ ...bookingSettingsFields, rules: z.array(policyRule) });
+// A stored payment text is read as it is: the guard at send time, not a failed read, keeps a bad one from the customer.
+export const bookingSettingsView = z.object({
+  ...bookingSettingsFields,
+  paymentConfirmedText: z.string(),
+  paymentNotFoundText: z.string(),
+  rules: z.array(policyRule),
+});
 export type BookingSettingsView = z.infer<typeof bookingSettingsView>;

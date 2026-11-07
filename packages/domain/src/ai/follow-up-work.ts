@@ -40,6 +40,9 @@ function outcomeOf(turn: string): FollowUpTouchOutcome {
     case "not_allowed":
     case "not_configured":
       return "off";
+    // The grounded turn sent nothing and told the team (a reply the check refused twice, a read that did not fit).
+    case "blocked":
+    case "unfit":
     default:
       return "failed";
   }

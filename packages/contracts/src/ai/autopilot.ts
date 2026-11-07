@@ -25,6 +25,8 @@ export const aiPersonas = ["sales", "natural"] as const;
 
 export const autopilotFields = {
   autopilot: z.boolean(),
+  /** It answers only from the packages marked sellable, with prices and dates written by the system; needs one. */
+  grounded: z.boolean(),
   agentName: text(80),
   followUpHours: z.int().min(0).max(23),
   maxRepliesPerDay: z.int().min(1).max(200),
@@ -48,7 +50,8 @@ export const autopilotFields = {
   /** It adds follow-ups to leads from its chats, and writes to each lead whose follow-up comes due, inside the window. */
   followUpTasks: z.boolean(),
 };
-export const saveAutopilotInput = z.strictObject(autopilotFields);
+// `grounded` may be left out (an older cached screen): the stored value is kept, as with `customTrips`.
+export const saveAutopilotInput = z.strictObject({ ...autopilotFields, grounded: autopilotFields.grounded.optional() });
 export type SaveAutopilotInput = z.infer<typeof saveAutopilotInput>;
 
 /** A way of talking it copies: whose, the style guide written of it, and how many of their messages it keeps. */
@@ -230,7 +233,21 @@ export const voiceAnswer = z.object({
 
 /** A question to try the AI on, from the agency's knowledge alone, before turning it on (Settings, AI). */
 export const testAiInput = z.strictObject({ question: text(1000).min(1) });
-export const testAiAnswer = z.object({ answer: z.string(), handoff: z.boolean(), reason: z.string() });
+/** What code would do after a grounded reply: send brochures, the agency's files, book (payment details and the booking). */
+export const testAiAction = z.enum(["files", "agencyFiles", "book", "flag", "note", "task"]);
+export type TestAiAction = z.infer<typeof testAiAction>;
+
+export const testAiAnswer = z.object({
+  answer: z.string(),
+  handoff: z.boolean(),
+  reason: z.string(),
+  /**
+   * For an agency answering from its packages, the grounded turn's dry run: what code would do with the reply, or the
+   * check's reason code when nothing would be sent. Null for the first agent.
+   */
+  grounded: z.object({ actions: z.array(testAiAction), blocked: z.string().nullable() }).nullable(),
+});
+export type TestAiAnswer = z.infer<typeof testAiAnswer>;
 
 /** The AI's last day at a glance, for the AI screen's head. */
 export const aiOverview = z.object({

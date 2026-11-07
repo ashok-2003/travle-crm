@@ -92,9 +92,11 @@ import {
 } from "@travel-crm/domain/ai";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
+import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { aiDeparturesRouter } from "./ai-departures.js";
 import { aiFillRouter } from "./ai-fill.js";
+import { aiPackageDraftsRouter } from "./ai-package-drafts.js";
 import { aiRatesRouter } from "./ai-rates.js";
 import { router } from "../trpc.js";
 
@@ -107,6 +109,9 @@ export const aiRouter = router({
 
   /** AI on a supplier's rates: a rate sheet read into rows to check and save. */
   rates: aiRatesRouter,
+
+  /** AI on a group package: trips found in the agency's documents, one drafted with its evidence, and the owner's save. */
+  packageDrafts: aiPackageDraftsRouter,
 
   /** Whether the agency has Suggest reply on, for the composer to offer the button. */
   status: orgProcedure
@@ -228,7 +233,7 @@ export const aiRouter = router({
       }),
     ),
 
-  /** The payment is in (the lead is won), the booking is off, or it waits for payment again. */
+  /** The payment is in (the lead is won), the booking is off, or it waits for payment again; with bookings, confirmed on Payments to check. */
   setBookingStatus: freshProcedure
     .requires("leads:edit", "leads:view")
     .input(setAiBookingStatusInput)
@@ -238,7 +243,8 @@ export const aiRouter = router({
         if (booking === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
         // A lead out of the member's scope is not found.
         await getLead(tx, ctx.member, booking.leadId);
-        await setBookingStatus(tx, ctx.member, input, new Date());
+        const bookingsOn = ctx.entitlements?.modules.has("bookings") === true;
+        await setBookingStatus(tx, ctx.member, input, new Date(), { bookingsOn });
       }),
     ),
 
@@ -314,9 +320,10 @@ export const aiRouter = router({
     .requires("ai:manage")
     .input(saveAutopilotInput)
     .output(autopilotSettings)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input)),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input, today));
+    }),
 
   /** The autopilot's last day at a glance. */
   overview: freshProcedure

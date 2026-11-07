@@ -3,7 +3,7 @@
 // Today (spec 3.5): the signed-in person's own day, whatever their scope (R35). The header says the agency's day and
 // how many things it holds, red when some are overdue, with Add a task as the screen's action; then Overdue, New leads
 // not contacted yet and Due today, each shown while it holds something. A quiet line says what later releases add.
-import type { TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
+import { todayTotal, type TodaySectionName, type TodaySummary } from "@travel-crm/contracts/today";
 import { parseCalendarDate, startOfDayIn } from "@travel-crm/domain/kernel";
 import { CalendarCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -16,6 +16,7 @@ import { AwaySwitch } from "@/leads/away-switch";
 import { formatDay, formatWeekday } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
+import { PaymentsToCheckSection } from "./payments-to-check-section";
 import { TodaySection } from "./today-section";
 import { useTodaySummary } from "./use-today";
 import { HotLeadsCard } from "@/sales/hot-leads-card";
@@ -38,14 +39,14 @@ function DayLine({ summary }: { summary: TodaySummary }) {
   const t = useTranslations("today");
   const { timeZone } = useMe().organization;
   const start = startOfDayIn(parseCalendarDate(summary.day), timeZone);
-  const { overdue, newLeads, dueToday, quoteOpened, paymentsDue, tripDetails, departures } = summary.counts;
+  const { overdue } = summary.counts;
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <span>
         {t("intro", {
           weekday: formatWeekday(start, { timeZone }),
           day: formatDay(start, { timeZone }),
-          count: overdue + newLeads + dueToday + quoteOpened + paymentsDue + tripDetails + departures,
+          count: todayTotal(summary.counts),
         })}
       </span>
       {overdue > 0 && <StatusBadge tone="bad">{t("overdueCount", { count: overdue })}</StatusBadge>}
@@ -66,7 +67,8 @@ export function TodayScreen() {
       return (
         <div className="flex flex-col gap-10">
           <HotLeadsCard />
-          {shown.length === 0 ? (
+          {counts.paymentsToCheck > 0 && <PaymentsToCheckSection count={counts.paymentsToCheck} />}
+          {shown.length === 0 && counts.paymentsToCheck === 0 ? (
             <EmptyState icon={CalendarCheckIcon} message={t("nothing")} />
           ) : (
             shown.map((section) => (

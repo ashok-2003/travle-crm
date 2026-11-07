@@ -122,6 +122,7 @@ model Organization {
   aiLearnings                 AiLearning[]
   aiMedia                     AiMedia[]
   aiBookings                  AiBooking[]
+  paymentProofs               PaymentProof[]
   aiFollowUpTouches           AiFollowUpTouch[]
   notificationRouting         NotificationRouting?
   aiUsage                     AiUsage[]
@@ -134,6 +135,7 @@ model Organization {
   quoteTemplates              QuoteTemplate[]
   quoteTemplateTiers          QuoteTemplateTier[]
   supplierRateSeasons         SupplierRateSeason[]
+  packageSeasons              PackageSeason[]
   supplierRates               SupplierRate[]
   publicPageSettings          PublicPageSettings?
   packageEnquiries            PackageEnquiry[]

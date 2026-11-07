@@ -15,6 +15,7 @@ import {
   quoteFromPackageInput,
   quotePackageList,
   savePackageInput,
+  createPackageInput,
   paymentIdInput,
   quoteDetail,
   quoteDocument,
@@ -42,6 +43,7 @@ import {
   listPackages,
   quoteFromPackage,
   savePackage,
+  createPackage,
   getQuote,
   issuePaymentReceipt,
   issueQuoteInvoice,
@@ -64,6 +66,7 @@ import {
 import { createShareLink } from "@travel-crm/domain/share-links";
 import { ratesOnDate as ratesOnDateOf } from "@travel-crm/domain/suppliers";
 import type { Context } from "../context.js";
+import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 import { currentLogo } from "./logo.js";
@@ -281,9 +284,18 @@ export const quotesRouter = router({
     }),
 
   /** The agency's ready packages, a quote starts from in a tap. */
-  packages: viewer
-    .output(quotePackageList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listPackages(tx))),
+  packages: viewer.output(quotePackageList).query(async ({ ctx }) => {
+    const today = await agencyToday(ctx);
+    return ctx.db.forOrg(ctx.member.organizationId, (tx) => listPackages(tx, today));
+  }),
+
+  /** A new, empty package of either kind, filled in on its own page. */
+  createPackage: editor
+    .input(createPackageInput)
+    .output(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => createPackage(tx, ctx.member, input)),
+    ),
 
   savePackage: editor
     .input(savePackageInput)

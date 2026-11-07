@@ -249,17 +249,7 @@
     "problems": {
       "required": "Give it a name.",
       "tooLong": "Use 80 letters at most."
-    },
-    "listTitle": "Packages",
-    "listIntro": "Your ready packages. A lead's New quote starts from any of them in one tap.",
-    "none": "No packages yet. Open a quote and choose Save as package.",
-    "summary": "{days, plural, =0 {No days} one {# day} other {# days}} · {price} before GST",
-    "delete": "Delete",
-    "deleteNamed": "Delete {name}",
-    "deleteTitle": "Delete {name}?",
-    "deleteDescription": "Quotes made from it stay as they are.",
-    "published": "Page published",
-    "summaryTiers": "{days} days · {tiers, plural, one {# tier} other {# tiers}}"
+    }
   },
   "frozen": {
     "adults": "{count, plural, one {# adult} other {# adults}}",

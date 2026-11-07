@@ -184,10 +184,10 @@ describe("a large agency", () => {
       countPlan.indexes.filter((name) => ownersNewLeads.includes(name)),
       countPlan.text,
     ).not.toEqual([]);
-    const summary = await inOrg((tx) => todaySummary(tx, salesperson, now));
+    const summary = await inOrg((tx) => todaySummary(tx, salesperson, now, { bookingsOn: true }));
     expect(summary.counts.newLeads).toBe(SIZE.leads / 10 / SIZE.staff);
     expect(summary.counts.overdue).toBeGreaterThan(0);
-    expect(await time("today", (tx) => todaySummary(tx, salesperson, now))).toBeLessThan(150);
+    expect(await time("today", (tx) => todaySummary(tx, salesperson, now, { bookingsOn: true }))).toBeLessThan(150);
   });
 
   it("never scans lead, person or task from start to end", () => {

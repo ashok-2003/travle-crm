@@ -15,6 +15,7 @@ export const aiFeatures = [
   "reach_out",
   "draft_days",
   "read_rates",
+  "draft_packages",
 ] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 
@@ -38,6 +39,11 @@ export interface AiRequest {
   messages: readonly AiMessage[];
   /** Ask for a JSON object; the caller still validates it. */
   json?: boolean;
+  /**
+   * Ask for an answer that fits this JSON Schema (implies JSON). The caller builds `jsonSchema` with `z.toJSONSchema(contract)`,
+   * using no transforms, and still validates the answer.
+   */
+  schema?: { name: string; jsonSchema: Record<string, unknown> };
   maxTokens?: number;
   /** An opaque id for the provider's per-user tracking: the organization's id, never personal data. */
   user?: string;
@@ -58,6 +64,9 @@ export type AiResult =
       ok: false;
       reason: "rate_limited" | "unavailable" | "not_configured" | "refused";
     };
+
+/** Why a call gave no answer. */
+export type AiFailure = Extract<AiResult, { ok: false }>["reason"];
 
 export interface AiModel {
   /** Whether a key and a model are set: off, the AI features say so instead of failing. */

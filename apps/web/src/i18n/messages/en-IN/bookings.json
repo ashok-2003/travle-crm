@@ -481,7 +481,19 @@
     "problems": {
       "reminderDays": "Type the reminder days as numbers separated by commas.",
       "rules": "The first step starts at 0 days, and no two steps start on the same day.",
+      "unknownBlank": "A payment message can use only these blanks: {blanks}.",
       "check": "Check the settings and try again."
+    },
+    "paymentMessages": {
+      "title": "Payment messages",
+      "description": "What a customer hears after you check their payment. Only a person decides: the AI never confirms a payment.",
+      "blanks": "Blanks you can use",
+      "blanksMeaning": "The blanks are {blanks}. Each is filled in when the message is sent: the customer's first name, the amount, the trip and the day.",
+      "confirmedText": "When you confirm a payment",
+      "notFoundText": "When you can't find a payment",
+      "confirmedTemplate": "Template for a confirmed payment",
+      "notFoundTemplate": "Template for a payment not found",
+      "hint": "A message goes as plain words while the customer's chat is open (24 hours). After that it goes as the template you pick, and with no template it becomes a task for the lead's owner."
     }
   }
 }

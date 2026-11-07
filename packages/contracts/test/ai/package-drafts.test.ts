@@ -1,0 +1,136 @@
+// Package drafts: a price keeps every alternative a source gave, and the create input is strict.
+import { describe, expect, it } from "vitest";
+import {
+  createGroupPackageInput,
+  draftPackageInput,
+  draftSeason,
+  findTripsInput,
+  foundTrips,
+  foundTripsAnswer,
+  MAX_DRAFT_DAYS,
+  MAX_FOUND_TRIPS,
+  packageDraftAnswer,
+} from "../../src/ai/package-drafts.js";
+
+const evidence = [{ token: "L1", source: "Knowledge: Manali", excerpt: "Double 6,999" }];
+const price = (value: number) => ({ value, evidence, checkThis: false });
+const none = { single: [], double: [], triple: [], quad: [], child_bed: [], child_no_bed: [] };
+const noPrices = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
+
+const valid = {
+  fillId: "0192f3a0-0000-7000-8000-000000000001",
+  name: "Manali 5N",
+  title: "Manali 5 Nights",
+  destinationName: "Manali",
+  nights: 5,
+  roomTypes: ["double"],
+  weeklyDays: [5],
+  departureMonths: [],
+  seatsPerDeparture: 20,
+  seasons: [{ label: "Summer", startsOn: "2027-04-01", endsOn: "2027-06-30", prices: { ...noPrices, double: 6999 } }],
+  pricesIncludeGst: true,
+  advancePerPersonPaise: 500000,
+  pickupPoints: "",
+  startCity: "Delhi",
+  inclusions: "",
+  exclusions: "",
+  cancellationNotes: "",
+  summary: "",
+  highlights: [],
+  days: [],
+  brochureKnowledgeId: null,
+  appliedFields: ["name"],
+};
+
+describe("package drafts", () => {
+  it("a draft keeps every alternative of a price", () => {
+    const season = draftSeason.parse({
+      label: { value: "Summer", evidence, checkThis: false },
+      startsOn: "2027-04-01",
+      endsOn: "2027-06-30",
+      prices: { ...none, double: [price(699900), price(749900)] },
+    });
+    expect(season.prices.double.map((alternative) => alternative.value)).toEqual([699900, 749900]);
+  });
+
+  it("createGroupPackageInput refuses unknown keys and an end before a start", () => {
+    expect(createGroupPackageInput.safeParse(valid).success).toBe(true);
+    expect(createGroupPackageInput.safeParse({ ...valid, extra: 1 }).success).toBe(false);
+    const backwards = { ...valid.seasons[0], startsOn: "2027-07-01" };
+    expect(createGroupPackageInput.safeParse({ ...valid, seasons: [backwards] }).success).toBe(false);
+  });
+
+  it("an over-long trips list, days list or applied-fields list is refused", () => {
+    const trip = {
+      ref: "t",
+      name: "n",
+      placeWords: "p",
+      destinationId: null,
+      destinationName: null,
+      nights: null,
+      evidence: [],
+    };
+    const trips = Array.from({ length: MAX_FOUND_TRIPS + 1 }, () => trip);
+    const list = { fillId: valid.fillId, trips, parts: [], readPart: null };
+    expect(foundTrips.safeParse(list).success).toBe(false);
+    expect(foundTrips.safeParse({ ...list, trips: trips.slice(1) }).success).toBe(true);
+    const days = Array.from({ length: MAX_DRAFT_DAYS + 1 }, () => ({ title: "Day", description: "" }));
+    expect(createGroupPackageInput.safeParse({ ...valid, days }).success).toBe(false);
+    const fields = Array.from({ length: 41 }, () => "name");
+    expect(createGroupPackageInput.safeParse({ ...valid, appliedFields: fields }).success).toBe(false);
+    expect(createGroupPackageInput.safeParse({ ...valid, appliedFields: ["x".repeat(41)] }).success).toBe(false);
+  });
+
+  it("draftPackageInput takes the trip itself, strictly", () => {
+    const trip = { ref: "trip-1", name: "Manali 5N", tokens: ["P1.L1"] };
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, trip }).success).toBe(true);
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, trip: { ...trip, extra: 1 } }).success).toBe(false);
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, trip: { ...trip, tokens: [] } }).success).toBe(false);
+    expect(draftPackageInput.safeParse({ fillId: valid.fillId, tripRef: "trip-1" }).success).toBe(false);
+  });
+
+  it("an invalid item in the model's answer is dropped, and every valid one still arrives", () => {
+    const answer = packageDraftAnswer.parse({
+      name: { value: "Manali 5N", tokens: ["P1.L1"] },
+      nights: { value: "five", tokens: ["P1.L1"] },
+      seasons: [
+        {
+          label: "Winter",
+          fromMonth: 12,
+          toMonth: 1,
+          tokens: ["P1.L2"],
+          prices: [{ room: "double" }, { room: "double", printed: "6,999/-", tokens: ["P1.L2"] }],
+        },
+        { label: "Broken", fromMonth: 13, toMonth: 1, tokens: [], prices: [] },
+      ],
+      days: "nonsense",
+    });
+    expect(answer.name.value).toBe("Manali 5N");
+    expect(answer.nights.value).toBeNull();
+    expect(answer.seasons.map((season) => season?.label)).toEqual(["Winter", undefined]);
+    expect(answer.seasons[0]?.prices.map((one) => one?.printed ?? null)).toEqual([null, "6,999/-"]);
+    expect(answer.days).toEqual([]);
+  });
+
+  it("one malformed trip in the model's answer does not lose the others", () => {
+    const answer = foundTripsAnswer.parse({
+      trips: [
+        { name: "Manali 5N", place: "Manali", nights: 5, lines: ["P1.L1"] },
+        { name: "", place: "Nowhere" },
+        "Spiti",
+        { name: "Spiti 7N", place: 7, nights: "seven", lines: "P2.L1" },
+      ],
+    });
+    expect(answer.trips).toEqual([
+      { name: "Manali 5N", place: "Manali", nights: 5, lines: ["P1.L1"] },
+      null,
+      null,
+      { name: "Spiti 7N", place: "", nights: null, lines: [] },
+    ]);
+  });
+
+  it("bounds the part a read names", () => {
+    expect(findTripsInput.safeParse({ part: "part-2" }).success).toBe(true);
+    expect(findTripsInput.safeParse({ part: "x".repeat(21) }).success).toBe(false);
+  });
+});

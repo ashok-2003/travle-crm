@@ -18,7 +18,7 @@ import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage, getLead } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
-import { DomainError } from "../kernel/index.js";
+import { DomainError, type Actor } from "../kernel/index.js";
 import { keepStoredCosts, marginOf, needsRateLines, settledItems, withoutCosts } from "./margin.js";
 import {
   assertDraft,
@@ -30,6 +30,7 @@ import {
   toDetail,
   toSummary,
 } from "./quote-rows.js";
+import { assertTakesStandInPayments } from "./placeholder-payments.js";
 import { quoteSettingsOf } from "./settings.js";
 import { quoteMoney } from "./totals.js";
 
@@ -95,6 +96,36 @@ const auditView = (row: { title: string; totalPaise: bigint; status: string }) =
   status: row.status,
 });
 
+/** Writes a new draft quote and its audit entry for whoever acts; the caller has checked the lead and settled the items. */
+async function insertQuote(tx: OrgTx, actor: Actor, leadId: string, fields: Fields, context: QuoteContext) {
+  const created = await tx.quote.create({
+    data: { leadId, ...columnsOf(fields, context), createdBy: actor.userId },
+    select: { id: true, title: true, totalPaise: true, status: true },
+  });
+  await recordAudit(tx, actor, {
+    action: "quote.created",
+    entityType: "quote",
+    entityId: created.id,
+    after: auditView(created),
+  });
+  return created;
+}
+
+/**
+ * A quote the system makes for a lead it already knows (the AI's booking): its priced costs stay, and the audit names the
+ * actor. Returns the quote's id and total.
+ */
+export async function createQuoteFor(
+  tx: OrgTx,
+  actor: Actor,
+  input: CreateQuoteInput,
+  context: QuoteContext,
+): Promise<{ id: string; totalPaise: bigint }> {
+  const { leadId, ...fields } = input;
+  const created = await insertQuote(tx, actor, leadId, { ...fields, items: settledItems(fields.items) }, context);
+  return { id: created.id, totalPaise: created.totalPaise };
+}
+
 export async function createQuote(
   tx: OrgTx,
   access: MemberAccess,
@@ -105,20 +136,13 @@ export async function createQuote(
 ): Promise<QuoteDetail> {
   // The lead must be the member's to see; another's is "not found", as everywhere.
   const lead = await getLead(tx, access, input.leadId);
-  const created = await tx.quote.create({
-    data: {
-      leadId: lead.id,
-      ...columnsOf({ ...input, items: savedItems(access, input.items, null, keepCosts) }, context),
-      createdBy: access.userId,
-    },
-    select: { id: true, title: true, totalPaise: true, status: true },
-  });
-  await recordAudit(tx, access, {
-    action: "quote.created",
-    entityType: "quote",
-    entityId: created.id,
-    after: auditView(created),
-  });
+  const created = await insertQuote(
+    tx,
+    access,
+    lead.id,
+    { ...input, items: savedItems(access, input.items, null, keepCosts) },
+    context,
+  );
   return detailOf(tx, access, await findQuoteInScope(tx, access, created.id));
 }
 
@@ -178,6 +202,8 @@ export async function setQuoteStatus(
         );
       }
     }
+    // Money paid on the lead's chat-made quote moves to the one accepted: it must fit.
+    if (input.status === "accepted") await assertTakesStandInPayments(tx, before.id);
     await tx.quote.update({
       where: { id: before.id },
       data: {

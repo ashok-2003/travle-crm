@@ -44,9 +44,11 @@ export const notificationKinds = [
   { kind: "ai.handoff", messageKey: "aiHandoff" },
   { kind: "ai.booking", messageKey: "aiBooking" },
   { kind: "ai.payment-proof", messageKey: "aiPaymentProof" },
+  { kind: "payment.proof-to-match", messageKey: "paymentProofToMatch" },
   { kind: "departure.seats-free", messageKey: "departureSeatsFree" },
   { kind: "departure.hold-expired", messageKey: "departureHoldExpired" },
   { kind: "departure.overbooked", messageKey: "departureOverbooked" },
+  { kind: "departure.schedule-kept", messageKey: "departureScheduleKept" },
   { kind: "supplier-cost.due-soon", messageKey: "supplierCostDueSoon" },
 ] as const;
 

@@ -10,6 +10,7 @@ import {
   type BookingSettingsView,
   type TravellerLevel,
 } from "@travel-crm/contracts/bookings";
+import { paymentBlankNames } from "@travel-crm/contracts/inbox";
 import type { TemplateField } from "@travel-crm/contracts/sales";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -22,6 +23,7 @@ import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoHint } from "@/components/info-hint";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
@@ -35,6 +37,8 @@ import { useBookingSettings, useSaveBookingSettings } from "./use-bookings";
 
 const tripFields: TemplateField[] = ["name", "link", "agent", "agency", "destination", "when"];
 const paymentFields: TemplateField[] = ["name", "amount", "due", "link", "agent", "agency"];
+// A payment decision's template fills its blanks from the customer, the amount, the trip (destination) and the day (when).
+const decisionFields: TemplateField[] = ["name", "amount", "destination", "when", "agency"];
 
 const whole = (text: string, max: number) => Math.min(max, Number(text.replace(/\D/g, "")) || 0);
 
@@ -77,6 +81,8 @@ function SettingsForm({ saved }: { saved: BookingSettingsView }) {
     emergencyPhone: useId(),
     review: useId(),
     notes: useId(),
+    confirmedText: useId(),
+    notFoundText: useId(),
   };
 
   const submit = () => {
@@ -92,8 +98,12 @@ function SettingsForm({ saved }: { saved: BookingSettingsView }) {
     }
     const parsed = saveBookingSettingsInput.safeParse({ ...settings, balanceReminderDays: days });
     if (!parsed.success) {
-      const rules = parsed.error.issues.some((issue) => issue.path[0] === "rules");
-      setProblem(rules ? t("problems.rules") : t("problems.check"));
+      const { issues } = parsed.error;
+      if (issues.some((issue) => issue.message === "UNKNOWN_BLANK")) {
+        setProblem(t("problems.unknownBlank", { blanks: paymentBlankNames.map((name) => `{${name}}`).join(", ") }));
+        return;
+      }
+      setProblem(issues.some((issue) => issue.path[0] === "rules") ? t("problems.rules") : t("problems.check"));
       return;
     }
     save.mutate(parsed.data, { onSuccess: () => toast.success(t("saved")) });
@@ -255,6 +265,58 @@ function SettingsForm({ saved }: { saved: BookingSettingsView }) {
           }}
         />
         <p className="text-caption text-muted-foreground">{t("reminders.consentHint")}</p>
+      </Section>
+
+      <Section title={t("paymentMessages.title")} description={t("paymentMessages.description")}>
+        {(
+          [
+            ["confirmedText", "paymentConfirmedText"],
+            ["notFoundText", "paymentNotFoundText"],
+          ] as const
+        ).map(([id, key]) => (
+          <Field key={id}>
+            <div className="flex items-center gap-1">
+              <FieldLabel htmlFor={ids[id]}>{t(`paymentMessages.${id}`)}</FieldLabel>
+              <InfoHint term={t("paymentMessages.blanks")}>
+                {t("paymentMessages.blanksMeaning", {
+                  blanks: paymentBlankNames.map((name) => `{${name}}`).join(", "),
+                })}
+              </InfoHint>
+            </div>
+            <Textarea
+              id={ids[id]}
+              rows={3}
+              value={settings[key]}
+              disabled={busy}
+              onChange={(event) => {
+                change({ [key]: event.target.value });
+              }}
+            />
+          </Field>
+        ))}
+        <TemplateBlanks
+          label={t("paymentMessages.confirmedTemplate")}
+          templates={templates}
+          templateId={settings.paymentConfirmedTemplateId}
+          params={settings.paymentConfirmedParams}
+          fields={decisionFields}
+          disabled={busy}
+          onChange={(templateId, params) => {
+            change({ paymentConfirmedTemplateId: templateId, paymentConfirmedParams: params });
+          }}
+        />
+        <TemplateBlanks
+          label={t("paymentMessages.notFoundTemplate")}
+          templates={templates}
+          templateId={settings.paymentNotFoundTemplateId}
+          params={settings.paymentNotFoundParams}
+          fields={decisionFields}
+          disabled={busy}
+          onChange={(templateId, params) => {
+            change({ paymentNotFoundTemplateId: templateId, paymentNotFoundParams: params });
+          }}
+        />
+        <p className="text-caption text-muted-foreground">{t("paymentMessages.hint")}</p>
       </Section>
 
       <Section title={t("page.title")} description={t("page.description")}>

@@ -6,8 +6,10 @@
 import type { SeatMessage, WriteSeatMessageInput } from "@travel-crm/contracts/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { RoomType } from "@travel-crm/contracts/quotes";
 import {
   countsOf,
+  departurePricing,
   departureSettingsOf,
   findDeparture,
   seatsSoldAndHeld,
@@ -34,8 +36,23 @@ interface Prepared {
   timeZone: string;
   facts: ReachOutFacts;
   departure: DepartureRow;
+  /** Whether the price is stated including GST: the switch of the package a departure is linked to; any other is plus GST. */
+  pricesIncludeGst: boolean;
   /** The count a message may say, or null. */
   allowedCount: number | null;
+  /** The lowest adult price per person on the departure's day, in paise, or null when it has none. */
+  pricePaise: bigint | null;
+}
+
+/** As the public list shows it: a linked departure's own prices, else its season's; any other keeps its one price. */
+async function priceOfDeparture(
+  tx: OrgTx,
+  departure: DepartureRow,
+  roomTypes: readonly string[],
+): Promise<bigint | null> {
+  if (departure.templateId === null) return departure.pricePaise;
+  const lowest = (await departurePricing(tx, departure.templateId, roomTypes as RoomType[]))(departure);
+  return lowest === null ? null : BigInt(lowest);
 }
 
 async function prepare(
@@ -67,10 +84,20 @@ async function prepare(
   const state = stateOf(departure, counts, departureSettings.fillingFastPercent);
   const first = person.name.trim().split(/\s+/)[0] ?? "";
   const style = settings.writeStyle === "premium" || settings.writeStyle === "short" ? settings.writeStyle : "warm";
+  const linked =
+    departure.templateId === null
+      ? null
+      : await tx.quoteTemplate.findUnique({
+          where: { id: departure.templateId },
+          select: { pricesIncludeGst: true, roomTypes: true },
+        });
+  const pricePaise = await priceOfDeparture(tx, departure, linked?.roomTypes ?? []);
   return {
     timeZone,
     departure,
+    pricesIncludeGst: linked?.pricesIncludeGst ?? false,
     allowedCount,
+    pricePaise,
     facts: {
       agencyName: context.agencyName,
       instructions: settings.instructions,
@@ -83,7 +110,7 @@ async function prepare(
         destination: departure.destination?.name ?? "",
         from: dayFormat.format(departure.startDate),
         to: dayFormat.format(departure.endDate),
-        hasPrice: departure.pricePaise !== null,
+        hasPrice: pricePaise !== null,
         seatsLeft: allowedCount,
         fillingFast: state === "filling",
       },
@@ -92,14 +119,16 @@ async function prepare(
 }
 
 /** Puts the departure's price where `{price}` is, and drops a line that wants a price when there is none. */
-function withPrice(text: string, pricePaise: bigint | null): string {
+function withPrice(text: string, pricePaise: bigint | null, includesGst: boolean): string {
   const lines = text
     .split("\n")
     .filter((line) => !(pricePaise === null && line.includes("{price}")))
     .map((line) =>
       line.replaceAll(
         "{price}",
-        pricePaise === null ? "" : `${formatMoney(money(Number(pricePaise)))} per person plus GST`,
+        pricePaise === null
+          ? ""
+          : `${formatMoney(money(Number(pricePaise)))} per person ${includesGst ? "including" : "plus"} GST`,
       ),
     );
   return lines
@@ -139,7 +168,7 @@ export async function writeSeatMessage(
   const counted = withoutSeatCounts(typed.text, prepared.allowedCount);
   // Staff are told when the model's own amount or seat count was taken out, as they are for a write-up.
   const removedAmounts = typed.removed || counted !== typed.text;
-  const text = withPrice(counted, prepared.departure.pricePaise).slice(0, MAX_CHARS);
+  const text = withPrice(counted, prepared.pricePaise, prepared.pricesIncludeGst).slice(0, MAX_CHARS);
   if (text === "") {
     await giveBack();
     throw refuse("AI_UNAVAILABLE", "The AI didn't answer");
