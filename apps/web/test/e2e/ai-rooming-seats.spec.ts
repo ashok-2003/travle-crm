@@ -9,7 +9,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
-import { aDeparture, bookedOn } from "./support/departures";
+import { aDeparture, bookedOn, ownDeparture } from "./support/departures";
 import { saveBusinessProfile } from "./support/documents";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addLeadThroughApi, callApi, dayInIndia, leadInput } from "./support/leads";
@@ -168,6 +168,7 @@ test("empty seats: the AI writes a personal message for each person ticked, open
     pricePaise: 12_500_00,
     cutoffOn: null,
     notes: "",
+    ...ownDeparture,
   });
 
   // The wa.me link opens a new tab; nothing leaves the test.
