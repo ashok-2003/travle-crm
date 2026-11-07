@@ -69,7 +69,8 @@ describe("the switch to answer from packages only", () => {
 
 describe("the editors that hold prices", () => {
   it("warn about a price in Strict rules, and say nothing about a plain rule", async () => {
-    renderWithApi(<AutopilotSection saved={saved} aiOn />, client());
+    stubApi({ "ai.autopilot": { data: { ...saved, grounded: true } } });
+    renderWithApi(<AutopilotSection saved={{ ...saved, grounded: true }} aiOn />, client());
     const rules = screen.getByLabelText(messages.ai.payments.rules);
     await userEvent.type(rules, "Never go below Rs 5,000 a head");
     expect(await screen.findByText(warning)).toBeVisible();
@@ -80,7 +81,19 @@ describe("the editors that hold prices", () => {
     });
   });
 
+  it("say nothing to an agency on the old agent, which still reads its prices there", async () => {
+    stubApi({ "ai.autopilot": { data: saved } });
+    renderWithApi(<AutopilotSection saved={saved} aiOn />, client());
+    await userEvent.type(screen.getByLabelText(messages.ai.payments.rules), "Never go below Rs 5,000 a head");
+    // Let the switch's own read settle before judging the absence.
+    await waitFor(() => {
+      expect(screen.getByLabelText(messages.ai.payments.rules)).toHaveValue("Never go below Rs 5,000 a head");
+    });
+    expect(screen.queryByText(warning)).toBeNull();
+  });
+
   it("warn about a date in Instructions", async () => {
+    stubApi({ "ai.autopilot": { data: { ...saved, grounded: true } } });
     renderWithApi(
       <SettingsForm
         saved={{
