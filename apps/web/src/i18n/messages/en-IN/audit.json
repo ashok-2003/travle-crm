@@ -254,6 +254,7 @@
       "quote-opened-dismissed": "Marked an opened quote as seen"
     },
     "quote-package": {
+      "created": "Created a package",
       "saved": "Saved a quote package",
       "deleted": "Deleted a quote package",
       "changed": "Changed a quote package",

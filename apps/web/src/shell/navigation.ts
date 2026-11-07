@@ -15,6 +15,7 @@ import {
   IndianRupeeIcon,
   InboxIcon,
   MessageCircleIcon,
+  PackageIcon,
   SettingsIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -37,6 +38,7 @@ export interface NavigationItem {
     | "followUps"
     | "inbox"
     | "quotes"
+    | "packages"
     | "bookings"
     | "payments"
     | "departures"
@@ -71,6 +73,14 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
   { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },
+  {
+    key: "packages",
+    group: "work",
+    href: routes.packages,
+    icon: PackageIcon,
+    requires: "quotes:view",
+    module: "quotes",
+  },
   {
     key: "bookings",
     group: "work",

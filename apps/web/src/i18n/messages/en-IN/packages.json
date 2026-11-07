@@ -1,12 +1,45 @@
 {
   "page": {
     "title": "Package",
-    "back": "Quotes and packages",
+    "back": "Packages",
     "intro": "A ready trip a quote starts from, and, once published, a page for visitors with a form that lands in your leads.",
     "loading": "Loading the package",
     "loadFailed": "The package didn't load.",
     "retry": "Try again",
     "notFound": "This package isn't here any more."
+  },
+  "list": {
+    "title": "Packages",
+    "intro": "Your ready trips. A lead's New quote starts from any of them in one tap, and the AI sells the ones you let it.",
+    "loading": "Loading the packages",
+    "loadFailed": "The packages didn't load.",
+    "none": "No packages yet. Choose New package, or save a quote as one.",
+    "summary": "{days, plural, =0 {No days} one {# day} other {# days}} · {price} before GST",
+    "summaryTiers": "{days, plural, =0 {No days} one {# day} other {# days}} · {tiers, plural, one {# tier} other {# tiers}}",
+    "summaryFrom": "{nights, plural, =0 {Custom trip} one {Custom trip · # night} other {Custom trip · # nights}} · From {price}",
+    "summaryCustom": "{nights, plural, =0 {Custom trip} one {Custom trip · # night} other {Custom trip · # nights}}",
+    "summaryGroup": "{nights, plural, =0 {Group trip} one {Group trip · # night} other {Group trip · # nights}} · {departures, plural, =0 {no departures ahead} one {# departure ahead} other {# departures ahead}}",
+    "published": "Page published",
+    "aiSells": "AI sells it",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "Quotes made from it stay as they are."
+  },
+  "create": {
+    "new": "New package",
+    "title": "New package",
+    "description": "Name it and choose its kind. You add its prices, dates and files on its own page next.",
+    "name": "Package name",
+    "nameHint": "What your team calls it, such as Manali 5 days.",
+    "kind": "What kind of package",
+    "create": "Create package",
+    "creating": "Creating…",
+    "created": "Package created",
+    "problems": {
+      "required": "Give it a name.",
+      "tooLong": "Use 80 letters at most."
+    }
   },
   "form": {
     "quoteTitle": "The trip",

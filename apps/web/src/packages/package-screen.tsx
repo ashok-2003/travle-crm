@@ -30,7 +30,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
       const data = detail.data;
       return (
         <>
-          <BackLink href={routes.quotes} label={t("back")} />
+          <BackLink href={routes.packages} label={t("back")} />
           <PageHeader title={data.name} intro={t("intro")} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
             {/* Keyed by the saved package, so a save shows what was kept. */}
@@ -66,7 +66,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
   };
   return (
     <div className="flex max-w-[1200px] flex-col gap-6">
-      {detail.data === undefined && <BackLink href={routes.quotes} label={t("back")} />}
+      {detail.data === undefined && <BackLink href={routes.packages} label={t("back")} />}
       {body()}
     </div>
   );
