@@ -1,7 +1,12 @@
 // The kinds of notification the modules send, for choosing what reaches you, and what a person's choices mean for
-// one: a kind's own choice wins over the one for every kind ("*"), as delivery reads them. A module that starts
+// one: a kind's own choice wins over the one for every kind ("*"), and with neither, email is off and push on, as
+// delivery reads them. A module that starts
 // sending a kind adds its line here and its words to notifications.json (test/notifications/kinds.test.ts checks).
-import type { NotificationChannel, NotificationPreference } from "@travel-crm/contracts/notifications";
+import {
+  optedOutByDefault,
+  type NotificationChannel,
+  type NotificationPreference,
+} from "@travel-crm/contracts/notifications";
 
 /** The choice that covers every kind. */
 export const EVERY_KIND = "*";
@@ -55,5 +60,5 @@ export function reaches(
 ): boolean {
   const choiceFor = (forKind: string) =>
     preferences.find((preference) => preference.channel === channel && preference.kind === forKind);
-  return !(choiceFor(kind) ?? choiceFor(EVERY_KIND))?.optedOut;
+  return !((choiceFor(kind) ?? choiceFor(EVERY_KIND))?.optedOut ?? optedOutByDefault[channel]);
 }

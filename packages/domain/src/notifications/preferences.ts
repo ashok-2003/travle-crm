@@ -1,6 +1,8 @@
-// Each person's opt-outs (spec 9.4: DPDP and WhatsApp rules): email or push, for one kind or every kind ("*").
+// Each person's choices (spec 9.4: DPDP and WhatsApp rules): email or push, for one kind or every kind ("*"). Email
+// starts off and push on (the owner, 2026-11-05: optedOutByDefault).
 import {
   notificationPreferenceInput,
+  optedOutByDefault,
   type NotificationChannel,
   type NotificationPreference,
   type NotificationPreferenceInput,
@@ -43,7 +45,10 @@ export async function listPreferences(tx: OrgTx, actor: Actor): Promise<Notifica
   return rows.map((row) => ({ channel: row.channel as NotificationChannel, kind: row.kind, optedOut: row.optedOut }));
 }
 
-/** True when the person turned this channel off for this kind, or for every kind without a choice for this one. */
+/**
+ * True when the person turned this channel off for this kind, or for every kind without a choice for this one, or made
+ * no choice at all on a channel that starts off (email).
+ */
 export function isOptedOut(
   preferences: readonly { channel: string; kind: string; optedOut: boolean }[],
   channel: NotificationChannel,
@@ -51,5 +56,6 @@ export function isOptedOut(
 ): boolean {
   const forKind = preferences.find((preference) => preference.channel === channel && preference.kind === kind);
   if (forKind) return forKind.optedOut;
-  return preferences.find((preference) => preference.channel === channel && preference.kind === "*")?.optedOut ?? false;
+  const forEveryKind = preferences.find((preference) => preference.channel === channel && preference.kind === "*");
+  return forEveryKind?.optedOut ?? optedOutByDefault[channel];
 }

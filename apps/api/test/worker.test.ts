@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { getIssuedDocument, issueDocument, sampleQuotation } from "@travel-crm/domain/documents";
 import { listenerJobId } from "@travel-crm/domain/jobs";
 import { money } from "@travel-crm/domain/kernel";
-import { savePushSubscription } from "@travel-crm/domain/notifications";
+import { savePushSubscription, setPreference } from "@travel-crm/domain/notifications";
 import { PACKAGE_DEPARTURES_QUEUE } from "@travel-crm/domain/departures";
 import { createRateLimiter, RATE_LIMIT_PURGE_QUEUE } from "@travel-crm/domain/rate-limits";
 import { createShareLink } from "@travel-crm/domain/share-links";
@@ -44,6 +44,10 @@ describe("the api and the worker, end to end", () => {
 
   it("renders an issued quotation once, opens it through a share link, and tells the agent who shared it", async () => {
     const owner = await ownerAccess(server, agency);
+    // Email starts off: the agent has turned it on, so the open reaches them by email too.
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      setPreference(tx, owner, { channel: "email", kind: "*", optedOut: false }),
+    );
     const quotation = sampleQuotation({
       recipient: { name: "Meera Iyer", lines: ["Mumbai 400002"] },
       supplierStateCode: "27",
