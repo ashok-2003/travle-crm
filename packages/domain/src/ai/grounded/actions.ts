@@ -10,7 +10,7 @@ import { containsWords } from "./read-words.js";
 export interface ActionContext {
   natural: boolean;
   hasLead: boolean;
-  settings: Pick<AutopilotRow, "leadNotes" | "followUpTasks">;
+  settings: Pick<AutopilotRow, "leadNotes" | "followUpTasks" | "handoff" | "sendMedia">;
   /** The customer's messages this turn answers (after the agency's last line): what is asked "this turn". */
   latest: string[];
   /** The places not run the chat's facts held before this turn's read: the team was told of those already. */
@@ -30,7 +30,8 @@ export interface AllowedActions {
   sendPayment: boolean;
   requestBooking: boolean;
   flag: true;
-  handOver: true;
+  /** The agency's policy lets the AI hand the chat to a person by itself ("never by itself" makes it a flag). */
+  handOver: boolean;
   note: boolean;
   task: boolean;
   /** The reason codes (comma-joined) code flags the chat for, whatever the model chose; null when there is none. */
@@ -83,7 +84,9 @@ export function allowedActions(
   read: ReadAnswer,
   context: ActionContext,
 ): AllowedActions {
-  const wantsFiles = read.wants === "brochure" || read.wants === "information" || read.wants === "price";
+  // "Send photos, videos and PDFs" off: no brochure and no agency file goes, as with the old agent's media.
+  const wantsFiles =
+    context.settings.sendMedia && (read.wants === "brochure" || read.wants === "information" || read.wants === "price");
   const money = mayTakeMoney(lookup, facts, read, context);
   // The read reads the whole chat, so each flag is for what is new this turn: the team hears of a place or an ask once.
   const known = new Set(context.notRunBefore.map((words) => words.trim().toLowerCase()));
@@ -102,11 +105,12 @@ export function allowedActions(
           one.brochures.length > 0 && one.why.kind !== "nearest" ? [keyOf(index)] : [],
         )
       : [],
-    sendAgencyFiles: read.wants === "about_agency",
+    sendAgencyFiles: context.settings.sendMedia && read.wants === "about_agency",
     sendPayment: money,
     requestBooking: money,
     flag: true,
-    handOver: true,
+    // The old agent's rule: "never by itself" (alert), or a natural chat, never steps back.
+    handOver: context.settings.handoff !== "alert" && !context.natural,
     note: context.settings.leadNotes,
     task: context.settings.followUpTasks,
     forcedFlag,
@@ -116,11 +120,14 @@ export function allowedActions(
 
 /**
  * What the model picked, cut down to what code allows; the code's own flag reason comes first and the chat is flagged
- * once. Book is one action (P4-35): the payment details or the booking, either one picked, does both, or neither.
+ * once, and a hand-over the policy doesn't allow is flagged instead. Book is one action (P4-35): the payment details or
+ * the booking, either one picked, does both, or neither.
  */
 export function chosenActions(asked: WriteAnswer["actions"], allowed: AllowedActions): WriteAnswer["actions"] {
   const own = asked.flag?.trim() ?? "";
-  const reasons = [allowed.forcedFlag, own === "" ? null : own].filter((reason) => reason !== null);
+  const handOver = asked.handOver?.trim() ?? "";
+  const unhanded = allowed.handOver || handOver === "" ? null : handOver;
+  const reasons = [allowed.forcedFlag, own === "" ? null : own, unhanded].filter((reason) => reason !== null);
   const money = (asked.sendPayment || asked.requestBooking) && allowed.sendPayment && allowed.requestBooking;
   return {
     sendFiles: [...new Set(asked.sendFiles.filter((key) => allowed.sendFiles.includes(key)))],
@@ -128,7 +135,7 @@ export function chosenActions(asked: WriteAnswer["actions"], allowed: AllowedAct
     sendPayment: money,
     requestBooking: money,
     flag: reasons.length === 0 ? null : reasons.join(": "),
-    handOver: asked.handOver,
+    handOver: allowed.handOver && handOver !== "" ? handOver : null,
     note: allowed.note ? asked.note : null,
     task: allowed.task ? asked.task : null,
   };

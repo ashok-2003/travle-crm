@@ -1,6 +1,8 @@
 // What acting on a checked reply takes and gives back (grounded turn, act step).
 import type { ChatFacts, WriteAnswer } from "@travel-crm/contracts/ai";
 import type { Files } from "../../files/index.js";
+import type { TurnKind } from "../agent-prompt.js";
+import type { AutopilotRow } from "../autopilot.js";
 import type { BookingRecipients } from "../booking.js";
 import type { Lookup } from "./lookup-types.js";
 
@@ -26,6 +28,12 @@ export interface ActInput {
   lookup: Lookup;
   facts: ChatFacts;
   now: Date;
+  /** A reply, a nudge or a follow-up: a turn that is no reply stamps the nudge, so one silence gets one. */
+  kind: TurnKind;
+  /** The agency's follow-up settings, for when to write again if the customer goes quiet. */
+  settings: Pick<AutopilotRow, "followUpHours" | "smartFollowUp">;
+  /** When the model would write again (with the smart follow-up on); null for none. */
+  followUp: WriteAnswer["followUp"];
 }
 
 export type ActResult =

@@ -100,4 +100,12 @@ describe("writeAnswer", () => {
   it("has a JSON schema for the model", () => {
     expect(writeAnswerJsonSchema).toMatchObject({ type: "object" });
   });
+
+  it("reads when to write again, and none when the model leaves it out", () => {
+    expect(writeAnswer.parse({ reply: "Hi", actions }).followUp).toBeNull();
+    expect(writeAnswer.parse({ reply: "Hi", actions, followUp: { inHours: 2, why: "hot lead" } }).followUp).toEqual({
+      inHours: 2,
+      why: "hot lead",
+    });
+  });
 });

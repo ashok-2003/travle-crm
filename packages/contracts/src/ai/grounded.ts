@@ -75,6 +75,14 @@ export const writeAnswer = z.object({
     note: z.string().max(500).nullable(),
     task: z.object({ title: z.string().min(1).max(200), dueInHours: z.int().min(1).max(168) }).nullable(),
   }),
+  /**
+   * When to write again if the customer goes quiet, asked only when the agency lets the AI choose (its smart follow-up);
+   * code holds the hours to 1 to 20 inside WhatsApp's window. Null, or left out, plans none.
+   */
+  followUp: z
+    .object({ inHours: z.number(), why: z.string().max(300) })
+    .nullable()
+    .default(null),
 });
 export type WriteAnswer = z.infer<typeof writeAnswer>;
 

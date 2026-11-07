@@ -1,10 +1,11 @@
-// What a checked reply leaves on the chat: the facts it settled, the reply count, a flag or a hand-over for the team, and the
-// note and follow-up it asked for. The flag is the string "<codes>: <reason>" and is only stored, never logged.
+// What a checked reply leaves on the chat: the facts it settled, the reply count, when to write again (or that a nudge went),
+// a flag or a hand-over for the team, and the note and follow-up it asked for. The flag is the string "<codes>: <reason>"
+// and is only stored, never logged.
 import type { ChatFacts } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { addAiFollowUp, addAiLeadNote } from "../../crm/index.js";
 import { systemActor } from "../../kernel/index.js";
-import { ATTENTION_QUIET_MS, tellOwner } from "../agent-effects.js";
+import { ATTENTION_QUIET_MS, planFollowUp, tellOwner } from "../agent-effects.js";
 import type { ActInput } from "./act-types.js";
 import { saveFacts } from "./facts.js";
 
@@ -33,6 +34,20 @@ export async function settleChat(
     await addAiFollowUp(tx, actor, { leadId: settled.leadId, title: actions.task.title, dueAt }, now);
   }
   const handedOver = actions.handOver !== null;
+  // When to write again if the customer goes quiet: the old agent's plan, from the model's choice or the agency's hours.
+  const plan = planFollowUp(
+    input.settings,
+    input.kind,
+    {
+      followUp: {
+        needed: input.followUp !== null,
+        inHours: input.followUp?.inHours ?? 0,
+        why: input.followUp?.why ?? "",
+      },
+    },
+    chat.lastInboundAt,
+    now,
+  );
   const handOverWhy = actions.handOver?.slice(0, 160) ?? "";
   const attention = handedOver ? "" : (actions.flag?.trim().slice(0, 200) ?? "");
   await tx.aiChat.update({
@@ -41,6 +56,8 @@ export async function settleChat(
       lastReplyAt: now,
       repliesOn: today,
       repliesCount: state.repliesOn?.getTime() === today.getTime() ? state.repliesCount + 1 : 1,
+      ...(input.kind === "reply" ? {} : { lastNudgeAt: now }),
+      ...plan,
       ...(attention === "" ? {} : { attentionReason: attention, attentionAt: now }),
       ...(handedOver
         ? { handedOffAt: now, handoffReason: actions.handOver?.slice(0, 300) ?? null, followUpAt: null }

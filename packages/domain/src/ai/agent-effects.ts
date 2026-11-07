@@ -28,9 +28,9 @@ export interface ChatFacts {
 
 /** When to write again if the customer goes quiet: the agent's choice or the agency's hours, never past the window. */
 export function planFollowUp(
-  settings: AutopilotRow,
+  settings: Pick<AutopilotRow, "followUpHours" | "smartFollowUp">,
   kind: TurnKind,
-  answer: AgentAnswer,
+  answer: Pick<AgentAnswer, "followUp">,
   lastInboundAt: Date | null,
   now: Date,
 ): { followUpAt: Date | null; followUpReason: string | null } {

@@ -66,7 +66,7 @@ const read: ReadAnswer = {
 const context = {
   natural: false,
   hasLead: true,
-  settings: { leadNotes: true, followUpTasks: true },
+  settings: { leadNotes: true, followUpTasks: true, handoff: "asked" as const, sendMedia: true },
   latest: ["Price for Spiti?"],
   notRunBefore: [],
   hasGstState: true,
@@ -204,6 +204,25 @@ describe("the grounded prompt", () => {
       pack({ allowed: allowedActions(lookup, facts, wants, context) }),
     );
     expect(withState).not.toContain("the team confirms bookings and payment in this chat");
+  });
+
+  it("says when to hand over as the agency's policy does", () => {
+    const allowedFor = (handoff: "alert" | "asked" | "careful") =>
+      allowedActions(lookup, chatFacts.parse({}), read, { ...context, settings: { ...context.settings, handoff } });
+    const promptFor = (handoff: "alert" | "asked" | "careful") =>
+      groundedPrompt({ ...settings, handoff }, "Himalaya Trails", "reply", pack({ allowed: allowedFor(handoff) }));
+    expect(promptFor("alert")).toContain("handOver: not available");
+    expect(promptFor("asked")).toContain("handOver: allowed (a short reason, only when the customer asks for a person");
+    expect(promptFor("careful")).toContain("they want to book, pay, confirm or cancel");
+  });
+
+  it("asks when to write again only when the agency lets the AI choose", () => {
+    const smart = groundedPrompt({ ...settings, smartFollowUp: true }, "Himalaya Trails", "reply", pack());
+    expect(smart).toContain('"followUp": {"inHours": number, "why": string} or null');
+    const fixed = groundedPrompt({ ...settings, smartFollowUp: false }, "Himalaya Trails", "reply", pack());
+    expect(fixed).not.toContain('"followUp"');
+    const nudge = groundedPrompt({ ...settings, smartFollowUp: true }, "Himalaya Trails", "nudge", pack());
+    expect(nudge).not.toContain('"followUp"');
   });
 
   it("copies the voice, or the natural tone, and fences the agency's words as data", () => {

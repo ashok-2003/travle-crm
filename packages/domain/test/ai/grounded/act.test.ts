@@ -22,6 +22,8 @@ import {
 const today = parseCalendarDate("2026-10-23");
 const now = testNow;
 const day = (text: string) => new Date(`${text}T00:00:00Z`);
+/** A reply turn whose agency plans no follow-up. */
+const plain = { kind: "reply" as const, settings: { followUpHours: 0, smartFollowUp: false }, followUp: null };
 const none: WriteAnswer["actions"] = {
   sendFiles: [],
   sendAgencyFiles: false,
@@ -192,6 +194,7 @@ describe("acting on a checked reply", () => {
         lookup,
         facts,
         now,
+        ...plain,
       });
     });
   }
@@ -277,6 +280,7 @@ describe("acting on a checked reply", () => {
           lookup,
           facts,
           now,
+          ...plain,
         },
       ).catch((error: unknown) => error);
     });
@@ -320,6 +324,7 @@ describe("acting on a checked reply", () => {
         lookup,
         facts,
         now,
+        ...plain,
       }),
     ).then(
       () => null,
@@ -342,6 +347,36 @@ describe("acting on a checked reply", () => {
       "ai:turn-marked:pay",
     ]);
     expect(sent.every((message) => message.clientToken?.startsWith("ai:") === true)).toBe(true);
+  });
+
+  it("a reply that hands the chat over leaves it waiting for a person; any other reply answers it", async () => {
+    const waiting = (chatId: string) =>
+      inOrg(async (tx) => {
+        await tx.whatsappMessage.create({
+          data: {
+            conversationId: chatId,
+            direction: "in",
+            origin: "customer",
+            kind: "text",
+            body: "Can I talk to someone?",
+            status: "received",
+            occurredAt: new Date(now.getTime() - 60_000),
+          },
+        });
+        await tx.whatsappConversation.update({ where: { id: chatId }, data: { needsReply: true } });
+      });
+    const needsReply = (chatId: string) =>
+      inOrg(async (tx) => (await tx.whatsappConversation.findUniqueOrThrow({ where: { id: chatId } })).needsReply);
+    const handed = await scene();
+    await waiting(handed.chatId);
+    expect(
+      sentOf(await turn(handed, "A colleague will call.", { handOver: "wants a person" }, "turn-hand")),
+    ).toMatchObject({ handedOver: true });
+    expect(await needsReply(handed.chatId)).toBe(true);
+    const answered = await scene();
+    await waiting(answered.chatId);
+    await turn(answered, "Here you go.", {}, "turn-answer");
+    expect(await needsReply(answered.chatId)).toBe(false);
   });
 
   it("files go once per chat", async () => {
@@ -368,6 +403,7 @@ describe("acting on a checked reply", () => {
           lookup: stale,
           facts,
           now,
+          ...plain,
         }),
       ),
     );

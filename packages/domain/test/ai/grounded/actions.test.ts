@@ -71,7 +71,7 @@ const read = (changes: Partial<ReadAnswer> = {}): ReadAnswer => ({
 const context: ActionContext = {
   natural: false,
   hasLead: true,
-  settings: { leadNotes: true, followUpTasks: true },
+  settings: { leadNotes: true, followUpTasks: true, handoff: "asked", sendMedia: true },
   latest: ["book it"],
   notRunBefore: [],
   hasGstState: true,
@@ -257,12 +257,33 @@ describe("allowedActions", () => {
     expect(allowedActions(lookup(), facts(), read({ wants: "price" }), context).sendAgencyFiles).toBe(false);
   });
 
-  it("always allows a flag and a hand-over, and follows the settings for notes and tasks", () => {
-    const off = { ...context, settings: { leadNotes: false, followUpTasks: false } };
+  it("always allows a flag, and follows the settings for notes and tasks", () => {
+    const off = { ...context, settings: { ...context.settings, leadNotes: false, followUpTasks: false } };
     const allowed = allowedActions(lookup(), facts(), read({ wants: "other" }), off);
-    expect([allowed.flag, allowed.handOver, allowed.note, allowed.task]).toEqual([true, true, false, false]);
+    expect([allowed.flag, allowed.note, allowed.task]).toEqual([true, false, false]);
     const on = allowedActions(lookup(), facts(), read({ wants: "other" }), context);
     expect([on.note, on.task]).toEqual([true, true]);
+  });
+
+  it("hands over by itself only when the agency's policy lets it, never in a natural chat", () => {
+    const policy = (handoff: "alert" | "asked" | "careful", natural = false) =>
+      allowedActions(lookup(), facts(), read({ wants: "other" }), {
+        ...context,
+        natural,
+        settings: { ...context.settings, handoff },
+      }).handOver;
+    expect([policy("alert"), policy("asked"), policy("careful"), policy("asked", true)]).toEqual([
+      false,
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  it("sends no brochure or agency file while the agency's media switch is off", () => {
+    const off = { ...context, settings: { ...context.settings, sendMedia: false } };
+    expect(allowedActions(lookup(), facts(), read({ wants: "brochure" }), off).sendFiles).toEqual([]);
+    expect(allowedActions(lookup(), facts(), read({ wants: "about_agency" }), off).sendAgencyFiles).toBe(false);
   });
 
   it("a place not run, or a discount ask, is flagged by code", () => {
@@ -328,7 +349,7 @@ describe("chosenActions", () => {
       }),
       allowedActions(lookup(), facts(), read({ wants: "information" }), {
         ...context,
-        settings: { leadNotes: false, followUpTasks: false },
+        settings: { ...context.settings, leadNotes: false, followUpTasks: false },
       }),
     );
     expect(chosen).toEqual({
@@ -356,6 +377,18 @@ describe("chosenActions", () => {
       "odd",
       "angry",
     ]);
+  });
+
+  it("a hand-over the policy doesn't allow becomes a flag with its reason", () => {
+    const never = allowedActions(lookup(), facts(), read({ wants: "other" }), {
+      ...context,
+      settings: { ...context.settings, handoff: "alert" },
+    });
+    const chosen = chosenActions(asked({ handOver: "wants a person" }), never);
+    expect([chosen.handOver, chosen.flag]).toEqual([null, "wants a person"]);
+    expect(chosenActions(asked({ handOver: "wants a person", flag: "upset" }), never).flag).toBe(
+      "upset: wants a person",
+    );
   });
 
   it("book is one action: either one asked, with money allowed, does both; without it, neither", () => {

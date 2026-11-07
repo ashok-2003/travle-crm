@@ -13,7 +13,7 @@ import { countedCall, type CallEnvironment } from "./turn-calls.js";
 import { writeReply, type WriteInput } from "./write.js";
 
 export type Written =
-  | { kind: "ok"; text: string; actions: WriteAnswer["actions"] }
+  | { kind: "ok"; text: string; actions: WriteAnswer["actions"]; followUp: WriteAnswer["followUp"] }
   | { kind: "blocked"; code: string }
   /** Both asks only said again what the chat was sent: nothing goes, and the team is left the old agent's note. */
   | { kind: "repeated" }
@@ -82,7 +82,9 @@ export async function writeChecked(
       reason = [base, repeatCorrection(filled.text)].filter(Boolean).join(". ");
       continue;
     }
-    if (verdict.ok) return { kind: "ok", text: filled.text, actions: asked.value.actions };
+    if (verdict.ok) {
+      return { kind: "ok", text: filled.text, actions: asked.value.actions, followUp: asked.value.followUp };
+    }
     code = verdict.reason;
     reason = [
       base,

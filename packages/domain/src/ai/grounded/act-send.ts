@@ -51,7 +51,8 @@ async function queue(
       sentBy: null,
       origin: "automation",
       clientToken,
-      answers: true,
+      // Answered by the AI: the chat no longer waits, unless it is handed to a person.
+      answers: input.actions.handOver === null,
       ...(media === undefined ? {} : { media }),
     },
     input.now,

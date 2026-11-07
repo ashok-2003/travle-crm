@@ -87,7 +87,17 @@ const state = (on: boolean) => (on ? "allowed" : "not available");
 const teamBooks =
   " (the team confirms bookings and payment in this chat: when they want to book, say the team will confirm the booking and send the payment details)";
 
-function actionLines(allowed: AllowedActions): string {
+/** When the AI may hand the chat to a person: the agency's policy, as the old agent reads it. */
+const handOverLines: Record<AutopilotRow["handoff"], string> = {
+  alert:
+    "not available (when the customer wants a person or something needs the team, set flag with a short reason and keep helping; never say you are passing them on)",
+  asked:
+    "allowed (a short reason, only when the customer asks for a person or is upset; say a colleague will get back shortly)",
+  careful:
+    "allowed (a short reason: when they want to book, pay, confirm or cancel, ask for a discount or a custom price, complain, ask for a person, send something you can't read, or ask anything the card doesn't answer; say a colleague will get back shortly)",
+};
+
+function actionLines(allowed: AllowedActions, handoff: AutopilotRow["handoff"]): string {
   const files = allowed.sendFiles.length === 0 ? "not available" : `allowed for ${allowed.sendFiles.join(", ")} only`;
   return `Actions you may pick this turn (anything marked not available is ignored):
 - sendFiles: ${files} (card keys of packages whose brochures to send)
@@ -95,10 +105,16 @@ function actionLines(allowed: AllowedActions): string {
 - sendPayment: ${state(allowed.sendPayment)}${allowed.teamBooks ? teamBooks : ""}
 - requestBooking: ${state(allowed.requestBooking)}
 - flag: allowed (a short reason code or phrase, when the team should look at this chat)
-- handOver: allowed (a short reason, only when the customer asks for a person or is upset)
+- handOver: ${allowed.handOver ? handOverLines[handoff] : handOverLines.alert}
 - note: ${state(allowed.note)} (a private note for the lead, one or two plain lines)
 - task: ${state(allowed.task)} (title and dueInHours 1 to 168, only when the customer asks to be contacted later)`;
 }
+
+/** The AI says when to write again only on a reply, when the agency lets it choose (as the old agent's smart follow-up). */
+const choosesFollowUp = (settings: AutopilotRow, kind: TurnKind) =>
+  kind === "reply" && settings.smartFollowUp && settings.followUpHours > 0;
+
+const followUpLine = `followUp is whether we should write again if the customer goes quiet after this, inside WhatsApp's 24-hour window: null when they booked, said no, asked us to stop, promised to come back on a later day, or nothing is left to say; otherwise inHours from 1 to 20 (sooner for a hot lead, 1 to 3; later for "will ask my family", 6 to 12) and why in a few words.`;
 
 /** The system prompt for one turn. */
 export function groundedPrompt(settings: AutopilotRow, agency: string, kind: TurnKind, pack: GroundedPack): string {
@@ -135,8 +151,8 @@ The card (the only source of trip facts; placeholders are filled by code):
 The agency's knowledge (policies and answers, with no prices or dates):
 <data>${fenced(clean(pack.knowledge))}</data>
 
-${actionLines(pack.allowed)}
+${actionLines(pack.allowed, settings.handoff)}
 
 Answer with ONE JSON object and nothing else:
-{"reply": string (1 to 1000 characters), "actions": {"sendFiles": [card keys like "P1"], "sendAgencyFiles": boolean, "sendPayment": boolean, "requestBooking": boolean, "flag": string or null, "handOver": string or null, "note": string or null, "task": {"title": string, "dueInHours": number} or null}}${strict}`;
+{"reply": string (1 to 1000 characters), "actions": {"sendFiles": [card keys like "P1"], "sendAgencyFiles": boolean, "sendPayment": boolean, "requestBooking": boolean, "flag": string or null, "handOver": string or null, "note": string or null, "task": {"title": string, "dueInHours": number} or null}${choosesFollowUp(settings, kind) ? `, "followUp": {"inHours": number, "why": string} or null}\n\n${followUpLine}` : "}"}${strict}`;
 }

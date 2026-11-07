@@ -75,7 +75,14 @@ export async function seedCaseAgency(
   );
   await tx.aiSettings.create({ data: { enabled: true, scoring: false, fillLeads: false } });
   await tx.aiAutopilot.create({
-    data: { autopilot: true, grounded: true, agentName: "Riya", paymentDetails: "Pay to UPI agency@bank" },
+    // The case agency lets the AI hand a chat to a person when the customer asks for one ("asked").
+    data: {
+      autopilot: true,
+      grounded: true,
+      agentName: "Riya",
+      handoff: "asked",
+      paymentDetails: "Pay to UPI agency@bank",
+    },
   });
   await tx.whatsappConnection.create({
     data: {

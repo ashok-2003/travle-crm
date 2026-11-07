@@ -184,6 +184,9 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
           lookup: looked.lookup,
           facts,
           now,
+          kind: input.kind,
+          settings: prepared.settings,
+          followUp: written.followUp,
         },
       ),
     );

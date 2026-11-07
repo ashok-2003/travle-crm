@@ -400,6 +400,49 @@ describe("the grounded turn", () => {
     expect(await on.calls()).toBe(1);
   });
 
+  it("a reply plans the follow-up the model chose; the nudge that comes of it is stamped and plans none", async () => {
+    const on = await agency();
+    on.model.answer(
+      read(),
+      JSON.stringify({ ...JSON.parse(write(priced)), followUp: { inHours: 2, why: "hot lead" } }),
+    );
+    expect(await on.turn()).toBe("replied");
+    const planned = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(planned.followUpAt?.getTime()).toBe(turnAt.getTime() + 2 * 3_600_000);
+    expect(planned).toMatchObject({ followUpReason: "hot lead", lastNudgeAt: null });
+    const nudgeAt = new Date(turnAt.getTime() + 2 * 3_600_000);
+    on.model.answer(write("Still thinking about Spiti on [departure P1]?"));
+    expect(await on.turn("nudge", nudgeAt)).toBe("replied");
+    const nudged = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(nudged.lastNudgeAt?.getTime()).toBe(nudgeAt.getTime());
+    expect(nudged.followUpAt).toBeNull();
+  });
+
+  it("with the smart follow-up off, a reply plans the agency's fixed hours", async () => {
+    const on = await agency();
+    await on.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { smartFollowUp: false } }));
+    on.model.answer(read(), write(priced));
+    expect(await on.turn()).toBe("replied");
+    const planned = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(planned.followUpAt?.getTime()).toBe(turnAt.getTime() + 4 * 3_600_000);
+  });
+
+  it("hands over only as the policy allows, and a hand-over leaves the chat waiting for a person", async () => {
+    const never = await agency();
+    never.model.answer(read(), write("Let me check.", { handOver: "asks for a manager" }));
+    expect(await never.turn()).toBe("replied_flagged");
+    const kept = await never.inOrg((tx) => tx.aiChat.findFirstOrThrow());
+    expect(kept.handedOffAt).toBeNull();
+    expect(kept.attentionReason).toContain("asks for a manager");
+    const asked = await agency();
+    await asked.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { handoff: "asked" } }));
+    asked.model.answer(read(), write("A colleague will get back to you shortly.", { handOver: "asks for a manager" }));
+    expect(await asked.turn()).toBe("handed_off");
+    const chat = await asked.inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
+    expect(chat.needsReply).toBe(true);
+    expect((await asked.inOrg((tx) => tx.aiChat.findFirstOrThrow())).followUpAt).toBeNull();
+  });
+
   it("an answer that does not fit twice is blocked as unfit, each call given back or counted as it was used", async () => {
     const on = await agency();
     on.model.answer(read(), "no json", "still no json");
