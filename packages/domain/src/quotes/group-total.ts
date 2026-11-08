@@ -29,8 +29,14 @@ const taxLine = (unitPricePaise: number) => ({
   unitPricePaise,
 });
 
-export function groupTotal(prices: RoomPrices, rooms: readonly RoomBooking[], tax: GroupTax): GroupTotal {
-  const priced = totalFor(prices, rooms);
+/** The total of the rooms of a package selling `offered` (one room type sold alone is per person: see `totalFor`). */
+export function groupTotal(
+  prices: RoomPrices,
+  rooms: readonly RoomBooking[],
+  tax: GroupTax,
+  offered: readonly RoomType[],
+): GroupTotal {
+  const priced = totalFor(prices, rooms, offered);
   if (!priced.ok) return priced;
   const moneyOf = (subtotalPaise: number) =>
     quoteMoney([taxLine(subtotalPaise)], tax.taxRateBasisPoints, tax.supplierStateCode, null);

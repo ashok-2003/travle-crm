@@ -10,6 +10,7 @@ import { notify } from "../../notifications/index.js";
 import { AI_BOOKING_KIND } from "../booking.js";
 import type { ActDeps, ActInput } from "./act-types.js";
 import { bookingPackage } from "./actions.js";
+import { roomsFor } from "./rooms.js";
 
 const refuse = (message: string) => new DomainError("CONFLICT", "AI_ACTION_REFUSED", message);
 
@@ -30,11 +31,13 @@ export async function takeGroundedBooking(
   // A repeat of the turn: its booking stands, and no second hold or quote is made.
   if ((await tx.aiBooking.findUnique({ where: { id: bookingId }, select: { id: true } })) !== null) return bookingId;
   const actor = systemActor(input.organizationId);
+  // The rooms the lookup totalled: the quote must come to the total the customer was told.
+  const booked = roomsFor(input.facts, one.offered);
   // The quote first: it counts the seats held, so a hold of its own party would leave it too few.
   const quote = await makeGroupQuoteFor(
     tx,
     actor,
-    { leadId, packageId: one.id, departureId: departure.id, rooms: input.facts.rooms },
+    { leadId, packageId: one.id, departureId: departure.id, rooms: booked },
     { supplierStateCode: deps.supplierStateCode, now: input.now },
     input.lookup.today,
   );
@@ -58,9 +61,7 @@ export async function takeGroundedBooking(
   });
   const day = formatShortDay(departure.startsOn, input.lookup.today);
   const total = formatRupees(one.total);
-  const rooms = input.facts.rooms
-    .map((room) => `${String(room.people)} ${room.roomType.replaceAll("_", " ")}`)
-    .join(", ");
+  const rooms = booked.map((room) => `${String(room.people)} ${room.roomType.replaceAll("_", " ")}`).join(", ");
   const summary = `${one.title}, ${day}, ${String(travellers)} travellers`.slice(0, 300);
   const details = {
     package: one.title,

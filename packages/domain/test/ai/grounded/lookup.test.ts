@@ -188,6 +188,32 @@ describe("looking up a chat's packages", () => {
     expect(unpriced.packages[0]?.total).toBeNull();
   });
 
+  it("a package selling one room type puts every traveller in it, whatever rooms were said", async () => {
+    const { tents, both } = await world.inOrg(async (tx) => {
+      const tents = await aDestination(tx, "Kedarkantha");
+      const both = await aDestination(tx, "Chopta");
+      await aGroup(tx, tents, [{ start: "2026-11-14", prices: { triple: 499_800 } }], { roomTypes: ["triple"] });
+      await aGroup(tx, both, [{ start: "2026-11-14", prices: { double: 599_800, triple: 499_800 } }]);
+      return { tents, both };
+    });
+    const asked = (destinationId: string, changes: Partial<ChatFacts> = {}) =>
+      look({
+        places: [{ destinationId, words: "the trek" }],
+        startsOn: parseCalendarDate("2026-11-14"),
+        travellers: 4,
+        ...changes,
+      });
+    // "We are 4": four in triple at ₹4,998 each.
+    expect((await asked(tents)).packages[0]?.total).toBe(4 * 499_800);
+    // "Triple sharing" read as one triple room (3 people) still leaves all four in triple.
+    const said = await asked(tents, { rooms: [{ roomType: "triple", people: 3 }] });
+    expect(said.packages[0]?.total).toBe(4 * 499_800);
+    // With no travellers known there is still nothing to total.
+    expect((await asked(tents, { travellers: null })).packages[0]?.total).toBeNull();
+    // Two room types sold: the rooms are still the customer's to say.
+    expect((await asked(both)).packages[0]?.total).toBeNull();
+  });
+
   it("a custom package has from prices only", async () => {
     const destination = await world.inOrg(async (tx) => {
       const place = await aDestination(tx, "Goa");
