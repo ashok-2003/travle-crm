@@ -92,6 +92,7 @@ test("support sees every destination but Failed emails and Staff, a super admin 
     "Plans",
     "WhatsApp",
     "Jobs",
+    "Health",
     "Failed emails",
     "Log",
     "Staff",
@@ -111,6 +112,7 @@ test("support sees every destination but Failed emails and Staff, a super admin 
     "Plans",
     "WhatsApp",
     "Jobs",
+    "Health",
     "Log",
   ]);
   // At the foot of the sidebar, or atop the phone's More sheet, which destinations() left open.
