@@ -43,6 +43,7 @@ const entitlements: Entitlements = {
   paidThrough: null,
   nextChangeOn: null,
 };
+const withoutAi: Entitlements = { ...entitlements, modules: new Set(["crm", "inbox"]) };
 const reply = JSON.stringify({
   reply: "Manali 5N/6D is Rs 18,500 per person. How many are travelling?",
   handoff: false,
@@ -178,10 +179,7 @@ describe("the agent while paused", () => {
       ai: model,
       // The sweeps visit every agency in the shared database: only this one has the AI.
       subscriptions: {
-        entitlementsOf: (id: string) =>
-          Promise.resolve(
-            id === organizationId ? entitlements : { ...entitlements, modules: new Set(["crm", "inbox"]) },
-          ),
+        entitlementsOf: (id: string) => Promise.resolve(id === organizationId ? entitlements : withoutAi),
       },
       agencyName: () => Promise.resolve("Sharma Holidays"),
       files: test.files,

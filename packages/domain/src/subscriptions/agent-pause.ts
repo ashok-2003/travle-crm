@@ -33,11 +33,9 @@ export async function setAgencyAgentPause(
   now: Date = new Date(),
 ): Promise<{ changed: boolean; since: Date | null }> {
   if (paused && by.userId === null) throw new RangeError("A pause names the admin who made it");
-  if (!(await lockSubscriptionRow(tx, organizationId))) throw subscriptionNotFound();
-  const { aiAgentPausedAt } = await tx.subscription.findUniqueOrThrow({
-    where: { organizationId },
-    select: { aiAgentPausedAt: true },
-  });
+  const locked = await lockSubscriptionRow(tx, organizationId);
+  if (!locked) throw subscriptionNotFound();
+  const { aiAgentPausedAt } = locked;
   if ((aiAgentPausedAt !== null) === paused) return { changed: false, since: aiAgentPausedAt };
   await tx.subscription.update({
     where: { organizationId },
