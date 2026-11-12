@@ -19,6 +19,7 @@ import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { consoleRoutes } from "../routes";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
+import { AgentPauseBlock } from "./agent-pause-block";
 import { WebhookBlock } from "./webhook-block";
 
 export const connectionTones: Record<string, StatusTone> = {
@@ -139,6 +140,7 @@ export function WhatsappScreen() {
   return (
     <div className="flex max-w-[1200px] flex-col gap-6">
       <PageHeader title={t("title")} intro={t("intro")} />
+      <AgentPauseBlock />
       {body()}
     </div>
   );
