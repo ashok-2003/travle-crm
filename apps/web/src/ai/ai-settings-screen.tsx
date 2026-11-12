@@ -21,6 +21,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { TextLink } from "@/components/text-link";
+import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
 import { AiHero } from "./ai-hero";
 import { AmountsAlert } from "./amounts-alert";
@@ -190,6 +192,14 @@ export function AiSettingsScreen() {
     <div className="flex max-w-[720px] flex-col gap-6">
       <BackToSettings />
       <PageHeader title={t("title")} intro={t("intro")} />
+      <Alert>
+        <AlertDescription className="flex flex-wrap items-center gap-x-2">
+          {t("moved")}
+          <TextLink inline href={routes.aiAgent}>
+            {t("openAgent")}
+          </TextLink>
+        </AlertDescription>
+      </Alert>
       {settings.data ? (
         <>
           <Hero settings={settings.data} />

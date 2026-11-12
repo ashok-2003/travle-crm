@@ -1,0 +1,69 @@
+"use client";
+
+// /ai-agent: the AI agent's own page, in three tabs (Overview, Setup, Try it); the open tab is kept in the address as ?tab=.
+import { useTranslations } from "next-intl";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ErrorState } from "@/components/error-state";
+import { LoadingRows } from "@/components/loading-rows";
+import { PageHeader } from "@/components/page-header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { routes } from "@/lib/routes";
+import { AgentOverview } from "./agent-overview";
+import { useAgentSetup } from "./use-agent";
+
+const tabs = ["overview", "setup", "try"] as const;
+type AgentTab = (typeof tabs)[number];
+
+const tabOf = (value: string | null): AgentTab => tabs.find((tab) => tab === value) ?? "overview";
+
+export function AgentScreen() {
+  const t = useTranslations("aiAgent");
+  const router = useRouter();
+  const tab = tabOf(useSearchParams().get("tab"));
+  const setup = useAgentSetup();
+  if (setup.data === undefined) {
+    return (
+      <div className="flex max-w-[720px] flex-col gap-6">
+        <PageHeader title={t("title")} intro={t("intro")} />
+        {setup.isError ? (
+          <ErrorState
+            message={t("loadFailed")}
+            error={setup.error}
+            retryLabel={t("retry")}
+            onRetry={() => void setup.refetch()}
+          />
+        ) : (
+          <LoadingRows shape="twoLines" label={t("loading")} />
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="flex max-w-[720px] flex-col gap-6">
+      <PageHeader title={t("title")} intro={t("intro")} />
+      <Tabs
+        value={tab}
+        onValueChange={(next) => {
+          router.replace(`${routes.aiAgent}?tab=${tabOf(next)}`);
+        }}
+      >
+        <TabsList aria-label={t("tabs.label")}>
+          {tabs.map((value) => (
+            <TabsTrigger key={value} value={value}>
+              {t(`tabs.${value}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value="overview" className="pt-4">
+          <AgentOverview />
+        </TabsContent>
+        <TabsContent value="setup" className="pt-4">
+          <p>{t("comingNext")}</p>
+        </TabsContent>
+        <TabsContent value="try" className="pt-4">
+          <p>{t("comingNext")}</p>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

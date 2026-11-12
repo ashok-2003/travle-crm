@@ -8,5 +8,41 @@
       "children": "Can children come, and from what age?",
       "payment_methods": "Which ways can customers pay?"
     }
-  }
+  },
+  "title": "AI agent",
+  "intro": "Your WhatsApp sales assistant: what it's doing, what needs you, and how it's set up.",
+  "tabs": {
+    "label": "AI agent sections",
+    "overview": "Overview",
+    "setup": "Setup",
+    "try": "Try it"
+  },
+  "comingNext": "Coming next",
+  "state": {
+    "on": "On: answering WhatsApp chats",
+    "off": "Off",
+    "paused": "Paused by {product} support",
+    "notSetUp": "Not set up yet",
+    "openSetup": "Open Setup"
+  },
+  "needsYou": {
+    "title": "Needs you",
+    "handedOver": "Chats handed over to you",
+    "reasonNone": "No reason was given.",
+    "since": "Since {when}",
+    "payments": "Payments to check",
+    "paymentsCount": "{count, plural, one {# payment waits for you} other {# payments wait for you}}",
+    "nothing": "Nothing needs you right now.",
+    "loadFailed": "This part didn't load."
+  },
+  "last24": {
+    "title": "Last 24 hours",
+    "chats": "Chats answered",
+    "messages": "Messages sent",
+    "handedOver": "Handed over",
+    "loadFailed": "The last 24 hours didn't load."
+  },
+  "loading": "Loading the AI agent",
+  "loadFailed": "The AI agent didn't load.",
+  "retry": "Try again"
 }

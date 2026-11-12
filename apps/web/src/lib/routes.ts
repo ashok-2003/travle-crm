@@ -75,6 +75,8 @@ export const routes = {
   bookingSettings: "/settings/bookings",
   /** Suggest reply's switch and the agency's instructions to the AI. */
   aiSettings: "/settings/ai",
+  /** The AI agent's own page: overview, setup and trying it. */
+  aiAgent: "/ai-agent",
   /** The agency's WhatsApp number and its state. */
   whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */

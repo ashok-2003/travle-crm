@@ -44,7 +44,9 @@
       "warm": "Warm and friendly",
       "premium": "Polished and premium",
       "short": "Short and to the point"
-    }
+    },
+    "moved": "The AI agent now has its own page.",
+    "openAgent": "Open the AI agent"
   },
   "suggest": {
     "button": "Suggest a reply",
