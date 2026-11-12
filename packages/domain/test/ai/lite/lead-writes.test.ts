@@ -2,6 +2,8 @@
 // the timeline; a person's value never replaced; the stage forward only; the summary clean; the score row.
 import { internationalPhone } from "@travel-crm/contracts/kernel";
 import { liteFacts, type LiteFacts } from "@travel-crm/contracts/ai";
+import { randomUUID } from "node:crypto";
+import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leadInsightOf } from "../../../src/ai/index.js";
 import { saveLeadInsight } from "../../../src/ai/insight.js";
@@ -115,19 +117,28 @@ describe("what the lite turn writes on a lead", () => {
   it("the travel date changes when the customer moves to another departure", async () => {
     const a = await agency();
     const pkg = { destinationId: null, nights: 4 };
-    const on = (day: string) => ({
-      facts: facts({ departureId: a.departures[0]?.id ?? null }),
+    const [first, second] = a.departures;
+    const on = (departure: typeof first) => ({
+      facts: facts({ departureId: departure?.id ?? null }),
       pkg,
-      departureStartsOn: parseCalendarDate(day),
+      departureStartsOn: parseCalendarDate(departure?.startsOn ?? ""),
     });
-    expect(await a.write(on("2026-11-14"))).toEqual(["when"]);
-    expect(await a.write(on("2026-11-14"))).toEqual([]);
-    expect(await a.write(on("2026-11-21"))).toEqual(["when"]);
+    expect(first?.startsOn).toBe("2026-11-14");
+    expect(second?.startsOn).toBe("2026-11-21");
+    expect(await a.write(on(first))).toEqual(["when"]);
+    expect(await a.write(on(first))).toEqual([]);
+    expect(await a.write(on(second))).toEqual(["when"]);
     expect((await a.lead()).travelStart).toEqual(new Date("2026-11-21T00:00:00Z"));
     expect((await a.entries()).map((entry) => [entry.fromText, entry.toText])).toEqual([
       [null, "Sat 14 Nov to Wed 18 Nov"],
       ["Sat 14 Nov to Wed 18 Nov", "Sat 21 Nov to Wed 25 Nov"],
     ]);
+  });
+
+  it("a lead deleted mid-chat is skipped, not a failed turn", async () => {
+    const a = await agency();
+    await a.inOrg((tx) => tx.lead.update({ where: { id: a.leadId }, data: softDeleted(randomUUID()) }));
+    expect(await a.write({ facts: facts({ adults: 3 }) })).toEqual([]);
   });
 
   it("a dismissed field is not filled again", async () => {

@@ -14,7 +14,7 @@ import {
   type GapField,
   type TripGaps,
 } from "../../crm/index.js";
-import { addDays, formatShortDay, systemActor, type CalendarDate } from "../../kernel/index.js";
+import { addDays, DomainError, formatShortDay, systemActor, type CalendarDate } from "../../kernel/index.js";
 import { valueHash } from "../fill/values.js";
 import type { LeadInsightRow } from "../insight.js";
 import type { CheckedForm } from "./types.js";
@@ -110,7 +110,13 @@ function gapsOf(values: Partial<Record<TripField, unknown>>): TripGaps {
 export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Promise<AiFilledField[]> {
   const { organizationId, leadId, today } = input;
   // Held until the transaction ends, so a person's save cannot slip in between the checks below and the write.
-  await lockLead(tx, leadId);
+  try {
+    await lockLead(tx, leadId);
+  } catch (error) {
+    // A lead deleted mid-chat is nothing to write on, not a failed turn.
+    if (error instanceof DomainError && error.code === "NOT_FOUND") return [];
+    throw error;
+  }
   const current = await tripFieldValues(tx, leadId);
   if (current === null) return [];
   const rows = new Map((await tx.leadAiField.findMany({ where: { leadId } })).map((row) => [row.field, row]));
