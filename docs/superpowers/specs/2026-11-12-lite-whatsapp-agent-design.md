@@ -283,15 +283,41 @@ ask what the lead already has (staff may have filled it).
 K1: the name comes first, from the WhatsApp profile when usable. K2: pickup city and room only when the package offers a
 choice. K3: budget, food, hotel and occasion are never asked. (Owner agreed.)
 
+## Screens (owner: the agent's pages are scattered)
+Today the agent is set up across Settings → AI (a hero, switches, free-text instructions with ready lines, the
+autopilot's many settings, knowledge pieces, learnings, the media library, voice copying, Try it, package drafts), each
+package's page (AI can sell, its own payment text and QR, the advance), Settings → WhatsApp, Settings → Departures (seat
+hold), Payments to check, the inbox's chat card and the lead's insight card. **Our ruling** for the new layout:
+
+- **One "AI agent" page** in the sidebar with three tabs:
+  - **Overview**: on or off (and "paused by support" when it is); what needs a person now (chats handed over, payments to
+    check, Lost or Not a lead suggestions), each linking to its place; the last day in numbers (chats answered, handed
+    over, bookings requested).
+  - **Setup**: one checklist, each step green when done, in this order: WhatsApp number connected; packages the AI can
+    sell (each with an advance, P3; links to Packages); payment details (UPI ID, QR, bank; S3, P1); answers to the fixed
+    questions (S2); agent name and tone (T4); ads and their packages (N1); turn it on (only when the steps before are
+    done).
+  - **Try it**: the dry-run chat that sends nothing (kept from today).
+- **Packages** keep their own facts (prices, departures, brochure, photos, advance, "AI can sell"); their separate
+  payment text and QR go (P1).
+- **The inbox's chat card**: AI on or off in this chat, why it handed over, "Let AI answer", and the chat summary (C3).
+- **The lead page**: the score card (C4) with the summary.
+- **Gone at the move (N4, N5, N6)**: free-text instructions and ready lines, knowledge pieces, learnings, voice copying,
+  the media library (the QR moves to payment details; brochures and photos live on packages), style, emojis, persona,
+  hand-over policy and strict rules. Until the move (plan 5) the old Settings → AI stays for the old agent; the new page
+  is built in plan 2 and Settings → AI then sends people to it.
+- Payments to check, Settings → WhatsApp and the seat hold keep their places; the Overview and Setup tabs link to them.
+
 ## Build order (our ruling)
 Separate plans, each shipping working software, in this order:
 1. **Pause switch** in the console: every agency at once, or one agency (N8). Small; first.
-2. **Agency setup the agent reads**: payment details as fields per agency (P1, S3), the fixed question list with the
-   owner's answers (S2), the cut-down agent settings (T4, N5), the "AI can sell" preconditions (P3), the ad-to-package
-   link (N1; first learn MSG91's ad-click message, logged as `whatsapp.unknown-type`).
+2. **Agency setup the agent reads, and the new AI agent page**: payment details as fields per agency (P1, S3), the
+   fixed question list with the owner's answers (S2), the cut-down agent settings (T4, N5), the "AI can sell"
+   preconditions (P3), the ad-to-package link (N1; first learn MSG91's ad-click message, logged as
+   `whatsapp.unknown-type`), and the AI agent page's Overview, Setup and Try it tabs (see Screens).
 3. **The lite agent turn**: Understand form, read tools, the move table and sales checklist, Write, the check, the fixed
    texts in three languages, summary and score, follow-ups, hand-over, and the trace recording (index row plus R2
    file), behind a per-agency switch so the old agents keep running until the move.
 4. **Transparency in the console**: the prompt library and the trace viewer (super admins, 14 days).
-5. **Test bench and the move**: replay real past chats (kept private), move every agency over, remove the old agents
-   and their settings (N7).
+5. **Test bench and the move**: replay real past chats (kept private), move every agency over, remove the old agents,
+   their settings and the old Settings → AI sections, and simplify the inbox chat card and the lead score card (N7).
