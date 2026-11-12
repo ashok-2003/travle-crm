@@ -4,7 +4,7 @@ import type { LiteIntent, UnderstandForm } from "@travel-crm/contracts/ai";
 import { withoutAmountsAndDates } from "@travel-crm/contracts/ai";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { CalendarDate } from "../../kernel/index.js";
-import { containsWords, hasAWord, sharesAWord } from "../grounded/read-words.js";
+import { containsWords, hasAWord, wordsOf } from "../grounded/read-words.js";
 import { saysCount, saysDay, saysMonth } from "../grounded/read-numbers.js";
 import type { CheckedForm, ContextMessage, FieldProof, PackageIndexEntry } from "./types.js";
 
@@ -14,6 +14,25 @@ const SUMMARY_MAX = 800;
 const EXCERPT_MAX = 200;
 /** These need words said since our last message, or they are only history. */
 const NEEDS_NEWEST: LiteIntent[] = ["wants_to_book", "payment_sent", "not_interested", "later", "wants_call"];
+
+/** Words every trip of a kind shares: they never tell one package from another. */
+const GENERIC_WORDS = new Set(
+  "trek trip tour tours yatra package packages holiday holidays valley days nights night camp ride group plan from with".split(
+    " ",
+  ),
+);
+const letters = (word: string) => Array.from(word).length;
+
+/** Whether the proof holds a word that only this package's title or place has (4+ letters, not a generic travel word). */
+function namesThisTrip(proof: string, entry: PackageIndexEntry, index: PackageIndexEntry[]): boolean {
+  const wordsOfEntry = (one: PackageIndexEntry) => new Set(wordsOf(`${one.title} ${one.place ?? ""}`));
+  const ours = wordsOfEntry(entry);
+  const others = index.filter((one) => one.id !== entry.id).map(wordsOfEntry);
+  return wordsOf(proof).some(
+    (word) =>
+      letters(word) >= 4 && !GENERIC_WORDS.has(word) && ours.has(word) && !others.some((theirs) => theirs.has(word)),
+  );
+}
 
 const roomAliases: Record<RoomType, string[]> = {
   double: ["double", "2 sharing", "twin", "डबल"],
@@ -31,6 +50,7 @@ export function checkedForm(
   index: PackageIndexEntry[],
   today: CalendarDate,
 ): CheckedForm {
+  burst = burst.filter((line) => line.from === "customer");
   const customer = messages.slice(-MOST_MESSAGES).filter((message) => message.from === "customer");
   const proofIn = (lines: ContextMessage[], proof: string): string[] =>
     hasAWord(proof) ? lines.filter((line) => containsWords(line.text, proof)).map((line) => line.id) : [];
@@ -66,8 +86,7 @@ export function checkedForm(
   if (pack) {
     const named =
       entry !== undefined &&
-      (sharesAWord(pack.proof, `${entry.title} ${entry.place ?? ""}`, 4) ||
-        ourLast.some((line) => containsWords(line.text, entry.title)));
+      (namesThisTrip(pack.proof, entry, index) || ourLast.some((line) => containsWords(line.text, entry.title)));
     const ids = backed("package", pack.proof, named);
     if (ids === null) pack = null;
     else remember("destination", pack.proof, ids);

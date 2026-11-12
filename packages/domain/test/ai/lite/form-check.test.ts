@@ -126,6 +126,54 @@ describe("checkedForm", () => {
     expect(checked.dropped).toContain("package");
   });
 
+  it("a near-spelling of a place we run is no package, even under a title we have", () => {
+    const trek: PackageIndexEntry = { ...index[0], title: "Kedarnath Trek" } as PackageIndexEntry;
+    const messages = [line("1", "customer", "kedarkantha trek please")];
+    const checked = checkedForm(
+      formWith({ package: { name: "Kedarnath Trek", proof: "kedarkantha trek", changed: false } }),
+      messages,
+      messages,
+      [trek],
+      today,
+    );
+    expect(checked.form.details.package).toBeNull();
+    const named = [line("2", "customer", "the kedarnath one")];
+    const kept = checkedForm(
+      formWith({ package: { name: "Kedarnath Trek", proof: "the kedarnath one", changed: false } }),
+      named,
+      named,
+      [trek],
+      today,
+    );
+    expect(kept.form.details.package).not.toBeNull();
+  });
+
+  it("a proof sharing only 'trek' with two trek titles names neither", () => {
+    const treks: PackageIndexEntry[] = [
+      { ...index[0], id: P1, title: "Kedarnath Trek", place: null } as PackageIndexEntry,
+      { ...index[0], id: P2, title: "Brahmatal Trek", place: null } as PackageIndexEntry,
+    ];
+    const messages = [line("1", "customer", "a trek please")];
+    const checked = checkedForm(
+      formWith({ package: { name: "Brahmatal Trek", proof: "a trek please", changed: false } }),
+      messages,
+      messages,
+      treks,
+      today,
+    );
+    expect(checked.form.details.package).toBeNull();
+  });
+
+  it("our own line in the burst never backs an intent", () => {
+    const messages = [line("1", "customer", "hi"), line("2", "you", "shall I book it for you")];
+    const checked = check(
+      formWith({}, { intents: [{ name: "wants_to_book", proof: "shall I book it" }] }),
+      messages,
+      messages,
+    );
+    expect(checked.form.intents).toEqual([{ name: "other", proof: "" }]);
+  });
+
   it("a package by its exact title stays when the proof shares a word with it", () => {
     const messages = [line("1", "customer", "the kedarnath one")];
     const checked = check(
