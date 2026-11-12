@@ -1,11 +1,13 @@
 // A package's brochures and payment QR (group packages): files the browser sends straight to storage. The AI agent sends a
-// brochure to a customer who asks for details and the QR to one who wants to book. Up to five brochures; one QR, which a new
-// confirmed one replaces. Staff who may edit packages manage them. Non-sensitive by construction.
+// brochure (and the package's photos) to a customer who asks for details and the QR to one who wants to book. Up to five
+// brochures; one QR, which a new confirmed one replaces. Staff who may edit packages manage them. Non-sensitive by
+// construction.
 import {
   MAX_PACKAGE_BROCHURE_BYTES,
   MAX_PACKAGE_PAYMENT_QR_BYTES,
   PACKAGE_BROCHURE_RECORD_TYPE,
   PACKAGE_PAYMENT_QR_RECORD_TYPE,
+  PACKAGE_PHOTO_RECORD_TYPE,
   type packageBrochureContentTypes,
 } from "@travel-crm/contracts/files";
 import {
@@ -31,18 +33,27 @@ const recordOf = (packageId: string, kind: PackageFileKind) => ({
   recordId: packageId,
 });
 
-/** A package's brochures and the newest payment QR inside a transaction already open, for the AI's turn: ids, never links. */
+/**
+ * A package's brochures, photos and newest payment QR inside a transaction already open, for the AI's turn: ids, never
+ * links. Brochures and photos in the order they arrived.
+ */
 export async function packageFilesIn(
   tx: OrgTx,
   packageId: string,
-): Promise<{ brochures: { id: string; fileName: string }[]; paymentQrId: string | null }> {
-  const [brochures, qrs] = await Promise.all([
+): Promise<{
+  brochures: { id: string; fileName: string }[];
+  photos: { id: string; fileName: string }[];
+  paymentQrId: string | null;
+}> {
+  const [brochures, photos, qrs] = await Promise.all([
     readyAttachmentsIn(tx, recordOf(packageId, "brochure")),
+    readyAttachmentsIn(tx, { recordType: PACKAGE_PHOTO_RECORD_TYPE, recordId: packageId }),
     readyAttachmentsIn(tx, recordOf(packageId, "payment_qr")),
   ]);
   // The newest QR wins, as in listPackageFiles.
   return {
     brochures: brochures.map(({ id, fileName }) => ({ id, fileName })),
+    photos: photos.map(({ id, fileName }) => ({ id, fileName })),
     paymentQrId: qrs[qrs.length - 1]?.id ?? null,
   };
 }

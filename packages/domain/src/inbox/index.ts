@@ -86,6 +86,7 @@ export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";
 export {
   kindOf,
+  lockChat,
   markAnswered,
   MESSAGE_QUEUED_EVENT,
   queueMedia,

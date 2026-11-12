@@ -59,8 +59,8 @@ export async function liteAgency(test: TestInbox, options: { lite?: boolean; rea
   const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
   const owner = memberOf(organizationId, "org-owner");
   const customerNumber = freshPhone().replace("+", "");
-  const say = (text: string, kind = "text") =>
-    deliver(test, fromCustomer(connection, { customerNumber, customerName: "Rahul", text, contentType: kind }));
+  const say = (text: string, kind = "text", at = testNow) =>
+    deliver(test, fromCustomer(connection, { customerNumber, customerName: "Rahul", text, contentType: kind }), at);
   await say("Hi, is the Kedarnath yatra running?");
   const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
   const message = await inOrg((tx) => tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" } }));
@@ -152,13 +152,14 @@ export async function liteAgency(test: TestInbox, options: { lite?: boolean; rea
       },
       select: { id: true },
     });
-    await tx.attachment.createMany({
+    const files = await tx.attachment.createManyAndReturn({
       data: [
         readyFile(PACKAGE_BROCHURE_RECORD_TYPE, template.id, "brochure.pdf", "application/pdf"),
         readyFile(PACKAGE_PHOTO_RECORD_TYPE, template.id, "one.jpg", "image/jpeg"),
         readyFile(PACKAGE_PHOTO_RECORD_TYPE, template.id, "two.jpg", "image/jpeg"),
         readyFile(AGENCY_PAYMENT_QR_RECORD_TYPE, organizationId, "qr.png", "image/png"),
       ],
+      select: { id: true, contentType: true },
     });
     await tx.packageSeason.create({
       data: {
@@ -188,8 +189,16 @@ export async function liteAgency(test: TestInbox, options: { lite?: boolean; rea
       });
       departures.push({ id: row.id, startsOn, seats });
     }
-    return { leadId: lead.id, packageId: template.id, departures };
+    return { leadId: lead.id, packageId: template.id, destinationId: destination.id, departures, files };
   });
+  // The files' bytes, so a turn that sends one can copy it onto its message inside storage.
+  for (const file of ids.files) {
+    await test.storage.put({
+      key: `organizations/${organizationId}/attachments/${file.id}`,
+      contentType: file.contentType,
+      body: new Uint8Array([1, 2, 3]),
+    });
+  }
   const model = createMemoryAiModel();
   const logger = createMemoryLogger();
   const turn = (at = liteTurnAt) =>
