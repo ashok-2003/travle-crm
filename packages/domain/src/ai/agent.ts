@@ -16,7 +16,7 @@ import type { Files } from "../files/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { queueSystemText } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
-import type { SubscriptionAccess } from "../subscriptions/index.js";
+import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { agentPrompt, type TurnKind } from "./agent-prompt.js";
 import { applyAnswer } from "./agent-effects.js";
@@ -112,6 +112,8 @@ export async function runAgentTurn(
   if (!ai.configured) return "not_configured";
   // No AI for an agency whose plan lacks it or whose subscription is read-only, suspended or cancelled.
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(input.organizationId))) return "not_allowed";
+  // Paused by platform staff: nothing is written to a customer, by either agent. Read fresh, never from the access cache.
+  if ((await db.forOrg(input.organizationId, (tx) => agentPauseOf(tx, input.organizationId))) !== null) return "paused";
   // An agency switched to the grounded turn gets it; the others keep this agent exactly as it is.
   const grounded = await db.forOrg(
     input.organizationId,

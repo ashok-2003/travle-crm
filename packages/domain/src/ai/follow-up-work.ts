@@ -6,6 +6,7 @@
 import type { FollowUpTouchOutcome } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { AI_TOKEN_PREFIX, runAgentTurn, type AgentDependencies } from "./agent.js";
+import { agentPauseOf } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { autopilotOf } from "./autopilot.js";
 import { aiEnabled } from "./settings.js";
@@ -39,6 +40,7 @@ function outcomeOf(turn: string): FollowUpTouchOutcome {
     case "day_limit":
     case "not_allowed":
     case "not_configured":
+    case "paused":
       return "off";
     // The grounded turn sent nothing and told the team (a reply the check refused twice, a read that did not fit).
     case "blocked":
@@ -57,6 +59,8 @@ export async function workDueFollowUps(
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
   const claimed = await dependencies.db.forOrg(organizationId, async (tx) => {
     if (!(await aiEnabled(tx)) || !(await autopilotOf(tx)).followUpTasks) return [];
+    // Paused: nothing is claimed, so the follow-ups stay unworked.
+    if ((await agentPauseOf(tx, organizationId)) !== null) return [];
     const rows = await tx.task.findMany({
       where: {
         kind: "follow-up",

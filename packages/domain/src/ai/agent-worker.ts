@@ -8,7 +8,7 @@ import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
-import type { SubscriptionAccess } from "../subscriptions/index.js";
+import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 import { autopilotOf } from "./autopilot.js";
@@ -44,6 +44,7 @@ export function aiCustomerWroteListener(dependencies: {
       if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(event.organizationId))) return;
       const wanted = await context.forOrg(async (tx) => {
         if (!(await aiEnabled(tx))) return false;
+        if ((await agentPauseOf(tx, event.organizationId)) !== null) return false;
         const settings = await autopilotOf(tx);
         const state = await tx.aiChat.findFirst({
           where: { conversationId },
@@ -91,6 +92,7 @@ export function aiChatResumedListener(dependencies: {
       const { conversationId } = event.payload;
       if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(event.organizationId))) return;
       const newest = await context.forOrg(async (tx) => {
+        if ((await agentPauseOf(tx, event.organizationId)) !== null) return null;
         const message = await tx.whatsappMessage.findFirst({
           where: { conversationId, direction: "in" },
           orderBy: { occurredAt: "desc" },
@@ -162,6 +164,8 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
   const due = await dependencies.db.forOrg(organizationId, async (tx) => {
     if (!(await aiEnabled(tx))) return [];
+    // Paused: nothing is claimed, so the follow-ups stay due and are worked after the resume.
+    if ((await agentPauseOf(tx, organizationId)) !== null) return [];
     const settings = await autopilotOf(tx);
     if (settings.followUpHours === 0) return [];
     const windowFloor = new Date(now.getTime() - WINDOW_MS + WINDOW_MARGIN_MS);

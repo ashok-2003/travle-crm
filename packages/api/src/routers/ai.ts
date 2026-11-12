@@ -90,6 +90,7 @@ import {
   updateKnowledge,
   writeUpQuote,
 } from "@travel-crm/domain/ai";
+import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { agencyToday } from "../package-departures-gate.js";
@@ -376,7 +377,15 @@ export const aiRouter = router({
     .query(async ({ ctx, input }) => {
       const allowed = aiAllowed(ctx.entitlements);
       return ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
-        chatAiOf(tx, input.conversationId, ctx.ai?.configured === true && allowed && (await aiEnabled(tx))),
+        chatAiOf(
+          tx,
+          input.conversationId,
+          // A pause by platform staff stops the answering too, read fresh (not from the access cache).
+          ctx.ai?.configured === true &&
+            allowed &&
+            (await aiEnabled(tx)) &&
+            (await agentPauseOf(tx, ctx.member.organizationId)) === null,
+        ),
       );
     }),
 
