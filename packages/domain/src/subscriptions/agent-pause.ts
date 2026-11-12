@@ -43,12 +43,14 @@ export async function setAgencyAgentPause(
       ? { aiAgentPausedAt: now, aiAgentPausedBy: by.userId }
       : { aiAgentPausedAt: null, aiAgentPausedBy: null },
   });
-  await recordAudit(tx, actorIn(organizationId, by), {
-    action: paused ? "ai-agent.paused" : "ai-agent.resumed",
+  const entry = {
     entityType: "subscription",
     entityId: organizationId,
     before: { paused: !paused },
     after: { paused },
-  });
+  };
+  // Each branch names its action as a literal, so the audit test can read every recorded action.
+  if (paused) await recordAudit(tx, actorIn(organizationId, by), { action: "ai-agent.paused", ...entry });
+  else await recordAudit(tx, actorIn(organizationId, by), { action: "ai-agent.resumed", ...entry });
   return { changed: true, since: paused ? now : null };
 }

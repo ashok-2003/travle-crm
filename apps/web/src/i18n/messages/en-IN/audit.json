@@ -62,6 +62,9 @@
       "onboarded": "Set up the organization",
       "updated": "Corrected the organization's details"
     },
+    "profile": {
+      "payment-details-changed": "Changed the agency's payment details"
+    },
     "organization-profile": {
       "saved": "Saved the business profile"
     },
