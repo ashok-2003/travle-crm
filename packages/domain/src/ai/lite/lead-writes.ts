@@ -6,7 +6,14 @@ import type { FillPath } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import { destinationNames } from "../../catalog/index.js";
-import { fillTripGaps, recordLeadEvent, tripFieldValues, type GapField, type TripGaps } from "../../crm/index.js";
+import {
+  fillTripGaps,
+  lockLead,
+  recordLeadEvent,
+  tripFieldValues,
+  type GapField,
+  type TripGaps,
+} from "../../crm/index.js";
 import { addDays, formatShortDay, systemActor, type CalendarDate } from "../../kernel/index.js";
 import { valueHash } from "../fill/values.js";
 import type { LeadInsightRow } from "../insight.js";
@@ -102,6 +109,8 @@ function gapsOf(values: Partial<Record<TripField, unknown>>): TripGaps {
  */
 export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Promise<AiFilledField[]> {
   const { organizationId, leadId, today } = input;
+  // Held until the transaction ends, so a person's save cannot slip in between the checks below and the write.
+  await lockLead(tx, leadId);
   const current = await tripFieldValues(tx, leadId);
   if (current === null) return [];
   const rows = new Map((await tx.leadAiField.findMany({ where: { leadId } })).map((row) => [row.field, row]));
@@ -116,8 +125,11 @@ export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Prom
       continue;
     }
     const now = current[field];
-    if (now === null) toWrite[field] = desired[field];
-    else if (
+    if (now === null) {
+      // A row means the AI filled it once; empty now, a person cleared it, and clearing is theirs to choose.
+      if (row === undefined) toWrite[field] = desired[field];
+      else skip.add(field);
+    } else if (
       row?.state === "suggested" &&
       valueHash(PATH_OF[field], now) === row.valueHash &&
       valueHash(PATH_OF[field], desired[field]) !== row.valueHash

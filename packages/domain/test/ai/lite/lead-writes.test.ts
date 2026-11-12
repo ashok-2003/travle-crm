@@ -100,6 +100,36 @@ describe("what the lite turn writes on a lead", () => {
     expect((await a.lead()).departureCity).toBe("Pune");
   });
 
+  it.each(["suggested", "confirmed"])("a field a person cleared stays cleared (%s)", async (state) => {
+    const a = await agency();
+    await a.write({ facts: facts({ adults: 3 }) });
+    await a.inOrg(async (tx) => {
+      await tx.lead.update({ where: { id: a.leadId }, data: { adults: null } });
+      await tx.leadAiField.updateMany({ where: { leadId: a.leadId }, data: { state } });
+    });
+    expect(await a.write({ facts: facts({ adults: 3 }) })).toEqual([]);
+    expect((await a.lead()).adults).toBeNull();
+    expect(await a.entries()).toHaveLength(1);
+  });
+
+  it("the travel date changes when the customer moves to another departure", async () => {
+    const a = await agency();
+    const pkg = { destinationId: null, nights: 4 };
+    const on = (day: string) => ({
+      facts: facts({ departureId: a.departures[0]?.id ?? null }),
+      pkg,
+      departureStartsOn: parseCalendarDate(day),
+    });
+    expect(await a.write(on("2026-11-14"))).toEqual(["when"]);
+    expect(await a.write(on("2026-11-14"))).toEqual([]);
+    expect(await a.write(on("2026-11-21"))).toEqual(["when"]);
+    expect((await a.lead()).travelStart).toEqual(new Date("2026-11-21T00:00:00Z"));
+    expect((await a.entries()).map((entry) => [entry.fromText, entry.toText])).toEqual([
+      [null, "Sat 14 Nov to Wed 18 Nov"],
+      ["Sat 14 Nov to Wed 18 Nov", "Sat 21 Nov to Wed 25 Nov"],
+    ]);
+  });
+
   it("a dismissed field is not filled again", async () => {
     const a = await agency();
     await a.write({ facts: facts({ adults: 3 }) });
@@ -212,6 +242,13 @@ describe("what the lite turn writes on a lead", () => {
     expect(await move("contacted")).toBe(false);
     expect((await a.lead()).stage).toBe("quote_sent");
     expect(await stages()).toHaveLength(2);
+  });
+
+  it("the AI never moves a lead to Won", async () => {
+    const a = await agency();
+    const won = { leadId: a.leadId, stage: "won", byAi: true } as unknown as Parameters<typeof advanceLeadStage>[2];
+    expect(await a.inOrg((tx) => advanceLeadStage(tx, systemActor(a.organizationId), won, liteTurnAt))).toBe(false);
+    expect((await a.lead()).stage).toBe("new");
   });
 
   it("the summary is capped and cleaned", async () => {
