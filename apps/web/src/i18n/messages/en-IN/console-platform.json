@@ -287,7 +287,9 @@
         "paused": "Paused the AI agent on WhatsApp",
         "resumed": "Resumed the AI agent on WhatsApp",
         "paused-everyone": "Paused the AI agent on WhatsApp for every agency",
-        "resumed-everyone": "Resumed the AI agent on WhatsApp for every agency"
+        "resumed-everyone": "Resumed the AI agent on WhatsApp for every agency",
+        "lite-on": "Switched the agency to the lite AI agent on WhatsApp",
+        "lite-off": "Switched the agency back from the lite AI agent on WhatsApp"
       },
       "organization": {
         "onboarded": "Onboarded the organization",

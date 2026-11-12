@@ -1,10 +1,12 @@
-// The console's pause of the WhatsApp AI agent: platform staff read it, only a super admin changes it.
+// The console's pause of the WhatsApp AI agent, and its lite-agent switch: platform staff read it, only a super admin changes it.
 import {
   agentPauseState,
   organizationAgentPause,
   organizationAgentPauseInput,
+  organizationLiteAgent,
   pauseEveryoneInput,
   pauseOrganizationInput,
+  setLiteAgentInput,
 } from "@travel-crm/contracts/platform";
 import * as domain from "@travel-crm/domain/platform";
 import { staffProcedure, superAdminProcedure } from "../procedures.js";
@@ -26,4 +28,13 @@ export const aiAgentRouter = platformT.router({
     .input(pauseOrganizationInput)
     .output(organizationAgentPause)
     .mutation(({ ctx, input }) => domain.pauseOrganization(ctx.services, ctx.staff, input)),
+  /** Whether the lite agent answers one agency's chats. */
+  liteAgent: staffProcedure
+    .input(organizationAgentPauseInput)
+    .output(organizationLiteAgent)
+    .query(({ ctx, input }) => domain.organizationLiteAgent(ctx.services, input.organizationId)),
+  setLiteAgent: superAdminProcedure
+    .input(setLiteAgentInput)
+    .output(organizationLiteAgent)
+    .mutation(({ ctx, input }) => domain.setOrganizationLiteAgent(ctx.services, ctx.staff, input)),
 });

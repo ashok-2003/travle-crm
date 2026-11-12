@@ -110,6 +110,25 @@
     "confirm": "Disconnect"
   },
   "retry": "Try again",
+  "liteAgent": {
+    "title": "Which agent answers",
+    "on": "The new lite agent answers this agency's WhatsApp chats.",
+    "off": "The earlier agent answers this agency's WhatsApp chats.",
+    "switchOn": "Switch to the lite agent",
+    "switchOff": "Switch back",
+    "onDialog": {
+      "title": "Switch {name} to the lite agent?",
+      "description": "Its next customer message is answered by the lite agent, once the agency has the AI agent on and its setup is finished. Its settings are kept.",
+      "confirm": "Switch"
+    },
+    "offDialog": {
+      "title": "Switch {name} back?",
+      "description": "Its next customer message is answered by the agent it had before.",
+      "confirm": "Switch back"
+    },
+    "loading": "Loading which agent answers",
+    "loadFailed": "Which agent answers didn't load."
+  },
   "agentPause": {
     "everyone": {
       "title": "AI agent on WhatsApp",

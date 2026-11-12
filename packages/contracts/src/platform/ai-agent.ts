@@ -23,3 +23,10 @@ export const pauseOrganizationInput = z.strictObject({ organizationId: recordId,
 export type PauseOrganizationInput = z.infer<typeof pauseOrganizationInput>;
 
 export const organizationAgentPauseInput = z.strictObject({ organizationId: recordId });
+
+/** Whether the lite agent answers this agency's chats (the console's switch; the AI module's own switch is separate). */
+export const organizationLiteAgent = z.object({ lite: z.boolean() });
+export type OrganizationLiteAgent = z.infer<typeof organizationLiteAgent>;
+
+export const setLiteAgentInput = z.strictObject({ organizationId: recordId, lite: z.boolean() });
+export type SetLiteAgentInput = z.infer<typeof setLiteAgentInput>;

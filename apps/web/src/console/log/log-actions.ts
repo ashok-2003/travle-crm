@@ -6,6 +6,8 @@ export const KNOWN_ACTIONS = [
   "ai-agent.resumed",
   "ai-agent.paused-everyone",
   "ai-agent.resumed-everyone",
+  "ai-agent.lite-on",
+  "ai-agent.lite-off",
   "organization.onboarded",
   "organization.updated",
   "organization.export-requested",
