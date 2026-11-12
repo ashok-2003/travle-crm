@@ -13,6 +13,7 @@ import { setupChecklistOf } from "@travel-crm/domain/profile";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 import { currentLogo, logoRouter } from "./logo.js";
+import { paymentDetailsRouter } from "./payment-details.js";
 
 const profileRouter = router({
   get: orgProcedure
@@ -59,4 +60,5 @@ export const organizationRouter = router({
   branding: brandingRouter,
   setup: setupRouter,
   logo: logoRouter,
+  paymentDetails: paymentDetailsRouter,
 });
