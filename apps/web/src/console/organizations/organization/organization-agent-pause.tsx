@@ -8,7 +8,6 @@ import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
-import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { formatDayTime } from "@/lib/format";
@@ -100,12 +99,15 @@ export function OrganizationAgentPause({
           </Button>
         </div>
       )}
-      {change.isError && !confirming && <RefusalAlert error={change.error} />}
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
         title={t(`agentPause.agency.${dialog}.title`, { name: organizationName })}
-        description={t(`agentPause.agency.${dialog}.description`, { name: organizationName })}
+        description={
+          paused && everyone !== null
+            ? t("agentPause.agency.resumeDialog.descriptionWhileEveryonePaused")
+            : t(`agentPause.agency.${dialog}.description`, { name: organizationName })
+        }
         action={t(`agentPause.agency.${dialog}.confirm`)}
         destructive={!paused}
         request={change}

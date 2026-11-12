@@ -143,6 +143,7 @@
       "resumeDialog": {
         "title": "Resume the AI agent for {name}?",
         "description": "It starts answering again with the next customer message, if the agency has it on.",
+        "descriptionWhileEveryonePaused": "It stays paused for every agency until that pause is resumed too.",
         "confirm": "Resume"
       }
     },

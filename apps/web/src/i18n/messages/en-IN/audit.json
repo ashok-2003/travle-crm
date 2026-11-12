@@ -385,6 +385,7 @@
     }
   },
   "fields": {
+    "paused": "Paused",
     "name": "Name",
     "permissions": "What the role allows",
     "requireTwoFactor": "Two-factor sign-in for everyone",

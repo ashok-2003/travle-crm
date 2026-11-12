@@ -279,7 +279,8 @@
       "traveller": "Traveller",
       "person": "Customer",
       "vip_invite": "Invite",
-      "email": "Email"
+      "email": "Email",
+      "platform": "The AI agent on WhatsApp"
     },
     "actions": {
       "ai-agent": {

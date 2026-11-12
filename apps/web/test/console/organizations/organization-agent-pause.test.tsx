@@ -80,4 +80,11 @@ describe("OrganizationAgentPause", () => {
       expect(inputsTo("aiAgent.pauseOrganization")).toEqual([{ organizationId, paused: false }]);
     });
   });
+
+  it("tells that the pause for every agency outlasts this agency's resume", async () => {
+    show({ agency: { since }, everyone: { since } });
+    await userEvent.click(await screen.findByRole("button", { name: text.resume }));
+    expect(await screen.findByText(text.resumeDialog.descriptionWhileEveryonePaused)).toBeVisible();
+    expect(screen.queryByText(text.resumeDialog.description.replace("{name}", "Kerala Trails"))).toBeNull();
+  });
 });
