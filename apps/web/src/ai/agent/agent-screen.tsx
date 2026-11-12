@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/lib/routes";
 import { AgentOverview } from "./agent-overview";
+import { AgentSetupTab } from "./agent-setup";
 import { useAgentSetup } from "./use-agent";
 
 const tabs = ["overview", "setup", "try"] as const;
@@ -58,7 +59,7 @@ export function AgentScreen() {
           <AgentOverview />
         </TabsContent>
         <TabsContent value="setup" className="pt-4">
-          <p>{t("comingNext")}</p>
+          <AgentSetupTab setup={setup.data} />
         </TabsContent>
         <TabsContent value="try" className="pt-4">
           <p>{t("comingNext")}</p>

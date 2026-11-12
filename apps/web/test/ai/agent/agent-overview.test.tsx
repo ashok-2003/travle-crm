@@ -129,7 +129,7 @@ describe("the tabs", () => {
     renderWithApi(<AgentScreen />, client(), owner);
     await userEvent.click(await screen.findByRole("tab", { name: t.tabs.setup }));
     expect(routerCalls.replace).toHaveBeenLastCalledWith("/ai-agent?tab=setup");
-    expect(await screen.findByText(t.comingNext)).toBeInTheDocument();
+    expect(await screen.findByRole("switch", { name: t.setup.turnOn.title })).toBeInTheDocument();
   });
 
   it("opens the tab the address names", async () => {
