@@ -112,16 +112,26 @@ function replyText(bag: Bag): string | null {
   return null;
 }
 
+/** Third-party text made safe to store and show: whitespace runs become one space, control characters (NUL included, which Postgres refuses) go. */
+function cleaned(value: string | null): string | null {
+  if (value === null) return null;
+  const text = value
+    .replace(/\s+/g, " ")
+    .replace(/\p{Cc}/gu, "")
+    .trim();
+  return text === "" ? null : text;
+}
+
 /** A Meta-shaped `referral` (a click-to-WhatsApp ad). SPIKE(S1): MSG91 may not forward it, or may nest it, so four places are tried. */
 function referralOf(bag: Bag): ParsedMessage["referral"] {
   for (const holder of [bag, bag.message, bag.context, bag.content].map(unstring)) {
     if (!isBag(holder)) continue;
     const referral = unstring(holder.referral);
     if (!isBag(referral)) continue;
-    const sourceId = pick(referral, ["source_id", "sourceId"]);
-    const headline = pick(referral, ["headline"]);
+    const sourceId = cleaned(pick(referral, ["source_id", "sourceId"]));
+    const headline = cleaned(pick(referral, ["headline"]));
     if (sourceId === null && headline === null) continue;
-    return { sourceId, headline, sourceUrl: pick(referral, ["source_url", "sourceUrl"]) };
+    return { sourceId, headline, sourceUrl: cleaned(pick(referral, ["source_url", "sourceUrl"])) };
   }
   return null;
 }

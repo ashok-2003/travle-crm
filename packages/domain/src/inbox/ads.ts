@@ -28,7 +28,8 @@ export async function noteAdOf(
   referral: NonNullable<ParsedMessage["referral"]>,
   now: Date,
 ): Promise<void> {
-  const adKey = keyOf(referral);
+  // The parser cleans these; the caps are held again here so the table's CHECKs can never fail and cost the message.
+  const adKey = keyOf(referral)?.slice(0, HEADLINE_LIMIT) ?? null;
   if (adKey === null) return;
   const trimmed = referral.headline?.trim().slice(0, HEADLINE_LIMIT) ?? "";
   const headline = trimmed === "" ? null : trimmed;

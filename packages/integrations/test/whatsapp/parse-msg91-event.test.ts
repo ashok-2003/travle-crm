@@ -95,6 +95,16 @@ describe("parseMsg91Event", () => {
       });
     });
 
+    it("cleans control characters and spaces out of the ad's fields, and drops a referral left empty", () => {
+      expect(parsed({ referral: { headline: "a\u0000b" } })).toMatchObject({ referral: { headline: "ab" } });
+      expect(parsed({ referral: { headline: "  Goa \n\t in\u0007  Dec  ", source_id: "1\u00002" } })).toMatchObject({
+        referral: { sourceId: "12", headline: "Goa in Dec" },
+      });
+      expect(parsed({ referral: { headline: "\u0000\u0001", source_id: " \u0000", source_url: "x" } })).toMatchObject({
+        referral: null,
+      });
+    });
+
     it("keeps a headline-only referral, and ignores an empty one or none", () => {
       expect(parsed({ referral: { headline: "Spiti" } })).toMatchObject({
         referral: { sourceId: null, headline: "Spiti", sourceUrl: null },

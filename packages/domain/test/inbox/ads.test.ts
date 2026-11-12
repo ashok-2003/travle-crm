@@ -119,6 +119,30 @@ describe("ads that bring chats", () => {
     ).rejects.toMatchObject({ reason: "NOT_FOUND" });
   });
 
+  it("stores the message and the cleaned ad when a field holds a NUL character", async () => {
+    const connection = await aConnectedAgency(test);
+    const phone = await write(connection, { referral: { headline: "a\u0000b" } });
+    const { messages, ads } = await test.db.forOrg(connection.organizationId, async (tx) => ({
+      messages: await tx.whatsappMessage.count(),
+      ads: await tx.whatsappAd.findMany(),
+    }));
+    expect(messages).toBe(1);
+    expect(ads).toHaveLength(1);
+    expect(ads[0]).toMatchObject({ headline: "ab", adKey: "headline:ab" });
+    expect((await chatOf(connection.organizationId, phone)).adId).toBe(ads[0]?.id);
+  });
+
+  it("stores the message and no ad when every field of the referral cleans to nothing", async () => {
+    const connection = await aConnectedAgency(test);
+    await write(connection, { referral: { headline: "\u0000", source_id: "\u0001 ", source_url: "\u0002" } });
+    const { messages, ads } = await test.db.forOrg(connection.organizationId, async (tx) => ({
+      messages: await tx.whatsappMessage.count(),
+      ads: await tx.whatsappAd.count(),
+    }));
+    expect(messages).toBe(1);
+    expect(ads).toBe(0);
+  });
+
   it("logs the content type, and only that, of a message of a type it doesn't read", async () => {
     const connection = await aConnectedAgency(test);
     await deliver(test, {
