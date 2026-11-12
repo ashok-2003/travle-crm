@@ -6,6 +6,9 @@
 import {
   agencyAnswers,
   agentBasics,
+  agentSetup,
+  handedOverChatList,
+  setAgentOnInput,
   linkAdInput,
   whatsappAdList,
   saveAgencyAnswersInput,
@@ -59,6 +62,9 @@ import {
 import {
   agencyAnswersOf,
   agentBasicsOf,
+  agentSetupOf,
+  handedOverChatsOf,
+  setAgentOn,
   saveAgencyAnswers,
   saveAgentBasics,
   decideSuggestions,
@@ -380,6 +386,30 @@ export const aiRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAgentBasics(tx, ctx.member, input)),
     ),
+
+  /** The setup checklist and whether the agent is on. */
+  agentSetup: freshProcedure
+    .requires("ai:manage")
+    .output(agentSetup)
+    .query(async ({ ctx }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => agentSetupOf(tx, ctx.member.organizationId, today));
+    }),
+
+  setAgentOn: freshProcedure
+    .requires("ai:manage")
+    .input(setAgentOnInput)
+    .output(agentSetup)
+    .mutation(async ({ ctx, input }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => setAgentOn(tx, ctx.member, input.on, today));
+    }),
+
+  /** Chats the agent handed over to a person, among those this member's inbox shows. */
+  handedOver: freshProcedure
+    .requires("ai:manage", "inbox:view")
+    .output(handedOverChatList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => handedOverChatsOf(tx, ctx.member))),
 
   /** The autopilot's last day at a glance. */
   overview: freshProcedure

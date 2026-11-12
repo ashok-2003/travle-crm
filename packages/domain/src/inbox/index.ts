@@ -117,6 +117,7 @@ export {
   unroutedNumbers,
   upsertRoute,
 } from "./routes.js";
+export { chatNameOf } from "./chat-name.js";
 export { visibleConversations } from "./scope.js";
 export { applyStatus } from "./statuses.js";
 export { bumpUsage, monthStartOf, type UsageCounts } from "./usage.js";

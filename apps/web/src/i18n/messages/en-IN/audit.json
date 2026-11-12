@@ -277,7 +277,9 @@
       "paused": "Paused the AI agent on WhatsApp",
       "resumed": "Resumed the AI agent on WhatsApp",
       "answers-changed": "Changed the AI agent's answers",
-      "basics-changed": "Changed the AI agent's name or tone"
+      "basics-changed": "Changed the AI agent's name or tone",
+      "turned-on": "Turned the AI agent on",
+      "turned-off": "Turned the AI agent off"
     },
     "whatsapp-ad": {
       "linked": "Linked an ad to a package"

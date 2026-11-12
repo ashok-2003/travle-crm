@@ -21,6 +21,7 @@ export {
   updateKnowledge,
 } from "./knowledge.js";
 export { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "./agency-answers.js";
+export { agentSetupOf, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
 export { decideSuggestions, suggestedFieldsOf } from "./fill/lead-fields.js";
 export { suggestReply } from "./suggest.js";
