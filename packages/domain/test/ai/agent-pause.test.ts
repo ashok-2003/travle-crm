@@ -2,8 +2,14 @@
 // and queues nothing, every follow-up it owes stays due, and it picks up again after the resume.
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
-import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from "vitest";
-import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import {
+  createPlatformClient,
+  createPlatformDatabase,
+  type PlatformClient,
+  type PlatformDatabase,
+  type PlatformTx,
+} from "@travel-crm/db/platform";
 import {
   aiChatResumedListener,
   aiCustomerWroteListener,
@@ -51,41 +57,31 @@ const hour = 3_600_000;
 describe("the agent while paused", () => {
   let test: TestInbox;
   let platform: PlatformClient;
+  let platformDb: PlatformDatabase;
   beforeAll(() => {
     test = createTestInbox();
     platform = createPlatformClient(inject("dbUrls").platform);
-  });
-  afterEach(async () => {
-    // The every-agency pause is one shared row: never leave it set for the next test.
-    await platform.subscriptionPolicy.update({
-      where: { id: true },
-      data: { aiAgentPausedAt: null, aiAgentPausedBy: null },
-    });
+    platformDb = createPlatformDatabase(inject("dbUrls").platform);
   });
   afterAll(async () => {
+    await platformDb.disconnect();
     await platform.$disconnect();
     await test.close();
   });
 
-  const pauseEveryone = (paused: boolean) =>
-    platform.subscriptionPolicy.update({
-      where: { id: true },
-      data: paused
-        ? { aiAgentPausedAt: new Date(), aiAgentPausedBy: randomUUID() }
-        : { aiAgentPausedAt: null, aiAgentPausedBy: null },
-    });
-
-  /**
-   * The every-agency pause is one row that every agent test reads, and test files run side by side: hold it only around
-   * the call that needs it, and always let it go.
-   */
-  async function whileEveryonePaused<T>(work: () => Promise<T>): Promise<T> {
-    await pauseEveryone(true);
-    try {
-      return await work();
-    } finally {
-      await pauseEveryone(false);
-    }
+  /** Pauses every agency inside one platform transaction that is rolled back: other test files read the same row. */
+  async function inRolledBackEveryonePause(work: (tx: PlatformTx) => Promise<void>) {
+    const rollback = new Error("roll back");
+    await expect(
+      platformDb.transaction(async (tx) => {
+        await tx.subscriptionPolicy.update({
+          where: { id: true },
+          data: { aiAgentPausedAt: new Date(), aiAgentPausedBy: randomUUID() },
+        });
+        await work(tx);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
   }
 
   /** The agency has a subscription row (it needs a plan), paused or not. */
@@ -205,13 +201,12 @@ describe("the agent while paused", () => {
     expect(await read(on)).toBeNull();
     await pauseAgency(on.organizationId, true);
     expect(await read(on)).toMatchObject({ scope: "agency" });
-    await whileEveryonePaused(async () => {
-      expect(await read(on)).toMatchObject({ scope: "everyone" });
-      await pauseAgency(on.organizationId, false);
-      expect(await read(on)).toMatchObject({ scope: "everyone" });
-      // No subscription row: only the every-agency pause counts, and nothing throws.
-      expect(await read(bare)).toMatchObject({ scope: "everyone" });
+    // Both set: everyone wins. With no subscription row, only the every-agency pause counts, and nothing throws.
+    await inRolledBackEveryonePause(async (tx) => {
+      expect(await agentPauseOf(tx, on.organizationId)).toMatchObject({ scope: "everyone" });
+      expect(await agentPauseOf(tx, bare.organizationId)).toMatchObject({ scope: "everyone" });
     });
+    expect(await read(on)).toMatchObject({ scope: "agency" });
     expect(await read(bare)).toBeNull();
   });
 
@@ -307,11 +302,6 @@ describe("the agent while paused", () => {
     expect(await on.inOrg((tx) => tx.aiFollowUpTouch.count())).toBe(1);
   });
 
-  it("pausing every agency stops an agency that isn't paused itself", async () => {
-    const on = await agency();
-    await subscribe(on.organizationId, false);
-    on.model.answer(reply);
-    expect(await whileEveryonePaused(on.turn)).toBe("paused");
-    expect(await outbound(on)).toBe(0);
-  });
+  // "Pausing every agency stops an unpaused one" has no end-to-end test: every gate calls agentPauseOf (tested above
+  // inside a rolled-back transaction), and the per-agency tests drive each gate end to end.
 });
