@@ -33,3 +33,18 @@ export const agentBasics = z.object({
   tone: z.enum(["friendly", "professional", "enthusiastic"]),
 });
 export type AgentBasics = z.infer<typeof agentBasics>;
+
+/** An ad that brought WhatsApp chats, and the package it promotes (the agent opens a chat from it with that package). */
+export const whatsappAd = z.object({
+  id: z.uuid(),
+  headline: z.string().nullable(),
+  sourceUrl: z.string().nullable(),
+  packageId: z.uuid().nullable(),
+  chats: z.number().int(),
+  lastSeenAt: z.iso.datetime(),
+});
+export const whatsappAdList = z.array(whatsappAd);
+export type WhatsappAd = z.infer<typeof whatsappAd>;
+
+export const linkAdInput = z.strictObject({ adId: z.uuid(), packageId: z.uuid().nullable() });
+export type LinkAdInput = z.infer<typeof linkAdInput>;

@@ -38,6 +38,10 @@ export interface ParsedMessage {
   quotedWamid: string | null;
   /** For a reaction: the emoji and the message it is on. */
   reaction: { emoji: string; targetWamid: string | null } | null;
+  /** The click-to-WhatsApp ad this message came from, when the webhook carried one with a source id or a headline. */
+  referral: { sourceId: string | null; headline: string | null; sourceUrl: string | null } | null;
+  /** MSG91's name for a content type we don't read (kind "unsupported"), so it can be logged and added; else absent. */
+  unknownType?: string;
 }
 
 export type ParsedEvent =

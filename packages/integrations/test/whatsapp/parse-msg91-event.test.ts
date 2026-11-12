@@ -56,8 +56,54 @@ describe("parseMsg91Event", () => {
     expect(one("inbound-button")).toMatchObject({ kind: "text", text: "Send me the quote" });
   });
 
-  it("keeps a kind it does not know as unsupported", () => {
-    expect(one("inbound-unsupported")).toMatchObject({ type: "inbound", kind: "unsupported", text: null });
+  it("keeps a kind it does not know as unsupported, with its content type for the log", () => {
+    expect(one("inbound-unsupported")).toMatchObject({
+      type: "inbound",
+      kind: "unsupported",
+      text: null,
+      unknownType: "order",
+    });
+    expect(one("inbound-text")).not.toHaveProperty("unknownType");
+    const [odd] = parseMsg91Event({
+      customerNumber: "919876543210",
+      integratedNumber: "918888800000",
+      uuid: "w",
+      contentType: "Hello there, 98765!",
+    });
+    expect(odd).toMatchObject({ kind: "unsupported", unknownType: "other" });
+  });
+
+  describe("the ad a chat came from (click-to-WhatsApp referral)", () => {
+    const base = { customerNumber: "919876543210", integratedNumber: "918888800000", uuid: "w", text: "Hi" };
+    const referral = {
+      source_id: "120210",
+      headline: "Goa in December",
+      source_url: "https://fb.me/x",
+      ctwa_clid: "c",
+    };
+    const parsed = (extra: Record<string, unknown>) => parseMsg91Event({ ...base, ...extra })[0];
+
+    it("reads a referral on the message, on message, on context and on content (also as JSON in a string)", () => {
+      const expected = { sourceId: "120210", headline: "Goa in December", sourceUrl: "https://fb.me/x" };
+      expect(parsed({ referral })).toMatchObject({ referral: expected });
+      expect(parsed({ message: { referral } })).toMatchObject({ referral: expected });
+      expect(parsed({ context: { referral } })).toMatchObject({ referral: expected });
+      expect(parsed({ content: { referral } })).toMatchObject({ referral: expected });
+      expect(parsed({ content: JSON.stringify({ referral }) })).toMatchObject({ referral: expected });
+      expect(parsed({ referral: { sourceId: "9", sourceUrl: "https://x.example" } })).toMatchObject({
+        referral: { sourceId: "9", headline: null, sourceUrl: "https://x.example" },
+      });
+    });
+
+    it("keeps a headline-only referral, and ignores an empty one or none", () => {
+      expect(parsed({ referral: { headline: "Spiti" } })).toMatchObject({
+        referral: { sourceId: null, headline: "Spiti", sourceUrl: null },
+      });
+      expect(parsed({ referral: { source_url: "https://x.example" } })).toMatchObject({ referral: null });
+      expect(parsed({ referral: {} })).toMatchObject({ referral: null });
+      expect(parsed({ referral: "nonsense" })).toMatchObject({ referral: null });
+      expect(parsed({})).toMatchObject({ referral: null });
+    });
   });
 
   it("reads a message sent from the phone as an echo, and a delivery report as a status", () => {

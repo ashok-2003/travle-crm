@@ -279,6 +279,9 @@
       "answers-changed": "Changed the AI agent's answers",
       "basics-changed": "Changed the AI agent's name or tone"
     },
+    "whatsapp-ad": {
+      "linked": "Linked an ad to a package"
+    },
     "ai-settings": {
       "changed": "Changed the AI settings"
     },

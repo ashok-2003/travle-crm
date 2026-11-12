@@ -44,6 +44,18 @@ const aBroadcast = async (tx: OrgTx) =>
 export const fixtures: OrgTableFixtures = {
   whatsapp_connection: { create: aConnection, undeletable: true },
   whatsapp_conversation: { create: aConversation, undeletable: true },
+  whatsapp_ad: {
+    create: (tx) =>
+      tx.whatsappAd.create({
+        data: {
+          adKey: `ad-${randomUUID()}`,
+          headline: "Goa in December",
+          firstSeenAt: new Date(),
+          lastSeenAt: new Date(),
+        },
+      }),
+    undeletable: true,
+  },
   whatsapp_message: {
     create: async (tx) =>
       tx.whatsappMessage.create({

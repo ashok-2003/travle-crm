@@ -2,6 +2,7 @@
 // customer's messages, turns a new number into a lead through crm, and shows the chats by the lead's own scope. The api, the
 // worker and the console call it; nothing below calls it.
 export { adoptAll, adoptChats } from "./adopt.js";
+export { adPackageOf, adsOf, linkAd, noteAdOf } from "./ads.js";
 export { connectNumber, disconnectNumber, markConnected, pauseNumber, resumeNumber, setCaps } from "./connection.js";
 export { connectionById, liveConnection, toConnectionRow, type ConnectionRow } from "./connection-row.js";
 export {

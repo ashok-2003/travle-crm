@@ -133,6 +133,7 @@ model Organization {
   departureOffers             DepartureOffer[]
   leadAiFields                LeadAiField[]
   quoteTemplates              QuoteTemplate[]
+  whatsappAds                 WhatsappAd[]
   quoteTemplateTiers          QuoteTemplateTier[]
   supplierRateSeasons         SupplierRateSeason[]
   packageSeasons              PackageSeason[]

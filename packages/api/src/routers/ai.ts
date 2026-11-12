@@ -6,6 +6,8 @@
 import {
   agencyAnswers,
   agentBasics,
+  linkAdInput,
+  whatsappAdList,
   saveAgencyAnswersInput,
   saveAgentBasicsInput,
   decideLeadAiFieldsInput,
@@ -98,6 +100,7 @@ import {
   updateKnowledge,
   writeUpQuote,
 } from "@travel-crm/domain/ai";
+import { adsOf, linkAd } from "@travel-crm/domain/inbox";
 import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
@@ -335,6 +338,20 @@ export const aiRouter = router({
       const today = await agencyToday(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input, today));
     }),
+
+  /** The ads that brought chats, newest first, and the package each promotes. */
+  ads: freshProcedure
+    .requires("ai:manage")
+    .output(whatsappAdList)
+    .query(async ({ ctx }) => {
+      const ads = await ctx.db.forOrg(ctx.member.organizationId, (tx) => adsOf(tx));
+      return ads.map((ad) => ({ ...ad, lastSeenAt: ad.lastSeenAt.toISOString() }));
+    }),
+
+  linkAd: freshProcedure
+    .requires("ai:manage")
+    .input(linkAdInput)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => linkAd(tx, ctx.member, input))),
 
   /** The agency's answers to the fixed questions the AI agent quotes. */
   agencyAnswers: freshProcedure
