@@ -22,15 +22,20 @@ function State() {
   const setup = useAgentSetup();
   if (setup.data === undefined) return null;
   const { on, ready, pausedBySupport } = setup.data;
+  // One state, in this order: support's pause wins over everything.
+  const [tone, words] = pausedBySupport
+    ? (["attention", t("paused", { product: brand.productName })] as const)
+    : on
+      ? (["good", t("on")] as const)
+      : ready
+        ? (["neutral", t("off")] as const)
+        : (["neutral", t("notSetUp")] as const);
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
-        {pausedBySupport && <StatusBadge tone="attention">{t("paused", { product: brand.productName })}</StatusBadge>}
-        {!pausedBySupport && on && <StatusBadge tone="good">{t("on")}</StatusBadge>}
-        {!on && ready && <StatusBadge tone="neutral">{t("off")}</StatusBadge>}
-        {!on && !ready && <StatusBadge tone="neutral">{t("notSetUp")}</StatusBadge>}
+        <StatusBadge tone={tone}>{words}</StatusBadge>
       </div>
-      {!on && !ready && <TextLink href={setupHref}>{t("openSetup")}</TextLink>}
+      {!pausedBySupport && !on && !ready && <TextLink href={setupHref}>{t("openSetup")}</TextLink>}
     </div>
   );
 }

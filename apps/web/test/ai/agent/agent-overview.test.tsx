@@ -50,32 +50,34 @@ beforeEach(() => {
   address.set("/ai-agent");
 });
 
-describe("the AI agent page's state", () => {
-  it("says Not set up yet, with a link to Setup, while it is off and not ready", async () => {
-    api();
-    renderWithApi(<AgentScreen />, client(), owner);
-    expect(await screen.findByText(t.state.notSetUp)).toBeInTheDocument();
+const paused = t.state.paused.replace("{product}", brand.productName);
+const stateWords = [t.state.on, t.state.off, t.state.notSetUp, paused];
+/** Exactly one state is shown, and no link to Setup unless it is Not set up yet. */
+function onlyState(shown: string, { setupLink }: { setupLink: boolean }) {
+  expect(screen.getByText(shown)).toBeInTheDocument();
+  for (const words of stateWords.filter((other) => other !== shown)) {
+    expect(screen.queryByText(words)).not.toBeInTheDocument();
+  }
+  if (setupLink) {
     expect(screen.getByRole("link", { name: t.state.openSetup })).toHaveAttribute("href", "/ai-agent?tab=setup");
-  });
+  } else {
+    expect(screen.queryByRole("link", { name: t.state.openSetup })).not.toBeInTheDocument();
+  }
+}
 
-  it("says Off when it is ready but off", async () => {
-    api({ "ai.agentSetup": { ...setup, ready: true } });
+describe("the AI agent page's state", () => {
+  it.each([
+    ["Not set up yet, with a link to Setup, while it is off and not ready", {}, t.state.notSetUp, true],
+    ["Off when it is ready but off", { ready: true }, t.state.off, false],
+    ["On while it answers", { ready: true, on: true }, t.state.on, false],
+    ["Paused when it is on", { ready: true, on: true, pausedBySupport: true }, paused, false],
+    ["Paused when it is off and ready", { ready: true, pausedBySupport: true }, paused, false],
+    ["Paused when it is off and not ready, with no Setup link", { pausedBySupport: true }, paused, false],
+  ])("says %s", async (_name, over, shown, setupLink) => {
+    api({ "ai.agentSetup": { ...setup, ...over } });
     renderWithApi(<AgentScreen />, client(), owner);
-    expect(await screen.findByText(t.state.off)).toBeInTheDocument();
-    expect(screen.queryByText(t.state.notSetUp)).not.toBeInTheDocument();
-  });
-
-  it("says On while it answers", async () => {
-    api({ "ai.agentSetup": { ...setup, ready: true, on: true } });
-    renderWithApi(<AgentScreen />, client(), owner);
-    expect(await screen.findByText(t.state.on)).toBeInTheDocument();
-  });
-
-  it("says Paused by support whatever else holds", async () => {
-    api({ "ai.agentSetup": { ...setup, ready: true, on: true, pausedBySupport: true } });
-    renderWithApi(<AgentScreen />, client(), owner);
-    expect(await screen.findByText(t.state.paused.replace("{product}", brand.productName))).toBeInTheDocument();
-    expect(screen.queryByText(t.state.on)).not.toBeInTheDocument();
+    await screen.findByText(shown);
+    onlyState(shown, { setupLink });
   });
 });
 
