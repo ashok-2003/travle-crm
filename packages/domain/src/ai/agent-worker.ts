@@ -164,8 +164,12 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
   const due = await dependencies.db.forOrg(organizationId, async (tx) => {
     if (!(await aiEnabled(tx))) return [];
-    // Paused: nothing is claimed, so the follow-ups stay due and are worked after the resume.
-    if ((await agentPauseOf(tx, organizationId)) !== null) return [];
+    // Paused: a follow-up that came due is let go, never kept for later: staff may have handled the chat meanwhile, and
+    // a resume means answering again from the next customer message. Those planned for later stay.
+    if ((await agentPauseOf(tx, organizationId)) !== null) {
+      await tx.aiChat.updateMany({ where: { followUpAt: { lte: now } }, data: { followUpAt: null } });
+      return [];
+    }
     const settings = await autopilotOf(tx);
     if (settings.followUpHours === 0) return [];
     const windowFloor = new Date(now.getTime() - WINDOW_MS + WINDOW_MARGIN_MS);

@@ -1,5 +1,5 @@
 // Platform staff can pause the WhatsApp agent for every agency or for one: while paused it writes nothing to a customer
-// and queues nothing, every follow-up it owes stays due, and it picks up again after the resume.
+// and queues nothing, a follow-up that comes due meanwhile is let go, and it answers again from the next customer message after the resume.
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -176,7 +176,13 @@ describe("the agent while paused", () => {
     const dependencies = {
       db: test.db,
       ai: model,
-      subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },
+      // The sweeps visit every agency in the shared database: only this one has the AI.
+      subscriptions: {
+        entitlementsOf: (id: string) =>
+          Promise.resolve(
+            id === organizationId ? entitlements : { ...entitlements, modules: new Set(["crm", "inbox"]) },
+          ),
+      },
       agencyName: () => Promise.resolve("Sharma Holidays"),
       files: test.files,
       managers: () => Promise.resolve([]),
@@ -256,9 +262,10 @@ describe("the agent while paused", () => {
     expect(test.queue.sent.length).toBe(before);
   });
 
-  it("a follow-up due while paused stays due, and is worked after resume", async () => {
+  it("a follow-up due while paused is let go, and nothing fires after resume", async () => {
     const on = await agency();
     const dueAt = new Date(turnAt.getTime() - hour);
+    const laterAt = new Date(turnAt.getTime() + hour);
     await on.inOrg(async (tx) => {
       await tx.whatsappConversation.updateMany({
         data: { lastInboundAt: new Date(turnAt.getTime() - 2 * hour), needsReply: false },
@@ -269,17 +276,25 @@ describe("the agent while paused", () => {
         update: { mode: "on", followUpAt: dueAt, handedOffAt: null },
       });
     });
-    const followUpAt = () => on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    const state = () => on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
     await subscribe(on.organizationId, true);
     await runAiNudges(on.dependencies, turnAt);
-    expect((await followUpAt()).followUpAt).toEqual(dueAt);
+    expect((await state()).followUpAt).toBeNull();
+    expect(await outbound(on)).toBe(0);
+    // A follow-up planned for later is kept.
+    await on.inOrg((tx) =>
+      tx.aiChat.updateMany({ where: { conversationId: on.chat.id }, data: { followUpAt: laterAt } }),
+    );
+    await runAiNudges(on.dependencies, turnAt);
+    expect((await state()).followUpAt).toEqual(laterAt);
+    await on.inOrg((tx) => tx.aiChat.updateMany({ where: { conversationId: on.chat.id }, data: { followUpAt: null } }));
     await pauseAgency(on.organizationId, false);
     on.model.answer(reply);
     await runAiNudges(on.dependencies, turnAt);
-    expect((await followUpAt()).followUpAt).toBeNull();
+    expect(await outbound(on)).toBe(0);
   });
 
-  it("a lead follow-up task due while paused is not claimed", async () => {
+  it("a lead follow-up task due while paused is recorded off and not worked after resume", async () => {
     const on = await agency();
     await on.inOrg((tx) =>
       tx.task.create({
@@ -295,11 +310,15 @@ describe("the agent while paused", () => {
     );
     await subscribe(on.organizationId, true);
     await runAiNudges(on.dependencies, turnAt);
-    expect(await on.inOrg((tx) => tx.aiFollowUpTouch.count())).toBe(0);
+    const touches = () => on.inOrg((tx) => tx.aiFollowUpTouch.findMany({ select: { outcome: true } }));
+    expect(await touches()).toEqual([{ outcome: "off" }]);
+    expect(await outbound(on)).toBe(0);
     await pauseAgency(on.organizationId, false);
     on.model.answer(reply);
     await runAiNudges(on.dependencies, turnAt);
-    expect(await on.inOrg((tx) => tx.aiFollowUpTouch.count())).toBe(1);
+    expect(await touches()).toEqual([{ outcome: "off" }]);
+    expect(await outbound(on)).toBe(0);
+    expect(await on.inOrg((tx) => tx.task.count({ where: { doneAt: null, cancelledAt: null } }))).toBe(1);
   });
 
   // "Pausing every agency stops an unpaused one" has no end-to-end test: every gate calls agentPauseOf (tested above

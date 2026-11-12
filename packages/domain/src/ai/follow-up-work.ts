@@ -59,8 +59,7 @@ export async function workDueFollowUps(
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
   const claimed = await dependencies.db.forOrg(organizationId, async (tx) => {
     if (!(await aiEnabled(tx)) || !(await autopilotOf(tx)).followUpTasks) return [];
-    // Paused: nothing is claimed, so the follow-ups stay unworked.
-    if ((await agentPauseOf(tx, organizationId)) !== null) return [];
+    const paused = (await agentPauseOf(tx, organizationId)) !== null;
     const rows = await tx.task.findMany({
       where: {
         kind: "follow-up",
@@ -86,6 +85,15 @@ export async function workDueFollowUps(
     for (const row of fresh) {
       if (row.recordId === null) continue;
       const chat = await chatOfLead(tx, row.recordId);
+      // Paused: a follow-up that came due is let go, never worked after the resume (staff may have handled the chat
+      // meanwhile). It is recorded "off" and the task stays open for the team.
+      if (paused) {
+        await tx.aiFollowUpTouch.createMany({
+          data: [{ taskId: row.id, dueAt: row.dueAt, conversationId: chat?.id ?? null, outcome: "off" }],
+          skipDuplicates: true,
+        });
+        continue;
+      }
       // The claim: "failed" until the turn says otherwise, so a crash mid-way reads as what it was.
       const { count } = await tx.aiFollowUpTouch.createMany({
         data: [
