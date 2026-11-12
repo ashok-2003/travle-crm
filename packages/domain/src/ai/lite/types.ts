@@ -118,6 +118,8 @@ export interface PackageIndexEntry {
   destinationId: string | null;
   nights: number | null;
   startCity: string;
+  /** The starting price per person, set by the turn when it builds the index; greet and show_other_trips quote it. */
+  fromPaise?: number | null;
 }
 
 export interface SituationPackage extends PackageIndexEntry {
@@ -214,14 +216,14 @@ export interface CheckedForm {
   dropped: string[];
 }
 
-/** Task 8 adds "fixed.texts". */
 export type PromptPieceName =
   | "understand.instructions"
   | "understand.intents"
   | "understand.form"
   | "write.instructions"
   | "write.voice"
-  | "write.moves";
+  | "write.moves"
+  | "fixed.texts";
 
 export interface LiteTrace {
   id: string;
