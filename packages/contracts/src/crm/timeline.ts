@@ -28,6 +28,18 @@ export const leadEventKinds = [
 export const leadEventKind = z.enum(leadEventKinds);
 export type LeadEventKind = z.infer<typeof leadEventKind>;
 
+/** The lead fields the lite agent fills, marked as the AI's until a person edits them. */
+export const aiFilledFields = [
+  "destination",
+  "when",
+  "adults",
+  "children_ages",
+  "departure_city",
+  "room_type",
+  "name",
+] as const;
+export type AiFilledField = (typeof aiFilledFields)[number];
+
 export const timelineInput = z.strictObject({
   leadId: recordId,
   /** The last entry id of the previous page. */
