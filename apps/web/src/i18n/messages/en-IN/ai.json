@@ -303,6 +303,8 @@
   "hero": {
     "unnamed": "Your AI agent",
     "live": "Live",
+    "pausedBySupport": "Paused by support",
+    "pausedBySupportLine": "{product} support has paused it. Your settings are kept.",
     "chatsYouChoose": "In chats you choose",
     "notSetUp": "Not set up",
     "liveLine": "{name} is answering every WhatsApp chat by itself, day and night.",

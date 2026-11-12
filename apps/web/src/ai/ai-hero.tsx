@@ -3,6 +3,7 @@
 // The head of the AI screen (the AI sales agent): the agent as a colleague (its name, live, paused or not set up, the model
 // that answered last) and its last day in figures: chats it answered, messages it sent, how fast, the chats it flagged for the
 // team, the follow-ups it has planned and the lessons it has learned.
+import { brand } from "@travel-crm/brand";
 import type { AiOverview, AutopilotSettings } from "@travel-crm/contracts/ai";
 import {
   BellRingIcon,
@@ -51,7 +52,8 @@ export function AiHero({ autopilot, ready }: { autopilot: AutopilotSettings; rea
   const overview = useAiOverview();
   const model = overview.data?.model ?? null;
   const name = aiFirstName(autopilot.agentName) ?? t("unnamed");
-  const live = ready && autopilot.autopilot;
+  const paused = ready && autopilot.pausedBySupport;
+  const live = ready && autopilot.autopilot && !autopilot.pausedBySupport;
   const seconds = (value: number) =>
     value < 120 ? t("seconds", { count: value }) : t("minutes", { count: Math.round(value / 60) });
   return (
@@ -67,11 +69,17 @@ export function AiHero({ autopilot, ready }: { autopilot: AutopilotSettings; rea
           <CardTitle className="flex flex-wrap items-center gap-2">
             <h2 className="text-section">{name}</h2>
             <StatusBadge tone={!ready ? "neutral" : live ? "good" : "attention"}>
-              {!ready ? t("notSetUp") : live ? t("live") : t("chatsYouChoose")}
+              {!ready ? t("notSetUp") : paused ? t("pausedBySupport") : live ? t("live") : t("chatsYouChoose")}
             </StatusBadge>
           </CardTitle>
           <CardDescription>
-            {live ? t("liveLine", { name }) : ready ? t("pausedLine") : t("notSetUpLine")}
+            {paused
+              ? t("pausedBySupportLine", { product: brand.productName })
+              : live
+                ? t("liveLine", { name })
+                : ready
+                  ? t("pausedLine")
+                  : t("notSetUpLine")}
           </CardDescription>
         </div>
         {model !== null && <span className="numbers hidden text-caption text-muted-foreground sm:inline">{model}</span>}
