@@ -32,6 +32,8 @@
     "SET_UP_TWO_FACTOR": "Set up two-factor sign-in first.",
     "PLATFORM_ONLY": "Only platform staff can do this.",
     "NOT_FOUND": "This no longer exists. It may have been removed.",
+    "INVALID_ANSWER": "An answer can be at most 500 characters.",
+    "INVALID_BASICS": "The agent's name can be at most 80 characters, and the tone must be Friendly or Professional.",
     "SEAT_LIMIT_REACHED": "Every seat on your plan is taken. Remove someone, or ask for more seats.",
     "IMPERSONATING": "Only the person themselves can do this, not support signed in as them.",
     "IMPERSONATION_TARGET_NOT_A_MEMBER": "This person is no longer active staff, so support can't sign in as them.",
