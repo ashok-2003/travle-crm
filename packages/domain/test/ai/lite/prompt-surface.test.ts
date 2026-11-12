@@ -74,6 +74,7 @@ describe("the prompts' surfaces", () => {
       language: "hinglish",
       correction: null,
       today,
+      timeZone: "Asia/Kolkata",
     });
     await expect(shown(request)).toMatchFileSnapshot("./surfaces/write.md");
   });

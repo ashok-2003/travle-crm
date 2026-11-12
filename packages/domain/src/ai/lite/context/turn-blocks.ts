@@ -1,8 +1,7 @@
 // The Understand context's smaller blocks: today, the team's last notes, and the index of the trips on offer.
 import { calendarDateIn, formatShortDay, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
-import { fenced } from "../../agent-prompt.js";
 import type { PackageIndexEntry, TimelineLine } from "../types.js";
-import { BUDGETS, type Block } from "./blocks.js";
+import { BUDGETS, oneLine, type Block } from "./blocks.js";
 import { stageLabel } from "./lead-card.js";
 
 const TIMELINE_LINES = 3;
@@ -24,7 +23,7 @@ export function timelineLines(lines: TimelineLine[], timeZone: string, today: Ca
     .slice(0, TIMELINE_LINES)
     .map((line) => {
       const day = formatShortDay(calendarDateIn(line.at, timeZone), today);
-      const text = fenced(line.text.replace(/\s+/g, " ").trim());
+      const text = oneLine(line.text);
       return line.kind === "note"
         ? `${day} · Note: ${text.slice(0, NOTE_TEXT)}`
         : `${day} · Stage: ${stageLabel(line.text)}`;
@@ -33,24 +32,32 @@ export function timelineLines(lines: TimelineLine[], timeZone: string, today: Ca
 
 function packageLine(entry: PackageIndexEntry): string {
   const parts = [
-    entry.title,
-    entry.place,
+    oneLine(entry.title),
+    entry.place === null ? null : oneLine(entry.place),
     entry.nights === null ? null : `${String(entry.nights)} ${entry.nights === 1 ? "night" : "nights"}`,
-    entry.startCity === "" ? null : `from ${entry.startCity}`,
+    entry.startCity === "" ? null : `from ${oneLine(entry.startCity)}`,
   ];
   return `- ${parts.filter((part) => part !== null && part !== "").join(" · ")}`;
 }
 
 /** The trips on offer, one per line; with too many to list, only the places they run. */
 export function packageIndexBlock(entries: PackageIndexEntry[]): Block {
-  if (entries.length <= MOST_LISTED)
+  const lines = entries.map(packageLine);
+  // A list cut short would say "there are no others" of trips it left out: list them all or only their places.
+  if (entries.length <= MOST_LISTED && lines.join("\n").length <= BUDGETS.packageIndex)
     return {
       title: "Package index",
       purpose: "The trips on offer, one per line. Use these names exactly; there are no others.",
-      lines: entries.map(packageLine),
+      lines,
       budget: BUDGETS.packageIndex,
     };
-  const places = [...new Set(entries.map((entry) => entry.place).filter((place) => place !== null && place !== ""))];
+  const places = [
+    ...new Set(
+      entries
+        .map((entry) => (entry.place === null ? null : oneLine(entry.place)))
+        .filter((place) => place !== null && place !== ""),
+    ),
+  ];
   return {
     title: "Places we run",
     purpose: "Too many trips to list: these are their places. Search one with find_packages.",

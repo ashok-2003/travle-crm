@@ -3,7 +3,7 @@ import { understandFormJsonSchema } from "@travel-crm/contracts/ai";
 import type { AiRequest } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
 import { ANSWER_MAX_TOKENS } from "../../grounded/ask.js";
-import { BUDGETS, newestThatFit, renderBlock, summaryLines, type Block } from "../context/blocks.js";
+import { BUDGETS, newestThatFit, oneLine, renderBlock, summaryLines, type Block } from "../context/blocks.js";
 import { leadCardLines } from "../context/lead-card.js";
 import { messageLines } from "../context/messages.js";
 import { packageIndexBlock, timelineLines, todayLine } from "../context/turn-blocks.js";
@@ -42,7 +42,12 @@ export function understandRequest(input: UnderstandPromptInput): {
   const kept = newestThatFit(lines, BUDGETS.messages);
   const shown = recent.slice(recent.length - kept);
   const blocks: Block[] = [
-    { title: "Agency", purpose: "Who the customer is writing to.", lines: [input.agencyName], budget: BUDGETS.agency },
+    {
+      title: "Agency",
+      purpose: "Who the customer is writing to.",
+      lines: [oneLine(input.agencyName)],
+      budget: BUDGETS.agency,
+    },
     packageIndexBlock(input.packages),
     {
       title: "Today",

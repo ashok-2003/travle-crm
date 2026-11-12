@@ -1,7 +1,7 @@
 // What the CRM already knows about the customer, as plain labelled lines: only the filled ones, no ids or column names.
 import type { CalendarDate } from "../../../kernel/index.js";
 import { formatShortDay } from "../../../kernel/index.js";
-import { fenced } from "../../agent-prompt.js";
+import { oneLine } from "./blocks.js";
 import type { LeadCardFacts } from "../types.js";
 
 const stageWords = {
@@ -36,13 +36,13 @@ function travellerWords(adults: number | null, ages: number[]): string | null {
 export function leadCardLines(card: LeadCardFacts, today: CalendarDate): string[] {
   const travellers = travellerWords(card.adults, card.childrenAges);
   const lines: [string, string | null][] = [
-    ["Name", card.name === null ? null : fenced(card.name)],
+    ["Name", card.name === null ? null : oneLine(card.name)],
     ["Stage", card.stage === null ? null : stageLabel(card.stage)],
-    ["Package", card.packageTitle],
-    ["Place", card.place === null ? null : fenced(card.place)],
+    ["Package", card.packageTitle === null ? null : oneLine(card.packageTitle)],
+    ["Place", card.place === null ? null : oneLine(card.place)],
     ["When", card.when === null ? null : whenWords(card.when, today)],
     ["Travellers", travellers],
-    ["Joining from", card.pickupCity === null ? null : fenced(card.pickupCity)],
+    ["Joining from", card.pickupCity === null ? null : oneLine(card.pickupCity)],
     ["Room", card.roomType],
   ];
   return lines

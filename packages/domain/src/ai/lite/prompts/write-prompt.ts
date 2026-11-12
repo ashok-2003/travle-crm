@@ -1,9 +1,9 @@
 // The Write call's request: the fixed pieces as the system message, then the move, its facts and a short chat.
 import { liteWriteAnswerJsonSchema, type LiteLanguage } from "@travel-crm/contracts/ai";
 import type { AiRequest } from "@travel-crm/integrations/ai";
-import { calendarDateIn, type CalendarDate } from "../../../kernel/index.js";
+import type { CalendarDate } from "../../../kernel/index.js";
 import { ANSWER_MAX_TOKENS } from "../../grounded/ask.js";
-import { BUDGETS, renderBlock, summaryLines, newestThatFit, type Block } from "../context/blocks.js";
+import { BUDGETS, newestThatFit, oneLine, renderBlock, summaryLines, type Block } from "../context/blocks.js";
 import { messageLines } from "../context/messages.js";
 import type { ContextMessage } from "../types.js";
 import { promptLibrary } from "./library.js";
@@ -31,9 +31,9 @@ export interface WritePromptInput {
   messages: ContextMessage[];
   language: LiteLanguage;
   correction: string | null;
-  /** Optional so the interface stays the brief's: the agency's zone (default India) and the day it is (default: the day of the newest message). */
-  timeZone?: string;
-  today?: CalendarDate;
+  /** The agency's zone and the day it is there: a nudge turn has no new message to read them from. */
+  timeZone: string;
+  today: CalendarDate;
 }
 
 /** The fixed system message: the same bytes every turn. */
@@ -45,15 +45,13 @@ export function writeSystem(): string {
 }
 
 export function writeRequest(input: WritePromptInput): { request: AiRequest; blocks: Record<string, string> } {
-  const timeZone = input.timeZone ?? "Asia/Kolkata";
   const recent = input.messages.slice(-LAST_MESSAGES);
-  const newest = input.messages.at(-1)?.at ?? new Date(0);
-  const lines = messageLines(recent, timeZone, input.today ?? calendarDateIn(newest, timeZone));
+  const lines = messageLines(recent, input.timeZone, input.today);
   const blocks: Block[] = [
     {
       title: "You",
       purpose: "Who you are and how you sound.",
-      lines: [`Name: ${input.agentName}. Agency: ${input.agencyName}. Tone: ${tones[input.tone]}`],
+      lines: [`Name: ${oneLine(input.agentName)}. Agency: ${oneLine(input.agencyName)}. Tone: ${tones[input.tone]}`],
       budget: BUDGETS.you,
     },
     {
