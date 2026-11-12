@@ -270,6 +270,10 @@
       "sellable-changed": "Let the AI sell a package, or stopped it",
       "payment-changed": "Changed where customers pay for a package"
     },
+    "ai-agent": {
+      "paused": "Paused the AI agent on WhatsApp",
+      "resumed": "Resumed the AI agent on WhatsApp"
+    },
     "ai-settings": {
       "changed": "Changed the AI settings"
     },

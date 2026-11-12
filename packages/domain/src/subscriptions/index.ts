@@ -1,6 +1,6 @@
 // Public API of the subscriptions module: plans, each organization's subscription and payments (spec 7.2-7.4), the
 // lifecycle (7.3), and what an organization may use, for the api's request checks 2 and 3 (spec 6.5).
-export { agentPauseOf, type AgentPause } from "./agent-pause.js";
+export { agentPauseOf, setAgencyAgentPause, type AgentPause } from "./agent-pause.js";
 export { cancel, liftSuspension, suspend } from "./access-by-hand.js";
 export {
   ADVANCE_SUBSCRIPTIONS_QUEUE,

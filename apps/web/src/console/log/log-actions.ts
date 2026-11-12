@@ -2,6 +2,10 @@
 // module records (packages/domain/src/platform; log-actions.test.ts reads its sources to hold this list to them).
 // Another reads as recorded, in its own words, until it has one.
 export const KNOWN_ACTIONS = [
+  "ai-agent.paused",
+  "ai-agent.resumed",
+  "ai-agent.paused-everyone",
+  "ai-agent.resumed-everyone",
   "organization.onboarded",
   "organization.updated",
   "organization.export-requested",

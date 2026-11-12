@@ -282,6 +282,12 @@
       "email": "Email"
     },
     "actions": {
+      "ai-agent": {
+        "paused": "Paused the AI agent on WhatsApp",
+        "resumed": "Resumed the AI agent on WhatsApp",
+        "paused-everyone": "Paused the AI agent on WhatsApp for every agency",
+        "resumed-everyone": "Resumed the AI agent on WhatsApp for every agency"
+      },
       "organization": {
         "onboarded": "Onboarded the organization",
         "updated": "Corrected the organization's details",
