@@ -308,6 +308,22 @@ hold), Payments to check, the inbox's chat card and the lead's insight card. **O
   is built in plan 2 and Settings → AI then sends people to it.
 - Payments to check, Settings → WhatsApp and the seat hold keep their places; the Overview and Setup tabs link to them.
 
+## What the AI changed, at a glance (owner, 2026-11-12)
+Staff must see what the AI filled or changed and what a person typed, by colour alone (DESIGN.md: violet is for
+AI-filled fields). It reuses what the lead page already has (`lead_ai_field`: the field, a hash of the value the AI
+wrote, the customer's words as proof; `AiMark` and the trip card's violet rows).
+- A lead field the AI wrote, while its value still matches what the AI wrote, wears the people violet with a small
+  sparkles mark; a tap shows where it came from: "Filled by the AI from the chat, 12 Nov: 'we are 3 people'".
+- A person typing or changing the value makes it look normal at once (the hash no longer matches).
+- When the AI updates its own value, it stays violet with the new words, and the timeline says "AI changed Travel date
+  from 15 Dec to 20 Dec".
+- The AI's stage moves, notes, chat summary and score carry a violet "AI" chip in the timeline and on their cards; a
+  stage badge keeps its stage colour (fixed meanings), the "moved by AI" is in the timeline.
+- Shown on the lead page's trip details and the inbox's side panel; the Leads list shows only a small violet mark.
+- **Proposed (A1):** a "Looks right" tap accepts an AI value and makes it look manual. **Proposed (A2):** the Leads list
+  shows the small mark. (Awaiting the owner.)
+- Built in plan 3, with the agent's lead updates.
+
 ## Build order (our ruling)
 Separate plans, each shipping working software, in this order:
 1. **Pause switch** in the console: every agency at once, or one agency (N8). Small; first.
