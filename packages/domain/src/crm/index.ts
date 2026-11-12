@@ -30,6 +30,7 @@ export {
   QUIET_HOURS,
   receiveWhatsAppContact,
   recordWhatsAppFirstReply,
+  renameWhatsAppPerson,
   startLeadFromChat,
   type WhatsAppContact,
   type WhatsAppContactContext,

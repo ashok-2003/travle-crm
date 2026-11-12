@@ -102,6 +102,15 @@ export function TimelineEntryItem({
           title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }),
           mark: <StageDot stage={entry.stage} className={inline} />,
         };
+      case "ai-field-set": {
+        const field = t(`lead.timeline.aiFields.${entry.field}`);
+        return {
+          title:
+            entry.from === null
+              ? t("lead.timeline.aiSet", { field, to: entry.to })
+              : t("lead.timeline.aiChanged", { field, from: entry.from, to: entry.to }),
+        };
+      }
       case "reassigned":
         return {
           title:
@@ -158,8 +167,9 @@ export function TimelineEntryItem({
   };
 
   const { title, detail, mark, actions } = describe();
-  const ai = entry.kind === "note" && entry.byAi;
-  const actor = ai
+  const ai = (entry.kind === "note" || entry.kind === "stage-changed") && entry.byAi;
+  const aiActor = ai || entry.kind === "ai-field-set";
+  const actor = aiActor
     ? t("lead.timeline.ai")
     : entry.actorUserId === null
       ? t("lead.timeline.system")

@@ -112,6 +112,28 @@ describe("Timeline", () => {
     expect(screen.getByLabelText(words.addNote)).toHaveValue("");
   });
 
+  it("says what the AI set or changed, and that it was the AI", async () => {
+    stubApi({
+      "leads.timeline": aTimeline([
+        anEntry({ kind: "ai-field-set", actorUserId: null, field: "adults", from: "3", to: "4" }),
+        anEntry({ kind: "ai-field-set", actorUserId: null, field: "departure_city", from: null, to: "Delhi" }),
+        anEntry({ kind: "stage-changed", actorUserId: null, stage: "quote_sent", byAi: true }),
+        anEntry({ kind: "stage-changed", stage: "contacted", byAi: false }),
+      ]),
+    });
+    renderScreen(<Timeline lead={aLead()} />);
+    expect(await sentences()).toEqual([
+      "Adults changed from 3 to 4",
+      "Joining from set to Delhi",
+      words.moved.replace("{stage}", messages.leads.stages.quote_sent),
+      words.moved.replace("{stage}", messages.leads.stages.contacted),
+    ]);
+    const items = within(screen.getByRole("list", { name: words.title })).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent(words.ai);
+    expect(items[2]).toHaveTextContent(words.ai);
+    expect(items[3]).not.toHaveTextContent(words.ai);
+  });
+
   it("marks a stage change with its stage's dot and a finished follow-up with status green, and nothing else", async () => {
     stubApi({ "leads.timeline": aTimeline(entries(), entryId(8)) });
     renderScreen(<Timeline lead={aLead()} />);

@@ -4,7 +4,7 @@
 // of the customer's messages (the newest one's turn, a few seconds after it), never again for the same one, at most once in
 // ten minutes for one lead (later lines wait and are read then), and not for an "ok" or a "thanks" once it has a guess;
 // and it never changes a lead's stage or anything but its own row. Erased with the customer.
-import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight } from "@travel-crm/contracts/ai";
+import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { Database, OrgTx } from "@travel-crm/db";
@@ -276,6 +276,33 @@ async function prepare(
   };
 }
 
+/** What the lead page reads as the AI's guess: one row per lead, written by the scoring job and by the lite agent's turn. */
+export interface LeadInsightRow {
+  score: number;
+  label: "hot" | "warm" | "cold";
+  reasons: string[];
+  fake: boolean;
+  fakeReason: string | null;
+  summary: string;
+  nextStep: string;
+  facts: ScoreAnswer["facts"];
+  model: string;
+}
+
+/** Writes the lead's guess, replacing the last one. */
+export async function saveLeadInsight(
+  tx: OrgTx,
+  organizationId: string,
+  leadId: string,
+  insight: LeadInsightRow,
+): Promise<void> {
+  await tx.leadAiInsight.upsert({
+    where: { organizationId_leadId: { organizationId, leadId } },
+    create: { leadId, ...insight },
+    update: insight,
+  });
+}
+
 /** Scores one lead from its chat now, or says why not. Three short transactions around the model's answer. */
 export async function scoreLead(
   { db, ai, subscriptions }: Pick<ScoreDependencies, "db" | "ai" | "subscriptions">,
@@ -299,7 +326,7 @@ export async function scoreLead(
     await db.forOrg(organizationId, (tx) => releaseAiCall(tx, now, prepared.timeZone));
     return "no_answer";
   }
-  const insight = {
+  const insight: LeadInsightRow = {
     score: parsed.score,
     label: parsed.label,
     reasons: parsed.reasons,
@@ -312,13 +339,7 @@ export async function scoreLead(
   };
   // The insight's own row is written, and the lead's empty fields filled in as suggestions; a guess never moves a lead's stage.
   const filled = await db.forOrg(organizationId, async (tx) => {
-    if (prepared.scoring) {
-      await tx.leadAiInsight.upsert({
-        where: { organizationId_leadId: { organizationId, leadId: prepared.leadId } },
-        create: { leadId: prepared.leadId, ...insight },
-        update: insight,
-      });
-    }
+    if (prepared.scoring) await saveLeadInsight(tx, organizationId, prepared.leadId, insight);
     if (prepared.fill === null || parsed.trip == null) return 0;
     const fields = await fillLeadFromChat(tx, {
       organizationId,

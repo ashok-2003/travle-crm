@@ -50,19 +50,23 @@ const select = {
   roomType: true,
 } as const;
 
-/** Writes the suggested values into the lead's empty fields, except those skipped; returns the fields it wrote. */
+/**
+ * Writes the suggested values into the lead's empty fields, except those skipped, and into those named in `overwrite`
+ * (the caller has checked the value there is still the AI's own); returns the fields it wrote.
+ */
 export async function fillTripGaps(
   tx: OrgTx,
   leadId: string,
   gaps: TripGaps,
   skip: ReadonlySet<GapField> = new Set(),
+  overwrite: ReadonlySet<GapField> = new Set(),
 ): Promise<GapField[]> {
   const lead = await tx.lead.findUnique({ where: { id: leadId }, select });
   if (lead === null) return [];
   const written: GapField[] = [];
   const data: Record<string, unknown> = {};
   const take = (field: GapField, empty: boolean, columns: Record<string, unknown>) => {
-    if (!empty || skip.has(field)) return;
+    if (!(empty || overwrite.has(field)) || skip.has(field)) return;
     Object.assign(data, columns);
     written.push(field);
   };

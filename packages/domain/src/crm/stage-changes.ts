@@ -59,7 +59,7 @@ const saleOrder: readonly string[] = ["new", "contacted", "quote_sent", "booking
 export async function advanceLeadStage(
   tx: OrgTx,
   actor: Actor,
-  change: { leadId: string; stage: "quote_sent" | "booking_requested" | "won" },
+  change: { leadId: string; stage: "contacted" | "quote_sent" | "booking_requested" | "won"; byAi?: boolean },
   now: Date,
 ): Promise<boolean> {
   const lead = await lockLead(tx, change.leadId);

@@ -586,6 +586,17 @@
         "refunded": "The refund for booking {number} was paid"
       },
       "aiNote": "AI note",
+      "aiSet": "{field} set to {to}",
+      "aiChanged": "{field} changed from {from} to {to}",
+      "aiFields": {
+        "destination": "Destination",
+        "when": "Travel date",
+        "adults": "Adults",
+        "children_ages": "Children's ages",
+        "departure_city": "Joining from",
+        "room_type": "Room",
+        "name": "Name"
+      },
       "ai": "The AI"
     },
     "callCount": "{count, plural, one {# call} other {# calls}}",

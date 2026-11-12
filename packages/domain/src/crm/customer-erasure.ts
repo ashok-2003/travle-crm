@@ -66,7 +66,11 @@ export async function eraseCustomer(tx: OrgTx, subject: CustomerSubject): Promis
     const leadIds = leads.map((lead) => lead.id);
     const ofLeads = { organizationId, leadId: { in: leadIds } };
     const timelineEntries = await tx.leadTimelineEntry.deleteMany({
-      where: { ...ofLeads, recordType: { in: ["lead_note", "lead_call", "lead_enquiry"] } },
+      // The AI's field lines hold the customer's words (a name, a city), so they go with the rows they would sit beside.
+      where: {
+        ...ofLeads,
+        OR: [{ recordType: { in: ["lead_note", "lead_call", "lead_enquiry"] } }, { kind: "ai-field-set" }],
+      },
     });
     const notes = await tx.leadNote.deleteMany({ where: ofLeads });
     // A plain DELETE, as for blocked contacts: soft delete refuses Prisma's, and only the platform role may delete calls.

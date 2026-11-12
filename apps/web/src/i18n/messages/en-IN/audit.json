@@ -309,6 +309,8 @@
       "payment-refused": "Could not match the payment for a booking the AI took",
       "fill-applied": "Saved a form the AI filled in",
       "lead-filled": "The AI filled in a new lead from its first messages",
+      "lead-field-changed": "The AI changed what it had filled in on a lead",
+      "person-named": "The AI set a customer's name from the chat",
       "lead-fields-confirmed": "Confirmed what the AI filled in on a lead",
       "lead-fields-dismissed": "Cleared what the AI filled in on a lead",
       "offer-sent": "Offered a departure's seats to a lead with a message the AI wrote"
