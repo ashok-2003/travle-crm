@@ -8,6 +8,7 @@ import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/lib/routes";
+import { TestSection } from "../test-section";
 import { AgentOverview } from "./agent-overview";
 import { AgentSetupTab } from "./agent-setup";
 import { useAgentSetup } from "./use-agent";
@@ -62,7 +63,7 @@ export function AgentScreen() {
           <AgentSetupTab setup={setup.data} />
         </TabsContent>
         <TabsContent value="try" className="pt-4">
-          <p>{t("comingNext")}</p>
+          <TestSection />
         </TabsContent>
       </Tabs>
     </div>

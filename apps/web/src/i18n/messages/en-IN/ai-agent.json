@@ -17,7 +17,6 @@
     "setup": "Setup",
     "try": "Try it"
   },
-  "comingNext": "Coming next",
   "state": {
     "on": "On: answering WhatsApp chats",
     "off": "Off",
