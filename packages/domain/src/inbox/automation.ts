@@ -83,14 +83,18 @@ const minuteText = (minutes: number) =>
 
 /**
  * Whether the agency answers from its packages only. The column is the AI module's switch; inbox reads it in one line
- * rather than import ai (ai imports inbox), so a grounded agency's chats get no keyword trip kits.
+ * rather than import ai (ai imports inbox), so a grounded or lite agency's chats get no keyword trip kits.
  */
 export async function answersFromPackagesOnly(tx: OrgTx): Promise<boolean> {
-  return (await tx.aiAutopilot.findFirst({ select: { grounded: true } }))?.grounded === true;
+  const row = await tx.aiAutopilot.findFirst({ select: { grounded: true, lite: true } });
+  return row?.grounded === true || row?.lite === true;
 }
 
 /** Whether anything could act on a customer's message: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
+  // The lite agent answers whatever the customer writes, so its event publishes whatever the automation settings say.
+  const agent = await tx.aiAutopilot.findFirst({ select: { lite: true, autopilot: true } });
+  if (agent?.lite === true && agent.autopilot) return true;
   const settings = await automationOf(tx);
   if (
     (settings.welcomeEnabled && settings.welcomeMessage !== "") ||

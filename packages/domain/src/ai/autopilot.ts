@@ -15,6 +15,8 @@ export interface AutopilotRow {
   autopilot: boolean;
   /** The grounded turn answers instead of the first one (an owner's switch, set by hand for now). */
   grounded: boolean;
+  /** The lite agent answers instead of the earlier ones; only platform staff set it (`setLiteAgent`), never an agency's save. */
+  lite: boolean;
   agentName: string;
   followUpHours: number;
   maxRepliesPerDay: number;
@@ -41,6 +43,7 @@ export interface AutopilotRow {
 export const autopilotDefaults: AutopilotRow = {
   autopilot: false,
   grounded: false,
+  lite: false,
   agentName: "",
   followUpHours: 4,
   maxRepliesPerDay: 25,
@@ -67,6 +70,7 @@ export const autopilotDefaults: AutopilotRow = {
 const columns = {
   autopilot: true,
   grounded: true,
+  lite: true,
   agentName: true,
   followUpHours: true,
   maxRepliesPerDay: true,
@@ -137,7 +141,9 @@ export async function saveAutopilot(
       "Make at least one package with a destination sellable by the AI first.",
     );
   }
+  // The agency's screen sends back what it read, `lite` included at run time: it is never the agency's to set.
   const data = { ...input, grounded, updatedBy: access.userId };
+  if ("lite" in data) delete data.lite;
   await tx.aiAutopilot.upsert({
     where: { organizationId: access.organizationId },
     create: { organizationId: access.organizationId, ...data },

@@ -29,6 +29,7 @@ export {
 } from "./chat-flags.js";
 export { unreadCounts, unreadIdsOf, UNREAD_FILTER_LIMIT } from "./unread.js";
 export {
+  answersFromPackagesOnly,
   automationCouldAct,
   automationOf,
   createKeywordReply,

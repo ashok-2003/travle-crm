@@ -120,6 +120,9 @@ model AiAutopilot {
   autopilot        Boolean      @default(false)
   /// The autopilot runs the grounded turn (read the chat, look up packages, write, check, act) instead of the first one.
   grounded         Boolean      @default(false)
+  /// The autopilot runs the lite agent's turn (understand, look up, decide, write, act); wins over grounded. Set only by
+  /// platform staff from the console, never by the agency's own saves.
+  lite             Boolean      @default(false)
   /// The name it signs as, e.g. "Riya from Sharma Holidays"; empty for the agency's name.
   agentName        String       @default("") @map("agent_name")
   /// Hours of a customer's silence, inside the 24-hour window, before it nudges once; 0 for never.

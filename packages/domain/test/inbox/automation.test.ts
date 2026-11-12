@@ -7,6 +7,8 @@ import {
   AUTOMATION_COOLDOWN_MS,
   CUSTOMER_WROTE_EVENT,
   answerAutomatically,
+  answersFromPackagesOnly,
+  automationCouldAct,
   createKeywordReply,
   queueText,
   saveAutomation,
@@ -239,5 +241,16 @@ describe("automatic answers", () => {
     expect(outcome).toBe("failed");
     expect((await automaticMessages())[0]).toMatchObject({ status: "failed", failureCode: "opted_out" });
     expect(test.provider.sent).toHaveLength(0);
+  });
+  it("a lite agency with the agent on gets the customer's event and no keyword kits", async () => {
+    const { connection } = await agency();
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(connection.organizationId, work);
+    // Nothing else listens: no welcome, away message, keyword answer, buying words or follow-ups.
+    await inOrg((tx) => tx.salesAutomation.create({ data: { hotKeywords: [], followEnabled: false } }));
+    await inOrg((tx) => tx.aiAutopilot.create({ data: { lite: true, autopilot: false } }));
+    expect(await inOrg((tx) => automationCouldAct(tx))).toBe(false);
+    await inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: true } }));
+    expect(await inOrg((tx) => automationCouldAct(tx))).toBe(true);
+    expect(await inOrg((tx) => answersFromPackagesOnly(tx))).toBe(true);
   });
 });
