@@ -140,4 +140,21 @@ describe("subscription tables", () => {
     });
     expect(await platform.subscription.count({ where: { organizationId: other } })).toBe(1);
   });
+
+  it("an agent pause names who set it", async () => {
+    const by = randomUUID();
+    const at = new Date("2026-11-12T00:00:00Z");
+    const clear = { aiAgentPausedAt: null, aiAgentPausedBy: null };
+    await expect(
+      platform.subscriptionPolicy.update({ where: { id: true }, data: { aiAgentPausedAt: at } }),
+    ).rejects.toThrow(/subscription_policy_agent_pause/);
+    await expect(
+      platform.subscription.update({ where: { organizationId }, data: { aiAgentPausedAt: at } }),
+    ).rejects.toThrow(/subscription_agent_pause/);
+    const pauseData = { aiAgentPausedAt: at, aiAgentPausedBy: by };
+    await platform.subscriptionPolicy.update({ where: { id: true }, data: pauseData });
+    await platform.subscriptionPolicy.update({ where: { id: true }, data: clear });
+    await platform.subscription.update({ where: { organizationId }, data: pauseData });
+    await platform.subscription.update({ where: { organizationId }, data: clear });
+  });
 });
