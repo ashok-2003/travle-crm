@@ -25,11 +25,11 @@ export const fixedTextTable: Record<FixedTextKey, Record<LiteLanguage, string>> 
   // The trip total sits beside the advance in both payment lines: a room that changed after the quote must show.
   book_payment: {
     english:
-      "I've held seats for {travellers} on {package}, {date}, until {holdUntil}. To confirm, please pay the advance of {advance} (the trip total is {total}) and send the payment screenshot here.",
+      "I've held seats for {travellers} on {package}, {date}, until {holdUntil}. To confirm, please pay the advance of {advance} and send the payment screenshot here. The trip total is {total}.",
     hindi:
-      "{package}, {date} पर {travellers} के लिए सीटें {holdUntil} तक रोक ली गई हैं। पक्का करने के लिए कृपया {advance} का एडवांस भेजें (ट्रिप का कुल {total} है) और पेमेंट का स्क्रीनशॉट यहाँ भेज दें।",
+      "{package}, {date} पर {travellers} के लिए सीटें {holdUntil} तक रोक ली गई हैं। पक्का करने के लिए कृपया {advance} का एडवांस भेजें (ट्रिप का कुल खर्च {total} है) और पेमेंट का स्क्रीनशॉट यहाँ भेज दें।",
     hinglish:
-      "{package}, {date} par {travellers} ke liye seats {holdUntil} tak hold kar di gayi hain. Confirm karne ke liye please {advance} ka advance bhejein (trip ka total {total} hai) aur payment ka screenshot yahan bhej dein.",
+      "{package}, {date} par {travellers} ke liye seats {holdUntil} tak hold kar di gayi hain. Confirm karne ke liye please {advance} ka advance bhejein (trip ka kul kharch {total} hai) aur payment ka screenshot yahan bhej dein.",
   },
   book_payment_full: {
     english:
@@ -41,11 +41,11 @@ export const fixedTextTable: Record<FixedTextKey, Record<LiteLanguage, string>> 
   },
   payment_again: {
     english:
-      "Here are the payment details again. Please pay {amount} (the trip total is {total}) and send the screenshot here.",
+      "Here are the payment details again. Please pay {amount} and send the screenshot here. The trip total is {total}.",
     hindi:
-      "पेमेंट की जानकारी फिर से भेज रहे हैं। कृपया {amount} भेजें (ट्रिप का कुल {total} है) और स्क्रीनशॉट यहाँ भेज दें।",
+      "पेमेंट की जानकारी फिर से भेज रहे हैं। कृपया {amount} भेजें (ट्रिप का कुल खर्च {total} है) और स्क्रीनशॉट यहाँ भेज दें।",
     hinglish:
-      "Payment details phir se bhej rahe hain. Please {amount} bhejein (trip ka total {total} hai) aur screenshot yahan bhej dein.",
+      "Payment details phir se bhej rahe hain. Please {amount} bhejein (trip ka kul kharch {total} hai) aur screenshot yahan bhej dein.",
   },
   payment_heading: {
     english: "Payment details:",
@@ -60,17 +60,17 @@ export const fixedTextTable: Record<FixedTextKey, Record<LiteLanguage, string>> 
   ask_screenshot: {
     english: "Thank you! Please send the payment screenshot here, and the team will check it.",
     hindi: "धन्यवाद! कृपया पेमेंट का स्क्रीनशॉट यहाँ भेज दें, टीम उसे चेक कर लेगी।",
-    hinglish: "Thank you! Please payment ka screenshot yahan bhej dein, team use check kar legi.",
+    hinglish: "Payment ka screenshot yahan bhej dijiye, please.",
   },
   hand_over: {
     english: "Someone from the team will help you with this. They'll reply here.",
-    hindi: "इसमें टीम से कोई आपकी मदद करेगा। वे यहीं जवाब देंगे।",
-    hinglish: "Isme team se koi aapki help karega. Woh yahin reply karenge.",
+    hindi: "टीम का कोई साथी यहीं आपको जवाब देगा।",
+    hinglish: "Team ka koi saathi yahin aapko reply karega.",
   },
   voice_note: {
     english: "I can't listen to voice notes yet; someone from the team will reply.",
-    hindi: "अभी वॉइस नोट सुनने की सुविधा नहीं है; टीम से कोई आपको जवाब देगा।",
-    hinglish: "Abhi voice note sunne ki suvidha nahi hai; team se koi aapko reply karega.",
+    hindi: "वॉइस नोट अभी यहाँ नहीं सुने जा सकते। टीम का कोई साथी यहीं आपको जवाब देगा।",
+    hinglish: "Voice note abhi yahan sune nahi ja sakte. Team ka koi saathi yahin aapko reply karega.",
   },
   identity: {
     english: "I'm {agency}'s assistant on WhatsApp. Someone from the team can join any time.",

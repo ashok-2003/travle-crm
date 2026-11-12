@@ -324,6 +324,37 @@ describe("writeMove", () => {
     expect(written).toMatchObject({ kind: "refused", code: "persona" });
   });
 
+  it.each([
+    "Only 3 seats left, we leave on [date 1].",
+    "सिर्फ 3 सीटें बची हैं।",
+    "Call 9876543210 for [date 1].",
+    "Call +91 98765 43210.",
+    "₹५,९९९ per person on [date 1].",
+    "२० नवंबर को निकलेंगे।",
+    "Only three seats left on [date 1].",
+    "सिर्फ तीन सीटें बची हैं।",
+  ])("a typed figure is refused as number: %s", async (text) => {
+    const { written, ai } = await run([reply(text), reply(text)], {
+      language:
+        /[\u0900-\u097F]/.test(text) && !text.includes("Call") && !text.includes("per person") ? "hindi" : "english",
+    });
+    expect(written.kind).toBe("refused");
+    expect(written.kind === "refused" ? written.code : "").toMatch(/^(number|amount|date)$/);
+    expect(ai.requests).toHaveLength(2);
+  });
+
+  it("a figure typed by the model is code 'number' when no other check names it", async () => {
+    const { written } = await run([reply("Only 3 seats left."), reply("Only 3 seats left.")]);
+    expect(written).toMatchObject({ kind: "refused", code: "number" });
+    const phone = await run([reply("Call 9876543210 now."), reply("Call 9876543210 now.")]);
+    expect(phone.written).toMatchObject({ kind: "refused" });
+  });
+
+  it("figures code filled are not refused", async () => {
+    const { written } = await run([reply("Only [seats 1] seats left on [date 1].")]);
+    expect(written.kind).toBe("ok");
+  });
+
   it("a payment claim is refused by the reply check", async () => {
     const claim = reply("We received your payment, we leave on [date 1].");
     const { written } = await run([claim, claim]);

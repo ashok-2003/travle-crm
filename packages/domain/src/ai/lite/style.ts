@@ -9,17 +9,10 @@ export type StyleRefusal = "sentences" | "questions" | "filler" | "script" | "pe
 const MOST_SENTENCES = 3;
 const OPENERS = ["great question", "absolutely", "certainly", "of course", "wonderful", "awesome", "बिल्कुल"];
 const PERSONA = [
-  "i am a bot",
-  "i'm a bot",
-  "i am an ai",
-  "i'm an ai",
-  "just an ai",
-  "i am a person",
-  "i'm a real person",
-  "i am human",
-  "main insaan",
-  "मैं इंसान",
-  "bot hoon",
+  /\bi(?:'| a)m (?:a )?(?:real )?(?:person|human)\b/i,
+  /\bi am (?:an? )?(?:ai|bot)\b|\bi'm an? ai\b|\bjust an ai\b/i,
+  /\bbot\b|बॉट/i,
+  /main (?:ek )?(?:asli )?insaan|मैं (?:एक )?इंसान|असली इंसान/i,
 ];
 const DEVANAGARI = /[ऀ-ॿ]/;
 // What can stand before the first word: spaces, quotes, emoji and other marks.
@@ -36,7 +29,7 @@ export function styleProblem(text: string, language: LiteLanguage): StyleRefusal
   const opening = lower.replace(BEFORE_WORDS, "");
   if (OPENERS.some((opener) => opening.startsWith(opener))) return "filler";
   if (DEVANAGARI.test(text) !== (language === "hindi")) return "script";
-  if (PERSONA.some((claim) => lower.includes(claim))) return "persona";
+  if (PERSONA.some((claim) => claim.test(lower))) return "persona";
   return null;
 }
 

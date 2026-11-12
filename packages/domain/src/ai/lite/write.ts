@@ -42,9 +42,29 @@ const hints: Record<string, string> = {
   script: "write in the language and script asked for",
   persona: "never say you are a person or a bot",
   repeat: "say it in new words, do not repeat an earlier message",
+  number: "never type a number, seat count or phone number; use a blank",
   empty: "write the message, or set cannot_answer",
   unfit: "answer in the JSON shape asked for",
 };
+
+const DIGIT = /[0-9०-९]/gu;
+const SEAT_WORDS = "(?:one|two|three|four|five|six|seven|eight|nine|ten|एक|दो|तीन|चार|पांच|पाँच)";
+const SEATS = "(?:seats?|सीट(?:ें)?)";
+const EDGE = "(?<![\\p{L}\\p{M}])";
+const SPELLED_SEATS = new RegExp(
+  `${EDGE}${SEAT_WORDS}\\s+(?:more\\s+|ही\\s+)?${SEATS}|${SEATS}\\s+(?:left|remaining|available|बची)?\\s*:?\\s*${SEAT_WORDS}(?![\\p{L}\\p{M}])`,
+  "iu",
+);
+
+/** The first digit (ASCII or Devanagari) code didn't write, or a seat count in words: a Write reply types no figure. */
+function typedFigure(text: string, filled: Found[]): string | null {
+  for (const match of text.matchAll(DIGIT)) {
+    if (!filled.some((span) => match.index >= span.start && match.index < span.end)) {
+      return text.slice(Math.max(0, match.index - 20), match.index + 20);
+    }
+  }
+  return SPELLED_SEATS.exec(text)?.[0] ?? null;
+}
 
 type Verdict = { ok: true; text: string; filled: Found[] } | { ok: false; code: string; correction: string };
 
@@ -73,6 +93,8 @@ function judged(
   }
   const verdict = checkReply(filled.text, filled.filled, context);
   if (!verdict.ok) return refuse(verdict.reason, verdict.excerpt);
+  const typed = typedFigure(filled.text, filled.filled);
+  if (typed !== null) return refuse("number", typed);
   const style = styleProblem(text, language);
   if (style !== null) return refuse(style);
   if (repeatsEarlier(filled.text, sent)) return refuse("repeat");

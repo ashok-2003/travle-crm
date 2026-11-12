@@ -70,6 +70,25 @@ describe("the voice rules", () => {
     expect(styleProblem("Main insaan hoon.", "hinglish")).toBe("persona");
   });
 
+  it("never lets the agent claim to be a person, or say bot", () => {
+    for (const text of [
+      "I'm human, happy to help.",
+      "I'm a person like you.",
+      "I am a real person.",
+      "I’m a real person!",
+      "मैं इंसान हूँ।",
+      "मैं एक इंसान हूँ।",
+      "हम असली इंसान हैं।",
+      "I am a bot.",
+      "मैं एक बॉट हूँ।",
+      "Our bot will help.",
+    ]) {
+      expect(styleProblem(text, /[\u0900-\u097F]/.test(text) ? "hindi" : "english"), text).toBe("persona");
+    }
+    expect(styleProblem("I'm the assistant of Hills Travel.", "english")).toBeNull();
+    expect(styleProblem("It is a robotic arm.", "english")).toBeNull();
+  });
+
   it("keeps the first emoji and drops the rest", () => {
     expect(oneEmoji("Hi 🙂 we run it 🏔️ and 👍")).toBe("Hi 🙂 we run it and");
     expect(oneEmoji("No emoji here.")).toBe("No emoji here.");
