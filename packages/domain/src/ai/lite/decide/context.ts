@@ -5,6 +5,7 @@ import type { TurnKind } from "../../agent-prompt.js";
 import type {
   CheckedForm,
   Decision,
+  DepartureLine,
   LeadNoteKey,
   Move,
   PackageIndexEntry,
@@ -31,7 +32,10 @@ export interface DecideInput {
   mayBePayment: boolean;
   nameUsable: boolean;
   leadStage: LeadStage | null;
-  /** known: destinations and indianTravelPlaces; unsold: destinations with no sellable package. */
+  /**
+   * known: destinations and indianTravelPlaces; unsold: destinations with no sellable package. Decide no longer reads
+   * it (D2: any place with no trip near its name gets "we don't run that"); the turn passes it on to the reply check.
+   */
   places: { known: string[]; unsold: string[] };
 }
 
@@ -45,6 +49,11 @@ export interface DecideContext {
   facts: LiteFacts;
   /** The facts' package as the situation read it, or null. */
   pkg: SituationPackage | null;
+  /**
+   * The facts' departure as the price read it, the one place its free seats are known (the package's list stops at 20);
+   * null when none is chosen or it is no longer open.
+   */
+  departure: DepartureLine | null;
   /** The total for exactly the settled facts, when the price has one. */
   quote: Quote | null;
   /** Whether any price, a total or a "from", can be told for the facts' package. */

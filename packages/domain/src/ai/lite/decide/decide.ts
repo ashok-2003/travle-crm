@@ -1,9 +1,9 @@
 // The lite agent's decide step (spec Step 5): settles the facts, takes one move from the table, holds its question to
 // the loop guard (T3), and says what the move does to the lead: the stage, a note, a task, a suggestion.
 import { checklistItems, type ChecklistItem, type LiteFacts, type LiteIntent } from "@travel-crm/contracts/ai";
-import type { Decision, Move, Situation, SituationPackage } from "../types.js";
+import type { Decision, DepartureLine, Move, Situation, SituationPackage } from "../types.js";
 import type { DecideContext, DecideInput, Picked, Quote } from "./context.js";
-import { choicesFor } from "./moves.js";
+import { choicesFor, nextAsk } from "./moves.js";
 import { pickMove } from "./rules.js";
 import { saleStageOf } from "./stage.js";
 
@@ -26,9 +26,16 @@ const answered = (item: ChecklistItem, before: LiteFacts, after: LiteFacts) =>
 const packageIn = (situation: Situation, facts: LiteFacts): SituationPackage | null =>
   situation.package?.id === facts.packageId ? situation.package : null;
 
-/** N1, the departure on the day they gave, and a name asked twice without an answer let go (K1, T3). */
+/**
+ * A package that left the index let go, N1, the departure on the day they gave, and a name asked twice without an
+ * answer let go (K1, T3).
+ */
 function settled(input: DecideInput): LiteFacts {
   const facts = { ...input.facts };
+  // A package no longer sold is never named or walked through again: the chat goes back to asking where.
+  if (facts.packageId !== null && !input.index.some((entry) => entry.id === facts.packageId)) {
+    Object.assign(facts, { packageId: null, departureId: null, quoted: null });
+  }
   const fromAd = input.index.find((entry) => entry.id === input.adPackageId);
   // The ad opens the chat with its package, unless the customer's first words already named a trip or a place.
   const opening = facts.lastMove === null && facts.packageId === null && facts.placeWords === null;
@@ -40,6 +47,19 @@ function settled(input: DecideInput): LiteFacts {
   const last = input.before.asked[0];
   if (last?.item === "name" && last.times >= 2 && !answered("name", input.before, facts)) facts.nameSkipped = true;
   return facts;
+}
+
+/**
+ * The facts' departure with its free seats, as the price read it (the package's list stops at 20). One settled from
+ * the day this turn was read before it was chosen, so it comes from the package's list, where it was found. Else null:
+ * it is no longer open, and not bookable.
+ */
+function departureOf(input: DecideInput, facts: LiteFacts, pkg: SituationPackage | null): DepartureLine | null {
+  const price = input.situation.price;
+  if (facts.departureId === null) return null;
+  if (price?.packageId === facts.packageId && price.departure?.id === facts.departureId) return price.departure;
+  const settledNow = input.facts.departureId === null;
+  return settledNow ? (pkg?.departures.find((one) => one.id === facts.departureId) ?? null) : null;
 }
 
 /** The total and advance for exactly these facts' package and departure; a price read for other facts gives none. */
@@ -64,15 +84,23 @@ function intentsOf(input: DecideInput): ReadonlySet<LiteIntent> {
   return new Set<LiteIntent>(gave ? [...names, "gives_details"] : names);
 }
 
-/** The checklist item a move asks: an ask_detail's, or the question a reply ends with. */
-function itemAsked(move: Move): ChecklistItem | null {
+/**
+ * The checklist item a move leaves waiting: an ask_detail's, the question a reply ends with, or, for the moves that ask
+ * which trip (a greeting, "did you mean", the other trips, "we don't run that"), where; the next item once one is picked.
+ */
+function itemAsked(move: Move, context: DecideContext): ChecklistItem | null {
   if (move.kind === "ask_detail") return move.item;
-  return "ask" in move ? move.ask : null;
+  if ("ask" in move) return move.ask;
+  const notRun = move.kind === "fixed" && move.text === "not_run";
+  const whichTrip =
+    notRun || move.kind === "greet" || move.kind === "confirm_place" || move.kind === "show_other_trips";
+  if (!whichTrip) return null;
+  return context.facts.packageId === null ? "where" : nextAsk(context);
 }
 
 /** T3: a question asked twice without an answer is asked with choices the third time; then a person takes it. */
 function loopGuarded(picked: Picked, context: DecideContext): { picked: Picked; asked: LiteFacts["asked"] } {
-  const item = itemAsked(picked.move);
+  const item = itemAsked(picked.move, context);
   if (item === null) return { picked, asked: [] };
   const { before } = context.input;
   const last = before.asked[0];
@@ -120,7 +148,8 @@ export function decide(input: DecideInput): Decision {
   const price = input.situation.price;
   const from = price?.packageId === facts.packageId && (price.fromPaise !== null || price.perPersonPaise !== null);
   const priced = quote !== null || from;
-  const context: DecideContext = { input, intents: intentsOf(input), facts, pkg, quote, priced, stage };
+  const departure = departureOf(input, facts, pkg);
+  const context: DecideContext = { input, intents: intentsOf(input), facts, pkg, departure, quote, priced, stage };
   const { picked, asked } = loopGuarded(pickMove(context), context);
   const { move } = picked;
   const next: LiteFacts = { ...facts, otherInARow: 0, ...picked.facts, asked, lastMove: move.kind };

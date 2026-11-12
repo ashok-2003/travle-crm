@@ -30,7 +30,7 @@ export function usableName(name: string | null, phoneE164: string): boolean {
 }
 
 /** No name, or a first name only, is not enough for a booking. */
-const fullName = (name: string | null) => name !== null && name.trim().split(/\s+/u).length >= 2;
+export const fullName = (name: string | null) => name !== null && name.trim().split(/\s+/u).length >= 2;
 
 /**
  * The first checklist item the facts don't hold (K1-K3); the caller has already folded in what the lead holds. Pickup

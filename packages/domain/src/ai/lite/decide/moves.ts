@@ -3,6 +3,7 @@
 import type { ChecklistItem, LiteFacts } from "@travel-crm/contracts/ai";
 import type { DepartureLine, HandOverReason, Move, SituationPackage } from "../types.js";
 import type { DecideContext, Picked } from "./context.js";
+import { nextItem } from "./stage.js";
 
 const MOST_SHOWN = 3;
 type FixedLine = Extract<Move, { kind: "fixed" }>["text"];
@@ -17,6 +18,10 @@ export const fixedLine = (text: FixedLine, why: string): Picked => ({ move: { ki
 /** Seats the party needs: one while the count is unknown. */
 export const seatsFor = (facts: LiteFacts): number =>
   facts.adults === null ? 1 : facts.adults + (facts.children?.count ?? 0);
+
+/** The question a reply ends with: the next checklist item, the name first while it is still wanted (K1). */
+export const nextAsk = (context: DecideContext): ChecklistItem | null =>
+  nextItem(context.facts, context.pkg, context.input.nameUsable, false);
 
 const dayNumber = (day: string) => Date.parse(`${day}T00:00:00Z`);
 
@@ -64,11 +69,14 @@ export function priceMove(context: DecideContext, ask: ChecklistItem | null, why
 
 /**
  * The loop guard's choices for an item's third ask: values for code to word (titles, YYYY-MM-DD days, room types).
- * None for the name, the children's ages and the full name: there is no fair list of those.
+ * None for the name, the children's ages and the full name: there is no fair list of those. No trips either while
+ * "would you like to see the other trips?" waits for its yes (D2).
  */
 export function choicesFor(item: ChecklistItem, context: DecideContext): string[] {
   const { facts, pkg } = context;
-  if (item === "where") return context.input.index.slice(0, MOST_SHOWN).map((entry) => entry.title);
+  if (item === "where") {
+    return facts.notRunAsked ? [] : context.input.index.slice(0, MOST_SHOWN).map((entry) => entry.title);
+  }
   if (item === "when") {
     return pkg === null ? [] : datesNear(pkg, seatsFor(facts), facts).map((one) => one.startsOn);
   }

@@ -60,6 +60,8 @@ const fullPrice: PriceFacts = {
   travellers: 2,
   departure: pkg.departures[0] ?? null,
 };
+/** The price read with 14 Nov chosen but no total yet (the party or the room still open): still a "from" price. */
+const fromOnD1: PriceFacts = { ...fromPrice, departure: pkg.departures[0] ?? null };
 const withPackage = (price: PriceFacts = fromPrice): Situation => ({ package: pkg, price, looked: [] });
 /** A chat already under way (`lastMove` set), so an ad's package applies only where a test says so. */
 const facts = (over: Partial<LiteFacts> = {}): LiteFacts => ({
@@ -168,7 +170,7 @@ describe("decide: the move table, in its order", () => {
     });
   });
 
-  it("5. a new place: two trips ask which, a place we don't run says so, anything else offers trips", () => {
+  it("5. a new place: two trips ask which; any place with no trip near its name is one we don't run (D2)", () => {
     const twin = entry(P3, "Kedarnath Badrinath 6N", "Kedarnath");
     const named = (words: string, list = index) =>
       run({ intents: ["package_question"], index: list, before: facts(), facts: facts({ placeWords: words }) });
@@ -177,8 +179,11 @@ describe("decide: the move table, in its order", () => {
     expect(goa.move).toEqual(fixed("not_run"));
     expect(goa.why).toBe("place:not_run");
     expect(goa.facts).toMatchObject({ notRun: ["Goa"], notRunAsked: true });
-    expect(named("गोवा").move).toEqual({ kind: "confirm_place", packageIds: [P1, P2] });
-    expect(named("xyz").move).toEqual({ kind: "confirm_place", packageIds: [P1, P2] });
+    expect(goa.facts.asked).toEqual([{ item: "where", times: 1 }]);
+    expect(named("Dubai").move).toEqual(fixed("not_run"));
+    const hindi = named("गोवा");
+    expect(hindi.move).toEqual(fixed("not_run"));
+    expect(hindi.facts.notRun).toEqual(["गोवा"]);
   });
 
   it("6. after 'we don't run it': yes shows the other trips, no closes", () => {
@@ -198,8 +203,10 @@ describe("decide: the move table, in its order", () => {
     expect(run({ intents: ["wants_to_book"], openBooking: awaiting }).move).toEqual({ kind: "resend_payment" });
     expect(run({ intents: ["wants_to_book"], openBooking: proofIn }).move).toEqual(fixed("screenshot_received"));
     const five = facts({ ...known, day: "2026-11-21", departureId: D2, adults: 5 });
-    const full = run({ intents: ["wants_to_book"], facts: five, situation: withPackage() });
+    const onD2 = withPackage({ ...fromPrice, departure: pkg.departures[1] ?? null });
+    const full = run({ intents: ["wants_to_book"], facts: five, situation: onD2 });
     expect(full.move).toEqual({ kind: "give_dates", packageId: P1, departureIds: [D1], ask: "when" });
+    expect(full.why).toBe("seats:too_few");
     expect(full.facts).toMatchObject({ departureId: null, day: null, quoted: null });
   });
 
@@ -212,7 +219,7 @@ describe("decide: the move table, in its order", () => {
     const riya = booking({ name: "Riya" });
     expect(riya.move).toEqual(ask("full_name"));
     expect(riya.facts.fullNameAsked).toBe(true);
-    expect(booking({}, fromPrice).move).toEqual(handOver("unanswered"));
+    expect(booking({}, fromOnD1).move).toEqual(handOver("unanswered"));
     const book = booking({});
     expect(book.move).toEqual({ kind: "book", packageId: P1, departureId: D1 });
     expect(book.facts.quoted).toEqual({ departureId: D1, totalPaise: 1_399_800, advancePaise: 400_000 });
@@ -268,7 +275,7 @@ describe("decide: the move table, in its order", () => {
 
   it("15. details given: the next question, and the price once every detail is in", () => {
     const some = facts({ packageId: P1, day: "2026-11-14", month: "2026-11", departureId: D1 });
-    const next = run({ intents: ["gives_details"], facts: some, situation: withPackage() });
+    const next = run({ intents: ["gives_details"], facts: some, situation: withPackage(fromOnD1) });
     expect(next.move).toEqual(ask("people"));
     expect(next.why).toBe("checklist:people");
     const all = run({
@@ -284,10 +291,14 @@ describe("decide: the move table, in its order", () => {
   });
 
   it("16. hello: the package in the facts, else up to 3 packages, else where they'd like to go", () => {
-    expect(run().move).toEqual({ kind: "greet", packageIds: [P1, P2] });
+    const hi = run();
+    expect(hi.move).toEqual({ kind: "greet", packageIds: [P1, P2] });
+    expect(hi.facts.asked).toEqual([{ item: "where", times: 1 }]);
     const four = [...index, entry(P3, "Goa Beaches 3N", "Goa"), entry(P4, "Manali Snow 3N", "Manali")];
     expect(run({ index: four }).move).toEqual({ kind: "greet", packageIds: [] });
-    expect(run({ index: four, facts: facts({ packageId: P2 }) }).move).toEqual({ kind: "greet", packageIds: [P2] });
+    const picked = run({ index: four, facts: facts({ packageId: P1 }), situation: withPackage() });
+    expect(picked.move).toEqual({ kind: "greet", packageIds: [P1] });
+    expect(picked.facts.asked).toEqual([{ item: "when", times: 1 }]);
   });
 
   it("17. ok or thanks: our pending question again, else nothing", () => {
@@ -344,7 +355,9 @@ describe("decide: across the table", () => {
 
   it("a person's adults on the lead count as known", () => {
     const lead = facts({ packageId: P1, departureId: D1, day: "2026-11-14", month: "2026-11", adults: 4 });
-    expect(run({ intents: ["gives_details"], facts: lead, situation: withPackage() }).move).toEqual(ask("pickup"));
+    expect(run({ intents: ["gives_details"], facts: lead, situation: withPackage(fromOnD1) }).move).toEqual(
+      ask("pickup"),
+    );
   });
 
   it("a day the customer gave picks its departure", () => {
@@ -389,7 +402,8 @@ describe("decide: across the table", () => {
 
   it("the loop guard: an item with no fair choices goes to a person on the third ask", () => {
     const ages = facts({ ...known, children: { count: 1, ages: [] }, asked: [{ item: "children_ages", times: 2 }] });
-    expect(run({ intents: ["gives_details"], facts: ages, situation: withPackage() }).move).toEqual(handOver("loop"));
+    const third = run({ intents: ["gives_details"], facts: ages, situation: withPackage(fromOnD1) });
+    expect(third.move).toEqual(handOver("loop"));
   });
 
   it("name skipped twice is not asked again", () => {
@@ -448,5 +462,103 @@ describe("decide: across the table", () => {
 
   it("a turn that isn't a reply decides nothing", () => {
     expect(run({ kind: "nudge" }).move).toEqual({ kind: "silent" });
+  });
+});
+
+describe("decide: never silent on a question, never trips unasked", () => {
+  const question = { kinds: ["text"], question: true };
+
+  it("a question it can't place goes to a person, whatever comes with it", () => {
+    expect(run({ intents: ["ok_thanks", "other"], burst: question }).move).toEqual(handOver("unanswered"));
+    expect(run({ intents: ["hello", "other"], burst: question }).move).toEqual(handOver("unanswered"));
+    const picked = facts({ packageId: P1 });
+    const details = run({
+      intents: ["gives_details", "other"],
+      burst: question,
+      facts: picked,
+      situation: withPackage(),
+    });
+    expect(details.move).toEqual(handOver("unanswered"));
+    expect(details.why).toBe("intent:other");
+  });
+
+  it("a greeting asks which trip, so ok after it asks again instead of going quiet", () => {
+    const ok = run({ intents: ["ok_thanks"], facts: run().facts });
+    expect(ok.move).toEqual(ask("where"));
+    expect(ok.stopFollowUps).toBe(false);
+    const meant = run({ intents: ["package_question"], before: facts(), facts: facts({ placeWords: "Kedarkantha" }) });
+    expect(run({ intents: ["ok_thanks"], facts: meant.facts }).move).toEqual(ask("where"));
+  });
+
+  it("ok asks again only what is still missing", () => {
+    const peopleAsked = { packageId: P1, day: "2026-11-14", month: "2026-11", departureId: D1 };
+    const filled = facts({ ...peopleAsked, adults: 4, asked: [{ item: "people", times: 1 }] });
+    const ok = run({ intents: ["ok_thanks"], facts: filled, situation: withPackage(fromOnD1) });
+    expect(ok.move).toEqual(ask("pickup"));
+    expect(ok.facts.asked).toEqual([{ item: "pickup", times: 1 }]);
+    const fullAsked = facts({ ...known, name: "Riya", fullNameAsked: true, asked: [{ item: "full_name", times: 1 }] });
+    const again = run({ intents: ["ok_thanks"], facts: fullAsked, situation: withPackage(fullPrice) });
+    expect(again.move).toEqual(ask("full_name"));
+  });
+
+  it("the seat guard reads the departure the price was read for, past the package's first 20", () => {
+    const twenty = Array.from({ length: 20 }, (_, day) => ({
+      id: `01900000-0000-7000-8000-0000000001${String(day).padStart(2, "0")}`,
+      startsOn: parseCalendarDate(`2026-12-${String(day + 1).padStart(2, "0")}`),
+      freeSeats: 12,
+    }));
+    const D21 = "01900000-0000-7000-8000-000000000121";
+    const late = { id: D21, startsOn: parseCalendarDate("2026-12-28"), freeSeats: 3 };
+    const situation: Situation = {
+      package: { ...pkg, departures: twenty },
+      price: { ...fullPrice, departure: late },
+      looked: [],
+    };
+    const party = (adults: number) =>
+      facts({ ...known, day: "2026-12-28", month: "2026-12", departureId: D21, adults });
+    const five = run({ intents: ["wants_to_book"], facts: party(5), situation });
+    const nearest = twenty.slice(17).map((one) => one.id);
+    expect(five.move).toEqual({ kind: "give_dates", packageId: P1, departureIds: nearest, ask: "when" });
+    expect(five.why).toBe("seats:too_few");
+    expect(five.facts.departureId).toBeNull();
+    const two = run({ intents: ["wants_to_book"], facts: party(2), situation });
+    expect(two.move).toEqual({ kind: "book", packageId: P1, departureId: D21 });
+  });
+
+  it("a departure the price can't find is not booked", () => {
+    const D9 = "01900000-0000-7000-8000-0000000000d9";
+    const closed = facts({ ...known, departureId: D9 });
+    const gone = run({ intents: ["wants_to_book"], facts: closed, situation: withPackage(fullPrice) });
+    expect(gone.move).toEqual({ kind: "give_dates", packageId: P1, departureIds: [D1, D2], ask: "when" });
+    expect(gone.why).toBe("departure:gone");
+  });
+
+  it("a package that left the index is never named, greeted or priced", () => {
+    const P9 = "01900000-0000-7000-8000-000000000009";
+    const quoted = { departureId: D1, totalPaise: 1_399_800, advancePaise: 400_000 };
+    const unsold = facts({ packageId: P9, departureId: D1, quoted });
+    const hi = run({ facts: unsold });
+    expect(hi.move).toEqual({ kind: "greet", packageIds: [P1, P2] });
+    expect(hi.facts).toMatchObject({ packageId: null, departureId: null, quoted: null });
+    expect(run({ intents: ["price_question"], facts: unsold }).move).toEqual(ask("where"));
+    const named = run({
+      intents: ["price_question"],
+      index: [spiti],
+      before: facts({ packageId: P1 }),
+      facts: facts({ packageId: P1, placeWords: "Kedarnath" }),
+    });
+    expect(named.move).toEqual(fixed("not_run"));
+  });
+
+  it("after 'we don't run that', no trip is shown before the yes: not in a greeting, not as choices", () => {
+    const waiting = facts({
+      notRun: ["Goa"],
+      notRunAsked: true,
+      lastMove: "fixed",
+      asked: [{ item: "where", times: 1 }],
+    });
+    expect(run({ facts: waiting }).move).toEqual({ kind: "greet", packageIds: [] });
+    const twice = facts({ ...waiting, asked: [{ item: "where", times: 2 }] });
+    expect(run({ intents: ["ok_thanks"], facts: twice }).move).toEqual(handOver("loop"));
   });
 });

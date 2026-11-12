@@ -1,12 +1,10 @@
 // The move table (spec Step 5, F5), the only way an intent becomes an action. The first rule that applies picks the
 // move; the order is also the intents' rank, so when the customer's words carry two, the higher one decides.
-import { inAnotherScript } from "../../grounded/phrase-match.js";
-import { containsWords } from "../../grounded/read-words.js";
 import { findPackages } from "../lookups/find-packages.js";
 import type { SituationPackage } from "../types.js";
 import type { DecideContext, Picked } from "./context.js";
-import { askMove, datesMove, fixedLine, handOver, priceMove, seatsFor } from "./moves.js";
-import { nextItem } from "./stage.js";
+import { askMove, datesMove, fixedLine, handOver, nextAsk, priceMove, seatsFor } from "./moves.js";
+import { fullName, nextItem } from "./stage.js";
 import { handOverTrigger } from "./triggers.js";
 
 type Rule = (context: DecideContext) => Picked | null;
@@ -18,8 +16,6 @@ const MEDIA = new Set(["image", "video", "document"]);
 const ASKS_SEATS = ["wants_to_book", "price_question", "gives_details"] as const;
 
 const firstTrips = (context: DecideContext) => context.input.index.slice(0, MOST_SHOWN).map((entry) => entry.id);
-/** The question a reply ends with: the next checklist item, the name first when it is still wanted (K1). */
-const nextAsk = (context: DecideContext) => nextItem(context.facts, context.pkg, context.input.nameUsable, false);
 /** A question about the trip needs one: none asks which, one the situation couldn't read goes to a person. */
 function aboutPackage(context: DecideContext, why: string, answer: (pkg: SituationPackage) => Picked): Picked {
   if (context.facts.packageId === null) return askMove(context, "where");
@@ -53,6 +49,13 @@ const notInterested: Rule = ({ intents }) => {
   return { ...fixedLine("close", "intent:not_interested"), stopFollowUps: true, note: "not_interested", suggest };
 };
 
+/**
+ * Spec D: a question the agent can't place goes to a person at once, whatever else came with it. Ranked here, above
+ * every answer, so "ok, can I bring my dog?" is neither silence nor a greeting that drops the question.
+ */
+const otherQuestion: Rule = ({ intents, input }) =>
+  intents.has("other") && input.burst.question ? handOver("unanswered", "intent:other") : null;
+
 const newPlace: Rule = (context) => {
   const { facts, input } = context;
   const words = facts.placeWords;
@@ -65,10 +68,7 @@ const newPlace: Rule = (context) => {
   if (found.exact.length > 0) return confirm(found.exact.map((entry) => entry.id));
   // A near spelling of a trip we run ("Kedarkantha") is asked about, never called a place we don't run.
   if (found.closest.length > 0) return confirm(found.closest.map((entry) => entry.id));
-  const places = [...input.places.known, ...input.places.unsold];
-  if (inAnotherScript(words) || !places.some((place) => containsWords(words, place))) {
-    return confirm(firstTrips(context));
-  }
+  // D2: any other place, in any script, is one we don't run; the trips are shown only after they say yes.
   const notRun = [...facts.notRun.filter((one) => one !== words), words].slice(-MOST_NOT_RUN);
   return { ...fixedLine("not_run", "place:not_run"), facts: { notRun, notRunAsked: true } };
 };
@@ -89,17 +89,18 @@ const otherTrips: Rule = (context) => {
 };
 
 const payment: Rule = (context) => {
-  const { intents, stage, facts, pkg } = context;
+  const { intents, stage, facts, departure } = context;
   const booking = intents.has("wants_to_book");
   if (booking && stage === "waiting_for_payment")
     return { move: { kind: "resend_payment" }, why: "intent:wants_to_book" };
   if (booking && stage === "payment_to_check") return fixedLine("screenshot_received", "intent:wants_to_book");
-  if (!ASKS_SEATS.some((one) => intents.has(one)) || facts.adults === null) return null;
-  const chosen = pkg?.departures.find((one) => one.id === facts.departureId);
-  if (chosen === undefined || chosen.freeSeats >= seatsFor(facts)) return null;
-  // Spec A9: the nearest dates that have the seats. The full one goes, with its day, so the next turn doesn't pick it again.
+  if (!ASKS_SEATS.some((one) => intents.has(one)) || facts.departureId === null) return null;
+  // The seats are the price's own read of the departure. One it could not find is no longer open: not bookable.
+  if (departure !== null && (facts.adults === null || departure.freeSeats >= seatsFor(facts))) return null;
+  // Spec A9: the nearest dates that have the seats. The chosen one goes, with its day, so the next turn doesn't pick it again.
   const letGo = { departureId: null, day: null, quoted: null };
-  return datesMove(context, { day: chosen.startsOn, month: null }, "when", "seats:too_few", letGo);
+  const near = { day: departure?.startsOn ?? facts.day, month: departure === null ? facts.month : null };
+  return datesMove(context, near, "when", departure === null ? "departure:gone" : "seats:too_few", letGo);
 };
 
 const wantsToBook: Rule = (context) => {
@@ -168,26 +169,26 @@ const givesDetails: Rule = (context) => {
     : priceMove(context, null, "intent:gives_details");
 };
 
-const hello: Rule = ({ intents, facts, input }) => {
+const hello: Rule = ({ intents, facts, pkg, input }) => {
   if (!intents.has("hello")) return null;
-  const all = input.index.length <= MOST_SHOWN ? input.index.map((entry) => entry.id) : [];
-  return {
-    move: { kind: "greet", packageIds: facts.packageId === null ? all : [facts.packageId] },
-    why: "intent:hello",
-  };
+  // Only a package the situation read from the index is named. After "we don't run that", trips wait for a yes (D2).
+  const few = input.index.length <= MOST_SHOWN && !facts.notRunAsked;
+  const all = few ? input.index.map((entry) => entry.id) : [];
+  return { move: { kind: "greet", packageIds: pkg === null ? all : [pkg.id] }, why: "intent:hello" };
 };
 
 const okThanks: Rule = (context) => {
   if (!context.intents.has("ok_thanks")) return null;
   const pending = context.input.before.asked[0]?.item ?? null;
-  // A name let go after two asks is pending no more: the next detail is (F2 replies only while a question waits).
-  const item = pending === "name" && context.facts.nameSkipped ? nextAsk(context) : pending;
+  // F2: a bare ok is answered only while one of our questions waits. The question is asked again only while its item
+  // is still missing (a person may have filled it on the lead since); else the next one is, and with none, silence.
+  const stillFullName = pending === "full_name" && !fullName(context.facts.name);
+  const item = pending === null ? null : stillFullName ? pending : nextAsk(context);
   return item === null ? { move: { kind: "silent" }, why: "silence", stopFollowUps: true } : askMove(context, item);
 };
 
 const other: Rule = (context) => {
   if (!context.intents.has("other")) return null;
-  if (context.input.burst.question) return handOver("unanswered", "intent:other");
   if (context.facts.otherInARow >= 1) return handOver("other_twice", "intent:other");
   return { ...fixedLine("how_can_i_help", "intent:other"), facts: { otherInARow: context.facts.otherInARow + 1 } };
 };
@@ -197,6 +198,7 @@ const RULES: Rule[] = [
   media,
   paymentSent,
   notInterested,
+  otherQuestion,
   newPlace,
   otherTrips,
   payment,
