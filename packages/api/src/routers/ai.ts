@@ -315,7 +315,9 @@ export const aiRouter = router({
   autopilot: freshProcedure
     .requires("ai:manage")
     .output(autopilotSettings)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => autopilotSettingsOf(tx))),
+    .query(({ ctx }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => autopilotSettingsOf(tx, ctx.member.organizationId)),
+    ),
 
   saveAutopilot: freshProcedure
     .requires("ai:manage")

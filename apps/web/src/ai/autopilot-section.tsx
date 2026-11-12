@@ -6,11 +6,13 @@
 // its notes, media, payment details and strict rules are saved with it.
 import type { AutopilotSettings } from "@travel-crm/contracts/ai";
 import { aiEmojiLevels, aiHandoffPolicies, aiLanguages, aiPersonas, aiStyles, aiTones } from "@travel-crm/contracts/ai";
+import { brand } from "@travel-crm/brand";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { InfoHint } from "@/components/info-hint";
 import { RefusalAlert } from "@/components/refusal-alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,7 @@ import { WriteHint } from "@/subscription/write-hint";
 import { PaymentsCard } from "./payments-card";
 import { useSaveAutopilot } from "./use-ai";
 
-type Draft = Omit<AutopilotSettings, "learnedAt" | "voice">;
+type Draft = Omit<AutopilotSettings, "learnedAt" | "voice" | "pausedBySupport">;
 
 function Choice<Value extends string>({
   label,
@@ -124,6 +126,11 @@ export function AutopilotSection({ saved, aiOn }: { saved: AutopilotSettings; ai
           <CardDescription>{t("intro")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {saved.pausedBySupport && (
+            <Alert>
+              <AlertDescription>{t("pausedBySupport", { product: brand.productName })}</AlertDescription>
+            </Alert>
+          )}
           <div className="flex items-center gap-3">
             <Switch
               id="ai-autopilot"

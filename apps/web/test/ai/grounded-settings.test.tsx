@@ -1,5 +1,6 @@
 // The switch that answers from the packages only, the warning under free-text editors that hold a price or a date, and the
 // media section that stops asking when to send a file for an agency on the switch.
+import { brand } from "@travel-crm/brand";
 import type { AutopilotSettings } from "@travel-crm/contracts/ai";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -34,6 +35,7 @@ const saved: AutopilotSettings = {
   followUpTasks: true,
   learnedAt: null,
   voice: null,
+  pausedBySupport: false,
 };
 const file = {
   id: "0199a000-0000-7000-8000-0000000000aa",
@@ -50,6 +52,17 @@ const client = () => newQueryClient({ ...paidSubscription, modules: ["crm", "inb
 const warning = messages.ai.amountsAndDates;
 beforeEach(() => {
   screenIs("wide");
+});
+
+describe("the notice that support paused the agent", () => {
+  const notice = messages.ai.autopilot.pausedBySupport.replace("{product}", brand.productName);
+  it("shows only while support has the agent paused", () => {
+    const { unmount } = renderWithApi(<AutopilotSection saved={{ ...saved, pausedBySupport: true }} aiOn />, client());
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    unmount();
+    renderWithApi(<AutopilotSection saved={saved} aiOn />, client());
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  });
 });
 
 describe("the switch to answer from packages only", () => {

@@ -7,6 +7,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { sellablePackages } from "../quotes/index.js";
 import type { MemberAccess } from "../identity/index.js";
+import { agentPauseOf } from "../subscriptions/index.js";
 import { DomainError, type CalendarDate } from "../kernel/index.js";
 
 /** The settings as the agent reads them: every field has its default when the agency saved none. */
@@ -95,9 +96,10 @@ export async function autopilotOf(tx: OrgTx): Promise<AutopilotRow> {
   return row === null ? autopilotDefaults : (row as AutopilotRow);
 }
 
-const toSettings = (row: AutopilotRow): AutopilotSettings =>
+const toSettings = (row: AutopilotRow, pausedBySupport: boolean): AutopilotSettings =>
   autopilotSettings.parse({
     ...row,
+    pausedBySupport,
     learnedAt: row.learnedAt?.toISOString() ?? null,
     voice:
       row.voiceName === null || row.voiceProfile === null
@@ -105,8 +107,8 @@ const toSettings = (row: AutopilotRow): AutopilotSettings =>
         : { name: row.voiceName, profile: row.voiceProfile, examples: row.voiceExamples.length },
   });
 
-export async function autopilotSettingsOf(tx: OrgTx): Promise<AutopilotSettings> {
-  return toSettings(await autopilotOf(tx));
+export async function autopilotSettingsOf(tx: OrgTx, organizationId: string): Promise<AutopilotSettings> {
+  return toSettings(await autopilotOf(tx), (await agentPauseOf(tx, organizationId)) !== null);
 }
 
 /** Whether a package the AI may sell today has a destination: one without is a package the agent never sees. */
@@ -161,5 +163,5 @@ export async function saveAutopilot(
     before: switches(before),
     after: switches({ ...input, grounded }),
   });
-  return autopilotSettingsOf(tx);
+  return autopilotSettingsOf(tx, access.organizationId);
 }

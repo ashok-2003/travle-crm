@@ -16,6 +16,7 @@ import {
   testAnswer,
   runAgentTurn,
   saveAiSettings,
+  autopilotSettingsOf,
   saveAutopilot,
 } from "../../src/ai/index.js";
 import { monthStartOf } from "../../src/inbox/index.js";
@@ -524,5 +525,61 @@ describe("the autopilot", () => {
     expect(JSON.stringify(on.model.requests[0]?.messages)).toContain("Kerala 5 nights is Rs 18,500.");
     expect(await on.inOrg((tx) => tx.whatsappMessage.count({ where: { direction: "out" } }))).toBe(0);
     expect((await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(1);
+  });
+
+  it("tells the agency when support has paused the agent, for its own pause and for the every-agency one", async () => {
+    const on = await agency();
+    const read = () => on.inOrg((tx) => autopilotSettingsOf(tx, on.organizationId));
+    expect((await read()).pausedBySupport).toBe(false);
+    await platformDb.transaction(async (tx) => {
+      const plan = await tx.plan.create({
+        data: {
+          key: `plan-${randomUUID().slice(0, 8)}`,
+          name: "Starter",
+          monthlyPricePaise: 250_000,
+          seatLimit: 5,
+          whatsappNumberLimit: 1,
+          storageLimitBytes: 5_000_000_000n,
+          modules: ["crm", "inbox", "ai"],
+        },
+      });
+      await tx.subscription.create({
+        data: {
+          organizationId: on.organizationId,
+          planId: plan.id,
+          billingCycle: "monthly",
+          status: "trial",
+          statusChangedAt: testNow,
+          trialEndsOn: new Date("2099-01-01"),
+        },
+      });
+    });
+    expect((await read()).pausedBySupport).toBe(false);
+    await platformDb.transaction((tx) =>
+      tx.subscription.update({
+        where: { organizationId: on.organizationId },
+        data: { aiAgentPausedAt: new Date(), aiAgentPausedBy: randomUUID() },
+      }),
+    );
+    expect((await read()).pausedBySupport).toBe(true);
+    await platformDb.transaction((tx) =>
+      tx.subscription.update({
+        where: { organizationId: on.organizationId },
+        data: { aiAgentPausedAt: null, aiAgentPausedBy: null },
+      }),
+    );
+    // The every-agency pause is set inside a transaction that is rolled back: other test files read the same row.
+    const rollback = new Error("roll back");
+    await expect(
+      platformDb.transaction(async (tx) => {
+        await tx.subscriptionPolicy.update({
+          where: { id: true },
+          data: { aiAgentPausedAt: new Date(), aiAgentPausedBy: randomUUID() },
+        });
+        expect((await autopilotSettingsOf(tx, on.organizationId)).pausedBySupport).toBe(true);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
+    expect((await read()).pausedBySupport).toBe(false);
   });
 });

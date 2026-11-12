@@ -68,6 +68,8 @@ export const autopilotSettings = z.object({
   learnedAt: z.iso.datetime().nullable(),
   /** The person whose way of talking it copies in every chat, if one was given. */
   voice: aiVoice.nullable(),
+  /** Whether support has paused the agent, for this agency or for every agency: the screen says so. */
+  pausedBySupport: z.boolean(),
 });
 export type AutopilotSettings = z.infer<typeof autopilotSettings>;
 

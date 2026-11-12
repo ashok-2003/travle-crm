@@ -168,6 +168,7 @@
     "smartFollowUp": "Let the AI choose whether and when to follow up",
     "learning": "Let the AI learn from your chats each night",
     "learningHint": "Your recent chats, with numbers, emails and links taken out, go to the AI service, which keeps nothing, to find what customers ask and what wins a booking. Off by default.",
+    "pausedBySupport": "{product} support has paused your AI agent on WhatsApp. Your settings are kept, and it starts answering again when support resumes it.",
     "save": "Save the autopilot",
     "saving": "Saving…",
     "saved": "Autopilot settings saved"
