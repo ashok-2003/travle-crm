@@ -272,7 +272,9 @@
     },
     "ai-agent": {
       "paused": "Paused the AI agent on WhatsApp",
-      "resumed": "Resumed the AI agent on WhatsApp"
+      "resumed": "Resumed the AI agent on WhatsApp",
+      "answers-changed": "Changed the AI agent's answers",
+      "basics-changed": "Changed the AI agent's name or tone"
     },
     "ai-settings": {
       "changed": "Changed the AI settings"

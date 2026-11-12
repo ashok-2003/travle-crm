@@ -4,6 +4,10 @@
 // the lead for anyone who sees it, and whoever may work the lead confirms or cancels one. The plan's AI module is checked
 // on every call.
 import {
+  agencyAnswers,
+  agentBasics,
+  saveAgencyAnswersInput,
+  saveAgentBasicsInput,
   decideLeadAiFieldsInput,
   leadAiFields,
   leadAiFieldsInput,
@@ -51,6 +55,10 @@ import {
   writeUpInput,
 } from "@travel-crm/contracts/ai";
 import {
+  agencyAnswersOf,
+  agentBasicsOf,
+  saveAgencyAnswers,
+  saveAgentBasics,
   decideSuggestions,
   suggestedFieldsOf,
   addKnowledge,
@@ -327,6 +335,34 @@ export const aiRouter = router({
       const today = await agencyToday(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input, today));
     }),
+
+  /** The agency's answers to the fixed questions the AI agent quotes. */
+  agencyAnswers: freshProcedure
+    .requires("ai:manage")
+    .output(agencyAnswers)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => agencyAnswersOf(tx))),
+
+  saveAgencyAnswers: freshProcedure
+    .requires("ai:manage")
+    .input(saveAgencyAnswersInput)
+    .output(agencyAnswers)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAgencyAnswers(tx, ctx.member, input)),
+    ),
+
+  /** The agent's name and tone. */
+  agentBasics: freshProcedure
+    .requires("ai:manage")
+    .output(agentBasics)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => agentBasicsOf(tx))),
+
+  saveAgentBasics: freshProcedure
+    .requires("ai:manage")
+    .input(saveAgentBasicsInput)
+    .output(agentBasics)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAgentBasics(tx, ctx.member, input)),
+    ),
 
   /** The autopilot's last day at a glance. */
   overview: freshProcedure

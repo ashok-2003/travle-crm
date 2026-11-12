@@ -159,6 +159,8 @@ model AiAutopilot {
   strictRules      String       @default("") @map("strict_rules")
   /// It adds follow-ups to leads from its chats, and writes to each lead whose follow-up comes due, inside the window.
   followUpTasks    Boolean      @default(true) @map("follow_up_tasks")
+  /// The agency's answers to the fixed questions, by topic ({ "cancellation": "…" }); facts the owner typed.
+  answers          Json         @default("{}")
   updatedBy        String?      @map("updated_by") @db.Uuid
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)

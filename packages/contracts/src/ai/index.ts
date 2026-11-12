@@ -15,3 +15,4 @@ export * from "./package-drafts.js";
 export * from "./grounded.js";
 export * from "./reply-words.js";
 export * from "./agent-cases.js";
+export * from "./agent-setup.js";

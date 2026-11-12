@@ -1,0 +1,12 @@
+{
+  "answers": {
+    "questions": {
+      "cancellation": "What is your cancellation policy?",
+      "refunds": "How and when do you refund?",
+      "id_documents": "Which ID documents must travellers carry?",
+      "safety": "How do you keep travellers safe?",
+      "children": "Can children come, and from what age?",
+      "payment_methods": "Which ways can customers pay?"
+    }
+  }
+}
