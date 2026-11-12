@@ -178,6 +178,7 @@ describe("checkedForm", () => {
     };
     expect(run("kedarkantha trek")).toBeNull();
     expect(run("yes that one")).not.toBeNull();
+    expect(run("haan pehla wala")).not.toBeNull();
   });
 
   it("a word two packages share names neither", () => {

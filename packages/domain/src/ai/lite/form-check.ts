@@ -23,7 +23,7 @@ const GENERIC_WORDS = new Set(
 );
 /** Everyday chat words that point at a trip we just offered without naming one ("yes that one", "the first one"). */
 const POINTING_WORDS = new Set(
-  "that this these those first second third last same other one ones okay sure yeah please want wants book booking thanks thank interested send share details tell more".split(
+  "that this these those first second third last same other one ones okay sure yeah please want wants book booking thanks thank interested send share details tell more haan han haa ji wala wali vala vali wale pehla pehli pehle dusra dusri doosra teesra yahi wahi vahi isi usi ye yeh yah woh wo vo isko usko iska uska karo kardo kar do chahiye lena bhai sir ok okk theek thik accha acha".split(
     " ",
   ),
 );
