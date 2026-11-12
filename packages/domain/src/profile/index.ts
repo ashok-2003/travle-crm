@@ -9,6 +9,7 @@ export { createProfiles, type Profiles } from "./profiles.js";
 export { setupChecklistOf, type SetupFacts } from "./setup-checklist.js";
 export {
   agencyPaymentDetailsOf,
+  agencyPaymentQrRecord,
   paymentDetailsReady,
   paymentLinesOf,
   savePaymentDetails,

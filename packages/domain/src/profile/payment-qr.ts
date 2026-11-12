@@ -5,7 +5,7 @@ import type { Database } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
-import { agencyPaymentDetailsOf, paymentDetailsReady, paymentQrRecord } from "./payment-details.js";
+import { agencyPaymentDetailsOf, paymentDetailsReady, agencyPaymentQrRecord } from "./payment-details.js";
 
 export interface PaymentQrDependencies {
   db: Pick<Database, "forOrg">;
@@ -18,7 +18,7 @@ export async function readPaymentDetails(
   access: MemberAccess,
 ): Promise<PaymentDetails> {
   const details = await db.forOrg(access.organizationId, (tx) => agencyPaymentDetailsOf(tx, access.organizationId));
-  const record = paymentQrRecord(access.organizationId);
+  const record = agencyPaymentQrRecord(access.organizationId);
   const newest = (await files.list(access, record)).at(-1);
   const qr = newest
     ? {
@@ -61,7 +61,7 @@ export async function confirmPaymentQr(
   access: MemberAccess,
   attachmentId: string,
 ): Promise<void> {
-  const record = paymentQrRecord(access.organizationId);
+  const record = agencyPaymentQrRecord(access.organizationId);
   await dependencies.files.confirmUpload(access, { ...record, attachmentId });
   let previous: string | undefined;
   for (const old of await dependencies.files.list(access, record)) {
@@ -80,6 +80,6 @@ export async function removePaymentQr(
   access: MemberAccess,
   attachmentId: string,
 ): Promise<void> {
-  await dependencies.files.remove(access, { ...paymentQrRecord(access.organizationId), attachmentId });
+  await dependencies.files.remove(access, { ...agencyPaymentQrRecord(access.organizationId), attachmentId });
   await auditQr(dependencies, access, { before: { qrAttachmentId: attachmentId } });
 }

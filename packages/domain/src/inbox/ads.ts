@@ -21,7 +21,10 @@ function keyOf(referral: NonNullable<ParsedMessage["referral"]>): string | null 
 const webLink = (value: string | null): string | null =>
   value !== null && /^https?:\/\//i.test(value) && value.length <= URL_LIMIT ? value : null;
 
-/** Notes the ad (one row per ad, bumping when it was last seen) and sets it on the chat unless the chat already has one. */
+/**
+ * Notes the ad (one row per ad, bumping when it was last seen). The chat keeps its first ad (what the ads list counts)
+ * and its latest, which is what the AI agent opens with.
+ */
 export async function noteAdOf(
   tx: OrgTx,
   conversationId: string,
@@ -46,6 +49,7 @@ export async function noteAdOf(
   const ad = await tx.whatsappAd.findFirst({ where: { adKey }, select: { id: true } });
   if (ad === null) return;
   await tx.whatsappConversation.updateMany({ where: { id: conversationId, adId: null }, data: { adId: ad.id } });
+  await tx.whatsappConversation.updateMany({ where: { id: conversationId }, data: { lastAdId: ad.id } });
 }
 
 /** The agency's ads, the latest first, with how many chats each brought. */
@@ -105,13 +109,13 @@ export async function linkAd(
   });
 }
 
-/** The package the chat's ad promotes, or null: what the AI agent opens with. */
+/** The package the chat's latest ad promotes, or null: what the AI agent opens with. */
 export async function adPackageOf(tx: OrgTx, conversationId: string): Promise<string | null> {
   const chat = await tx.whatsappConversation.findFirst({
     where: { id: conversationId },
-    select: { ad: { select: { packageId: true } } },
+    select: { lastAd: { select: { packageId: true } } },
   });
-  const packageId = chat?.ad?.packageId ?? null;
+  const packageId = chat?.lastAd?.packageId ?? null;
   if (packageId === null) return null;
   const live = await tx.quoteTemplate.findFirst({ where: { id: packageId }, select: { id: true } });
   return live === null ? null : packageId;

@@ -345,6 +345,32 @@ describe("a package the AI may sell", () => {
     expect(await idsOfSellable()).not.toContain(ready);
   });
 
+  it("sellablePackages reads the agency's payment details once, however many packages are switched on", async () => {
+    for (let count = 0; count < 3; count += 1) {
+      const id = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
+      await sell(id, true);
+    }
+    const reads = await world.inOrg(async (tx) => {
+      let profileReads = 0;
+      const profile = tx.organizationProfile;
+      const counting = new Proxy(profile, {
+        get(target, name, receiver) {
+          if (name === "findUnique") profileReads += 1;
+          return Reflect.get(target, name, receiver) as unknown;
+        },
+      });
+      const watched = new Proxy(tx, {
+        get(target, name, receiver) {
+          return name === "organizationProfile" ? counting : (Reflect.get(target, name, receiver) as unknown);
+        },
+      });
+      const offered = await sellablePackages(watched, world.organizationId, today);
+      expect(offered.length).toBeGreaterThanOrEqual(3);
+      return profileReads;
+    });
+    expect(reads).toBe(1);
+  });
+
   it("turning selling off always works, and both are audited", async () => {
     const id = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
     await sell(id, true);

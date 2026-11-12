@@ -104,6 +104,58 @@ describe("ads that bring chats", () => {
     expect(await test.db.forOrg(connection.organizationId, (tx) => adPackageOf(tx, chat.id))).toBeNull();
   });
 
+  it("answers with the package of the chat's latest ad, while the first ad stays the chat's ad", async () => {
+    const connection = await aConnectedAgency(test);
+    const phone = await write(connection, { referral });
+    const first = await chatOf(connection.organizationId, phone);
+    await deliver(test, {
+      ...fromCustomer(connection, { customerNumber: phone.replace("+", ""), text: "Another one" }),
+      referral: { source_id: "999", headline: "Spiti ad" },
+    });
+    const second = await chatOf(connection.organizationId, phone);
+    expect(second.adId).toBe(first.adId);
+    expect(second.lastAdId).not.toBe(first.adId);
+    const goa = await aPackage(connection.organizationId, "Goa");
+    const spiti = await aPackage(connection.organizationId, "Spiti");
+    const member = memberOf(connection.organizationId, "org-admin");
+    await test.db.forOrg(connection.organizationId, async (tx) => {
+      await linkAd(tx, member, { adId: first.adId ?? "", packageId: goa });
+      await linkAd(tx, member, { adId: second.lastAdId ?? "", packageId: spiti });
+    });
+    expect(await test.db.forOrg(connection.organizationId, (tx) => adPackageOf(tx, first.id))).toBe(spiti);
+    // The ads list still counts the chat under its first ad.
+    const counts = await test.db.forOrg(connection.organizationId, (tx) => adsOf(tx));
+    expect(counts.find((ad) => ad.id === first.adId)?.chats).toBe(1);
+  });
+
+  it("answers null when the linked package has been deleted", async () => {
+    const connection = await aConnectedAgency(test);
+    const phone = await write(connection, { referral });
+    const chat = await chatOf(connection.organizationId, phone);
+    const packageId = await aPackage(connection.organizationId);
+    const member = memberOf(connection.organizationId, "org-admin");
+    await test.db.forOrg(connection.organizationId, (tx) => linkAd(tx, member, { adId: chat.adId ?? "", packageId }));
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.quoteTemplate.update({ where: { id: packageId }, data: softDeleted(member.userId) }),
+    );
+    expect(await test.db.forOrg(connection.organizationId, (tx) => adPackageOf(tx, chat.id))).toBeNull();
+  });
+
+  it("keeps only a web link as the ad's source URL", async () => {
+    const connection = await aConnectedAgency(test);
+    await write(connection, { referral: { source_id: "js-1", headline: "x", source_url: "javascript:alert(1)" } });
+    const [ad] = await test.db.forOrg(connection.organizationId, (tx) => tx.whatsappAd.findMany());
+    expect(ad?.sourceUrl).toBeNull();
+  });
+
+  it("keys a 400-character source id to its first 300 without losing the message", async () => {
+    const connection = await aConnectedAgency(test);
+    const phone = await write(connection, { referral: { source_id: "s".repeat(400), headline: "Long" } });
+    const [ad] = await test.db.forOrg(connection.organizationId, (tx) => tx.whatsappAd.findMany());
+    expect(ad?.adKey).toBe("s".repeat(300));
+    expect((await chatOf(connection.organizationId, phone)).adId).toBe(ad?.id);
+  });
+
   it("offers the agency's live packages by name, not a deleted one or another agency's", async () => {
     const connection = await aConnectedAgency(test);
     const other = await aConnectedAgency(test);

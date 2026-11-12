@@ -106,6 +106,16 @@ export async function packageSellGaps(
   packageId: string,
   today: CalendarDate,
 ): Promise<SellGap[]> {
+  return sellGapsOf(tx, packageId, today, paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId)));
+}
+
+// The agency's payment readiness is the same for every package, so a caller with many reads it once and passes it in.
+async function sellGapsOf(
+  tx: OrgTx,
+  packageId: string,
+  today: CalendarDate,
+  paymentReady: boolean,
+): Promise<SellGap[]> {
   const row = await findPackage(tx, packageId);
   if (row.kind !== "group") return row.fromPricePaise === null ? ["from_price"] : [];
   const gaps: SellGap[] = [];
@@ -122,7 +132,7 @@ export async function packageSellGaps(
   if (row.advancePerPersonPaise === null || row.advancePerPersonPaise <= 0n) gaps.push("advance");
   if (departures.length === 0) gaps.push("departures");
   // The agent asks the customer to pay the advance, so it needs somewhere to say where.
-  if (!paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId))) gaps.push("payment_details");
+  if (!paymentReady) gaps.push("payment_details");
   return gaps;
 }
 
@@ -140,11 +150,31 @@ export async function sellablePackages(
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: { id: true, kind: true },
   });
+  if (switchedOn.length === 0) return [];
+  const paymentReady = paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId));
   const ready: { id: string; kind: string }[] = [];
   for (const one of switchedOn) {
-    if ((await packageSellGaps(tx, organizationId, one.id, today)).length === 0) ready.push(one);
+    if ((await sellGapsOf(tx, one.id, today, paymentReady)).length === 0) ready.push(one);
   }
   return ready;
+}
+
+/**
+ * How many group packages are switched on and would be sellable but for the agency's missing payment details: what the
+ * setup checklist's "packages" line needs to say "add payment details" instead of "mark a package". 0 once they exist.
+ */
+export async function packagesAwaitingPayment(tx: OrgTx, organizationId: string, today: CalendarDate): Promise<number> {
+  if (paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId))) return 0;
+  const switchedOn = await tx.quoteTemplate.findMany({
+    where: { aiSellable: true, kind: "group" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  let waiting = 0;
+  for (const one of switchedOn) {
+    if ((await sellGapsOf(tx, one.id, today, true)).length === 0) waiting += 1;
+  }
+  return waiting;
 }
 
 /** Lets the AI sell the package, or stops it. Turning on needs nothing missing; turning off always works. */

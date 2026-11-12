@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFiles, type Files } from "../../src/files/index.js";
 import {
   agencyPaymentDetailsOf,
+  agencyPaymentQrRecord,
   confirmPaymentQr,
   paymentDetailsReady,
   paymentLinesOf,
@@ -47,7 +48,7 @@ describe("whether the agent can take an advance", () => {
 });
 
 describe("the lines the agent sends after the advance", () => {
-  it("lists only the filled fields, in the order UPI, bank, account name, account number, IFSC", () => {
+  it("lists the UPI ID, then the bank lines in the order bank, account name, account number, IFSC", () => {
     expect(paymentLinesOf({ ...none, ...fullBank, upiId: "trails@okbank" })).toEqual([
       "UPI: trails@okbank",
       "Bank: Federal Bank",
@@ -55,11 +56,18 @@ describe("the lines the agent sends after the advance", () => {
       "Account number: 123456789012",
       "IFSC: FDRL0001234",
     ]);
-    expect(paymentLinesOf({ ...none, ifsc: "FDRL0001234", upiId: "trails@okbank" })).toEqual([
-      "UPI: trails@okbank",
-      "IFSC: FDRL0001234",
-    ]);
     expect(paymentLinesOf(none)).toEqual([]);
+  });
+
+  it("prints the bank lines only as a whole set, and the UPI line whenever a UPI ID is set", () => {
+    expect(paymentLinesOf({ ...none, ifsc: "FDRL0001234", upiId: "trails@okbank" })).toEqual(["UPI: trails@okbank"]);
+    expect(paymentLinesOf({ ...none, ...fullBank, ifsc: null })).toEqual([]);
+    expect(paymentLinesOf({ ...none, bankName: "Federal Bank" })).toEqual([]);
+    expect(paymentLinesOf({ ...none, ...fullBank })).toHaveLength(4);
+  });
+
+  it("names the QR's record by the organization, for sending the picture", () => {
+    expect(agencyPaymentQrRecord("org-1")).toEqual({ recordType: AGENCY_PAYMENT_QR_RECORD_TYPE, recordId: "org-1" });
   });
 });
 
@@ -96,6 +104,17 @@ describe("an agency's payment details", () => {
 
   const save = (input: Parameters<typeof savePaymentDetails>[2]) =>
     world.inOrg((tx) => savePaymentDetails(tx, world.manager, input));
+
+  it("refuses a UPI ID the contract would refuse, even written around it", async () => {
+    await expect(
+      world.inOrg((tx) =>
+        tx.organizationProfile.update({
+          where: { organizationId: world.organizationId },
+          data: { upiId: "no-at-sign" },
+        }),
+      ),
+    ).rejects.toThrow(/organization_profile_upi_id_format/);
+  });
 
   it("writes the profile's columns and audits the names of the fields that changed, never their values", async () => {
     await save({ upiId: "trails@okbank", ...fullBank });

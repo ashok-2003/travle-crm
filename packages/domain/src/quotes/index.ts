@@ -27,6 +27,7 @@ export {
   publishGaps,
   removeTier,
   saveTier,
+  packagesAwaitingPayment,
   sellablePackages,
   setPackagePaymentDetails,
   setPackagePublished,

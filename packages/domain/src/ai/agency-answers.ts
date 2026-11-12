@@ -2,6 +2,7 @@
 // autopilot row. Changes are audited by topic and length, never the words typed in.
 import {
   agencyAnswers,
+  agentBasics,
   saveAgencyAnswersInput,
   saveAgentBasicsInput,
   agencyQuestionTopics,
@@ -62,7 +63,7 @@ export async function saveAgencyAnswers(
 
 export async function agentBasicsOf(tx: OrgTx): Promise<AgentBasics> {
   const row = await tx.aiAutopilot.findFirst({ select: { agentName: true, tone: true } });
-  return row === null ? { agentName: "", tone: "friendly" } : (row as AgentBasics);
+  return row === null ? { agentName: "", tone: "friendly" } : agentBasics.parse(row);
 }
 
 /** Writes the name and tone alone: every other autopilot column stays as it was (a new agency gets the column defaults). */

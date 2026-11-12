@@ -109,6 +109,34 @@ describe("the AI agent's setup", () => {
     expect(await on.step("packages")).toMatchObject({ done: true, count: 1 });
   });
 
+  it("packages counts group packages only: a custom one the AI may quote does not make the agent ready", async () => {
+    const on = await agency();
+    await paymentDetails(on);
+    await on.inOrg((tx) =>
+      tx.quoteTemplate.create({
+        data: {
+          name: `Custom ${randomUUID()}`,
+          title: "Custom",
+          kind: "custom",
+          aiSellable: true,
+          fromPricePaise: 10_000_00n,
+        },
+      }),
+    );
+    expect(await on.step("packages")).toMatchObject({ done: false, count: 0, total: 0 });
+  });
+
+  it("packages says how many are held back only by the missing payment details", async () => {
+    const on = await agency();
+    await aSellablePackage(on);
+    await on.inOrg((tx) =>
+      tx.organizationProfile.update({ where: { organizationId: on.organizationId }, data: { upiId: null } }),
+    );
+    expect(await on.step("packages")).toMatchObject({ done: false, count: 0, total: 1 });
+    await paymentDetails(on);
+    expect(await on.step("packages")).toMatchObject({ done: true, count: 1, total: 0 });
+  });
+
   it("payment is done when the agency has somewhere to be paid", async () => {
     const on = await agency();
     expect((await on.step("payment"))?.done).toBe(false);
@@ -188,11 +216,11 @@ describe("the AI agent's setup", () => {
       on: World,
       connectionId: string,
       handed: Date | null,
-      extra: { personId?: string; state?: string } = {},
+      extra: { personId?: string; state?: string; needsReply?: boolean } = {},
     ) {
       return on.inOrg(async (tx) => {
         const chat = await tx.whatsappConversation.create({
-          data: { connectionId, phoneE164: freshPhone(), profileName: "Profile name", ...extra },
+          data: { connectionId, phoneE164: freshPhone(), profileName: "Profile name", needsReply: true, ...extra },
           select: { id: true },
         });
         await tx.aiChat.create({
@@ -218,6 +246,15 @@ describe("the AI agent's setup", () => {
       expect(list.map((chat) => chat.conversationId)).toEqual([newer, older]);
       expect(list.map((chat) => chat.name)).toEqual(["Profile name", "Rahul Sharma"]);
       expect(list[0]).toMatchObject({ reason: "Wants a discount", since: "2026-11-02T10:00:00.000Z" });
+    });
+
+    it("leaves out a hand-over the team has since replied to", async () => {
+      const on = await agency();
+      const connectionId = await on.inOrg(async (tx) => (await tx.whatsappConnection.findFirstOrThrow()).id);
+      const waiting = await aChat(on, connectionId, new Date("2026-11-01T10:00:00Z"));
+      await aChat(on, connectionId, new Date("2026-11-02T10:00:00Z"), { needsReply: false });
+      const list = await on.inOrg((tx) => handedOverChatsOf(tx, on.owner));
+      expect(list.map((chat) => chat.conversationId)).toEqual([waiting]);
     });
 
     it("shows a member with their own scope only the chats of people whose leads they own", async () => {

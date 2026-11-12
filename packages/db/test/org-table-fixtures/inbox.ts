@@ -54,6 +54,8 @@ export const fixtures: OrgTableFixtures = {
           lastSeenAt: new Date(),
         },
       }),
+    // The runtime role may update an ad's headline, link, package and last-seen time, never its organization.
+    updatableColumn: "headline",
     undeletable: true,
   },
   whatsapp_message: {

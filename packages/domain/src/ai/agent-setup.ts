@@ -7,7 +7,7 @@ import type { MemberAccess } from "../identity/index.js";
 import { adsOf, chatNameOf, inboxStatusOf, visibleConversations } from "../inbox/index.js";
 import { DomainError, type CalendarDate } from "../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady } from "../profile/index.js";
-import { sellablePackages } from "../quotes/index.js";
+import { packagesAwaitingPayment, sellablePackages } from "../quotes/index.js";
 import { agentPauseOf } from "../subscriptions/index.js";
 import { agencyAnswersOf, agentBasicsOf } from "./agency-answers.js";
 import { autopilotOf } from "./autopilot.js";
@@ -18,7 +18,9 @@ export async function agentSetupOf(tx: OrgTx, organizationId: string, today: Cal
   // One step at a time: a transaction runs one query at once.
   // The page shows the agency's own connection, whatever this server has configured.
   const status = await inboxStatusOf(tx, true);
-  const packages = await sellablePackages(tx, organizationId, today);
+  // The lite agent books group departures only: a custom package the AI may quote does not make the agent ready.
+  const packages = (await sellablePackages(tx, organizationId, today)).filter((one) => one.kind === "group");
+  const awaitingPayment = await packagesAwaitingPayment(tx, organizationId, today);
   const payment = await agencyPaymentDetailsOf(tx, organizationId);
   const answers = await agencyAnswersOf(tx);
   const basics = await agentBasicsOf(tx);
@@ -29,7 +31,8 @@ export async function agentSetupOf(tx: OrgTx, organizationId: string, today: Cal
   const linked = ads.filter((ad) => ad.packageId !== null).length;
   const steps: AgentSetup["steps"] = [
     { key: "whatsapp", done: status.connected, optional: false, count: null, total: null },
-    { key: "packages", done: packages.length > 0, optional: false, count: packages.length, total: null },
+    // "total" here is the switched-on packages held back only by the missing payment details (the line says so).
+    { key: "packages", done: packages.length > 0, optional: false, count: packages.length, total: awaitingPayment },
     { key: "payment", done: paymentDetailsReady(payment), optional: false, count: null, total: null },
     {
       key: "answers",
@@ -82,7 +85,8 @@ export async function handedOverChatsOf(tx: OrgTx, access: MemberAccess): Promis
   const rows = await tx.aiChat.findMany({
     where: {
       handedOffAt: { not: null },
-      conversation: { AND: [{ state: "open", hidden: false }, visibleConversations(access)] },
+      // A hand-over the team has since answered is no longer waiting on anyone (replying clears needsReply).
+      conversation: { AND: [{ state: "open", hidden: false, needsReply: true }, visibleConversations(access)] },
     },
     orderBy: [{ handedOffAt: "desc" }, { id: "desc" }],
     take: HANDED_OVER_SHOWN,

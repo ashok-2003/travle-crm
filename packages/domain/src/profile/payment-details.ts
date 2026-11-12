@@ -19,7 +19,7 @@ export interface AgencyPaymentDetails {
 }
 
 /** The record the agency's payment QRs are attached to: the organization itself. */
-export const paymentQrRecord = (organizationId: string) => ({
+export const agencyPaymentQrRecord = (organizationId: string) => ({
   recordType: AGENCY_PAYMENT_QR_RECORD_TYPE,
   recordId: organizationId,
 });
@@ -31,7 +31,7 @@ export async function agencyPaymentDetailsOf(tx: OrgTx, organizationId: string):
       where: { organizationId },
       select: { upiId: true, bankName: true, bankAccountName: true, bankAccountNumber: true, bankIfsc: true },
     }),
-    readyAttachmentsIn(tx, paymentQrRecord(organizationId)),
+    readyAttachmentsIn(tx, agencyPaymentQrRecord(organizationId)),
   ]);
   return {
     upiId: profile?.upiId ?? null,
@@ -46,22 +46,27 @@ export async function agencyPaymentDetailsOf(tx: OrgTx, organizationId: string):
 
 /** Somewhere to send an advance: a UPI ID, a QR, or the whole bank account (a bank name alone, or no IFSC, is not). */
 export function paymentDetailsReady(details: AgencyPaymentDetails): boolean {
-  const wholeBank = [details.bankName, details.accountName, details.accountNumber, details.ifsc].every(
-    (value) => value !== null,
-  );
-  return details.upiId !== null || details.qrAttachmentId !== null || wholeBank;
+  return details.upiId !== null || details.qrAttachmentId !== null || hasWholeBank(details);
 }
 
-/** The lines the agent sends after "Advance to book: ₹…": only filled fields, in this order. */
+function hasWholeBank(details: AgencyPaymentDetails): boolean {
+  return [details.bankName, details.accountName, details.accountNumber, details.ifsc].every((value) => value !== null);
+}
+
+/** The lines the agent sends after "Advance to book: ₹…": the UPI ID, and the bank account only as a whole set. */
 export function paymentLinesOf(details: AgencyPaymentDetails): string[] {
-  const lines: [string, string | null][] = [
-    ["UPI", details.upiId],
-    ["Bank", details.bankName],
-    ["Account name", details.accountName],
-    ["Account number", details.accountNumber],
-    ["IFSC", details.ifsc],
-  ];
-  return lines.flatMap(([label, value]) => (value === null ? [] : [`${label}: ${value}`]));
+  const lines: string[] = details.upiId === null ? [] : [`UPI: ${details.upiId}`];
+  // A bank name or an account number alone cannot be paid to.
+  const { bankName, accountName, accountNumber, ifsc } = details;
+  if (bankName !== null && accountName !== null && accountNumber !== null && ifsc !== null) {
+    lines.push(
+      `Bank: ${bankName}`,
+      `Account name: ${accountName}`,
+      `Account number: ${accountNumber}`,
+      `IFSC: ${ifsc}`,
+    );
+  }
+  return lines;
 }
 
 const fields = ["upiId", "bankName", "accountName", "accountNumber", "ifsc"] as const;
