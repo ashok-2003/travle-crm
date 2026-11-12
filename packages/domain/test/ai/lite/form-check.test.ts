@@ -164,6 +164,38 @@ describe("checkedForm", () => {
     expect(checked.form.details.package).toBeNull();
   });
 
+  it("our last message names a trip only when the customer's words name none", () => {
+    const trek: PackageIndexEntry = { ...index[0], title: "Kedarnath Trek" } as PackageIndexEntry;
+    const run = (text: string) => {
+      const messages = [line("1", "you", "Shall I tell you about Kedarnath Trek?"), line("2", "customer", text)];
+      return checkedForm(
+        formWith({ package: { name: "Kedarnath Trek", proof: text, changed: false } }),
+        messages,
+        messages,
+        [trek],
+        today,
+      ).form.details.package;
+    };
+    expect(run("kedarkantha trek")).toBeNull();
+    expect(run("yes that one")).not.toBeNull();
+  });
+
+  it("a word two packages share names neither", () => {
+    const pair: PackageIndexEntry[] = [
+      { ...index[0], id: P1, title: "Himalayan Kedarnath", place: null } as PackageIndexEntry,
+      { ...index[0], id: P2, title: "Himalayan Spiti", place: null } as PackageIndexEntry,
+    ];
+    const messages = [line("1", "customer", "the himalayan one")];
+    const checked = checkedForm(
+      formWith({ package: { name: "Himalayan Spiti", proof: "the himalayan one", changed: false } }),
+      messages,
+      messages,
+      pair,
+      today,
+    );
+    expect(checked.form.details.package).toBeNull();
+  });
+
   it("our own line in the burst never backs an intent", () => {
     const messages = [line("1", "customer", "hi"), line("2", "you", "shall I book it for you")];
     const checked = check(

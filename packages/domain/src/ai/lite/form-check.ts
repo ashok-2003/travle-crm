@@ -21,7 +21,18 @@ const GENERIC_WORDS = new Set(
     " ",
   ),
 );
+/** Everyday chat words that point at a trip we just offered without naming one ("yes that one", "the first one"). */
+const POINTING_WORDS = new Set(
+  "that this these those first second third last same other one ones okay sure yeah please want wants book booking thanks thank interested send share details tell more".split(
+    " ",
+  ),
+);
 const letters = (word: string) => Array.from(word).length;
+
+/** Whether the proof names something itself: a 4+ letter word that is neither generic nor a pointing word. */
+function namesSomething(proof: string): boolean {
+  return wordsOf(proof).some((word) => letters(word) >= 4 && !GENERIC_WORDS.has(word) && !POINTING_WORDS.has(word));
+}
 
 /** Whether the proof holds a word that only this package's title or place has (4+ letters, not a generic travel word). */
 function namesThisTrip(proof: string, entry: PackageIndexEntry, index: PackageIndexEntry[]): boolean {
@@ -86,7 +97,9 @@ export function checkedForm(
   if (pack) {
     const named =
       entry !== undefined &&
-      (namesThisTrip(pack.proof, entry, index) || ourLast.some((line) => containsWords(line.text, entry.title)));
+      (namesThisTrip(pack.proof, entry, index) ||
+        // Our last lines may stand in only for a reply that names no trip itself.
+        (!namesSomething(pack.proof) && ourLast.some((line) => containsWords(line.text, entry.title))));
     const ids = backed("package", pack.proof, named);
     if (ids === null) pack = null;
     else remember("destination", pack.proof, ids);
