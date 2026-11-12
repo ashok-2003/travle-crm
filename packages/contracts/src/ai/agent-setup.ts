@@ -45,6 +45,11 @@ export const whatsappAd = z.object({
   lastSeenAt: z.iso.datetime(),
 });
 export const whatsappAdList = z.array(whatsappAd);
+/** The ads, and the packages an ad may be linked to, so choosing needs nothing but managing the AI. */
+export const whatsappAds = z.object({
+  ads: whatsappAdList,
+  packages: z.array(z.object({ id: z.uuid(), name: z.string() })),
+});
 export type WhatsappAd = z.infer<typeof whatsappAd>;
 
 export const linkAdInput = z.strictObject({ adId: z.uuid(), packageId: z.uuid().nullable() });

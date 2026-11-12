@@ -72,6 +72,11 @@ export async function adsOf(tx: OrgTx): Promise<
   return ads.map((ad) => ({ ...ad, chats: chats.get(ad.id) ?? 0 }));
 }
 
+/** The packages an ad may promote (the agency's live ones of any kind, as linkAd accepts), by name. */
+export async function adPackageChoicesOf(tx: OrgTx): Promise<{ id: string; name: string }[]> {
+  return tx.quoteTemplate.findMany({ orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true } });
+}
+
 /** Links an ad to one of the agency's packages (any kind), or unlinks it. */
 export async function linkAd(
   tx: OrgTx,

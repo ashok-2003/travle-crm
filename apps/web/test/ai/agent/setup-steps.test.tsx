@@ -7,7 +7,7 @@ import { messages } from "@/i18n/messages";
 import { address } from "../../leads/navigation";
 import { newQueryClient, renderWithApi } from "../../organization/api";
 import { screenIs } from "../../organization/render";
-import { recordingApi, type Answer } from "./setup-api";
+import { heldAnswer, recordingApi, type Answer } from "./setup-api";
 
 vi.mock("next/navigation", () => import("../../leads/navigation"));
 const uploaded = vi.hoisted(() => vi.fn());
@@ -199,7 +199,7 @@ describe("the answers, name and tone, and ads editors", () => {
   });
 
   it("says when no chat has come from an ad", async () => {
-    const { edit } = open(t.steps.ads.title, { "ai.ads": { data: [] }, "quotes.packages": { data: [] } });
+    const { edit } = open(t.steps.ads.title, { "ai.ads": { data: { ads: [], packages: [] } } });
     await edit();
     expect(await screen.findAllByText(t.ads.none)).not.toHaveLength(0);
   });
@@ -214,8 +214,7 @@ describe("the answers, name and tone, and ads editors", () => {
       lastSeenAt: "2026-11-10T05:00:00.000Z",
     };
     const { api, edit } = open(t.steps.ads.title, {
-      "ai.ads": { data: [ad] },
-      "quotes.packages": { data: [{ id: packageId, name: "Spiti 6 days" }] },
+      "ai.ads": { data: { ads: [ad], packages: [{ id: packageId, name: "Spiti 6 days" }] } },
       "ai.linkAd": { data: null },
     });
     await edit();
@@ -224,5 +223,37 @@ describe("the answers, name and tone, and ads editors", () => {
     await waitFor(() => {
       expect(api.sent("ai.linkAd")).toEqual([{ adId, packageId }]);
     });
+    expect(api.calls.map((call) => call.path)).not.toContain("quotes.packages");
+  });
+
+  it("shows a linked ad's package by name, and a deleted one in words", async () => {
+    const ad = {
+      id: adId,
+      headline: "Spiti",
+      sourceUrl: null,
+      packageId,
+      chats: 1,
+      lastSeenAt: "2026-11-10T05:00:00.000Z",
+    };
+    const gone = {
+      ...ad,
+      id: "0199a000-0000-7000-8000-0000000000a2",
+      headline: "Old",
+      packageId: "0199a000-0000-7000-8000-0000000000b9",
+    };
+    const { edit } = open(t.steps.ads.title, {
+      "ai.ads": { data: { ads: [ad, gone], packages: [{ id: packageId, name: "Spiti 6 days" }] } },
+    });
+    await edit();
+    expect(await screen.findByRole("combobox", { name: /Spiti/ })).toHaveTextContent("Spiti 6 days");
+    expect(screen.getByRole("combobox", { name: /Old/ })).toHaveTextContent(t.ads.deletedPackage);
+  });
+
+  it("offers no select while the ads load", async () => {
+    const held = heldAnswer();
+    const { edit } = open(t.steps.ads.title, { "ai.ads": held.answer });
+    await edit();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    held.release();
   });
 });

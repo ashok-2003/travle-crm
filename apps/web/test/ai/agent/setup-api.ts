@@ -3,7 +3,16 @@
 import { vi } from "vitest";
 import { wantsStream, wireResponse, type WireItem } from "../../support/trpc-wire";
 
-export type Answer = { data: unknown } | { status: number; reason: string };
+export type Answer = { data: unknown } | { status: number; reason: string } | { until: Promise<unknown>; then: Answer };
+
+/** An answer the test releases: `release()` sends `then`. */
+export function heldAnswer(then: Answer = { data: null }): { answer: Answer; release: () => void } {
+  let release: () => void = () => undefined;
+  const until = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { answer: { until, then }, release };
+}
 export interface Recorded {
   path: string;
   input: unknown;
@@ -18,9 +27,13 @@ export function recordingApi(answers: Record<string, Answer>) {
       const url = new URL(input instanceof Request ? input.url : String(input), "http://localhost");
       const paths = decodeURIComponent(url.pathname.slice("/api/trpc/".length)).split(",");
       const body = typeof init?.body === "string" ? (JSON.parse(init.body) as Record<string, unknown>) : {};
-      const items: WireItem[] = paths.map((path, index) => {
+      const respond = async (path: string, index: number): Promise<WireItem> => {
         calls.push({ path, input: body[String(index)] });
-        const answer = current.get(path) ?? { status: 404, reason: "NOT_FOUND" };
+        let answer = current.get(path) ?? { status: 404, reason: "NOT_FOUND" };
+        while ("until" in answer) {
+          await answer.until;
+          answer = answer.then;
+        }
         if ("data" in answer) return { result: { data: answer.data } };
         return {
           error: {
@@ -29,10 +42,12 @@ export function recordingApi(answers: Record<string, Answer>) {
             data: { code: "FORBIDDEN", httpStatus: answer.status, reason: answer.reason },
           },
         };
+      };
+      return Promise.all(paths.map(respond)).then((items) => {
+        const [only] = items;
+        const status = items.length === 1 && only && "error" in only ? only.error.data.httpStatus : 200;
+        return wireResponse(items, wantsStream(init, input), status);
       });
-      const [only] = items;
-      const status = items.length === 1 && only && "error" in only ? only.error.data.httpStatus : 200;
-      return Promise.resolve(wireResponse(items, wantsStream(init, input), status));
     }),
   );
   return {

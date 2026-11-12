@@ -151,11 +151,11 @@
     "ads": {
       "loading": "Loading your ads",
       "loadFailed": "Your ads didn't load.",
-      "packagesFailed": "Your packages didn't load.",
       "none": "No chats have come from an ad yet.",
       "noHeadline": "An ad without a headline",
       "noPackage": "No package",
-      "seen": "{count, plural, one {# chat} other {# chats}}, last seen {when}"
+      "seen": "{count, plural, one {# chat} other {# chats}}, last seen {when}",
+      "deletedPackage": "A deleted package"
     },
     "turnOn": {
       "title": "Turn the AI agent on",

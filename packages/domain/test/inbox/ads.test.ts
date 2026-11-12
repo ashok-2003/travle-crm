@@ -1,7 +1,8 @@
 // Ads that bring chats: noted on the chat while the first message is processed, one row per ad however many chats it brings,
 // linked by the agency to one of its own packages, which the chat then answers with.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { adPackageOf, adsOf, linkAd } from "../../src/inbox/index.js";
+import { softDeleted } from "@travel-crm/db";
+import { adPackageChoicesOf, adPackageOf, adsOf, linkAd } from "../../src/inbox/index.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
@@ -101,6 +102,26 @@ describe("ads that bring chats", () => {
       linkAd(tx, member, { adId: chat.adId ?? "", packageId: null }),
     );
     expect(await test.db.forOrg(connection.organizationId, (tx) => adPackageOf(tx, chat.id))).toBeNull();
+  });
+
+  it("offers the agency's live packages by name, not a deleted one or another agency's", async () => {
+    const connection = await aConnectedAgency(test);
+    const other = await aConnectedAgency(test);
+    const spiti = await aPackage(connection.organizationId, "Spiti");
+    const goa = await aPackage(connection.organizationId, "Goa");
+    const gone = await aPackage(connection.organizationId, "Old trip");
+    await aPackage(other.organizationId, "Elsewhere");
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.quoteTemplate.update({
+        where: { id: gone },
+        data: softDeleted(memberOf(connection.organizationId, "org-admin").userId),
+      }),
+    );
+    const choices = await test.db.forOrg(connection.organizationId, (tx) => adPackageChoicesOf(tx));
+    expect(choices).toEqual([
+      { id: goa, name: "Goa" },
+      { id: spiti, name: "Spiti" },
+    ]);
   });
 
   it("refuses another agency's package, and an ad that isn't the agency's", async () => {

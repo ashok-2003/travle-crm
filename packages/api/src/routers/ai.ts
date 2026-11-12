@@ -10,7 +10,7 @@ import {
   handedOverChatList,
   setAgentOnInput,
   linkAdInput,
-  whatsappAdList,
+  whatsappAds,
   saveAgencyAnswersInput,
   saveAgentBasicsInput,
   decideLeadAiFieldsInput,
@@ -106,7 +106,7 @@ import {
   updateKnowledge,
   writeUpQuote,
 } from "@travel-crm/domain/ai";
-import { adsOf, linkAd } from "@travel-crm/domain/inbox";
+import { adPackageChoicesOf, adsOf, linkAd } from "@travel-crm/domain/inbox";
 import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
@@ -348,10 +348,13 @@ export const aiRouter = router({
   /** The ads that brought chats, newest first, and the package each promotes. */
   ads: freshProcedure
     .requires("ai:manage")
-    .output(whatsappAdList)
+    .output(whatsappAds)
     .query(async ({ ctx }) => {
-      const ads = await ctx.db.forOrg(ctx.member.organizationId, (tx) => adsOf(tx));
-      return ads.map((ad) => ({ ...ad, lastSeenAt: ad.lastSeenAt.toISOString() }));
+      const { ads, packages } = await ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        ads: await adsOf(tx),
+        packages: await adPackageChoicesOf(tx),
+      }));
+      return { ads: ads.map((ad) => ({ ...ad, lastSeenAt: ad.lastSeenAt.toISOString() })), packages };
     }),
 
   linkAd: freshProcedure

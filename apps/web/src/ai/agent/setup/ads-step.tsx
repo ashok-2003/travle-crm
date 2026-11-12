@@ -10,7 +10,6 @@ import { LoadingRows } from "@/components/loading-rows";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { SelectField } from "@/components/forms/select-field";
 import { formatDay } from "@/lib/format";
-import { useQuotePackages } from "@/quotes/use-quotes";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
@@ -23,6 +22,13 @@ function AdRow({ ad, packages }: { ad: WhatsappAd; packages: { id: string; name:
   const { timeZone } = useMe().organization;
   const access = useWriteAccess("change");
   const link = useLinkAd();
+  // A package deleted since it was linked is no choice, but the ad still shows it, in words, until another is picked.
+  const deleted = ad.packageId !== null && !packages.some((one) => one.id === ad.packageId);
+  const options = [
+    { value: NO_PACKAGE, label: t("noPackage") },
+    ...(deleted && ad.packageId !== null ? [{ value: ad.packageId, label: t("deletedPackage") }] : []),
+    ...packages.map((one) => ({ value: one.id, label: one.name })),
+  ];
   const form = useForm({ defaultValues: { packageId: ad.packageId ?? NO_PACKAGE } });
   return (
     <div className="flex flex-col gap-2">
@@ -32,10 +38,7 @@ function AdRow({ ad, packages }: { ad: WhatsappAd; packages: { id: string; name:
         label={ad.headline ?? t("noHeadline")}
         hint={t("seen", { count: ad.chats, when: formatDay(new Date(ad.lastSeenAt), { timeZone }) })}
         disabled={!access.allowed || link.isPending}
-        options={[
-          { value: NO_PACKAGE, label: t("noPackage") },
-          ...packages.map((one) => ({ value: one.id, label: one.name })),
-        ]}
+        options={options}
         onChosen={(value) => {
           link.mutate(
             { adId: ad.id, packageId: value === NO_PACKAGE ? null : value },
@@ -58,7 +61,6 @@ export function AdsStepEditor() {
   const hintId = `${useId()}-write`;
   const access = useWriteAccess("change");
   const ads = useAds();
-  const packages = useQuotePackages();
   if (ads.data === undefined) {
     return ads.isError ? (
       <LoadFailedAlert message={t("loadFailed")} error={ads.error} onRetry={() => void ads.refetch()} />
@@ -66,14 +68,12 @@ export function AdsStepEditor() {
       <LoadingRows shape="twoLines" label={t("loading")} />
     );
   }
-  if (ads.data.length === 0) return <p className="text-muted-foreground">{t("none")}</p>;
+  const { ads: list, packages } = ads.data;
+  if (list.length === 0) return <p className="text-muted-foreground">{t("none")}</p>;
   return (
     <div className="flex flex-col gap-4">
-      {packages.isError && (
-        <LoadFailedAlert message={t("packagesFailed")} error={packages.error} onRetry={() => void packages.refetch()} />
-      )}
-      {ads.data.map((ad) => (
-        <AdRow key={ad.id} ad={ad} packages={packages.data ?? []} />
+      {list.map((ad) => (
+        <AdRow key={ad.id} ad={ad} packages={packages} />
       ))}
       <WriteHint id={hintId} hint={access.hint} visible />
     </div>
