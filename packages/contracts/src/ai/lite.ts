@@ -220,7 +220,7 @@ export const liteFacts = z.object({
     .nullable()
     .default(null),
   sentFileIds: z.array(recordId).default([]),
-  /** How many times each checklist item was asked, for the loop guard. */
+  /** The item our last message asked and how many times in a row, for the loop guard; empty when it asked nothing. */
   asked: z.array(z.object({ item: z.enum(checklistItems), times: z.int().min(1) })).default([]),
   nameSkipped: z.boolean().default(false),
   fullNameAsked: z.boolean().default(false),

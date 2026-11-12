@@ -82,7 +82,8 @@ export type Move =
   | { kind: "answer_package"; packageId: string; ask: ChecklistItem | null }
   | { kind: "answer_agency"; topic: AgencyQuestionTopic; ask: ChecklistItem | null }
   | { kind: "give_dates"; packageId: string; departureIds: string[]; ask: ChecklistItem | null }
-  | { kind: "give_price"; packageId: string; ask: ChecklistItem | null }
+  /** "from" while there is no total (no departure, party or room yet): code then says "from ₹…", never a room's price. */
+  | { kind: "give_price"; packageId: string; price: "from" | "full"; ask: ChecklistItem | null }
   | { kind: "ask_detail"; item: ChecklistItem; choices: string[] } // choices only on the loop guard's third ask
   | { kind: "confirm_place"; packageIds: string[] }
   | { kind: "show_other_trips"; packageIds: string[] }
