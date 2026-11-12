@@ -79,7 +79,7 @@ function QrPicker({ details }: { details: PaymentDetails }) {
         <p className="text-muted-foreground">{t("noQr")}</p>
       ) : (
         <div className="flex items-center justify-between gap-2">
-          <TextLink inline newTab href={qr.url}>
+          <TextLink newTab href={qr.url}>
             {qr.fileName}
           </TextLink>
           <Button

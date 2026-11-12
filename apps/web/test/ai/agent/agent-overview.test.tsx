@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 const paused = t.state.paused.replace("{product}", brand.productName);
-const stateWords = [t.state.on, t.state.off, t.state.notSetUp, paused];
+const stateWords = [t.state.on, t.state.onNotReady, t.state.off, t.state.notSetUp, paused];
 /** Exactly one state is shown, and no link to Setup unless it is Not set up yet. */
 function onlyState(shown: string, { setupLink }: { setupLink: boolean }) {
   expect(screen.getByText(shown)).toBeInTheDocument();
@@ -70,6 +70,7 @@ describe("the AI agent page's state", () => {
     ["Not set up yet, with a link to Setup, while it is off and not ready", {}, t.state.notSetUp, true],
     ["Off when it is ready but off", { ready: true }, t.state.off, false],
     ["On while it answers", { ready: true, on: true }, t.state.on, false],
+    ["On, but setup isn't finished, when it is on and no longer ready", { on: true }, t.state.onNotReady, false],
     ["Paused when it is on", { ready: true, on: true, pausedBySupport: true }, paused, false],
     ["Paused when it is off and ready", { ready: true, pausedBySupport: true }, paused, false],
     ["Paused when it is off and not ready, with no Setup link", { pausedBySupport: true }, paused, false],
@@ -89,6 +90,12 @@ describe("what needs you", () => {
     expect(link).toHaveAttribute("href", `/inbox/${conversationId}`);
     expect(screen.getByText("Asked for a discount")).toBeInTheDocument();
     expect(screen.queryByText(t.needsYou.nothing)).not.toBeInTheDocument();
+  });
+
+  it("shows a chat that has no name by its phone number, spaced the Indian way", async () => {
+    api({ "ai.handedOver": [{ ...handed[0], name: "+919876543210" }] });
+    renderWithApi(<AgentScreen />, client(), owner);
+    expect(await screen.findByRole("link", { name: "+91 98765 43210" })).toBeInTheDocument();
   });
 
   it("says nothing needs you when nothing does", async () => {
@@ -114,12 +121,16 @@ describe("what needs you", () => {
     expect(stub.calls).not.toContain("ai.handedOver");
   });
 
-  it("shows the last 24 hours", async () => {
-    api();
+  it("shows the last 24 hours as a strip of figures, each with an info hint and Indian grouping", async () => {
+    api({ "ai.overview": { ...overview, chatsAnswered: 1234567, flagged: 2 } });
     renderWithApi(<AgentScreen />, client(), owner);
-    expect(await screen.findByText("12")).toBeInTheDocument();
+    expect(await screen.findByText("12,34,567")).toBeInTheDocument();
     expect(screen.getByText(t.last24.chats)).toBeInTheDocument();
     expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.getByText(t.last24.flagged)).toBeInTheDocument();
+    for (const label of [t.last24.chats, t.last24.messages, t.last24.flagged]) {
+      expect(screen.getByRole("button", { name: `What does ${label} mean?` })).toBeInTheDocument();
+    }
   });
 });
 

@@ -53,6 +53,14 @@ describe("the AI agent page's tabs", () => {
     expect(screen.getByLabelText(messages.ai.test.question)).toBeVisible();
   });
 
+  it("opens Try it even when the setup checklist fails to load", async () => {
+    stubApi({ "ai.agentSetup": { status: 500, reason: "INTERNAL" } });
+    address.set("/ai-agent?tab=try");
+    renderWithApi(<AgentScreen />, client());
+    expect(await screen.findByLabelText(messages.ai.test.question)).toBeVisible();
+    expect(screen.getByRole("tab", { name: t.tabs.setup })).toBeInTheDocument();
+  });
+
   it("falls back to Overview for an unknown tab", async () => {
     await open("/ai-agent?tab=nonsense");
     expect(screen.getByRole("tab", { name: t.tabs.overview, selected: true })).toBeInTheDocument();

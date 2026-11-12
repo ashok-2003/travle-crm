@@ -36,8 +36,10 @@ const owner = member({ isOwner: true });
 
 function show(over: Record<string, unknown> = {}, me = owner, extra: Record<string, never> = {}) {
   const api = recordingApi({ "ai.agentSetup": { data: { ...setup, ...over } }, ...extra });
-  renderWithApi(<AgentScreen />, newQueryClient(), me);
-  return api;
+  const client = newQueryClient();
+  const invalidated = vi.spyOn(client, "invalidateQueries");
+  renderWithApi(<AgentScreen />, client, me);
+  return Object.assign(api, { invalidated });
 }
 
 beforeEach(() => {
@@ -83,6 +85,28 @@ describe("the Setup checklist", () => {
     await screen.findByText(t.steps.payment.askManager);
     expect(screen.queryByRole("button", { name: `Edit ${t.steps.payment.title}` })).not.toBeInTheDocument();
   });
+
+  it("never asks for the payment details or the profile of a member without settings access", async () => {
+    const api = show({}, member({ permissions: ["ai:manage"] }));
+    await screen.findByText(t.steps.payment.askManager);
+    expect(api.calls).not.toContain("organization.paymentDetails.get");
+    expect(api.calls).not.toContain("organization.profile.get");
+  });
+
+  it("says to add payment details when packages are marked but held back by them", async () => {
+    show({
+      steps: steps.map((one) => (one.key === "packages" ? { ...one, done: false, count: 0, total: 2 } : one)),
+    });
+    expect(await screen.findByText(t.steps.packages.needsPayment)).toBeInTheDocument();
+    expect(screen.queryByText(t.steps.packages.todo)).not.toBeInTheDocument();
+  });
+
+  it("keeps the old line when no package is marked", async () => {
+    show({
+      steps: steps.map((one) => (one.key === "packages" ? { ...one, done: false, count: 0, total: 0 } : one)),
+    });
+    expect(await screen.findByText(t.steps.packages.todo)).toBeInTheDocument();
+  });
 });
 
 describe("the switch that turns the agent on", () => {
@@ -90,7 +114,9 @@ describe("the switch that turns the agent on", () => {
     show();
     const control = await screen.findByRole("switch", { name: t.turnOn.title });
     expect(control).toBeDisabled();
-    expect(screen.getByText(t.turnOn.finishFirst)).toBeInTheDocument();
+    const reason = screen.getByText(t.turnOn.finishFirst);
+    expect(reason).toBeInTheDocument();
+    expect(control).toHaveAccessibleDescription(t.turnOn.finishFirst);
   });
 
   it("turns the agent on once ready", async () => {
@@ -103,6 +129,10 @@ describe("the switch that turns the agent on", () => {
     await waitFor(() => {
       expect(screen.getByRole("switch", { name: t.turnOn.title })).toBeChecked();
     });
+    // Settings, AI shows the same on/off: its copy is marked stale, so it never saves the old value back.
+    expect(
+      api.invalidated.mock.calls.some(([filters]) => JSON.stringify(filters?.queryKey).includes('"autopilot"')),
+    ).toBe(true);
   });
 
   it("shows a refusal", async () => {

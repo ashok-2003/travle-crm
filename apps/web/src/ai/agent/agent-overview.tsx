@@ -9,7 +9,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
-import { formatDayTime } from "@/lib/format";
+import { FigureCell, type Figure } from "@/dashboard/kpi-strip";
+import { formatCount, formatDayTime, formatPhoneNumber } from "@/lib/format";
 import { inboxRoute, routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { useAiOverview } from "../use-ai";
@@ -20,13 +21,18 @@ export const setupHref = `${routes.aiAgent}?tab=setup`;
 function State() {
   const t = useTranslations("aiAgent.state");
   const setup = useAgentSetup();
+  if (setup.isError && setup.data === undefined) {
+    return <LoadFailedAlert message={t("loadFailed")} error={setup.error} onRetry={() => void setup.refetch()} />;
+  }
   if (setup.data === undefined) return null;
   const { on, ready, pausedBySupport } = setup.data;
   // One state, in this order: support's pause wins over everything.
   const [tone, words] = pausedBySupport
     ? (["attention", t("paused", { product: brand.productName })] as const)
     : on
-      ? (["good", t("on")] as const)
+      ? ready
+        ? (["good", t("on")] as const)
+        : (["attention", t("onNotReady")] as const)
       : ready
         ? (["neutral", t("off")] as const)
         : (["neutral", t("notSetUp")] as const);
@@ -35,7 +41,7 @@ function State() {
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge tone={tone}>{words}</StatusBadge>
       </div>
-      {!pausedBySupport && !on && !ready && <TextLink href={setupHref}>{t("openSetup")}</TextLink>}
+      {!pausedBySupport && !ready && <TextLink href={setupHref}>{t(on ? "finishSetup" : "openSetup")}</TextLink>}
     </div>
   );
 }
@@ -70,7 +76,7 @@ function NeedsYou() {
                 <Item>
                   <ItemContent>
                     <ItemTitle>
-                      <TextLink href={inboxRoute(chat.conversationId)}>{chat.name}</TextLink>
+                      <TextLink href={inboxRoute(chat.conversationId)}>{formatPhoneNumber(chat.name)}</TextLink>
                     </ItemTitle>
                     <ItemDescription>{chat.reason ?? t("reasonNone")}</ItemDescription>
                     <ItemDescription>
@@ -96,27 +102,25 @@ function NeedsYou() {
 function LastDay() {
   const t = useTranslations("aiAgent.last24");
   const overview = useAiOverview();
+  const figures: (Figure & { key: "chats" | "messages" | "flagged" })[] = overview.data
+    ? [
+        { key: "chats", value: formatCount(overview.data.chatsAnswered), hint: t("chatsHint") },
+        { key: "messages", value: formatCount(overview.data.messagesSent), hint: t("messagesHint") },
+        { key: "flagged", value: formatCount(overview.data.flagged), hint: t("flaggedHint") },
+      ]
+    : [];
   return (
     <Card>
       <CardHeader>
         <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {overview.data ? (
-          <dl className="grid grid-cols-3 gap-4">
-            {(
-              [
-                ["chats", overview.data.chatsAnswered],
-                ["messages", overview.data.messagesSent],
-                ["handedOver", overview.data.flagged],
-              ] as const
-            ).map(([key, value]) => (
-              <div key={key} className="flex flex-col gap-1">
-                <dt className="text-caption text-muted-foreground">{t(key)}</dt>
-                <dd className="text-lg font-semibold">{value}</dd>
-              </div>
+          <div className="grid grid-cols-3">
+            {figures.map((figure, index) => (
+              <FigureCell key={figure.key} figure={figure} label={t(figure.key)} index={index} count={figures.length} />
             ))}
-          </dl>
+          </div>
         ) : overview.isError ? (
           <LoadFailedAlert message={t("loadFailed")} error={overview.error} onRetry={() => void overview.refetch()} />
         ) : (

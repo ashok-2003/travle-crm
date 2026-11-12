@@ -15,6 +15,7 @@ export function TurnOnStep({ ready, on, pausedBySupport }: { ready: boolean; on:
   const t = useTranslations("aiAgent.setup.turnOn");
   const id = useId();
   const hintId = `${id}-write`;
+  const reasonId = `${id}-reason`;
   const access = useWriteAccess("change");
   const setOn = useSetAgentOn();
   // Turning it off is always open; turning it on needs the steps.
@@ -26,7 +27,9 @@ export function TurnOnStep({ ready, on, pausedBySupport }: { ready: boolean; on:
           id={id}
           checked={on}
           disabled={setOn.isPending || !access.allowed || blocked}
-          aria-describedby={access.hint === null ? undefined : hintId}
+          aria-describedby={
+            [access.hint === null ? null : hintId, blocked ? reasonId : null].filter(Boolean).join(" ") || undefined
+          }
           onCheckedChange={(next) => {
             setOn.mutate({ on: next });
           }}
@@ -36,7 +39,7 @@ export function TurnOnStep({ ready, on, pausedBySupport }: { ready: boolean; on:
         </FieldLabel>
       </Field>
       <WriteHint id={hintId} hint={access.hint} visible />
-      {blocked && <FieldDescription>{t("finishFirst")}</FieldDescription>}
+      {blocked && <FieldDescription id={reasonId}>{t("finishFirst")}</FieldDescription>}
       {pausedBySupport && <FieldDescription>{t("paused", { product: brand.productName })}</FieldDescription>}
       <RefusalAlert error={setOn.error} />
     </div>

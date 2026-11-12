@@ -3,15 +3,12 @@
 // /ai-agent: the AI agent's own page, in three tabs (Overview, Setup, Try it); the open tab is kept in the address as ?tab=.
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ErrorState } from "@/components/error-state";
-import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/lib/routes";
 import { TestSection } from "../test-section";
 import { AgentOverview } from "./agent-overview";
 import { AgentSetupTab } from "./agent-setup";
-import { useAgentSetup } from "./use-agent";
 
 const tabs = ["overview", "setup", "try"] as const;
 type AgentTab = (typeof tabs)[number];
@@ -22,24 +19,6 @@ export function AgentScreen() {
   const t = useTranslations("aiAgent");
   const router = useRouter();
   const tab = tabOf(useSearchParams().get("tab"));
-  const setup = useAgentSetup();
-  if (setup.data === undefined) {
-    return (
-      <div className="flex max-w-[720px] flex-col gap-6">
-        <PageHeader title={t("title")} intro={t("intro")} />
-        {setup.isError ? (
-          <ErrorState
-            message={t("loadFailed")}
-            error={setup.error}
-            retryLabel={t("retry")}
-            onRetry={() => void setup.refetch()}
-          />
-        ) : (
-          <LoadingRows shape="twoLines" label={t("loading")} />
-        )}
-      </div>
-    );
-  }
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageHeader title={t("title")} intro={t("intro")} />
@@ -60,7 +39,7 @@ export function AgentScreen() {
           <AgentOverview />
         </TabsContent>
         <TabsContent value="setup" className="pt-4">
-          <AgentSetupTab setup={setup.data} />
+          <AgentSetupTab />
         </TabsContent>
         <TabsContent value="try" className="pt-4">
           <TestSection />

@@ -5,6 +5,8 @@
 import type { AgentSetup } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useId, useState, type ReactNode } from "react";
+import { LoadFailedAlert } from "@/components/load-failed-alert";
+import { LoadingRows } from "@/components/loading-rows";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,7 @@ import {
 } from "@/components/ui/item";
 import { routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
+import { useAgentSetup } from "./use-agent";
 import { AdsStepEditor } from "./setup/ads-step";
 import { AnswersStepEditor } from "./setup/answers-step";
 import { BasicsStepEditor } from "./setup/basics-step";
@@ -39,6 +42,7 @@ function StateLine({ step, mayManage }: { step: Step; mayManage: boolean }) {
   const t = useTranslations("aiAgent.setup.steps");
   if (step.key === "payment" && !mayManage) return <>{t(step.done ? "payment.done" : "payment.askManager")}</>;
   const { count, total } = step;
+  if (step.key === "packages" && !step.done && total !== null && total > 0) return <>{t("packages.needsPayment")}</>;
   if (step.key === "packages" && step.done && count !== null) return <>{t("packages.count", { count })}</>;
   if (step.key === "answers" && count !== null && total !== null) return <>{t("answers.count", { count, total })}</>;
   if (step.key === "ads") {
@@ -90,8 +94,18 @@ function StepRow({ step, open, onToggle }: { step: Step; open: boolean; onToggle
   );
 }
 
-export function AgentSetupTab({ setup }: { setup: AgentSetup }) {
+export function AgentSetupTab() {
+  const t = useTranslations("aiAgent");
   const [openKey, setOpenKey] = useState<StepKey | null>(null);
+  const query = useAgentSetup();
+  const setup = query.data;
+  if (setup === undefined) {
+    return query.isError ? (
+      <LoadFailedAlert message={t("loadFailed")} error={query.error} onRetry={() => void query.refetch()} />
+    ) : (
+      <LoadingRows shape="twoLines" label={t("loading")} />
+    );
+  }
   return (
     <ItemGroup>
       {setup.steps.map((step) => (

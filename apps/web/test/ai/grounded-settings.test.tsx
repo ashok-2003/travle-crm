@@ -4,7 +4,9 @@ import { brand } from "@travel-crm/brand";
 import type { AutopilotSettings } from "@travel-crm/contracts/ai";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useQuery } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it } from "vitest";
+import { useTRPC } from "@/data/trpc";
 import { SettingsForm } from "@/ai/ai-settings-screen";
 import { AutopilotSection } from "@/ai/autopilot-section";
 import { MediaSection } from "@/ai/media-section";
@@ -77,6 +79,41 @@ describe("the switch to answer from packages only", () => {
       await screen.findByText("Make at least one package with a destination sellable by the AI first."),
     ).toBeVisible();
     expect(api.calls).toContain("ai.saveAutopilot");
+  });
+});
+
+describe("saving Settings, AI", () => {
+  it("asks for the AI agent page's checklist and basics again, so that page never shows the old on/off", async () => {
+    const api = stubApi({
+      "ai.saveAutopilot": { data: saved },
+      "ai.agentSetup": { data: null },
+      "ai.agentBasics": { data: null },
+    });
+    function AgentPageProbe() {
+      const trpc = useTRPC();
+      useQuery(trpc.ai.agentSetup.queryOptions());
+      useQuery(trpc.ai.agentBasics.queryOptions());
+      return null;
+    }
+    renderWithApi(
+      <>
+        <AutopilotSection saved={saved} aiOn />
+        <AgentPageProbe />
+      </>,
+      client(),
+    );
+    await waitFor(() => {
+      expect(api.calls).toContain("ai.agentBasics");
+    });
+    await userEvent.click(screen.getByRole("switch", { name: messages.ai.autopilot.grounded }));
+    await userEvent.click(screen.getByRole("button", { name: messages.ai.autopilot.save }));
+    await waitFor(() => {
+      expect(api.calls).toContain("ai.saveAutopilot");
+    });
+    await waitFor(() => {
+      expect(api.calls.filter((path) => path === "ai.agentSetup")).toHaveLength(2);
+      expect(api.calls.filter((path) => path === "ai.agentBasics")).toHaveLength(2);
+    });
   });
 });
 

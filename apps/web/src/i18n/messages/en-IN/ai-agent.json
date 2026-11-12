@@ -19,10 +19,13 @@
   },
   "state": {
     "on": "On: answering WhatsApp chats",
+    "onNotReady": "On, but setup isn't finished",
+    "finishSetup": "Finish setup",
     "off": "Off",
     "paused": "Paused by {product} support",
     "notSetUp": "Not set up yet",
-    "openSetup": "Open Setup"
+    "openSetup": "Open Setup",
+    "loadFailed": "The agent's state didn't load."
   },
   "needsYou": {
     "title": "Needs you",
@@ -38,12 +41,14 @@
     "title": "Last 24 hours",
     "chats": "Chats answered",
     "messages": "Messages sent",
-    "handedOver": "Handed over",
+    "flagged": "Flagged for a person",
+    "chatsHint": "Chats the AI answered in the last 24 hours.",
+    "messagesHint": "Messages the AI sent in the last 24 hours.",
+    "flaggedHint": "Chats in the last 24 hours that the AI handed over or marked for a person to look at.",
     "loadFailed": "The last 24 hours didn't load."
   },
   "loading": "Loading the AI agent",
   "loadFailed": "The AI agent didn't load.",
-  "retry": "Try again",
   "setup": {
     "done": "Done",
     "todo": "To do",
@@ -64,7 +69,8 @@
         "open": "Open packages",
         "count": "{count, plural, one {# package the AI can sell} other {# packages the AI can sell}}",
         "done": "Packages are ready",
-        "todo": "Mark at least one package 'AI can sell'; each needs an advance"
+        "todo": "Mark at least one package 'AI can sell'; each needs an advance",
+        "needsPayment": "Add payment details so the AI can sell your packages"
       },
       "payment": {
         "title": "Payment details",

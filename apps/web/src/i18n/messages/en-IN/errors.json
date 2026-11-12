@@ -44,7 +44,7 @@
     "ORGANIZATION_SUSPENDED": "Your organization is suspended. Only an Owner can export or remove staff.",
     "ORGANIZATION_CANCELLED": "Your organization's subscription has ended.",
     "MODULE_NOT_ON_PLAN": "Your organization's plan doesn't include this.",
-    "PROFILE_NOT_SAVED": "Save the business details before the branding.",
+    "PROFILE_NOT_SAVED": "Save your business details in Settings first.",
     "ATTACHMENT_NOT_FOUND": "This file no longer exists. It may have been removed.",
     "ATTACHMENT_ID_IN_USE": "This file was saved already. Reload to see it.",
     "SYSTEM_OWNED_FILE": "This file belongs to its record and can't be removed.",

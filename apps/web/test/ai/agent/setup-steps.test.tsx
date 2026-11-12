@@ -94,6 +94,10 @@ describe("the payment editor", () => {
     await waitFor(() => {
       expect(api.calls.filter((call) => call.path === "ai.agentSetup").length).toBeGreaterThan(1);
     });
+    // The profile screen holds the same bank details: it is asked for again, so a stale form never writes them back.
+    await waitFor(() => {
+      expect(api.calls.filter((call) => call.path === "organization.profile.get").length).toBeGreaterThan(1);
+    });
   });
 
   it("says a wrong UPI ID on its field and sends nothing", async () => {
@@ -117,7 +121,7 @@ describe("the payment editor", () => {
     await edit();
     await userEvent.type(await screen.findByLabelText(t.payment.bankName), "Bank");
     await userEvent.click(screen.getByRole("button", { name: t.payment.save }));
-    expect(await screen.findByText(messages.errors.reasons.PROFILE_NOT_SAVED)).toBeInTheDocument();
+    expect(await screen.findByText("Save your business details in Settings first.")).toBeInTheDocument();
   });
 
   it("sends the QR: ask, upload, confirm", async () => {
@@ -147,6 +151,8 @@ describe("the payment editor", () => {
       "organization.paymentDetails.removeQr": { data: details },
     });
     await edit();
+    // A 44px target, not the inline link of a sentence.
+    expect(await screen.findByRole("link", { name: "qr.png" })).toHaveClass("min-h-11");
     await userEvent.click(await screen.findByRole("button", { name: `Remove qr.png` }));
     await userEvent.click(await screen.findByRole("button", { name: t.payment.remove }));
     await waitFor(() => {
