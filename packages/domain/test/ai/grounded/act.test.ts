@@ -43,6 +43,14 @@ describe("acting on a checked reply", () => {
   beforeAll(async () => {
     test = createTestInbox();
     agency = await aConnectedAgency(test);
+    // The AI sells a group package only where the agency has somewhere to be paid.
+    await test.db.forOrg(agency.organizationId, (tx) =>
+      tx.organizationProfile.upsert({
+        where: { organizationId: agency.organizationId },
+        create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+        update: { upiId: "sharma@okbank" },
+      }),
+    );
   });
   afterAll(() => test.close());
 
@@ -191,7 +199,7 @@ describe("acting on a checked reply", () => {
     facts: ChatFacts = factsFor(ids),
   ) {
     return inOrg(async (tx) => {
-      const lookup = await lookUp(tx, facts, today, now, []);
+      const lookup = await lookUp(tx, agency.organizationId, facts, today, now, []);
       const text = fillPlaceholders(reply, buildCard(lookup)).text;
       return actOnReply(tx, deps(), {
         organizationId: agency.organizationId,
@@ -238,7 +246,9 @@ describe("acting on a checked reply", () => {
       ),
     );
     expect(result.bookingId).toBe(uuidFromKey(`ai-booking:${token}`));
-    const told = await inOrg(async (tx) => (await lookUp(tx, factsFor(ids), today, now, [])).packages[0]?.total);
+    const told = await inOrg(
+      async (tx) => (await lookUp(tx, agency.organizationId, factsFor(ids), today, now, [])).packages[0]?.total,
+    );
     expect(told).toBe(3 * 599_900 + 2 * 699_900);
     const rows = await inOrg(async (tx) => ({
       hold: await tx.departureHold.findFirstOrThrow({ where: { leadId: ids.leadId } }),
@@ -275,7 +285,7 @@ describe("acting on a checked reply", () => {
     const ids = await scene({ qr: true });
     const facts = factsFor(ids);
     const refused = await inOrg(async (tx) => {
-      const lookup = await lookUp(tx, facts, today, now, []);
+      const lookup = await lookUp(tx, agency.organizationId, facts, today, now, []);
       return actOnReply(
         tx,
         { ...deps(), storageLimitBytes: 1 },
@@ -309,7 +319,7 @@ describe("acting on a checked reply", () => {
   it("no seats left: nothing is sent and nothing is kept, so the turn can flag the team", async () => {
     const ids = await scene({ seats: 6 });
     const facts = factsFor(ids);
-    const lookup = await inOrg((tx) => lookUp(tx, facts, today, now, []));
+    const lookup = await inOrg((tx) => lookUp(tx, agency.organizationId, facts, today, now, []));
     // Another lead takes three seats between the lookup and the act.
     await inOrg(async (tx) => {
       const other = await aLead(tx, {});
@@ -397,7 +407,7 @@ describe("acting on a checked reply", () => {
     );
     expect(facts.sentFileIds).toEqual([ids.brochureId]);
     const stale = await inOrg(async (tx) => ({
-      ...(await lookUp(tx, factsFor(ids), today, now, [])),
+      ...(await lookUp(tx, agency.organizationId, factsFor(ids), today, now, [])),
     }));
     expect(stale.packages[0]?.brochures.length).toBe(1);
     const second = sentOf(
@@ -450,7 +460,7 @@ describe("acting on a checked reply", () => {
 
   it("a package priced without GST books at the told total, GST included, and its prices read + GST", async () => {
     const ids = await scene({ pricesIncludeGst: false });
-    const lookup = await inOrg((tx) => lookUp(tx, factsFor(ids), today, now, []));
+    const lookup = await inOrg((tx) => lookUp(tx, agency.organizationId, factsFor(ids), today, now, []));
     const card = buildCard(lookup);
     expect(card.values.get("[price P1 double]")).toBe(`${formatRupees(699_900)} + GST`);
     const base = 3 * 599_900 + 2 * 699_900;
@@ -461,7 +471,9 @@ describe("acting on a checked reply", () => {
     expect(result.bookingId).not.toBeNull();
     // A GST-inclusive package reads plain.
     const plain = await scene();
-    const plainCard = buildCard(await inOrg((tx) => lookUp(tx, factsFor(plain), today, now, [])));
+    const plainCard = buildCard(
+      await inOrg((tx) => lookUp(tx, agency.organizationId, factsFor(plain), today, now, [])),
+    );
     expect(plainCard.values.get("[price P1 double]")).toBe(formatRupees(699_900));
   });
 
@@ -540,7 +552,7 @@ describe("acting on a checked reply", () => {
       it(`${name}: four at ₹4,998 told ₹19,992, booked at ₹19,992, advance for four`, async () => {
         const ids = await scene({ qr: true, tripleOnly: true });
         const facts = factsFor(ids, { travellers: 4, rooms: [...rooms] });
-        const lookup = await inOrg((tx) => lookUp(tx, facts, today, now, []));
+        const lookup = await inOrg((tx) => lookUp(tx, agency.organizationId, facts, today, now, []));
         expect(lookup.packages[0]?.total).toBe(1_999_200);
         const allowed = allowedActions(lookup, facts, wantsToBook, context);
         expect([allowed.sendPayment, allowed.requestBooking]).toEqual([true, true]);

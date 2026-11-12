@@ -65,6 +65,14 @@ describe("a package the AI may sell", () => {
   let counter = 0;
   beforeAll(async () => {
     world = await openWorld("PackageSelling");
+    // The AI sells a group package only where the agency has somewhere to be paid.
+    await world.inOrg((tx) =>
+      tx.organizationProfile.upsert({
+        where: { organizationId: world.organizationId },
+        create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+        update: { upiId: "sharma@okbank" },
+      }),
+    );
   });
   afterAll(async () => {
     await world.close();
@@ -101,7 +109,7 @@ describe("a package the AI may sell", () => {
     );
     return id;
   }
-  const gaps = (id: string) => world.inOrg((tx) => packageSellGaps(tx, id, today));
+  const gaps = (id: string) => world.inOrg((tx) => packageSellGaps(tx, world.organizationId, id, today));
   const detail = (id: string) =>
     world.inOrg((tx) =>
       getPackage(tx, world.manager, id, {
@@ -262,6 +270,41 @@ describe("a package the AI may sell", () => {
     expect(await gaps(id)).toEqual([]);
   });
 
+  it("a group package needs the agency's payment details before the AI may sell it", async () => {
+    const id = await aPackage({ kind: "group", roomTypes: ["double"], advancePerPersonPaise: 100_000 });
+    await world.inOrg(async (tx) => {
+      const open = await aDeparture(tx, { startDate: "2026-12-12", endDate: "2026-12-17" });
+      await tx.departure.update({
+        where: { id: open.id },
+        data: { templateId: id, priceDoublePaise: 2_000_000n },
+      });
+    });
+    const setUpi = (upiId: string | null) =>
+      world.inOrg((tx) =>
+        tx.organizationProfile.update({ where: { organizationId: world.organizationId }, data: { upiId } }),
+      );
+    const idsOfSellable = async () =>
+      (await world.inOrg((tx) => sellablePackages(tx, world.organizationId, today))).map((one) => one.id);
+    try {
+      await setUpi(null);
+      expect(await gaps(id)).toEqual(["payment_details"]);
+      expect((await detail(id)).sellGaps).toEqual(["payment_details"]);
+      expect(await reasonOf(sell(id, true))).toBe("PACKAGE_NOT_READY_TO_SELL");
+
+      await setUpi("sharma@okbank");
+      expect(await gaps(id)).toEqual([]);
+      await sell(id, true);
+      expect(await idsOfSellable()).toContain(id);
+
+      // The details go away after the switch was turned on: the switch stays on but the AI is no longer offered it.
+      await setUpi(null);
+      expect((await detail(id)).sellable).toBe(true);
+      expect(await idsOfSellable()).not.toContain(id);
+    } finally {
+      await setUpi("sharma@okbank");
+    }
+  });
+
   it("a custom package needs a from price", async () => {
     const id = await aPackage();
     expect(await gaps(id)).toEqual(["from_price"]);
@@ -280,11 +323,14 @@ describe("a package the AI may sell", () => {
   it("sellablePackages offers only what is switched on and still has nothing missing", async () => {
     const ready = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
     const off = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
-    const idsOfSellable = async () => (await world.inOrg((tx) => sellablePackages(tx, today))).map((one) => one.id);
+    const idsOfSellable = async () =>
+      (await world.inOrg((tx) => sellablePackages(tx, world.organizationId, today))).map((one) => one.id);
     await sell(ready, true);
     expect(await idsOfSellable()).toContain(ready);
     expect(await idsOfSellable()).not.toContain(off);
-    expect((await world.inOrg((tx) => sellablePackages(tx, today))).find((one) => one.id === ready)).toEqual({
+    expect(
+      (await world.inOrg((tx) => sellablePackages(tx, world.organizationId, today))).find((one) => one.id === ready),
+    ).toEqual({
       id: ready,
       kind: "custom",
     });

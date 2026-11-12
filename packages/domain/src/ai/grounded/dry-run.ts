@@ -72,7 +72,7 @@ export async function groundedDryRun(
       settings,
       timeZone,
       today,
-      keys: await readKeys(tx, today),
+      keys: await readKeys(tx, organizationId, today),
       destinationNames: (await tx.destination.findMany({ select: { name: true } })).map((one) => one.name),
       knowledge: await knowledgePack(tx, aboutCustomer(transcript), { ownOnly: true }),
       learnings: settings.learning ? await activeLessons(tx) : [],
@@ -92,7 +92,9 @@ export async function groundedDryRun(
   if (newNotRunInAnotherScript(read, empty)) return blocked("not_run_script");
   const facts = mergeFacts(empty, read, prepared.keys);
   const nearest = read.nearest.flatMap((key) => prepared.keys.packages.find((one) => one.key === key)?.id ?? []);
-  const lookup = await db.forOrg(organizationId, (tx) => lookUp(tx, facts, prepared.today, now, nearest));
+  const lookup = await db.forOrg(organizationId, (tx) =>
+    lookUp(tx, organizationId, facts, prepared.today, now, nearest),
+  );
   const card = buildCard(lookup);
   const natural = prepared.settings.persona === "natural";
   const allowed = allowedActions(lookup, facts, read, {

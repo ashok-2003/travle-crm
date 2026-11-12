@@ -27,8 +27,14 @@ const ANY_STATE = "27";
 const big = (value: bigint | null) => (value === null ? null : Number(value));
 
 /** Which packages, in which order and for what reason (chosen, then each place's, then the nearest; five at most). */
-async function chosenPackages(tx: OrgTx, facts: ChatFacts, today: CalendarDate, nearest: string[]) {
-  const sellable = await sellablePackages(tx, today);
+async function chosenPackages(
+  tx: OrgTx,
+  organizationId: string,
+  facts: ChatFacts,
+  today: CalendarDate,
+  nearest: string[],
+) {
+  const sellable = await sellablePackages(tx, organizationId, today);
   const ids = sellable.map((one) => one.id);
   const destinations = new Map(
     (await tx.quoteTemplate.findMany({ where: { id: { in: ids } }, select: { id: true, destinationId: true } })).map(
@@ -61,12 +67,13 @@ function listFrom(facts: ChatFacts, today: CalendarDate): CalendarDate {
 
 export async function lookUp(
   tx: OrgTx,
+  organizationId: string,
   facts: ChatFacts,
   today: CalendarDate,
   now: Date,
   nearest: string[],
 ): Promise<Lookup> {
-  const chosen = await chosenPackages(tx, facts, today, nearest);
+  const chosen = await chosenPackages(tx, organizationId, facts, today, nearest);
   const agencyPaymentText = (await autopilotOf(tx)).paymentDetails.trim() !== "";
   const packages: LookupPackage[] = [];
   for (const [id, why] of chosen) {

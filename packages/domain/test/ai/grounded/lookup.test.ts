@@ -32,6 +32,14 @@ describe("looking up a chat's packages", () => {
   let counter = 0;
   beforeAll(async () => {
     world = await openWorld("Grounded lookup");
+    // The AI sells a group package only where the agency has somewhere to be paid.
+    await world.inOrg((tx) =>
+      tx.organizationProfile.upsert({
+        where: { organizationId: world.organizationId },
+        create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+        update: { upiId: "sharma@okbank" },
+      }),
+    );
   });
   afterAll(async () => {
     await world.close();
@@ -39,7 +47,7 @@ describe("looking up a chat's packages", () => {
 
   const facts = (changes: Partial<ChatFacts> = {}): ChatFacts => ({ ...chatFacts.parse({}), ...changes });
   const look = (changes: Partial<ChatFacts> = {}, nearest: string[] = []) =>
-    world.inOrg((tx) => lookUp(tx, facts(changes), today, now, nearest));
+    world.inOrg((tx) => lookUp(tx, world.organizationId, facts(changes), today, now, nearest));
 
   async function aDestination(tx: OrgTx, name: string) {
     counter += 1;

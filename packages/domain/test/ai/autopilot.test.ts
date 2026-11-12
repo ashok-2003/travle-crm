@@ -135,6 +135,12 @@ describe("the autopilot", () => {
   /** A package the AI may sell today: priced for the season, an advance, one open departure, a destination unless not. */
   async function aSellablePackage(on: Awaited<ReturnType<typeof agency>>, { destination = true } = {}) {
     await on.inOrg(async (tx) => {
+      // The AI sells a group package only where the agency has somewhere to be paid.
+      await tx.organizationProfile.upsert({
+        where: { organizationId: on.organizationId },
+        create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+        update: { upiId: "sharma@okbank" },
+      });
       const place = destination
         ? await tx.destination.create({ data: { name: `Spiti ${randomUUID()}` }, select: { id: true } })
         : null;

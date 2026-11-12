@@ -23,6 +23,12 @@ describe("SellCard", () => {
     expect(screen.getByText(words.gaps.advance)).toBeTruthy();
   });
 
+  it("names the agency's missing payment details, where to add them", () => {
+    renderWithApi(<SellCard detail={aPackage({ kind: "group", sellGaps: ["payment_details"] })} />, newQueryClient());
+    expect(screen.getByText("Add your payment details (UPI, QR or bank) on the AI agent page.")).toBeTruthy();
+    expect(screen.getByText(words.gaps.payment_details)).toBeTruthy();
+  });
+
   it("turns on when nothing is missing", async () => {
     const api = fakeApi();
     renderWithApi(<SellCard detail={aPackage({ kind: "group" })} />, newQueryClient());

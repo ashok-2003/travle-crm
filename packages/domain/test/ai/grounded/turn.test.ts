@@ -1,7 +1,7 @@
 // The grounded turn end to end against the real database and a scripted model: it reads, looks up, writes, checks and acts;
 // every model call counts against the month's limit; a reply the check refuses is asked for once more, then the team is told.
 import { randomUUID } from "node:crypto";
-import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
+import { AGENCY_PAYMENT_QR_RECORD_TYPE, saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
 import type { OrgTx } from "@travel-crm/db";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
@@ -98,7 +98,14 @@ describe("the grounded turn", () => {
     grounded = true,
     text = "Spiti on 14 Nov for 2 people, price?",
     managers,
-  }: { grounded?: boolean; text?: string; managers?: (organizationId: string) => Promise<string[]> } = {}) {
+    paidBy = "upi",
+  }: {
+    grounded?: boolean;
+    text?: string;
+    managers?: (organizationId: string) => Promise<string[]>;
+    /** How the agency says it is paid: a UPI ID on its profile, or only a QR picture (no profile, so no GST state). */
+    paidBy?: "upi" | "qr";
+  } = {}) {
     const connection = await aConnectedAgency(test);
     const { organizationId } = connection;
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
@@ -148,6 +155,26 @@ describe("the grounded turn", () => {
         parseCalendarDate("2026-11-10"),
       );
       await tx.aiAutopilot.updateMany({ data: { grounded } });
+      // The AI sells a group package only where the agency has somewhere to be paid.
+      if (paidBy === "upi") {
+        await tx.organizationProfile.upsert({
+          where: { organizationId },
+          create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+          update: { upiId: "sharma@okbank" },
+        });
+      } else {
+        await tx.attachment.create({
+          data: {
+            recordType: AGENCY_PAYMENT_QR_RECORD_TYPE,
+            recordId: organizationId,
+            fileName: "qr.png",
+            contentType: "image/png",
+            sizeBytes: 3,
+            status: "ready",
+            confirmedAt: new Date(),
+          },
+        });
+      }
       const destination = await tx.destination.create({ data: { name: "Spiti" }, select: { id: true } });
       const template = await tx.quoteTemplate.create({
         data: {
@@ -547,7 +574,7 @@ describe("the grounded turn", () => {
   });
 
   it("an agency with no GST state takes no booking: the reply says the team will confirm, and no money moves", async () => {
-    const on = await agency({ text: "Book Spiti on 14 Nov for 2 people, double sharing" });
+    const on = await agency({ text: "Book Spiti on 14 Nov for 2 people, double sharing", paidBy: "qr" });
     on.model.answer(
       read({
         rooms: [{ type: "double", count: 1, evidence: "double sharing" }],

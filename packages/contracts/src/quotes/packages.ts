@@ -145,7 +145,7 @@ export const publishGaps = ["name", "slug", "summary", "photo"] as const;
 export type PublishGap = (typeof publishGaps)[number];
 
 /** What a package still needs before the AI may sell it. */
-export const sellGaps = ["room_types", "prices", "advance", "departures", "from_price"] as const;
+export const sellGaps = ["room_types", "prices", "advance", "departures", "payment_details", "from_price"] as const;
 export type SellGap = (typeof sellGaps)[number];
 
 /** A tier's line as the editor reads it: with the name of the rate it prices from ("Hotel Aurora: Deluxe room"), if it has one. */

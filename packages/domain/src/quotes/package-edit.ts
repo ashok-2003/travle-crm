@@ -18,6 +18,7 @@ import {
 } from "@travel-crm/contracts/quotes";
 import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
+import { agencyPaymentDetailsOf, paymentDetailsReady } from "../profile/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { CalendarDate } from "../kernel/index.js";
@@ -99,7 +100,12 @@ export const departurePriceColumn = {
 } as const;
 
 /** What a package still needs before the AI may sell it, in the order the editor shows them. */
-export async function packageSellGaps(tx: OrgTx, packageId: string, today: CalendarDate): Promise<SellGap[]> {
+export async function packageSellGaps(
+  tx: OrgTx,
+  organizationId: string,
+  packageId: string,
+  today: CalendarDate,
+): Promise<SellGap[]> {
   const row = await findPackage(tx, packageId);
   if (row.kind !== "group") return row.fromPricePaise === null ? ["from_price"] : [];
   const gaps: SellGap[] = [];
@@ -115,6 +121,8 @@ export async function packageSellGaps(tx: OrgTx, packageId: string, today: Calen
   if (!seasonPriced && !departurePriced) gaps.push("prices");
   if (row.advancePerPersonPaise === null || row.advancePerPersonPaise <= 0n) gaps.push("advance");
   if (departures.length === 0) gaps.push("departures");
+  // The agent asks the customer to pay the advance, so it needs somewhere to say where.
+  if (!paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId))) gaps.push("payment_details");
   return gaps;
 }
 
@@ -122,7 +130,11 @@ export async function packageSellGaps(tx: OrgTx, packageId: string, today: Calen
  * The packages the AI may sell today: switched on, and with nothing missing. The only way to ask (a package that has lost
  * its seasons or departures since the switch was turned on is not offered), so callers never read the switch alone.
  */
-export async function sellablePackages(tx: OrgTx, today: CalendarDate): Promise<{ id: string; kind: string }[]> {
+export async function sellablePackages(
+  tx: OrgTx,
+  organizationId: string,
+  today: CalendarDate,
+): Promise<{ id: string; kind: string }[]> {
   const switchedOn = await tx.quoteTemplate.findMany({
     where: { aiSellable: true },
     orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -130,7 +142,7 @@ export async function sellablePackages(tx: OrgTx, today: CalendarDate): Promise<
   });
   const ready: { id: string; kind: string }[] = [];
   for (const one of switchedOn) {
-    if ((await packageSellGaps(tx, one.id, today)).length === 0) ready.push(one);
+    if ((await packageSellGaps(tx, organizationId, one.id, today)).length === 0) ready.push(one);
   }
   return ready;
 }
@@ -144,7 +156,7 @@ export async function setPackageSellable(
 ): Promise<void> {
   const row = await findPackage(tx, input.packageId);
   if (row.aiSellable === input.sellable) return;
-  if (input.sellable && (await packageSellGaps(tx, row.id, today)).length > 0) {
+  if (input.sellable && (await packageSellGaps(tx, access.organizationId, row.id, today)).length > 0) {
     throw new DomainError("VALIDATION", "PACKAGE_NOT_READY_TO_SELL", "Fill in what the package still needs first");
   }
   await tx.quoteTemplate.update({ where: { id: row.id }, data: { aiSellable: input.sellable } });
@@ -195,7 +207,7 @@ export async function getPackage(
     departureMonths: row.departureMonths,
     seatsPerDeparture: row.seatsPerDeparture,
     sellable: row.aiSellable,
-    sellGaps: await packageSellGaps(tx, row.id, context.today),
+    sellGaps: await packageSellGaps(tx, access.organizationId, row.id, context.today),
     published: row.published,
     destinationName: row.destination?.name ?? null,
     items: access.permissions.has("money:view_margin") ? items : withoutCosts(items),

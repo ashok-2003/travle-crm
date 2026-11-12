@@ -112,8 +112,8 @@ export async function autopilotSettingsOf(tx: OrgTx, organizationId: string): Pr
 }
 
 /** Whether a package the AI may sell today has a destination: one without is a package the agent never sees. */
-async function sellableWithADestination(tx: OrgTx, today: CalendarDate): Promise<boolean> {
-  const ids = (await sellablePackages(tx, today)).map((one) => one.id);
+async function sellableWithADestination(tx: OrgTx, organizationId: string, today: CalendarDate): Promise<boolean> {
+  const ids = (await sellablePackages(tx, organizationId, today)).map((one) => one.id);
   return (
     ids.length > 0 && (await tx.quoteTemplate.count({ where: { id: { in: ids }, destinationId: { not: null } } })) > 0
   );
@@ -130,7 +130,7 @@ export async function saveAutopilot(
   const grounded = input.grounded ?? before.grounded;
   // Turning it on needs a package to answer from, with a destination (the agent knows a package by its place); leaving it
   // on, or turning it off, never does.
-  if (grounded && !before.grounded && !(await sellableWithADestination(tx, today))) {
+  if (grounded && !before.grounded && !(await sellableWithADestination(tx, access.organizationId, today))) {
     throw new DomainError(
       "VALIDATION",
       "NO_SELLABLE_PACKAGES",

@@ -74,7 +74,7 @@ export async function runGroundedTurn(deps: GroundedDependencies, input: TurnInp
 
   // LOOK UP and build the card.
   const looked = await deps.db.forOrg(input.organizationId, async (tx) => ({
-    lookup: await lookUp(tx, facts, prepared.today, now, nearest),
+    lookup: await lookUp(tx, input.organizationId, facts, prepared.today, now, nearest),
     hasLead: (await openLeadOfChat(tx, prepared.chat.personId)) !== null,
   }));
   const card = buildCard(looked.lookup);

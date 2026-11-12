@@ -48,8 +48,12 @@ export interface Prepared {
 }
 
 /** The keys: D<n> for each destination that has a sellable package, S<n> for each sellable package. */
-export async function readKeys(tx: Parameters<typeof sellablePackages>[0], today: CalendarDate): Promise<ReadKeys> {
-  const ids = (await sellablePackages(tx, today)).map((one) => one.id);
+export async function readKeys(
+  tx: Parameters<typeof sellablePackages>[0],
+  organizationId: string,
+  today: CalendarDate,
+): Promise<ReadKeys> {
+  const ids = (await sellablePackages(tx, organizationId, today)).map((one) => one.id);
   const rows = await tx.quoteTemplate.findMany({
     where: { id: { in: ids }, destinationId: { not: null } },
     orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -127,7 +131,7 @@ export async function prepareTurn(deps: GroundedDependencies, input: TurnInput, 
       facts: await factsOf(tx, deps, chat.id),
       timeZone,
       today,
-      keys: await readKeys(tx, today),
+      keys: await readKeys(tx, input.organizationId, today),
       destinationNames: (await tx.destination.findMany({ select: { name: true } })).map((one) => one.name),
       knowledge: await knowledgePack(tx, aboutCustomer(transcript), { ownOnly: true }),
       learnings: settings.learning ? await activeLessons(tx) : [],
