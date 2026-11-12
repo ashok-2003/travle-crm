@@ -1,5 +1,5 @@
 // The Understand call's request: the fixed pieces as the system message, the clean context blocks as the user message.
-import { understandFormJsonSchema } from "@travel-crm/contracts/ai";
+import { understandFormWireSchema } from "@travel-crm/contracts/ai";
 import type { AiRequest } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
 import { ANSWER_MAX_TOKENS } from "../../grounded/ask.js";
@@ -85,7 +85,7 @@ export function understandRequest(input: UnderstandPromptInput): {
     request: {
       feature: "autopilot",
       maxTokens: ANSWER_MAX_TOKENS,
-      schema: { name: "understand_form", jsonSchema: understandFormJsonSchema },
+      schema: { name: "understand_form", jsonSchema: understandFormWireSchema },
       messages: [
         { role: "system", content: understandSystem() },
         { role: "user", content: rendered.map(([, text]) => text).join("\n\n") },

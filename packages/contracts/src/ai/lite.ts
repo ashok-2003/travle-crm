@@ -173,6 +173,27 @@ export type UnderstandForm = z.infer<typeof understandForm>;
 /** The form as JSON Schema, for the AI port's structured output (the domain package has no zod). */
 export const understandFormJsonSchema = z.toJSONSchema(understandForm) as Record<string, unknown>;
 
+/**
+ * The schema without its `examples`, recursively. The prompt text already carries the examples, and some providers
+ * reject the keyword, which would cost a second call on every turn. Everything else is kept as it is.
+ */
+export function withoutExamples<T>(schema: T): T {
+  return strip(schema) as T;
+}
+
+function strip(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item: unknown) => strip(item));
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "examples")
+      .map(([key, inner]): [string, unknown] => [key, strip(inner)]),
+  );
+}
+
+/** What goes over the wire to the model: the form's schema without examples. */
+export const understandFormWireSchema = withoutExamples(understandFormJsonSchema);
+
 /** What a lite chat keeps in `ai_chat.facts`; `agent` is required, so a grounded row never reads as a lite one. */
 export const liteFacts = z.object({
   agent: z.literal("lite"),

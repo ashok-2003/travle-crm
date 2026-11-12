@@ -14,8 +14,10 @@ export interface Contract<T> {
 }
 
 export type Asked<T> =
-  | { ok: true; value: T; model: string; inputTokens: number; outputTokens: number }
-  | { ok: false; reason: AiFailure | "unfit" };
+  | { ok: true; value: T; raw: string; model: string; inputTokens: number; outputTokens: number }
+  /** `raw` is the model's text when it answered but did not fit, so a trace can show what it said. */
+  | { ok: false; reason: AiFailure }
+  | { ok: false; reason: "unfit"; raw: string };
 
 /**
  * Calls the model with `request.schema` and keeps the answer only when its JSON object fits the contract. It neither
@@ -26,10 +28,11 @@ export async function askFor<T>(model: AiModel, request: AiRequest, contract: Co
   const result = await model.complete(request);
   if (!result.ok) return { ok: false, reason: result.reason };
   const parsed = contract.safeParse(jsonObjectIn(result.text));
-  if (!parsed.success) return { ok: false, reason: "unfit" };
+  if (!parsed.success) return { ok: false, reason: "unfit", raw: result.text };
   return {
     ok: true,
     value: parsed.data,
+    raw: result.text,
     model: result.model,
     inputTokens: result.inputTokens,
     outputTokens: result.outputTokens,

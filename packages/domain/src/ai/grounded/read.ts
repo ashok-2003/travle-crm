@@ -67,7 +67,8 @@ export async function readChat(model: AiModel, input: ReadInput): Promise<ReadRe
     },
     readAnswer,
   );
-  if (!asked.ok) return asked;
+  // The grounded turn keeps no raw text; only the lite trace does.
+  if (!asked.ok) return { ok: false, reason: asked.reason };
   return {
     ok: true,
     read: checkedRead(asked.value, input.transcript, input),

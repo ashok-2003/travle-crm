@@ -22,11 +22,12 @@ describe("askFor", () => {
       ok: false,
       reason: "rate_limited",
     });
-    expect(await askFor(model, request, contract)).toEqual({ ok: false, reason: "unfit" });
-    expect(await askFor(model, request, contract)).toEqual({ ok: false, reason: "unfit" });
+    expect(await askFor(model, request, contract)).toEqual({ ok: false, reason: "unfit", raw: "Sure, happy to help!" });
+    expect(await askFor(model, request, contract)).toEqual({ ok: false, reason: "unfit", raw: '{"place": 3}' });
     expect(await askFor(model, request, contract)).toEqual({
       ok: true,
       value: { place: "Manali" },
+      raw: 'Here: ```json\n{"place":"Manali"}\n```',
       model: "memory-model",
       inputTokens: 0,
       outputTokens: 0,
