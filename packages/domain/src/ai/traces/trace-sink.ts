@@ -1,5 +1,5 @@
 // The sink that keeps each lite turn's trace: an index row first, then the gzip file, so no file lacks a row to expire it.
-import type { Database } from "@travel-crm/db";
+import type { Database, OrgTx } from "@travel-crm/db";
 import { errorFields } from "@travel-crm/integrations/logging";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
@@ -75,4 +75,28 @@ function insertRow(tx: Transaction, trace: LiteTrace, fileKey: string) {
       expiresAt: new Date(trace.startedAt.getTime() + TRACE_DAYS * DAY_MS),
     },
   });
+}
+
+/**
+ * The traces past their time, oldest first, whatever their organization (run on the platform's transaction), without
+ * those already `visited` this run (a row whose file would not delete stays, and must not be listed forever).
+ */
+export function tracesDue(
+  tx: OrgTx,
+  now: Date,
+  limit: number,
+  visited: readonly string[] = [],
+): Promise<{ id: string; organizationId: string; fileKey: string }[]> {
+  return tx.aiTurnTrace.findMany({
+    where: { expiresAt: { lte: now }, id: { notIn: [...visited] } },
+    orderBy: { expiresAt: "asc" },
+    take: limit,
+    select: { id: true, organizationId: true, fileKey: true },
+  });
+}
+
+/** Deletes these traces' rows (their files are gone); only the platform role may. Returns how many went. */
+export async function forgetTraces(tx: OrgTx, ids: readonly string[]): Promise<number> {
+  const deleted = await tx.aiTurnTrace.deleteMany({ where: { id: { in: [...ids] } } });
+  return deleted.count;
 }

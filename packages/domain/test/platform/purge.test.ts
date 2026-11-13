@@ -221,6 +221,46 @@ describe("purging an organization", () => {
     expect(await queued(organizationId)).toEqual([]);
   });
 
+  it("purges an organization whose chats have AI traces, rows and files", async () => {
+    const { organizationId, job } = await readyToPurge();
+    const id = randomUUID();
+    const fileKey = `organizations/${organizationId}/ai-traces/2026-11-01/${id}.json.gz`;
+    await test.services.db.forOrg(organizationId, async (tx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: "919800000099",
+          displayNumber: "+919800000099",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const chat = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: "+919800000098" },
+      });
+      await tx.aiTurnTrace.create({
+        data: {
+          id,
+          conversationId: chat.id,
+          startedAt: new Date(),
+          kind: "reply",
+          outcome: "replied",
+          inputTokens: 1,
+          outputTokens: 1,
+          durationMs: 1,
+          promptVersions: {},
+          fileKey,
+          expiresAt: new Date(),
+        },
+      });
+    });
+    await test.storage.put({ key: fileKey, contentType: "application/gzip", body: new Uint8Array([1]) });
+
+    expect(await purgeOrganization(test.services, job)).not.toBeNull();
+
+    expect(await platform.aiTurnTrace.count({ where: { organizationId } })).toBe(0);
+    expect(keysOf(test, organizationId)).toEqual([]);
+  });
+
   it("purges an organization whose website form holds ledger and consent rows", async () => {
     const { organizationId, job } = await readyToPurge();
     await test.services.db.forOrg(organizationId, async (tx) => {
