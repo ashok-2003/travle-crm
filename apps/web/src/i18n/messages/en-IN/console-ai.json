@@ -27,5 +27,39 @@
     "noLookups": "Asks for no lookups.",
     "version": "Version {version}, changed {day}",
     "fixedTexts": "Code sends these texts itself. No model writes them."
+  },
+  "traces": {
+    "title": "AI turns",
+    "intro": "Every turn the lite WhatsApp agent took in this agency's chats in the last 14 days, newest first. A turn's trace is deleted after 14 days, and at once when its customer is erased.",
+    "chatIntro": "One chat's turns in the last 14 days, newest first.",
+    "allChats": "All chats",
+    "back": "Back to the organization",
+    "link": "See the AI's turns",
+    "loading": "Loading the AI's turns",
+    "loadFailed": "The AI's turns didn't load.",
+    "empty": "No turns in the last 14 days. Only an agency on the lite agent has them.",
+    "showMore": "Show more turns",
+    "startAgain": "Back to the newest turns",
+    "noPricesTitle": "Costs aren't shown",
+    "noPricesDescription": "Set AI_PRICE_INPUT_PAISE_PER_MILLION and AI_PRICE_OUTPUT_PAISE_PER_MILLION on the console to see what each turn cost. Until then, tokens only.",
+    "chat": "Chat {code}",
+    "columns": {
+      "startedAt": "Time",
+      "chat": "Chat",
+      "kind": "Turn",
+      "outcome": "Outcome",
+      "move": "Move",
+      "model": "Model",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "duration": "Took"
+    },
+    "kinds": {
+      "reply": "Reply",
+      "nudge": "Follow-up"
+    },
+    "tokens": "{input} in · {output} out",
+    "duration": "{seconds} s",
+    "none": "None"
   }
 }
