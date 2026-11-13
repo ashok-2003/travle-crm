@@ -1,0 +1,31 @@
+{
+  "superAdminsOnly": "Only a super admin can see the AI agent's prompts and turns: a turn holds a customer's words.",
+  "prompts": {
+    "title": "AI prompts",
+    "intro": "The fixed words the lite WhatsApp agent's two model calls are given, as they are now. A turn's trace names the versions it used.",
+    "loading": "Loading the prompts",
+    "loadFailed": "The prompts didn't load.",
+    "callsHeading": "What each call is given",
+    "piecesHeading": "The fixed pieces",
+    "call": {
+      "understand": "Understand",
+      "write": "Write"
+    },
+    "callIntro": {
+      "understand": "Reads the chat and fills in the form. It never writes to the customer.",
+      "write": "Writes the words of the one move code picked."
+    },
+    "system": "System message, the same every turn: <code>{pieces}</code>",
+    "blocks": "Then this turn's blocks, in this order. A block with nothing in it is left out.",
+    "columns": {
+      "block": "Block",
+      "purpose": "What it tells the model",
+      "budget": "Characters at most"
+    },
+    "answer": "Answers in JSON, to the schema “<code>{name}</code>”.",
+    "lookups": "Asks for up to 4 lookups, which code runs before Write: <code>{tools}</code>.",
+    "noLookups": "Asks for no lookups.",
+    "version": "Version {version}, changed {day}",
+    "fixedTexts": "Code sends these texts itself. No model writes them."
+  }
+}
