@@ -39,8 +39,12 @@ export function mergeForm(
     else next.placeWords = details.place.words;
   }
   const said = details.date;
-  // A day inside the month already known narrows it: no change of mind is needed for that.
-  const narrows = next.day === null && next.month !== null && (said?.day?.startsWith(next.month) ?? false);
+  // A day inside the month already known narrows it (no change of mind is needed for that), and a new day in it replaces
+  // the old one: a person who typed the month typed no day, so the day stays the customer's to change.
+  const narrows =
+    next.month !== null &&
+    (said?.day?.startsWith(next.month) ?? false) &&
+    (next.day === null || said?.changed === true);
   const free = !locked.has("when");
   if (said && ((free && ((next.day === null && next.month === null) || said.changed)) || narrows)) {
     const day = said.day;
@@ -71,6 +75,18 @@ export function mergeForm(
   }
   if (details.pay_in_full) next.payInFull = true;
   return next;
+}
+
+/**
+ * The facts for the chat's open lead (`leadId`, null for none). Facts settled for another lead, one since closed or
+ * another opened, are a past trip's: the trip starts afresh, keeping only who the customer is and how they write (the
+ * name, the language, a name they would not give) and the last move. Facts settled before any lead are this enquiry's,
+ * and are kept for the lead it gets.
+ */
+export function factsForLead(facts: LiteFacts, leadId: string | null): LiteFacts {
+  if (facts.leadId === null || facts.leadId === leadId) return { ...facts, leadId };
+  const { name, language, nameSkipped, lastMove } = facts;
+  return liteFacts.parse({ agent: "lite", name, language, nameSkipped, lastMove, leadId });
 }
 
 /** A row that is missing, grounded or unreadable reads as empty lite facts. */

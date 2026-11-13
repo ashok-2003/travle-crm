@@ -16,10 +16,10 @@ import type { DepartureLine, PackageDetails, PriceFacts } from "../types.js";
 /** Only splits CGST/SGST from IGST, never the total, so the lookup (which has no GST state) may use any valid one. */
 const ANY_STATE = "27";
 const MOST_DEPARTURES = 3;
-/** Also drops a handle or an email ("x@y"); an "@" standing alone between words ("Gate @ ISBT") stays. */
+/** Also drops an email ("x@y") and a handle ("@sharmatrips"); an "@" standing alone ("Gate @ ISBT") stays. */
 const clean = (text: string) =>
   withoutAmountsAndDates(withoutPaymentDetails(text))
-    .replace(/\S+@\S+/gu, "")
+    .replace(/\S+@\S+|(?<!\S)@[\p{L}\p{N}_.]+/gu, "")
     .replace(/[ \t]{2,}/gu, " ")
     .trim();
 const strings = (value: unknown): string[] =>

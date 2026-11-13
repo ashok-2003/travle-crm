@@ -16,6 +16,7 @@ const pinned: Record<string, string> = {
   "write.instructions@1": "1d2cdc252e23a064a4c03228d4e588f13b67e7efd74019293cca5c10af88e12f",
   "write.voice@1": "ffdda3206124bddd2ad60863ff43e90ffc54a136a1f1eb7ac00a2a1c7f7bf7a4",
   "write.moves@1": "7c32780df25dba134edc8d5e9dc6ecf9921fccdc650d5cd041f2f509b4140083",
+  "write.moves@2": "65ae1cbb2c5b07815f85b8ad2660e332c73ac0db597887050fddad9b526cc1ae",
   "fixed.texts@1": "8532a9dc282ff94810e2b0ac3bd413727868c6d521277932e18e5f22fb180dba",
   "fixed.texts@2": "f2431679715e339fb74c41e7370c71d15b6c1a0b6f561690b6aa54eebad3c1cb",
 };
@@ -55,13 +56,18 @@ describe("the prompt library", () => {
     expect(Object.keys(pinned).filter((key) => !names.has(key.split("@")[0] as never))).toEqual([]);
   });
 
-  it("starts every piece at version 1, changed on the day it was added", () => {
+  it("starts every piece at version 1, changed on the day it was added, but those changed since", () => {
+    const changed = new Set(["fixed.texts", "write.moves"]);
     for (const piece of promptLibrary()) {
-      expect([piece.version, piece.changedOn]).toEqual(
-        piece.name === "fixed.texts" ? [2, "2026-11-13"] : [1, "2026-11-12"],
-      );
+      expect([piece.version, piece.changedOn]).toEqual(changed.has(piece.name) ? [2, "2026-11-13"] : [1, "2026-11-12"]);
     }
-    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 1, 1, 1, 2]);
+    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 1, 1, 2, 2]);
+  });
+
+  it("write.moves 2 adds the follow-ups' lines", () => {
+    const text = promptLibrary().find((piece) => piece.name === "write.moves")?.text ?? "";
+    expect(text).toContain("- follow_up: Pick the chat up again in one short, friendly line, then ask for {item}.");
+    expect(text).toContain("- follow_up_last: Write one short, friendly last line: they can message here any time.");
   });
 
   it("renders every fixed text in every language as key (language): text", () => {

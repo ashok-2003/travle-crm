@@ -11,6 +11,7 @@ import { defineListener, type EventListener, type JobHandler } from "../jobs/ind
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
+import { WINDOW_MARGIN_MS } from "./agent-effects.js";
 import { autopilotOf } from "./autopilot.js";
 import { AI_CHAT_RESUMED_EVENT } from "./chat-state.js";
 import { workDueFollowUps } from "./follow-up-work.js";
@@ -32,8 +33,11 @@ const AT_ONCE = 10;
  * each (turn-cost.test.ts counts them), out of the few the whole worker shares: three leave room for the rest.
  */
 const LITE_AT_ONCE = 3;
-/** A nudge goes no later than this before the window closes, so it can still be answered for free. */
-const WINDOW_MARGIN_MS = 60 * 60_000;
+/**
+ * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
+ * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.
+ */
+const LITE_LATE_MS = 5 * 60_000;
 const NUDGES_PER_AGENCY = 20;
 
 /** A customer wrote: for an agency whose AI answers this chat, the AI's turn is queued, once per message. */
@@ -182,7 +186,7 @@ export function aiReplyHandlers(dependencies: AgentDependencies & { logger: Logg
 /**
  * One agency's follow-ups now due: the time the agent planned has come, the customer is still quiet, the window is
  * open. Each is claimed (its time cleared) before its turn, so a turn that writes nothing never comes round again, and
- * one whose window has nearly closed is let go.
+ * one whose window has nearly closed is let go. One per silence, but for the lite agent's second.
  */
 async function nudgeAgency(dependencies: AgentDependencies, organizationId: string, now: Date): Promise<number> {
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
@@ -195,8 +199,10 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
       return [];
     }
     const settings = await autopilotOf(tx);
-    if (settings.followUpHours === 0) return [];
-    const windowFloor = new Date(now.getTime() - WINDOW_MS + WINDOW_MARGIN_MS);
+    // The agency's follow-up hours are the other agents': the lite agent's two are fixed.
+    if (settings.followUpHours === 0 && !settings.lite) return [];
+    const margin = settings.lite ? WINDOW_MARGIN_MS - LITE_LATE_MS : WINDOW_MARGIN_MS;
+    const windowFloor = new Date(now.getTime() - WINDOW_MS + margin);
     await tx.aiChat.updateMany({
       where: { followUpAt: { lte: now }, conversation: { lastInboundAt: { lte: windowFloor } } },
       data: { followUpAt: null },
@@ -210,25 +216,25 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
       },
       orderBy: { followUpAt: "asc" },
       take: NUDGES_PER_AGENCY,
-      select: { id: true, lastNudgeAt: true, conversation: { select: { id: true, lastInboundAt: true } } },
+      select: {
+        id: true,
+        lastNudgeAt: true,
+        followUpsSent: true,
+        conversation: { select: { id: true, lastInboundAt: true } },
+      },
     });
     if (rows.length > 0)
       await tx.aiChat.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { followUpAt: null } });
-    return rows
-      .filter((row) => row.lastNudgeAt === null || (row.conversation.lastInboundAt ?? now) > row.lastNudgeAt)
-      .map((row) => row.conversation);
+    return rows.flatMap((row) => {
+      const second = settings.lite && row.followUpsSent === 1;
+      const quietSinceNudge = row.lastNudgeAt === null || (row.conversation.lastInboundAt ?? now) > row.lastNudgeAt;
+      return quietSinceNudge || second ? [{ ...row.conversation, second }] : [];
+    });
   });
   for (const chat of due) {
-    await runAgentTurn(
-      dependencies,
-      {
-        organizationId,
-        conversationId: chat.id,
-        kind: "nudge",
-        token: `nudge:${chat.id}:${String(chat.lastInboundAt?.getTime())}`,
-      },
-      now,
-    );
+    // The silence's last customer line names the follow-up, so a retried one sends nothing twice; the second adds ":2".
+    const token = `nudge:${chat.id}:${String(chat.lastInboundAt?.getTime())}${chat.second ? ":2" : ""}`;
+    await runAgentTurn(dependencies, { organizationId, conversationId: chat.id, kind: "nudge", token }, now);
   }
   return due.length;
 }

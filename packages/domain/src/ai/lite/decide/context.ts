@@ -39,6 +39,8 @@ export interface DecideInput {
    * it (D2: any place with no trip near its name gets "we don't run that"); the turn passes it on to the reply check.
    */
   places: { known: string[]; unsold: string[] };
+  /** A nudge's: the follow-ups this silence has had (0 or 1). A reply turn leaves it out. */
+  followUpsSent?: number;
 }
 
 /** A total and advance for one departure: what was told, or may be told now. */

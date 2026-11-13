@@ -303,6 +303,47 @@ describe("the lite agent's act step", () => {
     expect(await counts(on)).toEqual(nothingKept);
   });
 
+  it("a paused turn copies no file into storage: the pause is read before anything is sent", async () => {
+    const on = await liteAgency(test);
+    await pause(on);
+    let copies = 0;
+    const counting = {
+      ...deps(),
+      files: new Proxy(test.files, {
+        get(target, name) {
+          const value: unknown = Reflect.get(target, name);
+          if (name !== "copyFileIn" || typeof value !== "function") return value;
+          return (...args: unknown[]) => {
+            copies += 1;
+            return (value as (...given: unknown[]) => unknown).apply(target, args);
+          };
+        },
+      }),
+    };
+    const refused = await act(on, decision(book(on), pricedFacts(on)), {}, counting).catch(failure);
+    expect(refused).toBe("AGENT_PAUSED");
+    expect(copies).toBe(0);
+  });
+
+  it("a take-over that lands while act works sends nothing: the chat is read again before the end", async () => {
+    const on = await liteAgency(test);
+    // The chat's AI row, as the customer's message left it (queued for this turn).
+    await on.inOrg((tx) => tx.aiChat.create({ data: { conversationId: on.chat.id, turnState: "thinking" } }));
+    const chosen = decision(book(on), pricedFacts(on));
+    // The booking asks who to tell partway through act: a person takes the chat over then, from another connection.
+    const takeOver = async () => {
+      await platform.aiChat.upsert({
+        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+        create: { organizationId: on.organizationId, conversationId: on.chat.id, mode: "off" },
+        update: { mode: "off" },
+      });
+      return [];
+    };
+    const refused = await act(on, chosen, {}, { ...deps(), recipients: takeOver }).catch(failure);
+    expect(refused).toBe("AGENT_STOPPED");
+    expect(await counts(on)).toEqual(nothingKept);
+  });
+
   it("a pause that lands while act works sends nothing: it is read again just before the end", async () => {
     const on = await liteAgency(test);
     const chosen = decision(book(on), pricedFacts(on));
@@ -434,7 +475,9 @@ describe("the lite agent's act step", () => {
       token: later.id,
       now: nextTurnAt,
     }).catch(failure);
-    expect(typeof refused === "string" ? refused : "sent").not.toBe("sent");
+    // The short hold is no hold of the booking's two seats, so it is taken again as a booking (never the payment details
+    // alone), here for the one adult the facts now say in a double, which no room fits: refused, nothing sent.
+    expect(refused).toBe("ROOM_SPLIT");
     const sent = (await outbound(on)).filter((message) => message.clientToken?.startsWith(`ai:${later.id}`));
     expect(sent).toHaveLength(0);
   });
@@ -605,7 +648,14 @@ describe("the lite agent's act step", () => {
     expect(rows.insight).toMatchObject({ score: 72, label: "hot", model: "test-model" });
     expect(rows.chat.summary).toContain("Wants Kedarnath for two");
     expect(rows.chat.summary).not.toContain("20,000");
-    expect(rows.chat).toMatchObject({ lastReplyAt: liteTurnAt, repliesCount: 1, followUpAt: null, handedOffAt: null });
+    // A sent reply plans the first follow-up, 4 hours on (19:31 in India).
+    expect(rows.chat).toMatchObject({
+      lastReplyAt: liteTurnAt,
+      repliesCount: 1,
+      followUpAt: new Date(liteTurnAt.getTime() + 4 * 3_600_000),
+      followUpsSent: 0,
+      handedOffAt: null,
+    });
     expect(result.actions).toEqual(
       expect.arrayContaining(["lead:adults", "name", "stage:contacted", "note:package_picked", "task:call_back"]),
     );

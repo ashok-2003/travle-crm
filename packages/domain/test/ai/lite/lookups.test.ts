@@ -69,12 +69,13 @@ describe("the lite lookups", () => {
     await on.inOrg((tx) =>
       tx.quoteTemplate.update({
         where: { id: on.packageId },
-        data: { notes: "Meet at Gate @ ISBT, or write to trips@sharma.example" },
+        data: { notes: "Meet at Gate @ ISBT, or write to trips@sharma.example or @sharma_trips" },
       }),
     );
     const details = await on.inOrg((tx) => packageDetails(tx, on.packageId));
     expect(details?.notes).toContain("Gate @ ISBT");
     expect(details?.notes).not.toContain("sharma.example");
+    expect(details?.notes).not.toContain("sharma_trips");
     expect(details?.pickups).toEqual(["Delhi - Kashmiri Gate, 9 pm", "Haridwar - Railway station, 5 am"]);
   });
 

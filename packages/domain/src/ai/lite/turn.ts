@@ -2,7 +2,8 @@
 // in code, WRITE its words with blanks code fills and checks (the second model call, only for the moves that need
 // words), then ACT in one transaction. Both calls count against the month's limit. A voice note, or a customer who has
 // a booking already, goes to a person with no model call. Whatever stops the turn sends nothing; a refusal tells the
-// team. One log line of codes ends every turn, and a prepared turn's trace goes to the sink.
+// team. One log line of codes ends every turn, and a prepared turn's trace goes to the sink. A nudge is the agent's own
+// follow-up, a short turn of its own (nudge-turn.ts).
 import { isAQuestion, sentencesIn } from "../grounded/read-words.js";
 import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
 import { flagChat } from "../grounded/turn-flag.js";
@@ -11,6 +12,7 @@ import { stageToOf } from "./decide/decide.js";
 import { checkedForm } from "./form-check.js";
 import { mergeForm } from "./merge.js";
 import { LEAD_MOVES, openLeadForChat } from "./open-lead.js";
+import { runLiteNudge } from "./nudge-turn.js";
 import { lockedFields, typedChanged } from "./typed-lock.js";
 import { prepareLiteTurn, type LitePrepared } from "./prepare.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
@@ -22,12 +24,9 @@ import { understandChat } from "./understand.js";
 
 export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
   const startedMs = Date.now();
-  // Plan 3b writes the nudges; until then a quiet chat is left quiet, before any read (a follow-up time left on a chat
-  // still brings its nudge here). A follow-up task the owner set is a person's call to make.
-  if (input.kind !== "reply") {
-    const outcome = input.kind === "followUp" ? "off" : "nothing";
-    return finishTurn(deps, input, { outcome, log: {}, startedMs }, null);
-  }
+  // A follow-up task the owner set is a person's call to make: the minute job leaves a lite agency's to the team.
+  if (input.kind === "followUp") return finishTurn(deps, input, { outcome: "off", log: {}, startedMs }, null);
+  if (input.kind === "nudge") return runLiteNudge(deps, input, now);
   const prepared = await prepareLiteTurn(deps, input, now);
   if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);
   const trace = startTrace(input, prepared.leadId, now);
@@ -96,7 +95,6 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   // A returning customer with every lead closed: a move that works on a trip gets them a new lead first, in its own
   // short transaction (never inside act's), before any word is written or sent; one that can't be opened goes to a
   // person instead of the price. A new lead is empty, so nothing read for the turn changes but where its stage starts.
-  let leadOpened = false;
   if (prepared.leadId === null && LEAD_MOVES.has(decision.move.kind)) {
     const chat = { id: prepared.chat.id, personId: prepared.chat.personId, phoneE164: prepared.phoneE164 };
     const opening = await openLeadForChat(deps, organizationId, chat, now);
@@ -105,7 +103,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     if (opening === "unable") decision = handOverInstead(decision, "no_open_lead", "lead:unable");
     else {
       decision = { ...decision, stageTo: stageToOf(decision.move, "new") };
-      leadOpened = true;
+      // At once: the lead stays whatever the turn does next, so its trace says so even when act stops or is refused.
+      trace.actions.push("lead:opened");
     }
   }
 
@@ -155,11 +154,13 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if ("refused" in result) {
     if (result.refused === "AGENT_PAUSED") return end("paused");
     if (result.refused === "NEWER_MESSAGE") return end("superseded");
+    // A person took the chat over, or the agent was switched off, while act worked: quietly, as a stop before it.
+    if (result.refused === "AGENT_STOPPED") return end("stopped");
     return flag("blocked", result.refused);
   }
   trace.leadId = result.leadId;
   trace.sent = { messageIds: result.sentIds, text: result.text, filled: result.filled };
-  trace.actions = [...(leadOpened ? ["lead:opened"] : []), ...result.actions];
+  trace.actions.push(...result.actions);
   if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
   return end(move.kind === "silent" ? "silent" : "replied");
 }

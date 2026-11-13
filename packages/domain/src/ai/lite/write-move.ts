@@ -158,6 +158,11 @@ export function writeMoveOf(
       const line = move.choices.length > 0 ? moveLines.ask_detail_choices : moveLines.ask_detail;
       return made(line.replace("{item}", itemPurposes[move.item]));
     }
+    case "follow_up":
+      if (move.number === 2) return made(moveLines.follow_up_last);
+      return made(
+        move.ask === null ? moveLines.follow_up_open : moveLines.follow_up.replace("{item}", itemPurposes[move.ask]),
+      );
     default:
       return null;
   }

@@ -9,8 +9,13 @@ import type { CheckedForm, ContextMessage } from "./types.js";
 /** The lead's trip values a person typed, by field (what `typedByPerson` reads). */
 export type TypedFields = Partial<Record<TripField, unknown>>;
 
-/** The fields the turn must not change. */
-export const lockedFields = (typed: TypedFields): ReadonlySet<TripField> => new Set(Object.keys(typed) as TripField[]);
+/** The fields the turn must not change. A person's "flexible" is no date to keep: the customer's date is taken. */
+export const lockedFields = (typed: TypedFields): ReadonlySet<TripField> =>
+  new Set(
+    (Object.keys(typed) as TripField[]).filter(
+      (field) => field !== "when" || (typed.when as TravelWhen | undefined)?.kind !== "flexible",
+    ),
+  );
 
 const sameWords = (a: string, b: string) =>
   normalised(a) === normalised(b) || containsWords(a, b) || containsWords(b, a);

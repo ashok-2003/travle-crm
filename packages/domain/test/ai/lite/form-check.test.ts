@@ -3,7 +3,7 @@ import { liteFacts, understandForm, type UnderstandForm } from "@travel-crm/cont
 import { describe, expect, it } from "vitest";
 import { checkedForm } from "../../../src/ai/lite/form-check.js";
 import { mergeForm } from "../../../src/ai/lite/merge.js";
-import { typedChanged } from "../../../src/ai/lite/typed-lock.js";
+import { lockedFields, typedChanged } from "../../../src/ai/lite/typed-lock.js";
 import type { ContextMessage, PackageIndexEntry } from "../../../src/ai/lite/types.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -386,6 +386,23 @@ describe("mergeForm", () => {
       locked,
     );
     expect(moved).toMatchObject({ day: "2026-12-01", month: "2026-12" });
+    // The person typed the month, not the day: the customer's new day in that month replaces their earlier one.
+    const otherDay = mergeForm(
+      { ...typed, day: "2026-12-15" },
+      {
+        form: formWith({ date: { day: parseCalendarDate("2026-12-20"), month: null, proof: "20 dec", changed: true } }),
+        proofs: {},
+        dropped: [],
+      },
+      index,
+      locked,
+    );
+    expect(otherDay).toMatchObject({ day: "2026-12-20", month: "2026-12", departureId: null });
+  });
+
+  it("a flexible time a person typed locks nothing: it is no date to keep", () => {
+    expect([...lockedFields({ when: { kind: "flexible" }, adults: 2 })]).toEqual(["adults"]);
+    expect([...lockedFields({ when: { kind: "month", month: "2026-12" } })]).toEqual(["when"]);
   });
 
   it("a package change clears the departure and the quote", () => {

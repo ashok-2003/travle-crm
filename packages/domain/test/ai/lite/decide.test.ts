@@ -464,8 +464,29 @@ describe("decide: across the table", () => {
     expect(run({ intents: ["discount"] }).facts.lastMove).toBe("hand_over");
   });
 
-  it("a turn that isn't a reply decides nothing", () => {
-    expect(run({ kind: "nudge" }).move).toEqual({ kind: "silent" });
+  it("a follow-up task's turn decides nothing", () => {
+    expect(run({ kind: "followUp" }).move).toEqual({ kind: "silent" });
+  });
+
+  it("a nudge follows up, keeping the facts and the loop guard as they were", () => {
+    const waiting = facts({ asked: [{ item: "people", times: 1 }] });
+    const first = run({ kind: "nudge", facts: waiting });
+    expect(first.move).toEqual({ kind: "follow_up", number: 1, ask: "people" });
+    expect(first.facts).toEqual(waiting);
+    expect(first).toMatchObject({ why: "follow_up:1", stopFollowUps: false, note: null, task: null, stageTo: null });
+    // Nothing waiting: the next detail still missing, and with none, whether they have questions.
+    expect(run({ kind: "nudge", facts: facts({ asked: [] }) }).move).toEqual({
+      kind: "follow_up",
+      number: 1,
+      ask: "where",
+    });
+    const all = run({ kind: "nudge", facts: facts({ ...known, asked: [] }), situation: withPackage(fullPrice) });
+    expect(all.move).toEqual({ kind: "follow_up", number: 1, ask: null });
+    expect(run({ kind: "nudge", followUpsSent: 1, facts: waiting }).move).toEqual({
+      kind: "follow_up",
+      number: 2,
+      ask: null,
+    });
   });
 });
 

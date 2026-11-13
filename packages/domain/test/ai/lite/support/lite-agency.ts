@@ -11,6 +11,7 @@ import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import {
   runAgentTurn,
+  runAiNudges,
   saveAgencyAnswers,
   saveAgentBasics,
   saveAiSettings,
@@ -237,5 +238,24 @@ export async function liteAgency(
       { organizationId, conversationId: chat.id, kind: "reply", token: options.token ?? message.id },
       at,
     );
-  return { organizationId, inOrg, owner, chat, message, ...ids, model, logger, identity, say, turn };
+  /**
+   * The minute job at `at` (lead follow-up tasks, then the follow-ups due), for this agency alone: the job visits every
+   * agency in the shared database, and only this one has the AI.
+   */
+  const nudges = (at: Date, traces?: TraceSink) =>
+    runAiNudges(
+      {
+        db: test.db,
+        identity,
+        ai: model,
+        logger,
+        subscriptions: { entitlementsOf: (id) => Promise.resolve(id === organizationId ? entitlements : null) },
+        agencyName: () => Promise.resolve("Sharma Holidays"),
+        files: test.files,
+        managers: () => Promise.resolve([]),
+        ...(traces === undefined ? {} : { traces }),
+      },
+      at,
+    );
+  return { organizationId, inOrg, owner, chat, message, ...ids, model, logger, identity, say, turn, nudges };
 }

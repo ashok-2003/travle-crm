@@ -7,6 +7,7 @@ import { startLeadFromChat, type WhatsAppContactContext } from "../crm/index.js"
 import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { lockChat } from "./outbox.js";
 import { visibleConversations } from "./scope.js";
 import { visibleMessage } from "./views.js";
 
@@ -18,6 +19,9 @@ export async function startLeadFromConversation(
   context: WhatsAppContactContext,
   now: Date,
 ): Promise<{ leadId: string }> {
+  // The chat's lock first, as the lite agent takes it to open the same customer's lead: one waits for the other, so the
+  // second finds the lead open instead of making another.
+  await lockChat(tx, conversationId);
   const chat = await tx.whatsappConversation.findFirst({
     where: { AND: [{ id: conversationId, state: "open" }, visibleConversations(access)] },
     select: { personId: true },

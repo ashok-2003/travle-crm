@@ -5,7 +5,7 @@ import type { Decision, DepartureLine, Move, Situation, SituationPackage } from 
 import type { DecideContext, DecideInput, Picked, Quote } from "./context.js";
 import { choicesFor, nextAsk } from "./moves.js";
 import { pickMove } from "./rules.js";
-import { saleStageOf } from "./stage.js";
+import { nextItem, saleStageOf } from "./stage.js";
 
 export type { DecideInput, Quote } from "./context.js";
 
@@ -125,6 +125,20 @@ function noteOf(picked: Picked, facts: LiteFacts, before: LiteFacts): Decision["
   return fullPrice(move) ? "quoted" : null;
 }
 
+/**
+ * A nudge's follow-up: the first asks again what our last question waits for, else the next detail still missing (else
+ * whether they have questions); the second asks nothing.
+ */
+function followUpOf(
+  input: DecideInput,
+  facts: LiteFacts,
+  pkg: SituationPackage | null,
+): Extract<Move, { kind: "follow_up" }> {
+  if ((input.followUpsSent ?? 0) > 0) return { kind: "follow_up", number: 2, ask: null };
+  const ask = input.facts.asked[0]?.item ?? nextItem(facts, pkg, input.nameUsable, false);
+  return { kind: "follow_up", number: 1, ask };
+}
+
 /** Forward only, and only for a message sent: a full price moves New or Contacted to Quote sent, any other New to Contacted. */
 export function stageToOf(move: Move, leadStage: DecideInput["leadStage"]): Decision["stageTo"] {
   if (move.kind === "silent") return null;
@@ -140,10 +154,21 @@ export function decide(input: DecideInput): Decision {
   // booking from here records today's total, which is the one the booking is held to.
   if (facts.quoted !== null && !sameQuote(facts.quoted, quote)) facts.quoted = null;
   const stage = saleStageOf(facts, input.openBooking, pkg);
-  // Only a customer's words are decided on: anything else stays quiet and keeps the facts as they were.
+  // Only a customer's words are decided on; a nudge's follow-up is the one other move. Either keeps the facts, and with
+  // them the loop guard, as they were: a follow-up answers nothing they said.
   if (input.kind !== "reply") {
-    const quiet = { move: { kind: "silent" as const }, stage, why: "silence", facts: input.facts };
-    return { ...quiet, stopFollowUps: false, note: null, task: null, stageTo: null, suggest: null };
+    const kept = {
+      stage,
+      facts: input.facts,
+      stopFollowUps: false,
+      note: null,
+      task: null,
+      stageTo: null,
+      suggest: null,
+    };
+    if (input.kind !== "nudge") return { ...kept, move: { kind: "silent" }, why: "silence" };
+    const move = followUpOf(input, facts, pkg);
+    return { ...kept, move, why: `follow_up:${String(move.number)}` };
   }
   const price = input.situation.price;
   const from = price?.packageId === facts.packageId && (price.fromPaise !== null || price.perPersonPaise !== null);

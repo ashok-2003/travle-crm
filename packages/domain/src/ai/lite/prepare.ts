@@ -22,7 +22,7 @@ import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { usableName } from "./decide/stage.js";
 import type { DecideInput } from "./decide/decide.js";
 import { contextMessageOf, storedMessageFields } from "./context/messages.js";
-import { readLiteFacts } from "./merge.js";
+import { factsForLead, readLiteFacts } from "./merge.js";
 import type { TypedFields } from "./typed-lock.js";
 import { bookingPartOf, leadPartOf, packageIndexOf } from "./prepare-lead.js";
 import type {
@@ -72,7 +72,7 @@ export interface LitePrepared {
 }
 
 /** The chat's lines as the prompts read them: who wrote each (the customer, this AI, or the team) and what. */
-async function chatLines(tx: OrgTx, conversationId: string) {
+export async function chatLines(tx: OrgTx, conversationId: string) {
   const rows = await tx.whatsappMessage.findMany({
     where: { conversationId, kind: { not: "reaction" } },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
@@ -98,6 +98,18 @@ export async function placesOf(tx: OrgTx, index: PackageIndexEntry[]): Promise<D
     known: [...new Set([...destinations.map((one) => one.name), ...indianTravelPlaces])],
     unsold: destinations.filter((one) => !sold.has(one.id)).map((one) => one.name),
   };
+}
+
+/** K1: the name the customer goes by, so it is never asked; a WhatsApp stand-in or a word like "Travel" is no name. */
+export async function usableNameOf(
+  tx: OrgTx,
+  chat: { personId: string | null; profileName: string | null; phoneE164: string },
+): Promise<string | null> {
+  const personName =
+    chat.personId === null
+      ? null
+      : ((await tx.person.findFirst({ where: { id: chat.personId }, select: { name: true } }))?.name ?? null);
+  return [personName, chat.profileName].find((one) => usableName(one, chat.phoneE164))?.trim() ?? null;
 }
 
 /** The facts as the turn starts from them: a package no longer for sale let go, and a usable name taken as theirs. */
@@ -150,15 +162,10 @@ export async function prepareLiteTurn(
     const lines = await chatLines(tx, chat.id);
     if (lines.messages.length === 0) return "nothing";
     const index = await packageIndexOf(tx, sellable, today, now);
-    const personName =
-      chat.personId === null
-        ? null
-        : ((await tx.person.findFirst({ where: { id: chat.personId }, select: { name: true } }))?.name ?? null);
-    // K1: the name they go by, so it is never asked; a WhatsApp stand-in or a word like "Travel" is no name.
-    const name = [personName, chat.profileName].find((one) => usableName(one, chat.phoneE164))?.trim() ?? null;
+    const name = await usableNameOf(tx, chat);
     const lead = await openLeadOfChat(tx, chat.personId);
     const leadPart = await leadPartOf(tx, lead?.id ?? null, {
-      facts: startingFacts(await readLiteFacts(tx, chat.id), index, name),
+      facts: startingFacts(factsForLead(await readLiteFacts(tx, chat.id), lead?.id ?? null), index, name),
       name,
       index,
     });
