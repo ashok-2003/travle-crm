@@ -58,6 +58,8 @@ export interface AgentDependencies {
   traces?: TraceSink;
   /** Who owns the agency's leads: the lite turn opens a returning customer's new lead with it. */
   identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
+  /** The minute job's clock: a lite follow-up reads it again before it acts, so its checks hold when it sends. */
+  clock?: () => Date;
 }
 
 /**

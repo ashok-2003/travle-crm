@@ -254,6 +254,31 @@ describe("the lite agent's follow-ups", () => {
     expect(await tokens(on)).toEqual([`ai:${on.message.id}`, nudgeToken(on)]);
   });
 
+  it("a follow-up whose words are ready only at 21:00 is not sent: its checks run at send time", async () => {
+    const on = await liteAgency(test);
+    await replied(on);
+    const nine = after(5.5 * hour);
+    await on.inOrg((tx) =>
+      tx.aiChat.updateMany({
+        where: { conversationId: on.chat.id },
+        data: { followUpAt: new Date(nine.getTime() - 60_000) },
+      }),
+    );
+    on.model.answer(written(followUp1));
+    // The minute job reaches it at 20:59:55, and the model takes 10 seconds.
+    let time = new Date(nine.getTime() - 5_000);
+    const complete = on.model.complete.bind(on.model);
+    on.model.complete = (request) => {
+      time = new Date(time.getTime() + 10_000);
+      return complete(request);
+    };
+    expect(await on.nudges(() => time)).toBe(1);
+    // The words were written, and then not sent: by then it was night.
+    expect(on.model.requests).toHaveLength(3);
+    expect(await tokens(on)).toEqual([`ai:${on.message.id}`]);
+    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0, lastNudgeAt: null });
+  });
+
   it("a follow-up the job reaches more than 5 minutes late is let go", async () => {
     const on = await liteAgency(test);
     await replied(on);

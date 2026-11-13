@@ -214,10 +214,10 @@ export async function liteAgency(
       at,
     );
   /**
-   * The minute job at `at` (lead follow-up tasks, then the follow-ups due), for this agency alone: the job visits every
-   * agency in the shared database, and only this one has the AI.
+   * The minute job at `at`, or by the clock `at` reads (lead follow-up tasks, then the follow-ups due), for this agency
+   * alone: the job visits every agency in the shared database, and only this one has the AI.
    */
-  const nudges = (at: Date, traces?: TraceSink) =>
+  const nudges = (at: Date | (() => Date), traces?: TraceSink) =>
     runAiNudges(
       {
         db: test.db,
@@ -230,7 +230,7 @@ export async function liteAgency(
         managers: () => Promise.resolve([]),
         ...(traces === undefined ? {} : { traces }),
       },
-      at,
+      typeof at === "function" ? at : () => at,
     );
   return { organizationId, inOrg, owner, chat, message, ...ids, model, logger, identity, say, turn, nudges };
 }

@@ -508,7 +508,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
                     cron: "* * * * *",
                     timeZone: "Asia/Kolkata",
                     handle: async () => {
-                      await runAiNudges({ ...autopilotJobs(ai), logger }, new Date());
+                      await runAiNudges({ ...autopilotJobs(ai), logger }, () => new Date());
                     },
                   },
                   {
