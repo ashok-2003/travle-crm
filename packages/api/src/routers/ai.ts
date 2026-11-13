@@ -14,6 +14,10 @@ import {
   saveAgencyAnswersInput,
   saveAgentBasicsInput,
   decideLeadAiFieldsInput,
+  decideStageSuggestionInput,
+  leadStageSuggestion,
+  leadStageSuggestionInput,
+  stageSuggestionList,
   leadAiFields,
   leadAiFieldsInput,
   addAiKnowledgeInput,
@@ -102,6 +106,9 @@ import {
   listKnowledge,
   requestDocument,
   saveAiSettings,
+  decideStageSuggestion,
+  stageSuggestionOfLead,
+  stageSuggestionsOf,
   suggestReply,
   updateKnowledge,
   writeUpQuote,
@@ -298,8 +305,37 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
         // A lead out of the member's scope is "not found".
         const lead = await getLead(tx, ctx.member, input.leadId);
-        await decideSuggestions(tx, ctx.member, lead.id, input.decision);
+        await decideSuggestions(tx, ctx.member, lead.id, input.decision, input.fields);
       }),
+    ),
+
+  /** The AI's open suggestions to mark a lead Lost or Not a lead, in the member's leads scope: the "Needs you" list. */
+  stageSuggestions: orgProcedure
+    .requires("leads:view")
+    .output(stageSuggestionList)
+    .query(({ ctx }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        suggestions: await stageSuggestionsOf(tx, ctx.member),
+      })),
+    ),
+
+  /** The lead's open suggestion, for the alert on its page. */
+  leadStageSuggestion: orgProcedure
+    .requires("leads:view")
+    .input(leadStageSuggestionInput)
+    .output(leadStageSuggestion)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        suggestion: await stageSuggestionOfLead(tx, ctx.member, input.leadId),
+      })),
+    ),
+
+  /** A person's yes or no to a suggestion; yes moves the lead as that person. */
+  decideStageSuggestion: orgProcedure
+    .requires("leads:edit")
+    .input(decideStageSuggestionInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => decideStageSuggestion(tx, ctx.member, input, new Date())),
     ),
 
   /** A draft reply for the chat, in the composer's box: never sent by itself. */

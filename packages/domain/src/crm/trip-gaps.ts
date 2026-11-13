@@ -4,7 +4,7 @@
 // the caller's transaction; the audit and the suggestion rows are the ai module's.
 import type { Budget, TravelWhen, TripType, HotelCategory, FoodPreference } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
-import { tripColumns, travelWhenOf, budgetOf } from "./trip-columns.js";
+import { tripColumns, travelWhenOf, budgetOf, type TripColumns } from "./trip-columns.js";
 
 /** The lead fields a suggestion may fill, named as the suggestion rows name them. */
 export type GapField =
@@ -108,10 +108,8 @@ export async function fillTripGaps(
   return written;
 }
 
-/** The lead's trip fields as the suggestion rows name them: null where the lead holds nothing. */
-export async function tripFieldValues(tx: OrgTx, leadId: string): Promise<Record<GapField, unknown> | null> {
-  const lead = await tx.lead.findUnique({ where: { id: leadId }, select });
-  if (lead === null) return null;
+/** A lead's trip fields as the suggestion rows name them: null where the lead holds nothing. */
+function fieldValuesOf(lead: TripColumns): Record<GapField, unknown> {
   const when = travelWhenOf(lead);
   return {
     destination: lead.destinationId === null ? null : { kind: "existing", destinationId: lead.destinationId },
@@ -125,6 +123,21 @@ export async function tripFieldValues(tx: OrgTx, leadId: string): Promise<Record
     food: lead.food,
     room_type: lead.roomType,
   };
+}
+
+/** The trip fields of these leads in one query, by lead id; a lead that doesn't exist is left out. */
+export async function tripFieldValuesOf(
+  tx: OrgTx,
+  leadIds: readonly string[],
+): Promise<Map<string, Record<GapField, unknown>>> {
+  if (leadIds.length === 0) return new Map();
+  const leads = await tx.lead.findMany({ where: { id: { in: [...leadIds] } }, select });
+  return new Map(leads.map((lead) => [lead.id, fieldValuesOf(lead)]));
+}
+
+/** The lead's trip fields as the suggestion rows name them: null where the lead holds nothing. */
+export async function tripFieldValues(tx: OrgTx, leadId: string): Promise<Record<GapField, unknown> | null> {
+  return (await tripFieldValuesOf(tx, [leadId])).get(leadId) ?? null;
 }
 
 const emptied: Record<GapField, Record<string, unknown>> = {

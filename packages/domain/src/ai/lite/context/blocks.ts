@@ -25,6 +25,7 @@ export const BUDGETS = {
   writeSummary: 900,
   writeMessages: 1700,
   language: 80,
+  correction: 200,
 } as const satisfies Record<string, number>;
 
 /** The stored summary may be 1,000 characters; the context quotes about this many of them. */

@@ -90,6 +90,8 @@ export const chatAi = z.object({
   handedOff: z.boolean(),
   handoffReason: z.string().nullable(),
   memory: z.string(),
+  /** The lite agent's notes on the customer, shown as "What the AI noted"; empty when it has none. */
+  summary: z.string(),
   lastReplyAt: z.iso.datetime().nullable(),
   /** What it is doing now: waiting a moment for the customer's next line, or writing its answer. */
   turn: z.enum(["queued", "thinking"]).nullable(),
@@ -257,7 +259,10 @@ export const aiOverview = z.object({
   messagesSent: z.int(),
   /** Middle time from a customer's message to the AI's answer, in seconds; null with none. */
   medianReplySeconds: z.int().nullable(),
+  /** Chats in the last 24 hours handed over, told to the team, or whose lead the AI suggested Lost or Not a lead; each once. */
   flagged: z.int(),
+  /** Bookings the AI took in the last 24 hours. */
+  bookingsRequested: z.int(),
   followUpsPlanned: z.int(),
   learnings: z.int(),
   /** The model that last answered for the agency (a draft or a score), else null. */

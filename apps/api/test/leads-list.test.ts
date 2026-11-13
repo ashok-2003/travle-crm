@@ -1,5 +1,6 @@
 // The lead list over HTTP (spec 3.3; R13): a salesperson gets only their own leads whatever view or owner the address
 // asks for, a manager gets everyone's with the owners named from the members, and the counts follow the same view.
+import { createHash } from "node:crypto";
 import type { LeadCounts, LeadListPage } from "@travel-crm/contracts/crm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
@@ -47,6 +48,27 @@ describe("the lead list", () => {
     expect(
       await dataOf<LeadCounts>(await query(server, "leads.counts", salesperson, { view: "everyone", search: "98765" })),
     ).toMatchObject({ open: 1, new: 1 });
+  });
+
+  it("the list's items carry aiFilled: only a lead with an AI value still the AI's", async () => {
+    await server.db.forOrg(agency.organizationId, async (tx) => {
+      await tx.lead.update({ where: { id: zaraLead }, data: { adults: 3 } });
+      // The hash of a plain number is that of its JSON text (fill/values.ts).
+      await tx.leadAiField.create({
+        data: {
+          leadId: zaraLead,
+          field: "adults",
+          valueHash: createHash("sha256").update("3").digest("hex"),
+          excerpt: "we are 3",
+          messageIds: [],
+        },
+      });
+    });
+    const page = await dataOf<LeadListPage>(await query(server, "leads.list", owner, { view: "everyone" }));
+    expect(page.items.map((item) => [item.id, item.aiFilled])).toEqual([
+      [ownerLead, false],
+      [zaraLead, true],
+    ]);
   });
 
   it("lists everyone's for a manager, naming the owners, and searches by digits typed with spaces", async () => {

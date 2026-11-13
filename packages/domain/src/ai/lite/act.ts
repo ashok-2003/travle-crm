@@ -16,6 +16,7 @@ import { writeOnLead } from "./act-lead.js";
 import { moneyMove } from "./act-money.js";
 import { actWrites, handOverInstead } from "./act-reply.js";
 import { sendMove } from "./act-send.js";
+import { suggestFromTurn } from "./suggestions.js";
 import type { LiteActDeps, LiteActInput, LiteActResult } from "./act-types.js";
 
 export type { LiteActDeps, LiteActInput, LiteActResult };
@@ -112,6 +113,15 @@ export async function actOnMove(tx: OrgTx, deps: LiteActDeps, input: LiteActInpu
   const bookingId = money?.bookingId ?? null;
   const actions = [...(bookingId === null ? [] : ["booking"]), ...sent.codes];
   if (lead !== null) actions.push(...(await writeOnLead(tx, acting, lead, chat)));
+  if (lead !== null)
+    await suggestFromTurn(tx, {
+      organizationId: input.organizationId,
+      leadId: lead.id,
+      conversationId: chat.id,
+      decision,
+      checked: input.checked,
+      now: input.now,
+    });
   await assertStillAnswering(tx, input);
   await settleChat(tx, acting, chat, {
     fileIds: sent.fileIds,

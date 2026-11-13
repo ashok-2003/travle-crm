@@ -114,6 +114,12 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
           ))}
         </ToggleGroup>
       </div>
+      {state.summary !== "" && (
+        <div className="flex flex-col gap-1">
+          <h4 className="text-label font-medium text-muted-foreground">{t("noted")}</h4>
+          <p className="whitespace-pre-line">{state.summary}</p>
+        </div>
+      )}
       <RefusalAlert error={setMode.error ?? resume.error} />
       <ChatVoicePanel conversationId={conversationId} voice={state.voice} disabled={busy} />
     </section>

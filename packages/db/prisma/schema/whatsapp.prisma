@@ -98,6 +98,8 @@ model WhatsappConversation {
   broadcasts     WhatsappBroadcastRecipient[]
   aiDrafts       AiDraft[]
   aiChats        AiChat[]
+  aiSuggestions  LeadAiSuggestion[]
+  aiTurnTraces   AiTurnTrace[]
   paymentProofs  PaymentProof[]
 
   @@unique([organizationId, id])

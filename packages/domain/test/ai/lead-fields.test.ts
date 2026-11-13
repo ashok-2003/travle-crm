@@ -4,7 +4,13 @@
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { decideSuggestions, saveAiSettings, scoreLead, suggestedFieldsOf } from "../../src/ai/index.js";
+import {
+  aiFilledLeadIds,
+  decideSuggestions,
+  saveAiSettings,
+  scoreLead,
+  suggestedFieldsOf,
+} from "../../src/ai/index.js";
 import { findOrAddDestination } from "../../src/catalog/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
@@ -222,5 +228,102 @@ describe("a new WhatsApp lead that arrives filled in", () => {
     await expect(inOrg((tx) => decideSuggestions(tx, owner, lead.id, "confirm"))).rejects.toMatchObject({
       reason: "NOT_FOUND",
     });
+  });
+
+  it("filledAt is the row's last write", async () => {
+    const { model, score, inOrg, lead } = await agency();
+    model.answer(answer());
+    await score();
+    const stamp = new Date("2026-11-12T07:00:00.000Z");
+    await inOrg((tx) =>
+      tx.leadAiField.updateMany({ where: { leadId: lead.id, field: "adults" }, data: { updatedAt: stamp } }),
+    );
+    const suggested = await inOrg((tx) => suggestedFieldsOf(tx, lead.id));
+    expect(suggested.find((one) => one.field === "adults")?.filledAt).toBe("2026-11-12T07:00:00.000Z");
+  });
+
+  it("deciding one field leaves the others suggested", async () => {
+    const { model, score, inOrg, lead, owner } = await agency();
+    model.answer(answer());
+    await score();
+    await inOrg((tx) => decideSuggestions(tx, owner, lead.id, "confirm", ["adults"]));
+    expect(
+      await inOrg((tx) => tx.leadAiField.findFirstOrThrow({ where: { leadId: lead.id, field: "adults" } })),
+    ).toMatchObject({
+      state: "confirmed",
+    });
+    expect(
+      await inOrg((tx) => tx.leadAiField.findFirstOrThrow({ where: { leadId: lead.id, field: "when" } })),
+    ).toMatchObject({
+      state: "suggested",
+    });
+    const left = (await inOrg((tx) => suggestedFieldsOf(tx, lead.id))).map((one) => one.field).sort();
+    expect(left).toEqual(["budget", "destination", "when"]);
+  });
+
+  it("dismissing one field clears only it", async () => {
+    const { model, score, leadNow, inOrg, lead, owner } = await agency();
+    model.answer(answer());
+    await score();
+    await inOrg((tx) => decideSuggestions(tx, owner, lead.id, "dismiss", ["adults"]));
+    expect(await leadNow()).toMatchObject({ adults: null, travelKind: "dates" });
+    expect((await inOrg((tx) => suggestedFieldsOf(tx, lead.id))).map((one) => one.field)).not.toContain("adults");
+    // A field that is not suggested is not found.
+    await expect(inOrg((tx) => decideSuggestions(tx, owner, lead.id, "dismiss", ["adults"]))).rejects.toMatchObject({
+      reason: "NOT_FOUND",
+    });
+  });
+
+  it("a lead with an AI value still the AI's is marked, one a person changed is not", async () => {
+    const { model, score, inOrg, lead } = await agency();
+    // Only the adults are filled, so one edit takes the lead's last AI value away.
+    model.answer(
+      answer({
+        destination: undefined,
+        dateFrom: undefined,
+        dateTo: undefined,
+        budget: undefined,
+        budgetBasis: undefined,
+      }),
+    );
+    await score();
+    const plain = await inOrg((tx) => aLead(tx, {}));
+    expect(await inOrg((tx) => aiFilledLeadIds(tx, [lead.id, plain.id]))).toEqual(new Set([lead.id]));
+    await inOrg((tx) => tx.lead.update({ where: { id: lead.id }, data: { adults: 5 } }));
+    expect(await inOrg((tx) => aiFilledLeadIds(tx, [lead.id, plain.id]))).toEqual(new Set());
+    // A decided value is no longer suggested either.
+    expect(await inOrg((tx) => aiFilledLeadIds(tx, []))).toEqual(new Set());
+  });
+
+  it("asks the database twice for a page, whatever its size", async () => {
+    const { model, score, inOrg, lead } = await agency();
+    model.answer(answer());
+    await score();
+    const others = await Promise.all(Array.from({ length: 12 }, () => inOrg((tx) => aLead(tx, {}))));
+    const countQueries = (ids: string[]) =>
+      inOrg(async (tx) => {
+        let queries = 0;
+        const counting = new Proxy(tx, {
+          get(target, key) {
+            const value: unknown = Reflect.get(target, key);
+            if (typeof key !== "string" || key.startsWith("$") || typeof value !== "object" || value === null)
+              return value;
+            return new Proxy(value, {
+              get(model, method) {
+                const found: unknown = Reflect.get(model, method);
+                if (typeof found !== "function") return found;
+                return (...args: unknown[]) => {
+                  queries += 1;
+                  return (found as (...a: unknown[]) => unknown).apply(model, args);
+                };
+              },
+            });
+          },
+        });
+        await aiFilledLeadIds(counting, ids);
+        return queries;
+      });
+    expect(await countQueries([lead.id])).toBe(2);
+    expect(await countQueries([lead.id, ...others.map((one) => one.id)])).toBe(2);
   });
 });

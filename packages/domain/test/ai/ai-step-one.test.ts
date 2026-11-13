@@ -15,6 +15,7 @@ import {
   aiDocumentListener,
   confirmDocument,
   deleteKnowledge,
+  chatAiOf,
   leadInsightOf,
   listKnowledge,
   MONTHLY_AI_LIMIT,
@@ -120,6 +121,44 @@ describe("the AI, step one", () => {
       );
     return { organizationId, inOrg, owner, chat, message, lead, model, job, score };
   }
+
+  describe("the chat's notes on the customer", () => {
+    async function scoredLead() {
+      const setup = await agency();
+      setup.model.answer(JSON.stringify(answer));
+      await setup.score();
+      return setup;
+    }
+    it("reads the notes of the chat the person wrote in last", async () => {
+      const { inOrg, chat, lead } = await scoredLead();
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: chat.id, summary: "Older number's notes." } }));
+      const newer = await inOrg((tx) =>
+        tx.whatsappConversation.create({
+          data: {
+            connectionId: chat.connectionId,
+            phoneE164: freshPhone(),
+            personId: chat.personId,
+            lastInboundAt: new Date(testNow.getTime() + 60_000),
+          },
+        }),
+      );
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: newer.id, summary: "Newer number's notes." } }));
+      expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBe("Newer number's notes.");
+    });
+
+    it("is null when the notes are empty", async () => {
+      const { inOrg, chat, lead } = await scoredLead();
+      expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBeNull();
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: chat.id, summary: "" } }));
+      expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBeNull();
+    });
+
+    it("is what the chat's AI state carries", async () => {
+      const { inOrg, chat } = await scoredLead();
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: chat.id, summary: "Likes quiet places." } }));
+      expect((await inOrg((tx) => chatAiOf(tx, chat.id, true))).summary).toBe("Likes quiet places.");
+    });
+  });
 
   describe("knowledge", () => {
     it("is added, changed and turned off, audited by length and never by words, and given to Suggest reply as data", async () => {

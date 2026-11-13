@@ -7,6 +7,11 @@ import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { promptVersions } from "../../../src/ai/lite/prompts/library.js";
 import { runLiteTurn } from "../../../src/ai/lite/turn.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
+import { gunzipSync } from "node:zlib";
+import { readTraceFile } from "../../../src/ai/traces/trace-file.js";
+import { createTraceSink } from "../../../src/ai/traces/trace-sink.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { countingDatabase } from "./support/counting-db.js";
@@ -457,5 +462,34 @@ describe("the lite agent's turn", () => {
     const broken = { record: () => Promise.reject(new TypeError("down")) };
     expect(await on.turn(undefined, { traces: broken })).toBe("replied");
     expect(on.logger.entries.some((entry) => entry.event === "ai.trace-failed")).toBe(true);
+  });
+
+  it("a worker-built turn writes its trace", async () => {
+    const on = await liteAgency(test);
+    const storage = createMemoryStorage();
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    const traces = createTraceSink({ db: test.db, storage, logger: createMemoryLogger() });
+    expect(await on.turn(undefined, { traces })).toBe("replied");
+    const rows = await on.inOrg((tx) => tx.aiTurnTrace.findMany({ where: { conversationId: on.chat.id } }));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ outcome: "replied", move: "greet", kind: "reply" });
+    expect(await storage.head(rows[0]?.fileKey ?? "")).not.toBeNull();
+  });
+
+  it("the stored file names the messages and never holds their words", async () => {
+    const on = await liteAgency(test);
+    const storage = createMemoryStorage();
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    const traces = createTraceSink({ db: test.db, storage, logger: createMemoryLogger() });
+    expect(await on.turn(undefined, { traces })).toBe("replied");
+    const row = await on.inOrg((tx) => tx.aiTurnTrace.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    const file = await readTraceFile(storage, row.fileKey);
+    expect(file?.trace.messageIds).toEqual([on.message.id]);
+    expect(file?.trace.understand?.blocks).toHaveProperty("Package index");
+    expect(file?.trace.understand?.blocks).not.toHaveProperty("Messages");
+    expect(file?.trace.write?.blocks).not.toHaveProperty("Messages");
+    const bytes = await storage.get(row.fileKey);
+    expect(bytes).not.toBeNull();
+    expect(gunzipSync(bytes ?? new Uint8Array()).toString("utf8")).not.toContain("is the Kedarnath yatra running");
   });
 });

@@ -25,3 +25,10 @@ export function usePaymentsToCheckCount() {
   const may = mayView && mayRecord;
   return { may, query: useQuery({ ...trpc.paymentsToCheck.count.queryOptions(), enabled: may, staleTime: 30_000 }) };
 }
+
+/** The AI's open suggestions to mark a lead Lost or Not a lead; the api needs leads:view. */
+export function useStageSuggestions() {
+  const trpc = useTRPC();
+  const may = useHolds("leads:view");
+  return { may, query: useQuery({ ...trpc.ai.stageSuggestions.queryOptions(), enabled: may, staleTime: 30_000 }) };
+}

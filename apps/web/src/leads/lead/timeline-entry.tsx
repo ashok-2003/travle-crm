@@ -5,10 +5,11 @@
 // cancelled, a repeat enquiry (its trip, source and note) and a trip edit; then who did it and when, in the agency's
 // zone. Nobody is "The system"; a name the page didn't carry is a former member's. A stage change carries its stage's
 // dot and a finished follow-up or task status green's (DESIGN.md "Stage Colours", "Green Is Done"); nothing else is
-// coloured.
+// coloured. What the AI did (its notes, stage moves and field changes) carries the violet AI chip before its title.
 import type { PeopleNames, TimelineEntry } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { AiChip } from "@/ai/ai-chip";
 import { StatusDot, type StatusTone } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -180,6 +181,7 @@ export function TimelineEntryItem({
         <ItemTitle>
           <h3>
             {mark}
+            {aiActor && <AiChip />}
             {title}
           </h3>
         </ItemTitle>

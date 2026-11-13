@@ -1,7 +1,8 @@
 // The Understand context's smaller blocks: today, the team's last notes, and the index of the trips on offer.
 import { calendarDateIn, formatShortDay, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
 import type { PackageIndexEntry, TimelineLine } from "../types.js";
-import { BUDGETS, oneLine, type Block } from "./blocks.js";
+import { understandBlockHeads } from "./block-heads.js";
+import { oneLine, type Block } from "./blocks.js";
 import { stageLabel } from "./lead-card.js";
 
 const TIMELINE_LINES = 3;
@@ -44,12 +45,10 @@ function packageLine(entry: PackageIndexEntry): string {
 export function packageIndexBlock(entries: PackageIndexEntry[]): Block {
   const lines = entries.map(packageLine);
   // A list cut short would say "there are no others" of trips it left out: list them all or only their places.
-  if (entries.length <= MOST_LISTED && lines.join("\n").length <= BUDGETS.packageIndex)
+  if (entries.length <= MOST_LISTED && lines.join("\n").length <= understandBlockHeads.packageIndex.budget)
     return {
-      title: "Package index",
-      purpose: "The trips on offer, one per line. Use these names exactly; there are no others.",
+      ...understandBlockHeads.packageIndex,
       lines,
-      budget: BUDGETS.packageIndex,
     };
   const places = [
     ...new Set(
@@ -59,9 +58,7 @@ export function packageIndexBlock(entries: PackageIndexEntry[]): Block {
     ),
   ];
   return {
-    title: "Places we run",
-    purpose: "Too many trips to list: these are their places. Search one with find_packages.",
+    ...understandBlockHeads.places,
     lines: places.sort().map((place) => `- ${String(place)}`),
-    budget: BUDGETS.places,
   };
 }

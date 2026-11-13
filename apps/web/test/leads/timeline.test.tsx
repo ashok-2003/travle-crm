@@ -123,9 +123,9 @@ describe("Timeline", () => {
     });
     renderScreen(<Timeline lead={aLead()} />);
     expect(await sentences()).toEqual([
-      "Adults changed from 3 to 4",
-      "Joining from set to Delhi",
-      words.moved.replace("{stage}", messages.leads.stages.quote_sent),
+      "AI Adults changed from 3 to 4",
+      "AI Joining from set to Delhi",
+      `${messages.ai.chip} ${words.moved.replace("{stage}", messages.leads.stages.quote_sent)}`,
       words.moved.replace("{stage}", messages.leads.stages.contacted),
     ]);
     const items = within(screen.getByRole("list", { name: words.title })).getAllByRole("listitem");

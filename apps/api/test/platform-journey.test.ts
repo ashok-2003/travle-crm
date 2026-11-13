@@ -2,6 +2,7 @@
 // support onboards the agency, the worker emails its Owner the invite, the Owner chooses a password, completes the
 // business profile and branding and sees the trial; the trial lapses and the agency turns read-only, a payment makes it
 // active again; then it is exported, cancelled and purged, and only the platform log remembers it.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import type { OnboardedOrganization, PlatformLogPage, QueuedJob } from "@travel-crm/contracts/platform";
 import type { SubscriptionOverview } from "@travel-crm/contracts/subscriptions";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
@@ -101,6 +102,7 @@ describe("an agency's life on the platform", () => {
         db: server.db,
         identity: server.identity,
         files: server.files,
+        storage: createMemoryStorage(),
         spreadsheets: server.spreadsheets,
         subscriptions: server.subscriptions,
         seatLimit: server.seatLimit,

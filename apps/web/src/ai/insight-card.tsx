@@ -5,8 +5,9 @@
 // want; a line on how the lead stands; and what to do next. Always shown as a guess, in the AI's violet tint, and it never moves the lead's stage. Nothing
 // shows until the AI has scored the lead from its chat.
 import type { LeadInsight } from "@travel-crm/contracts/ai";
-import { SparklesIcon, TriangleAlertIcon } from "lucide-react";
+import { TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { AiChip } from "./ai-chip";
 import { Details } from "@/components/details";
 import { InfoHint } from "@/components/info-hint";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -40,7 +41,7 @@ export function InsightCard({ insight }: { insight: LeadInsight }) {
     <Card size="sm">
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
-          <SparklesIcon aria-hidden="true" className="size-4 text-people-tint-ink" />
+          <AiChip />
           <h3>{t("title")}</h3>
           <InfoHint term={t("title")}>{t("info")}</InfoHint>
           <GuessChip insight={insight} />
@@ -58,6 +59,12 @@ export function InsightCard({ insight }: { insight: LeadInsight }) {
           </Alert>
         )}
         {insight.summary !== "" && <p>{insight.summary}</p>}
+        {insight.chatSummary !== null && (
+          <div className="flex flex-col gap-1">
+            <h4 className="text-label font-medium text-muted-foreground">{t("noted")}</h4>
+            <p className="whitespace-pre-line">{insight.chatSummary}</p>
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
           <p className="flex items-baseline justify-between gap-2">
             <span className="text-label text-muted-foreground">{t("chance")}</span>

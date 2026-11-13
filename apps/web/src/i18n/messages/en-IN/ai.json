@@ -87,6 +87,15 @@
     "save": "Save",
     "saved": "Saved"
   },
+  "stageSuggestion": {
+    "title": "The AI suggests marking this lead {stage}",
+    "stages": {
+      "lost": "Lost",
+      "not_a_lead": "Not a lead"
+    },
+    "yes": "Yes, mark it {stage}",
+    "no": "No"
+  },
   "insight": {
     "title": "AI's guess",
     "info": "The AI's reading of this lead from its chat: how likely it books in the next two weeks, why, and what to do next. A guess to help you choose who to call first, never a decision: it never changes the lead's stage.",
@@ -109,7 +118,8 @@
       "travellers": "Travellers",
       "budget": "Budget"
     },
-    "unknown": "Not said yet"
+    "unknown": "Not said yet",
+    "noted": "What the AI noted"
   },
   "autopilot": {
     "title": "Autopilot",
@@ -269,7 +279,8 @@
     "followUpPlanned": "Next follow-up {when}",
     "followUpWhy": "Next follow-up {when}: {why}",
     "barPaused": "You wrote in this chat, so {name} waits until {until} so you two don't answer at once.",
-    "answerNow": "Let AI answer now"
+    "answerNow": "Let AI answer now",
+    "noted": "What the AI noted"
   },
   "test": {
     "title": "Try it",
@@ -805,5 +816,6 @@
       "title": "Day {number} title",
       "description": "Day {number} details"
     }
-  }
+  },
+  "chip": "AI"
 }

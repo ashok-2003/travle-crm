@@ -109,6 +109,7 @@ model Lead {
   signals           LeadSignal[]
   aiInsights        LeadAiInsight[]
   aiFields          LeadAiField[]
+  aiSuggestions     LeadAiSuggestion[]
   enquiries         LeadEnquiry[]
   formSubmissions   WebsiteFormSubmission[]
   packageEnquiries  PackageEnquiry[]

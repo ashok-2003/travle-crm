@@ -15,12 +15,13 @@ import type { ChatFacts as ChatRow } from "../agent-effects.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
 import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
-import { AI_TOKEN_PREFIX, mayWrite } from "../may-write.js";
+import { mayWrite } from "../may-write.js";
 import { RECENT_SENT } from "../repeats.js";
 import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { usableName } from "./decide/stage.js";
 import type { DecideInput } from "./decide/decide.js";
+import { contextMessageOf, storedMessageFields } from "./context/messages.js";
 import { factsForLead, readLiteFacts } from "./merge.js";
 import type { TypedFields } from "./typed-lock.js";
 import { bookingPartOf, leadPartOf, packageIndexOf } from "./prepare-lead.js";
@@ -76,16 +77,9 @@ async function chatLines(tx: OrgTx, conversationId: string) {
     where: { conversationId, kind: { not: "reaction" } },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: LAST_MESSAGES,
-    select: { id: true, direction: true, kind: true, body: true, caption: true, clientToken: true, occurredAt: true },
+    select: storedMessageFields,
   });
-  const messages: ContextMessage[] = rows.reverse().map((row) => ({
-    id: row.id,
-    from:
-      row.direction === "in" ? "customer" : (row.clientToken?.startsWith(AI_TOKEN_PREFIX) ?? false) ? "you" : "team",
-    at: row.occurredAt,
-    kind: row.kind,
-    text: row.body ?? row.caption ?? "",
-  }));
+  const messages: ContextMessage[] = rows.reverse().map(contextMessageOf);
   const ours = messages.map((message) => message.from !== "customer").lastIndexOf(true);
   const sent = await tx.whatsappMessage.findMany({
     where: { conversationId, direction: "out", body: { not: null } },
