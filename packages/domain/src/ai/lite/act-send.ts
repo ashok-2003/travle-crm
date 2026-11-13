@@ -19,6 +19,8 @@ import type { Decision } from "./types.js";
 export interface Sent {
   /** Every message, in the order sent. */
   sentIds: string[];
+  /** The reply's words as sent; null when no reply went. */
+  text: string | null;
   /** The package files sent, for the chat's facts. */
   fileIds: string[];
   codes: string[];
@@ -60,8 +62,8 @@ export async function sendMove(tx: OrgTx, deps: LiteActDeps, input: SendInput, m
     // Handed to a person: the chat keeps waiting for one.
     answers: decision.move.kind !== "hand_over",
   };
-  const sent: Sent = { sentIds: [], fileIds: [], codes: [] };
   const text = replyText(input, money);
+  const sent: Sent = { sentIds: [], text, fileIds: [], codes: [] };
   if (text === null) return sent;
   sent.sentIds.push(await sendAiText(tx, target, `ai:${token}`, text, "reply"));
   for (const [index, file] of (await packageFiles(tx, decision)).entries()) {

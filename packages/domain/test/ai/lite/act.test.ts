@@ -10,7 +10,7 @@ import { actOnMove, type LiteActInput, type LiteActResult } from "../../../src/a
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { situationOf } from "../../../src/ai/lite/lookups/situation.js";
 import { readLiteFacts } from "../../../src/ai/lite/merge.js";
-import type { CheckedForm, Decision, Move, PackageIndexEntry } from "../../../src/ai/lite/types.js";
+import type { CheckedForm, Decision, Move, PackageIndexEntry, Situation } from "../../../src/ai/lite/types.js";
 import { DomainError, formatRupees } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
@@ -62,7 +62,7 @@ const checkedForm = (summary: string): CheckedForm => {
 };
 const failure = (error: unknown) => (error instanceof DomainError ? error.reason : String(error));
 const done = (result: LiteActResult) => {
-  if (result === "already") throw new Error("expected the turn to act");
+  if (result === "already" || "stopped" in result) throw new Error("expected the turn to act");
   return result;
 };
 
@@ -109,42 +109,42 @@ describe("the lite agent's act step", () => {
   });
 
   /** Acts in one transaction, as the turn does, the situation read for the decision's facts. */
-  function act(on: Agency, chosen: Decision, changes: Partial<LiteActInput> = {}) {
-    const index: PackageIndexEntry[] = [
-      {
-        id: on.packageId,
-        title: "Kedarnath Yatra 4N",
-        place: "Kedarnath",
-        destinationId: on.destinationId,
-        nights: 4,
-        startCity: "Delhi",
-      },
-    ];
+  function act(on: Agency, chosen: Decision, changes: Partial<LiteActInput> = {}, actDeps = deps()) {
     return on.inOrg(async (tx) => {
       const situation = await situationOf(
         tx,
-        { index, answers: {}, facts: chosen.facts, today: liteToday, now: liteTurnAt },
+        { index: indexOf(on), answers: {}, facts: chosen.facts, today: liteToday, now: liteTurnAt },
         [],
       );
-      return actOnMove(tx, deps(), {
-        organizationId: on.organizationId,
-        conversationId: on.chat.id,
-        token: on.message.id,
-        kind: "reply",
-        now: liteTurnAt,
-        today: liteToday,
-        timeZone: "Asia/Kolkata",
-        decision: chosen,
-        language: "english",
-        reply: null,
-        situation,
-        checked: null,
-        model: null,
-        agencyName: "Sharma Holidays",
-        ...changes,
-      });
+      return actOnMove(tx, actDeps, { ...actInput(on, chosen, situation), ...changes });
     });
   }
+  const indexOf = (on: Agency): PackageIndexEntry[] => [
+    {
+      id: on.packageId,
+      title: "Kedarnath Yatra 4N",
+      place: "Kedarnath",
+      destinationId: on.destinationId,
+      nights: 4,
+      startCity: "Delhi",
+    },
+  ];
+  const actInput = (on: Agency, chosen: Decision, situation: Situation): LiteActInput => ({
+    organizationId: on.organizationId,
+    conversationId: on.chat.id,
+    token: on.message.id,
+    kind: "reply",
+    now: liteTurnAt,
+    today: liteToday,
+    timeZone: "Asia/Kolkata",
+    decision: chosen,
+    language: "english",
+    reply: null,
+    situation,
+    checked: null,
+    model: null,
+    agencyName: "Sharma Holidays",
+  });
   const outbound = (on: Agency) =>
     on.inOrg((tx) =>
       tx.whatsappMessage.findMany({
@@ -173,9 +173,12 @@ describe("the lite agent's act step", () => {
         },
       }),
     );
-  /** The customer writes again a little later: the line the next turn answers. */
+  /** After the first turn's reply, the customer's next line, and the turn that answers it. */
+  const afterReply = new Date(liteTurnAt.getTime() + 30_000);
+  const nextTurnAt = new Date(liteTurnAt.getTime() + 60_000);
+  /** The customer writes again after the reply: the line the next turn answers. */
   async function laterLine(on: Agency, text: string) {
-    await on.say(text, "text", new Date(testNow.getTime() + 30_000));
+    await on.say(text, "text", afterReply);
     return on.inOrg((tx) =>
       tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" }, orderBy: { occurredAt: "desc" } }),
     );
@@ -227,12 +230,12 @@ describe("the lite agent's act step", () => {
   it("the payment details again name the booking's own amount and total", async () => {
     const on = await liteAgency(test);
     done(await act(on, decision(book(on), pricedFacts(on))));
-    await on.say("Please send the payment details again", "text", new Date(testNow.getTime() + 30_000));
+    await on.say("Please send the payment details again", "text", afterReply);
     const later = await on.inOrg((tx) =>
       tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" }, orderBy: { occurredAt: "desc" } }),
     );
     const kept = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
-    const again = done(await act(on, decision({ kind: "resend_payment" }, kept), { token: later.id }));
+    const again = done(await act(on, decision({ kind: "resend_payment" }, kept), { token: later.id, now: nextTurnAt }));
     expect(again.bookingId).toBeNull();
     const sent = (await outbound(on)).filter((message) => message.clientToken?.startsWith(`ai:${later.id}`));
     expect(sent.map((message) => message.clientToken)).toEqual([
@@ -265,8 +268,8 @@ describe("the lite agent's act step", () => {
     expect(await counts(on)).toEqual(nothingKept);
   });
 
-  it("a pause before sending sends nothing", async () => {
-    const on = await liteAgency(test);
+  /** Pauses the agent for this agency, from the platform's own connection, as platform staff do. */
+  async function pause(on: Agency) {
     const plan = await platform.plan.create({
       data: {
         key: `plan-${randomUUID().slice(0, 8)}`,
@@ -290,9 +293,59 @@ describe("the lite agent's act step", () => {
         aiAgentPausedBy: randomUUID(),
       },
     });
+  }
+
+  it("a pause before sending sends nothing", async () => {
+    const on = await liteAgency(test);
+    await pause(on);
     const refused = await act(on, decision(book(on), pricedFacts(on))).catch(failure);
     expect(refused).toBe("AGENT_PAUSED");
     expect(await counts(on)).toEqual(nothingKept);
+  });
+
+  it("a pause that lands while act works sends nothing: it is read again just before the end", async () => {
+    const on = await liteAgency(test);
+    const chosen = decision(book(on), pricedFacts(on));
+    // The booking asks who to tell partway through act: the pause lands then, from another connection.
+    const pausing = { ...deps(), recipients: async () => (await pause(on), []) };
+    const refused = await act(on, chosen, {}, pausing).catch(failure);
+    expect(refused).toBe("AGENT_PAUSED");
+    expect(await counts(on)).toEqual(nothingKept);
+  });
+
+  it("a staff reply since the turn began ends it quietly: nothing is sent or kept", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg((tx) =>
+      tx.whatsappMessage.create({
+        data: {
+          conversationId: on.chat.id,
+          direction: "out",
+          origin: "staff_crm",
+          kind: "text",
+          body: "Hi Rahul, I'll call you in five minutes.",
+          status: "sent",
+          occurredAt: new Date(testNow.getTime() + 20_000),
+        },
+      }),
+    );
+    expect(await act(on, decision(book(on), pricedFacts(on)))).toEqual({ stopped: "answered" });
+    expect(await counts(on)).toEqual({ ...nothingKept, sent: 1 });
+  });
+
+  it("a take-over or the owner's switch since the turn began ends it quietly", async () => {
+    const taken = await liteAgency(test);
+    await taken.inOrg((tx) => tx.aiChat.create({ data: { conversationId: taken.chat.id, mode: "off" } }));
+    expect(await act(taken, decision(book(taken), pricedFacts(taken)))).toEqual({ stopped: "off" });
+    expect(await counts(taken)).toEqual(nothingKept);
+
+    const switched = await liteAgency(test);
+    await switched.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: false } }));
+    expect(await act(switched, decision(book(switched), pricedFacts(switched)))).toEqual({ stopped: "off" });
+
+    const lite = await liteAgency(test);
+    await lite.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { lite: false } }));
+    expect(await act(lite, decision(book(lite), pricedFacts(lite)))).toEqual({ stopped: "off" });
+    expect(await counts(lite)).toEqual(nothingKept);
   });
 
   it("cleared payment details or an unsold package stop the booking", async () => {
@@ -347,7 +400,7 @@ describe("the lite agent's act step", () => {
     await lapseHolds(on);
     const later = await laterLine(on, "Please send the payment details again");
     const kept = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
-    const again = done(await act(on, decision({ kind: "resend_payment" }, kept), { token: later.id }));
+    const again = done(await act(on, decision({ kind: "resend_payment" }, kept), { token: later.id, now: nextTurnAt }));
     expect(again.bookingId).not.toBeNull();
     expect(again.bookingId).not.toBe(first.bookingId);
     const sent = (await outbound(on)).filter((message) => message.clientToken?.startsWith(`ai:${later.id}`));
@@ -377,7 +430,10 @@ describe("the lite agent's act step", () => {
     await holdSeats(on, 11);
     const later = await laterLine(on, "Please send the payment details again");
     const kept = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
-    const refused = await act(on, decision({ kind: "resend_payment" }, kept), { token: later.id }).catch(failure);
+    const refused = await act(on, decision({ kind: "resend_payment" }, kept), {
+      token: later.id,
+      now: nextTurnAt,
+    }).catch(failure);
     expect(refused).toBe("NOT_ENOUGH_SEATS");
     expect(await counts(on)).toEqual({ holds: 1, bookings: 1, sent: 3 });
     const booking = await on.inOrg((tx) => tx.aiBooking.findFirstOrThrow({ where: { leadId: on.leadId } }));
@@ -459,7 +515,7 @@ describe("the lite agent's act step", () => {
     expect(kept.sentFileIds).toHaveLength(3);
 
     // The customer writes again; the same package picked again sends no file twice.
-    await on.say("Which dates?", "text", new Date(testNow.getTime() + 30_000));
+    await on.say("Which dates?", "text", afterReply);
     const later = await on.inOrg((tx) =>
       tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" }, orderBy: { occurredAt: "desc" } }),
     );
@@ -467,7 +523,11 @@ describe("the lite agent's act step", () => {
       await act(
         on,
         decision({ kind: "answer_package", packageId: on.packageId, ask: "when" }, kept, { note: "package_picked" }),
-        { token: later.id, reply: { text: "We go every Saturday this month. Which date suits you?", filled: [] } },
+        {
+          token: later.id,
+          now: nextTurnAt,
+          reply: { text: "We go every Saturday this month. Which date suits you?", filled: [] },
+        },
       ),
     );
     expect(again.sentIds).toHaveLength(1);

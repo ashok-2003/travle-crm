@@ -40,10 +40,14 @@ export interface LiteActInput {
 
 export type LiteActResult =
   | "already"
+  /** The AI may no longer write here (mayWrite's reason, or "off"): nothing was written. */
+  | { stopped: string }
   | {
       leadId: string | null;
       /** Every message sent, in order. */
       sentIds: string[];
+      /** The reply's words as sent (a fixed line, the money message, the composed reply); null when none went. */
+      text: string | null;
       bookingId: string | null;
       handedOver: boolean;
       /** Codes of what changed: "lead:adults", "stage:quote_sent", "booking", "note:quoted"... */

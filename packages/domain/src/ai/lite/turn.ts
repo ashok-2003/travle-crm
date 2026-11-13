@@ -117,6 +117,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     agencyName,
   });
   if (result === "already") return end("answered");
+  // A person replied or took the chat over, or a switch went off, while the model worked: quietly, nothing was written.
+  if ("stopped" in result) return end(result.stopped);
   if ("refused" in result) {
     if (result.refused === "AGENT_PAUSED") return end("paused");
     if (result.refused === "NEWER_MESSAGE") return end("superseded");

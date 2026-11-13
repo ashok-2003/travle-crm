@@ -19,6 +19,7 @@ import {
   understood,
   withFacts,
   written,
+  type Agency,
 } from "./support/turn-script.js";
 
 describe("the lite agent's turn", () => {
@@ -268,6 +269,58 @@ describe("the lite agent's turn", () => {
     await on.inOrg((tx) => tx.aiSettings.updateMany({ data: { enabled: false } }));
     expect(await on.turn()).toBe("off");
     expect(on.model.requests).toHaveLength(0);
+  });
+
+  /** Runs `meanwhile` as the model is asked to read the chat: after the turn's checks, before it acts. */
+  function whileReading(on: Agency, meanwhile: () => Promise<unknown>) {
+    const complete = on.model.complete.bind(on.model);
+    on.model.complete = async (request) => {
+      if (request.schema?.name === "understand_form") await meanwhile();
+      return complete(request);
+    };
+  }
+
+  it("a staff reply while the AI works ends the turn quietly: nothing sent, nothing flagged", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    whileReading(on, () =>
+      on.inOrg((tx) =>
+        tx.whatsappMessage.create({
+          data: {
+            conversationId: on.chat.id,
+            direction: "out",
+            origin: "staff_crm",
+            kind: "text",
+            body: "Hi Rahul, calling you now.",
+            status: "sent",
+            occurredAt: at(30),
+          },
+        }),
+      ),
+    );
+    expect(await on.turn()).toBe("answered");
+    expect((await outbound(on)).map((one) => one.origin)).toEqual(["staff_crm"]);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirst({ where: { conversationId: on.chat.id } }));
+    expect(chat?.attentionAt ?? null).toBeNull();
+    expect(chat?.handedOffAt ?? null).toBeNull();
+  });
+
+  it("a take-over while the AI works ends the turn quietly", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    whileReading(on, () =>
+      on.inOrg((tx) =>
+        tx.aiChat.upsert({
+          where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+          create: { conversationId: on.chat.id, mode: "off" },
+          update: { mode: "off" },
+        }),
+      ),
+    );
+    expect(await on.turn()).toBe("off");
+    expect(await outbound(on)).toHaveLength(0);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(chat.attentionAt).toBeNull();
   });
 
   it("the log holds no customer words", async () => {
