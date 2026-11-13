@@ -11,6 +11,7 @@ import {
   onboardOrganization,
   organizationAgentPause,
   pauseOrganization,
+  resumeOneAtATimeIn,
   setEveryoneAgentPause,
 } from "../../src/platform/index.js";
 import { createTestPlan, createTestPlatform, onboardingInput, support, type TestPlatform } from "./test-platform.js";
@@ -110,6 +111,55 @@ describe("pausing the WhatsApp agent from the console", () => {
       "ai-agent.resumed",
       "ai-agent.paused",
     ]);
+  });
+
+  it("resume one at a time pauses each agency on its own and lifts the every-agency pause", async () => {
+    const plan = await createTestPlan(test);
+    const first = (await onboardOrganization(test.services, support, onboardingInput(plan))).organizationId;
+    const second = (await onboardOrganization(test.services, support, onboardingInput(plan))).organizationId;
+    const adminA = { userId: randomUUID() };
+    const adminB = { userId: randomUUID() };
+    const earlier = new Date("2026-11-10T05:00:00Z");
+    await pauseOrganization(test.services, adminA, { organizationId: first, paused: true });
+    const firstPause = await platform.subscription.findUniqueOrThrow({ where: { organizationId: first } });
+    await rolledBack(async (tx) => {
+      await setEveryoneAgentPause(tx, adminA, true, earlier);
+      const before = await tx.platformAuditEntry.count({ where: { action: "ai-agent.paused" } });
+      const result = await resumeOneAtATimeIn(tx, adminB, new Date("2026-11-13T05:00:00Z"));
+      // Other test files' agencies are paused too, and some may appear while this runs: only the two made here are held to it.
+      expect(result.paused).toBeGreaterThanOrEqual(1);
+      expect(
+        await tx.subscription.count({ where: { organizationId: { in: [first, second] }, aiAgentPausedAt: null } }),
+      ).toBe(0);
+      const kept = await tx.subscription.findUniqueOrThrow({ where: { organizationId: first } });
+      expect(kept.aiAgentPausedBy).toBe(adminA.userId);
+      expect(kept.aiAgentPausedAt).toEqual(firstPause.aiAgentPausedAt);
+      expect(await tx.subscription.findUniqueOrThrow({ where: { organizationId: second } })).toMatchObject({
+        aiAgentPausedBy: adminB.userId,
+      });
+      expect(await tx.subscriptionPolicy.findUniqueOrThrow({ where: { id: true } })).toMatchObject({
+        aiAgentPausedAt: null,
+      });
+      expect(await tx.platformAuditEntry.count({ where: { action: "ai-agent.paused" } })).toBe(before + result.paused);
+      expect(
+        await tx.platformAuditEntry.count({
+          where: { action: "ai-agent.resumed-everyone", actorUserId: adminB.userId },
+        }),
+      ).toBe(1);
+    });
+    await pauseOrganization(test.services, adminA, { organizationId: first, paused: false });
+  });
+
+  it("resume one at a time is refused while the every-agency pause is off, and writes nothing", async () => {
+    await rolledBack(async (tx) => {
+      const policy = await tx.subscriptionPolicy.findUniqueOrThrow({ where: { id: true } });
+      expect(policy.aiAgentPausedAt).toBeNull();
+      const before = await tx.platformAuditEntry.count({ where: { action: { startsWith: "ai-agent." } } });
+      await expect(resumeOneAtATimeIn(tx, { userId: randomUUID() })).rejects.toSatisfy(
+        (error) => error instanceof DomainError && error.reason === "AGENT_NOT_PAUSED_FOR_EVERYONE",
+      );
+      expect(await tx.platformAuditEntry.count({ where: { action: { startsWith: "ai-agent." } } })).toBe(before);
+    });
   });
 
   it("an organization without a subscription can't be paused alone", async () => {

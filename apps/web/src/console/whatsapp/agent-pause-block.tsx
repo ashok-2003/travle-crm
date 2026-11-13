@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { StatusBadge } from "@/components/status-badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { formatDayTime } from "@/lib/format";
 import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
@@ -29,6 +30,17 @@ export function AgentPauseBlock() {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: trpc.aiAgent.pathKey() });
         setConfirming(false);
+      },
+    }),
+  );
+
+  const oneAtATimeButton = useRef<HTMLButtonElement>(null);
+  const [askingOneAtATime, setAskingOneAtATime] = useState(false);
+  const oneAtATime = useMutation(
+    trpc.aiAgent.resumeOneAtATime.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: trpc.aiAgent.pathKey() });
+        setAskingOneAtATime(false);
       },
     }),
   );
@@ -68,7 +80,7 @@ export function AgentPauseBlock() {
         </span>
       </p>
       {mayChange && (
-        <div>
+        <div className="flex flex-wrap gap-2">
           <Button
             ref={button}
             variant="outline"
@@ -78,8 +90,37 @@ export function AgentPauseBlock() {
           >
             {paused ? t("agentPause.everyone.resume") : t("agentPause.everyone.pause")}
           </Button>
+          {paused && (
+            <Button
+              ref={oneAtATimeButton}
+              variant="outline"
+              onClick={() => {
+                setAskingOneAtATime(true);
+              }}
+            >
+              {t("agentPause.oneAtATime")}
+            </Button>
+          )}
         </div>
       )}
+      {oneAtATime.data !== undefined && (
+        <Alert>
+          <AlertDescription>{t("agentPause.oneAtATimeDone", { count: oneAtATime.data.paused })}</AlertDescription>
+        </Alert>
+      )}
+      <ConfirmDialog
+        open={askingOneAtATime}
+        onOpenChange={setAskingOneAtATime}
+        title={t("agentPause.oneAtATimeTitle")}
+        description={t("agentPause.oneAtATimeBody")}
+        action={t("agentPause.oneAtATimeConfirm")}
+        destructive={false}
+        request={oneAtATime}
+        onConfirm={() => {
+          oneAtATime.mutate();
+        }}
+        returnFocusTo={oneAtATimeButton}
+      />
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}

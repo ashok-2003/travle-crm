@@ -1,6 +1,6 @@
 // The console's pause of the WhatsApp agent: support can read it, only a super admin changes it. Pausing every agency
 // is proven here by refusal alone (its row is shared with other tests); a super admin's success is shown on one agency.
-import type { OrganizationAgentPause, AgentPauseState } from "@travel-crm/contracts/platform";
+import type { AgentPauseState, OrganizationAgentPause, OrganizationAgentState } from "@travel-crm/contracts/platform";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
@@ -104,5 +104,22 @@ describe("the console's pause of the WhatsApp agent", () => {
         ),
       ),
     ).toMatchObject({ agency: null });
+  });
+
+  it("support reads an agency's agent state; resuming one at a time is a super admin's, and refused while nothing is paused for every agency", async () => {
+    const organizationId = await subscribedOrganization();
+    const state = await dataOf<OrganizationAgentState>(
+      await consoleQuery(testConsole, "aiAgent.agentState", support.jar, { organizationId }),
+    );
+    expect(state).toMatchObject({ on: false, answering: false });
+    expect(state.missing).toContain("whatsapp");
+    expect(
+      await refusalOf(await consoleMutate(testConsole, "aiAgent.resumeOneAtATime", undefined, support.jar)),
+    ).toEqual({ status: 403, reason: "SUPER_ADMIN_ONLY" });
+    // Past the role check, and refused without writing: the every-agency pause is a row other tests share, so a
+    // success is proven in the domain test, inside a transaction that rolls back.
+    expect(
+      await refusalOf(await consoleMutate(testConsole, "aiAgent.resumeOneAtATime", undefined, superAdmin.jar)),
+    ).toEqual({ status: 409, reason: "AGENT_NOT_PAUSED_FOR_EVERYONE" });
   });
 });

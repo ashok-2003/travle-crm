@@ -5,8 +5,10 @@ import type {
   OrganizationAgentPause,
   PauseEveryoneInput,
   PauseOrganizationInput,
+  ResumeOneAtATimeResult,
 } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
+import { DomainError } from "../kernel/index.js";
 import * as subscriptions from "../subscriptions/index.js";
 import { recordPlatformAudit, type PlatformActor } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
@@ -93,6 +95,50 @@ export async function pauseOrganization(
     }
     return pausesOf(tx, input.organizationId);
   });
+}
+
+/** Pauses every agency on its own, then lifts the every-agency pause (one transaction). */
+export async function resumeOneAtATime(
+  services: PlatformServices,
+  staff: PlatformActor,
+): Promise<ResumeOneAtATimeResult> {
+  return services.platformDb.transaction((tx) => resumeOneAtATimeIn(tx, staff));
+}
+
+/**
+ * Inside the caller's platform transaction: every agency without its own pause gets one, then the every-agency pause
+ * lifts, so no agency answers until it is resumed from its page. An agency already paused alone keeps its pause, its
+ * time and its author. The every-agency pause must be on (CONFLICT otherwise, and nothing is written).
+ */
+export async function resumeOneAtATimeIn(
+  tx: PlatformTx,
+  staff: PlatformActor,
+  now: Date = new Date(),
+): Promise<ResumeOneAtATimeResult> {
+  if ((await everyonePause(tx)) === null) {
+    throw new DomainError("CONFLICT", "AGENT_NOT_PAUSED_FOR_EVERYONE", "The AI agent isn't paused for every agency");
+  }
+  const pending = await tx.subscription.findMany({
+    where: { aiAgentPausedAt: null },
+    select: { organizationId: true },
+    orderBy: { organizationId: "asc" },
+  });
+  let paused = 0;
+  for (const { organizationId } of pending) {
+    const { changed } = await subscriptions.setAgencyAgentPause(tx, staff, organizationId, true, now);
+    if (!changed) continue;
+    paused += 1;
+    await recordPlatformAudit(tx, staff, {
+      action: PAUSED_AGENCY,
+      targetType: "organization",
+      targetId: organizationId,
+      targetOrganizationId: organizationId,
+      before: { paused: false },
+      after: { paused: true },
+    });
+  }
+  await setEveryoneAgentPause(tx, staff, false, now);
+  return { paused };
 }
 
 async function everyonePause(tx: PlatformTx): Promise<Since> {
