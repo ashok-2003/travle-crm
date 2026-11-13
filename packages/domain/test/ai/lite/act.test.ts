@@ -439,6 +439,26 @@ describe("the lite agent's act step", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("a lapsed hold whose price has changed stops the payment details going again", async () => {
+    const on = await liteAgency(test);
+    done(await act(on, decision(book(on), pricedFacts(on))));
+    await lapseHolds(on);
+    await on.inOrg((tx) =>
+      tx.packageSeason.updateMany({ where: { templateId: on.packageId }, data: { priceDoublePaise: 749_900n } }),
+    );
+    const later = await laterLine(on, "Please send the payment details again");
+    const kept = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
+    const refused = await act(on, decision({ kind: "resend_payment" }, kept), {
+      token: later.id,
+      now: nextTurnAt,
+    }).catch(failure);
+    expect(refused).toBe("TOLD_TOTAL_CHANGED");
+    // All rolled back: the lapsed hold as it was, the first booking still waiting, nothing more sent.
+    expect(await counts(on)).toEqual({ holds: 1, bookings: 1, sent: 3 });
+    const booking = await on.inOrg((tx) => tx.aiBooking.findFirstOrThrow({ where: { leadId: on.leadId } }));
+    expect(booking.status).toBe("awaiting_payment");
+  });
+
   it("a lapsed hold whose seats are gone stops the payment details going again", async () => {
     const on = await liteAgency(test);
     done(await act(on, decision(book(on), pricedFacts(on))));

@@ -525,6 +525,21 @@ describe("decide: never silent on a question, never trips unasked", () => {
     expect(two.move).toEqual({ kind: "book", packageId: P1, departureId: D21 });
   });
 
+  it.each(["price_question", "gives_details"] as const)(
+    "the seat guard also stops a %s on a date with too few seats, offering the nearest with enough",
+    (intent) => {
+      const five = facts({ ...known, day: "2026-11-21", departureId: D2, adults: 5 });
+      const onD2 = withPackage({ ...fromPrice, departure: pkg.departures[1] ?? null });
+      const full = run({ intents: [intent], facts: five, situation: onD2 });
+      expect(full.move).toEqual({ kind: "give_dates", packageId: P1, departureIds: [D1], ask: "when" });
+      expect(full.why).toBe("seats:too_few");
+      expect(full.facts).toMatchObject({ departureId: null, day: null, quoted: null });
+      // With the seats there, the guard lets the question through.
+      const two = run({ intents: [intent], facts: facts({ ...known }), situation: withPackage(fullPrice) });
+      expect(two.why).not.toBe("seats:too_few");
+    },
+  );
+
   it("a departure the price can't find is not booked", () => {
     const D9 = "01900000-0000-7000-8000-0000000000d9";
     const closed = facts({ ...known, departureId: D9 });
