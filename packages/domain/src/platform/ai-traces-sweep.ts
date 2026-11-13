@@ -36,11 +36,11 @@ export async function sweepAiTraces(services: PlatformServices, now: Date): Prom
     if (page.length === 0) break;
     const gone: string[] = [];
     for (const trace of page) {
-      visited.push(trace.id);
       try {
         await services.storage.delete(trace.fileKey);
         gone.push(trace.id);
       } catch (error) {
+        visited.push(trace.id);
         failed.push(error);
       }
     }

@@ -1,7 +1,7 @@
 // What the console process runs besides its HTTP app (ADR 0019): the platform's own jobs (purging an organization,
 // erasing a person or a record, exporting one, deleting stored files), the nightly subscription lifecycle, the hourly
 // sweep of stored files still to delete, the daily sweep of exports past their time, the hourly sweep of imports' and
-// exports' files past theirs, the hourly sweep of the website form's ledger and, when a demo is set, its nightly
+// exports' files past theirs, the hourly sweep of the AI's turn traces past their 14 days, the hourly sweep of the website form's ledger and, when a demo is set, its nightly
 // reset, the system's health check, which emails the super admins when something breaks, and the email log's daily
 // purge. They need the platform role, which only this process holds. No listeners and no outbox relay: those are the
 // worker's.
