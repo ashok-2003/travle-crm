@@ -6,6 +6,8 @@ import { randomUUID } from "node:crypto";
 import { AI_KNOWLEDGE_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryJobQueue } from "@travel-crm/integrations/jobs";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   addKnowledge,
@@ -19,6 +21,7 @@ import {
   requestDocument,
   aiSettingsOf,
   saveAiSettings,
+  scoreHandler,
   scoreLead,
   scoreOnCustomerWroteListener,
   setLiteAgent,
@@ -429,10 +432,10 @@ describe("the AI, step one", () => {
       return on;
     }
 
-    it("the scoring job skips a chat the lite agent answers", async () => {
+    it("the scoring job waits for a lite turn under way, and skips a chat the turn already scored", async () => {
       const queued = await liteAgency({ turnState: "queued", turnAt: testNow });
       queued.model.answer(JSON.stringify(answer));
-      expect(await queued.score()).toBe("agent_scores");
+      expect(await queued.score()).toBe("turn_under_way");
       expect(queued.model.requests).toHaveLength(0);
       expect(await queued.inOrg((tx) => tx.aiUsage.count())).toBe(0);
       // Its turn is over and scored the lead after the customer's newest line: nothing is left to score.
@@ -444,6 +447,57 @@ describe("the AI, step one", () => {
       );
       expect(await scored.score()).toBe("agent_scores");
       expect(scored.model.requests).toHaveLength(0);
+    });
+
+    it("a lite chat whose turn ends without scoring (setup not ready) is still scored, a little later", async () => {
+      const on = await liteAgency({ turnState: "thinking", turnAt: new Date() });
+      const queue = createMemoryJobQueue();
+      const logger = createMemoryLogger();
+      const handler = scoreHandler({
+        db: test.db,
+        ai: on.model,
+        subscriptions: { entitlementsOf: () => Promise.resolve(entitlements("active")) },
+        logger,
+        queue,
+      });
+      const before = Date.now();
+      await handler.handle(on.job);
+      expect(on.model.requests).toHaveLength(0);
+      expect(queue.sent).toHaveLength(1);
+      const [later] = queue.sent;
+      expect(later).toMatchObject({ queue: "ai.score", data: { ...on.job, later: true } });
+      const startAfter = later?.options.startAfter?.getTime() ?? 0;
+      expect(startAfter - before).toBeGreaterThanOrEqual(2 * 60_000);
+      // Its turn ends having written no score (the lite turn found the setup not ready).
+      await on.inOrg((tx) => tx.aiChat.updateMany({ data: { turnState: null } }));
+      on.model.answer(JSON.stringify(answer));
+      await handler.handle(later?.data ?? {});
+      expect(on.model.requests).toHaveLength(1);
+      expect(await on.inOrg((tx) => tx.leadAiInsight.count({ where: { leadId: on.lead.id } }))).toBe(1);
+      // Asked again for the same message, it re-queues nothing: one later run per message.
+      await on.inOrg((tx) => tx.aiChat.updateMany({ data: { turnState: "thinking", turnAt: new Date() } }));
+      await handler.handle(on.job);
+      expect(queue.sent).toHaveLength(1);
+    });
+
+    it("a later run skips a chat its lite turn scored after the customer's newest line", async () => {
+      const on = await liteAgency({});
+      await on.inOrg((tx) =>
+        tx.leadAiInsight.create({
+          data: { leadId: on.lead.id, score: 40, label: "warm", summary: "", nextStep: "", model: "memory-model" },
+        }),
+      );
+      const later = await scoreLead(
+        {
+          db: test.db,
+          ai: on.model,
+          subscriptions: { entitlementsOf: () => Promise.resolve(entitlements("active")) },
+        },
+        { ...on.job, later: true },
+        new Date(),
+      );
+      expect(later).toBe("agent_scores");
+      expect(on.model.requests).toHaveLength(0);
     });
 
     it("it still scores a chat with the AI off", async () => {

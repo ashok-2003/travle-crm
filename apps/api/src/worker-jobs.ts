@@ -402,7 +402,17 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     handlers: [
       // The console's ping, answered so it knows the worker takes jobs (incidents.ts).
       ...(dependencies.jobs === undefined ? [] : [workerPingHandler(dependencies.jobs)]),
-      ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
+      ...(ai === null
+        ? []
+        : [
+            scoreHandler({
+              db,
+              ai,
+              subscriptions,
+              logger,
+              ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
+            }),
+          ]),
       ...(ai === null ? [] : aiReplyHandlers({ ...autopilotJobs(ai), logger })),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
