@@ -18,10 +18,11 @@ afterEach(() => {
 const since = "2026-11-12T04:30:00.000Z";
 
 function show(
-  state: { on: boolean; missing: string[]; answering: boolean },
+  partial: { on: boolean; missing: string[]; answering: boolean; planHasAi?: boolean },
   staff = platformStaff("super-admin"),
   pause: { agency: { since: string } | null; everyone: { since: string } | null } = { agency: null, everyone: null },
 ) {
+  const state = { planHasAi: true, ...partial };
   stubApi({ "platform.aiAgent.agentState": { data: state }, "platform.aiAgent.organizationPause": { data: pause } });
   renderConsole(<OrganizationAgentState organizationId={organizationId} />, staff);
 }
@@ -54,6 +55,12 @@ describe("OrganizationAgentState", () => {
   it("says the agent is off", async () => {
     show({ on: false, missing: [], answering: false });
     expect(await screen.findByText(text.off)).toBeVisible();
+  });
+
+  it("says when the agency's plan has no AI", async () => {
+    show({ on: true, missing: [], answering: false, planHasAi: false });
+    expect(await screen.findByText(text.noAi)).toBeVisible();
+    expect(screen.getByText(text.notAnswering)).toBeVisible();
   });
 
   it("leads a super admin to the AI's turns", async () => {

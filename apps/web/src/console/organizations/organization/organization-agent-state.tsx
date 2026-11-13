@@ -1,7 +1,8 @@
 "use client";
 
 // An agency's AI agent setup on its console page, for all platform staff: whether the agency turned the agent on, which
-// required steps are still undone, and whether it will answer yet. Super admins also get the link to the AI's turns.
+// required steps are still undone, whether its plan has the AI, and whether it will answer yet. Super admins also get
+// the link to the AI's turns.
 import { useQuery } from "@tanstack/react-query";
 import { useFormatter, useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
@@ -38,7 +39,7 @@ export function OrganizationAgentState({ organizationId }: { organizationId: str
       </DetailSection>
     );
   }
-  const { on, missing, answering } = state.data;
+  const { on, missing, planHasAi, answering } = state.data;
   // A pause shows as the state, so this block never says "ready" while the pause block says "paused".
   const paused = pause.data !== undefined && (pause.data.agency !== null || pause.data.everyone !== null);
   const steps = format.list(
@@ -57,6 +58,7 @@ export function OrganizationAgentState({ organizationId }: { organizationId: str
       <p className="text-muted-foreground">
         {missing.length === 0 ? t("agentState.ready") : t("agentState.missing", { steps })}
       </p>
+      {!planHasAi && <p className="text-muted-foreground">{t("agentState.noAi")}</p>}
       {mayOpenTurns && <TextLink href={consoleRoutes.aiTraces(organizationId)}>{tAi("traces.link")}</TextLink>}
     </DetailSection>
   );

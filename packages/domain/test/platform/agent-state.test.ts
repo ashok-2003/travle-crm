@@ -1,5 +1,5 @@
 // What the console reads of an agency's AI agent: on or off, the required setup steps still undone in the Setup tab's
-// order, and whether it is ready to answer.
+// order, whether its plan has the AI, and whether it is ready to answer.
 import { randomUUID } from "node:crypto";
 import { AGENCY_PAYMENT_QR_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { softDeleted } from "@travel-crm/db";
@@ -21,12 +21,38 @@ describe("an agency's AI agent state in the console", () => {
   });
 
   const stateOf = (organizationId: string) => organizationAgentState(test.services, organizationId, liteTurnAt);
+  /** A subscription on a plan with these modules, as onboarding gives every agency. */
+  const subscribe = (organizationId: string, modules: string[]) =>
+    test.services.platformDb.transaction(async (tx) => {
+      const plan = await tx.plan.create({
+        data: {
+          key: `plan-${randomUUID().slice(0, 8)}`,
+          name: "Starter",
+          monthlyPricePaise: 250_000,
+          seatLimit: 5,
+          whatsappNumberLimit: 1,
+          storageLimitBytes: 5_000_000_000n,
+          modules,
+        },
+      });
+      await tx.subscription.create({
+        data: {
+          organizationId,
+          planId: plan.id,
+          billingCycle: "monthly",
+          status: "trial",
+          statusChangedAt: liteTurnAt,
+          trialEndsOn: new Date("2099-01-01"),
+        },
+      });
+    });
 
   it("an agency on with its setup finished is ready to answer", async () => {
     const inbox = createTestInbox();
     try {
       const ready = await liteAgency(inbox);
-      expect(await stateOf(ready.organizationId)).toEqual({ on: true, missing: [], answering: true });
+      await subscribe(ready.organizationId, ["crm", "inbox", "ai"]);
+      expect(await stateOf(ready.organizationId)).toEqual({ on: true, missing: [], planHasAi: true, answering: true });
     } finally {
       await inbox.close();
     }
@@ -36,6 +62,7 @@ describe("an agency's AI agent state in the console", () => {
     const inbox = createTestInbox();
     try {
       const unready = await liteAgency(inbox, { ready: false });
+      await subscribe(unready.organizationId, ["crm", "inbox", "ai"]);
       // No UPI ID, no whole bank account and no QR picture: nothing a customer could pay to.
       await unready.inOrg(async (tx) => {
         await tx.organizationProfile.updateMany({ data: { upiId: null, bankAccountNumber: null, bankIfsc: null } });
@@ -48,6 +75,7 @@ describe("an agency's AI agent state in the console", () => {
         on: true,
         // Without payment details no package is sellable either, so that step is undone too.
         missing: ["packages", "payment", "answers"],
+        planHasAi: true,
         answering: false,
       });
     } finally {
@@ -64,6 +92,22 @@ describe("an agency's AI agent state in the console", () => {
       const agentOff = await liteAgency(inbox);
       await agentOff.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: false } }));
       expect(await stateOf(agentOff.organizationId)).toMatchObject({ on: false, answering: false });
+    } finally {
+      await inbox.close();
+    }
+  });
+
+  it("a plan without the AI answers nothing, whatever the agency's switch and setup say", async () => {
+    const inbox = createTestInbox();
+    try {
+      const downgraded = await liteAgency(inbox);
+      await subscribe(downgraded.organizationId, ["crm", "inbox"]);
+      expect(await stateOf(downgraded.organizationId)).toEqual({
+        on: true,
+        missing: [],
+        planHasAi: false,
+        answering: false,
+      });
     } finally {
       await inbox.close();
     }

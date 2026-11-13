@@ -27,14 +27,16 @@ export const organizationAgentPauseInput = z.strictObject({ organizationId: reco
 
 /**
  * What the console reads of an agency's AI agent: whether the agency turned it on, the required setup steps still
- * undone, and whether it is ready to answer. A pause shows apart (organizationAgentPause).
+ * undone, whether its plan has the AI, and whether it is ready to answer. A pause shows apart (organizationAgentPause).
  */
 export const organizationAgentState = z.object({
   /** The AI module and the agency's own agent switch are on. */
   on: z.boolean(),
   /** The required setup steps not done, in the Setup tab's order. */
   missing: z.array(z.enum(agentSetupSteps)),
-  /** On with every required step done. */
+  /** The agency's plan has the AI module: nothing turns the agency's switch off when a plan loses it. */
+  planHasAi: z.boolean(),
+  /** On with every required step done, on a plan and a subscription that allow the AI. */
   answering: z.boolean(),
 });
 export type OrganizationAgentState = z.infer<typeof organizationAgentState>;

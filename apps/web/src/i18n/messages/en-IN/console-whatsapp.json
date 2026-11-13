@@ -116,6 +116,7 @@
     "off": "The agency's AI agent is off.",
     "ready": "Its setup is finished.",
     "missing": "Its setup isn't finished: {steps}.",
+    "noAi": "Its plan has no AI.",
     "steps": {
       "whatsapp": "WhatsApp number",
       "packages": "packages the AI can sell",
