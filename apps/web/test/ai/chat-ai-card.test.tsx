@@ -90,6 +90,12 @@ describe("ChatAiCard, an agency whose agent can't answer", () => {
     expect(screen.getByRole("link", { name: messages.ai.chat.agentLink })).toHaveAttribute("href", "/ai-agent");
   });
 
+  it("keeps a hand-over's reason but offers no Let AI answer now while the agent can't answer", async () => {
+    show({ answering: false, agent: "not_ready", handedOff: true, handoffReason: "Asked for a discount" });
+    expect(await screen.findByText("Asked for a discount")).toBeVisible();
+    expect(screen.queryByRole("button", { name: messages.ai.chat.resume })).not.toBeInTheDocument();
+  });
+
   it("says the agent isn't set up yet, with no link for someone who doesn't manage it", async () => {
     show({ mode: "on", answering: false, agent: "not_ready" }, replier);
     expect(await screen.findByText(messages.ai.chat.agentNotReady)).toBeVisible();

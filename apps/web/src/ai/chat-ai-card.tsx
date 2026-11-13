@@ -66,18 +66,21 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
           <AlertTitle>{t("handoffTitle")}</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
             <span>{state.handoffReason ?? t("handoffNoReason")}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={busy}
-              onClick={() => {
-                resume.mutate({ conversationId });
-              }}
-            >
-              {resume.isPending && <Spinner aria-hidden="true" />}
-              {t("resume")}
-            </Button>
+            {/* Given back to an agent that answers no chat, it would answer nothing: the line above says why. */}
+            {state.agent === "ready" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                disabled={busy}
+                onClick={() => {
+                  resume.mutate({ conversationId });
+                }}
+              >
+                {resume.isPending && <Spinner aria-hidden="true" />}
+                {t("resume")}
+              </Button>
+            )}
           </AlertDescription>
         </Alert>
       )}
