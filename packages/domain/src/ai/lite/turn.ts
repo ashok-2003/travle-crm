@@ -19,6 +19,12 @@ import { understandChat } from "./understand.js";
 
 export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
   const startedMs = Date.now();
+  // Plan 3b writes the nudges; until then a quiet chat is left quiet, before any read (a follow-up time left on a chat
+  // still brings its nudge here). A follow-up task the owner set is a person's call to make.
+  if (input.kind !== "reply") {
+    const outcome = input.kind === "followUp" ? "off" : "nothing";
+    return finishTurn(deps, input, { outcome, log: {}, startedMs }, null);
+  }
   const prepared = await prepareLiteTurn(deps, input, now);
   if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);
   const trace = startTrace(input, prepared.leadId, now);
@@ -30,8 +36,6 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
       { outcome, log: { ...log, ...(reason === undefined ? {} : { reason }) }, startedMs },
       trace,
     );
-  // Plan 3b writes the follow-ups; until then a quiet chat is left quiet.
-  if (input.kind !== "reply") return end("nothing");
   const { organizationId } = input;
   const ai = tallied(deps.ai, trace);
   const environment: CallEnvironment = { db: deps.db, organizationId, now, timeZone: prepared.timeZone };
@@ -98,6 +102,9 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   log.move = trace.move = move.kind;
   trace.stage = acting.decision.stage;
   trace.why = acting.decision.why;
+  trace.note = acting.decision.note;
+  trace.task = acting.decision.task;
+  trace.suggest = acting.decision.suggest;
 
   // ACT.
   const result = await acted(deps, prepared.supplierStateCode, {
@@ -125,7 +132,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     return flag("blocked", result.refused);
   }
   trace.leadId = result.leadId;
-  trace.sent = { messageIds: result.sentIds, text: acting.reply?.text ?? null };
+  trace.sent = { messageIds: result.sentIds, text: result.text };
   trace.actions = result.actions;
   if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
   return end(move.kind === "silent" ? "silent" : "replied");

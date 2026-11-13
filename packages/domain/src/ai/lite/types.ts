@@ -238,6 +238,10 @@ export interface LiteTrace {
   move: Move["kind"] | null;
   stage: SaleStage | null;
   why: string | null;
+  /** What the decision left for plan 3b to store: the lead's note, the owner's follow-up, the Lost suggestion. */
+  note: Decision["note"];
+  task: Decision["task"];
+  suggest: Decision["suggest"];
   intents: LiteIntent[];
   promptVersions: Record<PromptPieceName, number>;
   model: string | null;
@@ -250,6 +254,7 @@ export interface LiteTrace {
   lookups: { request: LookupRequest; result: LookupResult }[];
   checks: { name: string; passed: boolean; detail: string | null }[];
   write: { blocks: Record<string, string>; raw: string[] } | null;
+  /** The reply's words as they went out (a fixed line, the money message, the composed reply), and every message sent. */
   sent: { messageIds: string[]; text: string | null };
   /** Codes: "lead:adults", "stage:quote_sent", "booking"... */
   actions: string[];

@@ -119,8 +119,6 @@ export async function prepareLiteTurn(
     const settings = await autopilotOf(tx);
     // The inbox hands a lite agency's chats on with the AI module off too (automationCouldAct): the turn refuses them.
     if (!(await aiEnabled(tx)) || !settings.autopilot || !settings.lite) return "off";
-    // A follow-up task the owner set is a person's call to make.
-    if (input.kind === "followUp") return "off";
     const chat = await tx.whatsappConversation.findUnique({
       where: { id: input.conversationId },
       select: {
