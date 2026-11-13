@@ -73,8 +73,9 @@ describe("payment identifiers in the sources", () => {
     const long = `Manali 5 Nights 6 Days ${"x".repeat(365)} pay ${upi} thanks`;
     await inOrg(async (tx) => {
       await tx.aiKnowledge.create({ data: { title: "Manali", body: long } });
-      await tx.aiAutopilot.updateMany({ data: { strictRules: `Advance to UPI ${upi} only` } });
-      await tx.aiSettings.updateMany({ data: { instructions: "Bank account no 50100123456789" } });
+      await tx.tripKit.create({
+        data: { name: "Advance", message: `Advance to UPI ${upi} only\nBank account no 50100123456789`, keywords: [] },
+      });
     });
     const pieces = await inOrg((tx) => packageSources(tx));
     const text = JSON.stringify(pieces);
