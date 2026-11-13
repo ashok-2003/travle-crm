@@ -2,8 +2,9 @@
 // do next, worked out from the chat and what we know of the lead. Only for an agency with the AI on, whose plan has it and
 // whose subscription isn't suspended or cancelled; it spends one of the agency's monthly AI calls; it runs once for a burst
 // of the customer's messages (the newest one's turn, a few seconds after it), never again for the same one, at most once in
-// ten minutes for one lead (later lines wait and are read then), and not for an "ok" or a "thanks" once it has a guess;
-// and it never changes a lead's stage or anything but its own row. Erased with the customer.
+// ten minutes for one lead (later lines wait and are read then), not for an "ok" or a "thanks" once it has a guess, nor
+// for a chat the lite agent answers (its turn scores it); and it never changes a lead's stage or anything but its own
+// row. Erased with the customer.
 import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
@@ -17,7 +18,9 @@ import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
+import { autopilotOf } from "./autopilot.js";
 import { knowledgeWords } from "./knowledge.js";
+import { agentAnswers } from "./may-write.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
 import { aiEnabled, aiFillLeadsOn, aiScoringOn } from "./settings.js";
 import { releaseAiCall, reserveAiCall } from "./usage.js";
@@ -63,6 +66,27 @@ async function nothingNewSince(tx: OrgTx, conversationId: string, leadId: string
   // A page full of lines may have real words beyond it: read it all.
   if (since.length === CHAT_MESSAGES) return false;
   return since.every((message) => saysNothingNew(message.body ?? message.caption ?? ""));
+}
+
+/**
+ * C4: the lite agent scores the chats it answers in its own turn, from the same model call. Its turn is waiting or
+ * running, or scored the lead after the customer's newest line: this job has nothing to add, and saves the call. A chat
+ * it doesn't answer (handed over, switched off in the chat, the owner's switch off) is scored here as before.
+ */
+async function agentScores(
+  tx: OrgTx,
+  input: { conversationId: string; leadId: string; newestAt: Date },
+): Promise<boolean> {
+  const settings = await autopilotOf(tx);
+  if (!settings.lite || !settings.autopilot) return false;
+  const chat = await tx.aiChat.findFirst({
+    where: { conversationId: input.conversationId },
+    select: { mode: true, handedOffAt: true, turnState: true },
+  });
+  if (!agentAnswers(chat?.mode ?? "default", settings.autopilot) || chat?.handedOffAt != null) return false;
+  if (chat?.turnState === "queued" || chat?.turnState === "thinking") return true;
+  const insight = await tx.leadAiInsight.findFirst({ where: { leadId: input.leadId }, select: { updatedAt: true } });
+  return insight !== null && insight.updatedAt > input.newestAt;
 }
 
 /**
@@ -204,7 +228,7 @@ async function prepare(
   const newest = await tx.whatsappMessage.findFirst({
     where: { conversationId: job.conversationId, direction: "in" },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    select: { id: true },
+    select: { id: true, occurredAt: true },
   });
   if (newest?.id !== job.messageId) return "later_message";
   const chat = await tx.whatsappConversation.findUnique({
@@ -228,6 +252,10 @@ async function prepare(
     },
   });
   if (lead === null) return "no_lead";
+  // Before any call is reserved: the lite agent's own turn scores (and fills) the chats it answers.
+  if (await agentScores(tx, { conversationId: job.conversationId, leadId: lead.id, newestAt: newest.occurredAt })) {
+    return "agent_scores";
+  }
   // Filling in only reads a lead's first customer messages, only while it is still missing something, and never otherwise.
   const firstMessages = await tx.whatsappMessage.findMany({
     where: { conversationId: job.conversationId, direction: "in" },

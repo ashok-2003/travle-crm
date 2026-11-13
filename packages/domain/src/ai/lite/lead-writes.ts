@@ -29,9 +29,10 @@ export interface LeadWriteInput {
   today: CalendarDate;
 }
 
-type TripField = "destination" | "when" | "adults" | "children_ages" | "departure_city" | "room_type";
+export type TripField = "destination" | "when" | "adults" | "children_ages" | "departure_city" | "room_type";
 
-const PATH_OF: Record<TripField, FillPath> = {
+/** The path each trip field's value is hashed under, so a value can be told as still the AI's own. */
+export const aiFieldPaths: Record<TripField, FillPath> = {
   destination: "trip.destination",
   when: "trip.when",
   adults: "trip.adults",
@@ -137,8 +138,8 @@ export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Prom
       else skip.add(field);
     } else if (
       row?.state === "suggested" &&
-      valueHash(PATH_OF[field], now) === row.valueHash &&
-      valueHash(PATH_OF[field], desired[field]) !== row.valueHash
+      valueHash(aiFieldPaths[field], now) === row.valueHash &&
+      valueHash(aiFieldPaths[field], desired[field]) !== row.valueHash
     ) {
       toWrite[field] = desired[field];
       overwrite.add(field);
@@ -157,7 +158,7 @@ export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Prom
     const proof = input.proofs[field];
     const row = {
       state: "suggested",
-      valueHash: valueHash(PATH_OF[field], desired[field]),
+      valueHash: valueHash(aiFieldPaths[field], desired[field]),
       excerpt: (proof?.excerpt ?? "").slice(0, EXCERPT_MAX),
       messageIds: proof?.messageIds ?? [],
     };

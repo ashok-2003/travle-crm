@@ -15,6 +15,7 @@ import {
   saveAutopilot,
   setLiteAgent,
 } from "../../../../src/ai/index.js";
+import type { TraceSink } from "../../../../src/ai/lite/types.js";
 import { parseCalendarDate, systemActor } from "../../../../src/kernel/index.js";
 import type { Entitlements } from "../../../../src/subscriptions/index.js";
 import { aLead } from "../../../crm/support/records.js";
@@ -201,7 +202,8 @@ export async function liteAgency(test: TestInbox, options: { lite?: boolean; rea
   }
   const model = createMemoryAiModel();
   const logger = createMemoryLogger();
-  const turn = (at = liteTurnAt) =>
+  /** A reply turn for the fixture's first message, or for `token` (a later message's id). */
+  const turn = (at = liteTurnAt, options: { token?: string; traces?: TraceSink } = {}) =>
     runAgentTurn(
       {
         db: test.db,
@@ -211,8 +213,9 @@ export async function liteAgency(test: TestInbox, options: { lite?: boolean; rea
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([]),
+        ...(options.traces === undefined ? {} : { traces: options.traces }),
       },
-      { organizationId, conversationId: chat.id, kind: "reply", token: message.id },
+      { organizationId, conversationId: chat.id, kind: "reply", token: options.token ?? message.id },
       at,
     );
   return { organizationId, inOrg, chat, message, ...ids, model, logger, say, turn };

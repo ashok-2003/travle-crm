@@ -21,6 +21,7 @@ import {
   saveAiSettings,
   scoreLead,
   scoreOnCustomerWroteListener,
+  setLiteAgent,
   suggestReply,
   updateKnowledge,
 } from "../../src/ai/index.js";
@@ -408,6 +409,43 @@ describe("the AI, step one", () => {
       model.answer("not json at all");
       expect(await score()).toBe("no_answer");
       expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(10);
+    });
+
+    /** The agency on the lite agent, its autopilot on, and the chat's AI row as given. */
+    async function liteAgency(chat: { mode?: string; turnState?: string | null }) {
+      const on = await agency();
+      await on.inOrg(async (tx) => {
+        await setLiteAgent(tx, systemActor(on.organizationId), true);
+        await tx.aiAutopilot.updateMany({ data: { autopilot: true } });
+        await tx.aiChat.create({
+          data: { conversationId: on.chat.id, mode: chat.mode ?? "default", turnState: chat.turnState ?? null },
+        });
+      });
+      return on;
+    }
+
+    it("the scoring job skips a chat the lite agent answers", async () => {
+      const queued = await liteAgency({ turnState: "queued" });
+      queued.model.answer(JSON.stringify(answer));
+      expect(await queued.score()).toBe("agent_scores");
+      expect(queued.model.requests).toHaveLength(0);
+      expect(await queued.inOrg((tx) => tx.aiUsage.count())).toBe(0);
+      // Its turn is over and scored the lead after the customer's newest line: nothing is left to score.
+      const scored = await liteAgency({});
+      await scored.inOrg((tx) =>
+        tx.leadAiInsight.create({
+          data: { leadId: scored.lead.id, score: 40, label: "warm", summary: "", nextStep: "", model: "memory-model" },
+        }),
+      );
+      expect(await scored.score()).toBe("agent_scores");
+      expect(scored.model.requests).toHaveLength(0);
+    });
+
+    it("it still scores a chat with the AI off", async () => {
+      const off = await liteAgency({ mode: "off", turnState: null });
+      off.model.answer(JSON.stringify(answer));
+      expect(await off.score()).toBe("scored");
+      expect(off.model.requests).toHaveLength(1);
     });
 
     it("is erased with the customer", async () => {

@@ -29,6 +29,8 @@ import { cleanReply } from "./clean-reply.js";
 import { AI_TOKEN_PREFIX, agentAnswers, mayWrite } from "./may-write.js";
 import { aiEnabled } from "./settings.js";
 import { runGroundedTurn } from "./grounded/turn.js";
+import { runLiteTurn } from "./lite/turn.js";
+import type { TraceSink } from "./lite/types.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
 import { calendarText, dateChecks, fixWeekdays } from "./calendar.js";
 import { chatVoiceOf } from "./chat-voice.js";
@@ -51,6 +53,8 @@ export interface AgentDependencies {
   managers: BookingRecipients;
   /** Where the grounded turn logs its outcome (codes only); the worker passes its own. */
   logger?: Logger;
+  /** Where the lite turn hands the whole of each turn it prepared (plan 3b keeps them); without one, none is kept. */
+  traces?: TraceSink;
 }
 
 /**
@@ -114,12 +118,14 @@ export async function runAgentTurn(
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(input.organizationId))) return "not_allowed";
   // Paused by platform staff: nothing is written to a customer, by either agent. Read fresh, never from the access cache.
   if ((await db.forOrg(input.organizationId, (tx) => agentPauseOf(tx, input.organizationId))) !== null) return "paused";
-  // An agency switched to the grounded turn gets it; the others keep this agent exactly as it is.
-  const grounded = await db.forOrg(
-    input.organizationId,
-    async (tx) => (await aiEnabled(tx)) && (await autopilotOf(tx)).grounded,
-  );
-  if (grounded) return runGroundedTurn(dependencies, input, now);
+  // An agency on the lite agent gets it, whatever its grounded switch says (the lite turn checks the AI module itself);
+  // one switched to the grounded turn gets that; the others keep this agent exactly as it is.
+  const agent = await db.forOrg(input.organizationId, async (tx) => ({
+    enabled: await aiEnabled(tx),
+    settings: await autopilotOf(tx),
+  }));
+  if (agent.settings.lite) return runLiteTurn(dependencies, input, now);
+  if (agent.enabled && agent.settings.grounded) return runGroundedTurn(dependencies, input, now);
   const agency = await dependencies.agencyName(input.organizationId);
   const prepared = await db.forOrg(input.organizationId, async (tx) => {
     if (!(await aiEnabled(tx))) return "off";

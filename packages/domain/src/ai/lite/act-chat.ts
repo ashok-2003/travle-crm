@@ -1,5 +1,6 @@
 // What a lite turn leaves on the chat: the facts it settled (with the files sent and the booking taken), the summary,
-// the reply count, no follow-up planned (plan 3b plans them), and on a hand-over the reason for the team, the owner told.
+// the reply count, no follow-up planned (plan 3b plans them) but whether the customer stopped them, and on a hand-over
+// the reason for the team, the owner told.
 import type { OrgTx } from "@travel-crm/db";
 import { tellOwner, type ChatFacts } from "../agent-effects.js";
 import type { LiteActInput } from "./act-types.js";
@@ -45,6 +46,8 @@ export async function settleChat(
       ...counted,
       followUpAt: null,
       followUpReason: null,
+      // The customer's newest words decide it: a later reply that isn't "not interested" or "later" starts them again.
+      ...(input.kind === "reply" ? { followUpsStopped: decision.stopFollowUps } : {}),
       ...(reason === null ? {} : { handedOffAt: now, handoffReason: reason }),
     },
   });
