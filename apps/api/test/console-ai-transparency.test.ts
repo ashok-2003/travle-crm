@@ -3,8 +3,7 @@ import type { AiPromptLibrary, AiTraceDetail, AiTracePage } from "@travel-crm/co
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
-import { createTraceSink, promptLibrary } from "@travel-crm/domain/ai";
-import { startTrace } from "@travel-crm/domain/ai";
+import { createTraceSink, promptLibrary, startTrace } from "@travel-crm/domain/ai";
 import { listPlatformLog } from "@travel-crm/domain/platform";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {

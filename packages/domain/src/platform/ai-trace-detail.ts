@@ -18,6 +18,7 @@ export function traceFileView(file: TraceFile, messages: ContextMessage[]): AiTr
   const { trace } = file;
   const found = new Map(messages.map((message) => [message.id, message]));
   const context = [...new Set(trace.messageIds)];
+  const sent = [...new Set(trace.sent.messageIds)];
   const current: Record<string, number> = promptVersions();
   const used: Record<string, number> = trace.promptVersions;
   const known = promptLibrary().map((piece) => piece.name as string);
@@ -31,7 +32,7 @@ export function traceFileView(file: TraceFile, messages: ContextMessage[]): AiTr
       const message = found.get(id);
       return message === undefined ? [] : [messageView(message)];
     }),
-    messagesGone: context.filter((id) => !found.has(id)).length,
+    messagesGone: [...new Set([...context, ...sent])].filter((id) => !found.has(id)).length,
     lookups: trace.lookups.map(({ request, result }) => ({
       tool: request.tool,
       request: JSON.stringify(request, null, 2),
@@ -47,7 +48,7 @@ export function traceFileView(file: TraceFile, messages: ContextMessage[]): AiTr
     write: trace.write === null ? null : { blocks: blocksOf(trace.write.blocks), answers: trace.write.raw },
     sent: {
       text: trace.sent.text,
-      messages: [...new Set(trace.sent.messageIds)].flatMap((id) => {
+      messages: sent.flatMap((id) => {
         const message = found.get(id);
         return message === undefined ? [] : [messageView(message)];
       }),

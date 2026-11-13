@@ -9,6 +9,7 @@ import type {
   AiTraceRow,
 } from "@travel-crm/contracts/platform";
 import { asOrganization } from "@travel-crm/db/platform";
+import { errorFields } from "@travel-crm/integrations/logging";
 import { keptTrace, keptTraces, readTraceFile, traceMessages, type KeptTrace } from "../ai/index.js";
 import { findOrganizationRecord } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
@@ -86,7 +87,15 @@ export async function openAiTrace(
   });
   const trace = rowView(row, services);
   const priced = services.aiPrices != null;
-  const file = await readTraceFile(services.storage, row.fileKey);
+  // A storage outage is a file that can't be read: the opening is already logged, and a throw would invite a retry
+  // that logs it again.
+  const file = await readTraceFile(services.storage, row.fileKey).catch((error: unknown) => {
+    services.logger.warn(
+      { event: "ai.trace-unreadable", traceId, ...errorFields(error) },
+      "A turn's trace file was unreadable",
+    );
+    return null;
+  });
   if (file === null) return { trace, priced, file: null };
   const ids = [...new Set([...file.trace.messageIds, ...file.trace.sent.messageIds])];
   const messages = await services.platformDb.transaction((tx) =>
