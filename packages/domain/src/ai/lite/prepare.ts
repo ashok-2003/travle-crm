@@ -23,6 +23,7 @@ import { usableName } from "./decide/stage.js";
 import type { DecideInput } from "./decide/decide.js";
 import { contextMessageOf, storedMessageFields } from "./context/messages.js";
 import { factsForLead, readLiteFacts } from "./merge.js";
+import { markedNotALead } from "./open-lead.js";
 import type { TypedFields } from "./typed-lock.js";
 import { bookingPartOf, leadPartOf, packageIndexOf } from "./prepare-lead.js";
 import type {
@@ -152,6 +153,8 @@ export async function prepareLiteTurn(
     };
     const blocked = await mayWrite(tx, row, settings, input.kind, now);
     if (blocked !== null) return blocked;
+    // A person judged the customer Not a lead: nothing is read for them, nothing sent, nobody told.
+    if (await markedNotALead(tx, chat.personId)) return "not_a_lead";
     const timeZone = await organizationTimeZone(tx, organizationId);
     const today = calendarDateIn(now, timeZone);
     // Read once for the turn: the setup's check and the index both take this list.

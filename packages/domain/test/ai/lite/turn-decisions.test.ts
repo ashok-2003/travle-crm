@@ -1,5 +1,5 @@
-// What a person decided on the lead reaches the lite turn: a customer marked Not a lead gets no new lead and no answer,
-// while a Lost one's next trip still gets its lead; a value confirmed with "Looks right" is the person's, and one
+// What a person decided on the lead reaches the lite turn: a customer whose newest lead is Not a lead gets no answer at
+// all, while a Lost one's next trip still gets its lead; a value confirmed with "Looks right" is the person's, and one
 // dismissed with "Not right" is asked again.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decideSuggestions } from "../../../src/ai/fill/lead-fields.js";
@@ -12,7 +12,7 @@ import { formatRupees } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency } from "./support/lite-agency.js";
-import { at, greeting, outbound, says, understood, withFacts, written, type Agency } from "./support/turn-script.js";
+import { at, outbound, says, understood, withFacts, written, type Agency } from "./support/turn-script.js";
 
 const DAY_MS = 86_400_000;
 const kedarnath = { name: "Kedarnath Yatra 4N", proof: "price for kedarnath", changed: false };
@@ -51,20 +51,32 @@ describe("what a person decided reaches the lite turn", () => {
   });
   afterAll(() => test.close());
 
-  it("a Not a lead customer's next hello opens no lead and sends nothing", async () => {
+  it("a customer marked Not a lead by hand is not answered at all: no lead, no message, nobody told", async () => {
     const on = await liteAgency(test);
     await markLeads(on, "not_a_lead");
     const leads = await leadCount(on);
-    const token = await says(on, "hi", 30);
-    on.model.answer(understood([["hello", "hi"]]), written(greeting));
-    expect(await on.turn(at(60), { token })).toBe("not_a_lead");
+    const notices = () => on.inOrg((tx) => tx.notification.count());
+    const told = await notices();
+    // What the model would answer, were it asked: a greeting, a booking, and a discount that goes to a person.
+    const turns = [
+      { seconds: 30, words: "hi", answers: [understood([["hello", "hi"]])] },
+      { seconds: 90, words: "I want to book", answers: [understood([["wants_to_book", "I want to book"]])] },
+      { seconds: 150, words: "can you give a discount?", answers: [understood([["discount", "give a discount"]])] },
+    ];
+    for (const { seconds, words, answers } of turns) {
+      const token = await says(on, words, seconds);
+      on.model.answer(...answers);
+      expect(await on.turn(at(seconds + 30), { token })).toBe("not_a_lead");
+    }
+    // The customer's lines are in the inbox for the team; the AI read none of them and wrote nothing.
+    expect(await on.inOrg((tx) => tx.whatsappMessage.count({ where: { direction: "in" } }))).toBe(4);
     expect(await outbound(on)).toHaveLength(0);
+    expect(on.model.requests).toHaveLength(0);
     expect(await leadCount(on)).toBe(leads);
-    // Nobody is told: the chat is not handed over or flagged, and nothing was written for a reply.
+    expect(await notices()).toBe(told);
     const chat = await on.inOrg((tx) => tx.aiChat.findFirst({ where: { conversationId: on.chat.id } }));
     expect(chat?.handedOffAt ?? null).toBeNull();
     expect(chat?.attentionReason ?? null).toBeNull();
-    expect(on.model.requests.map((request) => request.schema?.name)).toEqual(["understand_form"]);
   });
 
   it("a Lost customer's next price question still opens one", async () => {
@@ -139,5 +151,15 @@ describe("what a person decided reaches the lite turn", () => {
     const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
     expect(await on.turn(at(60), { token, traces: sink })).toBe("replied");
     expect(traces[0]?.asked).toBe("people");
+    // The customer's answer, unlike the count dismissed, goes back on the lead as the AI's.
+    const answer = await says(on, "4 of us", 90);
+    on.model.answer(
+      understood([["gives_details", "4 of us"]], {
+        details: { adults: { count: 4, proof: "4 of us", changed: false } },
+      }),
+      written("Which city will you join us from?"),
+    );
+    expect(await on.turn(at(120), { token: answer })).toBe("replied");
+    expect((await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }))).adults).toBe(4);
   });
 });

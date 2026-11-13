@@ -18,6 +18,7 @@ import { decide } from "./decide/decide.js";
 import { inWakingHours, nextMorning, stillQuiet } from "./follow-ups.js";
 import { situationOf } from "./lookups/situation.js";
 import { factsForLead, readLiteFacts } from "./merge.js";
+import { markedNotALead } from "./open-lead.js";
 import { chatLines, placesOf, usableNameOf, type LitePrepared } from "./prepare.js";
 import { packageIndexOf } from "./prepare-lead.js";
 import type { Decision, LiteDependencies, LiteOutcome, LiteTurnInput, Situation } from "./types.js";
@@ -59,6 +60,7 @@ export async function prepareNudge(
     };
     const blocked = await mayWrite(tx, chat, settings, "nudge", now);
     if (blocked !== null) return blocked;
+    if (await markedNotALead(tx, chat.personId)) return "not_a_lead";
     const state = await tx.aiChat.findFirst({
       where: { conversationId: chat.id },
       select: { followUpsSent: true, summary: true },
