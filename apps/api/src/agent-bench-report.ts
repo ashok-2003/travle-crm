@@ -1,24 +1,27 @@
 // The agent bench's report: a Markdown account of every case and turn, with the customer's words and the replies. It is the
 // one place those words are kept, so it is written outside the repository, readable by its owner alone.
-import { chmodSync, existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { chmodSync, existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { LiteCaseResult } from "@travel-crm/domain/ai";
 
 /** Whether the file would sit under the repository's folder, following links on the part of the path that exists. */
 export function insideRepository(file: string, repositoryRoot: string): boolean {
   const real = (path: string): string => {
     const target = resolve(path);
-    if (existsSync(target)) return realpathSync(target);
+    if (existsSync(target)) return realpathSync.native(target);
     const parent = dirname(target);
     return parent === target ? target : resolve(real(parent), relative(parent, target));
   };
   const inside = relative(real(repositoryRoot), real(file));
-  return inside === "" || (!inside.startsWith("..") && !isAbsolute(inside));
+  const leavesRoot = inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside);
+  return !leavesRoot;
 }
 
 /** Writes the report in a folder only its owner can enter, as a file only its owner can read. */
 export function writePrivateReport(file: string, text: string): void {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  // A file that already exists keeps its old mode when written over, so it goes first.
+  rmSync(file, { force: true });
   writeFileSync(file, text, { mode: 0o600 });
   chmodSync(file, 0o600);
 }
