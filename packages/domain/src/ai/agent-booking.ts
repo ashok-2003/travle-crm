@@ -29,18 +29,32 @@ export interface AgentBookingInput {
   now: Date;
 }
 
-/** The lead's live hold on the departure: the one this booking took, or one an earlier turn took. */
-async function heldUntil(tx: OrgTx, leadId: string, departureId: string, now: Date): Promise<Date | null> {
-  const hold = await tx.departureHold.findFirst({
-    where: { leadId, departureId, status: "active", expiresAt: { gt: now } },
+/**
+ * When the lead's live hold on the departure ends: the one this booking took, or one taken before. A hold of fewer seats
+ * than the party (staff held one, two now book) does not hold their seats, so it counts as none.
+ */
+async function heldUntil(
+  tx: OrgTx,
+  hold: { leadId: string; departureId: string; seats: number },
+  now: Date,
+): Promise<Date | null> {
+  const live = await tx.departureHold.findFirst({
+    where: {
+      leadId: hold.leadId,
+      departureId: hold.departureId,
+      seats: { gte: hold.seats },
+      status: "active",
+      expiresAt: { gt: now },
+    },
     select: { expiresAt: true },
   });
-  return hold?.expiresAt ?? null;
+  return live?.expiresAt ?? null;
 }
 
 /**
  * Makes the quote, holds the seats and takes the booking. Returns the AI booking's id and when the seats are held until:
- * this hold's end, or that of the hold the lead already has on the departure; null when no live hold is found.
+ * this hold's end, or that of the hold the lead already has on the departure; null when no live hold of the party's
+ * seats is found.
  */
 export async function takeAgentBooking(
   tx: OrgTx,
@@ -49,9 +63,10 @@ export async function takeAgentBooking(
 ): Promise<{ bookingId: string; holdExpiresAt: Date | null }> {
   const { leadId, departure, travellers, now } = input;
   const bookingId = uuidFromKey(`ai-booking:${input.token}`);
+  const party = { leadId, departureId: departure.id, seats: travellers };
   // A repeat of the turn: its booking stands, and no second hold or quote is made.
   if ((await tx.aiBooking.findUnique({ where: { id: bookingId }, select: { id: true } })) !== null) {
-    return { bookingId, holdExpiresAt: await heldUntil(tx, leadId, departure.id, now) };
+    return { bookingId, holdExpiresAt: await heldUntil(tx, party, now) };
   }
   const actor = systemActor(input.organizationId);
   // The quote first: it counts the seats held, so a hold of its own party would leave it too few.
@@ -79,7 +94,7 @@ export async function takeAgentBooking(
   ).catch(async (error: unknown) => {
     // The lead holds seats here already (an earlier turn): they stand.
     if (!(error instanceof DomainError && error.reason === "HOLD_EXISTS")) throw error;
-    return { expiresAt: await heldUntil(tx, leadId, departure.id, now) };
+    return { expiresAt: await heldUntil(tx, party, now) };
   });
   const day = formatShortDay(departure.startsOn, input.today);
   const total = formatRupees(input.toldTotalPaise);

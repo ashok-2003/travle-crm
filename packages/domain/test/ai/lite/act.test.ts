@@ -12,6 +12,7 @@ import { situationOf } from "../../../src/ai/lite/lookups/situation.js";
 import { readLiteFacts } from "../../../src/ai/lite/merge.js";
 import type { CheckedForm, Decision, Move, PackageIndexEntry } from "../../../src/ai/lite/types.js";
 import { DomainError, formatRupees } from "../../../src/kernel/index.js";
+import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteToday, liteTurnAt } from "./support/lite-agency.js";
 
@@ -159,6 +160,28 @@ describe("the lite agent's act step", () => {
       sent: await tx.whatsappMessage.count({ where: { conversationId: on.chat.id, direction: "out" } }),
     }));
   const nothingKept = { holds: 0, bookings: 0, sent: 0 };
+  const aDayLater = new Date(liteTurnAt.getTime() + 86_400_000);
+  /** Seats held on the first departure for a lead, as staff hold them (another lead's by default). */
+  const holdSeats = (on: Agency, seats: number, leadId?: string) =>
+    on.inOrg(async (tx) =>
+      tx.departureHold.create({
+        data: {
+          departureId: on.departures[0]?.id ?? "",
+          leadId: leadId ?? (await aLead(tx)).id,
+          seats,
+          expiresAt: aDayLater,
+        },
+      }),
+    );
+  /** The customer writes again a little later: the line the next turn answers. */
+  async function laterLine(on: Agency, text: string) {
+    await on.say(text, "text", new Date(testNow.getTime() + 30_000));
+    return on.inOrg((tx) =>
+      tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" }, orderBy: { occurredAt: "desc" } }),
+    );
+  }
+  const lapseHolds = (on: Agency) =>
+    on.inOrg((tx) => tx.departureHold.updateMany({ where: { leadId: on.leadId }, data: { expiresAt: testNow } }));
 
   it("book holds, books and sends the money message", async () => {
     const on = await liteAgency(test);
@@ -292,6 +315,83 @@ describe("the lite agent's act step", () => {
     );
     expect(await act(unsold, decision(book(unsold), pricedFacts(unsold))).catch(failure)).toBe("PACKAGE_NOT_SELLABLE");
     expect(await counts(unsold)).toEqual(nothingKept);
+  });
+
+  it("a hold of fewer seats than the party is no hold: nothing is said, booked or sent", async () => {
+    const on = await liteAgency(test);
+    // Staff held one seat for the lead earlier; now two book.
+    await holdSeats(on, 1, on.leadId);
+    expect(await act(on, decision(book(on), pricedFacts(on))).catch(failure)).toBe("HOLD_EXISTS");
+    expect(await counts(on)).toEqual({ holds: 1, bookings: 0, sent: 0 });
+  });
+
+  it("seats sold meanwhile or a changed price stop the booking", async () => {
+    const full = await liteAgency(test);
+    await holdSeats(full, 11);
+    expect(await act(full, decision(book(full), pricedFacts(full))).catch(failure)).toBe("NOT_ENOUGH_SEATS");
+    expect(await counts(full)).toEqual(nothingKept);
+
+    const repriced = await liteAgency(test);
+    await repriced.inOrg((tx) =>
+      tx.packageSeason.updateMany({ where: { templateId: repriced.packageId }, data: { priceDoublePaise: 749_900n } }),
+    );
+    expect(await act(repriced, decision(book(repriced), pricedFacts(repriced))).catch(failure)).toBe(
+      "TOLD_TOTAL_CHANGED",
+    );
+    expect(await counts(repriced)).toEqual(nothingKept);
+  });
+
+  it("a lapsed hold is taken again before the payment details go again", async () => {
+    const on = await liteAgency(test);
+    const first = done(await act(on, decision(book(on), pricedFacts(on))));
+    await lapseHolds(on);
+    const later = await laterLine(on, "Please send the payment details again");
+    const kept = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
+    const again = done(await act(on, decision({ kind: "resend_payment" }, kept), { token: later.id }));
+    expect(again.bookingId).not.toBeNull();
+    expect(again.bookingId).not.toBe(first.bookingId);
+    const sent = (await outbound(on)).filter((message) => message.clientToken?.startsWith(`ai:${later.id}`));
+    expect(sent.map((message) => message.clientToken)).toEqual([
+      `ai:${later.id}`,
+      `ai:${later.id}:qr`,
+      `ai:${later.id}:pay`,
+    ]);
+    expect(sent[0]?.body).toContain("until");
+    expect(sent[0]?.body).toContain(formatRupees(400_000));
+    const rows = await on.inOrg(async (tx) => ({
+      holds: await tx.departureHold.findMany({ where: { leadId: on.leadId, status: "active" } }),
+      bookings: await tx.aiBooking.findMany({ where: { leadId: on.leadId }, orderBy: { createdAt: "asc" } }),
+    }));
+    expect(rows.holds).toHaveLength(1);
+    expect(rows.holds[0]?.expiresAt.getTime()).toBeGreaterThan(liteTurnAt.getTime());
+    expect(rows.bookings.map((booking) => [booking.id, booking.status, booking.expectedPaise])).toEqual([
+      [first.bookingId, "cancelled", 400_000n],
+      [again.bookingId, "awaiting_payment", 400_000n],
+    ]);
+  });
+
+  it("a lapsed hold whose seats are gone stops the payment details going again", async () => {
+    const on = await liteAgency(test);
+    done(await act(on, decision(book(on), pricedFacts(on))));
+    await lapseHolds(on);
+    await holdSeats(on, 11);
+    const later = await laterLine(on, "Please send the payment details again");
+    const kept = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
+    const refused = await act(on, decision({ kind: "resend_payment" }, kept), { token: later.id }).catch(failure);
+    expect(refused).toBe("NOT_ENOUGH_SEATS");
+    expect(await counts(on)).toEqual({ holds: 1, bookings: 1, sent: 3 });
+    const booking = await on.inOrg((tx) => tx.aiBooking.findFirstOrThrow({ where: { leadId: on.leadId } }));
+    expect(booking.status).toBe("awaiting_payment");
+  });
+
+  it("a silent move sends nothing and counts no reply", async () => {
+    const on = await liteAgency(test);
+    const facts = { ...liteFacts.parse({ agent: "lite" }), lastMove: "silent" };
+    const result = done(await act(on, decision({ kind: "silent" }, facts, { stopFollowUps: true })));
+    expect(result).toMatchObject({ sentIds: [], bookingId: null, handedOver: false });
+    expect(await counts(on)).toEqual(nothingKept);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(chat).toMatchObject({ lastReplyAt: null, repliesOn: null, repliesCount: 0, followUpAt: null });
   });
 
   it("a hand-over sends the fixed line and tells the owner", async () => {
