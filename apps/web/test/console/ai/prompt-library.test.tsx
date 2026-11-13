@@ -56,7 +56,13 @@ describe("PromptLibraryScreen", () => {
     expect(screen.getByRole("heading", { name: "understand.instructions" })).toBeVisible();
     expect(screen.getByText(`Version 1, changed ${formatCalendarDay("2026-11-12")}`)).toBeVisible();
     expect(screen.getByLabelText("understand.instructions")).toHaveTextContent("READ_THE_CHAT_WORDS");
-    expect(screen.getByText(words.prompts.fixedTexts)).toBeVisible();
+    expect(screen.getAllByText(words.prompts.fixedTexts)).toHaveLength(1);
+    expect(screen.getByText("understand_form")).toBeVisible();
+    expect(screen.getByText("write_move")).toBeVisible();
+    expect(screen.getByText("You")).toBeVisible();
+    const [understandSystem, writeSystem] = screen.getAllByText(/System message, the same every turn/);
+    expect(understandSystem).toHaveTextContent("understand.instructions");
+    expect(writeSystem).toHaveTextContent("write.instructions");
   });
 
   it("says why the prompts didn't load, with a way to try again", async () => {

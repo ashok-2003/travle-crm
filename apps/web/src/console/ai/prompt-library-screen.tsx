@@ -34,13 +34,13 @@ function PromptLibrary() {
   return (
     <>
       <section className="flex flex-col gap-4">
-        <h2 className="font-heading text-section font-semibold">{t("callsHeading")}</h2>
+        <h2 className="text-section font-semibold">{t("callsHeading")}</h2>
         {library.data.calls.map((call) => (
           <ModelCallCard key={call.name} call={call} />
         ))}
       </section>
       <section className="flex flex-col gap-4">
-        <h2 className="font-heading text-section font-semibold">{t("piecesHeading")}</h2>
+        <h2 className="text-section font-semibold">{t("piecesHeading")}</h2>
         {library.data.pieces.map((piece) => (
           <Card key={piece.name}>
             <CardHeader>

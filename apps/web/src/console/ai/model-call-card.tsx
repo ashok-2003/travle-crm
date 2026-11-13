@@ -35,7 +35,8 @@ export function ModelCallCard({ call }: { call: AiModelCall }) {
           <TableBody>
             {call.blocks.map((block) => (
               <TableRow key={block.title}>
-                <TableCell className="wrap-anywhere whitespace-normal">{block.title}</TableCell>
+                {/* The block's title and purpose are the words the model is given, shown as recorded and not translated. */}
+                <TableCell className="numbers wrap-anywhere whitespace-normal">{block.title}</TableCell>
                 <TableCell className="wrap-anywhere whitespace-normal">{block.purpose}</TableCell>
                 <TableCell className="numbers text-right">{block.budget}</TableCell>
               </TableRow>

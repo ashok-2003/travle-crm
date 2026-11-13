@@ -13,7 +13,12 @@ export function readableJson(text: string): string {
 /** Long recorded text, wrapped: a <pre> that breaks anywhere, in the text's own direction, so the page never scrolls sideways. */
 export function TraceText({ text, label }: { text: string; label: string }): ReactElement {
   return (
-    <pre aria-label={label} dir="auto" className="font-sans text-sm whitespace-pre-wrap wrap-anywhere script-leading">
+    <pre
+      role="group"
+      aria-label={label}
+      dir="auto"
+      className="font-sans text-label whitespace-pre-wrap wrap-anywhere script-leading"
+    >
       {text}
     </pre>
   );
