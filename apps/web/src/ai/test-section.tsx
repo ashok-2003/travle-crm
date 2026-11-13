@@ -26,6 +26,10 @@ const blockedReasons = [
   "unknown_placeholder",
   "unfit",
   "not_run_script",
+  // The lite agent's booking refusals, from the same checks the live turn runs.
+  "PAYMENT_DETAILS_MISSING",
+  "PACKAGE_NOT_SELLABLE",
+  "AI_ACTION_REFUSED",
 ] as const;
 type BlockedReason = (typeof blockedReasons)[number] | "other";
 const reasonOf = (code: string): BlockedReason => blockedReasons.find((known) => known === code) ?? "other";

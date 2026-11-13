@@ -6,7 +6,7 @@ import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { departureSettingsOf } from "../../departures/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
-import { calendarDateIn, DomainError, formatRupees, formatShortDay, type CalendarDate } from "../../kernel/index.js";
+import { calendarDateIn, DomainError, type CalendarDate } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, paymentLinesOf } from "../../profile/index.js";
 import { packageFilesIn, sellablePackages } from "../../quotes/index.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
@@ -14,14 +14,15 @@ import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
 import { handOverSentences } from "./act-words.js";
 import { actingOn, codeWordsOf } from "./act-reply.js";
 import { checkedForm } from "./form-check.js";
-import { fixedText, holdUntilWords, travellersWords } from "./fixed-texts.js";
+import { bookingPartsOf, bookingWords } from "./booking-words.js";
+import { fixedText } from "./fixed-texts.js";
 import { mergeForm } from "./merge.js";
 import { packageIndexOf } from "./prepare-lead.js";
 import { placesOf } from "./prepare.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
 import { decideBase } from "./turn.js";
 import { decided, written } from "./turn-steps.js";
-import type { Decision, Situation } from "./types.js";
+import type { Decision, PackageIndexEntry, Situation } from "./types.js";
 import { understandChat } from "./understand.js";
 
 const HOUR_MS = 3_600_000;
@@ -41,39 +42,31 @@ const blocked = (code: string): TestAiAnswer => ({
 });
 
 /**
- * What a booking would say: the hold's words and the amount due, with the payment lines under them. Null when the booking
- * could not be taken (no quote, no party, no payment details), as the act step refuses it.
+ * What a booking would say: the live turn's own words for the hold and the amount due, with the payment lines under them;
+ * or the refusal code the live turn would flag, from the same checks.
  */
 function bookingAnswer(
   decision: Decision,
   situation: Situation,
-  context: { agencyName: string; now: Date; today: CalendarDate; timeZone: string },
+  context: { now: Date; today: CalendarDate; timeZone: string; index: readonly PackageIndexEntry[] },
   money: { holdHours: number; paymentLines: string[] | null },
-): string | null {
-  const { facts } = decision;
-  const told = facts.quoted;
-  const departure = situation.price?.departure ?? null;
-  const title = situation.package?.title ?? null;
-  if (told === null || departure === null || title === null || facts.adults === null || money.paymentLines === null) {
-    return null;
-  }
-  const { language } = facts;
-  const values = {
-    travellers: travellersWords(facts.adults, facts.children?.count ?? 0, language),
-    package: title,
-    date: formatShortDay(departure.startsOn, context.today),
-    holdUntil: holdUntilWords(
-      new Date(context.now.getTime() + money.holdHours * HOUR_MS),
-      context.today,
-      context.timeZone,
-    ),
-    total: formatRupees(told.totalPaise),
-  };
-  const text = facts.payInFull
-    ? fixedText("book_payment_full", language, values).text
-    : fixedText("book_payment", language, { ...values, advance: formatRupees(told.advancePaise) }).text;
-  const heading = fixedText("payment_heading", language, {}).text;
-  return [text, ...(money.paymentLines.length === 0 ? [] : [[heading, ...money.paymentLines].join("\n")])].join("\n\n");
+): { text: string } | { refused: string } {
+  const { move, facts } = decision;
+  if (move.kind !== "book") return { refused: "AI_ACTION_REFUSED" };
+  const parts = bookingPartsOf({
+    decision,
+    situation,
+    target: move,
+    told: facts.quoted,
+    paymentReady: money.paymentLines !== null,
+    sellable: context.index.some((entry) => entry.id === move.packageId),
+  });
+  if ("refused" in parts) return { refused: parts.refused };
+  const holdUntil = new Date(context.now.getTime() + money.holdHours * HOUR_MS);
+  const text = bookingWords(parts, facts, { holdUntil, today: context.today, timeZone: context.timeZone });
+  const heading = fixedText("payment_heading", facts.language, {}).text;
+  const lines = money.paymentLines ?? [];
+  return { text: [text, ...(lines.length === 0 ? [] : [[heading, ...lines].join("\n")])].join("\n\n") };
 }
 
 export async function liteDryRun(
@@ -185,13 +178,13 @@ export async function liteDryRun(
   }
   if (move.kind === "silent") return done("", false, "");
   if (move.kind === "book") {
-    const text = bookingAnswer(
+    const booking = bookingAnswer(
       acting.decision,
       situation,
-      { agencyName, now, today: prepared.today, timeZone: prepared.timeZone },
+      { now, today: prepared.today, timeZone: prepared.timeZone, index: prepared.index },
       prepared,
     );
-    return text === null ? blocked("AI_ACTION_REFUSED") : done(text, false, "");
+    return "refused" in booking ? blocked(booking.refused) : done(booking.text, false, "");
   }
   if (move.kind === "resend_payment") return blocked("AI_ACTION_REFUSED");
   return done(acting.reply?.text ?? "", false, "");
