@@ -2,16 +2,17 @@
 // removed, the last package it could sell no longer for sale), so every turn ends not_ready with nothing sent. Without
 // this, every chat would go quiet and nobody would know until someone opened the AI agent page. Once a day, whatever
 // the number of turns refused: the key is the agency's own day.
+import type { Database } from "@travel-crm/db";
 import { noticeKey } from "../crm/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { calendarDateIn, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
-import type { AgentDependencies } from "./agent.js";
+import type { BookingRecipients } from "./booking.js";
 
 export const AI_NOT_READY_KIND = "ai.agent-not-ready";
 
 export async function tellAgentNotReady(
-  dependencies: Pick<AgentDependencies, "db" | "managers">,
+  dependencies: { db: Database; managers: BookingRecipients },
   organizationId: string,
   now: Date,
 ): Promise<void> {
