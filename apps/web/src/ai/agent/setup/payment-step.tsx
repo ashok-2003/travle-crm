@@ -29,6 +29,7 @@ import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { paymentQrLimit, paymentQrProblem } from "./payment-qr-check";
+import { useAgentSetup } from "../use-agent";
 import { usePaymentDetails, usePaymentDetailsChanges } from "./use-setup-steps";
 
 const QR_TYPES = "image/jpeg,image/png,image/webp";
@@ -67,6 +68,8 @@ function QrPicker({ details }: { details: PaymentDetails }) {
   const hintId = `${id}-write`;
   const access = useWriteAccess("change");
   const { addQr, remove } = usePaymentDetailsChanges();
+  // The QR is required: without it a switched-on agent answers nobody, and the dialog says so.
+  const agentOn = useAgentSetup().data?.on === true;
   const [removing, setRemoving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -136,7 +139,7 @@ function QrPicker({ details }: { details: PaymentDetails }) {
         open={removing && qr !== null}
         onOpenChange={setRemoving}
         title={t("removeTitle", { name: qr?.fileName ?? "" })}
-        description={t("removeDescription")}
+        description={t(agentOn ? "removeDescriptionOn" : "removeDescription")}
         action={t("remove")}
         request={remove}
         returnFocusTo={opener}

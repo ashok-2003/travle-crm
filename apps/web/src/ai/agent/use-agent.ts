@@ -5,9 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
 import { useHolds } from "@/session/me-context";
 
-export function useAgentSetup() {
+/** `enabled` false for a screen outside the AI agent page that asks only when it matters (the api needs ai:manage). */
+export function useAgentSetup(enabled = true) {
   const trpc = useTRPC();
-  return useQuery({ ...trpc.ai.agentSetup.queryOptions(), staleTime: 30_000 });
+  return useQuery({ ...trpc.ai.agentSetup.queryOptions(), staleTime: 30_000, enabled });
 }
 
 /** Chats the agent handed over; the api needs inbox:view too, so a member without it never asks. */

@@ -123,6 +123,7 @@
       "removeNamed": "Remove {name}",
       "removeTitle": "Remove {name}?",
       "removeDescription": "The agent will stop sending this QR.",
+      "removeDescriptionOn": "Without a QR the AI agent stops answering every chat until you add one.",
       "problems": {
         "required": "Fill this in",
         "upiId": "Check the UPI ID, like name@bank",

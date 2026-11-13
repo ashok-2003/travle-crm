@@ -139,6 +139,7 @@
     "seatsPerDeparture": "Seats on each departure",
     "pricesIncludeGst": "Prices include GST",
     "advancePerPerson": "Advance to hold a seat (each person)",
+    "advanceOnlyOnSale": "This is the only trip the AI agent can sell: without an advance it stops answering every chat until one is back.",
     "pickupPoints": "Pickup points",
     "pickupPointsHint": "Where the group boards, one a line.",
     "startCity": "Starts from"

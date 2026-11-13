@@ -2,7 +2,8 @@
 
 // The kind of a package and, for a group trip, what it sells (release 7b, group packages): the room types, the days and
 // months it departs, seats, GST, the advance, pickup and where it starts. The form holds them as text and
-// lists of text; the input is made here so package-form.tsx stays about the quote.
+// lists of text; the input is made here so package-form.tsx stays about the quote. Clearing the advance of the only
+// package a switched-on AI agent sells says that the agent then answers no chat.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
 import { packageKinds, roomTypes, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
@@ -16,6 +17,8 @@ import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/co
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { NoteField } from "@/leads/form/note-field";
+import { useAgentSetup } from "@/ai/agent/use-agent";
+import { useHolds } from "@/session/me-context";
 import type { GroupValues, PackageFormValues } from "./package-form-values";
 
 export function groupValuesOf(detail: PackageDetail): GroupValues {
@@ -113,9 +116,28 @@ export function Picks<Values extends FieldValues>({
   );
 }
 
-export function GroupFields({ control, disabled }: { control: Control<PackageFormValues>; disabled: boolean }) {
+/**
+ * Whether this package is the only one the switched-on agent may sell: without it the agent has nothing to sell and
+ * answers no chat. Asked only for a package on sale, and of whoever may read the agent's setup.
+ */
+export function useOnlyPackageOnSale(detail: PackageDetail): boolean {
+  const onSale = detail.kind === "group" && detail.sellable && detail.sellGaps.length === 0;
+  const setup = useAgentSetup(useHolds("ai:manage") && onSale).data;
+  return onSale && setup?.on === true && setup.steps.find((step) => step.key === "packages")?.count === 1;
+}
+
+export function GroupFields({
+  control,
+  disabled,
+  onlyOnSale,
+}: {
+  control: Control<PackageFormValues>;
+  disabled: boolean;
+  onlyOnSale: boolean;
+}) {
   const t = useTranslations("packages.form");
   const kind = useWatch({ control, name: "kind" });
+  const advance = useWatch({ control, name: "advancePerPerson" });
   const gstId = useId();
   return (
     <Card id="group-details" className="scroll-mt-6">
@@ -164,7 +186,12 @@ export function GroupFields({ control, disabled }: { control: Control<PackageFor
                 disabled={disabled}
               />
               <TextField control={control} name={"startCity"} label={t("startCity")} disabled={disabled} />
-              <MoneyField control={control} name={"advancePerPerson"} label={t("advancePerPerson")} />
+              <MoneyField
+                control={control}
+                name={"advancePerPerson"}
+                label={t("advancePerPerson")}
+                {...(onlyOnSale && advance.trim() === "" ? { hint: t("advanceOnlyOnSale") } : {})}
+              />
             </div>
             <Controller
               control={control}

@@ -154,10 +154,24 @@ describe("the payment editor", () => {
     // A 44px target, not the inline link of a sentence.
     expect(await screen.findByRole("link", { name: "qr.png" })).toHaveClass("min-h-11");
     await userEvent.click(await screen.findByRole("button", { name: `Remove qr.png` }));
+    expect(await screen.findByText(t.payment.removeDescription)).toBeVisible();
     await userEvent.click(await screen.findByRole("button", { name: t.payment.remove }));
     await waitFor(() => {
       expect(api.sent("organization.paymentDetails.removeQr")).toEqual([{ attachmentId: adId }]);
     });
+  });
+
+  it("warns that a switched-on agent stops answering every chat without its QR", async () => {
+    const withQr = { ...details, qr: { id: adId, fileName: "qr.png", url: "https://files.test/qr.png" } };
+    const { edit } = open(t.steps.payment.title, {
+      "ai.agentSetup": { data: { ...checklist, ready: true, on: true } },
+      "organization.profile.get": { data: { id: "p" } },
+      "organization.paymentDetails.get": { data: withQr },
+    });
+    await edit();
+    await userEvent.click(await screen.findByRole("button", { name: `Remove qr.png` }));
+    expect(await screen.findByText(t.payment.removeDescriptionOn)).toBeVisible();
+    expect(screen.queryByText(t.payment.removeDescription)).toBeNull();
   });
 });
 

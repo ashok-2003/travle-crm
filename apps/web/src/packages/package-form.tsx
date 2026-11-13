@@ -24,7 +24,7 @@ import { DestinationField } from "@/leads/form/destination-field";
 import { NoteField } from "@/leads/form/note-field";
 import { useWriteAccess } from "@/subscription/write-access";
 import { CalculateFromButton } from "./calculate-from-button";
-import { GroupFields, groupInputFields, groupInputOf, groupValuesOf } from "./group-fields";
+import { GroupFields, groupInputFields, groupInputOf, groupValuesOf, useOnlyPackageOnSale } from "./group-fields";
 import type { PackageFormValues as Values } from "./package-form-values";
 import { usePackageChanges } from "./use-packages";
 
@@ -137,6 +137,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
     (problem) => t(`problems.${problem}`),
   );
   const days = useFieldArray({ control: form.control, name: "days" });
+  const onlyOnSale = useOnlyPackageOnSale(detail);
   const busy = update.isPending || !access.allowed;
   return (
     <form
@@ -194,7 +195,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
         </CardContent>
       </Card>
 
-      <GroupFields control={form.control} disabled={busy} />
+      <GroupFields control={form.control} disabled={busy} onlyOnSale={onlyOnSale} />
 
       <Card>
         <CardHeader>
