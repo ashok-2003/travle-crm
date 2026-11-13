@@ -39,8 +39,12 @@ export function mergeForm(
     else next.placeWords = details.place.words;
   }
   const said = details.date;
-  // A day inside the month already known narrows it: no change of mind is needed for that.
-  const narrows = next.day === null && next.month !== null && (said?.day?.startsWith(next.month) ?? false);
+  // A day inside the month already known narrows it (no change of mind is needed for that), and a new day in it replaces
+  // the old one: a person who typed the month typed no day, so the day stays the customer's to change.
+  const narrows =
+    next.month !== null &&
+    (said?.day?.startsWith(next.month) ?? false) &&
+    (next.day === null || said?.changed === true);
   const free = !locked.has("when");
   if (said && ((free && ((next.day === null && next.month === null) || said.changed)) || narrows)) {
     const day = said.day;

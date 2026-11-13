@@ -4,6 +4,7 @@ import type { RoomType } from "@travel-crm/contracts/quotes";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { handOverSentences } from "../../../src/ai/lite/act-words.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
+import { readLiteFacts } from "../../../src/ai/lite/merge.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
@@ -206,6 +207,51 @@ describe("the lite turn reaches a booking", () => {
     expect(chat.handoffReason).toBe(handOverSentences.details_changed);
     const lead = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
     expect(lead.adults).toBe(4);
+  });
+
+  /** A price question on `day`, for 2 in double: what the lead's typed time then does with it. */
+  async function pricedOn(on: Agency, day: "2026-11-14" | "2026-11-21", words: string) {
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, `price for kedarnath on ${words}, 2 people, double?`, 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: {
+          package: kedarnath,
+          date: { day, month: null, proof: words, changed: false },
+          adults: twoPeople,
+          room: { type: "double", proof: "double", changed: false },
+        },
+      }),
+      written("Which city will you join us from?"),
+    );
+    return on.turn(at(60), { token });
+  }
+
+  it("a flexible time a person typed takes the customer's day, and prices it", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg((tx) => tx.lead.update({ where: { id: on.leadId }, data: { travelKind: "flexible" } }));
+    expect(await pricedOn(on, "2026-11-21", "21 nov")).toBe("replied");
+    expect((await outbound(on))[0]?.body).toContain(formatRupees(1_399_800));
+    const facts = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
+    expect(facts).toMatchObject({ day: "2026-11-21", departureId: on.departures[1]?.id });
+  });
+
+  it("a full date a person typed, which the customer contradicts, is handed over", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg((tx) =>
+      tx.lead.update({
+        where: { id: on.leadId },
+        data: {
+          travelKind: "dates",
+          travelStart: new Date("2026-11-14T00:00:00Z"),
+          travelEnd: new Date("2026-11-18T00:00:00Z"),
+        },
+      }),
+    );
+    expect(await pricedOn(on, "2026-11-21", "21 nov")).toBe("handed_off");
+    expect((await outbound(on)).map((one) => one.body)).toEqual([fixedText("hand_over", "english", {}).text]);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(chat.handoffReason).toBe(handOverSentences.details_changed);
   });
 
   it("the same count a person typed, said again, is no contradiction", async () => {
