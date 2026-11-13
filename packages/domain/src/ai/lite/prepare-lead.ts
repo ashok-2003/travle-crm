@@ -192,7 +192,8 @@ export interface BookingPart {
  * The chat's own AI booking still waiting on its payment, and whether the person has a booking still ahead of them: a
  * requested or confirmed one, or a confirmed AI booking whose departure is today or later, on any of their leads. A
  * trip that is over (a completed booking, an AI booking whose departure has gone) makes them a returning customer, and
- * the chat's open AI booking is the sale this chat is in: neither is one.
+ * the chat's open AI booking is the sale this chat is in: neither is one. An open booking an earlier agent took (no
+ * amount stored) is neither: it is a person's, so the turn hands over.
  */
 export async function bookingPartOf(
   tx: OrgTx,
@@ -205,13 +206,15 @@ export async function bookingPartOf(
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: { id: true, status: true, expectedPaise: true },
   });
+  // An open booking with no amount is an earlier agent's: no sale of this agent's, so a person takes it (has_booking).
+  const earlier = open !== null && open.expectedPaise === null;
   const openBooking =
-    open === null
+    open === null || earlier
       ? null
       : {
           id: open.id,
           status: open.status === "proof_received" ? ("proof_received" as const) : ("awaiting_payment" as const),
-          expectedPaise: Number(open.expectedPaise ?? 0n),
+          expectedPaise: Number(open.expectedPaise),
         };
   const leadIds =
     chat.personId === null
@@ -233,7 +236,7 @@ export async function bookingPartOf(
       })) !== null);
   return {
     openBooking,
-    hasBooking: booked,
+    hasBooking: booked || earlier,
     mayBePayment: await mayBePayment(tx, { conversationId: chat.id, leadId, at: at.now }),
   };
 }
