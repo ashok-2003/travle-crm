@@ -60,5 +60,5 @@ export const writeBlockHeads = {
     budget: BUDGETS.writeMessages,
   },
   language: { title: "Language", purpose: "The language and script to write in.", budget: BUDGETS.language },
-  correction: { title: "Correction", purpose: "The check refused your last answer.", budget: 200 },
+  correction: { title: "Correction", purpose: "The check refused your last answer.", budget: BUDGETS.correction },
 } satisfies Record<string, BlockHead>;

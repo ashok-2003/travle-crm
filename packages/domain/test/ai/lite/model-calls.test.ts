@@ -1,6 +1,7 @@
 // The outline of the lite agent's two model calls matches the requests the builders really make.
 import { lookupTools } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
+import { understandBlockHeads } from "../../../src/ai/lite/context/block-heads.js";
 import { modelCalls } from "../../../src/ai/lite/prompts/calls.js";
 import { promptLibrary } from "../../../src/ai/lite/prompts/library.js";
 import { understandRequest, type UnderstandPromptInput } from "../../../src/ai/lite/prompts/understand-prompt.js";
@@ -43,21 +44,27 @@ const understandInput = (packages: number): UnderstandPromptInput => ({
   messages,
 });
 
+const systemText = (names: string[]): string =>
+  names.map((name) => promptLibrary().find((piece) => piece.name === name)?.text ?? "").join("\n\n");
+
 describe("the model calls' outline", () => {
   const [understand, write] = modelCalls();
 
   it("each call lists its request's blocks in order", () => {
-    const listed = understandRequest(understandInput(2)).blocks;
+    const understood = understandRequest(understandInput(2));
+    const listed = understood.blocks;
+    expect(understood.request.schema?.name).toBe(understand?.answer);
+    expect(understood.request.messages[0]?.content).toBe(systemText(understand?.system ?? []));
     const titles = (understand?.blocks ?? []).map((head) => head.title);
     expect(Object.keys(listed)).toEqual(titles.filter((title) => title !== "Places we run"));
     for (const head of understand?.blocks ?? [])
       expect(listed[head.title]?.startsWith(`## ${head.title}\n${head.purpose}\n`)).toBe(true);
 
     const many = understandRequest(understandInput(31)).blocks;
-    expect(Object.keys(many)).toContain("Places we run");
+    expect(many["Places we run"]?.startsWith(`## Places we run\n${understandBlockHeads.places.purpose}\n`)).toBe(true);
     expect(Object.keys(many)).not.toContain("Package index");
 
-    const { blocks } = writeRequest({
+    const written = writeRequest({
       agentName: "Asha",
       agencyName: "Hills Travel",
       tone: "friendly",
@@ -71,6 +78,9 @@ describe("the model calls' outline", () => {
       timeZone: "Asia/Kolkata",
       today,
     });
+    const { blocks } = written;
+    expect(written.request.schema?.name).toBe(write?.answer);
+    expect(written.request.messages[0]?.content).toBe(systemText(write?.system ?? []));
     const writeTitles = (write?.blocks ?? []).map((head) => head.title);
     expect(Object.keys(blocks)).toEqual(writeTitles);
     expect(writeTitles).toHaveLength(8);

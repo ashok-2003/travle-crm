@@ -3,12 +3,12 @@ import { understandFormWireSchema } from "@travel-crm/contracts/ai";
 import type { AiRequest } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
 import { ANSWER_MAX_TOKENS } from "../../grounded/ask.js";
+import { understandBlockHeads } from "../context/block-heads.js";
 import { BUDGETS, newestThatFit, oneLine, renderBlock, summaryLines, type Block } from "../context/blocks.js";
 import { leadCardLines } from "../context/lead-card.js";
 import { messageLines } from "../context/messages.js";
 import { packageIndexBlock, timelineLines, todayLine } from "../context/turn-blocks.js";
 import type { ContextMessage, LeadCardFacts, PackageIndexEntry, TimelineLine } from "../types.js";
-import { understandBlockHeads } from "../context/block-heads.js";
 import { UNDERSTAND_ANSWER, UNDERSTAND_SYSTEM } from "./calls.js";
 import { promptLibrary } from "./library.js";
 
