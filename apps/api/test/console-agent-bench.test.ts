@@ -1,7 +1,18 @@
 // The command that replays test chats through the lite agent (`agent-bench`): it refuses a database that is not on this
 // computer and a report inside the repository, plays a folder's cases with their scripted answers (`--fake`), prints one
 // line per case and check with no chat words, writes the words to a private report, and leaves no organization behind.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createIsolatedDatabase } from "@travel-crm/db/testing";
@@ -24,6 +35,16 @@ const aCase = (name: string, move: string) => ({
   scripted,
   expect: { sent: true, move },
 });
+
+/** A file's permission bits and words, read through one descriptor, so both are of the same file. */
+function modeAndText(file: string): { mode: number; text: string } {
+  const descriptor = openSync(file, "r");
+  try {
+    return { mode: fstatSync(descriptor).mode & 0o777, text: readFileSync(descriptor, "utf8") };
+  } finally {
+    closeSync(descriptor);
+  }
+}
 
 const printing = () => {
   const printed = { stdout: [] as string[], stderr: [] as string[] };
@@ -126,11 +147,11 @@ describe("the agent-bench command", () => {
       expect(shown).not.toContain("Namaste");
       expect(shown).not.toContain("Greetings");
 
-      expect(statSync(reportFile).mode & 0o777).toBe(0o600);
       expect(statSync(dirname(reportFile)).mode & 0o777).toBe(0o700);
-      const report = readFileSync(reportFile, "utf8");
-      expect(report).toContain(spoken);
-      expect(report).toContain(replied);
+      const report = modeAndText(reportFile);
+      expect(report.mode).toBe(0o600);
+      expect(report.text).toContain(spoken);
+      expect(report.text).toContain(replied);
       expect(await organizations()).toBe(0);
     } finally {
       await testConsole.close();
