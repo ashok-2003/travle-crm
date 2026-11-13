@@ -29,6 +29,8 @@ export interface DecideInput {
   adPackageId: string | null;
   openBooking: OpenBooking | null;
   hasBooking: boolean;
+  /** The customer's newest words contradict a trip field a person typed on the lead: a person reconciles it. */
+  detailsChanged: boolean;
   mayBePayment: boolean;
   nameUsable: boolean;
   leadStage: LeadStage | null;

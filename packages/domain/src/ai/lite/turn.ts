@@ -9,6 +9,7 @@ import { flagChat } from "../grounded/turn-flag.js";
 import { actingOn, codeWordsOf } from "./act-reply.js";
 import { checkedForm } from "./form-check.js";
 import { mergeForm } from "./merge.js";
+import { lockedFields, typedChanged } from "./typed-lock.js";
 import { prepareLiteTurn, type LitePrepared } from "./prepare.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
 import { finishTurn, startTrace, tallied, withoutMessages, writeChecks, type TurnLog } from "./turn-trace.js";
@@ -49,6 +50,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   // UNDERSTAND, unless the turn goes to a person whatever was said.
   let checked: CheckedForm | null = null;
   let facts = prepared.facts;
+  /** The person-typed lead fields the customer now contradicts: a person reconciles them. */
+  let changed: string[] = [];
   const kinds = prepared.burst.map((one) => one.kind);
   if (!kinds.includes("audio") && !prepared.hasBooking) {
     const asking = understandRequest({
@@ -68,16 +71,18 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     // Nothing usable: the facts stay as they were, so the next turn reads the chat afresh.
     if (!asked.ok) return asked.reason === "unfit" ? flag("unfit", "unfit") : end(asked.reason);
     checked = checkedForm(asked.form, prepared.messages, prepared.burst, prepared.index, prepared.today);
-    facts = mergeForm(prepared.facts, checked, prepared.index);
+    facts = mergeForm(prepared.facts, checked, prepared.index, lockedFields(prepared.typed));
+    changed = typedChanged(checked, prepared.typed, prepared.burst);
     log.intents = trace.intents = checked.form.intents.map((intent) => intent.name);
     trace.checks.push(...checked.dropped.map((code) => ({ name: "proof", passed: false, detail: code })));
+    trace.checks.push(...changed.map((field) => ({ name: "typed", passed: false, detail: field })));
   }
 
   // LOOK UP and DECIDE.
   const { situation, decision } = await decided(
     deps.db,
     organizationId,
-    decideBase(prepared, input, checked, facts),
+    decideBase(prepared, input, checked, facts, changed.length > 0),
     { index: prepared.index, answers: prepared.answers, facts, today: prepared.today, now },
     checked?.form.lookups ?? [],
   );
@@ -155,6 +160,7 @@ export function decideBase(
   input: LiteTurnInput,
   checked: CheckedForm | null,
   facts: LitePrepared["facts"],
+  detailsChanged = false,
 ): Omit<DecideInput, "situation"> {
   return {
     kind: input.kind,
@@ -169,6 +175,7 @@ export function decideBase(
     adPackageId: prepared.adPackageId,
     openBooking: prepared.openBooking,
     hasBooking: prepared.hasBooking,
+    detailsChanged,
     mayBePayment: prepared.mayBePayment,
     nameUsable: prepared.nameUsable,
     leadStage: prepared.leadStage,

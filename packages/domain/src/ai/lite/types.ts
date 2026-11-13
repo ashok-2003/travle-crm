@@ -57,7 +57,8 @@ export type HandOverReason =
   | "unanswered"
   | "loop"
   | "other_twice"
-  | "check_failed";
+  | "check_failed"
+  | "details_changed";
 
 export type FixedTextKey =
   | "price_from"

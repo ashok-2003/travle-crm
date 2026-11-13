@@ -3,6 +3,7 @@ import { liteFacts, understandForm, type UnderstandForm } from "@travel-crm/cont
 import { describe, expect, it } from "vitest";
 import { checkedForm } from "../../../src/ai/lite/form-check.js";
 import { mergeForm } from "../../../src/ai/lite/merge.js";
+import { typedChanged } from "../../../src/ai/lite/typed-lock.js";
 import type { ContextMessage, PackageIndexEntry } from "../../../src/ai/lite/types.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -272,6 +273,44 @@ describe("checkedForm", () => {
   });
 });
 
+describe("typedChanged", () => {
+  const now = [line("9", "customer", "now we are 3, from Delhi, 20 dec, double")];
+  const said = (details: Partial<UnderstandForm["details"]>) =>
+    typedChanged(
+      { form: formWith(details), proofs: {}, dropped: [] },
+      {
+        adults: 4,
+        departure_city: "Delhi",
+        room_type: "double",
+        when: { kind: "month", month: "2026-12" },
+        children_ages: [8],
+      },
+      now,
+    );
+
+  it("names each person-typed field the customer's newest words contradict", () => {
+    expect(said({ adults: { count: 3, proof: "now we are 3", changed: true } })).toEqual(["adults"]);
+    expect(said({ adults: { count: 4, proof: "now we are 3", changed: false } })).toEqual([]);
+    expect(said({ pickup_city: { words: "Delhi", proof: "from Delhi", changed: false } })).toEqual([]);
+    expect(said({ room: { type: "triple", proof: "double", changed: true } })).toEqual(["room_type"]);
+    expect(
+      said({ date: { day: parseCalendarDate("2026-12-20"), month: null, proof: "20 dec", changed: false } }),
+    ).toEqual([]);
+    expect(
+      said({ date: { day: parseCalendarDate("2027-01-20"), month: null, proof: "20 dec", changed: true } }),
+    ).toEqual(["when"]);
+  });
+
+  it("reads only words said since our last message: older lines are history", () => {
+    const changed = typedChanged(
+      { form: formWith({ adults: { count: 3, proof: "we are 3", changed: false } }), proofs: {}, dropped: [] },
+      { adults: 4 },
+      [line("9", "customer", "what time do we leave?")],
+    );
+    expect(changed).toEqual([]);
+  });
+});
+
 describe("mergeForm", () => {
   const base = liteFacts.parse({
     agent: "lite",
@@ -305,6 +344,48 @@ describe("mergeForm", () => {
     expect(facts.adults).toBe(5);
     expect(facts.quoted).toBeNull();
     expect(facts.departureId).toBe(D1);
+  });
+
+  it("a field a person typed is locked: a customer's change to it is not applied, a day inside its month is", () => {
+    const locked = new Set(["adults", "when", "departure_city", "room_type", "children_ages"] as const);
+    const typed = {
+      ...base,
+      departureId: null,
+      day: null,
+      quoted: null,
+      pickupCity: "Pune",
+      roomType: "triple" as const,
+    };
+    const facts = mergeForm(
+      typed,
+      {
+        form: formWith({
+          adults: { count: 3, proof: "3", changed: true },
+          children: { count: 1, ages: [8], proof: "1 kid of 8", changed: true },
+          pickup_city: { words: "Delhi", proof: "Delhi", changed: true },
+          room: { type: "double", proof: "double", changed: true },
+          date: { day: parseCalendarDate("2026-12-15"), month: null, proof: "15 dec", changed: true },
+        }),
+        proofs: {},
+        dropped: [],
+      },
+      index,
+      locked,
+    );
+    expect(facts).toMatchObject({ adults: 2, children: null, pickupCity: "Pune", roomType: "triple" });
+    // Dec as the person typed it, narrowed to a day in it: no change of what they typed.
+    expect(facts).toMatchObject({ month: "2026-12", day: "2026-12-15" });
+    const moved = mergeForm(
+      { ...typed, day: "2026-12-01" },
+      {
+        form: formWith({ date: { day: parseCalendarDate("2027-01-05"), month: null, proof: "5 jan", changed: true } }),
+        proofs: {},
+        dropped: [],
+      },
+      index,
+      locked,
+    );
+    expect(moved).toMatchObject({ day: "2026-12-01", month: "2026-12" });
   });
 
   it("a package change clears the departure and the quote", () => {

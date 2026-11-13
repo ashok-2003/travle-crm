@@ -24,7 +24,13 @@ function aboutPackage(context: DecideContext, why: string, answer: (pkg: Situati
 
 const trigger: Rule = ({ input, intents, facts }) => {
   const burstKinds = input.burst.kinds;
-  const reason = handOverTrigger({ burstKinds, hasBooking: input.hasBooking, intents: [...intents], facts });
+  const reason = handOverTrigger({
+    burstKinds,
+    hasBooking: input.hasBooking,
+    intents: [...intents],
+    facts,
+    detailsChanged: input.detailsChanged,
+  });
   if (reason === null) return null;
   return {
     ...handOver(reason, `trigger:${reason}`),

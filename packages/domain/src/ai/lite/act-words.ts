@@ -18,6 +18,7 @@ export const handOverSentences: Record<HandOverReason, string> = {
   loop: "Didn't answer the same question three times.",
   other_twice: "Wrote twice in a way the AI couldn't place.",
   check_failed: "The AI couldn't write a safe reply.",
+  details_changed: "Gave trip details that differ from what your team typed on the lead.",
 };
 
 /** What a quoted note names: the trip, its day, the party and the money told. */

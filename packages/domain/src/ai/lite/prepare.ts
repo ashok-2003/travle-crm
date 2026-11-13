@@ -22,6 +22,7 @@ import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { usableName } from "./decide/stage.js";
 import type { DecideInput } from "./decide/decide.js";
 import { readLiteFacts } from "./merge.js";
+import type { TypedFields } from "./typed-lock.js";
 import { bookingPartOf, leadPartOf, packageIndexOf } from "./prepare-lead.js";
 import type {
   ContextMessage,
@@ -45,6 +46,8 @@ export interface LitePrepared {
   leadId: string | null;
   leadStage: LeadStage | null;
   card: LeadCardFacts | null;
+  /** The lead's trip values a person typed: the turn never changes them, and a contradiction goes to a person. */
+  typed: TypedFields;
   timeline: TimelineLine[];
   /** The chat's last 20 messages, oldest first, reactions left out. */
   messages: ContextMessage[];

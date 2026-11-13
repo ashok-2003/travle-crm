@@ -122,6 +122,7 @@ function run({ intents = ["hello"], open = "unknown", ...over }: Case = {}) {
     adPackageId: null,
     openBooking: null,
     hasBooking: false,
+    detailsChanged: false,
     mayBePayment: false,
     nameUsable: true,
     leadStage: "new",
@@ -144,6 +145,9 @@ describe("decide: the move table, in its order", () => {
       stageTo: "contacted",
     });
     expect(run({ hasBooking: true }).move).toEqual(handOver("has_booking"));
+    // A detail contradicting what a person typed goes back to that person, above any answer but theirs.
+    expect(run({ intents: ["price_question"], detailsChanged: true }).move).toEqual(handOver("details_changed"));
+    expect(run({ intents: ["discount"], detailsChanged: true }).move).toEqual(handOver("discount"));
     expect(run({ intents: ["price_question", "complaint"] }).move).toEqual(handOver("complaint"));
   });
 

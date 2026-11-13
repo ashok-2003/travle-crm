@@ -14,6 +14,7 @@ import { mayBePayment } from "../payment-likely.js";
 import type { DecideInput } from "./decide/decide.js";
 import { aiFieldPaths, type TripField } from "./lead-writes.js";
 import { lowestAdultPrice } from "./lookups/package-reads.js";
+import type { TypedFields } from "./typed-lock.js";
 import type { LeadCardFacts, PackageIndexEntry, TimelineLine } from "./types.js";
 
 const TIMELINE = 3;
@@ -111,6 +112,8 @@ export interface LeadPart {
   card: LeadCardFacts | null;
   timeline: TimelineLine[];
   facts: LiteFacts;
+  /** The lead's trip values a person typed: locked for the turn. */
+  typed: TypedFields;
 }
 
 /** The open lead as the prompt shows it, and the facts with its person-typed values folded in. */
@@ -137,8 +140,9 @@ export async function leadPartOf(
           },
         });
   if (leadId === null || lead === null)
-    return { leadId: null, leadStage: null, card: null, timeline: [], facts: input.facts };
-  const facts = withTyped(input.facts, await typedByPerson(tx, leadId));
+    return { leadId: null, leadStage: null, card: null, timeline: [], facts: input.facts, typed: {} };
+  const typed = await typedByPerson(tx, leadId);
+  const facts = withTyped(input.facts, typed);
   const day = (at: Date) => parseCalendarDate(at.toISOString().slice(0, 10));
   const when =
     lead.travelKind === "dates" && lead.travelStart !== null
@@ -175,7 +179,7 @@ export async function leadPartOf(
     ...notes.map((note) => ({ at: note.createdAt, kind: "note" as const, text: note.body })),
     ...stages.map((entry) => ({ at: entry.occurredAt, kind: "stage" as const, text: entry.stage ?? "" })),
   ];
-  return { leadId, leadStage: stage, card, timeline, facts };
+  return { leadId, leadStage: stage, card, timeline, facts, typed };
 }
 
 export interface BookingPart {
