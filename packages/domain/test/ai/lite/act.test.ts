@@ -475,7 +475,9 @@ describe("the lite agent's act step", () => {
       token: later.id,
       now: nextTurnAt,
     }).catch(failure);
-    expect(typeof refused === "string" ? refused : "sent").not.toBe("sent");
+    // The short hold is no hold of the booking's two seats, so it is taken again as a booking (never the payment details
+    // alone), here for the one adult the facts now say in a double, which no room fits: refused, nothing sent.
+    expect(refused).toBe("ROOM_SPLIT");
     const sent = (await outbound(on)).filter((message) => message.clientToken?.startsWith(`ai:${later.id}`));
     expect(sent).toHaveLength(0);
   });
