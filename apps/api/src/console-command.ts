@@ -5,7 +5,7 @@
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { createPinoLogger, errorFields } from "@travel-crm/integrations/logging";
-import { runAgentBench } from "./agent-bench-start.js";
+import { runAgentBench } from "./console-agent-bench-start.js";
 import { demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsolePlatform, type ConsolePlatform } from "./console-platform.js";
