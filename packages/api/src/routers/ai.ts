@@ -64,7 +64,7 @@ import {
   aiOverviewOf,
   aiSettingsOf,
   chatAiOf,
-  testAnswer,
+  liteDryRun,
   resumeChat,
   setChatMode,
   confirmDocument,
@@ -402,7 +402,7 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => resumeChat(tx, ctx.member, input.conversationId)),
     ),
 
-  /** The test box: what the AI would answer a question from the agency's knowledge alone. */
+  /** Try it: the agent's turn as a dry run on one question, nothing sent or kept. */
   test: freshProcedure
     .requires("ai:manage")
     .input(testAiInput)
@@ -412,6 +412,6 @@ export const aiRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       const agencyName = async (organizationId: string) =>
         (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      return testAnswer({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input.question, new Date());
+      return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input.question, new Date());
     }),
 });

@@ -1,5 +1,5 @@
 // The agency every lite test starts from: a connected number, a customer who has written, a ready setup (a Kedarnath group
-// package with two departures, payment details, answers, name and tone), the autopilot on, and the lite switch on.
+// package with two departures, payment details, answers, name and tone), and the autopilot on.
 import {
   AGENCY_PAYMENT_QR_RECORD_TYPE,
   PACKAGE_BROCHURE_RECORD_TYPE,
@@ -15,10 +15,9 @@ import {
   saveAgencyAnswers,
   saveAgentBasics,
   saveAiSettings,
-  setLiteAgent,
 } from "../../../../src/ai/index.js";
 import type { TraceSink } from "../../../../src/ai/lite/types.js";
-import { parseCalendarDate, systemActor } from "../../../../src/kernel/index.js";
+import { parseCalendarDate } from "../../../../src/kernel/index.js";
 import type { Entitlements } from "../../../../src/subscriptions/index.js";
 import { aLead } from "../../../crm/support/records.js";
 import { memberOf } from "../../../imports/support/test-imports.js";
@@ -32,7 +31,7 @@ import {
   type TestInbox,
 } from "../../../inbox/support.js";
 
-const entitlements: Entitlements = {
+export const liteEntitlements: Entitlements = {
   status: "active",
   access: "full",
   planName: "Test",
@@ -57,11 +56,8 @@ export const liteToday = parseCalendarDate("2026-11-10");
 export const liteTurnAt = new Date(testNow.getTime() + 60_000);
 
 /** `roomTypes` are the package's (double, triple and a child bed unless told). */
-export async function liteAgency(
-  test: TestInbox,
-  options: { lite?: boolean; ready?: boolean; roomTypes?: RoomType[] } = {},
-) {
-  const { lite = true, ready = true, roomTypes = ["double", "triple", "child_bed"] } = options;
+export async function liteAgency(test: TestInbox, options: { ready?: boolean; roomTypes?: RoomType[] } = {}) {
+  const { ready = true, roomTypes = ["double", "triple", "child_bed"] } = options;
   const connection = await aConnectedAgency(test);
   const { organizationId } = connection;
   const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
@@ -85,7 +81,6 @@ export async function liteAgency(
       { providerReady: true, now: testNow },
     );
     await storeAutopilot(tx, organizationId, { autopilot: true, agentName: "Riya", tone: "friendly" });
-    if (lite) await setLiteAgent(tx, systemActor(organizationId), true);
     await tx.organizationProfile.upsert({
       where: { organizationId },
       create: {
@@ -196,7 +191,13 @@ export async function liteAgency(
    */
   const turn = (
     at = liteTurnAt,
-    options: { token?: string; traces?: TraceSink; db?: Database; identity?: typeof identity } = {},
+    options: {
+      token?: string;
+      traces?: TraceSink;
+      db?: Database;
+      identity?: typeof identity;
+      entitlements?: Entitlements;
+    } = {},
   ) =>
     runAgentTurn(
       {
@@ -204,7 +205,7 @@ export async function liteAgency(
         identity: options.identity ?? identity,
         ai: model,
         logger,
-        subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },
+        subscriptions: { entitlementsOf: () => Promise.resolve(options.entitlements ?? liteEntitlements) },
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([]),
@@ -224,7 +225,7 @@ export async function liteAgency(
         identity,
         ai: model,
         logger,
-        subscriptions: { entitlementsOf: (id) => Promise.resolve(id === organizationId ? entitlements : null) },
+        subscriptions: { entitlementsOf: (id) => Promise.resolve(id === organizationId ? liteEntitlements : null) },
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([]),

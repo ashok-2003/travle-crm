@@ -167,9 +167,7 @@
     "noReason": "a person is needed",
     "actions": {
       "files": "It would send the package's brochure.",
-      "agencyFiles": "It would send your agency's photos and files.",
       "book": "It would send the payment details and take the booking.",
-      "flag": "It would flag the chat for your team.",
       "note": "It would add a note to the lead.",
       "task": "It would add a follow-up for your team."
     },
@@ -181,9 +179,7 @@
       "payment_claim": "it said a payment arrived or a booking is confirmed",
       "team_claim": "it said your team had decided something",
       "payment_detail": "it typed payment details itself",
-      "unknown_placeholder": "it used a figure your packages don't have",
       "unfit": "its answer couldn't be read",
-      "not_run_script": "it can't check a place written in that script, so a person answers",
       "PAYMENT_DETAILS_MISSING": "your payment details aren't added yet, so it can't take a booking",
       "PACKAGE_NOT_SELLABLE": "this package isn't one the AI can sell right now",
       "AI_ACTION_REFUSED": "the booking is missing its date, its party or its price",

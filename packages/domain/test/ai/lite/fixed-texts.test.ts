@@ -28,7 +28,6 @@ const context = {
   packagePlaces: ["Kedarnath"],
   customerPlaces: [],
   notRun: ["Goa"],
-  customTrips: false,
   knownPlaces: ["Kedarnath", "Goa"],
 };
 const slotsOf = (template: string) => [...template.matchAll(/\{(\w+)\}/g)].map((match) => match[1] ?? "");

@@ -85,14 +85,12 @@ import {
   stopFollowUpsListener,
 } from "@travel-crm/domain/sales";
 import {
-  AI_LEARN_QUEUE,
   AI_NUDGES_QUEUE,
   aiChatResumedListener,
   aiCustomerWroteListener,
   aiPaymentProofListener,
   aiDocumentListener,
   aiReplyHandlers,
-  runAiLearning,
   runAiNudges,
   scoreHandler,
   scoreOnCustomerWroteListener,
@@ -273,7 +271,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         };
   // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
   const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
-  // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name, with its media.
+  // The agent: the AI's turns and its follow-ups, in the agency's own name.
   const autopilotJobs = (model: AiModel) =>
     autopilotDependencies({ ...dependencies, managers: bookingManagers }, model);
   // Bookings: the reminders now due and the claims left waiting, each minute; the finished trips, each night.
@@ -503,21 +501,12 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               ? []
               : [
                   {
-                    // Follow-ups on leads that came due, then the autopilot's nudges to quiet customers, inside the window.
+                    // The agent's follow-ups to quiet customers that came due, inside the window.
                     queue: AI_NUDGES_QUEUE,
                     cron: "* * * * *",
                     timeZone: "Asia/Kolkata",
                     handle: async () => {
                       await runAiNudges({ ...autopilotJobs(ai), logger }, new Date());
-                    },
-                  },
-                  {
-                    // Each night, an agency that lets its AI learn gets a lesson run from its recent chats.
-                    queue: AI_LEARN_QUEUE,
-                    cron: "30 2 * * *",
-                    timeZone: "Asia/Kolkata",
-                    handle: async () => {
-                      await runAiLearning({ ...autopilotJobs(ai), logger }, new Date());
                     },
                   },
                 ]),

@@ -11,7 +11,7 @@ import {
   organizationLiteAgent,
   setOrganizationLiteAgent,
 } from "../../src/platform/index.js";
-import { liteAgency, liteTurnAt } from "../ai/lite/support/lite-agency.js";
+import { liteAgency as agencyOf, liteTurnAt } from "../ai/lite/support/lite-agency.js";
 import { createTestInbox } from "../inbox/support.js";
 import { createTestPlan, createTestPlatform, onboardingInput, support, type TestPlatform } from "./test-platform.js";
 
@@ -66,6 +66,12 @@ describe("switching an agency to the lite agent from the console", () => {
     const inbox = createTestInbox();
     try {
       const state = (organizationId: string) => organizationLiteAgent(test.services, organizationId, liteTurnAt);
+      // The console's column is all the fixture's agencies lack now: nothing else reads it.
+      const liteAgency = async (...options: Parameters<typeof agencyOf>) => {
+        const made = await agencyOf(...options);
+        await made.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { lite: true } }));
+        return made;
+      };
       const ready = await liteAgency(inbox);
       expect(await state(ready.organizationId)).toEqual({ lite: true, answering: true });
       const unready = await liteAgency(inbox, { ready: false });

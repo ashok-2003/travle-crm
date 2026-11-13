@@ -1,7 +1,7 @@
 // Try it for a lite agency: the lite turn as a dry run. It shows what the customer would get and what code would do,
 // and sends, holds, books and writes nothing but the month's usage.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { testAnswer } from "../../../src/ai/index.js";
+import { liteDryRun } from "../../../src/ai/index.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { memberOf } from "../../imports/support/test-imports.js";
@@ -17,7 +17,7 @@ describe("Try it for the lite agent", () => {
   afterAll(() => test.close());
 
   const tryIt = (on: Agency, question: string) =>
-    testAnswer(
+    liteDryRun(
       { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
       memberOf(on.organizationId, "org-owner"),
       question,
@@ -121,7 +121,7 @@ describe("Try it for the lite agent", () => {
     expect(await rows(on)).toEqual(before);
   });
 
-  it("testAnswer runs the lite dry run for a lite agency, before setup is finished", async () => {
+  it("Try it runs the lite dry run before setup is finished", async () => {
     const on = await liteAgency(test, { ready: false });
     await withFacts(on, { packageId: on.packageId });
     on.model.answer(understood([["discount", "discount"]]));

@@ -1,7 +1,7 @@
-// The worker's side of the autopilot: a customer's message queues the AI's turn a few seconds later (so a burst of messages
-// reads as one, and only the newest is answered), ten chats at a time, or three for an agency on the lite agent; each minute, the follow-ups it planned that are
-// due go out while the window is open; each night, every agency that lets its AI learn gets a lesson run. Every step asks
-// first whether the agency has the AI on, its plan has it and its subscription allows it.
+// The worker's side of the agent: a customer's message queues the AI's turn a few seconds later (so a burst of messages
+// reads as one, and only the newest is answered), three chats at a time; each minute, the follow-ups it planned that are
+// due go out while the window is open. Every step asks first whether the agency has the AI on, its plan has it and its
+// subscription allows it.
 import { aiChatResumedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
@@ -14,25 +14,22 @@ import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 import { WINDOW_MARGIN_MS } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
 import { AI_CHAT_RESUMED_EVENT } from "./chat-state.js";
-import { workDueFollowUps } from "./follow-up-work.js";
-import { learnFromChats, type LearnDependencies } from "./learning.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { aiEnabled } from "./settings.js";
 
 export const AI_REPLY_QUEUE = "ai.reply";
-/** The lite agent's turns: their own queue, so fewer run at once. */
+/** Turns queued here before the earlier agents were removed: drained one at a time, running the same turn. */
 export const AI_LITE_REPLY_QUEUE = "ai.lite-reply";
 export const AI_NUDGES_QUEUE = "ai.nudges";
-export const AI_LEARN_QUEUE = "ai.learn";
 /** How long the agent waits after a message for the next one: people send three short lines, not one. */
 const SETTLE_MS = 3_000;
-/** Chats the agent works on at once. */
-const AT_ONCE = 10;
 /**
- * Lite turns at once. Each holds a pooled connection through its prepare and its act transactions, many round trips
+ * Turns at once. Each holds a pooled connection through its prepare and its act transactions, many round trips
  * each (turn-cost.test.ts counts them), out of the few the whole worker shares: three leave room for the rest.
  */
-const LITE_AT_ONCE = 3;
+const AT_ONCE = 3;
+/** The drained queue's pace. */
+const DRAINED_AT_ONCE = 1;
 /**
  * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
  * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.
@@ -54,7 +51,6 @@ export function aiCustomerWroteListener(dependencies: {
       const { conversationId } = event.payload;
       // Nothing is queued for an agency with no right to the AI.
       if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(event.organizationId))) return;
-      // The queue the turn waits on, or null for none.
       const wanted = await context.forOrg(async (tx) => {
         if (!(await aiEnabled(tx))) return null;
         if ((await agentPauseOf(tx, event.organizationId)) !== null) return null;
@@ -76,11 +72,11 @@ export function aiCustomerWroteListener(dependencies: {
             update: { turnState: "queued", turnAt: new Date() },
           });
         }
-        return answers ? replyQueueOf(settings) : null;
+        return answers;
       });
-      if (wanted === null) return;
+      if (!wanted) return;
       await dependencies.queue.send(
-        wanted,
+        AI_REPLY_QUEUE,
         {
           organizationId: event.organizationId,
           conversationId: event.payload.conversationId,
@@ -113,10 +109,10 @@ export function aiChatResumedListener(dependencies: {
         });
         if (message === null) return null;
         await tx.aiChat.updateMany({ where: { conversationId }, data: { turnState: "queued", turnAt: new Date() } });
-        return { id: message.id, queue: replyQueueOf(await autopilotOf(tx)) };
+        return { id: message.id };
       });
       if (newest === null) return;
-      await dependencies.queue.send(newest.queue, {
+      await dependencies.queue.send(AI_REPLY_QUEUE, {
         organizationId: event.organizationId,
         conversationId,
         messageId: newest.id,
@@ -124,9 +120,6 @@ export function aiChatResumedListener(dependencies: {
     },
   });
 }
-
-/** Which queue an agency's turns wait on: the lite agent's own, or the others'. */
-const replyQueueOf = (settings: { lite: boolean }) => (settings.lite ? AI_LITE_REPLY_QUEUE : AI_REPLY_QUEUE);
 
 /** The agent's turn for one message: only the chat's newest customer message is answered; an earlier one's job ends. */
 function replyHandler(
@@ -156,7 +149,7 @@ function replyHandler(
         );
       await turn("thinking");
       try {
-        // Either queue's turn goes to whichever agent the agency has now: a switch in between changes only the pace.
+        // Either queue runs the same turn: the drained one only holds what was queued before the move.
         const outcome = await runAgentTurn(
           dependencies,
           {
@@ -176,18 +169,18 @@ function replyHandler(
   };
 }
 
-/** The reply handlers: the earlier agents' turns, ten at once, and the lite agent's, three at once. */
+/** The reply handlers: the turns, three at once, and the drained queue's, one at once. */
 export function aiReplyHandlers(dependencies: AgentDependencies & { logger: Logger }): JobHandler[] {
   return [
     replyHandler(dependencies, AI_REPLY_QUEUE, AT_ONCE),
-    replyHandler(dependencies, AI_LITE_REPLY_QUEUE, LITE_AT_ONCE),
+    replyHandler(dependencies, AI_LITE_REPLY_QUEUE, DRAINED_AT_ONCE),
   ];
 }
 
 /**
  * One agency's follow-ups now due: the time the agent planned has come, the customer is still quiet, the window is
  * open. Each is claimed (its time cleared) before its turn, so a turn that writes nothing never comes round again, and
- * one whose window has nearly closed is let go. One per silence, but for the lite agent's second.
+ * one whose window has nearly closed is let go. Two per silence at most: the second follows the first.
  */
 async function nudgeAgency(dependencies: AgentDependencies, organizationId: string, now: Date): Promise<number> {
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
@@ -200,16 +193,11 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
       return [];
     }
     const settings = await autopilotOf(tx);
-    // The agency's follow-up hours are the other agents': the lite agent's two are fixed.
-    if (settings.followUpHours === 0 && !settings.lite) return [];
-    const margin = settings.lite ? WINDOW_MARGIN_MS - LITE_LATE_MS : WINDOW_MARGIN_MS;
-    const windowFloor = new Date(now.getTime() - WINDOW_MS + margin);
-    if (settings.lite) {
-      await tx.aiChat.updateMany({
-        where: { followUpAt: { lt: new Date(now.getTime() - LITE_LATE_MS) } },
-        data: { followUpAt: null },
-      });
-    }
+    const windowFloor = new Date(now.getTime() - WINDOW_MS + WINDOW_MARGIN_MS - LITE_LATE_MS);
+    await tx.aiChat.updateMany({
+      where: { followUpAt: { lt: new Date(now.getTime() - LITE_LATE_MS) } },
+      data: { followUpAt: null },
+    });
     await tx.aiChat.updateMany({
       where: { followUpAt: { lte: now }, conversation: { lastInboundAt: { lte: windowFloor } } },
       data: { followUpAt: null },
@@ -233,7 +221,7 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
     if (rows.length > 0)
       await tx.aiChat.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { followUpAt: null } });
     return rows.flatMap((row) => {
-      const second = settings.lite && row.followUpsSent === 1;
+      const second = row.followUpsSent === 1;
       const quietSinceNudge = row.lastNudgeAt === null || (row.conversation.lastInboundAt ?? now) > row.lastNudgeAt;
       return quietSinceNudge || second ? [{ ...row.conversation, second }] : [];
     });
@@ -247,8 +235,8 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
 }
 
 /**
- * Each minute, every agency with a WhatsApp number: its follow-ups that came due, then its quiet customers' nudges. One
- * agency failing never stops the rest.
+ * Each minute, every agency with a WhatsApp number: its quiet customers' nudges that came due. One agency failing never
+ * stops the rest.
  */
 export async function runAiNudges(dependencies: AgentDependencies & { logger: Logger }, now: Date): Promise<number> {
   if (!dependencies.ai.configured) return 0;
@@ -258,45 +246,11 @@ export async function runAiNudges(dependencies: AgentDependencies & { logger: Lo
     const page = await routesPage(dependencies.db, { after, limit: 100 });
     for (const organizationId of new Set(page.map((route) => route.organizationId))) {
       try {
-        // Follow-ups first: a chat written to about one is not nudged in the same silence.
-        done += await workDueFollowUps(dependencies, organizationId, now);
         done += await nudgeAgency(dependencies, organizationId, now);
       } catch (error) {
         dependencies.logger.error(
           { queue: AI_NUDGES_QUEUE, error: error instanceof Error ? error.name : "unknown" },
           "The AI nudges failed for an agency",
-        );
-      }
-    }
-    if (page.length < 100) return done;
-    after = page.at(-1)?.integratedNumber;
-  }
-}
-
-/** Each night, every agency with a WhatsApp number that lets its AI learn: a lesson run. One failing never stops the rest. */
-export async function runAiLearning(
-  dependencies: LearnDependencies & Pick<AgentDependencies, "subscriptions"> & { logger: Logger },
-  now: Date,
-): Promise<number> {
-  if (!dependencies.ai.configured) return 0;
-  let done = 0;
-  let after: string | undefined;
-  for (;;) {
-    const page = await routesPage(dependencies.db, { after, limit: 100 });
-    for (const organizationId of new Set(page.map((route) => route.organizationId))) {
-      try {
-        if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) continue;
-        const learning = await dependencies.db.forOrg(
-          organizationId,
-          async (tx) => (await aiEnabled(tx)) && (await autopilotOf(tx)).learning,
-        );
-        if (!learning) continue;
-        await learnFromChats(dependencies, organizationId, now);
-        done += 1;
-      } catch (error) {
-        dependencies.logger.error(
-          { queue: AI_LEARN_QUEUE, error: error instanceof Error ? error.name : "unknown" },
-          "The AI's learning failed for an agency",
         );
       }
     }

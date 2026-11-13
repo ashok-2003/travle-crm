@@ -1,7 +1,7 @@
 // The agency's answers to the fixed questions, and the agent's name and tone: saved and read back, a blank answer removed,
 // the autopilot's other columns left alone, and the audit holding no answer text.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { agencyAnswersOf, agentBasicsOf, autopilotOf, saveAgencyAnswers, saveAgentBasics } from "../../src/ai/index.js";
+import { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "../../src/ai/index.js";
 import { storeAutopilot } from "./support/store-autopilot.js";
 import { anAgency, auditOf, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
 
@@ -53,12 +53,16 @@ describe("the agency's answers and the agent's basics", () => {
         paymentDetails: "UPI x",
         maxRepliesPerDay: 7,
       });
-      return autopilotOf(tx);
+      return tx.aiAutopilot.findFirstOrThrow();
     });
     expect(await inOrg((tx) => agentBasicsOf(tx))).toEqual({ agentName: "", tone: "friendly" });
     await inOrg((tx) => saveAgentBasics(tx, owner, { agentName: "Riya", tone: "professional" }));
-    const after = await inOrg((tx) => autopilotOf(tx));
-    expect(after).toEqual({ ...before, agentName: "Riya", tone: "professional" });
+    const after = await inOrg((tx) => tx.aiAutopilot.findFirstOrThrow());
+    expect({ ...after, updatedAt: before.updatedAt, updatedBy: before.updatedBy }).toEqual({
+      ...before,
+      agentName: "Riya",
+      tone: "professional",
+    });
     expect(await inOrg((tx) => agentBasicsOf(tx))).toEqual({ agentName: "Riya", tone: "professional" });
   });
 

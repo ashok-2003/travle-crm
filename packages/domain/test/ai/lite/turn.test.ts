@@ -264,14 +264,6 @@ describe("the lite agent's turn", () => {
     expect(on.model.requests).toHaveLength(0);
   });
 
-  it("a lite agency's grounded switch is ignored", async () => {
-    const on = await liteAgency(test);
-    await on.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { grounded: true } }));
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
-    expect(await on.turn()).toBe("replied");
-    expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
-  });
-
   it("the AI module off answers nothing, though the lite switch is on", async () => {
     const on = await liteAgency(test);
     await on.inOrg((tx) => tx.aiSettings.updateMany({ data: { enabled: false } }));

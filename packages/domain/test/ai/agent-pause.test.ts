@@ -1,7 +1,6 @@
 // Platform staff can pause the WhatsApp agent for every agency or for one: while paused it writes nothing to a customer
 // and queues nothing, a follow-up that comes due meanwhile is let go, and it answers again from the next customer message after the resume.
 import { randomUUID } from "node:crypto";
-import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   createPlatformClient,
@@ -10,27 +9,12 @@ import {
   type PlatformDatabase,
   type PlatformTx,
 } from "@travel-crm/db/platform";
-import {
-  aiChatResumedListener,
-  aiCustomerWroteListener,
-  runAgentTurn,
-  runAiNudges,
-  saveAiSettings,
-} from "../../src/ai/index.js";
-import { storeAutopilot } from "./support/store-autopilot.js";
+import { aiChatResumedListener, aiCustomerWroteListener, runAiNudges } from "../../src/ai/index.js";
+import { liteAgency, liteTurnAt } from "./lite/support/lite-agency.js";
+import { greeting, understood, written } from "./lite/support/turn-script.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { agentPauseOf, type Entitlements } from "../../src/subscriptions/index.js";
-import { aLead } from "../crm/support/records.js";
-import { memberOf } from "../imports/support/test-imports.js";
-import {
-  aConnectedAgency,
-  createTestInbox,
-  deliver,
-  freshPhone,
-  fromCustomer,
-  testNow,
-  type TestInbox,
-} from "../inbox/support.js";
+import { createTestInbox, testNow, type TestInbox } from "../inbox/support.js";
 import type { ListenerContext } from "../../src/jobs/index.js";
 
 const entitlements: Entitlements = {
@@ -44,15 +28,10 @@ const entitlements: Entitlements = {
   nextChangeOn: null,
 };
 const withoutAi: Entitlements = { ...entitlements, modules: new Set(["crm", "inbox"]) };
-const reply = JSON.stringify({
-  reply: "Manali 5N/6D is Rs 18,500 per person. How many are travelling?",
-  handoff: false,
-  handoffReason: "",
-  attention: "",
-  memory: "",
-  followUp: { needed: false, inHours: 0, why: "" },
-});
-const turnAt = new Date(testNow.getTime() + 60_000);
+const scriptReply = (on: { model: { answer: (...answers: string[]) => void } }) => {
+  on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+};
+const turnAt = liteTurnAt;
 const hour = 3_600_000;
 
 describe("the agent while paused", () => {
@@ -118,59 +97,13 @@ describe("the agent while paused", () => {
         : { aiAgentPausedAt: null, aiAgentPausedBy: null },
     });
 
-  /** An agency whose customer has written, with the AI and the autopilot on. */
+  /** An agency whose customer has written, with the AI and the autopilot on and its setup ready. */
   async function agency() {
-    const connection = await aConnectedAgency(test);
-    const { organizationId } = connection;
-    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
-    const owner = memberOf(organizationId, "org-owner");
-    await deliver(
-      test,
-      fromCustomer(connection, {
-        customerNumber: freshPhone().replace("+", ""),
-        customerName: "Rahul",
-        text: "Manali for 4?",
-      }),
-    );
-    const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
-    const message = await inOrg((tx) => tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" } }));
-    const lead = await inOrg((tx) =>
-      aLead(tx, { ...(chat.personId === null ? {} : { personId: chat.personId }), stage: "contacted" }),
-    );
-    await inOrg((tx) =>
-      saveAiSettings(
-        tx,
-        owner,
-        { enabled: true, scoring: true, instructions: "" },
-        { providerReady: true, now: testNow },
-      ),
-    );
-    await inOrg((tx) =>
-      storeAutopilot(tx, owner.organizationId, {
-        autopilot: true,
-        grounded: false,
-        agentName: "Riya",
-        followUpHours: 4,
-        maxRepliesPerDay: 25,
-        language: "customer",
-        languageOther: "",
-        style: "human",
-        emojis: "few",
-        tone: "friendly",
-        handoff: "alert",
-        smartFollowUp: true,
-        learning: false,
-        persona: "sales",
-        leadNotes: true,
-        sendMedia: true,
-        paymentDetails: "",
-        strictRules: "",
-        followUpTasks: true,
-      }),
-    );
-    const model = createMemoryAiModel();
+    const made = await liteAgency(test);
+    const { organizationId, inOrg, chat, message, model } = made;
     const dependencies = {
       db: test.db,
+      identity: made.identity,
       ai: model,
       // The sweeps visit every agency in the shared database: only this one has the AI.
       subscriptions: {
@@ -181,10 +114,9 @@ describe("the agent while paused", () => {
       managers: () => Promise.resolve([]),
       logger: test.logger,
     };
-    const turn = () =>
-      runAgentTurn(dependencies, { organizationId, conversationId: chat.id, kind: "reply", token: message.id }, turnAt);
+    const turn = () => made.turn();
     const context: ListenerContext = { actor: systemActor(organizationId), forOrg: (work) => inOrg(work) };
-    return { organizationId, inOrg, chat, message, lead, model, dependencies, turn, context };
+    return { organizationId, inOrg, chat, message, lead: { id: made.leadId }, model, dependencies, turn, context };
   }
 
   const outbound = (on: Awaited<ReturnType<typeof agency>>) =>
@@ -230,11 +162,11 @@ describe("the agent while paused", () => {
   it("a turn already queued before the pause sends nothing", async () => {
     const on = await agency();
     await subscribe(on.organizationId, true);
-    on.model.answer(reply);
+    scriptReply(on);
     expect(await on.turn()).toBe("paused");
     expect(await outbound(on)).toBe(0);
     await pauseAgency(on.organizationId, false);
-    on.model.answer(reply);
+    scriptReply(on);
     expect(await on.turn()).not.toBe("paused");
   });
 
@@ -282,12 +214,12 @@ describe("the agent while paused", () => {
     expect((await state()).followUpAt).toEqual(laterAt);
     await on.inOrg((tx) => tx.aiChat.updateMany({ where: { conversationId: on.chat.id }, data: { followUpAt: null } }));
     await pauseAgency(on.organizationId, false);
-    on.model.answer(reply);
+    scriptReply(on);
     await runAiNudges(on.dependencies, turnAt);
     expect(await outbound(on)).toBe(0);
   });
 
-  it("a lead follow-up task due while paused is recorded off and not worked after resume", async () => {
+  it("a lead follow-up task due while paused is the team's, and not worked after resume", async () => {
     const on = await agency();
     await on.inOrg((tx) =>
       tx.task.create({
@@ -304,12 +236,12 @@ describe("the agent while paused", () => {
     await subscribe(on.organizationId, true);
     await runAiNudges(on.dependencies, turnAt);
     const touches = () => on.inOrg((tx) => tx.aiFollowUpTouch.findMany({ select: { outcome: true } }));
-    expect(await touches()).toEqual([{ outcome: "off" }]);
+    expect(await touches()).toEqual([]);
     expect(await outbound(on)).toBe(0);
     await pauseAgency(on.organizationId, false);
-    on.model.answer(reply);
+    scriptReply(on);
     await runAiNudges(on.dependencies, turnAt);
-    expect(await touches()).toEqual([{ outcome: "off" }]);
+    expect(await touches()).toEqual([]);
     expect(await outbound(on)).toBe(0);
     expect(await on.inOrg((tx) => tx.task.count({ where: { doneAt: null, cancelledAt: null } }))).toBe(1);
   });

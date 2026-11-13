@@ -227,12 +227,11 @@ describe("what the model is told, and what code writes", () => {
     expect(whole.filled.map(({ start, end }) => whole.text.slice(start, end))).toEqual(["1", "2"]);
   });
 
-  it("the reply context knows the trip's place, the customer's own and the ones not run; custom trips are never offered", () => {
+  it("the reply context knows the trip's place, the customer's own and the ones not run", () => {
     const context = liteReplyContext(situation(), facts({ pickupCity: "Pune", notRun: ["Goa"] }), ["Kedarnath", "Goa"]);
     expect(context.packagePlaces).toContain("Kedarnath");
     expect(context.customerPlaces).toEqual(["Pune"]);
     expect(context.notRun).toEqual(["Goa"]);
-    expect(context.customTrips).toBe(false);
   });
 });
 

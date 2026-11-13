@@ -16,7 +16,7 @@ import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { defineListener, uuidFromKey, type EventListener } from "../jobs/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
-import { answersFromPackagesOnly, CUSTOMER_WROTE_EVENT } from "./automation.js";
+import { aiAgentOn, CUSTOMER_WROTE_EVENT } from "./automation.js";
 import { kindOf, sendableChat, type ReplyContext } from "./outbox.js";
 import { queueSystemText, type SystemSendResult } from "./system-send.js";
 import { isOptOutText, whatsappConsentOf } from "./whatsapp-consent.js";
@@ -195,8 +195,8 @@ export async function sendTripKitOnKeyword(
       select: { body: true, caption: true },
     });
     const text = message?.body ?? message?.caption ?? null;
-    // A grounded agency's AI sends its files; a keyword never sends a kit by itself there.
-    if (await answersFromPackagesOnly(tx)) return null;
+    // An agency's AI agent sends its files; a keyword never sends a kit by itself there.
+    if (await aiAgentOn(tx)) return null;
     // Someone asking to stop is never answered, and nobody who withdrew their consent is written to.
     if (text === null || isOptOutText(text)) return null;
     const chat = await tx.whatsappConversation.findUnique({

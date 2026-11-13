@@ -25,7 +25,6 @@ import {
   scoreHandler,
   scoreLead,
   scoreOnCustomerWroteListener,
-  setLiteAgent,
   suggestReply,
   updateKnowledge,
 } from "../../src/ai/index.js";
@@ -36,6 +35,7 @@ import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
 import { aLead } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
+import { storeAutopilot } from "./support/store-autopilot.js";
 import {
   aConnectedAgency,
   createTestInbox,
@@ -453,12 +453,11 @@ describe("the AI, step one", () => {
       expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(10);
     });
 
-    /** The agency on the lite agent, its autopilot on, and the chat's AI row as given. */
+    /** The agency with its autopilot on, and the chat's AI row as given. */
     async function liteAgency(chat: { mode?: string; turnState?: string | null; turnAt?: Date }) {
       const on = await agency();
       await on.inOrg(async (tx) => {
-        await setLiteAgent(tx, systemActor(on.organizationId), true);
-        await tx.aiAutopilot.updateMany({ data: { autopilot: true } });
+        await storeAutopilot(tx, on.organizationId, { autopilot: true });
         await tx.aiChat.create({
           data: {
             conversationId: on.chat.id,

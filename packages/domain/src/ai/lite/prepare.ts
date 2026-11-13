@@ -128,8 +128,8 @@ export async function prepareLiteTurn(
   const { organizationId } = input;
   return deps.db.forOrg(organizationId, async (tx) => {
     const settings = await autopilotOf(tx);
-    // The inbox hands a lite agency's chats on with the AI module off too (automationCouldAct): the turn refuses them.
-    if (!(await aiEnabled(tx)) || !settings.autopilot || !settings.lite) return "off";
+    // The inbox hands an agency's chats on with the AI module off too (automationCouldAct): the turn refuses them.
+    if (!(await aiEnabled(tx)) || !settings.autopilot) return "off";
     const chat = await tx.whatsappConversation.findUnique({
       where: { id: input.conversationId },
       select: {

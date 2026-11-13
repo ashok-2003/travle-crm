@@ -4,9 +4,7 @@
 import { randomUUID } from "node:crypto";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { setLiteAgent } from "../../../src/ai/index.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
-import { systemActor } from "../../../src/kernel/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteTurnAt } from "./support/lite-agency.js";
 import { greeting, outbound, says, understood, withFacts, written, type Agency } from "./support/turn-script.js";
@@ -264,29 +262,6 @@ describe("the lite agent's follow-ups", () => {
     expect(on.model.requests).toHaveLength(2);
   });
 
-  it("switching the lite agent on or off lets go what the other agent planned", async () => {
-    const on = await liteAgency(test, { lite: false });
-    // The first agent planned a nudge for 01:00 in India, and a count was left from before.
-    const night = after(9.5 * hour);
-    await on.inOrg(async (tx) => {
-      await tx.whatsappConversation.updateMany({ data: { needsReply: false } });
-      await tx.aiChat.upsert({
-        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
-        create: { conversationId: on.chat.id, followUpAt: night, followUpsSent: 1 },
-        update: { followUpAt: night, followUpsSent: 1 },
-      });
-      await setLiteAgent(tx, systemActor(on.organizationId), true);
-    });
-    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0 });
-    expect(await on.nudges(night)).toBe(0);
-    expect(await tokens(on)).toEqual([]);
-    // The lite agent's own plan goes too when it is switched off.
-    await replied(on);
-    expect((await state(on)).followUpAt).toEqual(firstAt);
-    await on.inOrg((tx) => setLiteAgent(tx, systemActor(on.organizationId), false));
-    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0 });
-  });
-
   it("a take-over while the follow-up is written lets it go", async () => {
     const on = await liteAgency(test);
     await replied(on);
@@ -374,37 +349,5 @@ describe("the lite agent's follow-ups", () => {
     expect(await on.nudges(after(2 * hour))).toBe(0);
     expect(await on.inOrg((tx) => tx.aiFollowUpTouch.count())).toBe(0);
     expect(await tokens(on)).toEqual([]);
-  });
-
-  it("the first agent's one nudge per silence is unchanged", async () => {
-    const on = await liteAgency(test, { lite: false });
-    const due = async () => {
-      await on.inOrg(async (tx) => {
-        await tx.whatsappConversation.updateMany({ data: { needsReply: false } });
-        await tx.aiChat.upsert({
-          where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
-          // A count the lite agent left (the console switched it off): the first agent still takes no second.
-          create: { conversationId: on.chat.id, followUpAt: after(hour), followUpsSent: 1 },
-          update: { followUpAt: after(hour), followUpsSent: 1 },
-        });
-      });
-    };
-    await due();
-    on.model.answer(
-      JSON.stringify({
-        reply: "Hope you are well, Rahul. Shall I share the Kedarnath dates?",
-        handoff: false,
-        handoffReason: "",
-        attention: "",
-        memory: "",
-        followUp: { needed: true, inHours: 4, why: "Check in" },
-      }),
-    );
-    expect(await on.nudges(after(2 * hour))).toBe(1);
-    expect(await tokens(on)).toEqual([nudgeToken(on)]);
-    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 1 });
-    await due();
-    expect(await on.nudges(after(3 * hour))).toBe(0);
-    expect(await tokens(on)).toEqual([nudgeToken(on)]);
   });
 });

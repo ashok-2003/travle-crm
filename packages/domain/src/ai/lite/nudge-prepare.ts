@@ -36,7 +36,7 @@ export async function prepareNudge(
   const { organizationId } = input;
   return deps.db.forOrg(organizationId, async (tx: OrgTx) => {
     const settings = await autopilotOf(tx);
-    if (!(await aiEnabled(tx)) || !settings.autopilot || !settings.lite) return "off";
+    if (!(await aiEnabled(tx)) || !settings.autopilot) return "off";
     const found = await tx.whatsappConversation.findUnique({
       where: { id: input.conversationId },
       select: {

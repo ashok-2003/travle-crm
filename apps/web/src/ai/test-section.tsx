@@ -1,8 +1,8 @@
 "use client";
 
-// Settings, AI: the test box (Ayush's, ported): ask what a customer might and see what the AI would answer from what it knows and
-// has learned, in the green bubble a customer would see, and, for an agency answering from its packages, what code would do
-// with it or why nothing would go. Nothing is sent; it spends the month's AI calls the answer takes.
+// Try it: ask what a customer might and see what the AI agent would answer from the packages and setup, in the green
+// bubble a customer would see, and what code would do with it or why nothing would go. Nothing is sent; it spends the
+// month's AI calls the answer takes.
 import type { TestAiAnswer } from "@travel-crm/contracts/ai";
 import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -23,9 +23,7 @@ const blockedReasons = [
   "payment_claim",
   "team_claim",
   "payment_detail",
-  "unknown_placeholder",
   "unfit",
-  "not_run_script",
   // The lite agent's booking refusals, from the same checks the live turn runs.
   "PAYMENT_DETAILS_MISSING",
   "PACKAGE_NOT_SELLABLE",
@@ -34,7 +32,7 @@ const blockedReasons = [
 type BlockedReason = (typeof blockedReasons)[number] | "other";
 const reasonOf = (code: string): BlockedReason => blockedReasons.find((known) => known === code) ?? "other";
 
-/** For an agency answering from its packages: what code would do with the reply, or why nothing would be sent. */
+/** What code would do with the reply, or why nothing would be sent. */
 function WouldDo({ grounded }: { grounded: NonNullable<TestAiAnswer["grounded"]> }) {
   const t = useTranslations("ai.test");
   if (grounded.blocked !== null) {

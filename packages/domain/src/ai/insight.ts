@@ -84,7 +84,7 @@ async function agentScores(
   input: { conversationId: string; leadId: string; newestAt: Date; now: Date; later: boolean },
 ): Promise<"turn_under_way" | "agent_scores" | null> {
   const settings = await autopilotOf(tx);
-  if (!settings.lite || !settings.autopilot) return null;
+  if (!settings.autopilot) return null;
   const chat = await tx.aiChat.findFirst({
     where: { conversationId: input.conversationId },
     select: { mode: true, handedOffAt: true, turnState: true, turnAt: true },

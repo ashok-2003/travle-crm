@@ -10,8 +10,8 @@ const entryText = (one: PackageIndexEntry): string => [one.title, one.place ?? "
 
 /**
  * `places` are the places the agency knows (its destinations); `shown` are the index entries a move names by title
- * (greet, show_other_trips, confirm_place), whose places may be said too. customTrips is false: the lite agent never
- * offers a custom trip, so "we make custom trips" is no excuse for a place we don't run.
+ * (greet, show_other_trips, confirm_place), whose places may be said too. The agent never offers a custom trip, so
+ * "we make custom trips" is no excuse for a place we don't run.
  */
 export function liteReplyContext(
   situation: Situation,
@@ -53,6 +53,5 @@ export function liteReplyContext(
     packagePlaces: knownPlaces.filter((place) => findWord(texts, place).length > 0),
     customerPlaces: [facts.pickupCity ?? "", facts.placeWords ?? ""].filter((place) => place.trim() !== ""),
     notRun: facts.notRun,
-    customTrips: false,
   };
 }

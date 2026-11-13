@@ -1,7 +1,7 @@
 // Confirming or refusing the payment behind an AI booking's proof: the payment lands on the booking's quote (made when the
 // lead has none), once whatever the taps, and the lead is won; refusing sends the booking back to waiting with its proofs.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { takeBooking } from "../../src/ai/booking.js";
+import { takeBooking } from "./ai-booking-fixture.js";
 import { createBookingFromQuote, getBooking } from "../../src/bookings/index.js";
 import { confirmAiPayment, refuseAiPayment, tripPaidOnConfirm } from "../../src/bookings/ai-payments.js";
 import { recordPayment, setQuoteStatus } from "../../src/quotes/index.js";

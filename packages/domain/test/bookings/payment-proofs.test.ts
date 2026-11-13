@@ -3,7 +3,8 @@
 // quote); with an open booking it is that booking's proof; one notice a chat a day; dismissing one is audited.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { aiPaymentProofListener, takeBooking } from "../../src/ai/booking.js";
+import { aiPaymentProofListener } from "../../src/ai/booking.js";
+import { takeBooking } from "./ai-booking-fixture.js";
 import { dismissProof } from "../../src/bookings/index.js";
 import type { EventListener } from "../../src/jobs/index.js";
 import { systemActor } from "../../src/kernel/index.js";

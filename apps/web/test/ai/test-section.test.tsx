@@ -1,5 +1,4 @@
-// "Try it" for an agency answering from its packages: the filled reply, then what code would do with it, or why nothing
-// would be sent, in the owner's words.
+// "Try it": the filled reply, then what code would do with it, or why nothing would be sent, in the owner's words.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -22,7 +21,7 @@ async function ask(answer: object) {
   await userEvent.click(screen.getByRole("button", { name: words.ask }));
 }
 
-describe("Try it, for an agency answering from its packages", () => {
+describe("Try it", () => {
   it("shows the filled reply and what code would do with it", async () => {
     await ask({
       answer: "Holding 2 seats on Sat 14 Nov.",

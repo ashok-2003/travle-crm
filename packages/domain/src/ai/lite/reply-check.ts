@@ -2,7 +2,6 @@
 // write, a place the turn doesn't sell, and a claim of payment or of the team's word.
 import {
   amountsAndDatesIn,
-  customTripPhrases,
   indianTravelPlaces,
   notRunPhrases,
   paymentClaimPhrases,
@@ -27,7 +26,6 @@ export interface ReplyContext {
   /** The customer's own places (their pickup city, the places they named): saying them back invents nothing. */
   customerPlaces: string[];
   notRun: string[];
-  customTrips: boolean;
   knownPlaces: string[];
 }
 
@@ -95,7 +93,7 @@ function placeProblem(text: string, filled: Found[], context: ReplyContext): Fou
       if (notRun.some((n) => covers(n, place)) && !inAnotherScript(place)) {
         const sentence = sentences.find((s) => span.start >= s.start && span.start < s.start + s.text.length);
         const says = sentence?.text ?? text;
-        if (hasPhrase(says, notRunPhrases) || (context.customTrips && hasPhrase(says, customTripPhrases))) continue;
+        if (hasPhrase(says, notRunPhrases)) continue;
       }
       return span;
     }

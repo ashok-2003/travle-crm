@@ -1,16 +1,8 @@
-// The lite agent's per-agency switch: platform staff turn it on from the console; the turn runs only while the AI module's
-// switch is on too. Agencies never reach it (their autopilot saves leave the column alone). A change lets go every
-// follow-up the chats had planned.
+// The console's `lite` column writer, kept only until the console's tools for the move replace it (plan 5, task 4): with one
+// agent nothing reads the column, so the switch no longer decides anything. A change lets go every planned follow-up.
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import type { Actor } from "../../kernel/index.js";
-import { aiEnabled } from "../settings.js";
-
-/** The lite agent answers this agency's chats: the AI module's switch and the console's lite switch are both on. */
-export async function liteAgentOn(tx: OrgTx): Promise<boolean> {
-  if (!(await aiEnabled(tx))) return false;
-  return (await tx.aiAutopilot.findFirst({ select: { lite: true } }))?.lite === true;
-}
 
 /**
  * The console's switch; writes only `lite`, audited, and lets go every follow-up the agency's chats have planned: one

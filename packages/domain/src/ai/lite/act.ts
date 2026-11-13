@@ -37,10 +37,10 @@ async function assertNewest(tx: OrgTx, input: LiteActInput): Promise<void> {
   }
 }
 
-/** The agency's settings while the lite agent is on (the owner's switch, the lite switch, the AI module); else null. */
+/** The agency's settings while the agent is on (the owner's switch and the AI module); else null. */
 async function agentOn(tx: OrgTx): Promise<AutopilotRow | null> {
   const settings = await autopilotOf(tx);
-  return settings.autopilot && settings.lite && (await aiEnabled(tx)) ? settings : null;
+  return settings.autopilot && (await aiEnabled(tx)) ? settings : null;
 }
 
 /**

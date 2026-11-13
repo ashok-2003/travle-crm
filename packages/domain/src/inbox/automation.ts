@@ -82,19 +82,17 @@ const minuteText = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
 /**
- * Whether the agency answers from its packages only. The column is the AI module's switch; inbox reads it in one line
- * rather than import ai (ai imports inbox), so a grounded or lite agency's chats get no keyword trip kits.
+ * Whether the agency's AI agent is on. The column is the agent's own switch; inbox reads it in one line rather than
+ * import ai (ai imports inbox), so an agency with the agent on gets no keyword trip kits.
  */
-export async function answersFromPackagesOnly(tx: OrgTx): Promise<boolean> {
-  const row = await tx.aiAutopilot.findFirst({ select: { grounded: true, lite: true } });
-  return row?.grounded === true || row?.lite === true;
+export async function aiAgentOn(tx: OrgTx): Promise<boolean> {
+  return (await tx.aiAutopilot.findFirst({ select: { autopilot: true } }))?.autopilot === true;
 }
 
 /** Whether anything could act on a customer's message: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
-  // The lite agent answers whatever the customer writes, so its event publishes whatever the automation settings say.
-  const agent = await tx.aiAutopilot.findFirst({ select: { lite: true, autopilot: true } });
-  if (agent?.lite === true && agent.autopilot) return true;
+  // The agent answers whatever the customer writes, so its event publishes whatever the automation settings say.
+  if (await aiAgentOn(tx)) return true;
   const settings = await automationOf(tx);
   if (
     (settings.welcomeEnabled && settings.welcomeMessage !== "") ||
@@ -107,8 +105,6 @@ export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   // no settings saved, the buying words are on by default.
   const sales = await tx.salesAutomation.findFirst({ select: { hotKeywords: true, followEnabled: true } });
   if (sales === null || sales.hotKeywords.length > 0 || sales.followEnabled) return true;
-  // A grounded agency's AI sends the files; keyword kits stay for the others (staff still send a kit from the chat).
-  if (await answersFromPackagesOnly(tx)) return false;
   return (await tx.tripKit.count({ where: { autoSend: true, keywords: { isEmpty: false } } })) > 0;
 }
 

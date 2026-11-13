@@ -59,9 +59,10 @@ async function liteOf(tx: PlatformTx, organizationId: string, now: Date): Promis
   const today = calendarDateIn(now, organization.timeZone);
   return asOrganization(tx, organizationId, async (orgTx) => {
     const settings = await autopilotOf(orgTx);
-    // The switch alone answers nothing: the turn also needs the agency's AI and agent on, and its setup ready.
-    const on = settings.lite && settings.autopilot && (await aiEnabled(orgTx));
+    const lite = (await orgTx.aiAutopilot.findFirst({ select: { lite: true } }))?.lite === true;
+    // The agent answers every agency now; the turn needs the agency's AI and agent on, and its setup ready.
+    const on = settings.autopilot && (await aiEnabled(orgTx));
     const answering = on && (await agentSetupOf(orgTx, organizationId, today)).ready;
-    return { lite: settings.lite, answering };
+    return { lite, answering };
   });
 }

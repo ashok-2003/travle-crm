@@ -163,11 +163,11 @@ describe("what a lite turn costs the database", () => {
       { ...event, type: "ai.chat-resumed", payload: { conversationId: on.chat.id } },
       context,
     );
-    expect(test.queue.sent.slice(before).map((job) => job.queue)).toEqual(["ai.lite-reply", "ai.lite-reply"]);
+    expect(test.queue.sent.slice(before).map((job) => job.queue)).toEqual(["ai.reply", "ai.reply"]);
     const handlers = aiReplyHandlers({ ...dependenciesOf(test, on), logger: on.logger });
     expect(handlers.map((one) => [one.queue, one.concurrency])).toEqual([
-      ["ai.reply", 10],
-      ["ai.lite-reply", 3],
+      ["ai.reply", 3],
+      ["ai.lite-reply", 1],
     ]);
   });
 

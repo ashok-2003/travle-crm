@@ -25,11 +25,6 @@ export async function aiScoringOn(tx: OrgTx): Promise<boolean> {
   return (await tx.aiSettings.findFirst({ select: { scoring: true } }))?.scoring ?? true;
 }
 
-/** Whether the agency sells trips it has no package for: off unless it turned it on. */
-export async function aiCustomTripsOn(tx: OrgTx): Promise<boolean> {
-  return (await tx.aiSettings.findFirst({ select: { customTrips: true } }))?.customTrips ?? false;
-}
-
 /** Whether new WhatsApp leads are filled in from their first messages: on unless the agency turned it off. */
 export async function aiFillLeadsOn(tx: OrgTx): Promise<boolean> {
   return (await tx.aiSettings.findFirst({ select: { fillLeads: true } }))?.fillLeads ?? true;

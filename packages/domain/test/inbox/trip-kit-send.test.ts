@@ -66,18 +66,19 @@ describe("sending a trip's details", () => {
     expect(await sends()).toHaveLength(1);
   });
 
-  it("a grounded agency's keyword kits don't send, and staff still send a kit from the chat", async () => {
+  it("the keyword kits of an agency with the agent on don't send, and staff still send a kit from the chat", async () => {
     const { inOrg, kit, customerSays, keyword, sentOut, sends } = await agency();
     await kit("Kerala", ["kerala"]);
-    // Nothing else listens in this agency, so only the trip's keywords could make the automation act.
     await inOrg((tx) => tx.salesAutomation.create({ data: { hotKeywords: [], followEnabled: false } }));
-    await inOrg((tx) => tx.aiAutopilot.create({ data: { grounded: true } }));
+    await inOrg((tx) => tx.aiAutopilot.create({ data: { autopilot: true } }));
     expect(await keyword(await customerSays("Any Kerala packages?"))).toBe(false);
     expect(await sentOut()).toHaveLength(0);
     expect(await sends()).toHaveLength(0);
-    expect(await inOrg((tx) => automationCouldAct(tx))).toBe(false);
-    await inOrg((tx) => tx.aiAutopilot.updateMany({ data: { grounded: false } }));
+    // The agent itself listens to every message; the kit never goes out beside it.
     expect(await inOrg((tx) => automationCouldAct(tx))).toBe(true);
+    await inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: false } }));
+    expect(await keyword(await customerSays("Any Kerala packages?", 1))).toBe(true);
+    expect(await sentOut()).toHaveLength(1);
   });
 
   it("sends a trip once a chat, whichever later message says its keyword, and each trip once", async () => {

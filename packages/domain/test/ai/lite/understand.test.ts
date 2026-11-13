@@ -2,7 +2,6 @@
 import { liteFacts, understandForm } from "@travel-crm/contracts/ai";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readFacts, saveFacts } from "../../../src/ai/grounded/facts.js";
 import { understandChat } from "../../../src/ai/lite/understand.js";
 import { readLiteFacts, saveLiteFacts } from "../../../src/ai/lite/merge.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
@@ -69,7 +68,14 @@ describe("the lite facts row", () => {
 
   it("a grounded facts row reads as empty lite facts, and lite facts round-trip", async () => {
     const on = await liteAgency(test);
-    await on.inOrg(async (tx) => saveFacts(tx, on.chat.id, { ...(await readFacts(tx, on.chat.id)) }));
+    // What the earlier grounded agent kept: facts with no `agent: "lite"` mark.
+    await on.inOrg((tx) =>
+      tx.aiChat.upsert({
+        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+        create: { conversationId: on.chat.id, facts: { pickupCity: "Mumbai", adults: 2 } },
+        update: { facts: { pickupCity: "Mumbai", adults: 2 } },
+      }),
+    );
     expect(await on.inOrg((tx) => readLiteFacts(tx, on.chat.id))).toEqual(liteFacts.parse({ agent: "lite" }));
     const facts = liteFacts.parse({ agent: "lite", adults: 3, language: "hindi" });
     await on.inOrg((tx) => saveLiteFacts(tx, on.chat.id, facts));

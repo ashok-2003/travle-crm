@@ -397,11 +397,6 @@ describe("the lite agent's act step", () => {
     const switched = await liteAgency(test);
     await switched.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: false } }));
     expect(await act(switched, decision(book(switched), pricedFacts(switched)))).toEqual({ stopped: "off" });
-
-    const lite = await liteAgency(test);
-    await lite.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { lite: false } }));
-    expect(await act(lite, decision(book(lite), pricedFacts(lite)))).toEqual({ stopped: "off" });
-    expect(await counts(lite)).toEqual(nothingKept);
   });
 
   it("cleared payment details or an unsold package stop the booking", async () => {

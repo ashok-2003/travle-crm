@@ -1,16 +1,11 @@
 // checkReply: the last gate before a reply reaches a customer, as a table of what it refuses and what it lets through.
 import { describe, expect, it } from "vitest";
-import { chatFacts } from "@travel-crm/contracts/ai";
 import { checkReply, type ReplyContext } from "../../../src/ai/lite/reply-check.js";
-import type { Lookup } from "../../../src/ai/grounded/lookup.js";
-import { replyContext } from "../../../src/ai/grounded/turn-write.js";
-import { parseCalendarDate } from "../../../src/kernel/index.js";
 
 const manaliOnly: ReplyContext = {
   packagePlaces: ["manali"],
   customerPlaces: [],
   notRun: [],
-  customTrips: false,
   knownPlaces: ["manali", "spiti", "kashmir"],
 };
 const kashmirNotRun = { ...manaliOnly, notRun: ["kashmir"] };
@@ -71,35 +66,10 @@ describe("checkReply", () => {
     expect(reason("Kashmir is lovely", { ...kashmirNotRun, customerPlaces: ["Mumbai"] })).toBe("place");
   });
 
-  it("builds the check's context with the chat's pickup city and place words", () => {
-    const lookup: Lookup = {
-      packages: [],
-      notRun: ["Kashmir"],
-      customTrips: false,
-      today: parseCalendarDate("2026-11-06"),
-      travellers: null,
-      startsOn: null,
-    };
-    const facts = chatFacts.parse({
-      pickupCity: "Mumbai",
-      places: [{ destinationId: null, words: "Lonavala" }],
-      notRun: ["Kashmir"],
-    });
-    const context = replyContext(lookup, ["Manali"], facts);
-    expect(context.customerPlaces).toEqual(["Mumbai", "Lonavala"]);
-    expect(context.notRun).toEqual(["Kashmir"]);
-  });
-
   it("never lets a reply say it doesn't run a place named in another script (M6)", () => {
     const hindi = { ...manaliOnly, notRun: ["मनाली"] };
     expect(reason("We don't run मनाली, sorry.", hindi)).toBe("place");
     expect(reason("हम मनाली नहीं करते", hindi)).toBe("place");
-  });
-
-  it("lets a custom-trip phrase stand in only when custom trips are on", () => {
-    const text = "Kashmir: the team will send a quote for a custom trip";
-    expect(reason(text, kashmirNotRun)).toBe("place");
-    expect(reason(text, { ...kashmirNotRun, customTrips: true })).toBe("ok");
   });
 
   it.each([
