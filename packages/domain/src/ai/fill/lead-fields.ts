@@ -9,7 +9,14 @@ import { suggestedLeadFields, type SuggestedLeadField, type TripAnswer } from "@
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import { searchDestinations } from "../../catalog/index.js";
-import { clearTripFields, fillTripGaps, tripFieldValues, type GapField, type TripGaps } from "../../crm/index.js";
+import {
+  clearTripFields,
+  fillTripGaps,
+  tripFieldValues,
+  tripFieldValuesOf,
+  type GapField,
+  type TripGaps,
+} from "../../crm/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError, systemActor } from "../../kernel/index.js";
 import { resolveLead } from "./resolve.js";
@@ -125,6 +132,13 @@ export interface SuggestedField {
   filledAt: string;
 }
 
+/** Whether a suggestion row still holds what the AI wrote: the lead's value now hashes to it. One test for every reader. */
+function stillTheAis(field: GapField, current: unknown, valueHashOfRow: string): boolean {
+  return (
+    current !== null && suggestedLeadFields.includes(field) && valueHash(PATH_OF[field], current) === valueHashOfRow
+  );
+}
+
 /** The suggestions on a lead that still hold what the AI wrote: a field a person has changed since is theirs now. */
 export async function suggestedFieldsOf(tx: OrgTx, leadId: string): Promise<SuggestedField[]> {
   const rows = await tx.leadAiField.findMany({ where: { leadId, state: "suggested" }, orderBy: { createdAt: "asc" } });
@@ -133,12 +147,30 @@ export async function suggestedFieldsOf(tx: OrgTx, leadId: string): Promise<Sugg
   if (now === null) return [];
   return rows.flatMap((row) => {
     const field = row.field as GapField;
-    const path = PATH_OF[field];
     const current = now[field];
-    if (current === null || !suggestedLeadFields.includes(field) || valueHash(path, current) !== row.valueHash)
-      return [];
-    return [{ field, path, value: current, excerpt: row.excerpt, filledAt: row.updatedAt.toISOString() }];
+    if (!stillTheAis(field, current, row.valueHash)) return [];
+    return [
+      { field, path: PATH_OF[field], value: current, excerpt: row.excerpt, filledAt: row.updatedAt.toISOString() },
+    ];
   });
+}
+
+/** Which of these leads hold an AI value that is still the AI's (the Leads list's mark): two queries, whatever the count. */
+export async function aiFilledLeadIds(tx: OrgTx, leadIds: readonly string[]): Promise<Set<string>> {
+  if (leadIds.length === 0) return new Set();
+  const rows = await tx.leadAiField.findMany({
+    where: { leadId: { in: [...leadIds] }, state: "suggested" },
+    select: { leadId: true, field: true, valueHash: true },
+  });
+  if (rows.length === 0) return new Set();
+  const now = await tripFieldValuesOf(tx, [...new Set(rows.map((row) => row.leadId))]);
+  return new Set(
+    rows
+      .filter((row) =>
+        stillTheAis(row.field as GapField, now.get(row.leadId)?.[row.field as GapField] ?? null, row.valueHash),
+      )
+      .map((row) => row.leadId),
+  );
 }
 
 /**

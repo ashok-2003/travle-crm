@@ -259,7 +259,8 @@
       "apply": "Show leads"
     },
     "countsFailed": "The counts didn't load.",
-    "emptyUnassigned": "No lead is waiting for an owner. A lead lands here when the turns have nobody to give it to: the pool is empty, or everyone in it is away."
+    "emptyUnassigned": "No lead is waiting for an owner. A lead lands here when the turns have nobody to give it to: the pool is empty, or everyone in it is away.",
+    "aiFilled": "The AI filled in some of this lead's details"
   },
   "form": {
     "title": "New lead",

@@ -67,7 +67,14 @@ export {
   sheetsCheckHandler,
 } from "./lead-sheets/index.js";
 export { editLeadPerson, editLeadTrip } from "./lead-edits.js";
-export { clearTripFields, fillTripGaps, tripFieldValues, type GapField, type TripGaps } from "./trip-gaps.js";
+export {
+  clearTripFields,
+  fillTripGaps,
+  tripFieldValues,
+  tripFieldValuesOf,
+  type GapField,
+  type TripGaps,
+} from "./trip-gaps.js";
 export { lockLead } from "./lead-core.js";
 export { recordLeadEvent, type LeadEventEntry } from "./lead-events.js";
 export { removeAllLeads, removeLead } from "./lead-removal.js";

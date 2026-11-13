@@ -80,7 +80,11 @@ export function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCou
   };
 }
 
-function itemOf(row: LeadListRow, names: ReadonlyMap<string, string>, next: Task | undefined): LeadListItem {
+function itemOf(
+  row: LeadListRow,
+  names: ReadonlyMap<string, string>,
+  next: Task | undefined,
+): Omit<LeadListItem, "aiFilled"> {
   const stage = leadStage.parse(row.stage);
   return {
     id: row.id,
@@ -104,7 +108,7 @@ export async function listLeads(
   tx: OrgTx,
   access: MemberAccess,
   input: ListLeadsInput,
-): Promise<Omit<LeadListPage, "people">> {
+): Promise<Omit<LeadListPage, "people" | "items"> & { items: Omit<LeadListItem, "aiFilled">[] }> {
   const stages = input.stage === "open" ? openLeadStages : [input.stage];
   // One more than a page tells whether another page follows.
   const rows = await tx.$queryRaw<LeadListRow[]>(
