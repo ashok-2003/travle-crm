@@ -103,6 +103,36 @@ describe("chats in flight at the move", () => {
     }
   });
 
+  it("an older no-amount booking still goes to a person when a newer one has an amount", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg(async (tx) => {
+      await tx.aiBooking.create({
+        data: {
+          leadId: on.leadId,
+          conversationId: on.chat.id,
+          summary: "Kedarnath for 2",
+          status: "awaiting_payment",
+          createdAt: new Date(testNow.getTime() - 3_600_000),
+        },
+      });
+      await tx.aiBooking.create({
+        data: {
+          leadId: on.leadId,
+          conversationId: on.chat.id,
+          summary: "Kedarnath for 3",
+          status: "awaiting_payment",
+          expectedPaise: 400_000n,
+        },
+      });
+    });
+    const token = await says(on, "how do I pay?", 30);
+    on.model.answer(understood([["wants_to_book", "how do I pay"]]));
+    const traces: LiteTrace[] = [];
+    const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+    expect(await on.turn(at(60), { token, traces: sink })).toBe("handed_off");
+    expect(traces[0]).toMatchObject({ reason: "has_booking" });
+  });
+
   it("a turn queued before the deploy ends paused while every agency is paused", async () => {
     const on = await liteAgency(test);
     on.model.answer(understood([["hello", "Hi"]]), written(greeting));

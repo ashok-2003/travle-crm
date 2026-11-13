@@ -199,7 +199,7 @@ export interface BookingPart {
  * requested or confirmed one, or a confirmed AI booking whose departure is today or later, on any of their leads. A
  * trip that is over (a completed booking, an AI booking whose departure has gone) makes them a returning customer, and
  * the chat's open AI booking is the sale this chat is in: neither is one. An open booking an earlier agent took (no
- * amount stored) is neither: it is a person's, so the turn hands over.
+ * amount stored, any of the chat's open ones) is neither: it is a person's, so the turn hands over.
  */
 export async function bookingPartOf(
   tx: OrgTx,
@@ -212,8 +212,19 @@ export async function bookingPartOf(
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: { id: true, status: true, expectedPaise: true },
   });
-  // An open booking with no amount is an earlier agent's: no sale of this agent's, so a person takes it (has_booking).
-  const earlier = open !== null && open.expectedPaise === null;
+  // An open booking with no amount is an earlier agent's: no sale of this agent's, so a person takes it (has_booking),
+  // whichever of the chat's open bookings it is.
+  const earlier =
+    open !== null &&
+    (open.expectedPaise === null ||
+      (await tx.aiBooking.findFirst({
+        where: {
+          conversationId: chat.id,
+          status: { in: ["awaiting_payment", "proof_received"] },
+          expectedPaise: null,
+        },
+        select: { id: true },
+      })) !== null);
   const openBooking =
     open === null || earlier
       ? null
