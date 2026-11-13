@@ -203,7 +203,7 @@ export async function retireSchedules(runner: Pick<JobRunner, "unschedule">): Pr
   for (const queue of RETIRED_SCHEDULES) await runner.unschedule(queue);
 }
 
-/** What the AI's turns, nudges and lessons run with; its traces are kept in the worker's storage. */
+/** What the agent's turns and follow-ups run with; its traces are kept in the worker's storage. */
 export function autopilotDependencies(
   dependencies: Pick<WorkerJobDependencies, "db" | "identity" | "files" | "subscriptions" | "storage" | "logger"> & {
     managers: BookingRecipients;

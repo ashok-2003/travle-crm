@@ -1,6 +1,6 @@
 // The agency's own switch for Suggest reply, the score and the other AI helpers. Off until an Owner or Admin (ai:manage)
 // turns it on; every change is audited with what changed. The instructions and custom-trips columns an earlier release
-// let it set stay stored (package drafts read the instructions) but are no longer read or written here.
+// let it set stay stored until the contract release, read and written by nothing.
 import { aiSettings, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";

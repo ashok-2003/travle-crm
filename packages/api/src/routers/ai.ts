@@ -1,8 +1,8 @@
 // ai.*: Suggest reply (ADR 0029; the owner's decision of 2026-10-28). Anyone who may reply in a chat and holds ai:suggest
 // asks for a draft (a mutation: it spends one of the agency's suggestions); only whoever holds ai:manage, from a session
-// read afresh, turns it on for the agency and writes its instructions and the documents package drafts read. The bookings the AI took show on
-// the lead for anyone who sees it, and whoever may work the lead confirms or cancels one. The plan's AI module is checked
-// on every call.
+// read afresh, turns it on for the agency, sets up its WhatsApp agent and adds the documents package drafts read. The
+// bookings the AI took show on the lead for anyone who sees it, and whoever may work the lead confirms or cancels one.
+// The plan's AI module is checked on every call.
 import {
   agencyAnswers,
   agentBasics,

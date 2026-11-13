@@ -1,5 +1,5 @@
-// Public API of @travel-crm/domain/ai: the AI (ADR 0029; the owner's decisions of 2026-10-28): the agency's switch and
-// instructions, what it tells its AI to know, Suggest reply with its monthly limit and its audit, the AI's guess of how a
+// Public API of @travel-crm/domain/ai: the AI (ADR 0029; the owner's decisions of 2026-10-28): the agency's switch, the
+// documents package drafts are written from, Suggest reply with its monthly limit and its audit, the AI's guess of how a
 // lead will go (it never moves a lead's stage), and the one WhatsApp agent (the lite turn): the AI answering chats by
 // itself, off until an Owner or Admin turns it on, marking and auditing every message it sends, with two follow-ups per
 // silence, the bookings it takes with the customer's payment proof, and the traces of its turns. It sits above crm and

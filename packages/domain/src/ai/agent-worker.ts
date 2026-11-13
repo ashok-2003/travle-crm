@@ -214,11 +214,13 @@ async function nudgeAgency(
       where: { followUpAt: { lte: now }, conversation: { lastInboundAt: { lte: windowFloor } } },
       data: { followUpAt: null },
     });
+    // The agent answers no chat while its switch is off, whatever a chat's own mode says (agent-reach.ts).
+    if (!settings.autopilot) return [];
     const rows = await tx.aiChat.findMany({
       where: {
         followUpAt: { lte: now },
         handedOffAt: null,
-        mode: settings.autopilot ? { not: "off" } : "on",
+        mode: { not: "off" },
         conversation: { state: "open", hidden: false, needsReply: false, lastInboundAt: { gt: windowFloor } },
       },
       orderBy: { followUpAt: "asc" },
