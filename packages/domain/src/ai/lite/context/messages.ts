@@ -1,6 +1,7 @@
 // The chat as the model reads it: one line per message, who said it and when, the customer's words fenced as data.
 import { calendarDateIn, formatShortDay, type CalendarDate } from "../../../kernel/index.js";
 import { fenced } from "../../agent-prompt.js";
+import { AI_TOKEN_PREFIX } from "../../may-write.js";
 import type { ContextMessage } from "../types.js";
 
 const LINE_TEXT = 200;
@@ -47,4 +48,35 @@ export function messageLines(messages: ContextMessage[], timeZone: string, today
     const day = formatShortDay(calendarDateIn(message.at, timeZone), today);
     return `${who[message.from]} (${day}, ${clockWords(message.at, timeZone)}): ${saidBy(message)}`;
   });
+}
+
+/** The columns of a stored message that `contextMessageOf` reads. */
+export const storedMessageFields = {
+  id: true,
+  direction: true,
+  kind: true,
+  body: true,
+  caption: true,
+  clientToken: true,
+  occurredAt: true,
+} as const;
+
+/** Who wrote it (the customer, this AI by its "ai:" token, or the team) and its words, as the prompts read them. */
+export function contextMessageOf(row: {
+  id: string;
+  direction: string;
+  kind: string;
+  body: string | null;
+  caption: string | null;
+  clientToken: string | null;
+  occurredAt: Date;
+}): ContextMessage {
+  return {
+    id: row.id,
+    from:
+      row.direction === "in" ? "customer" : (row.clientToken?.startsWith(AI_TOKEN_PREFIX) ?? false) ? "you" : "team",
+    at: row.occurredAt,
+    kind: row.kind,
+    text: row.body ?? row.caption ?? "",
+  };
 }

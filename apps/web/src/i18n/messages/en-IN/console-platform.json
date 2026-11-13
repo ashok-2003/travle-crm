@@ -280,7 +280,8 @@
       "person": "Customer",
       "vip_invite": "Invite",
       "email": "Email",
-      "platform": "The AI agent on WhatsApp"
+      "platform": "The AI agent on WhatsApp",
+      "ai_turn_trace": "AI turn"
     },
     "actions": {
       "ai-agent": {
@@ -290,6 +291,9 @@
         "resumed-everyone": "Resumed the AI agent on WhatsApp for every agency",
         "lite-on": "Switched the agency to the lite AI agent on WhatsApp",
         "lite-off": "Switched the agency back from the lite AI agent on WhatsApp"
+      },
+      "ai-trace": {
+        "opened": "Opened an AI turn's trace"
       },
       "organization": {
         "onboarded": "Onboarded the organization",

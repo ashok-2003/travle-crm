@@ -45,6 +45,7 @@
     "ORGANIZATION_CANCELLED": "Your organization's subscription has ended.",
     "MODULE_NOT_ON_PLAN": "Your organization's plan doesn't include this.",
     "PROFILE_NOT_SAVED": "Save your business details in Settings first.",
+    "AI_TRACE_NOT_FOUND": "This turn isn't kept any more: a trace is kept 14 days, and goes at once when its customer is erased.",
     "ATTACHMENT_NOT_FOUND": "This file no longer exists. It may have been removed.",
     "ATTACHMENT_ID_IN_USE": "This file was saved already. Reload to see it.",
     "SYSTEM_OWNED_FILE": "This file belongs to its record and can't be removed.",

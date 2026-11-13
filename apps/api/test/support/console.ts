@@ -5,7 +5,7 @@ import { createPlatformContext } from "@travel-crm/api/platform";
 import { features } from "@travel-crm/contracts/features";
 import { createDatabase } from "@travel-crm/db";
 import type { RecordedEmailSender } from "@travel-crm/domain/email-log";
-import { createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
+import { createPlatformServices, type AiPrices, type PlatformServices } from "@travel-crm/domain/platform";
 import {
   createMemoryJobAdministration,
   createMemoryJobQueue,
@@ -39,6 +39,8 @@ export interface TestConsoleOptions {
   jobs?: JobAdministration;
   /** The console's recorded sender (incidents, resends); none unless given. */
   email?: RecordedEmailSender;
+  /** What a million AI tokens cost, in paise; none unless given. */
+  aiPrices?: AiPrices;
 }
 
 export function createTestConsole(server: TestServer, options: TestConsoleOptions = {}): TestConsole {
@@ -57,6 +59,7 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     jobs: options.jobs ?? createMemoryJobAdministration(),
     logger: problemLogger(lines),
     email: options.email ?? null,
+    aiPrices: options.aiPrices ?? null,
   });
   return {
     app: createConsoleApp(services, logger),

@@ -85,8 +85,10 @@ export {
   type CaseResult,
 } from "./grounded/evaluate.js";
 export { TRACE_DAYS, traceKey, traceFileOf, readTraceFile, type TraceFile } from "./traces/trace-file.js";
+export { keptTrace, keptTraces, traceMessages, type KeptTrace } from "./traces/trace-reads.js";
 export { createTraceSink, forgetTraces, tracesDue } from "./traces/trace-sink.js";
 export { startTrace } from "./lite/turn-trace.js";
 export { promptLibrary, promptVersions, type PromptPiece } from "./lite/prompts/library.js";
 export { modelCalls, type ModelCallOutline } from "./lite/prompts/calls.js";
+export type { ContextMessage } from "./lite/types.js";
 export type { BlockHead } from "./lite/context/block-heads.js";
