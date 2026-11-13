@@ -1,6 +1,6 @@
 // The one WhatsApp agent's turn for a chat: the checks that stop it before any call (a server with no model, an agency whose
 // plan or subscription has no AI, a pause by platform staff), then the lite turn, whatever an agency's older switches say.
-// The turn itself, its gates and its writes are in lite/.
+// The turn itself, its gates and its writes are in lite/; a turn refused for an unfinished setup tells the managers.
 import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -12,6 +12,7 @@ import type { BookingRecipients } from "./booking.js";
 import { runLiteTurn } from "./lite/turn.js";
 import type { LiteTurnInput, TraceSink } from "./lite/types.js";
 import { AI_TOKEN_PREFIX, agentAnswers, mayWrite } from "./may-write.js";
+import { tellAgentNotReady } from "./not-ready-notice.js";
 
 export { AI_HANDOFF_KIND } from "./tell-owner.js";
 export { AI_TOKEN_PREFIX, agentAnswers, mayWrite };
@@ -47,5 +48,8 @@ export async function runAgentTurn(dependencies: AgentDependencies, input: LiteT
   // Paused by platform staff: nothing is written to a customer. Read fresh, never from the access cache.
   const paused = await dependencies.db.forOrg(input.organizationId, (tx) => agentPauseOf(tx, input.organizationId));
   if (paused !== null) return "paused";
-  return runLiteTurn(dependencies, input, now);
+  const outcome = await runLiteTurn(dependencies, input, now);
+  // Switched on, but its setup came undone: the customer got nothing, so the managers hear of it, once a day.
+  if (outcome === "not_ready") await tellAgentNotReady(dependencies, input.organizationId, now);
+  return outcome;
 }
