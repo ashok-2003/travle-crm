@@ -240,16 +240,32 @@ describe("the lite agent's follow-ups", () => {
     });
   });
 
-  it("a follow-up never opens a lead", async () => {
+  it.each(["lost", "won", "not_a_lead"] as const)(
+    "staff close the lead (%s) after the reply: a person decided, so the follow-up is let go and no lead opened",
+    async (stage) => {
+      const on = await liteAgency(test);
+      await replied(on);
+      const leads = () => on.inOrg((tx) => tx.lead.findMany({ select: { id: true, stage: true } }));
+      await on.inOrg((tx) => tx.lead.updateMany({ data: { stage } }));
+      const before = await leads();
+      on.model.answer(written(followUp1));
+      expect(await on.nudges(firstAt)).toBe(1);
+      expect(await tokens(on)).toEqual([`ai:${on.message.id}`]);
+      expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0, lastNudgeAt: null });
+      // Let go before the model is asked.
+      expect(on.model.requests).toHaveLength(2);
+      expect(await leads()).toEqual(before);
+    },
+  );
+
+  it("a lead closed while the follow-up is written lets it go", async () => {
     const on = await liteAgency(test);
     await replied(on);
-    const leads = () => on.inOrg((tx) => tx.lead.findMany({ select: { id: true, stage: true } }));
-    await on.inOrg((tx) => tx.lead.updateMany({ data: { stage: "lost" } }));
-    const before = await leads();
     on.model.answer(written(followUp1));
+    whileWriting(on, () => on.inOrg((tx) => tx.lead.updateMany({ data: { stage: "lost" } })));
     expect(await on.nudges(firstAt)).toBe(1);
-    expect(await tokens(on)).toContain(nudgeToken(on));
-    expect(await leads()).toEqual(before);
+    expect(await tokens(on)).toEqual([`ai:${on.message.id}`]);
+    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0, lastNudgeAt: null });
   });
 
   it("a second planned for the margin's edge still goes when the minute job reaches it late", async () => {

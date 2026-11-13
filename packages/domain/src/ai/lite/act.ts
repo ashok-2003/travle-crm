@@ -114,6 +114,8 @@ export async function actOnMove(tx: OrgTx, deps: LiteActDeps, input: LiteActInpu
   const decision = wordless ? handOverInstead(input.decision, "unanswered", "act:no_words") : input.decision;
   const acting = { ...input, decision };
   const lead = await openLeadOfChat(tx, chat.personId);
+  // A lead the team closed while the follow-up was written: a person decided, and nothing is written yet.
+  if (input.kind === "nudge" && lead === null) return { stopped: "no_open_lead" };
   const money = await moneyMove(tx, deps, acting, lead?.id ?? null);
   const sent = await sendMove(tx, deps, acting, money);
   const bookingId = money?.bookingId ?? null;

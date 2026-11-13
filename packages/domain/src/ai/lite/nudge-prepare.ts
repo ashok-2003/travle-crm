@@ -1,6 +1,7 @@
-// The lite follow-up turn's one read (plan 3b): the gates a reply turn passes and the silence it goes into, then only
-// what the follow-up's line needs, never Understand or a lookup: the chat's lines and facts, the package the facts chose
-// (what to ask next depends on its pickups and rooms), the agency's names and places, and code's decision.
+// The lite follow-up turn's one read (plan 3b): the gates a reply turn passes, the silence it goes into and the open
+// lead it keeps going, then only what the follow-up's line needs, never Understand or a lookup: the chat's lines and
+// facts, the package the facts chose (what to ask next depends on its pickups and rooms), the agency's names and
+// places, and code's decision.
 import type { OrgTx } from "@travel-crm/db";
 import { openLeadOfChat } from "../../crm/index.js";
 import { organizationTimeZone } from "../../identity/index.js";
@@ -65,6 +66,10 @@ export async function prepareNudge(
     // Two went already: a time left on the chat brings no third.
     if (state === null || state.followUpsSent >= 2) return "nothing";
     if (!(await stillQuiet(tx, chat.id))) return "answered";
+    // A lead the team closed (won, lost, not a lead) with no word to the customer was a person's decision: no "picking
+    // this up again" goes after it, and a follow-up never opens a lead.
+    const lead = await openLeadOfChat(tx, chat.personId);
+    if (lead === null) return "no_open_lead";
     const timeZone = await organizationTimeZone(tx, organizationId);
     const today = calendarDateIn(now, timeZone);
     const sellable = await sellablePackages(tx, organizationId, today);
@@ -72,8 +77,7 @@ export async function prepareNudge(
     if (!(await agentSetupOf(tx, organizationId, today, sellable)).ready) return "not_ready";
     if ((await usedThisMonth(tx, now, timeZone)) >= MONTHLY_AI_LIMIT) return "limit";
     const lines = await chatLines(tx, chat.id);
-    const lead = await openLeadOfChat(tx, chat.personId);
-    const facts = factsForLead(await readLiteFacts(tx, chat.id), lead?.id ?? null);
+    const facts = factsForLead(await readLiteFacts(tx, chat.id), lead.id);
     // The facts' own package alone, while it is still for sale: the next question depends on its pickups and rooms.
     const index = await packageIndexOf(
       tx,
@@ -108,7 +112,7 @@ export async function prepareNudge(
       timeZone,
       today,
       summary: state.summary,
-      leadId: lead?.id ?? null,
+      leadId: lead.id,
       messages: lines.messages,
       sent: lines.sent,
       index,
