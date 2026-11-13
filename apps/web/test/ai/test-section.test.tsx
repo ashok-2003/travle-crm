@@ -27,7 +27,7 @@ describe("Try it", () => {
       answer: "Holding 2 seats on Sat 14 Nov.",
       handoff: false,
       reason: "",
-      grounded: { actions: ["book", "note"], blocked: null },
+      dryRun: { actions: ["book", "note"], blocked: null },
     });
     expect(await screen.findByText("Holding 2 seats on Sat 14 Nov.")).toBeVisible();
     expect(screen.getByText(words.actions.book)).toBeVisible();
@@ -36,7 +36,7 @@ describe("Try it", () => {
   });
 
   it("says why nothing would be sent", async () => {
-    await ask({ answer: "", handoff: false, reason: "", grounded: { actions: [], blocked: "amount" } });
+    await ask({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: "amount" } });
     const reason = words.blockedReasons.amount;
     expect(await screen.findByText(words.blocked.replace("{reason}", reason))).toBeVisible();
   });
@@ -44,13 +44,13 @@ describe("Try it", () => {
   it.each(["PAYMENT_DETAILS_MISSING", "PACKAGE_NOT_SELLABLE", "AI_ACTION_REFUSED"] as const)(
     "names a booking the live turn would refuse: %s",
     async (code) => {
-      await ask({ answer: "", handoff: false, reason: "", grounded: { actions: [], blocked: code } });
+      await ask({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: code } });
       expect(await screen.findByText(words.blocked.replace("{reason}", words.blockedReasons[code]))).toBeVisible();
     },
   );
 
   it("reads a block reason the screen doesn't know as a plain safety check", async () => {
-    await ask({ answer: "", handoff: false, reason: "", grounded: { actions: [], blocked: "something_new" } });
+    await ask({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: "something_new" } });
     expect(await screen.findByText(words.blocked.replace("{reason}", words.blockedReasons.other))).toBeVisible();
   });
 });

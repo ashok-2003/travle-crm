@@ -58,7 +58,7 @@ export const testAiAnswer = z.object({
   handoff: z.boolean(),
   reason: z.string(),
   /** The dry run: what code would do with the reply, or the check's reason code when nothing would be sent. */
-  grounded: z.object({ actions: z.array(testAiAction), blocked: z.string().nullable() }),
+  dryRun: z.object({ actions: z.array(testAiAction), blocked: z.string().nullable() }),
 });
 export type TestAiAnswer = z.infer<typeof testAiAnswer>;
 

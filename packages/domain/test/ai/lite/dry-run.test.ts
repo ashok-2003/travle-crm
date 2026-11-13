@@ -52,7 +52,7 @@ describe("Try it for the lite agent", () => {
     expect(shown.answer).toContain(formatRupees(599_900));
     expect(shown.answer).toContain("Which city will you join us from?");
     expect(shown.handoff).toBe(false);
-    expect(shown.grounded.blocked).toBeNull();
+    expect(shown.dryRun.blocked).toBeNull();
     expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
     expect(await calls(on)).toBe(2);
     expect(await rows(on)).toEqual(before);
@@ -82,7 +82,7 @@ describe("Try it for the lite agent", () => {
       typed,
     );
     const shown = await tryIt(on, "price for kedarnath?");
-    expect(shown).toEqual({ answer: "", handoff: false, reason: "", grounded: { actions: [], blocked: "amount" } });
+    expect(shown).toEqual({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: "amount" } });
     expect(await calls(on)).toBe(3);
     expect(await rows(on)).toEqual(before);
   });
@@ -96,7 +96,7 @@ describe("Try it for the lite agent", () => {
       written("It is a group yatra. Which city will you join us from?"),
     );
     const shown = await tryIt(on, "tell me about kedarnath");
-    expect(shown.grounded.actions).toEqual(expect.arrayContaining(["files", "note"]));
+    expect(shown.dryRun.actions).toEqual(expect.arrayContaining(["files", "note"]));
   });
 
   it("a booking shows the hold and the payment lines, and holds nothing", async () => {
@@ -115,7 +115,7 @@ describe("Try it for the lite agent", () => {
       }),
     );
     const shown = await tryIt(on, "book kedarnath 14 nov for 2, double, from Delhi, Riya Sharma");
-    expect(shown.grounded.actions).toContain("book");
+    expect(shown.dryRun.actions).toContain("book");
     expect(shown.answer).toContain(formatRupees(400_000));
     expect(shown.answer).toContain("UPI: sharma@okbank");
     expect(await rows(on)).toEqual(before);

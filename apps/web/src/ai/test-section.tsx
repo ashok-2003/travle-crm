@@ -33,16 +33,16 @@ type BlockedReason = (typeof blockedReasons)[number] | "other";
 const reasonOf = (code: string): BlockedReason => blockedReasons.find((known) => known === code) ?? "other";
 
 /** What code would do with the reply, or why nothing would be sent. */
-function WouldDo({ grounded }: { grounded: TestAiAnswer["grounded"] }) {
+function WouldDo({ dryRun }: { dryRun: TestAiAnswer["dryRun"] }) {
   const t = useTranslations("ai.test");
-  if (grounded.blocked !== null) {
+  if (dryRun.blocked !== null) {
     return (
       <p className="self-end text-caption text-status-attention-ink">
-        {t("blocked", { reason: t(`blockedReasons.${reasonOf(grounded.blocked)}`) })}
+        {t("blocked", { reason: t(`blockedReasons.${reasonOf(dryRun.blocked)}`) })}
       </p>
     );
   }
-  return grounded.actions.map((action) => (
+  return dryRun.actions.map((action) => (
     <p key={action} className="self-end text-caption text-muted-foreground">
       {t(`actions.${action}`)}
     </p>
@@ -99,7 +99,7 @@ export function TestSection() {
                 {t("handoff", { reason: test.data.reason === "" ? t("noReason") : test.data.reason })}
               </p>
             )}
-            <WouldDo grounded={test.data.grounded} />
+            <WouldDo dryRun={test.data.dryRun} />
           </div>
         )}
       </CardContent>

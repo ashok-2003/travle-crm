@@ -38,7 +38,7 @@ const blocked = (code: string): TestAiAnswer => ({
   answer: "",
   handoff: false,
   reason: "",
-  grounded: { actions: [], blocked: code },
+  dryRun: { actions: [], blocked: code },
 });
 
 /**
@@ -166,7 +166,7 @@ export async function liteDryRun(
     answer,
     handoff,
     reason,
-    grounded: { actions, blocked: null },
+    dryRun: { actions, blocked: null },
   });
   if (move.kind === "hand_over") {
     const line = fixedText(
