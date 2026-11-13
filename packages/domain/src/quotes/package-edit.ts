@@ -9,22 +9,20 @@ import {
   tierLine,
   type PackageDetail,
   type PublishGap,
-  type SellGap,
   type SetPackageSellableInput,
   type SetPackagePaymentDetailsInput,
-  type RoomType,
   type SaveTierInput,
   type UpdatePackageInput,
 } from "@travel-crm/contracts/quotes";
 import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
-import { agencyPaymentDetailsOf, paymentDetailsReady } from "../profile/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { CalendarDate } from "../kernel/index.js";
 import { withoutCosts } from "./margin.js";
 import { findPackage, nameTaken, type PackageRow } from "./package-row.js";
 import { seasonsOf } from "./package-seasons.js";
+import { packageSellGaps } from "./package-sell-gaps.js";
 import { itemsOf } from "./quote-rows.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
@@ -68,115 +66,6 @@ export async function tiersOf(tx: OrgTx, packageId: string) {
   );
 }
 
-/** The package for its editor. Costs in its lines are shown only to whoever may see margins. */
-/** The departures of a group package that can still be sold from today: open, not past their cut-off. */
-const sellableDepartures = (tx: OrgTx, packageId: string, today: CalendarDate) =>
-  tx.departure.findMany({
-    where: {
-      templateId: packageId,
-      status: "open",
-      startDate: { gte: asDay(today) },
-      OR: [{ cutoffOn: null }, { cutoffOn: { gte: asDay(today) } }],
-    },
-    select: {
-      priceSinglePaise: true,
-      priceDoublePaise: true,
-      priceTriplePaise: true,
-      priceQuadPaise: true,
-      priceChildBedPaise: true,
-      priceChildNoBedPaise: true,
-    },
-  });
-const asDay = (day: CalendarDate) => new Date(`${day}T00:00:00Z`);
-
-/** The departure column holding the price of each room type. */
-export const departurePriceColumn = {
-  single: "priceSinglePaise",
-  double: "priceDoublePaise",
-  triple: "priceTriplePaise",
-  quad: "priceQuadPaise",
-  child_bed: "priceChildBedPaise",
-  child_no_bed: "priceChildNoBedPaise",
-} as const;
-
-/** What a package still needs before the AI may sell it, in the order the editor shows them. */
-export async function packageSellGaps(
-  tx: OrgTx,
-  organizationId: string,
-  packageId: string,
-  today: CalendarDate,
-): Promise<SellGap[]> {
-  return sellGapsOf(tx, packageId, today, paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId)));
-}
-
-// The agency's payment readiness is the same for every package, so a caller with many reads it once and passes it in.
-async function sellGapsOf(
-  tx: OrgTx,
-  packageId: string,
-  today: CalendarDate,
-  paymentReady: boolean,
-): Promise<SellGap[]> {
-  const row = await findPackage(tx, packageId);
-  if (row.kind !== "group") return row.fromPricePaise === null ? ["from_price"] : [];
-  const gaps: SellGap[] = [];
-  const offered = row.roomTypes as RoomType[];
-  if (offered.length === 0) gaps.push("room_types");
-  const departures = await sellableDepartures(tx, packageId, today);
-  const seasonPriced = (await seasonsOf(tx, packageId)).some(
-    (season) => season.endsOn >= today && offered.some((type) => season.prices[type] !== null),
-  );
-  const departurePriced = departures.some((departure) =>
-    offered.some((type) => departure[departurePriceColumn[type]] !== null),
-  );
-  if (!seasonPriced && !departurePriced) gaps.push("prices");
-  if (row.advancePerPersonPaise === null || row.advancePerPersonPaise <= 0n) gaps.push("advance");
-  if (departures.length === 0) gaps.push("departures");
-  // The agent asks the customer to pay the advance, so it needs somewhere to say where.
-  if (!paymentReady) gaps.push("payment_details");
-  return gaps;
-}
-
-/**
- * The packages the AI may sell today: switched on, and with nothing missing. The only way to ask (a package that has lost
- * its seasons or departures since the switch was turned on is not offered), so callers never read the switch alone.
- */
-export async function sellablePackages(
-  tx: OrgTx,
-  organizationId: string,
-  today: CalendarDate,
-): Promise<{ id: string; kind: string }[]> {
-  const switchedOn = await tx.quoteTemplate.findMany({
-    where: { aiSellable: true },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    select: { id: true, kind: true },
-  });
-  if (switchedOn.length === 0) return [];
-  const paymentReady = paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId));
-  const ready: { id: string; kind: string }[] = [];
-  for (const one of switchedOn) {
-    if ((await sellGapsOf(tx, one.id, today, paymentReady)).length === 0) ready.push(one);
-  }
-  return ready;
-}
-
-/**
- * How many group packages are switched on and would be sellable but for the agency's missing payment details: what the
- * setup checklist's "packages" line needs to say "add payment details" instead of "mark a package". 0 once they exist.
- */
-export async function packagesAwaitingPayment(tx: OrgTx, organizationId: string, today: CalendarDate): Promise<number> {
-  if (paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId))) return 0;
-  const switchedOn = await tx.quoteTemplate.findMany({
-    where: { aiSellable: true, kind: "group" },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    select: { id: true },
-  });
-  let waiting = 0;
-  for (const one of switchedOn) {
-    if ((await sellGapsOf(tx, one.id, today, true)).length === 0) waiting += 1;
-  }
-  return waiting;
-}
-
 /** Lets the AI sell the package, or stops it. Turning on needs nothing missing; turning off always works. */
 export async function setPackageSellable(
   tx: OrgTx,
@@ -199,6 +88,7 @@ export async function setPackageSellable(
   });
 }
 
+/** The package for its editor. Costs in its lines are shown only to whoever may see margins. */
 export async function getPackage(
   tx: OrgTx,
   access: MemberAccess,

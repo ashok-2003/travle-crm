@@ -13,6 +13,7 @@ import type { RoomBooking, RoomType } from "@travel-crm/contracts/quotes";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { Files } from "../../files/index.js";
+import type { Identity } from "../../identity/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
 import type { SubscriptionAccess } from "../../subscriptions/index.js";
 import type { TurnKind } from "../agent-prompt.js";
@@ -25,6 +26,8 @@ export interface LiteDependencies {
   files: Files;
   managers: BookingRecipients;
   subscriptions?: Pick<SubscriptionAccess, "entitlementsOf">;
+  /** Who owns the agency's leads, for the lead a returning customer's turn opens; without it, a person takes the chat. */
+  identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
   logger?: Logger;
   traces?: TraceSink;
 }
@@ -57,7 +60,9 @@ export type HandOverReason =
   | "unanswered"
   | "loop"
   | "other_twice"
-  | "check_failed";
+  | "check_failed"
+  | "details_changed"
+  | "no_open_lead";
 
 export type FixedTextKey =
   | "price_from"
@@ -238,6 +243,10 @@ export interface LiteTrace {
   move: Move["kind"] | null;
   stage: SaleStage | null;
   why: string | null;
+  /** What the decision left for plan 3b to store: the lead's note, the owner's follow-up, the Lost suggestion. */
+  note: Decision["note"];
+  task: Decision["task"];
+  suggest: Decision["suggest"];
   intents: LiteIntent[];
   promptVersions: Record<PromptPieceName, number>;
   model: string | null;
@@ -250,6 +259,7 @@ export interface LiteTrace {
   lookups: { request: LookupRequest; result: LookupResult }[];
   checks: { name: string; passed: boolean; detail: string | null }[];
   write: { blocks: Record<string, string>; raw: string[] } | null;
+  /** The reply's words as they went out (a fixed line, the money message, the composed reply), and every message sent. */
   sent: { messageIds: string[]; text: string | null };
   /** Codes: "lead:adults", "stage:quote_sent", "booking"... */
   actions: string[];

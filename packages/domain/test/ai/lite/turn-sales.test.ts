@@ -2,6 +2,8 @@
 // trip is over, a month a person typed on the lead, and a trek that sells one room type (with or without a child's bed).
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { handOverSentences } from "../../../src/ai/lite/act-words.js";
+import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
@@ -25,6 +27,15 @@ async function booksIt(on: Agency, seconds: number): Promise<string> {
   );
   expect(await on.turn(at(seconds + 30), { token })).toBe("replied");
   return token;
+}
+
+/** Closes every lead the chat's person has, as a past customer's are: returns their ids. */
+async function closeLeads(on: Agency, stage: "won" | "lost"): Promise<string[]> {
+  return on.inOrg(async (tx) => {
+    const leads = await tx.lead.findMany({ where: { personId: on.chat.personId ?? "" }, select: { id: true } });
+    await tx.lead.updateMany({ where: { id: { in: leads.map((one) => one.id) } }, data: { stage } });
+    return leads.map((one) => one.id);
+  });
 }
 
 describe("the lite turn reaches a booking", () => {
@@ -80,6 +91,64 @@ describe("the lite turn reaches a booking", () => {
     expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
   });
 
+  it("a returning customer with every lead closed gets a new lead, is quoted on it, and books", async () => {
+    const on = await liteAgency(test);
+    const closed = await closeLeads(on, "won");
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, "price for kedarnath on 14 nov, 2 people, double?", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: {
+          package: kedarnath,
+          date: fourteenth,
+          adults: twoPeople,
+          room: { type: "double", proof: "double", changed: false },
+        },
+      }),
+      written("Which city will you join us from?"),
+    );
+    expect(await on.turn(at(60), { token })).toBe("replied");
+    expect((await outbound(on))[0]?.body).toContain(formatRupees(1_399_800));
+    const fresh = await on.inOrg((tx) =>
+      tx.lead.findFirstOrThrow({ where: { personId: on.chat.personId ?? "", id: { notIn: closed } } }),
+    );
+    expect(fresh).toMatchObject({ source: "whatsapp", ownerUserId: on.owner.userId, stage: "quote_sent" });
+    await booksIt(on, 90);
+    const booking = await on.inOrg((tx) => tx.aiBooking.findFirstOrThrow());
+    expect(booking.leadId).toBe(fresh.id);
+  });
+
+  it("a returning customer who only says thanks gets no new lead", async () => {
+    const on = await liteAgency(test);
+    const closed = await closeLeads(on, "won");
+    const token = await says(on, "Thanks, it was a great trip!", 30);
+    on.model.answer(understood([["ok_thanks", "Thanks"]]));
+    expect(await on.turn(at(60), { token })).toBe("silent");
+    expect(await outbound(on)).toHaveLength(0);
+    expect(await on.inOrg((tx) => tx.lead.count())).toBe(closed.length);
+  });
+
+  it("a returning customer for whom no lead can be opened is handed over before any price", async () => {
+    const on = await liteAgency(test);
+    const closed = await closeLeads(on, "lost");
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, "price for kedarnath on 14 nov, 2 people?", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: { package: kedarnath, date: fourteenth, adults: twoPeople },
+      }),
+      written("Which city will you join us from?"),
+    );
+    const noOwner = { ...on.identity, firstOwner: () => Promise.resolve<string | null>(null) };
+    expect(await on.turn(at(60), { token, identity: noOwner })).toBe("handed_off");
+    // Understand read the chat; nothing was written for the price, which never went.
+    expect(on.model.requests.map((request) => request.schema?.name)).toEqual(["understand_form"]);
+    expect((await outbound(on)).map((one) => one.body)).toEqual([fixedText("hand_over", "english", {}).text]);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(chat.handoffReason).toBe(handOverSentences.no_open_lead);
+    expect(await on.inOrg((tx) => tx.lead.count())).toBe(closed.length);
+  });
+
   it("a month a person typed on the lead takes the customer's day, and books on it", async () => {
     const on = await liteAgency(test);
     await on.inOrg((tx) =>
@@ -113,6 +182,52 @@ describe("the lite turn reaches a booking", () => {
     expect(lead.travelKind).toBe("month");
   });
 
+  it("a customer who contradicts a count a person typed on the lead is handed to that person, with no price", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg((tx) => tx.lead.update({ where: { id: on.leadId }, data: { adults: 4 } }));
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, "price for kedarnath on 14 nov? now 3 people, double", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: {
+          package: kedarnath,
+          date: fourteenth,
+          adults: { count: 3, proof: "now 3 people", changed: true },
+          room: { type: "double", proof: "double", changed: false },
+        },
+      }),
+      written("Which city will you join us from?"),
+    );
+    expect(await on.turn(at(60), { token })).toBe("handed_off");
+    const sent = await outbound(on);
+    expect(sent.map((one) => one.body)).toEqual([fixedText("hand_over", "english", {}).text]);
+    expect(on.model.requests).toHaveLength(1);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(chat.handoffReason).toBe(handOverSentences.details_changed);
+    const lead = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
+    expect(lead.adults).toBe(4);
+  });
+
+  it("the same count a person typed, said again, is no contradiction", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg((tx) => tx.lead.update({ where: { id: on.leadId }, data: { adults: 2 } }));
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, "price for kedarnath on 14 nov, 2 people, double?", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: {
+          package: kedarnath,
+          date: fourteenth,
+          adults: twoPeople,
+          room: { type: "double", proof: "double", changed: false },
+        },
+      }),
+      written("Which city will you join us from?"),
+    );
+    expect(await on.turn(at(60), { token })).toBe("replied");
+    expect((await outbound(on))[0]?.body).toContain(formatRupees(1_399_800));
+  });
+
   const treks: { rooms: RoomType[]; said: string; room: RoomType | null }[] = [
     { rooms: ["triple"], said: "2 people", room: null },
     { rooms: ["triple"], said: "2 people, double", room: "double" },
@@ -143,5 +258,8 @@ describe("the lite turn reaches a booking", () => {
       tx.aiBooking.findFirstOrThrow({ select: { quote: { select: { totalPaise: true } } } }),
     );
     expect(booking.quote?.totalPaise).toBe(1_199_800n);
+    // The lead's room is the one priced and booked, the trek's only one, whatever room the customer named.
+    const lead = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
+    expect(lead.roomType).toBe("triple");
   });
 });

@@ -2,6 +2,7 @@
 // put on the timeline, the chat's summary, and the lead's score row. A person's value is never replaced.
 import { withoutAmountsAndDates, type LiteFacts, type UnderstandForm } from "@travel-crm/contracts/ai";
 import type { AiFilledField, TravelWhen } from "@travel-crm/contracts/crm";
+import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { FillPath } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
@@ -23,7 +24,8 @@ export interface LeadWriteInput {
   organizationId: string;
   leadId: string;
   facts: LiteFacts;
-  pkg: { destinationId: string | null; nights: number | null } | null;
+  /** The facts' package; `adultRooms` are the adult rooms it sells (a trek of triple tents sells one). */
+  pkg: { destinationId: string | null; nights: number | null; adultRooms?: readonly RoomType[] } | null;
   departureStartsOn: CalendarDate | null;
   proofs: CheckedForm["proofs"];
   today: CalendarDate;
@@ -87,7 +89,12 @@ function desiredOf(input: LeadWriteInput): Partial<Record<TripField, unknown>> {
   if (facts.children !== null && facts.children.count > 0 && facts.children.ages.length === facts.children.count)
     desired.children_ages = facts.children.ages;
   if (facts.pickupCity !== null) desired.departure_city = facts.pickupCity;
-  if (facts.roomType !== null) desired.room_type = facts.roomType;
+  // A package that sells one adult room is priced and booked in it, whatever room the customer named: that room goes
+  // on the lead once a room was said or a price told.
+  const [only, ...others] = pkg?.adultRooms ?? [];
+  const oneRoom = only !== undefined && others.length === 0 ? only : null;
+  if (oneRoom !== null && (facts.roomType !== null || facts.quoted !== null)) desired.room_type = oneRoom;
+  else if (facts.roomType !== null) desired.room_type = facts.roomType;
   return desired;
 }
 

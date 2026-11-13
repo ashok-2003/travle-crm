@@ -1,18 +1,20 @@
 // What the lite turn reads about the customer's lead and the trips on offer: the lead's card and the team's last lines,
 // the facts with what a person typed on the lead put first, the bookings the chat and the person already have, and the
 // group packages the AI may sell, each with its starting price.
-import { liteFacts, type LiteFacts } from "@travel-crm/contracts/ai";
+import type { LiteFacts } from "@travel-crm/contracts/ai";
 import type { LeadStage, TravelWhen } from "@travel-crm/contracts/crm";
 import { roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { tripFieldValues } from "../../crm/index.js";
 import { parseCalendarDate, type CalendarDate } from "../../kernel/index.js";
-import { sellablePackages } from "../../quotes/index.js";
+import { openDepartureDetailsByPackage } from "../../departures/index.js";
+import { seasonsByPackage } from "../../quotes/index.js";
 import { valueHash } from "../fill/values.js";
 import { mayBePayment } from "../payment-likely.js";
 import type { DecideInput } from "./decide/decide.js";
 import { aiFieldPaths, type TripField } from "./lead-writes.js";
-import { priceOf } from "./lookups/package-reads.js";
+import { lowestAdultPrice } from "./lookups/package-reads.js";
+import type { TypedFields } from "./typed-lock.js";
 import type { LeadCardFacts, PackageIndexEntry, TimelineLine } from "./types.js";
 
 const TIMELINE = 3;
@@ -21,16 +23,19 @@ const FOLDED: TripField[] = ["when", "adults", "children_ages", "departure_city"
 
 const roomOf = (value: string | null): RoomType | null => roomTypes.find((type) => type === value) ?? null;
 
-/** The group packages the AI may sell today, in their order, each with its lowest price per person. */
+/**
+ * The group packages the AI may sell today (`sellable`, read once for the turn), in their order, each with its lowest
+ * price per person. Every package is priced from one read of the departures, their seats and the seasons, so the turn
+ * costs the same however many packages the agency sells.
+ */
 export async function packageIndexOf(
   tx: OrgTx,
-  organizationId: string,
+  sellable: readonly { id: string; kind: string }[],
   today: CalendarDate,
   now: Date,
 ): Promise<PackageIndexEntry[]> {
-  const ids = (await sellablePackages(tx, organizationId, today))
-    .filter((one) => one.kind === "group")
-    .map((one) => one.id);
+  const ids = sellable.filter((one) => one.kind === "group").map((one) => one.id);
+  if (ids.length === 0) return [];
   const rows = await tx.quoteTemplate.findMany({
     where: { id: { in: ids } },
     select: {
@@ -38,28 +43,29 @@ export async function packageIndexOf(
       title: true,
       nights: true,
       startCity: true,
+      roomTypes: true,
       destinationId: true,
       destination: { select: { name: true } },
     },
   });
-  const nothingKnown = liteFacts.parse({ agent: "lite" });
-  const index: PackageIndexEntry[] = [];
-  // One step at a time: a transaction runs one query at once.
-  for (const id of ids) {
+  const open = await openDepartureDetailsByPackage(tx, ids, today, now);
+  const seasons = await seasonsByPackage(tx, ids);
+  return ids.flatMap((id) => {
     const row = rows.find((one) => one.id === id);
-    if (row === undefined) continue;
-    const { fromPaise } = await priceOf(tx, id, nothingKnown, today, now);
-    index.push({
-      id,
-      title: row.title,
-      place: row.destination?.name ?? null,
-      destinationId: row.destinationId,
-      nights: row.nights,
-      startCity: row.startCity,
-      fromPaise,
-    });
-  }
-  return index;
+    if (row === undefined) return [];
+    const offered = row.roomTypes as RoomType[];
+    return [
+      {
+        id,
+        title: row.title,
+        place: row.destination?.name ?? null,
+        destinationId: row.destinationId,
+        nights: row.nights,
+        startCity: row.startCity,
+        fromPaise: lowestAdultPrice(seasons.get(id) ?? [], open.get(id) ?? [], today, offered),
+      },
+    ];
+  });
 }
 
 /** The lead's trip values a person typed: those with no AI row whose hash the value still matches. */
@@ -106,6 +112,8 @@ export interface LeadPart {
   card: LeadCardFacts | null;
   timeline: TimelineLine[];
   facts: LiteFacts;
+  /** The lead's trip values a person typed: locked for the turn. */
+  typed: TypedFields;
 }
 
 /** The open lead as the prompt shows it, and the facts with its person-typed values folded in. */
@@ -132,8 +140,9 @@ export async function leadPartOf(
           },
         });
   if (leadId === null || lead === null)
-    return { leadId: null, leadStage: null, card: null, timeline: [], facts: input.facts };
-  const facts = withTyped(input.facts, await typedByPerson(tx, leadId));
+    return { leadId: null, leadStage: null, card: null, timeline: [], facts: input.facts, typed: {} };
+  const typed = await typedByPerson(tx, leadId);
+  const facts = withTyped(input.facts, typed);
   const day = (at: Date) => parseCalendarDate(at.toISOString().slice(0, 10));
   const when =
     lead.travelKind === "dates" && lead.travelStart !== null
@@ -170,7 +179,7 @@ export async function leadPartOf(
     ...notes.map((note) => ({ at: note.createdAt, kind: "note" as const, text: note.body })),
     ...stages.map((entry) => ({ at: entry.occurredAt, kind: "stage" as const, text: entry.stage ?? "" })),
   ];
-  return { leadId, leadStage: stage, card, timeline, facts };
+  return { leadId, leadStage: stage, card, timeline, facts, typed };
 }
 
 export interface BookingPart {

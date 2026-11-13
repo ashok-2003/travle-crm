@@ -9,6 +9,7 @@ import { allowedActions, type ActionContext } from "../../../src/ai/grounded/act
 import { buildCard } from "../../../src/ai/grounded/card.js";
 import { fillPlaceholders } from "../../../src/ai/grounded/fill.js";
 import { lookUp } from "../../../src/ai/grounded/lookup.js";
+import { lockChat } from "../../../src/inbox/index.js";
 import { uuidFromKey } from "../../../src/jobs/ids.js";
 import { formatRupees, parseCalendarDate } from "../../../src/kernel/index.js";
 import { aLead, aPerson } from "../../crm/support/records.js";
@@ -314,6 +315,25 @@ describe("acting on a checked reply", () => {
     expect(await turn(ids, "Total [total P1].", actions, "turn-twice")).toBe("already");
     expect(await outbound(ids.chatId)).toEqual(before);
     expect(await counts(ids)).toEqual({ holds: 1, quotes: 1, bookings: 1 });
+  });
+
+  it("takes the chat's lock before the lead's, as the inbound path does, so the two never wait on each other", async () => {
+    const ids = await scene({ qr: true, brochure: true });
+    let locked: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (locked = resolve));
+    // A customer's line being saved: the chat, then (a moment later) its lead.
+    const inbound = inOrg(async (tx) => {
+      await lockChat(tx, ids.chatId);
+      locked();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await tx.lead.update({ where: { id: ids.leadId }, data: { sourceDetail: "WhatsApp chat" } });
+      return "saved";
+    });
+    await held;
+    const acting = turn(ids, "Total [total P1].", { requestBooking: true }, "turn-after-lock");
+    const [saved, acted] = await Promise.all([inbound, acting.catch((error: unknown) => error)]);
+    expect(saved).toBe("saved");
+    expect(acted).toMatchObject({ bookingId: expect.any(String) as unknown });
   });
 
   it("no seats left: nothing is sent and nothing is kept, so the turn can flag the team", async () => {

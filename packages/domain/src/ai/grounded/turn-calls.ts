@@ -1,6 +1,6 @@
 // One model call of the turn, counted against the month's limit: reserved in a short transaction of its own right before
-// the call (never a model call inside a transaction), its tokens kept when it gave something, the reservation given back
-// when it did not. A refused check is not given back: the call was used.
+// the call (never a model call inside a transaction), its tokens kept when the model answered (an answer that does not
+// fit the form included: it was made, and cost what the trace counts), the reservation given back when it did not answer.
 import type { Database } from "@travel-crm/db";
 import { recordTokens, releaseAiCall, reserveAiCall } from "../usage.js";
 
@@ -17,7 +17,7 @@ interface Usage {
   outputTokens: number;
 }
 
-export async function countedCall<R extends { ok: true; usage: Usage } | { ok: false; reason: string }>(
+export async function countedCall<R extends { ok: true; usage: Usage } | { ok: false; reason: string; usage?: Usage }>(
   environment: CallEnvironment,
   call: () => Promise<R>,
 ): Promise<R | { ok: false; reason: "limit" }> {
@@ -32,10 +32,11 @@ export async function countedCall<R extends { ok: true; usage: Usage } | { ok: f
     await db.forOrg(organizationId, (tx) => releaseAiCall(tx, now, timeZone));
     throw error;
   }
+  const used = result.usage;
   await db.forOrg(organizationId, (tx) =>
-    result.ok
-      ? recordTokens(tx, now, timeZone, { input: result.usage.inputTokens, output: result.usage.outputTokens })
-      : releaseAiCall(tx, now, timeZone),
+    used === undefined
+      ? releaseAiCall(tx, now, timeZone)
+      : recordTokens(tx, now, timeZone, { input: used.inputTokens, output: used.outputTokens }),
   );
   return result;
 }

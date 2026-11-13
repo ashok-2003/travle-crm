@@ -51,7 +51,8 @@ async function lookup(tx: OrgTx, context: LookupContext, request: LookupRequest)
     });
     return { tool, packageId: found.id, month: request.month, departures };
   }
-  return { tool, price: await priceOf(tx, found.id, context.facts, context.today, context.now) };
+  const price = await priceOf(tx, found.id, context.facts, context.today, context.now);
+  return price === null ? { tool, error: "unknown_package" } : { tool, price };
 }
 
 export async function runLookups(

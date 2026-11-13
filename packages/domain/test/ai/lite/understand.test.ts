@@ -50,7 +50,12 @@ describe("understandChat", () => {
   it("an answer that doesn't fit is unfit and keeps its raw text", async () => {
     const model = createMemoryAiModel();
     model.answer('{"intents": []}', { ok: false, reason: "rate_limited" });
-    expect(await understandChat(model, request)).toEqual({ ok: false, reason: "unfit", raw: '{"intents": []}' });
+    expect(await understandChat(model, request)).toEqual({
+      ok: false,
+      reason: "unfit",
+      raw: '{"intents": []}',
+      usage: { model: "memory-model", inputTokens: 0, outputTokens: 0 },
+    });
     expect(await understandChat(model, request)).toEqual({ ok: false, reason: "rate_limited", raw: null });
   });
 });

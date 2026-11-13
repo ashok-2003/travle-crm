@@ -48,22 +48,34 @@ const hints: Record<string, string> = {
 };
 
 const DIGIT = /[0-9०-९]/gu;
-const SEAT_WORDS = "(?:one|two|three|four|five|six|seven|eight|nine|ten|एक|दो|तीन|चार|पांच|पाँच)";
+const SEAT_WORDS =
+  "(?:one|two|three|four|five|six|seven|eight|nine|ten|एक|दो|तीन|चार|पांच|पाँच|ek|do|teen|char|chaar|paanch|panch)";
 const SEATS = "(?:seats?|सीट(?:ें)?)";
+const LEFT = "(?:left|remaining|available|बची|bachi|bache|bacha)";
 const EDGE = "(?<![\\p{L}\\p{M}])";
 const SPELLED_SEATS = new RegExp(
-  `${EDGE}${SEAT_WORDS}\\s+(?:more\\s+|ही\\s+)?${SEATS}|${SEATS}\\s+(?:left|remaining|available|बची)?\\s*:?\\s*${SEAT_WORDS}(?![\\p{L}\\p{M}])`,
-  "iu",
+  `${EDGE}${SEAT_WORDS}\\s+(?:more\\s+|ही\\s+|hi\\s+)?${SEATS}|${SEATS}\\s+(?:${LEFT})?\\s*:?\\s*${SEAT_WORDS}(?![\\p{L}\\p{M}])`,
+  "giu",
 );
 
-/** The first digit (ASCII or Devanagari) code didn't write, or a seat count in words: a Write reply types no figure. */
+/** Whether this stretch of the text is one code filled (a blank's value), which the reply check never reads as typed. */
+const inFilled = (filled: Found[], start: number, end: number) =>
+  filled.some((span) => start >= span.start && end <= span.end);
+
+/**
+ * The first digit (ASCII or Devanagari) code didn't write, or a seat count in words (English, Hindi or Hinglish) code
+ * didn't write: a Write reply types no figure. An agency's own answer filled in may say "three seats".
+ */
 function typedFigure(text: string, filled: Found[]): string | null {
   for (const match of text.matchAll(DIGIT)) {
-    if (!filled.some((span) => match.index >= span.start && match.index < span.end)) {
+    if (!inFilled(filled, match.index, match.index + 1)) {
       return text.slice(Math.max(0, match.index - 20), match.index + 20);
     }
   }
-  return SPELLED_SEATS.exec(text)?.[0] ?? null;
+  for (const match of text.matchAll(SPELLED_SEATS)) {
+    if (!inFilled(filled, match.index, match.index + match[0].length)) return match[0];
+  }
+  return null;
 }
 
 type Verdict = { ok: true; text: string; filled: Found[] } | { ok: false; code: string; correction: string };

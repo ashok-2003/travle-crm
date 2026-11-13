@@ -13,7 +13,7 @@ import type { Database } from "@travel-crm/db";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { recordAudit } from "../audit/index.js";
 import type { Files } from "../files/index.js";
-import { organizationTimeZone } from "../identity/index.js";
+import { organizationTimeZone, type Identity } from "../identity/index.js";
 import { queueSystemText } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
@@ -55,6 +55,8 @@ export interface AgentDependencies {
   logger?: Logger;
   /** Where the lite turn hands the whole of each turn it prepared (plan 3b keeps them); without one, none is kept. */
   traces?: TraceSink;
+  /** Who owns the agency's leads: the lite turn opens a returning customer's new lead with it. */
+  identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
 }
 
 /**

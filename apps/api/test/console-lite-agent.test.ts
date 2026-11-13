@@ -69,7 +69,7 @@ describe("the console's lite-agent switch", () => {
       await dataOf<OrganizationLiteAgent>(
         await consoleQuery(testConsole, "aiAgent.liteAgent", support.jar, { organizationId }),
       ),
-    ).toEqual({ lite: false });
+    ).toEqual({ lite: false, answering: false });
     expect(
       await refusalOf(
         await consoleMutate(testConsole, "aiAgent.setLiteAgent", { organizationId, lite: true }, support.jar),
@@ -80,16 +80,16 @@ describe("the console's lite-agent switch", () => {
       await dataOf<OrganizationLiteAgent>(
         await consoleMutate(testConsole, "aiAgent.setLiteAgent", { organizationId, lite: true }, superAdmin.jar),
       ),
-    ).toEqual({ lite: true });
+    ).toEqual({ lite: true, answering: false });
     expect(
       await dataOf<OrganizationLiteAgent>(
         await consoleQuery(testConsole, "aiAgent.liteAgent", support.jar, { organizationId }),
       ),
-    ).toEqual({ lite: true });
+    ).toEqual({ lite: true, answering: false });
     expect(
       await dataOf<OrganizationLiteAgent>(
         await consoleMutate(testConsole, "aiAgent.setLiteAgent", { organizationId, lite: false }, superAdmin.jar),
       ),
-    ).toEqual({ lite: false });
+    ).toEqual({ lite: false, answering: false });
   });
 });

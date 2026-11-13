@@ -140,5 +140,11 @@ export const scoreAnswer = z.object({
 export type ScoreAnswer = z.infer<typeof scoreAnswer>;
 
 /** The queue job of one lead's scoring: ids only. */
-export const aiScoreJob = z.object({ organizationId: recordId, conversationId: recordId, messageId: recordId });
+/** `later`: queued again because the lite agent's turn was under way; it then runs unless that turn scored the lead. */
+export const aiScoreJob = z.object({
+  organizationId: recordId,
+  conversationId: recordId,
+  messageId: recordId,
+  later: z.boolean().optional(),
+});
 export const aiDocumentAddedEvent = z.strictObject({ knowledgeId: recordId });

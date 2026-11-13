@@ -1,5 +1,5 @@
 // The hand-overs that win over every other move (spec D, N2): a voice note, a customer who has already booked, what
-// only a person may answer, and a group too big for the agent.
+// only a person may answer, a detail that contradicts what a person typed on the lead, and a group too big for the agent.
 import type { LiteFacts, LiteIntent } from "@travel-crm/contracts/ai";
 import type { HandOverReason } from "../types.js";
 
@@ -20,12 +20,16 @@ export function handOverTrigger(input: {
   hasBooking: boolean;
   intents: readonly LiteIntent[];
   facts: LiteFacts;
+  /** The customer's newest words contradict a trip field a person typed on the lead. */
+  detailsChanged: boolean;
 }): HandOverReason | null {
   // Plan 3 has no transcription: the words of a voice note are never read, whatever else came with it.
   if (input.burstKinds.includes("audio")) return "voice_note";
   if (input.hasBooking) return "has_booking";
   const intent = PERSON_INTENTS.find((one) => input.intents.includes(one));
   if (intent !== undefined) return intent;
+  // A person typed it: a person reconciles it, before any price for what the customer now says.
+  if (input.detailsChanged) return "details_changed";
   const travellers = (input.facts.adults ?? 0) + (input.facts.children?.count ?? 0);
   return travellers > BIGGEST_GROUP ? "big_group" : null;
 }

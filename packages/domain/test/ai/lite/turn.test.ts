@@ -5,6 +5,7 @@ import { withoutAmountsAndDates } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { promptVersions } from "../../../src/ai/lite/prompts/library.js";
+import { runLiteTurn } from "../../../src/ai/lite/turn.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
@@ -13,6 +14,7 @@ import { readTraceFile } from "../../../src/ai/traces/trace-file.js";
 import { createTraceSink } from "../../../src/ai/traces/trace-sink.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
+import { countingDatabase } from "./support/counting-db.js";
 import { liteAgency } from "./support/lite-agency.js";
 import {
   at,
@@ -24,6 +26,7 @@ import {
   understood,
   withFacts,
   written,
+  type Agency,
 } from "./support/turn-script.js";
 
 describe("the lite agent's turn", () => {
@@ -275,6 +278,58 @@ describe("the lite agent's turn", () => {
     expect(on.model.requests).toHaveLength(0);
   });
 
+  /** Runs `meanwhile` as the model is asked to read the chat: after the turn's checks, before it acts. */
+  function whileReading(on: Agency, meanwhile: () => Promise<unknown>) {
+    const complete = on.model.complete.bind(on.model);
+    on.model.complete = async (request) => {
+      if (request.schema?.name === "understand_form") await meanwhile();
+      return complete(request);
+    };
+  }
+
+  it("a staff reply while the AI works ends the turn quietly: nothing sent, nothing flagged", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    whileReading(on, () =>
+      on.inOrg((tx) =>
+        tx.whatsappMessage.create({
+          data: {
+            conversationId: on.chat.id,
+            direction: "out",
+            origin: "staff_crm",
+            kind: "text",
+            body: "Hi Rahul, calling you now.",
+            status: "sent",
+            occurredAt: at(30),
+          },
+        }),
+      ),
+    );
+    expect(await on.turn()).toBe("answered");
+    expect((await outbound(on)).map((one) => one.origin)).toEqual(["staff_crm"]);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirst({ where: { conversationId: on.chat.id } }));
+    expect(chat?.attentionAt ?? null).toBeNull();
+    expect(chat?.handedOffAt ?? null).toBeNull();
+  });
+
+  it("a take-over while the AI works ends the turn quietly", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    whileReading(on, () =>
+      on.inOrg((tx) =>
+        tx.aiChat.upsert({
+          where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+          create: { conversationId: on.chat.id, mode: "off" },
+          update: { mode: "off" },
+        }),
+      ),
+    );
+    expect(await on.turn()).toBe("off");
+    expect(await outbound(on)).toHaveLength(0);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(chat.attentionAt).toBeNull();
+  });
+
   it("the log holds no customer words", async () => {
     const on = await liteAgency(test);
     const token = await says(on, "Hi, I am Riya Sharma, can we go on 14 nov?", 30);
@@ -311,6 +366,94 @@ describe("the lite agent's turn", () => {
     const none: LiteTrace[] = [];
     await unready.turn(undefined, { traces: { record: (trace) => Promise.resolve(void none.push(trace)) } });
     expect(none).toHaveLength(0);
+  });
+
+  it("the trace keeps what plan 3b stores: the note, the task, the suggestion, and the words actually sent", async () => {
+    const traced = async (on: Agency, token?: string) => {
+      const traces: LiteTrace[] = [];
+      const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+      await on.turn(token === undefined ? undefined : at(60), {
+        traces: sink,
+        ...(token === undefined ? {} : { token }),
+      });
+      return traces[0];
+    };
+    const closing = await liteAgency(test);
+    const notNow = await says(closing, "Not interested, thanks", 30);
+    closing.model.answer(understood([["not_interested", "Not interested"]]));
+    expect(await traced(closing, notNow)).toMatchObject({
+      note: "not_interested",
+      task: null,
+      suggest: { kind: "lost", lostReason: "other" },
+      sent: { text: fixedText("close", "english", {}).text },
+    });
+    const calling = await liteAgency(test);
+    const call = await says(calling, "Please call me", 30);
+    calling.model.answer(understood([["wants_call", "Please call me"]]));
+    expect(await traced(calling, call)).toMatchObject({
+      note: "handed_over",
+      task: "call_back",
+      suggest: null,
+      sent: { text: fixedText("hand_over", "english", {}).text },
+    });
+  });
+
+  it("a booking's trace holds the money message it sent", async () => {
+    const on = await liteAgency(test);
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, "book kedarnath on 14 nov for 2, double, from Delhi, Riya Sharma", 30);
+    on.model.answer(
+      understood([["wants_to_book", "book kedarnath"]], {
+        details: {
+          package: { name: "Kedarnath Yatra 4N", proof: "book kedarnath", changed: false },
+          date: { day: "2026-11-14", month: null, proof: "14 nov", changed: false },
+          adults: { count: 2, proof: "for 2", changed: false },
+          room: { type: "double", proof: "double", changed: false },
+          pickup_city: { words: "Delhi", proof: "from Delhi", changed: false },
+          name: { full: "Riya Sharma", proof: "Riya Sharma" },
+        },
+      }),
+    );
+    const traces: LiteTrace[] = [];
+    const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+    expect(await on.turn(at(60), { token, traces: sink })).toBe("replied");
+    const [reply] = await outbound(on);
+    expect(traces[0]?.move).toBe("book");
+    expect(traces[0]?.sent.text).toBe(reply?.body);
+    expect(traces[0]?.sent.text).toContain(formatRupees(400_000));
+  });
+
+  it("an unfit answer is counted as a call, its tokens with it, as the trace counts them", async () => {
+    const on = await liteAgency(test);
+    const complete = on.model.complete.bind(on.model);
+    on.model.complete = async (request) => {
+      const result = await complete(request);
+      return result.ok ? { ...result, inputTokens: 1200, outputTokens: 80 } : result;
+    };
+    on.model.answer('{"intents": "not a list"}');
+    const traces: LiteTrace[] = [];
+    const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+    expect(await on.turn(undefined, { traces: sink })).toBe("unfit");
+    const usage = await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow());
+    expect(usage).toMatchObject({ calls: 1, inputTokens: 1200n, outputTokens: 80n });
+    expect(traces[0]).toMatchObject({ inputTokens: 1200, outputTokens: 80 });
+  });
+
+  it("a nudge or a follow-up reads nothing: the lite agent writes no follow-ups yet", async () => {
+    const on = await liteAgency(test);
+    const counting = countingDatabase(test.db);
+    const deps = {
+      db: counting.db,
+      ai: on.model,
+      agencyName: () => Promise.resolve("Sharma Holidays"),
+      files: test.files,
+      managers: () => Promise.resolve([]),
+    };
+    const input = { organizationId: on.organizationId, conversationId: on.chat.id, token: "nudge:1" };
+    expect(await runLiteTurn(deps, { ...input, kind: "nudge" }, at(600))).toBe("nothing");
+    expect(await runLiteTurn(deps, { ...input, kind: "followUp" }, at(600))).toBe("off");
+    expect(counting.count()).toBe(0);
+    expect(on.model.requests).toHaveLength(0);
   });
 
   it("a sink that throws changes nothing", async () => {

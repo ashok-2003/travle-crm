@@ -1,6 +1,12 @@
 // The lite agent's reads of one package: its details, its open dates and seats, its rooms and what it costs. Only saved data.
 import { withoutAmountsAndDates, withoutPaymentDetails, type LiteFacts } from "@travel-crm/contracts/ai";
-import { quoteTaxRate, adultRoomTypes, type RoomBooking, type RoomType } from "@travel-crm/contracts/quotes";
+import {
+  quoteTaxRate,
+  adultRoomTypes,
+  type RoomBooking,
+  type RoomPrices,
+  type RoomType,
+} from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { openDepartureDetails } from "../../../departures/index.js";
 import { addDays, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
@@ -10,10 +16,10 @@ import type { DepartureLine, PackageDetails, PriceFacts } from "../types.js";
 /** Only splits CGST/SGST from IGST, never the total, so the lookup (which has no GST state) may use any valid one. */
 const ANY_STATE = "27";
 const MOST_DEPARTURES = 3;
-/** Also drops any word with an "@" in it: a short handle or an email is not for the customer from here. */
+/** Also drops a handle or an email ("x@y"); an "@" standing alone between words ("Gate @ ISBT") stays. */
 const clean = (text: string) =>
   withoutAmountsAndDates(withoutPaymentDetails(text))
-    .replace(/\S*@\S*/gu, "")
+    .replace(/\S+@\S+/gu, "")
     .replace(/[ \t]{2,}/gu, " ")
     .trim();
 const strings = (value: unknown): string[] =>
@@ -110,20 +116,13 @@ export function liteRooms(
   return rooms;
 }
 
-export async function priceOf(
-  tx: OrgTx,
-  packageId: string,
-  facts: LiteFacts,
+/** The lowest adult price per person still to come, over the seasons not yet ended and the open departures' own prices. */
+export function lowestAdultPrice(
+  seasons: Parameters<typeof fromPrices>[0],
+  open: readonly { prices: RoomPrices }[],
   today: CalendarDate,
-  now: Date,
-): Promise<PriceFacts> {
-  const row = await tx.quoteTemplate.findUniqueOrThrow({
-    where: { id: packageId },
-    select: { roomTypes: true, pricesIncludeGst: true, taxRateBasisPoints: true, advancePerPersonPaise: true },
-  });
-  const offered = row.roomTypes as RoomType[];
-  const open = await openDepartureDetails(tx, packageId, today, now);
-  const seasons = await seasonsOf(tx, packageId);
+  offered: readonly RoomType[],
+): number | null {
   const from = fromPrices(
     seasons,
     open.map((one) => one.prices),
@@ -131,7 +130,26 @@ export async function priceOf(
     offered,
   );
   const given = adultRoomTypes.flatMap((type) => (from[type] === null ? [] : [from[type]]));
-  const fromPaise = given.length === 0 ? null : Math.min(...given);
+  return given.length === 0 ? null : Math.min(...given);
+}
+
+/** What the package costs for the facts; null for a package gone since the turn read the index (deleted mid-turn). */
+export async function priceOf(
+  tx: OrgTx,
+  packageId: string,
+  facts: LiteFacts,
+  today: CalendarDate,
+  now: Date,
+): Promise<PriceFacts | null> {
+  const row = await tx.quoteTemplate.findUnique({
+    where: { id: packageId },
+    select: { roomTypes: true, pricesIncludeGst: true, taxRateBasisPoints: true, advancePerPersonPaise: true },
+  });
+  if (row === null) return null;
+  const offered = row.roomTypes as RoomType[];
+  const open = await openDepartureDetails(tx, packageId, today, now);
+  const seasons = await seasonsOf(tx, packageId);
+  const fromPaise = lowestAdultPrice(seasons, open, today, offered);
   const advancePerPersonPaise = Number(row.advancePerPersonPaise);
   const chosen = open.find((one) => one.id === facts.departureId) ?? null;
   const room = adultsRoom(facts.roomType, offered);

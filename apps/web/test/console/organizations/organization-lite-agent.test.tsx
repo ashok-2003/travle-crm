@@ -16,10 +16,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function show(lite: boolean, staff = platformStaff("super-admin")) {
+function show(lite: boolean, staff = platformStaff("super-admin"), answering = lite) {
   const api = stubApi({
-    "platform.aiAgent.liteAgent": { data: { lite } },
-    "platform.aiAgent.setLiteAgent": { data: { lite: !lite } },
+    "platform.aiAgent.liteAgent": { data: { lite, answering } },
+    "platform.aiAgent.setLiteAgent": { data: { lite: !lite, answering: false } },
   });
   renderConsole(<OrganizationLiteAgent organizationId={organizationId} organizationName="Kerala Trails" />, staff);
   return api;
@@ -38,6 +38,13 @@ describe("OrganizationLiteAgent", () => {
     expect(screen.getByRole("button", { name: text.switchOff })).toBeVisible();
   });
 
+  it("says when the switch is on but the agency's AI or setup isn't ready, so it doesn't answer yet", async () => {
+    show(true, platformStaff("super-admin"), false);
+    expect(await screen.findByText(text.waiting)).toBeVisible();
+    expect(screen.queryByText(text.on)).toBeNull();
+    expect(screen.getByRole("button", { name: text.switchOff })).toBeVisible();
+  });
+
   it("shows support the sentence and no button", async () => {
     show(true, platformStaff("support"));
     await screen.findByText(text.on);
@@ -45,7 +52,7 @@ describe("OrganizationLiteAgent", () => {
   });
 
   it("switches on when confirmed, and keeps Cancel off while the request is out", async () => {
-    const held = heldAnswer({ data: { lite: true } });
+    const held = heldAnswer({ data: { lite: true, answering: true } });
     const api = show(false);
     api.answer("platform.aiAgent.setLiteAgent", held.answer);
     await userEvent.click(await screen.findByRole("button", { name: text.switchOn }));

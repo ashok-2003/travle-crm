@@ -4,12 +4,13 @@
 // lapsed hold is taken again as a booking takes it. Any refusal throws: nothing is held, booked or sent.
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
-import { DomainError, formatRupees, formatShortDay, systemActor } from "../../kernel/index.js";
+import { DomainError, formatRupees, systemActor } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, type AgencyPaymentDetails } from "../../profile/index.js";
-import { sellablePackages } from "../../quotes/index.js";
+import { sellablePackage } from "../../quotes/index.js";
 import { takeAgentBooking } from "../agent-booking.js";
 import type { LiteActDeps, LiteActInput } from "./act-types.js";
-import { fixedText, holdUntilWords, travellersWords } from "./fixed-texts.js";
+import { bookingPartsOf, bookingWords, type BookingRefusal } from "./booking-words.js";
+import { fixedText } from "./fixed-texts.js";
 import type { Quote } from "./decide/context.js";
 import type { Decision } from "./types.js";
 
@@ -35,6 +36,18 @@ async function paymentDetails(tx: OrgTx, organizationId: string): Promise<Agency
   return details;
 }
 
+/** A booking's refusal as act throws it, each reason written out so the web's list of reasons can read it. */
+function thrown(refusal: BookingRefusal): DomainError {
+  switch (refusal.refused) {
+    case "PAYMENT_DETAILS_MISSING":
+      return new DomainError("CONFLICT", "PAYMENT_DETAILS_MISSING", refusal.message);
+    case "PACKAGE_NOT_SELLABLE":
+      return new DomainError("CONFLICT", "PACKAGE_NOT_SELLABLE", refusal.message);
+    case "AI_ACTION_REFUSED":
+      return new DomainError("CONFLICT", "AI_ACTION_REFUSED", refusal.message);
+  }
+}
+
 /** Holds the party's seats and takes the booking at the total `told`, then words the hold and the amount due. */
 async function book(
   tx: OrgTx,
@@ -44,41 +57,33 @@ async function book(
   leadId: string | null,
   told: Quote | null,
 ): Promise<MoneyMove> {
-  const { organizationId, today, language } = input;
+  const { organizationId, today } = input;
   if (leadId === null) throw refuse("A booking needs an open lead");
-  // Payment first: without it the package is no longer sellable either, and the owner must hear which to fix.
-  const payment = await paymentDetails(tx, organizationId);
-  const sellable = await sellablePackages(tx, organizationId, today);
-  if (!sellable.some((one) => one.id === target.packageId && one.kind === "group")) {
-    throw new DomainError("CONFLICT", "PACKAGE_NOT_SELLABLE", "The package is no longer one the AI may sell");
-  }
-  const { facts } = input.decision;
-  const { package: pkg, price } = input.situation;
-  const departure = price?.departure ?? null;
-  if (
-    told === null ||
-    pkg?.id !== target.packageId ||
-    price?.packageId !== target.packageId ||
-    departure?.id !== target.departureId ||
-    told.departureId !== target.departureId ||
-    facts.adults === null ||
-    price.travellers === null ||
-    price.rooms.length === 0
-  ) {
-    throw refuse("A booking needs the quoted package, departure and party");
-  }
-  const due = facts.payInFull ? told.totalPaise : told.advancePaise;
+  const payment = await agencyPaymentDetailsOf(tx, organizationId);
+  const paymentReady = paymentDetailsReady(payment);
+  // Only the package it books: the whole list costs a read per package.
+  const sellable =
+    paymentReady && (await sellablePackage(tx, organizationId, target.packageId, today))?.kind === "group";
+  const parts = bookingPartsOf({
+    decision: input.decision,
+    situation: input.situation,
+    target,
+    told,
+    paymentReady,
+    sellable,
+  });
+  if ("refused" in parts) throw thrown(parts);
   const booked = await takeAgentBooking(tx, deps, {
     organizationId,
     conversationId: input.conversationId,
     token: input.token,
     leadId,
-    pkg: { id: pkg.id, title: pkg.title },
-    departure: { id: departure.id, startsOn: departure.startsOn },
-    rooms: price.rooms,
-    travellers: price.travellers,
-    toldTotalPaise: told.totalPaise,
-    expectedPaise: BigInt(due),
+    pkg: parts.pkg,
+    departure: { id: parts.departure.id, startsOn: parts.departure.startsOn },
+    rooms: parts.rooms,
+    travellers: parts.travellers,
+    toldTotalPaise: parts.told.totalPaise,
+    expectedPaise: BigInt(parts.due),
     today,
     now: input.now,
   });
@@ -86,16 +91,11 @@ async function book(
   if (booked.holdExpiresAt === null) {
     throw new DomainError("CONFLICT", "HOLD_EXISTS", "The lead's seats on this departure are not held");
   }
-  const values = {
-    travellers: travellersWords(facts.adults, facts.children?.count ?? 0, language),
-    package: pkg.title,
-    date: formatShortDay(departure.startsOn, today),
-    holdUntil: holdUntilWords(booked.holdExpiresAt, today, input.timeZone),
-    total: formatRupees(told.totalPaise),
-  };
-  const text = facts.payInFull
-    ? fixedText("book_payment_full", language, values).text
-    : fixedText("book_payment", language, { ...values, advance: formatRupees(told.advancePaise) }).text;
+  const text = bookingWords(parts, input.decision.facts, {
+    holdUntil: booked.holdExpiresAt,
+    today,
+    timeZone: input.timeZone,
+  });
   return { bookingId: booked.bookingId, text, payment };
 }
 
@@ -105,7 +105,7 @@ async function book(
  * told, in a booking of this turn's, and the old one is cancelled; seats gone or a changed total throw, as a booking does.
  */
 async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId: string | null): Promise<MoneyMove> {
-  const { conversationId, now, decision } = input;
+  const { conversationId, now } = input;
   const open = await tx.aiBooking.findFirst({
     where: { conversationId, status: "awaiting_payment" },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -113,15 +113,15 @@ async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId:
       id: true,
       leadId: true,
       expectedPaise: true,
-      quote: { select: { totalPaise: true, templateId: true, departureId: true } },
+      quote: { select: { totalPaise: true, templateId: true, departureId: true, adults: true, children: true } },
     },
   });
   const quote = open?.quote ?? null;
   if (open?.expectedPaise == null || quote?.templateId == null || quote.departureId == null) {
     throw refuse("No booking is waiting for its payment");
   }
-  const { adults, children } = decision.facts;
-  const party = Math.max(1, (adults ?? 0) + (children?.count ?? 0));
+  // The party the booking's own quote holds seats for: the facts may say fewer now, and a hold that short is no hold.
+  const party = Math.max(1, quote.adults + quote.children);
   const held = await tx.departureHold.findFirst({
     where: {
       leadId: open.leadId,

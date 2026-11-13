@@ -4,6 +4,7 @@
 // the transaction rolls back and nothing is sent.
 import type { OrgTx } from "@travel-crm/db";
 import { openLeadOfChat } from "../../crm/index.js";
+import { lockChat } from "../../inbox/index.js";
 import { takeGroundedBooking } from "./act-booking.js";
 import { settleChat } from "./act-chat.js";
 import { sendReply } from "./act-send.js";
@@ -13,6 +14,9 @@ import { bookingPackage } from "./actions.js";
 export type { ActDeps, ActInput, ActResult };
 
 export async function actOnReply(tx: OrgTx, deps: ActDeps, given: ActInput): Promise<ActResult> {
+  // The chat's row first, as the inbound path and the lite turn take it: the booking below locks the lead, and a
+  // customer's line saved meanwhile locks the chat and then the lead, so the other order could leave each waiting.
+  await lockChat(tx, given.conversationId);
   // Book is one action: never payment details without the booking, never a booking without them.
   const money = given.actions.sendPayment || given.actions.requestBooking;
   const input = { ...given, actions: { ...given.actions, sendPayment: money, requestBooking: money } };

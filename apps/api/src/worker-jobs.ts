@@ -91,7 +91,7 @@ import {
   aiCustomerWroteListener,
   aiPaymentProofListener,
   aiDocumentListener,
-  aiReplyHandler,
+  aiReplyHandlers,
   runAiLearning,
   runAiNudges,
   scoreHandler,
@@ -214,6 +214,8 @@ export function autopilotDependencies(
       (await identity.organizationProfile(organizationId))?.name ?? "the agency",
     files,
     managers,
+    // A returning customer's new lead, opened by the lite turn, is owned as a new number's is.
+    identity,
     traces: createTraceSink({ db, storage, logger }),
   };
 }
@@ -420,8 +422,18 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     handlers: [
       // The console's ping, answered so it knows the worker takes jobs (incidents.ts).
       ...(dependencies.jobs === undefined ? [] : [workerPingHandler(dependencies.jobs)]),
-      ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
-      ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
+      ...(ai === null
+        ? []
+        : [
+            scoreHandler({
+              db,
+              ai,
+              subscriptions,
+              logger,
+              ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
+            }),
+          ]),
+      ...(ai === null ? [] : aiReplyHandlers({ ...autopilotJobs(ai), logger })),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         // A few at once: each takes seconds against a distant database, and a customer's burst of messages would wait in

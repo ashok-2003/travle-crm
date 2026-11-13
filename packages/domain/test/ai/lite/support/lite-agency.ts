@@ -6,6 +6,7 @@ import {
   PACKAGE_PHOTO_RECORD_TYPE,
 } from "@travel-crm/contracts/files";
 import type { RoomType } from "@travel-crm/contracts/quotes";
+import type { Database } from "@travel-crm/db";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import {
@@ -207,11 +208,24 @@ export async function liteAgency(
   }
   const model = createMemoryAiModel();
   const logger = createMemoryLogger();
-  /** A reply turn for the fixture's first message, or for `token` (a later message's id). */
-  const turn = (at = liteTurnAt, options: { token?: string; traces?: TraceSink } = {}) =>
+  /** Who owns the agency's leads, as identity says: the fixture's Owner, alone. */
+  const identity = {
+    firstOwner: () => Promise.resolve<string | null>(owner.userId),
+    leadWorkers: () => Promise.resolve([{ userId: owner.userId, name: "Owner" }]),
+    organizationProfile: () => Promise.resolve(null),
+  };
+  /**
+   * A reply turn for the fixture's first message, or for `token` (a later message's id); `db` to watch its queries,
+   * `identity` to stand in for who owns the agency's leads.
+   */
+  const turn = (
+    at = liteTurnAt,
+    options: { token?: string; traces?: TraceSink; db?: Database; identity?: typeof identity } = {},
+  ) =>
     runAgentTurn(
       {
-        db: test.db,
+        db: options.db ?? test.db,
+        identity: options.identity ?? identity,
         ai: model,
         logger,
         subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },
@@ -223,5 +237,5 @@ export async function liteAgency(
       { organizationId, conversationId: chat.id, kind: "reply", token: options.token ?? message.id },
       at,
     );
-  return { organizationId, inOrg, chat, message, ...ids, model, logger, say, turn };
+  return { organizationId, inOrg, owner, chat, message, ...ids, model, logger, identity, say, turn };
 }

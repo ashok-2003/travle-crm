@@ -10,7 +10,9 @@ export type Understood =
       raw: string;
       usage: { model: string; inputTokens: number; outputTokens: number };
     }
-  | { ok: false; reason: AiFailure | "unfit"; raw: string | null };
+  | { ok: false; reason: AiFailure; raw: null }
+  /** The model answered, but not in the form: the call was made and costs its tokens. */
+  | { ok: false; reason: "unfit"; raw: string; usage: { model: string; inputTokens: number; outputTokens: number } };
 
 /** Never repaired and never asked twice: a form that does not fit is "unfit", and the caller decides what that costs. */
 export async function understandChat(model: AiModel, request: AiRequest): Promise<Understood> {
@@ -23,5 +25,7 @@ export async function understandChat(model: AiModel, request: AiRequest): Promis
       usage: { model: asked.model, inputTokens: asked.inputTokens, outputTokens: asked.outputTokens },
     };
   }
-  return { ok: false, reason: asked.reason, raw: asked.reason === "unfit" ? asked.raw : null };
+  return asked.reason === "unfit"
+    ? { ok: false, reason: "unfit", raw: asked.raw, usage: asked.usage }
+    : { ok: false, reason: asked.reason, raw: null };
 }

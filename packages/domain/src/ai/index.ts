@@ -28,11 +28,12 @@ export { suggestReply } from "./suggest.js";
 export { MONTHLY_AI_LIMIT } from "./usage.js";
 export {
   AI_NUDGES_QUEUE,
+  AI_LITE_REPLY_QUEUE,
   AI_REPLY_QUEUE,
   AI_LEARN_QUEUE,
   aiChatResumedListener,
   aiCustomerWroteListener,
-  aiReplyHandler,
+  aiReplyHandlers,
   runAiLearning,
   runAiNudges,
 } from "./agent-worker.js";

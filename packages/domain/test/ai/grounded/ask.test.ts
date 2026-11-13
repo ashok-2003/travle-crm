@@ -22,8 +22,15 @@ describe("askFor", () => {
       ok: false,
       reason: "rate_limited",
     });
-    expect(await askFor(model, request, contract)).toEqual({ ok: false, reason: "unfit", raw: "Sure, happy to help!" });
-    expect(await askFor(model, request, contract)).toEqual({ ok: false, reason: "unfit", raw: '{"place": 3}' });
+    // An answer that does not fit was still made: it carries what it used.
+    const usage = { model: "memory-model", inputTokens: 0, outputTokens: 0 };
+    expect(await askFor(model, request, contract)).toEqual({
+      ok: false,
+      reason: "unfit",
+      raw: "Sure, happy to help!",
+      usage,
+    });
+    expect(await askFor(model, request, contract)).toEqual({ ok: false, reason: "unfit", raw: '{"place": 3}', usage });
     expect(await askFor(model, request, contract)).toEqual({
       ok: true,
       value: { place: "Manali" },

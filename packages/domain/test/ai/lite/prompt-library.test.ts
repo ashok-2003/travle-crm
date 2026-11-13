@@ -5,15 +5,19 @@ import { promptLibrary, promptVersions } from "../../../src/ai/lite/prompts/libr
 
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex");
 
-/** name: [version, sha256 of the text]. Change a text, raise its version, and pin the new hash here. */
-const pinned: Record<string, [number, string]> = {
-  "understand.instructions": [1, "92f0e1dabedca0abdc706815172d628d031c99a05460e6094accbf3c7b1eb00d"],
-  "understand.intents": [1, "16b33b347d1cabb2764213d0728d7a0834839fac9249f2cb2dc6abdee43fd9e1"],
-  "understand.form": [1, "557e2d86bca7a67d9f53ae1bd582c1325a9797dd56ec041a566562d34a6d62e1"],
-  "write.instructions": [1, "1d2cdc252e23a064a4c03228d4e588f13b67e7efd74019293cca5c10af88e12f"],
-  "write.voice": [1, "ffdda3206124bddd2ad60863ff43e90ffc54a136a1f1eb7ac00a2a1c7f7bf7a4"],
-  "write.moves": [1, "7c32780df25dba134edc8d5e9dc6ecf9921fccdc650d5cd041f2f509b4140083"],
-  "fixed.texts": [2, "f2431679715e339fb74c41e7370c71d15b6c1a0b6f561690b6aa54eebad3c1cb"],
+/**
+ * "name@version": the sha256 of that version's text. Never edit a line: a changed text raises its version and adds a
+ * line, so the old versions stay pinned beside it and a reviewer sees a new key, not a new hash under an old one.
+ */
+const pinned: Record<string, string> = {
+  "understand.instructions@1": "92f0e1dabedca0abdc706815172d628d031c99a05460e6094accbf3c7b1eb00d",
+  "understand.intents@1": "16b33b347d1cabb2764213d0728d7a0834839fac9249f2cb2dc6abdee43fd9e1",
+  "understand.form@1": "557e2d86bca7a67d9f53ae1bd582c1325a9797dd56ec041a566562d34a6d62e1",
+  "write.instructions@1": "1d2cdc252e23a064a4c03228d4e588f13b67e7efd74019293cca5c10af88e12f",
+  "write.voice@1": "ffdda3206124bddd2ad60863ff43e90ffc54a136a1f1eb7ac00a2a1c7f7bf7a4",
+  "write.moves@1": "7c32780df25dba134edc8d5e9dc6ecf9921fccdc650d5cd041f2f509b4140083",
+  "fixed.texts@1": "8532a9dc282ff94810e2b0ac3bd413727868c6d521277932e18e5f22fb180dba",
+  "fixed.texts@2": "f2431679715e339fb74c41e7370c71d15b6c1a0b6f561690b6aa54eebad3c1cb",
 };
 
 const budgets: Record<string, number> = {
@@ -27,11 +31,28 @@ const budgets: Record<string, number> = {
 };
 
 describe("the prompt library", () => {
-  it("every piece is pinned with its version", () => {
+  it("every piece's text is pinned under its name and version", () => {
+    for (const piece of promptLibrary()) {
+      const key = `${piece.name}@${String(piece.version)}`;
+      expect([key, sha(piece.text)]).toEqual([key, pinned[key]]);
+    }
+  });
+
+  it("keeps every earlier version's pin, and none ahead of the library", () => {
     const library = promptLibrary();
-    expect(library.map((piece) => piece.name).sort()).toEqual(Object.keys(pinned).sort());
-    for (const piece of library)
-      expect([piece.name, piece.version, sha(piece.text)]).toEqual([piece.name, ...(pinned[piece.name] ?? [])]);
+    const versions = (name: string) =>
+      Object.keys(pinned)
+        .filter((key) => key.startsWith(`${name}@`))
+        .map((key) => Number(key.slice(name.length + 1)))
+        .sort((a, b) => a - b);
+    for (const piece of library) {
+      expect([piece.name, versions(piece.name)]).toEqual([
+        piece.name,
+        Array.from({ length: piece.version }, (_, index) => index + 1),
+      ]);
+    }
+    const names = new Set(library.map((piece) => piece.name));
+    expect(Object.keys(pinned).filter((key) => !names.has(key.split("@")[0] as never))).toEqual([]);
   });
 
   it("starts every piece at version 1, changed on the day it was added", () => {

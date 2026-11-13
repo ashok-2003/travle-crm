@@ -85,7 +85,7 @@ export async function writeOnLead(
     organizationId,
     leadId: lead.id,
     facts,
-    pkg: pkg === null ? null : { destinationId: pkg.destinationId, nights: pkg.nights },
+    pkg: pkg === null ? null : { destinationId: pkg.destinationId, nights: pkg.nights, adultRooms: pkg.adultRooms },
     departureStartsOn: departure?.startsOn ?? null,
     proofs: checked?.proofs ?? {},
     today: input.today,

@@ -6,9 +6,12 @@
 import { isAQuestion, sentencesIn } from "../grounded/read-words.js";
 import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
 import { flagChat } from "../grounded/turn-flag.js";
-import { actingOn, codeWordsOf } from "./act-reply.js";
+import { actingOn, codeWordsOf, handOverInstead } from "./act-reply.js";
+import { stageToOf } from "./decide/decide.js";
 import { checkedForm } from "./form-check.js";
 import { mergeForm } from "./merge.js";
+import { LEAD_MOVES, openLeadForChat } from "./open-lead.js";
+import { lockedFields, typedChanged } from "./typed-lock.js";
 import { prepareLiteTurn, type LitePrepared } from "./prepare.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
 import { finishTurn, startTrace, tallied, withoutMessages, writeChecks, type TurnLog } from "./turn-trace.js";
@@ -19,6 +22,12 @@ import { understandChat } from "./understand.js";
 
 export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
   const startedMs = Date.now();
+  // Plan 3b writes the nudges; until then a quiet chat is left quiet, before any read (a follow-up time left on a chat
+  // still brings its nudge here). A follow-up task the owner set is a person's call to make.
+  if (input.kind !== "reply") {
+    const outcome = input.kind === "followUp" ? "off" : "nothing";
+    return finishTurn(deps, input, { outcome, log: {}, startedMs }, null);
+  }
   const prepared = await prepareLiteTurn(deps, input, now);
   if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);
   const trace = startTrace(input, prepared.leadId, now);
@@ -30,8 +39,6 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
       { outcome, log: { ...log, ...(reason === undefined ? {} : { reason }) }, startedMs },
       trace,
     );
-  // Plan 3b writes the follow-ups; until then a quiet chat is left quiet.
-  if (input.kind !== "reply") return end("nothing");
   const { organizationId } = input;
   const ai = tallied(deps.ai, trace);
   const environment: CallEnvironment = { db: deps.db, organizationId, now, timeZone: prepared.timeZone };
@@ -45,6 +52,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   // UNDERSTAND, unless the turn goes to a person whatever was said.
   let checked: CheckedForm | null = null;
   let facts = prepared.facts;
+  /** The person-typed lead fields the customer now contradicts: a person reconciles them. */
+  let changed: string[] = [];
   const kinds = prepared.burst.map((one) => one.kind);
   if (!kinds.includes("audio") && !prepared.hasBooking) {
     const asking = understandRequest({
@@ -64,21 +73,41 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     // Nothing usable: the facts stay as they were, so the next turn reads the chat afresh.
     if (!asked.ok) return asked.reason === "unfit" ? flag("unfit", "unfit") : end(asked.reason);
     checked = checkedForm(asked.form, prepared.messages, prepared.burst, prepared.index, prepared.today);
-    facts = mergeForm(prepared.facts, checked, prepared.index);
+    facts = mergeForm(prepared.facts, checked, prepared.index, lockedFields(prepared.typed));
+    changed = typedChanged(checked, prepared.typed, prepared.burst);
     log.intents = trace.intents = checked.form.intents.map((intent) => intent.name);
     trace.checks.push(...checked.dropped.map((code) => ({ name: "proof", passed: false, detail: code })));
+    trace.checks.push(...changed.map((field) => ({ name: "typed", passed: false, detail: field })));
   }
 
   // LOOK UP and DECIDE.
-  const { situation, decision } = await decided(
+  const looked = await decided(
     deps.db,
     organizationId,
-    decideBase(prepared, input, checked, facts),
+    decideBase(prepared, input, checked, facts, changed.length > 0),
     { index: prepared.index, answers: prepared.answers, facts, today: prepared.today, now },
     checked?.form.lookups ?? [],
   );
+  const { situation } = looked;
+  let { decision } = looked;
   log.lookups = situation.looked.length;
   trace.lookups = situation.looked;
+
+  // A returning customer with every lead closed: a move that works on a trip gets them a new lead first, in its own
+  // short transaction (never inside act's), before any word is written or sent; one that can't be opened goes to a
+  // person instead of the price. A new lead is empty, so nothing read for the turn changes but where its stage starts.
+  let leadOpened = false;
+  if (prepared.leadId === null && LEAD_MOVES.has(decision.move.kind)) {
+    const chat = { id: prepared.chat.id, personId: prepared.chat.personId, phoneE164: prepared.phoneE164 };
+    const opening = await openLeadForChat(deps, organizationId, chat, now);
+    // A blocked contact gets no automation's answer, as the inbox never queues one for them.
+    if (opening === "blocked") return end("blocked_contact");
+    if (opening === "unable") decision = handOverInstead(decision, "no_open_lead", "lead:unable");
+    else {
+      decision = { ...decision, stageTo: stageToOf(decision.move, "new") };
+      leadOpened = true;
+    }
+  }
 
   // WRITE, then fold the words with code's own: no safe words hand the chat over.
   const words = await written(ai, environment, prepared, {
@@ -98,6 +127,9 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   log.move = trace.move = move.kind;
   trace.stage = acting.decision.stage;
   trace.why = acting.decision.why;
+  trace.note = acting.decision.note;
+  trace.task = acting.decision.task;
+  trace.suggest = acting.decision.suggest;
 
   // ACT.
   const result = await acted(deps, prepared.supplierStateCode, {
@@ -117,14 +149,16 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     agencyName,
   });
   if (result === "already") return end("answered");
+  // A person replied or took the chat over, or a switch went off, while the model worked: quietly, nothing was written.
+  if ("stopped" in result) return end(result.stopped);
   if ("refused" in result) {
     if (result.refused === "AGENT_PAUSED") return end("paused");
     if (result.refused === "NEWER_MESSAGE") return end("superseded");
     return flag("blocked", result.refused);
   }
   trace.leadId = result.leadId;
-  trace.sent = { messageIds: result.sentIds, text: acting.reply?.text ?? null };
-  trace.actions = result.actions;
+  trace.sent = { messageIds: result.sentIds, text: result.text };
+  trace.actions = [...(leadOpened ? ["lead:opened"] : []), ...result.actions];
   if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
   return end(move.kind === "silent" ? "silent" : "replied");
 }
@@ -146,6 +180,7 @@ export function decideBase(
   input: LiteTurnInput,
   checked: CheckedForm | null,
   facts: LitePrepared["facts"],
+  detailsChanged = false,
 ): Omit<DecideInput, "situation"> {
   return {
     kind: input.kind,
@@ -160,6 +195,7 @@ export function decideBase(
     adPackageId: prepared.adPackageId,
     openBooking: prepared.openBooking,
     hasBooking: prepared.hasBooking,
+    detailsChanged,
     mayBePayment: prepared.mayBePayment,
     nameUsable: prepared.nameUsable,
     leadStage: prepared.leadStage,

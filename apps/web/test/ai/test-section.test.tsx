@@ -42,6 +42,14 @@ describe("Try it, for an agency answering from its packages", () => {
     expect(await screen.findByText(words.blocked.replace("{reason}", reason))).toBeVisible();
   });
 
+  it.each(["PAYMENT_DETAILS_MISSING", "PACKAGE_NOT_SELLABLE", "AI_ACTION_REFUSED"] as const)(
+    "names a booking the live turn would refuse: %s",
+    async (code) => {
+      await ask({ answer: "", handoff: false, reason: "", grounded: { actions: [], blocked: code } });
+      expect(await screen.findByText(words.blocked.replace("{reason}", words.blockedReasons[code]))).toBeVisible();
+    },
+  );
+
   it("reads a block reason the screen doesn't know as a plain safety check", async () => {
     await ask({ answer: "", handoff: false, reason: "", grounded: { actions: [], blocked: "something_new" } });
     expect(await screen.findByText(words.blocked.replace("{reason}", words.blockedReasons.other))).toBeVisible();
