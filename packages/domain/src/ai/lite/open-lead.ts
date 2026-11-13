@@ -1,12 +1,29 @@
-// A returning customer writes to a lite agency with every lead closed: before the turn quotes anything, it opens their new
-// lead through crm's own path for a WhatsApp customer (owner by the assignment rules, source WhatsApp), as the team's
-// "Start a new lead" does, so a price told can also be booked. Who owns the agency's leads is read before the
-// transaction, as the inbound path reads it.
+// A returning customer writes to a lite agency with every lead closed: once the turn has decided to work on a trip with
+// them, and before it sends anything, it opens their new lead through crm's own path for a WhatsApp customer (owner by
+// the assignment rules, source WhatsApp), as the team's "Start a new lead" does, so a price told can also be booked. A
+// "thanks, great trip!" opens none. Who owns the agency's leads is read before the transaction, as inbound reads it.
 import type { OrgTx } from "@travel-crm/db";
 import { agencyFactsOf, isBlocked, mayBringIn, startLeadFromChat } from "../../crm/index.js";
 import { lockChat } from "../../inbox/index.js";
 import { DomainError, systemActor } from "../../kernel/index.js";
-import type { LiteDependencies } from "./types.js";
+import type { LiteDependencies, Move } from "./types.js";
+
+/**
+ * The moves that work on a trip, and so need a lead to work on: asking a checklist item, offering or pricing packages,
+ * booking, sending the payment details again. A close, silence, a hand-over or a fixed line that only acknowledges
+ * (identity, "we don't run that", a screenshot thanked) needs none, and opens none.
+ */
+export const LEAD_MOVES: ReadonlySet<Move["kind"]> = new Set([
+  "greet",
+  "answer_package",
+  "give_dates",
+  "give_price",
+  "ask_detail",
+  "confirm_place",
+  "show_other_trips",
+  "book",
+  "resend_payment",
+]);
 
 /** opened: a lead is open now (this turn's, or one that appeared meanwhile); blocked: no automation answers them. */
 export type LeadOpening = "opened" | "blocked" | "unable";

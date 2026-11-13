@@ -22,7 +22,6 @@ import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { usableName } from "./decide/stage.js";
 import type { DecideInput } from "./decide/decide.js";
 import { readLiteFacts } from "./merge.js";
-import { openLeadForChat } from "./open-lead.js";
 import type { TypedFields } from "./typed-lock.js";
 import { bookingPartOf, leadPartOf, packageIndexOf } from "./prepare-lead.js";
 import type {
@@ -40,11 +39,8 @@ const LAST_MESSAGES = 20;
 export interface LitePrepared {
   settings: AutopilotRow;
   chat: ChatRow;
+  /** The customer's number: a returning customer's new lead is opened by it. */
   phoneE164: string;
-  /** A returning customer's new lead was opened for this turn. */
-  leadOpened: boolean;
-  /** No open lead, and none could be opened: a person takes the chat before any price. */
-  noOpenLead: boolean;
   timeZone: string;
   today: CalendarDate;
   facts: LiteFacts;
@@ -117,30 +113,8 @@ function startingFacts(facts: LiteFacts, index: PackageIndexEntry[], name: strin
   return kept.name === null && name !== null ? { ...kept, name } : kept;
 }
 
-/**
- * Either why the turn ends now (the outcome), or everything it needs. A returning customer with every lead closed gets
- * a new lead first (read again then, so the turn works on it), unless the turn hands the chat over whatever was said;
- * when none can be opened, the turn hands over before any price.
- */
+/** Either why the turn ends now (the outcome), or everything it needs. */
 export async function prepareLiteTurn(
-  deps: LiteDependencies,
-  input: LiteTurnInput,
-  now: Date,
-): Promise<LitePrepared | LiteOutcome> {
-  const first = await prepareOnce(deps, input, now);
-  if (typeof first === "string" || first.leadId !== null) return first;
-  if (first.hasBooking || first.burst.some((one) => one.kind === "audio")) return first;
-  const chat = { id: first.chat.id, personId: first.chat.personId, phoneE164: first.phoneE164 };
-  const opening = await openLeadForChat(deps, input.organizationId, chat, now);
-  // A blocked contact gets no automation's answer, as the inbox never queues one for them.
-  if (opening === "blocked") return "blocked_contact";
-  if (opening === "unable") return { ...first, noOpenLead: true };
-  const again = await prepareOnce(deps, input, now);
-  if (typeof again === "string") return again;
-  return again.leadId === null ? { ...again, noOpenLead: true } : { ...again, leadOpened: true };
-}
-
-async function prepareOnce(
   deps: LiteDependencies,
   input: LiteTurnInput,
   now: Date,
@@ -200,8 +174,6 @@ async function prepareOnce(
       settings,
       chat: row,
       phoneE164: chat.phoneE164,
-      leadOpened: false,
-      noOpenLead: false,
       timeZone,
       today,
       ...lines,

@@ -124,7 +124,6 @@ export async function liteDryRun(
       adPackageId: null,
       openBooking: null,
       hasBooking: false,
-      noOpenLead: false,
       mayBePayment: false,
       nameUsable: false,
       leadStage: null,

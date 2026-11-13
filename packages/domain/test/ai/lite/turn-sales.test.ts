@@ -118,13 +118,31 @@ describe("the lite turn reaches a booking", () => {
     expect(booking.leadId).toBe(fresh.id);
   });
 
+  it("a returning customer who only says thanks gets no new lead", async () => {
+    const on = await liteAgency(test);
+    const closed = await closeLeads(on, "won");
+    const token = await says(on, "Thanks, it was a great trip!", 30);
+    on.model.answer(understood([["ok_thanks", "Thanks"]]));
+    expect(await on.turn(at(60), { token })).toBe("silent");
+    expect(await outbound(on)).toHaveLength(0);
+    expect(await on.inOrg((tx) => tx.lead.count())).toBe(closed.length);
+  });
+
   it("a returning customer for whom no lead can be opened is handed over before any price", async () => {
     const on = await liteAgency(test);
     const closed = await closeLeads(on, "lost");
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
     const token = await says(on, "price for kedarnath on 14 nov, 2 people?", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: { package: kedarnath, date: fourteenth, adults: twoPeople },
+      }),
+      written("Which city will you join us from?"),
+    );
     const noOwner = { ...on.identity, firstOwner: () => Promise.resolve<string | null>(null) };
     expect(await on.turn(at(60), { token, identity: noOwner })).toBe("handed_off");
-    expect(on.model.requests).toHaveLength(0);
+    // Understand read the chat; nothing was written for the price, which never went.
+    expect(on.model.requests.map((request) => request.schema?.name)).toEqual(["understand_form"]);
     expect((await outbound(on)).map((one) => one.body)).toEqual([fixedText("hand_over", "english", {}).text]);
     const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
     expect(chat.handoffReason).toBe(handOverSentences.no_open_lead);

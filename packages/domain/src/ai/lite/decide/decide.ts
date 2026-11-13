@@ -126,7 +126,7 @@ function noteOf(picked: Picked, facts: LiteFacts, before: LiteFacts): Decision["
 }
 
 /** Forward only, and only for a message sent: a full price moves New or Contacted to Quote sent, any other New to Contacted. */
-function stageToOf(move: Move, leadStage: DecideInput["leadStage"]): Decision["stageTo"] {
+export function stageToOf(move: Move, leadStage: DecideInput["leadStage"]): Decision["stageTo"] {
   if (move.kind === "silent") return null;
   if (fullPrice(move) && (leadStage === "new" || leadStage === "contacted")) return "quote_sent";
   return leadStage === "new" ? "contacted" : null;

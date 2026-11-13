@@ -6,9 +6,11 @@
 import { isAQuestion, sentencesIn } from "../grounded/read-words.js";
 import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
 import { flagChat } from "../grounded/turn-flag.js";
-import { actingOn, codeWordsOf } from "./act-reply.js";
+import { actingOn, codeWordsOf, handOverInstead } from "./act-reply.js";
+import { stageToOf } from "./decide/decide.js";
 import { checkedForm } from "./form-check.js";
 import { mergeForm } from "./merge.js";
+import { LEAD_MOVES, openLeadForChat } from "./open-lead.js";
 import { lockedFields, typedChanged } from "./typed-lock.js";
 import { prepareLiteTurn, type LitePrepared } from "./prepare.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
@@ -53,7 +55,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   /** The person-typed lead fields the customer now contradicts: a person reconciles them. */
   let changed: string[] = [];
   const kinds = prepared.burst.map((one) => one.kind);
-  if (!kinds.includes("audio") && !prepared.hasBooking && !prepared.noOpenLead) {
+  if (!kinds.includes("audio") && !prepared.hasBooking) {
     const asking = understandRequest({
       agencyName,
       packages: prepared.index,
@@ -79,15 +81,33 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   }
 
   // LOOK UP and DECIDE.
-  const { situation, decision } = await decided(
+  const looked = await decided(
     deps.db,
     organizationId,
     decideBase(prepared, input, checked, facts, changed.length > 0),
     { index: prepared.index, answers: prepared.answers, facts, today: prepared.today, now },
     checked?.form.lookups ?? [],
   );
+  const { situation } = looked;
+  let { decision } = looked;
   log.lookups = situation.looked.length;
   trace.lookups = situation.looked;
+
+  // A returning customer with every lead closed: a move that works on a trip gets them a new lead first, in its own
+  // short transaction (never inside act's), before any word is written or sent; one that can't be opened goes to a
+  // person instead of the price. A new lead is empty, so nothing read for the turn changes but where its stage starts.
+  let leadOpened = false;
+  if (prepared.leadId === null && LEAD_MOVES.has(decision.move.kind)) {
+    const chat = { id: prepared.chat.id, personId: prepared.chat.personId, phoneE164: prepared.phoneE164 };
+    const opening = await openLeadForChat(deps, organizationId, chat, now);
+    // A blocked contact gets no automation's answer, as the inbox never queues one for them.
+    if (opening === "blocked") return end("blocked_contact");
+    if (opening === "unable") decision = handOverInstead(decision, "no_open_lead", "lead:unable");
+    else {
+      decision = { ...decision, stageTo: stageToOf(decision.move, "new") };
+      leadOpened = true;
+    }
+  }
 
   // WRITE, then fold the words with code's own: no safe words hand the chat over.
   const words = await written(ai, environment, prepared, {
@@ -138,7 +158,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   }
   trace.leadId = result.leadId;
   trace.sent = { messageIds: result.sentIds, text: result.text };
-  trace.actions = [...(prepared.leadOpened ? ["lead:opened"] : []), ...result.actions];
+  trace.actions = [...(leadOpened ? ["lead:opened"] : []), ...result.actions];
   if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
   return end(move.kind === "silent" ? "silent" : "replied");
 }
@@ -152,7 +172,6 @@ export function decideBase(
     | "adPackageId"
     | "openBooking"
     | "hasBooking"
-    | "noOpenLead"
     | "mayBePayment"
     | "nameUsable"
     | "leadStage"
@@ -177,7 +196,6 @@ export function decideBase(
     openBooking: prepared.openBooking,
     hasBooking: prepared.hasBooking,
     detailsChanged,
-    noOpenLead: prepared.noOpenLead,
     mayBePayment: prepared.mayBePayment,
     nameUsable: prepared.nameUsable,
     leadStage: prepared.leadStage,

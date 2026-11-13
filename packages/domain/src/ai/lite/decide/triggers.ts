@@ -22,13 +22,10 @@ export function handOverTrigger(input: {
   facts: LiteFacts;
   /** The customer's newest words contradict a trip field a person typed on the lead. */
   detailsChanged: boolean;
-  /** A returning customer whose new lead could not be opened: nothing to quote or book on. */
-  noOpenLead: boolean;
 }): HandOverReason | null {
   // Plan 3 has no transcription: the words of a voice note are never read, whatever else came with it.
   if (input.burstKinds.includes("audio")) return "voice_note";
   if (input.hasBooking) return "has_booking";
-  if (input.noOpenLead) return "no_open_lead";
   const intent = PERSON_INTENTS.find((one) => input.intents.includes(one));
   if (intent !== undefined) return intent;
   // A person typed it: a person reconciles it, before any price for what the customer now says.
