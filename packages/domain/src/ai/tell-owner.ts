@@ -1,4 +1,4 @@
-// Tells the lead's owner that the AI needs a person (once per notice key), shared by the lite turn and the earlier agents.
+// Tells the lead's owner that the AI needs a person (once per notice key).
 import type { OrgTx } from "@travel-crm/db";
 import { noticeKey } from "../crm/index.js";
 import { systemActor } from "../kernel/index.js";

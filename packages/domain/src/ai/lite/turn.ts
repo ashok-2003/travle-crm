@@ -24,8 +24,6 @@ import { understandChat } from "./understand.js";
 
 export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
   const startedMs = Date.now();
-  // A follow-up task the owner set is a person's call to make: the minute job leaves a lite agency's to the team.
-  if (input.kind === "followUp") return finishTurn(deps, input, { outcome: "off", log: {}, startedMs }, null);
   if (input.kind === "nudge") return runLiteNudge(deps, input, now);
   const prepared = await prepareLiteTurn(deps, input, now);
   if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);

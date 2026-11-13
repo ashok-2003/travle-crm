@@ -166,7 +166,6 @@ export function decide(input: DecideInput): Decision {
       stageTo: null,
       suggest: null,
     };
-    if (input.kind !== "nudge") return { ...kept, move: { kind: "silent" }, why: "silence" };
     const move = followUpOf(input, facts, pkg);
     return { ...kept, move, why: `follow_up:${String(move.number)}` };
   }

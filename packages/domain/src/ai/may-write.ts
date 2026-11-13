@@ -1,12 +1,12 @@
-// Whether the AI may write in a chat now (shared by the lite turn and the earlier agents): the chat is open, not stopped,
+// Whether the AI may write in a chat now (the one agent's turn and its follow-ups): the chat is open, not stopped,
 // inside the 24-hour window, not already answered, the autopilot is on, nobody took the chat over, the day's count has room.
 import type { OrgTx } from "@travel-crm/db";
 import { chatOptedOut, windowIsOpen } from "../inbox/index.js";
 import type { AutopilotRow } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
 
-/** Answer the last message, nudge a quiet customer, or write about a follow-up on the lead that came due. */
-export type TurnKind = "reply" | "nudge" | "followUp";
+/** Answer the last message, or nudge a quiet customer. */
+export type TurnKind = "reply" | "nudge";
 
 /** The chat row the AI's checks and notices read. */
 export interface ChatRow {

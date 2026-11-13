@@ -1,4 +1,4 @@
-// The invented agency every bench chat talks to: "Case Holidays", switched on for the lite agent, with its payment
+// The invented agency every bench chat talks to: "Case Holidays", with the agent on, with its payment
 // details and QR, answers to the six topics, a Manali group trip (two seasons, double and triple rooms, departures open,
 // closed and nearly full), a Spiti group trip and a Kashmir custom trip. A case then picks which of them the AI may sell.
 import type { benchPackages } from "@travel-crm/contracts/ai";
@@ -41,7 +41,7 @@ async function attach(
   });
 }
 
-/** Switches the agency on for the lite agent and writes the shared packages; returns their ids by key. */
+/** Switches the agent on for the agency and writes the shared packages; returns their ids by key. */
 export async function seedBenchAgency(
   tx: OrgTx,
   organizationId: string,
@@ -83,13 +83,11 @@ export async function seedBenchAgency(
     "image/png",
   );
   await tx.aiSettings.create({ data: { enabled: true, scoring: true, fillLeads: false } });
-  // A direct write, never an agency save: the lite switch is the console's, not the agency's.
   await tx.aiAutopilot.upsert({
     where: { organizationId },
     create: {
       organizationId,
       autopilot: true,
-      lite: true,
       agentName: "Riya",
       tone: "friendly",
       answers: {

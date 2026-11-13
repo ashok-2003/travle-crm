@@ -105,7 +105,7 @@ export function followUpPlan(turn: {
     const keepsGoing = turn.sent && move.kind !== "hand_over" && move.kind !== "silent" && !turn.stopFollowUps;
     return { followUpsSent: 0, followUpAt: keepsGoing ? timed(1) : null };
   }
-  if (turn.kind === "nudge" && move.kind === "follow_up" && turn.sent) {
+  if (move.kind === "follow_up" && turn.sent) {
     return { followUpsSent: move.number, followUpAt: move.number === 1 ? timed(2) : null };
   }
   return { followUpAt: null };

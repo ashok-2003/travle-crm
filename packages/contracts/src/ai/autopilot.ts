@@ -1,6 +1,6 @@
-// The AI's autopilot (AI step 2; the owner's decisions of 2026-10-28): the one WhatsApp agent answers chats by itself. Off
-// until an Owner or Admin turns it on; every message it sends is marked as the AI's in the chat and audited. This file
-// holds a chat's state as the inbox shows it, the events and job of its turns, Try it, and the day's overview.
+// The AI's autopilot (AI step 2; the owner's decisions of 2026-10-28): the one WhatsApp agent answers chats by itself.
+// Off until an Owner or Admin turns it on; every message it sends is marked as the AI's in the chat and audited. This
+// file holds a chat's state as the inbox shows it, the events and job of its turns, Try it, and the day's overview.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 
@@ -42,7 +42,7 @@ export const aiChatResumedEvent = z.strictObject({ conversationId: recordId });
 /** The ai.reply job: the AI's turn after a customer's message, a few seconds later so a burst reads as one. */
 export const aiReplyJob = z.strictObject({ organizationId: recordId, conversationId: recordId, messageId: recordId });
 
-/** A question to try the AI on, from the agency's knowledge alone, before turning it on (Settings, AI). */
+/** A question to try the AI agent on, from the agency's packages and setup, before turning it on. */
 export const testAiInput = z.strictObject({ question: text(1000).min(1) });
 /** What code would do after a reply: send the package's files, book (payment details and the booking), note, add a task. */
 export const testAiAction = z.enum(["files", "book", "note", "task"]);
@@ -53,7 +53,7 @@ export const testAiAnswer = z.object({
   handoff: z.boolean(),
   reason: z.string(),
   /** The dry run: what code would do with the reply, or the check's reason code when nothing would be sent. */
-  grounded: z.object({ actions: z.array(testAiAction), blocked: z.string().nullable() }).nullable(),
+  grounded: z.object({ actions: z.array(testAiAction), blocked: z.string().nullable() }),
 });
 export type TestAiAnswer = z.infer<typeof testAiAnswer>;
 

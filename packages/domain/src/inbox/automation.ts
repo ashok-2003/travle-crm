@@ -14,6 +14,7 @@ import { isUniqueViolation, softDeleted, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { agentPauseOf } from "../subscriptions/index.js";
 
 /** Published when a customer writes and the agency has an automatic answer that could fit (never a reaction, a blocked contact, or STOP). */
 export const CUSTOMER_WROTE_EVENT = "whatsapp.customer-wrote";
@@ -81,18 +82,26 @@ const auditView = (settings: InboxAutomation) => ({
 const minuteText = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
+/** The agent's own switch in the agency's settings: on says nothing yet about whether it can answer. */
+const agentSwitchedOn = async (tx: OrgTx): Promise<boolean> =>
+  (await tx.aiAutopilot.findFirst({ select: { autopilot: true } }))?.autopilot === true;
+
 /**
- * Whether the agency's AI agent is on. The column is the agent's own switch; inbox reads it in one line rather than
- * import ai (ai imports inbox), so an agency with the agent on gets no keyword trip kits.
+ * Whether the agency's AI agent can answer now: its switch is on, the AI module is on and platform staff have not paused
+ * it. Inbox reads these in a few lines rather than import ai (ai imports inbox). Keyword trip kits stand aside only for
+ * an agent that can answer, so a paused agency keeps them. The plan and subscription are not read here: they come from a
+ * service this path doesn't have, and an agency without the AI module has `ai_settings.enabled` off in practice.
  */
-export async function aiAgentOn(tx: OrgTx): Promise<boolean> {
-  return (await tx.aiAutopilot.findFirst({ select: { autopilot: true } }))?.autopilot === true;
+export async function aiAgentOn(tx: OrgTx, organizationId: string): Promise<boolean> {
+  if (!(await agentSwitchedOn(tx))) return false;
+  if ((await tx.aiSettings.findFirst({ select: { enabled: true } }))?.enabled !== true) return false;
+  return (await agentPauseOf(tx, organizationId)) === null;
 }
 
 /** Whether anything could act on a customer's message: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   // The agent answers whatever the customer writes, so its event publishes whatever the automation settings say.
-  if (await aiAgentOn(tx)) return true;
+  if (await agentSwitchedOn(tx)) return true;
   const settings = await automationOf(tx);
   if (
     (settings.welcomeEnabled && settings.welcomeMessage !== "") ||

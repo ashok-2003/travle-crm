@@ -35,7 +35,7 @@ export async function settleChat(
     select: { id: true, repliesOn: true, repliesCount: true },
   });
   const reason = move.kind === "hand_over" ? handOverSentences[move.reason].slice(0, REASON_MAX) : null;
-  // Counted as the grounded turn counts them, for the day's cap, but only for a turn that sent something.
+  // Counted for the day's cap, but only for a turn that sent something.
   const counted = done.sent
     ? {
         lastReplyAt: now,

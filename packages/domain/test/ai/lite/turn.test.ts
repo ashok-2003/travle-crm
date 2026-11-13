@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { inventedSpans } from "../../../src/ai/bench/rubric.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { promptVersions } from "../../../src/ai/lite/prompts/library.js";
-import { runLiteTurn } from "../../../src/ai/lite/turn.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
@@ -15,7 +14,6 @@ import { readTraceFile } from "../../../src/ai/traces/trace-file.js";
 import { createTraceSink } from "../../../src/ai/traces/trace-sink.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
-import { countingDatabase } from "./support/counting-db.js";
 import { liteAgency } from "./support/lite-agency.js";
 import {
   at,
@@ -46,6 +44,11 @@ describe("the lite agent's turn", () => {
     expect(sent[0]?.clientToken).toBe(`ai:${on.message.id}`);
     expect(sent[0]?.body).toContain("Kedarnath Yatra 4N");
     expect(sent[0]?.body).toContain(formatRupees(599_900));
+    // The send is audited: it names the message and holds neither the reply's words nor the customer's.
+    const audited = await on.inOrg((tx) => tx.auditEntry.findFirstOrThrow({ where: { action: "ai.message-sent" } }));
+    expect(audited.entityId).toBe(sent[0]?.id);
+    expect(JSON.stringify(audited)).not.toContain("Kedarnath Yatra 4N");
+    expect(JSON.stringify(audited)).not.toContain("is the Kedarnath yatra running");
     expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
     expect(on.model.requests[1]?.schema?.name).toBe("write_move");
     const lead = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
@@ -264,7 +267,7 @@ describe("the lite agent's turn", () => {
     expect(on.model.requests).toHaveLength(0);
   });
 
-  it("the AI module off answers nothing, though the lite switch is on", async () => {
+  it("the AI module off answers nothing, though the agent is switched on", async () => {
     const on = await liteAgency(test);
     await on.inOrg((tx) => tx.aiSettings.updateMany({ data: { enabled: false } }));
     expect(await on.turn()).toBe("off");
@@ -467,22 +470,6 @@ describe("the lite agent's turn", () => {
     const usage = await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow());
     expect(usage).toMatchObject({ calls: 1, inputTokens: 1200n, outputTokens: 80n });
     expect(traces[0]).toMatchObject({ inputTokens: 1200, outputTokens: 80 });
-  });
-
-  it("a follow-up task's turn reads nothing: the team makes that call", async () => {
-    const on = await liteAgency(test);
-    const counting = countingDatabase(test.db);
-    const deps = {
-      db: counting.db,
-      ai: on.model,
-      agencyName: () => Promise.resolve("Sharma Holidays"),
-      files: test.files,
-      managers: () => Promise.resolve([]),
-    };
-    const input = { organizationId: on.organizationId, conversationId: on.chat.id, token: "follow-up:1" };
-    expect(await runLiteTurn(deps, { ...input, kind: "followUp" }, at(600))).toBe("off");
-    expect(counting.count()).toBe(0);
-    expect(on.model.requests).toHaveLength(0);
   });
 
   it("a sink that throws changes nothing", async () => {

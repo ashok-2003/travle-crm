@@ -464,10 +464,6 @@ describe("decide: across the table", () => {
     expect(run({ intents: ["discount"] }).facts.lastMove).toBe("hand_over");
   });
 
-  it("a follow-up task's turn decides nothing", () => {
-    expect(run({ kind: "followUp" }).move).toEqual({ kind: "silent" });
-  });
-
   it("a nudge follows up, keeping the facts and the loop guard as they were", () => {
     const waiting = facts({ asked: [{ item: "people", times: 1 }] });
     const first = run({ kind: "nudge", facts: waiting });

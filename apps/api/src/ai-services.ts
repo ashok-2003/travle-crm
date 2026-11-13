@@ -37,7 +37,6 @@ export function createAiModel(environment: AiSettings): AiModel | null {
       models: {
         suggest_reply: chat,
         autopilot: chat,
-        learn: chat,
         score_lead: fast,
         fill_form: chat,
         write_up: chat,
@@ -64,7 +63,6 @@ export function createAiModel(environment: AiSettings): AiModel | null {
       models: {
         suggest_reply: backupChat,
         autopilot: backupChat,
-        learn: backupChat,
         score_lead: backupFast,
         fill_form: backupChat,
         write_up: backupChat,
@@ -85,9 +83,8 @@ export function createAiModel(environment: AiSettings): AiModel | null {
     models: {
       suggest_reply: environment.AI_SUGGEST_MODELS,
       score_lead: environment.AI_SCORE_MODELS,
-      // The autopilot and the nightly lessons write for customers and read many chats: the chat models do both.
+      // The agent writes for customers and reads chats: the chat models do both.
       autopilot: environment.AI_SUGGEST_MODELS,
-      learn: environment.AI_SUGGEST_MODELS,
       fill_form: environment.AI_SUGGEST_MODELS,
       write_up: environment.AI_SUGGEST_MODELS,
       ask_report: environment.AI_SCORE_MODELS,

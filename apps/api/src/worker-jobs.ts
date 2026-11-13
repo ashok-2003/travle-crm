@@ -122,7 +122,7 @@ import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { documentText, type AiModel } from "@travel-crm/integrations/ai";
-import type { JobQueue } from "@travel-crm/integrations/jobs";
+import type { JobQueue, JobRunner } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
 import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
@@ -195,6 +195,13 @@ export interface WorkerJobs {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Schedules of jobs the worker no longer runs: pg-boss keeps a schedule across restarts, so each start removes these. */
+export const RETIRED_SCHEDULES = ["ai.learn"] as const;
+
+export async function retireSchedules(runner: Pick<JobRunner, "unschedule">): Promise<void> {
+  for (const queue of RETIRED_SCHEDULES) await runner.unschedule(queue);
+}
 
 /** What the AI's turns, nudges and lessons run with; its traces are kept in the worker's storage. */
 export function autopilotDependencies(

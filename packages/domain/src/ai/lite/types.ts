@@ -39,7 +39,6 @@ export interface LiteTurnInput {
   conversationId: string;
   kind: TurnKind;
   token: string;
-  followUp?: string;
 }
 
 /** replied, handed_off, silent, answered, superseded, blocked, unfit, not_ready, nothing, plus mayWrite's and the model's. */
