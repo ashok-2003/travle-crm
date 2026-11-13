@@ -10,12 +10,12 @@ import { agentPauseOf } from "../../subscriptions/index.js";
 import type { ChatFacts } from "../agent-effects.js";
 import { autopilotOf } from "../autopilot.js";
 import { mayWrite } from "../may-write.js";
+import { aiEnabled } from "../settings.js";
 import { settleChat } from "./act-chat.js";
 import { writeOnLead } from "./act-lead.js";
 import { moneyMove } from "./act-money.js";
 import { actWrites, handOverInstead } from "./act-reply.js";
 import { sendMove } from "./act-send.js";
-import { liteAgentOn } from "./switch.js";
 import type { LiteActDeps, LiteActInput, LiteActResult } from "./act-types.js";
 
 export type { LiteActDeps, LiteActInput, LiteActResult };
@@ -40,7 +40,7 @@ async function assertNewest(tx: OrgTx, input: LiteActInput): Promise<void> {
  */
 async function stoppedSince(tx: OrgTx, input: LiteActInput, chat: ChatFacts): Promise<string | null> {
   const settings = await autopilotOf(tx);
-  if (!settings.autopilot || !(await liteAgentOn(tx))) return "off";
+  if (!settings.autopilot || !settings.lite || !(await aiEnabled(tx))) return "off";
   return mayWrite(tx, chat, settings, input.kind, input.now);
 }
 
