@@ -1,9 +1,11 @@
 // Runs one of the console's one-off commands once, with the console's environment, then exits with its code:
 // `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>`, `run demo`, or
-// `run agent-cases` (the test chats). It starts as the console does (the same variables and checks, the same "console
+// `run agent-bench` (the test chats). It starts as the console does (the same variables and checks, the same "console
 // start-up failed" message), but serves nothing and runs no jobs. Never over HTTP: only whoever can run the console's image with its environment can run it.
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { createPinoLogger, errorFields } from "@travel-crm/integrations/logging";
-import { agentCasesCommand } from "./console-agent-cases.js";
+import { agentBenchCommand } from "./console-agent-bench.js";
 import { demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsolePlatform, type ConsolePlatform } from "./console-platform.js";
@@ -21,10 +23,16 @@ const commands: Readonly<Record<string, Command>> = {
   "first-super-admin": ({ platform }, args, output) => firstSuperAdminCommand(platform, args, output),
   demo: ({ platform, settings }, args, output) => demoCommand(platform, settings.demo, args, output),
   // Test chats against a throwaway organization on the local database, with the real model or --fake.
-  "agent-cases": ({ platform, settings }, args, output, { ai }) =>
-    agentCasesCommand(
+  "agent-bench": ({ platform, settings }, args, output, { ai }) =>
+    agentBenchCommand(
       platform,
-      { ai, databaseUrls: [settings.platformDatabaseUrl, process.env.DATABASE_URL ?? ""] },
+      {
+        ai,
+        databaseUrls: [settings.platformDatabaseUrl, process.env.DATABASE_URL ?? ""],
+        repositoryRoot: resolve(import.meta.dirname, "../../.."),
+        home: join(homedir(), ".config", "travel-crm"),
+        now: new Date(),
+      },
       args,
       output,
     ),
