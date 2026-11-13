@@ -1,8 +1,8 @@
 "use client";
 
-// Settings, AI: the test box (Ayush's, ported): ask what a customer might and see what the AI would answer from what it knows and
-// has learned, in the green bubble a customer would see, and, for an agency answering from its packages, what code would do
-// with it or why nothing would go. Nothing is sent; it spends the month's AI calls the answer takes.
+// The AI agent page's Try it box: ask what a customer might and see what the AI agent would answer from the agency's packages
+// and setup, in the green bubble a customer would see, and what code would do with the reply or why nothing would go. Nothing
+// is sent; it spends the month's AI calls the answer takes.
 import type { TestAiAnswer } from "@travel-crm/contracts/ai";
 import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
