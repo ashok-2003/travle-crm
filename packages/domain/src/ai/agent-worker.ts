@@ -36,6 +36,7 @@ const LITE_AT_ONCE = 3;
 /**
  * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
  * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.
+ * One reached later than this (a backlog, an outage) is let go: it was planned for a moment that has passed.
  */
 const LITE_LATE_MS = 5 * 60_000;
 const NUDGES_PER_AGENCY = 20;
@@ -203,6 +204,12 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
     if (settings.followUpHours === 0 && !settings.lite) return [];
     const margin = settings.lite ? WINDOW_MARGIN_MS - LITE_LATE_MS : WINDOW_MARGIN_MS;
     const windowFloor = new Date(now.getTime() - WINDOW_MS + margin);
+    if (settings.lite) {
+      await tx.aiChat.updateMany({
+        where: { followUpAt: { lt: new Date(now.getTime() - LITE_LATE_MS) } },
+        data: { followUpAt: null },
+      });
+    }
     await tx.aiChat.updateMany({
       where: { followUpAt: { lte: now }, conversation: { lastInboundAt: { lte: windowFloor } } },
       data: { followUpAt: null },

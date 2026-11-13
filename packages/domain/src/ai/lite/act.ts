@@ -17,7 +17,7 @@ import { writeOnLead } from "./act-lead.js";
 import { moneyMove } from "./act-money.js";
 import { actWrites, handOverInstead } from "./act-reply.js";
 import { sendMove } from "./act-send.js";
-import { stillQuiet } from "./follow-ups.js";
+import { inWakingHours, stillQuiet } from "./follow-ups.js";
 import { suggestFromTurn } from "./suggestions.js";
 import type { LiteActDeps, LiteActInput, LiteActResult } from "./act-types.js";
 
@@ -45,14 +45,16 @@ async function agentOn(tx: OrgTx): Promise<AutopilotRow | null> {
 
 /**
  * Why the AI may no longer write in this chat, read again under the chat's lock: since the turn's first checks a person
- * may have replied or taken the chat over, or the owner switched the agent off; for a follow-up, the customer or a
- * person may have written since our last message. Null while it still may.
+ * may have replied or taken the chat over, or the owner switched the agent off; a follow-up goes only in the agency's
+ * waking hours, and not once the customer, a person or other automation has written since our last message. Null
+ * while it still may.
  */
 async function stoppedSince(tx: OrgTx, input: LiteActInput, chat: ChatFacts): Promise<string | null> {
   const settings = await agentOn(tx);
   if (settings === null) return "off";
   const blocked = await mayWrite(tx, chat, settings, input.kind, input.now);
   if (blocked !== null || input.kind !== "nudge") return blocked;
+  if (!inWakingHours(input.now, input.timeZone)) return "night";
   return (await stillQuiet(tx, chat.id)) ? null : "answered";
 }
 

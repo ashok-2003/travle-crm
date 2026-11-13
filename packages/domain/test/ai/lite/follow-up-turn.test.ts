@@ -4,7 +4,9 @@
 import { randomUUID } from "node:crypto";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { setLiteAgent } from "../../../src/ai/index.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
+import { systemActor } from "../../../src/kernel/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteTurnAt } from "./support/lite-agency.js";
 import { greeting, outbound, says, understood, withFacts, written, type Agency } from "./support/turn-script.js";
@@ -213,6 +215,78 @@ describe("the lite agent's follow-ups", () => {
     expect(await state(late)).toMatchObject({ followUpsSent: 0, lastNudgeAt: null, handedOffAt: null });
   });
 
+  it("an automatic message since ours lets the follow-up go", async () => {
+    const on = await liteAgency(test);
+    await replied(on);
+    await on.inOrg((tx) =>
+      tx.whatsappMessage.create({
+        data: {
+          conversationId: on.chat.id,
+          direction: "out",
+          origin: "automation",
+          clientToken: `sales:${randomUUID()}`,
+          kind: "text",
+          body: "Your Kedarnath brochure is ready.",
+          status: "sent",
+          occurredAt: after(hour),
+        },
+      }),
+    );
+    on.model.answer(written(followUp1));
+    expect(await on.nudges(firstAt)).toBe(1);
+    expect(on.model.requests).toHaveLength(2);
+    expect((await tokens(on)).filter((one) => one?.startsWith("ai:"))).toEqual([`ai:${on.message.id}`]);
+  });
+
+  it("a run at 21:00 sends nothing and asks the model nothing; the follow-up waits for 09:00 inside the window", async () => {
+    const on = await liteAgency(test);
+    await replied(on);
+    // 21:00 in India, the evening the customer wrote; the window's end is 14:30 the next day.
+    const nine = after(5.5 * hour);
+    await on.inOrg((tx) => tx.aiChat.updateMany({ where: { conversationId: on.chat.id }, data: { followUpAt: nine } }));
+    on.model.answer(written(followUp1));
+    expect(await on.nudges(nine)).toBe(1);
+    expect(await tokens(on)).toEqual([`ai:${on.message.id}`]);
+    expect(on.model.requests).toHaveLength(2);
+    const morning = after(17.5 * hour);
+    expect(await state(on)).toMatchObject({ followUpAt: morning, followUpsSent: 0, lastNudgeAt: null });
+    expect(await on.nudges(morning)).toBe(1);
+    expect(await tokens(on)).toEqual([`ai:${on.message.id}`, nudgeToken(on)]);
+  });
+
+  it("a follow-up the job reaches more than 5 minutes late is let go", async () => {
+    const on = await liteAgency(test);
+    await replied(on);
+    on.model.answer(written(followUp1));
+    expect(await on.nudges(new Date(firstAt.getTime() + 10 * 60_000))).toBe(0);
+    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0 });
+    expect(await tokens(on)).toEqual([`ai:${on.message.id}`]);
+    expect(on.model.requests).toHaveLength(2);
+  });
+
+  it("switching the lite agent on or off lets go what the other agent planned", async () => {
+    const on = await liteAgency(test, { lite: false });
+    // The first agent planned a nudge for 01:00 in India, and a count was left from before.
+    const night = after(9.5 * hour);
+    await on.inOrg(async (tx) => {
+      await tx.whatsappConversation.updateMany({ data: { needsReply: false } });
+      await tx.aiChat.upsert({
+        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+        create: { conversationId: on.chat.id, followUpAt: night, followUpsSent: 1 },
+        update: { followUpAt: night, followUpsSent: 1 },
+      });
+      await setLiteAgent(tx, systemActor(on.organizationId), true);
+    });
+    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0 });
+    expect(await on.nudges(night)).toBe(0);
+    expect(await tokens(on)).toEqual([]);
+    // The lite agent's own plan goes too when it is switched off.
+    await replied(on);
+    expect((await state(on)).followUpAt).toEqual(firstAt);
+    await on.inOrg((tx) => setLiteAgent(tx, systemActor(on.organizationId), false));
+    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0 });
+  });
+
   it("a take-over while the follow-up is written lets it go", async () => {
     const on = await liteAgency(test);
     await replied(on);
@@ -230,8 +304,12 @@ describe("the lite agent's follow-ups", () => {
     await replied(on);
     // Two questions, twice.
     on.model.answer(written("Still there? Which trip?"), written("Hello? Which trip?"));
-    expect(await on.nudges(firstAt)).toBe(1);
+    const traces: LiteTrace[] = [];
+    expect(await on.nudges(firstAt, { record: (trace) => Promise.resolve(void traces.push(trace)) })).toBe(1);
     expect(await tokens(on)).toEqual([`ai:${on.message.id}`]);
+    // The Write was asked twice, after the reply's two calls, and refused both.
+    expect(on.model.requests).toHaveLength(4);
+    expect(traces[0]).toMatchObject({ kind: "nudge", outcome: "refused", reason: "questions" });
     expect(await state(on)).toMatchObject({
       followUpsSent: 0,
       followUpAt: null,
@@ -305,8 +383,9 @@ describe("the lite agent's follow-ups", () => {
         await tx.whatsappConversation.updateMany({ data: { needsReply: false } });
         await tx.aiChat.upsert({
           where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
-          create: { conversationId: on.chat.id, followUpAt: after(hour) },
-          update: { followUpAt: after(hour) },
+          // A count the lite agent left (the console switched it off): the first agent still takes no second.
+          create: { conversationId: on.chat.id, followUpAt: after(hour), followUpsSent: 1 },
+          update: { followUpAt: after(hour), followUpsSent: 1 },
         });
       });
     };
@@ -323,7 +402,7 @@ describe("the lite agent's follow-ups", () => {
     );
     expect(await on.nudges(after(2 * hour))).toBe(1);
     expect(await tokens(on)).toEqual([nudgeToken(on)]);
-    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 0 });
+    expect(await state(on)).toMatchObject({ followUpAt: null, followUpsSent: 1 });
     await due();
     expect(await on.nudges(after(3 * hour))).toBe(0);
     expect(await tokens(on)).toEqual([nudgeToken(on)]);

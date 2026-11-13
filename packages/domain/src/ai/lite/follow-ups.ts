@@ -6,6 +6,7 @@ import { WINDOW_MS } from "../../inbox/index.js";
 import { addDays, calendarDateIn, instantAt, parseTimeOfDay, timeOfDayIn } from "../../kernel/index.js";
 import { WINDOW_MARGIN_MS } from "../agent-effects.js";
 import type { TurnKind } from "../agent-prompt.js";
+import { AI_TOKEN_PREFIX } from "../may-write.js";
 import type { Move } from "./types.js";
 
 export const FOLLOW_UP_AFTER_REPLY_HOURS = 4;
@@ -22,6 +23,15 @@ const APART_MS = HOUR_MS;
 const wakes = parseTimeOfDay(WAKING_HOURS.from);
 const sleeps = parseTimeOfDay(WAKING_HOURS.until);
 
+/** Whether the agency's clock shows waking hours at `at`: from 09:00 until just before 21:00. */
+export function inWakingHours(at: Date, timeZone: string): boolean {
+  const time = timeOfDayIn(at, timeZone);
+  return time >= wakes && time < sleeps;
+}
+
+/** The last moment a follow-up may go for a customer who last wrote at `lastInboundAt`: the window less its margin. */
+const windowEndOf = (lastInboundAt: Date) => new Date(lastInboundAt.getTime() + WINDOW_MS - WINDOW_MARGIN_MS);
+
 /** The time, moved into waking hours: before 09:00 to 09:00 that day, at or after 21:00 to 09:00 the next. */
 function intoWakingHours(at: Date, timeZone: string): Date {
   const day = calendarDateIn(at, timeZone);
@@ -33,10 +43,9 @@ function intoWakingHours(at: Date, timeZone: string): Date {
 
 /** `end` itself when it falls in waking hours, else the last waking minute (20:59) of the last day before it with one. */
 function lastWakingBy(end: Date, timeZone: string): Date {
+  if (inWakingHours(end, timeZone)) return end;
   const day = calendarDateIn(end, timeZone);
-  const time = timeOfDayIn(end, timeZone);
-  if (time >= wakes && time < sleeps) return end;
-  const lastDay = time >= sleeps ? day : addDays(day, -1);
+  const lastDay = timeOfDayIn(end, timeZone) >= sleeps ? day : addDays(day, -1);
   return new Date(instantAt(lastDay, sleeps, timeZone).getTime() - MINUTE_MS);
 }
 
@@ -54,12 +63,23 @@ export function followUpAt(input: {
     number === 1
       ? input.repliedAt.getTime() + FOLLOW_UP_AFTER_REPLY_HOURS * HOUR_MS
       : lastInboundAt.getTime() + FOLLOW_UP_AFTER_INBOUND_HOURS * HOUR_MS;
-  const windowEnd = new Date(lastInboundAt.getTime() + WINDOW_MS - WINDOW_MARGIN_MS);
+  const windowEnd = windowEndOf(lastInboundAt);
   let at = intoWakingHours(new Date(target), timeZone);
   if (at > windowEnd) at = lastWakingBy(windowEnd, timeZone);
+  // Whole minutes: "20:59" is 20:59:00, which the minute job's 20:59 run takes, never its 21:00 one.
+  at = new Date(Math.floor(at.getTime() / MINUTE_MS) * MINUTE_MS);
   if (at.getTime() < input.now.getTime() + SOONEST_MS) return null;
   if (number === 2 && input.previousAt !== null && at.getTime() < input.previousAt.getTime() + APART_MS) return null;
   return at;
+}
+
+/**
+ * For a follow-up reached outside waking hours (the job ran late, or was down): the next 09:00, while the window still
+ * holds it; else null, and it is let go.
+ */
+export function nextMorning(now: Date, lastInboundAt: Date, timeZone: string): Date | null {
+  const morning = intoWakingHours(now, timeZone);
+  return morning <= windowEndOf(lastInboundAt) ? morning : null;
 }
 
 /**
@@ -93,7 +113,8 @@ export function followUpPlan(turn: {
 
 /**
  * Whether the chat is still quiet since the AI's last message, so a follow-up may go into the silence: the customer has
- * not written, nobody on the team has, and the customer's last words did not stop them.
+ * not written (a reaction counts: a 👍 is an "ok"), nobody on the team has, no other automation has (a sales message,
+ * a greeting), and the customer's last words did not stop them.
  */
 export async function stillQuiet(tx: OrgTx, conversationId: string): Promise<boolean> {
   const state = await tx.aiChat.findFirst({
@@ -105,7 +126,14 @@ export async function stillQuiet(tx: OrgTx, conversationId: string): Promise<boo
     where: {
       conversationId,
       occurredAt: { gt: state.lastReplyAt },
-      OR: [{ direction: "in" }, { origin: { in: ["staff_crm", "staff_phone"] } }],
+      OR: [
+        { direction: "in" },
+        { origin: { in: ["staff_crm", "staff_phone"] } },
+        {
+          origin: "automation",
+          OR: [{ clientToken: null }, { NOT: { clientToken: { startsWith: AI_TOKEN_PREFIX } } }],
+        },
+      ],
     },
     select: { id: true },
   });

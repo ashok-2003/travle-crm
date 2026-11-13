@@ -2,7 +2,7 @@
 // customer's last message, 9 am to 9 pm in the agency's time zone, inside WhatsApp's 24-hour window less its 1-hour
 // margin, and what each turn leaves for them.
 import { describe, expect, it } from "vitest";
-import { followUpAt, followUpPlan } from "../../../src/ai/lite/follow-ups.js";
+import { followUpAt, followUpPlan, inWakingHours, nextMorning } from "../../../src/ai/lite/follow-ups.js";
 import type { Move } from "../../../src/ai/lite/types.js";
 import { addDays, instantAt, parseCalendarDate, parseTimeOfDay } from "../../../src/kernel/index.js";
 
@@ -74,6 +74,19 @@ describe("when a follow-up goes", () => {
     ).toEqual(local("09:30", 1));
   });
 
+  it("plans whole minutes, so 20:59 is 20:59:00 and the 20:59 run takes it", () => {
+    const seconds = 30_000;
+    // A reply at 16:59:30 plans 20:59:00, never 20:59:30, which the 21:00 run would send.
+    const lastInboundAt = local("16:59");
+    const repliedAt = new Date(local("16:59").getTime() + seconds);
+    expect(
+      followUpAt({ number: 1, lastInboundAt, repliedAt, previousAt: null, now: repliedAt, timeZone: india }),
+    ).toEqual(local("20:59"));
+    // A customer who wrote at 00:59:30 gets the second at 20:59:00.
+    const wrote = new Date(local("00:59").getTime() + seconds);
+    expect(second(wrote, local("11:00"))).toEqual(local("20:59"));
+  });
+
   it("keeps the agency's own clock", () => {
     const dubai = "Asia/Dubai";
     const lastInboundAt = local("23:50", 0, dubai);
@@ -129,5 +142,24 @@ describe("what a turn leaves for the follow-ups", () => {
     expect(plan({ kind: "nudge", move: { kind: "follow_up", number: 1, ask: null }, sent: false })).toEqual({
       followUpAt: null,
     });
+  });
+});
+
+describe("when a due follow-up may still go", () => {
+  it("only from 09:00 until just before 21:00", () => {
+    const at = (time: string, seconds = 0) => new Date(local(time).getTime() + seconds * 1000);
+    expect(inWakingHours(at("08:59", 59), india)).toBe(false);
+    expect(inWakingHours(at("09:00"), india)).toBe(true);
+    expect(inWakingHours(at("20:59", 59), india)).toBe(true);
+    expect(inWakingHours(at("21:00"), india)).toBe(false);
+    expect(inWakingHours(at("02:00"), india)).toBe(false);
+  });
+
+  it("one reached at night waits for 09:00 while the window still holds it, else is let go", () => {
+    // Wrote 15:30: the window's end is 14:30 the next day.
+    expect(nextMorning(local("21:00"), local("15:30"), india)).toEqual(local("09:00", 1));
+    expect(nextMorning(local("02:00", 1), local("15:30"), india)).toEqual(local("09:00", 1));
+    // Wrote 02:00: the window's end is 01:00 the next day, before any morning.
+    expect(nextMorning(local("21:00"), local("02:00"), india)).toBeNull();
   });
 });
