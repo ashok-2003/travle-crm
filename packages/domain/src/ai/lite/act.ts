@@ -69,6 +69,7 @@ export async function actOnMove(tx: OrgTx, deps: LiteActDeps, input: LiteActInpu
   if (lead !== null) actions.push(...(await writeOnLead(tx, acting, lead, chat)));
   if (lead !== null)
     await suggestFromTurn(tx, {
+      organizationId: input.organizationId,
       leadId: lead.id,
       conversationId: chat.id,
       decision,

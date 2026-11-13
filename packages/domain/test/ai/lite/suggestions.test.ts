@@ -2,6 +2,7 @@
 // person turned down, and moved only by a person's yes, inside their scope; erased with the customer.
 import { liteFacts, type UnderstandForm } from "@travel-crm/contracts/ai";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
+import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { actOnMove } from "../../../src/ai/lite/act.js";
 import { situationOf } from "../../../src/ai/lite/lookups/situation.js";
@@ -111,6 +112,7 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
   const suggest = (on: Agency, kind: "lost" | "not_a_lead" = "lost") =>
     on.inOrg((tx) =>
       suggestStage(tx, {
+        organizationId: on.organizationId,
         leadId: on.leadId,
         conversationId: on.chat.id,
         kind,
@@ -188,8 +190,12 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
     }));
     expect(after.lead).toMatchObject({ stage: "lost", lostReason: "other" });
     expect(after.suggestion).toMatchObject({ state: "accepted", decidedBy: member.userId, decidedAt: liteTurnAt });
-    const actions = (await auditOf(test, on.organizationId, on.leadId)).map((entry) => entry.action);
-    expect(actions).toContain("ai.stage-suggestion-accepted");
+    const entries = await auditOf(test, on.organizationId, on.leadId);
+    expect(entries.map((entry) => entry.action)).toContain("ai.stage-suggestion-accepted");
+    // The move is the member's own, not the system's.
+    expect(entries.find((entry) => entry.action === "lead.stage-changed")).toMatchObject({
+      actorUserId: member.userId,
+    });
     // Decided once: a second tap finds nothing open.
     expect(
       await on
@@ -246,6 +252,55 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
         .catch(failure),
     ).toBe("NOT_FOUND");
     expect((await rows(on))[0]?.state).toBe("open");
+  });
+
+  it("a soft-deleted lead's suggestion is out of the list and the alert", async () => {
+    const on = await liteAgency(test);
+    await suggest(on);
+    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on)))).toHaveLength(1);
+    await on.inOrg((tx) => tx.lead.update({ where: { id: on.leadId }, data: softDeleted(owner(on).userId) }));
+    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on)))).toEqual([]);
+    expect(await on.inOrg((tx) => stageSuggestionOfLead(tx, owner(on), on.leadId))).toBeNull();
+  });
+
+  it("a second decision on one suggestion is NOT_FOUND and the first stands", async () => {
+    const on = await liteAgency(test);
+    await suggest(on);
+    const [row] = await rows(on);
+    const first = owner(on);
+    await on.inOrg((tx) => decideStageSuggestion(tx, first, { suggestionId: row?.id ?? "", accept: true }, liteTurnAt));
+    const second = memberOf(on.organizationId, "org-owner");
+    expect(
+      await on
+        .inOrg((tx) => decideStageSuggestion(tx, second, { suggestionId: row?.id ?? "", accept: false }, liteTurnAt))
+        .catch(failure),
+    ).toBe("NOT_FOUND");
+    expect((await rows(on))[0]).toMatchObject({ state: "accepted", decidedBy: first.userId });
+    const declined = (await auditOf(test, on.organizationId, on.leadId)).filter(
+      (entry) => entry.action === "ai.stage-suggestion-declined",
+    );
+    expect(declined).toEqual([]);
+  });
+
+  it("two members deciding at once: one decides, the other is NOT_FOUND", async () => {
+    const on = await liteAgency(test);
+    await suggest(on);
+    const [row] = await rows(on);
+    const decide = (accept: boolean) =>
+      on.inOrg((tx) =>
+        decideStageSuggestion(
+          tx,
+          memberOf(on.organizationId, "org-owner"),
+          { suggestionId: row?.id ?? "", accept },
+          liteTurnAt,
+        ),
+      );
+    const results = await Promise.allSettled([decide(true), decide(false)]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    const [only] = await rows(on);
+    const lead = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
+    expect(only?.state === "accepted").toBe(lead.stage === "lost");
   });
 
   it("an erased customer's suggestions go", async () => {

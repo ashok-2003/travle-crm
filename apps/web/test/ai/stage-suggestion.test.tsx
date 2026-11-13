@@ -5,7 +5,8 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StageSuggestionAlert } from "@/ai/stage-suggestion";
-import { newQueryClient, fakeApi, renderWithApi } from "../organization/api";
+import { messages } from "@/i18n/messages";
+import { fakeApi, newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { member } from "../support/members";
 
 const leadId = "0199e7a0-0000-7000-8000-0000000000a1";
@@ -23,11 +24,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function show(permissions?: string[], shown: StageSuggestion | null = suggestion) {
+async function show(
+  permissions?: string[],
+  shown: StageSuggestion | null = suggestion,
+  queryClient = newQueryClient(),
+) {
   const api = fakeApi();
   renderWithApi(
     <StageSuggestionAlert leadId={leadId} />,
-    newQueryClient(),
+    queryClient,
     permissions === undefined ? member({ isOwner: true }) : member({ permissions }),
   );
   await waitFor(() => {
@@ -87,5 +92,44 @@ describe("StageSuggestionAlert", () => {
       expect(screen.queryByRole("alert")).toBeNull();
     });
     expect(screen.queryByText(/The AI suggests/)).toBeNull();
+  });
+
+  it("shows the api's reason when the decision is refused", async () => {
+    const api = await show();
+    await userEvent.click(await screen.findByRole("button", { name: "Yes, mark it Lost" }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "ai.decideStageSuggestion")).toBe(true);
+    });
+    api.calls.find((call) => call.path === "ai.decideStageSuggestion")?.refuse(403, "MISSING_PERMISSION");
+    expect(await screen.findByText(messages.errors.reasons.MISSING_PERMISSION)).toBeVisible();
+    expect(screen.getByRole("button", { name: "No" })).toBeEnabled();
+  });
+
+  it("loads the lead's work again after a choice", async () => {
+    const queryClient = newQueryClient();
+    const refreshed = vi.spyOn(queryClient, "invalidateQueries");
+    const api = await show(undefined, suggestion, queryClient);
+    await userEvent.click(await screen.findByRole("button", { name: "No" }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "ai.decideStageSuggestion")).toBe(true);
+    });
+    api.calls.find((call) => call.path === "ai.decideStageSuggestion")?.answer(null);
+    await waitFor(() => {
+      const keys = refreshed.mock.calls.map((call) => JSON.stringify(call[0]?.queryKey));
+      expect(keys.some((key) => key.includes('"leads"'))).toBe(true);
+      expect(keys.some((key) => key.includes('"today"'))).toBe(true);
+    });
+  });
+
+  it("disables the buttons with the reason while the agency is read-only", async () => {
+    await show(
+      undefined,
+      suggestion,
+      newQueryClient({ ...paidSubscription, status: "read_only", access: "read_only" }),
+    );
+    const yes = await screen.findByRole("button", { name: "Yes, mark it Lost" });
+    expect(yes).toBeDisabled();
+    expect(screen.getByRole("button", { name: "No" })).toBeDisabled();
+    expect(yes).toHaveAccessibleDescription(messages.errors.reasons.ORGANIZATION_READ_ONLY);
   });
 });

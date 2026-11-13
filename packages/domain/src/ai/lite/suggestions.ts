@@ -39,6 +39,7 @@ export function suggestionOfTurn(decision: Decision, checked: CheckedForm | null
 export async function suggestStage(
   tx: OrgTx,
   input: {
+    organizationId: string;
     leadId: string;
     conversationId: string;
     kind: Kind;
@@ -56,7 +57,6 @@ export async function suggestStage(
     take: 1,
   });
   if (earlier.length > 0) return false;
-  const lead = await tx.lead.findUniqueOrThrow({ where: { id: input.leadId }, select: { organizationId: true } });
   await tx.leadAiSuggestion.create({
     data: {
       leadId: input.leadId,
@@ -67,7 +67,7 @@ export async function suggestStage(
       createdAt: input.now,
     },
   });
-  await recordAudit(tx, systemActor(lead.organizationId), {
+  await recordAudit(tx, systemActor(input.organizationId), {
     action: "ai.stage-suggested",
     entityType: "lead",
     entityId: input.leadId,
@@ -79,11 +79,24 @@ export async function suggestStage(
 /** What act calls after the lead's writes: the turn's suggestion, if it has one. */
 export async function suggestFromTurn(
   tx: OrgTx,
-  input: { leadId: string; conversationId: string; decision: Decision; checked: CheckedForm | null; now: Date },
+  input: {
+    organizationId: string;
+    leadId: string;
+    conversationId: string;
+    decision: Decision;
+    checked: CheckedForm | null;
+    now: Date;
+  },
 ): Promise<void> {
   const suggest = suggestionOfTurn(input.decision, input.checked);
   if (suggest === null) return;
-  await suggestStage(tx, { ...suggest, leadId: input.leadId, conversationId: input.conversationId, now: input.now });
+  await suggestStage(tx, {
+    ...suggest,
+    organizationId: input.organizationId,
+    leadId: input.leadId,
+    conversationId: input.conversationId,
+    now: input.now,
+  });
 }
 
 const columns = {
@@ -123,7 +136,7 @@ export async function stageSuggestionsOf(tx: OrgTx, access: MemberAccess): Promi
   const rows = await tx.leadAiSuggestion.findMany({
     where: {
       state: "open",
-      lead: { stage: { in: [...suggestable] }, ...scopeFilter(access, "leads:view", "ownerUserId") },
+      lead: { deletedAt: null, stage: { in: [...suggestable] }, ...scopeFilter(access, "leads:view", "ownerUserId") },
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: LIST_MAX,
@@ -142,7 +155,7 @@ export async function stageSuggestionOfLead(
     where: {
       leadId,
       state: "open",
-      lead: { stage: { in: [...suggestable] }, ...scopeFilter(access, "leads:view", "ownerUserId") },
+      lead: { deletedAt: null, stage: { in: [...suggestable] }, ...scopeFilter(access, "leads:view", "ownerUserId") },
     },
     select: columns,
   });
@@ -168,6 +181,12 @@ export async function decideStageSuggestion(
   const lead = await lockLead(tx, suggestion.leadId);
   if (!isLeadInScope(access, lead.ownerUserId)) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such suggestion");
   const moves = input.accept && suggestable.includes(lead.stage);
+  // Closed first, under the lead's lock: a decision that lost the race to another member finds it already closed.
+  const closed = await tx.leadAiSuggestion.updateMany({
+    where: { id: suggestion.id, state: "open" },
+    data: { state: moves ? "accepted" : "declined", decidedBy: access.userId, decidedAt: now },
+  });
+  if (closed.count === 0) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such suggestion");
   if (moves) {
     const stage: Kind = suggestion.kind === "not_a_lead" ? "not_a_lead" : "lost";
     await moveLeadStage(
@@ -181,10 +200,6 @@ export async function decideStageSuggestion(
       now,
     );
   }
-  await tx.leadAiSuggestion.update({
-    where: { id: suggestion.id },
-    data: { state: moves ? "accepted" : "declined", decidedBy: access.userId, decidedAt: now },
-  });
   const about = { entityType: "lead", entityId: suggestion.leadId, after: { kind: suggestion.kind } };
   if (moves) await recordAudit(tx, access, { action: "ai.stage-suggestion-accepted", ...about });
   else await recordAudit(tx, access, { action: "ai.stage-suggestion-declined", ...about });
