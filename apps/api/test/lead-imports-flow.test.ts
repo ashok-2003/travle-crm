@@ -8,7 +8,7 @@ import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
-import { createS3Storage } from "@travel-crm/integrations/storage";
+import { createMemoryStorage, createS3Storage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { logWorkerProblem } from "../src/worker-problem.js";
 import { problemLogger } from "./support/problem-logger.js";
@@ -70,6 +70,7 @@ describe("a lead import through the worker", () => {
       db: server.db,
       identity: server.identity,
       files: server.files,
+      storage: createMemoryStorage(),
       spreadsheets: server.spreadsheets,
       subscriptions: server.subscriptions,
       seatLimit: server.seatLimit,

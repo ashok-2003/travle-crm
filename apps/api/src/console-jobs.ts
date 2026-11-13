@@ -1,13 +1,14 @@
 // What the console process runs besides its HTTP app (ADR 0019): the platform's own jobs (purging an organization,
 // erasing a person or a record, exporting one, deleting stored files), the nightly subscription lifecycle, the hourly
 // sweep of stored files still to delete, the daily sweep of exports past their time, the hourly sweep of imports' and
-// exports' files past theirs, the hourly sweep of the website form's ledger and, when a demo is set, its nightly
+// exports' files past theirs, the hourly sweep of the AI's turn traces past their 14 days, the hourly sweep of the website form's ledger and, when a demo is set, its nightly
 // reset, the system's health check, which emails the super admins when something breaks, and the email log's daily
 // purge. They need the platform role, which only this process holds. No listeners and no outbox relay: those are the
 // worker's.
 import { startJobHandlers, type JobHandler, type ScheduledJob } from "@travel-crm/domain/jobs";
 import {
   aiInputsSweepSchedule,
+  aiTracesSweepSchedule,
   bulkFilesSweepSchedule,
   emailLogPurgeSchedule,
   expiredExportsSchedule,
@@ -80,6 +81,7 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
   const bulkFilesSweep = bulkFilesSweepSchedule(services);
   // The recordings and screenshots "Fill it for me" read, 30 days after upload (the owner, 2026-10-30).
   const aiInputsSweep = aiInputsSweepSchedule(services);
+  const aiTracesSweep = aiTracesSweepSchedule(services);
   // The Sheets sync's drafts, resolved problems, schedule rows and claims past their time (S5, S6, S31).
   const sheetsSweep = sheetsSweepSchedule(services);
   // The Meta lead ads' Pages chosen at Facebook and never confirmed, past a day (spec 5).
@@ -101,6 +103,7 @@ export function consoleJobs(services: PlatformServices, demo: DemoSettings | nul
       expiredExportsSweep,
       bulkFilesSweep,
       aiInputsSweep,
+      aiTracesSweep,
       sheetsSweep,
       metaSweep,
       whatsappSweep,

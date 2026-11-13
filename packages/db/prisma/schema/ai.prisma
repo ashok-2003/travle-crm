@@ -440,3 +440,39 @@ model LeadAiSuggestion {
   @@index([organizationId, state, createdAt(sort: Desc)], map: "lead_ai_suggestion_open_list")
   @@map("lead_ai_suggestion")
 }
+
+/// An index row for the file of one lite agent turn (the whole trace, gzip JSON in object storage). The columns are what the
+/// console filters and sums by; the file holds the customer's words and expires with the row after 14 days. Written once by
+/// the worker, deleted only by the platform role (the sweep, an erasure). Lead is not a key: a lead may be erased first.
+model AiTurnTrace {
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  /// The trace's own id (also the file's name).
+  id             String               @id @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  leadId         String?              @map("lead_id") @db.Uuid
+  startedAt      DateTime             @map("started_at") @db.Timestamptz(6)
+  /// reply or nudge (CHECK ai_turn_trace_kind_value).
+  kind           String
+  outcome        String
+  reason         String?
+  /// The kind of move the turn made.
+  move           String?
+  /// The sale stage the turn judged the chat to be at.
+  saleStage      String?              @map("sale_stage")
+  model          String?
+  inputTokens    Int                  @map("input_tokens")
+  outputTokens   Int                  @map("output_tokens")
+  durationMs     Int                  @map("duration_ms")
+  /// { piece: version } of every prompt piece the turn used.
+  promptVersions Json                 @map("prompt_versions")
+  /// organizations/<org>/ai-traces/<yyyy-mm-dd>/<id>.json.gz
+  fileKey        String               @map("file_key")
+  expiresAt      DateTime             @map("expires_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, conversationId, startedAt(sort: Desc)], map: "ai_turn_trace_conversation")
+  @@index([expiresAt], map: "ai_turn_trace_expiry")
+  @@map("ai_turn_trace")
+}

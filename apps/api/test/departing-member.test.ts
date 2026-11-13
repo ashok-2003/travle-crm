@@ -1,6 +1,7 @@
 // The worker's hand-over when someone leaves (spec 4, R15, R37): removing a salesperson publishes staff.removed, and
 // the worker's crm listener gives their open leads, with those leads' follow-ups, and their open standalone tasks to
 // the agency's Owner, the earliest-joined active Owner identity names.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { runListenerJob } from "@travel-crm/domain/jobs";
 import { createMemoryEmailSender } from "@travel-crm/integrations/email";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
@@ -59,6 +60,7 @@ describe("a departing member's work, through the worker", () => {
       db: server.db,
       identity: server.identity,
       files: server.files,
+      storage: createMemoryStorage(),
       spreadsheets: server.spreadsheets,
       subscriptions: server.subscriptions,
       seatLimit: server.seatLimit,

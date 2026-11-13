@@ -96,6 +96,8 @@ import {
   runAiNudges,
   scoreHandler,
   scoreOnCustomerWroteListener,
+  createTraceSink,
+  type BookingRecipients,
 } from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
@@ -119,6 +121,7 @@ import { metaProcessDependencies, type MetaServices } from "./meta-services.js";
 import { inboxDependenciesOf, type WhatsAppServices } from "./whatsapp-services.js";
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { documentText, type AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
@@ -158,6 +161,8 @@ export interface WorkerJobDependencies {
     | "staff"
   >;
   files: Files;
+  /** Where the lite agent keeps the trace file of each turn. */
+  storage: ObjectStorage;
   /** Reads an import's file and writes an export's (ADR 0030). */
   spreadsheets: Spreadsheets;
   /** Whether an organization may still change things, for an import's add acting for its importer (B31). */
@@ -192,6 +197,26 @@ export interface WorkerJobs {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** What the AI's turns, nudges and lessons run with; its traces are kept in the worker's storage. */
+export function autopilotDependencies(
+  dependencies: Pick<WorkerJobDependencies, "db" | "identity" | "files" | "subscriptions" | "storage" | "logger"> & {
+    managers: BookingRecipients;
+  },
+  model: AiModel,
+) {
+  const { db, identity, files, subscriptions, storage, logger, managers } = dependencies;
+  return {
+    db,
+    ai: model,
+    subscriptions,
+    agencyName: async (organizationId: string) =>
+      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
+    files,
+    managers,
+    traces: createTraceSink({ db, storage, logger }),
+  };
+}
 
 export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   const { db, identity, files, spreadsheets, subscriptions, seatLimit, email, push, appUrl } = dependencies;
@@ -247,15 +272,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
   const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
   // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name, with its media.
-  const autopilotJobs = (model: AiModel) => ({
-    db,
-    ai: model,
-    subscriptions,
-    agencyName: async (organizationId: string) =>
-      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
-    files,
-    managers: bookingManagers,
-  });
+  const autopilotJobs = (model: AiModel) =>
+    autopilotDependencies({ ...dependencies, managers: bookingManagers }, model);
   // Bookings: the reminders now due and the claims left waiting, each minute; the finished trips, each night.
   const bookingJobs = {
     db,
