@@ -8,7 +8,6 @@ import {
   savePackage,
   savePackageSeason,
   sellablePackages,
-  setPackagePaymentDetails,
   setPackageSellable,
   updatePackage,
 } from "../../src/quotes/index.js";
@@ -121,24 +120,9 @@ describe("a package the AI may sell", () => {
   const sell = (id: string, sellable: boolean) =>
     world.inOrg((tx) => setPackageSellable(tx, world.manager, { packageId: id, sellable }, today));
 
-  it("saving the package never touches where customers pay, which has its own change and audit", async () => {
+  it("a package's detail carries no payment text: payment details are the agency's", async () => {
     const id = await aPackage();
-    const pay = (paymentDetails: string) =>
-      world.inOrg((tx) => setPackagePaymentDetails(tx, world.manager, { packageId: id, paymentDetails }));
-    await pay("UPI to the agency");
-    expect((await detail(id)).paymentDetails).toBe("UPI to the agency");
-    await world.inOrg((tx) =>
-      updatePackage(tx, world.manager, { packageId: id, ...words({ name: "Selling renamed", title: "T" }) }),
-    );
-    expect((await detail(id)).paymentDetails).toBe("UPI to the agency");
-    await pay("UPI to the agency");
-    const entries = await world.inOrg((tx) =>
-      tx.auditEntry.findMany({ where: { entityId: id, action: "package.payment-changed" } }),
-    );
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.before).toEqual({ paymentDetailsLength: 0 });
-    expect(entries[0]?.after).toEqual({ paymentDetailsLength: 17 });
-    expect(JSON.stringify(entries)).not.toContain("UPI to the agency");
+    expect(await detail(id)).not.toHaveProperty("paymentDetails");
   });
 
   it("the package's own audit keeps its kind, room types, GST switch and advance", async () => {

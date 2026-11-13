@@ -24,11 +24,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { packageFileLimit, packageFileProblem } from "@/packages/package-file-check";
 import { formatFileSize } from "@/files/file-size";
 import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
+import { paymentQrLimit, paymentQrProblem } from "./payment-qr-check";
 import { usePaymentDetails, usePaymentDetailsChanges } from "./use-setup-steps";
 
 const QR_TYPES = "image/jpeg,image/png,image/webp";
@@ -115,10 +115,8 @@ function QrPicker({ details }: { details: PaymentDetails }) {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file === undefined) return;
-          const wrong = packageFileProblem("payment_qr", file);
-          setProblem(
-            wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(packageFileLimit.payment_qr) }),
-          );
+          const wrong = paymentQrProblem(file);
+          setProblem(wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(paymentQrLimit) }));
           if (wrong === null) addQr.mutate(file);
         }}
       />

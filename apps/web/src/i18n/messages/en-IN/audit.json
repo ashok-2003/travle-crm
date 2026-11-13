@@ -270,8 +270,7 @@
       "created-from-draft": "Saved a package from an AI draft",
       "season-saved": "Saved a package's season and room prices",
       "season-removed": "Removed a package's season",
-      "sellable-changed": "Let the AI sell a package, or stopped it",
-      "payment-changed": "Changed where customers pay for a package"
+      "sellable-changed": "Let the AI sell a package, or stopped it"
     },
     "ai-agent": {
       "paused": "Paused the AI agent on WhatsApp",

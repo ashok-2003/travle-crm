@@ -31,7 +31,6 @@ export function usePackageChanges() {
   return {
     update: useMutation(trpc.packages.update.mutationOptions(options)),
     setPublished: useMutation(trpc.packages.setPublished.mutationOptions(options)),
-    setPaymentDetails: useMutation(trpc.packages.setPaymentDetails.mutationOptions(options)),
     setSellable: useMutation(trpc.packages.setSellable.mutationOptions(options)),
     saveTier: useMutation(trpc.packages.saveTier.mutationOptions(options)),
     removeTier: useMutation(trpc.packages.removeTier.mutationOptions(options)),

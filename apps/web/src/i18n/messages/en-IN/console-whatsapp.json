@@ -110,27 +110,32 @@
     "confirm": "Disconnect"
   },
   "retry": "Try again",
-  "liteAgent": {
-    "title": "Which agent answers",
-    "on": "The new lite agent answers this agency's WhatsApp chats.",
-    "waiting": "Switched on; not answering until the agency's AI and setup are ready.",
-    "off": "The earlier agent answers this agency's WhatsApp chats.",
-    "switchOn": "Switch to the lite agent",
-    "switchOff": "Switch back",
-    "onDialog": {
-      "title": "Switch {name} to the lite agent?",
-      "description": "Its next customer message is answered by the lite agent, once the agency has the AI agent on and its setup is finished. Its settings are kept.",
-      "confirm": "Switch"
+  "agentState": {
+    "title": "AI agent setup",
+    "on": "The agency has turned its AI agent on.",
+    "off": "The agency's AI agent is off.",
+    "ready": "Its setup is finished.",
+    "missing": "Its setup isn't finished: {steps}.",
+    "steps": {
+      "whatsapp": "WhatsApp number",
+      "packages": "packages the AI can sell",
+      "payment": "payment details",
+      "answers": "answers to the fixed questions",
+      "basics": "agent name and tone",
+      "ads": "ad links"
     },
-    "offDialog": {
-      "title": "Switch {name} back?",
-      "description": "Its next customer message is answered by the agent it had before.",
-      "confirm": "Switch back"
-    },
-    "loading": "Loading which agent answers",
-    "loadFailed": "Which agent answers didn't load."
+    "answering": "Ready to answer",
+    "notAnswering": "Won't answer yet",
+    "paused": "Paused",
+    "loading": "Loading the AI agent's setup",
+    "loadFailed": "The AI agent's setup didn't load."
   },
   "agentPause": {
+    "oneAtATime": "Resume one agency at a time",
+    "oneAtATimeTitle": "Resume one agency at a time?",
+    "oneAtATimeBody": "Each agency is paused on its own first, then the pause for every agency is lifted. No agency answers until you resume it from its page.",
+    "oneAtATimeConfirm": "Pause each, then lift",
+    "oneAtATimeDone": "{count, plural, one {One agency is paused on its own} other {# agencies are paused on their own}}. Resume each from its page.",
     "everyone": {
       "title": "AI agent on WhatsApp",
       "running": "Answering for every agency that has it on.",

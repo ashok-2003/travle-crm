@@ -18,7 +18,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { formatFileSize } from "@/files/file-size";
-import { packageFileLimit, packageFileProblem } from "./package-file-check";
+import { brochureLimit, brochureProblem } from "./package-file-check";
 import { usePackageFileChanges, usePackageFiles } from "./use-package-files";
 
 const BROCHURE_TYPES = "application/pdf,image/jpeg,image/png,image/webp";
@@ -38,8 +38,8 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (file === undefined) return;
-    const wrong = packageFileProblem("brochure", file);
-    setProblem(wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(packageFileLimit.brochure) }));
+    const wrong = brochureProblem(file);
+    setProblem(wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(brochureLimit) }));
     if (wrong === null) add.mutate(file);
   };
   const row = (file: PackageFile) => (
