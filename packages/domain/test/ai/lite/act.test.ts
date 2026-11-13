@@ -303,6 +303,47 @@ describe("the lite agent's act step", () => {
     expect(await counts(on)).toEqual(nothingKept);
   });
 
+  it("a paused turn copies no file into storage: the pause is read before anything is sent", async () => {
+    const on = await liteAgency(test);
+    await pause(on);
+    let copies = 0;
+    const counting = {
+      ...deps(),
+      files: new Proxy(test.files, {
+        get(target, name) {
+          const value: unknown = Reflect.get(target, name);
+          if (name !== "copyFileIn" || typeof value !== "function") return value;
+          return (...args: unknown[]) => {
+            copies += 1;
+            return (value as (...given: unknown[]) => unknown).apply(target, args);
+          };
+        },
+      }),
+    };
+    const refused = await act(on, decision(book(on), pricedFacts(on)), {}, counting).catch(failure);
+    expect(refused).toBe("AGENT_PAUSED");
+    expect(copies).toBe(0);
+  });
+
+  it("a take-over that lands while act works sends nothing: the chat is read again before the end", async () => {
+    const on = await liteAgency(test);
+    // The chat's AI row, as the customer's message left it (queued for this turn).
+    await on.inOrg((tx) => tx.aiChat.create({ data: { conversationId: on.chat.id, turnState: "thinking" } }));
+    const chosen = decision(book(on), pricedFacts(on));
+    // The booking asks who to tell partway through act: a person takes the chat over then, from another connection.
+    const takeOver = async () => {
+      await platform.aiChat.upsert({
+        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+        create: { organizationId: on.organizationId, conversationId: on.chat.id, mode: "off" },
+        update: { mode: "off" },
+      });
+      return [];
+    };
+    const refused = await act(on, chosen, {}, { ...deps(), recipients: takeOver }).catch(failure);
+    expect(refused).toBe("AGENT_STOPPED");
+    expect(await counts(on)).toEqual(nothingKept);
+  });
+
   it("a pause that lands while act works sends nothing: it is read again just before the end", async () => {
     const on = await liteAgency(test);
     const chosen = decision(book(on), pricedFacts(on));

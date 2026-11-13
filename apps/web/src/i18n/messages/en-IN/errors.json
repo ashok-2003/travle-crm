@@ -303,6 +303,7 @@
     "HOLD_EXISTS": "This lead already holds seats on this departure. Release them first.",
     "AGENT_PAUSED": "The AI agent is paused by support.",
     "NEWER_MESSAGE": "The customer wrote again, so the AI answers that instead.",
+    "AGENT_STOPPED": "A person took the chat over or the AI was switched off, so the AI sent nothing.",
     "PACKAGE_NOT_SELLABLE": "This package isn't one the AI can sell right now.",
     "PAYMENT_DETAILS_MISSING": "Add your payment details on the AI agent page first.",
     "SEAT_HOLD_EXPIRED": "These seats are no longer held. Hold them again first.",

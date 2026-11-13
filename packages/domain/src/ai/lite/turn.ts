@@ -154,6 +154,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if ("refused" in result) {
     if (result.refused === "AGENT_PAUSED") return end("paused");
     if (result.refused === "NEWER_MESSAGE") return end("superseded");
+    // A person took the chat over, or the agent was switched off, while act worked: quietly, as a stop before it.
+    if (result.refused === "AGENT_STOPPED") return end("stopped");
     return flag("blocked", result.refused);
   }
   trace.leadId = result.leadId;
