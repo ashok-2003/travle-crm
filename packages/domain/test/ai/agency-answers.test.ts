@@ -1,15 +1,8 @@
 // The agency's answers to the fixed questions, and the agent's name and tone: saved and read back, a blank answer removed,
 // the autopilot's other columns left alone, and the audit holding no answer text.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  agencyAnswersOf,
-  agentBasicsOf,
-  autopilotOf,
-  saveAgencyAnswers,
-  saveAgentBasics,
-  saveAutopilot,
-} from "../../src/ai/index.js";
-import { parseCalendarDate } from "../../src/kernel/index.js";
+import { agencyAnswersOf, agentBasicsOf, autopilotOf, saveAgencyAnswers, saveAgentBasics } from "../../src/ai/index.js";
+import { storeAutopilot } from "./support/store-autopilot.js";
 import { anAgency, auditOf, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
 
 describe("the agency's answers and the agent's basics", () => {
@@ -54,15 +47,12 @@ describe("the agency's answers and the agent's basics", () => {
 
   it("saving the basics changes the name and tone and leaves every other autopilot column as it was", async () => {
     const { owner, inOrg } = await agency();
-    const today = parseCalendarDate("2026-11-10");
     const before = await inOrg(async (tx) => {
-      const settings = {
-        ...(await autopilotOf(tx)),
+      await storeAutopilot(tx, owner.organizationId, {
         strictRules: "No discounts.",
         paymentDetails: "UPI x",
         maxRepliesPerDay: 7,
-      };
-      await saveAutopilot(tx, owner, settings, today);
+      });
       return autopilotOf(tx);
     });
     expect(await inOrg((tx) => agentBasicsOf(tx))).toEqual({ agentName: "", tone: "friendly" });

@@ -1,6 +1,5 @@
-// The autopilot as staff see and steer it: a chat's AI state (answering or not, handed over and why, what it remembers),
-// turning it on or off in one chat, giving a handed-over chat back to it, and what the chat's AI is for. Every change is
-// audited.
+// The autopilot as staff see and steer it: a chat's AI state (answering or not, handed over and why, what it noted),
+// turning it on or off in one chat, and giving a handed-over chat back to it. Every change is audited.
 import type { ChatAi } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -10,7 +9,6 @@ import { DomainError } from "../kernel/index.js";
 import { agentAnswers } from "./agent.js";
 import { autopilotOf } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
-import { chatVoiceOf } from "./chat-voice.js";
 import { turnUnderWay } from "./turn-under-way.js";
 
 /** What the AI flagged shows in the chat this long. */
@@ -27,7 +25,6 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
   if (chat === null) throw notFound();
   const settings = await autopilotOf(tx);
   const state = await tx.aiChat.findFirst({ where: { conversationId } });
-  const voice = await chatVoiceOf(tx, conversationId);
   const mode = state?.mode === "on" || state?.mode === "off" ? state.mode : "default";
   const answering = available && agentAnswers(mode, settings.autopilot) && state?.handedOffAt == null;
   return {
@@ -49,18 +46,6 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
     personPausedUntil: answering
       ? ((await personAnsweringUntil(tx, conversationId, new Date()))?.toISOString() ?? null)
       : null,
-    voice:
-      voice === null
-        ? null
-        : {
-            name: voice.name,
-            profile: voice.profile,
-            examples: voice.examples.length,
-            own: voice.own,
-            context: voice.context ?? null,
-            history: voice.history?.length ?? 0,
-          },
-    persona: state?.persona === "sales" || state?.persona === "natural" ? state.persona : "default",
     agentName: settings.agentName,
     available,
   };
@@ -121,22 +106,5 @@ export async function resumeChat(tx: OrgTx, access: MemberAccess, conversationId
     action: "ai.chat-resumed",
     entityType: "whatsapp_conversation",
     entityId: conversationId,
-  });
-}
-
-/** One chat's AI is a sales agent, an everyday conversation, or as the agency says; audited. */
-export async function setChatPersona(
-  tx: OrgTx,
-  access: MemberAccess,
-  input: { conversationId: string; persona: "default" | "sales" | "natural" },
-): Promise<void> {
-  const before = await chatState(tx, access.organizationId, input.conversationId);
-  await tx.aiChat.update({ where: { id: before.id }, data: { persona: input.persona } });
-  await recordAudit(tx, access, {
-    action: "ai.chat-persona-changed",
-    entityType: "whatsapp_conversation",
-    entityId: input.conversationId,
-    before: { persona: before.persona },
-    after: { persona: input.persona },
   });
 }

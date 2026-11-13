@@ -21,8 +21,6 @@ const chat: ChatAi = {
   followUpReason: null,
   attention: null,
   personPausedUntil: null,
-  voice: null,
-  persona: "default",
   agentName: "Riya",
   available: true,
 };
@@ -45,5 +43,12 @@ describe("ChatAiCard, what the AI noted", () => {
     show({});
     await screen.findByText(messages.ai.chat.answering);
     expect(screen.queryByRole("heading", { name: messages.ai.chat.noted })).not.toBeInTheDocument();
+  });
+
+  it("has no way-of-talking panel", async () => {
+    show({});
+    await screen.findByText(messages.ai.chat.answering);
+    expect(screen.queryByRole("heading", { name: /way of talking/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /export|learn/i })).not.toBeInTheDocument();
   });
 });

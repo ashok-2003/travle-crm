@@ -27,12 +27,14 @@ test("the Owner drafts a group package from the agency's documents, chooses betw
   await signInByEmail(page, agency.owner);
   await callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm", instructions: "" });
   await callApi(page, "ai.addKnowledge", { title: "Manali 5N6D", body: KNOWLEDGE });
-  const autopilot = await callApi<Record<string, unknown>>(page, "ai.autopilot", {});
-  // What was read back is what is saved again, but for the two fields the input does not take.
-  const settings = Object.fromEntries(
-    Object.entries(autopilot).filter(([name]) => name !== "learnedAt" && name !== "voice"),
+  // No screen sets strict rules any more, but drafts still read the ones an agency stored: write them as the data.
+  await inAgency(agency.organizationId, (tx) =>
+    tx.aiAutopilot.upsert({
+      where: { organizationId: agency.organizationId },
+      create: { strictRules: STRICT_RULES },
+      update: { strictRules: STRICT_RULES },
+    }),
   );
-  await callApi(page, "ai.saveAutopilot", { ...settings, strictRules: STRICT_RULES });
 
   await page.goto("/settings/ai");
   const section = page

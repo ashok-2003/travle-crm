@@ -19,12 +19,8 @@ const setup = { steps: [], ready: false, on: false, pausedBySupport: false };
 const overview = {
   chatsAnswered: 12,
   messagesSent: 30,
-  medianReplySeconds: 5,
   flagged: 2,
   bookingsRequested: 4,
-  followUpsPlanned: 1,
-  learnings: 0,
-  model: null,
 };
 const handed = [
   { conversationId, name: "Meera Rao", reason: "Asked for a discount", since: "2026-11-11T05:00:00.000Z" },

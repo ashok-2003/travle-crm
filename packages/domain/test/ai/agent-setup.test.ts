@@ -8,9 +8,9 @@ import {
   handedOverChatsOf,
   saveAgencyAnswers,
   saveAgentBasics,
-  saveAutopilot,
   setAgentOn,
 } from "../../src/ai/index.js";
+import { storeAutopilot } from "./support/store-autopilot.js";
 import { parseCalendarDate } from "../../src/kernel/index.js";
 import { aLead, aPerson } from "../crm/support/records.js";
 import { anAgency, memberOf } from "../imports/support/test-imports.js";
@@ -198,13 +198,8 @@ describe("the AI agent's setup", () => {
   it("turning on leaves every other autopilot column as it was", async () => {
     const on = await agency();
     await everythingDone(on);
-    await on.inOrg(async (tx) =>
-      saveAutopilot(
-        tx,
-        on.owner,
-        { ...(await autopilotOf(tx)), strictRules: "No discounts.", maxRepliesPerDay: 7 },
-        today,
-      ),
+    await on.inOrg((tx) =>
+      storeAutopilot(tx, on.owner.organizationId, { strictRules: "No discounts.", maxRepliesPerDay: 7 }),
     );
     const before = await on.inOrg((tx) => autopilotOf(tx));
     await on.inOrg((tx) => setAgentOn(tx, on.owner, true, today));

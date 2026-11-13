@@ -1,8 +1,7 @@
 // The autopilot (AI step 2) obeys the agency and the customer: off by default; no AI for an agency whose plan lacks it or
 // whose subscription is read-only, suspended or cancelled; STOP wins in every chat, one with no person linked too; only
 // inside the 24-hour window; never past the shared monthly limit; never while a person answers; every message it sends is
-// marked as the AI's and audited; a customer's erasure takes its memory of them and the lessons; the style it copies is
-// read from one person's own messages alone.
+// marked as the AI's and audited; a customer's erasure takes its memory of them and the lessons.
 import { randomUUID } from "node:crypto";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
@@ -10,17 +9,14 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   AI_TOKEN_PREFIX,
   MONTHLY_AI_LIMIT,
-  learnChatVoice,
   learnFromChats,
-  learnVoice,
   testAnswer,
   runAgentTurn,
   saveAiSettings,
-  autopilotSettingsOf,
-  saveAutopilot,
 } from "../../src/ai/index.js";
+import { storeAutopilot } from "./support/store-autopilot.js";
 import { monthStartOf } from "../../src/inbox/index.js";
-import { formatRupees, parseCalendarDate, systemActor } from "../../src/kernel/index.js";
+import { formatRupees, systemActor } from "../../src/kernel/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -55,7 +51,6 @@ const reply = (text = "Manali 5N/6D is Rs 18,500 per person. How many are travel
     followUp: { needed: true, inHours: 3, why: "Waiting for the count" },
   });
 const turnAt = new Date(testNow.getTime() + 60_000);
-const today = parseCalendarDate("2026-11-10");
 const day = (text: string) => new Date(`${text}T00:00:00Z`);
 
 describe("the autopilot", () => {
@@ -114,7 +109,7 @@ describe("the autopilot", () => {
       strictRules: "",
       followUpTasks: true,
     };
-    await inOrg((tx) => saveAutopilot(tx, owner, settings, today));
+    await inOrg((tx) => storeAutopilot(tx, owner.organizationId, settings));
     const model = createMemoryAiModel();
     const turn = (status: Entitlements["status"] = "active", modules?: string[], at = turnAt) =>
       runAgentTurn(
@@ -177,50 +172,6 @@ describe("the autopilot", () => {
       });
     });
   }
-
-  it("turning grounded on needs a sellable package", async () => {
-    const on = await agency();
-    const turnOn = () => on.inOrg((tx) => saveAutopilot(tx, on.owner, { ...on.settings, grounded: true }, today));
-    const reason = await turnOn().then(
-      () => null,
-      (error: unknown) => (error as { reason?: string }).reason ?? "other",
-    );
-    expect(reason).toBe("NO_SELLABLE_PACKAGES");
-    expect((await on.inOrg((tx) => tx.aiAutopilot.findFirstOrThrow())).grounded).toBe(false);
-    // A sellable package with no destination is one the agent can't see: it doesn't count.
-    await aSellablePackage(on, { destination: false });
-    const unseen = await turnOn().then(
-      () => null,
-      (error: unknown) => (error as { reason?: string }).reason ?? "other",
-    );
-    expect(unseen).toBe("NO_SELLABLE_PACKAGES");
-    await aSellablePackage(on);
-    expect((await turnOn()).grounded).toBe(true);
-    const entries = await on.inOrg((tx) => tx.auditEntry.findMany({ where: { action: "ai-autopilot.changed" } }));
-    expect(entries.at(-1)?.after).toMatchObject({ grounded: true });
-    expect(entries.at(-1)?.before).toMatchObject({ grounded: false });
-    // Turning it off always works, even with no package left to sell.
-    await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { aiSellable: false } }));
-    expect(
-      (await on.inOrg((tx) => saveAutopilot(tx, on.owner, { ...on.settings, grounded: false }, today))).grounded,
-    ).toBe(false);
-  });
-
-  it("a save without grounded keeps it, and saving other settings never needs a package once it is on", async () => {
-    const on = await agency();
-    await aSellablePackage(on);
-    const withoutGrounded: Parameters<typeof saveAutopilot>[2] = { ...on.settings };
-    delete withoutGrounded.grounded;
-    const save = (input: Parameters<typeof saveAutopilot>[2]) =>
-      on.inOrg((tx) => saveAutopilot(tx, on.owner, input, today));
-    expect((await save(withoutGrounded)).grounded).toBe(false);
-    await save({ ...on.settings, grounded: true });
-    expect((await save(withoutGrounded)).grounded).toBe(true);
-    // The last sellable package goes away: other changes still save while it stays on.
-    await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { aiSellable: false } }));
-    expect((await save({ ...on.settings, grounded: true, agentName: "Asha" })).agentName).toBe("Asha");
-    expect((await save({ ...withoutGrounded, agentName: "Meera" })).grounded).toBe(true);
-  });
 
   it("a lesson keeps no amount or date", async () => {
     const lessons = async (grounded: boolean) => {
@@ -384,62 +335,6 @@ describe("the autopilot", () => {
     expect(await on.inOrg((tx) => tx.aiLearning.count())).toBe(0);
   });
 
-  it("learns a way of talking from one person's own messages alone, and keeps no customer's words", async () => {
-    const on = await agency({ autopilot: true });
-    const own = ["hn bhai ho jayega", "kal bhej dunga", "ok done", "theek hai ji", "thnx bro"];
-    on.model.answer(
-      JSON.stringify({ profile: "Short Hinglish, no full stops.", examples: ["hn bhai ho jayega", "made up"] }),
-    );
-    const voice = await learnVoice(
-      { db: test.db, ai: on.model },
-      { ...on.owner },
-      { personName: "Asha", ownMessages: own },
-      turnAt,
-    );
-    expect(voice).toEqual({ name: "Asha", profile: "Short Hinglish, no full stops.", examples: 1 });
-    const sent = JSON.stringify(on.model.requests[0]?.messages);
-    for (const line of own) expect(sent).toContain(line);
-    expect(sent).not.toContain("Them");
-    const row = await on.inOrg((tx) => tx.aiAutopilot.findFirstOrThrow());
-    expect(row).toMatchObject({ voiceName: "Asha", voiceExamples: ["hn bhai ho jayega"] });
-  });
-
-  it("copies one chat's own way of talking, with what the two said before, over the agency's, and asks nothing else of it", async () => {
-    const on = await agency({ autopilot: true });
-    on.model.answer(
-      JSON.stringify({
-        profile: "Short Hinglish, no full stops.",
-        examples: ["hn bhai ho jayega"],
-        context: "Rahul is planning Kerala with his family for December.",
-      }),
-    );
-    const messages = [
-      { own: false, text: "Bhai Kerala ka plan hai December mein" },
-      { own: true, text: "hn bhai ho jayega" },
-      { own: true, text: "kal bhej dunga" },
-      { own: true, text: "ok done" },
-      { own: true, text: "theek hai ji" },
-      { own: true, text: "thnx bro" },
-    ];
-    const voice = await learnChatVoice(
-      { db: test.db, ai: on.model },
-      on.owner,
-      { conversationId: on.chat.id, personName: "Asha", messages },
-      turnAt,
-    );
-    expect(voice).toEqual({ name: "Asha", profile: "Short Hinglish, no full stops.", examples: 1 });
-    on.model.answer(reply());
-    expect(await on.turn()).toBe("replied");
-    const prompt =
-      on.model.requests
-        .at(-1)
-        ?.messages.map((message) => message.content)
-        .join("\n") ?? "";
-    expect(prompt).toContain("Short Hinglish, no full stops.");
-    expect(prompt).toContain("Rahul is planning Kerala with his family");
-    expect(prompt).toContain("Them: Bhai Kerala ka plan hai December mein");
-  });
-
   describe("the test box of an agency answering from its packages (M4)", () => {
     const groundedRead = JSON.stringify({
       places: [{ destination: "D1", words: "Spiti", evidence: "Spiti" }],
@@ -472,7 +367,9 @@ describe("the autopilot", () => {
     async function switched() {
       const on = await agency({ autopilot: true });
       await aSellablePackage(on);
-      await on.inOrg((tx) => saveAutopilot(tx, on.owner, { ...on.settings, autopilot: true, grounded: true }, today));
+      await on.inOrg((tx) =>
+        storeAutopilot(tx, on.owner.organizationId, { ...on.settings, autopilot: true, grounded: true }),
+      );
       const ask = () =>
         testAnswer(
           { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
@@ -531,61 +428,5 @@ describe("the autopilot", () => {
     expect(JSON.stringify(on.model.requests[0]?.messages)).toContain("Kerala 5 nights is Rs 18,500.");
     expect(await on.inOrg((tx) => tx.whatsappMessage.count({ where: { direction: "out" } }))).toBe(0);
     expect((await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(1);
-  });
-
-  it("tells the agency when support has paused the agent, for its own pause and for the every-agency one", async () => {
-    const on = await agency();
-    const read = () => on.inOrg((tx) => autopilotSettingsOf(tx, on.organizationId));
-    expect((await read()).pausedBySupport).toBe(false);
-    await platformDb.transaction(async (tx) => {
-      const plan = await tx.plan.create({
-        data: {
-          key: `plan-${randomUUID().slice(0, 8)}`,
-          name: "Starter",
-          monthlyPricePaise: 250_000,
-          seatLimit: 5,
-          whatsappNumberLimit: 1,
-          storageLimitBytes: 5_000_000_000n,
-          modules: ["crm", "inbox", "ai"],
-        },
-      });
-      await tx.subscription.create({
-        data: {
-          organizationId: on.organizationId,
-          planId: plan.id,
-          billingCycle: "monthly",
-          status: "trial",
-          statusChangedAt: testNow,
-          trialEndsOn: new Date("2099-01-01"),
-        },
-      });
-    });
-    expect((await read()).pausedBySupport).toBe(false);
-    await platformDb.transaction((tx) =>
-      tx.subscription.update({
-        where: { organizationId: on.organizationId },
-        data: { aiAgentPausedAt: new Date(), aiAgentPausedBy: randomUUID() },
-      }),
-    );
-    expect((await read()).pausedBySupport).toBe(true);
-    await platformDb.transaction((tx) =>
-      tx.subscription.update({
-        where: { organizationId: on.organizationId },
-        data: { aiAgentPausedAt: null, aiAgentPausedBy: null },
-      }),
-    );
-    // The every-agency pause is set inside a transaction that is rolled back: other test files read the same row.
-    const rollback = new Error("roll back");
-    await expect(
-      platformDb.transaction(async (tx) => {
-        await tx.subscriptionPolicy.update({
-          where: { id: true },
-          data: { aiAgentPausedAt: new Date(), aiAgentPausedBy: randomUUID() },
-        });
-        expect((await autopilotSettingsOf(tx, on.organizationId)).pausedBySupport).toBe(true);
-        throw rollback;
-      }),
-    ).rejects.toBe(rollback);
-    expect((await read()).pausedBySupport).toBe(false);
   });
 });

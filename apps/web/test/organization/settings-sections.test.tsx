@@ -7,10 +7,12 @@ import { messages } from "@/i18n/messages";
 import { routes } from "@/lib/routes";
 import { SettingsSections } from "@/organization/settings/settings-sections";
 import { member } from "../support/members";
+import { newQueryClient, paidSubscription, renderWithApi } from "./api";
 import { renderAs } from "./render";
 
 const { sections } = messages.settings;
 
+const aiPlan = () => newQueryClient({ ...paidSubscription, modules: ["ai"] as never });
 const links = () => screen.queryAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")]);
 
 describe("SettingsSections", () => {
@@ -41,6 +43,19 @@ describe("SettingsSections", () => {
 
   it("shows nothing at all to a role that may use none of them", () => {
     const { container } = renderAs(<SettingsSections />, member({ permissions: ["leads:view"] }));
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("leads to the AI switches and to the AI agent page, only for a role holding ai:manage", () => {
+    renderWithApi(<SettingsSections />, aiPlan(), member({ permissions: ["ai:manage"] }));
+    expect(links()).toEqual([
+      [expect.stringContaining(sections.ai), routes.aiSettings],
+      [expect.stringContaining(sections.aiAgent), routes.aiAgent],
+    ]);
+  });
+
+  it("hides both AI entries from a role without ai:manage", () => {
+    const { container } = renderWithApi(<SettingsSections />, aiPlan(), member({ permissions: ["ai:suggest"] }));
     expect(container).toBeEmptyDOMElement();
   });
 });

@@ -50,37 +50,11 @@ export const autopilotFields = {
   /** It adds follow-ups to leads from its chats, and writes to each lead whose follow-up comes due, inside the window. */
   followUpTasks: z.boolean(),
 };
-// `grounded` may be left out (an older cached screen): the stored value is kept, as with `customTrips`.
-export const saveAutopilotInput = z.strictObject({ ...autopilotFields, grounded: autopilotFields.grounded.optional() });
-export type SaveAutopilotInput = z.infer<typeof saveAutopilotInput>;
-
-/** A way of talking it copies: whose, the style guide written of it, and how many of their messages it keeps. */
-export const aiVoice = z.object({ name: z.string(), profile: z.string(), examples: z.int() });
-export type AiVoice = z.infer<typeof aiVoice>;
-
-export const autopilotSettings = z.object({
-  ...autopilotFields,
-  agentName: z.string(),
-  languageOther: z.string(),
-  paymentDetails: z.string(),
-  strictRules: z.string(),
-  /** When it last learned from the chats. */
-  learnedAt: z.iso.datetime().nullable(),
-  /** The person whose way of talking it copies in every chat, if one was given. */
-  voice: aiVoice.nullable(),
-  /** Whether support has paused the agent, for this agency or for every agency: the screen says so. */
-  pausedBySupport: z.boolean(),
-});
-export type AutopilotSettings = z.infer<typeof autopilotSettings>;
 
 export const aiChatModes = ["default", "on", "off"] as const;
 export const aiChatMode = z.enum(aiChatModes);
 export const conversationAiInput = z.strictObject({ conversationId: recordId });
 export const setChatAiInput = z.strictObject({ conversationId: recordId, mode: aiChatMode });
-export const setChatPersonaInput = z.strictObject({
-  conversationId: recordId,
-  persona: z.enum(["default", ...aiPersonas]),
-});
 
 /** A chat as the inbox shows the AI in it. */
 export const chatAi = z.object({
@@ -101,9 +75,6 @@ export const chatAi = z.object({
   attention: z.string().nullable(),
   /** Until when it waits because someone on the team wrote in the chat; null when it isn't waiting. */
   personPausedUntil: z.iso.datetime().nullable(),
-  /** The way of talking it copies here: this chat's own (with what the two talked about), else the agency's. */
-  voice: aiVoice.extend({ own: z.boolean(), context: z.string().nullable(), history: z.int() }).nullable(),
-  persona: z.enum(["default", ...aiPersonas]),
   /** The name it writes as ("Riya"), else empty. */
   agentName: z.string(),
   /** Whether this server has an AI key, and the agency may use the AI at all (plan, subscription, its own switch). */
@@ -165,22 +136,6 @@ export const agentAnswer = z.object({
 export type AgentAnswer = z.infer<typeof agentAnswer>;
 
 export const aiLearningKinds = ["need", "winning", "objection", "style", "faq"] as const;
-export const aiLearning = z.object({
-  id: recordId,
-  kind: z.enum(aiLearningKinds),
-  text: z.string(),
-  evidence: z.int(),
-  state: z.enum(["active", "off"]),
-  updatedAt: z.iso.datetime(),
-});
-export type AiLearning = z.infer<typeof aiLearning>;
-export const aiLearningList = z.array(aiLearning);
-export const setAiLearningInput = z.strictObject({
-  learningId: recordId,
-  state: z.enum(["active", "off", "dismissed"]),
-});
-export const aiLearnResult = z.object({ added: z.int(), updated: z.int() });
-
 /** What the lesson-maker must answer (JSON): lessons, each new or refining one it was shown by its id. */
 export const learnAnswer = z.object({
   learnings: z
@@ -195,38 +150,6 @@ export const learnAnswer = z.object({
     .max(25)
     .catch([]),
 });
-
-/** Characters of one person's messages sent to learn their way of talking, at most. */
-export const MAX_VOICE_SAMPLE_CHARACTERS = 40_000;
-/**
- * Learn one staff member's way of talking from THEIR OWN WhatsApp messages (read from a chat export in the browser, which
- * drops everything the other side wrote before sending): for the whole agency.
- */
-export const learnVoiceInput = z.strictObject({
-  personName: text(80).min(1),
-  ownMessages: z
-    .array(z.string().trim().min(1).max(1000))
-    .min(5, "At least 5 of their messages")
-    .max(1500)
-    .refine((all) => all.reduce((sum, one) => sum + one.length, 0) <= MAX_VOICE_SAMPLE_CHARACTERS),
-});
-export type LearnVoiceInput = z.infer<typeof learnVoiceInput>;
-/**
- * Learn the way of talking in ONE chat from an imported WhatsApp export of it (the owner, 2026-10-29: Ayush's per-chat voice):
- * the chat in order, both sides, `own` marking the chosen person's messages. It sends what the other side wrote too, so the AI
- * knows what the two talked about; the agency-wide style (learnVoiceInput) never does.
- */
-export const learnChatVoiceInput = z.strictObject({
-  conversationId: recordId,
-  personName: text(80).min(1),
-  messages: z
-    .array(z.strictObject({ own: z.boolean(), text: z.string().trim().min(1).max(1000) }))
-    .max(1500)
-    .refine((all) => all.filter((one) => one.own).length >= 5, { message: "At least 5 of their messages" })
-    .refine((all) => all.reduce((sum, one) => sum + one.text.length, 0) <= MAX_VOICE_SAMPLE_CHARACTERS),
-});
-export type LearnChatVoiceInput = z.infer<typeof learnChatVoiceInput>;
-export const clearChatVoiceInput = z.strictObject({ conversationId: recordId });
 
 /** What the style-reader must answer (JSON); the context only for a chat's export. */
 export const voiceAnswer = z.object({
@@ -257,15 +180,9 @@ export type TestAiAnswer = z.infer<typeof testAiAnswer>;
 export const aiOverview = z.object({
   chatsAnswered: z.int(),
   messagesSent: z.int(),
-  /** Middle time from a customer's message to the AI's answer, in seconds; null with none. */
-  medianReplySeconds: z.int().nullable(),
   /** Chats in the last 24 hours handed over, told to the team, or whose lead the AI suggested Lost or Not a lead; each once. */
   flagged: z.int(),
   /** Bookings the AI took in the last 24 hours. */
   bookingsRequested: z.int(),
-  followUpsPlanned: z.int(),
-  learnings: z.int(),
-  /** The model that last answered for the agency (a draft or a score), else null. */
-  model: z.string().nullable(),
 });
 export type AiOverview = z.infer<typeof aiOverview>;

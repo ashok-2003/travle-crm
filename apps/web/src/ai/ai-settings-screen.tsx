@@ -1,15 +1,14 @@
 "use client";
 
-// /settings/ai: the agent's head (its name, whether it is live, the model, its last day), the agency's own switches for the
-// AI and for scoring leads, and what it tells its AI (its tone, what to offer, what never to say, with ready lines to add).
-// Off until an Owner or Admin turns it on. What the AI reads, and what it never does, are said here in plain words.
+// /settings/ai: the agency's own switches for the AI, for scoring leads and for filling them, how quote write-ups sound,
+// what it tells its AI (with ready lines to add), the documents package drafts are written from, and a way to the AI agent
+// page, where the agent that answers WhatsApp is set up. Off until an Owner or Admin turns it on.
 import { AI_INSTRUCTIONS_MAX, writeStyles, type AiSettings, type WriteStyle } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
-import { InfoHint } from "@/components/info-hint";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -24,17 +23,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TextLink } from "@/components/text-link";
 import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
-import { AiHero } from "./ai-hero";
-import { AmountsAlert } from "./amounts-alert";
-import { AutopilotSection } from "./autopilot-section";
 import { InstructionLines } from "./instruction-lines";
 import { DraftPackagesSection } from "./drafts/draft-packages-section";
 import { KnowledgeSection } from "./knowledge-section";
-import { LearningsSection } from "./learnings-section";
-import { MediaSection } from "./media-section";
-import { useAiSettings, useAutopilot, useSaveAiSettings } from "./use-ai";
-import { TestSection } from "./test-section";
-import { VoiceSection } from "./voice-section";
+import { useAiSettings, useSaveAiSettings } from "./use-ai";
 
 export function SettingsForm({ saved }: { saved: AiSettings }) {
   const t = useTranslations("ai.settings");
@@ -43,7 +35,6 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
   const [enabled, setEnabled] = useState(saved.enabled);
   const [scoring, setScoring] = useState(saved.scoring);
   const [fillLeads, setFillLeads] = useState(saved.fillLeads);
-  const [customTrips, setCustomTrips] = useState(saved.customTrips);
   const [writeStyle, setWriteStyle] = useState<WriteStyle>(saved.writeStyle);
   const [instructions, setInstructions] = useState(saved.instructions);
   const changed =
@@ -51,7 +42,6 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
     enabled !== saved.enabled ||
     scoring !== saved.scoring ||
     fillLeads !== saved.fillLeads ||
-    customTrips !== saved.customTrips ||
     instructions.trim() !== saved.instructions;
   return (
     <form
@@ -60,7 +50,7 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(
-          { enabled, scoring, fillLeads, customTrips, writeStyle, instructions: instructions.trim() },
+          { enabled, scoring, fillLeads, writeStyle, instructions: instructions.trim() },
           { onSuccess: () => toast.success(t("saved")) },
         );
       }}
@@ -90,16 +80,6 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
             <Label htmlFor="ai-fill-leads">{t("fillLeads")}</Label>
           </div>
           <p className="text-label text-muted-foreground">{t("fillLeadsHint")}</p>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="ai-custom-trips"
-              checked={customTrips}
-              onCheckedChange={setCustomTrips}
-              disabled={save.isPending}
-            />
-            <Label htmlFor="ai-custom-trips">{t("customTrips")}</Label>
-            <InfoHint term={t("customTrips")}>{t("customTripsInfo")}</InfoHint>
-          </div>
           <p className="text-muted-foreground">
             {t("usage", { used: saved.usedThisMonth, limit: saved.monthlyLimit })}
           </p>
@@ -152,7 +132,6 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
           <p className="text-label text-muted-foreground">
             {t("instructionsHint")} {t("instructionsCount", { count: instructions.length, max: AI_INSTRUCTIONS_MAX })}
           </p>
-          <AmountsAlert text={instructions} />
           <InstructionLines instructions={instructions} disabled={save.isPending} onChange={setInstructions} />
         </CardContent>
       </Card>
@@ -163,26 +142,6 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
       </Button>
     </form>
   );
-}
-
-function AutopilotParts({ aiOn }: { aiOn: boolean }) {
-  const autopilot = useAutopilot();
-  if (autopilot.data === undefined) return null;
-  return (
-    <>
-      <AutopilotSection key={String(autopilot.dataUpdatedAt)} saved={autopilot.data} aiOn={aiOn} />
-      <LearningsSection learnedAt={autopilot.data.learnedAt} learning={autopilot.data.learning} />
-      <VoiceSection voice={autopilot.data.voice} />
-      <TestSection />
-    </>
-  );
-}
-
-/** The agent's head: its name from the autopilot settings, live when the server and the agency have the AI on. */
-function Hero({ settings }: { settings: AiSettings }) {
-  const autopilot = useAutopilot().data;
-  if (autopilot === undefined) return null;
-  return <AiHero autopilot={autopilot} ready={settings.providerReady && settings.enabled} />;
 }
 
 export function AiSettingsScreen() {
@@ -202,12 +161,9 @@ export function AiSettingsScreen() {
       </Alert>
       {settings.data ? (
         <>
-          <Hero settings={settings.data} />
           <SettingsForm key={String(settings.dataUpdatedAt)} saved={settings.data} />
           <KnowledgeSection />
           <DraftPackagesSection />
-          <MediaSection />
-          <AutopilotParts aiOn={settings.data.enabled} />
         </>
       ) : settings.isError ? (
         <ErrorState

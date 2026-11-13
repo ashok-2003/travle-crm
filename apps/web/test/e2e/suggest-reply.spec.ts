@@ -36,7 +36,7 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
 
   // The Owner turns it on in Settings, AI, with an instruction.
   await owner.goto("/settings/ai");
-  await expect(owner.getByRole("heading", { level: 1, name: "AI sales agent" })).toBeVisible();
+  await expect(owner.getByRole("heading", { level: 1, name: "AI", exact: true })).toBeVisible();
   await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
   await owner.getByLabel("Instructions for the AI").fill("Reply warm and short. Never offer a discount.");
   await owner.getByRole("button", { name: "Save", exact: true }).click();

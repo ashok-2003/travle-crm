@@ -3,13 +3,10 @@
 // model with the lessons already kept; it answers with lessons, new or sharpened, about what customers want, what wins a
 // booking, the objections and the answers that work, how to speak, and the questions asked most. Lessons are general:
 // names, numbers and addresses are taken out of the chats before they leave, and the model is told to keep none. The
-// owner's turned-off lessons stay off. Each night for every agency that learns, and when the owner asks.
+// owner's turned-off lessons stay off. Each night for every agency that learns.
 import { learnAnswer, withoutAmountsAndDates } from "@travel-crm/contracts/ai";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
-import { recordAudit } from "../audit/index.js";
-import type { MemberAccess } from "../identity/index.js";
-import { DomainError } from "../kernel/index.js";
 import { scrubbed } from "./scrub.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { aiEnabled } from "./settings.js";
@@ -24,8 +21,6 @@ const MESSAGES_PER_CHAT = 16;
 const CHAT_CHARACTERS = 1200;
 /** Active lessons kept at most; past it the least supported are dismissed. */
 const MOST_LESSONS = 30;
-/** The owner's "Learn now" waits this long after the last time. */
-const AGAIN_AFTER_MS = 10 * 60_000;
 
 export interface LearnDependencies {
   db: Database;
@@ -219,27 +214,4 @@ export async function learnFromChats(
     await stampLearned(tx, now);
     return { added, updated };
   });
-}
-
-/** The owner's "Learn now": refused while the AI is off or it learned a moment ago; audited. */
-export async function learnNow(
-  dependencies: LearnDependencies,
-  access: MemberAccess,
-  now: Date,
-): Promise<{ added: number; updated: number }> {
-  if (!dependencies.ai.configured)
-    throw new DomainError("FEATURE_LOCKED", "AI_NOT_CONFIGURED", "The AI assistant is not set up on this platform");
-  const settings = await dependencies.db.forOrg(access.organizationId, (tx) => autopilotOf(tx));
-  if (settings.learnedAt !== null && now.getTime() - settings.learnedAt.getTime() < AGAIN_AFTER_MS)
-    throw new DomainError("CONFLICT", "AI_LEARNED_RECENTLY", "The AI learned a few minutes ago");
-  const outcome = await learnFromChats(dependencies, access.organizationId, now);
-  await dependencies.db.forOrg(access.organizationId, (tx) =>
-    recordAudit(tx, access, {
-      action: "ai.learned",
-      entityType: "ai_autopilot",
-      entityId: access.organizationId,
-      after: outcome,
-    }),
-  );
-  return outcome;
 }

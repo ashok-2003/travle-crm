@@ -83,8 +83,6 @@ export function useSaveBasics() {
     trpc.ai.saveAgentBasics.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: trpc.ai.agentBasics.queryKey() });
-        // Settings, AI shows the same on/off and basics: a stale copy there would save the old values back.
-        await queryClient.invalidateQueries({ queryKey: trpc.ai.autopilot.queryKey() });
         await refreshChecklist();
       },
     }),
@@ -117,8 +115,6 @@ export function useSetAgentOn() {
     trpc.ai.setAgentOn.mutationOptions({
       onSuccess: (setup) => {
         queryClient.setQueryData(trpc.ai.agentSetup.queryKey(), setup);
-        // Settings, AI shows the same on/off: a stale copy there would save the old one back.
-        void queryClient.invalidateQueries({ queryKey: trpc.ai.autopilot.queryKey() });
       },
     }),
   );

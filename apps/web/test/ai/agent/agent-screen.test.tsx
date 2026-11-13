@@ -22,11 +22,8 @@ beforeEach(() => {
       data: {
         chatsAnswered: 0,
         messagesSent: 0,
-        medianReplySeconds: null,
         flagged: 0,
-        followUpsPlanned: 0,
-        learnings: 0,
-        model: null,
+        bookingsRequested: 0,
       },
     },
     "paymentsToCheck.count": { data: { count: 0 } },

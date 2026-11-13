@@ -6,10 +6,11 @@ import type { OrgTx } from "@travel-crm/db";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { MONTHLY_AI_LIMIT, runAgentTurn, saveAiSettings, saveAutopilot } from "../../../src/ai/index.js";
+import { MONTHLY_AI_LIMIT, runAgentTurn, saveAiSettings } from "../../../src/ai/index.js";
+import { storeAutopilot } from "../support/store-autopilot.js";
 import { saveFacts } from "../../../src/ai/grounded/facts.js";
 import { monthStartOf } from "../../../src/inbox/index.js";
-import { formatRupees, parseCalendarDate, systemActor } from "../../../src/kernel/index.js";
+import { formatRupees, systemActor } from "../../../src/kernel/index.js";
 import { saveOrganizationProfile } from "../../../src/profile/index.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
 import { aLead } from "../../crm/support/records.js";
@@ -128,32 +129,27 @@ describe("the grounded turn", () => {
         { enabled: true, scoring: true, instructions: "" },
         { providerReady: true, now: testNow },
       );
-      await saveAutopilot(
-        tx,
-        owner,
-        {
-          autopilot: true,
-          grounded: false,
-          agentName: "Riya",
-          followUpHours: 4,
-          maxRepliesPerDay: 25,
-          language: "customer",
-          languageOther: "",
-          style: "human",
-          emojis: "few",
-          tone: "friendly",
-          handoff: "alert",
-          smartFollowUp: true,
-          learning: false,
-          persona: "sales",
-          leadNotes: true,
-          sendMedia: true,
-          paymentDetails: "",
-          strictRules: "",
-          followUpTasks: true,
-        },
-        parseCalendarDate("2026-11-10"),
-      );
+      await storeAutopilot(tx, owner.organizationId, {
+        autopilot: true,
+        grounded: false,
+        agentName: "Riya",
+        followUpHours: 4,
+        maxRepliesPerDay: 25,
+        language: "customer",
+        languageOther: "",
+        style: "human",
+        emojis: "few",
+        tone: "friendly",
+        handoff: "alert",
+        smartFollowUp: true,
+        learning: false,
+        persona: "sales",
+        leadNotes: true,
+        sendMedia: true,
+        paymentDetails: "",
+        strictRules: "",
+        followUpTasks: true,
+      });
       await tx.aiAutopilot.updateMany({ data: { grounded } });
       // The AI sells a group package only where the agency has somewhere to be paid.
       if (paidBy === "upi") {

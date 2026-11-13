@@ -129,10 +129,6 @@ describe("the switch that turns the agent on", () => {
     await waitFor(() => {
       expect(screen.getByRole("switch", { name: t.turnOn.title })).toBeChecked();
     });
-    // Settings, AI shows the same on/off: its copy is marked stale, so it never saves the old value back.
-    expect(
-      api.invalidated.mock.calls.some(([filters]) => JSON.stringify(filters?.queryKey).includes('"autopilot"')),
-    ).toBe(true);
   });
 
   it("shows a refusal", async () => {
