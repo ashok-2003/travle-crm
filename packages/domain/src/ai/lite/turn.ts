@@ -120,6 +120,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if (words !== null) {
     trace.write = { blocks: words.blocks, raw: words.written.raw };
     trace.checks.push(...writeChecks(words.written));
+    // A turn that skipped Understand names the messages Write read.
+    if (checked === null) trace.messageIds = words.messageIds;
   }
   const code = codeWordsOf(decision, situation, decision.facts.language, agencyName, prepared.today);
   const acting = actingOn(decision, code, words?.written ?? null);

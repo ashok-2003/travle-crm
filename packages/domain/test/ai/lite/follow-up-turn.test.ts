@@ -95,6 +95,8 @@ describe("the lite agent's follow-ups", () => {
     expect(traces[0]?.understand).toBeNull();
     expect(traces[0]?.lookups).toEqual([]);
     expect(traces[0]?.sent.text).toBe(followUp1);
+    // With no Understand, the trace names the chat's messages its line was written from: the customer's and our reply.
+    expect(traces[0]?.messageIds).toEqual([on.message.id, sent[0]?.id]);
     // Only the Write call: no Understand, and the move asks for the trip again.
     expect(on.model.requests.map((request) => request.schema?.name)).toEqual([
       "understand_form",

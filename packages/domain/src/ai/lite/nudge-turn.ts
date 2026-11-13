@@ -36,6 +36,7 @@ export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput,
   // Every follow-up has a line to write; none here is a bug, and nothing goes.
   if (words === null) return end("nothing");
   trace.write = { blocks: words.blocks, raw: words.written.raw };
+  trace.messageIds = words.messageIds;
   trace.checks.push(...writeChecks(words.written));
   const line = words.written;
   if (line.kind === "ended") return end(line.outcome);
