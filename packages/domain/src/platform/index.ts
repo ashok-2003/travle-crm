@@ -18,6 +18,7 @@ export {
   SWEEP_AI_TRACES_QUEUE,
   sweepAiTraces,
 } from "./ai-traces-sweep.js";
+export { getAiPromptLibrary, type AiPromptLibrary } from "./ai-prompts.js";
 export { aiInputsSweepSchedule, SWEEP_AI_INPUTS_QUEUE, sweepAiInputs } from "./ai-inputs-sweep.js";
 export { SWEEP_SHEETS_QUEUE, sheetsSweepSchedule, sweepSheetsNow } from "./sheets-sweep.js";
 export {
