@@ -129,8 +129,20 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   return end(move.kind === "silent" ? "silent" : "replied");
 }
 
-function decideBase(
-  prepared: LitePrepared,
+export function decideBase(
+  prepared: Pick<
+    LitePrepared,
+    | "burst"
+    | "facts"
+    | "index"
+    | "adPackageId"
+    | "openBooking"
+    | "hasBooking"
+    | "mayBePayment"
+    | "nameUsable"
+    | "leadStage"
+    | "places"
+  >,
   input: LiteTurnInput,
   checked: CheckedForm | null,
   facts: LitePrepared["facts"],

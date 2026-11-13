@@ -91,7 +91,7 @@ async function chatLines(tx: OrgTx, conversationId: string) {
 }
 
 /** The places the reply check knows (the agency's destinations and India's travel places), and those it doesn't sell. */
-async function placesOf(tx: OrgTx, index: PackageIndexEntry[]): Promise<DecideInput["places"]> {
+export async function placesOf(tx: OrgTx, index: PackageIndexEntry[]): Promise<DecideInput["places"]> {
   const destinations = await tx.destination.findMany({ select: { id: true, name: true } });
   const sold = new Set(index.map((entry) => entry.destinationId));
   return {

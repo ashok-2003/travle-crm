@@ -15,6 +15,7 @@ import { activeLessons } from "./learning-store.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "./usage.js";
 import { agencyVoiceOf } from "./voice.js";
 import { groundedDryRun } from "./grounded/dry-run.js";
+import { liteDryRun } from "./lite/dry-run.js";
 
 /** The reply as the customer would read it: the agency's payment details under it when the AI sends them. */
 const withPaymentDetails = (reply: string, answer: AgentAnswer | null, settings: AutopilotRow) =>
@@ -31,10 +32,10 @@ export async function testAnswer(
   const { db, ai } = dependencies;
   if (!ai.configured)
     throw new DomainError("FEATURE_LOCKED", "AI_NOT_CONFIGURED", "The AI assistant is not set up on this platform");
-  // An agency answering from its packages tests the agent its customers get.
-  if (await db.forOrg(access.organizationId, async (tx) => (await autopilotOf(tx)).grounded)) {
-    return groundedDryRun(dependencies, access, question, now);
-  }
+  // An agency answering from its packages tests the agent its customers get: the lite agent wins over the grounded one.
+  const { lite, grounded } = await db.forOrg(access.organizationId, autopilotOf);
+  if (lite) return liteDryRun(dependencies, access, question, now);
+  if (grounded) return groundedDryRun(dependencies, access, question, now);
   const agency = await dependencies.agencyName(access.organizationId);
   const prepared = await db.forOrg(access.organizationId, async (tx) => {
     const timeZone = await organizationTimeZone(tx, access.organizationId);

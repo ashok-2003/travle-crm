@@ -54,7 +54,7 @@ const shownBy = (move: Move, index: readonly PackageIndexEntry[]): PackageIndexE
 export async function written(
   ai: AiModel,
   environment: CallEnvironment,
-  prepared: LitePrepared,
+  prepared: Pick<LitePrepared, "basics" | "index" | "today" | "answers" | "messages" | "timeZone" | "places" | "sent">,
   step: { decision: Decision; situation: Situation; agencyName: string; summary: string },
 ): Promise<{ written: LiteWritten; blocks: Record<string, string> } | null> {
   const { decision, situation, agencyName } = step;
