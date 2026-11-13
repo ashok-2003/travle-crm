@@ -82,3 +82,5 @@ export {
   type CaseCheck,
   type CaseResult,
 } from "./grounded/evaluate.js";
+export { TRACE_DAYS, traceKey, traceFileOf, readTraceFile, type TraceFile } from "./traces/trace-file.js";
+export { createTraceSink } from "./traces/trace-sink.js";

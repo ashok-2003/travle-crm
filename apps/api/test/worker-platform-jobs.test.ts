@@ -1,6 +1,7 @@
 // The worker's job for onboarding: it emails the invite the console's onboarding asked for, whose link lets the new
 // Owner choose a password and sign in (spec 7.1), and runs no subscription job (the console process records the
 // lifecycle, as the platform role: console-jobs.test.ts). In-memory runner and email.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import type { OnboardOrganizationInput } from "@travel-crm/contracts/platform";
 import { startWorker } from "@travel-crm/domain/jobs";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
@@ -38,6 +39,7 @@ describe("the worker's invite job", () => {
       db: server.db,
       identity: server.identity,
       files: server.files,
+      storage: createMemoryStorage(),
       spreadsheets: server.spreadsheets,
       subscriptions: server.subscriptions,
       seatLimit: server.seatLimit,

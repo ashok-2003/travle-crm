@@ -6,6 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { promptVersions } from "../../../src/ai/lite/prompts/library.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
+import { createTraceSink } from "../../../src/ai/traces/trace-sink.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency } from "./support/lite-agency.js";
@@ -314,5 +317,17 @@ describe("the lite agent's turn", () => {
     const broken = { record: () => Promise.reject(new TypeError("down")) };
     expect(await on.turn(undefined, { traces: broken })).toBe("replied");
     expect(on.logger.entries.some((entry) => entry.event === "ai.trace-failed")).toBe(true);
+  });
+
+  it("a worker-built turn writes its trace", async () => {
+    const on = await liteAgency(test);
+    const storage = createMemoryStorage();
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    const traces = createTraceSink({ db: test.db, storage, logger: createMemoryLogger() });
+    expect(await on.turn(undefined, { traces })).toBe("replied");
+    const rows = await on.inOrg((tx) => tx.aiTurnTrace.findMany({ where: { conversationId: on.chat.id } }));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ outcome: "replied", move: "greet", kind: "reply" });
+    expect(await storage.head(rows[0]?.fileKey ?? "")).not.toBeNull();
   });
 });

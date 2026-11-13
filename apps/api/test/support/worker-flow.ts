@@ -6,7 +6,7 @@ import { createRateLimiter } from "@travel-crm/domain/rate-limits";
 import { createMemoryEmailSender, type MemoryEmailSender } from "@travel-crm/integrations/email";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import { createMemoryPushSender } from "@travel-crm/integrations/push";
-import { createS3Storage } from "@travel-crm/integrations/storage";
+import { createMemoryStorage, createS3Storage } from "@travel-crm/integrations/storage";
 import { randomBytes } from "node:crypto";
 import { inject } from "vitest";
 import { problemLogger } from "./problem-logger.js";
@@ -96,6 +96,7 @@ export async function startWorkerFlow(
     db: server.db,
     identity: server.identity,
     files: server.files,
+    storage: createMemoryStorage(),
     spreadsheets: server.spreadsheets,
     subscriptions: server.subscriptions,
     seatLimit: server.seatLimit,

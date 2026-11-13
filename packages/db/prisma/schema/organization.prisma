@@ -119,6 +119,7 @@ model Organization {
   aiSettings                  AiSettings?
   aiAutopilot                 AiAutopilot?
   aiChats                     AiChat[]
+  aiTurnTraces                AiTurnTrace[]
   aiLearnings                 AiLearning[]
   aiMedia                     AiMedia[]
   aiBookings                  AiBooking[]

@@ -174,4 +174,36 @@ export const fixtures: OrgTableFixtures = {
     },
     undeletable: true,
   },
+  ai_turn_trace: {
+    create: async (tx: OrgTx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: digits(),
+          displayNumber: "+910000000000",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const conversation = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+91${digits().slice(2)}` },
+      });
+      const id = randomUUID();
+      return tx.aiTurnTrace.create({
+        data: {
+          id,
+          conversationId: conversation.id,
+          startedAt: new Date(),
+          kind: "reply",
+          outcome: "replied",
+          inputTokens: 0,
+          outputTokens: 0,
+          durationMs: 0,
+          promptVersions: {},
+          fileKey: `isolation/${id}.json.gz`,
+          expiresAt: new Date(),
+        },
+      });
+    },
+    appendOnly: true,
+  },
 };

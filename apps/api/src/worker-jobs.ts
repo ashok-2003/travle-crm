@@ -96,6 +96,7 @@ import {
   runAiNudges,
   scoreHandler,
   scoreOnCustomerWroteListener,
+  createTraceSink,
 } from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
@@ -119,6 +120,7 @@ import { metaProcessDependencies, type MetaServices } from "./meta-services.js";
 import { inboxDependenciesOf, type WhatsAppServices } from "./whatsapp-services.js";
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { documentText, type AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
@@ -158,6 +160,8 @@ export interface WorkerJobDependencies {
     | "staff"
   >;
   files: Files;
+  /** Where the lite agent keeps the trace file of each turn. */
+  storage: ObjectStorage;
   /** Reads an import's file and writes an export's (ADR 0030). */
   spreadsheets: Spreadsheets;
   /** Whether an organization may still change things, for an import's add acting for its importer (B31). */
@@ -197,7 +201,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   const { db, identity, files, spreadsheets, subscriptions, seatLimit, email, push, appUrl } = dependencies;
   // Who the slow-reply alert and the Unassigned notice go to: everyone whose role holds leads:assign (release 4).
   const leadAssigners = (organizationId: string) => identity.membersHolding(organizationId, "leads:assign");
-  const { webhookProviders, rateLimiter, logger } = dependencies;
+  const { webhookProviders, rateLimiter, logger, storage } = dependencies;
   const salesJobsTimeZone = async (organizationId: string) =>
     (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE;
   const salesJobsNames = async (organizationId: string, ownerUserId: string | null) => {
@@ -255,6 +259,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       (await identity.organizationProfile(organizationId))?.name ?? "the agency",
     files,
     managers: bookingManagers,
+    traces: createTraceSink({ db, storage, logger }),
   });
   // Bookings: the reminders now due and the claims left waiting, each minute; the finished trips, each night.
   const bookingJobs = {
