@@ -46,6 +46,7 @@ export async function settleChat(
     : {};
   const followUps = followUpPlan({
     kind: input.kind,
+    conversationId,
     move,
     stopFollowUps: decision.stopFollowUps,
     sent: done.sent,

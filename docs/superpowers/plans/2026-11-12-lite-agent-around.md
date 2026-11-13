@@ -83,8 +83,9 @@ Code map: sections 1 (`nudgeAgency`, `runAiNudges`, `planFollowUp`), 0 (item 4: 
 `followUpAt`, in this order: the target is `repliedAt + 4 h` for the first, `lastInboundAt + 20 h` for the second; the
 window's end is `lastInboundAt + WINDOW_MS - 1 h`; a target before 09:00 local moves to 09:00 that day, one at or after
 21:00 to 09:00 the next day; past the window's end it is pulled back to the window's end when that is inside waking
-hours, else to 20:59 on the last day before it that has waking hours; it is null when the result is before
-`now + 15 min`, or, for the second, before `previousAt + 1 h`.
+hours, else into the last waking hour of the last day before it that has one, on the chat's own minute from 20:00 to
+20:58 (a hash of the chat id: never all at 20:59, which the minute job could not send before 21:00); it is null when
+the result is before `now + 15 min`, or, for the second, before `previousAt + 1 h`.
 
 Planning (in `actOnMove`, replacing 3a's `followUpAt: null`): a reply turn that sent a message and is not a hand_over,
 `silent`, nor `stopFollowUps` sets `followUpsSent: 0`, `followUpAt: followUpAt({ number: 1, ... })`; any other reply
@@ -110,9 +111,9 @@ ai_chat_follow_ups_sent_range CHECK (follow_ups_sent BETWEEN 0 AND 2);`
     |---|---|---|
     | 10:00 | 14:01 | 09:00 next day |
     | 23:50 | 09:00 next day | 19:50 next day |
-    | 02:00 | 09:00 | 20:59 the same day |
+    | 02:00 | 09:00 | the chat's minute, 20:00 to 20:58, the same day |
     | 20:30 | 09:00 next day | 16:30 next day |
-    | 07:30 | 11:31 | 20:59 the same day |
+    | 07:30 | 11:31 | the chat's minute, 20:00 to 20:58, the same day |
     and "no second when it can't be an hour after the first": wrote 02:00, first went 20:30 → second null.
   - (db, the 3a fixture) "a reply plans the first follow-up": `ai_chat.followUpAt` = reply + 4 h, `followUpsSent` 0.
   - "the first goes and plans the second": `runAiNudges` at that time → one outbound `ai:nudge:<chatId>:<ms>`,
