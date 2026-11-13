@@ -61,5 +61,79 @@
     "tokens": "{input} in · {output} out",
     "duration": "{seconds} s",
     "none": "None"
+  },
+  "trace": {
+    "title": "AI turn",
+    "back": "Back to the AI's turns",
+    "logged": "Opening a turn is written in the platform log, because it holds a customer's words.",
+    "loading": "Loading the turn",
+    "loadFailed": "The turn didn't load.",
+    "notFound": "This turn isn't kept any more: a trace is kept 14 days, and goes at once when its customer is erased.",
+    "fileMissing": "This turn's file is missing or can't be read, so only its index row is shown.",
+    "thisChat": "Every turn in this chat",
+    "details": {
+      "startedAt": "Started",
+      "kind": "Turn",
+      "outcome": "Outcome",
+      "reason": "Reason",
+      "model": "Model",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "duration": "Took",
+      "prompts": "Prompt versions"
+    },
+    "promptVersion": "{name} v{used}",
+    "promptChanged": "{name} v{used}, now v{current}",
+    "promptsLink": "See the prompts as they are now",
+    "tabs": {
+      "understand": "Understand",
+      "lookups": "Lookups ({count})",
+      "decision": "Decision",
+      "write": "Write",
+      "sent": "Checks and sent"
+    },
+    "noUnderstand": "This turn didn't call Understand.",
+    "messages": "Messages",
+    "messagesIntro": "The messages Understand read, as the chat keeps them now.",
+    "messagesGone": "{count, plural, one {# message is} other {# messages are}} no longer kept.",
+    "from": {
+      "customer": "Customer",
+      "you": "The AI",
+      "team": "Team"
+    },
+    "noWords": "No words",
+    "answer": "The form it returned",
+    "noAnswer": "No answer came back.",
+    "noLookups": "No lookups this turn.",
+    "asked": "Asked",
+    "got": "Got",
+    "decision": {
+      "move": "Move",
+      "stage": "Sale stage",
+      "why": "Why",
+      "intents": "Intents",
+      "note": "Note on the lead",
+      "task": "Task for the owner",
+      "suggest": "Suggested"
+    },
+    "suggestion": "{kind}: {reason}",
+    "noWrite": "This turn didn't call Write.",
+    "writeMessages": "Messages: the chat's newest 6 at the time; on a reply turn, the last 6 under Understand.",
+    "answers": "What it wrote",
+    "try": "Try {number}",
+    "checks": "Checks",
+    "check": {
+      "name": "Check",
+      "result": "Result",
+      "detail": "Detail"
+    },
+    "passed": "Passed",
+    "failed": "Failed",
+    "noChecks": "No checks ran.",
+    "sentText": "What was sent",
+    "nothingSent": "Nothing was sent.",
+    "sentMessages": "Messages sent",
+    "actions": "What it did in the app",
+    "noActions": "Nothing."
   }
 }

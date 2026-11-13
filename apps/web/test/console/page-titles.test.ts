@@ -44,6 +44,11 @@ describe("console page titles", { timeout: 20_000 }, () => {
       () => import("@/app/console/organizations/[organizationId]/ai-traces/page"),
       messages.consoleAi.traces.title,
     ],
+    [
+      "an AI turn",
+      () => import("@/app/console/organizations/[organizationId]/ai-traces/[traceId]/page"),
+      messages.consoleAi.trace.title,
+    ],
     ["the log", () => import("@/app/console/log/page"), messages.consolePlatform.log.title],
     ["staff", () => import("@/app/console/staff/page"), messages.consolePlatform.staff.title],
     [

@@ -1,7 +1,7 @@
 "use client";
 
 // An organization's kept AI turns a page at a time (aiTransparency.traces), newest first; one chat's when given.
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCursorPages } from "@/data/use-cursor-pages";
 import { useConsoleTRPC, useConsoleTRPCClient } from "../data/console-trpc";
 
@@ -24,4 +24,18 @@ export function useAiTraces(organizationId: string, conversationId: string | nul
   });
   // Back to the first page, for a cursor whose turn has been deleted since.
   return { ...pages, restart: () => queryClient.resetQueries({ queryKey }) };
+}
+
+/**
+ * One turn, whole. Every fetch is an opening written in the platform log, so it is fetched once per visit: never
+ * stale, never refetched on focus or reconnect, never retried, and forgotten when the screen goes.
+ */
+export function useAiTrace(organizationId: string, traceId: string) {
+  const trpc = useConsoleTRPC();
+  return useQuery(
+    trpc.aiTransparency.trace.queryOptions(
+      { organizationId, traceId },
+      { staleTime: Infinity, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false, retry: false },
+    ),
+  );
 }
