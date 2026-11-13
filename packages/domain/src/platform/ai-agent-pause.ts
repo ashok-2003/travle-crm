@@ -127,7 +127,7 @@ export async function resumeOneAtATimeIn(
   });
   let paused = 0;
   for (const { organizationId } of pending) {
-    const { changed } = await subscriptions.setAgencyAgentPause(tx, staff, organizationId, true, now);
+    const { changed } = await pauseIfSubscribed(tx, staff, organizationId, now);
     if (!changed) continue;
     paused += 1;
     await recordPlatformAudit(tx, staff, {
@@ -141,6 +141,16 @@ export async function resumeOneAtATimeIn(
   }
   await setEveryoneAgentPause(tx, staff, false, now);
   return { paused };
+}
+
+/** An agency purged or mid-onboarding since the list was read has no agent to pause: it counts as unchanged. */
+async function pauseIfSubscribed(tx: PlatformTx, staff: PlatformActor, organizationId: string, now: Date) {
+  try {
+    return await subscriptions.setAgencyAgentPause(tx, staff, organizationId, true, now);
+  } catch (error) {
+    if (error instanceof DomainError && error.reason === "SUBSCRIPTION_NOT_FOUND") return { changed: false };
+    throw error;
+  }
 }
 
 async function everyonePause(tx: PlatformTx): Promise<Since> {
