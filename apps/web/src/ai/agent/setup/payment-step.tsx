@@ -159,12 +159,21 @@ function QrPicker({ details }: { details: PaymentDetails }) {
   );
 }
 
-function PaymentForm({ details }: { details: PaymentDetails }) {
+/**
+ * The optional extras. `save` comes from the editor above: the form is built again from the saved values (its key), and
+ * a save made in the form being replaced must still say it was saved.
+ */
+function PaymentForm({
+  details,
+  save,
+}: {
+  details: PaymentDetails;
+  save: ReturnType<typeof usePaymentDetailsChanges>["save"];
+}) {
   const t = useTranslations("aiAgent.setup.payment");
   const id = useId();
   const hintId = `${id}-write`;
   const access = useWriteAccess("change");
-  const { save } = usePaymentDetailsChanges();
   const { form, onSubmit, formProblem } = useCheckedForm<PaymentValues, SavePaymentDetailsInput, Problem>(
     valuesOf(details),
     toPaymentInput,
@@ -214,6 +223,7 @@ export function PaymentStepEditor() {
   const t = useTranslations("aiAgent.setup.payment");
   const profile = useProfile();
   const details = usePaymentDetails(profile.data !== undefined && profile.data !== null);
+  const { save } = usePaymentDetailsChanges();
   if (profile.isError) {
     return <LoadFailedAlert message={t("loadFailed")} error={profile.error} onRetry={() => void profile.refetch()} />;
   }
@@ -237,7 +247,7 @@ export function PaymentStepEditor() {
       <QrPicker details={details.data} />
       <div className="flex flex-col gap-3">
         <h4 className="font-medium">{t("extras")}</h4>
-        <PaymentForm key={JSON.stringify(valuesOf(details.data))} details={details.data} />
+        <PaymentForm key={JSON.stringify(valuesOf(details.data))} details={details.data} save={save} />
       </div>
     </div>
   );

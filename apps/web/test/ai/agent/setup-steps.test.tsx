@@ -12,6 +12,8 @@ import { heldAnswer, recordingApi, type Answer } from "./setup-api";
 vi.mock("next/navigation", () => import("../../leads/navigation"));
 const uploaded = vi.hoisted(() => vi.fn());
 vi.mock("@/files/upload", () => ({ uploadFile: uploaded }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock("sonner", () => ({ toast }));
 
 const t = messages.aiAgent.setup;
 const adId = "0199a000-0000-7000-8000-0000000000a1";
@@ -97,6 +99,24 @@ describe("the payment editor", () => {
     // The profile screen holds the same bank details: it is asked for again, so a stale form never writes them back.
     await waitFor(() => {
       expect(api.calls.filter((call) => call.path === "organization.profile.get").length).toBeGreaterThan(1);
+    });
+  });
+
+  it("says the details are saved, though the saved values rebuild the form", async () => {
+    toast.success.mockClear();
+    const saved = { ...details, upiId: "asha@okbank" };
+    const { api, edit } = open(t.steps.payment.title, {
+      "organization.profile.get": { data: { id: "p" } },
+      "organization.paymentDetails.get": { data: details },
+      "organization.paymentDetails.save": { data: saved },
+    });
+    await edit();
+    await userEvent.type(await screen.findByLabelText(t.payment.upiId), "asha@okbank");
+    // The details read after the save hold the new UPI ID, so the form is built again from them.
+    api.answer("organization.paymentDetails.get", { data: saved });
+    await userEvent.click(screen.getByRole("button", { name: t.payment.save }));
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(t.payment.saved);
     });
   });
 
