@@ -150,6 +150,8 @@ describe("the switch that turns the agent on", () => {
       [t.steps.answers.todo, "#step-answers"],
       [t.steps.basics.todo, "#step-basics"],
     ]);
+    // Each on a line of its own, a 44px touch target: never the inline link of a sentence.
+    for (const link of within(list).getAllByRole("link")) expect(link).toHaveClass("min-h-11");
   });
 
   it("sends a missing WhatsApp number and packages to their own screens", async () => {

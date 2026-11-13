@@ -35,6 +35,8 @@ describe("SellCard", () => {
       "href",
       "/ai-agent?tab=setup#step-payment",
     );
+    // Each on a line of its own, a 44px touch target: never the inline link of a sentence.
+    for (const gap of gaps) expect(screen.getByRole("link", { name: words.gaps[gap] })).toHaveClass("min-h-11");
   });
 
   it("says to add the payment QR, on the AI agent page", () => {

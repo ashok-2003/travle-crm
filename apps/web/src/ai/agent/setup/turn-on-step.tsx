@@ -73,12 +73,11 @@ export function TurnOnStep({
           <p id={headingId} className="font-semibold">
             {t(on ? "onButNotReady" : "finishFirst")}
           </p>
-          <ul className="list-disc pl-5 text-muted-foreground">
+          {/* One link a line, each a 44px touch target. */}
+          <ul className="flex flex-col">
             {missing.map((key) => (
               <li key={key}>
-                <TextLink inline href={stepPlace[key]}>
-                  {stepWords(`${key}.todo`)}
-                </TextLink>
+                <TextLink href={stepPlace[key]}>{stepWords(`${key}.todo`)}</TextLink>
               </li>
             ))}
           </ul>

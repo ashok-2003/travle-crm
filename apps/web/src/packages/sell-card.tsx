@@ -67,12 +67,11 @@ export function SellCard({ detail }: { detail: PackageDetail }) {
           <p id={needsId} className="font-semibold">
             {t(detail.sellable ? "stillNeeds" : "needs")}
           </p>
-          <ul className="list-disc pl-5 text-muted-foreground">
+          {/* One link a line, each a 44px touch target. */}
+          <ul className="flex flex-col">
             {detail.sellGaps.map((gap) => (
               <li key={gap}>
-                <TextLink inline href={gapPlace[gap]}>
-                  {t(`gaps.${gap}`)}
-                </TextLink>
+                <TextLink href={gapPlace[gap]}>{t(`gaps.${gap}`)}</TextLink>
               </li>
             ))}
           </ul>
