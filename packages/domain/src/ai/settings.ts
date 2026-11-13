@@ -1,5 +1,6 @@
-// The agency's own switch for Suggest reply and its instructions to the AI. Off until an Owner or Admin (ai:manage) turns
-// it on; every change is audited with what changed, never the instructions' words.
+// The agency's own switch for Suggest reply, the score and the other AI helpers. Off until an Owner or Admin (ai:manage)
+// turns it on; every change is audited with what changed. The instructions and custom-trips columns an earlier release
+// let it set stay stored until the contract release, read and written by nothing.
 import { aiSettings, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -11,8 +12,6 @@ const columns = {
   scoring: true,
   fillLeads: true,
   writeStyle: true,
-  customTrips: true,
-  instructions: true,
 } as const;
 
 /** Whether the agency has turned Suggest reply on. */
@@ -23,11 +22,6 @@ export async function aiEnabled(tx: OrgTx): Promise<boolean> {
 /** Whether the AI scores leads from their chats: on unless the agency turned it off. */
 export async function aiScoringOn(tx: OrgTx): Promise<boolean> {
   return (await tx.aiSettings.findFirst({ select: { scoring: true } }))?.scoring ?? true;
-}
-
-/** Whether the agency sells trips it has no package for: off unless it turned it on. */
-export async function aiCustomTripsOn(tx: OrgTx): Promise<boolean> {
-  return (await tx.aiSettings.findFirst({ select: { customTrips: true } }))?.customTrips ?? false;
 }
 
 /** Whether new WhatsApp leads are filled in from their first messages: on unless the agency turned it off. */
@@ -46,8 +40,6 @@ export async function aiSettingsOf(
     scoring: row?.scoring ?? true,
     fillLeads: row?.fillLeads ?? true,
     writeStyle: row?.writeStyle ?? "warm",
-    customTrips: row?.customTrips ?? false,
-    instructions: row?.instructions ?? "",
     providerReady: context.providerReady,
     monthlyLimit: MONTHLY_AI_LIMIT,
     usedThisMonth: await usedThisMonth(tx, context.now, timeZone),
@@ -66,8 +58,6 @@ export async function saveAiSettings(
     scoring: input.scoring,
     fillLeads: input.fillLeads ?? before?.fillLeads ?? true,
     writeStyle: input.writeStyle ?? before?.writeStyle ?? "warm",
-    customTrips: input.customTrips ?? before?.customTrips ?? false,
-    instructions: input.instructions,
     updatedBy: access.userId,
   };
   await tx.aiSettings.upsert({
@@ -84,16 +74,12 @@ export async function saveAiSettings(
       scoring: before?.scoring ?? true,
       fillLeads: before?.fillLeads ?? true,
       writeStyle: before?.writeStyle ?? "warm",
-      customTrips: before?.customTrips ?? false,
-      instructionsLength: before?.instructions.length ?? 0,
     },
     after: {
       enabled: input.enabled,
       scoring: input.scoring,
       fillLeads: data.fillLeads,
       writeStyle: data.writeStyle,
-      customTrips: data.customTrips,
-      instructionsLength: input.instructions.length,
     },
   });
   return aiSettingsOf(tx, { organizationId: access.organizationId, ...context });

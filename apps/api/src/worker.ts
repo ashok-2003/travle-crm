@@ -11,7 +11,7 @@ import { whatsappStartUpLine } from "./whatsapp-settings.js";
 import { assertServiceAccountsInPlace, sheetsStartUpLine } from "./sheets-settings.js";
 import { exitAfterLogs, startProcess, stopOnUnhandledErrors } from "./start-up.js";
 import { webhookProvidersOf } from "./webhook-providers.js";
-import { workerJobs } from "./worker-jobs.js";
+import { retireSchedules, workerJobs } from "./worker-jobs.js";
 import { logWorkerProblem } from "./worker-problem.js";
 
 // The worker's own start runs inside the start-up guard too: an .xlsx thread that can't run (ADR 0030), a repeated
@@ -28,6 +28,8 @@ const {
     await reconcileScheduleAccounts(services.db, services.google.accounts());
     await assertServiceAccountsInPlace(services.db, services.google.accounts());
   }
+  // pg-boss keeps a schedule across restarts: the earlier agent's nightly lessons stop being queued.
+  await retireSchedules(services.jobs);
   return startWorker({
     db: services.db,
     runner: services.jobs,

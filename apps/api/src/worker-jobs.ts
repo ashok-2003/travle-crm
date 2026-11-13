@@ -85,17 +85,17 @@ import {
   stopFollowUpsListener,
 } from "@travel-crm/domain/sales";
 import {
-  AI_LEARN_QUEUE,
   AI_NUDGES_QUEUE,
   aiChatResumedListener,
   aiCustomerWroteListener,
   aiPaymentProofListener,
   aiDocumentListener,
   aiReplyHandler,
-  runAiLearning,
   runAiNudges,
   scoreHandler,
   scoreOnCustomerWroteListener,
+  createTraceSink,
+  type BookingRecipients,
 } from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
@@ -119,9 +119,10 @@ import { metaProcessDependencies, type MetaServices } from "./meta-services.js";
 import { inboxDependenciesOf, type WhatsAppServices } from "./whatsapp-services.js";
 import type { EmailSender } from "@travel-crm/integrations/email";
 import { renderPdf } from "@travel-crm/integrations/pdf";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { documentText, type AiModel } from "@travel-crm/integrations/ai";
-import type { JobQueue } from "@travel-crm/integrations/jobs";
+import type { JobQueue, JobRunner } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
 import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
@@ -158,6 +159,8 @@ export interface WorkerJobDependencies {
     | "staff"
   >;
   files: Files;
+  /** Where the lite agent keeps the trace file of each turn. */
+  storage: ObjectStorage;
   /** Reads an import's file and writes an export's (ADR 0030). */
   spreadsheets: Spreadsheets;
   /** Whether an organization may still change things, for an import's add acting for its importer (B31). */
@@ -192,6 +195,35 @@ export interface WorkerJobs {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Schedules of jobs the worker no longer runs: pg-boss keeps a schedule across restarts, so each start removes these. */
+export const RETIRED_SCHEDULES = ["ai.learn"] as const;
+
+export async function retireSchedules(runner: Pick<JobRunner, "unschedule">): Promise<void> {
+  for (const queue of RETIRED_SCHEDULES) await runner.unschedule(queue);
+}
+
+/** What the agent's turns and follow-ups run with; its traces are kept in the worker's storage. */
+export function autopilotDependencies(
+  dependencies: Pick<WorkerJobDependencies, "db" | "identity" | "files" | "subscriptions" | "storage" | "logger"> & {
+    managers: BookingRecipients;
+  },
+  model: AiModel,
+) {
+  const { db, identity, files, subscriptions, storage, logger, managers } = dependencies;
+  return {
+    db,
+    ai: model,
+    subscriptions,
+    agencyName: async (organizationId: string) =>
+      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
+    files,
+    managers,
+    // A returning customer's new lead, opened by the lite turn, is owned as a new number's is.
+    identity,
+    traces: createTraceSink({ db, storage, logger }),
+  };
+}
 
 export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   const { db, identity, files, spreadsheets, subscriptions, seatLimit, email, push, appUrl } = dependencies;
@@ -246,16 +278,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
         };
   // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
   const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
-  // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name, with its media.
-  const autopilotJobs = (model: AiModel) => ({
-    db,
-    ai: model,
-    subscriptions,
-    agencyName: async (organizationId: string) =>
-      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
-    files,
-    managers: bookingManagers,
-  });
+  // The agent: the AI's turns and its follow-ups, in the agency's own name.
+  const autopilotJobs = (model: AiModel) =>
+    autopilotDependencies({ ...dependencies, managers: bookingManagers }, model);
   // Bookings: the reminders now due and the claims left waiting, each minute; the finished trips, each night.
   const bookingJobs = {
     db,
@@ -402,7 +427,17 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
     handlers: [
       // The console's ping, answered so it knows the worker takes jobs (incidents.ts).
       ...(dependencies.jobs === undefined ? [] : [workerPingHandler(dependencies.jobs)]),
-      ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
+      ...(ai === null
+        ? []
+        : [
+            scoreHandler({
+              db,
+              ai,
+              subscriptions,
+              logger,
+              ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
+            }),
+          ]),
       ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
@@ -473,21 +508,12 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               ? []
               : [
                   {
-                    // Follow-ups on leads that came due, then the autopilot's nudges to quiet customers, inside the window.
+                    // The agent's follow-ups to quiet customers that came due, inside the window.
                     queue: AI_NUDGES_QUEUE,
                     cron: "* * * * *",
                     timeZone: "Asia/Kolkata",
                     handle: async () => {
-                      await runAiNudges({ ...autopilotJobs(ai), logger }, new Date());
-                    },
-                  },
-                  {
-                    // Each night, an agency that lets its AI learn gets a lesson run from its recent chats.
-                    queue: AI_LEARN_QUEUE,
-                    cron: "30 2 * * *",
-                    timeZone: "Asia/Kolkata",
-                    handle: async () => {
-                      await runAiLearning({ ...autopilotJobs(ai), logger }, new Date());
+                      await runAiNudges({ ...autopilotJobs(ai), logger }, () => new Date());
                     },
                   },
                 ]),

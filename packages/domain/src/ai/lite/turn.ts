@@ -1,0 +1,208 @@
+// The lite agent's turn (plan 3a): UNDERSTAND the chat into a checked form (one model call), LOOK UP and DECIDE the move
+// in code, WRITE its words with blanks code fills and checks (the second model call, only for the moves that need
+// words), then ACT in one transaction. Both calls count against the month's limit. A voice note, or a customer who has
+// a booking already, goes to a person with no model call. Whatever stops the turn sends nothing; a refusal tells the
+// team. One log line of codes ends every turn, and a prepared turn's trace goes to the sink. A nudge is the agent's own
+// follow-up, a short turn of its own (nudge-turn.ts).
+import { isAQuestion, sentencesIn } from "./read-words.js";
+import { countedCall, type CallEnvironment } from "./counted-call.js";
+import { flagChat } from "./flag-chat.js";
+import { actingOn, codeWordsOf, handOverInstead } from "./act-reply.js";
+import { stageToOf } from "./decide/decide.js";
+import { checkedForm } from "./form-check.js";
+import { mergeForm } from "./merge.js";
+import { LEAD_MOVES, openLeadForChat } from "./open-lead.js";
+import { runLiteNudge } from "./nudge-turn.js";
+import { lockedFields, typedChanged } from "./typed-lock.js";
+import { prepareLiteTurn, type LitePrepared } from "./prepare.js";
+import { understandRequest } from "./prompts/understand-prompt.js";
+import { finishTurn, startTrace, tallied, withoutMessages, writeChecks, type TurnLog } from "./turn-trace.js";
+import { acted, decided, written } from "./turn-steps.js";
+import type { DecideInput } from "./decide/decide.js";
+import type { CheckedForm, LiteDependencies, LiteOutcome, LiteTurnInput } from "./types.js";
+import { understandChat } from "./understand.js";
+
+export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
+  const startedMs = Date.now();
+  if (input.kind === "nudge") return runLiteNudge(deps, input, now);
+  const prepared = await prepareLiteTurn(deps, input, now);
+  if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);
+  const trace = startTrace(input, prepared.leadId, now);
+  const log: TurnLog = {};
+  const end = (outcome: LiteOutcome, reason?: string) =>
+    finishTurn(
+      deps,
+      input,
+      { outcome, log: { ...log, ...(reason === undefined ? {} : { reason }) }, startedMs },
+      trace,
+    );
+  const { organizationId } = input;
+  const ai = tallied(deps.ai, trace);
+  const environment: CallEnvironment = { db: deps.db, organizationId, now, timeZone: prepared.timeZone };
+  /** Sends nothing and tells the team, with a code and never the customer's words. */
+  const flag = async (outcome: "unfit" | "blocked", code: string) => {
+    await flagChat(deps.db, { organizationId, chat: prepared.chat, token: input.token, code, now });
+    return end(outcome, code);
+  };
+  const agencyName = await deps.agencyName(organizationId);
+
+  // UNDERSTAND, unless the turn goes to a person whatever was said.
+  let checked: CheckedForm | null = null;
+  let facts = prepared.facts;
+  /** The person-typed lead fields the customer now contradicts: a person reconciles them. */
+  let changed: string[] = [];
+  const kinds = prepared.burst.map((one) => one.kind);
+  if (!kinds.includes("audio") && !prepared.hasBooking) {
+    const asking = understandRequest({
+      agencyName,
+      packages: prepared.index,
+      now,
+      today: prepared.today,
+      timeZone: prepared.timeZone,
+      lead: prepared.card,
+      summary: prepared.summary,
+      timeline: prepared.timeline,
+      messages: prepared.messages,
+    });
+    trace.messageIds = asking.messageIds;
+    const asked = await countedCall(environment, () => understandChat(ai, asking.request));
+    trace.understand = { blocks: withoutMessages(asking.blocks), raw: "raw" in asked ? asked.raw : null };
+    // Nothing usable: the facts stay as they were, so the next turn reads the chat afresh.
+    if (!asked.ok) return asked.reason === "unfit" ? flag("unfit", "unfit") : end(asked.reason);
+    checked = checkedForm(asked.form, prepared.messages, prepared.burst, prepared.index, prepared.today);
+    facts = mergeForm(prepared.facts, checked, prepared.index, lockedFields(prepared.typed));
+    changed = typedChanged(checked, prepared.typed, prepared.burst);
+    log.intents = trace.intents = checked.form.intents.map((intent) => intent.name);
+    trace.checks.push(...checked.dropped.map((code) => ({ name: "proof", passed: false, detail: code })));
+    trace.checks.push(...changed.map((field) => ({ name: "typed", passed: false, detail: field })));
+  }
+
+  // LOOK UP and DECIDE.
+  const looked = await decided(
+    deps.db,
+    organizationId,
+    decideBase(prepared, input, checked, facts, changed.length > 0),
+    { index: prepared.index, answers: prepared.answers, facts, today: prepared.today, now },
+    checked?.form.lookups ?? [],
+  );
+  const { situation } = looked;
+  let { decision } = looked;
+  log.lookups = situation.looked.length;
+  trace.lookups = situation.looked;
+
+  // A returning customer with every lead closed: a move that works on a trip gets them a new lead first, in its own
+  // short transaction (never inside act's), before any word is written or sent; one that can't be opened goes to a
+  // person instead of the price. A new lead is empty, so nothing read for the turn changes but where its stage starts.
+  if (prepared.leadId === null && LEAD_MOVES.has(decision.move.kind)) {
+    const chat = { id: prepared.chat.id, personId: prepared.chat.personId, phoneE164: prepared.phoneE164 };
+    const opening = await openLeadForChat(deps, organizationId, chat, now);
+    // A blocked contact gets no automation's answer, as the inbox never queues one for them; nor does a customer a person
+    // marked Not a lead, and nobody is told: the person who marked it can start a lead by hand.
+    if (opening === "blocked") return end("blocked_contact");
+    if (opening === "not_a_lead") return end("not_a_lead");
+    if (opening === "unable") decision = handOverInstead(decision, "no_open_lead", "lead:unable");
+    else {
+      decision = { ...decision, stageTo: stageToOf(decision.move, "new") };
+      // At once: the lead stays whatever the turn does next, so its trace says so even when act stops or is refused.
+      trace.actions.push("lead:opened");
+    }
+  }
+
+  // WRITE, then fold the words with code's own: no safe words hand the chat over.
+  const words = await written(ai, environment, prepared, {
+    decision,
+    situation,
+    agencyName,
+    summary: checked?.form.summary ?? prepared.summary,
+  });
+  if (words !== null) {
+    trace.write = { blocks: words.blocks, raw: words.written.raw };
+    trace.checks.push(...writeChecks(words.written));
+    // A turn that skipped Understand names the messages Write read.
+    if (checked === null) trace.messageIds = words.messageIds;
+  }
+  const code = codeWordsOf(decision, situation, decision.facts.language, agencyName, prepared.today);
+  const acting = actingOn(decision, code, words?.written ?? null);
+  if ("ended" in acting) return end(acting.ended);
+  const { move } = acting.decision;
+  log.move = trace.move = move.kind;
+  trace.asked = move.kind === "ask_detail" ? move.item : "ask" in move ? move.ask : null;
+  trace.stage = acting.decision.stage;
+  trace.why = acting.decision.why;
+  trace.note = acting.decision.note;
+  trace.task = acting.decision.task;
+  trace.suggest = acting.decision.suggest;
+
+  // ACT.
+  const result = await acted(deps, prepared.supplierStateCode, {
+    organizationId,
+    conversationId: prepared.chat.id,
+    token: input.token,
+    kind: input.kind,
+    now,
+    today: prepared.today,
+    timeZone: prepared.timeZone,
+    decision: acting.decision,
+    language: acting.decision.facts.language,
+    reply: acting.reply,
+    situation,
+    checked,
+    model: trace.model,
+    agencyName,
+  });
+  if (result === "already") return end("answered");
+  // A person replied or took the chat over, or a switch went off, while the model worked: quietly, nothing was written.
+  if ("stopped" in result) return end(result.stopped);
+  if ("refused" in result) {
+    if (result.refused === "AGENT_PAUSED") return end("paused");
+    if (result.refused === "NEWER_MESSAGE") return end("superseded");
+    // A person took the chat over, or the agent was switched off, while act worked: quietly, as a stop before it.
+    if (result.refused === "AGENT_STOPPED") return end("stopped");
+    return flag("blocked", result.refused);
+  }
+  trace.leadId = result.leadId;
+  trace.sent = { messageIds: result.sentIds, text: result.text, filled: result.filled };
+  trace.actions.push(...result.actions);
+  if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
+  return end(move.kind === "silent" ? "silent" : "replied");
+}
+
+export function decideBase(
+  prepared: Pick<
+    LitePrepared,
+    | "burst"
+    | "facts"
+    | "index"
+    | "adPackageId"
+    | "openBooking"
+    | "hasBooking"
+    | "mayBePayment"
+    | "nameUsable"
+    | "leadStage"
+    | "places"
+  >,
+  input: LiteTurnInput,
+  checked: CheckedForm | null,
+  facts: LitePrepared["facts"],
+  detailsChanged = false,
+): Omit<DecideInput, "situation"> {
+  return {
+    kind: input.kind,
+    checked,
+    before: prepared.facts,
+    facts,
+    burst: {
+      kinds: prepared.burst.map((one) => one.kind),
+      question: prepared.burst.some((one) => sentencesIn(one.text).some(isAQuestion)),
+    },
+    index: prepared.index,
+    adPackageId: prepared.adPackageId,
+    openBooking: prepared.openBooking,
+    hasBooking: prepared.hasBooking,
+    detailsChanged,
+    mayBePayment: prepared.mayBePayment,
+    nameUsable: prepared.nameUsable,
+    leadStage: prepared.leadStage,
+    places: prepared.places,
+  };
+}

@@ -3,6 +3,8 @@
 import { listPlatformLogInput, platformLogPage, platformWhoAmIOutput } from "@travel-crm/contracts/platform";
 import { listPlatformLog } from "@travel-crm/domain/platform";
 import { staffProcedure } from "./procedures.js";
+import { aiAgentRouter } from "./routers/ai-agent.js";
+import { aiTransparencyRouter } from "./routers/ai-transparency.js";
 import { dataProtectionRouter } from "./routers/data-protection.js";
 import { emailsRouter } from "./routers/emails.js";
 import { dashboardRouter, jobsRouter } from "./routers/operations.js";
@@ -25,6 +27,8 @@ export const platformRouter = platformT.router({
   dataProtection: dataProtectionRouter,
   plans: plansRouter,
   subscriptions: subscriptionsRouter,
+  aiAgent: aiAgentRouter,
+  aiTransparency: aiTransparencyRouter,
   jobs: jobsRouter,
   emails: emailsRouter,
   whatsapp: whatsappRouter,

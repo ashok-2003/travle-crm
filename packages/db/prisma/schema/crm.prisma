@@ -109,6 +109,7 @@ model Lead {
   signals           LeadSignal[]
   aiInsights        LeadAiInsight[]
   aiFields          LeadAiField[]
+  aiSuggestions     LeadAiSuggestion[]
   enquiries         LeadEnquiry[]
   formSubmissions   WebsiteFormSubmission[]
   packageEnquiries  PackageEnquiry[]
@@ -140,7 +141,7 @@ model LeadTimelineEntry {
   id                     String       @id @default(uuid(7)) @db.Uuid
   leadId                 String       @map("lead_id") @db.Uuid
   /// created, note, call, stage-changed, reassigned, follow-up-added, follow-up-done, follow-up-cancelled,
-  /// repeat-enquiry, trip-edited or whatsapp-contact (CHECK lead_timeline_entry_kind_value).
+  /// repeat-enquiry, trip-edited, whatsapp-contact, booking-event or ai-field-set (CHECK lead_timeline_entry_kind_value).
   kind                   String
   occurredAt             DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
   /// Who did it; null for the system.
@@ -161,6 +162,12 @@ model LeadTimelineEntry {
   assignmentAway         Boolean      @default(false) @map("assignment_away")
   /// What happened to the booking (record_type booking), for booking-event (CHECK lead_timeline_entry_booking_event_value).
   bookingEvent           String?      @map("booking_event")
+  /// Done by the AI (a stage move, or an ai-field-set entry).
+  byAi                   Boolean      @default(false) @map("by_ai")
+  /// The lead field the AI set, for ai-field-set (CHECK lead_timeline_entry_ai_field), with the words before (null when it was empty) and after.
+  aiField                String?      @map("ai_field")
+  fromText               String?      @map("from_text")
+  toText                 String?      @map("to_text")
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   lead                   Lead         @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
 

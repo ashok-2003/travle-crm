@@ -4,10 +4,8 @@ import { z } from "zod";
 import { travellerLevel } from "../bookings/bookings.js";
 import {
   MAX_PACKAGE_BROCHURE_BYTES,
-  MAX_PACKAGE_PAYMENT_QR_BYTES,
   MAX_PACKAGE_PHOTO_BYTES,
   packageBrochureContentTypes,
-  packagePaymentQrContentTypes,
   packagePhotoContentTypes,
 } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
@@ -132,9 +130,6 @@ export const packageFields = {
   seatsPerDeparture: z.int().min(1).max(MAX_SEATS).nullable(),
 };
 export const updatePackageInput = z.strictObject({ packageId: recordId, ...packageFields });
-/** Where customers pay (bank or UPI details): changed apart from the package's words, by whoever manages settings. */
-export const setPackagePaymentDetailsInput = z.strictObject({ packageId: recordId, paymentDetails: text(1000) });
-export type SetPackagePaymentDetailsInput = z.infer<typeof setPackagePaymentDetailsInput>;
 export type UpdatePackageInput = z.infer<typeof updatePackageInput>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
 export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
@@ -145,7 +140,7 @@ export const publishGaps = ["name", "slug", "summary", "photo"] as const;
 export type PublishGap = (typeof publishGaps)[number];
 
 /** What a package still needs before the AI may sell it. */
-export const sellGaps = ["room_types", "prices", "advance", "departures", "from_price"] as const;
+export const sellGaps = ["room_types", "prices", "advance", "departures", "payment_details", "from_price"] as const;
 export type SellGap = (typeof sellGaps)[number];
 
 /** A tier's line as the editor reads it: with the name of the rate it prices from ("Hotel Aurora: Deluxe room"), if it has one. */
@@ -194,8 +189,6 @@ export const packageDetail = z.object({
   id: recordId,
   ...z.object(packageFields).shape,
   published: z.boolean(),
-  /** Bank or UPI details a customer is told when they pay; changed apart from the rest (setPaymentDetails). */
-  paymentDetails: z.string(),
   /** The destination's name, for the picker. */
   destinationName: z.string().nullable(),
   /** The lines of a package with no tiers (its one implicit tier); costs only for whoever may see margins. */
@@ -271,7 +264,7 @@ export const requestPackagePhotoInput = z.strictObject({
 });
 export const packagePhotoRefInput = z.strictObject({ packageId: recordId, attachmentId: z.uuid() });
 
-export const packageFileKinds = ["brochure", "payment_qr"] as const;
+export const packageFileKinds = ["brochure"] as const;
 export type PackageFileKind = (typeof packageFileKinds)[number];
 export const packageFile = z.object({
   attachmentId: recordId,
@@ -280,21 +273,19 @@ export const packageFile = z.object({
   url: z.string().nullable(),
 });
 export type PackageFile = z.infer<typeof packageFile>;
-export const packageFiles = z.object({ brochures: z.array(packageFile), paymentQr: packageFile.nullable() });
+export const packageFiles = z.object({ brochures: z.array(packageFile) });
 export const requestPackageFileInput = z.strictObject({
   packageId: recordId,
   kind: z.enum(packageFileKinds),
   fileName: z.string().trim().min(1).max(200),
-  contentType: z.enum([...packageBrochureContentTypes, ...packagePaymentQrContentTypes]),
-  sizeBytes: z.int().min(1).max(Math.max(MAX_PACKAGE_BROCHURE_BYTES, MAX_PACKAGE_PAYMENT_QR_BYTES)),
+  contentType: z.enum(packageBrochureContentTypes),
+  sizeBytes: z.int().min(1).max(MAX_PACKAGE_BROCHURE_BYTES),
 });
 export const packageFileRefInput = z.strictObject({
   packageId: recordId,
   kind: z.enum(packageFileKinds),
   attachmentId: z.uuid(),
 });
-/** Brochures are staff's to manage with the package; the payment QR is where customers pay, so it has procedures of its own. */
+/** Brochures are staff's to manage with the package. */
 export const requestBrochureInput = requestPackageFileInput.extend({ kind: z.literal("brochure") });
 export const brochureRefInput = packageFileRefInput.extend({ kind: z.literal("brochure") });
-export const requestPaymentQrInput = requestPackageFileInput.omit({ kind: true });
-export const paymentQrRefInput = packageFileRefInput.omit({ kind: true });

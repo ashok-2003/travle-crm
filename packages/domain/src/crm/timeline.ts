@@ -3,6 +3,7 @@
 // nothing listens to notes yet, so adding one publishes no event (P5).
 import { bookingEvent } from "@travel-crm/contracts/bookings";
 import {
+  aiFilledFields,
   assignmentReason,
   callOutcome,
   leadEventKind,
@@ -36,6 +37,10 @@ interface EntryRow {
   assignmentRulePosition: number | null;
   assignmentAway: boolean;
   bookingEvent: string | null;
+  byAi: boolean;
+  aiField: string | null;
+  fromText: string | null;
+  toText: string | null;
 }
 
 /** The notes, calls, repeat enquiries and tasks a page of the lead's entries points to, by id. */
@@ -120,7 +125,7 @@ function entryOf(
       return call === undefined ? null : { ...base, kind, callId: target, ...call };
     }
     case "stage-changed":
-      return row.stage === null ? null : { ...base, kind, stage: leadStage.parse(row.stage) };
+      return row.stage === null ? null : { ...base, kind, stage: leadStage.parse(row.stage), byAi: row.byAi };
     case "reassigned":
       return { ...base, kind, ownerUserId: row.ownerUserId };
     case "follow-up-added":
@@ -136,6 +141,12 @@ function entryOf(
     case "trip-edited":
     case "whatsapp-contact":
       return { ...base, kind };
+    case "ai-field-set": {
+      const field = aiFilledFields.find((one) => one === row.aiField);
+      return field === undefined || row.toText === null
+        ? null
+        : { ...base, kind, field, from: row.fromText, to: row.toText };
+    }
     case "booking-event": {
       const number = pointed.bookings.get(target);
       return number === undefined || row.bookingEvent === null
@@ -170,6 +181,10 @@ export async function listLeadTimeline(
       assignmentRulePosition: true,
       assignmentAway: true,
       bookingEvent: true,
+      byAi: true,
+      aiField: true,
+      fromText: true,
+      toText: true,
     },
   });
   const page = rows.slice(0, input.limit);

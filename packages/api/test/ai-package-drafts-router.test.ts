@@ -150,12 +150,7 @@ describe("ai.packageDrafts", () => {
       const model = scriptedModel();
       const { caller, member } = callerOf(harness, { organizationId, context: { ai: model.model } });
       await harness.db.forOrg(organizationId, async (tx) => {
-        await saveAiSettings(
-          tx,
-          member,
-          { enabled: true, scoring: true, instructions: "" },
-          { providerReady: true, now: new Date() },
-        );
+        await saveAiSettings(tx, member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() });
         await tx.aiKnowledge.create({ data: { title: "Spiti", body: "Spiti 7 Nights 8 Days" } });
       });
       return { caller, model };

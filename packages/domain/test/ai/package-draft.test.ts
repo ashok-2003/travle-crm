@@ -25,15 +25,20 @@ describe("drafting one trip", () => {
   afterAll(() => test.close());
 
   async function agency(
-    options: { big?: boolean; brochure?: boolean; twinBrochure?: boolean; lines?: string[]; part?: string } = {},
+    options: {
+      big?: boolean;
+      brochure?: boolean;
+      twinBrochure?: boolean;
+      lines?: string[];
+      part?: string;
+      stored?: boolean;
+    } = {},
   ) {
     const organizationId = await anAgency(test, "Draft agency");
     const owner = memberOf(organizationId, "org-owner");
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
-    await inOrg((tx) =>
-      saveAiSettings(tx, owner, { enabled: true, scoring: true, instructions: "" }, { providerReady: true, now: NOW }),
-    );
-    // P1 = Manali (L1..L6), P2 = Manali brochure (L1), strict rules come after the knowledge pieces.
+    await inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: NOW }));
+    // P1 = Manali (L1..L6), P2 = Manali brochure (L1), the trip kit comes after the knowledge pieces.
     await inOrg(async (tx) => {
       await tx.aiKnowledge.create({
         data: {
@@ -71,7 +76,12 @@ describe("drafting one trip", () => {
           data: { title: "Zbrochure", kind: "file", body: "Manali 5 Nights 6 Days second brochure" },
         });
       }
-      await tx.aiAutopilot.updateMany({ data: { strictRules: `Pay advance to UPI ${UPI} only` } });
+      if (options.stored === true) {
+        // What an agency typed before the move: kept in the tables, read by nothing.
+        await tx.aiSettings.updateMany({ data: { instructions: "STORED_INSTRUCTION_TEXT" } });
+        await tx.aiAutopilot.create({ data: { strictRules: "STORED_RULE_TEXT" } });
+      }
+      await tx.tripKit.create({ data: { name: "Advance", message: `Pay advance to UPI ${UPI} only`, keywords: [] } });
     });
     const model = createMemoryAiModel();
     model.answer(
@@ -231,9 +241,18 @@ describe("drafting one trip", () => {
     expect(result.name.value).toBe("Manali 5N6D");
   });
 
-  it("never drafts payment details, even from strict rules that hold a UPI id", async () => {
+  it("never reads the instructions or strict rules an agency stored before the move", async () => {
+    const { draft, model } = await agency({ stored: true });
+    model.answer(answer());
+    await draft();
+    const sent = model.requests.map((request) => JSON.stringify(request.messages)).join("\n");
+    expect(sent).not.toContain("STORED_INSTRUCTION_TEXT");
+    expect(sent).not.toContain("STORED_RULE_TEXT");
+  });
+
+  it("never drafts payment details, even from a trip kit that holds a UPI id", async () => {
     const { draft, model } = await agency();
-    // The strict rules are the last piece: P3 here, with the UPI line as its first. Only the trip's pieces are sent.
+    // The trip kit is the last piece: P3 here, with the UPI line as its first. Only the trip's pieces are sent.
     model.answer(
       answer({
         inclusions: field(`Pay to ${UPI}`, "P1.L10"),

@@ -1,6 +1,7 @@
 // A group package from its seasons to a quote (group packages): the Owner makes "Manali 5N6D" a group trip with room types,
-// days, seats, GST and an advance, prices two seasons, sees the departures made for it, adds a brochure and a payment QR,
-// lets the AI sell it, and a quote for three in a triple room on the first season's departure totals ₹20,997.00.
+// days, seats, GST and an advance, prices two seasons, sees the departures made for it, adds a brochure, adds the
+// agency's payment QR on the AI agent's Setup tab, lets the AI sell it, and a quote for three in a triple room on the
+// first season's departure totals ₹20,997.00.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { callApi, dayInIndia } from "./support/leads";
@@ -76,22 +77,30 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await expect(departuresCard.getByRole("link", { name: "Manali 5N6D" }).first()).toBeVisible();
   await expect(departuresCard).toContainText("20 of 20");
 
-  // A brochure goes straight to storage; where customers pay (the details and a QR) is its own card, for whoever manages settings.
+  // A brochure goes straight to storage.
   const files = page.getByRole("region", { name: "Brochures" });
   await page
     .getByTestId("package-brochure-input")
     .setInputFiles({ name: "manali.png", mimeType: "image/png", buffer: PIXEL });
   await expect(files.getByRole("link", { name: "manali.png" })).toBeVisible();
-  const payments = page.getByRole("region", { name: "Where customers pay" });
-  await payments.getByLabel("How to pay").fill("UPI manali@agency");
-  await payments.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("Payment details saved")).toBeVisible();
+  // Until the agency has a payment QR, the AI can't sell it: that is all it still needs.
+  const sellCard = page.getByRole("region", { name: "Let the AI sell it" });
+  await expect(sellCard.getByRole("link", { name: "Add your payment QR" })).toBeVisible();
+
+  // Where customers pay is the agency's, on the AI agent's Setup tab: the QR (required) and a UPI ID sent with it.
+  await page.goto("/ai-agent?tab=setup");
+  await page.getByRole("button", { name: "Edit Payment QR" }).click();
   await page
-    .getByTestId("package-qr-input")
+    .getByTestId("payment-qr-input")
     .setInputFiles({ name: "pay-qr.png", mimeType: "image/png", buffer: PIXEL });
-  await expect(payments.getByRole("link", { name: "pay-qr.png" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "pay-qr.png" })).toBeVisible();
+  await page.getByLabel("UPI ID").fill("manali@agency");
+  await page.getByRole("button", { name: "Save payment details" }).click();
+  await expect(page.getByText("Payment details saved")).toBeVisible();
 
   // Everything the AI needs is there, so it may be turned on.
+  await page.goto(`/packages/${packageId}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Manali 5N6D" })).toBeVisible();
   const sell = page.getByRole("switch", { name: "AI can sell this package" });
   await expect(sell).toBeEnabled();
   await sell.click();

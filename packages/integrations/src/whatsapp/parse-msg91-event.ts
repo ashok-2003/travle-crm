@@ -112,6 +112,30 @@ function replyText(bag: Bag): string | null {
   return null;
 }
 
+/** Third-party text made safe to store and show: whitespace runs become one space, control characters (NUL included, which Postgres refuses) go. */
+function cleaned(value: string | null): string | null {
+  if (value === null) return null;
+  const text = value
+    .replace(/\s+/g, " ")
+    .replace(/\p{Cc}/gu, "")
+    .trim();
+  return text === "" ? null : text;
+}
+
+/** A Meta-shaped `referral` (a click-to-WhatsApp ad). SPIKE(S1): MSG91 may not forward it, or may nest it, so four places are tried. */
+function referralOf(bag: Bag): ParsedMessage["referral"] {
+  for (const holder of [bag, bag.message, bag.context, bag.content].map(unstring)) {
+    if (!isBag(holder)) continue;
+    const referral = unstring(holder.referral);
+    if (!isBag(referral)) continue;
+    const sourceId = cleaned(pick(referral, ["source_id", "sourceId"]));
+    const headline = cleaned(pick(referral, ["headline"]));
+    if (sourceId === null && headline === null) continue;
+    return { sourceId, headline, sourceUrl: cleaned(pick(referral, ["source_url", "sourceUrl"])) };
+  }
+  return null;
+}
+
 function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNumber: string): ParsedMessage {
   const contentType = (pick(bag, ["contentType", "content_type", "type", "messageType"]) ?? "text").toLowerCase();
   const kind = kindNames[contentType] ?? "unsupported";
@@ -130,7 +154,10 @@ function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNu
         }
       : null;
   const textual = contentType === "button" || contentType === "interactive";
+  // Only a plain word is kept: the name goes into a log line, where nothing a customer wrote may go.
+  const unknownType = kind === "unsupported" ? (/^[a-z0-9_.-]{1,40}$/.test(contentType) ? contentType : "other") : null;
   return {
+    ...(unknownType === null ? {} : { unknownType }),
     wamid,
     integratedNumber,
     customerNumber,
@@ -153,6 +180,7 @@ function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNu
     quotedWamid:
       kind === "reaction" ? null : pick(bag, ["replyMsgId", "reply_msg_id", "contextMessageId", "quotedMessageId"]),
     reaction,
+    referral: referralOf(bag),
   };
 }
 

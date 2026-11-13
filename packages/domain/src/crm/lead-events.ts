@@ -2,7 +2,7 @@
 // task it is about. Every crm change writes its entry in its own transaction, and the api writes "follow-up done"
 // through this when a lead's task is done (R22): tasks sits below crm and never calls it.
 import type { BookingEvent } from "@travel-crm/contracts/bookings";
-import type { AssignedBy, LeadEventKind, LeadStage } from "@travel-crm/contracts/crm";
+import type { AiFilledField, AssignedBy, LeadEventKind, LeadStage } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { Actor } from "../kernel/index.js";
 
@@ -15,6 +15,10 @@ export interface LeadEventEntry {
   bookingEvent?: BookingEvent;
   /** The stage it moved to, for stage-changed. */
   stage?: LeadStage;
+  /** Done by the AI: its stage moves, and its field entries. */
+  byAi?: boolean;
+  /** What the AI set, for ai-field-set: the words before (null when empty) and after. */
+  aiField?: { field: AiFilledField; from: string | null; to: string };
   /** The new owner, for reassigned. */
   ownerUserId?: string | null;
   /** Why an automatic assignment chose the owner, for created (spec 4.7); the owner goes in ownerUserId. */
@@ -34,6 +38,10 @@ export async function recordLeadEvent(tx: OrgTx, actor: Actor, entry: LeadEventE
       recordId: entry.record?.recordId ?? null,
       stage: entry.stage ?? null,
       bookingEvent: entry.bookingEvent ?? null,
+      byAi: entry.byAi ?? false,
+      aiField: entry.aiField?.field ?? null,
+      fromText: entry.aiField?.from ?? null,
+      toText: entry.aiField?.to ?? null,
       ownerUserId: entry.ownerUserId ?? null,
       ...(entry.assignedBy === undefined
         ? {}

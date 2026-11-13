@@ -28,6 +28,9 @@ export function useSaveProfile() {
         queryClient.setQueryData(key, saved);
         toast.success(t("saved"));
         await queryClient.invalidateQueries({ queryKey: trpc.organization.setup.get.queryKey() });
+        // The AI agent's Setup tab holds the same bank details and its checklist follows them.
+        await queryClient.invalidateQueries({ queryKey: trpc.organization.paymentDetails.get.queryKey() });
+        await queryClient.invalidateQueries({ queryKey: trpc.ai.agentSetup.queryKey() });
       },
     }),
   );

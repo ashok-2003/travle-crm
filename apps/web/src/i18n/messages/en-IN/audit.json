@@ -62,6 +62,9 @@
       "onboarded": "Set up the organization",
       "updated": "Corrected the organization's details"
     },
+    "profile": {
+      "payment-details-changed": "Changed the agency's payment details"
+    },
     "organization-profile": {
       "saved": "Saved the business profile"
     },
@@ -267,8 +270,18 @@
       "created-from-draft": "Saved a package from an AI draft",
       "season-saved": "Saved a package's season and room prices",
       "season-removed": "Removed a package's season",
-      "sellable-changed": "Let the AI sell a package, or stopped it",
-      "payment-changed": "Changed where customers pay for a package"
+      "sellable-changed": "Let the AI sell a package, or stopped it"
+    },
+    "ai-agent": {
+      "paused": "Paused the AI agent on WhatsApp",
+      "resumed": "Resumed the AI agent on WhatsApp",
+      "answers-changed": "Changed the AI agent's answers",
+      "basics-changed": "Changed the AI agent's name or tone",
+      "turned-on": "Turned the AI agent on",
+      "turned-off": "Turned the AI agent off"
+    },
+    "whatsapp-ad": {
+      "linked": "Linked an ad to a package"
     },
     "ai-settings": {
       "changed": "Changed the AI settings"
@@ -279,26 +292,20 @@
       "knowledge-changed": "Changed what the AI knows",
       "knowledge-deleted": "Removed from what the AI knows",
       "message-sent": "The AI sent a reply by itself",
-      "voice-learned": "Gave the AI a way of talking to copy",
-      "voice-removed": "Removed the AI's way of talking",
-      "learned": "Asked the AI to learn from the chats",
-      "learning-changed": "Turned an AI lesson on, off or away",
       "chat-mode-changed": "Turned the AI on or off in a chat",
       "chat-resumed": "Gave a chat back to the AI",
-      "chat-persona-changed": "Changed what the AI is for in a chat",
-      "media-added": "Added a photo, video or PDF for the AI to send",
-      "media-changed": "Changed a file the AI sends",
-      "media-deleted": "Removed a file the AI sent",
       "booking-decided": "Confirmed or cancelled a booking the AI took",
       "payment-refused": "Could not match the payment for a booking the AI took",
       "fill-applied": "Saved a form the AI filled in",
       "lead-filled": "The AI filled in a new lead from its first messages",
+      "lead-field-changed": "The AI changed what it had filled in on a lead",
+      "person-named": "The AI set a customer's name from the chat",
       "lead-fields-confirmed": "Confirmed what the AI filled in on a lead",
       "lead-fields-dismissed": "Cleared what the AI filled in on a lead",
-      "offer-sent": "Offered a departure's seats to a lead with a message the AI wrote"
-    },
-    "ai-autopilot": {
-      "changed": "Changed the AI's autopilot settings"
+      "offer-sent": "Offered a departure's seats to a lead with a message the AI wrote",
+      "stage-suggested": "The AI suggested marking a lead Lost or Not a lead",
+      "stage-suggestion-accepted": "Marked a lead as the AI suggested",
+      "stage-suggestion-declined": "Turned down the AI's suggestion for a lead"
     },
     "payment-proof": {
       "dismissed": "Dismissed a payment screenshot"
@@ -381,6 +388,7 @@
     }
   },
   "fields": {
+    "paused": "Paused",
     "name": "Name",
     "permissions": "What the role allows",
     "requireTwoFactor": "Two-factor sign-in for everyone",

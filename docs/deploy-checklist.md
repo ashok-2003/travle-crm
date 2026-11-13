@@ -263,7 +263,7 @@ Secrets come from the platform's secret manager as environment variables, never 
   - Off for every agency until its plan includes the `ai` module (the console's plan editor) and its Owner or Admin turns it on
     in Settings, AI. A member asks for each draft; it reads the chat's last 12 messages, the lead's first name and trip
     facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 8,000
-    AI calls an agency a month, suggestions and the autopilot alike (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
+    AI calls an agency a month, Suggest reply and the WhatsApp agent alike (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
   - **Called directly on another endpoint** (the owner, 2026-10-29): `AI_API_KEY` with `AI_BASE_URL` (for Google's Gemini,
     `https://generativelanguage.googleapis.com/v1beta/openai`; OpenRouter's when unset) and `AI_CHAT_MODELS` (and optionally
     `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the
@@ -475,6 +475,82 @@ server in Mumbai, with the same images under Docker Compose (`docker-compose.ser
 - **The web app's own page addresses hold no customer data,** so its access logs need no stripping for that: the lead
   list keeps its filters (ids and fixed values) in the address and its search text in the browser tab, never `?q=`
   (`apps/web/test/e2e/leads-add.spec.ts` checks every URL and Referer the browser sends).
+
+## Release: the move to the lite agent
+
+The release that makes every agency's WhatsApp agent the one lite agent and removes the first ("autopilot") agent and the
+grounded agent (`docs/superpowers/plans/2026-11-13-lite-agent-move.md`). It is code, not a flag: there is no setting to
+change for any agency. Expand only: nothing is dropped.
+
+**Before merging**
+
+1. Run `pnpm agent:bench` on the private cases with the real model (it needs Docker and the AI key; the report is written
+   privately outside the repository, never committed). Every check passes, or each failure is read in the report and
+   accepted. Have the owner read the Hindi and Hinglish fixed texts before any agency goes live.
+2. List the agencies whose agent switch is on (`SELECT organization_id FROM ai_autopilot WHERE autopilot`) and keep the
+   ids with the earlier list of agencies switched off by hand. A rollback needs them (below).
+
+There is nothing to press in the console before the merge: the release before has no agent pause. The release arrives
+paused instead (step 3).
+
+**The deploy**
+
+3. The merge deploys. The migrate step applies two migrations that change rows only, so the release before keeps working
+   while they apply:
+   - `20261214100000_lite_move` clears only the earlier agents' planned follow-ups. Nothing is deleted: the first
+     agent's memory, voice copies, persona and lessons stay in their tables, read by nothing.
+   - `20261214200000_lite_move_paused` turns on the pause for every agency, in the first super admin's name, so the new
+     worker starts with nobody answering. The release before never reads it.
+4. The servers update. The retired `ai.learn` schedule is removed when the worker starts (`RETIRED_SCHEDULES` in
+   `apps/api/src/worker-jobs.ts`); a turn the release before queued on `ai.reply` runs as a lite turn and ends
+   `paused`. `ai.read-document` stays: package drafts still read the documents agencies upload.
+5. Before anything else, open the console's WhatsApp page: it reads **Paused for every agency since …**. If it doesn't
+   (the database had no super admin when it migrated), press **Pause for every agency** now.
+
+   Why the minutes before this check are safe: until the servers update, the release before runs as it did before the
+   merge. After it, a lite turn needs the agency's payment QR, which no agency can have yet (its upload ships in this
+   release), so even an unpaused turn ends `not_ready` and sends nothing.
+
+6. Tell agencies to reload any open tab. A Settings, AI page left open from before the deploy is refused on save (the
+   instructions and custom-trips fields it sends no longer exist).
+
+**After the deploy, one agency at a time**
+
+7. Press **Resume one agency at a time**: every agency gets its own pause and the every-agency pause lifts.
+8. For each agency, open its console page and read its **AI agent setup** block (its badge reads **Paused** until step
+   9). Resume only an agency whose block says **The agency has turned its AI agent on.** and **Its setup is finished.**,
+   and not **Its plan has no AI.** An agent switched off answers nothing, and one switched on with its setup unfinished
+   answers nothing and tells the agency's managers once a day; its keyword trip kits stay quiet too. Tell the owner
+   what is missing. Payment is ready only with the agency's **payment QR** (the UPI ID and bank details are optional):
+   agencies upload it on AI agent, Setup.
+9. Ask a question in the agency's **Try it** (support impersonating, ADR 0019), then press **Resume for this agency**.
+   Watch its first day's turns in the console's AI traces.
+
+**Rolling back**
+
+**Pause for every agency** is the first lever to pull, a rollback the last. The console's pause doesn't reach the
+release before: its agent reads neither the pause nor the setup. Deployed again, it would answer at once in every agency
+whose switch is on, with the first agent (or the grounded agent where `grounded` is still true), agencies resumed on the
+lite agent included. So:
+
+1. First switch the agent off for every agency, as on the day of the hand pause:
+   `UPDATE ai_autopilot SET autopilot = false WHERE autopilot RETURNING organization_id`. Keep the ids for a restore.
+2. Then deploy the previous digests. No down migration: both migrations above change rows only, and the release
+   before reads nothing they changed.
+
+**Watch**
+
+- **Capacity.** Lite turns run three at once across all agencies (`ai.reply`), each holding a pooled connection through
+  its transactions. Watch the AI turns' timings while agencies move; if replies queue, raise `DATABASE_POOL_SIZE` of the
+  worker from 5 to 10 (Settings and secrets, above).
+- **The AI key.** The pilot's key is on a free tier (training use, low rate limits). Put a paid key in before more
+  agencies move.
+
+**Later: the contract release**
+
+The old columns and tables (the earlier agents' settings, chat memory and voice copies, `ai_learning`, `ai_media`, and
+the files of record types `ai_knowledge`, `ai_media` and `package_payment_qr`) are dropped in a later release, after
+those stored files are deleted. It deletes data, so it needs the owner's approval on its own; until then everything stays.
 
 ## Still open before launch
 

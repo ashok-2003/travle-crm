@@ -8,10 +8,10 @@ import {
   savePackage,
   savePackageSeason,
   sellablePackages,
-  setPackagePaymentDetails,
   setPackageSellable,
   updatePackage,
 } from "../../src/quotes/index.js";
+import { addPaymentQr, removePaymentQrs } from "../ai/support/payment-qr.js";
 import { aLead } from "../crm/support/records.js";
 import { openWorld, type World } from "../bookings/support.js";
 import { aDeparture } from "../departures/support.js";
@@ -65,6 +65,8 @@ describe("a package the AI may sell", () => {
   let counter = 0;
   beforeAll(async () => {
     world = await openWorld("PackageSelling");
+    // The AI sells a group package only where the agency has added its payment QR.
+    await world.inOrg((tx) => addPaymentQr(tx, world.organizationId));
   });
   afterAll(async () => {
     await world.close();
@@ -101,7 +103,7 @@ describe("a package the AI may sell", () => {
     );
     return id;
   }
-  const gaps = (id: string) => world.inOrg((tx) => packageSellGaps(tx, id, today));
+  const gaps = (id: string) => world.inOrg((tx) => packageSellGaps(tx, world.organizationId, id, today));
   const detail = (id: string) =>
     world.inOrg((tx) =>
       getPackage(tx, world.manager, id, {
@@ -113,24 +115,9 @@ describe("a package the AI may sell", () => {
   const sell = (id: string, sellable: boolean) =>
     world.inOrg((tx) => setPackageSellable(tx, world.manager, { packageId: id, sellable }, today));
 
-  it("saving the package never touches where customers pay, which has its own change and audit", async () => {
+  it("a package's detail carries no payment text: payment details are the agency's", async () => {
     const id = await aPackage();
-    const pay = (paymentDetails: string) =>
-      world.inOrg((tx) => setPackagePaymentDetails(tx, world.manager, { packageId: id, paymentDetails }));
-    await pay("UPI to the agency");
-    expect((await detail(id)).paymentDetails).toBe("UPI to the agency");
-    await world.inOrg((tx) =>
-      updatePackage(tx, world.manager, { packageId: id, ...words({ name: "Selling renamed", title: "T" }) }),
-    );
-    expect((await detail(id)).paymentDetails).toBe("UPI to the agency");
-    await pay("UPI to the agency");
-    const entries = await world.inOrg((tx) =>
-      tx.auditEntry.findMany({ where: { entityId: id, action: "package.payment-changed" } }),
-    );
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.before).toEqual({ paymentDetailsLength: 0 });
-    expect(entries[0]?.after).toEqual({ paymentDetailsLength: 17 });
-    expect(JSON.stringify(entries)).not.toContain("UPI to the agency");
+    expect(await detail(id)).not.toHaveProperty("paymentDetails");
   });
 
   it("the package's own audit keeps its kind, room types, GST switch and advance", async () => {
@@ -262,6 +249,52 @@ describe("a package the AI may sell", () => {
     expect(await gaps(id)).toEqual([]);
   });
 
+  it("a group package needs the agency's payment QR before the AI may sell it", async () => {
+    const id = await aPackage({ kind: "group", roomTypes: ["double"], advancePerPersonPaise: 100_000 });
+    await world.inOrg(async (tx) => {
+      const open = await aDeparture(tx, { startDate: "2026-12-12", endDate: "2026-12-17" });
+      await tx.departure.update({
+        where: { id: open.id },
+        data: { templateId: id, priceDoublePaise: 2_000_000n },
+      });
+    });
+    const setQr = (present: boolean) =>
+      world.inOrg((tx) =>
+        present ? addPaymentQr(tx, world.organizationId) : removePaymentQrs(tx, world.organizationId),
+      );
+    const idsOfSellable = async () =>
+      (await world.inOrg((tx) => sellablePackages(tx, world.organizationId, today))).map((one) => one.id);
+    try {
+      await setQr(false);
+      expect(await gaps(id)).toEqual(["payment_details"]);
+      expect((await detail(id)).sellGaps).toEqual(["payment_details"]);
+      expect(await reasonOf(sell(id, true))).toBe("PACKAGE_NOT_READY_TO_SELL");
+
+      // A UPI ID alone is not enough: the QR is what the agent sends.
+      await world.inOrg((tx) =>
+        tx.organizationProfile.upsert({
+          where: { organizationId: world.organizationId },
+          create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+          update: { upiId: "sharma@okbank" },
+        }),
+      );
+      expect(await gaps(id)).toEqual(["payment_details"]);
+      expect(await reasonOf(sell(id, true))).toBe("PACKAGE_NOT_READY_TO_SELL");
+
+      await setQr(true);
+      expect(await gaps(id)).toEqual([]);
+      await sell(id, true);
+      expect(await idsOfSellable()).toContain(id);
+
+      // The details go away after the switch was turned on: the switch stays on but the AI is no longer offered it.
+      await setQr(false);
+      expect((await detail(id)).sellable).toBe(true);
+      expect(await idsOfSellable()).not.toContain(id);
+    } finally {
+      await setQr(true);
+    }
+  });
+
   it("a custom package needs a from price", async () => {
     const id = await aPackage();
     expect(await gaps(id)).toEqual(["from_price"]);
@@ -280,11 +313,14 @@ describe("a package the AI may sell", () => {
   it("sellablePackages offers only what is switched on and still has nothing missing", async () => {
     const ready = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
     const off = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
-    const idsOfSellable = async () => (await world.inOrg((tx) => sellablePackages(tx, today))).map((one) => one.id);
+    const idsOfSellable = async () =>
+      (await world.inOrg((tx) => sellablePackages(tx, world.organizationId, today))).map((one) => one.id);
     await sell(ready, true);
     expect(await idsOfSellable()).toContain(ready);
     expect(await idsOfSellable()).not.toContain(off);
-    expect((await world.inOrg((tx) => sellablePackages(tx, today))).find((one) => one.id === ready)).toEqual({
+    expect(
+      (await world.inOrg((tx) => sellablePackages(tx, world.organizationId, today))).find((one) => one.id === ready),
+    ).toEqual({
       id: ready,
       kind: "custom",
     });
@@ -297,6 +333,32 @@ describe("a package the AI may sell", () => {
     );
     expect((await detail(ready)).sellable).toBe(true);
     expect(await idsOfSellable()).not.toContain(ready);
+  });
+
+  it("sellablePackages reads the agency's payment details once, however many packages are switched on", async () => {
+    for (let count = 0; count < 3; count += 1) {
+      const id = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
+      await sell(id, true);
+    }
+    const reads = await world.inOrg(async (tx) => {
+      let profileReads = 0;
+      const profile = tx.organizationProfile;
+      const counting = new Proxy(profile, {
+        get(target, name, receiver) {
+          if (name === "findUnique") profileReads += 1;
+          return Reflect.get(target, name, receiver) as unknown;
+        },
+      });
+      const watched = new Proxy(tx, {
+        get(target, name, receiver) {
+          return name === "organizationProfile" ? counting : (Reflect.get(target, name, receiver) as unknown);
+        },
+      });
+      const offered = await sellablePackages(watched, world.organizationId, today);
+      expect(offered.length).toBeGreaterThanOrEqual(3);
+      return profileReads;
+    });
+    expect(reads).toBe(1);
   });
 
   it("turning selling off always works, and both are audited", async () => {

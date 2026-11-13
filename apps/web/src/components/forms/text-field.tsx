@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 
 type InputProps = Pick<
   ComponentProps<"input">,
-  "type" | "autoComplete" | "inputMode" | "autoCapitalize" | "spellCheck" | "disabled"
+  "type" | "autoComplete" | "inputMode" | "autoCapitalize" | "spellCheck" | "disabled" | "placeholder"
 >;
 
 export function TextField<Values extends FieldValues>({

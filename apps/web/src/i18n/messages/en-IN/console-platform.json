@@ -279,9 +279,20 @@
       "traveller": "Traveller",
       "person": "Customer",
       "vip_invite": "Invite",
-      "email": "Email"
+      "email": "Email",
+      "platform": "The AI agent on WhatsApp",
+      "ai_turn_trace": "AI turn"
     },
     "actions": {
+      "ai-agent": {
+        "paused": "Paused the AI agent on WhatsApp",
+        "resumed": "Resumed the AI agent on WhatsApp",
+        "paused-everyone": "Paused the AI agent on WhatsApp for every agency",
+        "resumed-everyone": "Resumed the AI agent on WhatsApp for every agency"
+      },
+      "ai-trace": {
+        "opened": "Opened an AI turn's trace"
+      },
       "organization": {
         "onboarded": "Onboarded the organization",
         "updated": "Corrected the organization's details",

@@ -158,6 +158,7 @@ model QuoteTemplate {
   departures            Departure[]
   quotes                Quote[]
   enquiries             PackageEnquiry[]
+  whatsappAds           WhatsappAd[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, name], map: "quote_template_live_name", where: { deletedAt: null })

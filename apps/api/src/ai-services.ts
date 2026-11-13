@@ -6,7 +6,25 @@
 import { createOpenRouterModel, OPENROUTER_BASE_URL, withBackupModel, type AiModel } from "@travel-crm/integrations/ai";
 import type { Environment } from "./environment.js";
 
-export function createAiModel(environment: Environment): AiModel | null {
+/** The settings that make the model: the bench reads just these, the processes the whole environment. */
+export type AiSettings = Pick<
+  Environment,
+  | "AI_API_KEY"
+  | "AI_BASE_URL"
+  | "AI_CHAT_MODELS"
+  | "AI_FAST_MODELS"
+  | "AI_ZERO_RETENTION"
+  | "AI_BACKUP_API_KEY"
+  | "AI_BACKUP_BASE_URL"
+  | "AI_BACKUP_CHAT_MODELS"
+  | "AI_BACKUP_FAST_MODELS"
+  | "OPENROUTER_API_KEY"
+  | "AI_SUGGEST_MODELS"
+  | "AI_SCORE_MODELS"
+  | "AI_TEST_SERVER_URL"
+>;
+
+export function createAiModel(environment: AiSettings): AiModel | null {
   if (environment.AI_API_KEY !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];
     const fast = environment.AI_FAST_MODELS ?? chat;
@@ -19,7 +37,6 @@ export function createAiModel(environment: Environment): AiModel | null {
       models: {
         suggest_reply: chat,
         autopilot: chat,
-        learn: chat,
         score_lead: fast,
         fill_form: chat,
         write_up: chat,
@@ -46,7 +63,6 @@ export function createAiModel(environment: Environment): AiModel | null {
       models: {
         suggest_reply: backupChat,
         autopilot: backupChat,
-        learn: backupChat,
         score_lead: backupFast,
         fill_form: backupChat,
         write_up: backupChat,
@@ -67,9 +83,8 @@ export function createAiModel(environment: Environment): AiModel | null {
     models: {
       suggest_reply: environment.AI_SUGGEST_MODELS,
       score_lead: environment.AI_SCORE_MODELS,
-      // The autopilot and the nightly lessons write for customers and read many chats: the chat models do both.
+      // The agent writes for customers and reads chats: the chat models do both.
       autopilot: environment.AI_SUGGEST_MODELS,
-      learn: environment.AI_SUGGEST_MODELS,
       fill_form: environment.AI_SUGGEST_MODELS,
       write_up: environment.AI_SUGGEST_MODELS,
       ask_report: environment.AI_SCORE_MODELS,

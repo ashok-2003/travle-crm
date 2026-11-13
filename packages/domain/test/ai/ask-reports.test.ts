@@ -43,9 +43,7 @@ describe("ask reports: choosing the report", () => {
   });
 
   const turnOn = () =>
-    inOrg((tx) =>
-      saveAiSettings(tx, owner, { enabled: true, scoring: true, instructions: "" }, { providerReady: true, now }),
-    );
+    inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now }));
 
   it("is off until the agency turns the AI on, and asks the model nothing while off", async () => {
     const model = createMemoryAiModel();

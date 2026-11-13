@@ -1,0 +1,45 @@
+{
+  "name": "closing",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "not interested"
+    },
+    {
+      "from": "agency",
+      "text": "ok"
+    },
+    {
+      "from": "customer",
+      "text": "ok thanks"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "not_interested",
+            "proof": "not interested"
+          }
+        ],
+        "language": "english"
+      }
+    },
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "ok_thanks",
+            "proof": "ok thanks"
+          }
+        ],
+        "language": "english"
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "move": "silent"
+  }
+}

@@ -6,7 +6,6 @@ import {
   paymentClaimPhrases,
   teamClaimPhrases,
   notRunPhrases,
-  customTripPhrases,
   paymentDetailsIn,
   withoutAmountsAndDates,
   withoutPaymentDetails,
@@ -90,7 +89,7 @@ describe("word lists", () => {
     expect(indianTravelPlaces.length).toBeGreaterThanOrEqual(140);
     for (const place of indianTravelPlaces) expect(place).toBe(place.toLowerCase());
     expect(indianTravelPlaces).toEqual(expect.arrayContaining(["manali", "spiti valley", "himachal pradesh", "goa"]));
-    for (const list of [paymentClaimPhrases, teamClaimPhrases, notRunPhrases, customTripPhrases]) {
+    for (const list of [paymentClaimPhrases, teamClaimPhrases, notRunPhrases]) {
       expect(list.some((p) => /[ऀ-ॿ]/.test(p))).toBe(true);
     }
   });

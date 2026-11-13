@@ -2,7 +2,7 @@
 
 // Changing a follow-up (the Follow-ups screen): what to do and when, on the agency's clock (DueField), sent as the api
 // takes it (editTaskInput, checked before it is sent). A FormDialog: it holds while the request is out (rule 7), and a
-// time the api finds already past is said on the time field. A follow-up moved later is worked by the AI again then.
+// time the api finds already past is said on the time field.
 import type { FollowUpRow } from "@travel-crm/contracts/ai";
 import { editTaskInput, type EditTaskInput } from "@travel-crm/contracts/tasks";
 import { calendarDateIn, timeOfDayIn } from "@travel-crm/domain/kernel";

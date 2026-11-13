@@ -1,0 +1,47 @@
+{
+  "name": "a price the model typed",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "tell me about Manali"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "package_question",
+            "proof": "about Manali"
+          }
+        ],
+        "language": "english",
+        "details": {
+          "package": {
+            "name": "Manali Escape",
+            "proof": "Manali",
+            "changed": false
+          }
+        }
+      }
+    },
+    {
+      "write": {
+        "text": "Manali Escape is only ₹4,999 a person.",
+        "cannot_answer": false
+      }
+    },
+    {
+      "write": {
+        "text": "Manali Escape is only ₹4,999 a person.",
+        "cannot_answer": false
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "flagged": true,
+    "move": "hand_over",
+    "handOver": "check_failed"
+  }
+}

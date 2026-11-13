@@ -119,6 +119,7 @@ model Organization {
   aiSettings                  AiSettings?
   aiAutopilot                 AiAutopilot?
   aiChats                     AiChat[]
+  aiTurnTraces                AiTurnTrace[]
   aiLearnings                 AiLearning[]
   aiMedia                     AiMedia[]
   aiBookings                  AiBooking[]
@@ -132,7 +133,9 @@ model Organization {
   aiFills                     AiFill[]
   departureOffers             DepartureOffer[]
   leadAiFields                LeadAiField[]
+  leadAiSuggestions           LeadAiSuggestion[]
   quoteTemplates              QuoteTemplate[]
+  whatsappAds                 WhatsappAd[]
   quoteTemplateTiers          QuoteTemplateTier[]
   supplierRateSeasons         SupplierRateSeason[]
   packageSeasons              PackageSeason[]

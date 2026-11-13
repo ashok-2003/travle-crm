@@ -153,18 +153,12 @@ const TWO_FACTOR_SHOTS = [
   { name: "theme-signin", screen: "Sign-in with the brand panel", as: visitor },
   { name: "theme-quote-send", screen: "A sent quote: blue Save, green Send on WhatsApp", as: owner },
   { name: "theme-invites", screen: "The console's invites screen", as: superAdmin },
-  // The automatic WhatsApps and the autopilot (2026-10-29).
+  // The automatic WhatsApps (2026-10-29).
   {
     name: "step2-sales-automation",
     screen: "Settings, Sales automation: greeting, follow-ups, payment reminders",
     as: owner,
   },
-  {
-    name: "step2-ai-autopilot",
-    screen: "Settings, AI: the autopilot, how it speaks, learning and the copied way of talking",
-    as: owner,
-  },
-  { name: "step2-chat-ai-message", screen: "A chat with a message the AI sent by itself, marked", as: owner },
   // Release 7a: departures and suppliers (2026-10-30).
   { name: "r7a-departures", screen: "Departures: upcoming batches with seats sold and held", as: owner },
   { name: "r7a-departure", screen: "A departure: seats, bookings, the rooming list", as: owner },
@@ -571,8 +565,8 @@ export const SHOTS = [
   { name: "reports", screen: "Reports: the key figures, the funnel and the team", as: owner },
   { name: "home-hot-leads", screen: "Home: the hot leads to call now", as: owner },
   { name: "lost-reason", screen: "Marking a lead Lost asks why", as: owner },
-  { name: "settings-ai", screen: "Settings, AI: the switch and the instructions", as: owner },
-  { name: "settings-ai-knowledge", screen: "Settings, AI: what the AI knows", as: owner },
+  { name: "settings-ai", screen: "Settings, AI: the switches", as: owner },
+  { name: "settings-ai-knowledge", screen: "Settings, AI: your documents", as: owner },
   { name: "lead-ai-guess", screen: "A lead page with the AI's guess in the AI's tint", as: owner },
   { name: "home-final", screen: "Home, the owner's layout in our style", as: owner },
   { name: "reports-final", screen: "Reports with the lead flow charts that left Home", as: owner },

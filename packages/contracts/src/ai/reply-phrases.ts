@@ -153,31 +153,3 @@ export const notRunPhrases: string[] = [
   "नहीं कराते",
   "नहीं चलाते",
 ];
-
-export const customTripPhrases: string[] = [
-  // English
-  "custom trip",
-  "custom trips",
-  "custom package",
-  "custom itinerary",
-  "customised trip",
-  "customized trip",
-  "customised package",
-  "customized package",
-  "tailor-made",
-  "tailor made",
-  "team will send … quote",
-  "team will share … quote",
-  "team will prepare … quote",
-  "team will check and send",
-  "team will check and share",
-  // Hinglish
-  "custom trip bana",
-  "team quote bhej",
-  "team … quote … bhej",
-  "team … quote … share",
-  // Hindi
-  "कस्टम ट्रिप",
-  "कस्टम पैकेज",
-  "टीम … कोटेशन",
-];

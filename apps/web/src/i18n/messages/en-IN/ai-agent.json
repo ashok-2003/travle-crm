@@ -1,0 +1,178 @@
+{
+  "answers": {
+    "questions": {
+      "cancellation": "What is your cancellation policy?",
+      "refunds": "How and when do you refund?",
+      "id_documents": "Which ID documents must travellers carry?",
+      "safety": "How do you keep travellers safe?",
+      "children": "Can children come, and from what age?",
+      "payment_methods": "Which ways can customers pay?"
+    }
+  },
+  "title": "AI agent",
+  "intro": "Your WhatsApp sales assistant: what it's doing, what needs you, and how it's set up.",
+  "tabs": {
+    "label": "AI agent sections",
+    "overview": "Overview",
+    "setup": "Setup",
+    "try": "Try it"
+  },
+  "state": {
+    "on": "On: answering WhatsApp chats",
+    "onNotReady": "On, but setup isn't finished",
+    "finishSetup": "Finish setup",
+    "off": "Off",
+    "paused": "Paused by {product} support",
+    "notSetUp": "Not set up yet",
+    "openSetup": "Open Setup",
+    "loadFailed": "The agent's state didn't load."
+  },
+  "needsYou": {
+    "title": "Needs you",
+    "handedOver": "Chats handed over to you",
+    "reasonNone": "No reason was given.",
+    "since": "Since {when}",
+    "suggestions": "Suggested: Lost or Not a lead",
+    "suggested": "{stage}: {reason}",
+    "payments": "Payments to check",
+    "paymentsCount": "{count, plural, one {# payment waits for you} other {# payments wait for you}}",
+    "nothing": "Nothing needs you right now.",
+    "loadFailed": "This part didn't load."
+  },
+  "last24": {
+    "title": "Last 24 hours",
+    "chats": "Chats answered",
+    "messages": "Messages sent",
+    "bookings": "Bookings requested",
+    "flagged": "Flagged for a person",
+    "chatsHint": "Chats the AI answered in the last 24 hours.",
+    "messagesHint": "Messages the AI sent in the last 24 hours.",
+    "bookingsHint": "Bookings the AI took in the last 24 hours.",
+    "flaggedHint": "Chats in the last 24 hours that the AI handed to a person, couldn't answer safely, or suggested marking Lost or Not a lead.",
+    "loadFailed": "The last 24 hours didn't load."
+  },
+  "loading": "Loading the AI agent",
+  "loadFailed": "The AI agent didn't load.",
+  "setup": {
+    "done": "Done",
+    "todo": "To do",
+    "optional": "Optional",
+    "edit": "Edit",
+    "close": "Close",
+    "editNamed": "Edit {title}",
+    "closeNamed": "Close {title}",
+    "steps": {
+      "whatsapp": {
+        "title": "WhatsApp number",
+        "open": "Connect your WhatsApp number",
+        "done": "Your WhatsApp number is connected",
+        "todo": "Connect your WhatsApp number"
+      },
+      "packages": {
+        "title": "Packages the AI can sell",
+        "open": "Open packages",
+        "count": "{count, plural, one {# package the AI can sell} other {# packages the AI can sell}}",
+        "done": "Packages are ready",
+        "todo": "Mark at least one package 'AI can sell'; each needs an advance",
+        "needsPayment": "Add your payment QR so the AI can sell your packages"
+      },
+      "payment": {
+        "title": "Payment QR",
+        "done": "Payment QR added",
+        "todo": "Add your payment QR",
+        "askManager": "Ask an Owner or Admin to add the QR"
+      },
+      "answers": {
+        "title": "Your answers",
+        "count": "{count} of {total} answered",
+        "done": "Answers added",
+        "todo": "Answer the questions customers ask"
+      },
+      "basics": {
+        "title": "Agent name and tone",
+        "done": "Name and tone chosen",
+        "todo": "Choose a name and a tone"
+      },
+      "ads": {
+        "title": "Ads",
+        "none": "No chats have come from an ad yet.",
+        "count": "{count} of {total} ads linked",
+        "done": "Ads linked",
+        "todo": "Link your ads to packages"
+      }
+    },
+    "payment": {
+      "profileFirst": "Add your business details first",
+      "loading": "Loading the payment details",
+      "loadFailed": "The payment details didn't load.",
+      "upiId": "UPI ID",
+      "bankName": "Bank name",
+      "accountName": "Account name",
+      "accountNumber": "Account number",
+      "ifsc": "IFSC",
+      "save": "Save payment details",
+      "saving": "Saving",
+      "saved": "Payment details saved",
+      "qr": "Payment QR",
+      "extras": "Also sent with the QR, if you add them (optional)",
+      "noQr": "No QR added yet.",
+      "addQr": "Add a QR",
+      "replaceQr": "Replace the QR",
+      "adding": "Adding",
+      "remove": "Remove",
+      "removeNamed": "Remove {name}",
+      "removeTitle": "Remove {name}?",
+      "removeDescription": "The agent will stop sending this QR.",
+      "removeDescriptionOn": "Without a QR the AI agent stops answering every chat until you add one.",
+      "problems": {
+        "required": "Fill this in",
+        "upiId": "Check the UPI ID, like name@bank",
+        "bankName": "Use up to 120 characters",
+        "accountName": "Use up to 120 characters",
+        "accountNumber": "Use the account's 9 to 18 digits",
+        "ifsc": "Check the IFSC: 11 characters, the fifth a zero",
+        "wrongType": "Choose a picture (JPEG, PNG or WebP).",
+        "tooLarge": "Choose a picture of up to {size}."
+      }
+    },
+    "answers": {
+      "loading": "Loading your answers",
+      "loadFailed": "Your answers didn't load.",
+      "save": "Save answers",
+      "saving": "Saving",
+      "saved": "Answers saved"
+    },
+    "basics": {
+      "loading": "Loading the name and tone",
+      "loadFailed": "The name and tone didn't load.",
+      "agentName": "Agent name",
+      "namePlaceholder": "{agency} team",
+      "tone": "Tone",
+      "friendly": "Friendly",
+      "professional": "Professional",
+      "save": "Save name and tone",
+      "saving": "Saving",
+      "saved": "Name and tone saved",
+      "problems": {
+        "required": "Fill this in",
+        "agentName": "Use up to 80 characters",
+        "tone": "Choose a tone"
+      }
+    },
+    "ads": {
+      "loading": "Loading your ads",
+      "loadFailed": "Your ads didn't load.",
+      "none": "No chats have come from an ad yet.",
+      "noHeadline": "An ad without a headline",
+      "noPackage": "No package",
+      "seen": "{count, plural, one {# chat} other {# chats}}, last seen {when}",
+      "deletedPackage": "A deleted package"
+    },
+    "turnOn": {
+      "title": "Turn the AI agent on",
+      "finishFirst": "Before the AI agent can be turned on, it needs:",
+      "paused": "Paused by {product} support",
+      "onButNotReady": "The AI agent is on but not answering until:"
+    }
+  }
+}

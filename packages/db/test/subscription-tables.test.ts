@@ -140,4 +140,33 @@ describe("subscription tables", () => {
     });
     expect(await platform.subscription.count({ where: { organizationId: other } })).toBe(1);
   });
+
+  it("an agent pause names who set it", async () => {
+    const by = randomUUID();
+    const at = new Date("2026-11-12T00:00:00Z");
+    const clear = { aiAgentPausedAt: null, aiAgentPausedBy: null };
+    await expect(
+      platform.subscriptionPolicy.update({ where: { id: true }, data: { aiAgentPausedAt: at } }),
+    ).rejects.toThrow(/subscription_policy_agent_pause/);
+    await expect(
+      platform.subscription.update({ where: { organizationId }, data: { aiAgentPausedAt: at } }),
+    ).rejects.toThrow(/subscription_agent_pause/);
+    // The policy row is shared with other test files that read it at the same time: set it only inside a transaction
+    // that is rolled back.
+    const pauseData = { aiAgentPausedAt: at, aiAgentPausedBy: by };
+    const rollback = new Error("roll back");
+    await expect(
+      platformDb.transaction(async (tx) => {
+        await tx.subscriptionPolicy.update({ where: { id: true }, data: pauseData });
+        expect(await tx.subscriptionPolicy.findUniqueOrThrow({ where: { id: true } })).toMatchObject(pauseData);
+        await tx.subscriptionPolicy.update({ where: { id: true }, data: clear });
+        expect(await tx.subscriptionPolicy.findUniqueOrThrow({ where: { id: true } })).toMatchObject(clear);
+        await tx.subscription.update({ where: { organizationId }, data: pauseData });
+        expect(await tx.subscription.findUniqueOrThrow({ where: { organizationId } })).toMatchObject(pauseData);
+        await tx.subscription.update({ where: { organizationId }, data: clear });
+        expect(await tx.subscription.findUniqueOrThrow({ where: { organizationId } })).toMatchObject(clear);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
+  });
 });

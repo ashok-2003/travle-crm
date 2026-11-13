@@ -1,6 +1,6 @@
 "use client";
 
-// What the AI knows (Settings, AI): the agency's packages, prices, inclusions and policies, typed in or read from a PDF or
+// Your documents (Settings, AI): the agency's brochures and notes on packages, prices, inclusions and policies, typed in or read from a PDF or
 // text file (uploaded straight to storage; the worker reads its words, and the list looks again until it has). Each piece can
 // be turned off, opened to edit, or removed (a document's file goes with it).
 import { MAX_AI_KNOWLEDGE_BYTES, aiKnowledgeContentTypes, type AiKnowledgeItem } from "@travel-crm/contracts/ai";
@@ -277,7 +277,6 @@ export function KnowledgeSection() {
             ))}
           </ItemGroup>
         )}
-        <p className="text-caption text-muted-foreground">{t("alsoKnown")}</p>
       </CardContent>
       {adding && <KnowledgeDialog open={adding} onOpenChange={setAdding} editing={null} />}
     </Card>

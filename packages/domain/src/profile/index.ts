@@ -7,3 +7,12 @@ export {
 } from "./profile.js";
 export { createProfiles, type Profiles } from "./profiles.js";
 export { setupChecklistOf, type SetupFacts } from "./setup-checklist.js";
+export {
+  agencyPaymentDetailsOf,
+  agencyPaymentQrRecord,
+  paymentDetailsReady,
+  paymentLinesOf,
+  savePaymentDetails,
+  type AgencyPaymentDetails,
+} from "./payment-details.js";
+export { confirmPaymentQr, readPaymentDetails, removePaymentQr, type PaymentQrDependencies } from "./payment-qr.js";

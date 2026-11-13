@@ -2,7 +2,8 @@
 // keyword. Neither writes to someone who asked to stop or withdrew, or outside the 24-hour window; a listener run twice sends
 // once; and the automatic send is once per chat per trip, whichever message held the keyword.
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { automationCouldAct, sendTripKit, sendTripKitOnKeyword } from "../../src/inbox/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { memberOf } from "../imports/support/test-imports.js";
@@ -20,10 +21,15 @@ const HOUR = 3_600_000;
 
 describe("sending a trip's details", () => {
   let test: TestInbox;
+  let platform: PlatformClient;
   beforeAll(() => {
     test = createTestInbox();
+    platform = createPlatformClient(inject("dbUrls").platform);
   });
-  afterAll(() => test.close());
+  afterAll(async () => {
+    await platform.$disconnect();
+    await test.close();
+  });
 
   async function agency() {
     const connection = await aConnectedAgency(test);
@@ -66,18 +72,62 @@ describe("sending a trip's details", () => {
     expect(await sends()).toHaveLength(1);
   });
 
-  it("a grounded agency's keyword kits don't send, and staff still send a kit from the chat", async () => {
+  /** The agent switched on in the agency's settings, with the AI module on or off. */
+  const agentOn = (inOrg: <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => Promise<T>, module: boolean) =>
+    inOrg(async (tx) => {
+      await tx.salesAutomation.create({ data: { hotKeywords: [], followEnabled: false } });
+      await tx.aiSettings.create({ data: { enabled: module } });
+      await tx.aiAutopilot.create({ data: { autopilot: true } });
+    });
+
+  it("an agent that can answer sends the files itself: keyword kits don't send, and staff still send a kit from the chat", async () => {
     const { inOrg, kit, customerSays, keyword, sentOut, sends } = await agency();
     await kit("Kerala", ["kerala"]);
-    // Nothing else listens in this agency, so only the trip's keywords could make the automation act.
-    await inOrg((tx) => tx.salesAutomation.create({ data: { hotKeywords: [], followEnabled: false } }));
-    await inOrg((tx) => tx.aiAutopilot.create({ data: { grounded: true } }));
+    await agentOn(inOrg, true);
     expect(await keyword(await customerSays("Any Kerala packages?"))).toBe(false);
     expect(await sentOut()).toHaveLength(0);
     expect(await sends()).toHaveLength(0);
-    expect(await inOrg((tx) => automationCouldAct(tx))).toBe(false);
-    await inOrg((tx) => tx.aiAutopilot.updateMany({ data: { grounded: false } }));
+    // The agent itself listens to every message.
     expect(await inOrg((tx) => automationCouldAct(tx))).toBe(true);
+  });
+
+  it("keyword kits send while the agent is on but the AI module is off", async () => {
+    const { inOrg, kit, customerSays, keyword, sentOut } = await agency();
+    await kit("Kerala", ["kerala"]);
+    await agentOn(inOrg, false);
+    expect(await keyword(await customerSays("Any Kerala packages?"))).toBe(true);
+    expect(await sentOut()).toHaveLength(1);
+  });
+
+  it("keyword kits send while the agent is paused for the agency", async () => {
+    const { connection, inOrg, kit, customerSays, keyword, sentOut } = await agency();
+    await kit("Kerala", ["kerala"]);
+    await agentOn(inOrg, true);
+    const plan = await platform.plan.create({
+      data: {
+        key: `plan-${randomUUID().slice(0, 8)}`,
+        name: "Starter",
+        monthlyPricePaise: 250_000,
+        seatLimit: 5,
+        whatsappNumberLimit: 1,
+        storageLimitBytes: 5_000_000_000n,
+        modules: ["crm", "inbox", "ai"],
+      },
+    });
+    await platform.subscription.create({
+      data: {
+        organizationId: connection.organizationId,
+        planId: plan.id,
+        billingCycle: "monthly",
+        status: "trial",
+        statusChangedAt: testNow,
+        trialEndsOn: new Date("2099-01-01"),
+        aiAgentPausedAt: new Date(),
+        aiAgentPausedBy: randomUUID(),
+      },
+    });
+    expect(await keyword(await customerSays("Any Kerala packages?"))).toBe(true);
+    expect(await sentOut()).toHaveLength(1);
   });
 
   it("sends a trip once a chat, whichever later message says its keyword, and each trip once", async () => {

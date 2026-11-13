@@ -26,7 +26,7 @@ describe("the OpenRouter adapter", () => {
     const { fetcher, calls } = fakeFetch(answer("Hi there"));
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [] },
       fetch: fetcher,
     });
     expect(await model.complete({ feature: "suggest_reply", messages, user: "org-1" })).toEqual({
@@ -45,7 +45,7 @@ describe("the OpenRouter adapter", () => {
   });
 
   it("sends OpenRouter's provider field to OpenRouter alone, never to Google's or any other endpoint", async () => {
-    const models = { suggest_reply: ["gemini-2.5-flash"], score_lead: [], autopilot: [], learn: [] };
+    const models = { suggest_reply: ["gemini-2.5-flash"], score_lead: [], autopilot: [] };
     const google = fakeFetch(answer("From Gemini", "gemini-2.5-flash"));
     const gemini = createOpenRouterModel({
       apiKey: KEY,
@@ -91,7 +91,7 @@ describe("the OpenRouter adapter", () => {
     const first = fakeFetch(new Response("", { status: 429 }), answer("From the fallback", "b/two"));
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [] },
       fetch: first.fetcher,
     });
     expect(await model.complete({ feature: "suggest_reply", messages })).toMatchObject({ ok: true, model: "b/two" });
@@ -100,7 +100,7 @@ describe("the OpenRouter adapter", () => {
     const none = fakeFetch(new Response("", { status: 429 }), new Response("", { status: 503 }));
     const limited = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [] },
       fetch: none.fetcher,
     });
     expect(await limited.complete({ feature: "suggest_reply", messages })).toEqual({
@@ -117,7 +117,7 @@ describe("the OpenRouter adapter", () => {
     );
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [] },
       fetch: replies.fetcher,
     });
     await model.complete({ feature: "suggest_reply", messages });
@@ -129,7 +129,7 @@ describe("the OpenRouter adapter", () => {
     const { fetcher } = fakeFetch(new Error(`connect failed for ${KEY}`));
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [] },
       fetch: fetcher,
     });
     const result = await model.complete({ feature: "suggest_reply", messages });
@@ -140,8 +140,8 @@ describe("the OpenRouter adapter", () => {
   it("is not configured without a key or a model, and sends nothing", async () => {
     const { fetcher, calls } = fakeFetch();
     for (const options of [
-      { apiKey: "", models: { suggest_reply: ["a"], score_lead: ["s"], autopilot: [], learn: [] } },
-      { apiKey: KEY, models: { suggest_reply: [], score_lead: [], autopilot: [], learn: [] } },
+      { apiKey: "", models: { suggest_reply: ["a"], score_lead: ["s"], autopilot: [] } },
+      { apiKey: KEY, models: { suggest_reply: [], score_lead: [], autopilot: [] } },
     ]) {
       const model = createOpenRouterModel({ ...options, fetch: fetcher });
       expect(await model.complete({ feature: "suggest_reply", messages })).toEqual({

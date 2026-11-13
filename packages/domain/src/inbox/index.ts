@@ -2,6 +2,7 @@
 // customer's messages, turns a new number into a lead through crm, and shows the chats by the lead's own scope. The api, the
 // worker and the console call it; nothing below calls it.
 export { adoptAll, adoptChats } from "./adopt.js";
+export { adPackageChoicesOf, adPackageOf, adsOf, linkAd, noteAdOf } from "./ads.js";
 export { connectNumber, disconnectNumber, markConnected, pauseNumber, resumeNumber, setCaps } from "./connection.js";
 export { connectionById, liveConnection, toConnectionRow, type ConnectionRow } from "./connection-row.js";
 export {
@@ -28,6 +29,7 @@ export {
 } from "./chat-flags.js";
 export { unreadCounts, unreadIdsOf, UNREAD_FILTER_LIMIT } from "./unread.js";
 export {
+  aiAgentOn,
   automationCouldAct,
   automationOf,
   createKeywordReply,
@@ -84,6 +86,7 @@ export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";
 export {
   kindOf,
+  lockChat,
   markAnswered,
   MESSAGE_QUEUED_EVENT,
   queueMedia,
@@ -116,6 +119,7 @@ export {
   unroutedNumbers,
   upsertRoute,
 } from "./routes.js";
+export { chatNameOf } from "./chat-name.js";
 export { visibleConversations } from "./scope.js";
 export { applyStatus } from "./statuses.js";
 export { bumpUsage, monthStartOf, type UsageCounts } from "./usage.js";

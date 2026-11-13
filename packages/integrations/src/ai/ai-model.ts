@@ -7,7 +7,6 @@ export const aiFeatures = [
   "suggest_reply",
   "score_lead",
   "autopilot",
-  "learn",
   "fill_form",
   "write_up",
   "ask_report",

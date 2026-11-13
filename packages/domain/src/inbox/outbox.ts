@@ -76,7 +76,7 @@ export async function sendableChat(
 }
 
 /** Holds the chat's row until the transaction ends, so a reply and an inbound message do not overwrite each other's marks. */
-async function lockChat(tx: OrgTx, conversationId: string): Promise<{ lastMessageAt: Date | null }> {
+export async function lockChat(tx: OrgTx, conversationId: string): Promise<{ lastMessageAt: Date | null }> {
   const [row] = await tx.$queryRaw<{ lastMessageAt: Date | null }[]>`
     SELECT last_message_at AS "lastMessageAt" FROM whatsapp_conversation WHERE id = ${conversationId}::uuid FOR UPDATE`;
   if (row === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");

@@ -36,6 +36,8 @@ export function LogTarget({ entry, names }: { entry: PlatformLogEntry; names: Lo
   const t = useTranslations("consolePlatform.log");
   const { targetType, targetId } = entry;
   if (["organization", "subscription", "subscription_policy"].includes(targetType)) return null;
+  // The platform's own one-of-a-kind switch (the AI agent): its label says all there is to say.
+  if (targetType === "platform") return <span className="text-muted-foreground">{t("targets.platform")}</span>;
   let name: string | null;
   if (targetType === "plan") name = names.planName(targetId) ?? storedText(entry, "name") ?? storedText(entry, "key");
   else if (targetType === "platform_staff") name = names.personName(targetId);

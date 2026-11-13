@@ -1,9 +1,13 @@
-// The WhatsApp export reader: a chat from Android's and the iPhone's formats, WhatsApp's own lines dropped, and only the
-// chosen staff member's own messages kept for upload, so the customer's side never leaves the browser.
+// The WhatsApp export reader: a chat from Android's and the iPhone's formats, with WhatsApp's own lines dropped.
 import { describe, expect, it } from "vitest";
-import { conversationOf, ownMessagesOf, readWhatsAppExport, sendersOf } from "@/ai/whatsapp-export";
+import { readWhatsAppExport } from "@/ai/whatsapp-export";
 
-const people = (text: string) => sendersOf(readWhatsAppExport(text)).map((one) => one.name);
+/** The people who wrote, most messages first. */
+const people = (text: string) => {
+  const counts = new Map<string, number>();
+  for (const message of readWhatsAppExport(text)) counts.set(message.sender, (counts.get(message.sender) ?? 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+};
 
 describe("readWhatsAppExport", () => {
   it("reads Android's lines, with the narrow space before pm", () => {
@@ -31,21 +35,6 @@ describe("readWhatsAppExport", () => {
     expect(messages).toEqual([
       { sender: "Riya", text: "hey\nsecond line" },
       { sender: "Ayush", text: "hi" },
-    ]);
-  });
-
-  it("keeps only the chosen person's own messages: the customer's side is dropped before anything is sent", () => {
-    const messages = readWhatsAppExport(
-      "28/10/26, 9:41 pm - Customer: my number is 9876543210\n28/10/26, 9:42 pm - Riya: hey\n28/10/26, 9:43 pm - Customer: ok\n28/10/26, 9:44 pm - Riya: done",
-    );
-    expect(ownMessagesOf(messages, "Riya")).toEqual(["hey", "done"]);
-  });
-
-  it("keeps both sides for one chat's own voice, the chosen person's marked as theirs", () => {
-    const messages = readWhatsAppExport("28/10/26, 9:41 pm - Customer: hi\n28/10/26, 9:42 pm - Riya: hey");
-    expect(conversationOf(messages, "Riya")).toEqual([
-      { own: false, text: "hi" },
-      { own: true, text: "hey" },
     ]);
   });
 });

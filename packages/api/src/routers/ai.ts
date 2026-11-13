@@ -1,40 +1,36 @@
 // ai.*: Suggest reply (ADR 0029; the owner's decision of 2026-10-28). Anyone who may reply in a chat and holds ai:suggest
 // asks for a draft (a mutation: it spends one of the agency's suggestions); only whoever holds ai:manage, from a session
-// read afresh, turns it on for the agency and writes its instructions and its media. The bookings the AI took show on
-// the lead for anyone who sees it, and whoever may work the lead confirms or cancels one. The plan's AI module is checked
-// on every call.
+// read afresh, turns it on for the agency, sets up its WhatsApp agent and adds the documents package drafts read. The
+// bookings the AI took show on the lead for anyone who sees it, and whoever may work the lead confirms or cancels one.
+// The plan's AI module is checked on every call.
 import {
+  agencyAnswers,
+  agentBasics,
+  agentSetup,
+  handedOverChatList,
+  setAgentOnInput,
+  linkAdInput,
+  whatsappAds,
+  saveAgencyAnswersInput,
+  saveAgentBasicsInput,
   decideLeadAiFieldsInput,
+  decideStageSuggestionInput,
+  leadStageSuggestion,
+  leadStageSuggestionInput,
+  stageSuggestionList,
   leadAiFields,
   leadAiFieldsInput,
   addAiKnowledgeInput,
   aiBookingList,
   aiBookingsInput,
-  aiMediaIdInput,
-  aiMediaLink,
-  aiMediaList,
-  aiMediaSlot,
-  confirmAiMediaInput,
-  requestAiMediaInput,
   setAiBookingStatusInput,
-  updateAiMediaInput,
   aiDocumentSlot,
-  aiLearnResult,
-  aiLearningList,
   aiOverview,
-  aiVoice,
-  autopilotSettings,
   chatAi,
   conversationAiInput,
-  clearChatVoiceInput,
-  learnChatVoiceInput,
-  learnVoiceInput,
   testAiAnswer,
   testAiInput,
-  saveAutopilotInput,
-  setAiLearningInput,
   setChatAiInput,
-  setChatPersonaInput,
   aiKnowledgeIdInput,
   aiKnowledgeList,
   aiSettings,
@@ -51,45 +47,41 @@ import {
   writeUpInput,
 } from "@travel-crm/contracts/ai";
 import {
+  agencyAnswersOf,
+  agentBasicsOf,
+  agentSetupOf,
+  handedOverChatsOf,
+  setAgentOn,
+  saveAgencyAnswers,
+  saveAgentBasics,
   decideSuggestions,
   suggestedFieldsOf,
   addKnowledge,
   aiAllowed,
   bookingsOfLead,
-  confirmMedia,
-  deleteMedia,
-  listMedia,
-  mediaLink,
-  requestMedia,
   setBookingStatus,
-  updateMedia,
   aiEnabled,
   aiOverviewOf,
   aiSettingsOf,
-  autopilotSettingsOf,
   chatAiOf,
-  clearChatVoice,
-  clearVoice,
-  learnChatVoice,
-  testAnswer,
-  learnNow,
-  learnVoice,
-  listLearnings,
+  liteDryRun,
   resumeChat,
-  saveAutopilot,
   setChatMode,
-  setChatPersona,
-  setLearning,
   confirmDocument,
   deleteKnowledge,
   leadInsightOf,
   listKnowledge,
   requestDocument,
   saveAiSettings,
+  decideStageSuggestion,
+  stageSuggestionOfLead,
+  stageSuggestionsOf,
   suggestReply,
   updateKnowledge,
   writeUpQuote,
 } from "@travel-crm/domain/ai";
+import { adPackageChoicesOf, adsOf, linkAd } from "@travel-crm/domain/inbox";
+import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
 import { DomainError } from "@travel-crm/domain/kernel";
 import { agencyToday } from "../package-departures-gate.js";
@@ -144,7 +136,7 @@ export const aiRouter = router({
       ),
     ),
 
-  /** What the agency told its AI to know. */
+  /** The documents package drafts are written from. */
   knowledge: freshProcedure
     .requires("ai:manage")
     .output(aiKnowledgeList)
@@ -182,44 +174,6 @@ export const aiRouter = router({
     .requires("ai:manage")
     .input(confirmAiDocumentInput)
     .mutation(({ ctx, input }) => confirmDocument(ctx, ctx.member, input)),
-
-  /** The photos, videos and PDFs the AI may send. */
-  media: freshProcedure
-    .requires("ai:manage")
-    .output(aiMediaList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listMedia(tx))),
-
-  /** Step one of a media file: where the browser puts it. */
-  requestMedia: freshProcedure
-    .requires("ai:manage")
-    .input(requestAiMediaInput)
-    .output(aiMediaSlot)
-    .mutation(({ ctx, input }) => requestMedia(ctx, ctx.member, input)),
-
-  /** Step two: it is stored, so the AI may send it. */
-  confirmMedia: freshProcedure
-    .requires("ai:manage")
-    .input(confirmAiMediaInput)
-    .mutation(({ ctx, input }) => confirmMedia(ctx, ctx.member, input)),
-
-  updateMedia: freshProcedure
-    .requires("ai:manage")
-    .input(updateAiMediaInput)
-    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => updateMedia(tx, ctx.member, input))),
-
-  deleteMedia: freshProcedure
-    .requires("ai:manage")
-    .input(aiMediaIdInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteMedia(tx, ctx.member, input.mediaId)),
-    ),
-
-  /** A 5-minute link to look at one. */
-  mediaLink: freshProcedure
-    .requires("ai:manage")
-    .input(aiMediaIdInput)
-    .output(aiMediaLink)
-    .query(({ ctx, input }) => mediaLink(ctx, ctx.member, input.mediaId)),
 
   /** The bookings the AI took on a lead, with the customer's payment proofs: only for a lead the member may see. */
   bookingsForLead: orgProcedure
@@ -280,8 +234,37 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
         // A lead out of the member's scope is "not found".
         const lead = await getLead(tx, ctx.member, input.leadId);
-        await decideSuggestions(tx, ctx.member, lead.id, input.decision);
+        await decideSuggestions(tx, ctx.member, lead.id, input.decision, input.fields);
       }),
+    ),
+
+  /** The AI's open suggestions to mark a lead Lost or Not a lead, in the member's leads scope: the "Needs you" list. */
+  stageSuggestions: orgProcedure
+    .requires("leads:view")
+    .output(stageSuggestionList)
+    .query(({ ctx }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        suggestions: await stageSuggestionsOf(tx, ctx.member),
+      })),
+    ),
+
+  /** The lead's open suggestion, for the alert on its page. */
+  leadStageSuggestion: orgProcedure
+    .requires("leads:view")
+    .input(leadStageSuggestionInput)
+    .output(leadStageSuggestion)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        suggestion: await stageSuggestionOfLead(tx, ctx.member, input.leadId),
+      })),
+    ),
+
+  /** A person's yes or no to a suggestion; yes moves the lead as that person. */
+  decideStageSuggestion: orgProcedure
+    .requires("leads:edit")
+    .input(decideStageSuggestionInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => decideStageSuggestion(tx, ctx.member, input, new Date())),
     ),
 
   /** A draft reply for the chat, in the composer's box: never sent by itself. */
@@ -310,63 +293,80 @@ export const aiRouter = router({
       return writeUpQuote(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
     }),
 
-  /** The autopilot's settings: off until an Owner or Admin turns it on. */
-  autopilot: freshProcedure
+  /** The ads that brought chats, newest first, and the package each promotes. */
+  ads: freshProcedure
     .requires("ai:manage")
-    .output(autopilotSettings)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => autopilotSettingsOf(tx))),
+    .output(whatsappAds)
+    .query(async ({ ctx }) => {
+      const { ads, packages } = await ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        ads: await adsOf(tx),
+        packages: await adPackageChoicesOf(tx),
+      }));
+      return { ads: ads.map((ad) => ({ ...ad, lastSeenAt: ad.lastSeenAt.toISOString() })), packages };
+    }),
 
-  saveAutopilot: freshProcedure
+  linkAd: freshProcedure
     .requires("ai:manage")
-    .input(saveAutopilotInput)
-    .output(autopilotSettings)
+    .input(linkAdInput)
+    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => linkAd(tx, ctx.member, input))),
+
+  /** The agency's answers to the fixed questions the AI agent quotes. */
+  agencyAnswers: freshProcedure
+    .requires("ai:manage")
+    .output(agencyAnswers)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => agencyAnswersOf(tx))),
+
+  saveAgencyAnswers: freshProcedure
+    .requires("ai:manage")
+    .input(saveAgencyAnswersInput)
+    .output(agencyAnswers)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAgencyAnswers(tx, ctx.member, input)),
+    ),
+
+  /** The agent's name and tone. */
+  agentBasics: freshProcedure
+    .requires("ai:manage")
+    .output(agentBasics)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => agentBasicsOf(tx))),
+
+  saveAgentBasics: freshProcedure
+    .requires("ai:manage")
+    .input(saveAgentBasicsInput)
+    .output(agentBasics)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAgentBasics(tx, ctx.member, input)),
+    ),
+
+  /** The setup checklist and whether the agent is on. */
+  agentSetup: freshProcedure
+    .requires("ai:manage")
+    .output(agentSetup)
+    .query(async ({ ctx }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => agentSetupOf(tx, ctx.member.organizationId, today));
+    }),
+
+  setAgentOn: freshProcedure
+    .requires("ai:manage")
+    .input(setAgentOnInput)
+    .output(agentSetup)
     .mutation(async ({ ctx, input }) => {
       const today = await agencyToday(ctx);
-      return ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input, today));
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => setAgentOn(tx, ctx.member, input.on, today));
     }),
+
+  /** Chats the agent handed over to a person, among those this member's inbox shows. */
+  handedOver: freshProcedure
+    .requires("ai:manage", "inbox:view")
+    .output(handedOverChatList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => handedOverChatsOf(tx, ctx.member))),
 
   /** The autopilot's last day at a glance. */
   overview: freshProcedure
     .requires("ai:manage")
     .output(aiOverview)
     .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => aiOverviewOf(tx, new Date()))),
-
-  /** What it learned from the agency's chats, for the owner to turn off or dismiss. */
-  learnings: freshProcedure
-    .requires("ai:manage")
-    .output(aiLearningList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listLearnings(tx))),
-
-  setLearning: freshProcedure
-    .requires("ai:manage")
-    .input(setAiLearningInput)
-    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => setLearning(tx, ctx.member, input))),
-
-  learnNow: freshProcedure
-    .requires("ai:manage")
-    .output(aiLearnResult)
-    .mutation(async ({ ctx }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      const agencyName = async (organizationId: string) =>
-        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      return learnNow({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, new Date());
-    }),
-
-  /** Learns one staff member's way of talking from their own messages (the browser dropped the customer's side). */
-  learnVoice: freshProcedure
-    .requires("ai:manage")
-    .input(learnVoiceInput)
-    .output(aiVoice)
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      return learnVoice({ db: ctx.db, ai: ctx.ai }, ctx.member, input, new Date());
-    }),
-
-  clearVoice: freshProcedure
-    .requires("ai:manage")
-    .mutation(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => clearVoice(tx, ctx.member))),
 
   /** A chat's autopilot state, for the inbox. */
   chatAi: orgProcedure
@@ -375,8 +375,19 @@ export const aiRouter = router({
     .output(chatAi)
     .query(async ({ ctx, input }) => {
       const allowed = aiAllowed(ctx.entitlements);
-      return ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
-        chatAiOf(tx, input.conversationId, ctx.ai?.configured === true && allowed && (await aiEnabled(tx))),
+      const { organizationId } = ctx.member;
+      return ctx.db.forOrg(organizationId, async (tx) =>
+        chatAiOf(tx, {
+          organizationId,
+          conversationId: input.conversationId,
+          // A pause by platform staff stops the answering too, read fresh (not from the access cache).
+          available:
+            ctx.ai?.configured === true &&
+            allowed &&
+            (await aiEnabled(tx)) &&
+            (await agentPauseOf(tx, organizationId)) === null,
+          now: new Date(),
+        }),
       );
     }),
 
@@ -394,32 +405,7 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => resumeChat(tx, ctx.member, input.conversationId)),
     ),
 
-  setChatPersona: freshProcedure
-    .requires("ai:suggest", "inbox:view", "inbox:reply")
-    .input(setChatPersonaInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => setChatPersona(tx, ctx.member, input)),
-    ),
-
-  /** Learns the way of talking in one chat from its imported export (both sides: the other side's words go too). */
-  learnChatVoice: freshProcedure
-    .requires("ai:suggest", "inbox:view", "inbox:reply")
-    .input(learnChatVoiceInput)
-    .output(aiVoice)
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      return learnChatVoice({ db: ctx.db, ai: ctx.ai }, ctx.member, input, new Date());
-    }),
-
-  clearChatVoice: freshProcedure
-    .requires("ai:suggest", "inbox:view", "inbox:reply")
-    .input(clearChatVoiceInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => clearChatVoice(tx, ctx.member, input.conversationId)),
-    ),
-
-  /** The test box: what the AI would answer a question from the agency's knowledge alone. */
+  /** Try it: the agent's turn as a dry run on one question, nothing sent or kept. */
   test: freshProcedure
     .requires("ai:manage")
     .input(testAiInput)
@@ -429,6 +415,6 @@ export const aiRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       const agencyName = async (organizationId: string) =>
         (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      return testAnswer({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input.question, new Date());
+      return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input.question, new Date());
     }),
 });

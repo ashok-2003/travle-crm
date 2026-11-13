@@ -12,6 +12,15 @@ export {
   WEBSITE_FORMS_SWEEP_QUEUE,
   websiteFormsSweepSchedule,
 } from "./website-forms-sweep.js";
+export {
+  AiTracesSweepFailedError,
+  aiTracesSweepSchedule,
+  SWEEP_AI_TRACES_QUEUE,
+  sweepAiTraces,
+} from "./ai-traces-sweep.js";
+export { listAiTraces, openAiTrace } from "./ai-traces.js";
+export { traceFileView } from "./ai-trace-detail.js";
+export { getAiPromptLibrary, type AiPromptLibrary } from "./ai-prompts.js";
 export { aiInputsSweepSchedule, SWEEP_AI_INPUTS_QUEUE, sweepAiInputs } from "./ai-inputs-sweep.js";
 export { SWEEP_SHEETS_QUEUE, sheetsSweepSchedule, sweepSheetsNow } from "./sheets-sweep.js";
 export {
@@ -30,6 +39,16 @@ export {
 export type { PlatformWhatsApp } from "./whatsapp-settings.js";
 export { SWEEP_WHATSAPP_QUEUE, sweepWhatsAppNow, whatsappSweepSchedule } from "./whatsapp-sweep.js";
 export { metaSweepSchedule, SWEEP_META_QUEUE, sweepMetaNow } from "./meta-sweep.js";
+export {
+  agentPauseState,
+  organizationAgentPause,
+  pauseEveryone,
+  pauseOrganization,
+  resumeOneAtATime,
+  resumeOneAtATimeIn,
+  setEveryoneAgentPause,
+} from "./ai-agent-pause.js";
+export { organizationAgentState } from "./agent-state.js";
 export { organizationsOverview } from "./dashboard.js";
 export { createCaseOrganization, removeCaseOrganization } from "./agent-cases.js";
 export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
@@ -56,7 +75,7 @@ export { listOrganizationMembers } from "./members.js";
 export { onboardOrganization, resendInvite } from "./onboarding.js";
 export { cancelVipInvite, createVipInvites, inviteUrl, listVipInvites, openVipInvite } from "./invites.js";
 export { organizationUsageOf, usageOverviewOf } from "./usage-analytics.js";
-export type { AiPrices } from "./services.js";
+export { tokenCostPaise, type AiPrices } from "./services.js";
 export { downloadOrganizationExport } from "./export-download.js";
 export type { ExportSizes } from "./export-storage.js";
 export {

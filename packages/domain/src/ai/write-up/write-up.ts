@@ -11,7 +11,6 @@ import { visibleConversations } from "../../inbox/index.js";
 import { DomainError, formatMoney, money } from "../../kernel/index.js";
 import { getQuote } from "../../quotes/index.js";
 import { hashOf } from "../suggest.js";
-import { knowledgeWords } from "../knowledge.js";
 import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { writeUpPrompt, type WriteUpFacts } from "./prompt.js";
@@ -63,8 +62,7 @@ async function prepare(
   if (!(await reserveAiCall(tx, context.now, timeZone))) {
     throw refuse("AI_MONTH_LIMIT", "This agency has used this month's AI suggestions", "LIMIT_REACHED");
   }
-  const settings = await tx.aiSettings.findFirstOrThrow({ select: { instructions: true, writeStyle: true } });
-  const knowledge = await knowledgeWords(tx);
+  const settings = await tx.aiSettings.findFirstOrThrow({ select: { writeStyle: true } });
   const conversationId = await chatOf(tx, access, quote.leadId);
   const firstName = quote.customerName.trim().split(/\s+/)[0] ?? "";
   const style = settings.writeStyle === "premium" || settings.writeStyle === "short" ? settings.writeStyle : "warm";
@@ -74,8 +72,6 @@ async function prepare(
     conversationId,
     facts: {
       agencyName: context.agencyName,
-      instructions: settings.instructions,
-      knowledge,
       style,
       language: input.language,
       channel: input.channel,

@@ -259,7 +259,8 @@
       "apply": "Show leads"
     },
     "countsFailed": "The counts didn't load.",
-    "emptyUnassigned": "No lead is waiting for an owner. A lead lands here when the turns have nobody to give it to: the pool is empty, or everyone in it is away."
+    "emptyUnassigned": "No lead is waiting for an owner. A lead lands here when the turns have nobody to give it to: the pool is empty, or everyone in it is away.",
+    "aiFilled": "The AI filled in some of this lead's details"
   },
   "form": {
     "title": "New lead",
@@ -491,13 +492,12 @@
         "submit": "Save",
         "submitting": "Saving"
       },
-      "suggested": {
-        "title": "The AI filled in from the customer's messages: {fields}.",
-        "hint": "Check them with the customer. Confirm keeps them; Dismiss clears what the AI wrote.",
-        "confirm": "Confirm",
-        "dismiss": "Dismiss",
-        "term": "this AI-filled detail",
-        "said": "The customer wrote: “{words}”"
+      "ai": {
+        "where": "Where this came from",
+        "filled": "Filled by the AI from the chat, {day}: “{words}”",
+        "filledNoWords": "Filled by the AI from the chat, {day}.",
+        "right": "Looks right",
+        "wrong": "Not right"
       }
     },
     "owner": {
@@ -586,6 +586,17 @@
         "refunded": "The refund for booking {number} was paid"
       },
       "aiNote": "AI note",
+      "aiSet": "{field} set to {to}",
+      "aiChanged": "{field} changed from {from} to {to}",
+      "aiFields": {
+        "destination": "Destination",
+        "when": "Travel date",
+        "adults": "Adults",
+        "children_ages": "Children's ages",
+        "departure_city": "Joining from",
+        "room_type": "Room",
+        "name": "Name"
+      },
       "ai": "The AI"
     },
     "callCount": "{count, plural, one {# call} other {# calls}}",

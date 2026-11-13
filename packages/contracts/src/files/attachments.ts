@@ -60,6 +60,8 @@ export const PACKAGE_PAYMENT_QR_RECORD_TYPE = "package_payment_qr";
 export const packagePaymentQrContentTypes = packagePhotoContentTypes;
 /** A payment QR is at most 2 MB. */
 export const MAX_PACKAGE_PAYMENT_QR_BYTES = 2 * 1024 * 1024;
+/** The agency's own payment QR, kept once for every package; the record is the organization. Same types and size. */
+export const AGENCY_PAYMENT_QR_RECORD_TYPE = "agency_payment_qr";
 
 /** What a WhatsApp message may carry: the attachment types plus the video, voice notes and Office files people send. */
 export const whatsappContentTypes = [

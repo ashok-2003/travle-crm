@@ -21,6 +21,31 @@ describe("SellCard", () => {
     expect(toggle.hasAttribute("disabled")).toBe(true);
     expect(screen.getByText(words.gaps.room_types)).toBeTruthy();
     expect(screen.getByText(words.gaps.advance)).toBeTruthy();
+    expect(toggle.getAttribute("aria-describedby")).toBeTruthy();
+  });
+
+  it("links each gap to where it is added", () => {
+    const gaps = ["room_types", "prices", "advance", "departures", "payment_details"] as const;
+    renderWithApi(<SellCard detail={aPackage({ kind: "group", sellGaps: [...gaps] })} />, newQueryClient());
+    expect(screen.getByRole("link", { name: words.gaps.room_types })).toHaveAttribute("href", "#group-details");
+    expect(screen.getByRole("link", { name: words.gaps.prices })).toHaveAttribute("href", "#package-seasons");
+    expect(screen.getByRole("link", { name: words.gaps.advance })).toHaveAttribute("href", "#group-details");
+    expect(screen.getByRole("link", { name: words.gaps.departures })).toHaveAttribute("href", "#package-departures");
+    expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
+      "href",
+      "/ai-agent?tab=setup#step-payment",
+    );
+    // Each on a line of its own, a 44px touch target: never the inline link of a sentence.
+    for (const gap of gaps) expect(screen.getByRole("link", { name: words.gaps[gap] })).toHaveClass("min-h-11");
+  });
+
+  it("says to add the payment QR, on the AI agent page", () => {
+    renderWithApi(<SellCard detail={aPackage({ kind: "group", sellGaps: ["payment_details"] })} />, newQueryClient());
+    expect(words.gaps.payment_details).toBe("Add your payment QR");
+    expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
+      "href",
+      "/ai-agent?tab=setup#step-payment",
+    );
   });
 
   it("turns on when nothing is missing", async () => {
@@ -46,6 +71,14 @@ describe("SellCard", () => {
     );
     expect(screen.getByText(words.gaps.prices)).toBeTruthy();
     expect(screen.getByText(words.stillNeeds)).toBeTruthy();
+    // Switched on is not offered: never "may offer" above "will not sell".
+    expect(screen.getByText(words.off)).toBeTruthy();
+    expect(screen.queryByText(words.on)).toBeNull();
+  });
+
+  it("says the AI may offer a package switched on with nothing missing", () => {
+    renderWithApi(<SellCard detail={aPackage({ kind: "group", sellable: true })} />, newQueryClient());
+    expect(screen.getByText(words.on)).toBeTruthy();
   });
 
   it("is disabled and described by the hint when the subscription refuses changes", () => {

@@ -37,6 +37,7 @@ export function aListItem(overrides: Partial<LeadListItem> = {}): LeadListItem {
     budget: { amount: { amountPaise: 6_000_000, currency: "INR" }, basis: "per_person" },
     createdAt: "2026-10-16T05:18:00.000Z",
     next: { awaitingReplySince: "2026-10-16T05:18:00.000Z", task: null },
+    aiFilled: false,
     ...overrides,
   };
 }

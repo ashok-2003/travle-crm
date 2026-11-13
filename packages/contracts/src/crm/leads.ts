@@ -108,6 +108,8 @@ export const leadListItem = z.object({
   budget: budget.nullable(),
   createdAt: z.iso.datetime(),
   next: leadNextStep,
+  /** The AI filled in some of this lead's details and they still read as it wrote them. */
+  aiFilled: z.boolean(),
 });
 export type LeadListItem = z.infer<typeof leadListItem>;
 
