@@ -67,12 +67,7 @@ describe("payment identifiers in the sources", () => {
     const upi = "manaliholidays@okhdfcbank";
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
     await inOrg((tx) =>
-      saveAiSettings(
-        tx,
-        owner,
-        { enabled: true, scoring: true, instructions: "" },
-        { providerReady: true, now: new Date() },
-      ),
+      saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
     // The id begins inside the first 400 characters and ends after them.
     const long = `Manali 5 Nights 6 Days ${"x".repeat(365)} pay ${upi} thanks`;

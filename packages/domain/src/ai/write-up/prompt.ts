@@ -1,6 +1,6 @@
 // What the AI is told when it writes a quote up for the customer: fixed rules, the agency's own words, and the quote's plan
 // with no unit prices. The totals are tokens for plain code to fill. The quote's and the agency's words are fenced as data.
-import { AI_INSTRUCTIONS_MAX, type WriteStyle } from "@travel-crm/contracts/ai";
+import type { WriteStyle } from "@travel-crm/contracts/ai";
 import type { AiMessage } from "@travel-crm/integrations/ai";
 
 const RULES = `WRITE_UP. You write ONE message to a travel agency's customer about a quote, for the agency's staff member, who will read it, change it and send it. You do not send anything.
@@ -19,8 +19,6 @@ const STYLES: Record<WriteStyle, string> = {
 
 export interface WriteUpFacts {
   agencyName: string;
-  instructions: string;
-  knowledge: readonly { title: string; body: string }[];
   style: WriteStyle;
   language: "en" | "hi";
   channel: "whatsapp" | "email";
@@ -38,7 +36,6 @@ export interface WriteUpFacts {
   };
 }
 
-const cut = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "›");
 
 export function writeUpPrompt(facts: WriteUpFacts): AiMessage[] {
@@ -57,14 +54,6 @@ export function writeUpPrompt(facts: WriteUpFacts): AiMessage[] {
   ].filter((line) => line !== "");
   const parts = [
     `Agency: ${fenced(facts.agencyName)}`,
-    facts.instructions === ""
-      ? ""
-      : `The agency's instructions:\n<data>${fenced(cut(facts.instructions, AI_INSTRUCTIONS_MAX))}</data>`,
-    facts.knowledge.length === 0
-      ? ""
-      : `What the agency knows and offers (never quote its prices):\n<data>${fenced(
-          facts.knowledge.map((piece) => `## ${piece.title}\n${cut(piece.body, 1500)}`).join("\n\n"),
-        )}</data>`,
     `The quote:\n<data>${fenced(plan.join("\n"))}</data>`,
     `Customer's first name: ${facts.firstName === null ? "(unknown: greet without a name)" : fenced(facts.firstName)}`,
     `Style: ${STYLES[facts.style]}`,

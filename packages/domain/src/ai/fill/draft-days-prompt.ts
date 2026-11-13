@@ -1,6 +1,6 @@
 // What the model is told when it drafts a quote's day-by-day plan: fixed rules, the trip as code knows it, the agency's own plans
 // for the place (to adapt, not copy blindly) and its knowledge, as data. No price, no amount, no phone: a budget is only a tone.
-import { AI_INSTRUCTIONS_MAX, type WriteStyle } from "@travel-crm/contracts/ai";
+import type { WriteStyle } from "@travel-crm/contracts/ai";
 import type { AiMessage } from "@travel-crm/integrations/ai";
 
 /** The marker the journeys' fake model recognises this feature by. */
@@ -40,14 +40,11 @@ export interface DraftFacts {
   /** The quotation's lines, described, never priced. */
   items: readonly string[];
   packages: readonly { name: string; nights: number | null; days: readonly { title: string; description: string }[] }[];
-  knowledge: readonly { title: string; body: string }[];
-  instructions: string;
   writeStyle: string;
   /** What staff said they want ("relaxed, no long drives, one day free"). */
   note: string;
 }
 
-const cut = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "›");
 
 export function draftDaysPrompt(facts: DraftFacts): AiMessage[] {
@@ -80,14 +77,6 @@ export function draftDaysPrompt(facts: DraftFacts): AiMessage[] {
             )
             .join("\n\n"),
         )}</data>`,
-    facts.knowledge.length === 0
-      ? ""
-      : `What the agency knows and offers (never quote its prices):\n<data>${fenced(
-          facts.knowledge.map((piece) => `## ${piece.title}\n${cut(piece.body, 1000)}`).join("\n\n"),
-        )}</data>`,
-    facts.instructions === ""
-      ? ""
-      : `The agency's instructions:\n<data>${fenced(cut(facts.instructions, AI_INSTRUCTIONS_MAX))}</data>`,
     facts.note === "" ? "" : `What the staff member asked for:\n<data>${fenced(facts.note)}</data>`,
     `Style: ${STYLES[style]}`,
     `Language: English (simple, as an Indian travel agent would write it).`,

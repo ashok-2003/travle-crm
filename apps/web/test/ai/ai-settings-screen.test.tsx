@@ -15,8 +15,6 @@ const saved: AiSettings = {
   scoring: true,
   fillLeads: true,
   writeStyle: "warm",
-  customTrips: false,
-  instructions: "",
   providerReady: true,
   monthlyLimit: 8000,
   usedThisMonth: 12,
@@ -37,6 +35,14 @@ describe("Settings, AI", () => {
     expect(screen.getByRole("switch", { name: words.scoring })).toBeVisible();
     expect(screen.getByRole("switch", { name: words.fillLeads })).toBeVisible();
     expect(screen.getByRole("link", { name: words.openAgent })).toHaveAttribute("href", routes.aiAgent);
+  });
+
+  it("has no instructions box", async () => {
+    stubApi({ "ai.settings": { data: saved }, "ai.knowledge": { data: [] } });
+    renderWithApi(<AiSettingsScreen />, client());
+    await screen.findByRole("switch", { name: words.on });
+    expect(screen.queryByRole("textbox", { name: /instructions/i })).toBeNull();
+    expect(screen.queryByText(/What the AI should know/i)).toBeNull();
   });
 
   it("has none of the earlier agents' sections or switches", async () => {

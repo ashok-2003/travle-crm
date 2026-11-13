@@ -74,12 +74,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
       stage: "new",
       ownerUserId: owner.userId,
     });
-    await saveAiSettings(
-      tx,
-      owner,
-      { enabled: true, scoring: true, instructions: "" },
-      { providerReady: true, now: testNow },
-    );
+    await saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: testNow });
     await storeAutopilot(tx, organizationId, { autopilot: true, agentName: "Riya", tone: "friendly" });
     await tx.organizationProfile.upsert({
       where: { organizationId },

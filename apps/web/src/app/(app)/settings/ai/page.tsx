@@ -1,4 +1,4 @@
-// /settings/ai: the agency's switch for Suggest reply and its instructions to the AI, for whoever manages it (Owner, Admin).
+// /settings/ai: the agency's switches for Suggest reply and the score, and its documents for package drafts, for whoever manages it (Owner, Admin).
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AiSettingsScreen } from "@/ai/ai-settings-screen";

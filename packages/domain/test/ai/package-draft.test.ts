@@ -30,9 +30,7 @@ describe("drafting one trip", () => {
     const organizationId = await anAgency(test, "Draft agency");
     const owner = memberOf(organizationId, "org-owner");
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
-    await inOrg((tx) =>
-      saveAiSettings(tx, owner, { enabled: true, scoring: true, instructions: "" }, { providerReady: true, now: NOW }),
-    );
+    await inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: NOW }));
     // P1 = Manali (L1..L6), P2 = Manali brochure (L1), strict rules come after the knowledge pieces.
     await inOrg(async (tx) => {
       await tx.aiKnowledge.create({

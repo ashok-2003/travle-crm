@@ -565,7 +565,7 @@ export const SHOTS = [
   { name: "reports", screen: "Reports: the key figures, the funnel and the team", as: owner },
   { name: "home-hot-leads", screen: "Home: the hot leads to call now", as: owner },
   { name: "lost-reason", screen: "Marking a lead Lost asks why", as: owner },
-  { name: "settings-ai", screen: "Settings, AI: the switch and the instructions", as: owner },
+  { name: "settings-ai", screen: "Settings, AI: the switches", as: owner },
   { name: "settings-ai-knowledge", screen: "Settings, AI: what the AI knows", as: owner },
   { name: "lead-ai-guess", screen: "A lead page with the AI's guess in the AI's tint", as: owner },
   { name: "home-final", screen: "Home, the owner's layout in our style", as: owner },

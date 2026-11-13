@@ -35,7 +35,7 @@ async function shoot(page: Page, testInfo: TestInfo, name: string, folder = shot
   if (before !== null) await page.setViewportSize(before);
 }
 
-const turnOnAi = (page: Page) => callApi(page, "ai.saveSettings", { enabled: true, scoring: true, instructions: "" });
+const turnOnAi = (page: Page) => callApi(page, "ai.saveSettings", { enabled: true, scoring: true });
 
 test("a new lead is filled from words, checked in violet and saved, drafted by AI and approved by the Owner", async ({
   page,

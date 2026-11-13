@@ -35,13 +35,20 @@ describe("Suggest reply's request checks", () => {
     const plan = ["ai", "inbox", "crm"] as const;
     const seller = callerFor({ modules: [...plan], granted: ["ai:suggest", "inbox:view", "inbox:reply"] }).caller.ai;
     expect(await checked(seller.settings())).toBe("MISSING_PERMISSION");
-    expect(await checked(seller.saveSettings({ enabled: true, scoring: true, instructions: "" }))).toBe(
-      "MISSING_PERMISSION",
-    );
+    expect(await checked(seller.saveSettings({ enabled: true, scoring: true }))).toBe("MISSING_PERMISSION");
     const manager = callerFor({ modules: [...plan], granted: ["ai:manage"] });
     // Past the checks, the stand-in has no database: reaching its handler is the proof.
     expect(await checked(manager.caller.ai.settings())).not.toBe("MISSING_PERMISSION");
     expect(manager.reads.sessions).toBeGreaterThan(0);
+  });
+
+  it("refuses the instructions and custom-trips fields the settings no longer hold", async () => {
+    const manager = callerFor({ modules: ["ai", "inbox", "crm"], granted: ["ai:manage"] }).caller.ai;
+    const old = { enabled: true, scoring: true, instructions: "x" } as never;
+    expect(await checked(manager.saveSettings(old))).toBe("BAD_REQUEST");
+    expect(await checked(manager.saveSettings({ enabled: true, scoring: true, customTrips: true } as never))).toBe(
+      "BAD_REQUEST",
+    );
   });
 
   it("refuses a suspended or cancelled agency every AI call, and read-only ones a change", async () => {

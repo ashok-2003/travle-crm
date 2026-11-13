@@ -29,7 +29,7 @@ async function shoot(page: Page, testInfo: TestInfo, name: string): Promise<void
 }
 
 const turnOnAi = (page: Page, writeStyle: "warm" | "premium" | "short" = "warm") =>
-  callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle, instructions: "" });
+  callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle });
 
 /** What the fake AI was sent by the feature whose rules start with `marker`. */
 async function requestsOf(marker: string): Promise<string[]> {

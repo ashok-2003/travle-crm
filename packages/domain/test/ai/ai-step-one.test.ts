@@ -1,4 +1,4 @@
-// The AI's knowledge and its guess of how a lead will go: knowledge typed or read from a document and given to the AI as data,
+// The AI's knowledge documents (for package drafts) and its guess of how a lead will go: knowledge typed or read from a document,
 // deleted with its file; the scoring queued and run only for an agency with the AI on, a plan that has it and a subscription
 // that isn't suspended or cancelled, never moving a stage, within the monthly limit, once for a burst of messages, and erased
 // with the customer. Against the real database, under row-level security.
@@ -100,12 +100,7 @@ describe("the AI, step one", () => {
     );
     if (on)
       await inOrg((tx) =>
-        saveAiSettings(
-          tx,
-          owner,
-          { enabled: true, scoring: true, instructions: "" },
-          { providerReady: true, now: testNow },
-        ),
+        saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: testNow }),
       );
     const model = createMemoryAiModel();
     const job = { organizationId, conversationId: chat.id, messageId: message.id };
@@ -203,7 +198,7 @@ describe("the AI, step one", () => {
   });
 
   describe("knowledge", () => {
-    it("is added, changed and turned off, audited by length and never by words, and given to Suggest reply as data", async () => {
+    it("is added, changed and turned off, audited by length and never by words, and kept out of Suggest reply", async () => {
       const { inOrg, owner, model, chat, organizationId } = await agency();
       await inOrg((tx) => addKnowledge(tx, owner, { title: "Manali 5N", body: "Manali 5N/6D is ₹18,500 per person." }));
       await inOrg((tx) => addKnowledge(tx, owner, { title: "Old offer", body: "Goa at ₹9,999 (ended)." }));
@@ -211,7 +206,8 @@ describe("the AI, step one", () => {
       await inOrg((tx) =>
         updateKnowledge(tx, owner, { knowledgeId: second?.id ?? "", title: "Old offer", body: "Goa", enabled: false }),
       );
-      model.answer("Manali 5N/6D is ₹18,500 per person.");
+      // The document is kept for package drafts: Suggest reply no longer sends it.
+      model.answer("Namaste!");
       await suggestReply(
         test.db,
         model,
@@ -220,8 +216,7 @@ describe("the AI, step one", () => {
         { agencyName: "Sharma Holidays", now: testNow },
       );
       const prompt = model.requests[0]?.messages.map((message) => message.content).join("\n") ?? "";
-      expect(prompt).toContain("Manali 5N/6D is ₹18,500 per person.");
-      expect(prompt).not.toContain("Goa");
+      expect(prompt).not.toContain("Manali 5N/6D is ₹18,500 per person.");
       expect(first?.id).toBeDefined();
       const entries = await inOrg((tx) =>
         tx.auditEntry.findMany({ where: { action: { startsWith: "ai.knowledge" } } }),
@@ -346,7 +341,7 @@ describe("the AI, step one", () => {
         saveAiSettings(
           tx,
           owner,
-          { enabled: true, scoring: false, fillLeads: false, instructions: "" },
+          { enabled: true, scoring: false, fillLeads: false },
           { providerReady: true, now: testNow },
         ),
       );
@@ -393,7 +388,7 @@ describe("the AI, step one", () => {
         saveAiSettings(
           tx,
           owner,
-          { enabled: true, scoring: false, fillLeads: false, instructions: "" },
+          { enabled: true, scoring: false, fillLeads: false },
           { providerReady: true, now: testNow },
         ),
       );
@@ -607,22 +602,20 @@ describe("the AI, step one", () => {
   });
 
   describe("the settings", () => {
-    it("saves whether the agency plans custom trips", async () => {
+    it("a save leaves the stored instructions and custom-trips columns as they were: package drafts still read them", async () => {
       const { organizationId, inOrg, owner } = await agency();
       const context = { providerReady: true, now: testNow };
-      expect((await inOrg((tx) => aiSettingsOf(tx, { organizationId, ...context }))).customTrips).toBe(false);
-      const on = await inOrg((tx) =>
-        saveAiSettings(tx, owner, { enabled: true, scoring: true, customTrips: true, instructions: "" }, context),
+      await inOrg((tx) =>
+        tx.aiSettings.updateMany({ data: { instructions: "Reply in Hinglish.", customTrips: true } }),
       );
-      expect(on.customTrips).toBe(true);
-      const unchanged = await inOrg((tx) =>
-        saveAiSettings(tx, owner, { enabled: true, scoring: true, instructions: "" }, context),
-      );
-      expect(unchanged.customTrips).toBe(true);
-      const off = await inOrg((tx) =>
-        saveAiSettings(tx, owner, { enabled: true, scoring: true, customTrips: false, instructions: "" }, context),
-      );
-      expect(off.customTrips).toBe(false);
+      const saved = await inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, scoring: false }, context));
+      expect(saved).toMatchObject({ enabled: true, scoring: false });
+      expect(saved).not.toHaveProperty("instructions");
+      expect(await inOrg((tx) => tx.aiSettings.findFirstOrThrow())).toMatchObject({
+        instructions: "Reply in Hinglish.",
+        customTrips: true,
+      });
+      expect(await inOrg((tx) => aiSettingsOf(tx, { organizationId, ...context }))).not.toHaveProperty("customTrips");
     });
   });
 

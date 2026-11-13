@@ -73,7 +73,7 @@ export const routes = {
   departureSettings: "/settings/departures",
   /** How bookings run: the payment schedule, reminders, the cancellation steps and the review link (release 6). */
   bookingSettings: "/settings/bookings",
-  /** Suggest reply's switch and the agency's instructions to the AI. */
+  /** Suggest reply's switch and the agency's documents for package drafts. */
   aiSettings: "/settings/ai",
   /** The AI agent's own page: overview, setup and trying it. */
   aiAgent: "/ai-agent",

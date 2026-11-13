@@ -25,7 +25,7 @@ test("the Owner drafts a group package from the agency's documents, chooses betw
 }) => {
   test.setTimeout(300_000);
   await signInByEmail(page, agency.owner);
-  await callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm", instructions: "" });
+  await callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm" });
   await callApi(page, "ai.addKnowledge", { title: "Manali 5N6D", body: KNOWLEDGE });
   // No screen sets strict rules any more, but drafts still read the ones an agency stored: write them as the data.
   await inAgency(agency.organizationId, (tx) =>

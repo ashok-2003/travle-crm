@@ -1,13 +1,11 @@
-// The AI, step 1 (ADR 0029; the owner's decisions of 2026-10-28): an agency's own switch and instructions, what it tells its
-// AI to know (typed words or a PDF's), Suggest reply (a draft in a chat for a member to read, change and send: it never sends
+// The AI, step 1 (ADR 0029; the owner's decisions of 2026-10-28): an agency's own switch, the documents package drafts are
+// written from (typed words or a PDF's), Suggest reply (a draft in a chat for a member to read, change and send: it never sends
 // by itself) and the AI's guess of how a lead will go.
 import { z } from "zod";
 import { aiKnowledgeFileTypes, presignedUpload } from "../files/attachments.js";
 import { recordId } from "../identity/fields.js";
 import { tripAnswer } from "./fill-answer.js";
 import { writeStyle } from "./write-up.js";
-
-export const AI_INSTRUCTIONS_MAX = 4000;
 
 /** What an Owner or Admin sets. Off until they turn it on. */
 export const saveAiSettingsInput = z.strictObject({
@@ -18,10 +16,6 @@ export const saveAiSettingsInput = z.strictObject({
   fillLeads: z.boolean().optional(),
   /** How the quote write-up sounds (release ai2b); left as it was when omitted. */
   writeStyle: writeStyle.optional(),
-  /** Whether the agency also plans custom trips, for a place with no package; left as it was when omitted. */
-  customTrips: z.boolean().optional(),
-  /** What the agency tells its AI: its tone and language, what to offer, what never to say. */
-  instructions: z.string().trim().max(AI_INSTRUCTIONS_MAX),
 });
 export type SaveAiSettingsInput = z.infer<typeof saveAiSettingsInput>;
 
@@ -30,8 +24,6 @@ export const aiSettings = z.object({
   scoring: z.boolean(),
   fillLeads: z.boolean(),
   writeStyle,
-  customTrips: z.boolean(),
-  instructions: z.string(),
   /** False when this server has no AI key: the switch can be on but no suggestion is made, and the screen says so. */
   providerReady: z.boolean(),
   /** AI calls an agency may make a month (every AI feature shares them), and how many it has made this month. */

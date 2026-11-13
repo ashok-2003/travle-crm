@@ -3,7 +3,7 @@
 // /settings/ai: the agency's own switches for the AI, for scoring leads and for filling them, how quote write-ups sound,
 // what it tells its AI (with ready lines to add), the documents package drafts are written from, and a way to the AI agent
 // page, where the agent that answers WhatsApp is set up. Off until an Owner or Admin turns it on.
-import { AI_INSTRUCTIONS_MAX, writeStyles, type AiSettings, type WriteStyle } from "@travel-crm/contracts/ai";
+import { writeStyles, type AiSettings, type WriteStyle } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,12 +18,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TextLink } from "@/components/text-link";
 import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
-import { InstructionLines } from "./instruction-lines";
 import { DraftPackagesSection } from "./drafts/draft-packages-section";
 import { KnowledgeSection } from "./knowledge-section";
 import { useAiSettings, useSaveAiSettings } from "./use-ai";
@@ -36,23 +34,18 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
   const [scoring, setScoring] = useState(saved.scoring);
   const [fillLeads, setFillLeads] = useState(saved.fillLeads);
   const [writeStyle, setWriteStyle] = useState<WriteStyle>(saved.writeStyle);
-  const [instructions, setInstructions] = useState(saved.instructions);
   const changed =
     writeStyle !== saved.writeStyle ||
     enabled !== saved.enabled ||
     scoring !== saved.scoring ||
-    fillLeads !== saved.fillLeads ||
-    instructions.trim() !== saved.instructions;
+    fillLeads !== saved.fillLeads;
   return (
     <form
       noValidate
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        save.mutate(
-          { enabled, scoring, fillLeads, writeStyle, instructions: instructions.trim() },
-          { onSuccess: () => toast.success(t("saved")) },
-        );
+        save.mutate({ enabled, scoring, fillLeads, writeStyle }, { onSuccess: () => toast.success(t("saved")) });
       }}
     >
       {!saved.providerReady && (
@@ -109,30 +102,6 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("instructionsTitle")}</CardTitle>
-          <CardDescription>{t("instructionsIntro")}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <Label htmlFor="ai-instructions">{t("instructions")}</Label>
-          <Textarea
-            id="ai-instructions"
-            rows={6}
-            maxLength={AI_INSTRUCTIONS_MAX}
-            placeholder={t("instructionsPlaceholder")}
-            value={instructions}
-            disabled={save.isPending}
-            onChange={(event) => {
-              setInstructions(event.target.value);
-            }}
-          />
-          <p className="text-label text-muted-foreground">
-            {t("instructionsHint")} {t("instructionsCount", { count: instructions.length, max: AI_INSTRUCTIONS_MAX })}
-          </p>
-          <InstructionLines instructions={instructions} disabled={save.isPending} onChange={setInstructions} />
         </CardContent>
       </Card>
       <RefusalAlert error={save.error} />

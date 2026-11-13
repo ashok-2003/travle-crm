@@ -58,12 +58,7 @@ describe("ai.test", () => {
     };
     const { caller, member } = callerOf(harness, { organizationId, context: { ai: model } });
     await harness.db.forOrg(organizationId, (tx) =>
-      saveAiSettings(
-        tx,
-        member,
-        { enabled: true, scoring: true, instructions: "" },
-        { providerReady: true, now: new Date() },
-      ),
+      saveAiSettings(tx, member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
     await caller.ai.test({ question: "hi" });
     expect(schemas[0]).toBe("understand_form");

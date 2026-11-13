@@ -21,7 +21,7 @@ import { defineListener, uuidFromKey, type EventListener, type JobHandler } from
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { autopilotOf } from "./autopilot.js";
-import { knowledgeWords } from "./knowledge.js";
+import { tripsOnOffer } from "./trips-on-offer.js";
 import { agentAnswers } from "./may-write.js";
 import { turnUnderWay } from "./turn-under-way.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
@@ -196,7 +196,7 @@ const TRIP_KEYS = `"trip": {"destination": the place, "dateFrom": first day as s
 const promptOf = (facts: {
   wantTrip: boolean;
   lead: readonly string[];
-  knowledge: readonly { title: string; body: string }[];
+  trips: readonly string[];
   chat: readonly { fromCustomer: boolean; text: string }[];
 }): AiMessage[] => {
   const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "›");
@@ -211,9 +211,7 @@ Use only what the chat and the facts say; leave a fact null when it isn't there.
       role: "user",
       content: [
         facts.lead.length === 0 ? "" : `What is known of the lead:\n<data>${fenced(facts.lead.join("\n"))}</data>`,
-        facts.knowledge.length === 0
-          ? ""
-          : `What the agency offers:\n<data>${fenced(facts.knowledge.map((piece) => `## ${piece.title}\n${piece.body}`).join("\n\n"))}</data>`,
+        facts.trips.length === 0 ? "" : `The trips the agency sells:\n<data>${fenced(facts.trips.join("\n"))}</data>`,
         `The chat, oldest first:\n<data>${fenced(
           facts.chat
             .map((line) => `${line.fromCustomer ? "Customer" : "Agency"}: ${line.text.slice(0, 500)}`)
@@ -305,7 +303,7 @@ async function prepare(
     take: CHAT_MESSAGES,
     select: { direction: true, body: true, caption: true },
   });
-  const knowledge = await knowledgeWords(tx);
+  const trips = await tripsOnOffer(tx, job.organizationId, calendarDateIn(now, timeZone));
   return {
     leadId: lead.id,
     timeZone,
@@ -322,7 +320,7 @@ async function prepare(
         lead.childrenAges.length === 0 ? "" : `Children: ${String(lead.childrenAges.length)}`,
         lead.departureCity === null ? "" : `Leaving from: ${lead.departureCity}`,
       ].filter((line) => line !== ""),
-      knowledge,
+      trips,
       chat: rows
         .reverse()
         .map((row) => ({ fromCustomer: row.direction === "in", text: row.body ?? row.caption ?? "" })),

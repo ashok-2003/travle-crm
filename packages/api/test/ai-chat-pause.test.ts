@@ -22,12 +22,7 @@ describe("ai.chatAi while the agent is paused", () => {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const { caller, member } = callerOf(harness, { organizationId, context: { ai: model } });
     const conversationId = await harness.db.forOrg(organizationId, async (tx) => {
-      await saveAiSettings(
-        tx,
-        member,
-        { enabled: true, scoring: true, instructions: "" },
-        { providerReady: true, now: new Date() },
-      );
+      await saveAiSettings(tx, member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() });
       const integratedNumber = `9199${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`;
       const connection = await tx.whatsappConnection.create({
         data: { integratedNumber, displayNumber: `+${integratedNumber}`, mode: "new_number", status: "connected" },

@@ -117,7 +117,7 @@ describe("a new WhatsApp lead that arrives filled in", () => {
       saveAiSettings(
         tx,
         owner,
-        { enabled: true, scoring: options.scoring ?? true, fillLeads: options.fillLeads ?? true, instructions: "" },
+        { enabled: true, scoring: options.scoring ?? true, fillLeads: options.fillLeads ?? true },
         { providerReady: true, now: testNow },
       ),
     );
