@@ -145,6 +145,31 @@ describe("what needs you", () => {
     expect(screen.queryByText(t.needsYou.nothing)).not.toBeInTheDocument();
   });
 
+  it("does not say nothing needs you while the suggestions are still loading", async () => {
+    const stub = api();
+    stub.answer("ai.stageSuggestions", "never");
+    renderWithApi(<AgentScreen />, client(), owner);
+    await waitFor(() => {
+      expect(stub.calls).toContain("ai.stageSuggestions");
+    });
+    expect(screen.queryByText(t.needsYou.nothing)).not.toBeInTheDocument();
+  });
+
+  it("shows the load-failed alert, and not 'nothing needs you', when the suggestions fail", async () => {
+    const stub = api();
+    stub.answer("ai.stageSuggestions", { status: 500 });
+    renderWithApi(<AgentScreen />, client(), owner);
+    expect(await screen.findByText(t.needsYou.loadFailed)).toBeInTheDocument();
+    expect(screen.queryByText(t.needsYou.nothing)).not.toBeInTheDocument();
+  });
+
+  it("puts a line between the strip's two rows on a phone", async () => {
+    api();
+    renderWithApi(<AgentScreen />, client(), owner);
+    await screen.findByText(t.last24.bookings);
+    expect(document.querySelector('[data-slot="separator"].md\\:hidden')).not.toBeNull();
+  });
+
   it("shows the payments count, linking to Payments to check", async () => {
     api({ "paymentsToCheck.count": { count: 3 } });
     renderWithApi(<AgentScreen />, client(), owner);

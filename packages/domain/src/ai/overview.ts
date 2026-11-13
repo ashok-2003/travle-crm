@@ -5,6 +5,8 @@ import type { AiOverview } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 
 const DAY_MS = 86_400_000;
+/** A bound on each read of flagged chats: far above a day's real number, so the count stays cheap. */
+const FLAGGED_MAX = 2000;
 /** A reply's token is "ai:<the customer's message id>"; a nudge's is "ai:nudge:…". */
 const REPLY_TOKEN = /^ai:([0-9a-f-]{36})$/;
 
@@ -37,13 +39,22 @@ async function lastModel(tx: OrgTx): Promise<string | null> {
 async function flaggedChats(tx: OrgTx, since: Date): Promise<number> {
   const chats = await tx.aiChat.findMany({
     where: { OR: [{ attentionAt: { gte: since } }, { handedOffAt: { gte: since } }] },
+    distinct: ["conversationId"],
     select: { conversationId: true },
+    take: FLAGGED_MAX,
   });
   const suggested = await tx.leadAiSuggestion.findMany({
-    where: { createdAt: { gte: since }, conversationId: { not: null } },
-    select: { conversationId: true },
+    where: { createdAt: { gte: since } },
+    distinct: ["conversationId", "leadId"],
+    select: { conversationId: true, leadId: true },
+    take: FLAGGED_MAX,
   });
-  return new Set([...chats, ...suggested].map((row) => row.conversationId)).size;
+  // A suggestion with no chat counts by its lead, as an item of its own.
+  const keys = [
+    ...chats.map((row) => row.conversationId),
+    ...suggested.map((row) => row.conversationId ?? `lead:${row.leadId}`),
+  ];
+  return new Set(keys).size;
 }
 
 export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {

@@ -3,10 +3,12 @@
 // The AI agent's Overview tab: its state, what needs a person (handed-over chats, the AI's Lost suggestions, payments to check) and its last 24 hours.
 import { brand } from "@travel-crm/brand";
 import { useTranslations } from "next-intl";
+import { Fragment } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { StatusBadge } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
+import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { FigureCell, type Figure } from "@/dashboard/kpi-strip";
@@ -154,14 +156,17 @@ function LastDay() {
         {overview.data ? (
           <div className="grid grid-cols-2 md:grid-cols-4">
             {figures.map((figure, index) => (
-              <FigureCell
-                key={figure.key}
-                figure={figure}
-                label={t(figure.key)}
-                index={index}
-                count={figures.length}
-                wideNext={index === 1}
-              />
+              <Fragment key={figure.key}>
+                <FigureCell
+                  figure={figure}
+                  label={t(figure.key)}
+                  index={index}
+                  count={figures.length}
+                  wideNext={index === 1}
+                />
+                {/* On a phone the figures sit two to a row: a line between the rows, as the vertical one is between cells. */}
+                {index === 1 && <Separator className="col-span-2 md:hidden" />}
+              </Fragment>
             ))}
           </div>
         ) : overview.isError ? (

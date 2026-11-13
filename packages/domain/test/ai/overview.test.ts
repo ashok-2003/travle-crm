@@ -58,6 +58,25 @@ describe("the AI agent's overview", () => {
     expect((await on.inOrg((tx) => aiOverviewOf(tx, liteTurnAt))).flagged).toBe(3);
   });
 
+  it("flagged counts a suggestion with no chat by its lead, once", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg(async (tx) => {
+      for (const lead of [await aLead(tx, { stage: "new" }), await aLead(tx, { stage: "new" })]) {
+        await tx.leadAiSuggestion.create({
+          data: {
+            leadId: lead.id,
+            conversationId: null,
+            kind: "lost",
+            lostReason: "other",
+            reason: "x",
+            createdAt: hoursAgo(2),
+          },
+        });
+      }
+    });
+    expect((await on.inOrg((tx) => aiOverviewOf(tx, liteTurnAt))).flagged).toBe(2);
+  });
+
   it("bookings requested counts the last day's", async () => {
     const on = await liteAgency(test);
     const book = (at: Date) =>
