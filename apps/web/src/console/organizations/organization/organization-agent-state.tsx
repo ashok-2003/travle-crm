@@ -20,6 +20,7 @@ export function OrganizationAgentState({ organizationId }: { organizationId: str
   const trpc = useConsoleTRPC();
   const mayOpenTurns = isSuperAdmin(useStaff());
   const state = useQuery(trpc.aiAgent.agentState.queryOptions({ organizationId }));
+  const pause = useQuery(trpc.aiAgent.organizationPause.queryOptions({ organizationId }));
 
   if (state.data === undefined) {
     return (
@@ -38,6 +39,8 @@ export function OrganizationAgentState({ organizationId }: { organizationId: str
     );
   }
   const { on, missing, answering } = state.data;
+  // A pause shows as the state, so this block never says "ready" while the pause block says "paused".
+  const paused = pause.data !== undefined && (pause.data.agency !== null || pause.data.everyone !== null);
   const steps = format.list(
     missing.map((step) => t(`agentState.steps.${step}`)),
     { type: "conjunction" },
@@ -46,8 +49,8 @@ export function OrganizationAgentState({ organizationId }: { organizationId: str
   return (
     <DetailSection id="agent-state-heading" heading={t("agentState.title")}>
       <p className="flex flex-wrap items-center gap-2">
-        <StatusBadge tone={answering ? "good" : "attention"}>
-          {answering ? t("agentState.answering") : t("agentState.notAnswering")}
+        <StatusBadge tone={answering && !paused ? "good" : "attention"}>
+          {paused ? t("agentState.paused") : answering ? t("agentState.answering") : t("agentState.notAnswering")}
         </StatusBadge>
         <span>{on ? t("agentState.on") : t("agentState.off")}</span>
       </p>

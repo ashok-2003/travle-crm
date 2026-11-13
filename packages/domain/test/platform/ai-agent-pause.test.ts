@@ -141,6 +141,15 @@ describe("pausing the WhatsApp agent from the console", () => {
         aiAgentPausedAt: null,
       });
       expect(await tx.platformAuditEntry.count({ where: { action: "ai-agent.paused" } })).toBe(before + result.paused);
+      // With the every-agency pause lifted, each agency's own pause is the one in force (agentPauseOf's "agency" scope).
+      for (const organizationId of [first, second]) {
+        const own = await tx.subscription.findUniqueOrThrow({ where: { organizationId } });
+        expect(own.aiAgentPausedAt).not.toBeNull();
+      }
+      // The agency's own log names the platform as the source of the new pause.
+      expect(
+        await tx.auditEntry.findFirst({ where: { organizationId: second, action: "ai-agent.paused" } }),
+      ).toMatchObject({ source: "platform", actorUserId: adminB.userId });
       expect(
         await tx.platformAuditEntry.count({
           where: { action: "ai-agent.resumed-everyone", actorUserId: adminB.userId },

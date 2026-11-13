@@ -126,6 +126,7 @@
     },
     "answering": "Ready to answer",
     "notAnswering": "Won't answer yet",
+    "paused": "Paused",
     "loading": "Loading the AI agent's setup",
     "loadFailed": "The AI agent's setup didn't load."
   },

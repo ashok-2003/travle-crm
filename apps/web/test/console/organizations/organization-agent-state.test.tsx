@@ -15,8 +15,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function show(state: { on: boolean; missing: string[]; answering: boolean }, staff = platformStaff("super-admin")) {
-  stubApi({ "platform.aiAgent.agentState": { data: state } });
+const since = "2026-11-12T04:30:00.000Z";
+
+function show(
+  state: { on: boolean; missing: string[]; answering: boolean },
+  staff = platformStaff("super-admin"),
+  pause: { agency: { since: string } | null; everyone: { since: string } | null } = { agency: null, everyone: null },
+) {
+  stubApi({ "platform.aiAgent.agentState": { data: state }, "platform.aiAgent.organizationPause": { data: pause } });
   renderConsole(<OrganizationAgentState organizationId={organizationId} />, staff);
 }
 
@@ -26,6 +32,15 @@ describe("OrganizationAgentState", () => {
     expect(await screen.findByText(text.on)).toBeVisible();
     expect(screen.getByText(text.ready)).toBeVisible();
     expect(screen.getByText(text.answering)).toBeVisible();
+  });
+
+  it.each([
+    ["its own pause", { agency: { since }, everyone: null }],
+    ["the pause for every agency", { agency: null, everyone: { since } }],
+  ])("says Paused, not ready to answer, under %s", async (_name, pause) => {
+    show({ on: true, missing: [], answering: true }, platformStaff("super-admin"), pause);
+    expect(await screen.findByText(text.paused)).toBeVisible();
+    expect(screen.queryByText(text.answering)).toBeNull();
   });
 
   it("names the steps still missing, in order", async () => {

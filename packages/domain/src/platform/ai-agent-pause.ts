@@ -115,6 +115,8 @@ export async function resumeOneAtATimeIn(
   staff: PlatformActor,
   now: Date = new Date(),
 ): Promise<ResumeOneAtATimeResult> {
+  // Held from the check to the lift, so two runs can't both see the pause on, and a pause lifted elsewhere isn't missed.
+  await tx.$queryRaw`SELECT 1 FROM subscription_policy WHERE id = true FOR NO KEY UPDATE`;
   if ((await everyonePause(tx)) === null) {
     throw new DomainError("CONFLICT", "AGENT_NOT_PAUSED_FOR_EVERYONE", "The AI agent isn't paused for every agency");
   }
