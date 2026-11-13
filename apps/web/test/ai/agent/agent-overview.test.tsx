@@ -1,6 +1,6 @@
 // The AI agent page: each state, the handed-over chats and their links, the payments count only for who may see it, the tabs.
 import { brand } from "@travel-crm/brand";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentScreen } from "@/ai/agent/agent-screen";
@@ -21,6 +21,7 @@ const overview = {
   messagesSent: 30,
   medianReplySeconds: 5,
   flagged: 2,
+  bookingsRequested: 4,
   followUpsPlanned: 1,
   learnings: 0,
   model: null,
@@ -28,6 +29,15 @@ const overview = {
 const handed = [
   { conversationId, name: "Meera Rao", reason: "Asked for a discount", since: "2026-11-11T05:00:00.000Z" },
 ];
+const suggestion = {
+  id: "0199a000-0000-7000-8000-0000000000e1",
+  leadId: "0199a000-0000-7000-8000-0000000000a1",
+  name: "Rahul Verma",
+  kind: "lost",
+  lostReason: "other",
+  reason: "Said they're not interested.",
+  createdAt: "2026-11-11T06:00:00.000Z",
+};
 const client = () => newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "ai"] as never });
 const owner = member({ isOwner: true });
 
@@ -37,6 +47,7 @@ function api(over: Record<string, unknown> = {}) {
       Object.entries({
         "ai.agentSetup": setup,
         "ai.handedOver": [],
+        "ai.stageSuggestions": { suggestions: [] },
         "ai.overview": overview,
         "paymentsToCheck.count": { count: 0 },
         ...over,
@@ -104,6 +115,36 @@ describe("what needs you", () => {
     expect(await screen.findByText(t.needsYou.nothing)).toBeInTheDocument();
   });
 
+  it("lists the AI's Lost suggestions after the hand-overs, each with its lead, reason and buttons", async () => {
+    const stub = api({
+      "ai.handedOver": handed,
+      "ai.stageSuggestions": { suggestions: [suggestion] },
+      "ai.decideStageSuggestion": null,
+    });
+    renderWithApi(<AgentScreen />, client(), owner);
+    const link = await screen.findByRole("link", { name: "Rahul Verma" });
+    expect(link).toHaveAttribute("href", `/leads/${suggestion.leadId}`);
+    expect(screen.getByText("Lost: Said they're not interested.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Meera Rao" })).toBeInTheDocument();
+    expect(screen.queryByText(t.needsYou.nothing)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Yes, mark it Lost" }));
+    await waitFor(() => {
+      expect(stub.calls).toContain("ai.decideStageSuggestion");
+    });
+    const sent = vi
+      .mocked(fetch)
+      .mock.calls.map(([, init]) => (typeof init?.body === "string" ? init.body : ""))
+      .find((body) => body.includes(suggestion.id));
+    expect(JSON.parse(sent ?? "{}")).toEqual({ "0": { suggestionId: suggestion.id, accept: true } });
+  });
+
+  it("says nothing needs you only when hand-overs, payments and suggestions are all empty", async () => {
+    api({ "ai.stageSuggestions": { suggestions: [suggestion] } });
+    renderWithApi(<AgentScreen />, client(), owner);
+    await screen.findByRole("link", { name: "Rahul Verma" });
+    expect(screen.queryByText(t.needsYou.nothing)).not.toBeInTheDocument();
+  });
+
   it("shows the payments count, linking to Payments to check", async () => {
     api({ "paymentsToCheck.count": { count: 3 } });
     renderWithApi(<AgentScreen />, client(), owner);
@@ -119,16 +160,19 @@ describe("what needs you", () => {
     expect(screen.queryByText("Meera Rao")).not.toBeInTheDocument();
     expect(stub.calls).not.toContain("paymentsToCheck.count");
     expect(stub.calls).not.toContain("ai.handedOver");
+    expect(stub.calls).not.toContain("ai.stageSuggestions");
   });
 
-  it("shows the last 24 hours as a strip of figures, each with an info hint and Indian grouping", async () => {
+  it("shows the last 24 hours as a strip of four figures, each with an info hint and Indian grouping", async () => {
     api({ "ai.overview": { ...overview, chatsAnswered: 1234567, flagged: 2 } });
     renderWithApi(<AgentScreen />, client(), owner);
     expect(await screen.findByText("12,34,567")).toBeInTheDocument();
     expect(screen.getByText(t.last24.chats)).toBeInTheDocument();
     expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.getByText(t.last24.bookings)).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.getByText(t.last24.flagged)).toBeInTheDocument();
-    for (const label of [t.last24.chats, t.last24.messages, t.last24.flagged]) {
+    for (const label of [t.last24.chats, t.last24.messages, t.last24.bookings, t.last24.flagged]) {
       expect(screen.getByRole("button", { name: `What does ${label} mean?` })).toBeInTheDocument();
     }
   });

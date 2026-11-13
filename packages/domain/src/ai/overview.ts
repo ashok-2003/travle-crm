@@ -1,6 +1,6 @@
 // The autopilot's last day at a glance (the AI screen's head): chats it answered and messages it sent, how fast it answered
 // (the middle time from a customer's message to its reply: a reply's token names the message it answers), chats it flagged
-// or handed over, follow-ups it has planned, its lessons and the model that answered last.
+// or handed over, bookings it took, follow-ups it has planned, its lessons and the model that answered last.
 import type { AiOverview } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 
@@ -30,6 +30,22 @@ async function lastModel(tx: OrgTx): Promise<string | null> {
   return score.updatedAt > draft.createdAt ? score.model : draft.model;
 }
 
+/**
+ * The chats the AI flagged for a person since then, each once: handed over, told the team while it kept answering, or its
+ * lead suggested Lost or Not a lead. Whatever the reason: a hand-over's reasons change, the count does not.
+ */
+async function flaggedChats(tx: OrgTx, since: Date): Promise<number> {
+  const chats = await tx.aiChat.findMany({
+    where: { OR: [{ attentionAt: { gte: since } }, { handedOffAt: { gte: since } }] },
+    select: { conversationId: true },
+  });
+  const suggested = await tx.leadAiSuggestion.findMany({
+    where: { createdAt: { gte: since }, conversationId: { not: null } },
+    select: { conversationId: true },
+  });
+  return new Set([...chats, ...suggested].map((row) => row.conversationId)).size;
+}
+
 export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {
   const since = new Date(now.getTime() - DAY_MS);
   const sent = await tx.whatsappMessage.findMany({
@@ -56,9 +72,8 @@ export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {
     chatsAnswered: new Set(sent.map((message) => message.conversationId)).size,
     messagesSent: sent.length,
     medianReplySeconds: median(seconds),
-    flagged: await tx.aiChat.count({
-      where: { OR: [{ attentionAt: { gte: since } }, { handedOffAt: { gte: since } }] },
-    }),
+    flagged: await flaggedChats(tx, since),
+    bookingsRequested: await tx.aiBooking.count({ where: { createdAt: { gte: since } } }),
     followUpsPlanned: await tx.aiChat.count({ where: { followUpAt: { gt: now } } }),
     learnings: await tx.aiLearning.count({ where: { state: "active" } }),
     model: await lastModel(tx),

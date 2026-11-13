@@ -1,6 +1,6 @@
 "use client";
 
-// The AI agent's Overview tab: its state, what needs a person (handed-over chats, payments to check) and its last 24 hours.
+// The AI agent's Overview tab: its state, what needs a person (handed-over chats, the AI's Lost suggestions, payments to check) and its last 24 hours.
 import { brand } from "@travel-crm/brand";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -11,10 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { FigureCell, type Figure } from "@/dashboard/kpi-strip";
 import { formatCount, formatDayTime, formatPhoneNumber } from "@/lib/format";
-import { inboxRoute, routes } from "@/lib/routes";
+import { inboxRoute, leadRoute, routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { useAiOverview } from "../use-ai";
-import { useAgentSetup, useHandedOver, usePaymentsToCheckCount } from "./use-agent";
+import { SuggestionButtons } from "../stage-suggestion";
+import { useAgentSetup, useHandedOver, usePaymentsToCheckCount, useStageSuggestions } from "./use-agent";
 
 export const setupHref = `${routes.aiAgent}?tab=setup`;
 
@@ -48,13 +49,22 @@ function State() {
 
 function NeedsYou() {
   const t = useTranslations("aiAgent.needsYou");
+  const tStage = useTranslations("ai.stageSuggestion");
   const timeZone = useMe().organization.timeZone;
   const handed = useHandedOver();
   const payments = usePaymentsToCheckCount();
+  const suggested = useStageSuggestions();
   const chats = handed.query.data ?? [];
+  const suggestions = suggested.query.data?.suggestions ?? [];
   const waiting = payments.query.data?.count ?? 0;
-  const settled = (!handed.may || handed.query.isSuccess) && (!payments.may || payments.query.isSuccess);
-  const failed = (handed.may && handed.query.isError) || (payments.may && payments.query.isError);
+  const settled =
+    (!handed.may || handed.query.isSuccess) &&
+    (!payments.may || payments.query.isSuccess) &&
+    (!suggested.may || suggested.query.isSuccess);
+  const failed =
+    (handed.may && handed.query.isError) ||
+    (payments.may && payments.query.isError) ||
+    (suggested.may && suggested.query.isError);
   return (
     <Card>
       <CardHeader>
@@ -64,8 +74,10 @@ function NeedsYou() {
         {failed && (
           <LoadFailedAlert
             message={t("loadFailed")}
-            error={handed.query.error ?? payments.query.error}
-            onRetry={() => void Promise.all([handed.query.refetch(), payments.query.refetch()])}
+            error={handed.query.error ?? payments.query.error ?? suggested.query.error}
+            onRetry={() =>
+              void Promise.all([handed.query.refetch(), payments.query.refetch(), suggested.query.refetch()])
+            }
           />
         )}
         {chats.length > 0 && (
@@ -88,12 +100,35 @@ function NeedsYou() {
             ))}
           </ItemGroup>
         )}
+        {suggestions.length > 0 && (
+          <ItemGroup aria-label={t("suggestions")}>
+            {suggestions.map((suggestion, index) => (
+              <div key={suggestion.id}>
+                {index > 0 && <ItemSeparator />}
+                <Item>
+                  <ItemContent>
+                    <ItemTitle>
+                      <TextLink href={leadRoute(suggestion.leadId)}>{suggestion.name}</TextLink>
+                    </ItemTitle>
+                    <ItemDescription>
+                      {t("suggested", { stage: tStage(`stages.${suggestion.kind}`), reason: suggestion.reason })}
+                    </ItemDescription>
+                    <ItemDescription>
+                      {t("since", { when: formatDayTime(new Date(suggestion.createdAt), { timeZone }) })}
+                    </ItemDescription>
+                    <SuggestionButtons suggestion={suggestion} />
+                  </ItemContent>
+                </Item>
+              </div>
+            ))}
+          </ItemGroup>
+        )}
         {waiting > 0 && (
           <TextLink href={routes.payments}>
             {t("payments")}: {t("paymentsCount", { count: waiting })}
           </TextLink>
         )}
-        {settled && !failed && chats.length === 0 && waiting === 0 && <p>{t("nothing")}</p>}
+        {settled && !failed && chats.length === 0 && suggestions.length === 0 && waiting === 0 && <p>{t("nothing")}</p>}
       </CardContent>
     </Card>
   );
@@ -102,10 +137,11 @@ function NeedsYou() {
 function LastDay() {
   const t = useTranslations("aiAgent.last24");
   const overview = useAiOverview();
-  const figures: (Figure & { key: "chats" | "messages" | "flagged" })[] = overview.data
+  const figures: (Figure & { key: "chats" | "messages" | "bookings" | "flagged" })[] = overview.data
     ? [
         { key: "chats", value: formatCount(overview.data.chatsAnswered), hint: t("chatsHint") },
         { key: "messages", value: formatCount(overview.data.messagesSent), hint: t("messagesHint") },
+        { key: "bookings", value: formatCount(overview.data.bookingsRequested), hint: t("bookingsHint") },
         { key: "flagged", value: formatCount(overview.data.flagged), hint: t("flaggedHint") },
       ]
     : [];
@@ -116,9 +152,16 @@ function LastDay() {
       </CardHeader>
       <CardContent className="p-0">
         {overview.data ? (
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-2 md:grid-cols-4">
             {figures.map((figure, index) => (
-              <FigureCell key={figure.key} figure={figure} label={t(figure.key)} index={index} count={figures.length} />
+              <FigureCell
+                key={figure.key}
+                figure={figure}
+                label={t(figure.key)}
+                index={index}
+                count={figures.length}
+                wideNext={index === 1}
+              />
             ))}
           </div>
         ) : overview.isError ? (
