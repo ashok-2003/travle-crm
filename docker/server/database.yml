@@ -1,0 +1,11 @@
+# The database server's additions to docker-compose.server.yml (SERVER_ROLE `database`, docs/runbook.md, "Our own
+# database"): scripts/server/compose.sh adds this file for that role. Postgres is published on the server's private
+# address alone (POSTGRES_LISTEN_ADDRESS), so the app server reaches it over Oracle's private network and nothing
+# outside that network can, and Caddy doesn't run, since nothing here answers https.
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_LISTEN_ADDRESS:?}:5432:5432"
+  proxy:
+    # A profile no role turns on.
+    profiles: [never]
