@@ -109,7 +109,7 @@ function Turn({ organizationId, traceId }: { organizationId: string; traceId: st
             <LookupsPart file={file} />
           </TabsContent>
           <TabsContent value="decision">
-            <DecisionPart file={file} />
+            <DecisionPart file={file} move={trace.move} stage={trace.saleStage} />
           </TabsContent>
           <TabsContent value="write">
             <WritePart file={file} />

@@ -2,8 +2,9 @@
 // Checks and sent), the chat's messages as the chat keeps them now, long text wrapped, and every opening fetched once.
 import type { AiTraceDetail, AiTraceFile } from "@travel-crm/contracts/platform";
 import { focusManager } from "@tanstack/react-query";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiTraceScreen } from "@/console/ai/ai-trace-screen";
 import { readableJson } from "@/console/ai/trace-text";
@@ -112,6 +113,12 @@ describe("AiTraceScreen", () => {
     );
   });
 
+  it("says so when the Messages card has no words to show", async () => {
+    open(detail({ file: file({ messages: [] }) }));
+    await screen.findByText("replied");
+    expect(screen.getByText(words.noWords)).toBeVisible();
+  });
+
   it("shows each tab's part", async () => {
     open(detail());
     await screen.findByText("replied");
@@ -122,6 +129,13 @@ describe("AiTraceScreen", () => {
     await userEvent.click(screen.getByRole("tab", { name: words.tabs.decision }));
     expect(await screen.findByText("Customer asked a price")).toBeVisible();
     expect(screen.getByText("price_asked")).toBeVisible();
+    expect(screen.getByText(words.decision.move)).toBeVisible();
+    const decision = within(screen.getByRole("tabpanel"));
+    expect(decision.getByText("give_price")).toBeVisible();
+    expect(screen.getByText(words.decision.stage)).toBeVisible();
+    expect(decision.getByText("quoted")).toBeVisible();
+    // The AI's own sentence is plain text, not a recorded code.
+    expect(screen.getByText("Customer asked a price")).not.toHaveClass("numbers");
     expect(screen.getByText("not_a_lead: Looks fake")).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: words.tabs.write }));
     expect(await screen.findByText("Try 1")).toBeVisible();
@@ -157,16 +171,33 @@ describe("AiTraceScreen", () => {
   });
 
   it("keeps a very large trace readable: wrapped text, one part at a time", async () => {
+    // jsdom has no layout, so a sideways scroll can't be measured: the wrapping classes on every long text stand for it.
     const huge = JSON.stringify({ text: "y".repeat(30_000) });
-    open(detail({ file: file({ understand: { blocks: [], answer: huge }, write: { blocks: [], answers: [huge] } }) }));
+    const lookups = Array.from({ length: 4 }, () => ({ tool: "find_packages", request: huge, result: huge }));
+    open(
+      detail({
+        file: file({
+          understand: { blocks: [], answer: huge },
+          lookups,
+          write: { blocks: [], answers: [huge, huge, huge] },
+          checks: [{ name: "long", passed: false, detail: "z".repeat(30_000) }],
+        }),
+      }),
+    );
     const answer = await screen.findByLabelText(words.answer);
     expect(answer.textContent).toBe(readableJson(huge));
-    expect(answer.className).toContain("whitespace-pre-wrap");
-    expect(answer.className).toContain("wrap-anywhere");
     expect(screen.queryByText("Try 1")).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "Lookups (4)" }));
+    const lookupTexts = await screen.findAllByLabelText(/find_packages: /);
+    expect(lookupTexts).toHaveLength(8);
     await userEvent.click(screen.getByRole("tab", { name: words.tabs.write }));
-    expect(await screen.findByText("Try 1")).toBeVisible();
-    expect(screen.queryByLabelText(words.answer)).toBeNull();
+    expect(await screen.findByText("Try 3")).toBeVisible();
+    for (const pre of [answer, ...lookupTexts, ...screen.queryAllByLabelText(/^Try \d$/)]) {
+      expect(pre.className).toContain("whitespace-pre-wrap");
+      expect(pre.className).toContain("wrap-anywhere");
+    }
+    await userEvent.click(screen.getByRole("tab", { name: words.tabs.sent }));
+    expect((await screen.findByText("z".repeat(30_000))).className).toContain("wrap-anywhere");
   });
 
   it("is fetched once per visit, since each fetch is an opening in the platform log", async () => {
@@ -188,11 +219,25 @@ describe("AiTraceScreen", () => {
     expect(screen.getByRole("button", { name: messages.common.tryAgain })).toBeVisible();
   });
 
+  it.each([
+    ["answered", detail()],
+    ["refused", { status: 403 }],
+  ])("opens once even when React mounts it twice (%s)", async (_name, answer) => {
+    stubApi({ "platform.aiTransparency.trace": answer });
+    renderConsole(
+      <StrictMode>
+        <AiTraceScreen organizationId={organizationId} traceId={traceId} />
+      </StrictMode>,
+    );
+    await screen.findByRole("heading", { name: words.title });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(inputsTo("aiTransparency.trace")).toHaveLength(1);
+  });
+
   it("tells support the page is a super admin's, and asks nothing", async () => {
     open(detail(), platformStaff("support"));
     expect(await screen.findByText(messages.consoleAi.superAdminsOnly)).toBeVisible();
-    await waitFor(() => {
-      expect(inputsTo("aiTransparency.trace")).toEqual([]);
-    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(inputsTo("aiTransparency.trace")).toEqual([]);
   });
 });

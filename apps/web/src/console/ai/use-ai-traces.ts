@@ -28,14 +28,21 @@ export function useAiTraces(organizationId: string, conversationId: string | nul
 
 /**
  * One turn, whole. Every fetch is an opening written in the platform log, so it is fetched once per visit: never
- * stale, never refetched on focus or reconnect, never retried, and forgotten when the screen goes.
+ * stale, never refetched on focus, reconnect or mount (Try again is the only retry), never retried, and forgotten when the screen goes.
  */
 export function useAiTrace(organizationId: string, traceId: string) {
   const trpc = useConsoleTRPC();
   return useQuery(
     trpc.aiTransparency.trace.queryOptions(
       { organizationId, traceId },
-      { staleTime: Infinity, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false, retry: false },
+      {
+        staleTime: Infinity,
+        gcTime: 0,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        refetchOnMount: false,
+        retry: false,
+      },
     ),
   );
 }

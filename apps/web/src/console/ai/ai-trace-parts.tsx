@@ -2,6 +2,7 @@
 // Write was given and wrote, and the checks with what was sent. Recorded codes show as recorded.
 import type { AiTraceFile } from "@travel-crm/contracts/platform";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { Details } from "@/components/details";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,14 +31,15 @@ export function UnderstandPart({ file }: { file: AiTraceFile }) {
   const { blocks, answer } = file.understand;
   return (
     <div className="flex flex-col gap-4">
-      {blocks.map((block) => (
-        <Part key={block.title} title={block.title}>
+      {blocks.map((block, index) => (
+        // Titles may repeat: a block's place is its identity.
+        <Part key={index} title={block.title}>
           <TraceText text={block.text} label={block.title} />
         </Part>
       ))}
       <Part title={t("messages")}>
         <p className="text-muted-foreground">{t("messagesIntro")}</p>
-        <TraceMessages messages={file.messages} />
+        {file.messages.length === 0 ? <p>{t("noWords")}</p> : <TraceMessages messages={file.messages} />}
         {file.messagesGone > 0 && <p>{t("messagesGone", { count: file.messagesGone })}</p>}
       </Part>
       <Part title={t("answer")}>
@@ -65,25 +67,30 @@ export function LookupsPart({ file }: { file: AiTraceFile }) {
   );
 }
 
-export function DecisionPart({ file }: { file: AiTraceFile }) {
+export function DecisionPart({ file, move, stage }: { file: AiTraceFile; move: string | null; stage: string | null }) {
   const t = useTranslations("consoleAi.trace");
   const { decision } = file;
-  const row = (label: string, value: string | null) => ({
-    label,
-    ...(value === null || value === "" ? {} : { value: code(value) }),
-  });
+  // Recorded codes show as recorded; the AI's own sentences are plain words.
+  const row = (label: string, value: ReactNode | null) => ({ label, ...(value === null ? {} : { value }) });
+  const words = (text: string | null) =>
+    text === null || text === "" ? null : <span className="wrap-anywhere">{text}</span>;
+  const codes = (text: string | null) => (text === null || text === "" ? null : code(text));
   return (
     <Details
       rows={[
-        row(t("decision.why"), decision.why),
-        row(t("decision.intents"), file.intents.join(", ")),
-        row(t("decision.note"), decision.note),
-        row(t("decision.task"), decision.task),
+        row(t("decision.move"), codes(move)),
+        row(t("decision.stage"), codes(stage)),
+        row(t("decision.why"), words(decision.why)),
+        row(t("decision.intents"), codes(file.intents.join(", "))),
+        row(t("decision.note"), words(decision.note)),
+        row(t("decision.task"), words(decision.task)),
         row(
           t("decision.suggest"),
-          decision.suggest === null
-            ? null
-            : t("suggestion", { kind: decision.suggest.kind, reason: decision.suggest.reason }),
+          words(
+            decision.suggest === null
+              ? null
+              : t("suggestion", { kind: decision.suggest.kind, reason: decision.suggest.reason }),
+          ),
         ),
       ]}
     />
@@ -95,8 +102,8 @@ export function WritePart({ file }: { file: AiTraceFile }) {
   if (file.write === null) return <p>{t("noWrite")}</p>;
   return (
     <div className="flex flex-col gap-4">
-      {file.write.blocks.map((block) => (
-        <Part key={block.title} title={block.title}>
+      {file.write.blocks.map((block, index) => (
+        <Part key={index} title={block.title}>
           <TraceText text={block.text} label={block.title} />
         </Part>
       ))}
