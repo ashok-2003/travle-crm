@@ -154,6 +154,19 @@ describe("the hourly sweep of AI traces", () => {
     expect(await test.storage.head(kept?.fileKey ?? "")).not.toBeNull();
   });
 
+  it("a trace recorded after its chat was erased goes at the next sweep, file and row", async () => {
+    const { organizationId, traces } = await agency([1, 1]);
+    const [erased, kept] = traces;
+    await platform.whatsappConversation.update({ where: { id: erased?.chatId ?? "" }, data: { state: "erased" } });
+    // A turn in flight while the erasure ran writes its trace afterwards, with the usual 14 days.
+    const late = await addTrace(organizationId, erased?.chatId ?? "", 0);
+    await sweepAiTraces(test.services, NOW);
+    expect((await rowsOf(organizationId)).map((row) => row.id)).toEqual([kept?.id]);
+    expect(await test.storage.head(late.fileKey)).toBeNull();
+    expect(await test.storage.head(erased?.fileKey ?? "")).toBeNull();
+    expect(await test.storage.head(kept?.fileKey ?? "")).not.toBeNull();
+  });
+
   it("erasure also marks a trace found only by its lead, and one on a chat held by phone alone", async () => {
     const { organizationId, traces } = await agency([1]);
     const leadId = randomUUID();

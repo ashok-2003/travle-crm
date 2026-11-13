@@ -75,6 +75,18 @@ describe("the trace sink", () => {
     expect(await readTraceFile(storage, "organizations/x/ai-traces/none.json.gz")).toBeNull();
   });
 
+  it("a trace recorded for a chat already erased is due at once", async () => {
+    const { organizationId, trace } = await aTurn();
+    await test.db.forOrg(organizationId, (tx) =>
+      tx.whatsappConversation.update({ where: { id: trace.conversationId }, data: { state: "erased" } }),
+    );
+    await createTraceSink({ db: test.db, storage: createMemoryStorage(), logger: createMemoryLogger() }).record(trace);
+    const row = await test.db.forOrg(organizationId, (tx) =>
+      tx.aiTurnTrace.findFirstOrThrow({ where: { id: trace.id } }),
+    );
+    expect(row.expiresAt).toEqual(trace.startedAt);
+  });
+
   it("a failed storage write keeps the turn", async () => {
     const { organizationId, trace } = await aTurn();
     const storage = createMemoryStorage();
