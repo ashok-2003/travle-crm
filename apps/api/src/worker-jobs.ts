@@ -255,6 +255,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       (await identity.organizationProfile(organizationId))?.name ?? "the agency",
     files,
     managers: bookingManagers,
+    // A returning customer's new lead, opened by the lite turn, is owned as a new number's is.
+    identity,
   });
   // Bookings: the reminders now due and the claims left waiting, each minute; the finished trips, each night.
   const bookingJobs = {

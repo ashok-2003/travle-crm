@@ -1,6 +1,6 @@
 // Public API of the crm module: people, leads, the lead timeline and blocked contacts (spec 6, L1). It may call the
 // catalog and tasks modules below it, never today above it.
-export { addBlockedContact, blockLeadContact, listBlockedContacts, unblockContact } from "./blocking.js";
+export { addBlockedContact, blockLeadContact, isBlocked, listBlockedContacts, unblockContact } from "./blocking.js";
 export { poolPlaceOf, readAssignment, saveAssignment, setAway } from "./assignment/index.js";
 export { changeEachLead } from "./bulk-changes.js";
 export { checkFirstReply, FIRST_REPLY_CHECK_QUEUE, scheduleFirstReplyCheckListener } from "./first-reply-alert.js";

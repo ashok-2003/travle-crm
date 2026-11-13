@@ -53,7 +53,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   /** The person-typed lead fields the customer now contradicts: a person reconciles them. */
   let changed: string[] = [];
   const kinds = prepared.burst.map((one) => one.kind);
-  if (!kinds.includes("audio") && !prepared.hasBooking) {
+  if (!kinds.includes("audio") && !prepared.hasBooking && !prepared.noOpenLead) {
     const asking = understandRequest({
       agencyName,
       packages: prepared.index,
@@ -138,7 +138,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   }
   trace.leadId = result.leadId;
   trace.sent = { messageIds: result.sentIds, text: result.text };
-  trace.actions = result.actions;
+  trace.actions = [...(prepared.leadOpened ? ["lead:opened"] : []), ...result.actions];
   if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
   return end(move.kind === "silent" ? "silent" : "replied");
 }
@@ -152,6 +152,7 @@ export function decideBase(
     | "adPackageId"
     | "openBooking"
     | "hasBooking"
+    | "noOpenLead"
     | "mayBePayment"
     | "nameUsable"
     | "leadStage"
@@ -176,6 +177,7 @@ export function decideBase(
     openBooking: prepared.openBooking,
     hasBooking: prepared.hasBooking,
     detailsChanged,
+    noOpenLead: prepared.noOpenLead,
     mayBePayment: prepared.mayBePayment,
     nameUsable: prepared.nameUsable,
     leadStage: prepared.leadStage,

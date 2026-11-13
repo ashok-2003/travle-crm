@@ -17,7 +17,7 @@ import type { OpenBooking } from "./stage.js";
 
 export interface DecideInput {
   kind: TurnKind;
-  /** null when the turn hands over before Understand runs: a voice note, a customer who already has a booking. */
+  /** null when the turn hands over before Understand runs: a voice note, a booking already, no lead to work on. */
   checked: CheckedForm | null;
   /** The facts as the turn found them, and with the checked form merged in. */
   before: LiteFacts;
@@ -31,6 +31,8 @@ export interface DecideInput {
   hasBooking: boolean;
   /** The customer's newest words contradict a trip field a person typed on the lead: a person reconciles it. */
   detailsChanged: boolean;
+  /** No open lead, and none could be opened for this returning customer: a person takes it before any price. */
+  noOpenLead: boolean;
   mayBePayment: boolean;
   nameUsable: boolean;
   leadStage: LeadStage | null;

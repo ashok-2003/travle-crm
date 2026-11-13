@@ -13,6 +13,7 @@ import type { RoomBooking, RoomType } from "@travel-crm/contracts/quotes";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { Files } from "../../files/index.js";
+import type { Identity } from "../../identity/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
 import type { SubscriptionAccess } from "../../subscriptions/index.js";
 import type { TurnKind } from "../agent-prompt.js";
@@ -25,6 +26,8 @@ export interface LiteDependencies {
   files: Files;
   managers: BookingRecipients;
   subscriptions?: Pick<SubscriptionAccess, "entitlementsOf">;
+  /** Who owns the agency's leads, for the lead a returning customer's turn opens; without it, a person takes the chat. */
+  identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
   logger?: Logger;
   traces?: TraceSink;
 }
@@ -58,7 +61,8 @@ export type HandOverReason =
   | "loop"
   | "other_twice"
   | "check_failed"
-  | "details_changed";
+  | "details_changed"
+  | "no_open_lead";
 
 export type FixedTextKey =
   | "price_from"

@@ -19,6 +19,7 @@ export const handOverSentences: Record<HandOverReason, string> = {
   other_twice: "Wrote twice in a way the AI couldn't place.",
   check_failed: "The AI couldn't write a safe reply.",
   details_changed: "Gave trip details that differ from what your team typed on the lead.",
+  no_open_lead: "Wrote again with no open lead, and the AI couldn't open one.",
 };
 
 /** What a quoted note names: the trip, its day, the party and the money told. */

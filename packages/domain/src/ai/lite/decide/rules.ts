@@ -30,6 +30,7 @@ const trigger: Rule = ({ input, intents, facts }) => {
     intents: [...intents],
     facts,
     detailsChanged: input.detailsChanged,
+    noOpenLead: input.noOpenLead,
   });
   if (reason === null) return null;
   return {

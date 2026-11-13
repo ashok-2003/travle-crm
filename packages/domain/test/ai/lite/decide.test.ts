@@ -123,6 +123,7 @@ function run({ intents = ["hello"], open = "unknown", ...over }: Case = {}) {
     openBooking: null,
     hasBooking: false,
     detailsChanged: false,
+    noOpenLead: false,
     mayBePayment: false,
     nameUsable: true,
     leadStage: "new",
@@ -148,6 +149,8 @@ describe("decide: the move table, in its order", () => {
     // A detail contradicting what a person typed goes back to that person, above any answer but theirs.
     expect(run({ intents: ["price_question"], detailsChanged: true }).move).toEqual(handOver("details_changed"));
     expect(run({ intents: ["discount"], detailsChanged: true }).move).toEqual(handOver("discount"));
+    // With no lead to work on, a person takes the chat before any price.
+    expect(run({ intents: ["price_question"], noOpenLead: true }).move).toEqual(handOver("no_open_lead"));
     expect(run({ intents: ["price_question", "complaint"] }).move).toEqual(handOver("complaint"));
   });
 
