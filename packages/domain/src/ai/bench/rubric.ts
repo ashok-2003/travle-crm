@@ -3,6 +3,7 @@
 import { amountsAndDatesIn } from "@travel-crm/contracts/ai";
 import type { ChecklistItem, LiteCase, LiteFacts, LiteIntent, LiteMoveKind } from "@travel-crm/contracts/ai";
 import { fullName } from "../lite/decide/stage.js";
+import { seatCountsIn } from "../lite/write.js";
 
 export interface Span {
   start: number;
@@ -58,18 +59,14 @@ export function heldItems(facts: LiteFacts): ChecklistItem[] {
   return held.filter(([, yes]) => yes).map(([item]) => item);
 }
 
-const SEATS = /\d+\s*(seats?|सीट)/giu;
-
 /** The amounts, dates and seat counts in a reply that code did not write: the model typed them. */
 export function inventedSpans(text: string, filled: readonly Span[]): Span[] {
-  const found: Span[] = [
-    ...amountsAndDatesIn(text).map(({ start, end }) => ({ start, end })),
-    ...[...text.matchAll(SEATS)].map((match) => ({ start: match.index, end: match.index + match[0].length })),
-  ];
+  const found: Span[] = [...amountsAndDatesIn(text).map(({ start, end }) => ({ start, end })), ...seatCountsIn(text)];
   return found.filter((span) => !filled.some((one) => span.start >= one.start && span.end <= one.end));
 }
 
-const MONEY_MOVES: ReadonlySet<LiteMoveKind | null> = new Set(["book", "resend_payment", "hand_over"]);
+// Not hand_over: its words are always the fixed line, so the model's can never be in it.
+const MONEY_MOVES: ReadonlySet<LiteMoveKind | null> = new Set(["book", "resend_payment"]);
 const plain = (text: string) => text.trim().toLowerCase();
 
 /** What the case expects, then the checks every chat gets; in the order the plan lists them. */

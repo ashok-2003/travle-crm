@@ -69,6 +69,31 @@ describe("the lite bench's test chats", () => {
     });
   }
 
+  it("the seed refuses an organization that already holds anything of its own", async () => {
+    const real = await anAgency(test, "Real agency");
+    await test.db.forOrg(real, (tx) => tx.destination.create({ data: { name: "Somewhere" } }));
+    await expect(test.db.forOrg(real, (tx) => seedBenchAgency(tx, real, test.storage))).rejects.toThrow("bench");
+    await expect(
+      test.db.forOrg(organizationId, (tx) => seedBenchAgency(tx, organizationId, test.storage)),
+    ).rejects.toThrow("bench");
+    const profile = await test.db.forOrg(real, (tx) => tx.organizationProfile.count());
+    expect(profile).toBe(0);
+  });
+
+  it("a passing Write on a talking move marks the turn as written by the model", async () => {
+    const one = liteCase.parse({
+      name: "model words",
+      chat: [{ from: "customer", text: "hi" }],
+      scripted: [
+        { understand: { intents: [{ name: "hello", proof: "hi" }] } },
+        { write: { text: "Hello! We run [package 1]. Which trip?" } },
+      ],
+      expect: { sent: true },
+    });
+    const result = await runLiteCase(dependencies(one), organizationId, one, BENCH_NOW);
+    expect(result.turns.map((turn) => turn.wrote)).toEqual([true]);
+  });
+
   it("a case's agency lines are not replayed", async () => {
     const one = liteCase.parse({
       name: "agency line between",

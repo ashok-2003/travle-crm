@@ -69,12 +69,15 @@ export function tallied(ai: AiModel, trace: LiteTrace): AiModel {
   };
 }
 
+/** The name of the Write check in a trace: the bench reads it to tell whether the model's words went out. */
+export const WRITE_CHECK = "write";
+
 /** What the Write check refused, and whether its last answer passed. */
 export function writeChecks(written: LiteWritten): LiteTrace["checks"] {
   const refused = written.kind === "ok" ? written.refusals : written.kind === "refused" ? [written.code] : [];
   return [
-    ...refused.map((code) => ({ name: "write", passed: false, detail: code })),
-    ...(written.kind === "ok" ? [{ name: "write", passed: true, detail: null }] : []),
+    ...refused.map((code) => ({ name: WRITE_CHECK, passed: false, detail: code })),
+    ...(written.kind === "ok" ? [{ name: WRITE_CHECK, passed: true, detail: null }] : []),
   ];
 }
 

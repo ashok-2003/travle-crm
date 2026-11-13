@@ -6,6 +6,7 @@ import type { LiteCase } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { runAgentTurn, type AgentDependencies } from "../agent.js";
 import { readLiteFacts } from "../lite/merge.js";
+import { WRITE_CHECK } from "../lite/turn-trace.js";
 import type { LiteTrace } from "../lite/types.js";
 import { BENCH_OWNER_ID } from "./seed.js";
 import { benchChecks, heldItems, type BenchCheck, type BenchEnd, type BenchTurn } from "./rubric.js";
@@ -115,7 +116,7 @@ function turnOf(
     };
   }
   // The model's words are in the reply only when Write's last answer passed and the move stayed a talking one.
-  const wrote = trace.checks.some((check) => check.name === "write" && check.passed) && trace.move !== "hand_over";
+  const wrote = trace.checks.some((check) => check.name === WRITE_CHECK && check.passed) && trace.move !== "hand_over";
   return {
     customer,
     outcome,

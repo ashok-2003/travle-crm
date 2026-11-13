@@ -1,6 +1,6 @@
 // The bench's rubric, pure: what it marks on a finished chat, from the trace of each turn and the chat's end.
 import type { LiteCase } from "@travel-crm/contracts/ai";
-import { liteCase } from "@travel-crm/contracts/ai";
+import { liteCase, liteFacts } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
 import {
   benchChecks,
@@ -9,7 +9,6 @@ import {
   type BenchEnd,
   type BenchTurn,
 } from "../../../../src/ai/bench/rubric.js";
-import { liteFacts } from "@travel-crm/contracts/ai";
 
 const turn = (changes: Partial<BenchTurn> = {}): BenchTurn => ({
   customer: ["hi"],
@@ -57,6 +56,22 @@ describe("the bench rubric", () => {
     expect(inventedSpans("only 3 seats left", [{ start: 5, end: 12 }])).toEqual([]);
   });
 
+  it("a seat count the agent's own write check refuses is invented here too", () => {
+    for (const typed of ["sirf do seats bachi hain", "teen seat bache", "३ सीट बची", "only 3 seats", "बस दो सीटें"]) {
+      expect(inventedSpans(typed, []), typed).not.toEqual([]);
+    }
+    expect(inventedSpans("sirf do seats bachi hain", [{ start: 5, end: 13 }])).toEqual([]);
+  });
+
+  it("a hand-over's words are always the fixed line, so it has no money_fixed mark", () => {
+    const checks = benchChecks(
+      caseOf({}),
+      [turn({ move: "hand_over", wrote: true, text: "A person will reply" })],
+      end(),
+    );
+    expect(verdict(checks, "turn 1 money_fixed")).toBeUndefined();
+  });
+
   it("a booking the Write model worded fails money_fixed", () => {
     const worded = benchChecks(caseOf({}), [turn({ move: "book", wrote: true, text: "Booked" })], end());
     expect(verdict(worded, "turn 1 money_fixed")?.pass).toBe(false);
@@ -85,9 +100,7 @@ describe("the bench rubric", () => {
       end({ actions: { payment: false, files: false, booking: false, handOver: true }, knows: ["when"] }),
     );
     expect(named.filter((check) => !check.pass)).toEqual([]);
-    expect(named.map((check) => check.name)).toEqual(
-      expect.arrayContaining(["move", "handOver", "knows when", "turn 1 money_fixed"]),
-    );
+    expect(named.map((check) => check.name)).toEqual(expect.arrayContaining(["move", "handOver", "knows when"]));
     const wrong = benchChecks(
       caseOf({ move: "greet", handOver: "discount", knows: ["when"] }),
       [turn({ move: "hand_over", reason: "loop" })],

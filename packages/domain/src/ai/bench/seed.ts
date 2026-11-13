@@ -47,6 +47,13 @@ export async function seedBenchAgency(
   organizationId: string,
   storage: ObjectStorage,
 ): Promise<{ key: (typeof benchPackages)[number]; id: string }[]> {
+  // The seed overwrites the profile and payment details: it runs only in an empty organization the bench made.
+  const holdsSomething =
+    (await tx.organizationProfile.count()) +
+    (await tx.destination.count()) +
+    (await tx.quoteTemplate.count()) +
+    (await tx.lead.count());
+  if (holdsSomething > 0) throw new Error("The bench seeds only an empty organization of its own");
   // The group quote a booking makes needs the agency's GST state.
   await saveOrganizationProfile(
     tx,
