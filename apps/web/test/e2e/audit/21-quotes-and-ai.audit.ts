@@ -144,11 +144,6 @@ test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, 
   await owner.goto("/settings/ai");
   await expect(owner.getByRole("heading", { level: 1, name: "AI", exact: true })).toBeVisible();
   await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
-  await owner
-    .getByLabel("Instructions for the AI")
-    .fill(
-      "Reply in Hinglish, warm and short. Always ask for the travel dates and the number of travellers. Never offer a discount.",
-    );
   await shoot(owner, "settings-ai");
   await owner.getByRole("button", { name: "Save", exact: true }).click();
   await expect(owner.getByText("AI settings saved")).toBeVisible();

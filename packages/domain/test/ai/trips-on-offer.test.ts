@@ -14,13 +14,28 @@ describe("the trips on offer", () => {
   });
   afterAll(() => test.close());
 
-  it("lists the sellable packages without a price", async () => {
+  it("lists only the packages the AI may sell, without a price", async () => {
     const on = await liteAgency(test);
+    // A second, complete package whose "AI can sell" switch is off: the only difference from the first.
+    await on.inOrg((tx) =>
+      tx.quoteTemplate.create({
+        data: {
+          name: "Spiti 3N",
+          title: "Spiti Escape 3N",
+          kind: "group",
+          nights: 3,
+          startCity: "Delhi",
+          roomTypes: ["double"],
+          advancePerPersonPaise: 200_000n,
+          pricesIncludeGst: true,
+          aiSellable: false,
+        },
+      }),
+    );
     const lines = await on.inOrg((tx) => tripsOnOffer(tx, on.organizationId, liteToday));
     expect(lines).toEqual(["- Kedarnath Yatra 4N · Kedarnath · 4 nights · from Delhi"]);
-    const unsold = await liteAgency(test, { ready: false });
-    await unsold.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { aiSellable: false } }));
-    expect(await unsold.inOrg((tx) => tripsOnOffer(tx, unsold.organizationId, liteToday))).toEqual([]);
+    await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { aiSellable: false } }));
+    expect(await on.inOrg((tx) => tripsOnOffer(tx, on.organizationId, liteToday))).toEqual([]);
   });
 
   /** The old free text written straight into the tables, as an agency left it before the move. */

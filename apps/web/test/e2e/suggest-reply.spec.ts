@@ -64,13 +64,17 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   expect(await sentTo(customer)).toHaveLength(0);
 
   // What the AI was asked: zero data retention, the customer's words, and no phone number.
-  // The fake keeps every request of the whole run (every journey's): this one is the draft's.
+  // The fake keeps every request of the whole run (every journey's): this agency's own draft is found by its organization.
   const request = (
     (await (await fetch(`${fakeOpenRouter()}/_requests`)).json()) as {
       authorization: string;
-      body: { provider: { zdr: boolean }; messages: { content: string }[] };
+      body: { provider: { zdr: boolean }; user?: string; messages: { content: string }[] };
     }[]
-  ).find((one) => one.body.messages.some((message) => message.content.includes("You draft ONE WhatsApp reply")));
+  ).find(
+    (one) =>
+      one.body.user === agency.organizationId &&
+      one.body.messages.some((message) => message.content.includes("You draft ONE WhatsApp reply")),
+  );
   expect(request?.body.provider.zdr).toBe(true);
   const prompt = request?.body.messages.map((message) => message.content).join("\n") ?? "";
   expect(prompt).toContain("Kerala package for 4");

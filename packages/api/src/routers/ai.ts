@@ -136,7 +136,7 @@ export const aiRouter = router({
       ),
     ),
 
-  /** What the agency told its AI to know. */
+  /** The documents package drafts are written from. */
   knowledge: freshProcedure
     .requires("ai:manage")
     .output(aiKnowledgeList)

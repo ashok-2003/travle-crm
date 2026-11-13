@@ -277,7 +277,6 @@ export function KnowledgeSection() {
             ))}
           </ItemGroup>
         )}
-        <p className="text-caption text-muted-foreground">{t("alsoKnown")}</p>
       </CardContent>
       {adding && <KnowledgeDialog open={adding} onOpenChange={setAdding} editing={null} />}
     </Card>

@@ -1,8 +1,8 @@
 "use client";
 
 // /settings/ai: the agency's own switches for the AI, for scoring leads and for filling them, how quote write-ups sound,
-// what it tells its AI (with ready lines to add), the documents package drafts are written from, and a way to the AI agent
-// page, where the agent that answers WhatsApp is set up. Off until an Owner or Admin turns it on.
+// the documents package drafts are written from, and a way to the AI agent page, where the agent that answers WhatsApp
+// is set up. Off until an Owner or Admin turns it on.
 import { writeStyles, type AiSettings, type WriteStyle } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
