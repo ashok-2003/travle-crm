@@ -20,13 +20,15 @@ export async function agentReachOf(tx: OrgTx, organizationId: string, now: Date)
   return (await agentSetupOf(tx, organizationId, today)).ready ? "ready" : "not_ready";
 }
 
+type ChatSwitches = { mode: string; handedOffAt: Date | null } | null | undefined;
+
+/** Whether the chat itself leaves room for the agent: it isn't switched off in the chat, and nobody took it over. */
+export const chatOpenToAgent = (chat: ChatSwitches): boolean => chat?.mode !== "off" && chat?.handedOffAt == null;
+
 /**
- * Whether the agent answers in this chat: the agency's agent is ready, the chat isn't switched off, and nobody took it
- * over. A chat's own "On" adds nothing to an agent that is off: the turn answers no chat then.
+ * Whether the agent answers in this chat: the agency's agent is ready and the chat is open to it. A chat's own "On"
+ * adds nothing to an agent that is off: the turn answers no chat then.
  */
-export function answersInChat(
-  reach: AgentReach,
-  chat: { mode: string; handedOffAt: Date | null } | null | undefined,
-): boolean {
-  return reach === "ready" && chat?.mode !== "off" && chat?.handedOffAt == null;
+export function answersInChat(reach: AgentReach, chat: ChatSwitches): boolean {
+  return reach === "ready" && chatOpenToAgent(chat);
 }

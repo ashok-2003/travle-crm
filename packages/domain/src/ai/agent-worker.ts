@@ -11,7 +11,7 @@ import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
-import { agentReachOf, answersInChat } from "./agent-reach.js";
+import { agentReachOf, answersInChat, chatOpenToAgent } from "./agent-reach.js";
 import { runAgentTurn, type AgentDependencies } from "./agent.js";
 import { WINDOW_MARGIN_MS } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
@@ -52,7 +52,7 @@ async function turnFor(
   if (reach === "off") return { queue: false, mark: false };
   const state = await tx.aiChat.findFirst({ where: { conversationId }, select: { mode: true, handedOffAt: true } });
   // A person answering keeps the AI waiting: no "typing" for a turn that writes nothing.
-  const takes = answersInChat("ready", state) && (await personAnsweringUntil(tx, conversationId, now)) === null;
+  const takes = chatOpenToAgent(state) && (await personAnsweringUntil(tx, conversationId, now)) === null;
   return { queue: takes, mark: takes && answersInChat(reach, state) };
 }
 
