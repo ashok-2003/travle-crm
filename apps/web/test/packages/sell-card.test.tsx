@@ -69,6 +69,14 @@ describe("SellCard", () => {
     );
     expect(screen.getByText(words.gaps.prices)).toBeTruthy();
     expect(screen.getByText(words.stillNeeds)).toBeTruthy();
+    // Switched on is not offered: never "may offer" above "will not sell".
+    expect(screen.getByText(words.off)).toBeTruthy();
+    expect(screen.queryByText(words.on)).toBeNull();
+  });
+
+  it("says the AI may offer a package switched on with nothing missing", () => {
+    renderWithApi(<SellCard detail={aPackage({ kind: "group", sellable: true })} />, newQueryClient());
+    expect(screen.getByText(words.on)).toBeTruthy();
   });
 
   it("is disabled and described by the hint when the subscription refuses changes", () => {

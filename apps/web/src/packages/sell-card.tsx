@@ -59,7 +59,8 @@ export function SellCard({ detail }: { detail: PackageDetail }) {
         </FieldLabel>
       </Field>
       <WriteHint id={hintId} hint={access.hint} visible />
-      <FieldDescription>{t(detail.sellable ? "on" : "off")}</FieldDescription>
+      {/* Switched on with a gap is not offered: the line says so, above the list of what it still needs. */}
+      <FieldDescription>{t(detail.sellable && !gaps ? "on" : "off")}</FieldDescription>
       {!mayManage && <p className="text-caption text-muted-foreground">{t("managerOnly")}</p>}
       {gaps && (
         <div>
