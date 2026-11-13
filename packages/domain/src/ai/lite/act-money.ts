@@ -9,9 +9,10 @@ import { agencyPaymentDetailsOf, paymentDetailsReady, type AgencyPaymentDetails 
 import { sellablePackage } from "../../quotes/index.js";
 import { takeAgentBooking } from "../agent-booking.js";
 import type { LiteActDeps, LiteActInput } from "./act-types.js";
-import { bookingPartsOf, bookingWords, type BookingRefusal } from "./booking-words.js";
+import { bookingPartsOf, bookingPart, type BookingRefusal } from "./booking-words.js";
 import { fixedText } from "./fixed-texts.js";
 import type { Quote } from "./decide/context.js";
+import type { Found } from "../grounded/phrase-match.js";
 import type { Decision } from "./types.js";
 
 export interface MoneyMove {
@@ -19,6 +20,8 @@ export interface MoneyMove {
   bookingId: string | null;
   /** The reply: the hold and the amount due, or the amount again, in the customer's language. */
   text: string;
+  /** The spans of `text` that code filled in. */
+  filled: Found[];
   /** Where to pay, sent after the reply: the agency's QR and its lines. */
   payment: AgencyPaymentDetails;
 }
@@ -91,12 +94,12 @@ async function book(
   if (booked.holdExpiresAt === null) {
     throw new DomainError("CONFLICT", "HOLD_EXISTS", "The lead's seats on this departure are not held");
   }
-  const text = bookingWords(parts, input.decision.facts, {
+  const words = bookingPart(parts, input.decision.facts, {
     holdUntil: booked.holdExpiresAt,
     today,
     timeZone: input.timeZone,
   });
-  return { bookingId: booked.bookingId, text, payment };
+  return { bookingId: booked.bookingId, ...words, payment };
 }
 
 /**
@@ -150,11 +153,11 @@ async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId:
     return book(tx, deps, input, { packageId: quote.templateId, departureId: quote.departureId }, leadId, told);
   }
   const payment = await paymentDetails(tx, input.organizationId);
-  const text = fixedText("payment_again", input.language, {
+  const words = fixedText("payment_again", input.language, {
     amount: formatRupees(Number(open.expectedPaise)),
     total: formatRupees(Number(quote.totalPaise)),
-  }).text;
-  return { bookingId: null, text, payment };
+  });
+  return { bookingId: null, ...words, payment };
 }
 
 /** A booking or the payment details again; null for every other move. */

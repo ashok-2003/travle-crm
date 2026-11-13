@@ -14,13 +14,17 @@ import { sendAiFile, sendAiText, type AiMessageTarget } from "../agent-send.js";
 import type { MoneyMove } from "./act-money.js";
 import type { LiteActDeps, LiteActInput } from "./act-types.js";
 import { fixedText } from "./fixed-texts.js";
+import type { Part } from "./reply-parts.js";
 import type { Decision } from "./types.js";
+import type { Found } from "../grounded/phrase-match.js";
 
 export interface Sent {
   /** Every message, in the order sent. */
   sentIds: string[];
   /** The reply's words as sent; null when no reply went. */
   text: string | null;
+  /** The spans of `text` code wrote: a fixed line's slots, the money message's, the composed reply's. */
+  filled: Found[];
   /** The package files sent, for the chat's facts. */
   fileIds: string[];
   codes: string[];
@@ -29,13 +33,13 @@ export interface Sent {
 type SendInput = LiteActInput & { decision: Decision };
 
 /** The reply's words: code's fixed line for a hand-over and a money move, else the composed reply; null sends none. */
-function replyText(input: SendInput, money: MoneyMove | null): string | null {
+function replyOf(input: SendInput, money: MoneyMove | null): Part | null {
   const { move } = input.decision;
   if (move.kind === "silent") return null;
   if (move.kind === "hand_over") {
-    return fixedText(move.reason === "voice_note" ? "voice_note" : "hand_over", input.language, {}).text;
+    return fixedText(move.reason === "voice_note" ? "voice_note" : "hand_over", input.language, {});
   }
-  return money?.text ?? input.reply?.text ?? null;
+  return money ?? input.reply;
 }
 
 /** A newly picked package's brochures, then its photos, that this chat has not been sent. */
@@ -62,10 +66,10 @@ export async function sendMove(tx: OrgTx, deps: LiteActDeps, input: SendInput, m
     // Handed to a person: the chat keeps waiting for one.
     answers: decision.move.kind !== "hand_over",
   };
-  const text = replyText(input, money);
-  const sent: Sent = { sentIds: [], text, fileIds: [], codes: [] };
-  if (text === null) return sent;
-  sent.sentIds.push(await sendAiText(tx, target, `ai:${token}`, text, "reply"));
+  const reply = replyOf(input, money);
+  const sent: Sent = { sentIds: [], text: reply?.text ?? null, filled: reply?.filled ?? [], fileIds: [], codes: [] };
+  if (reply === null) return sent;
+  sent.sentIds.push(await sendAiText(tx, target, `ai:${token}`, reply.text, "reply"));
   for (const [index, file] of (await packageFiles(tx, decision)).entries()) {
     sent.sentIds.push(await sendAiFile(tx, deps, target, `ai:${token}:f${String(index + 1)}`, file.from, "file"));
     sent.fileIds.push(file.id);

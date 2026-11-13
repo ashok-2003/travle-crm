@@ -1,9 +1,11 @@
 // Runs one of the console's one-off commands once, with the console's environment, then exits with its code:
 // `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>`, `run demo`, or
-// `run agent-cases` (the test chats). It starts as the console does (the same variables and checks, the same "console
+// `run agent-bench` (the test chats). It starts as the console does (the same variables and checks, the same "console
 // start-up failed" message), but serves nothing and runs no jobs. Never over HTTP: only whoever can run the console's image with its environment can run it.
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { createPinoLogger, errorFields } from "@travel-crm/integrations/logging";
-import { agentCasesCommand } from "./console-agent-cases.js";
+import { runAgentBench } from "./agent-bench-start.js";
 import { demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsolePlatform, type ConsolePlatform } from "./console-platform.js";
@@ -20,14 +22,20 @@ type Command = (
 const commands: Readonly<Record<string, Command>> = {
   "first-super-admin": ({ platform }, args, output) => firstSuperAdminCommand(platform, args, output),
   demo: ({ platform, settings }, args, output) => demoCommand(platform, settings.demo, args, output),
-  // Test chats against a throwaway organization on the local database, with the real model or --fake.
-  "agent-cases": ({ platform, settings }, args, output, { ai }) =>
-    agentCasesCommand(
-      platform,
-      { ai, databaseUrls: [settings.platformDatabaseUrl, process.env.DATABASE_URL ?? ""] },
-      args,
-      output,
-    ),
+};
+
+/**
+ * Commands with a start of their own, which never boot the console's whole environment (the bench needs no storage
+ * bucket, mail or push settings).
+ */
+const lean: Readonly<Record<string, (args: readonly string[], output: CommandOutput) => Promise<number>>> = {
+  "agent-bench": (args, to) =>
+    runAgentBench(args, to, {
+      variables: process.env,
+      repositoryRoot: resolve(import.meta.dirname, "../../.."),
+      home: join(homedir(), ".config", "travel-crm"),
+      now: new Date(),
+    }),
 };
 
 const output: CommandOutput = {
@@ -47,7 +55,7 @@ async function exitWhenPrinted(code: number): Promise<never> {
 
 /** A name that isn't one of the commands: says which there are, and ends the process. */
 async function usage(): Promise<never> {
-  output.stderr(`Usage: console-command <${Object.keys(commands).join(" | ")}> [arguments]`);
+  output.stderr(`Usage: console-command <${[...Object.keys(commands), ...Object.keys(lean)].join(" | ")}> [arguments]`);
   return exitWhenPrinted(1);
 }
 
@@ -55,6 +63,8 @@ async function usage(): Promise<never> {
 forgetServiceAccounts();
 
 const [name = "", ...args] = process.argv.slice(2);
+const leanCommand = lean[name];
+if (leanCommand !== undefined) await exitWhenPrinted(await leanCommand(args, output));
 const command = commands[name] ?? (await usage());
 
 // A command prints its result on stdout, so its log goes to stderr, and only what needs attention.

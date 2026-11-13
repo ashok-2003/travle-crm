@@ -345,7 +345,7 @@ describe("the console's AI turn traces", () => {
     const { organizationId, a, b } = await agency();
     const trace = await aTurn(organizationId, a, 1, {
       messageIds: [a.messageIds[0] ?? ""],
-      sent: { messageIds: [a.messageIds[1] ?? "", b.messageIds[1] ?? "", "not-a-uuid"], text: "x" },
+      sent: { messageIds: [a.messageIds[1] ?? "", b.messageIds[1] ?? "", "not-a-uuid"], text: "x", filled: [] },
     });
     const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
     expect(detail.file?.sent.messages.map((message) => message.id)).toEqual([a.messageIds[1]]);

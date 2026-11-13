@@ -92,3 +92,15 @@ export { promptLibrary, promptVersions, type PromptPiece } from "./lite/prompts/
 export { modelCalls, type ModelCallOutline } from "./lite/prompts/calls.js";
 export type { ContextMessage } from "./lite/types.js";
 export type { BlockHead } from "./lite/context/block-heads.js";
+export { BENCH_NOW, BENCH_OWNER_ID, seedBenchAgency } from "./bench/seed.js";
+export { benchModel } from "./bench/script.js";
+export {
+  benchChecks,
+  heldItems,
+  inventedSpans,
+  type BenchCheck,
+  type BenchEnd,
+  type BenchTurn,
+  type Span,
+} from "./bench/rubric.js";
+export { runLiteCase, type LiteCaseResult } from "./bench/replay.js";
