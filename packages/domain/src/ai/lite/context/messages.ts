@@ -1,6 +1,6 @@
 // The chat as the model reads it: one line per message, who said it and when, the customer's words fenced as data.
 import { calendarDateIn, formatShortDay, type CalendarDate } from "../../../kernel/index.js";
-import { fenced } from "../../agent-prompt.js";
+import { fenced } from "../../fenced.js";
 import { AI_TOKEN_PREFIX } from "../../may-write.js";
 import type { ContextMessage } from "../types.js";
 

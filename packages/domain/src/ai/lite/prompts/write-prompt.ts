@@ -2,7 +2,7 @@
 import { liteWriteAnswerJsonSchema, type LiteLanguage } from "@travel-crm/contracts/ai";
 import type { AiRequest } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
-import { ANSWER_MAX_TOKENS } from "../../grounded/ask.js";
+import { ANSWER_MAX_TOKENS } from "../ask.js";
 import { writeBlockHeads } from "../context/block-heads.js";
 import { BUDGETS, newestThatFit, oneLine, renderBlock, summaryLines, type Block } from "../context/blocks.js";
 import { messageLines } from "../context/messages.js";
@@ -43,9 +43,15 @@ export function writeSystem(): string {
   return WRITE_SYSTEM.map((name) => text.get(name) ?? "").join("\n\n");
 }
 
-export function writeRequest(input: WritePromptInput): { request: AiRequest; blocks: Record<string, string> } {
+/** `messageIds` are the chat's messages the request shows, which the trace names (it never copies their words). */
+export function writeRequest(input: WritePromptInput): {
+  request: AiRequest;
+  blocks: Record<string, string>;
+  messageIds: string[];
+} {
   const recent = input.messages.slice(-LAST_MESSAGES);
   const lines = messageLines(recent, input.timeZone, input.today);
+  const kept = newestThatFit(lines, BUDGETS.writeMessages);
   const blocks: Block[] = [
     {
       ...writeBlockHeads.you,
@@ -69,7 +75,7 @@ export function writeRequest(input: WritePromptInput): { request: AiRequest; blo
     },
     {
       ...writeBlockHeads.messages,
-      lines: lines.slice(lines.length - newestThatFit(lines, BUDGETS.writeMessages)),
+      lines: lines.slice(lines.length - kept),
     },
     {
       ...writeBlockHeads.language,
@@ -92,5 +98,6 @@ export function writeRequest(input: WritePromptInput): { request: AiRequest; blo
       ],
     },
     blocks: Object.fromEntries(rendered),
+    messageIds: recent.slice(recent.length - kept).map((message) => message.id),
   };
 }

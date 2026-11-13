@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createIsolatedDatabase } from "@travel-crm/db/testing";
 import { describe, expect, inject, it } from "vitest";
-import { runAgentBench, type AgentBenchProcessOptions } from "../src/agent-bench-start.js";
+import { runAgentBench, type AgentBenchProcessOptions } from "../src/console-agent-bench-start.js";
 import { agentBenchCommand, insideRepository, isLocalDatabaseUrl } from "../src/console-agent-bench.js";
 import { createTestConsole } from "./support/console.js";
 import { createTestServer } from "./support/test-server.js";

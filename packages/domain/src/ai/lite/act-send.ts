@@ -16,7 +16,7 @@ import type { LiteActDeps, LiteActInput } from "./act-types.js";
 import { fixedText } from "./fixed-texts.js";
 import type { Part } from "./reply-parts.js";
 import type { Decision } from "./types.js";
-import type { Found } from "../grounded/phrase-match.js";
+import type { Found } from "./phrase-match.js";
 
 export interface Sent {
   /** Every message, in the order sent. */

@@ -4,8 +4,8 @@ import type { LiteIntent, UnderstandForm } from "@travel-crm/contracts/ai";
 import { withoutAmountsAndDates } from "@travel-crm/contracts/ai";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { CalendarDate } from "../../kernel/index.js";
-import { containsWords, hasAWord, wordsOf } from "../grounded/read-words.js";
-import { saysCount, saysDay, saysMonth } from "../grounded/read-numbers.js";
+import { containsWords, hasAWord, wordsOf } from "./read-words.js";
+import { saysCount, saysDay, saysMonth } from "./read-numbers.js";
 import type { CheckedForm, ContextMessage, FieldProof, PackageIndexEntry } from "./types.js";
 
 const MOST_MESSAGES = 20;

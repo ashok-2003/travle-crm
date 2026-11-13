@@ -3,7 +3,7 @@
 import type { LiteLanguage } from "@travel-crm/contracts/ai";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import { calendarDateIn, formatShortDay, type CalendarDate } from "../../kernel/index.js";
-import type { Found } from "../grounded/phrase-match.js";
+import type { Found } from "./phrase-match.js";
 import { fixedTextTable } from "./fixed-text-table.js";
 import type { FixedTextKey } from "./types.js";
 

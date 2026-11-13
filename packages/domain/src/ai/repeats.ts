@@ -2,7 +2,7 @@
 // same words, one inside the other, or nearly all the same words. Short lines ("ok", "thank you") never count: saying
 // them twice is normal.
 
-import { fenced } from "./agent-prompt.js";
+import { fenced } from "./fenced.js";
 
 const MIN_WORDS = 6;
 const SAME_SHARE = 0.8;

@@ -1,7 +1,7 @@
 // What the decide step reads: its input, the settled facts the move table works from, and what one rule picks.
 import type { LiteFacts, LiteIntent } from "@travel-crm/contracts/ai";
 import type { LeadStage } from "@travel-crm/contracts/crm";
-import type { TurnKind } from "../../agent-prompt.js";
+import type { TurnKind } from "../../may-write.js";
 import type {
   CheckedForm,
   Decision,

@@ -1,7 +1,9 @@
 // A returning customer writes to a lite agency with every lead closed: once the turn has decided to work on a trip with
 // them, and before it sends anything, it opens their new lead through crm's own path for a WhatsApp customer (owner by
 // the assignment rules, source WhatsApp), as the team's "Start a new lead" does, so a price told can also be booked. A
-// "thanks, great trip!" opens none. Who owns the agency's leads is read before the transaction, as inbound reads it.
+// "thanks, great trip!" opens none, and neither does anything from a customer whose newest lead a person marked Not a
+// lead (whom the turn answers in nothing). Who owns the agency's leads is read before the transaction, as inbound
+// reads it.
 import type { OrgTx } from "@travel-crm/db";
 import { agencyFactsOf, isBlocked, mayBringIn, startLeadFromChat } from "../../crm/index.js";
 import { lockChat } from "../../inbox/index.js";
@@ -25,8 +27,26 @@ export const LEAD_MOVES: ReadonlySet<Move["kind"]> = new Set([
   "resend_payment",
 ]);
 
-/** opened: a lead is open now (this turn's, or one that appeared meanwhile); blocked: no automation answers them. */
-export type LeadOpening = "opened" | "blocked" | "unable";
+/**
+ * Whether a person marked the customer's newest lead Not a lead (by hand, or by saying yes to the AI's suggestion). The
+ * AI then answers them in nothing at all: it never undoes that by opening a lead on the next "hi", and never hands the
+ * chat over or tells anyone. Their lines still reach the inbox, and the team can start a lead by hand.
+ */
+export async function markedNotALead(tx: OrgTx, personId: string | null): Promise<boolean> {
+  if (personId === null) return false;
+  const newest = await tx.lead.findFirst({
+    where: { personId },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { stage: true },
+  });
+  return newest?.stage === "not_a_lead";
+}
+
+/**
+ * opened: a lead is open now (this turn's, or one that appeared meanwhile); blocked: no automation answers them;
+ * not_a_lead: a person marked their newest lead Not a lead, and only a person starts another.
+ */
+export type LeadOpening = "opened" | "blocked" | "not_a_lead" | "unable";
 
 export async function openLeadForChat(
   deps: Pick<LiteDependencies, "db" | "identity" | "subscriptions">,
@@ -46,6 +66,8 @@ export async function openLeadForChat(
     // The chat's lock first, as the inbound path takes it, so a line saved meanwhile finds the new lead.
     await lockChat(tx, chat.id);
     if (await isBlocked(tx, { phone: chat.phoneE164 })) return "blocked";
+    // Read again under the chat's lock: a person may have marked it since the turn's first read.
+    if (await markedNotALead(tx, personId)) return "not_a_lead";
     try {
       await startLeadFromChat(
         tx,

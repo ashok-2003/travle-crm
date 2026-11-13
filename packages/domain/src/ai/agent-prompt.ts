@@ -8,10 +8,9 @@
 // never denies being an AI to someone who sincerely asks. It reads dates from a calendar code gives it and never repeats
 // itself. The chat and the agency's words are fenced as data.
 import type { AutopilotRow } from "./autopilot.js";
+import { fenced } from "./fenced.js";
+import type { TurnKind } from "./may-write.js";
 import type { PromptMedia } from "./media.js";
-
-/** Answer the last message, nudge a quiet customer, or write about a follow-up on the lead that came due. */
-export type TurnKind = "reply" | "nudge" | "followUp";
 
 export interface AgentVoice {
   name: string;
@@ -50,9 +49,6 @@ export interface PromptPack {
   /** What is wrong with the dates in the customer's last words, for the AI to put right kindly. */
   dateChecks: readonly string[];
 }
-
-/** Keeps a data fence from being closed by the words inside it. */
-export const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "›");
 
 function languageLine(settings: AutopilotRow): string {
   switch (settings.language) {

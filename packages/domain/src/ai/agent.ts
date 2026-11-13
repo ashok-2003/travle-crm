@@ -18,7 +18,8 @@ import { queueSystemText } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
-import { agentPrompt, type TurnKind } from "./agent-prompt.js";
+import { agentPrompt } from "./agent-prompt.js";
+import type { TurnKind } from "./may-write.js";
 import { applyAnswer } from "./agent-effects.js";
 import { asTranscript, chatHistory, knowledgePack, leadFactsFor } from "./agent-context.js";
 import { autopilotOf, type AutopilotRow } from "./autopilot.js";
@@ -38,7 +39,7 @@ import { REPEAT_ATTENTION, RECENT_SENT, repeatCorrection, repeatsEarlier } from 
 import { naturalIn } from "./voice.js";
 import { PAYMENT_DETAILS_TOKEN } from "./payment-likely.js";
 
-export { AI_HANDOFF_KIND } from "./agent-effects.js";
+export { AI_HANDOFF_KIND } from "./tell-owner.js";
 export { AI_TOKEN_PREFIX, agentAnswers, cleanReply, mayWrite };
 
 export interface AgentDependencies {
@@ -57,6 +58,8 @@ export interface AgentDependencies {
   traces?: TraceSink;
   /** Who owns the agency's leads: the lite turn opens a returning customer's new lead with it. */
   identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
+  /** The minute job's clock: a lite follow-up reads it again before it acts, so its checks hold when it sends. */
+  clock?: () => Date;
 }
 
 /**

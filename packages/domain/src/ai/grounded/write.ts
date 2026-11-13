@@ -3,10 +3,11 @@
 // monthly AI limit; the caller does.
 import { writeAnswer, writeAnswerJsonSchema, type WriteAnswer } from "@travel-crm/contracts/ai";
 import type { AiFailure, AiMessage, AiModel } from "@travel-crm/integrations/ai";
-import { fenced, type TurnKind } from "../agent-prompt.js";
+import { fenced } from "../fenced.js";
+import type { TurnKind } from "../may-write.js";
 import { asTranscript } from "../agent-context.js";
 import type { AutopilotRow } from "../autopilot.js";
-import { ANSWER_MAX_TOKENS, askFor, type CallUsage } from "./ask.js";
+import { ANSWER_MAX_TOKENS, askFor, type CallUsage } from "../lite/ask.js";
 import { groundedPrompt, type GroundedPack } from "./prompt.js";
 
 export interface WriteInput {

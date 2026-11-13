@@ -2,8 +2,8 @@
 // customer's own places and the ones we don't run.
 import { indianTravelPlaces } from "@travel-crm/contracts/ai";
 import type { LiteFacts } from "@travel-crm/contracts/ai";
-import { findWord } from "../grounded/phrase-match.js";
-import type { ReplyContext } from "../grounded/check.js";
+import { findWord } from "./phrase-match.js";
+import type { ReplyContext } from "./reply-check.js";
 import type { PackageIndexEntry, Situation } from "./types.js";
 
 const entryText = (one: PackageIndexEntry): string => [one.title, one.place ?? "", one.startCity].join("\n");

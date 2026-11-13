@@ -4,9 +4,9 @@
 // a booking already, goes to a person with no model call. Whatever stops the turn sends nothing; a refusal tells the
 // team. One log line of codes ends every turn, and a prepared turn's trace goes to the sink. A nudge is the agent's own
 // follow-up, a short turn of its own (nudge-turn.ts).
-import { isAQuestion, sentencesIn } from "../grounded/read-words.js";
-import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
-import { flagChat } from "../grounded/turn-flag.js";
+import { isAQuestion, sentencesIn } from "./read-words.js";
+import { countedCall, type CallEnvironment } from "./counted-call.js";
+import { flagChat } from "./flag-chat.js";
 import { actingOn, codeWordsOf, handOverInstead } from "./act-reply.js";
 import { stageToOf } from "./decide/decide.js";
 import { checkedForm } from "./form-check.js";
@@ -43,7 +43,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   const environment: CallEnvironment = { db: deps.db, organizationId, now, timeZone: prepared.timeZone };
   /** Sends nothing and tells the team, with a code and never the customer's words. */
   const flag = async (outcome: "unfit" | "blocked", code: string) => {
-    await flagChat(deps.db, { organizationId, chat: prepared.chat, token: input.token, code, facts: null, now });
+    await flagChat(deps.db, { organizationId, chat: prepared.chat, token: input.token, code, now });
     return end(outcome, code);
   };
   const agencyName = await deps.agencyName(organizationId);
@@ -98,8 +98,10 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if (prepared.leadId === null && LEAD_MOVES.has(decision.move.kind)) {
     const chat = { id: prepared.chat.id, personId: prepared.chat.personId, phoneE164: prepared.phoneE164 };
     const opening = await openLeadForChat(deps, organizationId, chat, now);
-    // A blocked contact gets no automation's answer, as the inbox never queues one for them.
+    // A blocked contact gets no automation's answer, as the inbox never queues one for them; nor does a customer a person
+    // marked Not a lead, and nobody is told: the person who marked it can start a lead by hand.
     if (opening === "blocked") return end("blocked_contact");
+    if (opening === "not_a_lead") return end("not_a_lead");
     if (opening === "unable") decision = handOverInstead(decision, "no_open_lead", "lead:unable");
     else {
       decision = { ...decision, stageTo: stageToOf(decision.move, "new") };
@@ -118,6 +120,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if (words !== null) {
     trace.write = { blocks: words.blocks, raw: words.written.raw };
     trace.checks.push(...writeChecks(words.written));
+    // A turn that skipped Understand names the messages Write read.
+    if (checked === null) trace.messageIds = words.messageIds;
   }
   const code = codeWordsOf(decision, situation, decision.facts.language, agencyName, prepared.today);
   const acting = actingOn(decision, code, words?.written ?? null);

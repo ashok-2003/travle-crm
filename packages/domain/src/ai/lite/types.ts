@@ -17,9 +17,9 @@ import type { Files } from "../../files/index.js";
 import type { Identity } from "../../identity/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
 import type { SubscriptionAccess } from "../../subscriptions/index.js";
-import type { TurnKind } from "../agent-prompt.js";
+import type { TurnKind } from "../may-write.js";
 import type { BookingRecipients } from "../booking.js";
-import type { Found } from "../grounded/phrase-match.js";
+import type { Found } from "./phrase-match.js";
 
 export interface LiteDependencies {
   db: Database;
@@ -32,6 +32,8 @@ export interface LiteDependencies {
   identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
   logger?: Logger;
   traces?: TraceSink;
+  /** The minute job's clock: a follow-up reads it again before it acts, so its checks hold when it sends. */
+  clock?: () => Date;
 }
 
 export interface LiteTurnInput {

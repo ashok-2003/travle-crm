@@ -1,7 +1,7 @@
 // The lite agent's follow-up turn (plan 3b): one read, no Understand and no lookups, the model asked only for the
 // follow-up's line, then the same act as a reply's, which reads every check again under the chat's lock. A line that
 // can't be had or is refused sends nothing and tells nobody: a follow-up is a courtesy, never an answer owed.
-import type { CallEnvironment } from "../grounded/turn-calls.js";
+import type { CallEnvironment } from "./counted-call.js";
 import { prepareNudge } from "./nudge-prepare.js";
 import { finishTurn, startTrace, tallied, writeChecks, type TurnLog } from "./turn-trace.js";
 import { acted, written } from "./turn-steps.js";
@@ -36,6 +36,7 @@ export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput,
   // Every follow-up has a line to write; none here is a bug, and nothing goes.
   if (words === null) return end("nothing");
   trace.write = { blocks: words.blocks, raw: words.written.raw };
+  trace.messageIds = words.messageIds;
   trace.checks.push(...writeChecks(words.written));
   const line = words.written;
   if (line.kind === "ended") return end(line.outcome);
@@ -47,7 +48,8 @@ export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput,
     conversationId: prepared.chat.id,
     token: input.token,
     kind: input.kind,
-    now,
+    // The time it sends: the line took a model call, which can carry it past 21:00 or the window's end.
+    now: deps.clock?.() ?? now,
     today: prepared.today,
     timeZone: prepared.timeZone,
     decision,

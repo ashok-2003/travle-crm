@@ -5,11 +5,11 @@ import type { AiModel } from "@travel-crm/integrations/ai";
 import { cleanReply } from "../clean-reply.js";
 import { repeatCorrection, repeatsEarlier } from "../repeats.js";
 import type { Card } from "./card.js";
-import { checkReply, type ReplyContext } from "./check.js";
+import { checkReply, type ReplyContext } from "../lite/reply-check.js";
 import { fillPlaceholders } from "./fill.js";
 import type { Lookup } from "./lookup-types.js";
-import { findWord } from "./phrase-match.js";
-import { countedCall, type CallEnvironment } from "./turn-calls.js";
+import { findWord } from "../lite/phrase-match.js";
+import { countedCall, type CallEnvironment } from "../lite/counted-call.js";
 import { writeReply, type WriteInput } from "./write.js";
 
 export type Written =

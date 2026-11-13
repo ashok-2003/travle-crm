@@ -5,7 +5,7 @@
 import type { ChatFacts, ReadAnswer, WriteAnswer } from "@travel-crm/contracts/ai";
 import type { AutopilotRow } from "../autopilot.js";
 import type { Lookup, LookupPackage } from "./lookup-types.js";
-import { containsWords } from "./read-words.js";
+import { containsWords } from "../lite/read-words.js";
 
 export interface ActionContext {
   natural: boolean;

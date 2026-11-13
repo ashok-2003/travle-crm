@@ -3,7 +3,7 @@
 // agent remembers of the chat, and its last messages. Inside forOrg, so no other agency's data can reach the prompt.
 import type { AiMessage } from "@travel-crm/integrations/ai";
 import type { OrgTx } from "@travel-crm/db";
-import { fenced } from "./agent-prompt.js";
+import { fenced } from "./fenced.js";
 
 /** Characters of knowledge one prompt carries at most: enough for a price list, small enough for a free model. */
 const KNOWLEDGE_BUDGET = 12_000;

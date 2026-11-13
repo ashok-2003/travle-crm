@@ -41,6 +41,7 @@ export function SuggestionButtons({ suggestion }: { suggestion: StageSuggestion 
         <Button
           variant="outline"
           disabled={!access.allowed || decide.isPending}
+          aria-describedby={access.hint === null ? undefined : hintId}
           onClick={() => {
             send(false);
           }}

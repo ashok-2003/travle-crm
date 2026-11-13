@@ -1,7 +1,7 @@
 // What acting on a checked reply takes and gives back (grounded turn, act step).
 import type { ChatFacts, WriteAnswer } from "@travel-crm/contracts/ai";
 import type { Files } from "../../files/index.js";
-import type { TurnKind } from "../agent-prompt.js";
+import type { TurnKind } from "../may-write.js";
 import type { AutopilotRow } from "../autopilot.js";
 import type { BookingRecipients } from "../booking.js";
 import type { Lookup } from "./lookup-types.js";

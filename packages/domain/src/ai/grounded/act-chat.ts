@@ -4,8 +4,9 @@
 import type { ChatFacts } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { addAiFollowUp, addAiLeadNote } from "../../crm/index.js";
+import { ATTENTION_QUIET_MS, tellOwner } from "../tell-owner.js";
 import { systemActor } from "../../kernel/index.js";
-import { ATTENTION_QUIET_MS, planFollowUp, tellOwner } from "../agent-effects.js";
+import { planFollowUp } from "../agent-effects.js";
 import type { ActInput } from "./act-types.js";
 import { saveFacts } from "./facts.js";
 

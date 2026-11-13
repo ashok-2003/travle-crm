@@ -2,7 +2,8 @@
 // the reply count, the follow-ups (the next one's time, how many went, whether the customer stopped them), and on a
 // hand-over the reason for the team, the owner told.
 import type { OrgTx } from "@travel-crm/db";
-import { tellOwner, type ChatFacts } from "../agent-effects.js";
+import type { ChatRow } from "../may-write.js";
+import { tellOwner } from "../tell-owner.js";
 import type { LiteActInput } from "./act-types.js";
 import { handOverSentences } from "./act-words.js";
 import { followUpPlan } from "./follow-ups.js";
@@ -15,7 +16,7 @@ const REASON_MAX = 300;
 export async function settleChat(
   tx: OrgTx,
   input: LiteActInput & { decision: Decision },
-  chat: ChatFacts,
+  chat: ChatRow,
   done: { fileIds: string[]; bookingId: string | null; sent: boolean; leadId: string | null },
 ): Promise<void> {
   const { decision, now, conversationId } = input;
@@ -45,6 +46,7 @@ export async function settleChat(
     : {};
   const followUps = followUpPlan({
     kind: input.kind,
+    conversationId,
     move,
     stopFollowUps: decision.stopFollowUps,
     sent: done.sent,

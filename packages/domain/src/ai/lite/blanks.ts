@@ -1,6 +1,6 @@
 // The blanks the Write model copies and code fills: "[date 1]", "[answer]". The model never types an amount, a date or a
 // seat count; it names the blank, and code writes the value and records where, so the reply check skips that span.
-import type { Found } from "../grounded/phrase-match.js";
+import type { Found } from "./phrase-match.js";
 import { oneLine } from "./context/blocks.js";
 
 export type BlankKind = "package" | "from" | "date" | "seats" | "answer" | "choice" | "agency" | "agent";

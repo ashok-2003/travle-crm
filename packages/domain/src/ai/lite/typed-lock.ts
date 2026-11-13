@@ -2,7 +2,7 @@
 // the customer's newest words say otherwise, a person reconciles the lead (the turn hands over, details_changed) instead
 // of the agent pricing one value while the lead keeps the other.
 import type { TravelWhen } from "@travel-crm/contracts/crm";
-import { containsWords, hasAWord, normalised } from "../grounded/read-words.js";
+import { containsWords, hasAWord, normalised } from "./read-words.js";
 import type { TripField } from "./lead-writes.js";
 import type { CheckedForm, ContextMessage } from "./types.js";
 

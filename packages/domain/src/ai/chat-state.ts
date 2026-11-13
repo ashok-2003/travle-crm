@@ -6,7 +6,7 @@ import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
-import { agentAnswers } from "./agent.js";
+import { agentAnswers } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { turnUnderWay } from "./turn-under-way.js";

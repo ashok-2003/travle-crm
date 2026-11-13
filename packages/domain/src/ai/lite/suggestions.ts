@@ -164,8 +164,9 @@ export async function stageSuggestionOfLead(
 
 /**
  * A person's yes or no. Yes moves the lead as the person would, from its page; a lead that has moved on since is left
- * alone and the suggestion is closed as declined. An unknown or decided suggestion, or a lead outside the member's
- * scope, is NOT_FOUND.
+ * alone and the suggestion is closed as declined. The chat's AI is left as it is: a Not a lead silences the customer
+ * through their newest lead (`markedNotALead`), which lifts by itself when the team starts them a new one. An unknown or
+ * decided suggestion, or a lead outside the member's scope, is NOT_FOUND.
  */
 export async function decideStageSuggestion(
   tx: OrgTx,

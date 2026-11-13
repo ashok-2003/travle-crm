@@ -2,10 +2,10 @@
 // anything is sent. A refusal is asked again once with its code; refused twice, nothing goes and the team is told.
 import { liteWriteAnswer } from "@travel-crm/contracts/ai";
 import type { AiModel } from "@travel-crm/integrations/ai";
-import { askFor } from "../grounded/ask.js";
-import { checkReply, type ReplyContext } from "../grounded/check.js";
-import type { Found } from "../grounded/phrase-match.js";
-import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
+import { askFor } from "./ask.js";
+import { checkReply, type ReplyContext } from "./reply-check.js";
+import type { Found } from "./phrase-match.js";
+import { countedCall, type CallEnvironment } from "./counted-call.js";
 import { repeatsEarlier } from "../repeats.js";
 import { fillBlanks } from "./blanks.js";
 import { oneLine } from "./context/blocks.js";

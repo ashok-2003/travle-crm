@@ -2,7 +2,8 @@
 // the same ones the old agent uses, keyed on the turn's token so a retried job tells once. The facts the read settled are kept.
 import type { ChatFacts } from "@travel-crm/contracts/ai";
 import type { Database } from "@travel-crm/db";
-import { ATTENTION_QUIET_MS, tellOwner, type ChatFacts as ChatRow } from "../agent-effects.js";
+import type { ChatRow } from "../may-write.js";
+import { ATTENTION_QUIET_MS, tellOwner } from "../tell-owner.js";
 import { REPEAT_ATTENTION } from "../repeats.js";
 import { saveFacts } from "./facts.js";
 

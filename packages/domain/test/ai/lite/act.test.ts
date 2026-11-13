@@ -373,6 +373,21 @@ describe("the lite agent's act step", () => {
     expect(await counts(on)).toEqual({ ...nothingKept, sent: 1 });
   });
 
+  it("a follow-up acted on after 9 pm on the agency's clock writes nothing", async () => {
+    const on = await liteAgency(test);
+    const facts = liteFacts.parse({ agent: "lite" });
+    // 21:30 in India.
+    const late = new Date(testNow.getTime() + 6 * 3_600_000);
+    const result = await act(on, decision({ kind: "follow_up", number: 1, ask: "where" }, facts), {
+      kind: "nudge",
+      token: `nudge:${on.chat.id}:1`,
+      now: late,
+      reply: { text: "Hope your day went well. Which trip would you like?", filled: [] },
+    });
+    expect(result).toEqual({ stopped: "night" });
+    expect(await counts(on)).toEqual(nothingKept);
+  });
+
   it("a take-over or the owner's switch since the turn began ends it quietly", async () => {
     const taken = await liteAgency(test);
     await taken.inOrg((tx) => tx.aiChat.create({ data: { conversationId: taken.chat.id, mode: "off" } }));

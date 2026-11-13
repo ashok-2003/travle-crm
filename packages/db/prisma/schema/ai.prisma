@@ -475,6 +475,7 @@ model AiTurnTrace {
 
   @@unique([organizationId, id])
   @@index([organizationId, conversationId, startedAt(sort: Desc)], map: "ai_turn_trace_conversation")
+  @@index([organizationId, startedAt(sort: Desc), id(sort: Desc)], map: "ai_turn_trace_list")
   @@index([expiresAt], map: "ai_turn_trace_expiry")
   @@map("ai_turn_trace")
 }

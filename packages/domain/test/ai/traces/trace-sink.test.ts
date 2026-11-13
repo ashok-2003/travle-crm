@@ -1,12 +1,13 @@
 // The trace sink against the real database and the memory storage: a row and a gzip file for each trace, the file
 // holding no message text, a lost file keeping the turn, and the runtime role unable to change or delete a row.
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTrace } from "../../../src/ai/lite/turn-trace.js";
-import { TRACE_DAYS, readTraceFile, traceKey } from "../../../src/ai/traces/trace-file.js";
+import { TRACE_DAYS, readTraceFile, traceFileOf, traceKey } from "../../../src/ai/traces/trace-file.js";
 import { createTraceSink } from "../../../src/ai/traces/trace-sink.js";
+import { traceFileView } from "../../../src/platform/ai-trace-detail.js";
 import { aConnectedAgency, createTestInbox, type TestInbox } from "../../inbox/support.js";
 
 describe("the trace sink", () => {
@@ -73,6 +74,42 @@ describe("the trace sink", () => {
     expect(file).toMatchObject({ version: 1, trace: { id: trace.id, outcome: "replied", durationMs: 1234 } });
     expect(file?.trace.startedAt).toEqual(trace.startedAt);
     expect(await readTraceFile(storage, "organizations/x/ai-traces/none.json.gz")).toBeNull();
+  });
+
+  it("a trace recorded for a chat already erased is due at once", async () => {
+    const { organizationId, trace } = await aTurn();
+    await test.db.forOrg(organizationId, (tx) =>
+      tx.whatsappConversation.update({ where: { id: trace.conversationId }, data: { state: "erased" } }),
+    );
+    await createTraceSink({ db: test.db, storage: createMemoryStorage(), logger: createMemoryLogger() }).record(trace);
+    const row = await test.db.forOrg(organizationId, (tx) =>
+      tx.aiTurnTrace.findFirstOrThrow({ where: { id: trace.id } }),
+    );
+    expect(row.expiresAt).toEqual(trace.startedAt);
+  });
+
+  it("an older file, written before `filled`, `suggest` and `asked` were kept, still opens", async () => {
+    const { trace } = await aTurn();
+    const file = JSON.parse(gunzipSync(traceFileOf(trace)).toString("utf8")) as {
+      trace: { sent: Record<string, unknown> } & Record<string, unknown>;
+    };
+    delete file.trace.suggest;
+    delete file.trace.asked;
+    delete file.trace.sent.filled;
+    const storage = createMemoryStorage();
+    const key = traceKey(trace.organizationId, trace.startedAt, trace.id);
+    await storage.put({ key, contentType: "application/gzip", body: gzipSync(JSON.stringify(file)) });
+    const read = await readTraceFile(storage, key);
+    expect(read?.trace).toMatchObject({ id: trace.id, suggest: null, asked: null, sent: { filled: [] } });
+    if (read === null) return;
+    expect(traceFileView(read, []).decision).toMatchObject({ suggest: null });
+    // A file whose fields are not a trace's is no file.
+    await storage.put({
+      key,
+      contentType: "application/gzip",
+      body: gzipSync(JSON.stringify({ version: 1, trace: { id: trace.id, startedAt: "x", sent: 3 } })),
+    });
+    expect(await readTraceFile(storage, key)).toBeNull();
   });
 
   it("a failed storage write keeps the turn", async () => {

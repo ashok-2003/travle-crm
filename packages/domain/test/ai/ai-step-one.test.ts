@@ -146,6 +146,48 @@ describe("the AI, step one", () => {
       expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBe("Newer number's notes.");
     });
 
+    it("shows on the lead the chat's facts are for, or the person's open lead; never on an older trip's", async () => {
+      const { inOrg, chat, lead } = await scoredLead();
+      const older = await inOrg(async (tx) => {
+        const won = await aLead(tx, {
+          personId: chat.personId ?? "",
+          stage: "won",
+          createdAt: new Date(testNow.getTime() - 90 * 86_400_000),
+        });
+        const row = await tx.leadAiInsight.findFirstOrThrow({ where: { leadId: lead.id } });
+        await tx.leadAiInsight.create({
+          data: {
+            leadId: won.id,
+            score: row.score,
+            label: row.label,
+            reasons: row.reasons,
+            fake: row.fake,
+            summary: row.summary,
+            nextStep: row.nextStep,
+            facts: row.facts ?? {},
+            model: row.model,
+          },
+        });
+        return won;
+      });
+      const notes = (facts: object) =>
+        inOrg((tx) =>
+          tx.aiChat.upsert({
+            where: { organizationId_conversationId: { organizationId: chat.organizationId, conversationId: chat.id } },
+            create: { conversationId: chat.id, summary: "Wants a quiet trip this time.", facts },
+            update: { facts },
+          }),
+        );
+      const summaryOf = async (leadId: string) => (await inOrg((tx) => leadInsightOf(tx, leadId)))?.chatSummary ?? null;
+      // Settled before any lead, or for the open one: the open lead's notes, not the past trip's.
+      await notes({ agent: "lite", leadId: null });
+      expect(await summaryOf(lead.id)).toBe("Wants a quiet trip this time.");
+      expect(await summaryOf(older.id)).toBeNull();
+      // Notes the chat settled for the past trip stay with it.
+      await notes({ agent: "lite", leadId: older.id });
+      expect(await summaryOf(older.id)).toBe("Wants a quiet trip this time.");
+    });
+
     it("is null when the notes are empty", async () => {
       const { inOrg, chat, lead } = await scoredLead();
       expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBeNull();

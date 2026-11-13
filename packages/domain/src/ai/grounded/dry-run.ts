@@ -19,7 +19,7 @@ import { mergeFacts } from "./merge-facts.js";
 import { aboutCustomer } from "./prompt.js";
 import { readChat } from "./read.js";
 import type { ChatLine } from "./read-keys.js";
-import { countedCall, type CallEnvironment } from "./turn-calls.js";
+import { countedCall, type CallEnvironment } from "../lite/counted-call.js";
 import { newNotRunInAnotherScript } from "./turn-inputs.js";
 import { readKeys } from "./turn-prepare.js";
 import { replyContext, writeChecked } from "./turn-write.js";

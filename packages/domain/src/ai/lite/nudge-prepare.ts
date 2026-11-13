@@ -1,13 +1,13 @@
-// The lite follow-up turn's one read (plan 3b): the gates a reply turn passes, the silence it goes into and the open
-// lead it keeps going, then only what the follow-up's line needs, never Understand or a lookup: the chat's lines and
-// facts, the package the facts chose (what to ask next depends on its pickups and rooms), the agency's names and
-// places, and code's decision.
+// The lite follow-up turn's one read (plan 3b): the gates a reply turn passes, the silence it goes into, the open lead
+// it keeps going and the agency's waking hours, then only what the follow-up's line needs, never Understand or a
+// lookup: the chat's lines and facts, the package the facts chose (what to ask next depends on its pickups and rooms),
+// the agency's names and places, and code's decision.
 import type { OrgTx } from "@travel-crm/db";
 import { openLeadOfChat } from "../../crm/index.js";
 import { organizationTimeZone } from "../../identity/index.js";
 import { calendarDateIn } from "../../kernel/index.js";
 import { sellablePackages } from "../../quotes/index.js";
-import type { ChatFacts } from "../agent-effects.js";
+import type { ChatRow } from "../may-write.js";
 import { agentBasicsOf } from "../agency-answers.js";
 import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf } from "../autopilot.js";
@@ -15,9 +15,10 @@ import { mayWrite } from "../may-write.js";
 import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { decide } from "./decide/decide.js";
-import { stillQuiet } from "./follow-ups.js";
+import { inWakingHours, nextMorning, stillQuiet } from "./follow-ups.js";
 import { situationOf } from "./lookups/situation.js";
 import { factsForLead, readLiteFacts } from "./merge.js";
+import { markedNotALead } from "./open-lead.js";
 import { chatLines, placesOf, usableNameOf, type LitePrepared } from "./prepare.js";
 import { packageIndexOf } from "./prepare-lead.js";
 import type { Decision, LiteDependencies, LiteOutcome, LiteTurnInput, Situation } from "./types.js";
@@ -50,7 +51,7 @@ export async function prepareNudge(
       },
     });
     if (found === null) return "nothing";
-    const chat: ChatFacts = {
+    const chat: ChatRow = {
       id: found.id,
       personId: found.personId,
       lastInboundAt: found.lastInboundAt,
@@ -59,6 +60,7 @@ export async function prepareNudge(
     };
     const blocked = await mayWrite(tx, chat, settings, "nudge", now);
     if (blocked !== null) return blocked;
+    if (await markedNotALead(tx, chat.personId)) return "not_a_lead";
     const state = await tx.aiChat.findFirst({
       where: { conversationId: chat.id },
       select: { followUpsSent: true, summary: true },
@@ -71,6 +73,18 @@ export async function prepareNudge(
     const lead = await openLeadOfChat(tx, chat.personId);
     if (lead === null) return "no_open_lead";
     const timeZone = await organizationTimeZone(tx, organizationId);
+    // Never at night, however late the job reached it: it waits for 09:00 while the window still holds it, else it is
+    // let go (the job cleared its time when it claimed it).
+    if (!inWakingHours(now, timeZone)) {
+      const morning = chat.lastInboundAt === null ? null : nextMorning(now, chat.lastInboundAt, timeZone);
+      if (morning !== null) {
+        await tx.aiChat.updateMany({
+          where: { conversationId: chat.id, followUpAt: null },
+          data: { followUpAt: morning },
+        });
+      }
+      return "night";
+    }
     const today = calendarDateIn(now, timeZone);
     const sellable = await sellablePackages(tx, organizationId, today);
     // An agent its owner can no longer have answer (the setup undone) writes no follow-up either.
