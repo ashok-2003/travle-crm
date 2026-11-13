@@ -1,7 +1,8 @@
 // A returning customer writes to a lite agency with every lead closed: once the turn has decided to work on a trip with
 // them, and before it sends anything, it opens their new lead through crm's own path for a WhatsApp customer (owner by
 // the assignment rules, source WhatsApp), as the team's "Start a new lead" does, so a price told can also be booked. A
-// "thanks, great trip!" opens none. Who owns the agency's leads is read before the transaction, as inbound reads it.
+// "thanks, great trip!" opens none, and neither does anything from a customer whose newest lead a person marked Not a
+// lead. Who owns the agency's leads is read before the transaction, as inbound reads it.
 import type { OrgTx } from "@travel-crm/db";
 import { agencyFactsOf, isBlocked, mayBringIn, startLeadFromChat } from "../../crm/index.js";
 import { lockChat } from "../../inbox/index.js";
@@ -25,8 +26,11 @@ export const LEAD_MOVES: ReadonlySet<Move["kind"]> = new Set([
   "resend_payment",
 ]);
 
-/** opened: a lead is open now (this turn's, or one that appeared meanwhile); blocked: no automation answers them. */
-export type LeadOpening = "opened" | "blocked" | "unable";
+/**
+ * opened: a lead is open now (this turn's, or one that appeared meanwhile); blocked: no automation answers them;
+ * not_a_lead: a person marked their newest lead Not a lead, and only a person starts another.
+ */
+export type LeadOpening = "opened" | "blocked" | "not_a_lead" | "unable";
 
 export async function openLeadForChat(
   deps: Pick<LiteDependencies, "db" | "identity" | "subscriptions">,
@@ -46,6 +50,13 @@ export async function openLeadForChat(
     // The chat's lock first, as the inbound path takes it, so a line saved meanwhile finds the new lead.
     await lockChat(tx, chat.id);
     if (await isBlocked(tx, { phone: chat.phoneE164 })) return "blocked";
+    // A person's Not a lead stands: the AI never undoes it by opening a new lead on the next "hi".
+    const newest = await tx.lead.findFirst({
+      where: { personId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { stage: true },
+    });
+    if (newest?.stage === "not_a_lead") return "not_a_lead";
     try {
       await startLeadFromChat(
         tx,
