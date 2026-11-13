@@ -13,6 +13,7 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import { openLeadOfChat } from "../crm/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { calendarDateIn } from "../kernel/index.js";
 import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
@@ -24,6 +25,7 @@ import { knowledgeWords } from "./knowledge.js";
 import { agentAnswers } from "./may-write.js";
 import { turnUnderWay } from "./turn-under-way.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
+import { readLiteFacts } from "./lite/merge.js";
 import { aiEnabled, aiFillLeadsOn, aiScoringOn } from "./settings.js";
 import { releaseAiCall, reserveAiCall } from "./usage.js";
 
@@ -418,7 +420,11 @@ function safeParse(text: string) {
   }
 }
 
-/** The lite agent's notes from the chat the lead's person wrote in last (a person may have more than one number). */
+/**
+ * The lite agent's notes from the chat the lead's person wrote in last (a person may have more than one number), on the
+ * lead they are about: the one the chat's facts were settled for, or the person's open lead. A returning customer's
+ * older trip never shows notes about the next one.
+ */
 async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> {
   const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { personId: true } });
   if (lead === null) return null;
@@ -429,7 +435,9 @@ async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> 
   });
   if (chat === null) return null;
   const state = await tx.aiChat.findFirst({ where: { conversationId: chat.id }, select: { summary: true } });
-  return state === null || state.summary === "" ? null : state.summary;
+  if (state === null || state.summary === "") return null;
+  if ((await readLiteFacts(tx, chat.id)).leadId === leadId) return state.summary;
+  return (await openLeadOfChat(tx, lead.personId))?.id === leadId ? state.summary : null;
 }
 
 /** The AI's guess for a lead, if there is one. */
