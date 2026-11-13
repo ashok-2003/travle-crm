@@ -6,6 +6,7 @@ import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -54,6 +55,10 @@ function Turns({ organizationId, conversationId }: { organizationId: string; con
         <AiTraceTable organizationId={organizationId} traces={traces} priced={priced} />
       ) : (
         <AiTraceItems organizationId={organizationId} traces={traces} priced={priced} />
+      )}
+      {/* A refresh that failed while the list shows: the list stays, and says so. */}
+      {turns.isRefetchError && !turns.isFetchNextPageError && (
+        <LoadFailedAlert message={t("loadFailed")} error={turns.error} onRetry={() => void turns.refetch()} />
       )}
       {/* A later page can fail on its own: a cursor whose turn was deleted since. The list so far stays. */}
       {turns.isFetchNextPageError && (

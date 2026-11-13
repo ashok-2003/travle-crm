@@ -2,7 +2,8 @@
 // chat's), a table on a desktop and items on a phone, costs only when the console has prices, and a clear way on when
 // a page's cursor has gone. Support is told it's a super admin's, and nothing is asked of the api.
 import type { AiTracePage, AiTraceRow } from "@travel-crm/contracts/platform";
-import { screen, within } from "@testing-library/react";
+import { focusManager } from "@tanstack/react-query";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiTracesScreen } from "@/console/ai/ai-traces-screen";
@@ -52,6 +53,7 @@ function open(
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -141,5 +143,31 @@ describe("AiTracesScreen", () => {
     open(page([row()]), { staff: platformStaff("support") });
     expect(await screen.findByText(messages.consoleAi.superAdminsOnly)).toBeVisible();
     expect(inputsTo("aiTransparency.traces")).toEqual([]);
+  });
+
+  it("keeps the phone links at the 44px touch target, and reads a nudge's kind and reason without empty parts", async () => {
+    open(page([row({ kind: "nudge", move: null, saleStage: null, reason: "silent_two_days" })]), { wide: false });
+    const time = formatDayTime(new Date("2026-11-12T08:30:00.000Z"), { timeZone: PLATFORM_TIME_ZONE });
+    expect(await screen.findByRole("link", { name: time })).toHaveClass("min-h-11");
+    expect(screen.getByRole("link", { name: `Chat ${chatId.slice(-6)}` })).toHaveClass("min-h-11");
+    const item = screen.getByText("1,200 in · 80 out", { exact: false });
+    expect(item).toHaveTextContent(words.kinds.nudge);
+    expect(item).toHaveTextContent("silent_two_days");
+    expect(item).not.toHaveTextContent(words.none);
+  });
+
+  it("says when a refresh fails while the list is showing, with a way to try again", async () => {
+    const api = open(page([row()]));
+    await screen.findByText("replied");
+    api.answer("platform.aiTransparency.traces", { status: 403 });
+    // The list is fresh for 30 seconds: let them pass, then bring the tab back into focus.
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 60_000 });
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    expect(await screen.findByText(words.loadFailed)).toBeVisible();
+    expect(screen.getByRole("button", { name: messages.common.tryAgain })).toBeVisible();
+    expect(screen.getByText("replied")).toBeVisible();
   });
 });

@@ -1,7 +1,6 @@
 // An organization's AI turns on phones: a list of items, each titled by its time (leading to the turn) and outcome,
 // described by move, stage, tokens and cost.
 import type { AiTraceRow } from "@travel-crm/contracts/platform";
-import { useTranslations } from "next-intl";
 import { Fragment } from "react";
 import { useInstantText } from "@/components/instant-text";
 import { TextLink } from "@/components/text-link";
@@ -18,7 +17,6 @@ export function AiTraceItems({
   traces: AiTraceRow[];
   priced: boolean;
 }) {
-  const t = useTranslations("consoleAi.traces");
   const instantText = useInstantText();
   const words = useTraceWords();
   return (
@@ -30,20 +28,24 @@ export function AiTraceItems({
             <Item size="sm">
               <ItemContent>
                 <ItemTitle className="flex-wrap">
-                  <TextLink href={consoleRoutes.aiTrace(organizationId, trace.id)} inline>
+                  <TextLink href={consoleRoutes.aiTrace(organizationId, trace.id)}>
                     <span className="numbers">{instantText(trace.startedAt)}</span>
                   </TextLink>
                   <span className="numbers wrap-anywhere">{trace.outcome}</span>
                 </ItemTitle>
                 <ItemDescription className="numbers wrap-anywhere">
                   {[
-                    trace.move ?? t("none"),
-                    trace.saleStage ?? t("none"),
+                    words.kind(trace.kind),
+                    trace.reason,
+                    trace.move,
+                    trace.saleStage,
                     words.tokens(trace.inputTokens, trace.outputTokens),
-                    ...(priced && trace.costPaise !== null ? [words.cost(trace.costPaise)] : []),
-                  ].join(" · ")}
+                    priced && trace.costPaise !== null ? words.cost(trace.costPaise) : null,
+                  ]
+                    .filter((part) => part !== null)
+                    .join(" · ")}
                 </ItemDescription>
-                <TextLink href={consoleRoutes.aiTraces(organizationId, trace.conversationId)} inline>
+                <TextLink href={consoleRoutes.aiTraces(organizationId, trace.conversationId)}>
                   {words.chat(trace.conversationId)}
                 </TextLink>
               </ItemContent>
