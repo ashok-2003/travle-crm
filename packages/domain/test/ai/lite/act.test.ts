@@ -648,7 +648,14 @@ describe("the lite agent's act step", () => {
     expect(rows.insight).toMatchObject({ score: 72, label: "hot", model: "test-model" });
     expect(rows.chat.summary).toContain("Wants Kedarnath for two");
     expect(rows.chat.summary).not.toContain("20,000");
-    expect(rows.chat).toMatchObject({ lastReplyAt: liteTurnAt, repliesCount: 1, followUpAt: null, handedOffAt: null });
+    // A sent reply plans the first follow-up, 4 hours on (19:31 in India).
+    expect(rows.chat).toMatchObject({
+      lastReplyAt: liteTurnAt,
+      repliesCount: 1,
+      followUpAt: new Date(liteTurnAt.getTime() + 4 * 3_600_000),
+      followUpsSent: 0,
+      handedOffAt: null,
+    });
     expect(result.actions).toEqual(
       expect.arrayContaining(["lead:adults", "name", "stage:contacted", "note:package_picked", "task:call_back"]),
     );

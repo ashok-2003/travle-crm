@@ -99,7 +99,9 @@ export type Move =
       text: "screenshot_received" | "ask_screenshot" | "identity" | "not_run" | "close" | "later" | "how_can_i_help";
     }
   | { kind: "hand_over"; reason: HandOverReason }
-  | { kind: "silent" };
+  | { kind: "silent" }
+  /** A nudge turn's: the first picks the chat up again and asks `ask` (or whether they have questions); the second asks nothing. */
+  | { kind: "follow_up"; number: 1 | 2; ask: ChecklistItem | null };
 
 export type LeadNoteKey = "package_picked" | "quoted" | "handed_over" | "not_interested" | "later";
 

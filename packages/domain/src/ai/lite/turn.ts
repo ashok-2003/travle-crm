@@ -2,7 +2,8 @@
 // in code, WRITE its words with blanks code fills and checks (the second model call, only for the moves that need
 // words), then ACT in one transaction. Both calls count against the month's limit. A voice note, or a customer who has
 // a booking already, goes to a person with no model call. Whatever stops the turn sends nothing; a refusal tells the
-// team. One log line of codes ends every turn, and a prepared turn's trace goes to the sink.
+// team. One log line of codes ends every turn, and a prepared turn's trace goes to the sink. A nudge is the agent's own
+// follow-up, a short turn of its own (nudge-turn.ts).
 import { isAQuestion, sentencesIn } from "../grounded/read-words.js";
 import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
 import { flagChat } from "../grounded/turn-flag.js";
@@ -11,6 +12,7 @@ import { stageToOf } from "./decide/decide.js";
 import { checkedForm } from "./form-check.js";
 import { mergeForm } from "./merge.js";
 import { LEAD_MOVES, openLeadForChat } from "./open-lead.js";
+import { runLiteNudge } from "./nudge-turn.js";
 import { lockedFields, typedChanged } from "./typed-lock.js";
 import { prepareLiteTurn, type LitePrepared } from "./prepare.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
@@ -22,12 +24,9 @@ import { understandChat } from "./understand.js";
 
 export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
   const startedMs = Date.now();
-  // Plan 3b writes the nudges; until then a quiet chat is left quiet, before any read (a follow-up time left on a chat
-  // still brings its nudge here). A follow-up task the owner set is a person's call to make.
-  if (input.kind !== "reply") {
-    const outcome = input.kind === "followUp" ? "off" : "nothing";
-    return finishTurn(deps, input, { outcome, log: {}, startedMs }, null);
-  }
+  // A follow-up task the owner set is a person's call to make: the minute job leaves a lite agency's to the team.
+  if (input.kind === "followUp") return finishTurn(deps, input, { outcome: "off", log: {}, startedMs }, null);
+  if (input.kind === "nudge") return runLiteNudge(deps, input, now);
   const prepared = await prepareLiteTurn(deps, input, now);
   if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);
   const trace = startTrace(input, prepared.leadId, now);

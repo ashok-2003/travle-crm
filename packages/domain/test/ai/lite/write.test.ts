@@ -107,6 +107,19 @@ describe("what the model is told, and what code writes", () => {
     expect(asked?.instruction).toContain("which city they will join from");
   });
 
+  it("a follow-up picks the chat up again: the first asks the item or for questions, the second asks nothing", () => {
+    const told = (move: Move) => writeMoveOf(move, situation(), facts(), agency, today)?.instruction;
+    expect(told({ kind: "follow_up", number: 1, ask: "people" })).toBe(
+      "Pick the chat up again in one short, friendly line, then ask for how many people are travelling, and the children's ages if any.",
+    );
+    expect(told({ kind: "follow_up", number: 1, ask: null })).toBe(
+      "Pick the chat up again in one short, friendly line and ask whether they have any questions.",
+    );
+    expect(told({ kind: "follow_up", number: 2, ask: null })).toBe(
+      "Write one short, friendly last line: they can message here any time. Ask nothing.",
+    );
+  });
+
   it("the owner's answer is a hidden [answer] blank, quoted as written", () => {
     const move = writeMoveOf(
       { kind: "answer_agency", topic: "payment_methods", ask: null },

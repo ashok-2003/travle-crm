@@ -1,7 +1,8 @@
 // The lite turn's act step, in the caller's one transaction: the chat locked, the turn checked as still the one to
-// answer (no person replied or took the chat over, the switches still on, no newer line, no pause), then the booking or
-// the payment details, the messages and the lead, the take-over and switches read again, the chat, and last the pause. Any DomainError rolls all of it
-// back, so a stale or paused turn, or a booking that can no longer be taken, sends nothing and keeps nothing.
+// answer (no person replied or took the chat over, the switches still on, no newer line, a follow-up's silence still
+// unbroken, no pause), then the booking or the payment details, the messages and the lead, the take-over and switches
+// read again, the chat, and last the pause. Any DomainError rolls all of it back, so a stale or paused turn, or a
+// booking that can no longer be taken, sends nothing and keeps nothing.
 import type { OrgTx } from "@travel-crm/db";
 import { openLeadOfChat } from "../../crm/index.js";
 import { lockChat } from "../../inbox/index.js";
@@ -16,6 +17,7 @@ import { writeOnLead } from "./act-lead.js";
 import { moneyMove } from "./act-money.js";
 import { actWrites, handOverInstead } from "./act-reply.js";
 import { sendMove } from "./act-send.js";
+import { stillQuiet } from "./follow-ups.js";
 import { suggestFromTurn } from "./suggestions.js";
 import type { LiteActDeps, LiteActInput, LiteActResult } from "./act-types.js";
 
@@ -43,11 +45,15 @@ async function agentOn(tx: OrgTx): Promise<AutopilotRow | null> {
 
 /**
  * Why the AI may no longer write in this chat, read again under the chat's lock: since the turn's first checks a person
- * may have replied or taken the chat over, or the owner switched the agent off. Null while it still may.
+ * may have replied or taken the chat over, or the owner switched the agent off; for a follow-up, the customer or a
+ * person may have written since our last message. Null while it still may.
  */
 async function stoppedSince(tx: OrgTx, input: LiteActInput, chat: ChatFacts): Promise<string | null> {
   const settings = await agentOn(tx);
-  return settings === null ? "off" : mayWrite(tx, chat, settings, input.kind, input.now);
+  if (settings === null) return "off";
+  const blocked = await mayWrite(tx, chat, settings, input.kind, input.now);
+  if (blocked !== null || input.kind !== "nudge") return blocked;
+  return (await stillQuiet(tx, chat.id)) ? null : "answered";
 }
 
 /**

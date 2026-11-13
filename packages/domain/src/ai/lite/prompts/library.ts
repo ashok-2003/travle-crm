@@ -23,7 +23,7 @@ const pieces: PromptPiece[] = [
   { name: "understand.form", version: 1, changedOn: "2026-11-12", text: understandForm },
   { name: "write.instructions", version: 1, changedOn: "2026-11-12", text: writeInstructions },
   { name: "write.voice", version: 1, changedOn: "2026-11-12", text: writeVoice },
-  { name: "write.moves", version: 1, changedOn: "2026-11-12", text: writeMoves },
+  { name: "write.moves", version: 2, changedOn: "2026-11-13", text: writeMoves },
   { name: "fixed.texts", version: 2, changedOn: "2026-11-13", text: fixedTexts },
 ];
 

@@ -13,7 +13,7 @@ import type { AutopilotRow } from "./autopilot.js";
 
 export const AI_HANDOFF_KIND = "ai.handoff";
 /** A follow-up leaves the window this early, so the customer can still answer for free. */
-const WINDOW_MARGIN_MS = 60 * 60_000;
+export const WINDOW_MARGIN_MS = 60 * 60_000;
 /** A flag tells the lead's owner again only after this long, so a busy chat doesn't ring every few minutes. */
 export const ATTENTION_QUIET_MS = 6 * 3_600_000;
 const HOUR_MS = 3_600_000;

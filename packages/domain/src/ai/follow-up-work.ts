@@ -58,7 +58,9 @@ export async function workDueFollowUps(
 ): Promise<number> {
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
   const claimed = await dependencies.db.forOrg(organizationId, async (tx) => {
-    if (!(await aiEnabled(tx)) || !(await autopilotOf(tx)).followUpTasks) return [];
+    const settings = await autopilotOf(tx);
+    // The lite agent writes only its own two follow-ups: a follow-up task on a lead is the team's call to make.
+    if (!(await aiEnabled(tx)) || !settings.followUpTasks || settings.lite) return [];
     const paused = (await agentPauseOf(tx, organizationId)) !== null;
     const rows = await tx.task.findMany({
       where: {

@@ -201,6 +201,8 @@ model AiChat {
   /// The customer's last words stopped the lite agent's follow-ups (not interested, later, an "ok" after our closing);
   /// written by every lite reply turn, read by its follow-ups.
   followUpsStopped Boolean              @default(false) @map("follow_ups_stopped")
+  /// The lite agent's follow-ups sent in this silence, 0 to 2 (CHECK ai_chat_follow_ups_sent_range); a reply resets it.
+  followUpsSent    Int                  @default(0) @map("follow_ups_sent") @db.SmallInt
   /// What it flagged for the team while it kept answering ("wants to book"), and when.
   attentionReason  String?              @map("attention_reason")
   attentionAt      DateTime?            @map("attention_at") @db.Timestamptz(6)

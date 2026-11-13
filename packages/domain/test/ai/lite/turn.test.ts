@@ -439,7 +439,7 @@ describe("the lite agent's turn", () => {
     expect(traces[0]).toMatchObject({ inputTokens: 1200, outputTokens: 80 });
   });
 
-  it("a nudge or a follow-up reads nothing: the lite agent writes no follow-ups yet", async () => {
+  it("a follow-up task's turn reads nothing: the team makes that call", async () => {
     const on = await liteAgency(test);
     const counting = countingDatabase(test.db);
     const deps = {
@@ -449,8 +449,7 @@ describe("the lite agent's turn", () => {
       files: test.files,
       managers: () => Promise.resolve([]),
     };
-    const input = { organizationId: on.organizationId, conversationId: on.chat.id, token: "nudge:1" };
-    expect(await runLiteTurn(deps, { ...input, kind: "nudge" }, at(600))).toBe("nothing");
+    const input = { organizationId: on.organizationId, conversationId: on.chat.id, token: "follow-up:1" };
     expect(await runLiteTurn(deps, { ...input, kind: "followUp" }, at(600))).toBe("off");
     expect(counting.count()).toBe(0);
     expect(on.model.requests).toHaveLength(0);

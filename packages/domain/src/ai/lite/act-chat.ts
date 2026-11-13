@@ -1,10 +1,11 @@
 // What a lite turn leaves on the chat: the facts it settled (with the files sent and the booking taken), the summary,
-// the reply count, no follow-up planned (plan 3b plans them) but whether the customer stopped them, and on a hand-over
-// the reason for the team, the owner told.
+// the reply count, the follow-ups (the next one's time, how many went, whether the customer stopped them), and on a
+// hand-over the reason for the team, the owner told.
 import type { OrgTx } from "@travel-crm/db";
 import { tellOwner, type ChatFacts } from "../agent-effects.js";
 import type { LiteActInput } from "./act-types.js";
 import { handOverSentences } from "./act-words.js";
+import { followUpPlan } from "./follow-ups.js";
 import { saveChatSummary } from "./lead-writes.js";
 import { saveLiteFacts } from "./merge.js";
 import type { Decision } from "./types.js";
@@ -42,11 +43,20 @@ export async function settleChat(
         ...(input.kind === "reply" ? {} : { lastNudgeAt: now }),
       }
     : {};
+  const followUps = followUpPlan({
+    kind: input.kind,
+    move,
+    stopFollowUps: decision.stopFollowUps,
+    sent: done.sent,
+    lastInboundAt: chat.lastInboundAt,
+    now,
+    timeZone: input.timeZone,
+  });
   await tx.aiChat.update({
     where: { id: state.id },
     data: {
       ...counted,
-      followUpAt: null,
+      ...followUps,
       followUpReason: null,
       // The customer's newest words decide it: a later reply that isn't "not interested" or "later" starts them again.
       ...(input.kind === "reply" ? { followUpsStopped: decision.stopFollowUps } : {}),

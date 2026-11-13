@@ -29,6 +29,9 @@ export const moveLines = {
   confirm_place: "Say we have no trip by exactly that name, and ask whether they meant one of the trips in the Facts.",
   show_other_trips: "Name the trips in the Facts with their starting price, and ask which interests them.",
   then_ask: "Then ask for {item}.",
+  follow_up: "Pick the chat up again in one short, friendly line, then ask for {item}.",
+  follow_up_open: "Pick the chat up again in one short, friendly line and ask whether they have any questions.",
+  follow_up_last: "Write one short, friendly last line: they can message here any time. Ask nothing.",
 } as const;
 
 /** What each checklist item asks for, in the words that fill `{item}`. */
