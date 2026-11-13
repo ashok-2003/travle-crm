@@ -24,6 +24,7 @@ describe("the lead list", () => {
       id,
       person: { name: "Rahul Sharma", phone: "+919876543210" },
       returning: false,
+      aiFilled: false,
       stage: "new",
       trip: { destinationName: "Kashmir", when: { kind: "month", month: "2026-12" }, adults: 2, childrenCount: 1 },
       source: "phone_call",
