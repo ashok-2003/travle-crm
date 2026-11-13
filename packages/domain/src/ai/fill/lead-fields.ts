@@ -12,6 +12,7 @@ import { searchDestinations } from "../../catalog/index.js";
 import {
   clearTripFields,
   fillTripGaps,
+  lockLead,
   tripFieldValues,
   tripFieldValuesOf,
   type GapField,
@@ -188,19 +189,31 @@ export async function decideSuggestions(
   only?: readonly SuggestedLeadField[],
 ): Promise<void> {
   const chats = decision === "dismiss" ? await lockChatsOfLead(tx, leadId) : [];
+  // The lead's lock, as the AI's writes take it: what is read below is what is decided, with no AI write between.
+  await lockLead(tx, leadId);
   const open = (await suggestedFieldsOf(tx, leadId)).filter((one) => only === undefined || only.includes(one.field));
   if (open.length === 0) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
   const fields = open.map((one) => one.field);
   if (decision === "dismiss") {
     await clearTripFields(tx, leadId, fields);
     await forgetDismissedFacts(tx, { leadId, conversationIds: chats, fields });
+    // Without `only`, every suggestion row of the lead is dismissed: one a person changed since is theirs, and the AI
+    // fills it no more. With it, just the named rows.
+    await tx.leadAiField.updateMany({
+      where: { leadId, state: "suggested", ...(only === undefined ? {} : { field: { in: [...only] } }) },
+      data: { state: "dismissed" },
+    });
+  } else {
+    // Only the values shown, each still holding what the AI wrote: a person never confirms a value they did not see.
+    await tx.leadAiField.updateMany({
+      where: {
+        leadId,
+        state: "suggested",
+        OR: open.map((one) => ({ field: one.field, valueHash: valueHash(one.path, one.value) })),
+      },
+      data: { state: "confirmed" },
+    });
   }
-  // Without `only`, every suggestion row of the lead is decided: one a person changed since is theirs, so it leaves the
-  // suggested list too. With it, just the named rows.
-  await tx.leadAiField.updateMany({
-    where: { leadId, state: "suggested", ...(only === undefined ? {} : { field: { in: [...only] } }) },
-    data: { state: decision === "confirm" ? "confirmed" : "dismissed" },
-  });
   const about = { entityType: "lead", entityId: leadId, after: { fields } };
   if (decision === "confirm") await recordAudit(tx, access, { action: "ai.lead-fields-confirmed", ...about });
   else await recordAudit(tx, access, { action: "ai.lead-fields-dismissed", ...about });
