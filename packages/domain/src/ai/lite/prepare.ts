@@ -21,7 +21,7 @@ import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { usableName } from "./decide/stage.js";
 import type { DecideInput } from "./decide/decide.js";
-import { readLiteFacts } from "./merge.js";
+import { factsForLead, readLiteFacts } from "./merge.js";
 import type { TypedFields } from "./typed-lock.js";
 import { bookingPartOf, leadPartOf, packageIndexOf } from "./prepare-lead.js";
 import type {
@@ -164,7 +164,7 @@ export async function prepareLiteTurn(
     const name = [personName, chat.profileName].find((one) => usableName(one, chat.phoneE164))?.trim() ?? null;
     const lead = await openLeadOfChat(tx, chat.personId);
     const leadPart = await leadPartOf(tx, lead?.id ?? null, {
-      facts: startingFacts(await readLiteFacts(tx, chat.id), index, name),
+      facts: startingFacts(factsForLead(await readLiteFacts(tx, chat.id), lead?.id ?? null), index, name),
       name,
       index,
     });

@@ -15,7 +15,7 @@ export async function settleChat(
   tx: OrgTx,
   input: LiteActInput & { decision: Decision },
   chat: ChatFacts,
-  done: { fileIds: string[]; bookingId: string | null; sent: boolean },
+  done: { fileIds: string[]; bookingId: string | null; sent: boolean; leadId: string | null },
 ): Promise<void> {
   const { decision, now, conversationId } = input;
   const { facts, move } = decision;
@@ -23,6 +23,8 @@ export async function settleChat(
     ...facts,
     sentFileIds: [...new Set([...facts.sentFileIds, ...done.fileIds])],
     bookingId: done.bookingId ?? facts.bookingId,
+    // The lead the turn worked on: the next turn knows these facts are its own, and another lead starts afresh.
+    leadId: done.leadId,
   });
   if (input.checked !== null) await saveChatSummary(tx, conversationId, input.checked.form.summary);
   const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);

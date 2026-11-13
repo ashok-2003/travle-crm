@@ -80,7 +80,12 @@ export async function actOnMove(tx: OrgTx, deps: LiteActDeps, input: LiteActInpu
   const bookingId = money?.bookingId ?? null;
   const actions = [...(bookingId === null ? [] : ["booking"]), ...sent.codes];
   if (lead !== null) actions.push(...(await writeOnLead(tx, acting, lead, chat)));
-  await settleChat(tx, acting, chat, { fileIds: sent.fileIds, bookingId, sent: sent.sentIds.length > 0 });
+  await settleChat(tx, acting, chat, {
+    fileIds: sent.fileIds,
+    bookingId,
+    sent: sent.sentIds.length > 0,
+    leadId: lead?.id ?? null,
+  });
   // Read again as the last step before the transaction commits: a pause that landed while act worked (seconds against a
   // distant database) must still stop all of it, so it throws and everything above rolls back.
   if ((await agentPauseOf(tx, input.organizationId)) !== null) {

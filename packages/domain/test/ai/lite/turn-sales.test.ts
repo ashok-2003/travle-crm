@@ -119,6 +119,45 @@ describe("the lite turn reaches a booking", () => {
     expect(booking.leadId).toBe(fresh.id);
   });
 
+  it("a returning customer's new lead starts afresh: none of the last trip's facts, and the advance is asked", async () => {
+    const on = await liteAgency(test);
+    // The last trip's facts, settled for the lead that closed.
+    await withFacts(on, {
+      leadId: on.leadId,
+      packageId: on.packageId,
+      adults: 4,
+      roomType: "quad",
+      pickupCity: "Delhi",
+      payInFull: true,
+      name: "Riya Sharma",
+      lastMove: "book",
+    });
+    const closed = await closeLeads(on, "won");
+    const token = await says(on, "price for kedarnath on 14 nov, 2 people, double?", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: {
+          package: kedarnath,
+          date: fourteenth,
+          adults: twoPeople,
+          room: { type: "double", proof: "double", changed: false },
+        },
+      }),
+      written("Which city will you join us from?"),
+    );
+    expect(await on.turn(at(60), { token })).toBe("replied");
+    const fresh = await on.inOrg((tx) =>
+      tx.lead.findFirstOrThrow({ where: { personId: on.chat.personId ?? "", id: { notIn: closed } } }),
+    );
+    expect(fresh).toMatchObject({ adults: 2, roomType: "double", departureCity: null });
+    const facts = await on.inOrg((tx) => readLiteFacts(tx, on.chat.id));
+    expect(facts).toMatchObject({ leadId: fresh.id, payInFull: false, name: "Riya Sharma" });
+    const booking = await booksIt(on, 90);
+    const reply = (await outbound(on)).find((one) => one.clientToken === `ai:${booking}`)?.body ?? "";
+    expect(reply).toContain(formatRupees(400_000));
+    expect((await on.inOrg((tx) => tx.aiBooking.findFirstOrThrow())).expectedPaise).toBe(400_000n);
+  });
+
   it("a returning customer who only says thanks gets no new lead", async () => {
     const on = await liteAgency(test);
     const closed = await closeLeads(on, "won");

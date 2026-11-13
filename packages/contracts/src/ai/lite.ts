@@ -228,6 +228,11 @@ export const liteFacts = z.object({
   bookingId: recordId.nullable().default(null),
   language: z.enum(liteLanguages).default("english"),
   lastMove: z.string().max(40).nullable().default(null),
+  /**
+   * The lead these facts were settled for. Another open lead, or none once it closed, starts the trip facts afresh: a
+   * returning customer's next trip never inherits the last one's party, room, pickup or pay-in-full.
+   */
+  leadId: recordId.nullable().default(null),
 });
 export type LiteFacts = z.infer<typeof liteFacts>;
 
