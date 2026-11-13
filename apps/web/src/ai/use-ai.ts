@@ -176,7 +176,7 @@ export function useLeadStageSuggestion(leadId: string) {
 
 /**
  * A person's yes or no. The lead, its lists and every place the suggestion shows load again, and so does the chats' AI
- * state: a yes to Not a lead turns the AI off in the customer's chat (the suggestion doesn't name it, so every chat's).
+ * state, so an open inbox card reads its chat afresh (the suggestion doesn't name the chat, so every chat's).
  */
 export function useDecideStageSuggestion() {
   const trpc = useTRPC();

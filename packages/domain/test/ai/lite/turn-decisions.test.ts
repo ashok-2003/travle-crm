@@ -1,18 +1,20 @@
 // What a person decided on the lead reaches the lite turn: a customer whose newest lead is Not a lead gets no answer at
-// all, while a Lost one's next trip still gets its lead; a value confirmed with "Looks right" is the person's, and one
-// dismissed with "Not right" is asked again.
+// all, until the team starts them a new lead, while a Lost one's next trip still gets its lead; a value confirmed with
+// "Looks right" is the person's, and one dismissed with "Not right" is asked again.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decideSuggestions } from "../../../src/ai/fill/lead-fields.js";
 import { valueHash } from "../../../src/ai/fill/values.js";
 import { handOverSentences } from "../../../src/ai/lite/act-words.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { readLiteFacts } from "../../../src/ai/lite/merge.js";
+import { decideStageSuggestion, suggestStage } from "../../../src/ai/lite/suggestions.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
+import { startLeadFromConversation } from "../../../src/inbox/index.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency } from "./support/lite-agency.js";
-import { at, outbound, says, understood, withFacts, written, type Agency } from "./support/turn-script.js";
+import { at, greeting, outbound, says, understood, withFacts, written, type Agency } from "./support/turn-script.js";
 
 const DAY_MS = 86_400_000;
 const kedarnath = { name: "Kedarnath Yatra 4N", proof: "price for kedarnath", changed: false };
@@ -77,6 +79,45 @@ describe("what a person decided reaches the lite turn", () => {
     const chat = await on.inOrg((tx) => tx.aiChat.findFirst({ where: { conversationId: on.chat.id } }));
     expect(chat?.handedOffAt ?? null).toBeNull();
     expect(chat?.attentionReason ?? null).toBeNull();
+  });
+
+  it("a Not a lead accepted from the AI's suggestion lifts once the team starts the customer a new lead", async () => {
+    const on = await liteAgency(test);
+    // The fixture's lead is the person's only open one; the AI suggests Not a lead on it and the owner says yes.
+    await on.inOrg((tx) =>
+      tx.lead.updateMany({
+        where: { personId: on.chat.personId ?? "", id: { not: on.leadId } },
+        data: { stage: "lost" },
+      }),
+    );
+    await on.inOrg(async (tx) => {
+      await suggestStage(tx, {
+        organizationId: on.organizationId,
+        leadId: on.leadId,
+        conversationId: on.chat.id,
+        kind: "not_a_lead",
+        lostReason: null,
+        reason: "Looks fake: keyboard mash",
+        now: testNow,
+      });
+      const suggestion = await tx.leadAiSuggestion.findFirstOrThrow({ where: { leadId: on.leadId } });
+      await decideStageSuggestion(tx, on.owner, { suggestionId: suggestion.id, accept: true }, testNow);
+    });
+    // Later the customer is real after all: the team starts them a new lead by hand, and they say hi.
+    await on.inOrg((tx) =>
+      startLeadFromConversation(
+        tx,
+        on.owner,
+        on.chat.id,
+        { ownerUserId: on.owner.userId, workers: new Set([on.owner.userId]) },
+        // Now, after the fixture's leads were made: it is the newest.
+        new Date(),
+      ),
+    );
+    const token = await says(on, "hi", 30);
+    on.model.answer(understood([["hello", "hi"]]), written(greeting));
+    expect(await on.turn(at(60), { token })).toBe("replied");
+    expect(await outbound(on)).toHaveLength(1);
   });
 
   it("a Lost customer's next price question still opens one", async () => {

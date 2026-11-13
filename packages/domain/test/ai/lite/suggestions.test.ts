@@ -204,31 +204,6 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
     ).toBe("NOT_FOUND");
   });
 
-  it("yes on Not a lead also turns the AI off in the chat, as the person; Lost leaves it on", async () => {
-    const on = await liteAgency(test);
-    await suggest(on, "not_a_lead");
-    const [row] = await rows(on);
-    const member = owner(on);
-    await on.inOrg((tx) =>
-      decideStageSuggestion(tx, member, { suggestionId: row?.id ?? "", accept: true }, liteTurnAt),
-    );
-    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
-    expect(chat.mode).toBe("off");
-    const changed = (await auditOf(test, on.organizationId, on.chat.id)).filter(
-      (entry) => entry.action === "ai.chat-mode-changed",
-    );
-    expect(changed).toMatchObject([{ actorUserId: member.userId }]);
-
-    const lost = await liteAgency(test);
-    await suggest(lost);
-    const [lostRow] = await rows(lost);
-    await lost.inOrg((tx) =>
-      decideStageSuggestion(tx, owner(lost), { suggestionId: lostRow?.id ?? "", accept: true }, liteTurnAt),
-    );
-    const kept = await lost.inOrg((tx) => tx.aiChat.findFirst({ where: { conversationId: lost.chat.id } }));
-    expect(kept?.mode ?? "default").toBe("default");
-  });
-
   it("no declines the suggestion and leaves the lead", async () => {
     const on = await liteAgency(test);
     await suggest(on, "not_a_lead");

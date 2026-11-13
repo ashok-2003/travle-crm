@@ -84,8 +84,10 @@ Code map: sections 1 (`nudgeAgency`, `runAiNudges`, `planFollowUp`), 0 (item 4: 
 window's end is `lastInboundAt + WINDOW_MS - 1 h`; a target before 09:00 local moves to 09:00 that day, one at or after
 21:00 to 09:00 the next day; past the window's end it is pulled back to the window's end when that is inside waking
 hours, else into the last waking hour of the last day before it that has one, on the chat's own minute from 20:00 to
-20:58 (a hash of the chat id: never all at 20:59, which the minute job could not send before 21:00); it is null when
-the result is before `now + 15 min`, or, for the second, before `previousAt + 1 h`.
+20:58 (a hash of the chat id: never all at 20:59, which the minute job could not send before 21:00), and a second
+pulled back there goes at the later of that minute and `previousAt + 1 h` (whole minutes) while that is still before
+21:00 and inside the window; it is null when the result is before `now + 15 min`, or, for the second, before
+`previousAt + 1 h`.
 
 Planning (in `actOnMove`, replacing 3a's `followUpAt: null`): a reply turn that sent a message and is not a hand_over,
 `silent`, nor `stopFollowUps` sets `followUpsSent: 0`, `followUpAt: followUpAt({ number: 1, ... })`; any other reply

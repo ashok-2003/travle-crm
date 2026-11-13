@@ -60,12 +60,17 @@ describe("when a follow-up goes", () => {
     expect(second(lastInboundAt, firstAt)).toEqual(local(...two));
   });
 
-  it("no second when it can't be an hour after the first", () => {
+  it("an evening second goes at least an hour after the first, and none when that is 21:00 or later", () => {
     const lastInboundAt = local("02:00");
-    expect(second(lastInboundAt, local("20:30"))).toBeNull();
-    expect(second(lastInboundAt, local("19:16"))).toBeNull();
-    // An hour after the first is enough.
+    // The chat's own minute, 20:15, is an hour after a first at 19:15 or earlier.
     expect(second(lastInboundAt, local("19:15"))).toEqual(local("20:15"));
+    // A later first moves it on to an hour after, in whole minutes, rather than letting it go.
+    expect(second(lastInboundAt, local("19:30"))).toEqual(local("20:30"));
+    expect(second(lastInboundAt, new Date(local("19:30").getTime() + 7_000))).toEqual(local("20:31"));
+    expect(second(lastInboundAt, local("19:59"))).toEqual(local("20:59"));
+    // An hour after is night: none.
+    expect(second(lastInboundAt, new Date(local("19:59").getTime() + 30_000))).toBeNull();
+    expect(second(lastInboundAt, local("20:30"))).toBeNull();
   });
 
   it("spreads the evening's pulled-back follow-ups from 20:00 to 20:58, each chat on its own minute", () => {

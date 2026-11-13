@@ -1,6 +1,6 @@
 // The AI's suggestion to mark a lead Lost or Not a lead, on the lead's page: the alert says what and why; "Yes" and "No"
-// send the person's choice, are disabled while it is sent, and then reload the lead's work and the chats' AI state (a
-// yes to Not a lead turns the chat's AI off); a member who may not edit the lead sees the alert alone.
+// send the person's choice, are disabled while it is sent, and then reload the lead's work and the chats' AI state; a
+// member who may not edit the lead sees the alert alone.
 import type { StageSuggestion } from "@travel-crm/contracts/ai";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

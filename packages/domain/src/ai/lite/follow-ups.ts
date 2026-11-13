@@ -81,9 +81,19 @@ export function followUpAt(input: {
       : lastInboundAt.getTime() + FOLLOW_UP_AFTER_INBOUND_HOURS * HOUR_MS;
   const windowEnd = windowEndOf(lastInboundAt);
   let at = intoWakingHours(new Date(target), timeZone);
-  if (at > windowEnd) at = lastWakingBy(windowEnd, timeZone, input.conversationId);
+  const pulledBack = at > windowEnd;
+  if (pulledBack) at = lastWakingBy(windowEnd, timeZone, input.conversationId);
   // Whole minutes: "20:59" is 20:59:00, which the minute job's 20:59 run takes, never its 21:00 one.
   at = new Date(Math.floor(at.getTime() / MINUTE_MS) * MINUTE_MS);
+  // A second pulled back to its chat's minute still goes an hour after the first: the later of the two, in whole
+  // minutes, while that is still waking hours and inside the window; else none.
+  if (pulledBack && number === 2 && input.previousAt !== null) {
+    const apart = new Date(Math.ceil((input.previousAt.getTime() + APART_MS) / MINUTE_MS) * MINUTE_MS);
+    if (apart > at) {
+      if (!inWakingHours(apart, timeZone) || apart > windowEnd) return null;
+      at = apart;
+    }
+  }
   if (at.getTime() < input.now.getTime() + SOONEST_MS) return null;
   if (number === 2 && input.previousAt !== null && at.getTime() < input.previousAt.getTime() + APART_MS) return null;
   return at;

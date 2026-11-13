@@ -1,15 +1,13 @@
 // The lite agent's suggestion to mark a lead Lost or Not a lead, kept for a person to decide. The agent never moves the
 // lead itself: act writes the suggestion, the lead's page (or the AI page's "Needs you" list) shows it, and only a
-// person's yes calls moveLeadStage, as that person. A yes to Not a lead also turns the AI off in the chat.
+// person's yes calls moveLeadStage, as that person.
 import { lostReason as lostReasonSchema, type LeadStage, type LostReason } from "@travel-crm/contracts/crm";
 import type { DecideStageSuggestionInput, StageSuggestion } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import { isLeadInScope, lockLead, moveLeadStage } from "../../crm/index.js";
 import { scopeFilter, type MemberAccess } from "../../identity/index.js";
-import { lockChat } from "../../inbox/index.js";
 import { DomainError, systemActor } from "../../kernel/index.js";
-import { setChatMode } from "../chat-state.js";
 import type { CheckedForm, Decision } from "./types.js";
 
 type Kind = "lost" | "not_a_lead";
@@ -166,9 +164,9 @@ export async function stageSuggestionOfLead(
 
 /**
  * A person's yes or no. Yes moves the lead as the person would, from its page; a lead that has moved on since is left
- * alone and the suggestion is closed as declined. A yes to Not a lead also turns the AI off in the suggestion's chat, so
- * it stops answering a number the person has judged. An unknown or decided suggestion, or a lead outside the member's
- * scope, is NOT_FOUND.
+ * alone and the suggestion is closed as declined. The chat's AI is left as it is: a Not a lead silences the customer
+ * through their newest lead (`markedNotALead`), which lifts by itself when the team starts them a new one. An unknown or
+ * decided suggestion, or a lead outside the member's scope, is NOT_FOUND.
  */
 export async function decideStageSuggestion(
   tx: OrgTx,
@@ -178,12 +176,9 @@ export async function decideStageSuggestion(
 ): Promise<void> {
   const suggestion = await tx.leadAiSuggestion.findFirst({
     where: { id: input.suggestionId, state: "open" },
-    select: { id: true, leadId: true, conversationId: true, kind: true, lostReason: true },
+    select: { id: true, leadId: true, kind: true, lostReason: true },
   });
   if (suggestion === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such suggestion");
-  // The chat whose AI a yes turns off is locked before the lead, as a turn locks them.
-  const chatOff = input.accept && suggestion.kind === "not_a_lead" ? suggestion.conversationId : null;
-  if (chatOff !== null) await lockChat(tx, chatOff);
   const lead = await lockLead(tx, suggestion.leadId);
   if (!isLeadInScope(access, lead.ownerUserId)) throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such suggestion");
   const moves = input.accept && suggestable.includes(lead.stage);
@@ -205,7 +200,6 @@ export async function decideStageSuggestion(
       },
       now,
     );
-    if (chatOff !== null) await setChatMode(tx, access, { conversationId: chatOff, mode: "off" });
   }
   const about = { entityType: "lead", entityId: suggestion.leadId, after: { kind: suggestion.kind } };
   if (moves) await recordAudit(tx, access, { action: "ai.stage-suggestion-accepted", ...about });
