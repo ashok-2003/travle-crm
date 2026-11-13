@@ -128,8 +128,10 @@ describe("StageSuggestionAlert", () => {
       newQueryClient({ ...paidSubscription, status: "read_only", access: "read_only" }),
     );
     const yes = await screen.findByRole("button", { name: "Yes, mark it Lost" });
+    const no = screen.getByRole("button", { name: "No" });
     expect(yes).toBeDisabled();
-    expect(screen.getByRole("button", { name: "No" })).toBeDisabled();
+    expect(no).toBeDisabled();
     expect(yes).toHaveAccessibleDescription(messages.errors.reasons.ORGANIZATION_READ_ONLY);
+    expect(no).toHaveAccessibleDescription(messages.errors.reasons.ORGANIZATION_READ_ONLY);
   });
 });
