@@ -105,7 +105,7 @@ async function book(
  * told, in a booking of this turn's, and the old one is cancelled; seats gone or a changed total throw, as a booking does.
  */
 async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId: string | null): Promise<MoneyMove> {
-  const { conversationId, now, decision } = input;
+  const { conversationId, now } = input;
   const open = await tx.aiBooking.findFirst({
     where: { conversationId, status: "awaiting_payment" },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -113,15 +113,15 @@ async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId:
       id: true,
       leadId: true,
       expectedPaise: true,
-      quote: { select: { totalPaise: true, templateId: true, departureId: true } },
+      quote: { select: { totalPaise: true, templateId: true, departureId: true, adults: true, children: true } },
     },
   });
   const quote = open?.quote ?? null;
   if (open?.expectedPaise == null || quote?.templateId == null || quote.departureId == null) {
     throw refuse("No booking is waiting for its payment");
   }
-  const { adults, children } = decision.facts;
-  const party = Math.max(1, (adults ?? 0) + (children?.count ?? 0));
+  // The party the booking's own quote holds seats for: the facts may say fewer now, and a hold that short is no hold.
+  const party = Math.max(1, quote.adults + quote.children);
   const held = await tx.departureHold.findFirst({
     where: {
       leadId: open.leadId,

@@ -423,6 +423,22 @@ describe("the lite agent's act step", () => {
     ]);
   });
 
+  it("the payment details go again only while the hold covers the booking's own party, whatever the facts say now", async () => {
+    const on = await liteAgency(test);
+    done(await act(on, decision(book(on), pricedFacts(on))));
+    // The hold now covers one seat of the two booked, and the facts (wrongly) say one traveller.
+    await on.inOrg((tx) => tx.departureHold.updateMany({ where: { leadId: on.leadId }, data: { seats: 1 } }));
+    const later = await laterLine(on, "Please send the payment details again");
+    const kept = { ...(await on.inOrg((tx) => readLiteFacts(tx, on.chat.id))), adults: 1 };
+    const refused = await act(on, decision({ kind: "resend_payment" }, kept), {
+      token: later.id,
+      now: nextTurnAt,
+    }).catch(failure);
+    expect(typeof refused === "string" ? refused : "sent").not.toBe("sent");
+    const sent = (await outbound(on)).filter((message) => message.clientToken?.startsWith(`ai:${later.id}`));
+    expect(sent).toHaveLength(0);
+  });
+
   it("a lapsed hold whose seats are gone stops the payment details going again", async () => {
     const on = await liteAgency(test);
     done(await act(on, decision(book(on), pricedFacts(on))));
