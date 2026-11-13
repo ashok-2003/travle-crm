@@ -36,6 +36,7 @@ export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput,
   // Every follow-up has a line to write; none here is a bug, and nothing goes.
   if (words === null) return end("nothing");
   trace.write = { blocks: words.blocks, raw: words.written.raw };
+  trace.messageIds = words.messageIds;
   trace.checks.push(...writeChecks(words.written));
   const line = words.written;
   if (line.kind === "ended") return end(line.outcome);
@@ -47,7 +48,8 @@ export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput,
     conversationId: prepared.chat.id,
     token: input.token,
     kind: input.kind,
-    now,
+    // The time it sends: the line took a model call, which can carry it past 21:00 or the window's end.
+    now: deps.clock?.() ?? now,
     today: prepared.today,
     timeZone: prepared.timeZone,
     decision,

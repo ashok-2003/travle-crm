@@ -24,7 +24,6 @@ export function aPackage(changes: Partial<PackageDetail> = {}): PackageDetail {
     roomTypes: [],
     pricesIncludeGst: true,
     advancePerPersonPaise: null,
-    paymentDetails: "",
     pickupPoints: "",
     startCity: "",
     weeklyDays: [],

@@ -21,12 +21,29 @@ describe("SellCard", () => {
     expect(toggle.hasAttribute("disabled")).toBe(true);
     expect(screen.getByText(words.gaps.room_types)).toBeTruthy();
     expect(screen.getByText(words.gaps.advance)).toBeTruthy();
+    expect(toggle.getAttribute("aria-describedby")).toBeTruthy();
   });
 
-  it("names the agency's missing payment details, where to add them", () => {
+  it("links each gap to where it is added", () => {
+    const gaps = ["room_types", "prices", "advance", "departures", "payment_details"] as const;
+    renderWithApi(<SellCard detail={aPackage({ kind: "group", sellGaps: [...gaps] })} />, newQueryClient());
+    expect(screen.getByRole("link", { name: words.gaps.room_types })).toHaveAttribute("href", "#package-details");
+    expect(screen.getByRole("link", { name: words.gaps.prices })).toHaveAttribute("href", "#seasons");
+    expect(screen.getByRole("link", { name: words.gaps.advance })).toHaveAttribute("href", "#package-details");
+    expect(screen.getByRole("link", { name: words.gaps.departures })).toHaveAttribute("href", "#departures");
+    expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
+      "href",
+      "/ai-agent#step-payment",
+    );
+  });
+
+  it("says to add the payment QR, on the AI agent page", () => {
     renderWithApi(<SellCard detail={aPackage({ kind: "group", sellGaps: ["payment_details"] })} />, newQueryClient());
-    expect(screen.getByText("Add your payment details (UPI, QR or bank) on the AI agent page.")).toBeTruthy();
-    expect(screen.getByText(words.gaps.payment_details)).toBeTruthy();
+    expect(words.gaps.payment_details).toBe("Add your payment QR");
+    expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
+      "href",
+      "/ai-agent#step-payment",
+    );
   });
 
   it("turns on when nothing is missing", async () => {

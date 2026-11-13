@@ -6,13 +6,14 @@
 // for a chat the lite agent answers (its turn scores it); and it never changes a lead's stage or anything but its own
 // row. A chat whose lite turn is still under way is scored again two minutes later, unless that turn scored it. Erased
 // with the customer.
-import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
+import { aiScoreJob, liteFacts, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import { openLeadOfChat } from "../crm/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { calendarDateIn } from "../kernel/index.js";
 import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
@@ -418,7 +419,11 @@ function safeParse(text: string) {
   }
 }
 
-/** The lite agent's notes from the chat the lead's person wrote in last (a person may have more than one number). */
+/**
+ * The lite agent's notes from the chat the lead's person wrote in last (a person may have more than one number), on the
+ * lead they are about: the one the chat's facts were settled for, or the person's open lead. A returning customer's
+ * older trip never shows notes about the next one.
+ */
 async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> {
   const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { personId: true } });
   if (lead === null) return null;
@@ -428,21 +433,20 @@ async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> 
     select: { id: true },
   });
   if (chat === null) return null;
-  const state = await tx.aiChat.findFirst({ where: { conversationId: chat.id }, select: { summary: true } });
-  return state === null || state.summary === "" ? null : state.summary;
+  const state = await tx.aiChat.findFirst({
+    where: { conversationId: chat.id },
+    select: { summary: true, facts: true },
+  });
+  if (state === null || state.summary === "") return null;
+  const facts = liteFacts.safeParse(state.facts);
+  if (facts.success && facts.data.leadId === leadId) return state.summary;
+  return (await openLeadOfChat(tx, lead.personId))?.id === leadId ? state.summary : null;
 }
 
 /** The AI's guess for a lead, if there is one. */
 export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsight | null> {
   const row = await tx.leadAiInsight.findFirst({ where: { leadId } });
   if (row === null) return null;
-  const facts = leadInsight.shape.facts.parse({
-    destination: null,
-    when: null,
-    travellers: null,
-    budget: null,
-    ...(row.facts as object),
-  });
   const label = row.label === "hot" || row.label === "cold" ? row.label : "warm";
   const chatSummary = await chatSummaryOf(tx, leadId);
   return {
@@ -454,7 +458,6 @@ export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsi
     summary: row.summary,
     nextStep: row.nextStep,
     chatSummary,
-    facts,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

@@ -5,8 +5,10 @@ import type {
   OrganizationAgentPause,
   PauseEveryoneInput,
   PauseOrganizationInput,
+  ResumeOneAtATimeResult,
 } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
+import { DomainError } from "../kernel/index.js";
 import * as subscriptions from "../subscriptions/index.js";
 import { recordPlatformAudit, type PlatformActor } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
@@ -93,6 +95,62 @@ export async function pauseOrganization(
     }
     return pausesOf(tx, input.organizationId);
   });
+}
+
+/** Pauses every agency on its own, then lifts the every-agency pause (one transaction). */
+export async function resumeOneAtATime(
+  services: PlatformServices,
+  staff: PlatformActor,
+): Promise<ResumeOneAtATimeResult> {
+  return services.platformDb.transaction((tx) => resumeOneAtATimeIn(tx, staff));
+}
+
+/**
+ * Inside the caller's platform transaction: every agency without its own pause gets one, then the every-agency pause
+ * lifts, so no agency answers until it is resumed from its page. An agency already paused alone keeps its pause, its
+ * time and its author. The every-agency pause must be on (CONFLICT otherwise, and nothing is written).
+ */
+export async function resumeOneAtATimeIn(
+  tx: PlatformTx,
+  staff: PlatformActor,
+  now: Date = new Date(),
+): Promise<ResumeOneAtATimeResult> {
+  // Held from the check to the lift, so two runs can't both see the pause on, and a pause lifted elsewhere isn't missed.
+  await tx.$queryRaw`SELECT 1 FROM subscription_policy WHERE id = true FOR NO KEY UPDATE`;
+  if ((await everyonePause(tx)) === null) {
+    throw new DomainError("CONFLICT", "AGENT_NOT_PAUSED_FOR_EVERYONE", "The AI agent isn't paused for every agency");
+  }
+  const pending = await tx.subscription.findMany({
+    where: { aiAgentPausedAt: null },
+    select: { organizationId: true },
+    orderBy: { organizationId: "asc" },
+  });
+  let paused = 0;
+  for (const { organizationId } of pending) {
+    const { changed } = await pauseIfSubscribed(tx, staff, organizationId, now);
+    if (!changed) continue;
+    paused += 1;
+    await recordPlatformAudit(tx, staff, {
+      action: PAUSED_AGENCY,
+      targetType: "organization",
+      targetId: organizationId,
+      targetOrganizationId: organizationId,
+      before: { paused: false },
+      after: { paused: true },
+    });
+  }
+  await setEveryoneAgentPause(tx, staff, false, now);
+  return { paused };
+}
+
+/** An agency purged or mid-onboarding since the list was read has no agent to pause: it counts as unchanged. */
+async function pauseIfSubscribed(tx: PlatformTx, staff: PlatformActor, organizationId: string, now: Date) {
+  try {
+    return await subscriptions.setAgencyAgentPause(tx, staff, organizationId, true, now);
+  } catch (error) {
+    if (error instanceof DomainError && error.reason === "SUBSCRIPTION_NOT_FOUND") return { changed: false };
+    throw error;
+  }
 }
 
 async function everyonePause(tx: PlatformTx): Promise<Since> {

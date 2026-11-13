@@ -1,5 +1,5 @@
-// The agency's payment details, kept once for the whole agency (lite agent, plan 2): the UPI ID and the bank account
-// on the business profile, and a QR picture (payment-qr.ts). The agent quotes them after the advance it asks for.
+// The agency's payment details, kept once for the whole agency (lite agent, plan 2): a QR picture (payment-qr.ts), which the
+// agent needs, and the UPI ID and the bank account on the business profile, which it sends with the QR when they are added.
 import type { SavePaymentDetailsInput } from "@travel-crm/contracts/profile";
 import { AGENCY_PAYMENT_QR_RECORD_TYPE } from "@travel-crm/contracts/profile";
 import type { OrgTx } from "@travel-crm/db";
@@ -44,13 +44,12 @@ export async function agencyPaymentDetailsOf(tx: OrgTx, organizationId: string):
   };
 }
 
-/** Somewhere to send an advance: a UPI ID, a QR, or the whole bank account (a bank name alone, or no IFSC, is not). */
+/**
+ * Where the agent may send an advance from: the agency's payment QR is added. The UPI ID and the bank account stay optional
+ * extras it sends with the QR; on their own they are not enough (the owner's ruling).
+ */
 export function paymentDetailsReady(details: AgencyPaymentDetails): boolean {
-  return details.upiId !== null || details.qrAttachmentId !== null || hasWholeBank(details);
-}
-
-function hasWholeBank(details: AgencyPaymentDetails): boolean {
-  return [details.bankName, details.accountName, details.accountNumber, details.ifsc].every((value) => value !== null);
+  return details.qrAttachmentId !== null;
 }
 
 /** The lines the agent sends after "Advance to book: ₹…": the UPI ID, and the bank account only as a whole set. */

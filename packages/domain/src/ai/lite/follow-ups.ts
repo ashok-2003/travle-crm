@@ -1,6 +1,7 @@
 // The lite agent's follow-ups (plan 3b): at most two per silence, the first about 4 hours after its reply and the second
 // about 20 hours after the customer's last message, only 9 am to 9 pm on the agency's clock and inside WhatsApp's
 // 24-hour window less its margin. What each turn leaves for them, and whether the silence one goes into still stands.
+import { createHash } from "node:crypto";
 import type { OrgTx } from "@travel-crm/db";
 import { WINDOW_MS } from "../../inbox/index.js";
 import { addDays, calendarDateIn, instantAt, parseTimeOfDay, timeOfDayIn } from "../../kernel/index.js";
@@ -22,6 +23,9 @@ const SOONEST_MS = 15 * MINUTE_MS;
 const APART_MS = HOUR_MS;
 const wakes = parseTimeOfDay(WAKING_HOURS.from);
 const sleeps = parseTimeOfDay(WAKING_HOURS.until);
+/** One pulled back into the evening goes in its last hour, 20:00 to 20:58, on its chat's own minute. */
+const eveningFrom = parseTimeOfDay("20:00");
+const EVENING_MINUTES = 59;
 
 /** Whether the agency's clock shows waking hours at `at`: from 09:00 until just before 21:00. */
 export function inWakingHours(at: Date, timeZone: string): boolean {
@@ -41,17 +45,29 @@ function intoWakingHours(at: Date, timeZone: string): Date {
   return at;
 }
 
-/** `end` itself when it falls in waking hours, else the last waking minute (20:59) of the last day before it with one. */
-function lastWakingBy(end: Date, timeZone: string): Date {
+/**
+ * The chat's own minute of the evening, 0 to 58, the same every time: the many customers who wrote in the morning are
+ * pulled back to the same evening, and one minute for all of them would make a spike the job can't send before 21:00.
+ */
+function eveningMinuteOf(conversationId: string): number {
+  return createHash("sha256").update(conversationId).digest().readUInt32BE(0) % EVENING_MINUTES;
+}
+
+/**
+ * `end` itself when it falls in waking hours, else the chat's own minute of the last waking hour (20:00 to 20:58) of
+ * the last day before it with one.
+ */
+function lastWakingBy(end: Date, timeZone: string, conversationId: string): Date {
   if (inWakingHours(end, timeZone)) return end;
   const day = calendarDateIn(end, timeZone);
   const lastDay = timeOfDayIn(end, timeZone) >= sleeps ? day : addDays(day, -1);
-  return new Date(instantAt(lastDay, sleeps, timeZone).getTime() - MINUTE_MS);
+  return new Date(instantAt(lastDay, eveningFrom, timeZone).getTime() + eveningMinuteOf(conversationId) * MINUTE_MS);
 }
 
 /** When follow-up `number` should go, or null when no time fits. */
 export function followUpAt(input: {
   number: 1 | 2;
+  conversationId: string;
   lastInboundAt: Date;
   repliedAt: Date;
   previousAt: Date | null;
@@ -65,9 +81,19 @@ export function followUpAt(input: {
       : lastInboundAt.getTime() + FOLLOW_UP_AFTER_INBOUND_HOURS * HOUR_MS;
   const windowEnd = windowEndOf(lastInboundAt);
   let at = intoWakingHours(new Date(target), timeZone);
-  if (at > windowEnd) at = lastWakingBy(windowEnd, timeZone);
+  const pulledBack = at > windowEnd;
+  if (pulledBack) at = lastWakingBy(windowEnd, timeZone, input.conversationId);
   // Whole minutes: "20:59" is 20:59:00, which the minute job's 20:59 run takes, never its 21:00 one.
   at = new Date(Math.floor(at.getTime() / MINUTE_MS) * MINUTE_MS);
+  // A second pulled back to its chat's minute still goes an hour after the first: the later of the two, in whole
+  // minutes, while that is still waking hours and inside the window; else none.
+  if (pulledBack && number === 2 && input.previousAt !== null) {
+    const apart = new Date(Math.ceil((input.previousAt.getTime() + APART_MS) / MINUTE_MS) * MINUTE_MS);
+    if (apart > at) {
+      if (!inWakingHours(apart, timeZone) || apart > windowEnd) return null;
+      at = apart;
+    }
+  }
   if (at.getTime() < input.now.getTime() + SOONEST_MS) return null;
   if (number === 2 && input.previousAt !== null && at.getTime() < input.previousAt.getTime() + APART_MS) return null;
   return at;
@@ -89,6 +115,7 @@ export function nextMorning(now: Date, lastInboundAt: Date, timeZone: string): D
  */
 export function followUpPlan(turn: {
   kind: TurnKind;
+  conversationId: string;
   move: Move;
   stopFollowUps: boolean;
   sent: boolean;
@@ -96,11 +123,19 @@ export function followUpPlan(turn: {
   now: Date;
   timeZone: string;
 }): { followUpAt: Date | null; followUpsSent?: 0 | 1 | 2 } {
-  const { move, lastInboundAt, now, timeZone } = turn;
+  const { move, conversationId, lastInboundAt, now, timeZone } = turn;
   const timed = (number: 1 | 2) =>
     lastInboundAt === null
       ? null
-      : followUpAt({ number, lastInboundAt, repliedAt: now, previousAt: number === 2 ? now : null, now, timeZone });
+      : followUpAt({
+          number,
+          conversationId,
+          lastInboundAt,
+          repliedAt: now,
+          previousAt: number === 2 ? now : null,
+          now,
+          timeZone,
+        });
   if (turn.kind === "reply") {
     const keepsGoing = turn.sent && move.kind !== "hand_over" && move.kind !== "silent" && !turn.stopFollowUps;
     return { followUpsSent: 0, followUpAt: keepsGoing ? timed(1) : null };

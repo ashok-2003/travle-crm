@@ -1,12 +1,9 @@
-// A package's brochures and payment QR (group packages): files the browser sends straight to storage. The AI agent sends a
-// brochure (and the package's photos) to a customer who asks for details and the QR to one who wants to book. Up to five
-// brochures; one QR, which a new confirmed one replaces. Staff who may edit packages manage them. Non-sensitive by
-// construction.
+// A package's brochures (group packages): files the browser sends straight to storage. The AI agent sends a brochure (and
+// the package's photos) to a customer who asks for details. Up to five. Staff who may edit packages manage them.
+// Non-sensitive by construction.
 import {
   MAX_PACKAGE_BROCHURE_BYTES,
-  MAX_PACKAGE_PAYMENT_QR_BYTES,
   PACKAGE_BROCHURE_RECORD_TYPE,
-  PACKAGE_PAYMENT_QR_RECORD_TYPE,
   PACKAGE_PHOTO_RECORD_TYPE,
   type packageBrochureContentTypes,
 } from "@travel-crm/contracts/files";
@@ -17,7 +14,6 @@ import {
   type PackageFileKind,
 } from "@travel-crm/contracts/quotes";
 import type { Database, OrgTx } from "@travel-crm/db";
-import { recordAudit, type AuditSnapshot } from "../audit/index.js";
 import { readyAttachmentsIn, type Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
@@ -28,14 +24,11 @@ export interface PackageFileDependencies {
   files: Files;
 }
 
-const recordOf = (packageId: string, kind: PackageFileKind) => ({
-  recordType: kind === "brochure" ? PACKAGE_BROCHURE_RECORD_TYPE : PACKAGE_PAYMENT_QR_RECORD_TYPE,
-  recordId: packageId,
-});
+const recordOf = (packageId: string) => ({ recordType: PACKAGE_BROCHURE_RECORD_TYPE, recordId: packageId });
 
 /**
- * A package's brochures, photos and newest payment QR inside a transaction already open, for the AI's turn: ids, never
- * links. Brochures and photos in the order they arrived.
+ * A package's brochures and photos inside a transaction already open, for the AI's turn: ids, never links, in the
+ * order they arrived.
  */
 export async function packageFilesIn(
   tx: OrgTx,
@@ -43,18 +36,14 @@ export async function packageFilesIn(
 ): Promise<{
   brochures: { id: string; fileName: string }[];
   photos: { id: string; fileName: string }[];
-  paymentQrId: string | null;
 }> {
-  const [brochures, photos, qrs] = await Promise.all([
-    readyAttachmentsIn(tx, recordOf(packageId, "brochure")),
+  const [brochures, photos] = await Promise.all([
+    readyAttachmentsIn(tx, recordOf(packageId)),
     readyAttachmentsIn(tx, { recordType: PACKAGE_PHOTO_RECORD_TYPE, recordId: packageId }),
-    readyAttachmentsIn(tx, recordOf(packageId, "payment_qr")),
   ]);
-  // The newest QR wins, as in listPackageFiles.
   return {
     brochures: brochures.map(({ id, fileName }) => ({ id, fileName })),
     photos: photos.map(({ id, fileName }) => ({ id, fileName })),
-    paymentQrId: qrs[qrs.length - 1]?.id ?? null,
   };
 }
 
@@ -65,22 +54,15 @@ const withAttachmentId = (
     ? null
     : { attachmentId: file.id, fileName: file.fileName, contentType: file.contentType, url: file.url };
 
-/** The package's brochures in the order they arrived and its payment QR, each with a short-lived link. */
+/** The package's brochures in the order they arrived, each with a short-lived link. */
 export async function listPackageFiles(
   dependencies: PackageFileDependencies,
   access: MemberAccess,
   packageId: string,
-): Promise<{ brochures: PackageFile[]; paymentQr: PackageFile | null }> {
+): Promise<{ brochures: PackageFile[] }> {
   await requirePackage(dependencies, access, packageId);
-  const [brochures, qrs] = await Promise.all([
-    filesWithLinks(dependencies.files, access, recordOf(packageId, "brochure")),
-    filesWithLinks(dependencies.files, access, recordOf(packageId, "payment_qr")),
-  ]);
-  // Files list oldest-confirmed first (listAttachments), so the last QR is the newest: if a failed removal left two, show it.
-  return packageFiles.parse({
-    brochures: brochures.map(withAttachmentId),
-    paymentQr: qrs.length === 0 ? null : withAttachmentId(qrs[qrs.length - 1]),
-  });
+  const brochures = await filesWithLinks(dependencies.files, access, recordOf(packageId));
+  return packageFiles.parse({ brochures: brochures.map(withAttachmentId) });
 }
 
 /** Pending uploads don't count, so this runs again at confirmation, when a file really joins the five. */
@@ -90,14 +72,14 @@ async function requireRoomForBrochure(
   packageId: string,
   confirming?: string,
 ) {
-  const held = await dependencies.files.list(access, recordOf(packageId, "brochure"));
+  const held = await dependencies.files.list(access, recordOf(packageId));
   // Confirming a file that is already one of the five again is harmless (confirmation is idempotent).
   if (held.length >= MAX_PACKAGE_BROCHURES && !held.some((file) => file.id === confirming)) {
     throw new DomainError("LIMIT_REACHED", "PACKAGE_BROCHURE_LIMIT", "A package holds five brochures at most");
   }
 }
 
-/** Step one of adding a file: within its size, its types and (for brochures) the five, and a place to put it. */
+/** Step one of adding a file: within its size, its types and the five, and a place to put it. */
 export async function requestPackageFileUpload(
   dependencies: PackageFileDependencies,
   access: MemberAccess,
@@ -110,13 +92,12 @@ export async function requestPackageFileUpload(
   },
 ) {
   await requirePackage(dependencies, access, input.packageId);
-  const limit = input.kind === "brochure" ? MAX_PACKAGE_BROCHURE_BYTES : MAX_PACKAGE_PAYMENT_QR_BYTES;
-  if (input.sizeBytes > limit) {
+  if (input.sizeBytes > MAX_PACKAGE_BROCHURE_BYTES) {
     throw new DomainError("VALIDATION", "ATTACHMENT_TOO_BIG", "This file is over the size a package file can be");
   }
-  if (input.kind === "brochure") await requireRoomForBrochure(dependencies, access, input.packageId);
+  await requireRoomForBrochure(dependencies, access, input.packageId);
   const { attachment, upload } = await dependencies.files.requestUpload(access, {
-    ...recordOf(input.packageId, input.kind),
+    ...recordOf(input.packageId),
     fileName: input.fileName,
     contentType: input.contentType,
     sizeBytes: input.sizeBytes,
@@ -125,47 +106,18 @@ export async function requestPackageFileUpload(
   return { attachmentId: attachment.id, upload: { ...upload, expiresAt: upload.expiresAt.toISOString() } };
 }
 
-/** Marks the upload ready; a confirmed payment QR replaces the one before it, whose file goes too. */
+/** Marks the upload ready, within the five brochures. */
 export async function confirmPackageFile(
   dependencies: PackageFileDependencies,
   access: MemberAccess,
   input: { packageId: string; kind: PackageFileKind; attachmentId: string },
 ): Promise<void> {
   await requirePackage(dependencies, access, input.packageId);
-  const record = recordOf(input.packageId, input.kind);
-  if (input.kind === "brochure")
-    await requireRoomForBrochure(dependencies, access, input.packageId, input.attachmentId);
-  await dependencies.files.confirmUpload(access, { ...record, attachmentId: input.attachmentId });
-  if (input.kind !== "payment_qr") return;
-  const replaced: string[] = [];
-  for (const old of await dependencies.files.list(access, record)) {
-    if (old.id === input.attachmentId) continue;
-    await dependencies.files.remove(access, { ...record, attachmentId: old.id });
-    replaced.push(old.id);
-  }
-  const previous = replaced[replaced.length - 1];
-  await auditQr(dependencies, access, input.packageId, {
-    ...(previous === undefined ? {} : { before: { qrAttachmentId: previous } }),
-    after: { qrAttachmentId: input.attachmentId },
+  await requireRoomForBrochure(dependencies, access, input.packageId, input.attachmentId);
+  await dependencies.files.confirmUpload(access, {
+    ...recordOf(input.packageId),
+    attachmentId: input.attachmentId,
   });
-}
-
-/** Where customers pay is audited like the details beside it: which picture came, which went. */
-async function auditQr(
-  dependencies: PackageFileDependencies,
-  access: MemberAccess,
-  packageId: string,
-  change: { before?: AuditSnapshot; after?: AuditSnapshot },
-): Promise<void> {
-  await dependencies.db.forOrg(access.organizationId, (tx) =>
-    recordAudit(tx, access, {
-      action: "package.payment-changed",
-      entityType: "quote_template",
-      entityId: packageId,
-      ...(change.before === undefined ? {} : { before: change.before }),
-      ...(change.after === undefined ? {} : { after: change.after }),
-    }),
-  );
 }
 
 export async function removePackageFile(
@@ -175,10 +127,7 @@ export async function removePackageFile(
 ): Promise<void> {
   await requirePackage(dependencies, access, input.packageId);
   await dependencies.files.remove(access, {
-    ...recordOf(input.packageId, input.kind),
+    ...recordOf(input.packageId),
     attachmentId: input.attachmentId,
   });
-  if (input.kind === "payment_qr") {
-    await auditQr(dependencies, access, input.packageId, { before: { qrAttachmentId: input.attachmentId } });
-  }
 }

@@ -1,6 +1,8 @@
 // When the lite agent's two follow-ups go (plan 3b, Task 1): about 4 hours after its reply and about 20 hours after the
 // customer's last message, 9 am to 9 pm in the agency's time zone, inside WhatsApp's 24-hour window less its 1-hour
-// margin, and what each turn leaves for them.
+// margin, one pulled back into the evening on its chat's own minute from 20:00 to 20:58, and what each turn leaves for
+// them.
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { followUpAt, followUpPlan, inWakingHours, nextMorning } from "../../../src/ai/lite/follow-ups.js";
 import type { Move } from "../../../src/ai/lite/types.js";
@@ -9,19 +11,30 @@ import { addDays, instantAt, parseCalendarDate, parseTimeOfDay } from "../../../
 const india = "Asia/Kolkata";
 const day = parseCalendarDate("2026-11-10");
 const minute = 60_000;
+/** A chat whose own evening minute is :15, so a follow-up pulled back into the evening goes at 20:15. */
+const conversationId = "0199e7a0-0000-7000-8000-0000000000c2";
 /** The instant clocks in the zone show `time` on the day, `days` later. */
 const local = (time: string, days = 0, zone = india) => instantAt(addDays(day, days), parseTimeOfDay(time), zone);
 
 /** The first follow-up's time for a customer who wrote at `wrote` and got the reply a minute later. */
 function first(lastInboundAt: Date, zone = india) {
   const repliedAt = new Date(lastInboundAt.getTime() + minute);
-  return followUpAt({ number: 1, lastInboundAt, repliedAt, previousAt: null, now: repliedAt, timeZone: zone });
+  return followUpAt({
+    number: 1,
+    conversationId,
+    lastInboundAt,
+    repliedAt,
+    previousAt: null,
+    now: repliedAt,
+    timeZone: zone,
+  });
 }
 
 /** The second's, planned when the first went at `firstAt`. */
-const second = (lastInboundAt: Date, firstAt: Date, zone = india) =>
+const second = (lastInboundAt: Date, firstAt: Date, zone = india, chat = conversationId) =>
   followUpAt({
     number: 2,
+    conversationId: chat,
     lastInboundAt,
     repliedAt: new Date(lastInboundAt.getTime() + minute),
     previousAt: firstAt,
@@ -34,9 +47,9 @@ describe("when a follow-up goes", () => {
   const table: [string, [string, number], [string, number]][] = [
     ["10:00", ["14:01", 0], ["09:00", 1]],
     ["23:50", ["09:00", 1], ["19:50", 1]],
-    ["02:00", ["09:00", 0], ["20:59", 0]],
+    ["02:00", ["09:00", 0], ["20:15", 0]],
     ["20:30", ["09:00", 1], ["16:30", 1]],
-    ["07:30", ["11:31", 0], ["20:59", 0]],
+    ["07:30", ["11:31", 0], ["20:15", 0]],
   ];
 
   it.each(table)("a customer who wrote at %s gets the first at %j and the second at %j", (wrote, one, two) => {
@@ -47,11 +60,32 @@ describe("when a follow-up goes", () => {
     expect(second(lastInboundAt, firstAt)).toEqual(local(...two));
   });
 
-  it("no second when it can't be an hour after the first", () => {
+  it("an evening second goes at least an hour after the first, and none when that is 21:00 or later", () => {
     const lastInboundAt = local("02:00");
-    expect(second(lastInboundAt, local("20:30"))).toBeNull();
-    // An hour after the first is enough.
+    // The chat's own minute, 20:15, is an hour after a first at 19:15 or earlier.
+    expect(second(lastInboundAt, local("19:15"))).toEqual(local("20:15"));
+    // A later first moves it on to an hour after, in whole minutes, rather than letting it go.
+    expect(second(lastInboundAt, local("19:30"))).toEqual(local("20:30"));
+    expect(second(lastInboundAt, new Date(local("19:30").getTime() + 7_000))).toEqual(local("20:31"));
     expect(second(lastInboundAt, local("19:59"))).toEqual(local("20:59"));
+    // An hour after is night: none.
+    expect(second(lastInboundAt, new Date(local("19:59").getTime() + 30_000))).toBeNull();
+    expect(second(lastInboundAt, local("20:30"))).toBeNull();
+  });
+
+  it("spreads the evening's pulled-back follow-ups from 20:00 to 20:58, each chat on its own minute", () => {
+    // Wrote 02:00: the second would come after the window closes, so it goes in the evening before.
+    const lastInboundAt = local("02:00");
+    const chats = Array.from({ length: 200 }, () => randomUUID());
+    const times = chats.map((chat) => second(lastInboundAt, local("11:00"), india, chat));
+    for (const at of times) {
+      expect(at?.getTime()).toBeGreaterThanOrEqual(local("20:00").getTime());
+      expect(at?.getTime()).toBeLessThanOrEqual(local("20:58").getTime());
+      expect((at?.getTime() ?? 1) % minute).toBe(0);
+    }
+    expect(new Set(times.map((at) => at?.getTime())).size).toBeGreaterThan(30);
+    // The same chat gets the same minute every time.
+    expect(chats.map((chat) => second(lastInboundAt, local("11:00"), india, chat))).toEqual(times);
   });
 
   it("never sooner than 15 minutes from now", () => {
@@ -59,7 +93,15 @@ describe("when a follow-up goes", () => {
     // window's end, pulled back to 09:00, which is too soon.
     const lastInboundAt = local("10:00");
     const plan = (repliedAt: Date) =>
-      followUpAt({ number: 1, lastInboundAt, repliedAt, previousAt: null, now: repliedAt, timeZone: india });
+      followUpAt({
+        number: 1,
+        conversationId,
+        lastInboundAt,
+        repliedAt,
+        previousAt: null,
+        now: repliedAt,
+        timeZone: india,
+      });
     expect(plan(local("08:45", 1))).toEqual(local("09:00", 1));
     expect(plan(local("08:50", 1))).toBeNull();
   });
@@ -70,7 +112,15 @@ describe("when a follow-up goes", () => {
     const lastInboundAt = local("10:30");
     const repliedAt = local("07:30", 1);
     expect(
-      followUpAt({ number: 1, lastInboundAt, repliedAt, previousAt: null, now: repliedAt, timeZone: india }),
+      followUpAt({
+        number: 1,
+        conversationId,
+        lastInboundAt,
+        repliedAt,
+        previousAt: null,
+        now: repliedAt,
+        timeZone: india,
+      }),
     ).toEqual(local("09:30", 1));
   });
 
@@ -80,7 +130,15 @@ describe("when a follow-up goes", () => {
     const lastInboundAt = local("16:59");
     const repliedAt = new Date(local("16:59").getTime() + seconds);
     expect(
-      followUpAt({ number: 1, lastInboundAt, repliedAt, previousAt: null, now: repliedAt, timeZone: india }),
+      followUpAt({
+        number: 1,
+        conversationId,
+        lastInboundAt,
+        repliedAt,
+        previousAt: null,
+        now: repliedAt,
+        timeZone: india,
+      }),
     ).toEqual(local("20:59"));
     // A customer who wrote at 00:59:30 gets the second at 20:59:00.
     const wrote = new Date(local("00:59").getTime() + seconds);
@@ -104,6 +162,7 @@ describe("what a turn leaves for the follow-ups", () => {
   const plan = (over: Partial<Parameters<typeof followUpPlan>[0]> = {}) =>
     followUpPlan({
       kind: "reply",
+      conversationId,
       move: greet,
       stopFollowUps: false,
       sent: true,

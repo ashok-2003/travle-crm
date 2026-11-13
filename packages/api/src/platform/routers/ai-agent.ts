@@ -1,12 +1,12 @@
-// The console's pause of the WhatsApp AI agent, and its lite-agent switch: platform staff read it, only a super admin changes it.
+// The console's pause of the WhatsApp AI agent, and its setup state: platform staff read it, only a super admin changes it.
 import {
   agentPauseState,
   organizationAgentPause,
   organizationAgentPauseInput,
-  organizationLiteAgent,
+  organizationAgentState,
   pauseEveryoneInput,
   pauseOrganizationInput,
-  setLiteAgentInput,
+  resumeOneAtATimeResult,
 } from "@travel-crm/contracts/platform";
 import * as domain from "@travel-crm/domain/platform";
 import { staffProcedure, superAdminProcedure } from "../procedures.js";
@@ -28,13 +28,13 @@ export const aiAgentRouter = platformT.router({
     .input(pauseOrganizationInput)
     .output(organizationAgentPause)
     .mutation(({ ctx, input }) => domain.pauseOrganization(ctx.services, ctx.staff, input)),
-  /** Whether one agency is on the lite agent, and whether it answers its chats now. */
-  liteAgent: staffProcedure
+  /** Whether one agency has its AI agent on, which setup steps are missing, and whether it can answer. */
+  agentState: staffProcedure
     .input(organizationAgentPauseInput)
-    .output(organizationLiteAgent)
-    .query(({ ctx, input }) => domain.organizationLiteAgent(ctx.services, input.organizationId)),
-  setLiteAgent: superAdminProcedure
-    .input(setLiteAgentInput)
-    .output(organizationLiteAgent)
-    .mutation(({ ctx, input }) => domain.setOrganizationLiteAgent(ctx.services, ctx.staff, input)),
+    .output(organizationAgentState)
+    .query(({ ctx, input }) => domain.organizationAgentState(ctx.services, input.organizationId)),
+  /** Pauses each agency on its own, then lifts the every-agency pause. */
+  resumeOneAtATime: superAdminProcedure
+    .output(resumeOneAtATimeResult)
+    .mutation(({ ctx }) => domain.resumeOneAtATime(ctx.services, ctx.staff)),
 });

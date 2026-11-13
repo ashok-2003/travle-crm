@@ -43,7 +43,14 @@ describe("Settings, AI", () => {
     stubApi({ "ai.settings": { data: saved }, "ai.knowledge": { data: [] } });
     renderWithApi(<AiSettingsScreen />, client());
     await screen.findByRole("switch", { name: words.on });
-    for (const gone of [/Autopilot/i, /What it learned/i, /Way of talking/i, /Try it/i, /plan custom trips/i]) {
+    for (const gone of [
+      /Autopilot/i,
+      /What it learned/i,
+      /Media/i,
+      /Way of talking/i,
+      /Try it/i,
+      /plan custom trips/i,
+    ]) {
       expect(screen.queryByRole("heading", { name: gone })).toBeNull();
       expect(screen.queryByRole("switch", { name: gone })).toBeNull();
     }

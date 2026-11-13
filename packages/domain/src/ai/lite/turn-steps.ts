@@ -49,14 +49,14 @@ const shownBy = (move: Move, index: readonly PackageIndexEntry[]): PackageIndexE
 
 /**
  * The model's words for the move, checked, or null when the move needs none (code writes it all, or nothing is sent).
- * The blocks of its first ask go to the trace.
+ * The blocks of its first ask, and the chat's messages it showed, go to the trace.
  */
 export async function written(
   ai: AiModel,
   environment: CallEnvironment,
   prepared: Pick<LitePrepared, "basics" | "index" | "today" | "answers" | "messages" | "timeZone" | "places" | "sent">,
   step: { decision: Decision; situation: Situation; agencyName: string; summary: string },
-): Promise<{ written: LiteWritten; blocks: Record<string, string> } | null> {
+): Promise<{ written: LiteWritten; blocks: Record<string, string>; messageIds: string[] } | null> {
   const { decision, situation, agencyName } = step;
   const { basics, index, today } = prepared;
   const move = writeMoveOf(
@@ -78,7 +78,7 @@ export async function written(
     timeZone: prepared.timeZone,
     today,
   };
-  const { blocks } = writeRequest({
+  const { blocks, messageIds } = writeRequest({
     ...prompt,
     instruction: move.instruction,
     facts: move.blanks.lines(),
@@ -89,6 +89,7 @@ export async function written(
   return {
     written: await writeMove(ai, environment, prompt, move, context, prepared.sent),
     blocks: withoutMessages(blocks),
+    messageIds,
   };
 }
 

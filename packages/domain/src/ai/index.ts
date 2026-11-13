@@ -43,7 +43,6 @@ export {
   setBookingStatus,
   type BookingRecipients,
 } from "./booking.js";
-export { setLiteAgent } from "./lite/switch.js";
 export { liteDryRun } from "./lite/dry-run.js";
 export { decideStageSuggestion, stageSuggestionOfLead, stageSuggestionsOf } from "./lite/suggestions.js";
 export { autopilotDefaults, autopilotOf } from "./autopilot.js";

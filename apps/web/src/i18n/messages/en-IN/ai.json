@@ -97,7 +97,6 @@
     "title": "AI's guess",
     "info": "The AI's reading of this lead from its chat: how likely it books in the next two weeks, why, and what to do next. A guess to help you choose who to call first, never a decision: it never changes the lead's stage.",
     "updated": "Updated {when}",
-    "chance": "Chance to book",
     "percent": "{score}%",
     "labels": {
       "hot": "Hot",
@@ -109,13 +108,6 @@
     "fakeHint": "Spam, a test or a wrong number, by the AI's reading.",
     "nextStep": "Next step",
     "why": "Why",
-    "facts": {
-      "destination": "Destination",
-      "when": "When",
-      "travellers": "Travellers",
-      "budget": "Budget"
-    },
-    "unknown": "Not said yet",
     "noted": "What the AI noted"
   },
   "chat": {
@@ -129,9 +121,6 @@
     "handoffTitle": "Handed over",
     "handoffNoReason": "It needed a person.",
     "resume": "Let AI answer now",
-    "attentionTitle": "The AI flagged this for your team",
-    "personPaused": "A person is answering: the AI waits until {until}.",
-    "followUp": "Follow-up planned {when}",
     "modeLabel": "The AI in this chat",
     "modes": {
       "default": "As the agency",
@@ -180,7 +169,7 @@
       "team_claim": "it said your team had decided something",
       "payment_detail": "it typed payment details itself",
       "unfit": "its answer couldn't be read",
-      "PAYMENT_DETAILS_MISSING": "your payment details aren't added yet, so it can't take a booking",
+      "PAYMENT_DETAILS_MISSING": "your payment QR isn't added yet, so it can't take a booking",
       "PACKAGE_NOT_SELLABLE": "this package isn't one the AI can sell right now",
       "AI_ACTION_REFUSED": "the booking is missing its date, its party or its price",
       "other": "a safety check stopped it"

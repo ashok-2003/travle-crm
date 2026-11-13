@@ -34,16 +34,17 @@ const fullBank = {
 };
 
 describe("whether the agent can take an advance", () => {
-  it("is ready with a UPI ID only, a QR only, or the full bank set", () => {
-    expect(paymentDetailsReady({ ...none, upiId: "trails@okbank" })).toBe(true);
-    expect(paymentDetailsReady({ ...none, qrAttachmentId: "0199e7a0-0000-7000-8000-000000000001" })).toBe(true);
-    expect(paymentDetailsReady({ ...none, ...fullBank })).toBe(true);
+  it("is ready with the QR, whatever else is or is not added", () => {
+    const qr = "0199e7a0-0000-7000-8000-000000000001";
+    expect(paymentDetailsReady({ ...none, qrAttachmentId: qr })).toBe(true);
+    expect(paymentDetailsReady({ ...none, ...fullBank, upiId: "trails@okbank", qrAttachmentId: qr })).toBe(true);
   });
 
-  it("is not ready with nothing, a bank name only, or an account number without its IFSC", () => {
+  it("is not ready without the QR: a UPI ID or a whole bank account are extras the agent sends with it", () => {
     expect(paymentDetailsReady(none)).toBe(false);
+    expect(paymentDetailsReady({ ...none, upiId: "trails@okbank" })).toBe(false);
+    expect(paymentDetailsReady({ ...none, ...fullBank })).toBe(false);
     expect(paymentDetailsReady({ ...none, bankName: "Federal Bank" })).toBe(false);
-    expect(paymentDetailsReady({ ...none, ...fullBank, ifsc: null })).toBe(false);
   });
 });
 

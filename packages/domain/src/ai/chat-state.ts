@@ -6,7 +6,7 @@ import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
-import { agentAnswers } from "./agent.js";
+import { agentAnswers } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { turnUnderWay } from "./turn-under-way.js";
@@ -32,9 +32,7 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
     answering,
     handedOff: state?.handedOffAt != null,
     handoffReason: state?.handoffReason ?? null,
-    memory: state?.memory ?? "",
     summary: state?.summary ?? "",
-    lastReplyAt: state?.lastReplyAt?.toISOString() ?? null,
     // A turn the worker left behind (it stopped mid-way) is no turn after a few minutes.
     turn: answering ? turnUnderWay(state, new Date()) : null,
     followUpAt: answering && state?.followUpAt != null ? state.followUpAt.toISOString() : null,

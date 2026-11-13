@@ -13,9 +13,7 @@ const chat: ChatAi = {
   answering: true,
   handedOff: false,
   handoffReason: null,
-  memory: "",
   summary: "",
-  lastReplyAt: null,
   turn: null,
   followUpAt: null,
   followUpReason: null,
@@ -50,5 +48,29 @@ describe("ChatAiCard, what the AI noted", () => {
     await screen.findByText(messages.ai.chat.answering);
     expect(screen.queryByRole("heading", { name: /way of talking/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /export|learn/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the state, the hand-over reason with its button, the mode toggle and the summary", async () => {
+    show({ answering: false, handedOff: true, handoffReason: "Asked for a discount", summary: "Wants Goa in May." });
+    expect(await screen.findByText(messages.ai.chat.handedOff)).toBeVisible();
+    expect(screen.getByText(messages.ai.chat.handoffTitle)).toBeVisible();
+    expect(screen.getByText("Asked for a discount")).toBeVisible();
+    expect(screen.getByRole("button", { name: messages.ai.chat.resume })).toBeVisible();
+    expect(screen.getByRole("radio", { name: messages.ai.chat.modes.on })).toBeVisible();
+    expect(screen.getByText("Wants Goa in May.")).toBeVisible();
+  });
+
+  it("leaves the person-paused, flagged and follow-up lines to the bar over the reply box", async () => {
+    show({
+      personPausedUntil: "2026-11-12T10:00:00.000Z",
+      attention: "Wants to book",
+      followUpAt: "2026-11-13T10:00:00.000Z",
+      followUpReason: "Waiting for dates",
+    });
+    await screen.findByText(messages.ai.chat.answering);
+    // What the bar over the reply box says is not repeated here: neither the flag's words nor the follow-up's reason.
+    expect(screen.queryByText("Wants to book")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for dates/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/10:00|3:30/)).not.toBeInTheDocument();
   });
 });

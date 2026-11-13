@@ -32,6 +32,8 @@ export interface LiteDependencies {
   identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
   logger?: Logger;
   traces?: TraceSink;
+  /** The minute job's clock: a follow-up reads it again before it acts, so its checks hold when it sends. */
+  clock?: () => Date;
 }
 
 export interface LiteTurnInput {

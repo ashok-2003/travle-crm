@@ -270,8 +270,7 @@
       "created-from-draft": "Saved a package from an AI draft",
       "season-saved": "Saved a package's season and room prices",
       "season-removed": "Removed a package's season",
-      "sellable-changed": "Let the AI sell a package, or stopped it",
-      "payment-changed": "Changed where customers pay for a package"
+      "sellable-changed": "Let the AI sell a package, or stopped it"
     },
     "ai-agent": {
       "paused": "Paused the AI agent on WhatsApp",
@@ -279,9 +278,7 @@
       "answers-changed": "Changed the AI agent's answers",
       "basics-changed": "Changed the AI agent's name or tone",
       "turned-on": "Turned the AI agent on",
-      "turned-off": "Turned the AI agent off",
-      "lite-on": "Switched the WhatsApp agent to the new lite agent",
-      "lite-off": "Switched the WhatsApp agent back to the earlier agent"
+      "turned-off": "Turned the AI agent off"
     },
     "whatsapp-ad": {
       "linked": "Linked an ad to a package"

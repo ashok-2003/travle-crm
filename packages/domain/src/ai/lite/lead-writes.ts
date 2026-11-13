@@ -1,5 +1,6 @@
 // What the lite turn writes on the lead and the chat: trip fields only where empty or still the AI's own, each marked and
-// put on the timeline, the chat's summary, and the lead's score row. A person's value is never replaced.
+// put on the timeline, the chat's summary, and the lead's score row. A person's value is never replaced, and a value a
+// person dismissed is never written again.
 import { withoutAmountsAndDates, type LiteFacts, type UnderstandForm } from "@travel-crm/contracts/ai";
 import type { AiFilledField, TravelWhen } from "@travel-crm/contracts/crm";
 import type { RoomType } from "@travel-crm/contracts/quotes";
@@ -112,8 +113,8 @@ function gapsOf(values: Partial<Record<TripField, unknown>>): TripGaps {
 
 /**
  * Fills the lead's trip from what the chat has settled: a field that is empty, or that the AI filled itself and nobody
- * has touched since (its value still hashes to the row's). A person's value and a dismissed field are left. Returns the
- * fields it set or changed.
+ * has touched since (its value still hashes to the row's). A person's value and a dismissed value are left; an empty
+ * dismissed field takes a different value the customer gave since. Returns the fields it set or changed.
  */
 export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Promise<AiFilledField[]> {
   const { organizationId, leadId, today } = input;
@@ -134,11 +135,15 @@ export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Prom
   const overwrite = new Set<GapField>();
   for (const field of Object.keys(desired) as TripField[]) {
     const row = rows.get(field);
+    const now = current[field];
     if (row?.state === "dismissed") {
-      skip.add(field);
+      // The value a person dismissed is never written again; another the customer gave since is, while the field is
+      // still empty (a value typed after dismissing is the person's).
+      const another = valueHash(aiFieldPaths[field], desired[field]) !== row.valueHash;
+      if (now === null && another) toWrite[field] = desired[field];
+      else skip.add(field);
       continue;
     }
-    const now = current[field];
     if (now === null) {
       // A row means the AI filled it once; empty now, a person cleared it, and clearing is theirs to choose.
       if (row === undefined) toWrite[field] = desired[field];

@@ -141,7 +141,7 @@ describe("what the lite turn writes on a lead", () => {
     expect(await a.write({ facts: facts({ adults: 3 }) })).toEqual([]);
   });
 
-  it("a dismissed field is not filled again", async () => {
+  it("a dismissed value is not filled again; a different one the customer gives later is", async () => {
     const a = await agency();
     await a.write({ facts: facts({ adults: 3 }) });
     await a.inOrg(async (tx) => {
@@ -150,6 +150,20 @@ describe("what the lite turn writes on a lead", () => {
     });
     expect(await a.write({ facts: facts({ adults: 3 }) })).toEqual([]);
     expect((await a.lead()).adults).toBeNull();
+    expect(await a.write({ facts: facts({ adults: 4 }) })).toEqual(["adults"]);
+    expect((await a.lead()).adults).toBe(4);
+    expect(await a.row("adults")).toMatchObject({ state: "suggested", valueHash: valueHash("trip.adults", 4) });
+  });
+
+  it("a value a person typed after dismissing is theirs: a different one from the chat leaves it", async () => {
+    const a = await agency();
+    await a.write({ facts: facts({ adults: 3 }) });
+    await a.inOrg(async (tx) => {
+      await tx.lead.update({ where: { id: a.leadId }, data: { adults: 5 } });
+      await tx.leadAiField.updateMany({ where: { leadId: a.leadId }, data: { state: "dismissed" } });
+    });
+    expect(await a.write({ facts: facts({ adults: 4 }) })).toEqual([]);
+    expect((await a.lead()).adults).toBe(5);
   });
 
   it("when is written only for a chosen departure", async () => {

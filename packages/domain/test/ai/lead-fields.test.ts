@@ -12,6 +12,7 @@ import {
   suggestedFieldsOf,
 } from "../../src/ai/index.js";
 import { findOrAddDestination } from "../../src/catalog/index.js";
+import { lockLead } from "../../src/crm/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -228,6 +229,41 @@ describe("a new WhatsApp lead that arrives filled in", () => {
     await expect(inOrg((tx) => decideSuggestions(tx, owner, lead.id, "confirm"))).rejects.toMatchObject({
       reason: "NOT_FOUND",
     });
+  });
+
+  it("Looks right confirms only the values still shown: one a person changed since stays theirs, unconfirmed", async () => {
+    const { model, score, inOrg, lead, owner } = await agency();
+    model.answer(answer());
+    await score();
+    await inOrg((tx) => tx.lead.update({ where: { id: lead.id }, data: { adults: 5 } }));
+    await inOrg((tx) => decideSuggestions(tx, owner, lead.id, "confirm"));
+    const rows = await inOrg((tx) => tx.leadAiField.findMany({ where: { leadId: lead.id } }));
+    expect(rows.find((row) => row.field === "adults")?.state).toBe("suggested");
+    expect(
+      rows
+        .filter((row) => row.state === "confirmed")
+        .map((row) => row.field)
+        .sort(),
+    ).toEqual(["budget", "destination", "when"]);
+  });
+
+  it("Looks right waits for the lead's lock, as an AI write takes it", async () => {
+    const { model, score, inOrg, lead, owner } = await agency();
+    model.answer(answer());
+    await score();
+    let released = false;
+    let locked: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (locked = resolve));
+    const holder = inOrg(async (tx) => {
+      await lockLead(tx, lead.id);
+      locked();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      released = true;
+    });
+    await held;
+    await inOrg((tx) => decideSuggestions(tx, owner, lead.id, "confirm"));
+    expect(released).toBe(true);
+    await holder;
   });
 
   it("filledAt is the row's last write", async () => {

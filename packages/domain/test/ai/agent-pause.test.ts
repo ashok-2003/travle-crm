@@ -203,19 +203,19 @@ describe("the agent while paused", () => {
     });
     const state = () => on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
     await subscribe(on.organizationId, true);
-    await runAiNudges(on.dependencies, turnAt);
+    await runAiNudges(on.dependencies, () => turnAt);
     expect((await state()).followUpAt).toBeNull();
     expect(await outbound(on)).toBe(0);
     // A follow-up planned for later is kept.
     await on.inOrg((tx) =>
       tx.aiChat.updateMany({ where: { conversationId: on.chat.id }, data: { followUpAt: laterAt } }),
     );
-    await runAiNudges(on.dependencies, turnAt);
+    await runAiNudges(on.dependencies, () => turnAt);
     expect((await state()).followUpAt).toEqual(laterAt);
     await on.inOrg((tx) => tx.aiChat.updateMany({ where: { conversationId: on.chat.id }, data: { followUpAt: null } }));
     await pauseAgency(on.organizationId, false);
     scriptReply(on);
-    await runAiNudges(on.dependencies, turnAt);
+    await runAiNudges(on.dependencies, () => turnAt);
     expect(await outbound(on)).toBe(0);
   });
 
@@ -234,13 +234,13 @@ describe("the agent while paused", () => {
       }),
     );
     await subscribe(on.organizationId, true);
-    await runAiNudges(on.dependencies, turnAt);
+    await runAiNudges(on.dependencies, () => turnAt);
     const touches = () => on.inOrg((tx) => tx.aiFollowUpTouch.findMany({ select: { outcome: true } }));
     expect(await touches()).toEqual([]);
     expect(await outbound(on)).toBe(0);
     await pauseAgency(on.organizationId, false);
     scriptReply(on);
-    await runAiNudges(on.dependencies, turnAt);
+    await runAiNudges(on.dependencies, () => turnAt);
     expect(await touches()).toEqual([]);
     expect(await outbound(on)).toBe(0);
     expect(await on.inOrg((tx) => tx.task.count({ where: { doneAt: null, cancelledAt: null } }))).toBe(1);

@@ -96,8 +96,10 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if (prepared.leadId === null && LEAD_MOVES.has(decision.move.kind)) {
     const chat = { id: prepared.chat.id, personId: prepared.chat.personId, phoneE164: prepared.phoneE164 };
     const opening = await openLeadForChat(deps, organizationId, chat, now);
-    // A blocked contact gets no automation's answer, as the inbox never queues one for them.
+    // A blocked contact gets no automation's answer, as the inbox never queues one for them; nor does a customer a person
+    // marked Not a lead, and nobody is told: the person who marked it can start a lead by hand.
     if (opening === "blocked") return end("blocked_contact");
+    if (opening === "not_a_lead") return end("not_a_lead");
     if (opening === "unable") decision = handOverInstead(decision, "no_open_lead", "lead:unable");
     else {
       decision = { ...decision, stageTo: stageToOf(decision.move, "new") };
@@ -116,6 +118,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if (words !== null) {
     trace.write = { blocks: words.blocks, raw: words.written.raw };
     trace.checks.push(...writeChecks(words.written));
+    // A turn that skipped Understand names the messages Write read.
+    if (checked === null) trace.messageIds = words.messageIds;
   }
   const code = codeWordsOf(decision, situation, decision.facts.language, agencyName, prepared.today);
   const acting = actingOn(decision, code, words?.written ?? null);

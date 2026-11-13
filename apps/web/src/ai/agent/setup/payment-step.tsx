@@ -1,6 +1,6 @@
 "use client";
 
-// Setup step "Payment details": the UPI ID, the bank account and the QR the agent quotes with an advance. Money, so only
+// Setup step "Payment QR": the QR the agent needs to ask for an advance, and the optional UPI ID and bank account it sends with it. Money, so only
 // whoever manages settings sees the editor (the api checks); it needs the business profile saved first.
 import {
   savePaymentDetailsInput,
@@ -24,11 +24,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { packageFileLimit, packageFileProblem } from "@/packages/package-file-check";
 import { formatFileSize } from "@/files/file-size";
 import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
+import { paymentQrLimit, paymentQrProblem } from "./payment-qr-check";
 import { usePaymentDetails, usePaymentDetailsChanges } from "./use-setup-steps";
 
 const QR_TYPES = "image/jpeg,image/png,image/webp";
@@ -115,10 +115,8 @@ function QrPicker({ details }: { details: PaymentDetails }) {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file === undefined) return;
-          const wrong = packageFileProblem("payment_qr", file);
-          setProblem(
-            wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(packageFileLimit.payment_qr) }),
-          );
+          const wrong = paymentQrProblem(file);
+          setProblem(wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(paymentQrLimit) }));
           if (wrong === null) addQr.mutate(file);
         }}
       />
@@ -233,8 +231,11 @@ export function PaymentStepEditor() {
   }
   return (
     <div className="flex flex-col gap-6">
-      <PaymentForm key={JSON.stringify(valuesOf(details.data))} details={details.data} />
       <QrPicker details={details.data} />
+      <div className="flex flex-col gap-3">
+        <h4 className="font-medium">{t("extras")}</h4>
+        <PaymentForm key={JSON.stringify(valuesOf(details.data))} details={details.data} />
+      </div>
     </div>
   );
 }

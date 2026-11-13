@@ -10,6 +10,7 @@ import {
   saveAgentBasics,
   setAgentOn,
 } from "../../src/ai/index.js";
+import { addPaymentQr, removePaymentQrs } from "./support/payment-qr.js";
 import { storeAutopilot } from "./support/store-autopilot.js";
 import { parseCalendarDate } from "../../src/kernel/index.js";
 import { aLead, aPerson } from "../crm/support/records.js";
@@ -46,14 +47,7 @@ describe("the AI agent's setup", () => {
   }
   type World = Awaited<ReturnType<typeof agency>>;
 
-  const paymentDetails = (on: World) =>
-    on.inOrg((tx) =>
-      tx.organizationProfile.upsert({
-        where: { organizationId: on.organizationId },
-        create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
-        update: { upiId: "sharma@okbank" },
-      }),
-    );
+  const paymentDetails = (on: World) => on.inOrg((tx) => addPaymentQr(tx, on.organizationId));
 
   async function aSellablePackage(on: World) {
     await paymentDetails(on);
@@ -129,16 +123,22 @@ describe("the AI agent's setup", () => {
   it("packages says how many are held back only by the missing payment details", async () => {
     const on = await agency();
     await aSellablePackage(on);
-    await on.inOrg((tx) =>
-      tx.organizationProfile.update({ where: { organizationId: on.organizationId }, data: { upiId: null } }),
-    );
+    await on.inOrg((tx) => removePaymentQrs(tx, on.organizationId));
     expect(await on.step("packages")).toMatchObject({ done: false, count: 0, total: 1 });
     await paymentDetails(on);
     expect(await on.step("packages")).toMatchObject({ done: true, count: 1, total: 0 });
   });
 
-  it("payment is done when the agency has somewhere to be paid", async () => {
+  it("payment is done only with the payment QR: a UPI ID alone is not enough", async () => {
     const on = await agency();
+    expect((await on.step("payment"))?.done).toBe(false);
+    await on.inOrg((tx) =>
+      tx.organizationProfile.upsert({
+        where: { organizationId: on.organizationId },
+        create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+        update: { upiId: "sharma@okbank" },
+      }),
+    );
     expect((await on.step("payment"))?.done).toBe(false);
     await paymentDetails(on);
     expect((await on.step("payment"))?.done).toBe(true);
@@ -193,6 +193,22 @@ describe("the AI agent's setup", () => {
     await expect(on.inOrg((tx) => setAgentOn(tx, on.owner, false, today))).resolves.toMatchObject({ on: false });
     const actions = (await on.inOrg((tx) => tx.auditEntry.findMany({ orderBy: { id: "asc" } }))).map((e) => e.action);
     expect(actions).toEqual(expect.arrayContaining(["ai-agent.turned-on", "ai-agent.turned-off"]));
+  });
+
+  it("turning on is refused with only a UPI ID: the payment QR is missing", async () => {
+    const on = await agency();
+    await everythingDone(on);
+    await on.inOrg((tx) => removePaymentQrs(tx, on.organizationId));
+    await on.inOrg((tx) =>
+      tx.organizationProfile.upsert({
+        where: { organizationId: on.organizationId },
+        create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
+        update: { upiId: "sharma@okbank" },
+      }),
+    );
+    await expect(on.inOrg((tx) => setAgentOn(tx, on.owner, true, today))).rejects.toMatchObject({
+      reason: "AGENT_SETUP_INCOMPLETE",
+    });
   });
 
   it("turning on leaves every other autopilot column as it was", async () => {

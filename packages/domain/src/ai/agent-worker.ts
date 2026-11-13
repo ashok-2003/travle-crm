@@ -180,10 +180,16 @@ export function aiReplyHandlers(dependencies: AgentDependencies & { logger: Logg
 /**
  * One agency's follow-ups now due: the time the agent planned has come, the customer is still quiet, the window is
  * open. Each is claimed (its time cleared) before its turn, so a turn that writes nothing never comes round again, and
- * one whose window has nearly closed is let go. Two per silence at most: the second follows the first.
+ * one whose window has nearly closed is let go. Two per silence at most: the second follows the first. The clock is read
+ * for the claim and again for each turn: the agencies before this one, and each turn here, take seconds each.
  */
-async function nudgeAgency(dependencies: AgentDependencies, organizationId: string, now: Date): Promise<number> {
+async function nudgeAgency(
+  dependencies: AgentDependencies,
+  organizationId: string,
+  clock: () => Date,
+): Promise<number> {
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(organizationId))) return 0;
+  const now = clock();
   const due = await dependencies.db.forOrg(organizationId, async (tx) => {
     if (!(await aiEnabled(tx))) return [];
     // Paused: a follow-up that came due is let go, never kept for later: staff may have handled the chat meanwhile, and
@@ -229,16 +235,25 @@ async function nudgeAgency(dependencies: AgentDependencies, organizationId: stri
   for (const chat of due) {
     // The silence's last customer line names the follow-up, so a retried one sends nothing twice; the second adds ":2".
     const token = `nudge:${chat.id}:${String(chat.lastInboundAt?.getTime())}${chat.second ? ":2" : ""}`;
-    await runAgentTurn(dependencies, { organizationId, conversationId: chat.id, kind: "nudge", token }, now);
+    // The turn reads the clock again before it acts: waking hours and the window hold when it sends, not when it began.
+    await runAgentTurn(
+      { ...dependencies, clock },
+      { organizationId, conversationId: chat.id, kind: "nudge", token },
+      clock(),
+    );
   }
   return due.length;
 }
 
 /**
  * Each minute, every agency with a WhatsApp number: its quiet customers' nudges that came due. One agency failing never
- * stops the rest.
+ * stops the rest. `clock` is read at each step, never once for the run: an agency late in the list is reached minutes
+ * after the job began.
  */
-export async function runAiNudges(dependencies: AgentDependencies & { logger: Logger }, now: Date): Promise<number> {
+export async function runAiNudges(
+  dependencies: AgentDependencies & { logger: Logger },
+  clock: () => Date,
+): Promise<number> {
   if (!dependencies.ai.configured) return 0;
   let done = 0;
   let after: string | undefined;
@@ -246,7 +261,7 @@ export async function runAiNudges(dependencies: AgentDependencies & { logger: Lo
     const page = await routesPage(dependencies.db, { after, limit: 100 });
     for (const organizationId of new Set(page.map((route) => route.organizationId))) {
       try {
-        done += await nudgeAgency(dependencies, organizationId, now);
+        done += await nudgeAgency(dependencies, organizationId, clock);
       } catch (error) {
         dependencies.logger.error(
           { queue: AI_NUDGES_QUEUE, error: error instanceof Error ? error.name : "unknown" },

@@ -211,6 +211,12 @@ describe("the console's AI turn traces", () => {
     expect(next.nextCursor).toBeNull();
   });
 
+  it("an agency's list, newest first, has an index in its own order", async () => {
+    const [index] = await platform.$queryRaw<{ indexdef: string }[]>`
+      SELECT indexdef FROM pg_indexes WHERE indexname = 'ai_turn_trace_list'`;
+    expect(index?.indexdef).toContain("(organization_id, started_at DESC, id DESC)");
+  });
+
   it("a trace past 14 days is neither listed nor opened", async () => {
     const { organizationId, a } = await agency();
     const old = await aTurn(organizationId, a, 15 * 24);

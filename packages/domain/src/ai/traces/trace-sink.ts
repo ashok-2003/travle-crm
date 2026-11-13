@@ -54,7 +54,13 @@ export function createTraceSink(deps: {
 
 type Transaction = Parameters<Parameters<Database["forOrg"]>[1]>[0];
 
-function insertRow(tx: Transaction, trace: LiteTrace, fileKey: string) {
+async function insertRow(tx: Transaction, trace: LiteTrace, fileKey: string) {
+  // A turn that ran while its customer was erased is due at once: the hour's sweep takes it, not one 14 days on.
+  const chat = await tx.whatsappConversation.findUnique({
+    where: { id: trace.conversationId },
+    select: { state: true },
+  });
+  const keptMs = chat?.state === "erased" ? 0 : TRACE_DAYS * DAY_MS;
   return tx.aiTurnTrace.create({
     data: {
       id: trace.id,
@@ -72,14 +78,15 @@ function insertRow(tx: Transaction, trace: LiteTrace, fileKey: string) {
       durationMs: trace.durationMs,
       promptVersions: trace.promptVersions,
       fileKey,
-      expiresAt: new Date(trace.startedAt.getTime() + TRACE_DAYS * DAY_MS),
+      expiresAt: new Date(trace.startedAt.getTime() + keptMs),
     },
   });
 }
 
 /**
- * The traces past their time, oldest first, whatever their organization (run on the platform's transaction), without
- * those already `visited` this run (a row whose file would not delete stays, and must not be listed forever).
+ * The traces past their time, and every one of an erased chat however late it was written, oldest first, whatever their
+ * organization (run on the platform's transaction), without those already `visited` this run (a row whose file would
+ * not delete stays, and must not be listed forever).
  */
 export function tracesDue(
   tx: OrgTx,
@@ -88,7 +95,10 @@ export function tracesDue(
   visited: readonly string[] = [],
 ): Promise<{ id: string; organizationId: string; fileKey: string }[]> {
   return tx.aiTurnTrace.findMany({
-    where: { expiresAt: { lte: now }, id: { notIn: [...visited] } },
+    where: {
+      OR: [{ expiresAt: { lte: now } }, { conversation: { state: "erased" } }],
+      id: { notIn: [...visited] },
+    },
     orderBy: { expiresAt: "asc" },
     take: limit,
     select: { id: true, organizationId: true, fileKey: true },
