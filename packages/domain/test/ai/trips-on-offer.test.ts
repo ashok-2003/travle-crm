@@ -1,5 +1,6 @@
 // The trips the agency sells, as the plain lines the other prompts carry: names, place, nights and start city, no price.
 // And the free text an agency typed before the move (instructions, knowledge) reaches Suggest reply and the score no more.
+import { AGENCY_PAYMENT_QR_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { scoreLead, suggestReply } from "../../src/ai/index.js";
@@ -14,7 +15,7 @@ describe("the trips on offer", () => {
   });
   afterAll(() => test.close());
 
-  it("lists only the packages the AI may sell, without a price", async () => {
+  it("lists only the packages switched on for the AI to sell, without a price", async () => {
     const on = await liteAgency(test);
     // A second, complete package whose "AI can sell" switch is off: the only difference from the first.
     await on.inOrg((tx) =>
@@ -32,10 +33,23 @@ describe("the trips on offer", () => {
         },
       }),
     );
-    const lines = await on.inOrg((tx) => tripsOnOffer(tx, on.organizationId, liteToday));
+    const lines = await on.inOrg((tx) => tripsOnOffer(tx, liteToday));
     expect(lines).toEqual(["- Kedarnath Yatra 4N · Kedarnath · 4 nights · from Delhi"]);
     await on.inOrg((tx) => tx.quoteTemplate.updateMany({ data: { aiSellable: false } }));
-    expect(await on.inOrg((tx) => tripsOnOffer(tx, on.organizationId, liteToday))).toEqual([]);
+    expect(await on.inOrg((tx) => tripsOnOffer(tx, liteToday))).toEqual([]);
+  });
+
+  it("an agency without a payment QR still lists its trips: these prompts quote no money", async () => {
+    const on = await liteAgency(test);
+    await on.inOrg((tx) =>
+      tx.attachment.updateMany({
+        where: { recordType: AGENCY_PAYMENT_QR_RECORD_TYPE },
+        data: { deletedAt: new Date() },
+      }),
+    );
+    expect(await on.inOrg((tx) => tripsOnOffer(tx, liteToday))).toEqual([
+      "- Kedarnath Yatra 4N · Kedarnath · 4 nights · from Delhi",
+    ]);
   });
 
   /** The old free text written straight into the tables, as an agency left it before the move. */

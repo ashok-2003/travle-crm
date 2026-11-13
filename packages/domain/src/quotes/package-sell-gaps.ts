@@ -148,6 +148,23 @@ export async function sellablePackages(
 }
 
 /**
+ * The packages the AI could sell today but for the agency's payment QR: switched on, with nothing of their own missing.
+ * For the prompts that name the agency's trips and quote no money (Suggest reply, the score): an agency still setting
+ * up its payment has trips all the same.
+ */
+export async function packagesOnOffer(tx: OrgTx, today: CalendarDate): Promise<{ id: string; kind: string }[]> {
+  const switchedOn = await tx.quoteTemplate.findMany({
+    where: { aiSellable: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: sellColumns,
+  });
+  if (switchedOn.length === 0) return [];
+  return (await gapsOfRows(tx, switchedOn, today, true))
+    .filter((one) => one.gaps.length === 0)
+    .map(({ row }) => ({ id: row.id, kind: row.kind }));
+}
+
+/**
  * How many group packages are switched on and would be sellable but for the agency's missing payment details: what the
  * setup checklist's "packages" line needs to say "add payment details" instead of "mark a package". 0 once they exist.
  */

@@ -86,7 +86,7 @@ async function prepare(
   const quickReplies = await listQuickReplies(tx);
   const tripKits = await tripKitWords(tx);
   const lead = await leadFacts(tx, access, chat.personId);
-  const trips = await tripsOnOffer(tx, access.organizationId, calendarDateIn(context.now, timeZone));
+  const trips = await tripsOnOffer(tx, calendarDateIn(context.now, timeZone));
   const firstName = chat.person?.name.split(/\s+/)[0] ?? null;
   return {
     timeZone,

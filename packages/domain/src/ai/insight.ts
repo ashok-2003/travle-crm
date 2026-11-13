@@ -303,7 +303,7 @@ async function prepare(
     take: CHAT_MESSAGES,
     select: { direction: true, body: true, caption: true },
   });
-  const trips = await tripsOnOffer(tx, job.organizationId, calendarDateIn(now, timeZone));
+  const trips = await tripsOnOffer(tx, calendarDateIn(now, timeZone));
   return {
     leadId: lead.id,
     timeZone,

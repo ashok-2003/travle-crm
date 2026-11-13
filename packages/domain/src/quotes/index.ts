@@ -38,6 +38,7 @@ export {
   departurePriceColumn,
   packageSellGaps,
   packagesAwaitingPayment,
+  packagesOnOffer,
   sellablePackage,
   sellablePackages,
 } from "./package-sell-gaps.js";
