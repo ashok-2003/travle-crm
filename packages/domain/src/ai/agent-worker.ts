@@ -4,13 +4,15 @@
 // subscription allows it.
 import { aiChatResumedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
 import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
+import type { OrgTx } from "@travel-crm/db";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
 import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
-import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
+import { agentReachOf, answersInChat } from "./agent-reach.js";
+import { runAgentTurn, type AgentDependencies } from "./agent.js";
 import { WINDOW_MARGIN_MS } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
 import { AI_CHAT_RESUMED_EVENT } from "./chat-state.js";
@@ -38,6 +40,26 @@ const DRAINED_AT_ONCE = 1;
 const LITE_LATE_MS = 5 * 60_000;
 const NUDGES_PER_AGENCY = 20;
 
+/**
+ * Whether a chat's turn is worth queueing, and whether the inbox may say the AI has the message (agent-reach.ts's rule).
+ * An agent switched on with its setup unfinished still gets its turn, which writes nothing and tells the owner
+ * (not-ready-notice.ts), but nothing says the AI has the message. Read inside the chat's organization, after the AI
+ * module and the pause.
+ */
+async function turnFor(
+  tx: OrgTx,
+  organizationId: string,
+  conversationId: string,
+): Promise<{ queue: boolean; mark: boolean }> {
+  const now = new Date();
+  const reach = await agentReachOf(tx, organizationId, now);
+  if (reach === "off") return { queue: false, mark: false };
+  const state = await tx.aiChat.findFirst({ where: { conversationId }, select: { mode: true, handedOffAt: true } });
+  // A person answering keeps the AI waiting: no "typing" for a turn that writes nothing.
+  const takes = answersInChat("ready", state) && (await personAnsweringUntil(tx, conversationId, now)) === null;
+  return { queue: takes, mark: takes && answersInChat(reach, state) };
+}
+
 /** A customer wrote: for an agency whose AI answers this chat, the AI's turn is queued, once per message. */
 export function aiCustomerWroteListener(dependencies: {
   queue: JobQueue;
@@ -54,25 +76,16 @@ export function aiCustomerWroteListener(dependencies: {
       const wanted = await context.forOrg(async (tx) => {
         if (!(await aiEnabled(tx))) return null;
         if ((await agentPauseOf(tx, event.organizationId)) !== null) return null;
-        const settings = await autopilotOf(tx);
-        const state = await tx.aiChat.findFirst({
-          where: { conversationId },
-          select: { mode: true, handedOffAt: true },
-        });
-        // A person answering keeps the AI waiting: no "typing" for a turn that writes nothing.
-        const answers =
-          agentAnswers(state?.mode, settings.autopilot) &&
-          state?.handedOffAt == null &&
-          (await personAnsweringUntil(tx, conversationId, new Date())) === null;
+        const turn = await turnFor(tx, event.organizationId, conversationId);
         // The inbox says at once that the AI has the message, before it waits for the customer's next line.
-        if (answers) {
+        if (turn.mark) {
           await tx.aiChat.upsert({
             where: { organizationId_conversationId: { organizationId: event.organizationId, conversationId } },
             create: { conversationId, turnState: "queued", turnAt: new Date() },
             update: { turnState: "queued", turnAt: new Date() },
           });
         }
-        return answers;
+        return turn.queue;
       });
       if (!wanted) return;
       await dependencies.queue.send(
@@ -101,6 +114,7 @@ export function aiChatResumedListener(dependencies: {
       const { conversationId } = event.payload;
       if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(event.organizationId))) return;
       const newest = await context.forOrg(async (tx) => {
+        if (!(await aiEnabled(tx))) return null;
         if ((await agentPauseOf(tx, event.organizationId)) !== null) return null;
         const message = await tx.whatsappMessage.findFirst({
           where: { conversationId, direction: "in" },
@@ -108,8 +122,13 @@ export function aiChatResumedListener(dependencies: {
           select: { id: true },
         });
         if (message === null) return null;
-        await tx.aiChat.updateMany({ where: { conversationId }, data: { turnState: "queued", turnAt: new Date() } });
-        return { id: message.id };
+        // The same rule as a customer's message: being given back set resumedAt, so the team's earlier lines no longer
+        // keep it waiting.
+        const turn = await turnFor(tx, event.organizationId, conversationId);
+        if (turn.mark) {
+          await tx.aiChat.updateMany({ where: { conversationId }, data: { turnState: "queued", turnAt: new Date() } });
+        }
+        return turn.queue ? { id: message.id } : null;
       });
       if (newest === null) return;
       await dependencies.queue.send(AI_REPLY_QUEUE, {

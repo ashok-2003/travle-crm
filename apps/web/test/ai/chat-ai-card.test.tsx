@@ -1,4 +1,5 @@
 // The inbox's AI card shows the lite agent's notes on the customer under "What the AI noted", and nothing when it has none.
+// It never says the AI answers a chat while the agency's agent is off or its setup unfinished, whatever the chat's mode.
 import type { ChatAi } from "@travel-crm/contracts/ai";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -7,10 +8,12 @@ import { messages } from "@/i18n/messages";
 import { paidSubscription } from "../organization/api";
 import { renderScreen } from "../leads/screen";
 import { stubApi } from "../support/api-stub";
+import { member } from "../support/members";
 
 const chat: ChatAi = {
   mode: "default",
   answering: true,
+  agent: "ready",
   handedOff: false,
   handoffReason: null,
   summary: "",
@@ -23,10 +26,14 @@ const chat: ChatAi = {
   available: true,
 };
 
-function show(state: Partial<ChatAi>) {
+/** Someone who answers chats but doesn't manage the AI. */
+const replier = member({ permissions: ["ai:suggest", "inbox:view", "inbox:reply"] });
+
+function show(state: Partial<ChatAi>, me?: typeof replier) {
   stubApi({ "ai.chatAi": { data: { ...chat, ...state } } });
   renderScreen(<ChatAiCard conversationId="chat-1" />, {
     subscription: { ...paidSubscription, modules: ["crm", "inbox", "ai"] as never },
+    ...(me === undefined ? {} : { me }),
   });
 }
 
@@ -72,5 +79,21 @@ describe("ChatAiCard, what the AI noted", () => {
     expect(screen.queryByText("Wants to book")).not.toBeInTheDocument();
     expect(screen.queryByText(/Waiting for dates/)).not.toBeInTheDocument();
     expect(screen.queryByText(/10:00|3:30/)).not.toBeInTheDocument();
+  });
+});
+
+describe("ChatAiCard, an agency whose agent can't answer", () => {
+  it("says the agent is off in a chat set On, with the way to the AI agent page", async () => {
+    show({ mode: "on", answering: false, agent: "off" });
+    expect(await screen.findByText(messages.ai.chat.agentOff)).toBeVisible();
+    expect(screen.queryByText(messages.ai.chat.answering)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: messages.ai.chat.agentLink })).toHaveAttribute("href", "/ai-agent");
+  });
+
+  it("says the agent isn't set up yet, with no link for someone who doesn't manage it", async () => {
+    show({ mode: "on", answering: false, agent: "not_ready" }, replier);
+    expect(await screen.findByText(messages.ai.chat.agentNotReady)).toBeVisible();
+    expect(screen.queryByText(messages.ai.chat.answering)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: messages.ai.chat.agentLink })).not.toBeInTheDocument();
   });
 });

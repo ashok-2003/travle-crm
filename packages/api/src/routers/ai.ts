@@ -375,16 +375,19 @@ export const aiRouter = router({
     .output(chatAi)
     .query(async ({ ctx, input }) => {
       const allowed = aiAllowed(ctx.entitlements);
-      return ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
-        chatAiOf(
-          tx,
-          input.conversationId,
+      const { organizationId } = ctx.member;
+      return ctx.db.forOrg(organizationId, async (tx) =>
+        chatAiOf(tx, {
+          organizationId,
+          conversationId: input.conversationId,
           // A pause by platform staff stops the answering too, read fresh (not from the access cache).
-          ctx.ai?.configured === true &&
+          available:
+            ctx.ai?.configured === true &&
             allowed &&
             (await aiEnabled(tx)) &&
-            (await agentPauseOf(tx, ctx.member.organizationId)) === null,
-        ),
+            (await agentPauseOf(tx, organizationId)) === null,
+          now: new Date(),
+        }),
       );
     }),
 

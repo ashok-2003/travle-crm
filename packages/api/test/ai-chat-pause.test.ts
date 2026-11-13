@@ -1,5 +1,6 @@
-// ai.chatAi on the real router: a chat the AI answers stops saying so while platform staff have the agent paused for the
-// agency, read fresh from the database, and says so again after the resume.
+// ai.chatAi on the real router: the AI shows in a chat only while platform staff have not paused the agent for the
+// agency, read fresh from the database, and shows again after the resume. A chat set "On" is not answered while the
+// agency's own agent is off: the router hands the domain what it needs to say so.
 import { saveAiSettings } from "@travel-crm/domain/ai";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -18,7 +19,7 @@ describe("ai.chatAi while the agent is paused", () => {
   });
   afterAll(() => harness.close());
 
-  it("answers false while the agency's agent is paused, and true again after the resume", async () => {
+  it("hides the AI while the agency's agent is paused, and shows it again after the resume", async () => {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const { caller, member } = callerOf(harness, { organizationId, context: { ai: model } });
     const conversationId = await harness.db.forOrg(organizationId, async (tx) => {
@@ -38,7 +39,13 @@ describe("ai.chatAi while the agent is paused", () => {
       await tx.aiChat.create({ data: { conversationId: chat.id, mode: "on" } });
       return chat.id;
     });
-    expect((await caller.ai.chatAi({ conversationId })).answering).toBe(true);
+    // Its agent is still off: a chat set On says so, and that it answers nothing.
+    expect(await caller.ai.chatAi({ conversationId })).toMatchObject({
+      available: true,
+      mode: "on",
+      agent: "off",
+      answering: false,
+    });
     const pause = (paused: boolean) =>
       harness.platform.subscription.update({
         where: { organizationId },
@@ -47,8 +54,8 @@ describe("ai.chatAi while the agent is paused", () => {
           : { aiAgentPausedAt: null, aiAgentPausedBy: null },
       });
     await pause(true);
-    expect((await caller.ai.chatAi({ conversationId })).answering).toBe(false);
+    expect((await caller.ai.chatAi({ conversationId })).available).toBe(false);
     await pause(false);
-    expect((await caller.ai.chatAi({ conversationId })).answering).toBe(true);
+    expect((await caller.ai.chatAi({ conversationId })).available).toBe(true);
   });
 });

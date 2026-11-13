@@ -1,6 +1,6 @@
-// The AI's autopilot (AI step 2; the owner's decisions of 2026-10-28): the one WhatsApp agent answers chats by itself.
-// Off until an Owner or Admin turns it on; every message it sends is marked as the AI's in the chat and audited. This
-// file holds a chat's state as the inbox shows it, the events and job of its turns, Try it, and the day's overview.
+// The WhatsApp AI agent (the one lite agent): it answers chats by itself once an Owner or Admin finishes its setup and
+// turns it on; every message it sends is marked as the AI's in the chat and audited. This file holds a chat's state as
+// the inbox shows it, the events and job of its turns, Try it, and the day's overview.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 
@@ -8,14 +8,21 @@ const text = (max: number) => z.string().trim().max(max);
 
 export const aiChatModes = ["default", "on", "off"] as const;
 export const aiChatMode = z.enum(aiChatModes);
+/** The agency's agent: answering ("ready"), its switch off ("off"), or switched on with its setup unfinished ("not_ready"). */
+export const agentReaches = ["ready", "off", "not_ready"] as const;
 export const conversationAiInput = z.strictObject({ conversationId: recordId });
 export const setChatAiInput = z.strictObject({ conversationId: recordId, mode: aiChatMode });
 
 /** A chat as the inbox shows the AI in it. */
 export const chatAi = z.object({
   mode: aiChatMode,
-  /** Whether the AI answers in this chat now: the mode, else the agency's autopilot. */
+  /**
+   * Whether the AI answers in this chat now: the agency's agent is on with its setup finished, the chat isn't switched
+   * off, and nobody took it over. A chat set "On" adds nothing to an agent that is off.
+   */
   answering: z.boolean(),
+  /** The agency's agent, whatever this chat's mode: "off" or "not_ready" say why it answers no chat. */
+  agent: z.enum(agentReaches),
   handedOff: z.boolean(),
   handoffReason: z.string().nullable(),
   /** The lite agent's notes on the customer, shown as "What the AI noted"; empty when it has none. */

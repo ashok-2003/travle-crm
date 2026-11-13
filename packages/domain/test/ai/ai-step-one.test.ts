@@ -191,9 +191,12 @@ describe("the AI, step one", () => {
     });
 
     it("is what the chat's AI state carries", async () => {
-      const { inOrg, chat } = await scoredLead();
+      const { inOrg, chat, organizationId } = await scoredLead();
       await inOrg((tx) => tx.aiChat.create({ data: { conversationId: chat.id, summary: "Likes quiet places." } }));
-      expect((await inOrg((tx) => chatAiOf(tx, chat.id, true))).summary).toBe("Likes quiet places.");
+      const state = await inOrg((tx) =>
+        chatAiOf(tx, { organizationId, conversationId: chat.id, available: true, now: testNow }),
+      );
+      expect(state.summary).toBe("Likes quiet places.");
     });
   });
 

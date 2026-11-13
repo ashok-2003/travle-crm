@@ -193,8 +193,9 @@ describe("chats in flight at the move", () => {
     expect(outcomesOf(on)).toEqual(["not_ready"]);
     expect(await outbound(on)).toHaveLength(0);
     expect(on.model.requests).toHaveLength(0);
-    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow());
-    expect(chat.turnState).toBeNull();
+    // Nothing ever said the AI had the message: no "queued" mark, then no "thinking" one left behind.
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirst());
+    expect(chat?.turnState ?? null).toBeNull();
     const setup = await on.inOrg((tx) => agentSetupOf(tx, on.organizationId, liteToday));
     expect(setup).toMatchObject({ on: true, ready: false });
     expect(setup.steps.find((step) => step.key === "payment")?.done).toBe(false);

@@ -3,16 +3,19 @@
 // Who writes next in a chat, said plainly (the AI sales agent): at the foot of the messages, the agent's "typing" bubble
 // while it reads the customer's message and writes its answer; over the reply box, a line that says whether the AI or
 // a person has this chat (and what the AI flagged for the team, and its next planned follow-up), with the one button
-// that changes it (Take over, Let the AI answer). When the agent's turn ends, the chat loads again at once, so its
-// answer shows without waiting for the next refresh.
-import { BotIcon, CalendarClockIcon, HandIcon, PauseCircleIcon } from "lucide-react";
+// that changes it (Take over, Let the AI answer). An agency whose agent is off, or not set up, gets that said instead,
+// never a button that would hand the chat to an AI that answers nothing. When the agent's turn ends, the chat loads
+// again at once, so its answer shows without waiting for the next refresh.
+import { BotIcon, BotOffIcon, CalendarClockIcon, HandIcon, PauseCircleIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { useRefreshInbox } from "@/inbox/use-inbox";
 import { formatDayTime, formatTime } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -76,8 +79,28 @@ export function AiReplyBar({ conversationId }: { conversationId: string }) {
   const resume = useResumeChatAi(conversationId);
   const access = useWriteAccess("change");
   const mayReply = useHolds("inbox:reply");
+  const mayManage = useHolds("ai:manage");
   const { timeZone } = useMe().organization;
   if (ai?.available !== true) return null;
+  if (ai.agent !== "ready") {
+    return (
+      <Item variant="muted" size="sm">
+        <ItemMedia variant="icon">
+          <BotOffIcon aria-hidden="true" />
+        </ItemMedia>
+        <ItemContent>
+          <ItemDescription className="line-clamp-2">
+            {t(ai.agent === "off" ? "agentOff" : "agentNotReady")}
+          </ItemDescription>
+        </ItemContent>
+        {mayManage && (
+          <ItemActions>
+            <TextLink href={routes.aiAgent}>{t("agentLink")}</TextLink>
+          </ItemActions>
+        )}
+      </Item>
+    );
+  }
   const name = aiFirstName(ai.agentName) ?? t("theAi");
   const busy = setMode.isPending || resume.isPending || !access.allowed || !mayReply;
   const button = (label: string, onClick: () => void) => (
