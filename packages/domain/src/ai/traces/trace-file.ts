@@ -1,16 +1,17 @@
 // The file of one lite turn's trace: its key in object storage, its gzip JSON, and reading it back.
 import { gunzipSync, gzipSync } from "node:zlib";
+import { storedTraceFile, type StoredTraceFile } from "@travel-crm/contracts/ai";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { LiteTrace } from "../lite/types.js";
 
 /** How long a trace is kept, row and file. */
 export const TRACE_DAYS = 14;
 
-/** Held as the first field so a later format can be told apart. */
-export interface TraceFile {
-  version: 1;
-  trace: Omit<LiteTrace, "organizationId">;
-}
+/**
+ * A stored trace as it is read back: `version` is held as the first field so a later format can be told apart, and a
+ * field the file lacks (one added to the trace after it was written) reads as null or empty.
+ */
+export type TraceFile = StoredTraceFile;
 
 /** organizations/<org>/ai-traces/<UTC day>/<id>.json.gz: under the organization's prefix, so its purge takes them too. */
 export function traceKey(organizationId: string, startedAt: Date, traceId: string): string {
@@ -30,11 +31,8 @@ export async function readTraceFile(storage: ObjectStorage, key: string): Promis
   const bytes = await storage.get(key);
   if (bytes === null) return null;
   try {
-    const parsed: unknown = JSON.parse(gunzipSync(bytes).toString("utf8"));
-    if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 1) return null;
-    if (!("trace" in parsed) || typeof parsed.trace !== "object" || parsed.trace === null) return null;
-    const trace = parsed.trace as TraceFile["trace"];
-    return { version: 1, trace: { ...trace, startedAt: new Date(trace.startedAt) } };
+    const parsed = storedTraceFile.safeParse(JSON.parse(gunzipSync(bytes).toString("utf8")));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
