@@ -20,8 +20,6 @@ import { personAnsweringUntil } from "./person-pause.js";
 import { aiEnabled } from "./settings.js";
 
 export const AI_REPLY_QUEUE = "ai.reply";
-/** Turns queued here before the earlier agents were removed: drained one at a time, running the same turn. */
-export const AI_LITE_REPLY_QUEUE = "ai.lite-reply";
 export const AI_NUDGES_QUEUE = "ai.nudges";
 /** How long the agent waits after a message for the next one: people send three short lines, not one. */
 const SETTLE_MS = 3_000;
@@ -30,8 +28,6 @@ const SETTLE_MS = 3_000;
  * each (turn-cost.test.ts counts them), out of the few the whole worker shares: three leave room for the rest.
  */
 const AT_ONCE = 3;
-/** The drained queue's pace. */
-const DRAINED_AT_ONCE = 1;
 /**
  * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
  * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.
@@ -140,15 +136,15 @@ export function aiChatResumedListener(dependencies: {
   });
 }
 
-/** The agent's turn for one message: only the chat's newest customer message is answered; an earlier one's job ends. */
-function replyHandler(
-  dependencies: AgentDependencies & { logger: Logger },
-  queue: string,
-  concurrency: number,
-): JobHandler {
+/**
+ * The agent's turn for one message, three chats at a time: only the chat's newest customer message is answered; an
+ * earlier one's job ends. A turn queued by the release before the move keeps this job's shape, so it runs as lite.
+ */
+export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logger }): JobHandler {
+  const queue = AI_REPLY_QUEUE;
   return {
     queue,
-    concurrency,
+    concurrency: AT_ONCE,
     handle: async (data) => {
       const job = aiReplyJob.parse(data);
       const newest = await dependencies.db.forOrg(job.organizationId, (tx) =>
@@ -168,7 +164,6 @@ function replyHandler(
         );
       await turn("thinking");
       try {
-        // Either queue runs the same turn: the drained one only holds what was queued before the move.
         const outcome = await runAgentTurn(
           dependencies,
           {
@@ -186,14 +181,6 @@ function replyHandler(
       }
     },
   };
-}
-
-/** The reply handlers: the turns, three at once, and the drained queue's, one at once. */
-export function aiReplyHandlers(dependencies: AgentDependencies & { logger: Logger }): JobHandler[] {
-  return [
-    replyHandler(dependencies, AI_REPLY_QUEUE, AT_ONCE),
-    replyHandler(dependencies, AI_LITE_REPLY_QUEUE, DRAINED_AT_ONCE),
-  ];
 }
 
 /**

@@ -2,7 +2,7 @@
 // customer's message queues on ai.reply, an AI follow-up task is the team's, and Try it is the lite dry run.
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { aiCustomerWroteListener, aiReplyHandlers, liteDryRun, type AgentDependencies } from "../../../src/ai/index.js";
+import { aiCustomerWroteListener, aiReplyHandler, liteDryRun, type AgentDependencies } from "../../../src/ai/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
 import { memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
@@ -36,19 +36,15 @@ describe("one agent", () => {
     expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
   });
 
-  it("a turn queued on either queue answers as lite", async () => {
+  it("a turn queued on ai.reply, the one queue, answers as lite", async () => {
     const on = await liteAgency(test);
-    const handlers: AgentDependencies & { logger: typeof on.logger } = dependenciesOf(on);
-    const queues = aiReplyHandlers(handlers).map((handler) => [handler.queue, handler.concurrency]);
-    expect(queues).toEqual([
-      ["ai.reply", 3],
-      ["ai.lite-reply", 1],
-    ]);
+    const dependencies: AgentDependencies & { logger: typeof on.logger } = dependenciesOf(on);
+    const handler = aiReplyHandler(dependencies);
+    expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 3]);
     on.model.answer(understood([["hello", "Hi"]]), written(greeting));
-    const lite = aiReplyHandlers(handlers).find((handler) => handler.queue === "ai.lite-reply");
     // The handler reads the clock itself; only Date is faked, so the database and timers run as they do.
     vi.useFakeTimers({ now: liteTurnAt, toFake: ["Date"] });
-    await lite?.handle({ organizationId: on.organizationId, conversationId: on.chat.id, messageId: on.message.id });
+    await handler.handle({ organizationId: on.organizationId, conversationId: on.chat.id, messageId: on.message.id });
     expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
     expect(await outbound(on)).toHaveLength(1);
   });

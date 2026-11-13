@@ -27,11 +27,10 @@ export { suggestReply } from "./suggest.js";
 export { MONTHLY_AI_LIMIT } from "./usage.js";
 export {
   AI_NUDGES_QUEUE,
-  AI_LITE_REPLY_QUEUE,
   AI_REPLY_QUEUE,
   aiChatResumedListener,
   aiCustomerWroteListener,
-  aiReplyHandlers,
+  aiReplyHandler,
   runAiNudges,
 } from "./agent-worker.js";
 export { AI_HANDOFF_KIND, AI_TOKEN_PREFIX, agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";

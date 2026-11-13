@@ -2,7 +2,7 @@
 // and booking read the trips on offer in a few batched queries, so an agency with ten packages pays what one with one does.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { aiChatResumedListener, aiCustomerWroteListener, aiReplyHandlers } from "../../../src/ai/index.js";
+import { aiChatResumedListener, aiCustomerWroteListener, aiReplyHandler } from "../../../src/ai/index.js";
 import { prepareLiteTurn } from "../../../src/ai/lite/prepare.js";
 import type { ListenerContext } from "../../../src/jobs/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
@@ -145,7 +145,7 @@ describe("what a lite turn costs the database", () => {
     expect({ one, ten }).toEqual({ one, ten: one });
   });
 
-  it("a lite agency's turns wait on a queue of their own, three at once", async () => {
+  it("a lite agency's turns wait on ai.reply, three at once", async () => {
     const on = await liteAgency(test);
     const before = test.queue.sent.length;
     const context: ListenerContext = { actor: systemActor(on.organizationId), forOrg: (work) => on.inOrg(work) };
@@ -164,11 +164,8 @@ describe("what a lite turn costs the database", () => {
       context,
     );
     expect(test.queue.sent.slice(before).map((job) => job.queue)).toEqual(["ai.reply", "ai.reply"]);
-    const handlers = aiReplyHandlers({ ...dependenciesOf(test, on), logger: on.logger });
-    expect(handlers.map((one) => [one.queue, one.concurrency])).toEqual([
-      ["ai.reply", 3],
-      ["ai.lite-reply", 1],
-    ]);
+    const handler = aiReplyHandler({ ...dependenciesOf(test, on), logger: on.logger });
+    expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 3]);
   });
 
   it("a booking turn costs the same with ten packages as with one", async () => {

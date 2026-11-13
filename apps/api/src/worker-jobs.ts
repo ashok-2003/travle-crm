@@ -90,7 +90,7 @@ import {
   aiCustomerWroteListener,
   aiPaymentProofListener,
   aiDocumentListener,
-  aiReplyHandlers,
+  aiReplyHandler,
   runAiNudges,
   scoreHandler,
   scoreOnCustomerWroteListener,
@@ -438,7 +438,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
             }),
           ]),
-      ...(ai === null ? [] : aiReplyHandlers({ ...autopilotJobs(ai), logger })),
+      ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         // A few at once: each takes seconds against a distant database, and a customer's burst of messages would wait in

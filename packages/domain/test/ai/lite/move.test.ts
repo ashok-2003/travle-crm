@@ -1,11 +1,12 @@
 // What a chat in flight holds at the move to the one lite agent, and what becomes of it: an earlier agent's facts and
 // memory (the lite turn starts from empty facts and the lead's fields), its open booking with no amount (a person's), a
-// turn queued on either queue (lite, or paused), a reply it already sent (never sent twice), and an agency whose setup
-// is unfinished (answers nothing). Nothing here deletes data: the earlier agents' memory stays, read by nothing.
+// turn the release before queued (paused while every agency is), a reply it already sent (never sent twice), and an
+// agency whose setup is unfinished (answers nothing). Nothing here deletes data: the earlier agents' memory stays, read
+// by nothing.
 import { randomUUID } from "node:crypto";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, afterEach, beforeAll, describe, expect, inject, it, vi } from "vitest";
-import { agentSetupOf, aiCustomerWroteListener, aiReplyHandlers } from "../../../src/ai/index.js";
+import { agentSetupOf, aiCustomerWroteListener, aiReplyHandler } from "../../../src/ai/index.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { readLiteFacts } from "../../../src/ai/lite/merge.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
@@ -38,10 +39,13 @@ describe("chats in flight at the move", () => {
     managers: () => Promise.resolve([]),
   });
   /** Runs a queued job as the worker would, with the clock where the turn expects it. */
-  async function runJob(on: Agency, queue: string, messageId: string, now = liteTurnAt) {
+  async function runJob(on: Agency, messageId: string, now = liteTurnAt) {
     vi.useFakeTimers({ now, toFake: ["Date"] });
-    const handler = aiReplyHandlers(dependenciesOf(on)).find((one) => one.queue === queue);
-    await handler?.handle({ organizationId: on.organizationId, conversationId: on.chat.id, messageId });
+    await aiReplyHandler(dependenciesOf(on)).handle({
+      organizationId: on.organizationId,
+      conversationId: on.chat.id,
+      messageId,
+    });
     vi.useRealTimers();
   }
   const outcomesOf = (on: Agency) =>
@@ -137,7 +141,7 @@ describe("chats in flight at the move", () => {
     const on = await liteAgency(test);
     on.model.answer(understood([["hello", "Hi"]]), written(greeting));
     await pauseAgency(on, true);
-    await runJob(on, "ai.lite-reply", on.message.id);
+    await runJob(on, on.message.id);
     expect(outcomesOf(on)).toEqual(["paused"]);
     expect(await outbound(on)).toHaveLength(0);
     expect(on.model.requests).toHaveLength(0);
@@ -160,7 +164,7 @@ describe("chats in flight at the move", () => {
       }),
     );
     on.model.answer(understood([["hello", "Hi"]]), written(greeting));
-    await runJob(on, "ai.lite-reply", on.message.id);
+    await runJob(on, on.message.id);
     expect(outcomesOf(on)).toEqual(["answered"]);
     expect(await outbound(on)).toHaveLength(1);
   });
@@ -189,7 +193,7 @@ describe("chats in flight at the move", () => {
       { actor: systemActor(on.organizationId), forOrg: (work) => on.inOrg(work) },
     );
     expect(test.queue.sent.slice(before).map((job) => job.queue)).toEqual(["ai.reply"]);
-    await runJob(on, "ai.reply", on.message.id);
+    await runJob(on, on.message.id);
     expect(outcomesOf(on)).toEqual(["not_ready"]);
     expect(await outbound(on)).toHaveLength(0);
     expect(on.model.requests).toHaveLength(0);
