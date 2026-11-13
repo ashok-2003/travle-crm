@@ -58,6 +58,22 @@ const SPELLED_SEATS = new RegExp(
   "giu",
 );
 
+/** The seat counts in words (English, Hindi or Hinglish) in the text, with their places. */
+export function spelledSeatsIn(text: string): Found[] {
+  return [...text.matchAll(SPELLED_SEATS)].map((match) => ({ start: match.index, end: match.index + match[0].length }));
+}
+
+const DIGIT_SEATS = new RegExp(`[0-9०-९]+\\s*${SEATS}`, "giu");
+
+/** Every seat count in the text, in digits (ASCII or Devanagari) or in words, with their places: the bench reads the same. */
+export function seatCountsIn(text: string): Found[] {
+  const digits = [...text.matchAll(DIGIT_SEATS)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
+  return [...digits, ...spelledSeatsIn(text)];
+}
+
 /** Whether this stretch of the text is one code filled (a blank's value), which the reply check never reads as typed. */
 const inFilled = (filled: Found[], start: number, end: number) =>
   filled.some((span) => start >= span.start && end <= span.end);
@@ -72,8 +88,8 @@ function typedFigure(text: string, filled: Found[]): string | null {
       return text.slice(Math.max(0, match.index - 20), match.index + 20);
     }
   }
-  for (const match of text.matchAll(SPELLED_SEATS)) {
-    if (!inFilled(filled, match.index, match.index + match[0].length)) return match[0];
+  for (const seats of spelledSeatsIn(text)) {
+    if (!inFilled(filled, seats.start, seats.end)) return text.slice(seats.start, seats.end);
   }
   return null;
 }

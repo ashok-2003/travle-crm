@@ -48,6 +48,8 @@ export type LiteActResult =
       sentIds: string[];
       /** The reply's words as sent (a fixed line, the money message, the composed reply); null when none went. */
       text: string | null;
+      /** The spans of `text` code wrote. */
+      filled: Found[];
       bookingId: string | null;
       handedOver: boolean;
       /** Codes of what changed: "lead:adults", "stage:quote_sent", "booking", "note:quoted"... */

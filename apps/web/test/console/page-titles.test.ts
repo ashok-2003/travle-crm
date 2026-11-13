@@ -38,6 +38,17 @@ describe("console page titles", { timeout: 20_000 }, () => {
     ["jobs", () => import("@/app/console/jobs/page"), messages.consolePlatform.jobs.title],
     ["failed emails", () => import("@/app/console/emails/page"), messages.consolePlatform.emails.title],
     ["a failed email", () => import("@/app/console/emails/[emailId]/page"), messages.consolePlatform.emails.title],
+    ["the AI prompts", () => import("@/app/console/ai-prompts/page"), messages.consoleAi.prompts.title],
+    [
+      "an organization's AI turns",
+      () => import("@/app/console/organizations/[organizationId]/ai-traces/page"),
+      messages.consoleAi.traces.title,
+    ],
+    [
+      "an AI turn",
+      () => import("@/app/console/organizations/[organizationId]/ai-traces/[traceId]/page"),
+      messages.consoleAi.trace.title,
+    ],
     ["the log", () => import("@/app/console/log/page"), messages.consolePlatform.log.title],
     ["staff", () => import("@/app/console/staff/page"), messages.consolePlatform.staff.title],
     [

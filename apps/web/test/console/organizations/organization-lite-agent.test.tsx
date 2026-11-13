@@ -77,4 +77,18 @@ describe("OrganizationLiteAgent", () => {
       expect(inputsTo("aiAgent.setLiteAgent")).toEqual([{ organizationId, lite: false }]);
     });
   });
+
+  it("leads a super admin to the AI's turns, and support not", async () => {
+    show(true);
+    expect(await screen.findByRole("link", { name: messages.consoleAi.traces.link })).toHaveAttribute(
+      "href",
+      `/console/organizations/${organizationId}/ai-traces`,
+    );
+  });
+
+  it("shows support no link to the AI's turns", async () => {
+    show(true, platformStaff("support"));
+    await screen.findByText(text.on);
+    expect(screen.queryByRole("link", { name: messages.consoleAi.traces.link })).toBeNull();
+  });
 });

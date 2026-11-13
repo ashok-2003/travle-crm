@@ -124,6 +124,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if ("ended" in acting) return end(acting.ended);
   const { move } = acting.decision;
   log.move = trace.move = move.kind;
+  trace.asked = move.kind === "ask_detail" ? move.item : "ask" in move ? move.ask : null;
   trace.stage = acting.decision.stage;
   trace.why = acting.decision.why;
   trace.note = acting.decision.note;
@@ -158,7 +159,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     return flag("blocked", result.refused);
   }
   trace.leadId = result.leadId;
-  trace.sent = { messageIds: result.sentIds, text: result.text };
+  trace.sent = { messageIds: result.sentIds, text: result.text, filled: result.filled };
   trace.actions.push(...result.actions);
   if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
   return end(move.kind === "silent" ? "silent" : "replied");

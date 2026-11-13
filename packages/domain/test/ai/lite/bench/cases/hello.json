@@ -1,0 +1,33 @@
+{
+  "name": "hello",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "hi"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "hello",
+            "proof": "hi"
+          }
+        ],
+        "language": "english"
+      }
+    },
+    {
+      "write": {
+        "text": "Hi! We run [package 1], from [from 1] a person. Which trip would you like?",
+        "cannot_answer": false
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "move": "greet",
+    "includes": ["Manali Escape"]
+  }
+}

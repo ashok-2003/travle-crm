@@ -67,7 +67,7 @@ export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput,
     return end("blocked", result.refused);
   }
   trace.leadId = result.leadId;
-  trace.sent = { messageIds: result.sentIds, text: result.text };
+  trace.sent = { messageIds: result.sentIds, text: result.text, filled: result.filled };
   trace.actions.push(...result.actions);
   return end("replied");
 }

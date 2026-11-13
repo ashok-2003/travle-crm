@@ -3,6 +3,7 @@ import type { Database } from "@travel-crm/db";
 import type {
   AgencyQuestionTopic,
   ChecklistItem,
+  HandOverReason,
   LiteFacts,
   LiteIntent,
   LookupTool,
@@ -18,6 +19,7 @@ import type { CalendarDate } from "../../kernel/index.js";
 import type { SubscriptionAccess } from "../../subscriptions/index.js";
 import type { TurnKind } from "../agent-prompt.js";
 import type { BookingRecipients } from "../booking.js";
+import type { Found } from "../grounded/phrase-match.js";
 
 export interface LiteDependencies {
   db: Database;
@@ -46,23 +48,7 @@ export type LiteOutcome = string;
 export type SaleStage =
   "exploring" | "package_picked" | "details_complete" | "quoted" | "waiting_for_payment" | "payment_to_check";
 
-export type HandOverReason =
-  | "discount"
-  | "custom_trip"
-  | "big_group"
-  | "complaint"
-  | "wants_person"
-  | "wants_call"
-  | "payment_problem"
-  | "has_booking"
-  | "image"
-  | "voice_note"
-  | "unanswered"
-  | "loop"
-  | "other_twice"
-  | "check_failed"
-  | "details_changed"
-  | "no_open_lead";
+export type { HandOverReason };
 
 export type FixedTextKey =
   | "price_from"
@@ -261,8 +247,15 @@ export interface LiteTrace {
   lookups: { request: LookupRequest; result: LookupResult }[];
   checks: { name: string; passed: boolean; detail: string | null }[];
   write: { blocks: Record<string, string>; raw: string[] } | null;
+  /** The item the move asked the customer for (the bench marks a question for what the chat already held). */
+  asked: ChecklistItem | null;
   /** The reply's words as they went out (a fixed line, the money message, the composed reply), and every message sent. */
-  sent: { messageIds: string[]; text: string | null };
+  sent: {
+    messageIds: string[];
+    text: string | null;
+    /** The spans of `text` that code wrote (amounts, dates, seats), which the model never typed. */
+    filled: Found[];
+  };
   /** Codes: "lead:adults", "stage:quote_sent", "booking"... */
   actions: string[];
 }

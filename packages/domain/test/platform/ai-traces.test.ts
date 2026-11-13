@@ -8,6 +8,8 @@ import { createMemoryJobAdministration, createMemoryJobQueue } from "@travel-crm
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { asOrganization } from "@travel-crm/db/platform";
+import { traceMessages } from "../../src/ai/index.js";
 import { withdrawAiParts } from "../../src/ai/erasure.js";
 import { startTrace } from "../../src/ai/lite/turn-trace.js";
 import { promptVersions } from "../../src/ai/lite/prompts/library.js";
@@ -337,5 +339,64 @@ describe("the console's AI turn traces", () => {
     await expect(openAiTrace(services, { userId: null }, { organizationId, traceId: trace.id }, NOW)).rejects.toThrow(
       RangeError,
     );
+  });
+
+  it("a message of another chat or a non-uuid id is never shown as sent, and every gone id is counted", async () => {
+    const { organizationId, a, b } = await agency();
+    const trace = await aTurn(organizationId, a, 1, {
+      messageIds: [a.messageIds[0] ?? ""],
+      sent: { messageIds: [a.messageIds[1] ?? "", b.messageIds[1] ?? "", "not-a-uuid"], text: "x", filled: [] },
+    });
+    const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
+    expect(detail.file?.sent.messages.map((message) => message.id)).toEqual([a.messageIds[1]]);
+    expect(detail.file?.messagesGone).toBe(2);
+  });
+
+  it("messages of a chat erased after the row was found are not read", async () => {
+    const { organizationId, a } = await agency();
+    const read = () =>
+      services.platformDb.transaction((tx) =>
+        asOrganization(tx, organizationId, (orgTx) => traceMessages(orgTx, a.chatId, a.messageIds)),
+      );
+    expect(await read()).toHaveLength(3);
+    await db.forOrg(organizationId, (tx) =>
+      tx.whatsappConversation.update({ where: { id: a.chatId }, data: { state: "erased" } }),
+    );
+    expect(await read()).toEqual([]);
+  });
+
+  it("a storage outage on the file gives the row and no file, and the opening is logged once", async () => {
+    const { organizationId, a } = await agency();
+    const trace = await aTurn(organizationId, a, 1);
+    const real = storage.get.bind(storage);
+    storage.get = () => Promise.reject(new TypeError("storage down"));
+    try {
+      const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
+      expect(detail).toMatchObject({ file: null, trace: { id: trace.id } });
+    } finally {
+      storage.get = real;
+    }
+    expect(await opened(organizationId)).toHaveLength(1);
+    expect(JSON.stringify(logger.entries)).not.toContain("Hi, kedarnath");
+  });
+
+  it("a cursor whose turn was swept is refused, and one only erased still pages", async () => {
+    const { organizationId, a, b } = await agency();
+    const made = [
+      await aTurn(organizationId, a, 1),
+      await aTurn(organizationId, a, 2),
+      await aTurn(organizationId, b, 3),
+    ];
+    const first = await listAiTraces(services, { organizationId, limit: 1 }, NOW);
+    expect(first.nextCursor).toBe(made[0]?.id);
+    await db.forOrg(organizationId, (tx) =>
+      tx.whatsappConversation.update({ where: { id: a.chatId }, data: { state: "erased" } }),
+    );
+    const rest = await listAiTraces(services, { organizationId, limit: 5, cursor: made[0]?.id ?? "" }, NOW);
+    expect(rest.traces.map((row) => row.id)).toEqual([made[2]?.id]);
+    await platform.aiTurnTrace.delete({ where: { id: made[0]?.id ?? "" } });
+    await expect(
+      listAiTraces(services, { organizationId, limit: 5, cursor: made[0]?.id ?? "" }, NOW),
+    ).rejects.toMatchObject({ code: "NOT_FOUND", reason: "AI_TRACE_CURSOR_GONE" });
   });
 });

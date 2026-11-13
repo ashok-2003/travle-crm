@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { withoutAmountsAndDates } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { inventedSpans } from "../../../src/ai/bench/rubric.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { promptVersions } from "../../../src/ai/lite/prompts/library.js";
 import { runLiteTurn } from "../../../src/ai/lite/turn.js";
@@ -421,6 +422,43 @@ describe("the lite agent's turn", () => {
     expect(traces[0]?.move).toBe("book");
     expect(traces[0]?.sent.text).toBe(reply?.body);
     expect(traces[0]?.sent.text).toContain(formatRupees(400_000));
+  });
+
+  it("the trace names what code wrote and what it asked", async () => {
+    const on = await liteAgency(test);
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, "price for kedarnath on 14 nov, 2 people, double?", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: {
+          package: { name: "Kedarnath Yatra 4N", proof: "price for kedarnath", changed: false },
+          date: { day: "2026-11-14", month: null, proof: "14 nov", changed: false },
+          adults: { count: 2, proof: "2 people", changed: false },
+          room: { type: "double", proof: "double", changed: false },
+        },
+      }),
+      written("Which city will you join us from?"),
+    );
+    const traces: LiteTrace[] = [];
+    const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+    await on.turn(at(60), { token, traces: sink });
+    const [trace] = traces;
+    expect(trace?.asked).toBe("pickup");
+    const text = trace?.sent.text ?? "";
+    const spans = (trace?.sent.filled ?? []).map((span) => text.slice(span.start, span.end));
+    expect(spans).toEqual(expect.arrayContaining([formatRupees(1_399_800), formatRupees(400_000)]));
+    expect(inventedSpans(text, trace?.sent.filled ?? [])).toEqual([]);
+
+    const handing = await liteAgency(test);
+    const discount = await says(handing, "thoda discount do na", 30);
+    handing.model.answer(understood([["discount", "discount do"]]));
+    const handed: LiteTrace[] = [];
+    await handing.turn(at(60), {
+      token: discount,
+      traces: { record: (one) => Promise.resolve(void handed.push(one)) },
+    });
+    expect(handed[0]?.asked).toBeNull();
+    expect(inventedSpans(handed[0]?.sent.text ?? "", handed[0]?.sent.filled ?? [])).toEqual([]);
   });
 
   it("an unfit answer is counted as a call, its tokens with it, as the trace counts them", async () => {

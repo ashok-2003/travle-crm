@@ -1,0 +1,50 @@
+{
+  "name": "price in hinglish",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "manali 14 nov 3 log triple kitna hoga"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "price_question",
+            "proof": "kitna hoga"
+          }
+        ],
+        "language": "hinglish",
+        "details": {
+          "package": {
+            "name": "Manali Escape",
+            "proof": "manali",
+            "changed": false
+          },
+          "date": {
+            "day": "2026-11-14",
+            "month": null,
+            "proof": "14 nov",
+            "changed": false
+          },
+          "adults": {
+            "count": 3,
+            "proof": "3 log",
+            "changed": false
+          },
+          "room": {
+            "type": "triple",
+            "proof": "triple",
+            "changed": false
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "move": "give_price",
+    "includes": ["₹17,997", "₹12,000"]
+  }
+}

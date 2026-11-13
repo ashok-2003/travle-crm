@@ -6,7 +6,25 @@
 import { createOpenRouterModel, OPENROUTER_BASE_URL, withBackupModel, type AiModel } from "@travel-crm/integrations/ai";
 import type { Environment } from "./environment.js";
 
-export function createAiModel(environment: Environment): AiModel | null {
+/** The settings that make the model: the bench reads just these, the processes the whole environment. */
+export type AiSettings = Pick<
+  Environment,
+  | "AI_API_KEY"
+  | "AI_BASE_URL"
+  | "AI_CHAT_MODELS"
+  | "AI_FAST_MODELS"
+  | "AI_ZERO_RETENTION"
+  | "AI_BACKUP_API_KEY"
+  | "AI_BACKUP_BASE_URL"
+  | "AI_BACKUP_CHAT_MODELS"
+  | "AI_BACKUP_FAST_MODELS"
+  | "OPENROUTER_API_KEY"
+  | "AI_SUGGEST_MODELS"
+  | "AI_SCORE_MODELS"
+  | "AI_TEST_SERVER_URL"
+>;
+
+export function createAiModel(environment: AiSettings): AiModel | null {
   if (environment.AI_API_KEY !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];
     const fast = environment.AI_FAST_MODELS ?? chat;

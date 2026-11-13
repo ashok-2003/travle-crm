@@ -8,8 +8,10 @@ import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { useConsoleTRPC } from "../../data/console-trpc";
+import { consoleRoutes } from "../../routes";
 import { isSuperAdmin, useStaff } from "../../session/staff-context";
 import { DetailSection } from "./detail-list";
 
@@ -21,6 +23,7 @@ export function OrganizationLiteAgent({
   organizationName: string;
 }) {
   const t = useTranslations("consoleWhatsapp");
+  const tAi = useTranslations("consoleAi");
   const trpc = useConsoleTRPC();
   const queryClient = useQueryClient();
   const mayChange = isSuperAdmin(useStaff());
@@ -73,6 +76,7 @@ export function OrganizationLiteAgent({
           </Button>
         </div>
       )}
+      {mayChange && <TextLink href={consoleRoutes.aiTraces(organizationId)}>{tAi("traces.link")}</TextLink>}
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
