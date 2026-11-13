@@ -212,6 +212,25 @@ describe("the hourly sweep of AI traces", () => {
     expect(await rowsOf(organizationId)).toHaveLength(0);
   });
 
+  it("a storage outage stops the run after 20 failed deletes in a row, and the run fails with the count", async () => {
+    const { organizationId } = await agency(Array.from({ length: 30 }, () => 20));
+    const real = test.storage.delete.bind(test.storage);
+    let tried = 0;
+    test.storage.delete = () => {
+      tried += 1;
+      return Promise.reject(new TypeError("storage down"));
+    };
+    try {
+      await expect(sweepAiTraces(test.services, NOW)).rejects.toThrow(/^20 traces couldn't be swept and 0 were$/);
+    } finally {
+      test.storage.delete = real;
+    }
+    expect(tried).toBe(20);
+    expect(await rowsOf(organizationId)).toHaveLength(30);
+    await sweepAiTraces(test.services, NOW);
+    expect(await rowsOf(organizationId)).toHaveLength(0);
+  });
+
   it("a trace lives under the organization's folder", async () => {
     const { organizationId, traces } = await agency([1]);
     expect(traces[0]?.fileKey.startsWith(organizationFolder(organizationId))).toBe(true);
