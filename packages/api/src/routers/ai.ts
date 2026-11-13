@@ -1,6 +1,6 @@
 // ai.*: Suggest reply (ADR 0029; the owner's decision of 2026-10-28). Anyone who may reply in a chat and holds ai:suggest
 // asks for a draft (a mutation: it spends one of the agency's suggestions); only whoever holds ai:manage, from a session
-// read afresh, turns it on for the agency and writes its instructions and its media. The bookings the AI took show on
+// read afresh, turns it on for the agency and writes its instructions and the documents package drafts read. The bookings the AI took show on
 // the lead for anyone who sees it, and whoever may work the lead confirms or cancels one. The plan's AI module is checked
 // on every call.
 import {
@@ -23,31 +23,14 @@ import {
   addAiKnowledgeInput,
   aiBookingList,
   aiBookingsInput,
-  aiMediaIdInput,
-  aiMediaLink,
-  aiMediaList,
-  aiMediaSlot,
-  confirmAiMediaInput,
-  requestAiMediaInput,
   setAiBookingStatusInput,
-  updateAiMediaInput,
   aiDocumentSlot,
-  aiLearnResult,
-  aiLearningList,
   aiOverview,
-  aiVoice,
-  autopilotSettings,
   chatAi,
   conversationAiInput,
-  clearChatVoiceInput,
-  learnChatVoiceInput,
-  learnVoiceInput,
   testAiAnswer,
   testAiInput,
-  saveAutopilotInput,
-  setAiLearningInput,
   setChatAiInput,
-  setChatPersonaInput,
   aiKnowledgeIdInput,
   aiKnowledgeList,
   aiSettings,
@@ -76,30 +59,14 @@ import {
   addKnowledge,
   aiAllowed,
   bookingsOfLead,
-  confirmMedia,
-  deleteMedia,
-  listMedia,
-  mediaLink,
-  requestMedia,
   setBookingStatus,
-  updateMedia,
   aiEnabled,
   aiOverviewOf,
   aiSettingsOf,
-  autopilotSettingsOf,
   chatAiOf,
-  clearChatVoice,
-  clearVoice,
-  learnChatVoice,
   testAnswer,
-  learnNow,
-  learnVoice,
-  listLearnings,
   resumeChat,
-  saveAutopilot,
   setChatMode,
-  setChatPersona,
-  setLearning,
   confirmDocument,
   deleteKnowledge,
   leadInsightOf,
@@ -207,44 +174,6 @@ export const aiRouter = router({
     .requires("ai:manage")
     .input(confirmAiDocumentInput)
     .mutation(({ ctx, input }) => confirmDocument(ctx, ctx.member, input)),
-
-  /** The photos, videos and PDFs the AI may send. */
-  media: freshProcedure
-    .requires("ai:manage")
-    .output(aiMediaList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listMedia(tx))),
-
-  /** Step one of a media file: where the browser puts it. */
-  requestMedia: freshProcedure
-    .requires("ai:manage")
-    .input(requestAiMediaInput)
-    .output(aiMediaSlot)
-    .mutation(({ ctx, input }) => requestMedia(ctx, ctx.member, input)),
-
-  /** Step two: it is stored, so the AI may send it. */
-  confirmMedia: freshProcedure
-    .requires("ai:manage")
-    .input(confirmAiMediaInput)
-    .mutation(({ ctx, input }) => confirmMedia(ctx, ctx.member, input)),
-
-  updateMedia: freshProcedure
-    .requires("ai:manage")
-    .input(updateAiMediaInput)
-    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => updateMedia(tx, ctx.member, input))),
-
-  deleteMedia: freshProcedure
-    .requires("ai:manage")
-    .input(aiMediaIdInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => deleteMedia(tx, ctx.member, input.mediaId)),
-    ),
-
-  /** A 5-minute link to look at one. */
-  mediaLink: freshProcedure
-    .requires("ai:manage")
-    .input(aiMediaIdInput)
-    .output(aiMediaLink)
-    .query(({ ctx, input }) => mediaLink(ctx, ctx.member, input.mediaId)),
 
   /** The bookings the AI took on a lead, with the customer's payment proofs: only for a lead the member may see. */
   bookingsForLead: orgProcedure
@@ -364,23 +293,6 @@ export const aiRouter = router({
       return writeUpQuote(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
     }),
 
-  /** The autopilot's settings: off until an Owner or Admin turns it on. */
-  autopilot: freshProcedure
-    .requires("ai:manage")
-    .output(autopilotSettings)
-    .query(({ ctx }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => autopilotSettingsOf(tx, ctx.member.organizationId)),
-    ),
-
-  saveAutopilot: freshProcedure
-    .requires("ai:manage")
-    .input(saveAutopilotInput)
-    .output(autopilotSettings)
-    .mutation(async ({ ctx, input }) => {
-      const today = await agencyToday(ctx);
-      return ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAutopilot(tx, ctx.member, input, today));
-    }),
-
   /** The ads that brought chats, newest first, and the package each promotes. */
   ads: freshProcedure
     .requires("ai:manage")
@@ -456,43 +368,6 @@ export const aiRouter = router({
     .output(aiOverview)
     .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => aiOverviewOf(tx, new Date()))),
 
-  /** What it learned from the agency's chats, for the owner to turn off or dismiss. */
-  learnings: freshProcedure
-    .requires("ai:manage")
-    .output(aiLearningList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listLearnings(tx))),
-
-  setLearning: freshProcedure
-    .requires("ai:manage")
-    .input(setAiLearningInput)
-    .mutation(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => setLearning(tx, ctx.member, input))),
-
-  learnNow: freshProcedure
-    .requires("ai:manage")
-    .output(aiLearnResult)
-    .mutation(async ({ ctx }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      const agencyName = async (organizationId: string) =>
-        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      return learnNow({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, new Date());
-    }),
-
-  /** Learns one staff member's way of talking from their own messages (the browser dropped the customer's side). */
-  learnVoice: freshProcedure
-    .requires("ai:manage")
-    .input(learnVoiceInput)
-    .output(aiVoice)
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      return learnVoice({ db: ctx.db, ai: ctx.ai }, ctx.member, input, new Date());
-    }),
-
-  clearVoice: freshProcedure
-    .requires("ai:manage")
-    .mutation(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => clearVoice(tx, ctx.member))),
-
   /** A chat's autopilot state, for the inbox. */
   chatAi: orgProcedure
     .requires("ai:suggest", "inbox:view")
@@ -525,31 +400,6 @@ export const aiRouter = router({
     .input(conversationAiInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => resumeChat(tx, ctx.member, input.conversationId)),
-    ),
-
-  setChatPersona: freshProcedure
-    .requires("ai:suggest", "inbox:view", "inbox:reply")
-    .input(setChatPersonaInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => setChatPersona(tx, ctx.member, input)),
-    ),
-
-  /** Learns the way of talking in one chat from its imported export (both sides: the other side's words go too). */
-  learnChatVoice: freshProcedure
-    .requires("ai:suggest", "inbox:view", "inbox:reply")
-    .input(learnChatVoiceInput)
-    .output(aiVoice)
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      return learnChatVoice({ db: ctx.db, ai: ctx.ai }, ctx.member, input, new Date());
-    }),
-
-  clearChatVoice: freshProcedure
-    .requires("ai:suggest", "inbox:view", "inbox:reply")
-    .input(clearChatVoiceInput)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => clearChatVoice(tx, ctx.member, input.conversationId)),
     ),
 
   /** The test box: what the AI would answer a question from the agency's knowledge alone. */

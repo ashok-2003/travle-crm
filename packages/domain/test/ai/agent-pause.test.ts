@@ -16,9 +16,9 @@ import {
   runAgentTurn,
   runAiNudges,
   saveAiSettings,
-  saveAutopilot,
 } from "../../src/ai/index.js";
-import { systemActor, parseCalendarDate } from "../../src/kernel/index.js";
+import { storeAutopilot } from "./support/store-autopilot.js";
+import { systemActor } from "../../src/kernel/index.js";
 import { agentPauseOf, type Entitlements } from "../../src/subscriptions/index.js";
 import { aLead } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
@@ -146,32 +146,27 @@ describe("the agent while paused", () => {
       ),
     );
     await inOrg((tx) =>
-      saveAutopilot(
-        tx,
-        owner,
-        {
-          autopilot: true,
-          grounded: false,
-          agentName: "Riya",
-          followUpHours: 4,
-          maxRepliesPerDay: 25,
-          language: "customer",
-          languageOther: "",
-          style: "human",
-          emojis: "few",
-          tone: "friendly",
-          handoff: "alert",
-          smartFollowUp: true,
-          learning: false,
-          persona: "sales",
-          leadNotes: true,
-          sendMedia: true,
-          paymentDetails: "",
-          strictRules: "",
-          followUpTasks: true,
-        },
-        parseCalendarDate("2026-11-10"),
-      ),
+      storeAutopilot(tx, owner.organizationId, {
+        autopilot: true,
+        grounded: false,
+        agentName: "Riya",
+        followUpHours: 4,
+        maxRepliesPerDay: 25,
+        language: "customer",
+        languageOther: "",
+        style: "human",
+        emojis: "few",
+        tone: "friendly",
+        handoff: "alert",
+        smartFollowUp: true,
+        learning: false,
+        persona: "sales",
+        leadNotes: true,
+        sendMedia: true,
+        paymentDetails: "",
+        strictRules: "",
+        followUpTasks: true,
+      }),
     );
     const model = createMemoryAiModel();
     const dependencies = {

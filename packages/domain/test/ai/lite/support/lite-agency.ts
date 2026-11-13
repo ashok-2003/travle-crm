@@ -15,7 +15,6 @@ import {
   saveAgencyAnswers,
   saveAgentBasics,
   saveAiSettings,
-  saveAutopilot,
   setLiteAgent,
 } from "../../../../src/ai/index.js";
 import type { TraceSink } from "../../../../src/ai/lite/types.js";
@@ -23,6 +22,7 @@ import { parseCalendarDate, systemActor } from "../../../../src/kernel/index.js"
 import type { Entitlements } from "../../../../src/subscriptions/index.js";
 import { aLead } from "../../../crm/support/records.js";
 import { memberOf } from "../../../imports/support/test-imports.js";
+import { storeAutopilot } from "../../support/store-autopilot.js";
 import {
   aConnectedAgency,
   deliver,
@@ -84,32 +84,7 @@ export async function liteAgency(
       { enabled: true, scoring: true, instructions: "" },
       { providerReady: true, now: testNow },
     );
-    await saveAutopilot(
-      tx,
-      owner,
-      {
-        autopilot: true,
-        grounded: false,
-        agentName: "Riya",
-        followUpHours: 4,
-        maxRepliesPerDay: 25,
-        language: "customer",
-        languageOther: "",
-        style: "human",
-        emojis: "few",
-        tone: "friendly",
-        handoff: "alert",
-        smartFollowUp: true,
-        learning: false,
-        persona: "sales",
-        leadNotes: true,
-        sendMedia: true,
-        paymentDetails: "",
-        strictRules: "",
-        followUpTasks: true,
-      },
-      liteToday,
-    );
+    await storeAutopilot(tx, organizationId, { autopilot: true, agentName: "Riya", tone: "friendly" });
     if (lite) await setLiteAgent(tx, systemActor(organizationId), true);
     await tx.organizationProfile.upsert({
       where: { organizationId },

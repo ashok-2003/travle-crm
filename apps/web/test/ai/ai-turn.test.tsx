@@ -22,8 +22,6 @@ const chat: ChatAi = {
   followUpReason: null,
   attention: null,
   personPausedUntil: null,
-  voice: null,
-  persona: "default",
   agentName: "Riya from Sharma Holidays",
   available: true,
 };

@@ -1,6 +1,7 @@
 // Suggest reply's request checks on the real router: the plan's AI module first, then the role's permission, and the
 // agency's settings for ai:manage alone (an Owner or Admin), read afresh.
 import { describe, expect, it } from "vitest";
+import { appRouter } from "../src/routers/app-router.js";
 import { callerFor } from "./request-probe.js";
 
 /** A refusal's reason, or "allowed" when the check let the call through to the handler (which these stand-ins can't run). */
@@ -143,5 +144,37 @@ describe("AI on a departure: request checks", () => {
         }),
       ),
     ).toBe("ORGANIZATION_READ_ONLY");
+  });
+});
+
+describe("the earlier agents' settings procedures", () => {
+  it("are gone: what an agency set or saw for them has no endpoint", () => {
+    const procedures = Object.keys(appRouter._def.procedures);
+    const gone = [
+      "media",
+      "requestMedia",
+      "confirmMedia",
+      "updateMedia",
+      "deleteMedia",
+      "mediaLink",
+      "autopilot",
+      "saveAutopilot",
+      "learnings",
+      "setLearning",
+      "learnNow",
+      "learnVoice",
+      "clearVoice",
+      "setChatPersona",
+      "learnChatVoice",
+      "clearChatVoice",
+    ];
+    for (const name of gone) expect(procedures).not.toContain(`ai.${name}`);
+  });
+
+  it("keep the knowledge documents that package drafts are written from", () => {
+    const procedures = Object.keys(appRouter._def.procedures);
+    for (const name of ["knowledge", "addKnowledge", "requestKnowledgeDocument", "confirmKnowledgeDocument"]) {
+      expect(procedures).toContain(`ai.${name}`);
+    }
   });
 });

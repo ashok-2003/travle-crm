@@ -295,16 +295,8 @@
       "knowledge-changed": "Changed what the AI knows",
       "knowledge-deleted": "Removed from what the AI knows",
       "message-sent": "The AI sent a reply by itself",
-      "voice-learned": "Gave the AI a way of talking to copy",
-      "voice-removed": "Removed the AI's way of talking",
-      "learned": "Asked the AI to learn from the chats",
-      "learning-changed": "Turned an AI lesson on, off or away",
       "chat-mode-changed": "Turned the AI on or off in a chat",
       "chat-resumed": "Gave a chat back to the AI",
-      "chat-persona-changed": "Changed what the AI is for in a chat",
-      "media-added": "Added a photo, video or PDF for the AI to send",
-      "media-changed": "Changed a file the AI sends",
-      "media-deleted": "Removed a file the AI sent",
       "booking-decided": "Confirmed or cancelled a booking the AI took",
       "payment-refused": "Could not match the payment for a booking the AI took",
       "fill-applied": "Saved a form the AI filled in",
@@ -317,9 +309,6 @@
       "stage-suggested": "The AI suggested marking a lead Lost or Not a lead",
       "stage-suggestion-accepted": "Marked a lead as the AI suggested",
       "stage-suggestion-declined": "Turned down the AI's suggestion for a lead"
-    },
-    "ai-autopilot": {
-      "changed": "Changed the AI's autopilot settings"
     },
     "payment-proof": {
       "dismissed": "Dismissed a payment screenshot"

@@ -153,18 +153,12 @@ const TWO_FACTOR_SHOTS = [
   { name: "theme-signin", screen: "Sign-in with the brand panel", as: visitor },
   { name: "theme-quote-send", screen: "A sent quote: blue Save, green Send on WhatsApp", as: owner },
   { name: "theme-invites", screen: "The console's invites screen", as: superAdmin },
-  // The automatic WhatsApps and the autopilot (2026-10-29).
+  // The automatic WhatsApps (2026-10-29).
   {
     name: "step2-sales-automation",
     screen: "Settings, Sales automation: greeting, follow-ups, payment reminders",
     as: owner,
   },
-  {
-    name: "step2-ai-autopilot",
-    screen: "Settings, AI: the autopilot, how it speaks, learning and the copied way of talking",
-    as: owner,
-  },
-  { name: "step2-chat-ai-message", screen: "A chat with a message the AI sent by itself, marked", as: owner },
   // Release 7a: departures and suppliers (2026-10-30).
   { name: "r7a-departures", screen: "Departures: upcoming batches with seats sold and held", as: owner },
   { name: "r7a-departure", screen: "A departure: seats, bookings, the rooming list", as: owner },

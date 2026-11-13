@@ -7,7 +7,6 @@ import {
   saveAgencyAnswers,
   saveAgentBasics,
   saveAiSettings,
-  saveAutopilot,
   setAgentOn,
   setLiteAgent,
 } from "../../../src/ai/index.js";
@@ -66,12 +65,6 @@ describe("the lite agent's switch", () => {
     const on = await agency();
     await on.inOrg((tx) => setLiteAgent(tx, on.staff, true));
     const lite = () => on.inOrg(async (tx) => (await autopilotOf(tx)).lite);
-    // The agency's screen sends back everything it read, so a stray `lite` in the input must not be written either.
-    await on.inOrg(async (tx) => {
-      const sentBack = { ...(await autopilotOf(tx)), lite: false };
-      await saveAutopilot(tx, on.owner, sentBack, today);
-    });
-    expect(await lite()).toBe(true);
     await on.inOrg((tx) => setAgentOn(tx, on.owner, false, today));
     expect(await lite()).toBe(true);
     await on.inOrg((tx) => saveAgentBasics(tx, on.owner, { agentName: "Riya", tone: "friendly" }));
