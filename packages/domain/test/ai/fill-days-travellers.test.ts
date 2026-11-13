@@ -190,7 +190,7 @@ describe("draft the days and read the travellers", () => {
       expect(await reasonOf(draft(a, quoteId, "a 30 day trek"))).toBe("DRAFT_TOO_LONG");
       expect(a.model.requests).toHaveLength(0);
       expect(await a.calls()).toBe(0);
-      a.model.answer(six().replace("Depart", "Depart"));
+      a.model.answer(six());
       const proposal = await draft(a, quoteId, "6 days, relaxed");
       expect((proposal.fields[0]?.value as unknown[]).length).toBe(6);
     });
