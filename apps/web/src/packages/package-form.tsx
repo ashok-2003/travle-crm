@@ -146,7 +146,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
         update.mutate(input);
       })}
     >
-      <Card>
+      <Card id="package-details" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>
             <h2>{t("quoteTitle")}</h2>

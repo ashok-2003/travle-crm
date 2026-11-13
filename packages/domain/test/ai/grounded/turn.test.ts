@@ -1,7 +1,7 @@
 // The grounded turn end to end against the real database and a scripted model: it reads, looks up, writes, checks and acts;
 // every model call counts against the month's limit; a reply the check refuses is asked for once more, then the team is told.
 import { randomUUID } from "node:crypto";
-import { AGENCY_PAYMENT_QR_RECORD_TYPE, saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
+import { saveOrganizationProfileInput } from "@travel-crm/contracts/profile";
 import type { OrgTx } from "@travel-crm/db";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
@@ -13,6 +13,7 @@ import { monthStartOf } from "../../../src/inbox/index.js";
 import { formatRupees, systemActor } from "../../../src/kernel/index.js";
 import { saveOrganizationProfile } from "../../../src/profile/index.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
+import { addPaymentQr } from "../support/payment-qr.js";
 import { aLead } from "../../crm/support/records.js";
 import { memberOf } from "../../imports/support/test-imports.js";
 import {
@@ -151,26 +152,16 @@ describe("the grounded turn", () => {
         followUpTasks: true,
       });
       await tx.aiAutopilot.updateMany({ data: { grounded } });
-      // The AI sells a group package only where the agency has somewhere to be paid.
+      // The AI sells a group package only where the agency has added its payment QR.
+      // "qr": an agency with no business profile yet, so no GST state either.
       if (paidBy === "upi") {
         await tx.organizationProfile.upsert({
           where: { organizationId },
           create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
           update: { upiId: "sharma@okbank" },
         });
-      } else {
-        await tx.attachment.create({
-          data: {
-            recordType: AGENCY_PAYMENT_QR_RECORD_TYPE,
-            recordId: organizationId,
-            fileName: "qr.png",
-            contentType: "image/png",
-            sizeBytes: 3,
-            status: "ready",
-            confirmedAt: new Date(),
-          },
-        });
       }
+      await addPaymentQr(tx, organizationId);
       const destination = await tx.destination.create({ data: { name: "Spiti" }, select: { id: true } });
       const template = await tx.quoteTemplate.create({
         data: {

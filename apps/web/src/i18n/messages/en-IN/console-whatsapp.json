@@ -119,7 +119,7 @@
     "steps": {
       "whatsapp": "WhatsApp number",
       "packages": "packages the AI can sell",
-      "payment": "payment details",
+      "payment": "payment QR",
       "answers": "answers to the fixed questions",
       "basics": "agent name and tone",
       "ads": "ad links"

@@ -1,6 +1,6 @@
 // The Setup tab's checklist: each step's state, one editor open at a time, payment kept to who manages settings, and the
 // switch that stays off until the steps are done.
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { brand } from "@travel-crm/brand";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +34,13 @@ const steps = [
 const setup = { steps, ready: false, on: false, pausedBySupport: false };
 const owner = member({ isOwner: true });
 
+/** The switch's list of what is missing: the block under its heading. */
+function missingList(): HTMLElement {
+  const block = screen.getByText(t.turnOn.finishFirst).parentElement;
+  if (block === null) throw new Error("The missing steps have no block");
+  return block;
+}
+
 function show(over: Record<string, unknown> = {}, me = owner, extra: Record<string, never> = {}) {
   const api = recordingApi({ "ai.agentSetup": { data: { ...setup, ...over } }, ...extra });
   const client = newQueryClient();
@@ -53,7 +60,8 @@ describe("the Setup checklist", () => {
     await screen.findByText(t.steps.answers.count.replace("{count}", "4").replace("{total}", "6"));
     expect(screen.getByText("2 packages the AI can sell")).toBeInTheDocument();
     expect(screen.getByText("1 of 3 ads linked")).toBeInTheDocument();
-    expect(screen.getByText(t.steps.payment.todo)).toBeInTheDocument();
+    // The row and the switch's list of what is missing both say it.
+    expect(screen.getAllByText(t.steps.payment.todo)).toHaveLength(2);
     expect(screen.getAllByText(t.done)).toHaveLength(2);
     expect(screen.getAllByText(t.todo)).toHaveLength(3);
     expect(screen.getAllByText(t.optional)).toHaveLength(1);
@@ -98,14 +106,13 @@ describe("the Setup checklist", () => {
       steps: steps.map((one) => (one.key === "packages" ? { ...one, done: false, count: 0, total: 2 } : one)),
     });
     expect(await screen.findByText(t.steps.packages.needsPayment)).toBeInTheDocument();
-    expect(screen.queryByText(t.steps.packages.todo)).not.toBeInTheDocument();
   });
 
   it("keeps the old line when no package is marked", async () => {
     show({
       steps: steps.map((one) => (one.key === "packages" ? { ...one, done: false, count: 0, total: 0 } : one)),
     });
-    expect(await screen.findByText(t.steps.packages.todo)).toBeInTheDocument();
+    expect((await screen.findAllByText(t.steps.packages.todo)).length).toBeGreaterThan(0);
   });
 });
 
@@ -114,9 +121,44 @@ describe("the switch that turns the agent on", () => {
     show();
     const control = await screen.findByRole("switch", { name: t.turnOn.title });
     expect(control).toBeDisabled();
-    const reason = screen.getByText(t.turnOn.finishFirst);
-    expect(reason).toBeInTheDocument();
-    expect(control).toHaveAccessibleDescription(t.turnOn.finishFirst);
+    expect(screen.getByText(t.turnOn.finishFirst)).toBeInTheDocument();
+    expect(control).toHaveAccessibleDescription(expect.stringContaining(t.turnOn.finishFirst));
+  });
+
+  it("lists each missing step as a link to where it is done, and nothing that is done or optional", async () => {
+    show();
+    await screen.findByRole("switch", { name: t.turnOn.title });
+    const list = missingList();
+    const links = within(list)
+      .getAllByRole("link")
+      .map((link) => [link.textContent, link.getAttribute("href")]);
+    expect(links).toEqual([
+      [t.steps.payment.todo, "#step-payment"],
+      [t.steps.answers.todo, "#step-answers"],
+      [t.steps.basics.todo, "#step-basics"],
+    ]);
+  });
+
+  it("sends a missing WhatsApp number and packages to their own screens", async () => {
+    show({
+      steps: steps.map((one) =>
+        one.key === "whatsapp" || one.key === "packages" ? { ...one, done: false, count: 0, total: 0 } : one,
+      ),
+    });
+    await screen.findByRole("switch", { name: t.turnOn.title });
+    const list = missingList();
+    expect(within(list).getByRole("link", { name: t.steps.whatsapp.todo })).toHaveAttribute(
+      "href",
+      "/settings/whatsapp",
+    );
+    expect(within(list).getByRole("link", { name: t.steps.packages.todo })).toHaveAttribute("href", "/packages");
+  });
+
+  it("is on offer, with no list, once every required step is done", async () => {
+    show({ ready: true, steps: steps.map((one) => (one.optional ? one : { ...one, done: true })) });
+    const control = await screen.findByRole("switch", { name: t.turnOn.title });
+    expect(control).toBeEnabled();
+    expect(screen.queryByText(t.turnOn.finishFirst)).not.toBeInTheDocument();
   });
 
   it("turns the agent on once ready", async () => {

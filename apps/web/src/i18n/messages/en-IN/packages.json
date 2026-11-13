@@ -263,7 +263,7 @@
       "prices": "A price for each room type in a season",
       "advance": "The advance to hold a seat",
       "departures": "Departure days and seats on each",
-      "payment_details": "Add your payment details (UPI, QR or bank) on the AI agent page.",
+      "payment_details": "Add your payment QR",
       "from_price": "A \"From\" price"
     },
     "nowOn": "The AI can sell this package",

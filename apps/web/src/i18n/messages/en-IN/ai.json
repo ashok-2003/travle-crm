@@ -173,7 +173,7 @@
       "unknown_placeholder": "it used a figure your packages don't have",
       "unfit": "its answer couldn't be read",
       "not_run_script": "it can't check a place written in that script, so a person answers",
-      "PAYMENT_DETAILS_MISSING": "your payment details aren't added yet, so it can't take a booking",
+      "PAYMENT_DETAILS_MISSING": "your payment QR isn't added yet, so it can't take a booking",
       "PACKAGE_NOT_SELLABLE": "this package isn't one the AI can sell right now",
       "AI_ACTION_REFUSED": "the booking is missing its date, its party or its price",
       "other": "a safety check stopped it"

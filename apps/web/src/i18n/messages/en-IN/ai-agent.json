@@ -74,13 +74,13 @@
         "count": "{count, plural, one {# package the AI can sell} other {# packages the AI can sell}}",
         "done": "Packages are ready",
         "todo": "Mark at least one package 'AI can sell'; each needs an advance",
-        "needsPayment": "Add payment details so the AI can sell your packages"
+        "needsPayment": "Add your payment QR so the AI can sell your packages"
       },
       "payment": {
-        "title": "Payment details",
-        "done": "Payment details added",
-        "todo": "Add a UPI ID, a QR or your bank account",
-        "askManager": "Ask an Owner or Admin to add them"
+        "title": "Payment QR",
+        "done": "Payment QR added",
+        "todo": "Add your payment QR",
+        "askManager": "Ask an Owner or Admin to add the QR"
       },
       "answers": {
         "title": "Your answers",
@@ -114,6 +114,7 @@
       "saving": "Saving",
       "saved": "Payment details saved",
       "qr": "Payment QR",
+      "extras": "Also sent with the QR, if you add them (optional)",
       "noQr": "No QR added yet.",
       "addQr": "Add a QR",
       "replaceQr": "Replace the QR",
@@ -168,7 +169,7 @@
     },
     "turnOn": {
       "title": "Turn the AI agent on",
-      "finishFirst": "Finish the steps above first",
+      "finishFirst": "Before the AI agent can be turned on, it needs:",
       "paused": "Paused by {product} support"
     }
   }

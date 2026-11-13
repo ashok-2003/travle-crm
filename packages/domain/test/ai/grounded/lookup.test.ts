@@ -5,6 +5,7 @@ import { chatFacts, type ChatFacts } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { lookUp } from "../../../src/ai/grounded/lookup.js";
+import { addPaymentQr } from "../support/payment-qr.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 import { openWorld, type World } from "../../bookings/support.js";
 
@@ -33,13 +34,14 @@ describe("looking up a chat's packages", () => {
   beforeAll(async () => {
     world = await openWorld("Grounded lookup");
     // The AI sells a group package only where the agency has somewhere to be paid.
-    await world.inOrg((tx) =>
-      tx.organizationProfile.upsert({
+    await world.inOrg(async (tx) => {
+      await tx.organizationProfile.upsert({
         where: { organizationId: world.organizationId },
         create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
         update: { upiId: "sharma@okbank" },
-      }),
-    );
+      });
+      await addPaymentQr(tx, world.organizationId);
+    });
   });
   afterAll(async () => {
     await world.close();

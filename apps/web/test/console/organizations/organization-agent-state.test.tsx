@@ -46,7 +46,7 @@ describe("OrganizationAgentState", () => {
   it("names the steps still missing, in order", async () => {
     show({ on: true, missing: ["payment", "answers"], answering: false });
     expect(
-      await screen.findByText("Its setup isn't finished: payment details and answers to the fixed questions."),
+      await screen.findByText("Its setup isn't finished: payment QR and answers to the fixed questions."),
     ).toBeVisible();
     expect(screen.getByText(text.notAnswering)).toBeVisible();
   });

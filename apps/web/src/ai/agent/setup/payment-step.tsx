@@ -1,6 +1,6 @@
 "use client";
 
-// Setup step "Payment details": the UPI ID, the bank account and the QR the agent quotes with an advance. Money, so only
+// Setup step "Payment QR": the QR the agent needs to ask for an advance, and the optional UPI ID and bank account it sends with it. Money, so only
 // whoever manages settings sees the editor (the api checks); it needs the business profile saved first.
 import {
   savePaymentDetailsInput,
@@ -231,8 +231,11 @@ export function PaymentStepEditor() {
   }
   return (
     <div className="flex flex-col gap-6">
-      <PaymentForm key={JSON.stringify(valuesOf(details.data))} details={details.data} />
       <QrPicker details={details.data} />
+      <div className="flex flex-col gap-3">
+        <h4 className="font-medium">{t("extras")}</h4>
+        <PaymentForm key={JSON.stringify(valuesOf(details.data))} details={details.data} />
+      </div>
     </div>
   );
 }

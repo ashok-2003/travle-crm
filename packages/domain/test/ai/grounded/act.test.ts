@@ -5,6 +5,7 @@ import { PACKAGE_BROCHURE_RECORD_TYPE, PACKAGE_PAYMENT_QR_RECORD_TYPE } from "@t
 import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { actOnReply, type ActResult } from "../../../src/ai/grounded/act.js";
+import { addPaymentQr } from "../support/payment-qr.js";
 import { allowedActions, type ActionContext } from "../../../src/ai/grounded/actions.js";
 import { buildCard } from "../../../src/ai/grounded/card.js";
 import { fillPlaceholders } from "../../../src/ai/grounded/fill.js";
@@ -45,13 +46,14 @@ describe("acting on a checked reply", () => {
     test = createTestInbox();
     agency = await aConnectedAgency(test);
     // The AI sells a group package only where the agency has somewhere to be paid.
-    await test.db.forOrg(agency.organizationId, (tx) =>
-      tx.organizationProfile.upsert({
+    await test.db.forOrg(agency.organizationId, async (tx) => {
+      await tx.organizationProfile.upsert({
         where: { organizationId: agency.organizationId },
         create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
         update: { upiId: "sharma@okbank" },
-      }),
-    );
+      });
+      await addPaymentQr(tx, agency.organizationId);
+    });
   });
   afterAll(() => test.close());
 

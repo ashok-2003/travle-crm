@@ -19,6 +19,7 @@ import { monthStartOf } from "../../src/inbox/index.js";
 import { formatRupees, systemActor } from "../../src/kernel/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
+import { addPaymentQr } from "./support/payment-qr.js";
 import { aLead } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import {
@@ -136,6 +137,7 @@ describe("the autopilot", () => {
         create: { legalName: "Sharma Holidays", gstStateCode: "27", upiId: "sharma@okbank" },
         update: { upiId: "sharma@okbank" },
       });
+      await addPaymentQr(tx, on.organizationId);
       const place = destination
         ? await tx.destination.create({ data: { name: `Spiti ${randomUUID()}` }, select: { id: true } })
         : null;

@@ -73,6 +73,8 @@ export async function seedCaseAgency(
       documentTerms: null,
     }),
   );
+  // The agent sells only where the payment QR is added.
+  await attach(tx, storage, organizationId, "agency_payment_qr", "qr.png", "image/png");
   await tx.aiSettings.create({ data: { enabled: true, scoring: false, fillLeads: false } });
   await tx.aiAutopilot.create({
     // The case agency lets the AI hand a chat to a person when the customer asks for one ("asked").

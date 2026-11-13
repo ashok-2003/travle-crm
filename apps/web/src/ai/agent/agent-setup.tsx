@@ -109,7 +109,7 @@ export function AgentSetupTab() {
   return (
     <ItemGroup>
       {setup.steps.map((step) => (
-        <div key={step.key}>
+        <div key={step.key} id={`step-${step.key}`} className="scroll-mt-6">
           <StepRow
             step={step}
             open={openKey === step.key}
@@ -122,7 +122,7 @@ export function AgentSetupTab() {
       ))}
       <Item>
         <ItemContent>
-          <TurnOnStep ready={setup.ready} on={setup.on} pausedBySupport={setup.pausedBySupport} />
+          <TurnOnStep steps={setup.steps} ready={setup.ready} on={setup.on} pausedBySupport={setup.pausedBySupport} />
         </ItemContent>
       </Item>
     </ItemGroup>
