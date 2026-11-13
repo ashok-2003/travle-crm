@@ -68,11 +68,17 @@ export async function packageIndexOf(
   });
 }
 
-/** The lead's trip values a person typed: those with no AI row whose hash the value still matches. */
+/**
+ * The lead's trip values that are a person's: every one but those still the AI's suggestion (a `suggested` row whose hash
+ * the value still matches). A value a person confirmed ("Looks right") is theirs too, so the turn keeps it.
+ */
 async function typedByPerson(tx: OrgTx, leadId: string): Promise<Partial<Record<TripField, unknown>>> {
   const current = await tripFieldValues(tx, leadId);
   if (current === null) return {};
-  const rows = await tx.leadAiField.findMany({ where: { leadId }, select: { field: true, valueHash: true } });
+  const rows = await tx.leadAiField.findMany({
+    where: { leadId, state: "suggested" },
+    select: { field: true, valueHash: true },
+  });
   const typed: Partial<Record<TripField, unknown>> = {};
   for (const field of FOLDED) {
     const value = current[field];

@@ -1,6 +1,13 @@
 // What a person decided on the lead reaches the lite turn: a customer marked Not a lead gets no new lead and no answer,
-// while a Lost one's next trip still gets its lead.
+// while a Lost one's next trip still gets its lead; a value confirmed with "Looks right" is the person's, and one
+// dismissed with "Not right" is asked again.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { decideSuggestions } from "../../../src/ai/fill/lead-fields.js";
+import { valueHash } from "../../../src/ai/fill/values.js";
+import { handOverSentences } from "../../../src/ai/lite/act-words.js";
+import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
+import { readLiteFacts } from "../../../src/ai/lite/merge.js";
+import type { LiteTrace } from "../../../src/ai/lite/types.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
@@ -16,6 +23,26 @@ const twoPeople = { count: 2, proof: "2 people", changed: false };
 const markLeads = (on: Agency, stage: "lost" | "not_a_lead") =>
   on.inOrg((tx) => tx.lead.updateMany({ where: { personId: on.chat.personId ?? "" }, data: { stage } }));
 const leadCount = (on: Agency) => on.inOrg((tx) => tx.lead.count({ where: { personId: on.chat.personId ?? "" } }));
+
+/** Three adults on the lead, as the AI filled them from the chat it settled: a suggested row hashing to 3. */
+async function aiFilledThree(on: Agency): Promise<void> {
+  await withFacts(on, {
+    leadId: on.leadId,
+    packageId: on.packageId,
+    day: "2026-11-14",
+    month: "2026-11",
+    departureId: on.departures[0]?.id ?? null,
+    adults: 3,
+    roomType: "double",
+    lastMove: "give_price",
+  });
+  await on.inOrg(async (tx) => {
+    await tx.lead.update({ where: { id: on.leadId }, data: { adults: 3 } });
+    await tx.leadAiField.create({
+      data: { leadId: on.leadId, field: "adults", state: "suggested", valueHash: valueHash("trip.adults", 3) },
+    });
+  });
+}
 
 describe("what a person decided reaches the lite turn", () => {
   let test: TestInbox;
@@ -73,5 +100,44 @@ describe("what a person decided reaches the lite turn", () => {
     expect(await on.turn(at(60), { token })).toBe("replied");
     expect((await outbound(on))[0]?.body).toContain(formatRupees(1_399_800));
     expect(await leadCount(on)).toBe(leads + 1);
+  });
+
+  it("a value confirmed with Looks right is locked: a customer who contradicts it goes to a person", async () => {
+    const on = await liteAgency(test);
+    await aiFilledThree(on);
+    await on.inOrg((tx) => decideSuggestions(tx, on.owner, on.leadId, "confirm"));
+    const token = await says(on, "my brother is coming too, 4 of us", 30);
+    on.model.answer(
+      understood([["price_question", "4 of us"]], {
+        details: { adults: { count: 4, proof: "4 of us", changed: true } },
+      }),
+      written("Which city will you join us from?"),
+    );
+    expect(await on.turn(at(60), { token })).toBe("handed_off");
+    expect((await outbound(on)).map((one) => one.body)).toEqual([fixedText("hand_over", "english", {}).text]);
+    const chat = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(chat.handoffReason).toBe(handOverSentences.details_changed);
+    const lead = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
+    expect(lead.adults).toBe(3);
+  });
+
+  it("Not right on adults: the next turn asks how many are travelling", async () => {
+    const on = await liteAgency(test);
+    await aiFilledThree(on);
+    await on.inOrg((tx) => decideSuggestions(tx, on.owner, on.leadId, "dismiss", ["adults"]));
+    // The chat's facts let the dismissed count go, and what the price rests on with it; the rest stays.
+    expect(await on.inOrg((tx) => readLiteFacts(tx, on.chat.id))).toMatchObject({
+      adults: null,
+      quoted: null,
+      packageId: on.packageId,
+      day: "2026-11-14",
+      roomType: "double",
+    });
+    const token = await says(on, "what is the price?", 30);
+    on.model.answer(understood([["price_question", "what is the price"]]), written("How many of you are travelling?"));
+    const traces: LiteTrace[] = [];
+    const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+    expect(await on.turn(at(60), { token, traces: sink })).toBe("replied");
+    expect(traces[0]?.asked).toBe("people");
   });
 });

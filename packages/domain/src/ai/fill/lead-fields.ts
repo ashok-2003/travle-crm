@@ -2,8 +2,8 @@
 // agency's switch on it also reads the customer's trip out of their first ten messages, and this writes it onto the lead's own
 // fields (so lists and assignment can use it), only where the lead holds nothing, never over a person's value, and flags each as
 // "suggested" with the customer's own words. The violet ends by itself once the lead's value no longer equals the suggestion, so
-// crm never has to call this module. A person confirms (keeps them) or dismisses (clears what is still the AI's). Runs as the
-// system, audited with field names only.
+// crm never has to call this module. A person confirms (keeps them) or dismisses (clears what is still the AI's, and what the
+// lite agent's chats settled for it). Runs as the system, audited with field names only.
 import type { FillPath } from "@travel-crm/contracts/ai";
 import { suggestedLeadFields, type SuggestedLeadField, type TripAnswer } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
@@ -19,6 +19,7 @@ import {
 } from "../../crm/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError, systemActor } from "../../kernel/index.js";
+import { forgetDismissedFacts, lockChatsOfLead } from "../lite/dismissed-facts.js";
 import { resolveLead } from "./resolve.js";
 import { valueHash } from "./values.js";
 
@@ -175,8 +176,9 @@ export async function aiFilledLeadIds(tx: OrgTx, leadIds: readonly string[]): Pr
 
 /**
  * Confirms the suggestions (the AI's values stay, as the person's) or dismisses them (the values still the AI's are cleared,
- * and are not suggested again). With `fields` only those are decided and the others stay suggested. The lead must be one the
- * member may work; a lead with none of them suggested is "not found".
+ * are not suggested again, and the lite agent's chats let go what they settled for them, so it asks again). With `fields`
+ * only those are decided and the others stay suggested. The lead must be one the member may work; a lead with none of them
+ * suggested is "not found".
  */
 export async function decideSuggestions(
   tx: OrgTx,
@@ -185,10 +187,14 @@ export async function decideSuggestions(
   decision: "confirm" | "dismiss",
   only?: readonly SuggestedLeadField[],
 ): Promise<void> {
+  const chats = decision === "dismiss" ? await lockChatsOfLead(tx, leadId) : [];
   const open = (await suggestedFieldsOf(tx, leadId)).filter((one) => only === undefined || only.includes(one.field));
   if (open.length === 0) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
   const fields = open.map((one) => one.field);
-  if (decision === "dismiss") await clearTripFields(tx, leadId, fields);
+  if (decision === "dismiss") {
+    await clearTripFields(tx, leadId, fields);
+    await forgetDismissedFacts(tx, { leadId, conversationIds: chats, fields });
+  }
   // Without `only`, every suggestion row of the lead is decided: one a person changed since is theirs, so it leaves the
   // suggested list too. With it, just the named rows.
   await tx.leadAiField.updateMany({
