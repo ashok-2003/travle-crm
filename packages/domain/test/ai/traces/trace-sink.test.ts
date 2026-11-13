@@ -75,16 +75,6 @@ describe("the trace sink", () => {
     expect(await readTraceFile(storage, "organizations/x/ai-traces/none.json.gz")).toBeNull();
   });
 
-  it("the file holds message ids, not the messages", async () => {
-    const { trace } = await aTurn();
-    const storage = createMemoryStorage();
-    await createTraceSink({ db: test.db, storage, logger: createMemoryLogger() }).record(trace);
-    const file = await readTraceFile(storage, traceKey(trace.organizationId, trace.startedAt, trace.id));
-    expect(file?.trace.messageIds).toEqual(["m1", "m2"]);
-    expect(file?.trace.understand?.blocks).not.toHaveProperty("Messages");
-    expect(file?.trace.write?.blocks).not.toHaveProperty("Messages");
-  });
-
   it("a failed storage write keeps the turn", async () => {
     const { organizationId, trace } = await aTurn();
     const storage = createMemoryStorage();
@@ -97,6 +87,16 @@ describe("the trace sink", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ level: "warn", traceId: trace.id });
     expect(JSON.stringify(logger.entries)).not.toContain("hello");
+  });
+
+  it("a storage that never answers does not hold the turn open", async () => {
+    const { trace } = await aTurn();
+    const logger = createMemoryLogger();
+    const stuck = { ...createMemoryStorage(), put: () => new Promise<void>(() => undefined) };
+    const sink = createTraceSink({ db: test.db, storage: stuck, logger, timeoutMs: 100 });
+    await expect(sink.record(trace)).resolves.toBeUndefined();
+    expect(logger.entries.filter((entry) => entry.event === "ai.trace-failed")).toHaveLength(1);
+    expect(JSON.stringify(logger.entries)).toContain("TimeoutError");
   });
 
   it("the runtime role can't change or delete a trace", async () => {

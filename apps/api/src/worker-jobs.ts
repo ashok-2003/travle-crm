@@ -97,6 +97,7 @@ import {
   scoreHandler,
   scoreOnCustomerWroteListener,
   createTraceSink,
+  type BookingRecipients,
 } from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
 import { notifySharerListener } from "@travel-crm/domain/share-links";
@@ -197,11 +198,31 @@ export interface WorkerJobs {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** What the AI's turns, nudges and lessons run with; its traces are kept in the worker's storage. */
+export function autopilotDependencies(
+  dependencies: Pick<WorkerJobDependencies, "db" | "identity" | "files" | "subscriptions" | "storage" | "logger"> & {
+    managers: BookingRecipients;
+  },
+  model: AiModel,
+) {
+  const { db, identity, files, subscriptions, storage, logger, managers } = dependencies;
+  return {
+    db,
+    ai: model,
+    subscriptions,
+    agencyName: async (organizationId: string) =>
+      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
+    files,
+    managers,
+    traces: createTraceSink({ db, storage, logger }),
+  };
+}
+
 export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   const { db, identity, files, spreadsheets, subscriptions, seatLimit, email, push, appUrl } = dependencies;
   // Who the slow-reply alert and the Unassigned notice go to: everyone whose role holds leads:assign (release 4).
   const leadAssigners = (organizationId: string) => identity.membersHolding(organizationId, "leads:assign");
-  const { webhookProviders, rateLimiter, logger, storage } = dependencies;
+  const { webhookProviders, rateLimiter, logger } = dependencies;
   const salesJobsTimeZone = async (organizationId: string) =>
     (await identity.organizationProfile(organizationId))?.timeZone ?? DEFAULT_TIME_ZONE;
   const salesJobsNames = async (organizationId: string, ownerUserId: string | null) => {
@@ -251,16 +272,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
   // Who hears of a booking the AI took and of a customer's payment proof: whoever manages the agency's settings.
   const bookingManagers = (organizationId: string) => identity.membersHolding(organizationId, "settings:manage");
   // The autopilot: the AI's turns, its nudges and its nightly lessons, in the agency's own name, with its media.
-  const autopilotJobs = (model: AiModel) => ({
-    db,
-    ai: model,
-    subscriptions,
-    agencyName: async (organizationId: string) =>
-      (await identity.organizationProfile(organizationId))?.name ?? "the agency",
-    files,
-    managers: bookingManagers,
-    traces: createTraceSink({ db, storage, logger }),
-  });
+  const autopilotJobs = (model: AiModel) =>
+    autopilotDependencies({ ...dependencies, managers: bookingManagers }, model);
   // Bookings: the reminders now due and the claims left waiting, each minute; the finished trips, each night.
   const bookingJobs = {
     db,
