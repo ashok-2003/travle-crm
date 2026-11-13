@@ -6,7 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import { DomainError, formatRupees, formatShortDay, systemActor } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, type AgencyPaymentDetails } from "../../profile/index.js";
-import { sellablePackages } from "../../quotes/index.js";
+import { sellablePackage } from "../../quotes/index.js";
 import { takeAgentBooking } from "../agent-booking.js";
 import type { LiteActDeps, LiteActInput } from "./act-types.js";
 import { fixedText, holdUntilWords, travellersWords } from "./fixed-texts.js";
@@ -48,8 +48,8 @@ async function book(
   if (leadId === null) throw refuse("A booking needs an open lead");
   // Payment first: without it the package is no longer sellable either, and the owner must hear which to fix.
   const payment = await paymentDetails(tx, organizationId);
-  const sellable = await sellablePackages(tx, organizationId, today);
-  if (!sellable.some((one) => one.id === target.packageId && one.kind === "group")) {
+  // Only the package it books: the whole list costs a read per package.
+  if ((await sellablePackage(tx, organizationId, target.packageId, today))?.kind !== "group") {
     throw new DomainError("CONFLICT", "PACKAGE_NOT_SELLABLE", "The package is no longer one the AI may sell");
   }
   const { facts } = input.decision;

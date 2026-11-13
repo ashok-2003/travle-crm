@@ -8,7 +8,7 @@ import { departureSettingsOf } from "../../departures/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
 import { calendarDateIn, DomainError, formatRupees, formatShortDay, type CalendarDate } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, paymentLinesOf } from "../../profile/index.js";
-import { packageFilesIn } from "../../quotes/index.js";
+import { packageFilesIn, sellablePackages } from "../../quotes/index.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
 import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
 import { handOverSentences } from "./act-words.js";
@@ -88,7 +88,7 @@ export async function liteDryRun(
   const prepared = await db.forOrg(organizationId, async (tx) => {
     const timeZone = await organizationTimeZone(tx, organizationId);
     const today = calendarDateIn(now, timeZone);
-    const index = await packageIndexOf(tx, organizationId, today, now);
+    const index = await packageIndexOf(tx, await sellablePackages(tx, organizationId, today), today, now);
     const basics = await agentBasicsOf(tx);
     const payment = await agencyPaymentDetailsOf(tx, organizationId);
     return {

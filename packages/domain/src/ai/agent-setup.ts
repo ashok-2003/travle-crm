@@ -14,12 +14,20 @@ import { autopilotOf } from "./autopilot.js";
 
 const HANDED_OVER_SHOWN = 20;
 
-export async function agentSetupOf(tx: OrgTx, organizationId: string, today: CalendarDate): Promise<AgentSetup> {
+/** `sellable`: the packages the AI may sell today, when the caller has read them already (the lite turn reads them once). */
+export async function agentSetupOf(
+  tx: OrgTx,
+  organizationId: string,
+  today: CalendarDate,
+  sellable?: readonly { id: string; kind: string }[],
+): Promise<AgentSetup> {
   // One step at a time: a transaction runs one query at once.
   // The page shows the agency's own connection, whatever this server has configured.
   const status = await inboxStatusOf(tx, true);
   // The lite agent books group departures only: a custom package the AI may quote does not make the agent ready.
-  const packages = (await sellablePackages(tx, organizationId, today)).filter((one) => one.kind === "group");
+  const packages = (sellable ?? (await sellablePackages(tx, organizationId, today))).filter(
+    (one) => one.kind === "group",
+  );
   const awaitingPayment = await packagesAwaitingPayment(tx, organizationId, today);
   const payment = await agencyPaymentDetailsOf(tx, organizationId);
   const answers = await agencyAnswersOf(tx);

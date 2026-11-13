@@ -91,7 +91,7 @@ import {
   aiCustomerWroteListener,
   aiPaymentProofListener,
   aiDocumentListener,
-  aiReplyHandler,
+  aiReplyHandlers,
   runAiLearning,
   runAiNudges,
   scoreHandler,
@@ -403,7 +403,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       // The console's ping, answered so it knows the worker takes jobs (incidents.ts).
       ...(dependencies.jobs === undefined ? [] : [workerPingHandler(dependencies.jobs)]),
       ...(ai === null ? [] : [scoreHandler({ db, ai, subscriptions, logger })]),
-      ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
+      ...(ai === null ? [] : aiReplyHandlers({ ...autopilotJobs(ai), logger })),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         // A few at once: each takes seconds against a distant database, and a customer's burst of messages would wait in

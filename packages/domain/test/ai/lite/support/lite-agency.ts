@@ -6,6 +6,7 @@ import {
   PACKAGE_PHOTO_RECORD_TYPE,
 } from "@travel-crm/contracts/files";
 import type { RoomType } from "@travel-crm/contracts/quotes";
+import type { Database } from "@travel-crm/db";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import {
@@ -207,11 +208,11 @@ export async function liteAgency(
   }
   const model = createMemoryAiModel();
   const logger = createMemoryLogger();
-  /** A reply turn for the fixture's first message, or for `token` (a later message's id). */
-  const turn = (at = liteTurnAt, options: { token?: string; traces?: TraceSink } = {}) =>
+  /** A reply turn for the fixture's first message, or for `token` (a later message's id); `db` to watch its queries. */
+  const turn = (at = liteTurnAt, options: { token?: string; traces?: TraceSink; db?: Database } = {}) =>
     runAgentTurn(
       {
-        db: test.db,
+        db: options.db ?? test.db,
         ai: model,
         logger,
         subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },

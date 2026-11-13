@@ -24,6 +24,7 @@ export {
 export { makeGroupQuote, makeGroupQuoteFor } from "./group-quote.js";
 export {
   openDepartureDetails,
+  openDepartureDetailsByPackage,
   openDeparturesOf,
   type OpenDeparture,
   type OpenDepartureDetail,

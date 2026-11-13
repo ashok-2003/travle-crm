@@ -10,6 +10,7 @@ import { organizationTimeZone } from "../../identity/index.js";
 import { adPackageOf } from "../../inbox/index.js";
 import { calendarDateIn, type CalendarDate } from "../../kernel/index.js";
 import { getOrganizationProfile } from "../../profile/index.js";
+import { sellablePackages } from "../../quotes/index.js";
 import type { ChatFacts as ChatRow } from "../agent-effects.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
 import { agentSetupOf } from "../agent-setup.js";
@@ -144,12 +145,14 @@ export async function prepareLiteTurn(
     if (blocked !== null) return blocked;
     const timeZone = await organizationTimeZone(tx, organizationId);
     const today = calendarDateIn(now, timeZone);
-    if (!(await agentSetupOf(tx, organizationId, today)).ready) return "not_ready";
+    // Read once for the turn: the setup's check and the index both take this list.
+    const sellable = await sellablePackages(tx, organizationId, today);
+    if (!(await agentSetupOf(tx, organizationId, today, sellable)).ready) return "not_ready";
     // Each model call reserves its own call later; here only a month already full ends the turn.
     if ((await usedThisMonth(tx, now, timeZone)) >= MONTHLY_AI_LIMIT) return "limit";
     const lines = await chatLines(tx, chat.id);
     if (lines.messages.length === 0) return "nothing";
-    const index = await packageIndexOf(tx, organizationId, today, now);
+    const index = await packageIndexOf(tx, sellable, today, now);
     const personName =
       chat.personId === null
         ? null

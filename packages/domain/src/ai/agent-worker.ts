@@ -1,5 +1,5 @@
 // The worker's side of the autopilot: a customer's message queues the AI's turn a few seconds later (so a burst of messages
-// reads as one, and only the newest is answered), ten chats at a time; each minute, the follow-ups it planned that are
+// reads as one, and only the newest is answered), ten chats at a time, or three for an agency on the lite agent; each minute, the follow-ups it planned that are
 // due go out while the window is open; each night, every agency that lets its AI learn gets a lesson run. Every step asks
 // first whether the agency has the AI on, its plan has it and its subscription allows it.
 import { aiChatResumedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
@@ -19,12 +19,19 @@ import { personAnsweringUntil } from "./person-pause.js";
 import { aiEnabled } from "./settings.js";
 
 export const AI_REPLY_QUEUE = "ai.reply";
+/** The lite agent's turns: their own queue, so fewer run at once. */
+export const AI_LITE_REPLY_QUEUE = "ai.lite-reply";
 export const AI_NUDGES_QUEUE = "ai.nudges";
 export const AI_LEARN_QUEUE = "ai.learn";
 /** How long the agent waits after a message for the next one: people send three short lines, not one. */
 const SETTLE_MS = 3_000;
 /** Chats the agent works on at once. */
 const AT_ONCE = 10;
+/**
+ * Lite turns at once. Each holds a connection for its prepare and act transactions (about 170 round trips, some 12 s
+ * against a database 68 ms away) out of a pool of 5 the whole worker shares: three leave room for the rest.
+ */
+const LITE_AT_ONCE = 3;
 /** A nudge goes no later than this before the window closes, so it can still be answered for free. */
 const WINDOW_MARGIN_MS = 60 * 60_000;
 const NUDGES_PER_AGENCY = 20;
@@ -42,9 +49,10 @@ export function aiCustomerWroteListener(dependencies: {
       const { conversationId } = event.payload;
       // Nothing is queued for an agency with no right to the AI.
       if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(event.organizationId))) return;
+      // The queue the turn waits on, or null for none.
       const wanted = await context.forOrg(async (tx) => {
-        if (!(await aiEnabled(tx))) return false;
-        if ((await agentPauseOf(tx, event.organizationId)) !== null) return false;
+        if (!(await aiEnabled(tx))) return null;
+        if ((await agentPauseOf(tx, event.organizationId)) !== null) return null;
         const settings = await autopilotOf(tx);
         const state = await tx.aiChat.findFirst({
           where: { conversationId },
@@ -63,11 +71,11 @@ export function aiCustomerWroteListener(dependencies: {
             update: { turnState: "queued", turnAt: new Date() },
           });
         }
-        return answers;
+        return answers ? replyQueueOf(settings) : null;
       });
-      if (!wanted) return;
+      if (wanted === null) return;
       await dependencies.queue.send(
-        AI_REPLY_QUEUE,
+        wanted,
         {
           organizationId: event.organizationId,
           conversationId: event.payload.conversationId,
@@ -100,10 +108,10 @@ export function aiChatResumedListener(dependencies: {
         });
         if (message === null) return null;
         await tx.aiChat.updateMany({ where: { conversationId }, data: { turnState: "queued", turnAt: new Date() } });
-        return message;
+        return { id: message.id, queue: replyQueueOf(await autopilotOf(tx)) };
       });
       if (newest === null) return;
-      await dependencies.queue.send(AI_REPLY_QUEUE, {
+      await dependencies.queue.send(newest.queue, {
         organizationId: event.organizationId,
         conversationId,
         messageId: newest.id,
@@ -112,11 +120,18 @@ export function aiChatResumedListener(dependencies: {
   });
 }
 
+/** Which queue an agency's turns wait on: the lite agent's own, or the others'. */
+const replyQueueOf = (settings: { lite: boolean }) => (settings.lite ? AI_LITE_REPLY_QUEUE : AI_REPLY_QUEUE);
+
 /** The agent's turn for one message: only the chat's newest customer message is answered; an earlier one's job ends. */
-export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logger }): JobHandler {
+function replyHandler(
+  dependencies: AgentDependencies & { logger: Logger },
+  queue: string,
+  concurrency: number,
+): JobHandler {
   return {
-    queue: AI_REPLY_QUEUE,
-    concurrency: AT_ONCE,
+    queue,
+    concurrency,
     handle: async (data) => {
       const job = aiReplyJob.parse(data);
       const newest = await dependencies.db.forOrg(job.organizationId, (tx) =>
@@ -136,6 +151,7 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
         );
       await turn("thinking");
       try {
+        // Either queue's turn goes to whichever agent the agency has now: a switch in between changes only the pace.
         const outcome = await runAgentTurn(
           dependencies,
           {
@@ -146,13 +162,21 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
           },
           new Date(),
         );
-        dependencies.logger.info({ queue: AI_REPLY_QUEUE, outcome }, "The AI agent's turn");
+        dependencies.logger.info({ queue, outcome }, "The AI agent's turn");
       } finally {
         // Done; a newer message queued meanwhile keeps its mark.
         await turn(null, "thinking");
       }
     },
   };
+}
+
+/** The reply handlers: the earlier agents' turns, ten at once, and the lite agent's, three at once. */
+export function aiReplyHandlers(dependencies: AgentDependencies & { logger: Logger }): JobHandler[] {
+  return [
+    replyHandler(dependencies, AI_REPLY_QUEUE, AT_ONCE),
+    replyHandler(dependencies, AI_LITE_REPLY_QUEUE, LITE_AT_ONCE),
+  ];
 }
 
 /**
