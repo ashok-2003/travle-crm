@@ -326,8 +326,11 @@ test("a new WhatsApp lead arrives with its fields suggested in violet, and Looks
       .click({ timeout: 4_000 });
     await expect(owner.locator("[data-ai-filled]").first()).toBeVisible({ timeout: 6_000 });
   }).toPass({ timeout: 150_000 });
-  // The first AI value is the destination; where it came from is a tap away, with Looks right beside it.
-  await owner.getByRole("button", { name: "Where this came from" }).first().click();
+  // The destination's value (Manali) is chosen by its words; where it came from is a tap away, with Looks right beside it.
+  await owner
+    .locator("span:has(> [data-ai-filled]:has-text('Manali'))")
+    .getByRole("button", { name: "Where this came from" })
+    .click();
   await expect(owner.getByText(/Filled by the AI from the chat/)).toBeVisible();
   await expect(owner.getByRole("button", { name: "Looks right" })).toBeVisible();
   await expectAccessible(owner);

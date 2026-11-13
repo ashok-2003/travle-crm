@@ -37,6 +37,8 @@ describe("the AI in a lead's timeline", () => {
     );
     expect(heading.querySelector("[data-ai-chip]")).not.toBeNull();
     expect(heading).toHaveTextContent("Travel date changed from Sat 14 Nov to Sat 21 Nov");
+    // The heading's name keeps the chip apart from the title.
+    expect(screen.getByRole("heading", { name: "AI Travel date changed from Sat 14 Nov to Sat 21 Nov" })).toBe(heading);
   });
 
   it("the AI's note carries the chip", () => {

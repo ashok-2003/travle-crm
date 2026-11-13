@@ -184,6 +184,30 @@ describe("TripCard, what the AI filled", () => {
     });
   });
 
+  it("a read-only subscription leaves both buttons disabled, with its hint", async () => {
+    stubApi({ "ai.leadFields": { data: { fields: [filled("adults", "trip.adults", "we are 3 people")] } } });
+    renderScreen(<TripCard lead={aLead()} />, {
+      subscription: { ...withAi, status: "read_only", access: "read_only" },
+    });
+    await openOrigin();
+    expect(await screen.findByRole("button", { name: words.ai.right })).toBeDisabled();
+    expect(screen.getByRole("button", { name: words.ai.wrong })).toBeDisabled();
+    expect(screen.getByRole("button", { name: words.ai.right })).toHaveAccessibleDescription(
+      messages.errors.reasons.ORGANIZATION_READ_ONLY,
+    );
+  });
+
+  it("shows the sentence for a refused decision", async () => {
+    stubApi({
+      "ai.leadFields": { data: { fields: [filled("adults", "trip.adults", "we are 3 people")] } },
+      "ai.decideLeadFields": { status: 403, reason: "MISSING_PERMISSION" },
+    });
+    renderScreen(<TripCard lead={aLead()} />, { subscription: withAi });
+    await openOrigin();
+    await userEvent.click(await screen.findByRole("button", { name: words.ai.right }));
+    expect(await screen.findByText(messages.errors.reasons.MISSING_PERMISSION)).toBeVisible();
+  });
+
   it("a member without leads:edit sees the sentence and no buttons", async () => {
     stubApi({ "ai.leadFields": { data: { fields: [filled("adults", "trip.adults", "")] } } });
     renderScreen(<TripCard lead={aLead()} />, {

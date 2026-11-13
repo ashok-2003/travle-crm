@@ -6,12 +6,15 @@ import type { ReactElement } from "react";
 export function AiChip(): ReactElement {
   const t = useTranslations("ai");
   return (
-    <span
-      data-ai-chip
-      className="me-1.5 inline-flex min-h-5 items-center gap-1 rounded-badge bg-people-tint px-1.5 align-middle text-caption font-medium text-people-tint-ink"
-    >
-      <SparklesIcon aria-hidden="true" className="size-3" />
-      {t("chip")}
-    </span>
+    <>
+      <span
+        data-ai-chip
+        className="inline-flex min-h-5 items-center gap-1 rounded-badge bg-people-tint px-1.5 align-middle text-caption font-medium text-people-tint-ink"
+      >
+        <SparklesIcon aria-hidden="true" className="size-3" />
+        {t("chip")}
+      </span>
+      {/* A real space, not a margin: a heading's name does not read margins, and would run "AI" into the title. */}{" "}
+    </>
   );
 }
