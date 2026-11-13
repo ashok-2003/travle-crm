@@ -34,7 +34,7 @@ describe("organization.paymentDetails", () => {
     expect(await refusal(caller.organization.paymentDetails.save({ ...input, upiId: "nope" }))).toBe("BAD_REQUEST");
   });
 
-  it("lets an owner save the details and read them back as ready", async () => {
+  it("lets an owner save the details and read them back, not ready until the payment QR is added", async () => {
     const organizationId = await anAgency(harness);
     await harness.db.forOrg(organizationId, (tx) =>
       tx.organizationProfile.create({ data: { legalName: "Kerala Trails LLP", gstStateCode: "32" } }),
@@ -42,7 +42,8 @@ describe("organization.paymentDetails", () => {
     const { caller } = callerOf(harness, { organizationId });
     expect((await caller.organization.paymentDetails.get()).ready).toBe(false);
     const saved = await caller.organization.paymentDetails.save(input);
-    expect(saved).toMatchObject({ upiId: "trails@okbank", qr: null, ready: true });
+    // The agent asks for payment only with the agency's payment QR; a UPI ID alone is an extra (owner, 2026-11-13).
+    expect(saved).toMatchObject({ upiId: "trails@okbank", qr: null, ready: false });
     expect(await caller.organization.paymentDetails.get()).toEqual(saved);
   });
 });
