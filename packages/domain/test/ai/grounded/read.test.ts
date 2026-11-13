@@ -308,7 +308,11 @@ describe("readChat", () => {
   it("is no read when the answer does not fit", async () => {
     const model = createMemoryAiModel();
     model.answer('{"places": "Spiti"}');
-    expect(await readChat(model, input)).toEqual({ ok: false, reason: "unfit" });
+    expect(await readChat(model, input)).toEqual({
+      ok: false,
+      reason: "unfit",
+      usage: { model: "memory-model", inputTokens: 0, outputTokens: 0 },
+    });
   });
 });
 

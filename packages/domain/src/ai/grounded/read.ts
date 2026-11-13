@@ -3,7 +3,7 @@ import { readAnswer, readAnswerJsonSchema, type ChatFacts, type ReadAnswer } fro
 import type { AiFailure, AiModel } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../kernel/index.js";
 import { fenced } from "../agent-prompt.js";
-import { ANSWER_MAX_TOKENS, askFor } from "./ask.js";
+import { ANSWER_MAX_TOKENS, askFor, type CallUsage } from "./ask.js";
 import { checkedRead } from "./read-check.js";
 import type { ChatLine, ReadKeys } from "./read-keys.js";
 
@@ -20,8 +20,10 @@ export interface ReadInput {
 }
 
 export type ReadResult =
-  | { ok: true; read: ReadAnswer; usage: { model: string; inputTokens: number; outputTokens: number } }
-  | { ok: false; reason: AiFailure | "unfit" };
+  | { ok: true; read: ReadAnswer; usage: CallUsage }
+  | { ok: false; reason: AiFailure }
+  /** Answered, but not in the form: the call was made, and its usage counts. */
+  | { ok: false; reason: "unfit"; usage: CallUsage };
 
 const instructions = `READ_CHAT. You label what a customer wrote in a WhatsApp chat with a travel agency. You never answer the customer.
 - Label only what the customer wrote. Lines marked "Agency:" are ours: never evidence.
@@ -68,7 +70,7 @@ export async function readChat(model: AiModel, input: ReadInput): Promise<ReadRe
     readAnswer,
   );
   // The grounded turn keeps no raw text; only the lite trace does.
-  if (!asked.ok) return { ok: false, reason: asked.reason };
+  if (!asked.ok) return asked.reason === "unfit" ? { ok: false, reason: "unfit", usage: asked.usage } : asked;
   return {
     ok: true,
     read: checkedRead(asked.value, input.transcript, input),

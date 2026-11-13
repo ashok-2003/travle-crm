@@ -310,7 +310,11 @@ describe("writeReply", () => {
   it("returns unfit for an answer that doesn't fit, and the failure when the model fails", async () => {
     const model = createMemoryAiModel();
     model.answer(JSON.stringify({ reply: "", actions: answer.actions }), { ok: false, reason: "rate_limited" });
-    expect(await writeReply(model, input())).toEqual({ ok: false, reason: "unfit" });
+    expect(await writeReply(model, input())).toEqual({
+      ok: false,
+      reason: "unfit",
+      usage: { model: "memory-model", inputTokens: 0, outputTokens: 0 },
+    });
     expect(await writeReply(model, input())).toEqual({ ok: false, reason: "rate_limited" });
   });
 });

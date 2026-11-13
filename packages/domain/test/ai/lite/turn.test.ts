@@ -418,6 +418,22 @@ describe("the lite agent's turn", () => {
     expect(traces[0]?.sent.text).toContain(formatRupees(400_000));
   });
 
+  it("an unfit answer is counted as a call, its tokens with it, as the trace counts them", async () => {
+    const on = await liteAgency(test);
+    const complete = on.model.complete.bind(on.model);
+    on.model.complete = async (request) => {
+      const result = await complete(request);
+      return result.ok ? { ...result, inputTokens: 1200, outputTokens: 80 } : result;
+    };
+    on.model.answer('{"intents": "not a list"}');
+    const traces: LiteTrace[] = [];
+    const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+    expect(await on.turn(undefined, { traces: sink })).toBe("unfit");
+    const usage = await on.inOrg((tx) => tx.aiUsage.findFirstOrThrow());
+    expect(usage).toMatchObject({ calls: 1, inputTokens: 1200n, outputTokens: 80n });
+    expect(traces[0]).toMatchObject({ inputTokens: 1200, outputTokens: 80 });
+  });
+
   it("a nudge or a follow-up reads nothing: the lite agent writes no follow-ups yet", async () => {
     const on = await liteAgency(test);
     const counting = countingDatabase(test.db);

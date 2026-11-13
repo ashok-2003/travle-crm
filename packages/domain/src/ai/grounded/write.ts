@@ -6,7 +6,7 @@ import type { AiFailure, AiMessage, AiModel } from "@travel-crm/integrations/ai"
 import { fenced, type TurnKind } from "../agent-prompt.js";
 import { asTranscript } from "../agent-context.js";
 import type { AutopilotRow } from "../autopilot.js";
-import { ANSWER_MAX_TOKENS, askFor } from "./ask.js";
+import { ANSWER_MAX_TOKENS, askFor, type CallUsage } from "./ask.js";
 import { groundedPrompt, type GroundedPack } from "./prompt.js";
 
 export interface WriteInput {
@@ -19,8 +19,10 @@ export interface WriteInput {
 }
 
 export type WriteResult =
-  | { ok: true; value: WriteAnswer; usage: { model: string; inputTokens: number; outputTokens: number } }
-  | { ok: false; reason: AiFailure | "unfit" };
+  | { ok: true; value: WriteAnswer; usage: CallUsage }
+  | { ok: false; reason: AiFailure }
+  /** Answered, but not in the form: the call was made, and its usage counts. */
+  | { ok: false; reason: "unfit"; usage: CallUsage };
 
 /**
  * `reason` is why this is asked again (what the check found wrong with the last reply) or why a nudge or follow-up is
@@ -42,7 +44,7 @@ export async function writeReply(model: AiModel, input: WriteInput, reason?: str
     writeAnswer,
   );
   // The grounded turn keeps no raw text; only the lite trace does.
-  if (!asked.ok) return { ok: false, reason: asked.reason };
+  if (!asked.ok) return asked.reason === "unfit" ? { ok: false, reason: "unfit", usage: asked.usage } : asked;
   return {
     ok: true,
     value: asked.value,

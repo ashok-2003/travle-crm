@@ -13,22 +13,32 @@ export interface Contract<T> {
   safeParse(input: unknown): { success: true; data: T } | { success: false };
 }
 
+/** What one answered call used: it costs the same whether or not its answer fit. */
+export interface CallUsage {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export type Asked<T> =
   | { ok: true; value: T; raw: string; model: string; inputTokens: number; outputTokens: number }
-  /** `raw` is the model's text when it answered but did not fit, so a trace can show what it said. */
   | { ok: false; reason: AiFailure }
-  | { ok: false; reason: "unfit"; raw: string };
+  /** `raw` is the model's text when it answered but did not fit, so a trace can show what it said; `usage` is its cost. */
+  | { ok: false; reason: "unfit"; raw: string; usage: CallUsage };
 
 /**
  * Calls the model with `request.schema` and keeps the answer only when its JSON object fits the contract. It neither
- * reserves nor releases the monthly limit: the caller reserves one call first (`reserveAiCall`) and gives it back when
- * the answer is a failure or "unfit".
+ * reserves nor releases the monthly limit: the caller reserves one call first (`reserveAiCall`) and gives it back only
+ * when the model gave no answer; an "unfit" one was made, and is kept with its tokens.
  */
 export async function askFor<T>(model: AiModel, request: AiRequest, contract: Contract<T>): Promise<Asked<T>> {
   const result = await model.complete(request);
   if (!result.ok) return { ok: false, reason: result.reason };
   const parsed = contract.safeParse(jsonObjectIn(result.text));
-  if (!parsed.success) return { ok: false, reason: "unfit", raw: result.text };
+  if (!parsed.success) {
+    const usage = { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens };
+    return { ok: false, reason: "unfit", raw: result.text, usage };
+  }
   return {
     ok: true,
     value: parsed.data,

@@ -284,13 +284,13 @@ describe("the grounded turn", () => {
     expect(logged).not.toContain("Spiti");
   });
 
-  it("an unfit read ends the turn: the team is told, nothing is sent, the call is given back", async () => {
+  it("an unfit read ends the turn: the team is told, nothing is sent, the call is counted (it was made)", async () => {
     const on = await agency();
     on.model.answer("not json at all");
     expect(await on.turn()).toBe("unfit");
     expect(await on.sent()).toHaveLength(0);
     expect((await on.inOrg((tx) => tx.aiChat.findFirstOrThrow())).attentionReason).toContain("unfit");
-    expect(await on.calls()).toBe(0);
+    expect(await on.calls()).toBe(1);
   });
 
   it("each model call counts against the monthly limit", async () => {
@@ -493,14 +493,14 @@ describe("the grounded turn", () => {
     expect((await asked.inOrg((tx) => tx.aiChat.findFirstOrThrow())).followUpAt).toBeNull();
   });
 
-  it("an answer that does not fit twice is blocked as unfit, each call given back or counted as it was used", async () => {
+  it("an answer that does not fit twice is blocked as unfit, every call made counted", async () => {
     const on = await agency();
     on.model.answer(read(), "no json", "still no json");
     expect(await on.turn()).toBe("blocked");
     expect(await on.sent()).toHaveLength(0);
     expect((await on.inOrg((tx) => tx.aiChat.findFirstOrThrow())).attentionReason).toContain("unfit");
-    // The read was used; the two unfit writes were given back.
-    expect(await on.calls()).toBe(1);
+    // The read and the two unfit writes were all made, and all cost.
+    expect(await on.calls()).toBe(3);
   });
 
   it("a stored facts row that cannot be read is logged once, with no content", async () => {
