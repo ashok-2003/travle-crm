@@ -412,20 +412,25 @@ describe("the AI, step one", () => {
     });
 
     /** The agency on the lite agent, its autopilot on, and the chat's AI row as given. */
-    async function liteAgency(chat: { mode?: string; turnState?: string | null }) {
+    async function liteAgency(chat: { mode?: string; turnState?: string | null; turnAt?: Date }) {
       const on = await agency();
       await on.inOrg(async (tx) => {
         await setLiteAgent(tx, systemActor(on.organizationId), true);
         await tx.aiAutopilot.updateMany({ data: { autopilot: true } });
         await tx.aiChat.create({
-          data: { conversationId: on.chat.id, mode: chat.mode ?? "default", turnState: chat.turnState ?? null },
+          data: {
+            conversationId: on.chat.id,
+            mode: chat.mode ?? "default",
+            turnState: chat.turnState ?? null,
+            turnAt: chat.turnAt ?? null,
+          },
         });
       });
       return on;
     }
 
     it("the scoring job skips a chat the lite agent answers", async () => {
-      const queued = await liteAgency({ turnState: "queued" });
+      const queued = await liteAgency({ turnState: "queued", turnAt: testNow });
       queued.model.answer(JSON.stringify(answer));
       expect(await queued.score()).toBe("agent_scores");
       expect(queued.model.requests).toHaveLength(0);
@@ -446,6 +451,13 @@ describe("the AI, step one", () => {
       off.model.answer(JSON.stringify(answer));
       expect(await off.score()).toBe("scored");
       expect(off.model.requests).toHaveLength(1);
+    });
+
+    it("a turn the worker left behind long ago doesn't stop the scoring", async () => {
+      const stale = await liteAgency({ turnState: "thinking", turnAt: new Date(testNow.getTime() - 4 * 60_000) });
+      stale.model.answer(JSON.stringify(answer));
+      expect(await stale.score()).toBe("scored");
+      expect(stale.model.requests).toHaveLength(1);
     });
 
     it("is erased with the customer", async () => {

@@ -21,6 +21,7 @@ import { aiAllowed } from "./allowed.js";
 import { autopilotOf } from "./autopilot.js";
 import { knowledgeWords } from "./knowledge.js";
 import { agentAnswers } from "./may-write.js";
+import { turnUnderWay } from "./turn-under-way.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
 import { aiEnabled, aiFillLeadsOn, aiScoringOn } from "./settings.js";
 import { releaseAiCall, reserveAiCall } from "./usage.js";
@@ -75,16 +76,17 @@ async function nothingNewSince(tx: OrgTx, conversationId: string, leadId: string
  */
 async function agentScores(
   tx: OrgTx,
-  input: { conversationId: string; leadId: string; newestAt: Date },
+  input: { conversationId: string; leadId: string; newestAt: Date; now: Date },
 ): Promise<boolean> {
   const settings = await autopilotOf(tx);
   if (!settings.lite || !settings.autopilot) return false;
   const chat = await tx.aiChat.findFirst({
     where: { conversationId: input.conversationId },
-    select: { mode: true, handedOffAt: true, turnState: true },
+    select: { mode: true, handedOffAt: true, turnState: true, turnAt: true },
   });
   if (!agentAnswers(chat?.mode ?? "default", settings.autopilot) || chat?.handedOffAt != null) return false;
-  if (chat?.turnState === "queued" || chat?.turnState === "thinking") return true;
+  // A mark the worker left behind (it stopped mid-way) waits for no turn.
+  if (turnUnderWay(chat, input.now) !== null) return true;
   const insight = await tx.leadAiInsight.findFirst({ where: { leadId: input.leadId }, select: { updatedAt: true } });
   return insight !== null && insight.updatedAt > input.newestAt;
 }
@@ -253,9 +255,8 @@ async function prepare(
   });
   if (lead === null) return "no_lead";
   // Before any call is reserved: the lite agent's own turn scores (and fills) the chats it answers.
-  if (await agentScores(tx, { conversationId: job.conversationId, leadId: lead.id, newestAt: newest.occurredAt })) {
-    return "agent_scores";
-  }
+  const agentTurn = { conversationId: job.conversationId, leadId: lead.id, newestAt: newest.occurredAt, now };
+  if (await agentScores(tx, agentTurn)) return "agent_scores";
   // Filling in only reads a lead's first customer messages, only while it is still missing something, and never otherwise.
   const firstMessages = await tx.whatsappMessage.findMany({
     where: { conversationId: job.conversationId, direction: "in" },

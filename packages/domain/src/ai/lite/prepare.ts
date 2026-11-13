@@ -178,7 +178,7 @@ export async function prepareLiteTurn(
       basics: { agentName: basics.agentName, tone: basics.tone === "professional" ? "professional" : "friendly" },
       answers: await agencyAnswersOf(tx),
       adPackageId: index.some((entry) => entry.id === adPackageId) ? adPackageId : null,
-      ...(await bookingPartOf(tx, chat, leadPart.leadId, now)),
+      ...(await bookingPartOf(tx, chat, leadPart.leadId, { now, today })),
       nameUsable: name !== null,
       supplierStateCode: (await getOrganizationProfile(tx, organizationId))?.gstStateCode ?? null,
     };

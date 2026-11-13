@@ -29,9 +29,12 @@ export function mergeForm(facts: LiteFacts, checked: CheckedForm, index: Package
     if (only && next.packageId === null) next.packageId = only.id;
     else next.placeWords = details.place.words;
   }
-  if (details.date && ((next.day === null && next.month === null) || details.date.changed)) {
-    const day = details.date.day;
-    const month = details.date.month ?? day?.slice(0, 7) ?? null;
+  const said = details.date;
+  // A day inside the month already known narrows it: no change of mind is needed for that.
+  const narrows = next.day === null && next.month !== null && (said?.day?.startsWith(next.month) ?? false);
+  if (said && ((next.day === null && next.month === null) || said.changed || narrows)) {
+    const day = said.day;
+    const month = said.month ?? day?.slice(0, 7) ?? null;
     if (day !== next.day || month !== next.month) clearDeparture();
     next.day = day;
     next.month = month;

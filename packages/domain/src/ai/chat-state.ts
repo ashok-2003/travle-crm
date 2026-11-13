@@ -11,9 +11,8 @@ import { agentAnswers } from "./agent.js";
 import { autopilotOf } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
 import { chatVoiceOf } from "./chat-voice.js";
+import { turnUnderWay } from "./turn-under-way.js";
 
-/** After this long a turn still marked is one the worker never finished (it stopped): the inbox stops showing it. */
-const TURN_STALE_MS = 3 * 60_000;
 /** What the AI flagged shows in the chat this long. */
 const ATTENTION_SHOWN_MS = 24 * 3_600_000;
 
@@ -31,9 +30,6 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
   const voice = await chatVoiceOf(tx, conversationId);
   const mode = state?.mode === "on" || state?.mode === "off" ? state.mode : "default";
   const answering = available && agentAnswers(mode, settings.autopilot) && state?.handedOffAt == null;
-  // A turn the worker left behind (it stopped mid-way) is no turn after a few minutes.
-  const turnFresh = state?.turnAt != null && Date.now() - state.turnAt.getTime() < TURN_STALE_MS;
-  const turnState = state?.turnState === "queued" || state?.turnState === "thinking" ? state.turnState : null;
   return {
     mode,
     answering,
@@ -41,7 +37,8 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
     handoffReason: state?.handoffReason ?? null,
     memory: state?.memory ?? "",
     lastReplyAt: state?.lastReplyAt?.toISOString() ?? null,
-    turn: answering && turnFresh ? turnState : null,
+    // A turn the worker left behind (it stopped mid-way) is no turn after a few minutes.
+    turn: answering ? turnUnderWay(state, new Date()) : null,
     followUpAt: answering && state?.followUpAt != null ? state.followUpAt.toISOString() : null,
     followUpReason: answering ? (state?.followUpReason ?? null) : null,
     attention:

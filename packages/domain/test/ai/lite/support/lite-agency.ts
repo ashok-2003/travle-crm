@@ -5,6 +5,7 @@ import {
   PACKAGE_BROCHURE_RECORD_TYPE,
   PACKAGE_PHOTO_RECORD_TYPE,
 } from "@travel-crm/contracts/files";
+import type { RoomType } from "@travel-crm/contracts/quotes";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import {
@@ -53,8 +54,12 @@ const readyFile = (recordType: string, recordId: string, fileName: string, conte
 export const liteToday = parseCalendarDate("2026-11-10");
 export const liteTurnAt = new Date(testNow.getTime() + 60_000);
 
-export async function liteAgency(test: TestInbox, options: { lite?: boolean; ready?: boolean } = {}) {
-  const { lite = true, ready = true } = options;
+/** `roomTypes` are the package's (double, triple and a child bed unless told). */
+export async function liteAgency(
+  test: TestInbox,
+  options: { lite?: boolean; ready?: boolean; roomTypes?: RoomType[] } = {},
+) {
+  const { lite = true, ready = true, roomTypes = ["double", "triple", "child_bed"] } = options;
   const connection = await aConnectedAgency(test);
   const { organizationId } = connection;
   const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
@@ -146,7 +151,7 @@ export async function liteAgency(test: TestInbox, options: { lite?: boolean; rea
         nights: 4,
         startCity: "Delhi",
         pickupPoints: "Delhi - Kashmiri Gate, 9 pm\nHaridwar - Railway station, 5 am",
-        roomTypes: ["double", "triple", "child_bed"],
+        roomTypes,
         advancePerPersonPaise: 200_000n,
         pricesIncludeGst: true,
         aiSellable: true,

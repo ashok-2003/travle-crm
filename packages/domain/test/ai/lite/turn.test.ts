@@ -1,81 +1,25 @@
 // The lite agent's whole turn against the real database, dispatched by runAgentTurn: Understand, decide, Write and act
 // with a scripted model, the gates that stop it before any call, what it logs, and the trace it hands to the sink.
 import { randomUUID } from "node:crypto";
-import {
-  liteFacts,
-  withoutAmountsAndDates,
-  type LiteFacts,
-  type LiteIntent,
-  type UnderstandForm,
-} from "@travel-crm/contracts/ai";
+import { withoutAmountsAndDates } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
-import { saveLiteFacts } from "../../../src/ai/lite/merge.js";
 import { promptVersions } from "../../../src/ai/lite/prompts/library.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency } from "./support/lite-agency.js";
-
-type Agency = Awaited<ReturnType<typeof liteAgency>>;
-
-const noDetails: UnderstandForm["details"] = {
-  package: null,
-  place: null,
-  date: null,
-  adults: null,
-  children: null,
-  name: null,
-  pickup_city: null,
-  room: null,
-  pay_in_full: null,
-};
-const understood = (
-  intents: [LiteIntent, string][],
-  changes: {
-    details?: Partial<UnderstandForm["details"]>;
-    language?: UnderstandForm["language"];
-    summary?: string;
-    chance?: number;
-  } = {},
-): string =>
-  JSON.stringify({
-    intents: intents.map(([name, proof]) => ({ name, proof })),
-    details: { ...noDetails, ...changes.details },
-    open_to_other_trips: "unknown",
-    lookups: [],
-    language: changes.language ?? "english",
-    summary: changes.summary ?? "Asked about Kedarnath.",
-    score: {
-      chance: changes.chance ?? 55,
-      label: "warm",
-      reasons: ["Asked about a trip"],
-      looks_fake: false,
-      fake_why: "",
-      standing: "Looking at Kedarnath",
-      next_step: "Share the dates",
-    },
-  });
-const written = (text: string) => JSON.stringify({ text, cannot_answer: false });
-const at = (seconds: number) => new Date(testNow.getTime() + seconds * 1000);
-const greeting = "Hi! We run [package 1] from [from 1]. Which interests you?";
-
-/** The customer's new line, and its id: the token of the turn that answers it. */
-async function says(on: Agency, text: string, seconds: number): Promise<string> {
-  await on.say(text, "text", at(seconds));
-  return newestIn(on);
-}
-async function newestIn(on: Agency): Promise<string> {
-  const row = await on.inOrg((tx) =>
-    tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" }, orderBy: { occurredAt: "desc" } }),
-  );
-  return row.id;
-}
-const outbound = (on: Agency) =>
-  on.inOrg((tx) => tx.whatsappMessage.findMany({ where: { direction: "out" }, orderBy: { occurredAt: "asc" } }));
-const calls = async (on: Agency) => (await on.inOrg((tx) => tx.aiUsage.findFirst()))?.calls ?? 0;
-const withFacts = (on: Agency, facts: Partial<LiteFacts>) =>
-  on.inOrg((tx) => saveLiteFacts(tx, on.chat.id, liteFacts.parse({ agent: "lite", ...facts })));
+import {
+  at,
+  calls,
+  greeting,
+  newestIn,
+  outbound,
+  says,
+  understood,
+  withFacts,
+  written,
+} from "./support/turn-script.js";
 
 describe("the lite agent's turn", () => {
   let test: TestInbox;
@@ -244,11 +188,29 @@ describe("the lite agent's turn", () => {
 
   it("a customer who already has a booking goes to a person without the model", async () => {
     const on = await liteAgency(test);
-    await on.inOrg((tx) =>
-      tx.aiBooking.create({
-        data: { leadId: on.leadId, conversationId: on.chat.id, summary: "Kedarnath for 2", status: "confirmed" },
-      }),
-    );
+    // Confirmed for the 14 Nov departure, still to come.
+    await on.inOrg(async (tx) => {
+      const quote = await tx.quote.create({
+        data: {
+          leadId: on.leadId,
+          title: "Kedarnath Yatra 4N",
+          status: "accepted",
+          subtotalPaise: 1_399_800n,
+          totalPaise: 1_399_800n,
+          departureId: on.departures[0]?.id ?? null,
+        },
+        select: { id: true },
+      });
+      await tx.aiBooking.create({
+        data: {
+          leadId: on.leadId,
+          conversationId: on.chat.id,
+          summary: "Kedarnath for 2",
+          status: "confirmed",
+          quoteId: quote.id,
+        },
+      });
+    });
     const token = await says(on, "What time is the pickup?", 30);
     expect(await on.turn(at(60), { token })).toBe("handed_off");
     expect(on.model.requests).toHaveLength(0);

@@ -82,11 +82,14 @@ export async function datesAndSeats(
 const adultRoomsOf = (offered: readonly RoomType[]): RoomType[] =>
   adultRoomTypes.filter((type) => offered.includes(type));
 
-/** The adults' room: the one they chose, else the only adult room the package sells; null while it is open. */
+/**
+ * The adults' room: the only adult room the package sells, whatever room they said (a triple-only trek has nothing else
+ * to give "2 sharing"); else the one they chose; null while it is open.
+ */
 function adultsRoom(roomType: RoomType | null, offered: readonly RoomType[]): RoomType | null {
-  if (roomType !== null) return roomType;
   const [only, ...others] = adultRoomsOf(offered);
-  return only !== undefined && others.length === 0 ? only : null;
+  if (only !== undefined && others.length === 0) return only;
+  return roomType;
 }
 
 /** The rooms the party takes. A child takes a child bed if offered, else no bed, else shares the adults' room. */

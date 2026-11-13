@@ -91,6 +91,19 @@ describe("totalFor", () => {
       reason: "ROOM_SPLIT",
     });
   });
+
+  it("a child's price is no room type: a triple-only trek with a child bed is still per person", () => {
+    const prices = { ...none, triple: 599_900, child_bed: 399_900 };
+    expect(totalFor(prices, [{ roomType: "triple", people: 2 }], ["triple", "child_bed"])).toMatchObject({
+      ok: true,
+      totalPaise: 2 * 599_900,
+    });
+    // Two adult room types and a child bed: the adults still fill whole rooms.
+    expect(totalFor(prices, [{ roomType: "triple", people: 2 }], ["double", "triple", "child_bed"])).toMatchObject({
+      ok: false,
+      reason: "ROOM_SPLIT",
+    });
+  });
 });
 
 describe("onlyRoomType", () => {

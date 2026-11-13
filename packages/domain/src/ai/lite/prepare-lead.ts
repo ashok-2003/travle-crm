@@ -80,7 +80,10 @@ async function typedByPerson(tx: OrgTx, leadId: string): Promise<Partial<Record<
 function withTyped(facts: LiteFacts, typed: Partial<Record<TripField, unknown>>): LiteFacts {
   const next = { ...facts };
   const when = typed.when as TravelWhen | undefined;
-  if (when?.kind === "dates" || when?.kind === "month") {
+  // A month the facts already hold (alone, or as the month of the day the customer picked) changes nothing: else a day
+  // in it would be let go every turn, and asked for again.
+  const sameMonth = when?.kind === "month" && when.month === next.month;
+  if ((when?.kind === "dates" || when?.kind === "month") && !sameMonth) {
     const day = when.kind === "dates" ? when.from : null;
     const month = when.kind === "dates" ? when.from.slice(0, 7) : when.month;
     // Another day is another departure, and another price.
@@ -177,15 +180,16 @@ export interface BookingPart {
 }
 
 /**
- * The chat's own AI booking still waiting on its payment, and whether the person already has a booking: a requested,
- * confirmed or completed one, or a confirmed AI booking, on any of their leads. The chat's open AI booking is not one:
- * it is the sale this chat is in.
+ * The chat's own AI booking still waiting on its payment, and whether the person has a booking still ahead of them: a
+ * requested or confirmed one, or a confirmed AI booking whose departure is today or later, on any of their leads. A
+ * trip that is over (a completed booking, an AI booking whose departure has gone) makes them a returning customer, and
+ * the chat's open AI booking is the sale this chat is in: neither is one.
  */
 export async function bookingPartOf(
   tx: OrgTx,
   chat: { id: string; personId: string | null },
   leadId: string | null,
-  now: Date,
+  at: { now: Date; today: CalendarDate },
 ): Promise<BookingPart> {
   const open = await tx.aiBooking.findFirst({
     where: { conversationId: chat.id, status: { in: ["awaiting_payment", "proof_received"] } },
@@ -207,16 +211,20 @@ export async function bookingPartOf(
   const booked =
     leadIds.length > 0 &&
     ((await tx.booking.findFirst({
-      where: { leadId: { in: leadIds }, status: { in: ["requested", "confirmed", "completed"] } },
+      where: { leadId: { in: leadIds }, status: { in: ["requested", "confirmed"] } },
       select: { id: true },
     })) !== null ||
       (await tx.aiBooking.findFirst({
-        where: { leadId: { in: leadIds }, status: "confirmed" },
+        where: {
+          leadId: { in: leadIds },
+          status: "confirmed",
+          quote: { departure: { startDate: { gte: new Date(`${at.today}T00:00:00Z`) } } },
+        },
         select: { id: true },
       })) !== null);
   return {
     openBooking,
     hasBooking: booked,
-    mayBePayment: await mayBePayment(tx, { conversationId: chat.id, leadId, at: now }),
+    mayBePayment: await mayBePayment(tx, { conversationId: chat.id, leadId, at: at.now }),
   };
 }

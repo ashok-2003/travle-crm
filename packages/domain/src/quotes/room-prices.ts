@@ -1,5 +1,6 @@
 // Which room prices apply on a date, what a group's rooms add up to, and the pre-tax part of a price that includes GST.
 import {
+  adultRoomTypes,
   roomCapacity,
   roomTypes,
   type RoomBooking,
@@ -96,10 +97,11 @@ export function onlyRoomType(offered: readonly RoomType[]): RoomType | null {
 
 /**
  * What the rooms of a package selling `offered` cost: people times the room type's price, refused when no price is set
- * or the people don't fill rooms. A package selling one room type is per person, so there four may take triple.
+ * or the people don't fill rooms. A package selling one adult room type is per person, so there four may take triple;
+ * a child's bed or place is no room type, so a triple-only trek that also prices a child bed is per person too.
  */
 export function totalFor(prices: RoomPrices, rooms: readonly RoomBooking[], offered: readonly RoomType[]): RoomTotal {
-  const wholeRooms = onlyRoomType(offered) === null;
+  const wholeRooms = adultRoomTypes.filter((type) => offered.includes(type)).length !== 1;
   const lines: RoomLine[] = [];
   for (const { roomType, people } of rooms) {
     const pricePaise = prices[roomType];
