@@ -102,6 +102,7 @@ export async function actOnMove(tx: OrgTx, deps: LiteActDeps, input: LiteActInpu
     leadId: lead?.id ?? null,
     sentIds: sent.sentIds,
     text: sent.text,
+    filled: sent.filled,
     bookingId,
     handedOver: move.kind === "hand_over",
     actions,

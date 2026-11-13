@@ -5,6 +5,7 @@ import type { RoomBooking } from "@travel-crm/contracts/quotes";
 import { formatRupees, formatShortDay, type CalendarDate } from "../../kernel/index.js";
 import type { Quote } from "./decide/context.js";
 import { fixedText, holdUntilWords, travellersWords } from "./fixed-texts.js";
+import type { Part } from "./reply-parts.js";
 import type { Decision, DepartureLine, Situation } from "./types.js";
 
 export interface BookingParts {
@@ -66,12 +67,12 @@ export function bookingPartsOf(input: {
   };
 }
 
-/** The booking's message: the party, the trip and its day, until when the seats are held, the total and what is due. */
-export function bookingWords(
+/** The booking's message with the spans code filled in it: the party, the trip, the day, the hold's end, the amounts. */
+export function bookingPart(
   parts: BookingParts,
   facts: Decision["facts"],
   hold: { holdUntil: Date; today: CalendarDate; timeZone: string },
-): string {
+): Part {
   const { language } = facts;
   const values = {
     travellers: travellersWords(facts.adults ?? parts.travellers, facts.children?.count ?? 0, language),
@@ -81,6 +82,15 @@ export function bookingWords(
     total: formatRupees(parts.told.totalPaise),
   };
   return facts.payInFull
-    ? fixedText("book_payment_full", language, values).text
-    : fixedText("book_payment", language, { ...values, advance: formatRupees(parts.told.advancePaise) }).text;
+    ? fixedText("book_payment_full", language, values)
+    : fixedText("book_payment", language, { ...values, advance: formatRupees(parts.told.advancePaise) });
+}
+
+/** The booking's message: the party, the trip and its day, until when the seats are held, the total and what is due. */
+export function bookingWords(
+  parts: BookingParts,
+  facts: Decision["facts"],
+  hold: { holdUntil: Date; today: CalendarDate; timeZone: string },
+): string {
+  return bookingPart(parts, facts, hold).text;
 }

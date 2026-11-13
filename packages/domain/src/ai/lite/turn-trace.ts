@@ -43,7 +43,8 @@ export function startTrace(input: LiteTurnInput, leadId: string | null, now: Dat
     lookups: [],
     checks: [],
     write: null,
-    sent: { messageIds: [], text: null },
+    asked: null,
+    sent: { messageIds: [], text: null, filled: [] },
     actions: [],
   };
 }

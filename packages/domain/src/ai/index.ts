@@ -87,3 +87,15 @@ export {
 export { TRACE_DAYS, traceKey, traceFileOf, readTraceFile, type TraceFile } from "./traces/trace-file.js";
 export { createTraceSink, forgetTraces, tracesDue } from "./traces/trace-sink.js";
 export { startTrace } from "./lite/turn-trace.js";
+export { BENCH_NOW, BENCH_OWNER_ID, seedBenchAgency } from "./bench/seed.js";
+export { benchModel } from "./bench/script.js";
+export {
+  benchChecks,
+  heldItems,
+  inventedSpans,
+  type BenchCheck,
+  type BenchEnd,
+  type BenchTurn,
+  type Span,
+} from "./bench/rubric.js";
+export { runLiteCase, type LiteCaseResult } from "./bench/replay.js";

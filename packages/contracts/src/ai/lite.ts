@@ -46,6 +46,45 @@ export const checklistItems = [
 ] as const;
 export type ChecklistItem = (typeof checklistItems)[number];
 
+/** Every move the lite agent can make, named once for the bench's cases and the trace. */
+export const liteMoveKinds = [
+  "greet",
+  "answer_package",
+  "answer_agency",
+  "give_dates",
+  "give_price",
+  "ask_detail",
+  "confirm_place",
+  "show_other_trips",
+  "book",
+  "resend_payment",
+  "fixed",
+  "hand_over",
+  "silent",
+  "follow_up",
+] as const;
+export type LiteMoveKind = (typeof liteMoveKinds)[number];
+/** Why a chat goes to a person; a code, never the customer's words. */
+export const handOverReasons = [
+  "discount",
+  "custom_trip",
+  "big_group",
+  "complaint",
+  "wants_person",
+  "wants_call",
+  "payment_problem",
+  "has_booking",
+  "image",
+  "voice_note",
+  "unanswered",
+  "loop",
+  "other_twice",
+  "check_failed",
+  "details_changed",
+  "no_open_lead",
+] as const;
+export type HandOverReason = (typeof handOverReasons)[number];
+
 /** Names a field's line from the docs (or the parts list) on the schema, so the model and the prompt read one source. */
 function documented<T extends z.ZodType>(schema: T, key: string): T {
   const doc = understandFieldDocs[key] ?? understandPartDocs[key];
