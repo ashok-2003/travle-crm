@@ -11,9 +11,10 @@ score card.
 `runAgentTurn`, a rubric read from each turn's `LiteTrace`) run by CI with scripted answers and by a console command
 `agent-bench` with the real model against a throwaway Postgres container, writing a private Markdown report outside
 the repository. The move is code, not a flag: `runAgentTurn` always runs the lite turn, so new agencies and the nightly
-demo need nothing set. Go-live is plan 1's pause: a super admin pauses every agency before the deploy, then "Resume one
-agency at a time" turns that into one pause per agency, each lifted from the agency's console page once its setup is
-finished. Expand only: no column or table is dropped; one data-only migration lets the earlier agents' leftovers go.
+demo need nothing set. Go-live is plan 1's pause: the release arrives paused for every agency (a data-only migration,
+added by the final review's fixes: the release before has no pause to press), then "Resume one agency at a time" turns
+that into one pause per agency, each lifted from the agency's console page once its setup is finished. Expand only: no
+column or table is dropped; one data-only migration lets the earlier agents' leftovers go.
 
 **Tech Stack:** Postgres 18 + Prisma 7.10.0 (one data-only migration), domain TypeScript, Zod 4, tRPC (agency and console
 routers), Next.js + next-intl + shadcn registry components (Card, Item, Alert, Button, StatusBadge, ConfirmDialog),
