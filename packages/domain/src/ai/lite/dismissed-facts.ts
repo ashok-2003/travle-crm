@@ -1,7 +1,6 @@
 // A person's "Not right" on a value the AI filled reaches the lite agent's memory too: the facts the lead's chats settled
 // for that value are let go, so the next turn asks for it again instead of pricing and booking on what was dismissed.
-import type { SuggestedLeadField } from "@travel-crm/contracts/ai";
-import type { LiteFacts } from "@travel-crm/contracts/ai";
+import type { LiteFacts, SuggestedLeadField } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { lockChat } from "../../inbox/index.js";
 import { readLiteFacts, saveLiteFacts } from "./merge.js";
