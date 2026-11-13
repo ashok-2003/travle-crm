@@ -34,6 +34,12 @@ function namesSomething(proof: string): boolean {
   return wordsOf(proof).some((word) => letters(word) >= 4 && !GENERIC_WORDS.has(word) && !POINTING_WORDS.has(word));
 }
 
+/** Paying in full asks for real words: two of them, or one of four letters or more, never a bare "ok" or "ji". */
+function saysSomething(proof: string): boolean {
+  const words = wordsOf(proof);
+  return words.length >= 2 || words.some((word) => letters(word) >= 4);
+}
+
 /** Whether the proof holds a word that only this package's title or place has (4+ letters, not a generic travel word). */
 function namesThisTrip(proof: string, entry: PackageIndexEntry, index: PackageIndexEntry[]): boolean {
   const wordsOfEntry = (one: PackageIndexEntry) => new Set(wordsOf(`${one.title} ${one.place ?? ""}`));
@@ -172,7 +178,8 @@ export function checkedForm(
   }
 
   let payInFull = details.pay_in_full;
-  if (payInFull && backed("pay_in_full", payInFull.proof, true, burst) === null) payInFull = null;
+  if (payInFull && backed("pay_in_full", payInFull.proof, saysSomething(payInFull.proof), burst) === null)
+    payInFull = null;
 
   return {
     form: {

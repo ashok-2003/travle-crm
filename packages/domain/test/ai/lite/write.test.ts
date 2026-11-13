@@ -232,7 +232,13 @@ describe("writeMove", () => {
 
   async function run(
     answers: (string | { ok: false; reason: "unavailable" })[],
-    options: { language?: "english" | "hindi" | "hinglish"; sent?: string[]; limit?: boolean } = {},
+    options: {
+      language?: "english" | "hindi" | "hinglish";
+      sent?: string[];
+      limit?: boolean;
+      chosen?: Move;
+      writing?: WritingAgency;
+    } = {},
   ) {
     const organizationId = await anAgency(test, "Lite write agency");
     if (options.limit === true) {
@@ -242,7 +248,7 @@ describe("writeMove", () => {
     }
     const ai = createMemoryAiModel();
     ai.answer(...answers);
-    const move = writeMoveOf(datesMove, situation(), facts(), agency, today);
+    const move = writeMoveOf(options.chosen ?? datesMove, situation(), facts(), options.writing ?? agency, today);
     if (move === null) throw new Error("no move");
     const context = liteReplyContext(situation(), facts(), ["Kedarnath"]);
     const written: LiteWritten = await writeMove(
@@ -348,6 +354,26 @@ describe("writeMove", () => {
     expect(written).toMatchObject({ kind: "refused", code: "number" });
     const phone = await run([reply("Call 9876543210 now."), reply("Call 9876543210 now.")]);
     expect(phone.written).toMatchObject({ kind: "refused" });
+  });
+
+  it.each([
+    "Do seat bachi hain [date 1] ko.",
+    "Sirf teen seats bachi hain, [date 1] ko.",
+    "Bas ek seat bachi hai.",
+    "Chaar seats hi bache hain.",
+    "Seats bachi: paanch.",
+  ])("a seat count in Hinglish words is refused as number: %s", async (text) => {
+    const { written } = await run([reply(text), reply(text)], { language: "hinglish" });
+    expect(written).toMatchObject({ kind: "refused", code: "number" });
+  });
+
+  it("a seat count inside a span code filled passes: the agency's own answer may say it", async () => {
+    const writing = { ...agency, answers: { children: "Children ride free; we keep three seats for families." } };
+    const { written } = await run([reply("[answer]")], {
+      chosen: { kind: "answer_agency", topic: "children", ask: null },
+      writing,
+    });
+    expect(written).toMatchObject({ kind: "ok", text: "Children ride free; we keep three seats for families." });
   });
 
   it("figures code filled are not refused", async () => {

@@ -98,6 +98,18 @@ describe("checkedForm", () => {
     expect(checked.dropped).toContain("adults");
   });
 
+  it.each([
+    ["ok", false],
+    ["ji", false],
+    ["full", true],
+    ["pay full", true],
+    ["poora payment", true],
+  ])("paying in full needs words that say it, not a bare ok: %s", (proof, kept) => {
+    const messages = [line("1", "customer", proof)];
+    const checked = check(formWith({ pay_in_full: { proof } }), messages);
+    expect(checked.form.details.pay_in_full !== null).toBe(kept);
+  });
+
   it("a booking wish needs the newest words", () => {
     const messages = [
       line("1", "customer", "I want to book"),
