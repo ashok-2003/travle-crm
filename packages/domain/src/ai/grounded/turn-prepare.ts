@@ -8,7 +8,7 @@ import { getOrganizationProfile } from "../../profile/index.js";
 import { sellablePackages } from "../../quotes/index.js";
 import { chatHistory, knowledgePack, leadFactsFor } from "../agent-context.js";
 import type { AgentVoice } from "../agent-prompt.js";
-import type { ChatFacts as ChatRow } from "../agent-effects.js";
+import type { ChatRow } from "../may-write.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
 import { calendarText, dateChecks } from "../calendar.js";
 import { chatVoiceOf } from "../chat-voice.js";

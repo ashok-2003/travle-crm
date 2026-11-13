@@ -2,7 +2,7 @@
 // writes none of these; the pieces are joined by a blank line, each keeping the spans the reply check must skip.
 import type { LiteFacts, LiteLanguage } from "@travel-crm/contracts/ai";
 import { formatRupees, formatShortDay, type CalendarDate } from "../../kernel/index.js";
-import type { Found } from "../grounded/phrase-match.js";
+import type { Found } from "./phrase-match.js";
 import { fixedText, roomWords, travellersWords } from "./fixed-texts.js";
 import { FEW_SEATS } from "./write-move.js";
 import type { Move, Situation } from "./types.js";

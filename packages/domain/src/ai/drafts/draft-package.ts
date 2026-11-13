@@ -16,7 +16,7 @@ import type { Database } from "@travel-crm/db";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
 import { DomainError, calendarDateIn, type CalendarDate } from "../../kernel/index.js";
-import { fenced } from "../agent-prompt.js";
+import { fenced } from "../fenced.js";
 import { jsonObjectIn } from "../fill/json.js";
 import { amountInLine, parsePrintedPrice } from "../rates/price.js";
 import { modelRefusal, refuse } from "../refusals.js";

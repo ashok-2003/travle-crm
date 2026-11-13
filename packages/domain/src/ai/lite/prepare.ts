@@ -11,7 +11,7 @@ import { adPackageOf } from "../../inbox/index.js";
 import { calendarDateIn, type CalendarDate } from "../../kernel/index.js";
 import { getOrganizationProfile } from "../../profile/index.js";
 import { sellablePackages } from "../../quotes/index.js";
-import type { ChatFacts as ChatRow } from "../agent-effects.js";
+import type { ChatRow } from "../may-write.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
 import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";

@@ -2,7 +2,7 @@
 // right script, and no claim to be a person or a bot. Run on the reply before its blanks are filled, so the owner's own
 // quoted words are never counted against it.
 import type { LiteLanguage } from "@travel-crm/contracts/ai";
-import { sentencesOf } from "../grounded/phrase-match.js";
+import { sentencesOf } from "./phrase-match.js";
 
 export type StyleRefusal = "sentences" | "questions" | "filler" | "script" | "persona";
 

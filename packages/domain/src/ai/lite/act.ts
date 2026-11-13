@@ -8,7 +8,7 @@ import { openLeadOfChat } from "../../crm/index.js";
 import { lockChat } from "../../inbox/index.js";
 import { DomainError } from "../../kernel/index.js";
 import { agentPauseOf } from "../../subscriptions/index.js";
-import type { ChatFacts } from "../agent-effects.js";
+import type { ChatRow } from "../may-write.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
 import { agentAnswers, mayWrite } from "../may-write.js";
 import { aiEnabled } from "../settings.js";
@@ -49,7 +49,7 @@ async function agentOn(tx: OrgTx): Promise<AutopilotRow | null> {
  * waking hours, and not once the customer, a person or other automation has written since our last message. Null
  * while it still may.
  */
-async function stoppedSince(tx: OrgTx, input: LiteActInput, chat: ChatFacts): Promise<string | null> {
+async function stoppedSince(tx: OrgTx, input: LiteActInput, chat: ChatRow): Promise<string | null> {
   const settings = await agentOn(tx);
   if (settings === null) return "off";
   const blocked = await mayWrite(tx, chat, settings, input.kind, input.now);

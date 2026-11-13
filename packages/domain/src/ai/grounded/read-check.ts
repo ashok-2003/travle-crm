@@ -2,7 +2,7 @@
 // must itself hold the value it is given for (P4-26), a number its own value (read-numbers.ts).
 import type { ReadAnswer } from "@travel-crm/contracts/ai";
 import type { ChatLine, ReadKeys } from "./read-keys.js";
-import { saysAmount, saysCount, saysDay, saysMonth, saysRoomCount } from "./read-numbers.js";
+import { saysAmount, saysCount, saysDay, saysMonth, saysRoomCount } from "../lite/read-numbers.js";
 import {
   asksToBook,
   containsWords,
@@ -13,9 +13,9 @@ import {
   normalised,
   sentencesIn,
   sharesAWord,
-} from "./read-words.js";
+} from "../lite/read-words.js";
 
-export { normalised } from "./read-words.js";
+export { normalised } from "../lite/read-words.js";
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 

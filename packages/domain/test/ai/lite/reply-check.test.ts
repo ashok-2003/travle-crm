@@ -1,7 +1,7 @@
 // checkReply: the last gate before a reply reaches a customer, as a table of what it refuses and what it lets through.
 import { describe, expect, it } from "vitest";
 import { chatFacts } from "@travel-crm/contracts/ai";
-import { checkReply, type ReplyContext } from "../../../src/ai/grounded/check.js";
+import { checkReply, type ReplyContext } from "../../../src/ai/lite/reply-check.js";
 import type { Lookup } from "../../../src/ai/grounded/lookup.js";
 import { replyContext } from "../../../src/ai/grounded/turn-write.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";

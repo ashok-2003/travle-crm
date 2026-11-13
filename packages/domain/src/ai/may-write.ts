@@ -1,11 +1,24 @@
-// Whether the AI may write in a chat now (shared by the first agent and the grounded turn): the chat is open, not stopped,
+// Whether the AI may write in a chat now (shared by the lite turn and the earlier agents): the chat is open, not stopped,
 // inside the 24-hour window, not already answered, the autopilot is on, nobody took the chat over, the day's count has room.
 import type { OrgTx } from "@travel-crm/db";
 import { chatOptedOut, windowIsOpen } from "../inbox/index.js";
-import type { ChatFacts } from "./agent-effects.js";
-import type { TurnKind } from "./agent-prompt.js";
 import type { AutopilotRow } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
+
+/** Answer the last message, nudge a quiet customer, or write about a follow-up on the lead that came due. */
+export type TurnKind = "reply" | "nudge" | "followUp";
+
+/** The chat row the AI's checks and notices read. */
+export interface ChatRow {
+  id: string;
+  personId: string | null;
+  lastInboundAt: Date | null;
+  state: string;
+  hidden: boolean;
+}
+
+/** A follow-up leaves the window this early, so the customer can still answer for free. */
+export const WINDOW_MARGIN_MS = 60 * 60_000;
 
 /** The marker of a message the AI wrote: its client token starts with this. */
 export const AI_TOKEN_PREFIX = "ai:";
@@ -17,7 +30,7 @@ export const agentAnswers = (mode: string | undefined, autopilot: boolean) =>
 /** Whether the AI may write in this chat now, and why not when it may not. */
 export async function mayWrite(
   tx: OrgTx,
-  chat: ChatFacts,
+  chat: ChatRow,
   settings: AutopilotRow,
   kind: TurnKind,
   now: Date,

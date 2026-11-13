@@ -5,7 +5,7 @@
 import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { DomainError } from "../../kernel/index.js";
-import type { CallEnvironment } from "../grounded/turn-calls.js";
+import type { CallEnvironment } from "./counted-call.js";
 import { actOnMove, type LiteActInput, type LiteActResult } from "./act.js";
 import { decide, type DecideInput } from "./decide/decide.js";
 import { situationOf, type LookupContext } from "./lookups/situation.js";

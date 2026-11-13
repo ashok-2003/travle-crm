@@ -4,27 +4,14 @@
 // asked to be contacted later, and a hand-over to a person when it must step back.
 import type { AgentAnswer } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
-import { addAiFollowUp, addAiLeadNote, noticeKey } from "../crm/index.js";
+import { addAiFollowUp, addAiLeadNote } from "../crm/index.js";
 import { WINDOW_MS } from "../inbox/index.js";
 import { systemActor } from "../kernel/index.js";
-import { notify } from "../notifications/index.js";
-import type { TurnKind } from "./agent-prompt.js";
+import { WINDOW_MARGIN_MS, type ChatRow, type TurnKind } from "./may-write.js";
+import { ATTENTION_QUIET_MS, tellOwner } from "./tell-owner.js";
 import type { AutopilotRow } from "./autopilot.js";
 
-export const AI_HANDOFF_KIND = "ai.handoff";
-/** A follow-up leaves the window this early, so the customer can still answer for free. */
-export const WINDOW_MARGIN_MS = 60 * 60_000;
-/** A flag tells the lead's owner again only after this long, so a busy chat doesn't ring every few minutes. */
-export const ATTENTION_QUIET_MS = 6 * 3_600_000;
 const HOUR_MS = 3_600_000;
-
-export interface ChatFacts {
-  id: string;
-  personId: string | null;
-  lastInboundAt: Date | null;
-  state: string;
-  hidden: boolean;
-}
 
 /** When to write again if the customer goes quiet: the agent's choice or the agency's hours, never past the window. */
 export function planFollowUp(
@@ -52,38 +39,11 @@ export function planFollowUp(
   };
 }
 
-export async function tellOwner(
-  tx: OrgTx,
-  organizationId: string,
-  chat: ChatFacts,
-  notice: { key: string; title: (name: string) => string; body: string },
-) {
-  if (chat.personId === null) return;
-  // The newest lead at any stage, as the old agent always did: a customer writing again on a closed lead still reaches
-  // its owner. (Only money actions need an open lead: `openLeadOfChat`.)
-  const lead = await tx.lead.findFirst({
-    where: { personId: chat.personId },
-    orderBy: { createdAt: "desc" },
-    select: { ownerUserId: true, person: { select: { name: true } } },
-  });
-  if (lead === null) return;
-  // A lead nobody owns still reaches the members the owner chose for copies of team alerts.
-  await notify(tx, systemActor(organizationId), {
-    recipientUserIds: lead.ownerUserId === null ? [] : [lead.ownerUserId],
-    sourceEventId: noticeKey(notice.key, AI_HANDOFF_KIND),
-    kind: AI_HANDOFF_KIND,
-    title: notice.title(lead.person.name),
-    body: notice.body,
-    link: `/inbox/${chat.id}`,
-    channels: ["email", "push"],
-  });
-}
-
 export async function applyAnswer(
   tx: OrgTx,
   input: {
     organizationId: string;
-    chat: ChatFacts;
+    chat: ChatRow;
     settings: AutopilotRow;
     kind: TurnKind;
     answer: AgentAnswer;

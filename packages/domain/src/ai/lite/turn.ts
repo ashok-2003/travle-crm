@@ -4,9 +4,9 @@
 // a booking already, goes to a person with no model call. Whatever stops the turn sends nothing; a refusal tells the
 // team. One log line of codes ends every turn, and a prepared turn's trace goes to the sink. A nudge is the agent's own
 // follow-up, a short turn of its own (nudge-turn.ts).
-import { isAQuestion, sentencesIn } from "../grounded/read-words.js";
-import { countedCall, type CallEnvironment } from "../grounded/turn-calls.js";
-import { flagChat } from "../grounded/turn-flag.js";
+import { isAQuestion, sentencesIn } from "./read-words.js";
+import { countedCall, type CallEnvironment } from "./counted-call.js";
+import { flagChat } from "./flag-chat.js";
 import { actingOn, codeWordsOf, handOverInstead } from "./act-reply.js";
 import { stageToOf } from "./decide/decide.js";
 import { checkedForm } from "./form-check.js";
@@ -43,7 +43,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   const environment: CallEnvironment = { db: deps.db, organizationId, now, timeZone: prepared.timeZone };
   /** Sends nothing and tells the team, with a code and never the customer's words. */
   const flag = async (outcome: "unfit" | "blocked", code: string) => {
-    await flagChat(deps.db, { organizationId, chat: prepared.chat, token: input.token, code, facts: null, now });
+    await flagChat(deps.db, { organizationId, chat: prepared.chat, token: input.token, code, now });
     return end(outcome, code);
   };
   const agencyName = await deps.agencyName(organizationId);

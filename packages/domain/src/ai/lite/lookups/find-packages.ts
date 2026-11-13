@@ -1,5 +1,5 @@
 // Finds the packages a customer's words name: whole-word matches only; a near spelling is offered as "closest", never taken.
-import { normalised, wordsOf } from "../../grounded/read-words.js";
+import { normalised, wordsOf } from "../read-words.js";
 import type { PackageIndexEntry } from "../types.js";
 
 const MOST_SHOWN = 3;

@@ -11,7 +11,7 @@ import { defineListener, type EventListener, type JobHandler } from "../jobs/ind
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
-import { WINDOW_MARGIN_MS } from "./agent-effects.js";
+import { WINDOW_MARGIN_MS } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
 import { AI_CHAT_RESUMED_EVENT } from "./chat-state.js";
 import { workDueFollowUps } from "./follow-up-work.js";

@@ -2,8 +2,8 @@
 import { readAnswer, readAnswerJsonSchema, type ChatFacts, type ReadAnswer } from "@travel-crm/contracts/ai";
 import type { AiFailure, AiModel } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../kernel/index.js";
-import { fenced } from "../agent-prompt.js";
-import { ANSWER_MAX_TOKENS, askFor, type CallUsage } from "./ask.js";
+import { fenced } from "../fenced.js";
+import { ANSWER_MAX_TOKENS, askFor, type CallUsage } from "../lite/ask.js";
 import { checkedRead } from "./read-check.js";
 import type { ChatLine, ReadKeys } from "./read-keys.js";
 

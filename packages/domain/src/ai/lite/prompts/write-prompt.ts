@@ -2,7 +2,7 @@
 import { liteWriteAnswerJsonSchema, type LiteLanguage } from "@travel-crm/contracts/ai";
 import type { AiRequest } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
-import { ANSWER_MAX_TOKENS } from "../../grounded/ask.js";
+import { ANSWER_MAX_TOKENS } from "../ask.js";
 import { writeBlockHeads } from "../context/block-heads.js";
 import { BUDGETS, newestThatFit, oneLine, renderBlock, summaryLines, type Block } from "../context/blocks.js";
 import { messageLines } from "../context/messages.js";

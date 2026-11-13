@@ -1,7 +1,7 @@
 // The lite agent's follow-up turn (plan 3b): one read, no Understand and no lookups, the model asked only for the
 // follow-up's line, then the same act as a reply's, which reads every check again under the chat's lock. A line that
 // can't be had or is refused sends nothing and tells nobody: a follow-up is a courtesy, never an answer owed.
-import type { CallEnvironment } from "../grounded/turn-calls.js";
+import type { CallEnvironment } from "./counted-call.js";
 import { prepareNudge } from "./nudge-prepare.js";
 import { finishTurn, startTrace, tallied, writeChecks, type TurnLog } from "./turn-trace.js";
 import { acted, written } from "./turn-steps.js";

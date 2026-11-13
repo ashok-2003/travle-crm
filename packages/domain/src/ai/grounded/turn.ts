@@ -12,7 +12,7 @@ import { lookUp } from "./lookup.js";
 import { mergeFacts } from "./merge-facts.js";
 import type { GroundedPack } from "./prompt.js";
 import { readChat } from "./read.js";
-import { countedCall, type CallEnvironment } from "./turn-calls.js";
+import { countedCall, type CallEnvironment } from "../lite/counted-call.js";
 import { flagChat, keepFacts, noteRepeat } from "./turn-flag.js";
 import { flagOf, latestOf, newNotRunInAnotherScript, quiet, reasonFor } from "./turn-inputs.js";
 import { prepareTurn, type Prepared } from "./turn-prepare.js";

@@ -2,9 +2,9 @@
 import type { LiteLanguage } from "@travel-crm/contracts/ai";
 import type { Files } from "../../files/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
-import type { TurnKind } from "../agent-prompt.js";
+import type { TurnKind } from "../may-write.js";
 import type { BookingRecipients } from "../booking.js";
-import type { Found } from "../grounded/phrase-match.js";
+import type { Found } from "./phrase-match.js";
 import type { CheckedForm, Decision, Situation } from "./types.js";
 
 export interface LiteActDeps {

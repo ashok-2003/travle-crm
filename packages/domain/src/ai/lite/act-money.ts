@@ -12,7 +12,7 @@ import type { LiteActDeps, LiteActInput } from "./act-types.js";
 import { bookingPartsOf, bookingPart, type BookingRefusal } from "./booking-words.js";
 import { fixedText } from "./fixed-texts.js";
 import type { Quote } from "./decide/context.js";
-import type { Found } from "../grounded/phrase-match.js";
+import type { Found } from "./phrase-match.js";
 import type { Decision } from "./types.js";
 
 export interface MoneyMove {

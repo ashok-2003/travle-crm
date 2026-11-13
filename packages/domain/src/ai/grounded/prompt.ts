@@ -8,7 +8,6 @@ import {
   calendarLines,
   dueLines,
   earlierChat,
-  fenced,
   genericWriting,
   honesty,
   naturalTaskLines,
@@ -16,8 +15,9 @@ import {
   talkedAbout,
   voiceWriting,
   type AgentVoice,
-  type TurnKind,
 } from "../agent-prompt.js";
+import { fenced } from "../fenced.js";
+import type { TurnKind } from "../may-write.js";
 import type { AllowedActions } from "./actions.js";
 import type { Card } from "./card.js";
 import type { ChatLine } from "./read-keys.js";

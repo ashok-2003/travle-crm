@@ -4,7 +4,7 @@ import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { Files } from "../../files/index.js";
 import type { BookingRecipients } from "../booking.js";
-import type { TurnKind } from "../agent-prompt.js";
+import type { TurnKind } from "../may-write.js";
 import type { SubscriptionAccess } from "../../subscriptions/index.js";
 
 export interface GroundedDependencies {

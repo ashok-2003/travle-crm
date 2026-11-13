@@ -1,7 +1,7 @@
 // What the grounded turn works out from its input before and between its steps: the empty read of a nudge, why it
 // writes, the messages it answers, and whether a place it can't check sends the chat to a person.
 import type { ChatFacts, ReadAnswer } from "@travel-crm/contracts/ai";
-import { inAnotherScript } from "./phrase-match.js";
+import { inAnotherScript } from "../lite/phrase-match.js";
 import type { Prepared } from "./turn-prepare.js";
 import type { TurnInput } from "./turn-types.js";
 

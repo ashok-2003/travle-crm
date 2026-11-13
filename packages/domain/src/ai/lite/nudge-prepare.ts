@@ -7,7 +7,7 @@ import { openLeadOfChat } from "../../crm/index.js";
 import { organizationTimeZone } from "../../identity/index.js";
 import { calendarDateIn } from "../../kernel/index.js";
 import { sellablePackages } from "../../quotes/index.js";
-import type { ChatFacts } from "../agent-effects.js";
+import type { ChatRow } from "../may-write.js";
 import { agentBasicsOf } from "../agency-answers.js";
 import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf } from "../autopilot.js";
@@ -50,7 +50,7 @@ export async function prepareNudge(
       },
     });
     if (found === null) return "nothing";
-    const chat: ChatFacts = {
+    const chat: ChatRow = {
       id: found.id,
       personId: found.personId,
       lastInboundAt: found.lastInboundAt,

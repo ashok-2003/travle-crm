@@ -1,7 +1,7 @@
 // askFor: a model's answer is kept only when it fits the contract; prose or a wrong shape is "unfit", never guessed at.
 import { describe, expect, it } from "vitest";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
-import { askFor } from "../../../src/ai/grounded/ask.js";
+import { askFor } from "../../../src/ai/lite/ask.js";
 
 const contract = {
   safeParse: (input: unknown) =>

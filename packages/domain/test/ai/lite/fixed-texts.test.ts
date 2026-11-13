@@ -1,8 +1,8 @@
 // The fixed texts: every key in every language passes the reply check, scripts are right, slots are enforced.
 import { liteLanguages, paymentClaimPhrases, teamClaimPhrases, type LiteLanguage } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
-import { checkReply } from "../../../src/ai/grounded/check.js";
-import { hasPhrase } from "../../../src/ai/grounded/phrase-match.js";
+import { checkReply } from "../../../src/ai/lite/reply-check.js";
+import { hasPhrase } from "../../../src/ai/lite/phrase-match.js";
 import { fixedTextTable } from "../../../src/ai/lite/fixed-text-table.js";
 import { fixedText, holdUntilWords, roomWords, travellersWords } from "../../../src/ai/lite/fixed-texts.js";
 import type { FixedTextKey } from "../../../src/ai/lite/types.js";

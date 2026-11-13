@@ -4,8 +4,8 @@
 import type { OrgTx } from "@travel-crm/db";
 import { WINDOW_MS } from "../../inbox/index.js";
 import { addDays, calendarDateIn, instantAt, parseTimeOfDay, timeOfDayIn } from "../../kernel/index.js";
-import { WINDOW_MARGIN_MS } from "../agent-effects.js";
-import type { TurnKind } from "../agent-prompt.js";
+import { WINDOW_MARGIN_MS } from "../may-write.js";
+import type { TurnKind } from "../may-write.js";
 import { AI_TOKEN_PREFIX } from "../may-write.js";
 import type { Move } from "./types.js";
 

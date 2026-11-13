@@ -1,7 +1,7 @@
 // The Understand call: one model call whose answer must fit the strict form; the raw text is kept for the trace.
 import { understandForm, type UnderstandForm } from "@travel-crm/contracts/ai";
 import type { AiFailure, AiModel, AiRequest } from "@travel-crm/integrations/ai";
-import { askFor } from "../grounded/ask.js";
+import { askFor } from "./ask.js";
 
 export type Understood =
   | {

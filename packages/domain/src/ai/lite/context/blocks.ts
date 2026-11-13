@@ -1,5 +1,5 @@
 // The clean context's building block: a titled, budgeted run of plain lines, and the limits every block keeps.
-import { fenced } from "../../agent-prompt.js";
+import { fenced } from "../../fenced.js";
 
 export interface Block {
   title: string;
