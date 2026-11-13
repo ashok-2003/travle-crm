@@ -1,5 +1,5 @@
 // The package page: the AI-sell switch is there for every kind of package, the group-only parts for a group trip.
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PackageScreen } from "@/packages/package-screen";
 import { messages } from "@/i18n/messages";
@@ -7,13 +7,13 @@ import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { aPackage } from "./detail";
 
-async function showing(kind: "custom" | "group") {
+async function showing(kind: "custom" | "group", sellGaps: string[] = []) {
   const api = fakeApi();
   renderWithApi(<PackageScreen packageId={aPackage().id} />, newQueryClient());
   await waitFor(() => {
     expect(api.calls.some((call) => call.path === "packages.get")).toBe(true);
   });
-  api.calls.find((call) => call.path === "packages.get")?.answer(aPackage({ kind }));
+  api.calls.find((call) => call.path === "packages.get")?.answer(aPackage({ kind, sellGaps: sellGaps as never }));
   await screen.findByRole("region", { name: messages.packages.sell.title });
 }
 
@@ -34,5 +34,23 @@ describe("PackageScreen", () => {
     expect(screen.getByRole("region", { name: messages.packages.seasons.title })).toBeTruthy();
     expect(screen.queryByText("Where customers pay")).toBeNull();
     expect(screen.queryByTestId("package-qr-input")).toBeNull();
+  });
+
+  it("lands every gap link of the AI-sell card on a place of this page that holds it", async () => {
+    await showing("group", ["room_types", "prices", "advance", "departures"]);
+    const sell = screen.getByRole("region", { name: messages.packages.sell.title });
+    const target = (gap: keyof typeof messages.packages.sell.gaps) => {
+      const href = within(sell).getByRole("link", { name: messages.packages.sell.gaps[gap] }).getAttribute("href");
+      const found = document.getElementById(href?.replace("#", "") ?? "");
+      if (found === null) throw new Error(`Nothing on the page has the id ${href ?? ""}`);
+      return found;
+    };
+    // Room types and the advance are fields of the group trip's card, not of the name card above it.
+    expect(within(target("room_types")).getByRole("heading", { name: messages.packages.form.groupTitle })).toBeTruthy();
+    expect(target("advance")).toBe(target("room_types"));
+    expect(within(target("prices")).getByRole("heading", { name: messages.packages.seasons.title })).toBeTruthy();
+    expect(
+      within(target("departures")).getByRole("heading", { name: messages.packages.packageDepartures.title }),
+    ).toBeTruthy();
   });
 });

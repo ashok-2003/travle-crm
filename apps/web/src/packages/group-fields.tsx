@@ -118,7 +118,7 @@ export function GroupFields({ control, disabled }: { control: Control<PackageFor
   const kind = useWatch({ control, name: "kind" });
   const gstId = useId();
   return (
-    <Card>
+    <Card id="group-details" className="scroll-mt-6">
       <CardHeader>
         <CardTitle>
           <h2>{t("groupTitle")}</h2>

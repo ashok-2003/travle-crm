@@ -170,7 +170,8 @@
     "turnOn": {
       "title": "Turn the AI agent on",
       "finishFirst": "Before the AI agent can be turned on, it needs:",
-      "paused": "Paused by {product} support"
+      "paused": "Paused by {product} support",
+      "onButNotReady": "The AI agent is on but not answering until:"
     }
   }
 }
