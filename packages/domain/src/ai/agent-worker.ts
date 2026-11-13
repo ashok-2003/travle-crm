@@ -28,8 +28,8 @@ const SETTLE_MS = 3_000;
 /** Chats the agent works on at once. */
 const AT_ONCE = 10;
 /**
- * Lite turns at once. Each holds a connection for its prepare and act transactions (about 170 round trips, some 12 s
- * against a database 68 ms away) out of a pool of 5 the whole worker shares: three leave room for the rest.
+ * Lite turns at once. Each holds a pooled connection through its prepare and its act transactions, many round trips
+ * each (turn-cost.test.ts counts them), out of the few the whole worker shares: three leave room for the rest.
  */
 const LITE_AT_ONCE = 3;
 /** A nudge goes no later than this before the window closes, so it can still be answered for free. */

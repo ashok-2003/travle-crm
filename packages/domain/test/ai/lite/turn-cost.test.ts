@@ -95,8 +95,11 @@ async function prepareCost(test: TestInbox, more: number): Promise<number> {
   return counting.count();
 }
 
-/** The queries one booking turn sends (the price told the turn before), with `more` other packages for sale. */
-async function bookCost(test: TestInbox, more: number): Promise<number> {
+/**
+ * The queries one booking turn sends (the price told the turn before), with `more` other packages for sale: in all, in
+ * its act transaction (the last it opens), and how many transactions it opens.
+ */
+async function bookCost(test: TestInbox, more: number): Promise<{ turn: number; act: number; transactions: number }> {
   const on = await liteAgency(test);
   await morePackages(on, more);
   await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
@@ -125,7 +128,8 @@ async function bookCost(test: TestInbox, more: number): Promise<number> {
   const counting = countingDatabase(test.db);
   expect(await on.turn(at(120), { token, db: counting.db })).toBe("replied");
   expect(await on.inOrg((tx) => tx.aiBooking.count())).toBe(1);
-  return counting.count();
+  const transactions = counting.transactions();
+  return { turn: counting.count(), act: transactions.at(-1) ?? 0, transactions: transactions.length };
 }
 
 describe("what a lite turn costs the database", () => {
