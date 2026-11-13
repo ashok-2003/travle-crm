@@ -47,6 +47,7 @@ export {
 } from "./booking.js";
 export { confirmMedia, deleteMedia, listMedia, mediaLink, requestMedia, updateMedia } from "./media.js";
 export { liteAgentOn, setLiteAgent } from "./lite/switch.js";
+export { decideStageSuggestion, stageSuggestionOfLead, stageSuggestionsOf } from "./lite/suggestions.js";
 export { autopilotDefaults, autopilotOf, autopilotSettingsOf, saveAutopilot } from "./autopilot.js";
 export { followUpBoardOf } from "./follow-up-board.js";
 export { AI_CHAT_RESUMED_EVENT, chatAiOf, resumeChat, setChatMode, setChatPersona } from "./chat-state.js";

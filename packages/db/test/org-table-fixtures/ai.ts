@@ -42,6 +42,14 @@ export const fixtures: OrgTableFixtures = {
     },
     undeletable: true,
   },
+  lead_ai_suggestion: {
+    create: async (tx: OrgTx) => {
+      const person = await tx.person.create({ data: { name: "Isolation", email: `ai-${randomUUID()}@example.test` } });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "walk_in" } });
+      return tx.leadAiSuggestion.create({ data: { leadId: lead.id, kind: "lost", lostReason: "other", reason: "x" } });
+    },
+    undeletable: true,
+  },
   ai_settings: { create: (tx) => tx.aiSettings.create({ data: { enabled: true } }), undeletable: true },
   ai_autopilot: { create: (tx) => tx.aiAutopilot.create({ data: { autopilot: false } }), undeletable: true },
   ai_learning: {

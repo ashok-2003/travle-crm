@@ -132,6 +132,7 @@ model Organization {
   aiFills                     AiFill[]
   departureOffers             DepartureOffer[]
   leadAiFields                LeadAiField[]
+  leadAiSuggestions           LeadAiSuggestion[]
   quoteTemplates              QuoteTemplate[]
   whatsappAds                 WhatsappAd[]
   quoteTemplateTiers          QuoteTemplateTier[]

@@ -26,6 +26,7 @@ export async function withdrawAiParts(
   fills: number;
   offers: number;
   fields: number;
+  suggestions: number;
   inputFiles: number;
 }> {
   const conversation = {
@@ -48,6 +49,9 @@ export async function withdrawAiParts(
     where: { organizationId: input.organizationId, leadId: { in: leadIds } },
   });
   const fields = await tx.leadAiField.deleteMany({
+    where: { organizationId: input.organizationId, leadId: { in: leadIds } },
+  });
+  const suggestions = await tx.leadAiSuggestion.deleteMany({
     where: { organizationId: input.organizationId, leadId: { in: leadIds } },
   });
   const fillRows = await tx.aiFill.findMany({
@@ -80,6 +84,7 @@ export async function withdrawAiParts(
     fills: fills.count,
     offers: offers.count,
     fields: fields.count,
+    suggestions: suggestions.count,
     inputFiles,
     drafts: drafts.count,
     insights: insights.count,

@@ -233,3 +233,27 @@ export function useDecideLeadAiFields(leadId: string) {
     }),
   );
 }
+
+/** The AI's open suggestion to mark a lead Lost or Not a lead, for the alert on the lead's page. */
+export function useLeadStageSuggestion(leadId: string) {
+  const trpc = useTRPC();
+  const holds = useHolds("leads:view");
+  return useQuery({ ...trpc.ai.leadStageSuggestion.queryOptions({ leadId }), enabled: holds, staleTime: 15_000 });
+}
+
+/** A person's yes or no. The lead, its lists and every place the suggestion shows load again. */
+export function useDecideStageSuggestion() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const refresh = useRefreshWork();
+  return useMutation(
+    trpc.ai.decideStageSuggestion.mutationOptions({
+      onSuccess: () =>
+        Promise.all([
+          refresh(),
+          queryClient.invalidateQueries({ queryKey: trpc.ai.leadStageSuggestion.pathKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.ai.stageSuggestions.pathKey() }),
+        ]),
+    }),
+  );
+}

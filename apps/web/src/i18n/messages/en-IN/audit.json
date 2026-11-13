@@ -313,7 +313,10 @@
       "person-named": "The AI set a customer's name from the chat",
       "lead-fields-confirmed": "Confirmed what the AI filled in on a lead",
       "lead-fields-dismissed": "Cleared what the AI filled in on a lead",
-      "offer-sent": "Offered a departure's seats to a lead with a message the AI wrote"
+      "offer-sent": "Offered a departure's seats to a lead with a message the AI wrote",
+      "stage-suggested": "The AI suggested marking a lead Lost or Not a lead",
+      "stage-suggestion-accepted": "Marked a lead as the AI suggested",
+      "stage-suggestion-declined": "Turned down the AI's suggestion for a lead"
     },
     "ai-autopilot": {
       "changed": "Changed the AI's autopilot settings"

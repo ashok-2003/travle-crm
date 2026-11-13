@@ -87,6 +87,15 @@
     "save": "Save",
     "saved": "Saved"
   },
+  "stageSuggestion": {
+    "title": "The AI suggests marking this lead {stage}",
+    "stages": {
+      "lost": "Lost",
+      "not_a_lead": "Not a lead"
+    },
+    "yes": "Yes, mark it {stage}",
+    "no": "No"
+  },
   "insight": {
     "title": "AI's guess",
     "info": "The AI's reading of this lead from its chat: how likely it books in the next two weeks, why, and what to do next. A guess to help you choose who to call first, never a decision: it never changes the lead's stage.",
