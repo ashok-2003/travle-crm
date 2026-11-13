@@ -1,8 +1,9 @@
 "use client";
 
 // A chat's AI, in the contact panel: whether it answers here (the agency's default, on or off), whether it handed the chat to
-// a person and why (with a way to give it back), what it flagged for the team and when it follows up. Every message it sends
-// is marked "Sent by the AI" in the chat. Hidden for an agency without the AI.
+// a person and why (with a way to give it back), and what it noted about the customer. Who writes next, what it flagged and
+// when it follows up are said by the bar over the reply box. Every message it sends is marked "Sent by the AI" in the chat.
+// Hidden for an agency without the AI.
 import { BotIcon, BotOffIcon, HandIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -11,8 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatDayTime } from "@/lib/format";
-import { useHolds, useMe } from "@/session/me-context";
+import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { useChatAi, useResumeChatAi, useSetChatAi } from "./use-ai";
 
@@ -25,7 +25,6 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
   const resume = useResumeChatAi(conversationId);
   const access = useWriteAccess("change");
   const mayReply = useHolds("inbox:reply");
-  const { timeZone } = useMe().organization;
   if (ai.data === undefined) {
     return ai.isError ? (
       <LoadFailedAlert message={t("loadFailed")} error={ai.error} onRetry={() => void ai.refetch()} />
@@ -55,11 +54,6 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
                 ? t("answering")
                 : t("notAnswering")}
       </p>
-      {state.personPausedUntil !== null && (
-        <p className="text-label text-muted-foreground">
-          {t("personPaused", { until: formatDayTime(new Date(state.personPausedUntil), { timeZone }) })}
-        </p>
-      )}
       {state.handedOff && (
         <Alert>
           <HandIcon aria-hidden="true" />
@@ -80,18 +74,6 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
             </Button>
           </AlertDescription>
         </Alert>
-      )}
-      {state.attention !== null && (
-        <Alert>
-          <AlertTitle>{t("attentionTitle")}</AlertTitle>
-          <AlertDescription>{state.attention}</AlertDescription>
-        </Alert>
-      )}
-      {state.followUpAt !== null && (
-        <p className="text-label text-muted-foreground">
-          {t("followUp", { when: formatDayTime(new Date(state.followUpAt), { timeZone }) })}
-          {state.followUpReason === null ? "" : ` · ${state.followUpReason}`}
-        </p>
       )}
       <div className="flex flex-col gap-1.5">
         <span className="text-label text-muted-foreground">{t("modeLabel")}</span>

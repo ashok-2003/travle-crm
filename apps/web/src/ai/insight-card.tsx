@@ -1,18 +1,16 @@
 "use client";
 
 // The AI's guess of how a lead will go (Settings, AI turns it on for the agency): how likely it books in the next two weeks, as
-// a number and hot, warm or cold; a warning when it looks fake (spam, a test, a wrong number); why; what the customer said they
-// want; a line on how the lead stands; and what to do next. Always shown as a guess, in the AI's violet tint, and it never moves the lead's stage. Nothing
+// a number and hot, warm or cold; a warning when it looks fake (spam, a test, a wrong number); a line on how the lead stands;
+// what to do next; why; and what the AI noted from the chat. The trip card shows what the customer wants. Always shown as a guess, in the AI's violet tint, and it never moves the lead's stage. Nothing
 // shows until the AI has scored the lead from its chat.
 import type { LeadInsight } from "@travel-crm/contracts/ai";
 import { TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AiChip } from "./ai-chip";
-import { Details } from "@/components/details";
 import { InfoHint } from "@/components/info-hint";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { formatDayTime } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useLeadInsight } from "./use-ai";
@@ -65,13 +63,6 @@ export function InsightCard({ insight }: { insight: LeadInsight }) {
             <p className="whitespace-pre-line">{insight.chatSummary}</p>
           </div>
         )}
-        <div className="flex flex-col gap-1.5">
-          <p className="flex items-baseline justify-between gap-2">
-            <span className="text-label text-muted-foreground">{t("chance")}</span>
-            <span className="numbers text-section font-semibold">{t("percent", { score: insight.score })}</span>
-          </p>
-          <Progress value={insight.score} aria-label={t("chance")} />
-        </div>
         {insight.nextStep !== "" && (
           <div className="flex flex-col gap-1">
             <h4 className="text-label font-medium text-muted-foreground">{t("nextStep")}</h4>
@@ -88,12 +79,6 @@ export function InsightCard({ insight }: { insight: LeadInsight }) {
             </ul>
           </div>
         )}
-        <Details
-          rows={(["destination", "when", "travellers", "budget"] as const).map((fact) => ({
-            label: t(`facts.${fact}`),
-            value: insight.facts[fact] ?? t("unknown"),
-          }))}
-        />
       </CardContent>
     </Card>
   );

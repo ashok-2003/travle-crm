@@ -17,7 +17,6 @@ const insight: LeadInsight = {
   summary: "Wants Manali.",
   nextStep: "Call today.",
   chatSummary: null,
-  facts: { destination: "Manali", when: "December", travellers: "4 adults", budget: null },
   updatedAt: "2026-11-12T08:00:00.000Z",
 };
 
@@ -37,5 +36,21 @@ describe("InsightCard", () => {
     renderScreen(<InsightCard insight={insight} />);
     expect(document.querySelector("[data-ai-chip]")).not.toBeNull();
     expect(screen.queryByRole("heading", { name: messages.ai.insight.noted })).not.toBeInTheDocument();
+  });
+
+  it("shows the chip, the reasons and the next step, without a chance bar or a facts table", () => {
+    stubApi({});
+    renderScreen(<InsightCard insight={insight} />);
+    expect(screen.getByText("Gave dates")).toBeVisible();
+    expect(screen.getByText("Call today.")).toBeVisible();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.queryByText("Destination")).not.toBeInTheDocument();
+  });
+
+  it("still shows the alert and its reason for a lead that looks fake", () => {
+    stubApi({});
+    renderScreen(<InsightCard insight={{ ...insight, fake: true, fakeReason: "A test message." }} />);
+    expect(screen.getByText(messages.ai.insight.fakeTitle)).toBeVisible();
+    expect(screen.getByText("A test message.")).toBeVisible();
   });
 });

@@ -13,9 +13,7 @@ const chat: ChatAi = {
   answering: true,
   handedOff: false,
   handoffReason: null,
-  memory: "",
   summary: "",
-  lastReplyAt: null,
   turn: null,
   followUpAt: null,
   followUpReason: null,
@@ -50,5 +48,27 @@ describe("ChatAiCard, what the AI noted", () => {
     await screen.findByText(messages.ai.chat.answering);
     expect(screen.queryByRole("heading", { name: /way of talking/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /export|learn/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the state, the hand-over reason with its button, the mode toggle and the summary", async () => {
+    show({ answering: false, handedOff: true, handoffReason: "Asked for a discount", summary: "Wants Goa in May." });
+    expect(await screen.findByText(messages.ai.chat.handedOff)).toBeVisible();
+    expect(screen.getByText("Asked for a discount")).toBeVisible();
+    expect(screen.getByRole("button", { name: messages.ai.chat.resume })).toBeVisible();
+    expect(screen.getByRole("radio", { name: messages.ai.chat.modes.on })).toBeVisible();
+    expect(screen.getByText("Wants Goa in May.")).toBeVisible();
+  });
+
+  it("leaves the person-paused, flagged and follow-up lines to the bar over the reply box", async () => {
+    show({
+      personPausedUntil: "2026-11-12T10:00:00.000Z",
+      attention: "Wants to book",
+      followUpAt: "2026-11-13T10:00:00.000Z",
+      followUpReason: "Waiting for dates",
+    });
+    await screen.findByText(messages.ai.chat.answering);
+    expect(screen.queryByText(/A person is answering/)).not.toBeInTheDocument();
+    expect(screen.queryByText("The AI flagged this for your team")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Follow-up planned/)).not.toBeInTheDocument();
   });
 });

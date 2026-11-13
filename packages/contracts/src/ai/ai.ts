@@ -117,7 +117,6 @@ export const leadInsight = z.object({
   nextStep: z.string(),
   /** The lite agent's notes on the customer from the chat (no prices or dates); null when it has written none. */
   chatSummary: z.string().nullable(),
-  facts: insightFacts,
   updatedAt: z.iso.datetime(),
 });
 export type LeadInsight = z.infer<typeof leadInsight>;

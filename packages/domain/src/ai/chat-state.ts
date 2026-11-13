@@ -32,9 +32,7 @@ export async function chatAiOf(tx: OrgTx, conversationId: string, available: boo
     answering,
     handedOff: state?.handedOffAt != null,
     handoffReason: state?.handoffReason ?? null,
-    memory: state?.memory ?? "",
     summary: state?.summary ?? "",
-    lastReplyAt: state?.lastReplyAt?.toISOString() ?? null,
     // A turn the worker left behind (it stopped mid-way) is no turn after a few minutes.
     turn: answering ? turnUnderWay(state, new Date()) : null,
     followUpAt: answering && state?.followUpAt != null ? state.followUpAt.toISOString() : null,

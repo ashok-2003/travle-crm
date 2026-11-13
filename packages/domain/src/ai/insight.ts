@@ -6,7 +6,7 @@
 // for a chat the lite agent answers (its turn scores it); and it never changes a lead's stage or anything but its own
 // row. A chat whose lite turn is still under way is scored again two minutes later, unless that turn scored it. Erased
 // with the customer.
-import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
+import { aiScoreJob, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { Database, OrgTx } from "@travel-crm/db";
@@ -436,13 +436,6 @@ async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> 
 export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsight | null> {
   const row = await tx.leadAiInsight.findFirst({ where: { leadId } });
   if (row === null) return null;
-  const facts = leadInsight.shape.facts.parse({
-    destination: null,
-    when: null,
-    travellers: null,
-    budget: null,
-    ...(row.facts as object),
-  });
   const label = row.label === "hot" || row.label === "cold" ? row.label : "warm";
   const chatSummary = await chatSummaryOf(tx, leadId);
   return {
@@ -454,7 +447,6 @@ export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsi
     summary: row.summary,
     nextStep: row.nextStep,
     chatSummary,
-    facts,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
