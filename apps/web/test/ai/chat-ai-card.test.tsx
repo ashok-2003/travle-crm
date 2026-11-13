@@ -53,6 +53,7 @@ describe("ChatAiCard, what the AI noted", () => {
   it("keeps the state, the hand-over reason with its button, the mode toggle and the summary", async () => {
     show({ answering: false, handedOff: true, handoffReason: "Asked for a discount", summary: "Wants Goa in May." });
     expect(await screen.findByText(messages.ai.chat.handedOff)).toBeVisible();
+    expect(screen.getByText(messages.ai.chat.handoffTitle)).toBeVisible();
     expect(screen.getByText("Asked for a discount")).toBeVisible();
     expect(screen.getByRole("button", { name: messages.ai.chat.resume })).toBeVisible();
     expect(screen.getByRole("radio", { name: messages.ai.chat.modes.on })).toBeVisible();
@@ -67,8 +68,9 @@ describe("ChatAiCard, what the AI noted", () => {
       followUpReason: "Waiting for dates",
     });
     await screen.findByText(messages.ai.chat.answering);
-    expect(screen.queryByText(/A person is answering/)).not.toBeInTheDocument();
-    expect(screen.queryByText("The AI flagged this for your team")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Follow-up planned/)).not.toBeInTheDocument();
+    // What the bar over the reply box says is not repeated here: neither the flag's words nor the follow-up's reason.
+    expect(screen.queryByText("Wants to book")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for dates/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/10:00|3:30/)).not.toBeInTheDocument();
   });
 });

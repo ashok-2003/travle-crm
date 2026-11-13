@@ -2,8 +2,9 @@
 
 // The AI's guess of how a lead will go (Settings, AI turns it on for the agency): how likely it books in the next two weeks, as
 // a number and hot, warm or cold; a warning when it looks fake (spam, a test, a wrong number); a line on how the lead stands;
-// what to do next; why; and what the AI noted from the chat. The trip card shows what the customer wants. Always shown as a guess, in the AI's violet tint, and it never moves the lead's stage. Nothing
-// shows until the AI has scored the lead from its chat.
+// what to do next; why; and what the AI noted from the chat. The trip card shows what the customer wants. Always shown as a
+// guess, in the AI's violet tint, and it never moves the lead's stage. Nothing shows until the AI has scored the lead from
+// its chat.
 import type { LeadInsight } from "@travel-crm/contracts/ai";
 import { TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
