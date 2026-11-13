@@ -174,7 +174,10 @@ export function useLeadStageSuggestion(leadId: string) {
   return useQuery({ ...trpc.ai.leadStageSuggestion.queryOptions({ leadId }), enabled: holds, staleTime: 15_000 });
 }
 
-/** A person's yes or no. The lead, its lists and every place the suggestion shows load again. */
+/**
+ * A person's yes or no. The lead, its lists and every place the suggestion shows load again, and so does the chats' AI
+ * state: a yes to Not a lead turns the AI off in the customer's chat (the suggestion doesn't name it, so every chat's).
+ */
 export function useDecideStageSuggestion() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -186,6 +189,7 @@ export function useDecideStageSuggestion() {
           refresh(),
           queryClient.invalidateQueries({ queryKey: trpc.ai.leadStageSuggestion.pathKey() }),
           queryClient.invalidateQueries({ queryKey: trpc.ai.stageSuggestions.pathKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.ai.chatAi.pathKey() }),
         ]),
     }),
   );

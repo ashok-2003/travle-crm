@@ -1,5 +1,6 @@
 // The AI's suggestion to mark a lead Lost or Not a lead, on the lead's page: the alert says what and why; "Yes" and "No"
-// send the person's choice, and are disabled while it is sent; a member who may not edit the lead sees the alert alone.
+// send the person's choice, are disabled while it is sent, and then reload the lead's work and the chats' AI state (a
+// yes to Not a lead turns the chat's AI off); a member who may not edit the lead sees the alert alone.
 import type { StageSuggestion } from "@travel-crm/contracts/ai";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -118,6 +119,21 @@ describe("StageSuggestionAlert", () => {
       const keys = refreshed.mock.calls.map((call) => JSON.stringify(call[0]?.queryKey));
       expect(keys.some((key) => key.includes('"leads"'))).toBe(true);
       expect(keys.some((key) => key.includes('"today"'))).toBe(true);
+    });
+  });
+
+  it.each(["Yes, mark it Lost", "No"])("refreshes every chat's AI state after %s", async (button) => {
+    const queryClient = newQueryClient();
+    const refreshed = vi.spyOn(queryClient, "invalidateQueries");
+    const api = await show(undefined, suggestion, queryClient);
+    await userEvent.click(await screen.findByRole("button", { name: button }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "ai.decideStageSuggestion")).toBe(true);
+    });
+    api.calls.find((call) => call.path === "ai.decideStageSuggestion")?.answer(null);
+    await waitFor(() => {
+      const keys = refreshed.mock.calls.map((call) => JSON.stringify(call[0]?.queryKey));
+      expect(keys).toContain(JSON.stringify([["ai", "chatAi"]]));
     });
   });
 
