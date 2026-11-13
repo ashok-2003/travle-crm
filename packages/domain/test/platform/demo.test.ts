@@ -6,7 +6,11 @@
 import { randomUUID } from "node:crypto";
 import { leadStages } from "@travel-crm/contracts/crm";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
+import { asOrganization } from "@travel-crm/db/platform";
+import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { agentSetupOf, runAgentTurn } from "../../src/ai/index.js";
+import { createFiles } from "../../src/files/index.js";
 import { findOrganizationRecord } from "../../src/identity/index.js";
 import { addDays, calendarDateIn, startOfDayIn } from "../../src/kernel/index.js";
 import { findKnownContact } from "../../src/crm/index.js";
@@ -18,7 +22,7 @@ import {
   type DemoSettings,
 } from "../../src/platform/index.js";
 import { getOrganizationProfile } from "../../src/profile/index.js";
-import { DEMO_PLAN_KEY, getSubscription, listPlans } from "../../src/subscriptions/index.js";
+import { DEMO_PLAN_KEY, getSubscription, listPlans, type Entitlements } from "../../src/subscriptions/index.js";
 import { canSignInByUsername, memberAccessOf } from "../identity/test-identity.js";
 import { createTestPlan, createTestPlatform, onboardingInput, support, type TestPlatform } from "./test-platform.js";
 
@@ -323,6 +327,111 @@ describe("the demo reset", () => {
       { action: "demo.reset", actorUserId: null },
     ]);
     expect(await canSignInByUsername(test.identity.identity, demo.code, "asha", demo.password)).toBe(true);
+  });
+
+  it("purges last night's demo with an earlier agent's rows and builds it again on the lite agent", async () => {
+    const demo = demoSettings();
+    const first = await resetDemoOrganization(test.services, demo);
+    // What the release before the move could leave in the demo: the AI on, the autopilot on the grounded agent with a
+    // voice, a lesson, knowledge, a media row and a chat with the first agent's memory.
+    await test.services.platformDb.transaction((tx) =>
+      asOrganization(tx, first.organizationId, async (orgTx) => {
+        await orgTx.aiSettings.create({ data: { enabled: true } });
+        await orgTx.aiAutopilot.create({
+          data: { autopilot: true, grounded: true, voiceName: "Riya", voiceProfile: "Warm and short" },
+        });
+        await orgTx.aiLearning.create({ data: { kind: "need", text: "People ask for Manali" } });
+        await orgTx.aiKnowledge.create({ data: { title: "Manali", body: "Manali 5N" } });
+        await orgTx.aiMedia.create({
+          data: { title: "Photos", attachmentId: randomUUID(), fileName: "photos.pdf", contentType: "application/pdf" },
+        });
+        const connection =
+          (await orgTx.whatsappConnection.findFirst({ select: { id: true } })) ??
+          (await orgTx.whatsappConnection.create({
+            data: {
+              integratedNumber: "919800000010",
+              displayNumber: "+919800000010",
+              mode: "new_number",
+              status: "connected",
+            },
+            select: { id: true },
+          }));
+        const chat = await orgTx.whatsappConversation.create({
+          data: { connectionId: connection.id, phoneE164: "+919800000011" },
+          select: { id: true },
+        });
+        await orgTx.aiChat.create({ data: { conversationId: chat.id, memory: "Wants Manali for 4." } });
+      }),
+    );
+    const second = await resetDemoOrganization(test.services, demo);
+    await expect(
+      test.services.platformDb.transaction((tx) => findOrganizationRecord(tx, first.organizationId)),
+    ).rejects.toMatchObject({ reason: "ORGANIZATION_NOT_FOUND" });
+    const { organizationId } = second;
+    const inDemo = <T>(work: Parameters<typeof asOrganization<T>>[2]) =>
+      test.services.platformDb.transaction((tx) => asOrganization(tx, organizationId, work));
+    // The new demo's agent reads as off with its setup unfinished, and holds none of the earlier rows.
+    const setup = await inDemo((tx) => agentSetupOf(tx, organizationId, calendarDateIn(new Date(), "Asia/Kolkata")));
+    expect(setup).toMatchObject({ on: false, ready: false });
+    expect(
+      await inDemo(async (tx) => [await tx.aiLearning.count(), await tx.aiKnowledge.count(), await tx.aiMedia.count()]),
+    ).toEqual([0, 0, 0]);
+    // Its chats run nothing but the lite turn, and that stops at the agent being off: no model call.
+    const chatId = await inDemo(async (tx) => {
+      const connection =
+        (await tx.whatsappConnection.findFirst({ select: { id: true } })) ??
+        (await tx.whatsappConnection.create({
+          data: {
+            integratedNumber: "919800000020",
+            displayNumber: "+919800000020",
+            mode: "new_number",
+            status: "connected",
+          },
+          select: { id: true },
+        }));
+      const chat = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: "+919800000021", lastInboundAt: new Date() },
+        select: { id: true },
+      });
+      await tx.whatsappMessage.create({
+        data: {
+          conversationId: chat.id,
+          direction: "in",
+          origin: "customer",
+          kind: "text",
+          body: "Hi",
+          wamid: randomUUID(),
+          status: "received",
+          occurredAt: new Date(),
+        },
+      });
+      return chat.id;
+    });
+    const model = createMemoryAiModel();
+    const entitlements: Entitlements = {
+      status: "active",
+      access: "full",
+      planName: "Demo",
+      modules: new Set(["crm", "inbox", "ai"]),
+      limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1e9 },
+      trialEndsOn: null,
+      paidThrough: null,
+      nextChangeOn: null,
+    };
+    const outcome = await runAgentTurn(
+      {
+        db: test.services.db,
+        ai: model,
+        subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) },
+        agencyName: () => Promise.resolve("Demo"),
+        files: createFiles({ db: test.services.db, storage: test.services.storage }),
+        managers: () => Promise.resolve([]),
+      },
+      { organizationId, conversationId: chatId, kind: "reply", token: "demo-turn" },
+      new Date(),
+    );
+    expect(outcome).toBe("off");
+    expect(model.requests).toHaveLength(0);
   });
 
   it("never purges an organization it didn't build, even one with the demo's code", async () => {
