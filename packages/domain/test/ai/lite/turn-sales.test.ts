@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { handOverSentences } from "../../../src/ai/lite/act-words.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { readLiteFacts } from "../../../src/ai/lite/merge.js";
+import type { LiteTrace } from "../../../src/ai/lite/types.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
@@ -156,6 +157,48 @@ describe("the lite turn reaches a booking", () => {
     const reply = (await outbound(on)).find((one) => one.clientToken === `ai:${booking}`)?.body ?? "";
     expect(reply).toContain(formatRupees(400_000));
     expect((await on.inOrg((tx) => tx.aiBooking.findFirstOrThrow())).expectedPaise).toBe(400_000n);
+  });
+
+  it("a lead opened by a turn that then stops is in its trace", async () => {
+    const on = await liteAgency(test);
+    await closeLeads(on, "won");
+    await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
+    const token = await says(on, "price for kedarnath on 14 nov, 2 people, double?", 30);
+    on.model.answer(
+      understood([["price_question", "price for kedarnath"]], {
+        details: {
+          package: kedarnath,
+          date: fourteenth,
+          adults: twoPeople,
+          room: { type: "double", proof: "double", changed: false },
+        },
+      }),
+      written("Which city will you join us from?"),
+    );
+    // A person replies while the reply is written: after the lead opened, before act.
+    const complete = on.model.complete.bind(on.model);
+    on.model.complete = async (request) => {
+      if (request.schema?.name === "write_move") {
+        await on.inOrg((tx) =>
+          tx.whatsappMessage.create({
+            data: {
+              conversationId: on.chat.id,
+              direction: "out",
+              origin: "staff_crm",
+              kind: "text",
+              body: "Calling you now.",
+              status: "sent",
+              occurredAt: at(40),
+            },
+          }),
+        );
+      }
+      return complete(request);
+    };
+    const traces: LiteTrace[] = [];
+    const sink = { record: (trace: LiteTrace) => Promise.resolve(void traces.push(trace)) };
+    expect(await on.turn(at(60), { token, traces: sink })).toBe("answered");
+    expect(traces[0]?.actions).toEqual(["lead:opened"]);
   });
 
   it("a returning customer who only says thanks gets no new lead", async () => {

@@ -96,7 +96,6 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   // A returning customer with every lead closed: a move that works on a trip gets them a new lead first, in its own
   // short transaction (never inside act's), before any word is written or sent; one that can't be opened goes to a
   // person instead of the price. A new lead is empty, so nothing read for the turn changes but where its stage starts.
-  let leadOpened = false;
   if (prepared.leadId === null && LEAD_MOVES.has(decision.move.kind)) {
     const chat = { id: prepared.chat.id, personId: prepared.chat.personId, phoneE164: prepared.phoneE164 };
     const opening = await openLeadForChat(deps, organizationId, chat, now);
@@ -105,7 +104,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
     if (opening === "unable") decision = handOverInstead(decision, "no_open_lead", "lead:unable");
     else {
       decision = { ...decision, stageTo: stageToOf(decision.move, "new") };
-      leadOpened = true;
+      // At once: the lead stays whatever the turn does next, so its trace says so even when act stops or is refused.
+      trace.actions.push("lead:opened");
     }
   }
 
@@ -160,7 +160,7 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   }
   trace.leadId = result.leadId;
   trace.sent = { messageIds: result.sentIds, text: result.text };
-  trace.actions = [...(leadOpened ? ["lead:opened"] : []), ...result.actions];
+  trace.actions.push(...result.actions);
   if (result.handedOver) return end("handed_off", move.kind === "hand_over" ? move.reason : "unanswered");
   return end(move.kind === "silent" ? "silent" : "replied");
 }
