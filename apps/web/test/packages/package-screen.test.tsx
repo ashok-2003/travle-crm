@@ -26,13 +26,13 @@ describe("PackageScreen", () => {
     await showing("custom");
     expect(screen.getByRole("switch", { name: messages.packages.sell.label })).toBeTruthy();
     expect(screen.queryByRole("region", { name: messages.packages.seasons.title })).toBeNull();
-    expect(screen.queryByRole("region", { name: messages.packages.payments.title })).toBeNull();
   });
 
-  it("shows a group trip's seasons and payments as well", async () => {
+  it("shows a group trip's seasons as well, and no payments card", async () => {
     await showing("group");
     expect(screen.getByRole("switch", { name: messages.packages.sell.label })).toBeTruthy();
     expect(screen.getByRole("region", { name: messages.packages.seasons.title })).toBeTruthy();
-    expect(screen.getByRole("region", { name: messages.packages.payments.title })).toBeTruthy();
+    expect(screen.queryByText("Where customers pay")).toBeNull();
+    expect(screen.queryByTestId("package-qr-input")).toBeNull();
   });
 });

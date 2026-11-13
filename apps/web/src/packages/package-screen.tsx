@@ -14,7 +14,6 @@ import { routes } from "@/lib/routes";
 import { PackageDeparturesCard } from "./package-departures-card";
 import { PackageFilesCard } from "./package-files-card";
 import { PackageForm, savedKey } from "./package-form";
-import { PaymentsCard } from "./payments-card";
 import { PackagePhotos } from "./package-photos";
 import { PublishCard } from "./publish-card";
 import { SeasonsCard } from "./seasons-card";
@@ -40,7 +39,6 @@ export function PackageScreen({ packageId }: { packageId: string }) {
               <SellCard detail={data} />
               {data.kind === "group" && <SeasonsCard detail={data} />}
               {data.kind === "group" && <PackageDeparturesCard detail={data} />}
-              {data.kind === "group" && <PaymentsCard detail={data} />}
               <TiersCard detail={data} />
               <PackagePhotos packageId={data.id} />
               <PackageFilesCard packageId={data.id} />
