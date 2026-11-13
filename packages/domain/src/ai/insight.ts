@@ -6,7 +6,14 @@
 // for a chat the lite agent answers (its turn scores it); and it never changes a lead's stage or anything but its own
 // row. A chat whose lite turn is still under way is scored again two minutes later, unless that turn scored it. Erased
 // with the customer.
-import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
+import {
+  aiScoreJob,
+  leadInsight,
+  liteFacts,
+  scoreAnswer,
+  type LeadInsight,
+  type ScoreAnswer,
+} from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { Database, OrgTx } from "@travel-crm/db";
@@ -25,7 +32,6 @@ import { knowledgeWords } from "./knowledge.js";
 import { agentAnswers } from "./may-write.js";
 import { turnUnderWay } from "./turn-under-way.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
-import { readLiteFacts } from "./lite/merge.js";
 import { aiEnabled, aiFillLeadsOn, aiScoringOn } from "./settings.js";
 import { releaseAiCall, reserveAiCall } from "./usage.js";
 
@@ -434,9 +440,13 @@ async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> 
     select: { id: true },
   });
   if (chat === null) return null;
-  const state = await tx.aiChat.findFirst({ where: { conversationId: chat.id }, select: { summary: true } });
+  const state = await tx.aiChat.findFirst({
+    where: { conversationId: chat.id },
+    select: { summary: true, facts: true },
+  });
   if (state === null || state.summary === "") return null;
-  if ((await readLiteFacts(tx, chat.id)).leadId === leadId) return state.summary;
+  const facts = liteFacts.safeParse(state.facts);
+  if (facts.success && facts.data.leadId === leadId) return state.summary;
   return (await openLeadOfChat(tx, lead.personId))?.id === leadId ? state.summary : null;
 }
 

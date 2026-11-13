@@ -1,9 +1,8 @@
 // A person's "Not right" on a value the AI filled reaches the lite agent's memory too: the facts the lead's chats settled
 // for that value are let go, so the next turn asks for it again instead of pricing and booking on what was dismissed.
-import type { LiteFacts, SuggestedLeadField } from "@travel-crm/contracts/ai";
+import { liteFacts, type LiteFacts, type SuggestedLeadField } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { lockChat } from "../../inbox/index.js";
-import { readLiteFacts, saveLiteFacts } from "./merge.js";
 
 /** The facts each lead field rests on; a price told rests on the trip, the day and the party, so it goes with them. */
 const factsOf: Partial<Record<SuggestedLeadField, readonly (keyof LiteFacts)[]>> = {
@@ -36,10 +35,12 @@ export async function forgetDismissedFacts(
 ): Promise<void> {
   const keys = new Set(input.fields.flatMap((field) => factsOf[field] ?? []));
   if (keys.size === 0) return;
+  const cleared = Object.fromEntries([...keys].map((key) => [key, null]));
   for (const conversationId of input.conversationIds) {
-    const facts = await readLiteFacts(tx, conversationId);
-    if (facts.leadId !== input.leadId) continue;
-    const cleared = Object.fromEntries([...keys].map((key) => [key, null]));
-    await saveLiteFacts(tx, conversationId, { ...facts, ...cleared });
+    // Read again under the chat's lock: a turn may have settled them for another lead meanwhile.
+    const row = await tx.aiChat.findFirst({ where: { conversationId }, select: { id: true, facts: true } });
+    const facts = liteFacts.safeParse(row?.facts ?? {});
+    if (row === null || !facts.success || facts.data.leadId !== input.leadId) continue;
+    await tx.aiChat.update({ where: { id: row.id }, data: { facts: liteFacts.parse({ ...facts.data, ...cleared }) } });
   }
 }
