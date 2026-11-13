@@ -36,7 +36,7 @@ export function SeasonsCard({ detail }: { detail: PackageDetail }) {
   };
   const noRooms = detail.roomTypes.length === 0;
   return (
-    <SectionCard title={t("title")} anchor="seasons">
+    <SectionCard title={t("title")} anchor="package-seasons">
       <p className="text-muted-foreground">{t("intro")}</p>
       {detail.seasons.length === 0 ? (
         <p className="text-muted-foreground">{t("none")}</p>

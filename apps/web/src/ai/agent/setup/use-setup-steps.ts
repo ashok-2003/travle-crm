@@ -116,6 +116,8 @@ export function useSetAgentOn() {
       onSuccess: (setup) => {
         queryClient.setQueryData(trpc.ai.agentSetup.queryKey(), setup);
       },
+      // A refusal means the checklist the page showed was out of date: read it again.
+      onError: () => queryClient.invalidateQueries({ queryKey: trpc.ai.agentSetup.queryKey() }),
     }),
   );
 }

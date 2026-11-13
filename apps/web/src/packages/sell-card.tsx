@@ -11,20 +11,20 @@ import { TextLink } from "@/components/text-link";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
-import { routes } from "@/lib/routes";
+import { setupHref } from "@/ai/agent/agent-overview";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { usePackageChanges } from "./use-packages";
 
-/** Where to add what is missing: the agency's payment QR is on the AI agent page, the rest is further down this page. */
+/** Where to add what is missing: the agency's payment QR is on the AI agent's Setup tab, the rest is further down this page. */
 const gapPlace: Record<PackageDetail["sellGaps"][number], string> = {
-  room_types: "#package-details",
-  prices: "#seasons",
-  advance: "#package-details",
-  departures: "#departures",
+  room_types: "#group-details",
+  prices: "#package-seasons",
+  advance: "#group-details",
+  departures: "#package-departures",
   from_price: "#package-details",
-  payment_details: `${routes.aiAgent}#step-payment`,
+  payment_details: `${setupHref}#step-payment`,
 };
 
 export function SellCard({ detail }: { detail: PackageDetail }) {

@@ -16,13 +16,12 @@ import { WriteHint } from "@/subscription/write-hint";
 import { useSetAgentOn } from "./use-setup-steps";
 
 /** Where each step is done: WhatsApp and Packages have pages of their own, the rest are rows of this page. */
-const stepPlace: Record<AgentSetup["steps"][number]["key"], string> = {
+const stepPlace: Record<Exclude<AgentSetup["steps"][number]["key"], "ads">, string> = {
   whatsapp: routes.whatsapp,
   packages: routes.packages,
   payment: "#step-payment",
   answers: "#step-answers",
   basics: "#step-basics",
-  ads: "#step-ads",
 };
 
 export function TurnOnStep({
@@ -45,6 +44,9 @@ export function TurnOnStep({
   const setOn = useSetAgentOn();
   // Turning it off is always open; turning it on needs the steps.
   const blocked = !ready && !on;
+  // Required steps only: ads are optional, so they never block and never show here.
+  const missing = steps.flatMap((step) => (step.optional || step.done || step.key === "ads" ? [] : [step.key]));
+  const headingId = `${id}-missing`;
   return (
     <div className="flex flex-col gap-2">
       <Field orientation="horizontal" className="min-h-11">
@@ -53,7 +55,9 @@ export function TurnOnStep({
           checked={on}
           disabled={setOn.isPending || !access.allowed || blocked}
           aria-describedby={
-            [access.hint === null ? null : hintId, blocked ? reasonId : null].filter(Boolean).join(" ") || undefined
+            [access.hint === null ? null : hintId, !ready && missing.length > 0 ? reasonId : null]
+              .filter(Boolean)
+              .join(" ") || undefined
           }
           onCheckedChange={(next) => {
             setOn.mutate({ on: next });
@@ -64,19 +68,19 @@ export function TurnOnStep({
         </FieldLabel>
       </Field>
       <WriteHint id={hintId} hint={access.hint} visible />
-      {blocked && (
-        <div id={reasonId}>
-          <p className="font-semibold">{t("finishFirst")}</p>
+      {!ready && missing.length > 0 && (
+        <div id={reasonId} role="group" aria-labelledby={headingId}>
+          <p id={headingId} className="font-semibold">
+            {t(on ? "onButNotReady" : "finishFirst")}
+          </p>
           <ul className="list-disc pl-5 text-muted-foreground">
-            {steps
-              .filter((step) => !step.optional && !step.done)
-              .map((step) => (
-                <li key={step.key}>
-                  <TextLink inline href={stepPlace[step.key]}>
-                    {stepWords(`${step.key}.todo`)}
-                  </TextLink>
-                </li>
-              ))}
+            {missing.map((key) => (
+              <li key={key}>
+                <TextLink inline href={stepPlace[key]}>
+                  {stepWords(`${key}.todo`)}
+                </TextLink>
+              </li>
+            ))}
           </ul>
         </div>
       )}

@@ -34,12 +34,8 @@ const steps = [
 const setup = { steps, ready: false, on: false, pausedBySupport: false };
 const owner = member({ isOwner: true });
 
-/** The switch's list of what is missing: the block under its heading. */
-function missingList(): HTMLElement {
-  const block = screen.getByText(t.turnOn.finishFirst).parentElement;
-  if (block === null) throw new Error("The missing steps have no block");
-  return block;
-}
+/** The switch's list of what is missing: the group named by its heading. */
+const missingList = (heading: string) => screen.getByRole("group", { name: heading });
 
 function show(over: Record<string, unknown> = {}, me = owner, extra: Record<string, never> = {}) {
   const api = recordingApi({ "ai.agentSetup": { data: { ...setup, ...over } }, ...extra });
@@ -52,6 +48,23 @@ function show(over: Record<string, unknown> = {}, me = owner, extra: Record<stri
 beforeEach(() => {
   screenIs("wide");
   address.set("/ai-agent?tab=setup");
+});
+
+describe("arriving from a link to a step", () => {
+  it("opens the payment row and scrolls to it once the checklist has loaded", async () => {
+    const scrollTo = vi.fn();
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrollTo(this.id);
+    };
+    window.location.hash = "#step-payment";
+    show({}, owner, { "organization.profile.get": { data: null } } as never);
+    expect(await screen.findByRole("button", { name: `Close ${t.steps.payment.title}` })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(scrollTo).toHaveBeenCalledWith("step-payment");
+    window.location.hash = "";
+  });
 });
 
 describe("the Setup checklist", () => {
@@ -128,7 +141,7 @@ describe("the switch that turns the agent on", () => {
   it("lists each missing step as a link to where it is done, and nothing that is done or optional", async () => {
     show();
     await screen.findByRole("switch", { name: t.turnOn.title });
-    const list = missingList();
+    const list = missingList(t.turnOn.finishFirst);
     const links = within(list)
       .getAllByRole("link")
       .map((link) => [link.textContent, link.getAttribute("href")]);
@@ -146,7 +159,7 @@ describe("the switch that turns the agent on", () => {
       ),
     });
     await screen.findByRole("switch", { name: t.turnOn.title });
-    const list = missingList();
+    const list = missingList(t.turnOn.finishFirst);
     expect(within(list).getByRole("link", { name: t.steps.whatsapp.todo })).toHaveAttribute(
       "href",
       "/settings/whatsapp",
@@ -154,11 +167,22 @@ describe("the switch that turns the agent on", () => {
     expect(within(list).getByRole("link", { name: t.steps.packages.todo })).toHaveAttribute("href", "/packages");
   });
 
-  it("is on offer, with no list, once every required step is done", async () => {
-    show({ ready: true, steps: steps.map((one) => (one.optional ? one : { ...one, done: true })) });
+  it("is on but not answering: the list is still there, under its own heading, and the switch can be turned off", async () => {
+    show({ on: true, ready: false });
     const control = await screen.findByRole("switch", { name: t.turnOn.title });
     expect(control).toBeEnabled();
+    expect(control).toBeChecked();
     expect(screen.queryByText(t.turnOn.finishFirst)).not.toBeInTheDocument();
+    const list = missingList(t.turnOn.onButNotReady);
+    expect(within(list).getByRole("link", { name: t.steps.payment.todo })).toHaveAttribute("href", "#step-payment");
+    expect(control).toHaveAccessibleDescription(expect.stringContaining(t.turnOn.onButNotReady));
+  });
+
+  it("has no list at all once every required step is done", async () => {
+    show({ ready: true, steps: steps.map((one) => (one.optional ? one : { ...one, done: true })) });
+    await screen.findByRole("switch", { name: t.turnOn.title });
+    expect(screen.queryByText(t.turnOn.finishFirst)).not.toBeInTheDocument();
+    expect(screen.queryByText(t.turnOn.onButNotReady)).not.toBeInTheDocument();
   });
 
   it("turns the agent on once ready", async () => {

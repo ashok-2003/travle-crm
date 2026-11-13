@@ -4,7 +4,7 @@
 // (one open at a time), then the switch that turns the agent on.
 import type { AgentSetup } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
@@ -31,12 +31,20 @@ import { TurnOnStep } from "./setup/turn-on-step";
 type Step = AgentSetup["steps"][number];
 type StepKey = Step["key"];
 
+const stepKeys: readonly StepKey[] = ["whatsapp", "packages", "payment", "answers", "basics", "ads"];
+
 const editors: Partial<Record<StepKey, () => ReactNode>> = {
   payment: () => <PaymentStepEditor />,
   answers: () => <AnswersStepEditor />,
   basics: () => <BasicsStepEditor />,
   ads: () => <AdsStepEditor />,
 };
+
+/** The step a "#step-<key>" address names, if it is one the page has. */
+function stepKeyOfHash(hash: string): StepKey | null {
+  const key = hash.replace(/^#step-/, "");
+  return stepKeys.find((one) => one === key) ?? null;
+}
 
 function StateLine({ step, mayManage }: { step: Step; mayManage: boolean }) {
   const t = useTranslations("aiAgent.setup.steps");
@@ -96,9 +104,18 @@ function StepRow({ step, open, onToggle }: { step: Step; open: boolean; onToggle
 
 export function AgentSetupTab() {
   const t = useTranslations("aiAgent");
-  const [openKey, setOpenKey] = useState<StepKey | null>(null);
+  // Arriving from a link to a step (#step-payment) opens that step's editor; the rows are there once the checklist loads.
+  const [openKey, setOpenKey] = useState<StepKey | null>(() =>
+    typeof window === "undefined" ? null : stepKeyOfHash(window.location.hash),
+  );
   const query = useAgentSetup();
   const setup = query.data;
+  const loaded = setup !== undefined;
+  useEffect(() => {
+    if (!loaded) return;
+    const key = stepKeyOfHash(window.location.hash);
+    if (key !== null) document.getElementById(`step-${key}`)?.scrollIntoView();
+  }, [loaded]);
   if (setup === undefined) {
     return query.isError ? (
       <LoadFailedAlert message={t("loadFailed")} error={query.error} onRetry={() => void query.refetch()} />

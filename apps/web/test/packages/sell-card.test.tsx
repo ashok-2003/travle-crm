@@ -27,13 +27,13 @@ describe("SellCard", () => {
   it("links each gap to where it is added", () => {
     const gaps = ["room_types", "prices", "advance", "departures", "payment_details"] as const;
     renderWithApi(<SellCard detail={aPackage({ kind: "group", sellGaps: [...gaps] })} />, newQueryClient());
-    expect(screen.getByRole("link", { name: words.gaps.room_types })).toHaveAttribute("href", "#package-details");
-    expect(screen.getByRole("link", { name: words.gaps.prices })).toHaveAttribute("href", "#seasons");
-    expect(screen.getByRole("link", { name: words.gaps.advance })).toHaveAttribute("href", "#package-details");
-    expect(screen.getByRole("link", { name: words.gaps.departures })).toHaveAttribute("href", "#departures");
+    expect(screen.getByRole("link", { name: words.gaps.room_types })).toHaveAttribute("href", "#group-details");
+    expect(screen.getByRole("link", { name: words.gaps.prices })).toHaveAttribute("href", "#package-seasons");
+    expect(screen.getByRole("link", { name: words.gaps.advance })).toHaveAttribute("href", "#group-details");
+    expect(screen.getByRole("link", { name: words.gaps.departures })).toHaveAttribute("href", "#package-departures");
     expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
       "href",
-      "/ai-agent#step-payment",
+      "/ai-agent?tab=setup#step-payment",
     );
   });
 
@@ -42,7 +42,7 @@ describe("SellCard", () => {
     expect(words.gaps.payment_details).toBe("Add your payment QR");
     expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
       "href",
-      "/ai-agent#step-payment",
+      "/ai-agent?tab=setup#step-payment",
     );
   });
 
