@@ -113,6 +113,7 @@
   "liteAgent": {
     "title": "Which agent answers",
     "on": "The new lite agent answers this agency's WhatsApp chats.",
+    "waiting": "Switched on; not answering until the agency's AI and setup are ready.",
     "off": "The earlier agent answers this agency's WhatsApp chats.",
     "switchOn": "Switch to the lite agent",
     "switchOff": "Switch back",

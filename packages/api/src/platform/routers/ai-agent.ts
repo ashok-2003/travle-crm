@@ -28,7 +28,7 @@ export const aiAgentRouter = platformT.router({
     .input(pauseOrganizationInput)
     .output(organizationAgentPause)
     .mutation(({ ctx, input }) => domain.pauseOrganization(ctx.services, ctx.staff, input)),
-  /** Whether the lite agent answers one agency's chats. */
+  /** Whether one agency is on the lite agent, and whether it answers its chats now. */
   liteAgent: staffProcedure
     .input(organizationAgentPauseInput)
     .output(organizationLiteAgent)

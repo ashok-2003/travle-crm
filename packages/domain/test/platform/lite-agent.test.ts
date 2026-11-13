@@ -11,6 +11,8 @@ import {
   organizationLiteAgent,
   setOrganizationLiteAgent,
 } from "../../src/platform/index.js";
+import { liteAgency, liteTurnAt } from "../ai/lite/support/lite-agency.js";
+import { createTestInbox } from "../inbox/support.js";
 import { createTestPlan, createTestPlatform, onboardingInput, support, type TestPlatform } from "./test-platform.js";
 
 describe("switching an agency to the lite agent from the console", () => {
@@ -30,15 +32,18 @@ describe("switching an agency to the lite agent from the console", () => {
     const plan = await createTestPlan(test);
     const { organizationId } = await onboardOrganization(test.services, support, onboardingInput(plan));
     const admin = { userId: randomUUID() };
-    expect(await organizationLiteAgent(test.services, organizationId)).toEqual({ lite: false });
+    expect(await organizationLiteAgent(test.services, organizationId)).toEqual({ lite: false, answering: false });
 
+    // On, but the new agency has neither its AI on nor its setup done: the agent does not answer yet.
     expect(await setOrganizationLiteAgent(test.services, admin, { organizationId, lite: true })).toEqual({
       lite: true,
+      answering: false,
     });
-    expect(await organizationLiteAgent(test.services, organizationId)).toEqual({ lite: true });
+    expect(await organizationLiteAgent(test.services, organizationId)).toEqual({ lite: true, answering: false });
     await setOrganizationLiteAgent(test.services, admin, { organizationId, lite: true });
     expect(await setOrganizationLiteAgent(test.services, admin, { organizationId, lite: false })).toEqual({
       lite: false,
+      answering: false,
     });
     await setOrganizationLiteAgent(test.services, admin, { organizationId, lite: false });
 
@@ -55,6 +60,25 @@ describe("switching an agency to the lite agent from the console", () => {
     );
     const logged = page.entries.filter((entry) => entry.action.startsWith("ai-agent.lite"));
     expect(logged.map((entry) => entry.action)).toEqual(["ai-agent.lite-off", "ai-agent.lite-on"]);
+  });
+
+  it("says the lite agent answers only while the agency's AI is on and its setup ready", async () => {
+    const inbox = createTestInbox();
+    try {
+      const state = (organizationId: string) => organizationLiteAgent(test.services, organizationId, liteTurnAt);
+      const ready = await liteAgency(inbox);
+      expect(await state(ready.organizationId)).toEqual({ lite: true, answering: true });
+      const unready = await liteAgency(inbox, { ready: false });
+      expect(await state(unready.organizationId)).toEqual({ lite: true, answering: false });
+      const aiOff = await liteAgency(inbox);
+      await aiOff.inOrg((tx) => tx.aiSettings.updateMany({ data: { enabled: false } }));
+      expect(await state(aiOff.organizationId)).toEqual({ lite: true, answering: false });
+      const agentOff = await liteAgency(inbox);
+      await agentOff.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: false } }));
+      expect(await state(agentOff.organizationId)).toEqual({ lite: true, answering: false });
+    } finally {
+      await inbox.close();
+    }
   });
 
   it("an unknown organization is NOT_FOUND, and a change needs the admin's id", async () => {

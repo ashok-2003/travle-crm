@@ -1,7 +1,7 @@
 "use client";
 
-// Which WhatsApp agent answers one agency, on its console page: the state in words for all platform staff, and the
-// switch (asked once more) for super admins only.
+// Which WhatsApp agent answers one agency, on its console page: the state in words for all platform staff (on but not
+// yet answering while the agency's AI or setup isn't ready), and the switch (asked once more) for super admins only.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -52,12 +52,14 @@ export function OrganizationLiteAgent({
       </DetailSection>
     );
   }
-  const { lite } = state.data;
+  const { lite, answering } = state.data;
   const dialog = lite ? "offDialog" : "onDialog";
+  // On, it says whether the agent answers yet: the agency's AI and its setup must be ready too.
+  const line = lite ? (answering ? t("liteAgent.on") : t("liteAgent.waiting")) : t("liteAgent.off");
 
   return (
     <DetailSection id="lite-agent-heading" heading={t("liteAgent.title")}>
-      <p>{lite ? t("liteAgent.on") : t("liteAgent.off")}</p>
+      <p>{line}</p>
       {mayChange && (
         <div>
           <Button
