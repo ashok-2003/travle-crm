@@ -143,5 +143,8 @@ describe("the lite turn reaches a booking", () => {
       tx.aiBooking.findFirstOrThrow({ select: { quote: { select: { totalPaise: true } } } }),
     );
     expect(booking.quote?.totalPaise).toBe(1_199_800n);
+    // The lead's room is the one priced and booked, the trek's only one, whatever room the customer named.
+    const lead = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
+    expect(lead.roomType).toBe("triple");
   });
 });
