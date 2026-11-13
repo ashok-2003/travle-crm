@@ -20,11 +20,13 @@ describe("packages: no payment procedures", () => {
     const procedures = caller.packages as unknown as Record<string, (input: unknown) => Promise<unknown>>;
     const qr = { packageId: id, fileName: "qr.png", contentType: "image/png", sizeBytes: 100 };
     const ref = { packageId: id, attachmentId: randomUUID() };
-    // A procedure that does not exist is a call that fails, whoever asks and whatever they send.
-    await expect(procedures.setPaymentDetails?.({ packageId: id, paymentDetails: "UPI x" })).rejects.toThrow();
-    await expect(procedures.requestPaymentQrUpload?.(qr)).rejects.toThrow();
-    await expect(procedures.confirmPaymentQr?.(ref)).rejects.toThrow();
-    await expect(procedures.removePaymentQr?.(ref)).rejects.toThrow();
+    // A procedure that does not exist answers NOT_FOUND, whoever asks and whatever they send.
+    expect(
+      await refusal(procedures.setPaymentDetails?.({ packageId: id, paymentDetails: "UPI x" }) ?? Promise.resolve()),
+    ).toBe("NOT_FOUND");
+    expect(await refusal(procedures.requestPaymentQrUpload?.(qr) ?? Promise.resolve())).toBe("NOT_FOUND");
+    expect(await refusal(procedures.confirmPaymentQr?.(ref) ?? Promise.resolve())).toBe("NOT_FOUND");
+    expect(await refusal(procedures.removePaymentQr?.(ref) ?? Promise.resolve())).toBe("NOT_FOUND");
   });
 
   it("refuses a QR sent through the brochure procedures, and keeps brochures with the editor", async () => {
@@ -32,13 +34,23 @@ describe("packages: no payment procedures", () => {
     const { id } = await harness.db.forOrg(organizationId, (tx) =>
       tx.quoteTemplate.create({ data: { name: "Spiti", title: "Spiti", kind: "group" }, select: { id: true } }),
     );
-    const { caller } = callerOf(harness, { organizationId, granted: ["quotes:edit"] });
+    // Stand-in file service: it lists nothing and hands out an upload slot, so a brochure request can succeed.
+    const attachmentId = randomUUID();
+    const files = {
+      list: () => Promise.resolve([]),
+      requestUpload: () =>
+        Promise.resolve({
+          attachment: { id: attachmentId },
+          upload: { url: "https://files.example.test/put", method: "PUT", headers: {}, expiresAt: new Date() },
+        }),
+    };
+    const { caller } = callerOf(harness, { organizationId, granted: ["quotes:edit"], context: { files } as never });
     const request = { packageId: id, fileName: "qr.png", contentType: "image/png", sizeBytes: 100 };
     expect(await refusal(caller.packages.requestFileUpload({ ...request, kind: "payment_qr" } as never))).toBe(
       "BAD_REQUEST",
     );
-    expect(await refusal(caller.packages.requestFileUpload({ ...request, kind: "brochure" } as never))).not.toBe(
-      "MISSING_PERMISSION",
-    );
+    expect(await caller.packages.requestFileUpload({ ...request, kind: "brochure" } as never)).toMatchObject({
+      attachmentId,
+    });
   });
 });
