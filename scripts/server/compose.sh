@@ -4,7 +4,8 @@
 # environment, else the one /srv/travel-crm/release names. Every server script comes through here. Run it as root:
 #   sudo scripts/server/compose.sh ps
 #   sudo scripts/server/compose.sh logs --tail 100 api
-# The settings say which services run here (SERVER_ROLE), so it turns on their profiles.
+# The settings say which services run here (SERVER_ROLE), so it turns on their profiles; the database server also gets
+# its own additions (docker/server/database.yml).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/paths.sh
@@ -27,12 +28,16 @@ if [ -z "${CONSOLE_JOBS:-}" ] && [ -f "$console_jobs_file" ]; then
 fi
 export CONSOLE_JOBS="${CONSOLE_JOBS:-on}"
 role="$(server_role)"
+files=(--file docker-compose.server.yml)
+profiles=()
 case "$role" in
   all) profiles=(api-host console-host web) ;;
   api) profiles=(api-host) ;;
   console) profiles=(console-host) ;;
+  app) profiles=(api-host console-host) ;;
+  database) files+=(--file docker/server/database.yml) ;;
   *)
-    echo "SERVER_ROLE in $settings_file is '$role': it must be all, api or console" >&2
+    echo "SERVER_ROLE in $settings_file is '$role': it must be all, api, console, app or database" >&2
     exit 1
     ;;
 esac
@@ -49,4 +54,4 @@ COMPOSE_PROFILES="$(
   echo "${profiles[*]}"
 )"
 export COMPOSE_PROFILES
-exec docker compose --project-name travel-crm --file docker-compose.server.yml --env-file "$settings_file" "$@"
+exec docker compose --project-name travel-crm "${files[@]}" --env-file "$settings_file" "$@"

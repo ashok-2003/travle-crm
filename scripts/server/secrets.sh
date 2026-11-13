@@ -3,12 +3,13 @@
 # the product makes for itself is made here, on the server, and never leaves it; the file is root's alone (0600) and
 # never in git. Values are written single-quoted, so Compose reads them as they are (a `$` is not a variable).
 # Run it as root:
-#   secrets.sh init <app host> <acme email> [all|api|console]
+#   secrets.sh init <app host> <acme email> [all|api|console|app|database]
 #                                            makes the file once: the database passwords, the auth secret and the
 #                                            web push key pair, and blanks for what the owner's accounts give. The
-#                                            role is what the server runs (docs/runbook.md, "Two small servers");
-#                                            `api` and `console` use a managed database, so init leaves the
-#                                            connection strings blank
+#                                            role is what the server runs (docs/runbook.md, "Two small servers" and
+#                                            "Our own database"); `api`, `console` and `app` use a database elsewhere,
+#                                            so init leaves their connection strings blank, and `database` gets the
+#                                            server's private address and a 1 GB server's Postgres memory
 #   secrets.sh set <NAME>                    sets one value, typed without echo (or read from stdin)
 #   secrets.sh fill                          asks for every setting still empty, in turn
 #   secrets.sh check                         names every setting still empty, never a value
@@ -62,16 +63,19 @@ vapid_pair() {
 
 init() {
   local host="${1:-}" acme_email="${2:-}" role="${3:-all}"
-  [ -n "$host" ] && [ -n "$acme_email" ] || fail "Usage: secrets.sh init <app host> <acme email> [all|api|console]"
-  case "$role" in all | api | console) ;; *) fail "The role is all, api or console, not '$role'" ;; esac
+  [ -n "$host" ] && [ -n "$acme_email" ] ||
+    fail "Usage: secrets.sh init <app host> <acme email> [all|api|console|app|database]"
+  case "$role" in all | api | console | app | database) ;; *) fail "The role is all, api, console, app or database, not '$role'" ;; esac
   umask 077
   mkdir -p "$server_root"
   [ -f "$settings_file" ] || cat >"$settings_file" <<'EOF'
 # The server's settings for docker-compose.server.yml (scripts/server/secrets.sh, docs/runbook.md). Root's alone:
 # never copy it off the server, print it or commit it.
 
-# What this server runs: `all` (one server), or one of the two small servers, `api` (the api and the worker) or
-# `console` (the console alone), whose web app is hosted elsewhere (docs/runbook.md, "Two small servers").
+# What this server runs: `all` (one server), or one of two small servers whose web app is hosted elsewhere: beside a
+# managed database, `api` (the api and the worker) or `console` (the console alone) (docs/runbook.md, "Two small
+# servers"); beside our own, `app` (the api, the worker and the console) or `database` (Postgres alone)
+# (docs/runbook.md, "Our own database").
 SERVER_ROLE=''
 # The server's own address, which Caddy gets the certificate for. Changing it is the switch to a real domain
 # (docs/runbook.md).
@@ -106,6 +110,11 @@ MIGRATOR_DB_PASSWORD=''
 RUNTIME_DB_PASSWORD=''
 PLATFORM_DB_PASSWORD=''
 POSTGRES_SHARED_BUFFERS=''
+# The database server's (SERVER_ROLE `database`): the private address Postgres listens on for the app server, and a
+# small server's planner and maintenance memory (blank: 4GB and 256MB, the one big server's). Made by init.
+POSTGRES_LISTEN_ADDRESS=''
+POSTGRES_EFFECTIVE_CACHE_SIZE=''
+POSTGRES_MAINTENANCE_WORK_MEM=''
 
 # Signs and encrypts sessions; one value for the api, the worker and the console (made by init).
 BETTER_AUTH_SECRET=''
@@ -195,13 +204,24 @@ EOF
   fill_once BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
   # Never changed: the sheets' claims and an erased customer's tombstones are keyed with it.
   fill_once SHEETS_HASH_KEY "$(openssl rand -base64 32)"
-  # One server starts on its own Postgres; the two small servers' managed database is the owner's to set.
-  if [ "$(value_of SERVER_ROLE)" = all ]; then
-    local local_database="@postgres:5432/travel_crm"
-    fill_once DATABASE_URL "postgresql://app_runtime:$(value_of RUNTIME_DB_PASSWORD)$local_database"
-    fill_once DATABASE_PLATFORM_URL "postgresql://app_platform:$(value_of PLATFORM_DB_PASSWORD)$local_database"
-    fill_once DATABASE_MIGRATOR_URL "postgresql://app_migrator:$(value_of MIGRATOR_DB_PASSWORD)$local_database"
-  fi
+  # One server starts on its own Postgres; the two small servers' database is the owner's to set. The database server
+  # points DATABASE_URL at its own Postgres too, which is what makes it run here (paths.sh), but holds neither the
+  # platform role's nor the migrator's: the app server migrates, over the private network.
+  local local_database="@postgres:5432/travel_crm"
+  case "$(value_of SERVER_ROLE)" in
+    all)
+      fill_once DATABASE_URL "postgresql://app_runtime:$(value_of RUNTIME_DB_PASSWORD)$local_database"
+      fill_once DATABASE_PLATFORM_URL "postgresql://app_platform:$(value_of PLATFORM_DB_PASSWORD)$local_database"
+      fill_once DATABASE_MIGRATOR_URL "postgresql://app_migrator:$(value_of MIGRATOR_DB_PASSWORD)$local_database"
+      ;;
+    database)
+      fill_once DATABASE_URL "postgresql://app_runtime:$(value_of RUNTIME_DB_PASSWORD)$local_database"
+      # The address Oracle's private network reaches this server at: the one its default route leaves from.
+      fill_once POSTGRES_LISTEN_ADDRESS "$(ip -4 route get 1.1.1.1 | awk '{ for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1) }')"
+      fill_once POSTGRES_EFFECTIVE_CACHE_SIZE "$(postgres_effective_cache_mb)MB"
+      fill_once POSTGRES_MAINTENANCE_WORK_MEM "$(postgres_maintenance_work_mb)MB"
+      ;;
+  esac
   if [ -z "$(value_of VAPID_PUBLIC_KEY)" ]; then
     local pair
     pair="$(vapid_pair)"
@@ -238,17 +258,24 @@ set_one() {
 # server's own Postgres doesn't need, the Google service accounts, which leave Google Sheets off while blank, Meta's,
 # MSG91's and Brevo's webhook's, which leave them off while blank, the log settings, which leave Axiom off while blank,
 # the website form's, which are blank unless the owner turns Turnstile on, and those with a default (APP_URL, the
-# transactions' limits, the jobs' polling). On the two small servers also the migrator's connection string (the migrations run from the owner's
-# computer) and the backups' settings (the managed database is backed up from GitHub Actions), and on the api's the
-# platform role's, which it must never hold.
+# transactions' limits, the jobs' polling, a small database server's Postgres memory). On the two small servers beside a
+# managed database also the migrator's connection string (the migrations run from the owner's computer) and the
+# backups' settings (the managed database is backed up from GitHub Actions), and on the api's the platform role's,
+# which it must never hold. Beside our own database, the app server holds no backups' settings (the database server
+# backs up), and the database server neither the platform role's nor the migrator's (the app server migrates). Only the
+# database server needs the address Postgres listens on.
 empty_settings() {
   local optional='BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS|META_[A-Z_]+|MSG91_[A-Z_]+'
+  optional+='|POSTGRES_EFFECTIVE_CACHE_SIZE|POSTGRES_MAINTENANCE_WORK_MEM'
   optional+='|BREVO_WEBHOOK_TOKEN|BREVO_WEBHOOK_KEY'
   optional+='|LOG_LEVEL|AXIOM_TOKEN|AXIOM_DATASET|AXIOM_URL|PUBLIC_FORM_PROXY_HOPS|TURNSTILE_SITE_KEY|TURNSTILE_SECRET_KEY'
   optional+='|APP_URL|DATABASE_TRANSACTION_MAX_WAIT_MS|DATABASE_TRANSACTION_TIMEOUT_MS|JOBS_POLLING_SECONDS'
   case "$(server_role)" in
-    api) optional+='|DATABASE_MIGRATOR_URL|BACKUP_[A-Z0-9_]+|DATABASE_PLATFORM_URL' ;;
-    console) optional+='|DATABASE_MIGRATOR_URL|BACKUP_[A-Z0-9_]+' ;;
+    api) optional+='|DATABASE_MIGRATOR_URL|BACKUP_[A-Z0-9_]+|DATABASE_PLATFORM_URL|POSTGRES_LISTEN_ADDRESS' ;;
+    console) optional+='|DATABASE_MIGRATOR_URL|BACKUP_[A-Z0-9_]+|POSTGRES_LISTEN_ADDRESS' ;;
+    app) optional+='|BACKUP_[A-Z0-9_]+|POSTGRES_LISTEN_ADDRESS' ;;
+    database) optional+='|DATABASE_PLATFORM_URL|DATABASE_MIGRATOR_URL' ;;
+    *) optional+='|POSTGRES_LISTEN_ADDRESS' ;;
   esac
   sed -n -E "s/^([A-Z0-9_]+)=''\$/\1/p" "$settings_file" | grep -v -x -E "$optional" || true
 }
@@ -293,5 +320,5 @@ case "$command" in
   set) set_one "$@" ;;
   fill) fill ;;
   check) check ;;
-  *) fail "Usage: secrets.sh <init <app host> <acme email> [all|api|console] | set <NAME> | fill | check>" ;;
+  *) fail "Usage: secrets.sh <init <app host> <acme email> [all|api|console|app|database] | set <NAME> | fill | check>" ;;
 esac

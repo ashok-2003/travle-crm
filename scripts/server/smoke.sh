@@ -5,8 +5,9 @@
 #   scripts/server/smoke.sh https://<host>
 # deploy.sh adds --local on the server: the same requests, sent to this server's Caddy whatever DNS says. Where the
 # address doesn't route /health to the api (Vercel, docs/serverless.md), HEALTH_URL names the api's own.
-# SERVER_ROLE `api` or `console` checks one of the two small servers (docs/runbook.md) for its own paths only, and
-# ORIGIN names the address its sign-in takes requests from (the web app's, APP_URL) when it isn't the one checked.
+# SERVER_ROLE `api` or `console` checks one of the two small servers (docs/runbook.md) for its own paths only, `app`
+# the app server beside our own database (the api's and the console's), and ORIGIN names the address its sign-in takes
+# requests from (the web app's, APP_URL) when it isn't the one checked.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
@@ -46,13 +47,18 @@ case "$role" in
     expect_status "$app/sign-in" 404 "${curl_options[@]}"
     expect_status "$app/api/platform/trpc/whoAmI" 404 "${curl_options[@]}"
     ;;
+  app)
+    # The web app is on another host; the console answers its own api here, then the api's checks below.
+    expect_status "$app/sign-in" 404 "${curl_options[@]}"
+    expect_status "$app/api/platform/trpc/whoAmI" 401 "${curl_options[@]}"
+    ;;
   console)
     expect_status "$app/api/platform/trpc/whoAmI" 401 "${curl_options[@]}"
     expect_status "$app/api/trpc/me.get" 404 "${curl_options[@]}"
     echo "The console's server is good."
     exit 0
     ;;
-  *) fail "SERVER_ROLE is '$role': it must be all, api or console" ;;
+  *) fail "SERVER_ROLE is '$role': it must be all, api, console or app" ;;
 esac
 expect_status "$app/api/trpc/me.get" 401 "${curl_options[@]}"
 # Only the api's 404 for a share link says no-referrer, and only it refuses an unknown provider's webhook in JSON.

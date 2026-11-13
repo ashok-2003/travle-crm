@@ -3,7 +3,7 @@
 # console-mode file, a signal file and a compose command of the test's own: the first version's one line reads as those
 # hours with the default night bursts and wake; a plan written reads back the same; a minute is in the hours, in a burst
 # (across midnight too) or in neither; a burst that runs into the hours or a time that isn't one is refused; the day's
-# and the night's states run what each server's role calls for; and work the api signalled in the wake's minutes keeps
+# and the night's states run what each server's role calls for (nothing on the database server); and work the api signalled in the wake's minutes keeps
 # the night's worker running. No root, systemd or Docker: the compose command only records.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -138,6 +138,22 @@ check "one server, by day: both run, the console with its jobs" \
 night_state >/dev/null
 check "one server, at night: the worker stops, the console runs, its jobs off" \
   [ "$(asked) $(console_mode)" = "stop worker|up --detach --no-deps console off" ]
+
+role app
+day_state >/dev/null
+check "the app server beside our own database, by day: both run, the console with its jobs" \
+  [ "$(asked) $(console_mode)" = "up --detach --no-deps worker console on" ]
+night_state >/dev/null
+check "the app server, at night: the worker stops, the console runs, its jobs off" \
+  [ "$(asked) $(console_mode)" = "stop worker|up --detach --no-deps console off" ]
+
+role database
+day_state >/dev/null
+check "the database server, by day: the hours start nothing (an \`up\` naming nothing would start everything)" \
+  [ "$(asked) $(console_mode)" = " unset" ]
+night_state >/dev/null
+woken_state >/dev/null
+check "the database server, at night and woken: nothing stops or starts" [ "$(asked) $(console_mode)" = " unset" ]
 
 # The state the time calls for, with the default plan.
 role console
