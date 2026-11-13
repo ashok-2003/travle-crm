@@ -115,6 +115,8 @@ export const leadInsight = z.object({
   /** A line or two on how the lead stands, written with the score. */
   summary: z.string(),
   nextStep: z.string(),
+  /** The lite agent's notes on the customer from the chat (no prices or dates); null when it has written none. */
+  chatSummary: z.string().nullable(),
   facts: insightFacts,
   updatedAt: z.iso.datetime(),
 });

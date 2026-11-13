@@ -4,7 +4,7 @@
 // - a lead from a past customer's chat: the form opens with the AI's reading of the chat and the chat's own number;
 // - a call note from a recording: the dialog is filled, the follow-up has a real date, and one tap saves the call and the lead's details;
 // - a quote from a screenshot: its text is filled and every price stays empty;
-// - a new WhatsApp lead arrives with fields suggested in violet, and Confirm keeps them.
+// - a new WhatsApp lead arrives with fields suggested in violet, and Looks right keeps one.
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
@@ -285,7 +285,7 @@ test("a past customer's chat becomes a lead: the form opens with the AI's readin
   await expect(owner.getByRole("heading", { level: 1, name: "Rahul Mehta" })).toBeVisible();
 });
 
-test("a new WhatsApp lead arrives with its fields suggested in violet, and Confirm keeps them", async ({
+test("a new WhatsApp lead arrives with its fields suggested in violet, and Looks right keeps one", async ({
   page,
   browser,
   superAdmin,
@@ -324,19 +324,23 @@ test("a new WhatsApp lead arrives with its fields suggested in violet, and Confi
       .getByRole("link", { name: /Rahul Mehta/ })
       .first()
       .click({ timeout: 4_000 });
-    await expect(owner.locator("[data-ai-suggested]")).toBeVisible({ timeout: 6_000 });
+    await expect(owner.locator("[data-ai-filled]").first()).toBeVisible({ timeout: 6_000 });
   }).toPass({ timeout: 150_000 });
-  await expect(owner.getByText("The AI filled in from the customer's messages")).toBeVisible();
-  expect(await owner.locator("[data-ai-suggested]").getByRole("button", { name: "Confirm" }).count()).toBe(1);
+  // The first AI value is the destination; where it came from is a tap away, with Looks right beside it.
+  await owner.getByRole("button", { name: "Where this came from" }).first().click();
+  await expect(owner.getByText(/Filled by the AI from the chat/)).toBeVisible();
+  await expect(owner.getByRole("button", { name: "Looks right" })).toBeVisible();
   await expectAccessible(owner);
   await shoot(owner, testInfo, "lead-suggested-fields");
 
-  await owner.locator("[data-ai-suggested]").getByRole("button", { name: "Confirm" }).click();
-  await expect(owner.locator("[data-ai-suggested]")).toHaveCount(0);
+  const before = await owner.locator("[data-ai-filled]").count();
+  await owner.getByRole("button", { name: "Looks right" }).click();
+  // Only that value turns plain; the others stay violet until they are decided too.
+  await expect(owner.locator("[data-ai-filled]")).toHaveCount(before - 1);
   // What the AI wrote stays, as the lead's own.
   await expect(owner.getByText("Manali").first()).toBeVisible();
   const [entry] = await inAgency(agency.organizationId, (tx) =>
     tx.auditEntry.findMany({ where: { action: "ai.lead-fields-confirmed" } }),
   );
-  expect(entry?.after).toMatchObject({ fields: expect.arrayContaining(["destination", "adults"]) });
+  expect(entry?.after).toMatchObject({ fields: ["destination"] });
 });

@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { TripCard } from "@/leads/lead/trip-card";
 import { stubApi } from "../support/api-stub";
+import { member } from "../support/members";
+import { paidSubscription } from "../organization/api";
 import { aLead, ids } from "./records";
 import { lastInputTo, renderScreen } from "./screen";
 
@@ -110,5 +112,95 @@ describe("TripCard", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: words.edit })).toHaveFocus();
     });
+  });
+});
+
+describe("TripCard, what the AI filled", () => {
+  const withAi = { ...paidSubscription, modules: ["crm", "ai"] as never };
+  const filled = (field: string, path: string, excerpt: string, filledAt = "2026-11-12T08:00:00.000Z") => ({
+    field,
+    path,
+    value: null,
+    excerpt,
+    filledAt,
+  });
+
+  beforeEach(() => {
+    vi.setSystemTime(new Date("2026-11-13T05:30:00Z"));
+  });
+
+  async function openOrigin() {
+    await userEvent.click(await screen.findByRole("button", { name: words.ai.where }));
+  }
+
+  it("an AI value is violet with its origin a tap away, and Looks right decides just that field", async () => {
+    stubApi({
+      "ai.leadFields": { data: { fields: [filled("adults", "trip.adults", "we are 3 people")] } },
+      "ai.decideLeadFields": { data: null },
+    });
+    renderScreen(<TripCard lead={aLead()} />, { subscription: withAi, me: member({ isOwner: true }) });
+    const marked = await waitFor(() => {
+      const found = document.querySelector("[data-ai-filled]");
+      expect(found).not.toBeNull();
+      return found;
+    });
+    expect(marked).toHaveTextContent("2 adults, 1 child (7)");
+    expect(marked).toHaveClass("bg-people-tint");
+    await openOrigin();
+    expect(await screen.findByText("Filled by the AI from the chat, 12 Nov: “we are 3 people”")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: words.ai.right }));
+    await waitFor(() => {
+      expect(lastInputTo("ai.decideLeadFields")).toEqual({
+        leadId: ids.rahul,
+        decision: "confirm",
+        fields: ["adults"],
+      });
+    });
+  });
+
+  it("a row of adults and children's ages is decided together, and Not right dismisses", async () => {
+    stubApi({
+      "ai.leadFields": {
+        data: {
+          fields: [
+            filled("adults", "trip.adults", "we are 3 people", "2026-11-11T08:00:00.000Z"),
+            filled("children_ages", "trip.childrenAges", "one kid, 7", "2026-11-12T08:00:00.000Z"),
+          ],
+        },
+      },
+      "ai.decideLeadFields": { data: null },
+    });
+    renderScreen(<TripCard lead={aLead()} />, { subscription: withAi, me: member({ isOwner: true }) });
+    await openOrigin();
+    // The newest row's words are shown.
+    expect(await screen.findByText("Filled by the AI from the chat, 12 Nov: “one kid, 7”")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: words.ai.wrong }));
+    await waitFor(() => {
+      expect(lastInputTo("ai.decideLeadFields")).toEqual({
+        leadId: ids.rahul,
+        decision: "dismiss",
+        fields: ["adults", "children_ages"],
+      });
+    });
+  });
+
+  it("a member without leads:edit sees the sentence and no buttons", async () => {
+    stubApi({ "ai.leadFields": { data: { fields: [filled("adults", "trip.adults", "")] } } });
+    renderScreen(<TripCard lead={aLead()} />, {
+      subscription: withAi,
+      me: member({ permissions: ["leads:view", "ai:suggest"] }),
+    });
+    await openOrigin();
+    expect(await screen.findByText("Filled by the AI from the chat, 12 Nov.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: words.ai.right })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: words.ai.wrong })).not.toBeInTheDocument();
+  });
+
+  it("a row a person filled has no button and no tint", async () => {
+    stubApi({ "ai.leadFields": { data: { fields: [] } } });
+    renderScreen(<TripCard lead={aLead()} />, { subscription: withAi });
+    await screen.findByText("Kashmir");
+    expect(screen.queryByRole("button", { name: words.ai.where })).not.toBeInTheDocument();
+    expect(document.querySelector("[data-ai-filled]")).toBeNull();
   });
 });

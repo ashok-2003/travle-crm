@@ -223,4 +223,48 @@ describe("a new WhatsApp lead that arrives filled in", () => {
       reason: "NOT_FOUND",
     });
   });
+
+  it("filledAt is the row's last write", async () => {
+    const { model, score, inOrg, lead } = await agency();
+    model.answer(answer());
+    await score();
+    const stamp = new Date("2026-11-12T07:00:00.000Z");
+    await inOrg((tx) =>
+      tx.leadAiField.updateMany({ where: { leadId: lead.id, field: "adults" }, data: { updatedAt: stamp } }),
+    );
+    const suggested = await inOrg((tx) => suggestedFieldsOf(tx, lead.id));
+    expect(suggested.find((one) => one.field === "adults")?.filledAt).toBe("2026-11-12T07:00:00.000Z");
+  });
+
+  it("deciding one field leaves the others suggested", async () => {
+    const { model, score, inOrg, lead, owner } = await agency();
+    model.answer(answer());
+    await score();
+    await inOrg((tx) => decideSuggestions(tx, owner, lead.id, "confirm", ["adults"]));
+    expect(
+      await inOrg((tx) => tx.leadAiField.findFirstOrThrow({ where: { leadId: lead.id, field: "adults" } })),
+    ).toMatchObject({
+      state: "confirmed",
+    });
+    expect(
+      await inOrg((tx) => tx.leadAiField.findFirstOrThrow({ where: { leadId: lead.id, field: "when" } })),
+    ).toMatchObject({
+      state: "suggested",
+    });
+    const left = (await inOrg((tx) => suggestedFieldsOf(tx, lead.id))).map((one) => one.field).sort();
+    expect(left).toEqual(["budget", "destination", "when"]);
+  });
+
+  it("dismissing one field clears only it", async () => {
+    const { model, score, leadNow, inOrg, lead, owner } = await agency();
+    model.answer(answer());
+    await score();
+    await inOrg((tx) => decideSuggestions(tx, owner, lead.id, "dismiss", ["adults"]));
+    expect(await leadNow()).toMatchObject({ adults: null, travelKind: "dates" });
+    expect((await inOrg((tx) => suggestedFieldsOf(tx, lead.id))).map((one) => one.field)).not.toContain("adults");
+    // A field that is not suggested is not found.
+    await expect(inOrg((tx) => decideSuggestions(tx, owner, lead.id, "dismiss", ["adults"]))).rejects.toMatchObject({
+      reason: "NOT_FOUND",
+    });
+  });
 });

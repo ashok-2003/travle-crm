@@ -298,7 +298,7 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
         // A lead out of the member's scope is "not found".
         const lead = await getLead(tx, ctx.member, input.leadId);
-        await decideSuggestions(tx, ctx.member, lead.id, input.decision);
+        await decideSuggestions(tx, ctx.member, lead.id, input.decision, input.fields);
       }),
     ),
 

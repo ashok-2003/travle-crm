@@ -394,6 +394,20 @@ function safeParse(text: string) {
   }
 }
 
+/** The lite agent's notes from the chat the lead's person wrote in last (a person may have more than one number). */
+async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> {
+  const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { personId: true } });
+  if (lead === null) return null;
+  const chat = await tx.whatsappConversation.findFirst({
+    where: { personId: lead.personId },
+    orderBy: [{ lastInboundAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+    select: { id: true },
+  });
+  if (chat === null) return null;
+  const state = await tx.aiChat.findFirst({ where: { conversationId: chat.id }, select: { summary: true } });
+  return state === null || state.summary === "" ? null : state.summary;
+}
+
 /** The AI's guess for a lead, if there is one. */
 export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsight | null> {
   const row = await tx.leadAiInsight.findFirst({ where: { leadId } });
@@ -406,6 +420,7 @@ export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsi
     ...(row.facts as object),
   });
   const label = row.label === "hot" || row.label === "cold" ? row.label : "warm";
+  const chatSummary = await chatSummaryOf(tx, leadId);
   return {
     score: row.score,
     label,
@@ -414,6 +429,7 @@ export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsi
     fakeReason: row.fakeReason,
     summary: row.summary,
     nextStep: row.nextStep,
+    chatSummary,
     facts,
     updatedAt: row.updatedAt.toISOString(),
   };

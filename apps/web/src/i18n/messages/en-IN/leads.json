@@ -491,13 +491,12 @@
         "submit": "Save",
         "submitting": "Saving"
       },
-      "suggested": {
-        "title": "The AI filled in from the customer's messages: {fields}.",
-        "hint": "Check them with the customer. Confirm keeps them; Dismiss clears what the AI wrote.",
-        "confirm": "Confirm",
-        "dismiss": "Dismiss",
-        "term": "this AI-filled detail",
-        "said": "The customer wrote: “{words}”"
+      "ai": {
+        "where": "Where this came from",
+        "filled": "Filled by the AI from the chat, {day}: “{words}”",
+        "filledNoWords": "Filled by the AI from the chat, {day}.",
+        "right": "Looks right",
+        "wrong": "Not right"
       }
     },
     "owner": {

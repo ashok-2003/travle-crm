@@ -121,6 +121,8 @@ export interface SuggestedField {
   path: FillPath;
   value: unknown;
   excerpt: string;
+  /** When the AI last wrote the value (the row's last write), as an ISO instant. */
+  filledAt: string;
 }
 
 /** The suggestions on a lead that still hold what the AI wrote: a field a person has changed since is theirs now. */
@@ -135,27 +137,30 @@ export async function suggestedFieldsOf(tx: OrgTx, leadId: string): Promise<Sugg
     const current = now[field];
     if (current === null || !suggestedLeadFields.includes(field) || valueHash(path, current) !== row.valueHash)
       return [];
-    return [{ field, path, value: current, excerpt: row.excerpt }];
+    return [{ field, path, value: current, excerpt: row.excerpt, filledAt: row.updatedAt.toISOString() }];
   });
 }
 
 /**
  * Confirms the suggestions (the AI's values stay, as the person's) or dismisses them (the values still the AI's are cleared,
- * and are not suggested again). The lead must be one the member may work; a lead with nothing suggested is "not found".
+ * and are not suggested again). With `fields` only those are decided and the others stay suggested. The lead must be one the
+ * member may work; a lead with none of them suggested is "not found".
  */
 export async function decideSuggestions(
   tx: OrgTx,
   access: MemberAccess,
   leadId: string,
   decision: "confirm" | "dismiss",
+  only?: readonly SuggestedLeadField[],
 ): Promise<void> {
-  const open = await suggestedFieldsOf(tx, leadId);
+  const open = (await suggestedFieldsOf(tx, leadId)).filter((one) => only === undefined || only.includes(one.field));
   if (open.length === 0) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
   const fields = open.map((one) => one.field);
   if (decision === "dismiss") await clearTripFields(tx, leadId, fields);
-  // Every suggestion row of the lead is decided: one a person changed since is theirs, so it leaves the suggested list too.
+  // Without `only`, every suggestion row of the lead is decided: one a person changed since is theirs, so it leaves the
+  // suggested list too. With it, just the named rows.
   await tx.leadAiField.updateMany({
-    where: { leadId, state: "suggested" },
+    where: { leadId, state: "suggested", ...(only === undefined ? {} : { field: { in: [...only] } }) },
     data: { state: decision === "confirm" ? "confirmed" : "dismissed" },
   });
   const about = { entityType: "lead", entityId: leadId, after: { fields } };

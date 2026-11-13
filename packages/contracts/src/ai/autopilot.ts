@@ -90,6 +90,8 @@ export const chatAi = z.object({
   handedOff: z.boolean(),
   handoffReason: z.string().nullable(),
   memory: z.string(),
+  /** The lite agent's notes on the customer, shown as "What the AI noted"; empty when it has none. */
+  summary: z.string(),
   lastReplyAt: z.iso.datetime().nullable(),
   /** What it is doing now: waiting a moment for the customer's next line, or writing its answer. */
   turn: z.enum(["queued", "thinking"]).nullable(),

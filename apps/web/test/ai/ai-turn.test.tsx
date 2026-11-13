@@ -15,6 +15,7 @@ const chat: ChatAi = {
   handedOff: false,
   handoffReason: null,
   memory: "",
+  summary: "",
   lastReplyAt: null,
   turn: null,
   followUpAt: null,

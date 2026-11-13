@@ -109,7 +109,8 @@
       "travellers": "Travellers",
       "budget": "Budget"
     },
-    "unknown": "Not said yet"
+    "unknown": "Not said yet",
+    "noted": "What the AI noted"
   },
   "autopilot": {
     "title": "Autopilot",
@@ -269,7 +270,8 @@
     "followUpPlanned": "Next follow-up {when}",
     "followUpWhy": "Next follow-up {when}: {why}",
     "barPaused": "You wrote in this chat, so {name} waits until {until} so you two don't answer at once.",
-    "answerNow": "Let AI answer now"
+    "answerNow": "Let AI answer now",
+    "noted": "What the AI noted"
   },
   "test": {
     "title": "Try it",
@@ -802,5 +804,6 @@
       "title": "Day {number} title",
       "description": "Day {number} details"
     }
-  }
+  },
+  "chip": "AI"
 }
