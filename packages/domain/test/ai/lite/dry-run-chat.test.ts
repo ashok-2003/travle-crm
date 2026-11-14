@@ -3,6 +3,8 @@
 import { liteFacts, testAiAnswer } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { liteDryRun } from "../../../src/ai/index.js";
+import { handOverSentences } from "../../../src/ai/lite/act-words.js";
+import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
 import { formatRupees } from "../../../src/kernel/index.js";
 import { memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
@@ -78,22 +80,68 @@ describe("Try it as a chat", () => {
     expect(shown.trace.intents).not.toContain("wants_to_book");
   });
 
-  it("refuses a reply that repeats the agent's own line, and keeps the state it was given", async () => {
+  it("hands over in the customer's language when Write repeats the agent's own line twice, carrying the state on", async () => {
     const on = await liteAgency(test);
     const said = "It is a group yatra with a pickup. Do you have a month in mind?";
     const state = { facts: liteFacts.parse({ agent: "lite", language: "english" }), summary: "Said hello." };
     on.model.answer(
-      understood([["package_question", "kedarnath"]], { details: kedarnath }),
+      understood([["package_question", "kedarnath"]], {
+        details: kedarnath,
+        language: "hinglish",
+        summary: "Asked about Kedarnath.",
+      }),
       written(said),
       written(said),
     );
-    const shown = await turn(on, [customer("hi"), agent(said), customer("tell me about kedarnath")], state);
-    expect(shown.dryRun).toEqual({ actions: [], blocked: "repeat" });
+    const shown = await turn(on, [customer("hi"), agent(said), customer("kedarnath ke baare mein batao")], state);
+    expect(shown).toMatchObject({
+      answer: fixedText("hand_over", "hinglish", {}).text,
+      handoff: true,
+      reason: handOverSentences.check_failed,
+      dryRun: { blocked: null },
+    });
+    expect(shown.trace).toMatchObject({ move: "hand_over", handOver: "check_failed", why: "write:repeat" });
     expect(shown.trace.writes).toEqual([
       { answer: written(said), refused: "repeat" },
       { answer: written(said), refused: "repeat" },
     ]);
-    expect(shown.state).toEqual(state);
+    // As the live turn keeps them after a hand-over: what Understand learned, and nothing waiting for an answer.
+    expect(shown.state.facts).toMatchObject({ packageId: on.packageId, language: "hinglish", lastMove: "hand_over" });
+    expect(shown.state.summary).toBe("Asked about Kedarnath.");
+  });
+
+  it("hands over as unanswered when Write says the facts don't answer", async () => {
+    const on = await liteAgency(test);
+    const cannot = JSON.stringify({ text: "", cannot_answer: true });
+    on.model.answer(understood([["package_question", "kedarnath"]], { details: kedarnath }), cannot);
+    const shown = await turn(on, [customer("is there wifi on the kedarnath trip?")], null);
+    expect(shown).toMatchObject({ answer: fixedText("hand_over", "english", {}).text, handoff: true });
+    expect(shown.trace).toMatchObject({ handOver: "unanswered", writes: [{ answer: cannot, refused: null }] });
+  });
+
+  it("hands over when Write's answers can't be read, naming each unreadable try", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["package_question", "kedarnath"]], { details: kedarnath }), "not json", "still not");
+    const shown = await turn(on, [customer("tell me about kedarnath")], null);
+    expect(shown).toMatchObject({ handoff: true, reason: handOverSentences.check_failed });
+    expect(shown.trace.writes).toEqual([
+      { answer: "not json", refused: "unfit" },
+      { answer: "still not", refused: "unfit" },
+    ]);
+  });
+
+  it("sends nothing when Understand's answer can't be read, as the live turn flags it, and keeps the state", async () => {
+    const on = await liteAgency(test);
+    on.model.answer("not json");
+    const shown = await turn(on, [customer("hi")], null);
+    expect(shown).toMatchObject({ answer: "", handoff: false, dryRun: { actions: [], blocked: "unfit" } });
+    expect(shown.state.facts).toEqual(liteFacts.parse({ agent: "lite" }));
+  });
+
+  it("stays an error when the model can't be reached", async () => {
+    const on = await liteAgency(test);
+    on.model.answer({ ok: false, reason: "unavailable" });
+    await expect(turn(on, [customer("hi")], null)).rejects.toMatchObject({ reason: "AI_UNAVAILABLE" });
   });
 
   it("asks the model and temperature the test chat chose, for Understand and Write alike, and names who answered", async () => {

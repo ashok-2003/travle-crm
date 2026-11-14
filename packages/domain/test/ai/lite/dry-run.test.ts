@@ -70,7 +70,7 @@ describe("Try it for the lite agent", () => {
     expect(await rows(on)).toEqual(before);
   });
 
-  it("a typed price twice shows blocked amount", async () => {
+  it("a typed price twice hands over with the hand-over line, as the live turn sends it", async () => {
     const on = await liteAgency(test);
     const before = await rows(on);
     const typed = written("It costs ₹5,999 only. Which city will you join us from?");
@@ -82,7 +82,20 @@ describe("Try it for the lite agent", () => {
       typed,
     );
     const shown = await tryIt(on, "price for kedarnath?");
-    expect(shown).toMatchObject({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: "amount" } });
+    expect(shown).toMatchObject({
+      answer: fixedText("hand_over", "english", {}).text,
+      handoff: true,
+      reason: "The AI couldn't write a safe reply.",
+      dryRun: { blocked: null },
+    });
+    expect(shown.trace).toMatchObject({
+      handOver: "check_failed",
+      why: "write:amount",
+      writes: [
+        { answer: typed, refused: "amount" },
+        { answer: typed, refused: "amount" },
+      ],
+    });
     expect(await calls(on)).toBe(3);
     expect(await rows(on)).toEqual(before);
   });

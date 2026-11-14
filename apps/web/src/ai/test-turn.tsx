@@ -12,20 +12,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TestWhy } from "./test-why";
 
-/** The check's reasons the screen has words for; any other reads as a plain safety check. */
-const blockedReasons = [
-  "amount",
-  "date",
-  "place",
-  "payment_claim",
-  "team_claim",
-  "payment_detail",
-  "unfit",
-  // The lite agent's booking refusals, from the same checks the live turn runs.
-  "PAYMENT_DETAILS_MISSING",
-  "PACKAGE_NOT_SELLABLE",
-  "AI_ACTION_REFUSED",
-] as const;
+/**
+ * Why a turn would send nothing, as the live turn flags it: Understand's answer unreadable, or a booking the same checks
+ * refuse. Any other reads as a plain safety check. (A refused Write hands over, as live: that is a hand-over line.)
+ */
+const blockedReasons = ["unfit", "PAYMENT_DETAILS_MISSING", "PACKAGE_NOT_SELLABLE", "AI_ACTION_REFUSED"] as const;
 type BlockedReason = (typeof blockedReasons)[number] | "other";
 const reasonOf = (code: string): BlockedReason => blockedReasons.find((known) => known === code) ?? "other";
 

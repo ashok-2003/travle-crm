@@ -63,7 +63,8 @@ export async function liteDryRun(
   const { index, today, timeZone } = agency;
   const { messages, burst, sent } = dryRunChat(chat.messages, now);
   const facts = startingFacts(chat.state?.facts ?? liteFacts.parse({ agent: "lite" }), index, null);
-  // What a turn that sends nothing leaves: the state as it came, so the next turn reads the chat afresh.
+  // What a turn that sends nothing leaves (an unreadable Understand, a refused booking): the state as it came, so the
+  // next turn reads the chat afresh, as a flagged live turn keeps nothing.
   const kept: TestAiState = { facts, summary: chat.state?.summary ?? "" };
   const trace: TestAiAnswer["trace"] = {
     model: null,
@@ -130,7 +131,7 @@ export async function liteDryRun(
     { decision, situation, agencyName, summary: checked.form.summary },
   );
   if (words !== null) trace.writes = writeTries(words.written);
-  if (words?.written.kind === "refused") return blocked(words.written.code, kept, trace);
+  // As live: Write refused twice, or a "cannot answer", hands the chat over; only a model out of reach ends the turn.
   const code = codeWordsOf(decision, situation, decision.facts.language, agencyName, today);
   const acting = actingOn(decision, code, words?.written ?? null);
   if ("ended" in acting) return ended(acting.ended);

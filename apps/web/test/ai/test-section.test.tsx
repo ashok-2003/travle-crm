@@ -163,13 +163,33 @@ describe("Try it", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("shows a refused Write as the hand-over the customer would get, with each refused try under Why", async () => {
+    const reason = "The AI couldn't write a safe reply.";
+    const refused = {
+      ...trace,
+      move: "hand_over",
+      why: "write:amount",
+      handOver: "check_failed",
+      writes: [
+        { answer: '{"text":"It is 5999 only."}', refused: "amount" },
+        { answer: '{"text":"Just 5999!"}', refused: "amount" },
+      ],
+    };
+    await chat(turn("Someone from our team will reply soon.", { handoff: true, reason, trace: refused }));
+    expect(await screen.findByText(words.handoff.replace("{reason}", reason))).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: words.why.open }));
+    expect(screen.getByText("check_failed")).toBeVisible();
+    expect(screen.getByText(words.why.tryRefused.replace("{number}", "2").replace("{code}", "amount"))).toBeVisible();
+    expect(screen.getByText('{"text":"Just 5999!"}')).toBeVisible();
+  });
+
   it("says why nothing would be sent, and sends no agent line for that turn next time", async () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
     await send("price?");
-    const stopped = turn("", { dryRun: { actions: [], blocked: "amount" } });
+    const stopped = turn("", { dryRun: { actions: [], blocked: "unfit" } });
     api.last().answer(stopped);
-    const line = words.blocked.replace("{reason}", words.blockedReasons.amount);
+    const line = words.blocked.replace("{reason}", words.blockedReasons.unfit);
     expect(await screen.findByText(line)).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
     await send("hello?");
