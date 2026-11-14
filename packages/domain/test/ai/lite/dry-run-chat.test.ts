@@ -1,6 +1,7 @@
 // Try it as a chat: each turn runs the lite turn on the whole test chat and the state the last turn left, so what one turn
 // learned holds in the next; the agent's own lines count as sent, for the repeat check; and the trace says why.
 import { liteFacts, testAiAnswer } from "@travel-crm/contracts/ai";
+import type { AiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { liteDryRun } from "../../../src/ai/index.js";
 import { handOverSentences } from "../../../src/ai/lite/act-words.js";
@@ -29,9 +30,15 @@ describe("Try it as a chat", () => {
   });
   afterAll(() => test.close());
 
-  const turn = (on: Agency, messages: Line[], state: Chat["state"], choice: Partial<Chat> = {}) =>
+  const turn = (
+    on: Agency,
+    messages: Line[],
+    state: Chat["state"],
+    choice: Partial<Chat> = {},
+    ai: AiModel = on.model,
+  ) =>
     liteDryRun(
-      { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
+      { db: test.db, ai, agencyName: () => Promise.resolve("Sharma Holidays") },
       memberOf(on.organizationId, "org-owner"),
       { messages, state, ...choice },
       testNow,
@@ -155,7 +162,33 @@ describe("Try it as a chat", () => {
       ["understand_form", "x/flash", 0.4],
       ["write_move", "x/flash", 0.4],
     ]);
-    expect(shown.trace.model).toBe("memory-model");
+    expect(shown.trace.models).toEqual({ understand: "memory-model", write: "memory-model" });
+  });
+
+  it("names the model that read the chat and the one that wrote the reply, each in its own place", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(
+      understood([["package_question", "kedarnath"]], { details: kedarnath }),
+      written("It is a group yatra with a pickup. Do you have a month in mind?"),
+    );
+    // The live models' list: Understand answered by one, Write by the next.
+    const twoModels: AiModel = {
+      configured: true,
+      complete: async (request) => {
+        const result = await on.model.complete(request);
+        if (!result.ok) return result;
+        return { ...result, model: request.schema?.name === "understand_form" ? "x/reader" : "x/writer" };
+      },
+    };
+    const shown = await turn(on, [customer("tell me about kedarnath")], null, {}, twoModels);
+    expect(shown.trace.models).toEqual({ understand: "x/reader", write: "x/writer" });
+  });
+
+  it("names no Write model when nothing was written", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["discount", "discount"]]));
+    const shown = await turn(on, [customer("any discount?")], null);
+    expect(shown.trace.models).toEqual({ understand: "memory-model", write: null });
   });
 
   it("names no model or temperature when the chat chose none, as the live turn never does", async () => {

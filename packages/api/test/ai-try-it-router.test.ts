@@ -48,7 +48,7 @@ describe("ai.test", () => {
   async function anAiAgency(granted?: Parameters<typeof callerOf>[1]["granted"]) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const schemas: (string | undefined)[] = [];
-    const asked: { model?: string; temperature?: number }[] = [];
+    const asked: Parameters<NonNullable<Context["ai"]>["complete"]>[0][] = [];
     const model: NonNullable<Context["ai"]> = {
       configured: true,
       complete: (request) => {
@@ -98,11 +98,20 @@ describe("ai.test", () => {
     expect(shown.answer).toContain("Which trip are you looking at?");
   });
 
-  it("takes back the state it handed out", async () => {
-    const { caller } = await anAiAgency();
+  it("takes back the state it handed out, and the next turn reads it", async () => {
+    const { caller, asked } = await anAiAgency();
+    /** What each Understand call showed the model, in order. */
+    const read = () =>
+      asked
+        .filter((request) => request.schema?.name === "understand_form")
+        .map((request) => JSON.stringify(request.messages));
     const first = await caller.ai.test({ messages: hi, state: null, ...live });
+    expect(first.state.summary).toBe("Said hello.");
+    expect(read()[0]).not.toContain("Said hello.");
     const chat = [...hi, { from: "agent" as const, text: first.answer }, { from: "customer" as const, text: "ok" }];
-    expect(await codeOf(caller.ai.test({ messages: chat, state: first.state, ...live }))).toBe("allowed");
+    await caller.ai.test({ messages: chat, state: first.state, ...live });
+    // The summary the first turn handed out is what the second turn's Understand read.
+    expect(read()[1]).toContain("Said hello.");
   });
 
   it("refuses a state that does not parse, before any model call", async () => {
@@ -149,14 +158,19 @@ describe("ai.test", () => {
   it("asks Gemini Flash, at 0.4 when chosen, for every call of the turn", async () => {
     const { caller, asked } = await anAiAgency();
     const shown = await caller.ai.test({ messages: hi, state: null, model: "flash", temperature: "0.4" });
-    expect(asked.map((request) => [request.model, request.temperature])).toEqual([
-      ["google/gemini-3.5-flash", 0.4],
-      ["google/gemini-3.5-flash", 0.4],
-    ]);
-    expect(shown.trace.model).toBe("memory-model");
+    expect(asked.length).toBeGreaterThan(0);
+    for (const request of asked) {
+      expect(request).toMatchObject({ model: "google/gemini-3.5-flash", temperature: 0.4 });
+    }
+    expect(shown.trace.models).toEqual({ understand: "memory-model", write: "memory-model" });
+    const before = asked.length;
     await caller.ai.test({ messages: hi, state: null, model: "flash", temperature: "default" });
-    expect(asked.at(-1)).toMatchObject({ model: "google/gemini-3.5-flash" });
-    expect(asked.at(-1)).not.toHaveProperty("temperature");
+    const atDefault = asked.slice(before);
+    expect(atDefault.length).toBeGreaterThan(0);
+    for (const request of atDefault) {
+      expect(request).toMatchObject({ model: "google/gemini-3.5-flash" });
+      expect(request).not.toHaveProperty("temperature");
+    }
   });
 
   it("refuses a temperature for any model but Gemini Flash, and a model or temperature it doesn't know", async () => {

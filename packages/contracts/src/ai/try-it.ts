@@ -53,8 +53,10 @@ export type TestAiAction = z.infer<typeof testAiAction>;
 
 /** Why the turn did what it did: the parts of a live turn's trace a person testing the agent reads. */
 export const testAiTrace = storedLiteTrace
-  .pick({ model: true, intents: true, move: true, stage: true, why: true, checks: true })
+  .pick({ intents: true, move: true, stage: true, why: true, checks: true })
   .extend({
+    /** The model that answered each step, as it said: Understand's and Write's (its last try's), null when not asked. */
+    models: z.object({ understand: z.string().nullable(), write: z.string().nullable() }),
     /** As the stored trace's, but a result is always an object: so it reaches the screen typed, never optional. */
     lookups: z.array(
       z.object({ request: z.looseObject({ tool: z.string() }), result: z.record(z.string(), z.unknown()) }),

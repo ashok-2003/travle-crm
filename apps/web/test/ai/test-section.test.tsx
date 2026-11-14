@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 const trace = {
-  model: "google/gemini-3.5-flash-lite",
+  models: { understand: "google/gemini-3.5-flash-lite", write: "google/gemini-3.5-flash" },
   intents: ["price_question"],
   move: "give_price",
   stage: "package_picked",
@@ -102,7 +102,10 @@ describe("Try it", () => {
     expect(screen.getByText("price_question")).toBeVisible();
     expect(screen.getByText("give_price")).toBeVisible();
     expect(screen.getByText("intent:price_question")).toBeVisible();
+    expect(screen.getByText(words.why.readBy)).toBeVisible();
     expect(screen.getByText("google/gemini-3.5-flash-lite")).toBeVisible();
+    expect(screen.getByText(words.why.writtenBy)).toBeVisible();
+    expect(screen.getByText("google/gemini-3.5-flash")).toBeVisible();
     expect(screen.getByText("price")).toBeVisible();
     expect(screen.getByText(words.why.tryRefused.replace("{number}", "1").replace("{code}", "amount"))).toBeVisible();
     expect(screen.getByText(words.why.tryPassed.replace("{number}", "2"))).toBeVisible();
@@ -161,6 +164,28 @@ describe("Try it", () => {
     expect(await screen.findByText("Someone from our team will reply soon.")).toBeVisible();
     expect(screen.getByText(words.handoff.replace("{reason}", reason))).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("lists under Details left out only what Understand's check dropped, never a Write refusal", async () => {
+    const checks = [
+      { name: "proof", passed: false, detail: "adults:proof_missing" },
+      { name: "write", passed: false, detail: "amount" },
+      { name: "write", passed: true, detail: null },
+    ];
+    await chat(turn("Which city will you join from?", { trace: { ...trace, checks } }));
+    await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
+    expect(screen.getByText(words.why.dropped)).toBeVisible();
+    expect(screen.getByText("adults:proof_missing")).toBeVisible();
+    // The Write refusal shows once, as its try.
+    expect(screen.queryByText("adults:proof_missing, amount")).toBeNull();
+    expect(screen.queryByText("amount")).toBeNull();
+  });
+
+  it("leaves Details left out off when Understand's check dropped nothing", async () => {
+    const checks = [{ name: "write", passed: false, detail: "amount" }];
+    await chat(turn("Which city will you join from?", { trace: { ...trace, checks } }));
+    await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
+    expect(screen.queryByText(words.why.dropped)).toBeNull();
   });
 
   it("shows a refused Write as the hand-over the customer would get, with each refused try under Why", async () => {

@@ -174,7 +174,8 @@
     },
     "why": {
       "open": "Why",
-      "answeredBy": "Answered by",
+      "readBy": "Read by",
+      "writtenBy": "Written by",
       "intents": "Understood",
       "move": "Move",
       "reason": "Why this move",

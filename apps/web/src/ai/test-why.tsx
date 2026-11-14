@@ -1,6 +1,7 @@
-// "Why" under a Try it answer, for whoever tests the agent as a developer would: the model that answered, what Understand
-// read, the move code chose and why, the lookups that ran, each Write try with its refusal, a hand-over's reason, and what
-// the live turn would have done next. Codes and recorded values show as recorded.
+// "Why" under a Try it answer, for whoever tests the agent as a developer would: the models that read the chat and wrote
+// the reply, what Understand read, the move code chose and why, the details its check dropped, the lookups that ran, each
+// Write try with its refusal, a hand-over's reason, and what the live turn would have done next. Codes and recorded values
+// show as recorded.
 import type { TestAiAnswer } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -24,12 +25,16 @@ export function TestWhy({ answer }: { answer: TestAiAnswer }) {
   /** A row only when the turn recorded something for it. */
   const recorded = (label: string, value: string | null): Detail[] =>
     value === null ? [] : [{ label, value: code(value) }];
-  const dropped = trace.checks.filter((check) => !check.passed).map((check) => check.detail ?? check.name);
+  // Understand's form check alone: a Write refusal shows once, as its try below.
+  const dropped = trace.checks
+    .filter((check) => check.name === "proof" && !check.passed)
+    .map((check) => check.detail ?? check.name);
   return (
     <div className="flex flex-col gap-3">
       <Details
         rows={[
-          ...recorded(t("why.answeredBy"), trace.model),
+          ...recorded(t("why.readBy"), trace.models.understand),
+          ...recorded(t("why.writtenBy"), trace.models.write),
           { label: t("why.intents"), value: codes(trace.intents) },
           ...recorded(t("why.move"), trace.move),
           ...recorded(t("why.reason"), trace.why),

@@ -15,6 +15,7 @@ import { dryRunAgency, dryRunChat } from "./dry-run-setup.js";
 import { checkedForm } from "./form-check.js";
 import { mergeForm } from "./merge.js";
 import { startingFacts } from "./prepare.js";
+import { UNDERSTAND_ANSWER } from "./prompts/calls.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
 import { decideBase } from "./turn.js";
 import { decided, written } from "./turn-steps.js";
@@ -25,7 +26,10 @@ import { understandChat } from "./understand.js";
 /** The test chat's own model and temperature, on every model call; unset, the call is the live turn's. */
 export type DryRunChoice = Pick<AiRequest, "model" | "temperature">;
 
-/** The model as the test chat asks it: its choice put on each request, and each answer's model noted in the trace. */
+/**
+ * The model as the test chat asks it: its choice put on each request, and each answer's model noted in the trace for the
+ * step that asked (Understand's, or Write's last try): with the live list, the two may differ.
+ */
 function chosen(ai: AiModel, choice: DryRunChoice, trace: TestAiAnswer["trace"]): AiModel {
   // Only what was chosen: a request with no temperature key keeps the model's own.
   const wanted = {
@@ -36,7 +40,10 @@ function chosen(ai: AiModel, choice: DryRunChoice, trace: TestAiAnswer["trace"])
     configured: ai.configured,
     complete: async (request) => {
       const result = await ai.complete({ ...request, ...wanted });
-      if (result.ok) trace.model = result.model;
+      if (result.ok) {
+        const step = request.schema?.name === UNDERSTAND_ANSWER ? "understand" : "write";
+        trace.models[step] = result.model;
+      }
       return result;
     },
   };
@@ -67,7 +74,7 @@ export async function liteDryRun(
   // next turn reads the chat afresh, as a flagged live turn keeps nothing.
   const kept: TestAiState = { facts, summary: chat.state?.summary ?? "" };
   const trace: TestAiAnswer["trace"] = {
-    model: null,
+    models: { understand: null, write: null },
     intents: [],
     move: null,
     stage: null,
