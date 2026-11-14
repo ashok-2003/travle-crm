@@ -1,10 +1,8 @@
 // The WhatsApp AI agent (the one lite agent): it answers chats by itself once an Owner or Admin finishes its setup and
 // turns it on; every message it sends is marked as the AI's in the chat and audited. This file holds a chat's state as
-// the inbox shows it, the events and job of its turns, Try it, and the day's overview.
+// the inbox shows it, the events and job of its turns, and the day's overview. Try it is in try-it.ts.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
-
-const text = (max: number) => z.string().trim().max(max);
 
 export const aiChatModes = ["default", "on", "off"] as const;
 export const aiChatMode = z.enum(aiChatModes);
@@ -46,21 +44,6 @@ export type ChatAi = z.infer<typeof chatAi>;
 export const aiChatResumedEvent = z.strictObject({ conversationId: recordId });
 /** The ai.reply job: the AI's turn after a customer's message, a few seconds later so a burst reads as one. */
 export const aiReplyJob = z.strictObject({ organizationId: recordId, conversationId: recordId, messageId: recordId });
-
-/** A question to try the AI agent on, from the agency's packages and setup, before turning it on. */
-export const testAiInput = z.strictObject({ question: text(1000).min(1) });
-/** What code would do after a reply: send the package's files, book (payment details and the booking), note, add a task. */
-export const testAiAction = z.enum(["files", "book", "note", "task"]);
-export type TestAiAction = z.infer<typeof testAiAction>;
-
-export const testAiAnswer = z.object({
-  answer: z.string(),
-  handoff: z.boolean(),
-  reason: z.string(),
-  /** The dry run: what code would do with the reply, or the check's reason code when nothing would be sent. */
-  dryRun: z.object({ actions: z.array(testAiAction), blocked: z.string().nullable() }),
-});
-export type TestAiAnswer = z.infer<typeof testAiAnswer>;
 
 /** The AI's last day at a glance, for the AI screen's head. */
 export const aiOverview = z.object({

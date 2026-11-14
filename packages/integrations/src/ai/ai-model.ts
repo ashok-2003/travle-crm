@@ -46,6 +46,13 @@ export interface AiRequest {
   maxTokens?: number;
   /** An opaque id for the provider's per-user tracking: the organization's id, never personal data. */
   user?: string;
+  /** Only this model, instead of the feature's list (on a backup key too): Try it's test chat alone names one. */
+  model?: string;
+  /**
+   * The sampling temperature, sent only when set: left out, the model keeps its own default, as Google advises for our
+   * Gemini model. Try it's test chat alone sets one.
+   */
+  temperature?: number;
 }
 
 export type AiResult =

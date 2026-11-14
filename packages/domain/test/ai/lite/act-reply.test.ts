@@ -57,12 +57,12 @@ const askedWhen = { kind: "ok" as const, text: "When would you like to go?", fil
 
 describe("what act is handed", () => {
   it("cannot_answer hands over as unanswered", () => {
-    const acting = actingOn(fromPrice, code, { kind: "cannot_answer", raw: [] });
+    const acting = actingOn(fromPrice, code, { kind: "cannot_answer", raw: [], refusals: [] });
     expect(acting).toMatchObject({ decision: { move: { kind: "hand_over", reason: "unanswered" } }, reply: null });
   });
 
   it("refused twice hands over as check_failed", () => {
-    const acting = actingOn(fromPrice, code, { kind: "refused", code: "amount", raw: [] });
+    const acting = actingOn(fromPrice, code, { kind: "refused", code: "amount", raw: [], refusals: ["amount"] });
     expect(acting).toMatchObject({ decision: { move: { kind: "hand_over", reason: "check_failed" } }, reply: null });
   });
 

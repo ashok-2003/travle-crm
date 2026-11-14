@@ -21,11 +21,12 @@ export { liteReplyContext } from "./reply-context.js";
  * `cannot_answer`: the facts did not answer the customer, so the turn hands over with reason `unanswered`.
  * `refused`: both asks were refused (`code` is the last reason), so the turn hands over with reason `check_failed`.
  * `ended`: the model could not be asked (the limit, or it being down) before any answer was refused.
+ * `raw` holds each answer as it came and `refusals` each refused answer's code, in order.
  */
 export type LiteWritten =
   | { kind: "ok"; text: string; filled: Found[]; raw: string[]; refusals: string[] }
-  | { kind: "cannot_answer"; raw: string[] }
-  | { kind: "refused"; code: string; raw: string[] }
+  | { kind: "cannot_answer"; raw: string[]; refusals: string[] }
+  | { kind: "refused"; code: string; raw: string[]; refusals: string[] }
   | { kind: "ended"; outcome: string; raw: string[] };
 
 const ASKS = 2;
@@ -166,14 +167,16 @@ export async function writeMove(
       }
       // Having refused one answer, a second that cannot be asked for still leaves the customer waiting.
       const last = refusals.at(-1);
-      return last === undefined ? { kind: "ended", outcome: asked.reason, raw } : { kind: "refused", code: last, raw };
+      return last === undefined
+        ? { kind: "ended", outcome: asked.reason, raw }
+        : { kind: "refused", code: last, raw, refusals };
     }
     raw.push(asked.raw);
-    if (asked.value.cannot_answer) return { kind: "cannot_answer", raw };
+    if (asked.value.cannot_answer) return { kind: "cannot_answer", raw, refusals };
     const verdict = judged(asked.value.text.trim(), move, context, prompt.language, sent);
     if (verdict.ok) return { kind: "ok", text: verdict.text, filled: verdict.filled, raw, refusals };
     refusals.push(verdict.code);
     correction = verdict.correction;
   }
-  return { kind: "refused", code: refusals.at(-1) ?? "unfit", raw };
+  return { kind: "refused", code: refusals.at(-1) ?? "unfit", raw, refusals };
 }

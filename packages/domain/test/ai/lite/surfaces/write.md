@@ -73,4 +73,4 @@ Customer (Thu 12 Nov, 3:40 pm): <<kedarnath, 3 adults and a kid of 8, 15 dec>>
 The language and script to write in.
 Hinglish, in Latin letters
 
-# schema write_move · feature autopilot · maxTokens 2500
+# schema write_move · feature autopilot · maxTokens 8000
