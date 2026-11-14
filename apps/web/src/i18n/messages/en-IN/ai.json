@@ -132,11 +132,16 @@
   },
   "test": {
     "title": "Try it",
-    "description": "Ask what a customer might, and see what the AI agent would answer from your packages and setup. Nothing is sent.",
-    "question": "A customer's question",
+    "description": "Write as a customer would and keep the chat going, to see what the AI agent would answer from your packages and setup. Nothing is sent, but each answer uses some of this month's AI calls.",
+    "thread": "Test chat",
+    "customer": "Customer:",
+    "agent": "AI agent:",
+    "message": "The customer's message",
     "placeholder": "Kerala ka 5 din ka package kitne ka hai?",
-    "ask": "Ask",
-    "noAnswer": "(no answer)",
+    "send": "Send",
+    "reset": "Start again",
+    "thinking": "The AI agent is answering…",
+    "noAnswer": "It would send nothing.",
     "handoff": "It would hand the chat to your team: {reason}",
     "noReason": "a person is needed",
     "actions": {
@@ -158,6 +163,26 @@
       "PACKAGE_NOT_SELLABLE": "this package isn't one the AI can sell right now",
       "AI_ACTION_REFUSED": "the booking is missing its date, its party or its price",
       "other": "a safety check stopped it"
+    },
+    "why": {
+      "open": "Why",
+      "intents": "Understood",
+      "move": "Move",
+      "reason": "Why this move",
+      "stage": "Sale stage",
+      "handOver": "Hand-over reason",
+      "dropped": "Details left out",
+      "wouldDo": "What it would do",
+      "nothingMore": "Nothing more",
+      "none": "Nothing",
+      "lookups": "Lookups",
+      "noLookups": "None ran.",
+      "asked": "Asked: {json}",
+      "got": "Got: {json}",
+      "writes": "Write",
+      "noWrites": "Not asked: code wrote the words, or none were needed.",
+      "tryPassed": "Try {number}: passed",
+      "tryRefused": "Try {number}: refused ({code})"
     }
   },
   "bookings": {
