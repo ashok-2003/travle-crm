@@ -1,5 +1,5 @@
-// Try it for a lite agency: the lite turn as a dry run. It shows what the customer would get and what code would do,
-// and sends, holds, books and writes nothing but the month's usage.
+// Try it for a lite agency: the lite turn as a dry run on a chat of one customer line. It shows what the customer would
+// get and what code would do, and sends, holds, books and writes nothing but the month's usage.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { liteDryRun } from "../../../src/ai/index.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
@@ -20,7 +20,7 @@ describe("Try it for the lite agent", () => {
     liteDryRun(
       { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
       memberOf(on.organizationId, "org-owner"),
-      question,
+      { messages: [{ from: "customer", text: question }], state: null },
       testNow,
     );
 
@@ -82,7 +82,7 @@ describe("Try it for the lite agent", () => {
       typed,
     );
     const shown = await tryIt(on, "price for kedarnath?");
-    expect(shown).toEqual({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: "amount" } });
+    expect(shown).toMatchObject({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: "amount" } });
     expect(await calls(on)).toBe(3);
     expect(await rows(on)).toEqual(before);
   });

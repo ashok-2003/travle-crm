@@ -405,7 +405,7 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => resumeChat(tx, ctx.member, input.conversationId)),
     ),
 
-  /** Try it: the agent's turn as a dry run on one question, nothing sent or kept. */
+  /** Try it: the agent's turn as a dry run on a test chat and the state its last turn left, nothing sent or kept. */
   test: freshProcedure
     .requires("ai:manage")
     .input(testAiInput)
@@ -415,6 +415,6 @@ export const aiRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       const agencyName = async (organizationId: string) =>
         (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input.question, new Date());
+      return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input, new Date());
     }),
 });

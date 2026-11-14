@@ -1,5 +1,5 @@
 // Public API of @travel-crm/contracts/ai: Suggest reply's settings, status and suggestion, the autopilot, the media it
-// sends and the bookings it takes.
+// sends and the bookings it takes, and Try it.
 export * from "./ai.js";
 export * from "./autopilot.js";
 export * from "./bookings-media.js";
@@ -19,3 +19,4 @@ export * from "./lite-cases.js";
 export * from "./lite-docs.js";
 export * from "./lite-trace.js";
 export * from "./stage-suggestions.js";
+export * from "./try-it.js";
