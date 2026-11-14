@@ -141,6 +141,20 @@
     "send": "Send",
     "reset": "Start again",
     "thinking": "The AI agent is answering…",
+    "choices": {
+      "model": "Model",
+      "models": {
+        "live": "Live model",
+        "flash": "Gemini Flash"
+      },
+      "temperature": "Temperature",
+      "temperatures": {
+        "default": "Default",
+        "point4": "0.4"
+      },
+      "onlyFlash": "Only Gemini Flash takes a temperature.",
+      "thisChatOnly": "The model and temperature apply only to this test chat, never to your customers' chats."
+    },
     "noAnswer": "It would send nothing.",
     "handoff": "It would hand the chat to your team: {reason}",
     "noReason": "a person is needed",
@@ -166,6 +180,7 @@
     },
     "why": {
       "open": "Why",
+      "answeredBy": "Answered by",
       "intents": "Understood",
       "move": "Move",
       "reason": "Why this move",

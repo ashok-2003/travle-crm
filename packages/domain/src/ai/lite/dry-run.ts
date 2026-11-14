@@ -1,11 +1,12 @@
 // "Try it" for an agency on the lite agent: one turn of the live lite path (understand, check, merge, look up, decide,
 // write, fold) as a dry run on the test chat the owner typed, as if a customer wrote it in a chat with no lead. The facts
-// and summary the last turn left come back with the chat; the turn hands back the next ones and a trace of why. Nothing
-// is sent, held, booked or kept; only the month's usage is written, since each model call counts against the limit as a
-// turn's do. Setup need not be finished.
+// and summary the last turn left come back with the chat; the turn hands back the next ones and a trace of why. A model
+// and a temperature the chat chose go on both its model calls; the live turn never sets either. Nothing is sent, held,
+// booked or kept; only the month's usage is written, since each model call counts against the limit as a turn's do.
+// Setup need not be finished.
 import { liteFacts, type TestAiAnswer, type TestAiInput, type TestAiState } from "@travel-crm/contracts/ai";
 import type { Database } from "@travel-crm/db";
-import type { AiModel } from "@travel-crm/integrations/ai";
+import type { AiModel, AiRequest } from "@travel-crm/integrations/ai";
 import type { MemberAccess } from "../../identity/index.js";
 import { actingOn, codeWordsOf } from "./act-reply.js";
 import { countedCall, type CallEnvironment } from "./counted-call.js";
@@ -21,6 +22,26 @@ import { writeTries } from "./turn-trace.js";
 import type { Decision } from "./types.js";
 import { understandChat } from "./understand.js";
 
+/** The test chat's own model and temperature, on every model call; unset, the call is the live turn's. */
+export type DryRunChoice = Pick<AiRequest, "model" | "temperature">;
+
+/** The model as the test chat asks it: its choice put on each request, and each answer's model noted in the trace. */
+function chosen(ai: AiModel, choice: DryRunChoice, trace: TestAiAnswer["trace"]): AiModel {
+  // Only what was chosen: a request with no temperature key keeps the model's own.
+  const wanted = {
+    ...(choice.model === undefined ? {} : { model: choice.model }),
+    ...(choice.temperature === undefined ? {} : { temperature: choice.temperature }),
+  };
+  return {
+    configured: ai.configured,
+    complete: async (request) => {
+      const result = await ai.complete({ ...request, ...wanted });
+      if (result.ok) trace.model = result.model;
+      return result;
+    },
+  };
+}
+
 /** The trace's account of a decision: its move, stage and why, and a hand-over's reason. */
 const decisionTrace = ({ move, stage, why }: Decision) => ({
   move: move.kind,
@@ -32,10 +53,10 @@ const decisionTrace = ({ move, stage, why }: Decision) => ({
 export async function liteDryRun(
   deps: { db: Database; ai: AiModel; agencyName: (organizationId: string) => Promise<string> },
   access: MemberAccess,
-  chat: TestAiInput,
+  chat: Pick<TestAiInput, "messages" | "state"> & DryRunChoice,
   now: Date,
 ): Promise<TestAiAnswer> {
-  const { db, ai } = deps;
+  const { db } = deps;
   const { organizationId } = access;
   const agencyName = await deps.agencyName(organizationId);
   const agency = await dryRunAgency(db, organizationId, now);
@@ -45,6 +66,7 @@ export async function liteDryRun(
   // What a turn that sends nothing leaves: the state as it came, so the next turn reads the chat afresh.
   const kept: TestAiState = { facts, summary: chat.state?.summary ?? "" };
   const trace: TestAiAnswer["trace"] = {
+    model: null,
     intents: [],
     move: null,
     stage: null,
@@ -54,6 +76,7 @@ export async function liteDryRun(
     writes: [],
     handOver: null,
   };
+  const ai = chosen(deps.ai, chat, trace);
   const environment: CallEnvironment = { db, organizationId, now, timeZone };
   const asking = understandRequest({
     agencyName,

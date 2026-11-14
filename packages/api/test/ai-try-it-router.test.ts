@@ -48,10 +48,12 @@ describe("ai.test", () => {
   async function anAiAgency(granted?: Parameters<typeof callerOf>[1]["granted"]) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const schemas: (string | undefined)[] = [];
+    const asked: { model?: string; temperature?: number }[] = [];
     const model: NonNullable<Context["ai"]> = {
       configured: true,
       complete: (request) => {
         schemas.push(request.schema?.name);
+        asked.push(request);
         return Promise.resolve({
           ok: true,
           text: request.schema?.name === "understand_form" ? understood : greeting,
@@ -67,7 +69,7 @@ describe("ai.test", () => {
     );
     const { caller } =
       granted === undefined ? owner : callerOf(harness, { organizationId, granted, context: { ai: model } });
-    return { caller, schemas };
+    return { caller, schemas, asked };
   }
 
   /** The refusal's reason (its tRPC code when it has none), or "allowed". */
@@ -83,10 +85,12 @@ describe("ai.test", () => {
   };
 
   const hi = [{ from: "customer" as const, text: "hi" }];
+  /** The live model at its own temperature: what every call sends unless it says otherwise. */
+  const live = { model: "live", temperature: "default" } as const;
 
   it("runs the lite dry run: the first model call is the Understand form", async () => {
     const { caller, schemas } = await anAiAgency();
-    const shown = await caller.ai.test({ messages: hi, state: null });
+    const shown = await caller.ai.test({ messages: hi, state: null, ...live });
     expect(schemas[0]).toBe("understand_form");
     // The state to send back next turn: the lite facts and Understand's summary.
     expect(shown.state).toMatchObject({ facts: { agent: "lite" }, summary: "Said hello." });
@@ -96,9 +100,9 @@ describe("ai.test", () => {
 
   it("takes back the state it handed out", async () => {
     const { caller } = await anAiAgency();
-    const first = await caller.ai.test({ messages: hi, state: null });
+    const first = await caller.ai.test({ messages: hi, state: null, ...live });
     const chat = [...hi, { from: "agent" as const, text: first.answer }, { from: "customer" as const, text: "ok" }];
-    expect(await codeOf(caller.ai.test({ messages: chat, state: first.state }))).toBe("allowed");
+    expect(await codeOf(caller.ai.test({ messages: chat, state: first.state, ...live }))).toBe("allowed");
   });
 
   it("refuses a state that does not parse, before any model call", async () => {
@@ -111,7 +115,7 @@ describe("ai.test", () => {
       { facts, summary: "x".repeat(1001) },
       { facts },
     ]) {
-      expect(await codeOf(caller.ai.test({ messages: hi, state } as never))).toBe("BAD_REQUEST");
+      expect(await codeOf(caller.ai.test({ messages: hi, state, ...live } as never))).toBe("BAD_REQUEST");
     }
     expect(schemas).toEqual([]);
   });
@@ -124,17 +128,53 @@ describe("ai.test", () => {
       Array.from({ length: 41 }, () => line("customer")),
       [line("customer"), line("agent")],
     ]) {
-      expect(await codeOf(caller.ai.test({ messages, state: null }))).toBe("BAD_REQUEST");
+      expect(await codeOf(caller.ai.test({ messages, state: null, ...live }))).toBe("BAD_REQUEST");
     }
     expect(
-      await codeOf(caller.ai.test({ messages: [{ from: "customer", text: "x".repeat(1001) }], state: null })),
+      await codeOf(caller.ai.test({ messages: [{ from: "customer", text: "x".repeat(1001) }], state: null, ...live })),
     ).toBe("BAD_REQUEST");
+    expect(schemas).toEqual([]);
+  });
+
+  it("asks the live models at their own temperature, naming neither", async () => {
+    const { caller, asked } = await anAiAgency();
+    await caller.ai.test({ messages: hi, state: null, ...live });
+    expect(asked.length).toBeGreaterThan(0);
+    for (const request of asked) {
+      expect(request).not.toHaveProperty("model");
+      expect(request).not.toHaveProperty("temperature");
+    }
+  });
+
+  it("asks Gemini Flash, at 0.4 when chosen, for every call of the turn", async () => {
+    const { caller, asked } = await anAiAgency();
+    const shown = await caller.ai.test({ messages: hi, state: null, model: "flash", temperature: "0.4" });
+    expect(asked.map((request) => [request.model, request.temperature])).toEqual([
+      ["google/gemini-3.5-flash", 0.4],
+      ["google/gemini-3.5-flash", 0.4],
+    ]);
+    expect(shown.trace.model).toBe("memory-model");
+    await caller.ai.test({ messages: hi, state: null, model: "flash", temperature: "default" });
+    expect(asked.at(-1)).toMatchObject({ model: "google/gemini-3.5-flash" });
+    expect(asked.at(-1)).not.toHaveProperty("temperature");
+  });
+
+  it("refuses a temperature for any model but Gemini Flash, and a model or temperature it doesn't know", async () => {
+    const { caller, schemas } = await anAiAgency();
+    for (const choice of [
+      { model: "live", temperature: "0.4" },
+      { model: "pro", temperature: "default" },
+      { model: "flash", temperature: "0.9" },
+      { model: "flash" },
+    ]) {
+      expect(await codeOf(caller.ai.test({ messages: hi, state: null, ...choice } as never))).toBe("BAD_REQUEST");
+    }
     expect(schemas).toEqual([]);
   });
 
   it("refuses a member without ai:manage", async () => {
     const { caller, schemas } = await anAiAgency(["ai:suggest", "inbox:view", "inbox:reply"]);
-    expect(await codeOf(caller.ai.test({ messages: hi, state: null }))).toBe("MISSING_PERMISSION");
+    expect(await codeOf(caller.ai.test({ messages: hi, state: null, ...live }))).toBe("MISSING_PERMISSION");
     expect(schemas).toEqual([]);
   });
 });

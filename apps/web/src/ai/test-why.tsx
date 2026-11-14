@@ -1,6 +1,6 @@
-// "Why" under a Try it answer, for whoever tests the agent as a developer would: what Understand read, the move code chose
-// and why, the lookups that ran, each Write try with its refusal, a hand-over's reason, and what the live turn would have
-// done next. Codes and recorded values show as recorded.
+// "Why" under a Try it answer, for whoever tests the agent as a developer would: the model that answered, what Understand
+// read, the move code chose and why, the lookups that ran, each Write try with its refusal, a hand-over's reason, and what
+// the live turn would have done next. Codes and recorded values show as recorded.
 import type { TestAiAnswer } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -29,6 +29,7 @@ export function TestWhy({ answer }: { answer: TestAiAnswer }) {
     <div className="flex flex-col gap-3">
       <Details
         rows={[
+          ...recorded(t("why.answeredBy"), trace.model),
           { label: t("why.intents"), value: codes(trace.intents) },
           ...recorded(t("why.move"), trace.move),
           ...recorded(t("why.reason"), trace.why),

@@ -1,6 +1,7 @@
-// Try it: the owner plays the customer in a test chat with the AI agent, turn after turn. Each turn sends the chat so far
-// and the state the last turn left; it answers what the agent would send, what code would do, the state for the next
-// turn, and why (a trace in the console's own shape). Nothing is sent or kept but the month's AI calls.
+// Try it: the owner plays the customer in a test chat with the AI agent, turn after turn. Each turn sends the chat so far,
+// the state the last turn left, and the model and temperature chosen for this chat alone; it answers what the agent would
+// send, what code would do, the state for the next turn, and why (a trace in the console's own shape). Nothing is sent or
+// kept but the month's AI calls.
 import { z } from "zod";
 import { liteFacts } from "./lite.js";
 import { storedLiteTrace } from "./lite-trace.js";
@@ -20,16 +21,30 @@ export type TestAiLine = z.infer<typeof testAiLine>;
 export const testAiState = z.object({ facts: liteFacts, summary: z.string() });
 export type TestAiState = z.infer<typeof testAiState>;
 
-export const testAiInput = z.strictObject({
-  /** Oldest first, ending with the customer's line this turn answers. */
-  messages: z
-    .array(testAiLine)
-    .min(1)
-    .max(TEST_CHAT_LINES)
-    .refine((lines) => lines.at(-1)?.from === "customer", { message: "The chat ends with the customer's line" }),
-  /** The last turn's state, sent back as it came; null starts a new chat. */
-  state: z.strictObject({ facts: z.strictObject(liteFacts.shape), summary: text(SUMMARY_MAX) }).nullable(),
-});
+/** The test chat's model: the live turn's own ("live"), or Gemini Flash, which a person may try it on. */
+export const testAiModels = ["live", "flash"] as const;
+export type TestAiModel = (typeof testAiModels)[number];
+/** The test chat's temperature: the model's own, or 0.4, which only Gemini Flash's private routes take. */
+export const testAiTemperatures = ["default", "0.4"] as const;
+export type TestAiTemperature = (typeof testAiTemperatures)[number];
+
+export const testAiInput = z
+  .strictObject({
+    /** Oldest first, ending with the customer's line this turn answers. */
+    messages: z
+      .array(testAiLine)
+      .min(1)
+      .max(TEST_CHAT_LINES)
+      .refine((lines) => lines.at(-1)?.from === "customer", { message: "The chat ends with the customer's line" }),
+    /** The last turn's state, sent back as it came; null starts a new chat. */
+    state: z.strictObject({ facts: z.strictObject(liteFacts.shape), summary: text(SUMMARY_MAX) }).nullable(),
+    model: z.enum(testAiModels),
+    temperature: z.enum(testAiTemperatures),
+  })
+  .refine((input) => input.temperature === "default" || input.model === "flash", {
+    message: "Only Gemini Flash takes a temperature",
+    path: ["temperature"],
+  });
 export type TestAiInput = z.infer<typeof testAiInput>;
 
 /** What code would do after a reply: send the package's files, book (payment details and the booking), note, add a task. */
@@ -38,7 +53,7 @@ export type TestAiAction = z.infer<typeof testAiAction>;
 
 /** Why the turn did what it did: the parts of a live turn's trace a person testing the agent reads. */
 export const testAiTrace = storedLiteTrace
-  .pick({ intents: true, move: true, stage: true, why: true, checks: true })
+  .pick({ model: true, intents: true, move: true, stage: true, why: true, checks: true })
   .extend({
     /** As the stored trace's, but a result is always an object: so it reaches the screen typed, never optional. */
     lookups: z.array(

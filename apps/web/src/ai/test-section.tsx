@@ -2,8 +2,9 @@
 
 // Try it: the owner writes as a customer and the AI agent answers, turn after turn, in a chat laid out as WhatsApp lays
 // one out (the customer's lines on the left, the agent's on the right), with "Why" under each answer. Each turn sends the
-// chat so far and the state the last turn handed back. The chat lives only in this screen's state, never stored or in
-// the address, and Start again empties it. Nothing is sent to anyone; each answer spends some of the month's AI calls.
+// chat so far, the state the last turn handed back, and the model and temperature chosen for this chat. The chat lives
+// only in this screen's state, never stored or in the address; Start again empties it and keeps the choice. Nothing is
+// sent to anyone; each answer spends some of the month's AI calls.
 import {
   TEST_CHAT_LINES,
   TEST_LINE_MAX,
@@ -20,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { liveChoice, TestChoices } from "./test-choices";
 import { TestTurn } from "./test-turn";
 import { useTestAi } from "./use-ai";
 
@@ -43,6 +45,7 @@ export function TestSection() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [state, setState] = useState<TestAiState | null>(null);
   const [draft, setDraft] = useState("");
+  const [choice, setChoice] = useState(liveChoice);
 
   const send = () => {
     const text = draft.trim();
@@ -51,7 +54,7 @@ export function TestSection() {
     setEntries(next);
     setDraft("");
     test.mutate(
-      { messages: linesOf(next), state },
+      { messages: linesOf(next), state, ...choice },
       {
         onSuccess: (answer) => {
           setEntries((shown) => [...shown, { from: "agent", answer }]);
@@ -76,6 +79,7 @@ export function TestSection() {
         <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <TestChoices choice={choice} onChange={setChoice} disabled={test.isPending} />
         {entries.length > 0 && (
           <ol aria-label={t("thread")} className="flex flex-col gap-2 rounded-lg bg-chat-wallpaper p-4">
             {entries.map((entry, index) =>

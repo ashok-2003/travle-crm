@@ -92,6 +92,12 @@ import { aiPackageDraftsRouter } from "./ai-package-drafts.js";
 import { aiRatesRouter } from "./ai-rates.js";
 import { router } from "../trpc.js";
 
+/**
+ * Try it's "Gemini Flash": a model the owner may try the agent on in the test chat alone (with a temperature, which its
+ * zero-data-retention routes take and the live model's refuse). The live turn never asks it.
+ */
+const TEST_CHAT_FLASH_MODEL = "google/gemini-3.5-flash";
+
 export const aiRouter = router({
   /** "Fill it for me": the AI proposes values for a form; a person applies and saves. */
   fill: aiFillRouter,
@@ -415,6 +421,12 @@ export const aiRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       const agencyName = async (organizationId: string) =>
         (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, input, new Date());
+      const chat = {
+        messages: input.messages,
+        state: input.state,
+        ...(input.model === "flash" ? { model: TEST_CHAT_FLASH_MODEL } : {}),
+        ...(input.temperature === "0.4" ? { temperature: 0.4 } : {}),
+      };
+      return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, chat, new Date());
     }),
 });

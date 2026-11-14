@@ -27,11 +27,11 @@ describe("Try it as a chat", () => {
   });
   afterAll(() => test.close());
 
-  const turn = (on: Agency, messages: Line[], state: Chat["state"]) =>
+  const turn = (on: Agency, messages: Line[], state: Chat["state"], choice: Partial<Chat> = {}) =>
     liteDryRun(
       { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
       memberOf(on.organizationId, "org-owner"),
-      { messages, state },
+      { messages, state, ...choice },
       testNow,
     );
 
@@ -94,6 +94,28 @@ describe("Try it as a chat", () => {
       { answer: written(said), refused: "repeat" },
     ]);
     expect(shown.state).toEqual(state);
+  });
+
+  it("asks the model and temperature the test chat chose, for Understand and Write alike, and names who answered", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(
+      understood([["package_question", "kedarnath"]], { details: kedarnath }),
+      written("It is a group yatra with a pickup. Do you have a month in mind?"),
+    );
+    const shown = await turn(on, [customer("tell me about kedarnath")], null, { model: "x/flash", temperature: 0.4 });
+    expect(on.model.requests.map((request) => [request.schema?.name, request.model, request.temperature])).toEqual([
+      ["understand_form", "x/flash", 0.4],
+      ["write_move", "x/flash", 0.4],
+    ]);
+    expect(shown.trace.model).toBe("memory-model");
+  });
+
+  it("names no model or temperature when the chat chose none, as the live turn never does", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["discount", "discount"]]));
+    await turn(on, [customer("any discount?")], null);
+    expect(on.model.requests[0]).not.toHaveProperty("model");
+    expect(on.model.requests[0]).not.toHaveProperty("temperature");
   });
 
   it("names a hand-over's reason in the trace", async () => {
