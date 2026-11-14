@@ -310,7 +310,7 @@ describe("writeMove", () => {
 
   it("cannot_answer comes back as cannot_answer, with no second ask", async () => {
     const { ai, written } = await run([reply("", true)]);
-    expect(written).toEqual({ kind: "cannot_answer", raw: [reply("", true)] });
+    expect(written).toEqual({ kind: "cannot_answer", raw: [reply("", true)], refusals: [] });
     expect(ai.requests).toHaveLength(1);
   });
 

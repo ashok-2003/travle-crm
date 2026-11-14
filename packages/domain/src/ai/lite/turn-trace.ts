@@ -81,6 +81,12 @@ export function writeChecks(written: LiteWritten): LiteTrace["checks"] {
   ];
 }
 
+/** Each Write try: the model's answer as it came, and its refusal code, or null for the answer that passed. */
+export function writeTries(written: LiteWritten): { answer: string; refused: string | null }[] {
+  const refusals = written.kind === "ended" ? [] : written.refusals;
+  return written.raw.map((answer, index) => ({ answer, refused: refusals[index] ?? null }));
+}
+
 /** Logs the turn's one line, then hands a prepared turn's trace to the sink. */
 export async function finishTurn(
   deps: Pick<LiteDependencies, "logger" | "traces">,
