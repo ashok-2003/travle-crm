@@ -1,6 +1,6 @@
 // Try it as a chat: each turn runs the lite turn on the whole test chat and the state the last turn left, so what one turn
 // learned holds in the next; the agent's own lines count as sent, for the repeat check; and the trace says why.
-import { liteFacts } from "@travel-crm/contracts/ai";
+import { liteFacts, testAiAnswer } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { liteDryRun } from "../../../src/ai/index.js";
 import { formatRupees } from "../../../src/kernel/index.js";
@@ -66,6 +66,8 @@ describe("Try it as a chat", () => {
     });
     expect(second.trace.why).not.toBeNull();
     expect(second.trace.lookups.map((one) => one.request.tool)).toEqual(["dates_and_seats"]);
+    // What the api's output schema lets through, lookups' results and all.
+    expect(testAiAnswer.safeParse(second).success).toBe(true);
   });
 
   it("reads only the customer's lines after the agent's last as the burst", async () => {

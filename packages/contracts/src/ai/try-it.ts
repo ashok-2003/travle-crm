@@ -38,8 +38,12 @@ export type TestAiAction = z.infer<typeof testAiAction>;
 
 /** Why the turn did what it did: the parts of a live turn's trace a person testing the agent reads. */
 export const testAiTrace = storedLiteTrace
-  .pick({ intents: true, move: true, stage: true, why: true, lookups: true, checks: true })
+  .pick({ intents: true, move: true, stage: true, why: true, checks: true })
   .extend({
+    /** As the stored trace's, but a result is always an object: so it reaches the screen typed, never optional. */
+    lookups: z.array(
+      z.object({ request: z.looseObject({ tool: z.string() }), result: z.record(z.string(), z.unknown()) }),
+    ),
     /** Each Write try: the model's answer as it came, and the check's refusal code, or null when it passed. */
     writes: z.array(z.object({ answer: z.string(), refused: z.string().nullable() })),
     /** The hand-over's reason code, when the turn hands the chat to a person. */
