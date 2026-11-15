@@ -175,7 +175,7 @@ describe("stageAction", () => {
     expect(await stageAction(ctx(), "update_lead", { month: "2026-11" }, "")).toMatchObject({
       staged: { fields: { month: "2026-11" } },
     });
-    // This evening's 6 pm has gone by in Kolkata, though not by 6 pm in UTC.
+    // This evening's 6 pm has gone by in Kolkata (the 00:30 case in follow-up-time.test.ts tells IST from UTC).
     expect(await stageAction(ctx(), "plan_follow_up", { when: "this_evening", about: "Dates" }, "")).toEqual({
       refused: "refused: it's past 6 pm already; use tomorrow_morning",
     });
@@ -262,6 +262,40 @@ describe("stageAction", () => {
     expect(await stageAction(ctx(), "send_brochure", { trip_id: "T2" }, "")).toEqual({
       refused: "refused: the chat hasn't named T2 Brahmatal Trek: name it, or ask which trip",
     });
+  });
+
+  it("never takes a word like of, in, ka or mein for a trip's name: asked about Meghalaya, no Spiti PDF (G6)", async () => {
+    const sheets = [
+      sheet(1, "Spiti Valley in Winter", "Kaza, Himachal Pradesh", ["brochure-1"]),
+      sheet(2, "Valley of Flowers", "Ghangaria, Uttarakhand", ["brochure-2"]),
+      sheet(3, "Meghalaya Living Roots", "Shillong, Meghalaya", ["brochure-3"]),
+    ];
+    const labels = new Map(sheets.map((one) => [one.label, one.packageId]));
+    const brochures = async (said: string, words: string) => {
+      const context = ctx({ sheets, labels, ...saying(said) });
+      const sent = await Promise.all(
+        sheets.map((one) => stageAction(context, "send_brochure", { trip_id: one.label }, words)),
+      );
+      return sent.map((outcome) => ("staged" in outcome ? "sent" : outcome.refused));
+    };
+    const notNamed = (trip: string) => `refused: the chat hasn't named ${trip}: name it, or ask which trip`;
+    const onlyMeghalaya = [notNamed("T1 Spiti Valley in Winter"), notNamed("T2 Valley of Flowers"), "sent"];
+    expect(
+      await brochures("Meghalaya trip in December?", "Here are the details of the Meghalaya trip in December"),
+    ).toEqual(onlyMeghalaya);
+    expect(await brochures("Meghalaya ka trip December mein", "")).toEqual(onlyMeghalaya);
+    // The trips matching the most words count: "Valley of Flowers" names it, not Spiti Valley; and a trip this reply
+    // names counts beside it.
+    expect(await brochures("Valley of Flowers ya Meghalaya?", "")).toEqual([
+      notNamed("T1 Spiti Valley in Winter"),
+      "sent",
+      notNamed("T3 Meghalaya Living Roots"),
+    ]);
+    expect(await brochures("Valley of Flowers ya Meghalaya?", "Meghalaya ka brochure bhej rahi hoon")).toEqual([
+      notNamed("T1 Spiti Valley in Winter"),
+      "sent",
+      "sent",
+    ]);
   });
 
   it("sends the brochure of the lead's trip, the ad's, one quoted this turn, or one named in the new lines or these words", async () => {
@@ -541,7 +575,9 @@ describe("stageAction", () => {
     });
     expect(
       await stageAction(ctx(), "create_task", { kind: "call_back", text: "Call", call_at: "2027-02-31T10:00" }, ""),
-    ).toEqual({ refused: "refused: call_at 2027-02-31T10:00 isn't a real day and time" });
+    ).toEqual({
+      refused: "refused: call_at 2027-02-31T10:00 isn't a real day and time; give one like 2026-12-13T18:30",
+    });
     expect(
       await stageAction(ctx(), "create_task", { kind: "call_back", text: "Call", call_at: "2026-11-14T23:00" }, ""),
     ).toEqual({ refused: "refused: call_at Sat 14 Nov, 11 pm is past; give a later time" });

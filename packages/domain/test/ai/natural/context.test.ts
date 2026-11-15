@@ -215,9 +215,10 @@ describe("the natural agent's context", () => {
     expect(inFull(2)).toBeLessThan(inFull(8));
   });
 
-  it("finds the trip the customer named by the most of their words, never by a word like trek", () => {
+  it("finds the trip the customer named by the most of their words, never by a word like trek or of", () => {
     const harKiDun = sheet(20, "Har Ki Dun Trek", "Osla");
-    const sheets = fortyTrips.map((trip) => (trip.label === "T20" ? harKiDun : trip));
+    const flowers = sheet(21, "Valley of Flowers", "Ghangaria");
+    const sheets = fortyTrips.map((trip) => (trip.label === "T20" ? harKiDun : trip.label === "T21" ? flowers : trip));
     const focus = (said: string) => {
       const turn = lastUser(
         buildNaturalContext(input({ sheets, lead: { ...lead, packageId: null }, lines: saying(said) })),
@@ -227,6 +228,7 @@ describe("the natural agent's context", () => {
     expect(focus("Har Ki Dun trek ka rate?")).toEqual(["T20"]);
     expect(focus("himalayan trek 30 ka rate?")).toEqual(["T30"]);
     expect(focus("koi trek hai december mein?")).toEqual([]);
+    expect(focus("dates of the trip in December?")).toEqual([]);
   });
 
   it("keeps the system string byte-identical across turns while the data is the same", () => {

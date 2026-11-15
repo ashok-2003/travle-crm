@@ -21,12 +21,10 @@ import { formatRupees, formatShortDay, instantAt, parseCalendarDate, parseTimeOf
 import { fenced } from "../../fenced.js";
 import { travellerWords } from "../../lite/context/lead-card.js";
 import type { TripField } from "../../lite/lead-writes.js";
-import { findPackages } from "../../lite/lookups/find-packages.js";
-import { normalised, wordsOf } from "../../lite/read-words.js";
+import { normalised } from "../../lite/read-words.js";
 import { lockedFields, otherTime, sameAges, type TypedFields } from "../../lite/typed-lock.js";
 import { stampOf } from "../context/chat-turns.js";
-import { KIND_WORDS } from "../context/turn-block.js";
-import { indexEntryOf } from "../trips/trip-sheets.js";
+import { namedTrips } from "../context/turn-block.js";
 import { isText, roomNames } from "../trips/trip-text.js";
 import type { QuoteFigures, StagedAction, StagedSet, TripSheet } from "../types.js";
 import { awaitsPayment, bookChecks, offerChecks, type BookingContext } from "./booking-checks.js";
@@ -246,16 +244,16 @@ function updateLead(context: ActionContext, asked: Asked<typeof updateLeadArgume
   return stage({ tool: "update_lead", fields, notes }, result.filter(isText).join("; "));
 }
 
-/** G6: the trip is the lead's or the ad's, was priced this turn, or the new lines or these words name it. */
+/**
+ * G6: the trip is the lead's or the ad's, was priced this turn, or the new lines or this reply name it, by the turn's
+ * one rule (`namedTrips`). Each is read alone, so a trip the reply names counts beside one the customer named more fully.
+ */
 function chatNamed(context: ActionContext, sheet: TripSheet, words: string): boolean {
   const { packageId } = sheet;
   if (packageId === context.lead.packageId || packageId === context.adPackageId) return true;
   if (context.quotedThisTurn.some((quoted) => quoted.terms.packageId === packageId)) return true;
-  // By a word of the title or place: "trek" or "tour" names a kind of trip, never this one.
-  const said = wordsOf([...context.newLines.map((line) => line.text), words].join("\n"))
-    .filter((word) => !KIND_WORDS.has(word))
-    .join(" ");
-  return findPackages([indexEntryOf(sheet)], said).exact.length > 0;
+  const newLines = context.newLines.map((line) => line.text).join("\n");
+  return [newLines, words].some((text) => namedTrips(context.sheets, text).includes(packageId));
 }
 
 function sendBrochure(context: ActionContext, label: string, words: string): StageOutcome {
@@ -342,7 +340,7 @@ function createTask(context: ActionContext, asked: Asked<typeof createTaskArgume
   if (asked.call_at !== undefined) {
     const [day = "", time = ""] = asked.call_at.split("T");
     if (!isCalendarDate(day) || !isTimeOfDay(time)) {
-      return refused(`call_at ${asked.call_at} isn't a real day and time`);
+      return refused(`call_at ${asked.call_at} isn't a real day and time; give one like 2026-12-13T18:30`);
     }
     callAt = instantAt(parseCalendarDate(day), parseTimeOfDay(time), context.timeZone);
     if (callAt <= context.now) return refused(`call_at ${stampOf(callAt, context)} is past; give a later time`);

@@ -14,8 +14,7 @@ import { oneLine } from "../../lite/context/blocks.js";
 import { stageLabel, travellerWords } from "../../lite/context/lead-card.js";
 import { clockWords } from "../../lite/context/messages.js";
 import { WAKING_HOURS } from "../../lite/follow-ups.js";
-import { findPackages } from "../../lite/lookups/find-packages.js";
-import { wordsOf } from "../../lite/read-words.js";
+import { findPackages, meaningful } from "../../lite/lookups/find-packages.js";
 import { indexEntryOf } from "../trips/trip-sheets.js";
 import { isText, roomNames, tripInFull } from "../trips/trip-text.js";
 import type { NaturalChatLine, NaturalLeadView, TripSheet } from "../types.js";
@@ -26,8 +25,15 @@ const MOST_FOCUS_TRIPS = 3;
 const SUMMARY_CUT = 600;
 const NOTE_CUT = 300;
 const TASK_CUT = 200;
-/** Words that name a kind of trip, not one trip: never what decides which trip the customer named. */
-export const KIND_WORDS = new Set(["trek", "treks", "trip", "trips", "tour", "tours", "package", "packages", "yatra"]);
+/**
+ * Words that never name one trip, past those lite's `meaningful` drops: a kind of trip ("trek"), and words that only
+ * join others in English or Hinglish ("of", "in", "ka", "mein"), which titles like "Valley of Flowers" hold too.
+ */
+const NAMES_NO_TRIP = new Set([
+  ...["trek", "treks", "trip", "trips", "tour", "tours", "package", "packages", "yatra"],
+  ...["a", "an", "and", "or", "of", "in", "on", "at", "to", "for", "with", "by", "from", "is", "are", "this", "that"],
+  ...["ka", "ki", "ke", "ko", "se", "me", "mein", "par", "pe", "aur", "ya", "wala", "wali", "wale", "hai", "hain"],
+]);
 
 export interface TurnBlockInput {
   now: Date;
@@ -131,12 +137,13 @@ function leadBlock(input: TurnBlockInput, sheetOf: (packageId: string | null) =>
 }
 
 /**
- * The trips the new lines name: each asked word is matched as `findPackages` matches it (whole words of the title and
- * place), and only the trips matching the most of them count, so "Har Ki Dun trek" names Har Ki Dun alone.
+ * The trips a text names, by package id in the sheets' order (the focus trips here, G6 for a brochure): each word that
+ * may name a trip is matched as `findPackages` matches it (whole words of the title and place), and only the trips
+ * matching the most of them count, so "Har Ki Dun trek" names Har Ki Dun alone.
  */
-function namedTrips(sheets: readonly TripSheet[], newLines: readonly NaturalChatLine[]): string[] {
+export function namedTrips(sheets: readonly TripSheet[], text: string): string[] {
   const index = sheets.map(indexEntryOf);
-  const asked = new Set(wordsOf(newLines.map((line) => line.text).join("\n")).filter((word) => !KIND_WORDS.has(word)));
+  const asked = new Set(meaningful(text).filter((word) => !NAMES_NO_TRIP.has(word)));
   const matched = new Map<string, number>();
   for (const word of asked)
     for (const entry of findPackages(index, word, { most: index.length }).exact)
@@ -147,7 +154,7 @@ function namedTrips(sheets: readonly TripSheet[], newLines: readonly NaturalChat
 
 /** The trips the new lines name first, as they are what the customer asks about now, then the lead's and the ad's. */
 function focusTrips(input: TurnBlockInput): TripSheet[] {
-  const named = namedTrips(input.sheets, input.newLines);
+  const named = namedTrips(input.sheets, input.newLines.map((line) => line.text).join("\n"));
   const wanted = new Set([...named, input.lead.packageId, input.cameFrom?.packageId ?? null]);
   return [...wanted]
     .flatMap((id) => input.sheets.find((sheet) => sheet.packageId === id) ?? [])
