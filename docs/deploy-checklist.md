@@ -151,6 +151,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_BASE_URL`: its address (Google's Gemini direct; https in production)                            | ○   | ○      |         |         |        |
 | `AI_CHAT_MODELS`: its models, comma-separated; needed with `AI_API_KEY`                             | ○   | ○      |         |         |        |
 | `AI_FAST_MODELS`: the ones that only score leads (the chat ones when blank)                         | ○   | ○      |         |         |        |
+| `AI_AGENT_MODELS`: the new agent's models, comma-separated (the chat models when blank)             | ○   | ○      |         |         |        |
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
@@ -269,7 +270,9 @@ Secrets come from the platform's secret manager as environment variables, never 
     `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the
     process stops if the key has no chat models, if the others come without the key, or if the base URL is not https in
     production. OpenRouter's `provider` zero-data-retention field is sent only to OpenRouter, so a direct endpoint keeps what
-    its own terms say (Google's free tier may use prompts: keep billing on for the project). `docker-compose.server.yml`
+    its own terms say (Google's free tier may use prompts: keep billing on for the project). The new sales agent
+    (`AI_AGENT_MODELS`, the chat models when blank) runs on OpenRouter only: on any other base URL, the first key's or the
+    backup's, it has no models and answers that the AI isn't ready. `docker-compose.server.yml`
     passes all of them to the api and the worker; the console calls no model, so its AI keys are blank.
   - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` only) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,

@@ -3,7 +3,14 @@
 // when that is set, else OpenRouter with its zero-data-retention routing from OPENROUTER_API_KEY. Null when no key is set:
 // the features then say the AI isn't set up. The journeys' fake (AI_TEST_SERVER_URL, never in production) receives
 // OpenRouter's calls in its place.
-import { createOpenRouterModel, OPENROUTER_BASE_URL, withBackupModel, type AiModel } from "@travel-crm/integrations/ai";
+import {
+  createOpenRouterModel,
+  isOpenRouterUrl,
+  OPENROUTER_BASE_URL,
+  withBackupModel,
+  aiBaseUrl,
+  type AiModel,
+} from "@travel-crm/integrations/ai";
 import type { Environment } from "./environment.js";
 
 /** The settings that make the model: the bench reads just these, the processes the whole environment. */
@@ -13,6 +20,7 @@ export type AiSettings = Pick<
   | "AI_BASE_URL"
   | "AI_CHAT_MODELS"
   | "AI_FAST_MODELS"
+  | "AI_AGENT_MODELS"
   | "AI_ZERO_RETENTION"
   | "AI_BACKUP_API_KEY"
   | "AI_BACKUP_BASE_URL"
@@ -23,6 +31,14 @@ export type AiSettings = Pick<
   | "AI_SCORE_MODELS"
   | "AI_TEST_SERVER_URL"
 >;
+
+/**
+ * The natural sales agent's models on one endpoint: none off OpenRouter, because the agent sends OpenRouter's reasoning
+ * fields and reads its reasoning details, which another endpoint would refuse or ignore.
+ */
+function salesAgentModels(baseUrl: string | undefined, models: readonly string[]): string[] {
+  return isOpenRouterUrl(aiBaseUrl(baseUrl)) ? [...models] : [];
+}
 
 export function createAiModel(environment: AiSettings): AiModel | null {
   if (environment.AI_API_KEY !== undefined) {
@@ -49,6 +65,7 @@ export function createAiModel(environment: AiSettings): AiModel | null {
         // Drafting a plan is longer writing than a reply: the chat models.
         draft_days: chat,
         draft_packages: chat,
+        sales_agent: salesAgentModels(environment.AI_BASE_URL, environment.AI_AGENT_MODELS ?? chat),
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
@@ -69,6 +86,10 @@ export function createAiModel(environment: AiSettings): AiModel | null {
         ask_report: backupFast,
         draft_days: backupChat,
         draft_packages: backupChat,
+        sales_agent: salesAgentModels(
+          backupBaseUrl,
+          environment.AI_BACKUP_CHAT_MODELS ?? environment.AI_AGENT_MODELS ?? chat,
+        ),
       },
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
@@ -93,6 +114,7 @@ export function createAiModel(environment: AiSettings): AiModel | null {
       reach_out: environment.AI_SUGGEST_MODELS,
       draft_days: environment.AI_SUGGEST_MODELS,
       draft_packages: environment.AI_SUGGEST_MODELS,
+      sales_agent: environment.AI_AGENT_MODELS ?? environment.AI_SUGGEST_MODELS,
     },
     ...(testServer === undefined
       ? {}

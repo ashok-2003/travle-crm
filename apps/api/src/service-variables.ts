@@ -207,6 +207,11 @@ export const serviceVariables = {
   AI_API_KEY: emptyAsUnset(z.string().min(8, "must be the AI provider's API key").optional()),
   AI_CHAT_MODELS: emptyAsUnset(modelList.optional()),
   AI_FAST_MODELS: emptyAsUnset(modelList.optional()),
+  /**
+   * The natural sales agent's own models (the chat models, or on OpenRouter's key the suggest ones, when unset). The agent
+   * runs only on OpenRouter, whose reasoning fields it sends: on another AI_BASE_URL it has no models and says so.
+   */
+  AI_AGENT_MODELS: emptyAsUnset(modelList.optional()),
   AI_ZERO_RETENTION: emptyAsUnset(z.stringbool().optional()),
   /**
    * A backup for the AI above (the owner, 2026-11-02): AI_BACKUP_API_KEY, a second key (a paid one, or another provider's),
