@@ -198,7 +198,7 @@ describe("the natural agent's context", () => {
     expect(lastUser(context)).toContain("Brahmatal");
   });
 
-  it("puts the lead's trip, the ad's trip and the trips named in the new lines, 3 at most", () => {
+  it("puts the trips named in the new lines first, then the lead's and the ad's, 3 at most", () => {
     const context = buildNaturalContext(
       input({
         sheets: fortyTrips,
@@ -208,11 +208,25 @@ describe("the natural agent's context", () => {
       }),
     );
     const turn = lastUser(context);
-    for (const number of [8, 9, 1]) expect(turn).toContain(tripInFull(tripNamed(number), today));
-    expect(turn).not.toContain(tripInFull(tripNamed(2), today));
+    for (const number of [1, 2, 8]) expect(turn).toContain(tripInFull(tripNamed(number), today));
+    expect(turn).not.toContain(tripInFull(tripNamed(9), today));
     const inFull = (number: number) => turn.indexOf(tripInFull(tripNamed(number), today));
-    expect(inFull(8)).toBeLessThan(inFull(9));
-    expect(inFull(9)).toBeLessThan(inFull(1));
+    expect(inFull(1)).toBeLessThan(inFull(2));
+    expect(inFull(2)).toBeLessThan(inFull(8));
+  });
+
+  it("finds the trip the customer named by the most of their words, never by a word like trek", () => {
+    const harKiDun = sheet(20, "Har Ki Dun Trek", "Osla");
+    const sheets = fortyTrips.map((trip) => (trip.label === "T20" ? harKiDun : trip));
+    const focus = (said: string) => {
+      const turn = lastUser(
+        buildNaturalContext(input({ sheets, lead: { ...lead, packageId: null }, lines: saying(said) })),
+      );
+      return sheets.filter((trip) => turn.includes(tripInFull(trip, today))).map((trip) => trip.label);
+    };
+    expect(focus("Har Ki Dun trek ka rate?")).toEqual(["T20"]);
+    expect(focus("himalayan trek 30 ka rate?")).toEqual(["T30"]);
+    expect(focus("koi trek hai december mein?")).toEqual([]);
   });
 
   it("keeps the system string byte-identical across turns while the data is the same", () => {
@@ -271,10 +285,32 @@ describe("the natural agent's context", () => {
     );
     expect(context.indexed).toBe(true);
     expect(context.sizes.turn).toBeLessThanOrEqual(NATURAL_BUDGETS.turn);
-    expect(lastUser(context)).toContain(tripInFull(longTrips[0] ?? longTrip(1), today));
-    expect(lastUser(context)).toContain(tripInFull(longTrips[1] ?? longTrip(2), today));
-    expect(lastUser(context)).not.toContain(tripInFull(longTrips[2] ?? longTrip(3), today));
+    expect(lastUser(context)).toContain(tripInFull(longTrip(3), today));
+    expect(lastUser(context)).toContain(tripInFull(longTrip(1), today));
+    expect(lastUser(context)).not.toContain(tripInFull(longTrip(2), today));
     expect(lastUser(context)).toContain("[Sat 14 Nov, 11:42 pm] long trek 3 ka rate?");
+  });
+
+  it("still adds a smaller trip after one that doesn't fit", () => {
+    const longTrips = [longTrip(1), longTrip(2), longTrip(3), ...fortyTrips.slice(3)];
+    const context = buildNaturalContext(
+      input({
+        sheets: longTrips,
+        lead: leadOn(longTrip(1)),
+        cameFrom: { source: "Instagram ad", packageId: "package-4" },
+        lines: saying(`long trek 3 ka rate? ${"ok ".repeat(1_000)}`),
+      }),
+    );
+    expect(context.sizes.turn).toBeLessThanOrEqual(NATURAL_BUDGETS.turn);
+    expect(lastUser(context)).toContain(tripInFull(longTrip(3), today));
+    expect(lastUser(context)).not.toContain(tripInFull(longTrip(1), today));
+    expect(lastUser(context)).toContain(tripInFull(tripNamed(4), today));
+  });
+
+  it("never cuts a new line: the words this turn answers reach the turn block whole", () => {
+    const said = `${"we are 2 adults and 2 kids aged 8 and 11, ".repeat(36)}is pickup from Delhi possible?`;
+    expect(said.length).toBeGreaterThan(1_500);
+    expect(lastUser(buildNaturalContext(input({ lines: saying(said) })))).toContain(`] ${said}`);
   });
 
   it("writes customer lines as user turns with a short time, and a 1 am message shows it", () => {
@@ -491,10 +527,16 @@ describe("the natural agent's context", () => {
       }),
     );
     expect(lastUser(context)).toContain(
-      "Live offer: T2, Sat 26 Dec, 2 adults and 1 child (8), triple, total ₹28,497, advance ₹9,000, made Sat 14 Nov, 11:23 pm. Open tasks: Ask about a January batch.</now>",
+      "Live offer: T2, Sat 26 Dec, 2 adults, 1 child (8), triple, total ₹28,497, advance ₹9,000, made Sat 14 Nov, 11:23 pm. Open tasks: Ask about a January batch.</now>",
     );
     expect(lastUser(context)).toContain(
-      "<lead>Riya Sharma (WhatsApp profile name) · trip T1 · Sat 19 Dec · 2 adults and 2 children (8, 11) · joining from Delhi · triple room · stage Quote sent",
+      "<lead>Riya Sharma (WhatsApp profile name) · trip T1 · Sat 19 Dec · 2 adults, 2 children (8, 11) · joining from Delhi · triple room · stage Quote sent",
+    );
+  });
+
+  it("writes a month it can't read as it is, never failing the turn", () => {
+    expect(lastUser(buildNaturalContext(input({ lead: { ...lead, month: "Dec" } })))).toContain(
+      "<lead>Riya Sharma (WhatsApp profile name) · trip T1 · Dec · 2 adults",
     );
   });
 

@@ -43,10 +43,13 @@ export function newLinesOf(lines: readonly NaturalChatLine[], lastTurnAt: Date |
 export const stampOf = (at: Date, clock: Omit<ChatClock, "now">) =>
   `${formatShortDay(calendarDateIn(at, clock.timeZone), clock.today)}, ${clockWords(at, clock.timeZone)}`;
 
-/** What a line says on one line, fenced: a past action in brackets, media as a marker, an earlier assistant's figures out. */
-function wordsOf(line: NaturalChatLine): string {
+/**
+ * What a line says on one line, fenced, cut past `most` characters: a past action in brackets, media as a marker, an
+ * earlier assistant's figures out.
+ */
+function wordsOf(line: NaturalChatLine, most: number): string {
   if (line.action !== undefined) return `[${oneLine(line.action)}]`;
-  const text = cutText(oneLine(line.from === "earlier" ? withoutAmountsAndDates(line.text) : line.text), LINE_CUT);
+  const text = cutText(oneLine(line.from === "earlier" ? withoutAmountsAndDates(line.text) : line.text), most);
   const marker =
     line.mayBePayment === true
       ? "[payment screenshot]"
@@ -61,13 +64,16 @@ function wordsOf(line: NaturalChatLine): string {
   return text === "" ? marker : `${marker} ${text}`;
 }
 
-/** A customer line as the model reads it, in the chat or among the new lines. */
-export const customerLine = (line: NaturalChatLine, clock: Omit<ChatClock, "now">) =>
-  `[${stampOf(line.at, clock)}] ${wordsOf(line)}`;
+const customerLine = (line: NaturalChatLine, clock: Omit<ChatClock, "now">, most: number) =>
+  `[${stampOf(line.at, clock)}] ${wordsOf(line, most)}`;
+
+/** A new line as the turn block lists it: whole, since these are the words this turn answers. */
+export const newLineWords = (line: NaturalChatLine, clock: Omit<ChatClock, "now">) =>
+  customerLine(line, clock, Number.POSITIVE_INFINITY);
 
 function writtenLine(line: NaturalChatLine, clock: ChatClock): string {
-  if (line.from === "customer") return customerLine(line, clock);
-  const words = wordsOf(line);
+  if (line.from === "customer") return customerLine(line, clock, LINE_CUT);
+  const words = wordsOf(line, LINE_CUT);
   if (line.from === "team") {
     const name = line.teamName === undefined || line.teamName.trim() === "" ? "" : `, ${oneLine(line.teamName)}`;
     return `(Team${name}) ${words}`;

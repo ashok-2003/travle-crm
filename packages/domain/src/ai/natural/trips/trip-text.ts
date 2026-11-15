@@ -21,7 +21,7 @@ export const roomNames: Record<RoomType, string> = {
   child_no_bed: "child without bed",
 };
 
-const isText = (part: string | null): part is string => part !== null && part !== "";
+export const isText = (part: string | null): part is string => part !== null && part !== "";
 
 export function seatWords(freeSeats: number): string {
   return freeSeats > FEW_SEATS ? "open" : `${String(freeSeats)} left`;

@@ -1,6 +1,7 @@
 // The turn block (spec 4.4), the final user message: the time and what the chat has had, the lead, the trips this chat
 // is about in full when the trips are indexed (as many as fit the budget), what the app did, then the new lines.
 import { type LiveOffer, type NaturalFacts } from "@travel-crm/contracts/ai";
+import { calendarMonth } from "@travel-crm/contracts/crm";
 import {
   calendarDateIn,
   formatRupees,
@@ -10,19 +11,22 @@ import {
 } from "../../../kernel/index.js";
 import { fenced } from "../../fenced.js";
 import { oneLine } from "../../lite/context/blocks.js";
-import { stageLabel } from "../../lite/context/lead-card.js";
+import { stageLabel, travellerWords } from "../../lite/context/lead-card.js";
 import { clockWords } from "../../lite/context/messages.js";
 import { WAKING_HOURS } from "../../lite/follow-ups.js";
 import { findPackages } from "../../lite/lookups/find-packages.js";
-import { roomNames, tripInFull } from "../trips/trip-text.js";
+import { wordsOf } from "../../lite/read-words.js";
+import { isText, roomNames, tripInFull } from "../trips/trip-text.js";
 import type { NaturalChatLine, NaturalLeadView, TripSheet } from "../types.js";
-import { customerLine, stampOf } from "./chat-turns.js";
+import { newLineWords, stampOf } from "./chat-turns.js";
 import { cutText, estimateTokens, NATURAL_BUDGETS } from "./tokens.js";
 
 const MOST_FOCUS_TRIPS = 3;
 const SUMMARY_CUT = 600;
 const NOTE_CUT = 300;
 const TASK_CUT = 200;
+/** Words that name a kind of trip, not one trip: never what decides which trip the customer named. */
+const KIND_WORDS = new Set(["trek", "treks", "trip", "trips", "tour", "tours", "package", "packages", "yatra"]);
 
 export interface TurnBlockInput {
   now: Date;
@@ -37,25 +41,15 @@ export interface TurnBlockInput {
   indexed: boolean;
 }
 
-const isText = (part: string | null): part is string => part !== null && part !== "";
 /** A clock time of the agency's day, "21:00" as "9 pm". */
 const hourWords = (time: string) => clockWords(new Date(`1970-01-01T${time}:00Z`), "UTC");
 const monthName = (year: number, month: number) =>
   new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
 
-function partyWords(adults: number | null, childrenAges: readonly number[]): string | null {
-  const children =
-    childrenAges.length === 0
-      ? null
-      : `${String(childrenAges.length)} ${childrenAges.length === 1 ? "child" : "children"} (${childrenAges.join(", ")})`;
-  const grown = adults === null ? null : `${String(adults)} ${adults === 1 ? "adult" : "adults"}`;
-  const words = [grown, children].filter(isText);
-  return words.length === 0 ? null : words.join(" and ");
-}
-
 function whenWords(lead: NaturalLeadView, today: CalendarDate): string | null {
   if (lead.day !== null) return formatShortDay(lead.day, today);
   if (lead.month === null) return null;
+  if (!calendarMonth.safeParse(lead.month).success) return oneLine(lead.month);
   const [year, month] = lead.month.split("-").map(Number) as [number, number];
   const name = monthName(year, month);
   return `${year === Number(today.slice(0, 4)) ? name : `${name} ${String(year)}`}, no day yet`;
@@ -90,7 +84,7 @@ function offerWords(
   return [
     sheetOf(offer.packageId)?.label ?? "a trip not on sale now",
     formatShortDay(parseCalendarDate(offer.startsOn), clock.today),
-    partyWords(offer.adults, offer.childrenAges),
+    travellerWords(offer.adults, offer.childrenAges),
     offer.room === null ? null : roomNames[offer.room],
     offer.payInFull ? "paying in full" : null,
     `total ${formatRupees(offer.totalPaise)}`,
@@ -120,7 +114,7 @@ function leadBlock(input: TurnBlockInput, sheetOf: (packageId: string | null) =>
       name,
       trip === undefined ? null : `trip ${trip.label}`,
       whenWords(lead, today),
-      partyWords(lead.adults, lead.childrenAges),
+      travellerWords(lead.adults, lead.childrenAges),
       lead.pickupCity === null ? null : `joining from ${oneLine(lead.pickupCity)}`,
       lead.room === null ? null : `${roomNames[lead.room]} room`,
       `stage ${stageLabel(lead.stage)}`,
@@ -135,9 +129,12 @@ function leadBlock(input: TurnBlockInput, sheetOf: (packageId: string | null) =>
   return `<lead>${lines.join("\n")}</lead>`;
 }
 
-/** The lead's trip, the ad's, then those the new lines name (`findPackages`' whole-word matches), 3 at most. */
-function focusTrips(input: TurnBlockInput): TripSheet[] {
-  const index = input.sheets.map(({ packageId, title, place, nights, startCity }) => ({
+/**
+ * The trips the new lines name: each asked word is matched as `findPackages` matches it (whole words of the title and
+ * place), and only the trips matching the most of them count, so "Har Ki Dun trek" names Har Ki Dun alone.
+ */
+function namedTrips(sheets: readonly TripSheet[], newLines: readonly NaturalChatLine[]): string[] {
+  const index = sheets.map(({ packageId, title, place, nights, startCity }) => ({
     id: packageId,
     title,
     place,
@@ -145,8 +142,19 @@ function focusTrips(input: TurnBlockInput): TripSheet[] {
     nights,
     startCity,
   }));
-  const named = findPackages(index, input.newLines.map((line) => line.text).join("\n")).exact.map((entry) => entry.id);
-  const wanted = new Set([input.lead.packageId, input.cameFrom?.packageId ?? null, ...named]);
+  const asked = new Set(wordsOf(newLines.map((line) => line.text).join("\n")).filter((word) => !KIND_WORDS.has(word)));
+  const matched = new Map<string, number>();
+  for (const word of asked)
+    for (const entry of findPackages(index, word, { most: index.length }).exact)
+      matched.set(entry.id, (matched.get(entry.id) ?? 0) + 1);
+  const most = Math.max(0, ...matched.values());
+  return index.filter((entry) => matched.get(entry.id) === most).map((entry) => entry.id);
+}
+
+/** The trips the new lines name first, as they are what the customer asks about now, then the lead's and the ad's. */
+function focusTrips(input: TurnBlockInput): TripSheet[] {
+  const named = namedTrips(input.sheets, input.newLines);
+  const wanted = new Set([...named, input.lead.packageId, input.cameFrom?.packageId ?? null]);
   return [...wanted]
     .flatMap((id) => input.sheets.find((sheet) => sheet.packageId === id) ?? [])
     .slice(0, MOST_FOCUS_TRIPS);
@@ -160,7 +168,7 @@ const withTrips = (head: string, trips: readonly string[], tail: string) =>
 export function turnBlock(input: TurnBlockInput): string {
   const sheetOf = (packageId: string | null) => input.sheets.find((sheet) => sheet.packageId === packageId);
   const head = `${nowBlock(input, sheetOf)}\n${leadBlock(input, sheetOf)}`;
-  const tail = [input.notice, "New messages:", ...input.newLines.map((line) => customerLine(line, input))]
+  const tail = [input.notice, "New messages:", ...input.newLines.map((line) => newLineWords(line, input))]
     .filter(isText)
     .join("\n");
   // A trip that doesn't fit what the rest leaves is left out: its index line is in the agency block, and get_trip reads it.

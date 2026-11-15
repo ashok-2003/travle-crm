@@ -25,7 +25,7 @@ function whenWords(when: NonNullable<LeadCardFacts["when"]>, today: CalendarDate
   return `${months[Number(month) - 1] ?? String(month)} ${String(year)} (month only)`;
 }
 
-function travellerWords(adults: number | null, ages: number[]): string | null {
+export function travellerWords(adults: number | null, ages: number[]): string | null {
   const parts: string[] = [];
   if (adults !== null) parts.push(`${String(adults)} ${adults === 1 ? "adult" : "adults"}`);
   if (ages.length > 0)
