@@ -4,7 +4,7 @@ import { paymentClaimPhrases, teamClaimPhrases } from "@travel-crm/contracts/ai"
 import { sentencesOf } from "../../lite/phrase-match.js";
 import { claimIn } from "../../lite/reply-check.js";
 import { looseAmountsIn, percentsIn, withAsciiDigits } from "./amounts.js";
-import { discountsGivenIn, discountsIn, figuresIn, figureWords, type Figure } from "./discounts.js";
+import { discountsGivenIn, figuresIn, figureWords, replyDiscountsIn, type Figure } from "./discounts.js";
 import { groundedSetOf } from "./grounded.js";
 
 /** What a guard found: nothing to check (null), true to the data, or not, with the retry the model gets. */
@@ -83,7 +83,7 @@ export function teamWordCheck(words: string, texts: { teamText: string; ownerTex
     }
     found.push(detail);
   }
-  for (const { figure } of discountsIn(words)) {
+  for (const figure of replyDiscountsIn(words)) {
     const detail = `${figureWords(figure)} off`;
     if (!givenAsDiscount(figure)) {
       const retry = `No owner or Team text gives ${detail}: leave the discount out; if they ask for one, hand_over(discount).`;

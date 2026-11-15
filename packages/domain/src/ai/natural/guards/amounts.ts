@@ -55,21 +55,23 @@ const UNITS = [
   ...["दिन", "सीटें", "सीट", "साल"],
 ];
 const UNIT_AFTER = new RegExp(`^\\s*-?\\s*(?:${UNITS.join("|")})(?![\\p{L}\\p{M}])`, "iu");
-/** 2020 to 2035 is a year only beside a month, a weekday or a year word (fix round 2); else it is money. */
+/**
+ * 2020 to 2035 is a year only right after a month ("Dec 2026", "दिसंबर 2026") or with a year word within 2 words
+ * ("2026 batch", "Batch of 2026"); else it is money (fix rounds 2 and 3).
+ */
 const YEAR = /^20(?:2\d|3[0-5])$/u;
-const YEAR_WORD = new RegExp(
-  `^(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|(?:mon|tues|wednes|thurs|fri|satur|sun)day|batch(?:es)?|years?|saal|सन|साल|${HINDI_MONTHS.join("|")})$`,
-  "iu",
-);
-/** A pincode: six digits after "pin" or a place ("Dehradun 248001"). */
+const YEAR_WORD = /^(?:batch(?:es)?|years?|saal|सन|साल)$/iu;
+const HINDI_MONTH = new RegExp(`^(?:${HINDI_MONTHS.join("|")})$`, "u");
+/** "mai" is Hinglish for "in", and "may" a verb: in lower case neither marks a year. */
+const NOT_A_MONTH_HERE = /^(?:mai|may)$/u;
+/** A pincode: six digits after "pin", or after a place with no money word after it ("Dehradun 248001", not "Goa 150000 me"). */
 const PINCODE = /^[1-8]\d{5}$/u;
 const placeWords = indianTravelPlaces.map((place) =>
   place.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replace(/\s+/gu, "\\s+"),
 );
-const PIN_BEFORE = new RegExp(
-  `(?<![\\p{L}\\p{M}])(?:pin(?:\\s*code)?|pincode|पिन(?:\\s*कोड)?|${placeWords.join("|")})\\s*[,:-]?\\s*$`,
-  "iu",
-);
+const PIN_WORD_BEFORE = /(?<![\p{L}\p{M}])(?:pin(?:\s*code)?|pincode|पिन(?:\s*कोड)?)\s*[,:-]?\s*$/iu;
+const PLACE_BEFORE = new RegExp(`(?<![\\p{L}\\p{M}])(?:${placeWords.join("|")})\\s*[,:-]?\\s*$`, "iu");
+const MONEY_WORD_AFTER = /^\s*(?:per|me|mein|ka|ki|lagenge|lagega|total|only|sirf|rupees?|rs)(?![\p{L}\p{M}])/iu;
 const PERCENT = /(?<![\d.])(\d+(?:\.\d+)?)\s*(?:%|percent\b|per\s+cent\b|pratishat|प्रतिशत)/giu;
 
 export const overlaps = (a: Span, b: Span) => a.start < b.end && b.start < a.end;
@@ -78,19 +80,24 @@ const spansOf = (text: string, pattern: RegExp): Span[] =>
 const paiseOfNumber = (written: string) => Math.round(Number(written.replaceAll(",", "")) * 100);
 const unitAfter = (text: string, span: Span) => UNIT_AFTER.test(text.slice(span.end));
 
-/** A year by its neighbours: the 2 words on either side ("2026 batch", "Batch of 2026", "next year 2027"). */
+const lettersOf = (word: string) => word.normalize("NFC").replace(/[^\p{L}\p{M}]/gu, "");
+
+/** A year by its neighbours: a month right before it, or a year word within 2 words either side. */
 function isYear(text: string, span: Span): boolean {
   if (!YEAR.test(text.slice(span.start, span.end))) return false;
-  const near = [
-    ...text.slice(0, span.start).trim().split(/\s+/u).slice(-2),
-    ...text.slice(span.end).trim().split(/\s+/u).slice(0, 2),
-  ].map((word) => word.normalize("NFC").replace(/[^\p{L}\p{M}]/gu, ""));
-  return near.some((word) => YEAR_WORD.test(word) || monthOf(word.toLowerCase()) !== null);
+  const before = text.slice(0, span.start).trim().split(/\s+/u).slice(-2).map(lettersOf);
+  const after = text.slice(span.end).trim().split(/\s+/u).slice(0, 2).map(lettersOf);
+  const justBefore = before.at(-1) ?? "";
+  const month =
+    HINDI_MONTH.test(justBefore) || (!NOT_A_MONTH_HERE.test(justBefore) && monthOf(justBefore.toLowerCase()) !== null);
+  return month || [...before, ...after].some((word) => YEAR_WORD.test(word));
 }
 
-const isPincode = (text: string, span: Span) =>
-  PINCODE.test(text.slice(span.start, span.end)) &&
-  PIN_BEFORE.test(text.slice(Math.max(0, span.start - 40), span.start));
+function isPincode(text: string, span: Span): boolean {
+  if (!PINCODE.test(text.slice(span.start, span.end))) return false;
+  const before = text.slice(Math.max(0, span.start - 40), span.start);
+  return PIN_WORD_BEFORE.test(before) || (PLACE_BEFORE.test(before) && !MONEY_WORD_AFTER.test(text.slice(span.end)));
+}
 
 /**
  * Bare numbers of ₹500 or more (fix rounds 1 and 2): "Sirf 7999 lagenge", "7,999 me ho jayega". Not a year, a pincode,

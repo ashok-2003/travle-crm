@@ -305,6 +305,10 @@ describe("G1: every amount in the words is one the data holds", () => {
     expect(check("Special price ₹6,649.", answering("No discount on peak dates; 30% advance."))).toMatchObject(
       refusedBy("G1"),
     );
+    // A negated discount grounds nothing (fix round 3).
+    expect(check("Students pay ₹8,549.", { teamLines: ["Students ko 10% discount mat dena"] })).toMatchObject(
+      refusedBy("G1"),
+    );
     // A discount word in the sentence but not beside the figure gives nothing.
     const farOff = answering("Group discount available on request; 30% advance to book.");
     expect(check("Special price ₹6,649.", farOff)).toMatchObject(refusedBy("G1"));
@@ -344,12 +348,22 @@ describe("G1: every amount in the words is one the data holds", () => {
       expect(check(words)).toEqual({ ok: true, verdicts: [] });
   });
 
-  it("reads 2020 to 2035 as a year only beside a month, a weekday or a year word (fix round 2)", () => {
+  it("reads 2020 to 2035 as a year only right after a month or beside a year word (fix rounds 2 and 3)", () => {
     expect(check("Sirf 2000 extra lagenge.")).toMatchObject(refusedBy("G1"));
     expect(check("Bas 2030 aur lagenge.")).toMatchObject(refusedBy("G1"));
     // Outside 2020 to 2035 a number is money even beside a year word.
     expect(check("Hum 2015 batch se treks chala rahe hain.")).toMatchObject(refusedBy("G1"));
-    for (const words of ["2026 batch full hai.", "Next year 2027 mein phir chalenge.", "साल 2026 में चलेंगे।"])
+    // A month marks a year only right before the number; "mai" is Hinglish for "in" (fix round 3).
+    expect(check("Sirf 2030 mai ho jayega.")).toMatchObject(refusedBy("G1"));
+    expect(check("December mein 2030 extra lagenge.")).toMatchObject(refusedBy("G1"));
+    expect(check("Sun, 2030 extra lagenge.")).toMatchObject(refusedBy("G1"));
+    expect(check("Isme mai 2030 aur jod dunga.")).toMatchObject(refusedBy("G1"));
+    for (const words of [
+      "2026 batch full hai.",
+      "Next year 2027 mein phir chalenge.",
+      "साल 2026 में चलेंगे।",
+      "दिसंबर 2026 का बैच भरा है।",
+    ])
       expect(check(words)).toEqual({ ok: true, verdicts: [] });
   });
 
@@ -357,6 +371,9 @@ describe("G1: every amount in the words is one the data holds", () => {
     for (const words of ["Pickup 0630 baje.", "Pickup: Dehradun 248001.", "Pin 248001 pe courier karenge."])
       expect(check(words)).toEqual({ ok: true, verdicts: [] });
     expect(check("Sirf 248001 lagenge.")).toMatchObject(refusedBy("G1"));
+    // After a place, a money word after the number makes it money (fix round 3).
+    expect(check("Goa 150000 me ho jayega.")).toMatchObject(refusedBy("G1"));
+    expect(check("Ladakh: 125000 per couple.")).toMatchObject(refusedBy("G1"));
   });
 
   it("reads Devanagari digits as an amount", () => {
@@ -524,6 +541,24 @@ describe("G4: the team's word and discounts, only when owner or Team text holds 
     expect(check("Aapko 10% off milega.", { ownerText: "Winter offer: 10% off on all treks." })).toMatchObject({
       ok: true,
     });
+  });
+
+  it("grounds nothing from a discount owner or Team text says not to give (fix round 3)", () => {
+    const refusals: [string, Setup][] = [
+      ["Aapko 10% off milega.", { teamLines: ["Inko 10% discount mat dena"] }],
+      ["₹500 off kar denge.", { teamLines: ["500 kam mat karna"] }],
+      ["Aapko 10% off milega.", { teamLines: ["10% off mat bolna"] }],
+      ["Aapko 10% off milega.", { ownerText: "We don't give a 10% discount." }],
+      ["Aapko 10% off milega.", { ownerText: "10% off isn't possible." }],
+      ["Aapko 10% off milega.", { ownerText: "A 10% discount is not possible on peak dates." }],
+    ];
+    for (const [words, setup] of refusals) expect(check(words, setup)).toMatchObject(refusedBy("G4"));
+  });
+
+  it("reads 'N% offer' in the reply as a discount, but never grounds one from 'offer' (fix round 3)", () => {
+    expect(check("Aapko 10% offer hai.")).toMatchObject(refusedBy("G4"));
+    expect(check("Aapko 10% offer hai.", { ownerText: "Students get 10% off." })).toMatchObject({ ok: true });
+    expect(check("Aapko 10% off milega.", { ownerText: "10% offer for groups." })).toMatchObject(refusedBy("G4"));
   });
 });
 
