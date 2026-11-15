@@ -2,6 +2,7 @@
 // Deluxe) priced from the supplier rates, and the words and photos of its public page. Amounts are integer paise.
 import { z } from "zod";
 import { travellerLevel } from "../bookings/bookings.js";
+import { destinationName } from "../catalog/destinations.js";
 import {
   MAX_PACKAGE_BROCHURE_BYTES,
   MAX_PACKAGE_PHOTO_BYTES,
@@ -129,7 +130,17 @@ export const packageFields = {
   departureMonths: z.array(z.int().min(1).max(12)).max(12).refine(unique, "Each month once"),
   seatsPerDeparture: z.int().min(1).max(MAX_SEATS).nullable(),
 };
-export const updatePackageInput = z.strictObject({ packageId: recordId, ...packageFields });
+export const updatePackageInput = z
+  .strictObject({
+    packageId: recordId,
+    ...packageFields,
+    /** A destination by its name, found whatever its case or added to the agency's list as the package is saved. */
+    newDestinationName: destinationName.optional(),
+  })
+  .refine((input) => input.newDestinationName === undefined || input.destinationId === null, {
+    message: "Choose a destination or name a new one, not both",
+    path: ["newDestinationName"],
+  });
 export type UpdatePackageInput = z.infer<typeof updatePackageInput>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
 export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
