@@ -12,7 +12,7 @@ const MOST_STOPS = 4;
 const PLACE_END = /\s+(?:to|via|and|-|&)\s+|[,(:;/|–—→]/iu;
 const DAY_LABEL = /^day\s*\d+\s*[:.)–—-]?\s*/iu;
 
-const roomNames: Record<RoomType, string> = {
+export const roomNames: Record<RoomType, string> = {
   single: "single",
   double: "double",
   triple: "triple",

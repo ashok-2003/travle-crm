@@ -9,22 +9,15 @@ import { openDepartureDetailsByPackage } from "../../../departures/index.js";
 import type { CalendarDate } from "../../../kernel/index.js";
 import { fromPrices, packageFilesByPackage, priceOn, seasonsByPackage } from "../../../quotes/index.js";
 import { lowestAdultPrice, strings, withoutContacts } from "../../lite/lookups/package-reads.js";
+import { cutText } from "../context/tokens.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
 
 const MOST_DEPARTURES = 8;
 const MOST_DAYS = 12;
 const MOST_LINES = 6;
 
-/** Cut before `most` characters at a word, so a number isn't cut in half (unless the text has no space to cut at). */
-function cut(text: string, most: number): string {
-  if (text.length <= most) return text;
-  const head = text.slice(0, most - 1);
-  const space = head.lastIndexOf(" ");
-  return `${(space > 0 ? head.slice(0, space) : head).trimEnd()}…`;
-}
-
 /** Owner text as the model may read it: no payment detail, email or handle; every number kept. */
-const ownerText = (text: string, most: number) => cut(withoutContacts(withoutPaymentDetails(text)), most);
+const ownerText = (text: string, most: number) => cutText(withoutContacts(withoutPaymentDetails(text)), most);
 
 /** Owner text kept as separate lines (highlights, pickup points), each cut, six at most. */
 const ownerLines = (lines: readonly string[]) =>

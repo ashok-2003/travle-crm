@@ -11,7 +11,7 @@ export interface NaturalChatLine {
   text: string;
   fileName?: string;
   teamName?: string;
-  // A past action's bracketed words.
+  // A past action's words, which the chat writes in brackets: "sent: Snow Lake Trek brochure".
   action?: string;
   untranscribed?: boolean;
   mayBePayment?: boolean;
