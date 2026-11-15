@@ -27,7 +27,7 @@ const SUMMARY_CUT = 600;
 const NOTE_CUT = 300;
 const TASK_CUT = 200;
 /** Words that name a kind of trip, not one trip: never what decides which trip the customer named. */
-const KIND_WORDS = new Set(["trek", "treks", "trip", "trips", "tour", "tours", "package", "packages", "yatra"]);
+export const KIND_WORDS = new Set(["trek", "treks", "trip", "trips", "tour", "tours", "package", "packages", "yatra"]);
 
 export interface TurnBlockInput {
   now: Date;

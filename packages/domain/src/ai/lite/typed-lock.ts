@@ -19,11 +19,11 @@ export const lockedFields = (typed: TypedFields): ReadonlySet<TripField> =>
 
 const sameWords = (a: string, b: string) =>
   normalised(a) === normalised(b) || containsWords(a, b) || containsWords(b, a);
-const sameAges = (a: readonly number[], b: readonly number[]) =>
+export const sameAges = (a: readonly number[], b: readonly number[]) =>
   JSON.stringify([...a].sort((x, y) => x - y)) === JSON.stringify([...b].sort((x, y) => x - y));
 
 /** Whether a day or month said differs from the trip's time a person typed; a day inside a month typed narrows it. */
-function otherTime(when: TravelWhen, said: { day: string | null; month: string | null }): boolean {
+export function otherTime(when: TravelWhen, said: { day: string | null; month: string | null }): boolean {
   const month = said.month ?? said.day?.slice(0, 7) ?? null;
   if (when.kind === "dates") return said.day !== null ? said.day !== when.from : month !== when.from.slice(0, 7);
   if (when.kind === "month") return month !== null && month !== when.month;
