@@ -1,9 +1,10 @@
 "use client";
 
 // The destination picker (spec 3.2, R45): the shared SearchCombobox over the agency's own list, searched as the person
-// types (destinations.search, forgiving of typos), with "No destination" once one is chosen. In the lead form a name
-// that isn't on the list can be added ('Add "Spiti"'), which the api adds to the list when the lead is saved; the
-// list's filter picks only existing ones. Labelled, hinted and with its error as every field is (form-field.tsx).
+// types (destinations.search, forgiving of typos), with "No destination" once one is chosen. In the lead form and the
+// package editor a name that isn't on the list can be added ('Add "Spiti"'), which the api adds to the list when the
+// lead or package is saved; the list's filter picks only existing ones. Labelled, hinted and with its error as every
+// field is (form-field.tsx).
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useController, type Control, type FieldPath, type FieldValues } from "react-hook-form";
@@ -33,7 +34,7 @@ export function DestinationField<Values extends FieldValues>({
   name: FieldPath<Values>;
   label: string;
   hint?: string;
-  /** Whether a name not on the list may be chosen, to be added with the lead. */
+  /** Whether a name not on the list may be chosen, to be added when the form is saved. */
   allowNew?: boolean;
 }) {
   const t = useTranslations("leads.form.destination");
