@@ -7,6 +7,8 @@ import type { PerPersonPrices, TripSheet } from "../types.js";
 /** Seats are counted only this few or fewer; above it a departure is "open", so a 500-seat placeholder never shows. */
 const FEW_SEATS = 5;
 const INDEX_DATES = 3;
+/** Dates a lookup's line shows for the month asked, before "and N more". */
+const MONTH_DATES = 5;
 const MOST_STOPS = 4;
 /** Where a day title's first place ends: " to ", " and ", a dash or arrow between places, a comma, a bracket, a colon. */
 const PLACE_END = /\s+(?:to|via|and|-|&)\s+|[,(:;/|–—→]/iu;
@@ -117,15 +119,25 @@ export function tripInFull(sheet: TripSheet, today: CalendarDate): string {
     .join("\n");
 }
 
-export function tripIndexLine(sheet: TripSheet, today: CalendarDate): string {
-  const dates = sheet.departures.slice(0, INDEX_DATES).map((one) => formatShortDay(one.startsOn, today));
+/** One line a trip; `dates`, when given (a month a lookup asked), replace the next 3: the first 5, then how many more. */
+export function tripIndexLine(sheet: TripSheet, today: CalendarDate, dates?: readonly CalendarDate[]): string {
+  const shown = dates?.slice(0, MONTH_DATES) ?? sheet.departures.slice(0, INDEX_DATES).map((one) => one.startsOn);
+  const more =
+    dates !== undefined && dates.length > MONTH_DATES ? ` and ${String(dates.length - MONTH_DATES)} more` : "";
   const stops = stopsOf(sheet);
   return [
     headOf(sheet),
     sheet.fromPaise === null ? null : `from ${formatRupees(sheet.fromPaise)}`,
-    dates.length === 0 ? "no open dates" : dates.join(", "),
+    shown.length === 0 ? "no open dates" : `${shown.map((day) => formatShortDay(day, today)).join(", ")}${more}`,
     stops.length === 0 ? null : `stops: ${stops.join(", ")}`,
   ]
     .filter(isText)
     .join(" · ");
+}
+
+/** The way on when a lookup names no trip: "the trips are T1, T2", or "the trips are T1–T40" for many. */
+export function tripsAre(labels: readonly string[]): string {
+  if (labels.length === 0) return "the agency has no trips listed";
+  const list = labels.length <= 3 ? labels.join(", ") : `${labels[0] ?? ""}–${labels.at(-1) ?? ""}`;
+  return `the trips are ${list}`;
 }

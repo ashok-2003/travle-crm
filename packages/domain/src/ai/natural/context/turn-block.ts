@@ -16,7 +16,7 @@ import { clockWords } from "../../lite/context/messages.js";
 import { WAKING_HOURS } from "../../lite/follow-ups.js";
 import { findPackages } from "../../lite/lookups/find-packages.js";
 import { wordsOf } from "../../lite/read-words.js";
-import { indexEntryOf } from "../tools/find-trips.js";
+import { indexEntryOf } from "../trips/trip-sheets.js";
 import { isText, roomNames, tripInFull } from "../trips/trip-text.js";
 import type { NaturalChatLine, NaturalLeadView, TripSheet } from "../types.js";
 import { newLineWords, stampOf } from "./chat-turns.js";

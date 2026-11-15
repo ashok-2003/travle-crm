@@ -9,10 +9,12 @@ import { openDepartureDetailsByPackage } from "../../../departures/index.js";
 import type { CalendarDate } from "../../../kernel/index.js";
 import { fromPrices, packageFilesByPackage, priceOn, seasonsByPackage } from "../../../quotes/index.js";
 import { lowestAdultPrice, strings, withoutContacts } from "../../lite/lookups/package-reads.js";
+import type { PackageIndexEntry } from "../../lite/types.js";
 import { cutText } from "../context/tokens.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
 
-const MOST_DEPARTURES = 8;
+/** How many open departures a sheet lists (spec 4.2); find_trips with a month and quote read past them. */
+export const MOST_DEPARTURES = 8;
 
 /**
  * How much owner text a sheet keeps: days, lines, and characters of each part. A sheet in the prompt is cut to its token
@@ -67,6 +69,12 @@ function pricedOnly(prices: RoomPrices, rooms: readonly RoomType[]): PerPersonPr
 }
 
 const hasAny = (prices: PerPersonPrices) => Object.keys(prices).length > 0;
+
+/** A trip as lite's `findPackages` reads it: the one mapping, for the turn block, the lookups and the actions. */
+export function indexEntryOf(sheet: TripSheet): PackageIndexEntry {
+  const { packageId, title, place, nights, startCity } = sheet;
+  return { id: packageId, title, place, destinationId: null, nights, startCity };
+}
 
 export async function tripSheetsOf(
   tx: OrgTx,

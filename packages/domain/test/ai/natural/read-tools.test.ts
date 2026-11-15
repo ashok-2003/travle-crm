@@ -7,7 +7,7 @@ import { findTrips } from "../../../src/ai/natural/tools/find-trips.js";
 import { quoteFor, runReadTool, type ReadContext } from "../../../src/ai/natural/tools/read-tools.js";
 import { tripSheetsOf } from "../../../src/ai/natural/trips/trip-sheets.js";
 import { tripIndexLine, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
-import { parseCalendarDate } from "../../../src/kernel/index.js";
+import { addDays, parseCalendarDate, type CalendarDate } from "../../../src/kernel/index.js";
 import { sellablePackages } from "../../../src/quotes/index.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { day } from "../lite/support/lite-agency.js";
@@ -15,7 +15,33 @@ import { naturalAgency } from "./support/natural-agency.js";
 
 // Sat 5 Dec, noon in Kolkata: T1's Sat 5 Dec batch leaves today, so its open dates are Sat 12, 19 and 26 Dec.
 const today = parseCalendarDate("2026-12-05");
-const now = new Date("2026-12-05T06:30:00Z");
+// Sun 15 Nov: three weeks before T1's first batch, for dates past a sheet's 8.
+const midNovember = parseCalendarDate("2026-11-15");
+const days = (...texts: string[]) => texts.map(parseCalendarDate);
+
+/** Every `step`th day from `from` to `until`, both ends included. */
+function everyDay(from: string, until: string, step = 1): string[] {
+  const all: string[] = [];
+  for (let at = parseCalendarDate(from); at <= until; at = addDays(at, step)) all.push(at);
+  return all;
+}
+/** More batches of a trip, 20 seats each; a day it has one already keeps it. */
+const batches = (tx: OrgTx, templateId: string, dates: readonly string[]) =>
+  tx.departure.createMany({
+    skipDuplicates: true,
+    data: dates.map((on) => ({ title: "Batch", startDate: day(on), endDate: day(on), seatsTotal: 20, templateId })),
+  });
+/** A January season for a trip, at ₹10,999 triple. */
+const januarySeason = (tx: OrgTx, templateId: string) =>
+  tx.packageSeason.create({
+    data: {
+      templateId,
+      label: "January",
+      startsOn: day("2027-01-01"),
+      endsOn: day("2027-01-31"),
+      priceTriplePaise: 1_099_900n,
+    },
+  });
 
 describe("the natural agent's read tools", () => {
   let test: TestInbox;
@@ -27,15 +53,16 @@ describe("the natural agent's read tools", () => {
   async function world(options: { trips?: number } = {}) {
     const agency = await naturalAgency(test, options);
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(agency.organizationId, work);
-    /** Runs `work` with the read context a turn builds: the sellable trips' sheets and their labels. */
-    const withContext = <T>(work: (context: ReadContext) => Promise<T>) =>
+    /** Runs `work` with the read context a turn builds on `on` (noon in Kolkata): the sellable trips' sheets and labels. */
+    const withContext = <T>(work: (context: ReadContext) => Promise<T>, on: CalendarDate = today) =>
       inOrg(async (tx) => {
-        const sheets = await tripSheetsOf(tx, await sellablePackages(tx, agency.organizationId, today), today, now);
+        const at = new Date(`${on}T06:30:00Z`);
+        const sheets = await tripSheetsOf(tx, await sellablePackages(tx, agency.organizationId, on), on, at);
         const labels = new Map(sheets.map((sheet) => [sheet.label, sheet.packageId]));
-        return work({ tx, sheets, labels, today, now });
+        return work({ tx, sheets, labels, today: on, now: at });
       });
-    const read = (name: "find_trips" | "get_trip" | "quote", args: Record<string, unknown>) =>
-      withContext((context) => runReadTool(context, name, args));
+    const read = (name: "find_trips" | "get_trip" | "quote", args: Record<string, unknown>, on?: CalendarDate) =>
+      withContext((context) => runReadTool(context, name, args), on);
     const sheets = () => withContext((context) => Promise.resolve(context.sheets));
     const [kedarkantha = "", brahmatal = ""] = agency.packageIds;
     return { ...agency, inOrg, withContext, read, sheets, kedarkantha, brahmatal };
@@ -71,29 +98,78 @@ describe("the natural agent's read tools", () => {
       );
     });
 
-    it("keeps only trips leaving in the month asked", async () => {
+    it("keeps only trips leaving in the month asked, and shows that month's dates", async () => {
       const { read, inOrg, sheets, brahmatal } = await world();
-      await inOrg((tx) =>
-        tx.departure.create({
-          data: {
-            title: "Batch",
-            startDate: day("2027-01-09"),
-            endDate: day("2027-01-09"),
-            seatsTotal: 20,
-            templateId: brahmatal,
-          },
-        }),
-      );
-      const found = async (query: string) => findTrips(await sheets(), query, today);
-      expect((await found("January treks")).exact.map((sheet) => sheet.title)).toEqual(["Brahmatal Trek"]);
-      expect((await found("December")).exact.map((sheet) => sheet.title)).toEqual([
-        "Kedarkantha Trek",
-        "Brahmatal Trek",
-      ]);
-      expect(await read("find_trips", { query: "Kedarkantha January" })).toEqual({
-        result: 'no trip matches "Kedarkantha January"',
-        figures: null,
+      await inOrg(async (tx) => {
+        await batches(tx, brahmatal, ["2027-01-09"]);
+        await januarySeason(tx, brahmatal);
       });
+      const [kedarkantha = expect.unreachable(), brahmatalSheet = expect.unreachable()] = await sheets();
+      const answer = async (query: string) => (await read("find_trips", { query })).result;
+      expect(await answer("January treks")).toBe(fenced(tripIndexLine(brahmatalSheet, today, days("2027-01-09"))));
+      expect(await answer("December")).toBe(
+        [
+          fenced(tripIndexLine(kedarkantha, today, days("2026-12-12", "2026-12-19", "2026-12-26"))),
+          fenced(tripIndexLine(brahmatalSheet, today, days("2026-12-12", "2026-12-26"))),
+        ].join("\n"),
+      );
+      // A trip the words name, with no date in the month: said so, with its next dates.
+      expect(await answer("Kedarkantha January")).toBe(
+        'none of the trips matching "kedarkantha" leaves in January 2027; their next dates:\n' +
+          fenced(tripIndexLine(kedarkantha, today)),
+      );
+      expect(await answer("March")).toBe("no trip leaves in March 2027; the trips are T1, T2");
+      // "may" is a month only written "May".
+      expect(findTrips(await sheets(), "treks families may like", today).months).toEqual([]);
+      expect(findTrips(await sheets(), "May treks", today).months).toEqual(["2027-05"]);
+    });
+
+    it("finds a trip leaving every day in a month past its sheet's 8 dates, with that month's dates", async () => {
+      const { read, inOrg, brahmatal } = await world();
+      await inOrg(async (tx) => {
+        await batches(tx, brahmatal, everyDay("2026-11-16", "2027-01-31"));
+        await januarySeason(tx, brahmatal);
+      });
+      const { result } = await read("find_trips", { query: "trips in January?" }, midNovember);
+      expect(result).toMatch(/^T2 Brahmatal Trek · /u);
+      expect(result).toContain(
+        " · Fri 1 Jan 2027, Sat 2 Jan 2027, Sun 3 Jan 2027, Mon 4 Jan 2027, Tue 5 Jan 2027 and 26 more · ",
+      );
+      expect(result.split("\n")).toHaveLength(1);
+      // get_trip lists the next 8, and says where the rest are.
+      expect((await read("get_trip", { trip_id: "T2" }, midNovember)).result).toMatch(
+        /\nOnly the next 8 dates are listed; find_trips with the trip and a month, or quote on a date, reaches later ones\.$/u,
+      );
+    });
+
+    it("finds a weekly trip in a month past its 8th week, and quotes a date there", async () => {
+      const { read, inOrg, kedarkantha } = await world();
+      await inOrg(async (tx) => {
+        await batches(tx, kedarkantha, everyDay("2027-01-02", "2027-02-27", 7));
+        await tx.packageSeason.updateMany({ where: { templateId: kedarkantha }, data: { endsOn: day("2027-02-28") } });
+      });
+      expect((await read("find_trips", { query: "Kedarkantha February" }, midNovember)).result).toContain(
+        " · Sat 6 Feb 2027, Sat 13 Feb 2027, Sat 20 Feb 2027, Sat 27 Feb 2027 · ",
+      );
+      expect((await read("quote", { trip_id: "T1", date: "2027-02-13", adults: 2 }, midNovember)).result).toBe(
+        "T1 Kedarkantha Trek, Sat 13 Feb 2027, 2 adults: triple ₹9,499 per person, GST included; total ₹18,998; " +
+          "advance ₹3,000 per person, ₹6,000 in all; seats: open",
+      );
+    });
+
+    it("answers words that name no trip with what it searched and the way on", async () => {
+      const { read, sheets } = await world();
+      const [kedarkantha = expect.unreachable(), brahmatal = expect.unreachable()] = await sheets();
+      expect((await read("find_trips", { query: "December dates" })).result).toBe(
+        'nothing matches "dates"; leaving in December:\n' +
+          [
+            fenced(tripIndexLine(kedarkantha, today, days("2026-12-12", "2026-12-19", "2026-12-26"))),
+            fenced(tripIndexLine(brahmatal, today, days("2026-12-12", "2026-12-26"))),
+          ].join("\n"),
+      );
+      expect((await read("find_trips", { query: "family trips" })).result).toBe(
+        'no title, place, stop or pickup says "family"; the trips are T1, T2',
+      );
     });
 
     it("answers at most 5 lines, the trips matching more of the words first", async () => {
@@ -186,6 +262,16 @@ describe("the natural agent's read tools", () => {
           "advance ₹3,000 per person, ₹9,000 in all; seats: open",
       );
       expect(figures).toMatchObject({ terms: { room: "triple", childrenAges: [8] }, totalPaise: 2_499_800 });
+    });
+
+    it("refuses a child's place with no price, naming the team as the way on", async () => {
+      const { read, inOrg, kedarkantha } = await world();
+      await inOrg((tx) =>
+        tx.quoteTemplate.update({ where: { id: kedarkantha }, data: { roomTypes: ["triple", "child_bed"] } }),
+      );
+      expect((await read("quote", { trip_id: "T1", date: "2026-12-19", adults: 2, children_ages: [8] })).result).toBe(
+        "refused: child with bed isn't priced for Sat 19 Dec; ask the team with create_task(question)",
+      );
     });
 
     it("refuses a date with no departure, naming the nearest open ones (never one leaving today)", async () => {

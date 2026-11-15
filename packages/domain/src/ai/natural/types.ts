@@ -1,6 +1,7 @@
 // The shapes the natural agent's parts share: the chat as it reads to the model, the lead, a trip, a quote, staged actions.
 import type { LiveOffer, BookingTerms, NaturalHandOverReason, NaturalTaskKind } from "@travel-crm/contracts/ai";
 import type { RoomType } from "@travel-crm/contracts/quotes";
+import type { OrgTx } from "@travel-crm/db";
 import type { CalendarDate } from "../../kernel/index.js";
 
 export interface NaturalChatLine {
@@ -71,6 +72,15 @@ export interface NaturalLeadView {
   summary: string | null;
   teamNotes: { at: Date; by: string; text: string }[];
   openTasks: string[];
+}
+
+/** What the read tools work from: the turn's transaction, its trip sheets and labels (label to package id), its day. */
+export interface ReadContext {
+  tx: OrgTx;
+  sheets: readonly TripSheet[];
+  labels: ReadonlyMap<string, string>;
+  today: CalendarDate;
+  now: Date;
 }
 
 export interface QuoteFigures {
