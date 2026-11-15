@@ -1,4 +1,4 @@
-// The shapes the natural agent's later parts share: the chat as it reads to the model, the lead, a quote, staged actions.
+// The shapes the natural agent's parts share: the chat as it reads to the model, the lead, a trip, a quote, staged actions.
 import type { LiveOffer, BookingTerms, NaturalHandOverReason, NaturalTaskKind } from "@travel-crm/contracts/ai";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -15,6 +15,39 @@ export interface NaturalChatLine {
   action?: string;
   untranscribed?: boolean;
   mayBePayment?: boolean;
+}
+
+/** A room price per person, in paise, for each room type that has one. */
+export type PerPersonPrices = Partial<Record<RoomType, number>>;
+
+/** A sellable group trip as the model reads it (spec 4.2): owner text without payment details or contacts, every number kept. */
+export interface TripSheet {
+  label: string;
+  packageId: string;
+  title: string;
+  place: string | null;
+  nights: number | null;
+  startCity: string;
+  summary: string;
+  highlights: string[];
+  days: { title: string; text: string }[];
+  pickups: string[];
+  inclusions: string;
+  exclusions: string;
+  notes: string;
+  cancellation: string;
+  // Priced types only (F14).
+  rooms: RoomType[];
+  // Not yet ended.
+  seasons: { name: string; from: CalendarDate; until: CalendarDate; perPersonPaise: PerPersonPrices }[];
+  pricesIncludeGst: boolean;
+  taxRateBasisPoints: number;
+  fromPaise: number | null;
+  advancePerPersonPaise: number | null;
+  // The next 8 open, from tomorrow. A departure with its own prices carries them: they replace the season's on that date.
+  departures: { id: string; startsOn: CalendarDate; freeSeats: number; perPersonPaise?: PerPersonPrices }[];
+  // Brochures first, then photos.
+  fileIds: string[];
 }
 
 export interface NaturalLeadView {

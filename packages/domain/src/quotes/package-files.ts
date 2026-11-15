@@ -14,7 +14,7 @@ import {
   type PackageFileKind,
 } from "@travel-crm/contracts/quotes";
 import type { Database, OrgTx } from "@travel-crm/db";
-import { readyAttachmentsIn, type Files } from "../files/index.js";
+import { readyAttachmentsIn, readyAttachmentsOfRecordsIn, type Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { filesWithLinks, requirePackage } from "./package-file-links.js";
@@ -45,6 +45,20 @@ export async function packageFilesIn(
     brochures: brochures.map(({ id, fileName }) => ({ id, fileName })),
     photos: photos.map(({ id, fileName }) => ({ id, fileName })),
   };
+}
+
+/** The same for many packages, by package id: the file ids, one read per kind whatever the number of packages. */
+export async function packageFilesByPackage(
+  tx: OrgTx,
+  packageIds: readonly string[],
+): Promise<Map<string, { brochures: string[]; photos: string[] }>> {
+  const [brochures, photos] = await Promise.all([
+    readyAttachmentsOfRecordsIn(tx, PACKAGE_BROCHURE_RECORD_TYPE, packageIds),
+    readyAttachmentsOfRecordsIn(tx, PACKAGE_PHOTO_RECORD_TYPE, packageIds),
+  ]);
+  const ids = (files: Map<string, { id: string }[]>, packageId: string) =>
+    (files.get(packageId) ?? []).map((file) => file.id);
+  return new Map(packageIds.map((id) => [id, { brochures: ids(brochures, id), photos: ids(photos, id) }]));
 }
 
 const withAttachmentId = (

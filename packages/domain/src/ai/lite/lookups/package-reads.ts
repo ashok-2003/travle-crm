@@ -16,12 +16,13 @@ import type { DepartureLine, PackageDetails, PriceFacts } from "../types.js";
 /** Only splits CGST/SGST from IGST, never the total, so the lookup (which has no GST state) may use any valid one. */
 const ANY_STATE = "27";
 const MOST_DEPARTURES = 3;
-/** Also drops an email ("x@y") and a handle ("@sharmatrips"); an "@" standing alone ("Gate @ ISBT") stays. */
-const clean = (text: string) =>
-  withoutAmountsAndDates(withoutPaymentDetails(text))
+/** Drops an email ("x@y") and a handle ("@sharmatrips"); an "@" standing alone ("Gate @ ISBT") stays. */
+export const withoutContacts = (text: string) =>
+  text
     .replace(/\S+@\S+|(?<!\S)@[\p{L}\p{N}_.]+/gu, "")
     .replace(/[ \t]{2,}/gu, " ")
     .trim();
+const clean = (text: string) => withoutContacts(withoutAmountsAndDates(withoutPaymentDetails(text)));
 const strings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((one): one is string => typeof one === "string") : [];
 
@@ -137,7 +138,7 @@ export function lowestAdultPrice(
 export async function priceOf(
   tx: OrgTx,
   packageId: string,
-  facts: LiteFacts,
+  facts: Pick<LiteFacts, "adults" | "children" | "roomType" | "departureId">,
   today: CalendarDate,
   now: Date,
 ): Promise<PriceFacts | null> {

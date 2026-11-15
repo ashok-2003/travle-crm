@@ -42,6 +42,25 @@ export async function readyAttachmentsIn(
   });
 }
 
+/** The same for many records of one type in one query, by record id (a record with none has an empty list). */
+export async function readyAttachmentsOfRecordsIn(
+  tx: OrgTx,
+  recordType: string,
+  recordIds: readonly string[],
+): Promise<Map<string, { id: string; fileName: string; contentType: string }[]>> {
+  const found = new Map<string, { id: string; fileName: string; contentType: string }[]>(
+    recordIds.map((id) => [id, []]),
+  );
+  if (recordIds.length === 0) return found;
+  const rows = await tx.attachment.findMany({
+    where: { recordType, recordId: { in: [...recordIds] }, status: "ready", sensitive: false },
+    select: { id: true, fileName: true, contentType: true, recordId: true },
+    orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
+  });
+  for (const { recordId, ...file } of rows) found.get(recordId)?.push(file);
+  return found;
+}
+
 /** The ready files of many records of one type in one query, by record id (a record with none has no entry). */
 export async function listAttachmentsOfRecords(
   { db }: FilesDependencies,

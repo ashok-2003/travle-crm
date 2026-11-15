@@ -205,8 +205,9 @@ the new lines.
 Numbers stay in the text ("4 nights", "6:30 am", "3,800 m"). Payment details are removed from owner text
 (`withoutPaymentDetails`), and the package's `paymentDetails`, internal `name` and quote `items` stay out. Its `notes`
 and `cancellationNotes` go in, because both are printed on the customer's quote (`quotes/package-quote.ts`). Seats show
-as "open", "N left" at 5 or fewer, or "full" (writer), so a 500-seat placeholder never shows and the cached block
-changes less often. Dates carry the weekday, which models get wrong when they work it out.
+as "open" or "N left" at 5 or fewer (writer), so a 500-seat placeholder never shows and the cached block changes less
+often; a full departure is not listed, since it can't be offered. Dates carry the weekday, which models get wrong when
+they work it out.
 
 ### 4.3 The chat
 

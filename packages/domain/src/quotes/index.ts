@@ -53,6 +53,7 @@ export {
 export {
   confirmPackageFile,
   listPackageFiles,
+  packageFilesByPackage,
   packageFilesIn,
   removePackageFile,
   requestPackageFileUpload,
