@@ -96,7 +96,6 @@ this plan.
 
 Plan 2 owns: `packages/db/prisma/schema/ai.prisma`, migration `20261215100000_natural_agent`,
 `packages/domain/src/ai/{agent,agent-worker,agent-choice,insight}.ts`, `packages/domain/src/ai/natural/{prepare,chat-lines,act,act-money,act-send,act-lead,act-chat,hand-over-words,turn,nudge-turn,live-io,hard-checks-live}.ts`,
-`natural/dry-turn.ts` (one widened type, Task 3),
 the lite files named in Task 3, `packages/domain/src/ai/traces/*`, `packages/contracts/src/ai/{lite-trace,agent}.ts`,
 `packages/contracts/src/platform/{ai-agent,ai-transparency,incidents}.ts`,
 `packages/domain/src/platform/{agent-choice,agent-replay,ai-endpoints-check,ai-traces,ai-trace-detail}.ts`,
@@ -198,8 +197,7 @@ on this release, the replay passed, the owner tried it in Try it. Support sees t
 - Create: `packages/domain/src/ai/lite/turn-gates.ts`, `packages/domain/src/ai/lite/act-gates.ts`
 - Modify: `lite/prepare.ts` (calls `turnGates`), `lite/act.ts` (imports the gates), `lite/act-money.ts` (extract
   `payAgainBooking`), `lite/lead-writes.ts` (extract `writeAiTripFields`), `lite/prepare-lead.ts` (export
-  `typedByPerson`), `lite/follow-ups.ts` (`stillQuiet` options), `lite/counted-call.ts` (`CallEnvironment.db` widened
-  to `Pick<Database, "forOrg">`), `natural/dry-turn.ts` (`deps.db` widened the same way)
+  `typedByPerson`), `lite/follow-ups.ts` (`stillQuiet` options)
 - Test: the existing lite suite, plus `packages/domain/test/ai/lite/follow-ups.test.ts` (one case)
 
 **Interfaces:**
@@ -541,8 +539,8 @@ staged actions, the flags, the live hard checks, and the messages sent (as lite'
 - Test: `packages/domain/test/platform/agent-replay.test.ts`, `apps/web/test/console/organizations/organization-agent-choice.test.tsx`
 
 **Interfaces:**
-- Consumes: `naturalDryTurn` (Plan 1, `deps.db` widened in Task 3), `naturalChatLines` (Task 4), `liveHardChecks`
-  (Task 9), `createTraceSink`, `asOrganization`.
+- Consumes: `naturalDryTurn` (Plan 1), `naturalChatLines` (Task 4), `liveHardChecks` (Task 9), `createTraceSink`,
+  `naturalPromptOf`.
 - Produces:
 
 ```ts
@@ -553,8 +551,9 @@ export function agentReplayHandler(services: PlatformServices & { ai: AiModel; t
 // platform log "ai-agent.replayed" { after: { chats, passed, failedChecks } }: counts only
 ```
 
-The job runs every organization step through `asOrganization` in its own platform transaction, one at a time
-(`forOrg = (id, fn) => services.platformDb.transaction((tx) => asOrganization(tx, id, fn))`). For each chat it cuts the
+The job reads and runs on `services.db`, the runtime role the platform services keep "for work in one organization
+that needs no platform rights" (`PlatformServices.db`), so the dry turn runs as it does in Try it; only the summary
+writes through `platformDb`. For each chat it cuts the
 lines just before the newest customer burst's first reply (or at the end when unanswered), runs the dry turn 3 times
 with the published prompt, records each run as a `replay` trace with its live hard checks, and counts a chat as passed
 when all 3 runs pass every check.
