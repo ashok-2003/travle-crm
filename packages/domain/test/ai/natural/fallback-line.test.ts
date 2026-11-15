@@ -9,6 +9,8 @@ describe("the fallback line", () => {
     expect(fallbackLine("Kedarkantha ka price?")).toBe("Ye team se check karke yahin batate hain.");
     expect(fallbackLine("Trek ki details bhejo")).toBe("Ye team se check karke yahin batate hain.");
     expect(fallbackLine("Please send me the details")).toBe("Let me check this with the team; they'll reply here.");
+    // A particle counts only in lower case: "Ko Samui" is a place.
+    expect(fallbackLine("What's the price for Ko Samui?")).toBe("Let me check this with the team; they'll reply here.");
     expect(fallbackLine("What does the Kedarkantha trek cost?")).toBe(
       "Let me check this with the team; they'll reply here.",
     );

@@ -293,6 +293,26 @@ describe("G1: every amount in the words is one the data holds", () => {
     expect(check("Students pay ₹8,074.", students)).toMatchObject(refusedBy("G1"));
   });
 
+  it("grounds no discounted price from a figure that owner text doesn't give as a discount (fix round 2)", () => {
+    const answering = (cancellation: string) => ({ answers: { ...answers, cancellation } });
+    // ₹9,499 less 50% is ₹4,749.50, less 30% is ₹6,649.30.
+    expect(check("Special price ₹4,750.", answering("We offer a 50% refund up to 15 days before."))).toMatchObject(
+      refusedBy("G1"),
+    );
+    expect(check("Special price ₹4,750.", answering("Call off 15 days before and get 50% back."))).toMatchObject(
+      refusedBy("G1"),
+    );
+    expect(check("Special price ₹6,649.", answering("No discount on peak dates; 30% advance."))).toMatchObject(
+      refusedBy("G1"),
+    );
+    // A discount word in the sentence but not beside the figure gives nothing.
+    const farOff = answering("Group discount available on request; 30% advance to book.");
+    expect(check("Special price ₹6,649.", farOff)).toMatchObject(refusedBy("G1"));
+    expect(check("Special price ₹4,750.", answering("Winter offer: 50% off on all treks."))).toMatchObject({
+      ok: true,
+    });
+  });
+
   it("reads a bare amount of ₹500 or more, as Hinglish writes it (fix round 1)", () => {
     expect(check("Aapke liye 7,999 me ho jayega.")).toMatchObject({
       ok: false,
@@ -309,6 +329,34 @@ describe("G1: every amount in the words is one the data holds", () => {
     const words =
       "Summit at 12,500 ft, 1,200 m climb. Batch of 2026, Sat 12 Dec, pickup 6 am or 18:30. Call +91 98765 43210.";
     expect(check(words)).toEqual({ ok: true, verdicts: [] });
+  });
+
+  it("reads a height or a distance in Hindi, hyphenated or spelled out as no amount (fix round 2)", () => {
+    for (const words of [
+      "केदारकांठा की ऊंचाई 3,800 मीटर है।",
+      "समिट 12,500 फीट पर है।",
+      "A 3,800-metre summit.",
+      "A 12,500-ft summit.",
+      "Summit 12,500 foot.",
+      "Summit 3,800 mts.",
+      "Delhi se 1,500 kilometres.",
+    ])
+      expect(check(words)).toEqual({ ok: true, verdicts: [] });
+  });
+
+  it("reads 2020 to 2035 as a year only beside a month, a weekday or a year word (fix round 2)", () => {
+    expect(check("Sirf 2000 extra lagenge.")).toMatchObject(refusedBy("G1"));
+    expect(check("Bas 2030 aur lagenge.")).toMatchObject(refusedBy("G1"));
+    // Outside 2020 to 2035 a number is money even beside a year word.
+    expect(check("Hum 2015 batch se treks chala rahe hain.")).toMatchObject(refusedBy("G1"));
+    for (const words of ["2026 batch full hai.", "Next year 2027 mein phir chalenge.", "साल 2026 में चलेंगे।"])
+      expect(check(words)).toEqual({ ok: true, verdicts: [] });
+  });
+
+  it("reads a time with a leading zero and a pincode as no amount (fix round 2)", () => {
+    for (const words of ["Pickup 0630 baje.", "Pickup: Dehradun 248001.", "Pin 248001 pe courier karenge."])
+      expect(check(words)).toEqual({ ok: true, verdicts: [] });
+    expect(check("Sirf 248001 lagenge.")).toMatchObject(refusedBy("G1"));
   });
 
   it("reads Devanagari digits as an amount", () => {
@@ -463,6 +511,19 @@ describe("G4: the team's word and discounts, only when owner or Team text holds 
 
   it("reads 'off' as a discount only right after a figure", () => {
     expect(check("Pick-up and drop-off included: ₹9,499 per person.")).toMatchObject({ ok: true });
+  });
+
+  it("grounds a discount only where owner or Team text gives that figure as one (fix round 2)", () => {
+    expect(
+      check("₹3,000 off kar denge.", { teamLines: ["Advance 3000 per head lena, kam se kam 4 log"] }),
+    ).toMatchObject(refusedBy("G4"));
+    expect(check("₹7,000 off milega.", { teamLines: ["7000 se kam me mat dena"] })).toMatchObject(refusedBy("G4"));
+    expect(check("₹2,000 off milega.", { teamLines: ["Advance 2000 kam se kam lena"] })).toMatchObject(refusedBy("G4"));
+    const noDiscount = { ownerText: "No discount of 10% on peak dates." };
+    expect(check("Aapko 10% off milega.", noDiscount)).toMatchObject(refusedBy("G4"));
+    expect(check("Aapko 10% off milega.", { ownerText: "Winter offer: 10% off on all treks." })).toMatchObject({
+      ok: true,
+    });
   });
 });
 

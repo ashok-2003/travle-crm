@@ -6,11 +6,13 @@ const HINGLISH = new Set(
   [
     "hai hain kya kitna kitne kitni kab kaise kahan kaun kyun haan nahi nahin chahiye batao bataiye bataye",
     "mujhe humein hume karna karo kijiye aur theek thik accha acha achha chalega wala wali abhi mera meri",
-    "aap aapka yaar ji ka ki ke ko se bhejo bhej",
+    "aap aapka yaar ji bhejo bhej",
   ]
     .join(" ")
     .split(" "),
 );
+/** Hinglish particles count only in lower case: "Ko Samui" and "Ki Monastery" are places. */
+const PARTICLES = new Set(["ka", "ki", "ke", "ko", "se"]);
 
 const LINES = {
   hindi: "यह टीम से पूछकर यहीं बताते हैं।",
@@ -21,6 +23,7 @@ const LINES = {
 /** The line for the customer's new lines. */
 export function fallbackLine(customerText: string): string {
   if (/[\u0900-\u097F]/u.test(customerText)) return LINES.hindi;
-  const words = customerText.toLowerCase().match(/\p{L}+/gu) ?? [];
-  return words.some((word) => HINGLISH.has(word)) ? LINES.hinglish : LINES.english;
+  const words = customerText.match(/\p{L}+/gu) ?? [];
+  const hinglish = words.some((word) => HINGLISH.has(word.toLowerCase()) || PARTICLES.has(word));
+  return hinglish ? LINES.hinglish : LINES.english;
 }

@@ -3,23 +3,8 @@
 import { amountsAndDatesIn } from "@travel-crm/contracts/ai";
 import { parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
 import { monthOf, resolveDay } from "../../fill/dates.js";
-import { withAsciiDigits } from "./amounts.js";
+import { HINDI_MONTHS, withAsciiDigits } from "./amounts.js";
 
-/** Hindi month names, NFC (a nukta stays a separate mark): सितंबर or सितम्बर, अक्टूबर or अक्तूबर. */
-const HINDI_MONTHS = [
-  "जनवरी",
-  "फ\u093C?रवरी",
-  "मार्च",
-  "अप्रैल",
-  "मई",
-  "जून",
-  "जुलाई",
-  "अगस्त",
-  "सित(?:ं|म्)बर",
-  "अक्(?:टू|तू)बर",
-  "नव(?:ं|म्)बर",
-  "दिस(?:ं|म्)बर",
-];
 const HINDI_DATE = new RegExp(`(?<!\\d)(\\d{1,2})\\s*(${HINDI_MONTHS.join("|")})(?![\\p{L}\\p{M}])`, "gu");
 const NUMERIC_DATE = /(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?/u;
 const DAY_MONTH = /(\d{1,2})(?:st|nd|rd|th)?\s*(?:of\s+)?([a-z]+)/giu;

@@ -3,7 +3,8 @@
 import type { AgencyAnswers, ToldTotal } from "@travel-crm/contracts/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
 import type { QuoteFigures, TripSheet } from "../types.js";
-import { amountsIn, discountFiguresIn, looseAmountsIn } from "./amounts.js";
+import { amountsIn, looseAmountsIn } from "./amounts.js";
+import { discountsGivenIn } from "./discounts.js";
 
 export interface GroundedSet {
   /** Whether the data holds the amount: exactly, or within 1% when it was written as shorthand ("9.5k"). */
@@ -130,7 +131,7 @@ export function groundedAmounts(input: {
   const sheetOf = (packageId: string) => input.sheets.find((sheet) => sheet.packageId === packageId);
   const answers = Object.values(input.answers);
   const texts = [...answers, ...input.teamLines, ...input.sheets.map(tripTextOf)];
-  const discounts = [...new Set(texts.flatMap((text) => discountFiguresIn(text).percents))].filter(
+  const discounts = [...new Set(texts.flatMap((text) => discountsGivenIn(text).percents))].filter(
     (percent) => percent > 0 && percent < 100,
   );
   const told = input.told
