@@ -36,7 +36,8 @@ import type {
   TimelineLine,
 } from "./types.js";
 
-const LAST_MESSAGES = 20;
+/** The chat's lines a turn reads: its last 20. */
+export const LAST_MESSAGES = 20;
 
 export interface LitePrepared {
   settings: AutopilotRow;
@@ -72,6 +73,12 @@ export interface LitePrepared {
   supplierStateCode: string | null;
 }
 
+/** The customer's messages after our last one: what the turn answers. */
+export function burstOf(messages: ContextMessage[]): ContextMessage[] {
+  const ours = messages.map((message) => message.from !== "customer").lastIndexOf(true);
+  return messages.slice(ours + 1);
+}
+
 /** The chat's lines as the prompts read them: who wrote each (the customer, this AI, or the team) and what. */
 export async function chatLines(tx: OrgTx, conversationId: string) {
   const rows = await tx.whatsappMessage.findMany({
@@ -81,14 +88,13 @@ export async function chatLines(tx: OrgTx, conversationId: string) {
     select: storedMessageFields,
   });
   const messages: ContextMessage[] = rows.reverse().map(contextMessageOf);
-  const ours = messages.map((message) => message.from !== "customer").lastIndexOf(true);
   const sent = await tx.whatsappMessage.findMany({
     where: { conversationId, direction: "out", body: { not: null } },
     orderBy: { occurredAt: "desc" },
     take: RECENT_SENT,
     select: { body: true },
   });
-  return { messages, burst: messages.slice(ours + 1), sent: sent.map((row) => row.body ?? "") };
+  return { messages, burst: burstOf(messages), sent: sent.map((row) => row.body ?? "") };
 }
 
 /** The places the reply check knows (the agency's destinations and India's travel places), and those it doesn't sell. */
@@ -114,7 +120,7 @@ export async function usableNameOf(
 }
 
 /** The facts as the turn starts from them: a package no longer for sale let go, and a usable name taken as theirs. */
-function startingFacts(facts: LiteFacts, index: PackageIndexEntry[], name: string | null): LiteFacts {
+export function startingFacts(facts: LiteFacts, index: PackageIndexEntry[], name: string | null): LiteFacts {
   const sellable = facts.packageId === null || index.some((entry) => entry.id === facts.packageId);
   const kept = sellable ? facts : { ...facts, packageId: null, departureId: null, quoted: null };
   return kept.name === null && name !== null ? { ...kept, name } : kept;

@@ -3,10 +3,10 @@ import type { AiFailure, AiModel, AiRequest } from "@travel-crm/integrations/ai"
 import { jsonObjectIn } from "../fill/json.js";
 
 /**
- * The answer budget of the turn's read and write calls, the old agent's own (commit 53b71290): a thinking model spends
- * part of it reasoning, and a cut-off answer is no JSON.
+ * The answer budget of the turn's read and write calls. It caps the model's whole output, its thinking included: at 2500
+ * a long think cut the JSON off, and a cut-off answer is no JSON, which ended the turn in silence (owner, 2026-11-14).
  */
-export const ANSWER_MAX_TOKENS = 2500;
+export const ANSWER_MAX_TOKENS = 8000;
 
 /** What askFor needs of a Zod schema, so the domain package takes no dependency on zod itself. */
 export interface Contract<T> {

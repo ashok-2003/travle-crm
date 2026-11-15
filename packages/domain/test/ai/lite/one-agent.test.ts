@@ -90,7 +90,7 @@ describe("one agent", () => {
     await liteDryRun(
       { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
       memberOf(on.organizationId, "org-owner"),
-      "any discount?",
+      { messages: [{ from: "customer", text: "any discount?" }], state: null },
       testNow,
     );
     expect(on.model.requests[0]?.schema?.name).toBe("understand_form");

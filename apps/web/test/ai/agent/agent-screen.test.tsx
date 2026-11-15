@@ -47,20 +47,20 @@ describe("the AI agent page's tabs", () => {
   it("opens Try it with the test box from ?tab=try", async () => {
     await open("/ai-agent?tab=try");
     expect(screen.getByRole("tab", { name: t.tabs.try, selected: true })).toBeInTheDocument();
-    expect(screen.getByLabelText(messages.ai.test.question)).toBeVisible();
+    expect(screen.getByLabelText(messages.ai.test.message)).toBeVisible();
   });
 
   it("opens Try it even when the setup checklist fails to load", async () => {
     stubApi({ "ai.agentSetup": { status: 500, reason: "INTERNAL" } });
     address.set("/ai-agent?tab=try");
     renderWithApi(<AgentScreen />, client());
-    expect(await screen.findByLabelText(messages.ai.test.question)).toBeVisible();
+    expect(await screen.findByLabelText(messages.ai.test.message)).toBeVisible();
     expect(screen.getByRole("tab", { name: t.tabs.setup })).toBeInTheDocument();
   });
 
   it("falls back to Overview for an unknown tab", async () => {
     await open("/ai-agent?tab=nonsense");
     expect(screen.getByRole("tab", { name: t.tabs.overview, selected: true })).toBeInTheDocument();
-    expect(screen.queryByLabelText(messages.ai.test.question)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(messages.ai.test.message)).not.toBeInTheDocument();
   });
 });

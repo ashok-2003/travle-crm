@@ -1,5 +1,5 @@
-// Try it for a lite agency: the lite turn as a dry run. It shows what the customer would get and what code would do,
-// and sends, holds, books and writes nothing but the month's usage.
+// Try it for a lite agency: the lite turn as a dry run on a chat of one customer line. It shows what the customer would
+// get and what code would do, and sends, holds, books and writes nothing but the month's usage.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { liteDryRun } from "../../../src/ai/index.js";
 import { fixedText } from "../../../src/ai/lite/fixed-texts.js";
@@ -20,7 +20,7 @@ describe("Try it for the lite agent", () => {
     liteDryRun(
       { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
       memberOf(on.organizationId, "org-owner"),
-      question,
+      { messages: [{ from: "customer", text: question }], state: null },
       testNow,
     );
 
@@ -70,7 +70,7 @@ describe("Try it for the lite agent", () => {
     expect(await rows(on)).toEqual(before);
   });
 
-  it("a typed price twice shows blocked amount", async () => {
+  it("a typed price twice hands over with the hand-over line, as the live turn sends it", async () => {
     const on = await liteAgency(test);
     const before = await rows(on);
     const typed = written("It costs ₹5,999 only. Which city will you join us from?");
@@ -82,7 +82,20 @@ describe("Try it for the lite agent", () => {
       typed,
     );
     const shown = await tryIt(on, "price for kedarnath?");
-    expect(shown).toEqual({ answer: "", handoff: false, reason: "", dryRun: { actions: [], blocked: "amount" } });
+    expect(shown).toMatchObject({
+      answer: fixedText("hand_over", "english", {}).text,
+      handoff: true,
+      reason: "The AI couldn't write a safe reply.",
+      dryRun: { blocked: null },
+    });
+    expect(shown.trace).toMatchObject({
+      handOver: "check_failed",
+      why: "write:amount",
+      writes: [
+        { answer: typed, refused: "amount" },
+        { answer: typed, refused: "amount" },
+      ],
+    });
     expect(await calls(on)).toBe(3);
     expect(await rows(on)).toEqual(before);
   });

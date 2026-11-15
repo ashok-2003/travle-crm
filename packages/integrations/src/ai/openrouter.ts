@@ -1,6 +1,7 @@
 // The AI adapter (ADR 0029): any OpenAI-compatible chat endpoint, OpenRouter's by default (Google's Gemini, called directly,
 // is https://generativelanguage.googleapis.com/v1beta/openai). Each feature's models are configuration: its list is tried in
-// order, the next one when a model is rate limited, overloaded or gone, and a rate-limited one rests a while unasked.
+// order, the next one when a model is rate limited, overloaded or gone, and a rate-limited one rests a while unasked; a
+// request that names its own model asks that one alone.
 // OpenRouter's own fields (`provider.zdr`, zero data retention on every request) are sent ONLY to OpenRouter: other
 // endpoints reject fields they don't know, and keep what their own terms say. The key is sent as a header and appears
 // nowhere else: not in a message, a log or an error.
@@ -121,7 +122,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   return {
     configured: options.apiKey !== "" && Object.values(options.models).some((list) => list.length > 0),
     async complete(request: AiRequest): Promise<AiResult> {
-      const list = options.models[request.feature] ?? [];
+      const list = request.model === undefined ? (options.models[request.feature] ?? []) : [request.model];
       if (options.apiKey === "" || list.length === 0) return { ok: false, reason: "not_configured" };
       let limited = false;
       for (const model of list) {
@@ -143,6 +144,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
                 model,
                 messages: (asJson ? withSchemaInSystem(request) : request.messages).map(wireMessage),
                 max_tokens: request.maxTokens ?? 500,
+                ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
                 ...responseFormat(request, asJson),
                 ...(request.user === undefined ? {} : { user: request.user }),
                 // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.

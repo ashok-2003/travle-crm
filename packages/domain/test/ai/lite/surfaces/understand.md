@@ -101,4 +101,4 @@ Customer (Thu 12 Nov, 1:30 pm): <<Hi, I saw your ad>>
 You (Thu 12 Nov, 1:31 pm): Hello! Which trip are you thinking of?
 Customer (Thu 12 Nov, 3:40 pm): <<kedarnath, 3 adults and a kid of 8, 15 dec>>
 
-# schema understand_form · feature autopilot · maxTokens 2500
+# schema understand_form · feature autopilot · maxTokens 8000
