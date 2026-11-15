@@ -151,10 +151,9 @@ const hasTools = (request: AiRequest): boolean => (request.tools ?? []).length >
  * OpenRouter lists takes it, so under `require_parameters` it would leave no route (Gemini calls in parallel by itself).
  */
 function toolSettings(request: AiRequest): object {
-  const tools = request.tools ?? [];
-  if (tools.length === 0) return {};
+  if (!hasTools(request)) return {};
   return {
-    tools: tools.map(({ name, description, parameters }) => ({
+    tools: (request.tools ?? []).map(({ name, description, parameters }) => ({
       type: "function",
       function: { name, description, parameters },
     })),

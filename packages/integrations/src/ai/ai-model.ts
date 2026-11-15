@@ -41,7 +41,10 @@ export interface AiToolCall {
   arguments: string;
 }
 
-/** Why the model stopped; any reason the provider gives besides these four is "other". */
+/**
+ * Why the model stopped; any reason the provider gives besides these four is "other". The OpenRouter adapter answers a
+ * `content_filter` stop as the failure `refused` instead, so only other adapters' answers carry it.
+ */
 export type AiFinishReason = "stop" | "tool_calls" | "length" | "content_filter" | "other";
 
 /** How much the model thinks before it answers. */
@@ -87,6 +90,10 @@ export interface AiRequest {
   tools?: readonly AiTool[];
   /** Whether the model may call the tools ("auto") or must answer in words ("none"); sent only with tools. */
   toolChoice?: "auto" | "none";
+  /**
+   * How much the model thinks, sent as OpenRouter's `reasoning.effort`: for requests to OpenRouter alone (Google's
+   * endpoint names it otherwise).
+   */
   reasoning?: { effort: AiEffort };
   /** How long one model's try may take, in milliseconds, instead of the adapter's own limit. */
   timeoutMs?: number;

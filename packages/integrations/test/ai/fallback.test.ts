@@ -61,6 +61,15 @@ describe("the AI's backup", () => {
     });
   });
 
+  it("asks the backup with under 10 seconds left when the first has no model for the feature", async () => {
+    const first = createMemoryAiModel(); // unscripted: not_configured, as a key with no model for the feature answers
+    const backup = createMemoryAiModel();
+    backup.answer("From the backup");
+    expect(await withBackupModel(first, backup).complete({ ...request, deadlineAt: Date.now() + 5_000 })).toMatchObject(
+      { ok: true, text: "From the backup" },
+    );
+  });
+
   it("the backup model gets the same schema", async () => {
     const first = createMemoryAiModel();
     const backup = createMemoryAiModel();
