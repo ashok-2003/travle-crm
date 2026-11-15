@@ -6,6 +6,7 @@ import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integration
 import { saveAgencyAnswers, saveAgentBasics, saveAiSettings } from "../../../../src/ai/index.js";
 import { memberOf } from "../../../imports/support/test-imports.js";
 import { aConnectedAgency, testNow, type TestInbox } from "../../../inbox/support.js";
+import { day, readyFile } from "../../lite/support/lite-agency.js";
 import { storeAutopilot } from "../../support/store-autopilot.js";
 
 export const NATURAL_UPI = "casetrips@okhdfc";
@@ -66,17 +67,6 @@ const another = (number: number): TripSeed => ({
   triplePaise: 800_000n + BigInt(number) * 10_000n,
   departures: ["2026-12-12"],
   brochure: false,
-});
-
-const day = (text: string) => new Date(`${text}T00:00:00Z`);
-const readyFile = (recordType: string, recordId: string, fileName: string, contentType: string) => ({
-  recordType,
-  recordId,
-  fileName,
-  contentType,
-  sizeBytes: 3,
-  status: "ready",
-  confirmedAt: new Date(),
 });
 
 async function seedTrip(tx: OrgTx, trip: TripSeed): Promise<string> {

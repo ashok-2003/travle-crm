@@ -23,7 +23,7 @@ export const withoutContacts = (text: string) =>
     .replace(/[ \t]{2,}/gu, " ")
     .trim();
 const clean = (text: string) => withoutContacts(withoutAmountsAndDates(withoutPaymentDetails(text)));
-const strings = (value: unknown): string[] =>
+export const strings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((one): one is string => typeof one === "string") : [];
 
 /** What the customer may be told about a package, with every typed amount, date and payment detail taken out. */

@@ -7,6 +7,8 @@ import { parseCalendarDate } from "../../../src/kernel/index.js";
 const today = parseCalendarDate("2026-11-14");
 const day = parseCalendarDate;
 
+const bySeason = { priceFrom: "season", perPersonPaise: { triple: 949_900 } } as const;
+
 const kedarkantha: TripSheet = {
   label: "T1",
   packageId: "kedarkantha",
@@ -35,9 +37,9 @@ const kedarkantha: TripSheet = {
   fromPaise: 949_900,
   advancePerPersonPaise: 300_000,
   departures: [
-    { id: "d12", startsOn: day("2026-12-12"), freeSeats: 20 },
-    { id: "d19", startsOn: day("2026-12-19"), freeSeats: 4 },
-    { id: "d26", startsOn: day("2026-12-26"), freeSeats: 12 },
+    { id: "d12", startsOn: day("2026-12-12"), freeSeats: 20, ...bySeason },
+    { id: "d19", startsOn: day("2026-12-19"), freeSeats: 4, ...bySeason },
+    { id: "d26", startsOn: day("2026-12-26"), freeSeats: 12, ...bySeason },
   ],
   fileIds: ["brochure"],
 };
@@ -82,15 +84,27 @@ describe("a trip as the natural agent reads it", () => {
     expect(text).toContain("Winter (Sun 1 Nov–Thu 31 Dec): double ₹10,999, triple ₹9,499 per person");
   });
 
-  it("gives a departure's own prices beside it, since they replace the season's", () => {
+  it("gives a departure's own prices as replacing the season's, and says when nothing prices a date", () => {
     const text = tripInFull(
       {
         ...kedarkantha,
-        departures: [{ id: "d26", startsOn: day("2026-12-26"), freeSeats: 3, perPersonPaise: { triple: 1_199_900 } }],
+        departures: [
+          {
+            id: "d26",
+            startsOn: day("2026-12-26"),
+            freeSeats: 3,
+            priceFrom: "departure",
+            perPersonPaise: { triple: 1_199_900 },
+          },
+          { id: "d09", startsOn: day("2027-01-09"), freeSeats: 20, priceFrom: "none", perPersonPaise: {} },
+        ],
       },
       today,
     );
-    expect(text).toContain("Sat 26 Dec: 3 left, this departure's own price: triple ₹11,999 per person");
+    expect(text).toContain(
+      "- Sat 26 Dec: 3 left; this date's own prices replace the season's: triple ₹11,999 per person",
+    );
+    expect(text).toContain("- Sat 9 Jan 2027: open; no price set for this date");
   });
 
   it("keeps numbers in the owner's text", () => {

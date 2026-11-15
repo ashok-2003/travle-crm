@@ -44,8 +44,15 @@ export interface TripSheet {
   taxRateBasisPoints: number;
   fromPaise: number | null;
   advancePerPersonPaise: number | null;
-  // The next 8 open, from tomorrow. A departure with its own prices carries them: they replace the season's on that date.
-  departures: { id: string; startsOn: CalendarDate; freeSeats: number; perPersonPaise?: PerPersonPrices }[];
+  // The next 8 open, from tomorrow, each with the prices the quote uses on its date (`priceOn`): the season's, the
+  // departure's own (which replace the season's), or none (empty).
+  departures: {
+    id: string;
+    startsOn: CalendarDate;
+    freeSeats: number;
+    priceFrom: "season" | "departure" | "none";
+    perPersonPaise: PerPersonPrices;
+  }[];
   // Brochures first, then photos.
   fileIds: string[];
 }

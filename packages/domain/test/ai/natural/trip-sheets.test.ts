@@ -6,6 +6,7 @@ import { tripSheetsOf } from "../../../src/ai/natural/trips/trip-sheets.js";
 import { tripIndexLine, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 import { sellablePackages } from "../../../src/quotes/index.js";
+import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { countingDatabase } from "../lite/support/counting-db.js";
 import { naturalAgency } from "./support/natural-agency.js";
@@ -79,15 +80,73 @@ describe("the natural agent's trip sheets", () => {
       title: "Kedarkantha summit (3,800 m) and back",
       text: "Start at 3 am for the sunrise.",
     });
-    expect(sheet?.departures.map((one) => [one.startsOn, one.freeSeats])).toEqual([
-      ["2026-12-05", 20],
-      ["2026-12-12", 20],
-      ["2026-12-19", 20],
-      ["2026-12-26", 20],
+    expect(sheet?.departures.map((one) => [one.startsOn, one.freeSeats, one.priceFrom, one.perPersonPaise])).toEqual([
+      ["2026-12-05", 20, "season", { triple: 949_900 }],
+      ["2026-12-12", 20, "season", { triple: 949_900 }],
+      ["2026-12-19", 20, "season", { triple: 949_900 }],
+      ["2026-12-26", 20, "season", { triple: 949_900 }],
     ]);
     // A departure leaving today is no longer offered.
     const [onTheDay] = await sheets(parseCalendarDate("2026-12-05"));
     expect(onTheDay?.departures.map((one) => one.startsOn)).toEqual(["2026-12-12", "2026-12-19", "2026-12-26"]);
+  });
+
+  describe("each departure has the price the quote uses for its date (priceOn)", () => {
+    /** A batch of T1 on `startsOn` with these own prices, and T1's sheet and text after it. */
+    async function withBatch(startsOn: string, prices: { priceTriplePaise?: bigint; priceQuadPaise?: bigint } = {}) {
+      const { inOrg, sheets, kedarkantha } = await world();
+      const date = new Date(`${startsOn}T00:00:00Z`);
+      await inOrg(async (tx) => {
+        await tx.quoteTemplate.update({ where: { id: kedarkantha }, data: { roomTypes: ["double", "triple"] } });
+        await tx.packageSeason.updateMany({
+          where: { templateId: kedarkantha },
+          data: { priceDoublePaise: 1_099_900n },
+        });
+        await tx.departure.create({
+          data: { title: "Batch", startDate: date, endDate: date, seatsTotal: 20, templateId: kedarkantha, ...prices },
+        });
+      });
+      const [sheet] = await sheets();
+      const batch = sheet?.departures.find((one) => one.startsOn === startsOn);
+      return { batch, text: tripInFull(sheet ?? expect.unreachable(), today) };
+    }
+
+    it("gives a premium batch its own prices, only the rooms they price, as replacing the season's", async () => {
+      const { batch, text } = await withBatch("2026-12-24", { priceTriplePaise: 1_199_900n });
+      expect(batch).toMatchObject({ priceFrom: "departure", perPersonPaise: { triple: 1_199_900 } });
+      expect(batch?.perPersonPaise).not.toHaveProperty("double");
+      expect(text).toContain(
+        "- Thu 24 Dec: open; this date's own prices replace the season's: triple ₹11,999 per person",
+      );
+      expect(text).toContain("- Sat 12 Dec: open\n");
+    });
+
+    it("says no price is set for a batch past the season's end", async () => {
+      const { batch, text } = await withBatch("2027-01-09");
+      expect(batch).toMatchObject({ priceFrom: "none", perPersonPaise: {} });
+      expect(text).toContain("- Sat 9 Jan 2027: open; no price set for this date");
+    });
+
+    it("says no price is set for a batch whose own prices are only on rooms the trip doesn't sell", async () => {
+      const { batch, text } = await withBatch("2026-12-24", { priceQuadPaise: 899_900n });
+      expect(batch).toMatchObject({ priceFrom: "none", perPersonPaise: {} });
+      expect(text).toContain("- Thu 24 Dec: open; no price set for this date");
+    });
+
+    it("never lists a full departure", async () => {
+      const { inOrg, sheets, kedarkantha } = await world();
+      await inOrg(async (tx) => {
+        const full = await tx.departure.findFirstOrThrow({
+          where: { templateId: kedarkantha, startDate: new Date("2026-12-19T00:00:00Z") },
+        });
+        const lead = await aLead(tx);
+        await tx.departureHold.create({
+          data: { departureId: full.id, leadId: lead.id, seats: 20, expiresAt: new Date("2999-01-01T00:00:00Z") },
+        });
+      });
+      const [sheet] = await sheets();
+      expect(sheet?.departures.map((one) => one.startsOn)).toEqual(["2026-12-05", "2026-12-12", "2026-12-26"]);
+    });
   });
 
   it("drops payment details and emails from owner text but no number", async () => {

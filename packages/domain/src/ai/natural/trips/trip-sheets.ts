@@ -7,15 +7,15 @@ import { quoteTaxRate, roomTypes, type RoomPrices, type RoomType } from "@travel
 import type { OrgTx } from "@travel-crm/db";
 import { openDepartureDetailsByPackage } from "../../../departures/index.js";
 import type { CalendarDate } from "../../../kernel/index.js";
-import { fromPrices, packageFilesByPackage, seasonsByPackage } from "../../../quotes/index.js";
-import { lowestAdultPrice, withoutContacts } from "../../lite/lookups/package-reads.js";
+import { fromPrices, packageFilesByPackage, priceOn, seasonsByPackage } from "../../../quotes/index.js";
+import { lowestAdultPrice, strings, withoutContacts } from "../../lite/lookups/package-reads.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
 
 const MOST_DEPARTURES = 8;
 const MOST_DAYS = 12;
 const MOST_LINES = 6;
 
-/** Cut before `most` characters at a word, so no number is ever cut in half. */
+/** Cut before `most` characters at a word, so a number isn't cut in half (unless the text has no space to cut at). */
 function cut(text: string, most: number): string {
   if (text.length <= most) return text;
   const head = text.slice(0, most - 1);
@@ -32,9 +32,6 @@ const ownerLines = (lines: readonly string[]) =>
     .map((line) => ownerText(line, 100))
     .filter((line) => line !== "")
     .slice(0, MOST_LINES);
-
-const textsOf = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((one): one is string => typeof one === "string") : [];
 
 function daysOf(value: unknown): TripSheet["days"] {
   if (!Array.isArray(value)) return [];
@@ -115,7 +112,7 @@ export async function tripSheetsOf(
       nights: row.nights,
       startCity: row.startCity,
       summary: ownerText(row.summary, 300),
-      highlights: ownerLines(textsOf(row.highlights)),
+      highlights: ownerLines(strings(row.highlights)),
       days: daysOf(row.days),
       pickups: ownerLines(row.pickupPoints.split("\n")),
       inclusions: ownerText(row.inclusions, 600),
@@ -137,10 +134,11 @@ export async function tripSheetsOf(
       fromPaise: lowestAdultPrice(ownSeasons, open, today, offered),
       advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
       departures: open.slice(0, MOST_DEPARTURES).map((one) => {
-        // Prices a departure sets replace the season's on its date (`priceOn`).
-        const own = pricedOnly(one.prices, rooms);
-        const line = { id: one.id, startsOn: one.startsOn, freeSeats: one.freeSeats };
-        return hasAny(own) ? { ...line, perPersonPaise: own } : line;
+        // The quote's own rule, so the sheet never gives a date a price the quote would refuse or change.
+        const priced = priceOn(one.startsOn, ownSeasons, one, offered);
+        const perPersonPaise = priced === null ? {} : pricedOnly(priced.prices, offered);
+        const priceFrom = priced === null || !hasAny(perPersonPaise) ? ("none" as const) : priced.source;
+        return { id: one.id, startsOn: one.startsOn, freeSeats: one.freeSeats, priceFrom, perPersonPaise };
       }),
       fileIds: [...brochures, ...photos],
     };

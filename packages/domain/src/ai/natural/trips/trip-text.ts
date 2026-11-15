@@ -82,10 +82,14 @@ export function tripInFull(sheet: TripSheet, today: CalendarDate): string {
   const seasons = sheet.seasons.map(
     (season) => `- ${season.name} (${day(season.from)}–${day(season.until)}): ${pricesWords(season.perPersonPaise)}`,
   );
+  const priceOfDate = (one: TripSheet["departures"][number]) =>
+    one.priceFrom === "departure"
+      ? `; this date's own prices replace the season's: ${pricesWords(one.perPersonPaise)}`
+      : one.priceFrom === "none"
+        ? "; no price set for this date"
+        : "";
   const departures = sheet.departures.map(
-    (one) =>
-      `- ${day(one.startsOn)}: ${seatWords(one.freeSeats)}` +
-      (one.perPersonPaise === undefined ? "" : `, this departure's own price: ${pricesWords(one.perPersonPaise)}`),
+    (one) => `- ${day(one.startsOn)}: ${seatWords(one.freeSeats)}${priceOfDate(one)}`,
   );
   return [
     headOf(sheet),
