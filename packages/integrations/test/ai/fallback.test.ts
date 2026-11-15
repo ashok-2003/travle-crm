@@ -1,5 +1,6 @@
 // The AI's backup: the backup answers only when the first can't (rate limited, unavailable, not set up), never after an
-// answer or a refusal of the content, and says rate limited when neither answers and either was.
+// answer, a refusal of the content or a bad request, nor with under 10 seconds left before the request's deadline, and
+// says rate limited when neither answers and either was.
 import { describe, expect, it } from "vitest";
 import { createMemoryAiModel, withBackupModel } from "../../src/ai/index.js";
 
@@ -32,6 +33,32 @@ describe("the AI's backup", () => {
     first.answer({ ok: false, reason: "rate_limited" });
     backup.answer({ ok: false, reason: "unavailable" });
     expect(await withBackupModel(first, backup).complete(request)).toEqual({ ok: false, reason: "rate_limited" });
+  });
+
+  it("a bad_request is final: the backup isn't asked", async () => {
+    const first = createMemoryAiModel();
+    const backup = createMemoryAiModel();
+    first.answer({ ok: false, reason: "bad_request" });
+    backup.answer("From the backup");
+    expect(await withBackupModel(first, backup).complete(request)).toEqual({ ok: false, reason: "bad_request" });
+    expect(backup.requests).toHaveLength(0);
+  });
+
+  it("asks the backup only while 10 seconds remain before the request's deadline", async () => {
+    const first = createMemoryAiModel();
+    const backup = createMemoryAiModel();
+    first.answer({ ok: false, reason: "unavailable" }, { ok: false, reason: "unavailable" });
+    backup.answer("From the backup");
+    const model = withBackupModel(first, backup);
+    expect(await model.complete({ ...request, deadlineAt: Date.now() + 9_000 })).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    expect(backup.requests).toHaveLength(0);
+    expect(await model.complete({ ...request, deadlineAt: Date.now() + 20_000 })).toMatchObject({
+      ok: true,
+      text: "From the backup",
+    });
   });
 
   it("the backup model gets the same schema", async () => {
