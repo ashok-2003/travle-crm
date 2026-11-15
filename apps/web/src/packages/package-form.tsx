@@ -56,6 +56,7 @@ const fields = [
 ] as const;
 const renamed: Partial<Record<string, keyof Values>> = {
   destinationId: "destination",
+  newDestinationName: "destination",
   fromPricePaise: "fromPrice",
   defaultTravellerLevel: "level",
   ...groupInputFields,
@@ -75,6 +76,7 @@ function toInput(packageId: string, detail: PackageDetail, typed: Values) {
     taxRateBasisPoints: detail.taxRateBasisPoints,
     slug: typed.slug.trim() === "" ? null : typed.slug.trim(),
     destinationId: typed.destination?.kind === "existing" ? typed.destination.destinationId : null,
+    ...(typed.destination?.kind === "new" && { newDestinationName: typed.destination.name }),
     nights,
     summary: typed.summary,
     highlights: typed.highlights
@@ -161,6 +163,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
             name="destination"
             label={t("destination")}
             hint={t("destinationHint")}
+            allowNew
           />
           <TextField
             control={form.control}

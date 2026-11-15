@@ -21,6 +21,7 @@ export function usePackagePhotos(packageId: string) {
 export function usePackageChanges() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const refreshWork = useRefreshWork();
   const options = {
     onSuccess: () =>
       Promise.all([
@@ -29,7 +30,13 @@ export function usePackageChanges() {
       ]),
   };
   return {
-    update: useMutation(trpc.packages.update.mutationOptions(options)),
+    // A destination named anew was added to the agency's list: its pickers and Settings load it again.
+    update: useMutation(
+      trpc.packages.update.mutationOptions({
+        onSuccess: (_saved, input) =>
+          Promise.all([options.onSuccess(), input.newDestinationName === undefined ? null : refreshWork()]),
+      }),
+    ),
     setPublished: useMutation(trpc.packages.setPublished.mutationOptions(options)),
     // A refusal means what the page showed was out of date (a payment QR removed elsewhere): read it again.
     setSellable: useMutation(
