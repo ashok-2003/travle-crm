@@ -1,7 +1,7 @@
 // Reads the sellable group trips for the natural agent (spec 4.2), labelled T1… in the order given: owner text without
 // payment details or contacts but with every number, priced rooms, seasons not yet ended, the next open departures and
 // the files, in a fixed handful of reads whatever the number of trips. The package's internal name, its quote items
-// and its payment details are never read.
+// and its payment details are never read. The prompt's sheets cut long owner text to their budget; get_trip's are whole.
 import { withoutPaymentDetails } from "@travel-crm/contracts/ai";
 import { quoteTaxRate, roomTypes, type RoomPrices, type RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
@@ -13,26 +13,46 @@ import { cutText } from "../context/tokens.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
 
 const MOST_DEPARTURES = 8;
-const MOST_DAYS = 12;
-const MOST_LINES = 6;
+
+/**
+ * How much owner text a sheet keeps: days, lines, and characters of each part. A sheet in the prompt is cut to its token
+ * budget; a trip read whole (get_trip) keeps everything, so no fact of the owner's is out of the model's reach.
+ */
+function textLimits(cut: boolean) {
+  const most = (inPrompt: number) => (cut ? inPrompt : Number.POSITIVE_INFINITY);
+  return {
+    days: most(12),
+    lines: most(6),
+    line: most(100),
+    dayTitle: most(80),
+    dayText: most(160),
+    summary: most(300),
+    inclusions: most(600),
+    exclusions: most(400),
+    notes: most(400),
+    cancellation: most(400),
+  };
+}
+type TextLimits = ReturnType<typeof textLimits>;
 
 /** Owner text as the model may read it: no payment detail, email or handle; every number kept. */
 const ownerText = (text: string, most: number) => cutText(withoutContacts(withoutPaymentDetails(text)), most);
 
-/** Owner text kept as separate lines (highlights, pickup points), each cut, six at most. */
-const ownerLines = (lines: readonly string[]) =>
+/** Owner text kept as separate lines (highlights, pickup points), each cut. */
+const ownerLines = (lines: readonly string[], limits: TextLimits) =>
   lines
-    .map((line) => ownerText(line, 100))
+    .map((line) => ownerText(line, limits.line))
     .filter((line) => line !== "")
-    .slice(0, MOST_LINES);
+    .slice(0, limits.lines);
 
-function daysOf(value: unknown): TripSheet["days"] {
+function daysOf(value: unknown, limits: TextLimits): TripSheet["days"] {
   if (!Array.isArray(value)) return [];
-  return value.slice(0, MOST_DAYS).flatMap((day: unknown) => {
+  return value.slice(0, limits.days).flatMap((day: unknown) => {
     if (typeof day !== "object" || day === null) return [];
     const { title, description } = day as { title?: unknown; description?: unknown };
     if (typeof title !== "string") return [];
-    return [{ title: ownerText(title, 80), text: typeof description === "string" ? ownerText(description, 160) : "" }];
+    const text = typeof description === "string" ? ownerText(description, limits.dayText) : "";
+    return [{ title: ownerText(title, limits.dayTitle), text }];
   });
 }
 
@@ -53,7 +73,9 @@ export async function tripSheetsOf(
   sellable: readonly { id: string; kind: string }[],
   today: CalendarDate,
   now: Date,
+  options: { whole?: boolean } = {},
 ): Promise<TripSheet[]> {
+  const limits = textLimits(options.whole !== true);
   const ids = sellable.filter((one) => one.kind === "group").map((one) => one.id);
   if (ids.length === 0) return [];
   const [rows, departures, seasons, files] = await Promise.all([
@@ -104,14 +126,14 @@ export async function tripSheetsOf(
       place: row.destination?.name ?? null,
       nights: row.nights,
       startCity: row.startCity,
-      summary: ownerText(row.summary, 300),
-      highlights: ownerLines(strings(row.highlights)),
-      days: daysOf(row.days),
-      pickups: ownerLines(row.pickupPoints.split("\n")),
-      inclusions: ownerText(row.inclusions, 600),
-      exclusions: ownerText(row.exclusions, 400),
-      notes: ownerText(row.notes, 400),
-      cancellation: ownerText(row.cancellationNotes, 400),
+      summary: ownerText(row.summary, limits.summary),
+      highlights: ownerLines(strings(row.highlights), limits),
+      days: daysOf(row.days, limits),
+      pickups: ownerLines(row.pickupPoints.split("\n"), limits),
+      inclusions: ownerText(row.inclusions, limits.inclusions),
+      exclusions: ownerText(row.exclusions, limits.exclusions),
+      notes: ownerText(row.notes, limits.notes),
+      cancellation: ownerText(row.cancellationNotes, limits.cancellation),
       rooms,
       seasons: ownSeasons
         .filter((season) => season.endsOn >= today)

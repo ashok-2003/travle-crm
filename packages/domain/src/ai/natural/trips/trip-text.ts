@@ -27,7 +27,8 @@ export function seatWords(freeSeats: number): string {
   return freeSeats > FEW_SEATS ? "open" : `${String(freeSeats)} left`;
 }
 
-const pricesWords = (prices: PerPersonPrices) =>
+/** "double ₹10,999, triple ₹9,499 per person", in the room types' order. */
+export const pricesWords = (prices: PerPersonPrices) =>
   `${roomTypes
     .flatMap((type) => {
       const price = prices[type];
@@ -35,7 +36,7 @@ const pricesWords = (prices: PerPersonPrices) =>
     })
     .join(", ")} per person`;
 
-const gstWords = (sheet: TripSheet) =>
+export const gstWords = (sheet: Pick<TripSheet, "pricesIncludeGst" | "taxRateBasisPoints">) =>
   sheet.pricesIncludeGst
     ? "GST included"
     : sheet.taxRateBasisPoints === 0

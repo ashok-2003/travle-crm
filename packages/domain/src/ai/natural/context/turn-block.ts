@@ -16,6 +16,7 @@ import { clockWords } from "../../lite/context/messages.js";
 import { WAKING_HOURS } from "../../lite/follow-ups.js";
 import { findPackages } from "../../lite/lookups/find-packages.js";
 import { wordsOf } from "../../lite/read-words.js";
+import { indexEntryOf } from "../tools/find-trips.js";
 import { isText, roomNames, tripInFull } from "../trips/trip-text.js";
 import type { NaturalChatLine, NaturalLeadView, TripSheet } from "../types.js";
 import { newLineWords, stampOf } from "./chat-turns.js";
@@ -134,14 +135,7 @@ function leadBlock(input: TurnBlockInput, sheetOf: (packageId: string | null) =>
  * place), and only the trips matching the most of them count, so "Har Ki Dun trek" names Har Ki Dun alone.
  */
 function namedTrips(sheets: readonly TripSheet[], newLines: readonly NaturalChatLine[]): string[] {
-  const index = sheets.map(({ packageId, title, place, nights, startCity }) => ({
-    id: packageId,
-    title,
-    place,
-    destinationId: null,
-    nights,
-    startCity,
-  }));
+  const index = sheets.map(indexEntryOf);
   const asked = new Set(wordsOf(newLines.map((line) => line.text).join("\n")).filter((word) => !KIND_WORDS.has(word)));
   const matched = new Map<string, number>();
   for (const word of asked)

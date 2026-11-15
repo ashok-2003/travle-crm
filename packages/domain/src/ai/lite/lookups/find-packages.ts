@@ -5,7 +5,9 @@ import type { PackageIndexEntry } from "../types.js";
 const MOST_SHOWN = 3;
 const STOP_WORDS = new Set(["the", "trip", "tour", "package", "yatra"]);
 const isNights = (word: string) => /^\d+n$/u.test(word);
-const meaningful = (text: string): string[] => wordsOf(text).filter((word) => !STOP_WORDS.has(word) && !isNights(word));
+/** The words of a text that can name a package: no stop word ("trip", "the") and no night count ("5n"). */
+export const meaningful = (text: string): string[] =>
+  wordsOf(text).filter((word) => !STOP_WORDS.has(word) && !isNights(word));
 
 function distance(a: string, b: string): number {
   const left = Array.from(a);

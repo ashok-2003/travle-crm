@@ -14,7 +14,7 @@ import { fromPrices, groupTotal, priceOn, seasonsOf } from "../../../quotes/inde
 import type { DepartureLine, PackageDetails, PriceFacts } from "../types.js";
 
 /** Only splits CGST/SGST from IGST, never the total, so the lookup (which has no GST state) may use any valid one. */
-const ANY_STATE = "27";
+export const ANY_STATE = "27";
 const MOST_DEPARTURES = 3;
 /** Drops an email ("x@y") and a handle ("@sharmatrips"); an "@" standing alone ("Gate @ ISBT") stays. */
 export const withoutContacts = (text: string) =>
