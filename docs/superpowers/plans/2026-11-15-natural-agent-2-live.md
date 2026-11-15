@@ -103,8 +103,8 @@ the lite files named in Task 3, `packages/domain/src/ai/traces/*`, `packages/con
 `apps/api/src/{console-jobs,console-environment,worker-jobs}.ts`, `apps/web/src/console/organizations/organization/*`,
 `apps/web/src/console/ai/*` except the prompt library screen, `docs/deploy-checklist.md`.
 Shared with Plan 3, append-only: `packages/contracts/src/platform/index.ts`, `packages/domain/src/platform/index.ts`,
-`apps/web/src/i18n/messages/en-IN/console-platform.json` (log-action sentences; the second plan to merge resolves the
-one-line conflict). Plan 2 never touches `natural/prompt-source.ts`, `natural-try-it.ts`, the Try it screen or
+`apps/web/src/console/log/log-actions.ts` and `apps/web/src/i18n/messages/en-IN/console-platform.json` (log actions
+and their sentences; the second plan to merge resolves the one-line conflicts), `apps/web/src/i18n/messages/en-IN/errors.json`. Plan 2 never touches `natural/prompt-source.ts`, `natural-try-it.ts`, the Try it screen or
 `packages/db/src/for-org.ts`.
 
 ---
@@ -117,8 +117,8 @@ one-line conflict). Plan 2 never touches `natural/prompt-source.ts`, `natural-tr
   `packages/contracts/src/ai/agent.ts`
 - Modify: `packages/db/prisma/schema/ai.prisma` (`AiAutopilot.agent`, `AiTurnTrace.agent`, `cachedTokens`,
   `failedChecks`), `packages/contracts/src/platform/ai-agent.ts`, `packages/api/src/platform/routers/ai-agent.ts`,
-  `packages/domain/src/ai/index.ts`, `packages/domain/src/platform/index.ts`,
-  `apps/web/src/i18n/messages/en-IN/{audit,console-platform}.json` (the two action sentences)
+  `packages/domain/src/ai/index.ts`, `packages/domain/src/platform/index.ts`, `apps/web/src/console/log/log-actions.ts`
+  (`ai-agent.agent-chosen`), `apps/web/src/i18n/messages/en-IN/{audit,console-platform}.json` (the two action sentences)
 - Test: `packages/domain/test/ai/agent-choice.test.ts`, `packages/domain/test/platform/agent-choice.test.ts`,
   `packages/api/test/console-ai-agent.test.ts`, `packages/db/test/natural-agent-columns.test.ts`
 
@@ -535,7 +535,8 @@ staged actions, the flags, the live hard checks, and the messages sent (as lite'
 - Modify: `packages/contracts/src/platform/ai-agent.ts` (`replayRecentChatsInput`), `packages/api/src/platform/routers/ai-agent.ts`
   (`replayRecentChats: superAdminProcedure`), `apps/api/src/console-jobs.ts` (the job), `apps/api/src/console-environment.ts`
   (AI settings, ruling 11), `apps/web/src/console/organizations/organization/organization-agent-choice.tsx` (the
-  button), `apps/web/src/i18n/messages/en-IN/{console-organizations,console-platform}.json`
+  button), `apps/web/src/console/log/log-actions.ts` (`ai-agent.replayed`),
+  `apps/web/src/i18n/messages/en-IN/{console-organizations,console-platform}.json`
 - Test: `packages/domain/test/platform/agent-replay.test.ts`, `apps/web/test/console/organizations/organization-agent-choice.test.tsx`
 
 **Interfaces:**

@@ -133,8 +133,8 @@ data." Each ruling is `what — why — cost if wrong`.
 
 Plans 2 and 3 start from this plan's merge. Plan 2 adds callers of the loop and never changes `natural/loop.ts`
 (its final end hands back the transcript and the calls used, so the act's refusal can take one more call). Plan 3
-changes only the bodies in `natural/prompt-source.ts`, and adds a prompt choice to `natural-try-it.ts`, the router
-and the Try it screen. Shared index files (`ai/index.ts`, `natural/index.ts`, `contracts/src/ai/index.ts`) take
+fills the bodies in `natural/prompt-source.ts` (making the draft's id optional), moves the placeholder list from
+`natural/prompt.ts` to contracts, and adds a prompt choice to `natural-try-it.ts`, the router and the Try it screen. Shared index files (`ai/index.ts`, `natural/index.ts`, `contracts/src/ai/index.ts`) take
 append-only export lines.
 
 ---
