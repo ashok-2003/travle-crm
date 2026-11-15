@@ -86,3 +86,4 @@ export {
   type Span,
 } from "./bench/rubric.js";
 export { runLiteCase, type LiteCaseResult } from "./bench/replay.js";
+export * from "./natural/index.js";
