@@ -91,8 +91,9 @@ function nameKnown({ lines, lead, profileName }: BookingContext, fullName: strin
 }
 
 /**
- * `book`'s checks, in order: the offer's again; then ruling 1 (the quote's own terms equal the live offer's or a total
- * told, the customer's words are in a new line, the name is known); then the total is still the one they were shown.
+ * `book`'s checks, in order: the offer's again; then ruling 1 (the quote's own terms equal the live offer's, or, with no
+ * live offer, a total told; the customer's words are in a new line; the name is known); then the total is still the
+ * one they were shown.
  */
 export async function bookChecks(
   context: BookingContext,
@@ -101,19 +102,20 @@ export async function bookChecks(
 ): Promise<{ figures: QuoteFigures; via: "offer" | "told" } | Refused> {
   const figures = await offerChecks(context, terms);
   if ("refused" in figures) return figures;
+  // While an offer stands, only its terms can be booked: a total told counts only when no offer is live.
   const offer = liveOfferOf(context);
-  const onOffer = offer !== null && sameTerms(figures.terms, offer) ? offer : null;
-  const agreed = onOffer ?? toldFor(context, figures.terms);
+  if (offer !== null && !sameTerms(figures.terms, offer)) {
+    return refused(
+      `these terms differ from the live offer (${termsWords(offer, context.sheets, context.today)}, total ` +
+        `${formatRupees(offer.totalPaise)}); book on its terms, or offer these terms first with offer_booking`,
+    );
+  }
+  const agreed = offer ?? toldFor(context, figures.terms);
   if (agreed === null) {
-    return offer === null
-      ? refused(
-          "there is no live offer or total told for these terms; make the offer first with offer_booking, and book " +
-            "after their yes",
-        )
-      : refused(
-          `these terms differ from the live offer (${termsWords(offer, context.sheets, context.today)}, total ` +
-            `${formatRupees(offer.totalPaise)}); book on its terms, or make a new offer first`,
-        );
+    return refused(
+      "there is no live offer or total told for these terms; make the offer first with offer_booking, and book " +
+        "after their yes",
+    );
   }
   if (!context.newLines.some((line) => containsWords(line.text, said.customerWords))) {
     return refused(
@@ -129,9 +131,9 @@ export async function bookChecks(
   }
   if (figures.totalPaise !== agreed.totalPaise) {
     return refused(
-      `the price changed since the ${onOffer === null ? "total was told" : "offer"}: the total is now ` +
+      `the price changed since the ${offer === null ? "total was told" : "offer"}: the total is now ` +
         `${formatRupees(figures.totalPaise)}; make the offer again with offer_booking`,
     );
   }
-  return { figures, via: onOffer === null ? "told" : "offer" };
+  return { figures, via: offer === null ? "told" : "offer" };
 }

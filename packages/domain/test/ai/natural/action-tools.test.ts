@@ -432,12 +432,36 @@ describe("stageAction", () => {
     expect(await stageAction(ctx(afterOffer("haan, Rohan Mehta")), "book", { ...yes, room: "triple" }, "")).toEqual({
       refused:
         "refused: these terms differ from the live offer (T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double, total " +
-        "₹25,998); book on its terms, or make a new offer first",
+        "₹25,998); book on its terms, or offer these terms first with offer_booking",
     });
     expect(
       await stageAction(ctx(afterOffer("haan, Rohan Mehta")), "book", { ...yes, pay_in_full: true }, ""),
     ).toMatchObject({
       refused: expect.stringContaining("differ from the live offer") as unknown,
+    });
+  });
+
+  it("books only the live offer's terms while it stands, whatever total was told before", async () => {
+    // The offer stands for 2 on Sat 12 Dec; 3 on Sat 19 Dec were told a total five hours ago.
+    const standing = { ...offer, startsOn: "2026-12-12", departureId: "departure-2026-12-12" };
+    const toldThree = {
+      ...toldTerms,
+      adults: 3,
+      childrenAges: [],
+      totalPaise: 3_899_700,
+      at: hoursAgo(5).toISOString(),
+    };
+    const context = ctx({
+      ...afterOffer("haan, Rohan Mehta", { made: standing }),
+      facts: facts({ offer: standing, lastTurnAt: standing.at, told: [toldThree] }),
+    });
+    expect(await stageAction(context, "book", { ...yes, adults: 3 }, "")).toEqual({
+      refused:
+        "refused: these terms differ from the live offer (T1 Kedarkantha Trek, Sat 12 Dec, 2 adults, double, total " +
+        "₹25,998); book on its terms, or offer these terms first with offer_booking",
+    });
+    expect(await stageAction(context, "book", { ...yes, date: "2026-12-12" }, "")).toMatchObject({
+      staged: { tool: "book", via: "offer", terms: { startsOn: "2026-12-12", adults: 2 } },
     });
   });
 
