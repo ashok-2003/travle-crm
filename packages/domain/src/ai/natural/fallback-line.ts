@@ -6,7 +6,7 @@ const HINGLISH = new Set(
   [
     "hai hain kya kitna kitne kitni kab kaise kahan kaun kyun haan nahi nahin chahiye batao bataiye bataye",
     "mujhe humein hume karna karo kijiye aur theek thik accha acha achha chalega wala wali abhi mera meri",
-    "aap aapka yaar ji",
+    "aap aapka yaar ji ka ki ke ko se bhejo bhej",
   ]
     .join(" ")
     .split(" "),

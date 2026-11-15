@@ -1,18 +1,23 @@
 // G3 and G4 (spec 5, rulings 3 and 4): a claim that a payment came, the booking is confirmed or the team said something
-// passes only when the data shows it true, and a discount's figure only when owner or Team text holds it.
+// passes only when the data shows it true, and a discount's figure only when owner or Team text gives it as a discount.
 import { paymentClaimPhrases, teamClaimPhrases } from "@travel-crm/contracts/ai";
 import { formatRupees } from "../../../kernel/index.js";
 import { sentencesOf } from "../../lite/phrase-match.js";
 import { claimIn } from "../../lite/reply-check.js";
-import { amountsIn, groundedSetOf, looseAmountsIn, withAsciiDigits, type Amount } from "./grounded.js";
+import {
+  amountsIn,
+  discountFiguresIn,
+  looseAmountsIn,
+  percentsIn,
+  withAsciiDigits,
+  type Amount,
+  type Span,
+} from "./amounts.js";
+import { groundedSetOf } from "./grounded.js";
 
 /** What a guard found: nothing to check (null), true to the data, or not, with the retry the model gets. */
 export type GuardOutcome = { passed: true; detail: string } | { passed: false; detail: string; retry: string } | null;
 
-interface Span {
-  start: number;
-  end: number;
-}
 type Figure = (Span & { kind: "amount"; amount: Amount }) | (Span & { kind: "percent"; value: number });
 
 const BOOKING_WORD = /\{bk\}|booking|seats?\b|बुकिंग|सीट/iu;
@@ -21,10 +26,11 @@ const PAYMENT_WORD = /\{pay\}|\{amount\}|payment|advance|amount|paise|paisa|प�
 const bookingPhrases = paymentClaimPhrases.filter((one) => BOOKING_WORD.test(one) && !PAYMENT_WORD.test(one));
 const moneyPhrases = paymentClaimPhrases.filter((one) => !bookingPhrases.includes(one));
 
-const PERCENT = /(?<![\d.])(\d+(?:\.\d+)?)\s*(?:%|percent\b|per\s+cent\b|pratishat|प्रतिशत)/giu;
-/** A discount word; "off" not in "off-season". */
+/** A discount word beside a figure, on either side ("₹500 ka discount", "discount of 10%"). */
 const DISCOUNT =
-  /(?<![\p{L}\p{M}])(?:discounts?|off|chhoot|chhut|choot|rebate|concession|cashback|छूट|डिस्काउंट)(?![\p{L}\p{M}-])(?!\s+season)/giu;
+  /(?<![\p{L}\p{M}])(?:discounts?|chhoot|chhut|choot|rebate|concession|cashback|छूट|डिस्काउंट)(?![\p{L}\p{M}])/giu;
+/** "off" right after a figure ("₹500 off", "10% off"); never "drop-off" or "off-season". */
+const OFF_AFTER = /^\s*off(?![\p{L}\p{M}-])(?!\s+season)/iu;
 /** A figure is beside a discount word with at most this many words between them ("₹500 ka discount"). */
 const MOST_WORDS_BETWEEN = 2;
 
@@ -58,12 +64,6 @@ export function paymentClaimCheck(
   return claims.length === 0 ? null : { passed: true, detail: claims.join("; ") };
 }
 
-const percentsIn = (text: string) =>
-  [...withAsciiDigits(text).matchAll(PERCENT)].map((m) => ({
-    start: m.index,
-    end: m.index + m[0].length,
-    value: Number(m[1]),
-  }));
 const figuresIn = (text: string): Figure[] => [
   ...amountsIn(text).map((amount): Figure => ({ kind: "amount", start: amount.start, end: amount.end, amount })),
   ...percentsIn(text).map((percent): Figure => ({ kind: "percent", ...percent })),
@@ -71,12 +71,14 @@ const figuresIn = (text: string): Figure[] => [
 const figureWords = (figure: Figure) =>
   figure.kind === "amount" ? formatRupees(figure.amount.paise) : `${String(figure.value)}%`;
 
-/** Whether a text holds the figure: an amount read loosely (a Team line's "500 off"), a percent by its value. */
-function holds(text: string): (figure: Figure) => boolean {
-  const amounts = groundedSetOf(looseAmountsIn(text).map((one) => one.paise));
-  const percents = new Set(percentsIn(text).map((one) => one.value));
+/** Whether these figures hold one: an amount (a Team line's "500" counts) or a percent, by its value. */
+function holds(amounts: readonly Amount[], percents: readonly number[]): (figure: Figure) => boolean {
+  const amountSet = groundedSetOf(amounts.map((one) => one.paise));
+  const percentSet = new Set(percents);
   return (figure) =>
-    figure.kind === "amount" ? amounts.has(figure.amount.paise, figure.amount.shorthand) : percents.has(figure.value);
+    figure.kind === "amount"
+      ? amountSet.has(figure.amount.paise, figure.amount.shorthand)
+      : percentSet.has(figure.value);
 }
 
 function beside(text: string, a: Span, b: Span): boolean {
@@ -87,12 +89,17 @@ function beside(text: string, a: Span, b: Span): boolean {
 
 /**
  * G4: (a) the team credited in the past tense ("team ne bola") passes only with a Team line in this chat (the caller
- * passes those of the last 30 days) holding every amount and percent of that sentence; (b) a figure beside a discount
- * word passes only when owner or Team text holds it.
+ * passes those of the last 30 days) holding every amount and percent of that sentence; (b) a discount figure (beside a
+ * discount word, or "off" right after it) passes only when owner or Team text gives that figure in a sentence with a
+ * discount word (fix round 1), so the cancellation's "50% back" or "plus 5% GST" never grounds "50% off".
  */
 export function teamWordCheck(words: string, texts: { teamText: string; ownerText: string }): GuardOutcome {
-  const teamHolds = holds(texts.teamText);
-  const ownerOrTeamHolds = holds(`${texts.ownerText}\n${texts.teamText}`);
+  const teamHolds = holds(
+    looseAmountsIn(texts.teamText),
+    percentsIn(texts.teamText).map((one) => one.value),
+  );
+  const given = discountFiguresIn(`${texts.ownerText}\n${texts.teamText}`);
+  const givenAsDiscount = holds(given.amounts, given.percents);
   const found: string[] = [];
   for (const sentence of sentencesOf(withAsciiDigits(words))) {
     const claim = claimIn(sentence, teamClaimPhrases);
@@ -111,9 +118,10 @@ export function teamWordCheck(words: string, texts: { teamText: string; ownerTex
       end: m.index + m[0].length,
     }));
     for (const figure of figuresIn(sentence.text)) {
-      if (!discounts.some((word) => beside(sentence.text, figure, word))) continue;
+      const off = OFF_AFTER.test(sentence.text.slice(figure.end));
+      if (!off && !discounts.some((word) => beside(sentence.text, figure, word))) continue;
       const detail = `${figureWords(figure)} off`;
-      if (!ownerOrTeamHolds(figure)) {
+      if (!givenAsDiscount(figure)) {
         const retry = `No owner or Team text gives ${detail}: leave the discount out; if they ask for one, hand_over(discount).`;
         return { passed: false, detail, retry };
       }

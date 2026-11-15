@@ -1,13 +1,14 @@
 // The guards on a reply's words (spec 5, G1–G5), claims first as lite's check runs them: each checks the words against
 // the agency's data and never refuses a reply just for holding a number. Also the trace's flags, which check nothing.
-import { amountsAndDatesIn, paymentDetailsIn, type LiveOffer, type NaturalTrace } from "@travel-crm/contracts/ai";
+import { paymentDetailsIn, type LiveOffer, type NaturalTrace } from "@travel-crm/contracts/ai";
 import { formatRupees, formatShortDay, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
-import { monthOf, resolveDay } from "../../fill/dates.js";
 import { sentencesOf } from "../../lite/phrase-match.js";
 import { namedTrips } from "../context/turn-block.js";
 import type { TripSheet } from "../types.js";
+import { amountsIn, looseAmountsIn, withAsciiDigits } from "./amounts.js";
 import { paymentClaimCheck, teamWordCheck, type GuardOutcome } from "./claims.js";
-import { amountsIn, groundedSetOf, looseAmountsIn, tripTextOf, withAsciiDigits, type GroundedSet } from "./grounded.js";
+import { datesIn } from "./dates.js";
+import { groundedSetOf, tripTextOf, type GroundedSet } from "./grounded.js";
 
 export type GuardName = "G1" | "G2" | "G3" | "G4" | "G5";
 export type GuardFallback = "fallback_task" | "withdraw_offer" | "hand_over_discount";
@@ -40,57 +41,7 @@ const FALLBACK: Record<GuardName, GuardFallback> = {
 const PAYMENT_DETAIL_RETRY =
   "Leave payment details out of your words: the app sends the agency's own (resend_payment sends them again).";
 
-/** Hindi month names, NFC (a nukta stays a separate mark): सितंबर or सितम्बर, अक्टूबर or अक्तूबर. */
-const HINDI_MONTHS = [
-  "जनवरी",
-  "फ\u093C?रवरी",
-  "मार्च",
-  "अप्रैल",
-  "मई",
-  "जून",
-  "जुलाई",
-  "अगस्त",
-  "सित(?:ं|म्)बर",
-  "अक्(?:टू|तू)बर",
-  "नव(?:ं|म्)बर",
-  "दिस(?:ं|म्)बर",
-];
-const HINDI_DATE = new RegExp(`(?<!\\d)(\\d{1,2})\\s*(${HINDI_MONTHS.join("|")})(?![\\p{L}\\p{M}])`, "gu");
-const NUMERIC_DATE = /(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?/u;
-const DAY_MONTH = /(\d{1,2})(?:st|nd|rd|th)?\s*(?:of\s+)?([a-z]+)/giu;
-const MONTH_DAY = /([a-z]+)\.?\s*(\d{1,2})(?!\d)/giu;
 const SEATS = /(?<![\d.,])(\d{1,3})\s*(?:seats?|सीटें|सीट)(?![\p{L}\p{M}])/giu;
-
-/** "13 Dec", "Dec 13th", "13/12" as day/month[/year], or null for a span with no day of a month ("this Saturday"). */
-function dayOfMonth(span: string): string | null {
-  const numeric = NUMERIC_DATE.exec(span);
-  if (numeric) return [numeric[1], numeric[2], numeric[3]].filter((part) => part !== undefined).join("/");
-  for (const m of span.matchAll(DAY_MONTH)) {
-    const month = monthOf((m[2] ?? "").toLowerCase());
-    if (month !== null) return `${m[1] ?? ""}/${String(month)}`;
-  }
-  for (const m of span.matchAll(MONTH_DAY)) {
-    const month = monthOf((m[1] ?? "").toLowerCase());
-    if (month !== null) return `${m[2] ?? ""}/${String(month)}`;
-  }
-  return null;
-}
-
-const hindiMonthOf = (name: string) =>
-  HINDI_MONTHS.findIndex((pattern) => new RegExp(`^(?:${pattern})$`, "u").test(name)) + 1;
-
-/** The days the text names with a day of a month, each the next one not past (a day with a past year: none). */
-function datesIn(text: string, today: CalendarDate): CalendarDate[] {
-  const digits = withAsciiDigits(text).normalize("NFC");
-  const written = [
-    ...amountsAndDatesIn(digits).flatMap((span) =>
-      span.kind === "date" ? [dayOfMonth(digits.slice(span.start, span.end))] : [],
-    ),
-    ...[...digits.matchAll(HINDI_DATE)].map((m) => `${m[1] ?? ""}/${String(hindiMonthOf(m[2] ?? ""))}`),
-  ];
-  const days = written.flatMap((one) => (one === null ? [] : [resolveDay(one, today)]));
-  return [...new Set(days.flatMap((one) => (one === null ? [] : [parseCalendarDate(one)])))];
-}
 
 /** G1: every amount is one the data holds; the customer's own figure gets its own retry. */
 function amountCheck(words: string, { grounded, customerText }: GuardContext): GuardOutcome {

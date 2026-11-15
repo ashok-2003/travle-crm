@@ -3,7 +3,7 @@
 import type { AgencyAnswers, LiveOffer, ToldTotal } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
 import { checkWords, traceFlags, type GuardContext } from "../../../src/ai/natural/guards/check-words.js";
-import { groundedAmounts } from "../../../src/ai/natural/guards/grounded.js";
+import { groundedAmounts, tripTextOf } from "../../../src/ai/natural/guards/grounded.js";
 import type { QuoteFigures, TripSheet } from "../../../src/ai/natural/types.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -65,6 +65,14 @@ const brahmatal: TripSheet = {
   })),
   fileIds: [],
 };
+/** Kedarkantha at one price that excludes 5% GST. */
+const excludingGst = (price: number): TripSheet => ({
+  ...kedarkantha,
+  pricesIncludeGst: false,
+  seasons: [{ name: "Winter", from: day("2026-11-01"), until: day("2026-12-31"), perPersonPaise: { triple: price } }],
+  fromPaise: price,
+  departures: kedarkantha.departures.map((one) => ({ ...one, ...bySeason(price) })),
+});
 const answers: AgencyAnswers = {
   safety: "A certified trek leader, oxygen on every trek, and separate tents for women.",
   children: "10 and above, with a parent.",
@@ -90,6 +98,7 @@ const offer: LiveOffer = {
 
 interface Setup {
   sheets?: readonly TripSheet[];
+  answers?: AgencyAnswers;
   teamLines?: readonly string[];
   told?: readonly ToldTotal[];
   quoted?: readonly QuoteFigures[];
@@ -102,10 +111,12 @@ interface Setup {
 
 function contextOf(setup: Setup = {}): GuardContext {
   const teamLines = setup.teamLines ?? [];
+  const sheets = setup.sheets ?? [kedarkantha, brahmatal];
+  const owner = setup.answers ?? answers;
   const grounded = groundedAmounts({
-    sheets: setup.sheets ?? [kedarkantha, brahmatal],
+    sheets,
     today,
-    answers,
+    answers: owner,
     teamLines,
     told: setup.told ?? [],
     quoted: setup.quoted ?? [],
@@ -118,7 +129,7 @@ function contextOf(setup: Setup = {}): GuardContext {
     paymentConfirmed: setup.paymentConfirmed ?? false,
     bookingConfirmed: setup.bookingConfirmed ?? false,
     teamText: teamLines.join("\n"),
-    ownerText: setup.ownerText ?? Object.values(answers).join("\n"),
+    ownerText: setup.ownerText ?? [...Object.values(owner), ...sheets.map(tripTextOf)].join("\n"),
     today,
   };
 }
@@ -147,24 +158,16 @@ describe("G1: every amount in the words is one the data holds", () => {
 
   it("passes shorthand within 1% and refuses it past", () => {
     expect(check("around 9.5k per person")).toMatchObject({ ok: true });
-    // Pre-flight #4: 12k is 4 × the ₹3,000 advance, so grounded; 13k is not.
-    expect(check("around 13k per person")).toMatchObject(refusedBy("G1"));
+    // Pre-flight #4: 12k is 4 × the ₹3,000 advance, so grounded; 13k is within 1% of a balance for two
+    // ((₹9,499 − ₹3,000) × 2 = ₹12,998, fix round 1), so the refusal uses 14k.
+    expect(check("around 14k per person")).toMatchObject(refusedBy("G1"));
     expect(check("₹9,500 per person")).toMatchObject(refusedBy("G1"));
   });
 
   it("passes the GST-inclusive figure when prices exclude GST", () => {
-    const tenThousand = { ...bySeason(1_000_000) };
-    const excludingGst: TripSheet = {
-      ...kedarkantha,
-      pricesIncludeGst: false,
-      seasons: [
-        { name: "Winter", from: day("2026-11-01"), until: day("2026-12-31"), perPersonPaise: { triple: 1_000_000 } },
-      ],
-      fromPaise: 1_000_000,
-      departures: kedarkantha.departures.map((one) => ({ ...one, ...tenThousand })),
-    };
-    expect(check("₹10,000 + 5% GST = ₹10,500 per person", { sheets: [excludingGst] })).toMatchObject({ ok: true });
-    expect(check("₹10,500 per person", { sheets: [{ ...excludingGst, pricesIncludeGst: true }] })).toMatchObject(
+    const tenThousand = excludingGst(1_000_000);
+    expect(check("₹10,000 + 5% GST = ₹10,500 per person", { sheets: [tenThousand] })).toMatchObject({ ok: true });
+    expect(check("₹10,500 per person", { sheets: [{ ...tenThousand, pricesIncludeGst: true }] })).toMatchObject(
       refusedBy("G1"),
     );
   });
@@ -211,6 +214,17 @@ describe("G1: every amount in the words is one the data holds", () => {
     expect(check("9 Jan: ₹11,500 per person, ₹23,000 for both of you.", { quoted: [quoted] })).toMatchObject({
       ok: true,
     });
+    // With a child's place the total isn't the adults' price times the party: ₹28,000 − ₹9,000 leaves ₹19,000.
+    const withChild = {
+      ...quoted,
+      terms: { ...quoted.terms, childrenAges: [8] },
+      totalPaise: 2_800_000,
+      advancePaise: 900_000,
+    };
+    expect(check("₹9,000 now, balance ₹19,000 later.", { quoted: [withChild] })).toMatchObject({ ok: true });
+    expect(check("₹9,000 now, balance ₹19,000 later.", { quoted: [quoted] })).toMatchObject(refusedBy("G1"));
+    const withGst = { quoted: [quoted], sheets: [excludingGst(1_000_000)] };
+    expect(check("9 Jan: ₹12,075 per person with GST.", withGst)).toMatchObject({ ok: true });
     const toldAt = (days: number): ToldTotal => ({
       packageId: "kedarkantha",
       startsOn: "2026-12-19",
@@ -221,6 +235,7 @@ describe("G1: every amount in the words is one the data holds", () => {
       at: new Date(now.getTime() - days * DAY_MS).toISOString(),
     });
     expect(check("The total stays ₹24,498.", { told: [toldAt(29)] })).toMatchObject({ ok: true });
+    expect(check("₹9,000 advance, balance ₹15,498.", { told: [toldAt(29)] })).toMatchObject({ ok: true });
     expect(check("The total stays ₹24,498.", { told: [toldAt(31)] })).toMatchObject(refusedBy("G1"));
   });
 
@@ -248,6 +263,52 @@ describe("G1: every amount in the words is one the data holds", () => {
   it("passes amounts in the agency's answers and in trip text", () => {
     const withFee = { ...kedarkantha, notes: "Forest entry fee ₹750 per person, paid at Sankri." };
     expect(check("Entry fee ₹750 per person, paid at Sankri.", { sheets: [withFee] })).toMatchObject({ ok: true });
+    const mules = { answers: { ...answers, safety: "A mule for your bags costs ₹600 a day." } };
+    expect(check("A mule for bags is ₹600 a day.", mules)).toMatchObject({ ok: true });
+    expect(check("A mule for bags is ₹600 a day.")).toMatchObject(refusedBy("G1"));
+  });
+
+  it("passes figures that follow from the data: the balance, the GST itself, a rupee either way (fix round 1)", () => {
+    expect(check("Advance ₹9,000 now, balance ₹19,497 before the trip.")).toMatchObject({ ok: true });
+    expect(check("₹4,998 + ₹250 GST = ₹5,248", { sheets: [excludingGst(499_800)] })).toMatchObject({ ok: true });
+    // ₹10,250 × 3 = ₹30,750, and 5% GST makes ₹32,287.50: written ₹32,288 or ₹32,287.
+    const tenTwoFifty = { sheets: [excludingGst(1_025_000)] };
+    expect(check("3 log: ₹32,288", tenTwoFifty)).toMatchObject({ ok: true });
+    expect(check("3 log: ₹32,287", tenTwoFifty)).toMatchObject({ ok: true });
+    expect(check("3 log: ₹32,289", tenTwoFifty)).toMatchObject(refusedBy("G1"));
+    expect(check("Advance ₹9,000 now, balance ₹19,500 before the trip.")).toMatchObject(refusedBy("G1"));
+    // A price that includes GST shows no split: its share (₹999.90 for two on ₹10,499) grounds no round ₹1,000.
+    expect(check("₹1,000 extra for the mule.")).toMatchObject(refusedBy("G1"));
+    expect(check("₹4,000 extra for the mule.")).toMatchObject(refusedBy("G1"));
+  });
+
+  it("passes a discounted price only when owner or Team text gives that percent as a discount (fix round 1)", () => {
+    const students = { answers: { ...answers, children: "10 and above. Students get 10% off." } };
+    // ₹9,499 less 10% is ₹8,549.10.
+    expect(check("Students: ₹8,549 after 10% off.", students)).toMatchObject({ ok: true });
+    expect(check("Students pay ₹8,549.", { teamLines: ["Students ko 10% discount de do"] })).toMatchObject({
+      ok: true,
+    });
+    expect(check("Students pay ₹8,549.")).toMatchObject(refusedBy("G1"));
+    expect(check("Students pay ₹8,074.", students)).toMatchObject(refusedBy("G1"));
+  });
+
+  it("reads a bare amount of ₹500 or more, as Hinglish writes it (fix round 1)", () => {
+    expect(check("Aapke liye 7,999 me ho jayega.")).toMatchObject({
+      ok: false,
+      guard: "G1",
+      retry: "₹7,999 isn't in the agency's prices. Use a price from the trips, call quote, or leave the amount out.",
+    });
+    expect(check("Sirf 7999 lagenge.")).toMatchObject(refusedBy("G1"));
+    const teamSaid = { teamLines: ["Inko 7,999 me de do"] };
+    expect(check("Aapke liye 7,999 me ho jayega.", teamSaid)).toMatchObject({ ok: true });
+    expect(check("Sirf 7999 lagenge.", teamSaid)).toMatchObject({ ok: true });
+  });
+
+  it("never reads a height, a year, a time, a date or a phone number as an amount", () => {
+    const words =
+      "Summit at 12,500 ft, 1,200 m climb. Batch of 2026, Sat 12 Dec, pickup 6 am or 18:30. Call +91 98765 43210.";
+    expect(check(words)).toEqual({ ok: true, verdicts: [] });
   });
 
   it("reads Devanagari digits as an amount", () => {
@@ -344,6 +405,14 @@ describe("G3: payment received or booking confirmed, only when the data shows it
         "The booking isn't confirmed yet: don't say it is; say the team confirms it here once the payment is checked.",
     });
   });
+
+  it("checks a booking claim against the booking and a payment claim against the payment", () => {
+    const bookingRetry = (check("Your seats are confirmed.", { paymentConfirmed: true }) as { retry?: string }).retry;
+    expect(bookingRetry).toMatch(/^The booking isn't confirmed yet/u);
+    const paymentRetry = (check("The advance has been received.", { bookingConfirmed: true }) as { retry?: string })
+      .retry;
+    expect(paymentRetry).toMatch(/^No payment is recorded/u);
+  });
 });
 
 describe("G4: the team's word and discounts, only when owner or Team text holds them", () => {
@@ -378,6 +447,22 @@ describe("G4: the team's word and discounts, only when owner or Team text holds 
     expect(check("Students ko 10% discount milta hai.", { ownerText: "Students get 10% discount." })).toMatchObject({
       ok: true,
     });
+  });
+
+  it("passes a discount figure only where owner or Team text gives it as a discount (fix round 1)", () => {
+    // The default answers' only 50% is the cancellation refund.
+    expect(check("Aapke group ko 50% off milega!")).toMatchObject(refusedBy("G4"));
+    expect(check("5% off milega.", { ownerText: "Prices are plus 5% GST." })).toMatchObject(refusedBy("G4"));
+    expect(check("₹3,000 off kar denge.", { teamLines: ["Advance 3000 per head lena"] })).toMatchObject(
+      refusedBy("G4"),
+    );
+    const groups = { answers: { ...answers, payment_methods: "UPI or bank transfer. 10% discount for groups of 6+." } };
+    expect(check("10% off for groups of 6 or more.", groups)).toMatchObject({ ok: true });
+    expect(check("₹500 off kar denge.", { teamLines: ["Inko 500 kam kar do"] })).toMatchObject({ ok: true });
+  });
+
+  it("reads 'off' as a discount only right after a figure", () => {
+    expect(check("Pick-up and drop-off included: ₹9,499 per person.")).toMatchObject({ ok: true });
   });
 });
 

@@ -1,76 +1,33 @@
-// G1's grounded set (spec 5): every amount the agency's data, this turn's quotes and the team stand behind; and the
-// reader that finds amounts in words ("₹9,499", "12k", "1.2 lakh", "8 hazaar"), Devanagari digits read as digits.
-import { amountsAndDatesIn, type AgencyAnswers, type ToldTotal } from "@travel-crm/contracts/ai";
+// G1's grounded set (spec 5, fix round 1's rulings): every amount the agency's data, this turn's quotes and the team
+// stand behind, and the figures that follow from them (a balance, the GST itself, an owner's discount, a rupee rounded).
+import type { AgencyAnswers, ToldTotal } from "@travel-crm/contracts/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
-import { paiseFromSpoken } from "../../fill/money.js";
 import type { QuoteFigures, TripSheet } from "../types.js";
+import { amountsIn, discountFiguresIn, looseAmountsIn } from "./amounts.js";
 
 export interface GroundedSet {
   /** Whether the data holds the amount: exactly, or within 1% when it was written as shorthand ("9.5k"). */
   has(paise: number, shorthand: boolean): boolean;
 }
 
-/** An amount of money in words, where it is, and whether it was written rounded ("12k", "8 hazaar"). */
-export interface Amount {
-  start: number;
-  end: number;
-  paise: number;
-  shorthand: boolean;
+interface Tax {
+  pricesIncludeGst: boolean;
+  taxRateBasisPoints: number;
 }
 
 const MONTH_MS = 30 * 86_400_000;
-/** A per-person figure times 2 to 10 is a group's, so "₹9,499 × 3 = ₹28,497" needs no tool call. */
-const MOST_PEOPLE = 10;
-/** Below ₹100 a bare number in a Team line is a count or a day, never a price. */
-const LEAST_BARE_PAISE = 10_000;
-const DEVANAGARI_ZERO = 0x0966;
+/** A per-person figure for 1 to 10 people, so "₹9,499 × 3 = ₹28,497" needs no tool call. */
+const PEOPLE = Array.from({ length: 10 }, (_, index) => index + 1);
+const NO_TAX: Tax = { pricesIncludeGst: true, taxRateBasisPoints: 0 };
 
-/** "₹९,४९९" reads "₹9,499": each Devanagari digit becomes its ASCII digit, one character for one, so spans hold. */
-export const withAsciiDigits = (text: string): string =>
-  text.replace(/[\u0966-\u096F]/gu, (digit) => String(digit.charCodeAt(0) - DEVANAGARI_ZERO));
-
-/** "8 hazaar", "8 thousand", "8 हज़ार" (pre-flight #15), but not a height or a distance ("12 thousand feet"). */
-const THOUSANDS =
-  /(?<![\d.,])(\d+(?:\.\d+)?)\s*(?:hazaa?r|hajaa?r|thousand|ह(?:ज\u093C?|\u095B)ार)(?![\p{L}\p{M}])(?!\s*(?:ft|feet|m|metres?|meters?|kms?|kilometres?|kilometers?)\b)/giu;
-const SHORTHAND = /\d\s*(?:k|l|lakhs?|lacs?|crores?|cr)(?![\p{L}])/iu;
-const BARE_NUMBER = /(?<![\d.,])\d{1,3}(?:,\d{2,3})+(?![\d,])|(?<![\d.,])\d{3,}(?![\d,])/gu;
-
-const overlaps = (a: { start: number; end: number }, b: { start: number; end: number }) =>
-  a.start < b.end && b.start < a.end;
-
-/** Every amount of money in the words, in order: what the reply check reads as money, and thousands in words. */
-export function amountsIn(text: string): Amount[] {
-  const digits = withAsciiDigits(text);
-  const thousands = [...digits.matchAll(THOUSANDS)].map((m) => ({
-    start: m.index,
-    end: m.index + m[0].length,
-    paise: Math.round(Number(m[1]) * 100_000),
-    shorthand: true,
-  }));
-  const written = amountsAndDatesIn(digits).flatMap((span) => {
-    if (span.kind !== "money" || thousands.some((one) => overlaps(one, span))) return [];
-    const words = digits.slice(span.start, span.end);
-    const paise = paiseFromSpoken(words.replace("/-", "").replace(/crores/giu, "crore"));
-    return paise === null ? [] : [{ start: span.start, end: span.end, paise, shorthand: SHORTHAND.test(words) }];
-  });
-  return [...thousands, ...written].sort((a, b) => a.start - b.start);
-}
-
-/** As `amountsIn`, plus each bare number of ₹100 or more: a Team line or owner text says "8500 me de do". */
-export function looseAmountsIn(text: string): Amount[] {
-  const amounts = amountsIn(text);
-  const bare = [...withAsciiDigits(text).matchAll(BARE_NUMBER)].flatMap((m) => {
-    const span = { start: m.index, end: m.index + m[0].length };
-    const paise = Number(m[0].replaceAll(",", "")) * 100;
-    return amounts.some((one) => overlaps(one, span)) || paise < LEAST_BARE_PAISE
-      ? []
-      : [{ ...span, paise, shorthand: false }];
-  });
-  return [...amounts, ...bare];
-}
-
+/** The figures, each also rounded to the rupee either way (₹32,287.50 is written ₹32,287 or ₹32,288). */
 export function groundedSetOf(amounts: Iterable<number>): GroundedSet {
-  const exact = new Set(amounts);
+  const exact = new Set<number>();
+  for (const paise of amounts)
+    exact
+      .add(paise)
+      .add(Math.floor(paise / 100) * 100)
+      .add(Math.ceil(paise / 100) * 100);
   return {
     has: (paise, shorthand) =>
       exact.has(paise) || (shorthand && [...exact].some((one) => Math.abs(one - paise) * 100 <= one)),
@@ -91,32 +48,75 @@ export function tripTextOf(sheet: TripSheet): string {
   ].join("\n");
 }
 
-/** A table price, and when prices exclude GST, with GST added: exact, and to the rupee as a person would write it. */
-function withGst(paise: number, sheet: TripSheet): number[] {
-  if (sheet.pricesIncludeGst || sheet.taxRateBasisPoints === 0) return [paise];
-  const taxed = paise + Math.round((paise * sheet.taxRateBasisPoints) / 10_000);
-  return [paise, taxed, Math.round(taxed / 100) * 100];
+const gstOn = (paise: number, tax: Tax) => Math.round((paise * tax.taxRateBasisPoints) / 10_000);
+
+/**
+ * What `people` pay at a per-person price, as the quote and a person work it out: the price times the people; when
+ * prices exclude GST, the GST on top and the sum (on the group, and per person times the people); and the balance after
+ * their advances (fix round 1's ruling). A price that includes GST shows no split, so its GST share is never grounded:
+ * rounded to the rupee, those shares would ground round figures nobody stated (₹999.90 makes ₹1,000).
+ */
+function groupFigures(price: number, people: number, tax: Tax, advance: number | null): number[] {
+  const amount = price * people;
+  const totals =
+    tax.pricesIncludeGst || tax.taxRateBasisPoints === 0
+      ? { gst: [], withGst: [amount] }
+      : {
+          gst: [gstOn(amount, tax), gstOn(price, tax) * people],
+          withGst: [amount + gstOn(amount, tax), (price + gstOn(price, tax)) * people],
+        };
+  const balances = advance === null ? [] : totals.withGst.map((total) => total - advance * people);
+  return [amount, ...totals.withGst, ...totals.gst, ...balances];
 }
 
-const timesUpToTen = (paise: number) => Array.from({ length: MOST_PEOPLE }, (_, index) => paise * (index + 1));
-
-function sheetAmounts(sheet: TripSheet, today: CalendarDate): number[] {
-  const prices = [
-    ...sheet.seasons.filter((season) => season.until >= today).map((season) => season.perPersonPaise),
-    ...sheet.departures.map((one) => one.perPersonPaise),
-  ].flatMap((byRoom) => Object.values(byRoom));
-  const perPerson = [
-    ...[...prices, ...(sheet.fromPaise === null ? [] : [sheet.fromPaise])].flatMap((paise) => withGst(paise, sheet)),
-    ...(sheet.advancePerPersonPaise === null ? [] : [sheet.advancePerPersonPaise]),
+/** A trip's figures: its prices (seasons not ended, each departure's own, the from-price, and less an owner's discount). */
+function sheetAmounts(sheet: TripSheet, today: CalendarDate, discounts: readonly number[]): number[] {
+  const prices = new Set(
+    [
+      ...sheet.seasons.filter((season) => season.until >= today).map((season) => season.perPersonPaise),
+      ...sheet.departures.map((one) => one.perPersonPaise),
+    ].flatMap((byRoom) => Object.values(byRoom)),
+  );
+  if (sheet.fromPaise !== null) prices.add(sheet.fromPaise);
+  const discounted = [...prices].flatMap((price) =>
+    discounts.map((percent) => Math.round((price * (100 - percent)) / 100)),
+  );
+  const advance = sheet.advancePerPersonPaise;
+  return [
+    ...[...prices, ...discounted].flatMap((price) =>
+      PEOPLE.flatMap((people) => groupFigures(price, people, sheet, advance)),
+    ),
+    ...(advance === null ? [] : PEOPLE.map((people) => advance * people)),
+    ...amountsIn(tripTextOf(sheet)).map((one) => one.paise),
   ];
-  return [...perPerson.flatMap(timesUpToTen), ...amountsIn(tripTextOf(sheet)).map((one) => one.paise)];
+}
+
+/** A quote's figures (a date past the sheet's 8 has its own price), its balance, and its GST by its trip's tax. */
+function quotedAmounts(quote: QuoteFigures, tax: Tax): number[] {
+  const { totalPaise, advancePaise, perPersonPaise, advancePerPersonPaise } = quote;
+  // The total includes GST; when the trip's prices exclude it, the quote's words show the GST on top: its share here.
+  const shownGst =
+    tax.pricesIncludeGst || tax.taxRateBasisPoints === 0
+      ? []
+      : [totalPaise - Math.round((totalPaise * 10_000) / (10_000 + tax.taxRateBasisPoints))];
+  return [
+    totalPaise,
+    advancePaise,
+    totalPaise - advancePaise,
+    ...shownGst,
+    ...PEOPLE.flatMap((people) => [
+      ...groupFigures(perPersonPaise, people, tax, advancePerPersonPaise),
+      advancePerPersonPaise * people,
+    ]),
+  ];
 }
 
 /**
- * The amounts G1 lets through this turn (spec 5): table prices of seasons not ended and each departure's own, per room
- * and with GST when prices exclude it, the from-prices and advances, each times 2 to 10; this turn's quote figures (a
- * date past the sheet's 8 has its own price); totals told in the last 30 days; amounts in the agency's answers, trip
- * text and Team lines (the caller passes those of the last 30 days). Not the customer's amounts, nor earlier assistants'.
+ * The amounts G1 lets through this turn: spec 5's list (table prices of seasons not ended and each departure's own, per
+ * room and with GST when prices exclude it, the from-prices and advances, each for 1 to 10 people; this turn's quote
+ * figures; totals told in the last 30 days; amounts in the answers, trip text and Team lines, which the caller passes
+ * for the last 30 days) and what follows from them: the balance after the advance, the GST itself, a price less a
+ * discount percent that owner or Team text gives, and each rounded to the rupee. Never the customer's amounts.
  */
 export function groundedAmounts(input: {
   sheets: readonly TripSheet[];
@@ -127,23 +127,26 @@ export function groundedAmounts(input: {
   quoted: readonly QuoteFigures[];
   now: Date;
 }): GroundedSet {
-  const quoted = input.quoted.flatMap((one) => [
-    ...timesUpToTen(one.perPersonPaise),
-    ...timesUpToTen(one.advancePerPersonPaise),
-    one.totalPaise,
-    one.advancePaise,
-  ]);
+  const sheetOf = (packageId: string) => input.sheets.find((sheet) => sheet.packageId === packageId);
+  const answers = Object.values(input.answers);
+  const texts = [...answers, ...input.teamLines, ...input.sheets.map(tripTextOf)];
+  const discounts = [...new Set(texts.flatMap((text) => discountFiguresIn(text).percents))].filter(
+    (percent) => percent > 0 && percent < 100,
+  );
   const told = input.told
     .filter((one) => input.now.getTime() - Date.parse(one.at) <= MONTH_MS)
-    .map((one) => one.totalPaise);
-  const written = [
-    ...Object.values(input.answers).flatMap((answer) => amountsIn(answer)),
-    ...input.teamLines.flatMap((line) => looseAmountsIn(line)),
-  ].map((one) => one.paise);
-  return groundedSetOf([
-    ...input.sheets.flatMap((sheet) => sheetAmounts(sheet, input.today)),
-    ...quoted,
-    ...told,
-    ...written,
-  ]);
+    .flatMap((one) => {
+      const advance = sheetOf(one.packageId)?.advancePerPersonPaise ?? null;
+      const people = one.adults + one.childrenAges.length;
+      return advance === null ? [one.totalPaise] : [one.totalPaise, one.totalPaise - advance * people];
+    });
+  return groundedSetOf(
+    [
+      ...input.sheets.flatMap((sheet) => sheetAmounts(sheet, input.today, discounts)),
+      ...input.quoted.flatMap((quote) => quotedAmounts(quote, sheetOf(quote.terms.packageId) ?? NO_TAX)),
+      ...told,
+      ...answers.flatMap((answer) => amountsIn(answer)).map((one) => one.paise),
+      ...input.teamLines.flatMap((line) => looseAmountsIn(line)).map((one) => one.paise),
+    ].filter((paise) => paise > 0),
+  );
 }
