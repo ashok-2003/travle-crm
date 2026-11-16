@@ -40,6 +40,8 @@ function standInPush(): void {
 
 /** Right after a sign-in the app asks to turn notifications on (push-offer.ts); these journeys use the card instead. */
 async function dismissPushOffer(page: Page): Promise<void> {
+  // signInByEmail signs in through the api and opens no page, so the app is opened first.
+  await page.goto("/");
   await page.getByRole("button", { name: "Not now" }).click();
 }
 
@@ -96,6 +98,8 @@ test("right after signing in the app asks to turn notifications on, and Turn on 
 }) => {
   await page.addInitScript(standInPush);
   await signInByEmail(page, agency.owner);
+  // An api sign-in never runs finishSignIn, so this is the once-a-day offer, not the post-sign-in one.
+  await page.goto("/");
   const offer = page.getByRole("dialog", { name: "Please turn on notifications for the best experience" });
   await expect(offer).toBeVisible();
   await offer.getByRole("button", { name: "Turn on", exact: true }).click();
