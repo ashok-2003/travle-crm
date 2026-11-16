@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { setTimeout as wait } from "node:timers/promises";
 import { gunzipSync } from "node:zlib";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { createLangfuseTracing, type AiTracing } from "../../src/tracing/index.js";
 
 interface OtlpValue {
@@ -180,6 +180,35 @@ describe("the Langfuse tracing", () => {
     expect(JSON.stringify(sent)).not.toContain("outside any turn");
   });
 
+  it("links a turn's model calls to its managed prompt, and nothing else", async () => {
+    const traced = open();
+    const turn = { name: "whatsapp-agent.natural.try-it", sessionId: "chat-4", organizationId: "org-1" };
+    await traced.turn({ ...turn, prompt: { name: "whatsapp-agent/natural-system", version: 4 } }, async () => {
+      await wait(1);
+      traced.generation({ name: "ai.sales_agent", input: [] }).end({ output: "one" });
+      await traced.step({ name: "look-up", type: "retriever" }, () => Promise.resolve("found"));
+    });
+    await traced.turn(turn, () => {
+      traced.generation({ name: "ai.sales_agent.built-in", input: [] }).end({ output: "two" });
+      return Promise.resolve();
+    });
+    await traced.flush();
+    const sent = spans();
+    const linked = sent.find((span) => span.name === "ai.sales_agent");
+    expect(linked?.attributes).toMatchObject({
+      "langfuse.observation.prompt.name": "whatsapp-agent/natural-system",
+      "langfuse.observation.prompt.version": 4,
+    });
+    const unlinked = sent.filter((span) => span !== linked);
+    expect(unlinked.map((span) => span.name).sort()).toEqual([
+      "ai.sales_agent.built-in",
+      "look-up",
+      "whatsapp-agent.natural.try-it",
+      "whatsapp-agent.natural.try-it",
+    ]);
+    for (const span of unlinked) expect(span.attributes).not.toHaveProperty(["langfuse.observation.prompt.name"]);
+  });
+
   it("nests a step under its turn with its own type, and its error by name only", async () => {
     const traced = open();
     const error = Object.assign(new Error("9876543210 not found"), { code: "P2025" });
@@ -238,7 +267,13 @@ describe("the Langfuse tracing", () => {
     expect(received.map(({ body }) => body).join("")).not.toContain("broke it");
   });
 
-  it("changes nothing when Langfuse is unreachable or hangs, and stops in time", async () => {
+  it("changes nothing when Langfuse is unreachable or hangs, says nothing on the console, and stops in time", async () => {
+    const written = (["error", "warn", "info", "debug", "log"] as const).map((method) =>
+      vi.spyOn(console, method).mockImplementation(() => undefined),
+    );
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
     const closed = createServer();
     await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
     const closedUrl = `http://127.0.0.1:${String((closed.address() as AddressInfo).port)}`;
@@ -267,5 +302,7 @@ describe("the Langfuse tracing", () => {
         resolve();
       }),
     );
+    // The SDK's own logger is silenced: an export that failed is no line of ours to print.
+    expect(written.flatMap((spy) => spy.mock.calls)).toEqual([]);
   });
 });

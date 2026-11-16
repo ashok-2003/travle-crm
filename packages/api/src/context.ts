@@ -10,7 +10,7 @@ import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { TemplateDependencies } from "@travel-crm/domain/inbox";
-import type { AiModel, AiTracing, Spreadsheets } from "@travel-crm/domain/ai";
+import type { AiModel, AiPrompts, AiTracing, Spreadsheets } from "@travel-crm/domain/ai";
 import { noAccessCache, type AccessCache } from "./access-cache.js";
 
 export interface ApiDependencies {
@@ -54,6 +54,8 @@ export interface ApiDependencies {
   ai?: AiModel | null;
   /** Where Try it's turns are traced (Langfuse); absent, nowhere. */
   tracing?: AiTracing;
+  /** The natural agent's prompt as Langfuse keeps it; absent, the agent runs on its built-in text. */
+  prompts?: AiPrompts;
   /** Reads an Excel rate sheet for the AI (release ai3b); null or absent: an Excel file is refused as unreadable. */
   spreadsheets?: Spreadsheets | null;
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
@@ -82,6 +84,7 @@ export async function createContext(
     whatsappProvider = null,
     ai = null,
     tracing,
+    prompts,
     spreadsheets = null,
     appUrl,
   }: ApiDependencies,
@@ -110,6 +113,7 @@ export async function createContext(
     whatsappProvider,
     ai,
     tracing,
+    prompts,
     spreadsheets,
     appUrl,
     headers: request.headers,

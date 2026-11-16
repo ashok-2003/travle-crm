@@ -7,6 +7,12 @@ import { errorFields } from "../logging/error-fields.js";
 /** How serious an observation is: a failed model call is ERROR, a turn that sent nothing for a bad reason WARNING. */
 export type TraceLevel = "DEBUG" | "DEFAULT" | "WARNING" | "ERROR";
 
+/** A prompt kept in Langfuse's prompt management, by its name and the version a turn ran. */
+export interface TracedPrompt {
+  name: string;
+  version: number;
+}
+
 /** A turn as it starts. The name is stable and names the kind of turn, never one turn: "whatsapp-agent.reply". */
 export interface TurnStart {
   name: string;
@@ -19,6 +25,11 @@ export interface TurnStart {
   tags?: readonly string[];
   input?: unknown;
   metadata?: Record<string, unknown>;
+  /**
+   * The managed prompt the turn's model calls were made from, when it came from Langfuse (never the built-in text): each
+   * model call of the turn is linked to it, so Langfuse shows the prompt and its version on every generation.
+   */
+  prompt?: TracedPrompt;
 }
 
 /** What a turn learned as it ran. Metadata merges by key; input and output replace what was there. */
@@ -72,7 +83,7 @@ export interface AiTracing {
   note(note: TraceNote): void;
   /** Runs `work` as one step, nested where it runs; `ended` says what came of it (its output). */
   step<T>(start: StepStart, work: () => Promise<T>, ended?: (result: T) => TraceNote): Promise<T>;
-  /** Starts a model call's observation, under the running turn if there is one. */
+  /** Starts a model call's observation, under the running turn if there is one, linked to the turn's prompt. */
   generation(start: GenerationStart): TracedGeneration;
   /** Sends what is buffered. Bounded in time, and never rejects. */
   flush(): Promise<void>;

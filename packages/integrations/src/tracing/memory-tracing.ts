@@ -9,6 +9,7 @@ import {
   type GenerationStart,
   type StepStart,
   type TraceNote,
+  type TracedPrompt,
   type TurnStart,
 } from "./ai-tracing.js";
 
@@ -17,6 +18,8 @@ export interface MemoryGeneration {
   end: GenerationEnd | null;
   /** The turn it ran in, or null outside any. */
   turn: MemoryTurn | null;
+  /** The managed prompt it is linked to (its turn's), or null. */
+  prompt: TracedPrompt | null;
 }
 
 export interface MemoryStep {
@@ -96,7 +99,7 @@ export function createMemoryTracing(): MemoryTracing {
     },
     generation(start) {
       const turn = running.getStore() ?? null;
-      const call: MemoryGeneration = { start, end: null, turn };
+      const call: MemoryGeneration = { start, end: null, turn, prompt: turn?.start.prompt ?? null };
       generations.push(call);
       turn?.generations.push(call);
       return {

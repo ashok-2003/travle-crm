@@ -55,14 +55,14 @@ describe("the demo reset", () => {
   it("builds the demo on its own plan, whose staff sign in with its code and the demo password", async () => {
     const demo = demoSettings();
     // 20:00 UTC is already the 17th in India: the demo is paid a month from the day there.
-    const resetAt = new Date("2026-10-16T20:00:00Z");
-    const { organizationId } = await resetDemoOrganization(test.services, demo, resetAt);
+    const builtAt = new Date("2026-10-16T20:00:00Z");
+    const { organizationId } = await resetDemoOrganization(test.services, demo, builtAt);
     for (const username of ["asha", "ravi", "meena"]) {
       expect(await canSignInByUsername(test.identity.identity, demo.code, username, demo.password)).toBe(true);
     }
-    // Its state as of the reset: read with today's clock, it falls past due once the month is over.
     const { subscription, onSale } = await test.services.platformDb.transaction(async (tx) => ({
-      subscription: await getSubscription(tx, organizationId, resetAt),
+      // Its state on the day it was built: on the real clock it is past due once 16 Nov has gone.
+      subscription: await getSubscription(tx, organizationId, builtAt),
       onSale: await listPlans(tx, { includeArchived: false }),
     }));
     expect(subscription).toMatchObject({ status: "active", paidThrough: "2026-11-16", plan: { key: DEMO_PLAN_KEY } });

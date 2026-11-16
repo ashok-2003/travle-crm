@@ -66,7 +66,7 @@ import {
   aiOverviewOf,
   aiSettingsOf,
   chatAiOf,
-  naturalPromptOf,
+  naturalTryItPrompt,
   naturalTryItTurn,
   tryItTurn,
   resumeChat,
@@ -440,7 +440,8 @@ export const aiRouter = router({
    * Try it on the natural agent, beside `test`: the same permission, the same Flash and 0.4 choice, its own strict input
    * and answer. A server with no model for the agent answers AI_NOT_READY; any other model failure comes back as the
    * fallback line and a task, as it would live. Nothing is sent or kept but the month's AI calls. When the server traces
-   * (Langfuse), each turn is one traced turn of the test chat, its session the chat's id.
+   * (Langfuse), each turn is one traced turn of the test chat, its session the chat's id. Its prompt is Langfuse's live
+   * one, or the draft when the person chose it (the live one when there is no draft), or the built-in text.
    */
   testNatural: freshProcedure
     .requires("ai:manage")
@@ -454,7 +455,7 @@ export const aiRouter = router({
       const chat = {
         messages: input.messages,
         state: input.state,
-        prompt: await naturalPromptOf(ctx.db),
+        prompt: await naturalTryItPrompt(ctx.prompts, input.prompt),
         ...(input.model === "flash" ? { model: TEST_CHAT_FLASH_MODEL } : {}),
         ...(input.temperature === "0.4" ? { temperature: 0.4 } : {}),
         ...(input.chatId === undefined ? {} : { chatId: input.chatId }),
