@@ -1,18 +1,20 @@
-// The agent bench's own, lean start: it reads only the two database addresses and the AI settings, and builds only what
-// the bench uses (the database, in-memory storage, queue and jobs, the AI model). No object-storage bucket check, mail,
-// push or auth settings, no pg-boss: a checkout with a model key and Docker is enough. The local-database check comes
-// first, before anything connects.
+// The agent bench's own, lean start: it reads only the two database addresses, the AI settings and Langfuse's, and builds
+// only what the bench uses (the database, in-memory storage, queue and jobs, the AI model, its tracing). No object-storage
+// bucket check, mail, push or auth settings, no pg-boss: a checkout with a model key and Docker is enough. The
+// local-database check comes first, before anything connects.
 import { randomBytes } from "node:crypto";
 import { createDatabase } from "@travel-crm/db";
 import { createIdentity } from "@travel-crm/domain/identity";
 import { createPlatformServices, checkPlatformConnection, type PlatformServices } from "@travel-crm/domain/platform";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import { createMemoryJobAdministration, createMemoryJobQueue } from "@travel-crm/integrations/jobs";
 import { createPinoLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { z } from "zod";
 import { createAiModel } from "./ai-services.js";
 import { agentBenchCommand, isLocalDatabaseUrl } from "./console-agent-bench.js";
+import { langfuseProblems, tracingOf } from "./langfuse-settings.js";
 import type { CommandOutput } from "./console-commands.js";
 import { serviceVariables } from "./service-variables.js";
 
@@ -30,30 +32,45 @@ const {
   AI_BACKUP_API_KEY,
   AI_BACKUP_CHAT_MODELS,
   AI_BACKUP_FAST_MODELS,
+  LANGFUSE_PUBLIC_KEY,
+  LANGFUSE_SECRET_KEY,
+  LANGFUSE_BASE_URL,
+  LANGFUSE_TRACING_ENVIRONMENT,
 } = serviceVariables;
 
-/** The bench's whole environment: the two addresses and the settings that make the model. */
-const benchSettings = z.object({
-  DATABASE_URL: postgresUrl,
-  DATABASE_PLATFORM_URL: postgresUrl,
-  OPENROUTER_API_KEY,
-  AI_SUGGEST_MODELS,
-  AI_SCORE_MODELS,
-  AI_BASE_URL,
-  AI_API_KEY,
-  AI_CHAT_MODELS,
-  AI_FAST_MODELS,
-  AI_ZERO_RETENTION,
-  AI_BACKUP_BASE_URL,
-  AI_BACKUP_API_KEY,
-  AI_BACKUP_CHAT_MODELS,
-  AI_BACKUP_FAST_MODELS,
-});
+/** The bench's whole environment: the two addresses, the settings that make the model, and Langfuse's. */
+const benchSettings = z
+  .object({
+    DATABASE_URL: postgresUrl,
+    DATABASE_PLATFORM_URL: postgresUrl,
+    OPENROUTER_API_KEY,
+    AI_SUGGEST_MODELS,
+    AI_SCORE_MODELS,
+    AI_BASE_URL,
+    AI_API_KEY,
+    AI_CHAT_MODELS,
+    AI_FAST_MODELS,
+    AI_ZERO_RETENTION,
+    AI_BACKUP_BASE_URL,
+    AI_BACKUP_API_KEY,
+    AI_BACKUP_CHAT_MODELS,
+    AI_BACKUP_FAST_MODELS,
+    LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_SECRET_KEY,
+    LANGFUSE_BASE_URL,
+    LANGFUSE_TRACING_ENVIRONMENT,
+  })
+  .superRefine((settings, context) => {
+    for (const { name, message } of langfuseProblems(settings, false)) {
+      context.addIssue({ code: "custom", path: [name], message });
+    }
+  });
 export type BenchSettings = z.infer<typeof benchSettings>;
 
 export interface BenchServices {
   platform: PlatformServices;
   ai: AiModel | null;
+  tracing: AiTracing;
   close(): Promise<void>;
 }
 
@@ -86,7 +103,10 @@ export async function startBenchServices(settings: BenchSettings): Promise<Bench
     jobs: createMemoryJobAdministration(),
     logger,
   });
+  // The bench runs on a laptop: its traces go under "development" unless LANGFUSE_TRACING_ENVIRONMENT says otherwise.
+  const tracing = tracingOf(settings, "development");
   const close = async () => {
+    await tracing.shutdown();
     await platform.platformDb.disconnect();
     await identity.disconnect();
     await db.disconnect();
@@ -97,7 +117,7 @@ export async function startBenchServices(settings: BenchSettings): Promise<Bench
     await close().catch(() => undefined);
     throw error;
   }
-  return { platform, ai: createAiModel({ ...settings, AI_TEST_SERVER_URL: undefined }), close };
+  return { platform, ai: createAiModel({ ...settings, AI_TEST_SERVER_URL: undefined }, tracing), tracing, close };
 }
 
 export interface AgentBenchProcessOptions {
@@ -131,7 +151,7 @@ export async function runAgentBench(
   try {
     return await agentBenchCommand(
       started.platform,
-      { ai: started.ai, databaseUrls, repositoryRoot, home, now },
+      { ai: started.ai, tracing: started.tracing, databaseUrls, repositoryRoot, home, now },
       args,
       output,
     );

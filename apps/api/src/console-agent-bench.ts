@@ -11,6 +11,7 @@ import { createFiles } from "@travel-crm/domain/files";
 import { createCaseOrganization, removeCaseOrganization, type PlatformServices } from "@travel-crm/domain/platform";
 import type { Entitlements } from "@travel-crm/domain/subscriptions";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { benchReport, insideRepository, writePrivateReport } from "./agent-bench-report.js";
@@ -24,6 +25,8 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 export interface AgentBenchContext {
   /** The real model from .env (AI_*), or null when no key is set. */
   ai: AiModel | null;
+  /** Where the real model's turns are traced (LANGFUSE_* in .env); the scripted answers are never traced. */
+  tracing?: AiTracing;
   /** Every database address the process holds: all of them must be on this computer. */
   databaseUrls: readonly string[];
   repositoryRoot: string;
@@ -127,6 +130,7 @@ export async function agentBenchCommand(
           {
             db: platform.db,
             ai: fake || model === null ? benchModel(one) : model,
+            ...(fake || context.tracing === undefined ? {} : { tracing: context.tracing }),
             subscriptions: { entitlementsOf: () => Promise.resolve(allEntitlements) },
             agencyName: () => Promise.resolve("Case Holidays"),
             files,
