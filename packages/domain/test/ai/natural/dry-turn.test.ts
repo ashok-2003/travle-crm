@@ -9,6 +9,7 @@ import {
   naturalDryTurn,
   naturalDryTurnInFull,
   type NaturalChatLine,
+  type NaturalPrompt,
 } from "../../../src/ai/index.js";
 import { stampOf } from "../../../src/ai/natural/context/chat-turns.js";
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
@@ -284,17 +285,44 @@ describe("the natural agent's dry turn", () => {
     await expect(on.dry(["Hi"])).rejects.toMatchObject({ reason: "AI_NOT_READY" });
   });
 
-  it("records the prompt's version in the trace", async () => {
+  it("records the prompt's version in the trace, and the Langfuse label it came from", async () => {
     const on = await world();
-    on.model.answer({ text: "Hi! Kab ka plan hai?" });
-    const answer = await naturalDryTurn(on.deps, on.organizationId, {
-      lines: [line(1, "customer", NOW, "Hi")],
-      state: null,
-      now: NOW,
-      prompt: { ...BUILT_IN_NATURAL_PROMPT, version: "draft-7" },
-      choice: {},
+    on.model.answer({ text: "Hi! Kab ka plan hai?" }, { text: "Hi! Kab ka plan hai?" });
+    const turnOn = (prompt: NaturalPrompt) =>
+      naturalDryTurn(on.deps, on.organizationId, {
+        lines: [line(1, "customer", NOW, "Hi")],
+        state: null,
+        now: NOW,
+        prompt,
+        choice: {},
+      });
+    const draft = {
+      version: "langfuse:whatsapp-agent/natural-system@7",
+      text: BUILT_IN_NATURAL_PROMPT.text,
+      source: { name: "whatsapp-agent/natural-system", version: 7, label: "draft" },
+    };
+    expect((await turnOn(draft)).trace).toMatchObject({
+      agent: "natural",
+      promptVersion: "langfuse:whatsapp-agent/natural-system@7",
+      promptLabel: "draft",
+      outcome: "replied",
     });
-    expect(answer.trace).toMatchObject({ agent: "natural", promptVersion: "draft-7", outcome: "replied" });
+    expect((await turnOn(BUILT_IN_NATURAL_PROMPT)).trace).toMatchObject({
+      promptVersion: "built-in-1",
+      promptLabel: null,
+    });
+  });
+
+  it("sends two messages split at a line of ---, a list with blank lines whole, and adds each to the history", async () => {
+    const on = await world();
+    const list = "Kedarkantha mein:\n\n• Tents aur homestay\n• Saare meals\n\nPorter alag se.";
+    on.model.answer({ text: `${list}\n---\nAapke group mein kitne log hain?` });
+    const answer = await on.dry(["Kedarkantha mein kya included hai?"]);
+    expect(answer.messages).toEqual([list, "Aapke group mein kitne log hain?"]);
+    expect(answer.history).toEqual([
+      { from: "agent", text: list },
+      { from: "agent", text: "Aapke group mein kitne log hain?" },
+    ]);
   });
 
   it("adds [sent: …] and [offered: …] marks to the history", async () => {

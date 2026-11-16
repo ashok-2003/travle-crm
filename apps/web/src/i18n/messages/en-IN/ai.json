@@ -158,7 +158,13 @@
         "point4": "0.4"
       },
       "onlyFlash": "Only Gemini Flash takes a temperature.",
-      "thisChatOnly": "The agent, model and temperature apply only to this test chat, never to your customers' chats. Choosing another agent starts the chat again."
+      "prompt": "Prompt",
+      "prompts": {
+        "live": "Live (production)",
+        "draft": "Draft"
+      },
+      "draftHint": "Draft tries the prompt being edited, or the live one when there is no draft.",
+      "thisChatOnly": "These choices apply only to this test chat, never to your customers' chats. Choosing another agent starts the chat again."
     },
     "natural": {
       "payment": "Then code sends:",
@@ -207,6 +213,8 @@
       },
       "why": {
         "prompt": "Prompt version",
+        "draft": "Draft",
+        "noDraft": "The draft couldn't be read, so this turn ran the prompt above.",
         "outcome": "Outcome",
         "fallback": "Fallback reason",
         "restarted": "Started over",

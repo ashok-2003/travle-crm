@@ -18,6 +18,7 @@ import { createSmtpEmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
@@ -27,7 +28,7 @@ import { jobQueuePollingOf, jobQueueRoleOf } from "./job-polling.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import { createMetaServices, type MetaServices } from "./meta-services.js";
 import { createAiModel } from "./ai-services.js";
-import { tracingOf } from "./langfuse-settings.js";
+import { promptsOf, tracingOf } from "./langfuse-settings.js";
 import { createWhatsAppServices, type WhatsAppServices } from "./whatsapp-services.js";
 import type { ProcessName } from "./process-name.js";
 import { loggerOfRequest } from "./request-log.js";
@@ -53,6 +54,8 @@ export interface Services {
   ai: AiModel | null;
   /** Where the AI's calls and the agent's turns are traced: Langfuse with its keys set, else nowhere. One per process. */
   tracing: AiTracing;
+  /** The natural agent's prompt from Langfuse's prompt management (the same keys), else none: its built-in text. */
+  prompts: AiPrompts;
   /** Tells the console something broke (the AI, the api): it emails the super admins and shows it (incidents.ts). */
   incidents: IncidentReporter;
   /** WhatsApp through MSG91 (ADR 0035); null when the three MSG91 settings are not set: WhatsApp is off. */
@@ -206,6 +209,7 @@ export function createServices(
     // A call no model answers is told to the console.
     ai: ai === null ? null : withIncidentReports(ai, incidents),
     tracing,
+    prompts: promptsOf(environment, logger),
     incidents,
     whatsapp: createWhatsAppServices(environment),
     subscriptions,

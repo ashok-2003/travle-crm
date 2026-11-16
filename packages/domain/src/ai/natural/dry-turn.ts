@@ -242,7 +242,7 @@ export async function naturalDryTurnInFull(
     newerLine: () => Promise.resolve(false),
     clock,
   };
-  const trace = startNaturalTrace(turn.prompt.version, startedMs);
+  const trace = startNaturalTrace(turn.prompt, startedMs);
   const settings = { startedMs, organizationId, ...turn.choice, forced: before.forced, flagContext: reads.flagContext };
   const end = await runNaturalLoop(context, io, settings, trace);
   const newText = context.newLines.map((line) => line.text).join("\n");

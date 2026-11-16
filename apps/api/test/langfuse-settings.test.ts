@@ -1,12 +1,14 @@
 // Langfuse's settings: both keys or neither, the address with them (https in production), a valid environment name, and
-// blanks as unset. Unset, the process traces nothing; set, it traces into the environment named, or NODE_ENV's.
+// blanks as unset. Unset, the process traces nothing and reads no prompts; set, it traces into the environment named, or
+// NODE_ENV's, and reads the natural agent's prompt from the same project.
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { noPrompts } from "@travel-crm/integrations/prompts";
 import { createMemoryTracing, noTracing } from "@travel-crm/integrations/tracing";
 import { describe, expect, it } from "vitest";
 import { createAiModel } from "../src/ai-services.js";
 import { loadEnvironment } from "../src/environment.js";
-import { tracingOf } from "../src/langfuse-settings.js";
+import { promptsOf, tracingOf } from "../src/langfuse-settings.js";
 
 const production = {
   DATABASE_URL: "postgresql://app_runtime:runtime@localhost:55432/travel_crm",
@@ -39,6 +41,7 @@ describe("Langfuse's settings", () => {
     });
     expect(environment.LANGFUSE_PUBLIC_KEY).toBeUndefined();
     expect(tracingOf(environment, environment.NODE_ENV)).toBe(noTracing);
+    expect(promptsOf(environment)).toBe(noPrompts);
   });
 
   it("take both keys and the address together", () => {
@@ -101,6 +104,45 @@ describe("Langfuse's settings", () => {
     expect(tracing).not.toBe(noTracing);
     expect(await tracing.turn({ name: "t", sessionId: "s", organizationId: "o" }, () => Promise.resolve(1))).toBe(1);
     await tracing.shutdown();
+  });
+
+  it("make the process's prompts Langfuse's when the keys are set, asking that project", async () => {
+    const asked: { path: string | undefined; authorization: string | undefined }[] = [];
+    const server = createServer((request, response) => {
+      asked.push({ path: request.url, authorization: request.headers.authorization });
+      response.writeHead(200, { "content-type": "application/json" }).end(
+        JSON.stringify({
+          name: "whatsapp-agent/natural-system",
+          version: 2,
+          type: "text",
+          prompt: "Hi from {{agency_name}}",
+          config: {},
+          labels: ["production"],
+          tags: [],
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const prompts = promptsOf({
+        ...langfuse,
+        LANGFUSE_BASE_URL: `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`,
+      });
+      expect(prompts).not.toBe(noPrompts);
+      expect(await prompts.textPrompt("whatsapp-agent/natural-system", "production")).toMatchObject({
+        version: 2,
+        text: "Hi from {{agency_name}}",
+      });
+      expect(asked[0]?.path).toBe("/api/public/v2/prompts/whatsapp-agent%2Fnatural-system?label=production");
+      const { LANGFUSE_PUBLIC_KEY: publicKey, LANGFUSE_SECRET_KEY: secretKey } = langfuse;
+      expect(asked[0]?.authorization).toBe(`Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString("base64")}`);
+    } finally {
+      await new Promise<void>((resolve) =>
+        server.close(() => {
+          resolve();
+        }),
+      );
+    }
   });
 });
 
