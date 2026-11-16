@@ -3,7 +3,7 @@
 // back the work's result or error exactly.
 import { setTimeout as wait } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
-import { createMemoryTracing, noTracing, type TurnStart } from "../../src/tracing/index.js";
+import { createMemoryTracing, notedTurn, noTracing, type TurnStart } from "../../src/tracing/index.js";
 
 const start = (sessionId: string): TurnStart => ({
   name: "whatsapp-agent.reply",
@@ -60,15 +60,35 @@ describe("the in-memory tracing", () => {
     expect(tracing.generations[0]?.turn).toBeNull();
   });
 
-  it("rethrows the work's own error, and keeps its name and code", async () => {
+  it("rethrows the work's own error, and keeps its name, code and reason", async () => {
     const tracing = createMemoryTracing();
-    const error = Object.assign(new Error("customer 9876543210 said so"), { name: "DomainError", code: "CONFLICT" });
+    const error = Object.assign(new Error("customer 9876543210 said so"), {
+      name: "DomainError",
+      code: "CONFLICT",
+      reason: "AI_UNAVAILABLE",
+    });
     await expect(
       tracing.turn(start("chat-1"), () => {
         throw error;
       }),
     ).rejects.toBe(error);
-    expect(tracing.turns[0]?.failure).toBe("DomainError CONFLICT");
+    expect(tracing.turns[0]?.failure).toBe("DomainError CONFLICT AI_UNAVAILABLE");
+  });
+
+  it("shows a turn as Langfuse would: metadata merged by key, the rest replaced", async () => {
+    const tracing = createMemoryTracing();
+    await tracing.turn({ ...start("chat-1"), metadata: { token: "m1" } }, () => {
+      tracing.note({ input: "words", metadata: { outcome: "replied" } });
+      tracing.note({ output: "sent", level: "WARNING", metadata: { move: "greet" } });
+      return Promise.resolve();
+    });
+    const [turn] = tracing.turns;
+    expect(turn === undefined ? null : notedTurn(turn)).toEqual({
+      input: "words",
+      output: "sent",
+      level: "WARNING",
+      metadata: { token: "m1", outcome: "replied", move: "greet" },
+    });
   });
 
   it("counts flushes and the shutdown", async () => {

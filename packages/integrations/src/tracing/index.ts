@@ -12,5 +12,11 @@ export {
   type TurnStart,
 } from "./ai-tracing.js";
 export { createLangfuseTracing, type LangfuseTracingOptions } from "./langfuse.js";
-export { createMemoryTracing, type MemoryGeneration, type MemoryTracing, type MemoryTurn } from "./memory-tracing.js";
+export {
+  createMemoryTracing,
+  notedTurn,
+  type MemoryGeneration,
+  type MemoryTracing,
+  type MemoryTurn,
+} from "./memory-tracing.js";
 export { maskContacts, maskTraceData } from "./mask.js";

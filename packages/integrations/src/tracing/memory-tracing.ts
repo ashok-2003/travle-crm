@@ -92,3 +92,15 @@ export function createMemoryTracing(): MemoryTracing {
     },
   };
 }
+
+/** A turn as Langfuse shows it: its start's input and metadata, then each note's (metadata merging by key, the rest replaced). */
+export function notedTurn(turn: MemoryTurn): TraceNote {
+  const shown: TraceNote = {
+    ...(turn.start.input === undefined ? {} : { input: turn.start.input }),
+    metadata: { ...turn.start.metadata },
+  };
+  for (const note of turn.notes) {
+    Object.assign(shown, { ...note, metadata: { ...shown.metadata, ...note.metadata } });
+  }
+  return shown;
+}

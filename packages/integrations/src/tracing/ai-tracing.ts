@@ -2,6 +2,7 @@
 // what the AI was given, what it answered and why the turn ended as it did. Adapters: Langfuse, none, and the in-memory one
 // tests read. Tracing never changes what it traces: an adapter catches its own failures, and a work's result or error
 // comes back exactly as the work gave it.
+import { errorFields } from "../logging/error-fields.js";
 
 /** How serious an observation is: a failed model call is ERROR, a turn that sent nothing for a bad reason WARNING. */
 export type TraceLevel = "DEBUG" | "DEFAULT" | "WARNING" | "ERROR";
@@ -79,9 +80,15 @@ export const noTracing: AiTracing = {
   shutdown: () => Promise.resolve(),
 };
 
-/** What an error is, for a status message: its name and code, never its message, which can quote anything. */
+/** A DomainError's reason ("AI_UNAVAILABLE"): code's own words, never data. */
+const REASON = /^[A-Z][A-Z0-9_]{1,63}$/;
+
+/** What an error is, for a status message: its name, code and reason, never its message, which can quote anything. */
 export function failureOf(error: unknown): string {
-  if (!(error instanceof Error)) return "unknown";
-  const code = "code" in error && typeof error.code === "string" ? ` ${error.code}` : "";
-  return `${error.name}${code}`;
+  const { errorName, errorCode } = errorFields(error);
+  const reason =
+    typeof error === "object" && error !== null && "reason" in error && typeof error.reason === "string"
+      ? error.reason
+      : "";
+  return [errorName, errorCode ?? "", REASON.test(reason) ? reason : ""].filter((part) => part !== "").join(" ");
 }
