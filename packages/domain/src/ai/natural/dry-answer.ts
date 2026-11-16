@@ -42,6 +42,7 @@ export interface DryTurnRead {
 interface Ended {
   messages: string[];
   staged: StagedSet;
+  /** This turn's quotes, and its offer's and booking's figures, which the loop adds as they are staged. */
   quoted: readonly QuoteFigures[];
   /** The task a fallback leaves the team. */
   task: string | null;

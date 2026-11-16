@@ -239,6 +239,23 @@ describe("the natural agent's dry turn", () => {
     ]);
   });
 
+  it("keeps an offer's total the words state as told (ruling 17)", async () => {
+    const on = await world();
+    on.model.answer({ text: offerWords, toolCalls: [offerCall] });
+    const answer = await on.dry(["Kedarkantha 19 Dec, 2 log"]);
+    expect(answer.state.facts.told).toEqual([
+      {
+        packageId: on.kedarkantha,
+        startsOn: "2026-12-19",
+        adults: 2,
+        childrenAges: [],
+        room: "triple",
+        totalPaise: 1_899_800,
+        at: NOW.toISOString(),
+      },
+    ]);
+  });
+
   it("hands over in words of the model's own, with the reason in the actions", async () => {
     const on = await world();
     const words = "Main team ko bata deti hoon, woh yahin reply karenge.";
