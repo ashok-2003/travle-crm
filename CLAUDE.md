@@ -167,6 +167,11 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   turn, its chat the session) and adds what it learns with `tracing.note(...)`; tests read `createMemoryTracing()`. A
   deliberate exception (the owner, 2026-11-16): prompts and replies go to Langfuse in full, phones and emails masked; the
   Logger's no-personal-data rule is unchanged. Tracing never changes or slows what it traces.
+- **AI prompts** (the owner, 2026-11-16): Langfuse is the source of truth, read through the `AiPrompts` port
+  (`@travel-crm/integrations/prompts`; none without `LANGFUSE_*`). The natural agent's prompt is
+  `whatsapp-agent/natural-system`: live turns read label `production`, Try it's Draft reads `draft`, each generation
+  links to the version used, and the built-in text in code (kept equal to production) is the fallback when Langfuse is
+  slow (2 s) or down. Two messages in a reply are split at a line of only `---`.
 - **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
   the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
 - **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
@@ -244,7 +249,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
-- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`, `bot-check`, `tracing`),
+- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`, `bot-check`, `tracing`, `prompts`),
   each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need
