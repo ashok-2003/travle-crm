@@ -1,7 +1,7 @@
 // The natural agent's dry turn on agency T (Try it, the bench): one turn of the live loop on the posted chat and the state
 // the last turn handed back, on the agency's own data, with every action described and none done; only the month's AI
 // calls are kept. A turn's guards read this turn's offer, the Team lines of the last 30 days and whole trip text.
-import type { TestAiLine } from "@travel-crm/contracts/ai";
+import { naturalFacts, type DryLead, type TestAiLine } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   BUILT_IN_NATURAL_PROMPT,
@@ -11,6 +11,8 @@ import {
   type NaturalChatLine,
 } from "../../../src/ai/index.js";
 import { stampOf } from "../../../src/ai/natural/context/chat-turns.js";
+import { dryAnswerOf } from "../../../src/ai/natural/dry-answer.js";
+import { startNaturalTrace } from "../../../src/ai/natural/trace.js";
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
 import { monthStartOf } from "../../../src/inbox/index.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
@@ -286,6 +288,40 @@ describe("the natural agent's dry turn", () => {
     expect(answer.state.lead.tasks).toHaveLength(1);
     // No model answered: the call is given back.
     expect(await on.usedThisMonth()).toBe(0);
+  });
+
+  it("answers a turn that gave way to a newer line as a model failure, never with an error", () => {
+    // A dry turn has no newer line to give way to; were it to end so, Try it and the bench still get an answer.
+    const lead: DryLead = {
+      packageId: null,
+      day: null,
+      month: null,
+      adults: null,
+      childrenAges: [],
+      pickupCity: null,
+      room: null,
+      name: null,
+      stage: "new",
+      notes: [],
+      tasks: [],
+      booking: null,
+    };
+    const state = { facts: naturalFacts.parse({ agent: "natural" }), lead };
+    const read = {
+      now: NOW,
+      today: clock.today,
+      sheets: [],
+      paymentLines: null,
+      state,
+      newText: "Kedarkantha ka rate?",
+    };
+    const trace = startNaturalTrace(BUILT_IN_NATURAL_PROMPT.version, NOW.getTime());
+    expect(dryAnswerOf({ end: "superseded" }, read, trace, NOW.getTime())).toMatchObject({
+      outcome: "fallback",
+      messages: ["Ye team se check karke yahin batate hain."],
+      actions: [{ tool: "create_task", kind: "question" }],
+      trace: { outcome: "fallback", fallback: "model_failed:superseded" },
+    });
   });
 
   it("throws AI_LIMIT_REACHED when the month's calls are used up", async () => {
