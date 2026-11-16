@@ -180,6 +180,35 @@ describe("the Langfuse tracing", () => {
     expect(JSON.stringify(sent)).not.toContain("outside any turn");
   });
 
+  it("links a turn's model calls to its managed prompt, and nothing else", async () => {
+    const traced = open();
+    const turn = { name: "whatsapp-agent.natural.try-it", sessionId: "chat-4", organizationId: "org-1" };
+    await traced.turn({ ...turn, prompt: { name: "whatsapp-agent/natural-system", version: 4 } }, async () => {
+      await wait(1);
+      traced.generation({ name: "ai.sales_agent", input: [] }).end({ output: "one" });
+      await traced.step({ name: "look-up", type: "retriever" }, () => Promise.resolve("found"));
+    });
+    await traced.turn(turn, () => {
+      traced.generation({ name: "ai.sales_agent.built-in", input: [] }).end({ output: "two" });
+      return Promise.resolve();
+    });
+    await traced.flush();
+    const sent = spans();
+    const linked = sent.find((span) => span.name === "ai.sales_agent");
+    expect(linked?.attributes).toMatchObject({
+      "langfuse.observation.prompt.name": "whatsapp-agent/natural-system",
+      "langfuse.observation.prompt.version": 4,
+    });
+    const unlinked = sent.filter((span) => span !== linked);
+    expect(unlinked.map((span) => span.name).sort()).toEqual([
+      "ai.sales_agent.built-in",
+      "look-up",
+      "whatsapp-agent.natural.try-it",
+      "whatsapp-agent.natural.try-it",
+    ]);
+    for (const span of unlinked) expect(span.attributes).not.toHaveProperty(["langfuse.observation.prompt.name"]);
+  });
+
   it("nests a step under its turn with its own type, and its error by name only", async () => {
     const traced = open();
     const error = Object.assign(new Error("9876543210 not found"), { code: "P2025" });

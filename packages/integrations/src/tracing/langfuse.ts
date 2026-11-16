@@ -21,6 +21,7 @@ import {
   type StepStart,
   type TraceNote,
   type TracedGeneration,
+  type TracedPrompt,
   type TurnStart,
 } from "./ai-tracing.js";
 import { maskTraceData } from "./mask.js";
@@ -40,7 +41,24 @@ export interface LangfuseTracingOptions {
 
 /** Where a turn keeps its observation in the async context, so a note finds its own turn and no other. */
 const TURN = createContextKey("travel-crm.ai-turn");
+/** Where a turn keeps its managed prompt, so each of its model calls is linked to it. */
+const PROMPT = createContextKey("travel-crm.ai-turn-prompt");
 const SESSION_LIMIT = 200;
+
+/**
+ * The running turn's prompt as a generation's `prompt` attribute (Langfuse's "link prompts to traces", manual
+ * observations): never a fallback, since the built-in text is no prompt of Langfuse's.
+ */
+function linkedPrompt(): { prompt?: TracedPrompt & { isFallback: false } } {
+  const prompt = context.active().getValue(PROMPT) as TracedPrompt | undefined;
+  return prompt === undefined ? {} : { prompt: { name: prompt.name, version: prompt.version, isFallback: false } };
+}
+
+/** The async context a turn's work runs in: its observation, and its prompt (a turn without one shows none). */
+function turnScope(agent: LangfuseAgent, prompt: TracedPrompt | undefined) {
+  const scope = context.active().setValue(TURN, agent);
+  return prompt === undefined ? scope.deleteValue(PROMPT) : scope.setValue(PROMPT, prompt);
+}
 
 /** A call into the SDK whose failure costs the trace a detail, never the work. */
 function quietly(call: () => unknown): void {
@@ -142,7 +160,7 @@ export function createLangfuseTracing(options: LangfuseTracingOptions): AiTracin
               ),
             );
             await propagateAttributes(traceAttributes(start), () =>
-              context.with(context.active().setValue(TURN, agent), async () => {
+              context.with(turnScope(agent, start.prompt), async () => {
                 try {
                   await run();
                 } catch (error) {
@@ -199,6 +217,7 @@ export function createLangfuseTracing(options: LangfuseTracingOptions): AiTracin
             ...(start.model === undefined ? {} : { model: start.model }),
             ...(start.modelParameters === undefined ? {} : { modelParameters: start.modelParameters }),
             ...(start.metadata === undefined ? {} : { metadata: start.metadata }),
+            ...linkedPrompt(),
           },
           { asType: "generation" },
         );
