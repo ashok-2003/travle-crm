@@ -3,7 +3,7 @@
 import { setTimeout as wait } from "node:timers/promises";
 import { createMemoryPrompts, type AiPrompts } from "@travel-crm/integrations/prompts";
 import { describe, expect, it } from "vitest";
-import { estimateTokens } from "../../../src/ai/natural/context/tokens.js";
+import { estimateTokens, NATURAL_BUDGETS } from "../../../src/ai/natural/context/tokens.js";
 import {
   BUILT_IN_NATURAL_PROMPT,
   NATURAL_PROMPT_PLACEHOLDERS,
@@ -22,10 +22,17 @@ const kept = (version: number, label: string, text: string) => ({ name: NATURAL_
 const liveText = "# {{agent_name}} of {{agency_name}}, in a {{ tone }} voice. {{agency_name}} again.";
 
 describe("the natural agent's prompt", () => {
-  it("holds Appendix A as written", () => {
+  it("holds prompt v2 as written", () => {
     expect(NATURAL_PROMPT_TEXT.startsWith("# {{agent_name}}, {{agency_name}} on WhatsApp")).toBe(true);
     expect(NATURAL_PROMPT_TEXT).toContain("## Four things you never do");
     expect(NATURAL_PROMPT_TEXT.trimEnd().endsWith("</example>")).toBe(true);
+  });
+  it("asks for the line the code splits two messages at, and for lists with blank-line spacing", () => {
+    expect(NATURAL_PROMPT_TEXT).toContain("Put a line with only --- between them. Never more than two.");
+    expect(NATURAL_PROMPT_TEXT).toContain("A blank line inside a message is only spacing.");
+    expect(NATURAL_PROMPT_TEXT).toContain("put each on its own line starting with •");
+    // Every example's two messages are split as the code splits them: no blank line between two of the agent's lines.
+    expect(NATURAL_PROMPT_TEXT).not.toContain("A blank line between two of your lines means two messages.");
   });
   it("writes its placeholders as Langfuse does, {{like_this}}, and only the ones code fills", () => {
     expect(NATURAL_PROMPT_TEXT).not.toMatch(/(?<!\{)\{\s*[a-z_]+\s*\}(?!\})/);
@@ -48,8 +55,8 @@ describe("the natural agent's prompt", () => {
       "# Riya of Sharma Holidays, in a friendly voice. Sharma Holidays again.",
     );
   });
-  it("fits its budget of 5,500 tokens (Appendix A is about 5,200)", () => {
-    expect(estimateTokens(NATURAL_PROMPT_TEXT)).toBeLessThanOrEqual(5_500);
+  it("fits its budget of 6,000 tokens (prompt v2 is about 5,600)", () => {
+    expect(estimateTokens(NATURAL_PROMPT_TEXT)).toBeLessThanOrEqual(NATURAL_BUDGETS.prompt);
   });
   it("names no bench fixture's trip or price", () => {
     for (const word of ["Kedarkantha", "Brahmatal", "9,499", "10,499", "Majnu ka Tilla"])

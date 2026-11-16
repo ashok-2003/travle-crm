@@ -95,8 +95,8 @@ if the act refused the booking: one more call with the refusal if a call and 8 s
 A response ends the turn when it called no read tool, had no action refused, and has words, sends a brochure, or calls
 `stay_quiet` or `hand_over` (writer). Words beside a read call are dropped, since they came before the facts; a
 response with no words that sends nothing gets one more call. Staged actions run in lite's act transaction once the
-words pass, keeping its idempotent tokens, pause and newest-message checks and rollback. A blank line splits the words
-into WhatsApp messages, at most two (writer). Caps: 4 calls, 120 s to the act, 60 s per try, no call with under 5 s
+words pass, keeping its idempotent tokens, pause and newest-message checks and rollback. A line of `---` splits the words
+into WhatsApp messages, at most two (writer; a blank line is spacing since prompt v2, 2026-11-16). Caps: 4 calls, 120 s to the act, 60 s per try, no call with under 5 s
 left, another model or a restart only while 20 s remain (owner, 2026-11-15), one reply, brochure set and booking per
 turn. Expected (estimate): 70% of turns take one call, 25% two, 5% three.
 
@@ -188,7 +188,7 @@ byte for byte the same until their data changes:
 3. The chat as real user and assistant turns (4.3), so the model writes as the person in the chat.
 4. A final user message: `<now>`, `<lead>`, the focused trips when indexed, then the customer's new lines (4.4).
 
-Sizes, estimated: prompt about 5,200 tokens (budget 5,500) and tool schemas about 1,600 (about 1,900 with 40 labels);
+Sizes, estimated: prompt about 5,600 tokens (budget 6,000 since prompt v2) and tool schemas about 1,600 (about 1,900 with 40 labels);
 agency block 300 to 600 plus up to 8,000 of trips; chat 1,000 to 3,000; turn block 300 to 3,500. A typical call has 8,000
 to 14,000 input tokens, 50 to 70% cached; the trace records cached tokens to check it. As in lite, a test fails when a
 block passes its budget.
@@ -479,6 +479,11 @@ the bench with its pass^3 runner; (4) the console's choice; (5) the first agency
 
 Placeholders: `{agent_name}`, `{agency_name}`, `{tone}` (friendly or professional). About 5,200 tokens (budget 5,500). The agency
 block (4.1) follows it in the same system string.
+
+This appendix keeps v1. Since 2026-11-16 the prompt lives in Langfuse (`whatsapp-agent/natural-system`, labels
+`production` and `draft`), and the built-in fallback (`prompt-text.ts`) is v2: `{{…}}` placeholders, • lists with blank-line
+spacing, short trip names (the full title only on an offer or a booking), a line of `---` between two messages, about
+5,600 tokens (budget 6,000).
 
 ````markdown
 # {agent_name}, {agency_name} on WhatsApp
