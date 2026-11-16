@@ -18,6 +18,7 @@ import { prepareLiteTurn, type LitePrepared } from "./prepare.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
 import { finishTurn, startTrace, tallied, withoutMessages, writeChecks, type TurnLog } from "./turn-trace.js";
 import { acted, decided, written } from "./turn-steps.js";
+import { chatInput, decideStep } from "./turn-notes.js";
 import type { DecideInput } from "./decide/decide.js";
 import type { CheckedForm, LiteDependencies, LiteOutcome, LiteTurnInput } from "./types.js";
 import { understandChat } from "./understand.js";
@@ -27,6 +28,8 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   if (input.kind === "nudge") return runLiteNudge(deps, input, now);
   const prepared = await prepareLiteTurn(deps, input, now);
   if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);
+  // The traced turn's input: what the customer wrote since our last message.
+  deps.tracing?.note({ input: chatInput(prepared.burst) });
   const trace = startTrace(input, prepared.leadId, now);
   const log: TurnLog = {};
   const end = (outcome: LiteOutcome, reason?: string) =>
@@ -78,12 +81,15 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   }
 
   // LOOK UP and DECIDE.
-  const looked = await decided(
-    deps.db,
-    organizationId,
-    decideBase(prepared, input, checked, facts, changed.length > 0),
-    { index: prepared.index, answers: prepared.answers, facts, today: prepared.today, now },
-    checked?.form.lookups ?? [],
+  const requests = checked?.form.lookups ?? [];
+  const looked = await decideStep(deps.tracing, requests, () =>
+    decided(
+      deps.db,
+      organizationId,
+      decideBase(prepared, input, checked, facts, changed.length > 0),
+      { index: prepared.index, answers: prepared.answers, facts, today: prepared.today, now },
+      requests,
+    ),
   );
   const { situation } = looked;
   let { decision } = looked;

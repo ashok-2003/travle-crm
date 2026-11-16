@@ -13,6 +13,7 @@ import type { AiFilledField, LeadStage, LostReason } from "@travel-crm/contracts
 import type { RoomBooking, RoomType } from "@travel-crm/contracts/quotes";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { Files } from "../../files/index.js";
 import type { Identity } from "../../identity/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -34,6 +35,8 @@ export interface LiteDependencies {
   traces?: TraceSink;
   /** The minute job's clock: a follow-up reads it again before it acts, so its checks hold when it sends. */
   clock?: () => Date;
+  /** The traced turn this runs in, told what the customer wrote; without one, nothing is. */
+  tracing?: AiTracing;
 }
 
 export interface LiteTurnInput {

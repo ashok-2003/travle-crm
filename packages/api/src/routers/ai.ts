@@ -64,7 +64,7 @@ import {
   aiOverviewOf,
   aiSettingsOf,
   chatAiOf,
-  liteDryRun,
+  tryItTurn,
   resumeChat,
   setChatMode,
   confirmDocument,
@@ -427,6 +427,8 @@ export const aiRouter = router({
         ...(input.model === "flash" ? { model: TEST_CHAT_FLASH_MODEL } : {}),
         ...(input.temperature === "0.4" ? { temperature: 0.4 } : {}),
       };
-      return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, chat, new Date());
+      // One traced turn of the person's test chat, when the server traces (Langfuse).
+      const tracing = ctx.tracing === undefined ? {} : { tracing: ctx.tracing };
+      return tryItTurn({ db: ctx.db, ai: ctx.ai, agencyName, ...tracing }, ctx.member, chat, new Date());
     }),
 });

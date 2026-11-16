@@ -122,6 +122,7 @@ import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { documentText, type AiModel } from "@travel-crm/integrations/ai";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { JobQueue, JobRunner } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
@@ -184,6 +185,8 @@ export interface WorkerJobDependencies {
   logger: Logger;
   /** The AI (ADR 0029): null or left out when no OpenRouter key is set, and then nothing is ever sent to it. */
   ai?: AiModel | null;
+  /** Where the agent's turns are traced (Langfuse); left out, nowhere. */
+  tracing?: AiTracing;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
   jobs?: JobQueue;
 }
@@ -205,12 +208,15 @@ export async function retireSchedules(runner: Pick<JobRunner, "unschedule">): Pr
 
 /** What the agent's turns and follow-ups run with; its traces are kept in the worker's storage. */
 export function autopilotDependencies(
-  dependencies: Pick<WorkerJobDependencies, "db" | "identity" | "files" | "subscriptions" | "storage" | "logger"> & {
+  dependencies: Pick<
+    WorkerJobDependencies,
+    "db" | "identity" | "files" | "subscriptions" | "storage" | "logger" | "tracing"
+  > & {
     managers: BookingRecipients;
   },
   model: AiModel,
 ) {
-  const { db, identity, files, subscriptions, storage, logger, managers } = dependencies;
+  const { db, identity, files, subscriptions, storage, logger, managers, tracing } = dependencies;
   return {
     db,
     ai: model,
@@ -222,6 +228,8 @@ export function autopilotDependencies(
     // A returning customer's new lead, opened by the lite turn, is owned as a new number's is.
     identity,
     traces: createTraceSink({ db, storage, logger }),
+    // Each turn one trace of its chat, its model calls inside.
+    ...(tracing === undefined ? {} : { tracing }),
   };
 }
 

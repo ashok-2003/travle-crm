@@ -160,6 +160,13 @@ BREVO_WEBHOOK_KEY=''
 OPENROUTER_API_KEY=''
 AI_SUGGEST_MODELS=''
 AI_SCORE_MODELS=''
+# Tracing of the AI in Langfuse (docs/deploy-checklist.md, "Tracing the AI"): the project's two keys and its region's
+# address (https://us.cloud.langfuse.com), all three or none; blank leaves it off, and `check` does not ask for them.
+# The environment is blank for production.
+LANGFUSE_PUBLIC_KEY=''
+LANGFUSE_SECRET_KEY=''
+LANGFUSE_BASE_URL=''
+LANGFUSE_TRACING_ENVIRONMENT=''
 
 # Logs (docs/runbook.md, "Reading logs" and "Turn on Axiom"). LOG_LEVEL is debug, info, warn or error (blank: info).
 # The token and dataset ship every log line to Axiom too; blank leaves it off, and `check` does not ask for them.
@@ -256,18 +263,18 @@ set_one() {
 
 # The settings still empty, one per line, but the optional ones: the heartbeat, and the admin connection string the
 # server's own Postgres doesn't need, the Google service accounts, which leave Google Sheets off while blank, Meta's,
-# MSG91's and Brevo's webhook's, which leave them off while blank, the log settings, which leave Axiom off while blank,
-# the website form's, which are blank unless the owner turns Turnstile on, and those with a default (APP_URL, the
-# transactions' limits, the jobs' polling, a small database server's Postgres memory). On the two small servers beside a
-# managed database also the migrator's connection string (the migrations run from the owner's computer) and the
-# backups' settings (the managed database is backed up from GitHub Actions), and on the api's the platform role's,
-# which it must never hold. Beside our own database, the app server holds no backups' settings (the database server
-# backs up), and the database server neither the platform role's nor the migrator's (the app server migrates). Only the
-# database server needs the address Postgres listens on.
+# MSG91's and Brevo's webhook's, which leave them off while blank, Langfuse's, which leave tracing off while blank, the
+# log settings, which leave Axiom off while blank, the website form's, which are blank unless the owner turns Turnstile
+# on, and those with a default (APP_URL, the transactions' limits, the jobs' polling, a small database server's Postgres
+# memory). On the two small servers beside a managed database also the migrator's connection string (the migrations run
+# from the owner's computer) and the backups' settings (the managed database is backed up from GitHub Actions), and on
+# the api's the platform role's, which it must never hold. Beside our own database, the app server holds no backups'
+# settings (the database server backs up), and the database server neither the platform role's nor the migrator's (the
+# app server migrates). Only the database server needs the address Postgres listens on.
 empty_settings() {
   local optional='BACKUP_HEARTBEAT_URL|DATABASE_ADMIN_URL|GOOGLE_SHEETS_SERVICE_ACCOUNTS|META_[A-Z_]+|MSG91_[A-Z_]+'
   optional+='|POSTGRES_EFFECTIVE_CACHE_SIZE|POSTGRES_MAINTENANCE_WORK_MEM'
-  optional+='|BREVO_WEBHOOK_TOKEN|BREVO_WEBHOOK_KEY'
+  optional+='|BREVO_WEBHOOK_TOKEN|BREVO_WEBHOOK_KEY|LANGFUSE_[A-Z_]+'
   optional+='|LOG_LEVEL|AXIOM_TOKEN|AXIOM_DATASET|AXIOM_URL|PUBLIC_FORM_PROXY_HOPS|TURNSTILE_SITE_KEY|TURNSTILE_SECRET_KEY'
   optional+='|APP_URL|DATABASE_TRANSACTION_MAX_WAIT_MS|DATABASE_TRANSACTION_TIMEOUT_MS|JOBS_POLLING_SECONDS'
   case "$(server_role)" in

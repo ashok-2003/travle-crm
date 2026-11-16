@@ -154,6 +154,9 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
+| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`: both or neither (Tracing the AI, below)               | ○   | ○      |         |         | yes    |
+| `LANGFUSE_BASE_URL`: Langfuse's region, needed with the keys; https in production                   | ○   | ○      |         |         |        |
+| `LANGFUSE_TRACING_ENVIRONMENT`: the traces' environment (`NODE_ENV`'s when unset)                   | ○   | ○      |         |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                                                    | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)                                       | ○   | ○      | ○       |         | yes    |
 | `AXIOM_URL`: only for Axiom's EU region                                                             | ○   | ○      | ○       |         |        |
@@ -278,6 +281,22 @@ Secrets come from the platform's secret manager as environment variables, never 
     minute) without being asked, so the backup answers at once. Use a paid key or another provider's, never a second free
     account to get round a provider's limits: its terms forbid that, and its free tier may use the customers' words.
   - Existing plans get no AI: edit each plan in the console to add the module.
+- **Tracing the AI** (the owner, 2026-11-16; `@travel-crm/integrations/tracing`):
+  - With `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` (all three or none; for Langfuse Cloud US,
+    `https://us.cloud.langfuse.com`, https in production), the api and the worker send every AI call to Langfuse as a
+    generation (the messages in full, the answer, the model, the tokens, or the reason there was none), and each
+    WhatsApp agent turn (a reply, a follow-up, a Try it turn) as one trace of its chat: the conversation is the session,
+    the customer's words the input, what went out the output, and the turn's lite trace (what Understand and Write were
+    shown and answered, the lookups, the checks, the move and why) the metadata.
+  - This is a deliberate exception to "no personal data leaves": the chats' words go to Langfuse Cloud. Phone numbers and
+    email addresses are masked before they leave; the log lines' rule (no personal data) is unchanged.
+  - Traces go under `NODE_ENV`'s environment (`production` on the server) unless `LANGFUSE_TRACING_ENVIRONMENT` names
+    another. The console calls no model and is given no keys. `pnpm --filter @travel-crm/api-server agent-bench` traces
+    its real model's turns under `development`.
+  - A Langfuse that is down or slow changes nothing: spans are sent in the background, and a process's stop waits at most
+    six seconds for the last of them.
+  - An erased customer's traces are not yet deleted from Langfuse: until that step is added to the erasure, delete them
+    by hand there (Tracing, filtered by the session, which is the chat's id).
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
     printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to

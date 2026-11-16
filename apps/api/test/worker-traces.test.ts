@@ -1,7 +1,9 @@
-// The worker keeps each lite turn's trace: the autopilot's dependencies carry a sink on the worker's own storage.
+// The worker keeps each lite turn's trace: the autopilot's dependencies carry a sink on the worker's own storage, and the
+// process's tracing (Langfuse) when it has one.
 import { randomUUID } from "node:crypto";
 import { startTrace } from "@travel-crm/domain/ai";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
+import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { autopilotDependencies } from "../src/worker-jobs.js";
 import { createTestAgency, createTestServer, type TestServer } from "./support/test-server.js";
@@ -55,5 +57,21 @@ describe("the worker's turn traces", () => {
     const rows = await server.db.forOrg(agency.organizationId, (tx) => tx.aiTurnTrace.findMany());
     expect(rows).toHaveLength(1);
     expect(await storage.head(rows[0]?.fileKey ?? "")).not.toBeNull();
+  });
+
+  it("the autopilot's turns are traced with the process's tracing, when it has one", () => {
+    const model = { configured: true, complete: () => Promise.reject(new Error("not called")) };
+    const base = {
+      db: server.db,
+      identity: server.identity,
+      files: server.files,
+      subscriptions: server.subscriptions,
+      storage: createMemoryStorage(),
+      logger: server.logger,
+      managers: () => Promise.resolve([]),
+    };
+    const tracing = createMemoryTracing();
+    expect(autopilotDependencies({ ...base, tracing }, model)).toMatchObject({ tracing });
+    expect(autopilotDependencies(base, model)).not.toHaveProperty("tracing");
   });
 });
