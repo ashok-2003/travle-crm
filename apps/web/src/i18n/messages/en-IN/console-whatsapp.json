@@ -118,6 +118,7 @@
     "missing": "Its setup isn't finished: {steps}.",
     "noAi": "Its plan has no AI.",
     "steps": {
+      "ai": "the \"Use the AI\" switch",
       "whatsapp": "WhatsApp number",
       "packages": "packages the AI can sell",
       "payment": "payment QR",

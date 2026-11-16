@@ -15,8 +15,9 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { useSetAgentOn } from "./use-setup-steps";
 
-/** Where each step is done: WhatsApp and Packages have pages of their own, the rest are rows of this page. */
+/** Where each step is done: the AI, WhatsApp and Packages have pages of their own, the rest are rows of this page. */
 const stepPlace: Record<Exclude<AgentSetup["steps"][number]["key"], "ads">, string> = {
+  ai: routes.aiSettings,
   whatsapp: routes.whatsapp,
   packages: routes.packages,
   payment: "#step-payment",

@@ -1,5 +1,6 @@
-// The AI agent's setup checklist: each step's done rule, "ready" ignoring the optional step, turning the agent on only when
-// ready (off always), the autopilot's other columns left alone, and the open hand-overs a member's inbox may show.
+// The AI agent's setup checklist: each step's done rule (the agency's "Use the AI" switch among them), "ready" ignoring
+// the optional step, turning the agent on only when ready (off always), the autopilot's other columns left alone, and
+// the open hand-overs a member's inbox may show.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -7,6 +8,7 @@ import {
   autopilotOf,
   handedOverChatsOf,
   saveAgencyAnswers,
+  saveAiSettings,
   saveAgentBasics,
   setAgentOn,
 } from "../../src/ai/index.js";
@@ -85,11 +87,26 @@ describe("the AI agent's setup", () => {
     });
   }
 
+  const useTheAi = (on: World, enabled: boolean) =>
+    on.inOrg((tx) =>
+      saveAiSettings(tx, on.owner, { enabled, scoring: true }, { providerReady: true, now: new Date() }),
+    );
+
   async function everythingDone(on: World) {
+    await useTheAi(on, true);
     await aSellablePackage(on);
     await on.inOrg((tx) => saveAgencyAnswers(tx, on.owner, { answers: allAnswers }));
     await on.inOrg((tx) => saveAgentBasics(tx, on.owner, { agentName: "Riya", tone: "friendly" }));
   }
+
+  it("ai is done only while the agency's AI is on, and the agent isn't ready without it", async () => {
+    const on = await agency();
+    await everythingDone(on);
+    expect(await on.step("ai")).toMatchObject({ done: true, optional: false });
+    await useTheAi(on, false);
+    expect(await on.step("ai")).toMatchObject({ done: false, optional: false });
+    expect((await on.inOrg((tx) => agentSetupOf(tx, on.organizationId, today))).ready).toBe(false);
+  });
 
   it("whatsapp is done once the agency's number is connected", async () => {
     expect((await (await agency({ connected: false })).step("whatsapp"))?.done).toBe(false);
@@ -179,6 +196,7 @@ describe("the AI agent's setup", () => {
 
   it("refuses turning on while a step is missing, turns on when ready, and turning off is always allowed", async () => {
     const on = await agency();
+    await useTheAi(on, true);
     const reason = await on
       .inOrg((tx) => setAgentOn(tx, on.owner, true, today))
       .then(
@@ -193,6 +211,25 @@ describe("the AI agent's setup", () => {
     await expect(on.inOrg((tx) => setAgentOn(tx, on.owner, false, today))).resolves.toMatchObject({ on: false });
     const actions = (await on.inOrg((tx) => tx.auditEntry.findMany({ orderBy: { id: "asc" } }))).map((e) => e.action);
     expect(actions).toEqual(expect.arrayContaining(["ai-agent.turned-on", "ai-agent.turned-off"]));
+  });
+
+  it("refuses turning on while the agency's AI is off, saying so, and leaves the switch off", async () => {
+    const on = await agency();
+    await everythingDone(on);
+    await useTheAi(on, false);
+    await expect(on.inOrg((tx) => setAgentOn(tx, on.owner, true, today))).rejects.toMatchObject({ reason: "AI_OFF" });
+    expect((await on.inOrg((tx) => autopilotOf(tx))).autopilot).toBe(false);
+  });
+
+  it("an agent left on when the agency's AI goes off reads as on but not ready, and can still be turned off", async () => {
+    const on = await agency();
+    await everythingDone(on);
+    await on.inOrg((tx) => setAgentOn(tx, on.owner, true, today));
+    await useTheAi(on, false);
+    const setup = await on.inOrg((tx) => agentSetupOf(tx, on.organizationId, today));
+    expect(setup).toMatchObject({ on: true, ready: false });
+    expect(setup.steps.filter((step) => !step.done && !step.optional).map((step) => step.key)).toEqual(["ai"]);
+    await expect(on.inOrg((tx) => setAgentOn(tx, on.owner, false, today))).resolves.toMatchObject({ on: false });
   });
 
   it("turning on is refused with only a UPI ID: the payment QR is missing", async () => {
