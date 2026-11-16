@@ -5,7 +5,8 @@
 // chat so far, the state the last turn handed back, and the model and temperature chosen for this chat, to the chosen
 // agent's own procedure: the current agent's ai.test or the new agent's ai.testNatural (ruling 7), so choosing the other
 // agent empties the chat. The chat lives only in this screen's state, never stored or in the address; Start again
-// empties it and keeps the choice. Nothing is sent to anyone; each answer spends some of the month's AI calls.
+// empties it and keeps the choice. The new agent's turns also send the test chat's id, a random one each time the chat
+// starts, which groups its turns' traces. Nothing is sent to anyone; each answer spends some of the month's AI calls.
 import {
   TEST_CHAT_LINES,
   TEST_LINE_MAX,
@@ -64,6 +65,7 @@ export function TestSection() {
   const pending = test.isPending || natural.isPending;
   const [entries, setEntries] = useState<Entry[]>([]);
   const [state, setState] = useState(noState);
+  const [chatId, setChatId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState("");
   const [choice, setChoice] = useState(liveChoice);
 
@@ -76,7 +78,7 @@ export function TestSection() {
     const turn = { messages: linesOf(next), model: choice.model, temperature: choice.temperature };
     if (choice.agent === "natural") {
       natural.mutate(
-        { ...turn, state: state.natural },
+        { ...turn, state: state.natural, chatId },
         {
           onSuccess: (answer) => {
             setEntries((shown) => [...shown, { from: "natural", answer }]);
@@ -99,6 +101,7 @@ export function TestSection() {
   const reset = () => {
     setEntries([]);
     setState(noState);
+    setChatId(crypto.randomUUID());
     setDraft("");
     test.reset();
     natural.reset();

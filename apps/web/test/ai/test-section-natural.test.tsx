@@ -1,7 +1,7 @@
-// Try it on the new agent: the Agent choice sends turns to ai.testNatural with the state the last one handed back and
-// the chat's lines (the customer's and each answer's history); changing the agent empties the chat. A turn shows its
-// messages, the payment lines code would send after them, a status line, and a "Why" with each call's tools, the
-// guards' verdicts and what it would do, in the screen's own forms.
+// Try it on the new agent: the Agent choice sends turns to ai.testNatural with the state the last one handed back, the
+// chat's lines (the customer's and each answer's history) and the test chat's id; changing the agent empties the chat.
+// A turn shows its messages, the payment lines code would send after them, a status line, and a "Why" with each call's
+// tools, the guards' verdicts and what it would do, in the screen's own forms.
 import { money } from "@travel-crm/domain/kernel";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -138,6 +138,7 @@ async function chat(answer: object) {
 }
 
 const live = { model: "live", temperature: "default" };
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 describe("Try it on the new agent", () => {
   it("sends the new agent's turns to ai.testNatural with the state it handed back", async () => {
@@ -150,13 +151,30 @@ describe("Try it on the new agent", () => {
       messages: [{ from: "customer", text: "Kedarkantha in Dec?" }],
       state: null,
       ...live,
+      chatId: expect.stringMatching(uuid) as unknown,
     });
+    const { chatId } = api.last().input as { chatId: string };
     const first = naturalTurn(["Yes! It departs every Saturday in December."], { state: stateAt(1) });
     api.last().answer(first);
     expect(await screen.findByText("Yes! It departs every Saturday in December.")).toBeVisible();
     await send("12 Dec for 2");
     expect(api.last().path).toBe("ai.testNatural");
-    expect(api.last().input).toMatchObject({ state: first.state, ...live });
+    // The same test chat, so the same id: its turns are one session of traces.
+    expect(api.last().input).toMatchObject({ state: first.state, ...live, chatId });
+  });
+
+  it("starts a new test chat, with a new id, on Start again", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, client());
+    await choose(choices.agent, choices.agents.natural);
+    await send("Kedarkantha in Dec?");
+    const { chatId } = api.last().input as { chatId: string };
+    api.last().answer(naturalTurn(["Yes! It departs every Saturday in December."]));
+    await screen.findByText("Yes! It departs every Saturday in December.");
+    await userEvent.click(screen.getByRole("button", { name: words.reset }));
+    await send("Brahmatal?");
+    expect(api.last().input).toMatchObject({ state: null, chatId: expect.stringMatching(uuid) as unknown });
+    expect((api.last().input as { chatId: string }).chatId).not.toBe(chatId);
   });
 
   it("empties the chat when the agent changes, keeping the model and temperature", async () => {
@@ -195,6 +213,7 @@ describe("Try it on the new agent", () => {
       state: null,
       model: "flash",
       temperature: "0.4",
+      chatId: expect.stringMatching(uuid) as unknown,
     });
     api.last().answer(naturalTurn(["Hello! Which trip are you looking at?"]));
     await screen.findByText("Hello! Which trip are you looking at?");
@@ -321,6 +340,7 @@ describe("Try it on the new agent", () => {
       ],
       state: stateAt(1),
       ...live,
+      chatId: expect.stringMatching(uuid) as unknown,
     });
   });
 });
