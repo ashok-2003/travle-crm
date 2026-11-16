@@ -162,7 +162,7 @@ const settings = (more: Partial<LoopSettings>): LoopSettings => ({
 });
 
 async function loop(more: Partial<LoopSettings> = {}, context = contextWith()): Promise<LoopEnd> {
-  trace = startNaturalTrace("natural-1", more.startedMs ?? START);
+  trace = startNaturalTrace({ version: "natural-1" }, more.startedMs ?? START);
   return runNaturalLoop(context, io, settings(more), trace);
 }
 
@@ -543,17 +543,37 @@ describe("the natural agent's loop", () => {
     expect(model.requests).toHaveLength(2);
   });
 
-  it("splits the words at the first blank line into at most two messages", () => {
-    expect(splitMessages("A\n\nB\n\nC")).toEqual(["A", "B\n\nC"]);
+  it("splits the words into at most two messages at a line of ---, never at a blank line (prompt v2)", () => {
+    expect(splitMessages("A\n---\nB")).toEqual(["A", "B"]);
+    expect(splitMessages(" A \n  ---  \n B ")).toEqual(["A", "B"]);
+    expect(splitMessages("A\n\nB")).toEqual(["A\n\nB"]);
     expect(splitMessages("A\nB")).toEqual(["A\nB"]);
-    expect(splitMessages(" A \n \n\nB ")).toEqual(["A", "B"]);
+    const list = "Included:\n\n• Stay in tents\n• All meals\n\n*Not included:* travel to Dehradun";
+    expect(splitMessages(list)).toEqual([list]);
+    // A --- at the very start or end, or two in a row, makes no empty message.
+    expect(splitMessages("---\nA\n---")).toEqual(["A"]);
+    expect(splitMessages("A\n---\n\n---\nB")).toEqual(["A", "B"]);
+    expect(splitMessages("---")).toEqual([]);
+    // A third part stays in the second message, after a blank line.
+    expect(splitMessages("A\n---\nB\n---\nC")).toEqual(["A", "B\n\nC"]);
+    // Only a line of its own: dashes inside a line, or four of them, are words.
+    expect(splitMessages("A --- B")).toEqual(["A --- B"]);
+    expect(splitMessages("A\n----\nB")).toEqual(["A\n----\nB"]);
     expect(splitMessages("")).toEqual([]);
   });
 
   it("strips a copied stamp or label from the start of each message, and checks what goes (pre-flight #16)", async () => {
-    model.answer("[Sat 14 Nov, 11:43 pm] (Team, Amit) Weekend batch Sat 19 Dec hai.\n\n[automatic] Kitne log?");
+    model.answer("[Sat 14 Nov, 11:43 pm] (Team, Amit) Weekend batch Sat 19 Dec hai.\n---\n[automatic] Kitne log?");
     expect(await loop()).toMatchObject({ messages: ["Weekend batch Sat 19 Dec hai.", "Kitne log?"] });
-    expect(io.checks.map((check) => check.words)).toEqual(["Weekend batch Sat 19 Dec hai.\n\nKitne log?"]);
+    expect(io.checks.map((check) => check.words)).toEqual(["Weekend batch Sat 19 Dec hai.\n---\nKitne log?"]);
+  });
+
+  it("sends a list with blank lines as one message, and the guards check every message that goes", async () => {
+    const list = "Kedarkantha:\n\n• 6 days\n• ₹9,499 a person\n\nSat 19 Dec has seats.";
+    model.answer(`${list}\n---\nKitne log?`);
+    expect(await loop()).toMatchObject({ end: "final", messages: [list, "Kitne log?"] });
+    const [checked] = io.checks.map((check) => check.words);
+    expect(splitMessages(checked ?? "")).toEqual([list, "Kitne log?"]);
   });
 
   it("ends with a staged stay_quiet or send_brochure and no words, or a hand-over for abuse", async () => {
@@ -643,6 +663,7 @@ describe("the natural agent's loop", () => {
     expect(finished()).toEqual({
       agent: "natural",
       promptVersion: "natural-1",
+      promptLabel: null,
       outcome: "replied",
       fallback: null,
       restarted: null,

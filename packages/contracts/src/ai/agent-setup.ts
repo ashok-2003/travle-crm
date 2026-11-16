@@ -55,8 +55,11 @@ export type WhatsappAd = z.infer<typeof whatsappAd>;
 export const linkAdInput = z.strictObject({ adId: z.uuid(), packageId: z.uuid().nullable() });
 export type LinkAdInput = z.infer<typeof linkAdInput>;
 
-/** The checklist before the agent may be turned on; "ads" is the one step that is optional. */
-export const agentSetupSteps = ["whatsapp", "packages", "payment", "answers", "basics", "ads"] as const;
+/**
+ * The checklist before the agent may be turned on; "ads" is the one step that is optional. "ai" is the agency's own
+ * "Use the AI" switch (Settings, AI): without it the agent answers nothing.
+ */
+export const agentSetupSteps = ["ai", "whatsapp", "packages", "payment", "answers", "basics", "ads"] as const;
 
 export const agentSetup = z.object({
   steps: z.array(

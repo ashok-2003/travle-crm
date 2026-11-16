@@ -6,11 +6,13 @@
 // agent's own procedure: the current agent's ai.test or the new agent's ai.testNatural (ruling 7), so choosing the other
 // agent empties the chat. The chat lives only in this screen's state, never stored or in the address; Start again
 // empties it and keeps the choice. The new agent's turns also send the test chat's id, a random one each time the chat
-// starts, which groups its turns' traces. Nothing is sent to anyone; each answer spends some of the month's AI calls.
+// starts, which groups its turns' traces, and the prompt chosen, which each answer keeps for its "Why". Nothing is sent
+// to anyone; each answer spends some of the month's AI calls.
 import {
   TEST_CHAT_LINES,
   TEST_LINE_MAX,
   type NaturalTestAnswer,
+  type NaturalTestPrompt,
   type NaturalTestState,
   type TestAiAnswer,
   type TestAiLine,
@@ -33,7 +35,7 @@ import { useTestAi, useTestNatural } from "./use-ai";
 type Entry =
   | { from: "customer"; text: string }
   | { from: "agent"; answer: TestAiAnswer }
-  | { from: "natural"; answer: NaturalTestAnswer };
+  | { from: "natural"; answer: NaturalTestAnswer; prompt: NaturalTestPrompt };
 
 /** What the last turn handed back, for the agent that answered it: one agent's state means nothing to the other. */
 interface ChatState {
@@ -77,11 +79,12 @@ export function TestSection() {
     setDraft("");
     const turn = { messages: linesOf(next), model: choice.model, temperature: choice.temperature };
     if (choice.agent === "natural") {
+      const { prompt } = choice;
       natural.mutate(
-        { ...turn, state: state.natural, chatId },
+        { ...turn, state: state.natural, prompt, chatId },
         {
           onSuccess: (answer) => {
-            setEntries((shown) => [...shown, { from: "natural", answer }]);
+            setEntries((shown) => [...shown, { from: "natural", answer, prompt }]);
             setState({ ...noState, natural: answer.state });
           },
         },
@@ -126,7 +129,9 @@ export function TestSection() {
             {entries.map((entry, index) => {
               // The chat only grows, and Start again empties it: a line's place is its identity.
               if (entry.from === "agent") return <TestTurn key={index} answer={entry.answer} />;
-              if (entry.from === "natural") return <TestNaturalTurn key={index} answer={entry.answer} />;
+              if (entry.from === "natural") {
+                return <TestNaturalTurn key={index} answer={entry.answer} prompt={entry.prompt} />;
+              }
               return (
                 <li
                   key={index}

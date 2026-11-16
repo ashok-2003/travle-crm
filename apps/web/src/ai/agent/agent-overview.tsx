@@ -1,9 +1,10 @@
 "use client";
 
-// The AI agent's Overview tab: its state, what needs a person (handed-over chats, the AI's Lost suggestions, payments to check) and its last 24 hours.
+// The AI agent's Overview tab: its state (and, while it is on but not answering, what it waits for), what needs a person
+// (handed-over chats, the AI's Lost suggestions, payments to check) and its last 24 hours.
 import { brand } from "@travel-crm/brand";
 import { useTranslations } from "next-intl";
-import { Fragment } from "react";
+import { Fragment, useId } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { StatusBadge } from "@/components/status-badge";
@@ -17,18 +18,21 @@ import { inboxRoute, leadRoute, routes } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { useAiOverview } from "../use-ai";
 import { SuggestionButtons } from "../stage-suggestion";
+import { MissingSteps, missingSteps } from "./setup/missing-steps";
 import { useAgentSetup, useHandedOver, usePaymentsToCheckCount, useStageSuggestions } from "./use-agent";
 
 export const setupHref = `${routes.aiAgent}?tab=setup`;
 
 function State() {
   const t = useTranslations("aiAgent.state");
+  const id = useId();
   const setup = useAgentSetup();
   if (setup.isError && setup.data === undefined) {
     return <LoadFailedAlert message={t("loadFailed")} error={setup.error} onRetry={() => void setup.refetch()} />;
   }
   if (setup.data === undefined) return null;
-  const { on, ready, pausedBySupport } = setup.data;
+  const { steps, on, ready, pausedBySupport } = setup.data;
+  const missing = missingSteps(steps);
   // One state, in this order: support's pause wins over everything.
   const [tone, words] = pausedBySupport
     ? (["attention", t("paused", { product: brand.productName })] as const)
@@ -44,7 +48,11 @@ function State() {
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge tone={tone}>{words}</StatusBadge>
       </div>
-      {!pausedBySupport && !ready && <TextLink href={setupHref}>{t(on ? "finishSetup" : "openSetup")}</TextLink>}
+      {!pausedBySupport && !ready && !on && <TextLink href={setupHref}>{t("openSetup")}</TextLink>}
+      {/* On but not ready never reads "answering": it says what it waits for ("Use the AI" turned off among them). */}
+      {!pausedBySupport && !ready && on && missing.length > 0 && (
+        <MissingSteps id={`${id}-missing`} heading={t("wontAnswerUntil")} keys={missing} setupHref={setupHref} />
+      )}
     </div>
   );
 }

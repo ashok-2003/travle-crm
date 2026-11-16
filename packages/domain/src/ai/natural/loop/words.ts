@@ -1,12 +1,16 @@
 // The words of a natural reply and the app's own notes: a copied stamp or label off the start of each message (spec 4.3,
-// pre-flight #16), at most two WhatsApp messages split at the first blank line (ruling 22), the app checks the model
-// reads (ruling 14), and the task a fallback leaves the team.
+// pre-flight #16), at most two WhatsApp messages split at a line of `---` (ruling 22 as prompt v2 writes it: a blank line
+// is spacing inside a message, a list's or a paragraph's), the app checks the model reads (ruling 14), and the task a
+// fallback leaves the team.
 import type { AiMessage } from "@travel-crm/integrations/ai";
 import { NATURAL_LIMITS, type FallbackReason } from "./types.js";
 
 /** What the chat puts before a line ("[Sat 14 Nov, 11:42 pm]", "(Team, Amit)", "[automatic]"), which a model may copy. */
 const COPIED = /^(?:\[[^\]\n]{1,120}\]|\(Team(?:, [^)\n]{1,80})?\))\s*/u;
-const BLANK_LINE = /\n[^\S\n]*\n\s*/u;
+/** A line of exactly `---`, spaces around it allowed: where one message ends and the next begins. */
+const SEPARATOR = /^[^\S\n]*---[^\S\n]*$/mu;
+/** How messages are joined to be split again: the words the guards check hold the same two messages. */
+const BETWEEN = "\n---\n";
 
 function withoutCopied(text: string): string {
   let words = text.trim();
@@ -14,13 +18,18 @@ function withoutCopied(text: string): string {
   return words;
 }
 
-/** The first paragraph, then the rest with its blank lines kept: at most two messages. */
+/**
+ * The words before the first `---` line, then the rest: at most two messages, each trimmed, none empty (a `---` at the
+ * start or the end makes none). A third part stays in the second message, after a blank line.
+ */
 export function splitMessages(words: string): string[] {
-  const text = words.trim();
-  if (text === "") return [];
-  const blank = BLANK_LINE.exec(text);
-  if (blank === null) return [text];
-  return [text.slice(0, blank.index).trim(), text.slice(blank.index + blank[0].length).trim()];
+  const parts = words
+    .split(SEPARATOR)
+    .map((part) => part.trim())
+    .filter((part) => part !== "");
+  const [first, ...rest] = parts;
+  if (first === undefined) return [];
+  return rest.length === 0 ? [first] : [first, rest.join("\n\n")];
 }
 
 /** The words as they would go, each message without a copied prefix: what the guards check is what is sent. */
@@ -28,7 +37,7 @@ export function replyWords(text: string): string {
   return splitMessages(withoutCopied(text))
     .map(withoutCopied)
     .filter((message) => message !== "")
-    .join("\n\n");
+    .join(BETWEEN);
 }
 
 /** A note from the app: a user message, so marked, that no customer line can be (theirs start with a time). */
