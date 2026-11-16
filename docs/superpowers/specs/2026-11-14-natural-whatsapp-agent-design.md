@@ -57,7 +57,7 @@ no Vercel AI SDK (owner). It runs beside lite, chosen per agency in the console 
 5. No silence: a failure ends in a retry, then a short line plus a team task, or a hand-over (owner).
 6. A question the data can't answer becomes a team task, and the AI keeps helping in that chat (owner).
 7. Receipts stay code's: the payment message keeps fixed, approved words.
-8. Every action is on the lead's timeline, can be undone and is traced. A turn has at most 4 calls and 30 seconds.
+8. Every action is on the lead's timeline, can be undone and is traced. A turn has at most 4 calls and 2 minutes.
 
 ## 3. The turn loop
 
@@ -73,10 +73,10 @@ A transcribed voice note reaches the model as text, and any other photo or file 
 ### 3.2 The loop
 
 ```text
-context = buildContext(prepared); deadline = turnStart + 30 s; calls = 0; staged = []; retried = false
-while calls < 4 and deadline - now >= 3 s:
+context = buildContext(prepared); deadline = turnStart + 120 s; calls = 0; staged = []; retried = false
+while calls < 4 and deadline - now >= 5 s:
   if a newer customer line arrived: end "superseded"       // the newer turn answers everything
-  res = model(context, tools, effort low, max_tokens 8000, try timeout min(15 s, deadline - now)); calls += 1
+  res = model(context, tools, effort low, max_tokens 8000, try timeout min(60 s, deadline - now)); calls += 1
   if res failed: modelFailed(); return                     // 3.6
   append the assistant message with its reasoning_details unchanged
   for each tool call: read -> run, append the result
@@ -96,15 +96,16 @@ A response ends the turn when it called no read tool, had no action refused, and
 `stay_quiet` or `hand_over` (writer). Words beside a read call are dropped, since they came before the facts; a
 response with no words that sends nothing gets one more call. Staged actions run in lite's act transaction once the
 words pass, keeping its idempotent tokens, pause and newest-message checks and rollback. A blank line splits the words
-into WhatsApp messages, at most two (writer). Caps: 4 calls, 30 s to the act, 15 s per try, one reply, brochure set and
-booking per turn. Expected (estimate): 70% of turns take one call, 25% two, 5% three.
+into WhatsApp messages, at most two (writer). Caps: 4 calls, 120 s to the act, 60 s per try, no call with under 5 s
+left, another model or a restart only while 20 s remain (owner, 2026-11-15), one reply, brochure set and booking per
+turn. Expected (estimate): 70% of turns take one call, 25% two, 5% three.
 
 ### 3.3 Tools
 
 | Tool | What it does | Code checks when it is called | Risk |
 |---|---|---|---|
-| `find_trips(query)` | Up to 5 index lines for a place, month or kind of trip; a near spelling is "closest, not a match" | Offered only when trips are indexed (4.2) | low |
-| `get_trip(trip_id)` | One trip in full | Indexed trips only | low |
+| `find_trips(query)` | Up to 5 index lines for a place, month or kind of trip; a near spelling is "closest, not a match"; a month reads every date on sale, past a sheet's 8 | Offered whenever the turn has trips, inline or indexed (4.2) | low |
+| `get_trip(trip_id)` | One trip in full, its owner text uncut | Offered whenever the turn has trips (4.2) | low |
 | `quote(trip_id, date, adults, children_ages, room?)` | Per person, total, advance, room used, seat state | Departure open, else the nearest 3; seats cover the party; room priced, else the priced rooms; a child's age outside the package's rule, when it has one | low |
 | `update_lead(trip_id?, date? or month?, adults?, children_ages?, pickup_city?, room?, name?)` | Saves what the customer said, AI-marked (violet) | Types and ranges; date not past; trip sellable; a person's value is never overwritten, a different one becomes a note (`typed-lock.ts`) | low |
 | `send_brochure(trip_id)` | Brochure and photos, each captioned with the trip's title | Sellable with files; not sent in this chat before; G6; at most 3 files | low |
@@ -118,7 +119,7 @@ booking per turn. Expected (estimate): 70% of turns take one call, 25% two, 5% t
 | `suggest_close(kind, reason)` | Suggests Lost or Not a lead; a person taps yes | As `suggestions.ts` | low |
 | `stay_quiet(reason)` | Ends the turn with no message | none | low |
 
-That is 14 tools with indexed trips and 12 with inline ones, inside Google's advice of 10 to 20. Ids are enums in the
+That is 14 tools whenever the agency has trips, inline or indexed, inside Google's advice of 10 to 20. Ids are enums in the
 schema, and a refusal comes back as a sentence the model can act on ("refused: no departure on 12 Dec; open: 14 Dec, 21
 Dec"). Stages stay code's, forward only: a reply makes Contacted, an offer or total told makes Quote sent, a hold makes
 Booking requested.
@@ -163,7 +164,7 @@ the team and keeps helping. A person answers in the chat, which the AI reads as 
 
 | What fails | What happens |
 |---|---|
-| A model call: 429, 5xx, timeout, empty answer | The next model in the list if 10 s remain; else the job is re-queued after 1 minute, then 5. After the last try, the fallback line and a task holding the question; the AI stays on (writer) |
+| A model call: 429, 5xx, timeout, empty answer | The next model in the list, or the backup, if 20 s remain; else the job is re-queued after 1 minute, then 5. After the last try, the fallback line and a task holding the question; the AI stays on (writer) |
 | A thought-signature 400, a model change mid-turn, or `finish_reason: length` | The turn starts over once on that model without the earlier tool messages; a cut-off call retries at effort minimal |
 | The cap or the deadline, with no final answer | The fallback line, and a task linking the trace |
 | A guard fails twice | That guard's fallback (section 5) |
@@ -196,8 +197,10 @@ records cached tokens to check it. As in lite, a test fails when a block passes 
 A trip in full (700 to 1,200 tokens) holds its id (`T1`), title, place, days and nights, start city, difficulty,
 summary, highlights, day titles and text, inclusions, exclusions, pickup points with times, notes, cancellation notes,
 room prices by season (₹, lakh grouping, "GST included" or "plus 5% GST"), the advance per person, and the next 8
-departures with weekday and seat state. When the sellable trips fit in 8,000 tokens (about 8 trips), all go in full and
-no read tool is offered, so "koi aur option?" takes one call. Above that, the agency block has one index line per trip
+departures with weekday and seat state. When the sellable trips fit in 8,000 tokens (about 8 trips), all go in the
+agency block, so "koi aur option?" takes one call. A sheet there is cut to its budget (long owner text, the next 8
+departures), so `get_trip` and `find_trips` are offered too: `get_trip` reads a trip uncut, and `find_trips` with a
+month reaches later dates (final review, 2026-11-16). Above that, the agency block has one index line per trip
 (title, place, nights, start city, difficulty, from-price, next 3 dates, main stops), the model gets `find_trips` and
 `get_trip`, and the turn block holds up to 3 trips in full: the lead's, the ad's, and those `findPackages` matches in
 the new lines.
@@ -319,7 +322,7 @@ cases the rule never named. Its main choices:
 | `tool_choice` | `auto`, with `parallel_tool_calls: true` | Writer: the words are plain text |
 | Reasoning details | Sent back unchanged within the turn's loop | Gemini 3 refuses a tool round without its thought signatures (400) |
 | Provider | `{zdr: true, require_parameters: true}` as today, plus a nightly check of OpenRouter's ZDR endpoints for `tools`, `tool_choice`, `reasoning` and `max_tokens`, telling platform staff of a gap | Vertex's retention terms changed on 2026-10-18 |
-| Timeouts | 15 s per try at most; the turn 30 s; another model only with 10 s left | Writer. Lite's 30 s tries with no deadline gave the 41 s turn |
+| Timeouts | 60 s per try at most; the turn 120 s; another model, the backup or a restart only with 20 s left; no call with under 5 s left | Owner, 2026-11-15 (the writer's were 15 s, 30 s, 10 s and 3 s). Lite's 30 s tries with no deadline gave the 41 s turn |
 | Concurrency | `AT_ONCE` in `agent-worker.ts` from 3 to 6, then measured | Writer. Model calls hold no database connection |
 
 The adapter (`packages/integrations/src/ai/ai-model.ts`, `openrouter.ts`) gains: on `AiRequest`, `tools`,
@@ -543,7 +546,7 @@ Lines marked [earlier assistant] came from an older system; some were wrong, so 
 
 ## The trips
 
-The agency data below lists the trips. When it lists each trip in full, everything you need is there. When it lists one line per trip, the trips this chat is about are in full in the last message, and find_trips and get_trip give you the rest. Look up only what this reply needs, since someone is waiting, and make independent lookups together.
+The agency data below lists the trips. When they all fit, each trip is summarised there; when they don't, there is one line per trip, and the trips this chat is about are summarised in the last message. A summary shortens long text and shows the next 8 dates at most: get_trip reads a trip in full, and find_trips with a month finds later dates. Look up only what this reply needs, since someone is waiting, and make independent lookups together.
 
 ## Doing things
 

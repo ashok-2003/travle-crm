@@ -9,7 +9,7 @@ shows each model call, each tool call with its arguments and result, each guard 
 
 **Architecture:** Native tool calling goes into the `AiModel` port and the OpenRouter adapter (no framework, no AI SDK).
 A new module `packages/domain/src/ai/natural/` builds the context (cached prefix, chat as real turns, turn block), runs
-the loop (4 calls, 30 s, guards, one retry, failure path) against a small IO interface, and stages actions after
+the loop (4 calls, 2 minutes, guards, one retry, failure path) against a small IO interface, and stages actions after
 checking their preconditions against the data. Plan 1 runs that loop only as a dry turn: Try it's new
 `ai.testNatural` procedure and the bench both call it; Plan 2 adds the live act. Lite is untouched in behaviour.
 
@@ -32,9 +32,9 @@ the owner's word of 2026-11-15 (quoted in the Rulings). Read both before any tas
   `toolChoice: "auto"`, `parallelToolCalls: true`, and **no** `temperature`, `top_p` or `top_k` (a test fails if one
   is sent). Only Try it's own choice ("flash", 0.4) adds a model or temperature.
 - Provider routing stays `{ zdr: true, require_parameters: true }` on OpenRouter.
-- Caps: 4 calls a turn; 30 s from the turn's start to the end of the loop; 15 s per try at most; no call starts with
-  less than 3 s left; another model only while 10 s remain; at most 2 WhatsApp messages; one reply, one brochure set
-  and one booking per turn.
+- Caps (the owner's limits of 2026-11-15, ruling 24): 4 calls a turn; 120 s from the turn's start to the end of the
+  loop; 60 s per try at most; no call starts with less than 5 s left; another model, the backup or a restart only while
+  20 s remain; at most 2 WhatsApp messages; one reply, one brochure set and one booking per turn.
 - Money is integer paise; shown as ₹ with lakh grouping through `formatRupees`. Dates on screen and in context carry
   the weekday through `formatShortDay` ("Sat 13 Dec").
 - Inputs are `z.strictObject`; outputs `z.object`. Every word on screen is a next-intl message (`ai.json`).
@@ -102,7 +102,7 @@ data." Each ruling is `what — why — cost if wrong`.
     — Silence is the costlier mistake (principle 5). — A stray "Great!" after an "ok"; the bench counts it.
 12. **Model pinning.** Calls after the first name the model that answered the first, so a turn never changes model
     mid-way. A failed pinned call, a `bad_request` (thought signature) or `finish_reason: length` starts the turn over
-    once, unpinned, without the earlier assistant and tool messages and with nothing staged, when 10 s remain; `length`
+    once, unpinned, without the earlier assistant and tool messages and with nothing staged, when 20 s remain; `length`
     also lowers effort to `minimal`. Otherwise the turn ends `model_failed`.
 13. **Follow-ups past the 24-hour window** are refused: "refused: past the WhatsApp window (it ends <time>); for a
     later check-back, create_task(kind: call_back, call_at: …)". — G7 places follow-ups only inside the window. — None.
@@ -128,6 +128,17 @@ data." Each ruling is `what — why — cost if wrong`.
     kept, message two.
 23. **The prompt seam.** `naturalPromptOf(db)` returns the built-in prompt and `draftNaturalPrompt(db, id)` returns
     null in this plan; Plan 3 fills both bodies, so no other file changes for the editor.
+24. **Time limits** (owner, 2026-11-15): the turn 120 s (was 30), a try 60 s at most (was 15), another model, the
+    backup or a restart only while 20 s remain (was 10; `NEXT_MODEL_MIN_LEFT_MS`), and no call with under 5 s left
+    (was 3). — Generous limits for a slower model. — A slow model makes the customer wait up to 2 minutes.
+25. **The lookups go with inline trips too** (final review, 2026-11-16): `get_trip` and `find_trips` are offered
+    whenever the turn has trips, inline or indexed, and the prompt says the trips are summarised. — An inline sheet is
+    cut (long owner text, the next 8 departures), so without them a cancellation clause past the cut or a later month
+    was out of reach. — Two more tool schemas on every call.
+26. **The OpenRouter-only gate is on the feature** (final review, 2026-11-16): off OpenRouter, every `sales_agent`
+    request answers `not_configured`, whatever model it names (a pinned call, Try it's Flash), so an OpenRouter backup
+    serves it and with none the agent isn't set up. — A model list alone let a named model reach Google with
+    OpenRouter's `reasoning` field. — None.
 
 ## Parallel work after this plan
 
@@ -233,8 +244,8 @@ it("reads cached and reasoning tokens and times the try", async () => {
 it("answers a 400 on a request with tools as bad_request, without the next model", …); // 1 fetch
 it("still answers a 400 on a request without tools as unavailable", …);
 it("returns finish_reason length as an answer marked length", …);
-it("tries the next model only while 10 seconds remain before the deadline", …);
-// first model 503: deadlineAt = now + 9_000 → { ok: false, reason: "unavailable" }, 1 fetch; now + 20_000 → 2 fetches
+it("tries the next model only while 20 seconds remain before the deadline", …);
+// first model 503: deadlineAt = now + 19_000 → { ok: false, reason: "unavailable" }, 1 fetch; now + 30_000 → 2 fetches
 it("gives a try up at the request's own timeout, never past the deadline", …);
 // timeoutMs 50, fetch resolves only on abort → the try is abandoned within 50 ms + slack
 it("the memory model scripts tool calls with ids and keeps every request", …);
@@ -331,7 +342,7 @@ export const naturalToolNames = ["find_trips", "get_trip", "quote", "update_lead
 export type NaturalToolName = (typeof naturalToolNames)[number];
 export const naturalReadTools: readonly NaturalToolName[] = ["find_trips", "get_trip", "quote"];
 export interface NaturalToolDefinition { name: NaturalToolName; description: string; parameters: Record<string, unknown> }
-export function naturalToolDefinitions(input: { tripLabels: readonly string[]; indexed: boolean }): NaturalToolDefinition[];
+export function naturalToolDefinitions(input: { tripLabels: readonly string[] }): NaturalToolDefinition[]; // ruling 25
 export function parseToolArguments(name: string, raw: string):
   | { ok: true; name: NaturalToolName; args: Record<string, unknown> } | { ok: false; problem: string };
 // natural-trace.ts
@@ -359,17 +370,16 @@ with at least one key; `send_brochure {trip_id}`; `offer_booking` = quote's + `p
 - [ ] **Step 1: Write the failing tests:**
 
 ```ts
-it("offers 14 tools with indexed trips and 12 with inline ones", () => {
-  expect(naturalToolDefinitions({ tripLabels: ["T1", "T2"], indexed: true })).toHaveLength(14);
-  expect(naturalToolDefinitions({ tripLabels: ["T1", "T2"], indexed: false }).map((t) => t.name))
-    .not.toEqual(expect.arrayContaining(["find_trips"]));
+it("offers all 14 tools when the turn has trips, inline or indexed", () => {          // ruling 25
+  expect(naturalToolDefinitions({ tripLabels: ["T1", "T2"] }).map((t) => t.name))
+    .toEqual(expect.arrayContaining(["find_trips", "get_trip"]));
 });
 it("enumerates the turn's trip labels in every trip_id", () => {
-  const quote = naturalToolDefinitions({ tripLabels: ["T1", "T2"], indexed: false }).find((t) => t.name === "quote");
+  const quote = naturalToolDefinitions({ tripLabels: ["T1", "T2"] }).find((t) => t.name === "quote");
   expect(quote?.parameters).toMatchObject({ properties: { trip_id: { enum: ["T1", "T2"] } } });
 });
 it("offers no tool that names a trip when there is none", () => {
-  const names = naturalToolDefinitions({ tripLabels: [], indexed: false }).map((t) => t.name);
+  const names = naturalToolDefinitions({ tripLabels: [] }).map((t) => t.name);
   expect(names).toEqual(["update_lead", "resend_payment", "plan_follow_up", "create_task", "add_note",
     "hand_over", "suggest_close", "stay_quiet"]);
   // and update_lead's schema has no trip_id
@@ -385,7 +395,7 @@ it("keeps facts apart from lite's", () => {
   expect(naturalFacts.parse({ agent: "natural" })).toMatchObject({ offer: null, told: [], lastTurnAt: null });
 });
 it("sends no examples keyword to the model", () => {
-  expect(JSON.stringify(naturalToolDefinitions({ tripLabels: ["T1"], indexed: true }))).not.toContain("examples");
+  expect(JSON.stringify(naturalToolDefinitions({ tripLabels: ["T1"] }))).not.toContain("examples");
 });
 ```
 
@@ -591,8 +601,8 @@ export function buildNaturalContext(input: NaturalContextInput): NaturalContext;
 ```
 
 The rules this task fixes (spec 4.1–4.4): one system string, rendered prompt then the agency block (name, agent name,
-tone, time zone, each answer fenced as `<owner_text topic="safety">…</owner_text>`, then every trip in full when all
-fit 8,000 tokens, else one index line each). The chat: the last 40 messages, under 3,000 tokens, none older than 14
+tone, time zone, each answer fenced as `<owner_text topic="safety">…</owner_text>`, then every trip's sheet when all
+fit 8,000 tokens, else one index line each; a sheet is cut to its budget, so the lookups go with both, ruling 25). The chat: the last 40 messages, under 3,000 tokens, none older than 14
 days unless fewer than 6 remain, a line cut past 1,000 characters; customer lines are user messages
 `[Mon 10 Nov, 7:02 pm] <text>`; ours, Team's (`(Team, Amit) …`), earlier assistants' (`[earlier assistant] …`, amounts
 and dates removed) and automatic ones (`[automatic] …`) are assistant messages; a past action is its own line
@@ -606,10 +616,10 @@ trips in full (the lead's, the ad's, those `findPackages` matches in the new lin
 - [ ] **Step 1: Write the failing tests:**
 
 ```ts
-it("puts every trip in full and offers no lookup when they fit 8,000 tokens", () => {
+it("puts every trip's sheet in the system string when they fit 8,000 tokens, and still offers the lookups", () => {
   const context = buildNaturalContext(input({ sheets: eightTrips }));
   expect(context.indexed).toBe(false);
-  expect(context.tools.map((t) => t.name)).not.toContain("find_trips");
+  expect(context.tools.map((t) => t.name)).toEqual(expect.arrayContaining(["find_trips", "get_trip"])); // ruling 25
 });
 it("above 8,000 tokens, one index line per trip, the lookups, and up to 3 trips in full in the turn block", () => {
   const context = buildNaturalContext(input({ sheets: fortyTrips, lead: leadOn(fortyTrips[7]), lines: saying("brahmatal ka rate?") }));
@@ -934,7 +944,7 @@ it("sends the words when stay_quiet comes with them, and flags it", …);       
 it("retries a guard failure once, then applies the guard's fallback", …);
 it("withdraws an offer whose words twice miss its date and advance, and sends the words", …);
 it("stops at 4 calls with the fallback line and a task", …);
-it("starts no call with less than 3 s left, and gives each try at most min(15 s, time left)", …);
+it("starts no call with less than 5 s left, and gives each try at most min(60 s, time left)", …);
 it("ends superseded when a newer customer line has come", …);
 it("starts over once, unpinned and with nothing staged, on bad_request; a second ends model_failed", …);
 it("starts over once at effort minimal on finish_reason length", …);
