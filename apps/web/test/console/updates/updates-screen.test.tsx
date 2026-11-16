@@ -13,9 +13,14 @@ vi.mock("@/notifications/push/push-device", () => device);
 
 const { push } = messages.notifications;
 
+let api: ReturnType<typeof stubApi>;
+
 beforeEach(() => {
   device.pushState.mockResolvedValue("off");
-  stubApi({ "platform.dashboard.incidents": { data: { open: [], recent: [] } } });
+  api = stubApi({
+    "platform.dashboard.incidents": { data: { open: [], recent: [] } },
+    "platform.push.publicKey": { data: "key" },
+  });
 });
 
 afterEach(() => {
@@ -34,6 +39,16 @@ describe("UpdatesScreen", () => {
   it("shows support the health and no platform alerts control", async () => {
     renderConsole(<UpdatesScreen />, platformStaff("support"));
     expect(await screen.findByText(messages.console.health.allWorking)).toBeVisible();
+    expect(screen.queryByRole("heading", { name: push.platformHeading })).toBeNull();
+  });
+
+  it("shows no platform alerts control when the console has no push keys", async () => {
+    api.answer("platform.push.publicKey", { data: "" });
+    renderConsole(<UpdatesScreen />, platformStaff("super-admin"));
+    expect(await screen.findByText(messages.console.health.allWorking)).toBeVisible();
+    await vi.waitFor(() => {
+      expect(api.calls).toContain("platform.push.publicKey");
+    });
     expect(screen.queryByRole("heading", { name: push.platformHeading })).toBeNull();
   });
 });
