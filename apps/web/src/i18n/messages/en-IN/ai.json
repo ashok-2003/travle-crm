@@ -214,7 +214,7 @@
       "why": {
         "prompt": "Prompt version",
         "draft": "Draft",
-        "noDraft": "There was no draft to read, so this turn used the live prompt.",
+        "noDraft": "The draft couldn't be read, so this turn ran the prompt above.",
         "outcome": "Outcome",
         "fallback": "Fallback reason",
         "restarted": "Started over",

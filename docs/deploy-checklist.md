@@ -305,15 +305,21 @@ Secrets come from the platform's secret manager as environment variables, never 
   - It is the **text** prompt named `whatsapp-agent/natural-system` (a `whatsapp-agent` folder in Langfuse's Prompts).
     Its variables are `{{agent_name}}`, `{{agency_name}}` and `{{tone}}`, which the agent fills for each agency; a
     variable of any other name stays in the text as written.
-  - The label `production` is live: the agent reads the version it points to, kept for a minute in each process (a
-    moved label shows within about a minute). The label `draft` is for Try it alone: its Prompt choice "Draft" reads it
-    afresh each turn, and runs the live prompt when there is no draft, saying so in Why. Edit the draft, try it, then move
-    `production` to that version to put it live; move `production` back to undo.
+  - The label `production` is live: the agent reads the version it points to, kept for a minute in each process. A moved
+    label shows a minute on: the first turn after the minute still runs the old version (it fetches the new one behind
+    it), the next turn the new one. The label `draft` is for Try it alone: its Prompt choice "Draft" reads it afresh each
+    turn, beside the live prompt, and runs the live one when the draft can't be read, saying so in Why. Edit the draft,
+    try it, then move `production` to that version to put it live; move `production` back to undo.
   - The built-in text (`packages/domain/src/ai/natural/prompt-text.ts`, version `built-in-1`) is the fallback: the agent
-    runs on it without the keys, when Langfuse has no such prompt or label, and when Langfuse doesn't answer within 2
-    seconds (then it asks again only after 30 seconds). Why and each trace show the version a turn ran:
-    `langfuse:whatsapp-agent/natural-system@<version>` or `built-in-1`. A turn on a Langfuse prompt links each of its
-    generations to that version, so the prompt's Metrics in Langfuse count them.
+    runs on it without the keys, when a process has never read the prompt (none at that label yet, or Langfuse down
+    since the start), and when Langfuse doesn't answer within 2 seconds (then it asks again only after 30 seconds). Once
+    a process has read a version, it keeps that version when Langfuse fails: removing the `production` label or the
+    prompt brings the built-in text back only after a restart, so move the label instead. Why and each trace show the
+    version a turn ran: `langfuse:whatsapp-agent/natural-system@<version>` or `built-in-1`. A turn on a Langfuse prompt
+    links each of its generations to that version, so the prompt's Metrics in Langfuse count them.
+  - Langfuse's SDK prints nothing (its console logger is off). A prompt that can't be had is a `warn` line of the
+    process's log (`source: langfuse-prompts`, its name, label, reason and status), at most once per prompt every 30
+    seconds; a label Langfuse doesn't have, such as no `draft` yet, is only a `debug` line.
   - To start, create the prompt from the built-in text, as it is, with the label `production`.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
