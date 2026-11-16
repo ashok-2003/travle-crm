@@ -151,9 +151,15 @@ export function followUpPlan(turn: {
 /**
  * Whether the chat is still quiet since the AI's last message, so a follow-up may go into the silence: the customer has
  * not written (a reaction counts: a 👍 is an "ok"), nobody on the team has, no other automation has (a sales message,
- * a greeting), and the customer's last words did not stop them.
+ * a greeting), and the customer's last words did not stop them. A reaction on a message of ours is no line of its own
+ * (inbound sets its emoji on that message): with `reactions`, one on a message our last reply or follow-up sent counts
+ * too (the natural agent's rule; lite's leaves it out).
  */
-export async function stillQuiet(tx: OrgTx, conversationId: string): Promise<boolean> {
+export async function stillQuiet(
+  tx: OrgTx,
+  conversationId: string,
+  options: { reactions?: boolean } = {},
+): Promise<boolean> {
   const state = await tx.aiChat.findFirst({
     where: { conversationId },
     select: { lastReplyAt: true, followUpsStopped: true },
@@ -174,5 +180,16 @@ export async function stillQuiet(tx: OrgTx, conversationId: string): Promise<boo
     },
     select: { id: true },
   });
-  return since === null;
+  if (since !== null || options.reactions !== true) return since === null;
+  // Our messages carry the turn's clock as their time, the same as `lastReplyAt`; WhatsApp clears a reaction with "".
+  const reacted = await tx.whatsappMessage.findFirst({
+    where: {
+      conversationId,
+      direction: "out",
+      occurredAt: { gte: state.lastReplyAt },
+      AND: [{ reaction: { not: null } }, { reaction: { not: "" } }],
+    },
+    select: { id: true },
+  });
+  return reacted === null;
 }
