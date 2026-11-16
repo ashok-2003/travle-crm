@@ -147,6 +147,8 @@ interface Said {
   set: LeadFields;
   /** A person's value that differs from what the customer says now, in words; null when the same or none. */
   theirs: string | null;
+  /** Saved though a person set the field: it agrees with their value and fills what they left empty. */
+  fills?: boolean;
 }
 
 /** The place a person set on the lead (`typedByPerson` gives `{ kind: "existing", destinationId }`), else null. */
@@ -170,13 +172,21 @@ function saidOf(context: ActionContext, asked: Asked<typeof updateLeadArguments>
   if (sheet !== undefined) {
     const place = theirPlaceId(typed);
     const elsewhere = place !== null && place !== sheet.destinationId;
+    const leadTrip = context.lead.packageId;
+    const otherTrip = leadTrip !== null && leadTrip !== sheet.packageId;
     said.push({
       field: "destination",
       words: `trip ${sheet.label}`,
       noted: sheet.title,
       set: { packageId: sheet.packageId },
-      // A person's place, named by a trip that goes there.
-      theirs: elsewhere ? (context.sheets.find((one) => one.destinationId === place)?.place ?? "another place") : null,
+      // A person's place, named by a trip that goes there; at their place, the lead's other trip is theirs to choose.
+      theirs: elsewhere
+        ? (context.sheets.find((one) => one.destinationId === place)?.place ?? "another place")
+        : otherTrip
+          ? (context.sheets.find((one) => one.packageId === leadTrip)?.title ?? "another trip")
+          : null,
+      // A trip at their place is new when the lead has none yet.
+      fills: place !== null && !elsewhere && leadTrip === null,
     });
   }
   // A day wins over a month: it says its month.
@@ -266,7 +276,7 @@ function updateLead(context: ActionContext, asked: Asked<typeof updateLeadArgume
   const saved: string[] = [];
   const notes: string[] = [];
   for (const one of said) {
-    if (!locked.has(one.field)) {
+    if (!locked.has(one.field) || one.fills === true) {
       Object.assign(fields, one.set);
       saved.push(one.words);
     } else if (one.theirs !== null) {
