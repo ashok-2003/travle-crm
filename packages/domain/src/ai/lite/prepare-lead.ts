@@ -72,7 +72,7 @@ export async function packageIndexOf(
  * The lead's trip values that are a person's: every one but those still the AI's suggestion (a `suggested` row whose hash
  * the value still matches). A value a person confirmed ("Looks right") is theirs too, so the turn keeps it.
  */
-async function typedByPerson(tx: OrgTx, leadId: string): Promise<Partial<Record<TripField, unknown>>> {
+export async function typedByPerson(tx: OrgTx, leadId: string): Promise<Partial<Record<TripField, unknown>>> {
   const current = await tripFieldValues(tx, leadId);
   if (current === null) return {};
   const rows = await tx.leadAiField.findMany({
