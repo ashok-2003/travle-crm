@@ -22,7 +22,7 @@ import { fenced } from "../../fenced.js";
 import { travellerWords } from "../../lite/context/lead-card.js";
 import type { TripField } from "../../lite/lead-writes.js";
 import { normalised } from "../../lite/read-words.js";
-import { lockedFields, otherTime, sameAges, type TypedFields } from "../../lite/typed-lock.js";
+import { lockedFields, otherTime, sameAges } from "../../lite/typed-lock.js";
 import { stampOf } from "../context/chat-turns.js";
 import { namedTrips } from "../context/turn-block.js";
 import { isText, roomNames } from "../trips/trip-text.js";
@@ -33,14 +33,19 @@ import { placeFollowUp } from "./follow-up-time.js";
 import type { Refused } from "./quote.js";
 import { termsOf, termsWords } from "./terms.js";
 
+/** A field of the lead a person may set: lite's trip fields (a trip's is its place), and the customer's name. */
+type LockField = TripField | "name";
+/** The lead's values a person set, by field: lite's (`typedByPerson`'s), and a name a person typed. */
+export type PersonValues = Partial<Record<LockField, unknown>>;
+
 /** What an action is checked against: the turn's data and chat, and `quoteFor` on the turn's transaction. */
 export interface ActionContext extends BookingContext {
   /** Label to package id. */
   labels: ReadonlyMap<string, string>;
   timeZone: string;
   conversationId: string;
-  /** The lead's trip values a person set: never overwritten. */
-  typed: TypedFields;
+  /** The lead's values a person set: never overwritten. */
+  typed: PersonValues;
   lastInboundAt: Date;
   /** The trip of the ad they came from. */
   adPackageId: string | null;
@@ -134,12 +139,21 @@ export async function stageAction(
 
 type LeadFields = Extract<StagedAction, { tool: "update_lead" }>["fields"];
 interface Said {
-  /** The lead's field a person may have set; null for those the lock doesn't cover. */
-  field: TripField | null;
+  /** The lead's field a person may have set. */
+  field: LockField;
   words: string;
+  /** How the team's note names it, when not as `words`: a trip by its title, as its label means nothing to them. */
+  noted?: string;
   set: LeadFields;
   /** A person's value that differs from what the customer says now, in words; null when the same or none. */
   theirs: string | null;
+}
+
+/** The place a person set on the lead (`typedByPerson` gives `{ kind: "existing", destinationId }`), else null. */
+function theirPlaceId(typed: PersonValues): string | null {
+  const { destination } = typed;
+  if (typeof destination !== "object" || destination === null || !("destinationId" in destination)) return null;
+  return typeof destination.destinationId === "string" ? destination.destinationId : null;
 }
 
 /** What the customer said, field by field, beside a person's value; a day or month already past is refused. */
@@ -152,9 +166,19 @@ function saidOf(context: ActionContext, asked: Asked<typeof updateLeadArguments>
   const childrenWords = (ages: readonly number[]) =>
     ages.length === 0 ? "no children" : (travellerWords(null, [...ages]) ?? "");
   const said: Said[] = [];
-  const packageId = asked.trip_id === undefined ? undefined : context.labels.get(asked.trip_id);
-  if (packageId !== undefined)
-    said.push({ field: null, words: `trip ${asked.trip_id ?? ""}`, set: { packageId }, theirs: null });
+  const sheet = context.sheets.find((one) => one.label === asked.trip_id);
+  if (sheet !== undefined) {
+    const place = theirPlaceId(typed);
+    const elsewhere = place !== null && place !== sheet.destinationId;
+    said.push({
+      field: "destination",
+      words: `trip ${sheet.label}`,
+      noted: sheet.title,
+      set: { packageId: sheet.packageId },
+      // A person's place, named by a trip that goes there.
+      theirs: elsewhere ? (context.sheets.find((one) => one.destinationId === place)?.place ?? "another place") : null,
+    });
+  }
   // A day wins over a month: it says its month.
   const { date } = asked;
   const month = date === undefined ? asked.month : undefined;
@@ -215,7 +239,15 @@ function saidOf(context: ActionContext, asked: Asked<typeof updateLeadArguments>
     });
   }
   const name = asked.name?.trim() ?? "";
-  if (name !== "") said.push({ field: null, words: `name ${name}`, set: { name }, theirs: null });
+  if (name !== "") {
+    const theirs = typed.name;
+    said.push({
+      field: "name",
+      words: `name ${name}`,
+      set: { name },
+      theirs: typeof theirs === "string" && normalised(theirs) !== normalised(name) ? theirs : null,
+    });
+  }
   return said;
 }
 
@@ -227,15 +259,19 @@ function updateLead(context: ActionContext, asked: Asked<typeof updateLeadArgume
   const said = saidOf(context, asked);
   if ("refused" in said) return said;
   if (said.length === 0) return refused("give at least one detail the customer said");
-  const locked = lockedFields(context.typed);
+  // Lite's lock (each value a person set, but a flexible time), and a name a person typed.
+  const locked = new Set<LockField>(lockedFields(context.typed));
+  if (context.typed.name !== undefined) locked.add("name");
   const fields: LeadFields = {};
   const saved: string[] = [];
   const notes: string[] = [];
   for (const one of said) {
-    if (one.field === null || !locked.has(one.field)) {
+    if (!locked.has(one.field)) {
       Object.assign(fields, one.set);
       saved.push(one.words);
-    } else if (one.theirs !== null) notes.push(`Customer now says ${one.words}; the lead says ${one.theirs}.`);
+    } else if (one.theirs !== null) {
+      notes.push(`Customer now says ${one.noted ?? one.words}; the lead says ${one.theirs}.`);
+    }
   }
   const result = [
     saved.length > 0 ? `saved: ${saved.join(", ")}` : notes.length > 0 ? "nothing saved" : "the lead says that already",
