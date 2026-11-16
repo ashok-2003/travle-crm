@@ -2,7 +2,7 @@
 
 // The AI agent's Setup tab: the checklist in the order the api gives, each step with its state and an editor below it
 // (one open at a time), then the switch that turns the agent on.
-import type { AgentSetup } from "@travel-crm/contracts/ai";
+import { agentSetupSteps, type AgentSetup } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -31,8 +31,6 @@ import { TurnOnStep } from "./setup/turn-on-step";
 type Step = AgentSetup["steps"][number];
 type StepKey = Step["key"];
 
-const stepKeys: readonly StepKey[] = ["whatsapp", "packages", "payment", "answers", "basics", "ads"];
-
 const editors: Partial<Record<StepKey, () => ReactNode>> = {
   payment: () => <PaymentStepEditor />,
   answers: () => <AnswersStepEditor />,
@@ -43,7 +41,7 @@ const editors: Partial<Record<StepKey, () => ReactNode>> = {
 /** The step a "#step-<key>" address names, if it is one the page has. */
 function stepKeyOfHash(hash: string): StepKey | null {
   const key = hash.replace(/^#step-/, "");
-  return stepKeys.find((one) => one === key) ?? null;
+  return agentSetupSteps.find((one) => one === key) ?? null;
 }
 
 function StateLine({ step, mayManage }: { step: Step; mayManage: boolean }) {
@@ -78,6 +76,7 @@ function StepRow({ step, open, onToggle }: { step: Step; open: boolean; onToggle
         </ItemContent>
         <ItemActions>
           <StatusBadge tone={tone}>{t(step.done ? "done" : step.optional ? "optional" : "todo")}</StatusBadge>
+          {step.key === "ai" && <TextLink href={routes.aiSettings}>{t("steps.ai.open")}</TextLink>}
           {step.key === "whatsapp" && <TextLink href={routes.whatsapp}>{t("steps.whatsapp.open")}</TextLink>}
           {step.key === "packages" && <TextLink href={routes.packages}>{t("steps.packages.open")}</TextLink>}
           {editable && (
