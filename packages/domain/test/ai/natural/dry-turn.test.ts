@@ -316,7 +316,7 @@ describe("the natural agent's dry turn", () => {
       state,
       newText: "Kedarkantha ka rate?",
     };
-    const trace = startNaturalTrace(BUILT_IN_NATURAL_PROMPT.version, NOW.getTime());
+    const trace = startNaturalTrace(BUILT_IN_NATURAL_PROMPT, NOW.getTime());
     expect(dryAnswerOf({ end: "superseded" }, read, trace, NOW.getTime())).toMatchObject({
       outcome: "fallback",
       messages: ["Ye team se check karke yahin batate hain."],
