@@ -1,6 +1,8 @@
 // The console's pause of the WhatsApp AI agent, and its setup state: platform staff read it, only a super admin changes it.
 import {
   agentPauseState,
+  chooseAgentInput,
+  organizationAgentChoice,
   organizationAgentPause,
   organizationAgentPauseInput,
   organizationAgentState,
@@ -33,6 +35,16 @@ export const aiAgentRouter = platformT.router({
     .input(organizationAgentPauseInput)
     .output(organizationAgentState)
     .query(({ ctx, input }) => domain.organizationAgentState(ctx.services, input.organizationId)),
+  /** Which agent answers one agency. */
+  agentChoice: staffProcedure
+    .input(organizationAgentPauseInput)
+    .output(organizationAgentChoice)
+    .query(({ ctx, input }) => domain.organizationAgentChoice(ctx.services, input.organizationId)),
+  /** Moves one agency to the lite or the natural agent. */
+  chooseAgent: superAdminProcedure
+    .input(chooseAgentInput)
+    .output(organizationAgentChoice)
+    .mutation(({ ctx, input }) => domain.chooseOrganizationAgent(ctx.services, ctx.staff, input)),
   /** Pauses each agency on its own, then lifts the every-agency pause. */
   resumeOneAtATime: superAdminProcedure
     .output(resumeOneAtATimeResult)
