@@ -289,6 +289,7 @@ async function offerBooking(context: ActionContext, args: Record<string, unknown
     {
       tool: "offer_booking",
       offer: { ...figures.terms, departureId: figures.departureId, totalPaise, advancePaise, at },
+      figures,
     },
     `offered: ${termsWords(figures.terms, context.sheets, context.today)}; ${money}. Your words state the date and ` +
       `the ${inFull ? "total" : "advance"}, and ask for their full name or a yes`,

@@ -109,7 +109,8 @@ export type StagedAction =
       notes: string[];
     }
   | { tool: "send_brochure"; packageId: string; fileIds: string[] }
-  | { tool: "offer_booking"; offer: LiveOffer }
+  // The quote behind the offer: its figures are this turn's to ground (G1) and to name the trip by (G6).
+  | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures }
   | {
       tool: "book";
       terms: BookingTerms;

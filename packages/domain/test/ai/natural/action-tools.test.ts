@@ -396,7 +396,11 @@ describe("stageAction", () => {
     expect(outcome).toMatchObject({ staged: { tool: "offer_booking", offer: { totalPaise: 2_599_800 } } });
     expect("result" in outcome && outcome.result).toContain("total ₹25,998");
     expect(outcome).toEqual({
-      staged: { tool: "offer_booking", offer: { ...offer, at: now.toISOString() } },
+      staged: {
+        tool: "offer_booking",
+        offer: { ...offer, at: now.toISOString() },
+        figures: expect.objectContaining({ totalPaise: 2_599_800, advancePaise: 600_000 }) as unknown,
+      },
       result:
         "offered: T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance ₹6,000 (₹3,000 per " +
         "person). Your words state the date and the advance, and ask for their full name or a yes",
