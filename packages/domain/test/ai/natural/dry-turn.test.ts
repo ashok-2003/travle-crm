@@ -166,7 +166,7 @@ describe("the natural agent's dry turn", () => {
     const second = await on.dry([asked, ...first.history, "haan, Rohan Mehta"], first.state, later(10));
     expect(second).toMatchObject({
       actions: [expect.objectContaining({ tool: "book", seats: 2 })],
-      payment: ["UPI: casetrips@okhdfc"],
+      payment: ["UPI: casetrips@okbank"],
       state: {
         facts: { offer: null, lastTurnAt: later(10).toISOString() },
         lead: {

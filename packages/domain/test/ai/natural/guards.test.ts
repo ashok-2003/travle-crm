@@ -576,7 +576,7 @@ describe("G4: the team's word and discounts, only when owner or Team text holds 
 describe("G5: payment details only from code", () => {
   it("refuses a UPI handle, an IFSC or a payment link (G5)", () => {
     for (const words of [
-      "Pay to casetrips@okhdfc and send the screenshot.",
+      "Pay to casetrips@okbank and send the screenshot.",
       "Bank transfer: IFSC HDFC0001234.",
       "Pay here: https://rzp.io/l/casetrips",
     ])

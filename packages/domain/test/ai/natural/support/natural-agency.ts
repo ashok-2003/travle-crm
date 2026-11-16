@@ -9,7 +9,7 @@ import { aConnectedAgency, testNow, type TestInbox } from "../../../inbox/suppor
 import { day, readyFile } from "../../lite/support/lite-agency.js";
 import { storeAutopilot } from "../../support/store-autopilot.js";
 
-export const NATURAL_UPI = "casetrips@okhdfc";
+export const NATURAL_UPI = "casetrips@okbank";
 
 interface TripSeed {
   /** The internal name: it sets the saved order (sellablePackages sorts by it), so T1 sorts first. */

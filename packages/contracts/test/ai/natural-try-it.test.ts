@@ -105,7 +105,7 @@ describe("Try it on the natural agent", () => {
   it("answers at most two messages, the payment lines, the next state, the chat's new lines and the trace", () => {
     const answer = {
       messages: ["Ho gaya, Rohan ji.", "₹6,000 advance QR par bhej dijiye."],
-      payment: ["UPI: casetrips@okhdfc"],
+      payment: ["UPI: casetrips@okbank"],
       actions: [{ tool: "book", trip: "Kedarkantha Trek", date: "2026-12-19", seats: 2, advancePaise: 600_000 }],
       outcome: "replied",
       state,
@@ -126,7 +126,7 @@ describe("Try it on the natural agent", () => {
         flags: [],
       },
     };
-    expect(naturalTestAnswer.parse(answer).payment).toEqual(["UPI: casetrips@okhdfc"]);
+    expect(naturalTestAnswer.parse(answer).payment).toEqual(["UPI: casetrips@okbank"]);
     expect(naturalTestAnswer.safeParse({ ...answer, messages: ["a", "b", "c"] }).success).toBe(false);
   });
 });
