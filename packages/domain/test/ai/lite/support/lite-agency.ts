@@ -7,8 +7,9 @@ import {
 } from "@travel-crm/contracts/files";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { Database } from "@travel-crm/db";
-import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryAiModel, withTracing } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import {
   runAgentTurn,
   runAiNudges,
@@ -180,9 +181,11 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
     leadWorkers: () => Promise.resolve([{ userId: owner.userId, name: "Owner" }]),
     organizationProfile: () => Promise.resolve(null),
   };
+  /** The model as the turn calls it: with a tracing, every call traced, as the processes give it. */
+  const modelFor = (tracing?: AiTracing) => (tracing === undefined ? model : withTracing(model, tracing));
   /**
    * A reply turn for the fixture's first message, or for `token` (a later message's id); `db` to watch its queries,
-   * `identity` to stand in for who owns the agency's leads.
+   * `identity` to stand in for who owns the agency's leads, `tracing` to trace it.
    */
   const turn = (
     at = liteTurnAt,
@@ -192,13 +195,15 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
       db?: Database;
       identity?: typeof identity;
       entitlements?: Entitlements;
+      tracing?: AiTracing;
     } = {},
   ) =>
     runAgentTurn(
       {
         db: options.db ?? test.db,
         identity: options.identity ?? identity,
-        ai: model,
+        ai: modelFor(options.tracing),
+        ...(options.tracing === undefined ? {} : { tracing: options.tracing }),
         logger,
         subscriptions: { entitlementsOf: () => Promise.resolve(options.entitlements ?? liteEntitlements) },
         agencyName: () => Promise.resolve("Sharma Holidays"),
@@ -213,12 +218,13 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
    * The minute job at `at`, or by the clock `at` reads (lead follow-up tasks, then the follow-ups due), for this agency
    * alone: the job visits every agency in the shared database, and only this one has the AI.
    */
-  const nudges = (at: Date | (() => Date), traces?: TraceSink) =>
+  const nudges = (at: Date | (() => Date), traces?: TraceSink, tracing?: AiTracing) =>
     runAiNudges(
       {
         db: test.db,
         identity,
-        ai: model,
+        ai: modelFor(tracing),
+        ...(tracing === undefined ? {} : { tracing }),
         logger,
         subscriptions: { entitlementsOf: (id) => Promise.resolve(id === organizationId ? liteEntitlements : null) },
         agencyName: () => Promise.resolve("Sharma Holidays"),

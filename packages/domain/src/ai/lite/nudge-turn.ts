@@ -5,6 +5,7 @@ import type { CallEnvironment } from "./counted-call.js";
 import { prepareNudge } from "./nudge-prepare.js";
 import { finishTurn, startTrace, tallied, writeChecks, type TurnLog } from "./turn-trace.js";
 import { acted, written } from "./turn-steps.js";
+import { chatInput } from "./turn-notes.js";
 import type { LiteDependencies, LiteOutcome, LiteTurnInput } from "./types.js";
 
 export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
@@ -13,6 +14,8 @@ export async function runLiteNudge(deps: LiteDependencies, input: LiteTurnInput,
   if (typeof prepared === "string") return finishTurn(deps, input, { outcome: prepared, log: {}, startedMs }, null);
   const { organizationId } = input;
   const { decision, situation } = prepared;
+  // The traced turn's input: the quiet chat's last lines, which the follow-up picks up from.
+  deps.tracing?.note({ input: chatInput(prepared.messages) });
   const trace = startTrace(input, prepared.leadId, now);
   const log: TurnLog = { move: decision.move.kind };
   const end = (outcome: LiteOutcome, reason?: string) =>

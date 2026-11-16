@@ -5,6 +5,7 @@
 // silence, the bookings it takes with the customer's payment proof, and the traces of its turns. It sits above crm and
 // inbox, which it calls; nothing below calls it.
 export type { AiModel } from "@travel-crm/integrations/ai";
+export type { AiTracing } from "@travel-crm/integrations/tracing";
 export { aiAllowed } from "./allowed.js";
 export { withdrawAiParts } from "./erasure.js";
 export { recordDraftSent } from "./drafts.js";
@@ -43,6 +44,7 @@ export {
   type BookingRecipients,
 } from "./booking.js";
 export { liteDryRun } from "./lite/dry-run.js";
+export { tryItTurn } from "./lite/dry-run-traced.js";
 export { decideStageSuggestion, stageSuggestionOfLead, stageSuggestionsOf } from "./lite/suggestions.js";
 export { autopilotDefaults, autopilotOf } from "./autopilot.js";
 export { followUpBoardOf } from "./follow-up-board.js";
