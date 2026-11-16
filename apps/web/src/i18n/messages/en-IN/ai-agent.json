@@ -19,8 +19,8 @@
   },
   "state": {
     "on": "On: answering WhatsApp chats",
-    "onNotReady": "On, but setup isn't finished",
-    "finishSetup": "Finish setup",
+    "onNotReady": "On, but not answering chats",
+    "wontAnswerUntil": "It won't answer until you:",
     "off": "Off",
     "paused": "Paused by {product} support",
     "notSetUp": "Not set up yet",
