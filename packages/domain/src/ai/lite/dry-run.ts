@@ -7,6 +7,7 @@
 import { liteFacts, type TestAiAnswer, type TestAiInput, type TestAiState } from "@travel-crm/contracts/ai";
 import type { Database } from "@travel-crm/db";
 import type { AiModel, AiRequest } from "@travel-crm/integrations/ai";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { MemberAccess } from "../../identity/index.js";
 import { actingOn, codeWordsOf } from "./act-reply.js";
 import { countedCall, type CallEnvironment } from "./counted-call.js";
@@ -19,6 +20,7 @@ import { UNDERSTAND_ANSWER } from "./prompts/calls.js";
 import { understandRequest } from "./prompts/understand-prompt.js";
 import { decideBase } from "./turn.js";
 import { decided, written } from "./turn-steps.js";
+import { decideStep } from "./turn-notes.js";
 import { writeTries } from "./turn-trace.js";
 import type { Decision } from "./types.js";
 import { understandChat } from "./understand.js";
@@ -58,7 +60,13 @@ const decisionTrace = ({ move, stage, why }: Decision) => ({
 });
 
 export async function liteDryRun(
-  deps: { db: Database; ai: AiModel; agencyName: (organizationId: string) => Promise<string> },
+  deps: {
+    db: Database;
+    ai: AiModel;
+    agencyName: (organizationId: string) => Promise<string>;
+    /** The traced turn this runs in (tryItTurn's): its look-ups show as a step. */
+    tracing?: AiTracing;
+  },
   access: MemberAccess,
   chat: Pick<TestAiInput, "messages" | "state"> & DryRunChoice,
   now: Date,
@@ -121,12 +129,14 @@ export async function liteDryRun(
     checked,
     merged,
   );
-  const { situation, decision } = await decided(
-    db,
-    organizationId,
-    base,
-    { index, answers: agency.answers, facts: merged, today, now },
-    checked.form.lookups,
+  const { situation, decision } = await decideStep(deps.tracing, checked.form.lookups, () =>
+    decided(
+      db,
+      organizationId,
+      base,
+      { index, answers: agency.answers, facts: merged, today, now },
+      checked.form.lookups,
+    ),
   );
   trace.lookups = situation.looked;
   Object.assign(trace, decisionTrace(decision));

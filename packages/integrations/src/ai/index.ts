@@ -1,4 +1,5 @@
-// Public API of @travel-crm/integrations/ai: the AI port, its OpenRouter and in-memory adapters, and a backup (ADR 0029).
+// Public API of @travel-crm/integrations/ai: the AI port, its OpenRouter and in-memory adapters, a backup (ADR 0029), and
+// the model with every call traced.
 export {
   aiFeatures,
   NEXT_MODEL_MIN_LEFT_MS,
@@ -24,4 +25,5 @@ export {
 } from "./openrouter.js";
 export { createMemoryAiModel, type MemoryAiModel, type MemoryAnswer } from "./memory-ai.js";
 export { withBackupModel } from "./fallback.js";
+export { withTracing } from "./traced-model.js";
 export { documentPages, documentText } from "./document-text.js";

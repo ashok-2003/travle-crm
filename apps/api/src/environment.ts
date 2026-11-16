@@ -4,6 +4,7 @@ import { brand } from "@travel-crm/brand";
 import type { AuthSettings } from "@travel-crm/domain/identity";
 import { LOG_LEVELS } from "@travel-crm/integrations/logging";
 import { z } from "zod";
+import { langfuseProblems } from "./langfuse-settings.js";
 import { META_VARIABLES, metaVerifyTokenIsWeak } from "./meta-variables.js";
 import { serviceVariables } from "./service-variables.js";
 import { sheetsHashKeyIsWeak } from "./sheets-settings.js";
@@ -223,6 +224,9 @@ const environmentSchema = z
     }
     if (environment.AI_TEST_SERVER_URL !== undefined && environment.OPENROUTER_API_KEY === undefined) {
       problem("AI_TEST_SERVER_URL", "is only for use with OPENROUTER_API_KEY");
+    }
+    for (const { name, message } of langfuseProblems(environment, !developmentLike(environment.NODE_ENV))) {
+      problem(name, message);
     }
     if (developmentLike(environment.NODE_ENV)) return;
     // The AI key and the customers' words go in every request: over https only.

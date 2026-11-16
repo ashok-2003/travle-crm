@@ -45,7 +45,7 @@ describe("ai.test", () => {
   afterAll(() => harness.close());
 
   /** An agency with the AI on, and a model that fills the Understand form and writes a greeting, its schemas noted. */
-  async function anAiAgency(granted?: Parameters<typeof callerOf>[1]["granted"]) {
+  async function anAiAgency(granted?: Parameters<typeof callerOf>[1]["granted"], tracing?: Context["tracing"]) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const schemas: (string | undefined)[] = [];
     const asked: Parameters<NonNullable<Context["ai"]>["complete"]>[0][] = [];
@@ -63,12 +63,12 @@ describe("ai.test", () => {
         });
       },
     };
-    const owner = callerOf(harness, { organizationId, context: { ai: model } });
+    const context = { ai: model, ...(tracing === undefined ? {} : { tracing }) };
+    const owner = callerOf(harness, { organizationId, context });
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
-    const { caller } =
-      granted === undefined ? owner : callerOf(harness, { organizationId, granted, context: { ai: model } });
+    const { caller } = granted === undefined ? owner : callerOf(harness, { organizationId, granted, context });
     return { caller, schemas, asked };
   }
 
@@ -96,6 +96,32 @@ describe("ai.test", () => {
     expect(shown.state).toMatchObject({ facts: { agent: "lite" }, summary: "Said hello." });
     expect(shown.trace.intents).toEqual(["hello"]);
     expect(shown.answer).toContain("Which trip are you looking at?");
+  });
+
+  it("is one traced Try it turn of the person's test chat when the server traces", async () => {
+    const turns: { name: string; sessionId: string; userId: string | undefined }[] = [];
+    const notes: unknown[] = [];
+    const tracing: NonNullable<Context["tracing"]> = {
+      turn: (start, work) => {
+        turns.push({ name: start.name, sessionId: start.sessionId, userId: start.userId });
+        return work();
+      },
+      note: (note) => void notes.push(note.output),
+      step: (_start, work) => work(),
+      generation: () => ({ end: () => undefined }),
+      flush: () => Promise.resolve(),
+      shutdown: () => Promise.resolve(),
+    };
+    const { caller } = await anAiAgency(undefined, tracing);
+    const shown = await caller.ai.test({ messages: hi, state: null, ...live });
+    expect(turns).toEqual([
+      {
+        name: "whatsapp-agent.try-it",
+        sessionId: expect.stringMatching(/^try-it:/) as unknown,
+        userId: expect.any(String) as unknown,
+      },
+    ]);
+    expect(notes).toEqual([{ role: "assistant", content: shown.answer }]);
   });
 
   it("takes back the state it handed out, and the next turn reads it", async () => {

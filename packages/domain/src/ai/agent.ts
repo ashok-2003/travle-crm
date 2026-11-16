@@ -1,15 +1,18 @@
 // The one WhatsApp agent's turn for a chat: the checks that stop it before any call (a server with no model, an agency whose
 // plan or subscription has no AI, a pause by platform staff), then the lite turn, whatever an agency's older switches say.
-// The turn itself, its gates and its writes are in lite/; a turn refused for an unfinished setup tells the managers.
+// The turn itself, its gates and its writes are in lite/; a turn refused for an unfinished setup tells the managers. With a
+// tracing, the whole turn is one traced turn of its chat (lite/turn-notes.ts).
 import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { Files } from "../files/index.js";
 import type { Identity } from "../identity/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import type { BookingRecipients } from "./booking.js";
 import { runLiteTurn } from "./lite/turn.js";
+import { notingSink, outcomeNote, turnStart } from "./lite/turn-notes.js";
 import type { LiteTurnInput, TraceSink } from "./lite/types.js";
 import { AI_TOKEN_PREFIX, agentAnswers, mayWrite } from "./may-write.js";
 import { tellAgentNotReady } from "./not-ready-notice.js";
@@ -35,6 +38,8 @@ export interface AgentDependencies {
   identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
   /** The minute job's clock: a lite follow-up reads it again before it acts, so its checks hold when it sends. */
   clock?: () => Date;
+  /** Where each turn is traced (Langfuse), its model calls inside it; without one, nothing is. */
+  tracing?: AiTracing;
 }
 
 /**
@@ -42,6 +47,17 @@ export interface AgentDependencies {
  * for the log. Safe to run twice: a reply's token is the message it answers.
  */
 export async function runAgentTurn(dependencies: AgentDependencies, input: LiteTurnInput, now: Date): Promise<string> {
+  const { tracing } = dependencies;
+  if (tracing === undefined) return agentTurn(dependencies, input, now);
+  return tracing.turn(turnStart(input), async () => {
+    const traces = notingSink(tracing, dependencies.traces);
+    const outcome = await agentTurn({ ...dependencies, traces }, input, now);
+    if (!traces.noted) tracing.note(outcomeNote(outcome));
+    return outcome;
+  });
+}
+
+async function agentTurn(dependencies: AgentDependencies, input: LiteTurnInput, now: Date): Promise<string> {
   if (!dependencies.ai.configured) return "not_configured";
   // No AI for an agency whose plan lacks it or whose subscription is read-only, suspended or cancelled.
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(input.organizationId))) return "not_allowed";

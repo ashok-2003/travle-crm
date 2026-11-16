@@ -15,6 +15,7 @@ import {
 } from "@travel-crm/contracts/quotes";
 import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
+import { findOrAddDestination } from "../catalog/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { CalendarDate } from "../kernel/index.js";
@@ -138,9 +139,13 @@ export async function getPackage(
   });
 }
 
+/**
+ * Saves the package's words, address, destination and group-trip fields. A new destination's name (the editor's
+ * 'Add "Spiti"') is found or added as the lead form's is, in this transaction, so a refused save adds none.
+ */
 export async function updatePackage(tx: OrgTx, access: MemberAccess, input: UpdatePackageInput): Promise<void> {
   const before = await findPackage(tx, input.packageId);
-  const { packageId, ...fields } = input;
+  const { packageId, newDestinationName, ...fields } = input;
   if (fields.priceDisplay === "from" && fields.fromPricePaise === null) {
     throw new DomainError("VALIDATION", "FROM_PRICE_REQUIRED", "Enter the price to show, or choose 'Price on enquiry'");
   }
@@ -174,11 +179,16 @@ export async function updatePackage(tx: OrgTx, access: MemberAccess, input: Upda
   ) {
     throw slugTaken();
   }
+  const destinationId =
+    newDestinationName === undefined
+      ? fields.destinationId
+      : (await findOrAddDestination(tx, access, newDestinationName)).id;
   try {
     await tx.quoteTemplate.update({
       where: { id: packageId },
       data: {
         ...fields,
+        destinationId,
         fromPricePaise: fields.fromPricePaise === null ? null : BigInt(fields.fromPricePaise),
         advancePerPersonPaise: fields.advancePerPersonPaise === null ? null : BigInt(fields.advancePerPersonPaise),
       },

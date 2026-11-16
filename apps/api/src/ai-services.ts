@@ -2,15 +2,17 @@
 // those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), with AI_BACKUP_API_KEY's AI behind it
 // when that is set, else OpenRouter with its zero-data-retention routing from OPENROUTER_API_KEY. Null when no key is set:
 // the features then say the AI isn't set up. The journeys' fake (AI_TEST_SERVER_URL, never in production) receives
-// OpenRouter's calls in its place.
+// OpenRouter's calls in its place. Every call goes through the process's tracing (Langfuse, or none).
 import {
+  aiBaseUrl,
   createOpenRouterModel,
   isOpenRouterUrl,
   OPENROUTER_BASE_URL,
   withBackupModel,
-  aiBaseUrl,
+  withTracing,
   type AiModel,
 } from "@travel-crm/integrations/ai";
+import { noTracing, type AiTracing } from "@travel-crm/integrations/tracing";
 import type { Environment } from "./environment.js";
 
 /** The settings that make the model: the bench reads just these, the processes the whole environment. */
@@ -49,7 +51,16 @@ function salesAgentOnOpenRouter(baseUrl: string | undefined, model: AiModel): Ai
   };
 }
 
-export function createAiModel(environment: AiSettings): AiModel | null {
+/**
+ * The process's model, each call traced as one generation (under the agent's turn when one is running). The tracing wraps
+ * the sales agent's gate, so a sales_agent call off OpenRouter is traced too, as the not_configured it answers.
+ */
+export function createAiModel(environment: AiSettings, tracing: AiTracing = noTracing): AiModel | null {
+  const model = modelOf(environment);
+  return model === null ? null : withTracing(model, tracing);
+}
+
+function modelOf(environment: AiSettings): AiModel | null {
   if (environment.AI_API_KEY !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];
     const fast = environment.AI_FAST_MODELS ?? chat;
