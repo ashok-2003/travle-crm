@@ -277,7 +277,7 @@ module.exports = {
         "Domain code never calls a vendor SDK (spec 3): it calls a port in @travel-crm/integrations, and only that " +
         "package imports pg-boss, the AWS SDK, nodemailer, web-push, pino, React-PDF or the spreadsheet libraries " +
         "(csv-parse, csv-stringify, read-excel-file, fflate, saxen; ADR 0030), google-auth-library (ADR 0031) and the " +
-        "tracing's Langfuse and OpenTelemetry packages.",
+        "tracing's and the prompts' Langfuse and OpenTelemetry packages.",
       severity: "error",
       from: { pathNot: "^packages/integrations/" },
       to: {
