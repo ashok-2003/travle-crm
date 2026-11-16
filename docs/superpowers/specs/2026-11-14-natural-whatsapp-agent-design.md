@@ -188,7 +188,7 @@ byte for byte the same until their data changes:
 3. The chat as real user and assistant turns (4.3), so the model writes as the person in the chat.
 4. A final user message: `<now>`, `<lead>`, the focused trips when indexed, then the customer's new lines (4.4).
 
-Sizes, estimated: prompt about 5,600 tokens (budget 6,000 since prompt v2) and tool schemas about 1,600 (about 1,900 with 40 labels);
+Sizes, estimated: prompt about 5,900 tokens (budget 6,000 since prompt v2; v3 now) and tool schemas about 1,600 (about 1,900 with 40 labels);
 agency block 300 to 600 plus up to 8,000 of trips; chat 1,000 to 3,000; turn block 300 to 3,500. A typical call has 8,000
 to 14,000 input tokens, 50 to 70% cached; the trace records cached tokens to check it. As in lite, a test fails when a
 block passes its budget.
@@ -481,9 +481,10 @@ Placeholders: `{agent_name}`, `{agency_name}`, `{tone}` (friendly or professiona
 block (4.1) follows it in the same system string.
 
 This appendix keeps v1. Since 2026-11-16 the prompt lives in Langfuse (`whatsapp-agent/natural-system`, labels
-`production` and `draft`), and the built-in fallback (`prompt-text.ts`) is v2: `{{…}}` placeholders, • lists with blank-line
-spacing, short trip names (the full title only on an offer or a booking), a line of `---` between two messages, about
-5,600 tokens (budget 6,000).
+`production` and `draft`), and the built-in fallback (`prompt-text.ts`) is exactly Langfuse's version 3: v2's `{{…}}` placeholders, • lists
+with blank-line spacing, short trip names (the full title only on an offer or a booking) and a line of `---` between two
+messages, and v3's reading of short, shorthand messages ("manali", "kk") for their likely meaning. About 5,900 tokens
+(budget 6,000).
 
 ````markdown
 # {agent_name}, {agency_name} on WhatsApp
