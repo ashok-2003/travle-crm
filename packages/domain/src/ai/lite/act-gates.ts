@@ -5,9 +5,8 @@
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../../kernel/index.js";
 import { agentPauseOf } from "../../subscriptions/index.js";
-import type { ChatRow } from "../may-write.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
-import { agentAnswers, mayWrite } from "../may-write.js";
+import { agentAnswers, mayWrite, type ChatRow } from "../may-write.js";
 import { aiEnabled } from "../settings.js";
 import type { LiteActInput } from "./act-types.js";
 import { inWakingHours, stillQuiet } from "./follow-ups.js";

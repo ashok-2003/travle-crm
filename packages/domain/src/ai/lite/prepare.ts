@@ -9,7 +9,7 @@ import { openLeadOfChat } from "../../crm/index.js";
 import { adPackageOf } from "../../inbox/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
 import { getOrganizationProfile } from "../../profile/index.js";
-import type { ChatRow } from "../may-write.js";
+import { chatRowOf, type ChatRow } from "../may-write.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
 import type { AutopilotRow } from "../autopilot.js";
 import { RECENT_SENT } from "../repeats.js";
@@ -131,13 +131,7 @@ export async function prepareLiteTurn(
     const passed = await turnGates(tx, input, now);
     if (typeof passed === "string") return passed;
     const { settings, chat, timeZone, today, sellable } = passed;
-    const row: ChatRow = {
-      id: chat.id,
-      personId: chat.personId,
-      lastInboundAt: chat.lastInboundAt,
-      state: chat.state,
-      hidden: chat.hidden,
-    };
+    const row = chatRowOf(chat);
     const lines = await chatLines(tx, chat.id);
     if (lines.messages.length === 0) return "nothing";
     const index = await packageIndexOf(tx, sellable, today, now);

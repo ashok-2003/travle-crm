@@ -31,6 +31,25 @@ export const AI_TOKEN_PREFIX = "ai:";
  */
 export const agentAnswers = (mode: string | undefined, autopilot: boolean) => autopilot && mode !== "off";
 
+/** The chat row alone, from a wider one (the chat with its number): what the checks and notices are handed. */
+export const chatRowOf = ({ id, personId, lastInboundAt, state, hidden }: ChatRow): ChatRow => ({
+  id,
+  personId,
+  lastInboundAt,
+  state,
+  hidden,
+});
+
+/**
+ * The day a chat's replies are counted for (`ai_chat.replies_on`): the UTC date of `now`, as midnight UTC. One rule for
+ * the day's cap, the count a turn adds to and what a turn reads of it.
+ */
+export const replyDayOf = (now: Date): Date => new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
+
+/** The replies the chat has had on `now`'s reply day: its count when it was kept for that day, else none. */
+export const repliesToday = (state: { repliesOn: Date | null; repliesCount: number } | null, now: Date): number =>
+  state?.repliesOn?.getTime() === replyDayOf(now).getTime() ? state.repliesCount : 0;
+
 /**
  * Whether the AI may write in this chat now, and why not when it may not. `dayCap: false` leaves the day's count to the
  * caller: the natural agent hands the chat over at it rather than ending the turn (plan 2, ruling 5).
@@ -67,12 +86,7 @@ export async function mayWrite(
   const state = await tx.aiChat.findFirst({ where: { conversationId: chat.id } });
   if (!agentAnswers(state?.mode, settings.autopilot)) return "off";
   if (state?.handedOffAt != null) return "handed_off";
-  const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
-  if (
-    options.dayCap !== false &&
-    state?.repliesOn?.getTime() === today.getTime() &&
-    state.repliesCount >= settings.maxRepliesPerDay
-  )
-    return "day_limit";
+  // The cap is at least 1 (ai_autopilot_max_replies), so a count kept for another day never reaches it.
+  if (options.dayCap !== false && repliesToday(state, now) >= settings.maxRepliesPerDay) return "day_limit";
   return (await personAnsweringUntil(tx, chat.id, now)) === null ? null : "person_answering";
 }

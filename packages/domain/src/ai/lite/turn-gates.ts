@@ -5,10 +5,9 @@ import type { OrgTx } from "@travel-crm/db";
 import { organizationTimeZone } from "../../identity/index.js";
 import { calendarDateIn, type CalendarDate } from "../../kernel/index.js";
 import { sellablePackages } from "../../quotes/index.js";
-import type { ChatRow } from "../may-write.js";
 import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
-import { mayWrite } from "../may-write.js";
+import { chatRowOf, mayWrite, repliesToday, type ChatRow } from "../may-write.js";
 import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { markedNotALead } from "./open-lead.js";
@@ -25,18 +24,34 @@ export interface TurnGatesPassed {
   sellable: { id: string; kind: string }[];
 }
 
+/** The day's cap and the month's limit as data, for a caller that hands the chat over at them. */
+export interface TurnLimits {
+  /** The replies the chat has had today, counted as the day's cap counts them (`repliesToday`). */
+  repliesToday: number;
+  /** The agency's cap on a chat's replies a day. */
+  dayCap: number;
+  /** The month's AI calls are all used. */
+  monthFull: boolean;
+}
+
 /**
- * Either why the turn ends now (the outcome), or what passed. `limits: false` leaves the day's cap and the month's limit
- * to the caller, which reads them itself: the natural agent hands the chat over at either instead of ending the turn
- * (plan 2, ruling 5).
+ * Either why the turn ends now (the outcome), or what passed. Lite's turn ends at the day's cap and the month's limit;
+ * `limits: false` hands both back instead, for the natural agent to hand the chat over at either (plan 2, ruling 5).
  */
+export function turnGates(tx: OrgTx, input: LiteTurnInput, now: Date): Promise<TurnGatesPassed | LiteOutcome>;
+export function turnGates(
+  tx: OrgTx,
+  input: LiteTurnInput,
+  now: Date,
+  options: { limits: false },
+): Promise<(TurnGatesPassed & { limits: TurnLimits }) | LiteOutcome>;
 export async function turnGates(
   tx: OrgTx,
   input: LiteTurnInput,
   now: Date,
-  options: { limits?: boolean } = {},
-): Promise<TurnGatesPassed | LiteOutcome> {
-  const limits = options.limits !== false;
+  options?: { limits: false },
+): Promise<TurnGatesPassed | (TurnGatesPassed & { limits: TurnLimits }) | LiteOutcome> {
+  const ending = options === undefined;
   const settings = await autopilotOf(tx);
   // The inbox hands an agency's chats on with the AI module off too (automationCouldAct): the turn refuses them.
   if (!(await aiEnabled(tx)) || !settings.autopilot) return "off";
@@ -53,14 +68,7 @@ export async function turnGates(
     },
   });
   if (chat === null) return "nothing";
-  const row: ChatRow = {
-    id: chat.id,
-    personId: chat.personId,
-    lastInboundAt: chat.lastInboundAt,
-    state: chat.state,
-    hidden: chat.hidden,
-  };
-  const blocked = await mayWrite(tx, row, settings, input.kind, now, { dayCap: limits });
+  const blocked = await mayWrite(tx, chatRowOf(chat), settings, input.kind, now, { dayCap: ending });
   if (blocked !== null) return blocked;
   // A person judged the customer Not a lead: nothing is read for them, nothing sent, nobody told.
   if (await markedNotALead(tx, chat.personId)) return "not_a_lead";
@@ -69,7 +77,16 @@ export async function turnGates(
   // Read once for the turn: the setup's check and the index both take this list.
   const sellable = await sellablePackages(tx, input.organizationId, today);
   if (!(await agentSetupOf(tx, input.organizationId, today, sellable)).ready) return "not_ready";
+  const passed = { settings, chat, timeZone, today, sellable };
   // Each model call reserves its own call later; here only a month already full ends the turn.
-  if (limits && (await usedThisMonth(tx, now, timeZone)) >= MONTHLY_AI_LIMIT) return "limit";
-  return { settings, chat, timeZone, today, sellable };
+  const monthFull = (await usedThisMonth(tx, now, timeZone)) >= MONTHLY_AI_LIMIT;
+  if (ending) return monthFull ? "limit" : passed;
+  const state = await tx.aiChat.findFirst({
+    where: { conversationId: chat.id },
+    select: { repliesOn: true, repliesCount: true },
+  });
+  return {
+    ...passed,
+    limits: { repliesToday: repliesToday(state, now), dayCap: settings.maxRepliesPerDay, monthFull },
+  };
 }
