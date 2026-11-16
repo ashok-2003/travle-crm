@@ -104,8 +104,11 @@ export interface AiRequest {
   deadlineAt?: number;
 }
 
-/** Another model, or the backup, is asked only while this much of a request's deadline remains. */
-export const NEXT_MODEL_MIN_LEFT_MS = 10_000;
+/**
+ * Another model, or the backup, is asked only while this much of a request's deadline remains (the owner, 2026-11-15:
+ * 20 seconds, with the natural agent's 2-minute turn and 60-second tries).
+ */
+export const NEXT_MODEL_MIN_LEFT_MS = 20_000;
 
 export type AiResult =
   | {

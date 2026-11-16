@@ -1,6 +1,7 @@
 // Public API of @travel-crm/integrations/ai: the AI port, its OpenRouter and in-memory adapters, and a backup (ADR 0029).
 export {
   aiFeatures,
+  NEXT_MODEL_MIN_LEFT_MS,
   type AiEffort,
   type AiFailure,
   type AiFeature,

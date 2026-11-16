@@ -178,25 +178,25 @@ describe("native tool calling through the OpenRouter adapter", () => {
     expect(bodies).toHaveLength(2);
   });
 
-  it("tries the next model only while 10 seconds remain before the deadline", async () => {
+  it("tries the next model only while 20 seconds remain before the deadline", async () => {
     const short = fakeFetch(503, words("Hi"));
-    expect(await modelWith(short.fetcher).complete({ ...request, deadlineAt: Date.now() + 9_000 })).toEqual({
+    expect(await modelWith(short.fetcher).complete({ ...request, deadlineAt: Date.now() + 19_000 })).toEqual({
       ok: false,
       reason: "unavailable",
     });
     expect(short.bodies).toHaveLength(1);
     const long = fakeFetch(503, words("Hi"));
-    expect(await modelWith(long.fetcher).complete({ ...request, deadlineAt: Date.now() + 20_000 })).toMatchObject({
+    expect(await modelWith(long.fetcher).complete({ ...request, deadlineAt: Date.now() + 30_000 })).toMatchObject({
       ok: true,
     });
     expect(long.bodies.map((body) => body.model)).toEqual(["g/lite", "g/flash"]);
   });
 
-  it("counts a model resting from a 429 as no try: the next one is asked with under 10 seconds left", async () => {
+  it("counts a model resting from a 429 as no try: the next one is asked with under 20 seconds left", async () => {
     const { fetcher, bodies } = fakeFetch(429, words("First"), words("Second"));
     const model = modelWith(fetcher);
     await model.complete(request);
-    expect(await model.complete({ ...request, deadlineAt: Date.now() + 9_000 })).toMatchObject({
+    expect(await model.complete({ ...request, deadlineAt: Date.now() + 19_000 })).toMatchObject({
       ok: true,
       text: "Second",
     });
@@ -280,5 +280,13 @@ describe("native tool calling through the OpenRouter adapter", () => {
     });
     expect(model.requests).toHaveLength(4);
     expect(model.requests[0]?.tools).toEqual([quoteTool]);
+  });
+
+  it("the memory model sends arguments scripted as text as they are, broken JSON included", async () => {
+    const model = createMemoryAiModel();
+    model.answer({ toolCalls: [{ name: "quote", arguments: '{"trip_id": "T1",' }] });
+    expect(await model.complete(request)).toMatchObject({
+      toolCalls: [{ id: "call_1", name: "quote", arguments: '{"trip_id": "T1",' }],
+    });
   });
 });

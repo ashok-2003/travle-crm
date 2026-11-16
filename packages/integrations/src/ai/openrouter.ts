@@ -225,7 +225,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           limited = true;
           continue;
         }
-        // No try once the deadline is gone, and another model only while 10 seconds of it remain.
+        // No try once the deadline is gone, and another model only while 20 seconds of it remain.
         const left = request.deadlineAt === undefined ? Infinity : request.deadlineAt - Date.now();
         if (left <= 0 || (tried && left < NEXT_MODEL_MIN_LEFT_MS)) break;
         tried = true;

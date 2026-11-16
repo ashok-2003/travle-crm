@@ -5,7 +5,8 @@ import type { AiFinishReason, AiModel, AiRequest, AiResult } from "./ai-model.js
 /** A scripted answer with more than words: tool calls (given ids "call_1", "call_2"… in order), a finish, a model. */
 export interface MemoryAnswer {
   text?: string;
-  toolCalls?: { name: string; arguments: object }[];
+  /** Arguments as an object are sent as its JSON; as text, as they are (broken JSON included). */
+  toolCalls?: { name: string; arguments: object | string }[];
   /** "tool_calls" when there are calls, else "stop", unless set. */
   finishReason?: AiFinishReason;
   reasoningDetails?: unknown;
@@ -28,7 +29,8 @@ export function createMemoryAiModel(): MemoryAiModel {
   const resultOf = (next: MemoryAnswer): AiResult => {
     const toolCalls = (next.toolCalls ?? []).map((call) => {
       calls += 1;
-      return { id: `call_${String(calls)}`, name: call.name, arguments: JSON.stringify(call.arguments) };
+      const text = typeof call.arguments === "string" ? call.arguments : JSON.stringify(call.arguments);
+      return { id: `call_${String(calls)}`, name: call.name, arguments: text };
     });
     return {
       ok: true,
