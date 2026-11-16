@@ -242,6 +242,19 @@ describe("Try it on the new agent", () => {
     const task = { tool: "create_task", kind: "question", text: "The AI didn't answer (timeout)." };
     await chat(naturalTurn(["Let me check and get back to you."], { outcome: "fallback", actions: [task] }));
     expect(await screen.findByText(natural.fallback)).toBeVisible();
+    expect(screen.queryByText(/^It would hand the chat to your team/)).toBeNull();
+  });
+
+  it("says under the fallback line that a person would take the chat, when the fallback hands it over", async () => {
+    const actions = [
+      { tool: "hand_over", reason: "discount", summary: "Asked for 10% off twice; the agency's answers give none." },
+      { tool: "create_task", kind: "question", text: "The reply named a discount the agency hasn't given." },
+    ];
+    await chat(naturalTurn(["Let me check and get back to you."], { outcome: "fallback", actions }));
+    const fallback = await screen.findByText(natural.fallback);
+    const handOver = screen.getByText(words.handoff.replace("{reason}", natural.handOverReasons.discount));
+    expect(handOver).toBeVisible();
+    expect(fallback.compareDocumentPosition(handOver) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("opens Why on each call's tools, arguments, results and the guards' verdicts", async () => {

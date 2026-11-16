@@ -9,17 +9,27 @@ import { actionOf } from "./test-natural-actions";
 import { TestNaturalWhy } from "./test-natural-why";
 import { OutBubble, WhyToggle } from "./test-turn";
 
-/** What else the turn would do with the chat: the fallback line, a hand-over, staying quiet, or nothing at all. */
+/**
+ * What else the turn would do with the chat: the fallback line, a hand-over (under the fallback line too, when the
+ * fallback hands the chat over, so it shows at a glance that a person would take it), staying quiet, or nothing at all.
+ */
 function NaturalStatus({ answer }: { answer: NaturalTestAnswer }) {
   const t = useTranslations("ai.test");
   const attention = "text-caption text-status-attention-ink";
   const quiet = actionOf(answer.actions, "stay_quiet");
   const handOver = actionOf(answer.actions, "hand_over");
-  if (answer.outcome === "fallback") return <p className={attention}>{t("natural.fallback")}</p>;
-  if (handOver !== undefined) {
-    const reason = t(`natural.handOverReasons.${handOver.reason}`);
-    return <p className={attention}>{t("handoff", { reason })}</p>;
+  const handOverLine = handOver && (
+    <p className={attention}>{t("handoff", { reason: t(`natural.handOverReasons.${handOver.reason}`) })}</p>
+  );
+  if (answer.outcome === "fallback") {
+    return (
+      <>
+        <p className={attention}>{t("natural.fallback")}</p>
+        {handOverLine}
+      </>
+    );
   }
+  if (handOverLine) return handOverLine;
   if (quiet !== undefined) {
     return <p className="text-caption text-muted-foreground">{t("natural.quiet", { reason: quiet.reason })}</p>;
   }
