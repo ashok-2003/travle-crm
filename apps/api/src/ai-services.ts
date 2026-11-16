@@ -33,11 +33,20 @@ export type AiSettings = Pick<
 >;
 
 /**
- * The natural sales agent's models on one endpoint: none off OpenRouter, because the agent sends OpenRouter's reasoning
- * fields and reads its reasoning details, which another endpoint would refuse or ignore.
+ * The model on one endpoint, with the natural sales agent kept to OpenRouter: the agent sends OpenRouter's reasoning field
+ * and reads its reasoning details, which another endpoint would refuse or ignore. Off OpenRouter, every `sales_agent`
+ * request answers not_configured, whatever model it names (a call pinned to the model that answered, Try it's Flash), so
+ * a backup on OpenRouter serves it, and with none the agent isn't set up.
  */
-function salesAgentModels(baseUrl: string | undefined, models: readonly string[]): string[] {
-  return isOpenRouterUrl(aiBaseUrl(baseUrl)) ? [...models] : [];
+function salesAgentOnOpenRouter(baseUrl: string | undefined, model: AiModel): AiModel {
+  if (isOpenRouterUrl(aiBaseUrl(baseUrl))) return model;
+  return {
+    configured: model.configured,
+    complete: (request) =>
+      request.feature === "sales_agent"
+        ? Promise.resolve({ ok: false, reason: "not_configured" })
+        : model.complete(request),
+  };
 }
 
 export function createAiModel(environment: AiSettings): AiModel | null {
@@ -65,12 +74,12 @@ export function createAiModel(environment: AiSettings): AiModel | null {
         // Drafting a plan is longer writing than a reply: the chat models.
         draft_days: chat,
         draft_packages: chat,
-        sales_agent: salesAgentModels(environment.AI_BASE_URL, environment.AI_AGENT_MODELS ?? chat),
+        sales_agent: environment.AI_AGENT_MODELS ?? chat,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
     });
-    if (environment.AI_BACKUP_API_KEY === undefined) return first;
+    if (environment.AI_BACKUP_API_KEY === undefined) return salesAgentOnOpenRouter(environment.AI_BASE_URL, first);
     // The backup keeps the first's endpoint and models unless it names its own.
     const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
     const backupFast = environment.AI_BACKUP_FAST_MODELS ?? environment.AI_BACKUP_CHAT_MODELS ?? fast;
@@ -86,15 +95,15 @@ export function createAiModel(environment: AiSettings): AiModel | null {
         ask_report: backupFast,
         draft_days: backupChat,
         draft_packages: backupChat,
-        sales_agent: salesAgentModels(
-          backupBaseUrl,
-          environment.AI_BACKUP_CHAT_MODELS ?? environment.AI_AGENT_MODELS ?? chat,
-        ),
+        sales_agent: environment.AI_BACKUP_CHAT_MODELS ?? environment.AI_AGENT_MODELS ?? chat,
       },
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
     });
-    return withBackupModel(first, backup);
+    return withBackupModel(
+      salesAgentOnOpenRouter(environment.AI_BASE_URL, first),
+      salesAgentOnOpenRouter(backupBaseUrl, backup),
+    );
   }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;
