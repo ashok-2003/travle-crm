@@ -60,6 +60,7 @@ export function createTestConsole(server: TestServer, options: TestConsoleOption
     logger: problemLogger(lines),
     email: options.email ?? null,
     aiPrices: options.aiPrices ?? null,
+    pushPublicKey: "test-vapid-public-key",
   });
   return {
     app: createConsoleApp(services, logger),
