@@ -36,15 +36,17 @@ export async function naturalPromptOf(prompts: AiPrompts | undefined): Promise<N
 
 /**
  * Try it's prompt: the live one, or the draft. The draft is read past the cache, so an edit in Langfuse shows on the next
- * turn; with no draft to read, the turn runs on the live prompt, and its trace's label says so.
+ * turn; with no draft to read, the turn runs on the live prompt, and its trace's label says so. The two are read at once,
+ * so a slow Langfuse costs the turn one wait (the port's bound), never two.
  */
 export async function naturalTryItPrompt(
   prompts: AiPrompts | undefined,
   chosen: NaturalTestPrompt,
 ): Promise<NaturalPrompt> {
-  if (chosen === "draft") {
-    const draft = await naturalPromptAt(prompts, naturalPromptLabels.draft, { fresh: true });
-    if (draft !== null) return draft;
-  }
-  return naturalPromptOf(prompts);
+  if (chosen === "live") return naturalPromptOf(prompts);
+  const [draft, live] = await Promise.all([
+    naturalPromptAt(prompts, naturalPromptLabels.draft, { fresh: true }),
+    naturalPromptOf(prompts),
+  ]);
+  return draft ?? live;
 }

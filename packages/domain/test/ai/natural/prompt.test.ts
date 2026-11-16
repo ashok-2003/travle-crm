@@ -1,5 +1,6 @@
 // The natural agent's system prompt: Appendix A as written, its {{placeholders}} (Langfuse's, so code and Langfuse share
 // one template), its size, and where it comes from: Langfuse's prompt at label production, else the built-in text.
+import { setTimeout as wait } from "node:timers/promises";
 import { createMemoryPrompts, type AiPrompts } from "@travel-crm/integrations/prompts";
 import { describe, expect, it } from "vitest";
 import { estimateTokens } from "../../../src/ai/natural/context/tokens.js";
@@ -94,13 +95,29 @@ describe("where the natural agent's prompt comes from", () => {
     const both = createMemoryPrompts([kept(4, "production", liveText), kept(7, "draft", "Draft words")]);
     expect(await naturalTryItPrompt(both, "draft")).toMatchObject({ text: "Draft words", source: { label: "draft" } });
     expect(await naturalTryItPrompt(both, "live")).toMatchObject({ source: { label: "production", version: 4 } });
+    // The draft (fresh) and the live prompt are asked together; live asks the live prompt alone.
     expect(both.asked).toEqual([
       { name: NATURAL_PROMPT_NAME, label: "draft", fresh: true },
+      { name: NATURAL_PROMPT_NAME, label: "production", fresh: false },
       { name: NATURAL_PROMPT_NAME, label: "production", fresh: false },
     ]);
 
     const liveOnly = createMemoryPrompts([kept(4, "production", liveText)]);
     expect(await naturalTryItPrompt(liveOnly, "draft")).toMatchObject({ source: { label: "production" } });
     expect(await naturalTryItPrompt(createMemoryPrompts(), "draft")).toEqual(BUILT_IN_NATURAL_PROMPT);
+  });
+
+  it("waits on a slow Langfuse once for Try it's draft, not once for the draft and again for the live prompt", async () => {
+    // Each answer takes the adapter's whole bound (scaled down): the draft never comes, the live prompt does.
+    const bound = 300;
+    const slow: AiPrompts = {
+      textPrompt: async (name, label) => {
+        await wait(bound);
+        return label === "production" ? kept(4, "production", liveText) : null;
+      },
+    };
+    const started = Date.now();
+    expect(await naturalTryItPrompt(slow, "draft")).toMatchObject({ source: { label: "production", version: 4 } });
+    expect(Date.now() - started).toBeLessThan(bound * 1.5);
   });
 });

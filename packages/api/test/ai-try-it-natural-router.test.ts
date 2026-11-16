@@ -175,7 +175,11 @@ describe("ai.testNatural", () => {
       promptLabel: "draft",
     });
     expect(systemOf(asked[0])).toMatch(/^The draft prompt for Asha Travels\./);
-    expect(fake.asked).toEqual([{ label: "draft", fresh: true }]);
+    // The live prompt is read beside the draft, so a draft that isn't there costs no second wait.
+    expect(fake.asked).toEqual([
+      { label: "draft", fresh: true },
+      { label: "production", fresh: false },
+    ]);
 
     const noDraft = langfuse(false);
     const other = await anAiAgency({ prompts: noDraft.prompts });
