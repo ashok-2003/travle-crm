@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { setTimeout as wait } from "node:timers/promises";
 import { gunzipSync } from "node:zlib";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { createLangfuseTracing, type AiTracing } from "../../src/tracing/index.js";
 
 interface OtlpValue {
@@ -267,7 +267,13 @@ describe("the Langfuse tracing", () => {
     expect(received.map(({ body }) => body).join("")).not.toContain("broke it");
   });
 
-  it("changes nothing when Langfuse is unreachable or hangs, and stops in time", async () => {
+  it("changes nothing when Langfuse is unreachable or hangs, says nothing on the console, and stops in time", async () => {
+    const written = (["error", "warn", "info", "debug", "log"] as const).map((method) =>
+      vi.spyOn(console, method).mockImplementation(() => undefined),
+    );
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
     const closed = createServer();
     await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
     const closedUrl = `http://127.0.0.1:${String((closed.address() as AddressInfo).port)}`;
@@ -296,5 +302,7 @@ describe("the Langfuse tracing", () => {
         resolve();
       }),
     );
+    // The SDK's own logger is silenced: an export that failed is no line of ours to print.
+    expect(written.flatMap((spy) => spy.mock.calls)).toEqual([]);
   });
 });

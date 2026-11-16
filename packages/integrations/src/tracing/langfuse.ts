@@ -1,7 +1,8 @@
 // The Langfuse adapter of the tracing port: an isolated OpenTelemetry tracer provider that only Langfuse's span processor
 // reads, so no other library's spans reach Langfuse and ours reach nothing else (the global provider is left alone). Phone
 // numbers and email addresses are masked before export. A Langfuse that is down or slow is invisible: spans export in the
-// background, flush and shutdown are bounded in time, and every call into the SDK is caught.
+// background, flush and shutdown are bounded in time, every call into the SDK is caught, and the SDK's console logger is
+// silenced.
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import {
   LangfuseAgent,
@@ -15,6 +16,7 @@ import {
 import { context, createContextKey } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { quietLangfuseSdk } from "../langfuse/sdk-logging.js";
 import {
   failureOf,
   type AiTracing,
@@ -118,6 +120,7 @@ function observeStep<R>(start: StepStart, fn: (step: LangfuseRetriever | Langfus
 let contextReady = false;
 
 export function createLangfuseTracing(options: LangfuseTracingOptions): AiTracing {
+  quietLangfuseSdk();
   const timeoutSeconds = options.timeoutSeconds ?? 5;
   const boundMs = (timeoutSeconds + 1) * 1000;
   const provider = new NodeTracerProvider({

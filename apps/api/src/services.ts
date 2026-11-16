@@ -209,7 +209,7 @@ export function createServices(
     // A call no model answers is told to the console.
     ai: ai === null ? null : withIncidentReports(ai, incidents),
     tracing,
-    prompts: promptsOf(environment),
+    prompts: promptsOf(environment, logger),
     incidents,
     whatsapp: createWhatsAppServices(environment),
     subscriptions,
