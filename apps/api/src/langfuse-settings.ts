@@ -1,5 +1,7 @@
-// Langfuse's settings (the owner, 2026-11-16): their checks, and the one tracing a process builds from them. Unset, nothing
-// is traced. The keys are secrets: a problem names the variable, never its value.
+// Langfuse's settings (the owner, 2026-11-16): their checks, and the one tracing and the one prompts reader a process builds
+// from them. Unset, nothing is traced and the natural agent runs on its built-in prompt. The keys are secrets: a problem
+// names the variable, never its value.
+import { createLangfusePrompts, noPrompts, type AiPrompts } from "@travel-crm/integrations/prompts";
 import { createLangfuseTracing, noTracing, type AiTracing } from "@travel-crm/integrations/tracing";
 
 export interface LangfuseSettings {
@@ -50,4 +52,11 @@ export function tracingOf(settings: LangfuseSettings, fallbackEnvironment: strin
     baseUrl,
     environment: settings.LANGFUSE_TRACING_ENVIRONMENT ?? fallbackEnvironment,
   });
+}
+
+/** The process's one prompts reader (its cache shared by every turn): the same Langfuse project as the tracing, or none. */
+export function promptsOf(settings: LangfuseSettings): AiPrompts {
+  const { LANGFUSE_PUBLIC_KEY: publicKey, LANGFUSE_SECRET_KEY: secretKey, LANGFUSE_BASE_URL: baseUrl } = settings;
+  if (publicKey === undefined || secretKey === undefined || baseUrl === undefined) return noPrompts;
+  return createLangfusePrompts({ publicKey, secretKey, baseUrl });
 }
