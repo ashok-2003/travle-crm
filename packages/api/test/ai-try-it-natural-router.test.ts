@@ -14,7 +14,13 @@ describe("ai.testNatural", () => {
   afterAll(() => harness.close());
 
   /** An agency with the AI on and a model that greets, every request it was asked kept. */
-  async function anAiAgency(options: { granted?: Parameters<typeof callerOf>[1]["granted"]; ready?: boolean } = {}) {
+  async function anAiAgency(
+    options: {
+      granted?: Parameters<typeof callerOf>[1]["granted"];
+      ready?: boolean;
+      tracing?: Context["tracing"];
+    } = {},
+  ) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const asked: Parameters<NonNullable<Context["ai"]>["complete"]>[0][] = [];
     const model: NonNullable<Context["ai"]> = {
@@ -32,14 +38,13 @@ describe("ai.testNatural", () => {
         });
       },
     };
-    const owner = callerOf(harness, { organizationId, context: { ai: model } });
+    const context = { ai: model, ...(options.tracing === undefined ? {} : { tracing: options.tracing }) };
+    const owner = callerOf(harness, { organizationId, context });
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
     const { caller } =
-      options.granted === undefined
-        ? owner
-        : callerOf(harness, { organizationId, granted: options.granted, context: { ai: model } });
+      options.granted === undefined ? owner : callerOf(harness, { organizationId, granted: options.granted, context });
     return { caller, asked };
   }
 
@@ -122,6 +127,40 @@ describe("ai.testNatural", () => {
     const chat = [...hi, ...first.history, { from: "customer" as const, text: "ok" }];
     const second = await caller.ai.testNatural({ messages: chat, state: first.state, ...live });
     expect(second.state.facts.agent).toBe("natural");
+  });
+
+  it("is one traced Try it turn of its test chat when the server traces, its session the chat's id", async () => {
+    const turns: { name: string; sessionId: string; tags: readonly string[] | undefined }[] = [];
+    const notes: unknown[] = [];
+    const tracing: NonNullable<Context["tracing"]> = {
+      turn: (start, work) => {
+        turns.push({ name: start.name, sessionId: start.sessionId, tags: start.tags });
+        return work();
+      },
+      note: (note) => void notes.push(note.output),
+      step: (_start, work) => work(),
+      generation: () => ({ end: () => undefined }),
+      flush: () => Promise.resolve(),
+      shutdown: () => Promise.resolve(),
+    };
+    const { caller } = await anAiAgency({ tracing });
+    const chatId = "0192f3a0-0000-7000-8000-0000000000ff";
+    const shown = await caller.ai.testNatural({ messages: hi, state: null, ...live, chatId });
+    await caller.ai.testNatural({ messages: hi, state: null, ...live });
+    expect(turns).toEqual([
+      {
+        name: "whatsapp-agent.natural.try-it",
+        sessionId: `try-it:${chatId}`,
+        tags: ["whatsapp-agent", "natural", "try-it"],
+      },
+      {
+        name: "whatsapp-agent.natural.try-it",
+        sessionId: expect.stringMatching(/^try-it:[0-9a-f-]{36}$/) as unknown,
+        tags: ["whatsapp-agent", "natural", "try-it"],
+      },
+    ]);
+    expect(turns[1]?.sessionId).not.toBe(turns[0]?.sessionId);
+    expect(notes[0]).toEqual({ role: "assistant", content: shown.messages.join("\n\n") });
   });
 
   it("answers AI_NOT_READY when the server has no model for the agent", async () => {

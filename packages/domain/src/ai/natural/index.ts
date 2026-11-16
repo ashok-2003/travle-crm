@@ -12,3 +12,4 @@ export {
   type NaturalDryTurn,
 } from "./dry-turn.js";
 export { naturalDryRun, type NaturalTestChat } from "./dry-run.js";
+export { naturalTryItTurn } from "./dry-run-traced.js";

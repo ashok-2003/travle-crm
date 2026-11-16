@@ -1,7 +1,7 @@
 // Try it on the natural agent (spec 9.5, ruling 7), beside lite's: each turn posts the chat so far, the state the last turn
-// handed back (the chat's facts and the dry lead) and the chat's model and temperature; it answers what the customer would
-// get, the payment lines code would send after them, each action described, the next state, the lines to add to the chat
-// and the trace. Nothing is sent or kept but the month's AI calls.
+// handed back (the chat's facts and the dry lead), the chat's model and temperature and its id; it answers what the
+// customer would get, the payment lines code would send after them, each action described, the next state, the lines to
+// add to the chat and the trace. Nothing is sent or kept but the month's AI calls.
 import { z } from "zod";
 import { calendarMonth } from "../crm/trip.js";
 import { recordId } from "../identity/fields.js";
@@ -62,6 +62,11 @@ export const naturalTestInput = z
     state: postedState.nullable(),
     model: z.enum(testAiModels),
     temperature: z.enum(testAiTemperatures),
+    /**
+     * The test chat's id, the same on each of its turns and new when it starts again: its turns' trace session. With
+     * none, the turn's trace is a session of its own.
+     */
+    chatId: z.uuid().optional(),
   })
   .refine((input) => input.temperature === "default" || input.model === "flash", {
     message: "Only Gemini Flash takes a temperature",

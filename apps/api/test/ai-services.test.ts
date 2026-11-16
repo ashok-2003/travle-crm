@@ -1,6 +1,7 @@
 // Which models each AI feature gets from the settings: the new sales agent's own list (AI_AGENT_MODELS), the chat models
 // when it is unset, and no call at all on an endpoint that is not OpenRouter, whatever model a request names (the agent
-// sends OpenRouter's reasoning field).
+// sends OpenRouter's reasoning field). Every call is traced, the gate's refusals too.
+import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAiModel, type AiSettings } from "../src/ai-services.js";
 
@@ -113,6 +114,23 @@ describe("the sales agent's models", () => {
       reason: "not_configured",
     });
     expect(asked).toHaveLength(1);
+  });
+
+  it("traces every sales_agent call as a generation, the not_configured off OpenRouter too", async () => {
+    const { asked } = stubFetch();
+    const tracing = createMemoryTracing();
+    const google = createAiModel(settings({ AI_BASE_URL: GOOGLE }), tracing);
+    expect(await google?.complete({ feature: "sales_agent", messages, user: "org" })).toEqual({
+      ok: false,
+      reason: "not_configured",
+    });
+    await createAiModel(settings({}), tracing)?.complete({ feature: "sales_agent", messages, user: "org" });
+    expect(tracing.generations.map((call) => [call.start.name, call.end])).toEqual([
+      ["ai.sales_agent", { level: "ERROR", statusMessage: "not_configured" }],
+      ["ai.sales_agent", { output: "Hi", model: "google/chat-one", usage: { input: 0, output: 0 } }],
+    ]);
+    // The gate still asked nothing of Google.
+    expect(asked.map((call) => call.url)).toEqual([`${OPENROUTER}/chat/completions`]);
   });
 
   it("sends every sales_agent call to an OpenRouter backup, whatever model it names", async () => {

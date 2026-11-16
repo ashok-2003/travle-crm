@@ -60,6 +60,13 @@ describe("Try it on the natural agent", () => {
     expect(naturalTestInput.parse({ ...input, state: null }).state).toBeNull();
   });
 
+  it("takes the test chat's id, its trace's session, when the client sends one, and only an id", () => {
+    const chatId = "0192f3a0-0000-7000-8000-0000000000ff";
+    expect(naturalTestInput.parse({ ...input, chatId }).chatId).toBe(chatId);
+    expect(naturalTestInput.parse(input).chatId).toBeUndefined();
+    expect(naturalTestInput.safeParse({ ...input, chatId: "+91 98765 43210" }).success).toBe(false);
+  });
+
   it("refuses unknown keys in a posted state", () => {
     const withExtraKey = { ...input, state: { ...state, summary: "" } };
     expect(naturalTestInput.safeParse(withExtraKey).success).toBe(false);
