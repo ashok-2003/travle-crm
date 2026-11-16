@@ -1,13 +1,11 @@
 // Where the natural agent's prompt comes from: Langfuse's prompt management keeps it as the text prompt
 // "whatsapp-agent/natural-system", label production live and label draft for Try it; the built-in text stands in whenever
 // Langfuse is off, has no such prompt, or can't answer in time (the port bounds the wait and never throws).
-import type { NaturalTestPrompt } from "@travel-crm/contracts/ai";
+import { naturalPromptLabels, type NaturalTestPrompt } from "@travel-crm/contracts/ai";
 import type { AiPrompts, PromptRequest } from "@travel-crm/integrations/prompts";
 import { BUILT_IN_NATURAL_PROMPT, type NaturalPrompt } from "./prompt.js";
 
 export const NATURAL_PROMPT_NAME = "whatsapp-agent/natural-system";
-/** The label customers' chats run on, and the one Try it's Draft reads. */
-export const NATURAL_PROMPT_LABELS = { live: "production", draft: "draft" } as const;
 
 /** Langfuse's prompt at `label`, or null when Langfuse has none to give (or is off: no prompts at all). */
 export async function naturalPromptAt(
@@ -33,7 +31,7 @@ export async function naturalPromptAt(
 
 /** The prompt the agent runs on: Langfuse's live one, else the built-in text. */
 export async function naturalPromptOf(prompts: AiPrompts | undefined): Promise<NaturalPrompt> {
-  return (await naturalPromptAt(prompts, NATURAL_PROMPT_LABELS.live)) ?? BUILT_IN_NATURAL_PROMPT;
+  return (await naturalPromptAt(prompts, naturalPromptLabels.live)) ?? BUILT_IN_NATURAL_PROMPT;
 }
 
 /**
@@ -45,7 +43,7 @@ export async function naturalTryItPrompt(
   chosen: NaturalTestPrompt,
 ): Promise<NaturalPrompt> {
   if (chosen === "draft") {
-    const draft = await naturalPromptAt(prompts, NATURAL_PROMPT_LABELS.draft, { fresh: true });
+    const draft = await naturalPromptAt(prompts, naturalPromptLabels.draft, { fresh: true });
     if (draft !== null) return draft;
   }
   return naturalPromptOf(prompts);

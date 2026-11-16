@@ -57,6 +57,11 @@ const postedState = z.strictObject({
 /** The prompt a test turn runs on: the live one (Langfuse's label production), or the draft (label draft). */
 export const naturalTestPrompts = ["live", "draft"] as const;
 export type NaturalTestPrompt = (typeof naturalTestPrompts)[number];
+/** The Langfuse label each prompt is read at, as a turn's trace names it. */
+export const naturalPromptLabels = { live: "production", draft: "draft" } as const satisfies Record<
+  NaturalTestPrompt,
+  string
+>;
 
 export const naturalTestInput = z
   .strictObject({
