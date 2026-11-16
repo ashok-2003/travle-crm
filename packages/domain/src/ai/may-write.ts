@@ -31,13 +31,17 @@ export const AI_TOKEN_PREFIX = "ai:";
  */
 export const agentAnswers = (mode: string | undefined, autopilot: boolean) => autopilot && mode !== "off";
 
-/** Whether the AI may write in this chat now, and why not when it may not. */
+/**
+ * Whether the AI may write in this chat now, and why not when it may not. `dayCap: false` leaves the day's count to the
+ * caller: the natural agent hands the chat over at it rather than ending the turn (plan 2, ruling 5).
+ */
 export async function mayWrite(
   tx: OrgTx,
   chat: ChatRow,
   settings: AutopilotRow,
   kind: TurnKind,
   now: Date,
+  options: { dayCap?: boolean } = {},
 ): Promise<string | null> {
   if (chat.state !== "open" || chat.hidden) return "closed";
   // STOP wins first, in every chat: a withdrawn consent, or a STOP in a chat with no person linked.
@@ -64,7 +68,11 @@ export async function mayWrite(
   if (!agentAnswers(state?.mode, settings.autopilot)) return "off";
   if (state?.handedOffAt != null) return "handed_off";
   const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
-  if (state?.repliesOn?.getTime() === today.getTime() && state.repliesCount >= settings.maxRepliesPerDay)
+  if (
+    options.dayCap !== false &&
+    state?.repliesOn?.getTime() === today.getTime() &&
+    state.repliesCount >= settings.maxRepliesPerDay
+  )
     return "day_limit";
   return (await personAnsweringUntil(tx, chat.id, now)) === null ? null : "person_answering";
 }

@@ -1,31 +1,25 @@
-// The lite turn's first transaction: every gate it must pass, re-read each turn (the AI module, the owner's switch and
-// the lite switch, the chat's own checks, the agent's setup, the month's limit), then all that Understand, decide and
-// Write read: the chat's lines, its facts with a person's lead values put first, the lead, the trips on offer, the
-// bookings, and the agency's own words.
+// The lite turn's first transaction: every gate it must pass, re-read each turn (`turnGates`: the AI module, the owner's
+// switch, the chat's own checks, the agent's setup, the month's limit), then all that Understand, decide and Write
+// read: the chat's lines, its facts with a person's lead values put first, the lead, the trips on offer, the bookings,
+// and the agency's own words.
 import { indianTravelPlaces, type AgencyAnswers, type AgentBasics, type LiteFacts } from "@travel-crm/contracts/ai";
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { openLeadOfChat } from "../../crm/index.js";
-import { organizationTimeZone } from "../../identity/index.js";
 import { adPackageOf } from "../../inbox/index.js";
-import { calendarDateIn, type CalendarDate } from "../../kernel/index.js";
+import type { CalendarDate } from "../../kernel/index.js";
 import { getOrganizationProfile } from "../../profile/index.js";
-import { sellablePackages } from "../../quotes/index.js";
 import type { ChatRow } from "../may-write.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
-import { agentSetupOf } from "../agent-setup.js";
-import { autopilotOf, type AutopilotRow } from "../autopilot.js";
-import { mayWrite } from "../may-write.js";
+import type { AutopilotRow } from "../autopilot.js";
 import { RECENT_SENT } from "../repeats.js";
-import { aiEnabled } from "../settings.js";
-import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
 import { usableName } from "./decide/stage.js";
 import type { DecideInput } from "./decide/decide.js";
 import { contextMessageOf, storedMessageFields } from "./context/messages.js";
 import { factsForLead, readLiteFacts } from "./merge.js";
-import { markedNotALead } from "./open-lead.js";
 import type { TypedFields } from "./typed-lock.js";
 import { bookingPartOf, leadPartOf, packageIndexOf } from "./prepare-lead.js";
+import { turnGates } from "./turn-gates.js";
 import type {
   ContextMessage,
   LeadCardFacts,
@@ -134,22 +128,9 @@ export async function prepareLiteTurn(
 ): Promise<LitePrepared | LiteOutcome> {
   const { organizationId } = input;
   return deps.db.forOrg(organizationId, async (tx) => {
-    const settings = await autopilotOf(tx);
-    // The inbox hands an agency's chats on with the AI module off too (automationCouldAct): the turn refuses them.
-    if (!(await aiEnabled(tx)) || !settings.autopilot) return "off";
-    const chat = await tx.whatsappConversation.findUnique({
-      where: { id: input.conversationId },
-      select: {
-        id: true,
-        personId: true,
-        lastInboundAt: true,
-        state: true,
-        hidden: true,
-        phoneE164: true,
-        profileName: true,
-      },
-    });
-    if (chat === null) return "nothing";
+    const passed = await turnGates(tx, input, now);
+    if (typeof passed === "string") return passed;
+    const { settings, chat, timeZone, today, sellable } = passed;
     const row: ChatRow = {
       id: chat.id,
       personId: chat.personId,
@@ -157,17 +138,6 @@ export async function prepareLiteTurn(
       state: chat.state,
       hidden: chat.hidden,
     };
-    const blocked = await mayWrite(tx, row, settings, input.kind, now);
-    if (blocked !== null) return blocked;
-    // A person judged the customer Not a lead: nothing is read for them, nothing sent, nobody told.
-    if (await markedNotALead(tx, chat.personId)) return "not_a_lead";
-    const timeZone = await organizationTimeZone(tx, organizationId);
-    const today = calendarDateIn(now, timeZone);
-    // Read once for the turn: the setup's check and the index both take this list.
-    const sellable = await sellablePackages(tx, organizationId, today);
-    if (!(await agentSetupOf(tx, organizationId, today, sellable)).ready) return "not_ready";
-    // Each model call reserves its own call later; here only a month already full ends the turn.
-    if ((await usedThisMonth(tx, now, timeZone)) >= MONTHLY_AI_LIMIT) return "limit";
     const lines = await chatLines(tx, chat.id);
     if (lines.messages.length === 0) return "nothing";
     const index = await packageIndexOf(tx, sellable, today, now);
