@@ -186,6 +186,23 @@ describe("the natural agent's dry turn", () => {
     expect(await on.rows()).toEqual(before);
   });
 
+  it("ends the offer after a turn that sent nothing, so the next turn block shows none", async () => {
+    const on = await world();
+    on.model.answer(
+      { text: offerWords, toolCalls: [offerCall] },
+      { toolCalls: [{ name: "stay_quiet", arguments: { reason: "asking his wife" } }] },
+      { text: "Bilkul! Pura naam bata dijiye, offer phir se bana deti hoon." },
+    );
+    const asked = "Kedarkantha 19 Dec, 2 log";
+    const first = await on.dry([asked]);
+    const waiting = [asked, ...first.history, "wife se puch ke batata hoon"];
+    const quiet = await on.dry(waiting, first.state, later(5));
+    expect(quiet).toMatchObject({ messages: [], state: { facts: { offer: null } } });
+    // book would refuse that offer as dead (made before the last turn that ran), and the context says so too.
+    await on.dry([...waiting, "ok, book it"], quiet.state, later(30));
+    expect(contentOf(on.model.requests[2]?.messages.at(-1))).toContain("Live offer: none.");
+  });
+
   it("keeps a quote's total the words state as told, and moves the lead to Quote sent", async () => {
     const on = await world();
     on.model.answer(

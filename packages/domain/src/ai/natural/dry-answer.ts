@@ -232,8 +232,8 @@ function stateAfter(ended: Ended, read: DryTurnRead): NaturalTestState {
       ...facts,
       sentTripIds: sent === null ? facts.sentTripIds : [...facts.sentTripIds, sent.packageId].slice(-50),
       sentFileIds: sent === null ? facts.sentFileIds : [...facts.sentFileIds, ...sent.fileIds].slice(-150),
-      // The offer our latest message made: a message that made none ends it.
-      offer: offered?.offer ?? (ended.messages.length === 0 ? facts.offer : null),
+      // The offer made in the last turn that ran (ruling 1): a turn that made none, quiet or not, ends it.
+      offer: offered?.offer ?? null,
       told: [...facts.told.filter((one) => now.getTime() - Date.parse(one.at) <= MONTH_MS), ...told].slice(-20),
       lastTurnAt: now.toISOString(),
     },
