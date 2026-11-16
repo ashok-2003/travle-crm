@@ -375,6 +375,27 @@ describe("the natural agent's dry turn", () => {
     expect(flagContext.sheets.map((sheet) => sheet.label)).toEqual(["T1", "T2"]);
   });
 
+  it("grounds no figure from a Team line the model's window left out, nor reads a customer line it left out", async () => {
+    const on = await world();
+    on.model.answer({ text: "Kedarkantha ₹9,499 per person se shuru hai." });
+    // Six lines of the last week fill the window, so the lines of three weeks ago, inside 30 days, are out of it.
+    const week = [1, 2, 3, 4, 5, 6].map((day) =>
+      day % 2 === 0
+        ? line(10 + day, "you", daysAgo(7 - day), "Ji, batayiye.")
+        : line(10 + day, "customer", daysAgo(7 - day), "Kedarkantha ke baare mein batao"),
+    );
+    const { guardContext } = await on.turn([
+      line(1, "customer", daysAgo(21), "Students ke liye ₹2,345 wala offer hai?"),
+      { ...line(2, "team", daysAgo(20), "₹1,234 off for students this winter."), teamName: "Amit" },
+      ...week,
+      line(20, "customer", NOW, "Kedarkantha ka rate?"),
+    ]);
+    expect(guardContext.teamText).toBe("");
+    expect(guardContext.grounded.has(123_400, false)).toBe(false);
+    expect(guardContext.customerText).not.toContain("₹2,345");
+    expect(guardContext.customerText).toContain("Kedarkantha ka rate?");
+  });
+
   it("offers the lookups with the trips inline, and get_trip reads past the sheet's cut", async () => {
     const on = await world();
     const notes = `${"Carry warm layers, gloves and a cap; nights at camp drop below zero. ".repeat(7)}A mule costs ₹1,200 a day.`;
