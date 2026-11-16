@@ -4,7 +4,7 @@
 // when one opens and when it is resolved, after half an hour without a report (the owner, 2026-11-17). The email is for
 // what lasts: a kind other than the AI's is emailed when it opens; an AI incident (a flaky provider opens many) only if
 // it is still open after half an hour, found by the health check, and "Back to normal" is emailed only for an incident
-// that was emailed. The dashboard shows what is open and the last week's.
+// that was emailed. The console's Platform updates page shows what is open and the last week's.
 import {
   incidentKind,
   incidentReport,

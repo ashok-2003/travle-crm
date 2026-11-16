@@ -20,3 +20,5 @@ REVOKE ALL ON TABLE "platform_push_subscription" FROM app_runtime;
 
 -- When the super admins were emailed about this incident; null while nobody has been.
 ALTER TABLE "platform_incident" ADD COLUMN "emailed_at" TIMESTAMPTZ(6);
+-- Every incident so far was emailed when it opened, under the old rules: none is emailed again for being long.
+UPDATE "platform_incident" SET "emailed_at" = "opened_at";
