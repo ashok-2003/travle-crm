@@ -19,6 +19,7 @@ describe("ai.testNatural", () => {
       granted?: Parameters<typeof callerOf>[1]["granted"];
       ready?: boolean;
       tracing?: Context["tracing"];
+      prompts?: Context["prompts"];
     } = {},
   ) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
@@ -38,7 +39,11 @@ describe("ai.testNatural", () => {
         });
       },
     };
-    const context = { ai: model, ...(options.tracing === undefined ? {} : { tracing: options.tracing }) };
+    const context = {
+      ai: model,
+      ...(options.tracing === undefined ? {} : { tracing: options.tracing }),
+      ...(options.prompts === undefined ? {} : { prompts: options.prompts }),
+    };
     const owner = callerOf(harness, { organizationId, context });
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
@@ -117,6 +122,72 @@ describe("ai.testNatural", () => {
       await codeOf(caller.ai.testNatural({ messages: hi, state: null, model: "live", temperature: "0.4" } as never)),
     ).toBe("BAD_REQUEST");
     expect(asked).toEqual([]);
+  });
+
+  it("refuses a prompt choice that is neither live nor draft", async () => {
+    const { caller, asked } = await anAiAgency();
+    for (const prompt of ["production", "langfuse:whatsapp-agent/natural-system@3", ""]) {
+      expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null, ...live, prompt } as never))).toBe(
+        "BAD_REQUEST",
+      );
+    }
+    expect(asked).toEqual([]);
+  });
+
+  /** Langfuse's prompts as a fake: the live one at version 4, the draft at 7 when there is one, each ask kept. */
+  const langfuse = (withDraft: boolean) => {
+    const asked: { label: string; fresh: boolean }[] = [];
+    const prompts: NonNullable<Context["prompts"]> = {
+      textPrompt: (name, label, request = {}) => {
+        asked.push({ label, fresh: request.fresh === true });
+        const version = label === "production" ? 4 : label === "draft" && withDraft ? 7 : null;
+        if (name !== "whatsapp-agent/natural-system" || version === null) return Promise.resolve(null);
+        return Promise.resolve({ name, version, label, text: `The ${label} prompt for {{agency_name}}.` });
+      },
+    };
+    return { prompts, asked };
+  };
+  const systemOf = (request: Parameters<NonNullable<Context["ai"]>["complete"]>[0] | undefined) =>
+    request?.messages[0]?.content ?? "";
+
+  it("runs on Langfuse's live prompt, filled in for the agency, and on the built-in text without Langfuse", async () => {
+    const fake = langfuse(true);
+    const { caller, asked } = await anAiAgency({ prompts: fake.prompts });
+    const shown = await caller.ai.testNatural({ messages: hi, state: null, ...live });
+    expect(shown.trace).toMatchObject({
+      promptVersion: "langfuse:whatsapp-agent/natural-system@4",
+      promptLabel: "production",
+    });
+    expect(systemOf(asked[0])).toMatch(/^The production prompt for Asha Travels\./);
+    expect(fake.asked).toEqual([{ label: "production", fresh: false }]);
+
+    const without = await anAiAgency();
+    const builtIn = await without.caller.ai.testNatural({ messages: hi, state: null, ...live });
+    expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-1", promptLabel: null });
+  });
+
+  it("runs on the draft when asked, read fresh, and on the live prompt when there is no draft", async () => {
+    const fake = langfuse(true);
+    const { caller, asked } = await anAiAgency({ prompts: fake.prompts });
+    const drafted = await caller.ai.testNatural({ messages: hi, state: null, ...live, prompt: "draft" });
+    expect(drafted.trace).toMatchObject({
+      promptVersion: "langfuse:whatsapp-agent/natural-system@7",
+      promptLabel: "draft",
+    });
+    expect(systemOf(asked[0])).toMatch(/^The draft prompt for Asha Travels\./);
+    expect(fake.asked).toEqual([{ label: "draft", fresh: true }]);
+
+    const noDraft = langfuse(false);
+    const other = await anAiAgency({ prompts: noDraft.prompts });
+    const fellBack = await other.caller.ai.testNatural({ messages: hi, state: null, ...live, prompt: "draft" });
+    expect(fellBack.trace).toMatchObject({
+      promptVersion: "langfuse:whatsapp-agent/natural-system@4",
+      promptLabel: "production",
+    });
+    expect(noDraft.asked).toEqual([
+      { label: "draft", fresh: true },
+      { label: "production", fresh: false },
+    ]);
   });
 
   it("hands the state back for the next turn", async () => {
