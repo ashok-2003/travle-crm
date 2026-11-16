@@ -29,7 +29,7 @@ const MULTIPLIER: [RegExp, number][] = [
   [/^(?:crores?|cr)$/u, 10_000_000],
 ];
 const ROOM_WORDS = new Set(["single", "double", "triple", "quad", "twin", "solo", "couple"]);
-const MONTHS = [
+export const MONTHS = [
   ["jan", "january"],
   ["feb", "february"],
   ["mar", "march"],

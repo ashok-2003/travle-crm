@@ -67,6 +67,37 @@ describe("the traced AI model", () => {
     expect(tracing.generations[0]?.start.metadata).not.toHaveProperty("jsonSchema");
   });
 
+  it("shows a tool round as the model saw it: the calls it made, each result's call, and the calls it answers", async () => {
+    const tracing = createMemoryTracing();
+    const inner = createMemoryAiModel();
+    inner.answer({ text: "Checking.", toolCalls: [{ name: "quote", arguments: { trip_id: "T1" } }] });
+    const call = { id: "call_0", name: "get_trip", arguments: '{"trip_id":"T1"}' };
+    await withTracing(inner, tracing).complete({
+      feature: "sales_agent",
+      messages: [
+        { role: "user", content: "Rate?" },
+        { role: "assistant", content: "", toolCalls: [call], reasoningDetails: [{ signature: "opaque" }] },
+        { role: "tool", content: "T1 Kedarkantha Trek", toolCallId: "call_0" },
+      ],
+      tools: [{ name: "get_trip", description: "One trip in full", parameters: { type: "object" } }],
+    });
+    const toolCall = (id: string, name: string, args: string) => ({
+      id,
+      type: "function",
+      function: { name, arguments: args },
+    });
+    expect(tracing.generations[0]?.start.input).toEqual([
+      { role: "user", content: "Rate?" },
+      { role: "assistant", content: "", tool_calls: [toolCall("call_0", "get_trip", '{"trip_id":"T1"}')] },
+      { role: "tool", content: "T1 Kedarkantha Trek", tool_call_id: "call_0" },
+    ]);
+    expect(tracing.generations[0]?.end?.output).toEqual({
+      role: "assistant",
+      content: "Checking.",
+      tool_calls: [toolCall("call_1", "quote", '{"trip_id":"T1"}')],
+    });
+  });
+
   it("marks a call with no answer as an error with its reason", async () => {
     const tracing = createMemoryTracing();
     const inner = createMemoryAiModel();
@@ -91,7 +122,7 @@ describe("the traced AI model", () => {
       model: "m",
       inputTokens: 1,
       outputTokens: 2,
-      toolCalls: [{ id: "1" }],
+      toolCalls: [{ id: "1", name: "find_packages", arguments: "{}" }],
     };
     const inner: AiModel = {
       configured: true,
@@ -100,7 +131,10 @@ describe("the traced AI model", () => {
         return Promise.resolve(answer);
       },
     };
-    const withTools = { ...request, tools: [{ name: "find_packages" }] };
+    const withTools = {
+      ...request,
+      tools: [{ name: "find_packages", description: "Find packages", parameters: { type: "object" } }],
+    };
     expect(await withTracing(inner, createMemoryTracing()).complete(withTools)).toBe(answer);
     expect(seen[0]).toBe(withTools);
   });

@@ -1,19 +1,72 @@
 "use client";
 
-// Try it's model and temperature, for the test chat alone: the live turn's model or Gemini Flash, and the model's own
-// temperature or 0.4, which only Gemini Flash takes (its private routes alone accept one). Choosing another model takes
-// the temperature back to its default.
+// Try it's agent, model and temperature, for the test chat alone: the current agent or the new one (ruling 7: each has
+// its own procedure, and choosing the other empties the chat), the live turn's model or Gemini Flash, and the model's
+// own temperature or 0.4, which only Gemini Flash takes (its private routes alone accept one). Choosing another model
+// takes the temperature back to its default.
 import { testAiModels, testAiTemperatures, type TestAiModel, type TestAiTemperature } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { FormField } from "@/components/form-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+/** The agent a test chat talks to: the current (lite) one, or the new natural one. */
+export const testAgents = ["current", "natural"] as const;
+export type TestAgent = (typeof testAgents)[number];
+
 export interface TestChoice {
+  agent: TestAgent;
   model: TestAiModel;
   temperature: TestAiTemperature;
 }
 
-export const liveChoice: TestChoice = { model: "live", temperature: "default" };
+export const liveChoice: TestChoice = { agent: "current", model: "live", temperature: "default" };
+
+/** One labelled choice: the registry Select over a fixed list, each option in words. */
+function ChoiceSelect<Value extends string>({
+  label,
+  hint,
+  value,
+  values,
+  wordsOf,
+  isOff = () => false,
+  disabled,
+  onChoose,
+}: {
+  label: string;
+  hint?: string | undefined;
+  value: Value;
+  values: readonly Value[];
+  wordsOf: (value: Value) => string;
+  isOff?: (value: Value) => boolean;
+  disabled: boolean;
+  onChoose: (value: Value) => void;
+}) {
+  return (
+    <FormField label={label} hint={hint}>
+      {(links) => (
+        <Select
+          value={value}
+          disabled={disabled}
+          onValueChange={(chosen) => {
+            const found = values.find((one) => one === chosen);
+            if (found !== undefined) onChoose(found);
+          }}
+        >
+          <SelectTrigger {...links} className="h-auto w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            {values.map((one) => (
+              <SelectItem key={one} value={one} disabled={isOff(one)} className="whitespace-normal">
+                {wordsOf(one)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </FormField>
+  );
+}
 
 export function TestChoices({
   choice,
@@ -26,61 +79,41 @@ export function TestChoices({
 }) {
   const t = useTranslations("ai.test.choices");
   const flash = choice.model === "flash";
-  const temperatureWords = (temperature: TestAiTemperature) =>
-    temperature === "default" ? t("temperatures.default") : t("temperatures.point4");
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label={t("model")}>
-          {(links) => (
-            <Select
-              value={choice.model}
-              disabled={disabled}
-              onValueChange={(value) => {
-                const model = testAiModels.find((one) => one === value) ?? "live";
-                onChange({ model, temperature: model === "flash" ? choice.temperature : "default" });
-              }}
-            >
-              <SelectTrigger {...links} className="h-auto w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                {testAiModels.map((model) => (
-                  <SelectItem key={model} value={model} className="whitespace-normal">
-                    {t(`models.${model}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
-        <FormField label={t("temperature")} hint={flash ? undefined : t("onlyFlash")}>
-          {(links) => (
-            <Select
-              value={choice.temperature}
-              disabled={disabled}
-              onValueChange={(value) => {
-                onChange({ ...choice, temperature: testAiTemperatures.find((one) => one === value) ?? "default" });
-              }}
-            >
-              <SelectTrigger {...links} className="h-auto w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                {testAiTemperatures.map((temperature) => (
-                  <SelectItem
-                    key={temperature}
-                    value={temperature}
-                    disabled={temperature !== "default" && !flash}
-                    className="whitespace-normal"
-                  >
-                    {temperatureWords(temperature)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <ChoiceSelect
+          label={t("agent")}
+          value={choice.agent}
+          values={testAgents}
+          wordsOf={(agent) => t(`agents.${agent}`)}
+          disabled={disabled}
+          onChoose={(agent) => {
+            onChange({ ...choice, agent });
+          }}
+        />
+        <ChoiceSelect
+          label={t("model")}
+          value={choice.model}
+          values={testAiModels}
+          wordsOf={(model) => t(`models.${model}`)}
+          disabled={disabled}
+          onChoose={(model) => {
+            onChange({ ...choice, model, temperature: model === "flash" ? choice.temperature : "default" });
+          }}
+        />
+        <ChoiceSelect
+          label={t("temperature")}
+          hint={flash ? undefined : t("onlyFlash")}
+          value={choice.temperature}
+          values={testAiTemperatures}
+          wordsOf={(temperature) => (temperature === "default" ? t("temperatures.default") : t("temperatures.point4"))}
+          isOff={(temperature) => temperature !== "default" && !flash}
+          disabled={disabled}
+          onChoose={(temperature) => {
+            onChange({ ...choice, temperature });
+          }}
+        />
       </div>
       <p className="text-caption text-muted-foreground">{t("thisChatOnly")}</p>
     </div>

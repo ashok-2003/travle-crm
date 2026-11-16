@@ -51,7 +51,7 @@ const excerptOf = (text: string, { start, end }: Found): string => {
 };
 
 /** The first claim in a sentence, clause by clause; an English one is excused only by a hedge that governs it. */
-function claimIn(sentence: { text: string; start: number }, phrases: readonly string[]): Found | null {
+export function claimIn(sentence: { text: string; start: number }, phrases: readonly string[]): Found | null {
   const isQuestion = sentence.text.trimEnd().endsWith("?");
   const clauses = clausesOf(sentence.text);
   for (const [index, clause] of clauses.entries()) {

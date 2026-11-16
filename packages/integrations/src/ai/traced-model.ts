@@ -1,9 +1,10 @@
 // The AI model with every call traced: one model-call observation per call, named for its feature (and its answer's schema,
 // so the agent's two calls tell apart), with the messages sent, the answer, the model that gave it and its tokens, or ERROR
-// and the reason. The call is untouched: the request reaches the model as it came and the result comes back as it was
-// given, extra fields included (the tool-calling agent adds its own), whatever happens to the tracing.
+// and the reason; a tool round shows its calls in OpenAI's shape, which Langfuse reads. The call is untouched: the request
+// reaches the model as it came and the result comes back as it was given, extra fields included, whatever happens to the
+// tracing.
 import { failureOf, type AiTracing, type GenerationEnd, type TracedGeneration } from "../tracing/ai-tracing.js";
-import type { AiMessage, AiModel, AiPart, AiRequest } from "./ai-model.js";
+import type { AiMessage, AiModel, AiPart, AiRequest, AiToolCall } from "./ai-model.js";
 
 /** An image or a recording, as the trace shows it: what it was and how big, never its bytes. */
 function placeholderOf(part: AiPart): string {
@@ -11,10 +12,23 @@ function placeholderOf(part: AiPart): string {
   return part.type === "image" ? `[image ${part.mimeType}, ${size}]` : `[audio ${part.format}, ${size}]`;
 }
 
-/** A message as the trace shows it: words alone stay a string; with attachments, parts as the model got them. */
-function tracedMessage(message: AiMessage): { role: AiMessage["role"]; content: unknown } {
+/** Tool calls as OpenAI writes them, its arguments the JSON text the model sent. */
+const tracedToolCalls = (calls: readonly AiToolCall[]) =>
+  calls.map((call) => ({ id: call.id, type: "function", function: { name: call.name, arguments: call.arguments } }));
+
+/**
+ * A message as the trace shows it: words alone stay a string; with attachments, parts as the model got them; an assistant's
+ * tool calls and a tool result's call id as OpenAI names them. Reasoning details are the provider's, opaque: never shown.
+ */
+function tracedMessage(message: AiMessage): Record<string, unknown> {
+  const tools = {
+    ...(message.toolCalls === undefined || message.toolCalls.length === 0
+      ? {}
+      : { tool_calls: tracedToolCalls(message.toolCalls) }),
+    ...(message.toolCallId === undefined ? {} : { tool_call_id: message.toolCallId }),
+  };
   if (message.attachments === undefined || message.attachments.length === 0) {
-    return { role: message.role, content: message.content };
+    return { role: message.role, content: message.content, ...tools };
   }
   return {
     role: message.role,
@@ -22,8 +36,15 @@ function tracedMessage(message: AiMessage): { role: AiMessage["role"]; content: 
       { type: "text", text: message.content },
       ...message.attachments.map((part) => ({ type: "text", text: placeholderOf(part) })),
     ],
+    ...tools,
   };
 }
+
+/** An answer as the trace shows it: its words, or, with tool calls, the assistant's message that holds them. */
+const tracedAnswer = (text: string, toolCalls: readonly AiToolCall[] | undefined): unknown =>
+  toolCalls === undefined || toolCalls.length === 0
+    ? text
+    : { role: "assistant", content: text, tool_calls: tracedToolCalls(toolCalls) };
 
 /** Stable names: the feature, and the answer's schema when there is one ("ai.autopilot.understand_form"). */
 function nameOf(request: AiRequest): string {
@@ -75,7 +96,7 @@ export function withTracing(model: AiModel, tracing: AiTracing): AiModel {
           call,
           result.ok
             ? {
-                output: result.text,
+                output: tracedAnswer(result.text, result.toolCalls),
                 model: result.model,
                 usage: { input: result.inputTokens, output: result.outputTokens },
               }

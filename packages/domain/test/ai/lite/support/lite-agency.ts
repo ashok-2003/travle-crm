@@ -42,8 +42,8 @@ export const liteEntitlements: Entitlements = {
   paidThrough: null,
   nextChangeOn: null,
 };
-const day = (text: string) => new Date(`${text}T00:00:00Z`);
-const readyFile = (recordType: string, recordId: string, fileName: string, contentType: string) => ({
+export const day = (text: string) => new Date(`${text}T00:00:00Z`);
+export const readyFile = (recordType: string, recordId: string, fileName: string, contentType: string) => ({
   recordType,
   recordId,
   fileName,

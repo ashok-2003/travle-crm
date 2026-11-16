@@ -35,9 +35,11 @@ export function inWakingHours(at: Date, timeZone: string): boolean {
 
 /** The last moment a follow-up may go for a customer who last wrote at `lastInboundAt`: the window less its margin. */
 const windowEndOf = (lastInboundAt: Date) => new Date(lastInboundAt.getTime() + WINDOW_MS - WINDOW_MARGIN_MS);
+// Under its own name outside lite: inbox's `windowEndOf` is the window itself, with no margin.
+export { windowEndOf as followUpWindowEndOf };
 
 /** The time, moved into waking hours: before 09:00 to 09:00 that day, at or after 21:00 to 09:00 the next. */
-function intoWakingHours(at: Date, timeZone: string): Date {
+export function intoWakingHours(at: Date, timeZone: string): Date {
   const day = calendarDateIn(at, timeZone);
   const time = timeOfDayIn(at, timeZone);
   if (time < wakes) return instantAt(day, wakes, timeZone);

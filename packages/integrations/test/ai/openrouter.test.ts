@@ -35,6 +35,11 @@ describe("the OpenRouter adapter", () => {
       model: "m",
       inputTokens: 0,
       outputTokens: 0,
+      toolCalls: [],
+      finishReason: "stop",
+      cachedTokens: 0,
+      reasoningTokens: 0,
+      ms: expect.any(Number) as number,
     });
     const call = calls[0];
     if (call === undefined) throw new Error("no request was sent");

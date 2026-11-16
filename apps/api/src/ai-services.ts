@@ -4,7 +4,9 @@
 // the features then say the AI isn't set up. The journeys' fake (AI_TEST_SERVER_URL, never in production) receives
 // OpenRouter's calls in its place. Every call goes through the process's tracing (Langfuse, or none).
 import {
+  aiBaseUrl,
   createOpenRouterModel,
+  isOpenRouterUrl,
   OPENROUTER_BASE_URL,
   withBackupModel,
   withTracing,
@@ -20,6 +22,7 @@ export type AiSettings = Pick<
   | "AI_BASE_URL"
   | "AI_CHAT_MODELS"
   | "AI_FAST_MODELS"
+  | "AI_AGENT_MODELS"
   | "AI_ZERO_RETENTION"
   | "AI_BACKUP_API_KEY"
   | "AI_BACKUP_BASE_URL"
@@ -31,7 +34,27 @@ export type AiSettings = Pick<
   | "AI_TEST_SERVER_URL"
 >;
 
-/** The process's model, each call traced as one generation (under the agent's turn when one is running). */
+/**
+ * The model on one endpoint, with the natural sales agent kept to OpenRouter: the agent sends OpenRouter's reasoning field
+ * and reads its reasoning details, which another endpoint would refuse or ignore. Off OpenRouter, every `sales_agent`
+ * request answers not_configured, whatever model it names (a call pinned to the model that answered, Try it's Flash), so
+ * a backup on OpenRouter serves it, and with none the agent isn't set up.
+ */
+function salesAgentOnOpenRouter(baseUrl: string | undefined, model: AiModel): AiModel {
+  if (isOpenRouterUrl(aiBaseUrl(baseUrl))) return model;
+  return {
+    configured: model.configured,
+    complete: (request) =>
+      request.feature === "sales_agent"
+        ? Promise.resolve({ ok: false, reason: "not_configured" })
+        : model.complete(request),
+  };
+}
+
+/**
+ * The process's model, each call traced as one generation (under the agent's turn when one is running). The tracing wraps
+ * the sales agent's gate, so a sales_agent call off OpenRouter is traced too, as the not_configured it answers.
+ */
 export function createAiModel(environment: AiSettings, tracing: AiTracing = noTracing): AiModel | null {
   const model = modelOf(environment);
   return model === null ? null : withTracing(model, tracing);
@@ -62,11 +85,12 @@ function modelOf(environment: AiSettings): AiModel | null {
         // Drafting a plan is longer writing than a reply: the chat models.
         draft_days: chat,
         draft_packages: chat,
+        sales_agent: environment.AI_AGENT_MODELS ?? chat,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
     });
-    if (environment.AI_BACKUP_API_KEY === undefined) return first;
+    if (environment.AI_BACKUP_API_KEY === undefined) return salesAgentOnOpenRouter(environment.AI_BASE_URL, first);
     // The backup keeps the first's endpoint and models unless it names its own.
     const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
     const backupFast = environment.AI_BACKUP_FAST_MODELS ?? environment.AI_BACKUP_CHAT_MODELS ?? fast;
@@ -82,11 +106,15 @@ function modelOf(environment: AiSettings): AiModel | null {
         ask_report: backupFast,
         draft_days: backupChat,
         draft_packages: backupChat,
+        sales_agent: environment.AI_BACKUP_CHAT_MODELS ?? environment.AI_AGENT_MODELS ?? chat,
       },
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
     });
-    return withBackupModel(first, backup);
+    return withBackupModel(
+      salesAgentOnOpenRouter(environment.AI_BASE_URL, first),
+      salesAgentOnOpenRouter(backupBaseUrl, backup),
+    );
   }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;
@@ -106,6 +134,7 @@ function modelOf(environment: AiSettings): AiModel | null {
       reach_out: environment.AI_SUGGEST_MODELS,
       draft_days: environment.AI_SUGGEST_MODELS,
       draft_packages: environment.AI_SUGGEST_MODELS,
+      sales_agent: environment.AI_AGENT_MODELS ?? environment.AI_SUGGEST_MODELS,
     },
     ...(testServer === undefined
       ? {}

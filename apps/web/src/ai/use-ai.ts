@@ -113,6 +113,12 @@ export function useTestAi() {
   return useMutation(trpc.ai.test.mutationOptions());
 }
 
+/** Try it on the new agent: its own procedure and state (ruling 7). */
+export function useTestNatural() {
+  const trpc = useTRPC();
+  return useMutation(trpc.ai.testNatural.mutationOptions());
+}
+
 /** A chat's autopilot state, read again while the AI is working on it. */
 export function useChatAi(conversationId: string) {
   const trpc = useTRPC();

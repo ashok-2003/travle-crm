@@ -5,7 +5,9 @@ import type { PackageIndexEntry } from "../types.js";
 const MOST_SHOWN = 3;
 const STOP_WORDS = new Set(["the", "trip", "tour", "package", "yatra"]);
 const isNights = (word: string) => /^\d+n$/u.test(word);
-const meaningful = (text: string): string[] => wordsOf(text).filter((word) => !STOP_WORDS.has(word) && !isNights(word));
+/** The words of a text that can name a package: no stop word ("trip", "the") and no night count ("5n"). */
+export const meaningful = (text: string): string[] =>
+  wordsOf(text).filter((word) => !STOP_WORDS.has(word) && !isNights(word));
 
 function distance(a: string, b: string): number {
   const left = Array.from(a);
@@ -37,14 +39,24 @@ function close(customer: string, ours: string): boolean {
   return distance(customer, ours) <= allowed;
 }
 
+/**
+ * `more` gives an entry's other words to match (the natural agent's itinerary stops and pickup points), `most` how many
+ * to return; by default the place and title alone, and 3.
+ */
 export function findPackages(
   index: PackageIndexEntry[],
   words: string,
+  options: { more?: (entry: PackageIndexEntry) => string; most?: number } = {},
 ): { exact: PackageIndexEntry[]; closest: PackageIndexEntry[] } {
+  const { more = () => "", most = MOST_SHOWN } = options;
   const asked = meaningful(words);
   if (asked.length === 0) return { exact: [], closest: [] };
   const sentence = ` ${asked.join(" ")} `;
-  const wordsOfEntry = (entry: PackageIndexEntry) => [...meaningful(entry.place ?? ""), ...meaningful(entry.title)];
+  const wordsOfEntry = (entry: PackageIndexEntry) => [
+    ...meaningful(entry.place ?? ""),
+    ...meaningful(entry.title),
+    ...meaningful(more(entry)),
+  ];
   const place = (entry: PackageIndexEntry) => normalised(entry.place ?? "");
   const exact = index
     .filter(
@@ -52,10 +64,10 @@ export function findPackages(
         wordsOfEntry(entry).some((word) => asked.includes(word)) ||
         (place(entry) !== "" && sentence.includes(` ${place(entry)} `)),
     )
-    .slice(0, MOST_SHOWN);
+    .slice(0, most);
   if (exact.length > 0) return { exact, closest: [] };
   const closest = index
     .filter((entry) => wordsOfEntry(entry).some((ours) => asked.some((theirs) => close(theirs, ours))))
-    .slice(0, MOST_SHOWN);
+    .slice(0, most);
   return { exact: [], closest };
 }

@@ -2,11 +2,11 @@
 
 // One answer in the Try it chat: the words the customer would get, in our green bubble on the right; a line of its own,
 // never an error, when it would hand the chat over, send nothing, or be stopped by a check; and "Why", closed until
-// opened.
+// opened. The bubble and the "Why" toggle are the new agent's turn's too (test-natural-turn.tsx).
 import type { TestAiAnswer } from "@travel-crm/contracts/ai";
 import { ChevronDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -42,38 +42,55 @@ function TurnStatus({ answer }: { answer: TestAiAnswer }) {
   return null;
 }
 
-export function TestTurn({ answer }: { answer: TestAiAnswer }) {
+/** Our green bubble on the right: what would go to the customer. */
+export function OutBubble({ children }: { children: ReactNode }) {
+  return (
+    <p className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-out px-3 py-2 whitespace-pre-line wrap-anywhere">
+      {children}
+    </p>
+  );
+}
+
+/** "Why" under an answer, closed until opened, its parts in a card. */
+export function WhyToggle({ children }: { children: ReactNode }) {
   const t = useTranslations("ai.test");
   const [open, setOpen] = useState(false);
   return (
+    <Collapsible open={open} onOpenChange={setOpen} className="flex w-full flex-col items-end gap-1">
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost">
+          {t("why.open")}
+          <ChevronDownIcon
+            aria-hidden="true"
+            data-icon="inline-end"
+            className="motion-safe:transition-transform data-[open=true]:rotate-180"
+            data-open={open}
+          />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="w-full">
+        <Card size="sm">
+          <CardContent>{children}</CardContent>
+        </Card>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+export function TestTurn({ answer }: { answer: TestAiAnswer }) {
+  const t = useTranslations("ai.test");
+  return (
     <li className="flex flex-col items-end gap-1">
       {answer.answer !== "" && (
-        <p className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-out px-3 py-2 whitespace-pre-line wrap-anywhere">
+        <OutBubble>
           <span className="sr-only">{t("agent")} </span>
           {answer.answer}
-        </p>
+        </OutBubble>
       )}
       <TurnStatus answer={answer} />
-      <Collapsible open={open} onOpenChange={setOpen} className="flex w-full flex-col items-end gap-1">
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost">
-            {t("why.open")}
-            <ChevronDownIcon
-              aria-hidden="true"
-              data-icon="inline-end"
-              className="motion-safe:transition-transform data-[open=true]:rotate-180"
-              data-open={open}
-            />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="w-full">
-          <Card size="sm">
-            <CardContent>
-              <TestWhy answer={answer} />
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
-      </Collapsible>
+      <WhyToggle>
+        <TestWhy answer={answer} />
+      </WhyToggle>
     </li>
   );
 }

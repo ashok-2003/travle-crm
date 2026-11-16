@@ -34,4 +34,15 @@ describe("finding packages", () => {
     expect(findPackages(index, "spity").closest).toEqual([spiti]);
     expect(findPackages(index, "spxty")).toEqual({ exact: [], closest: [] });
   });
+
+  it("finds by an itinerary stop and returns up to 5 when asked", () => {
+    const treks = Array.from({ length: 7 }, (_, at) => entry(`t${String(at)}`, `Trek ${String(at)}`, null));
+    const stops = (one: PackageIndexEntry) => (one.id === "k" ? "" : "Sankri, Juda ka Talab");
+    expect(findPackages([kedarnath, ...treks], "Sankri")).toEqual({ exact: [], closest: [] });
+    expect(findPackages([kedarnath, ...treks], "Sankri", { more: stops, most: 5 })).toEqual({
+      exact: treks.slice(0, 5),
+      closest: [],
+    });
+    expect(findPackages(treks, "Sankrii", { more: stops, most: 5 }).closest).toEqual(treks.slice(0, 5));
+  });
 });

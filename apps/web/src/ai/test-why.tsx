@@ -7,9 +7,11 @@ import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Details, type Detail } from "@/components/details";
 
-const code = (text: string) => <span className="numbers wrap-anywhere">{text}</span>;
+/** A code or recorded value, as recorded; the new agent's "Why" shows its own the same way. */
+export const code = (text: string) => <span className="numbers wrap-anywhere">{text}</span>;
 
-function Part({ title, children }: { title: string; children: ReactNode }) {
+/** One titled part of "Why". */
+export function Part({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <p className="font-medium">{title}</p>
