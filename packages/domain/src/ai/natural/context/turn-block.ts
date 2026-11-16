@@ -1,5 +1,6 @@
 // The turn block (spec 4.4), the final user message: the time and what the chat has had, the lead, the trips this chat
-// is about in full when the trips are indexed (as many as fit the budget), what the app did, then the new lines.
+// is about, summarised as the prompt cuts a sheet (get_trip reads one whole), when the trips are indexed (as many as fit
+// the budget), what the app did, then the new lines.
 import { type LiveOffer, type NaturalFacts } from "@travel-crm/contracts/ai";
 import { calendarMonth } from "@travel-crm/contracts/crm";
 import {
