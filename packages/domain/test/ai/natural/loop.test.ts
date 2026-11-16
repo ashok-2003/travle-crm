@@ -59,6 +59,15 @@ const staging: Partial<Record<NaturalToolName, StagedAction>> = {
     offer: { ...offered.terms, departureId: "departure-2", totalPaise: 1_899_800, advancePaise: 600_000, at: "x" },
     figures: offered,
   },
+  book: {
+    tool: "book",
+    terms: quoted.terms,
+    figures: quoted,
+    fullName: "Rohan Mehta",
+    customerWords: "haan, book karo",
+    via: "offer",
+  },
+  resend_payment: { tool: "resend_payment" },
   hand_over: { tool: "hand_over", reason: "wants_person", summary: "Wants a call" },
   stay_quiet: { tool: "stay_quiet", reason: "said ok" },
 };
@@ -331,6 +340,28 @@ describe("the natural agent's loop", () => {
     // An offer the customer never read is not made.
     expect(end.end === "fallback" && [...end.staged.keys()]).toEqual([]);
     expect(model.requests).toHaveLength(2);
+  });
+
+  it("holds no seats and sends nothing beside the fallback line, and tells the team what wasn't done", async () => {
+    const g3 = failing("G3", "Don't say the booking is confirmed: the team confirms it.", "fallback_task");
+    io.verdicts.push(g3, g3);
+    const book = {
+      name: "book",
+      arguments: { ...quoteCall.arguments, full_name: "Rohan Mehta", customer_words: "haan, book karo" },
+    };
+    const lead = { name: "update_lead", arguments: { adults: 2 } };
+    const brochure = { name: "send_brochure", arguments: { trip_id: "T1" } };
+    model.answer(
+      { text: "Booking confirm ho gayi!", toolCalls: [book, lead, brochure] },
+      "Seats confirm ho gayi hain.",
+    );
+    const end = await loop();
+    expect(end).toMatchObject({ end: "fallback", reason: "guard:G3", messages: [FALLBACK_LINE] });
+    // No hold, no payment lines or QR, no brochure: only what stays inside the agency.
+    expect(end.end === "fallback" && [...end.staged.keys()]).toEqual(["update_lead"]);
+    expect(end.end === "fallback" && end.task).toContain("the customer may have wanted to book T1 for 2 on Sat 19 Dec");
+    expect(end.end === "fallback" && end.task).toContain("T1's brochure");
+    expect(finished().staged.map((one) => one.tool)).toEqual(["update_lead"]);
   });
 
   it("hands over for a discount when G4 fails twice, with the draft in the task", async () => {

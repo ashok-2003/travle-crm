@@ -56,11 +56,22 @@ const clip = (text: string, most: number) => {
   return line.length <= most ? line : `${line.slice(0, most - 1)}…`;
 };
 
-/** The team's task after a fallback: why, what the customer wrote, and the draft to correct and send, if any. */
-export function fallbackTask(reason: FallbackReason, line: string, customerText: string, draft: string | null): string {
+/**
+ * The team's task after a fallback: why, what the customer wrote, what wasn't done (a booking, a brochure), and the draft
+ * to correct and send, if any; what wasn't done comes before the draft, so a long draft never cuts it off.
+ */
+export function fallbackTask(input: {
+  reason: FallbackReason;
+  line: string;
+  customerText: string;
+  dropped: readonly string[];
+  draft: string | null;
+}): string {
+  const { reason, line, customerText, dropped, draft } = input;
   const parts = [
     `${WHY[reason]}, so the customer got "${line}".`,
     customerText.trim() === "" ? "" : `They wrote: "${clip(customerText, 160)}".`,
+    dropped.length === 0 ? "" : `Not done: ${dropped.join("; ")}.`,
     draft === null ? "Why on this turn shows what it tried." : `Its draft, to correct and send: "${clip(draft, 200)}"`,
   ];
   return clip(parts.filter((part) => part !== "").join(" "), TASK_CHARS);
