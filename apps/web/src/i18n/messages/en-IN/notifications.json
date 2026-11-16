@@ -213,7 +213,24 @@
     "failed": "This browser couldn't turn push on. Try again in a moment.",
     "impersonating": "Support can't turn push on for {name}: it would reach support's device, not theirs.",
     "fallbackTitle": "Something needs you",
-    "fallbackBody": "Open the app to see what happened."
+    "fallbackBody": "Open the app to see what happened.",
+    "platformHeading": "Platform alerts on this device",
+    "platformLabel": "Platform alerts",
+    "platformOnHint": "This device shows a notification when the platform needs you, such as the AI not answering.",
+    "platformOffHint": "Turn it on to get platform alerts on this device. Your browser asks you first.",
+    "offer": {
+      "title": "Please turn on notifications for the best experience",
+      "description": "Notifications reach this device even when the app is closed.",
+      "reasons": "New leads, WhatsApp messages and reminders reach you the moment they happen, even when the app is closed. You can turn them off again any time in your notification choices.",
+      "platformTitle": "Please turn on notifications for platform alerts",
+      "platformDescription": "Platform alerts reach this device even when the console is closed.",
+      "platformReasons": "When something breaks, such as the AI not answering or the worker stopping, you hear about it here at once, even when the console is closed. You can turn them off again on the Updates page.",
+      "turnOn": "Turn on",
+      "turningOn": "Turning on",
+      "notNow": "Not now",
+      "turnedOn": "Notifications are on for this device.",
+      "blocked": "Your browser blocks notifications from this app. Allow them in the browser's settings for this site, then reload the page."
+    }
   },
   "account": {
     "label": "Notifications",
