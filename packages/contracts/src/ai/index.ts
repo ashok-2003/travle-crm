@@ -23,3 +23,4 @@ export * from "./try-it.js";
 export * from "./natural.js";
 export * from "./natural-tools.js";
 export * from "./natural-trace.js";
+export * from "./natural-try-it.js";
