@@ -45,6 +45,11 @@ describe("the agent's turns as traces", () => {
       "ai.autopilot.understand_form",
       "ai.autopilot.write_move",
     ]);
+    // Between the two calls, code's look-ups and decision, as a step of its own.
+    expect(turn?.steps.map((step) => [step.start.name, step.start.type])).toEqual([
+      ["look-up-and-decide", "retriever"],
+    ]);
+    expect(turn?.steps[0]?.ended?.output).toMatchObject({ move: { kind: "greet" }, looked: [] });
     const [sent] = await outbound(on);
     const seen = shown(tracing);
     expect(seen?.input).toEqual([{ role: "user", content: "Hi, is the Kedarnath yatra running?" }]);
@@ -64,6 +69,20 @@ describe("the agent's turns as traces", () => {
     // The sink noted the turn from inside it, and the stored trace was kept as before.
     expect(tracing.strayNotes).toEqual([]);
     expect(kept).toHaveLength(1);
+  });
+
+  it("a hand-over because its words were refused is a warning, with the reason", async () => {
+    const on = await liteAgency(test);
+    const tracing = createMemoryTracing();
+    on.model.answer(
+      understood([["hello", "Hi"]]),
+      written("Only [mystery 1] left!"),
+      written("Only [mystery 1] left!"),
+    );
+    expect(await on.turn(undefined, { tracing })).toBe("handed_off");
+    const seen = shown(tracing);
+    expect(seen).toMatchObject({ level: "WARNING", metadata: { outcome: "handed_off" } });
+    expect(seen?.statusMessage).toMatch(/^handed_off: /);
   });
 
   it("a turn stopped before any model call is still traced, with why", async () => {
@@ -149,6 +168,7 @@ describe("the agent's turns as traces", () => {
     expect(one?.start.sessionId).toMatch(/^try-it:/);
     expect(two?.start.sessionId).toBe(one?.start.sessionId);
     expect(one?.generations).toHaveLength(2);
+    expect(one?.steps.map((step) => step.start.name)).toEqual(["look-up-and-decide"]);
     expect(shown(tracing)).toMatchObject({
       input: [{ role: "user", content: "price for kedarnath?" }],
       output: { role: "assistant", content: first.answer },

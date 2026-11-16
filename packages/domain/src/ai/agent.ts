@@ -50,8 +50,9 @@ export async function runAgentTurn(dependencies: AgentDependencies, input: LiteT
   const { tracing } = dependencies;
   if (tracing === undefined) return agentTurn(dependencies, input, now);
   return tracing.turn(turnStart(input), async () => {
-    const outcome = await agentTurn({ ...dependencies, traces: notingSink(tracing, dependencies.traces) }, input, now);
-    tracing.note(outcomeNote(outcome));
+    const traces = notingSink(tracing, dependencies.traces);
+    const outcome = await agentTurn({ ...dependencies, traces }, input, now);
+    if (!traces.noted) tracing.note(outcomeNote(outcome));
     return outcome;
   });
 }
