@@ -155,9 +155,9 @@ describe("the natural agent's trip sheets", () => {
       tx.quoteTemplate.update({
         where: { id: kedarkantha },
         data: {
-          notes: "Pickup 6:30 am, summit at 3,800 m. Pay kk@okaxis or A/c 50100234567890, mail trips@casetrips.example",
+          notes: "Pickup 6:30 am, summit at 3,800 m. Pay kk@okbank or A/c 50100234567890, mail trips@casetrips.example",
           pickupPoints: "Dehradun ISBT, 6:30 am (call @casetrips)",
-          days: [{ title: "Dehradun to Sankri", description: "Drive 220 km. Pay the driver at kkdriver@ybl" }],
+          days: [{ title: "Dehradun to Sankri", description: "Drive 220 km. Pay the driver at kkdriver@okbank" }],
         },
       }),
     );
@@ -166,7 +166,7 @@ describe("the natural agent's trip sheets", () => {
     for (const kept of ["Pickup 6:30 am, summit at 3,800 m.", "Dehradun ISBT, 6:30 am", "Drive 220 km."]) {
       expect(text).toContain(kept);
     }
-    for (const dropped of ["kk@okaxis", "50100234567890", "casetrips.example", "@casetrips", "kkdriver@ybl"]) {
+    for (const dropped of ["kk@okbank", "50100234567890", "casetrips.example", "@casetrips", "kkdriver@okbank"]) {
       expect(text).not.toContain(dropped);
     }
   });
@@ -190,7 +190,7 @@ describe("the natural agent's trip sheets", () => {
         data: {
           name: "01 Kedarkantha INTERNAL-NAME",
           items: [{ description: "Guide fee SECRET-ITEM", detail: "", quantity: 1, unitPricePaise: 421_300 }],
-          paymentDetails: "Pay SECRET-PAY at kkpay@okicici",
+          paymentDetails: "Pay SECRET-PAY at kkpay@okbank",
         },
       }),
     );
