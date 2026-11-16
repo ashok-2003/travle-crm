@@ -58,6 +58,7 @@ const reply = "Sat 12 Dec works: ₹22,600 for both of you.";
 const trace = {
   agent: "natural",
   promptVersion: "built-in-1",
+  promptLabel: null,
   outcome: "replied",
   fallback: null,
   restarted: null,
@@ -137,7 +138,7 @@ async function chat(answer: object) {
   await send("Kedarkantha on 12 Dec for 2?");
 }
 
-const live = { model: "live", temperature: "default" };
+const live = { model: "live", temperature: "default", prompt: "live" };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 describe("Try it on the new agent", () => {
@@ -213,6 +214,7 @@ describe("Try it on the new agent", () => {
       state: null,
       model: "flash",
       temperature: "0.4",
+      prompt: "live",
       chatId: expect.stringMatching(uuid) as unknown,
     });
     api.last().answer(naturalTurn(["Hello! Which trip are you looking at?"]));
@@ -227,6 +229,50 @@ describe("Try it on the new agent", () => {
       model: "flash",
       temperature: "0.4",
     });
+  });
+
+  it("offers the Prompt choice for the new agent only, live first, and sends the draft when chosen", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, client());
+    expect(screen.queryByRole("combobox", { name: choices.prompt })).toBeNull();
+    await choose(choices.agent, choices.agents.natural);
+    expect(screen.getByRole("combobox", { name: choices.prompt })).toHaveTextContent(choices.prompts.live);
+    await choose(choices.prompt, choices.prompts.draft);
+    await send("Kedarkantha in Dec?");
+    expect(api.last().path).toBe("ai.testNatural");
+    expect(api.last().input).toMatchObject({ prompt: "draft" });
+    api.last().answer(naturalTurn(["Yes! It departs every Saturday in December."]));
+    await screen.findByText("Yes! It departs every Saturday in December.");
+
+    // The current agent has no prompt to choose, and its turns name none.
+    await choose(choices.agent, choices.agents.current);
+    expect(screen.queryByRole("combobox", { name: choices.prompt })).toBeNull();
+    await send("hi");
+    expect(api.last().path).toBe("ai.test");
+    expect(api.last().input).not.toHaveProperty("prompt");
+  });
+
+  it("says in Why which prompt each turn ran, and when the draft it chose wasn't there", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, client());
+    await choose(choices.agent, choices.agents.natural);
+    await choose(choices.prompt, choices.prompts.draft);
+    await send("Kedarkantha in Dec?");
+    const live = "langfuse:whatsapp-agent/natural-system@4";
+    api.last().answer(naturalTurn([reply], { trace: { ...trace, promptVersion: live, promptLabel: "production" } }));
+    await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
+    expect(screen.getByText(live)).toBeVisible();
+    expect(screen.getByText(natural.why.noDraft)).toBeVisible();
+
+    await send("12 Dec for 2");
+    const draft = "langfuse:whatsapp-agent/natural-system@7";
+    api.last().answer(naturalTurn(["Done."], { trace: { ...trace, promptVersion: draft, promptLabel: "draft" } }));
+    await screen.findByText("Done.");
+    const [, second] = screen.getAllByRole("button", { name: words.why.open });
+    if (second === undefined) throw new Error("no second Why");
+    await userEvent.click(second);
+    expect(screen.getByText(draft)).toBeVisible();
+    expect(screen.getAllByText(natural.why.noDraft)).toHaveLength(1);
   });
 
   it("shows two messages and the payment lines code would send after them", async () => {
@@ -284,6 +330,7 @@ describe("Try it on the new agent", () => {
     expect(screen.getByText('quote({"trip_id":"T1","date":"2026-12-12","adults":2})')).toBeVisible();
     expect(screen.getByText(/refused: no departure on Fri 11 Dec/)).toBeVisible();
     expect(screen.getByText("built-in-1")).toBeVisible();
+    expect(screen.queryByText(natural.why.noDraft)).toBeNull();
     expect(screen.getByText(natural.outcomes.replied)).toBeVisible();
     expect(screen.getByText(natural.why.seconds.replace("{seconds}", "4.2"))).toBeVisible();
     expect(screen.getByText("13,300 in, 12,300 cached, 200 out, 300 reasoning")).toBeVisible();
