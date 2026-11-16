@@ -104,7 +104,10 @@ export function createAuth(database: IdentityDatabase, settings: AuthSettings) {
       storeIdentifier: { default: "plain", overrides: { "reset-password:": "hashed" } },
     },
     session: {
-      expiresIn: 7 * DAY,
+      // Signed in for 90 days on each device, renewed at most once a day while it is used, so a person who uses the
+      // app stays signed in, as on Instagram or Gmail (the owner, 2026-11-16). Changing or resetting a password still
+      // signs out every other device.
+      expiresIn: 90 * DAY,
       updateAge: DAY,
       // Most requests are checked from this signed, encrypted cookie, so the session row is read at most once every
       // 5 minutes per device. Sensitive procedures skip it (spec 6.4).
