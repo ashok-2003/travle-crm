@@ -75,6 +75,25 @@ describe("the in-memory tracing", () => {
     expect(tracing.turns[0]?.failure).toBe("DomainError CONFLICT AI_UNAVAILABLE");
   });
 
+  it("keeps a turn's steps with what came of them, and hands back the step's result", async () => {
+    const tracing = createMemoryTracing();
+    const found = await tracing.turn(start("chat-1"), () =>
+      tracing.step(
+        { name: "look-up-and-decide", type: "retriever", input: [{ tool: "price" }] },
+        () => Promise.resolve({ price: 599_900 }),
+        (result) => ({ output: result }),
+      ),
+    );
+    expect(found).toEqual({ price: 599_900 });
+    expect(tracing.turns[0]?.steps).toEqual([
+      {
+        start: { name: "look-up-and-decide", type: "retriever", input: [{ tool: "price" }] },
+        ended: { output: { price: 599_900 } },
+        failure: null,
+      },
+    ]);
+  });
+
   it("shows a turn as Langfuse would: metadata merged by key, the rest replaced", async () => {
     const tracing = createMemoryTracing();
     await tracing.turn({ ...start("chat-1"), metadata: { token: "m1" } }, () => {

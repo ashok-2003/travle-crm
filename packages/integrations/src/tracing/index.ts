@@ -6,6 +6,7 @@ export {
   type AiTracing,
   type GenerationEnd,
   type GenerationStart,
+  type StepStart,
   type TraceLevel,
   type TraceNote,
   type TracedGeneration,
@@ -16,6 +17,7 @@ export {
   createMemoryTracing,
   notedTurn,
   type MemoryGeneration,
+  type MemoryStep,
   type MemoryTracing,
   type MemoryTurn,
 } from "./memory-tracing.js";

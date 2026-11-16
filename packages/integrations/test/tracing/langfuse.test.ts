@@ -180,6 +180,35 @@ describe("the Langfuse tracing", () => {
     expect(JSON.stringify(sent)).not.toContain("outside any turn");
   });
 
+  it("nests a step under its turn with its own type, and its error by name only", async () => {
+    const traced = open();
+    const error = Object.assign(new Error("9876543210 not found"), { code: "P2025" });
+    await traced.turn({ name: "whatsapp-agent.reply", sessionId: "chat-3", organizationId: "org-1" }, async () => {
+      const looked = await traced.step(
+        { name: "look-up-and-decide", type: "retriever", input: [{ tool: "price" }] },
+        () => Promise.resolve({ move: "give_price" }),
+        (result) => ({ output: result, metadata: { why: "asked the price" } }),
+      );
+      expect(looked).toEqual({ move: "give_price" });
+      await expect(traced.step({ name: "send-files", type: "tool" }, () => Promise.reject(error))).rejects.toBe(error);
+    });
+    await traced.flush();
+    const sent = spans();
+    const turn = sent.find((span) => span.name === "whatsapp-agent.reply");
+    const looked = sent.find((span) => span.name === "look-up-and-decide");
+    const failed = sent.find((span) => span.name === "send-files");
+    expect(looked?.parentSpanId).toBe(turn?.spanId);
+    expect(looked?.attributes["langfuse.observation.type"]).toBe("retriever");
+    expect(jsonOf(looked?.attributes["langfuse.observation.output"])).toEqual({ move: "give_price" });
+    expect(jsonOf(looked?.attributes["langfuse.observation.metadata.why"])).toBe("asked the price");
+    expect(failed?.attributes).toMatchObject({
+      "langfuse.observation.type": "tool",
+      "langfuse.observation.level": "ERROR",
+      "langfuse.observation.status_message": "Error P2025",
+    });
+    expect(received.map(({ body }) => body).join("")).not.toContain("not found");
+  });
+
   it("sends a model call outside a turn as a trace of its own", async () => {
     const traced = open();
     traced.generation({ name: "ai.suggest_reply", input: [] }).end({ level: "ERROR", statusMessage: "unavailable" });

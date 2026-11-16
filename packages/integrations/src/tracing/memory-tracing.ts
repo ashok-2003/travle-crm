@@ -7,6 +7,7 @@ import {
   type AiTracing,
   type GenerationEnd,
   type GenerationStart,
+  type StepStart,
   type TraceNote,
   type TurnStart,
 } from "./ai-tracing.js";
@@ -18,10 +19,18 @@ export interface MemoryGeneration {
   turn: MemoryTurn | null;
 }
 
+export interface MemoryStep {
+  start: StepStart;
+  /** What `ended` said of its result, when the work gave one. */
+  ended: TraceNote | null;
+  failure: string | null;
+}
+
 export interface MemoryTurn {
   start: TurnStart;
   notes: TraceNote[];
   generations: MemoryGeneration[];
+  steps: MemoryStep[];
   /** The work's error by name and code, when it threw. */
   failure: string | null;
   ended: boolean;
@@ -54,7 +63,7 @@ export function createMemoryTracing(): MemoryTracing {
       return shutDown;
     },
     turn(start, work) {
-      const turn: MemoryTurn = { start, notes: [], generations: [], failure: null, ended: false };
+      const turn: MemoryTurn = { start, notes: [], generations: [], steps: [], failure: null, ended: false };
       turns.push(turn);
       return running.run(turn, async () => {
         try {
@@ -70,6 +79,18 @@ export function createMemoryTracing(): MemoryTracing {
     note(note) {
       const turn = running.getStore();
       (turn?.notes ?? strayNotes).push(note);
+    },
+    async step(start, work, ended) {
+      const step: MemoryStep = { start, ended: null, failure: null };
+      running.getStore()?.steps.push(step);
+      try {
+        const result = await work();
+        step.ended = ended?.(result) ?? null;
+        return result;
+      } catch (error) {
+        step.failure = failureOf(error);
+        throw error;
+      }
     },
     generation(start) {
       const turn = running.getStore() ?? null;

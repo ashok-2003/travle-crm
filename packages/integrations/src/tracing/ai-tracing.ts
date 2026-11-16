@@ -30,6 +30,15 @@ export interface TraceNote {
   statusMessage?: string;
 }
 
+/** A step a turn takes besides a model call: a look-up (retriever) or an action (tool), typed so the trace tree shows it. */
+export interface StepStart {
+  /** Stable, verb first: "look-up-and-decide". */
+  name: string;
+  type: "retriever" | "tool";
+  input?: unknown;
+  metadata?: Record<string, unknown>;
+}
+
 /** A model call as it starts: inside a turn it nests under it, else it is a trace of its own. */
 export interface GenerationStart {
   /** Stable: "ai.suggest_reply", "ai.autopilot.understand_form". */
@@ -61,6 +70,8 @@ export interface AiTracing {
   turn<T>(start: TurnStart, work: () => Promise<T>): Promise<T>;
   /** Adds to the turn running in this async context; outside a turn it does nothing. */
   note(note: TraceNote): void;
+  /** Runs `work` as one step, nested where it runs; `ended` says what came of it (its output). */
+  step<T>(start: StepStart, work: () => Promise<T>, ended?: (result: T) => TraceNote): Promise<T>;
   /** Starts a model call's observation, under the running turn if there is one. */
   generation(start: GenerationStart): TracedGeneration;
   /** Sends what is buffered. Bounded in time, and never rejects. */
@@ -75,6 +86,7 @@ const quietGeneration: TracedGeneration = { end: () => undefined };
 export const noTracing: AiTracing = {
   turn: (_start, work) => work(),
   note: () => undefined,
+  step: (_start, work) => work(),
   generation: () => quietGeneration,
   flush: () => Promise.resolve(),
   shutdown: () => Promise.resolve(),

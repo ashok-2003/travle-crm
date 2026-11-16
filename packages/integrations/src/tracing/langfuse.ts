@@ -5,6 +5,8 @@
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import {
   LangfuseAgent,
+  type LangfuseRetriever,
+  type LangfuseTool,
   propagateAttributes,
   setLangfuseTracerProvider,
   startActiveObservation,
@@ -13,7 +15,14 @@ import {
 import { context, createContextKey } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
-import { failureOf, type AiTracing, type TraceNote, type TracedGeneration, type TurnStart } from "./ai-tracing.js";
+import {
+  failureOf,
+  type AiTracing,
+  type StepStart,
+  type TraceNote,
+  type TracedGeneration,
+  type TurnStart,
+} from "./ai-tracing.js";
 import { maskTraceData } from "./mask.js";
 
 export interface LangfuseTracingOptions {
@@ -81,6 +90,13 @@ const traceAttributes = (start: TurnStart) => ({
   ...(start.tags === undefined ? {} : { tags: [...start.tags] }),
 });
 
+/** Runs `fn` inside an active observation of the step's type. */
+function observeStep<R>(start: StepStart, fn: (step: LangfuseRetriever | LangfuseTool) => Promise<R>): Promise<R> {
+  return start.type === "tool"
+    ? startActiveObservation(start.name, fn, { asType: "tool" })
+    : startActiveObservation(start.name, fn, { asType: "retriever" });
+}
+
 let contextReady = false;
 
 export function createLangfuseTracing(options: LangfuseTracingOptions): AiTracing {
@@ -138,6 +154,31 @@ export function createLangfuseTracing(options: LangfuseTracingOptions): AiTracin
           },
           { asType: "agent" },
         );
+      } catch {
+        // The tracing failed: the work runs, or ran, as it would have without it.
+      }
+      return run();
+    },
+    async step(start, work, ended) {
+      let running: ReturnType<typeof work> | undefined;
+      const run = () => (running ??= Promise.resolve().then(work));
+      try {
+        await observeStep(start, async (step) => {
+          quietly(() =>
+            step.update(
+              attributesOf({
+                input: start.input,
+                ...(start.metadata === undefined ? {} : { metadata: start.metadata }),
+              }),
+            ),
+          );
+          try {
+            const result = await run();
+            if (ended !== undefined) quietly(() => step.update(attributesOf(ended(result))));
+          } catch (error) {
+            quietly(() => step.update({ level: "ERROR", statusMessage: failureOf(error) }));
+          }
+        });
       } catch {
         // The tracing failed: the work runs, or ran, as it would have without it.
       }

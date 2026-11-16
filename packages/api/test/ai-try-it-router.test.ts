@@ -107,6 +107,7 @@ describe("ai.test", () => {
         return work();
       },
       note: (note) => void notes.push(note.output),
+      step: (_start, work) => work(),
       generation: () => ({ end: () => undefined }),
       flush: () => Promise.resolve(),
       shutdown: () => Promise.resolve(),

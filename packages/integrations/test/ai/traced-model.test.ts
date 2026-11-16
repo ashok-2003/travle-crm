@@ -53,7 +53,7 @@ describe("the traced AI model", () => {
     expect(call?.end).toEqual({ output: "Hello there", model: "memory-model", usage: { input: 0, output: 0 } });
   });
 
-  it("names a call by its answer's schema too, and keeps the schema", async () => {
+  it("names a call by its answer's schema too", async () => {
     const tracing = createMemoryTracing();
     const inner = createMemoryAiModel();
     inner.answer("{}");
@@ -61,8 +61,10 @@ describe("the traced AI model", () => {
     await withTracing(inner, tracing).complete({ feature: "autopilot", messages: [], schema });
     expect(tracing.generations[0]?.start).toMatchObject({
       name: "ai.autopilot.understand_form",
-      metadata: { schema: "understand_form", jsonSchema: { type: "object" }, json: true },
+      metadata: { schema: "understand_form", json: true },
     });
+    // The schema itself is code's, the same for every call of a prompt version: it is not repeated on each call.
+    expect(tracing.generations[0]?.start.metadata).not.toHaveProperty("jsonSchema");
   });
 
   it("marks a call with no answer as an error with its reason", async () => {
@@ -107,6 +109,7 @@ describe("the traced AI model", () => {
     const broken: AiTracing = {
       turn: (_start, work) => work(),
       note: () => undefined,
+      step: (_start, work) => work(),
       generation: () => {
         throw new Error("tracing down");
       },

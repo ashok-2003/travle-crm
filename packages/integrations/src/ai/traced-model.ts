@@ -49,7 +49,6 @@ function startCall(tracing: AiTracing, request: AiRequest): TracedGeneration {
         ...(request.user === undefined ? {} : { organizationId: request.user }),
         json: request.json === true || request.schema !== undefined,
         schema: request.schema?.name ?? null,
-        ...(request.schema === undefined ? {} : { jsonSchema: request.schema.jsonSchema }),
       },
     });
   } catch {
