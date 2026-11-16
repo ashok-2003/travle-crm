@@ -188,9 +188,10 @@ byte for byte the same until their data changes:
 3. The chat as real user and assistant turns (4.3), so the model writes as the person in the chat.
 4. A final user message: `<now>`, `<lead>`, the focused trips when indexed, then the customer's new lines (4.4).
 
-Sizes, estimated: prompt about 5,200 tokens (budget 5,500) and tool schemas 1,200; agency block 300 to 600 plus up to 8,000 of trips; chat
-1,000 to 3,000; turn block 300 to 3,500. A typical call has 8,000 to 14,000 input tokens, 50 to 70% cached; the trace
-records cached tokens to check it. As in lite, a test fails when a block passes its budget.
+Sizes, estimated: prompt about 5,200 tokens (budget 5,500) and tool schemas about 1,600 (about 1,900 with 40 labels);
+agency block 300 to 600 plus up to 8,000 of trips; chat 1,000 to 3,000; turn block 300 to 3,500. A typical call has 8,000
+to 14,000 input tokens, 50 to 70% cached; the trace records cached tokens to check it. As in lite, a test fails when a
+block passes its budget.
 
 ### 4.2 Trips: inline or indexed
 

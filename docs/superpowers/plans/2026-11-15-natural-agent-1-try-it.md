@@ -262,7 +262,7 @@ Expected: FAIL (no `tools` in the body; `bad_request` unknown).
   (`{ id, type: "function", function: { name, arguments } }`) plus `reasoning_details` when set; a tool message becomes
   `{ role: "tool", tool_call_id, content }`. The body adds `tools`, `tool_choice`, `parallel_tool_calls` and
   `reasoning` only when set. Per try: `timeout = min(request.timeoutMs ?? options.timeoutMs ?? 30_000, deadlineAt - now)`;
-  before any model after the first, stop when `deadlineAt - now < 10_000`. An answer is empty only when it has neither
+  before any model after the first, stop when `deadlineAt - now < 20_000`. An answer is empty only when it has neither
   words nor tool calls. Read `usage.prompt_tokens_details.cached_tokens`,
   `usage.completion_tokens_details.reasoning_tokens`, `message.reasoning_details` and `finish_reason` (anything but the
   four named reasons maps to `"other"`). `withBackupModel` returns `bad_request` as it returns `refused`.
@@ -581,7 +581,7 @@ sheet has no such key and the text holds none of the seeded values), `it("labels
 - Produces:
 
 ```ts
-export const NATURAL_BUDGETS = { prompt: 4_000, agency: 600, trips: 8_000, chat: 3_000, turn: 3_500 } as const; // tokens
+export const NATURAL_BUDGETS = { prompt: 5_500, agency: 900, trips: 8_000, chat: 3_000, turn: 4_500 } as const; // tokens
 export const CHAT_LINES = 40; export const CHAT_DAYS = 14; export const CHAT_MIN_LINES = 6; export const LINE_CUT = 1_000;
 export function newLinesOf(lines: readonly NaturalChatLine[], lastTurnAt: Date | null): NaturalChatLine[];
 export interface NaturalContextInput {
@@ -872,7 +872,7 @@ it("flags a date found in no departure, owner text or customer line, and a seat 
 - Produces:
 
 ```ts
-export const NATURAL_LIMITS = { calls: 4, turnMs: 30_000, tryMs: 15_000, lastCallMs: 3_000, nextModelMs: 10_000,
+export const NATURAL_LIMITS = { calls: 4, turnMs: 120_000, tryMs: 60_000, lastCallMs: 5_000, nextModelMs: 20_000,
   maxTokens: 8_000, messages: 2 } as const;
 export interface LoopIO {
   call(request: AiRequest): Promise<AiResult | { ok: false; reason: "limit" }>;
@@ -963,9 +963,9 @@ it("hands back the transcript and the calls used, so one more call can follow", 
 
 - [ ] **Step 2: Run** `pnpm --filter @travel-crm/domain test -- test/ai/natural/loop.test.ts`; expect FAIL.
 - [ ] **Step 3: Implement.** Requests: `{ feature: "sales_agent", messages, tools, toolChoice: "auto",
-  parallelToolCalls: true, maxTokens: 8000, reasoning: { effort }, timeoutMs: min(15_000, deadline − now),
+  parallelToolCalls: true, maxTokens: 8000, reasoning: { effort }, timeoutMs: min(60_000, deadline − now),
   deadlineAt, user: organizationId }`, plus `model` once pinned (or Try it's), plus `temperature` only when set. The
-  deadline is `startedMs + 30_000`; `callsUsed` starts the count. A final end runs `traceFlags` on its words.
+  deadline is `startedMs + 120_000`; `callsUsed` starts the count. A final end runs `traceFlags` on its words.
 - [ ] **Step 4: Run** the same; expect PASS.
 - [ ] **Step 5: Commit** `feat(ai): the natural agent's loop, with its caps and failure path`.
 
