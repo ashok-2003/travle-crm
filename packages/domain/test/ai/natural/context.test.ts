@@ -26,6 +26,7 @@ function sheet(number: number, title: string, place: string): TripSheet {
     packageId: `package-${String(number)}`,
     title,
     place,
+    destinationId: null,
     nights: 5,
     startCity: "Dehradun",
     summary: `${title}: a winter trek with snow camps and a summit at sunrise.`,

@@ -19,6 +19,7 @@ const kedarkantha: TripSheet = {
   packageId: "kedarkantha",
   title: "Kedarkantha Trek",
   place: "Sankri, Uttarakhand",
+  destinationId: null,
   nights: 5,
   startCity: "Dehradun",
   summary: "Kedarkantha Trek: a winter trek with snow camps.",
