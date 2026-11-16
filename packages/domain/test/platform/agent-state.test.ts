@@ -88,7 +88,8 @@ describe("an agency's AI agent state in the console", () => {
     try {
       const aiOff = await liteAgency(inbox);
       await aiOff.inOrg((tx) => tx.aiSettings.updateMany({ data: { enabled: false } }));
-      expect(await stateOf(aiOff.organizationId)).toMatchObject({ on: false, answering: false });
+      // The agency's AI is a setup step of its own, so the console names it as missing too.
+      expect(await stateOf(aiOff.organizationId)).toMatchObject({ on: false, missing: ["ai"], answering: false });
       const agentOff = await liteAgency(inbox);
       await agentOff.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: false } }));
       expect(await stateOf(agentOff.organizationId)).toMatchObject({ on: false, answering: false });
