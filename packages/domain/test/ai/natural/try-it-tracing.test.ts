@@ -6,7 +6,7 @@ import type { TestAiLine } from "@travel-crm/contracts/ai";
 import { withTracing } from "@travel-crm/integrations/ai";
 import { createMemoryTracing, notedTurn, type MemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { BUILT_IN_NATURAL_PROMPT, naturalTryItTurn } from "../../../src/ai/index.js";
+import { BUILT_IN_NATURAL_PROMPT, naturalTryItTurn, type NaturalPrompt } from "../../../src/ai/index.js";
 import { memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { naturalAgency } from "./support/natural-agency.js";
@@ -38,15 +38,44 @@ describe("Try it on the natural agent, traced", () => {
       agencyName: () => Promise.resolve("Case Trips"),
       tracing,
     };
-    const tryIt = (messages: readonly TestAiLine[], chatId?: string) =>
+    const tryIt = (messages: readonly TestAiLine[], chatId?: string, prompt: NaturalPrompt = BUILT_IN_NATURAL_PROMPT) =>
       naturalTryItTurn(
         deps,
         member,
-        { messages, state: null, prompt: BUILT_IN_NATURAL_PROMPT, ...(chatId === undefined ? {} : { chatId }) },
+        { messages, state: null, prompt, ...(chatId === undefined ? {} : { chatId }) },
         NOW,
       );
     return { ...agency, tracing, member, tryIt };
   }
+
+  it("links each of its model calls to the Langfuse prompt it ran, and a built-in turn's to none", async () => {
+    const on = await world();
+    const draft: NaturalPrompt = {
+      version: "langfuse:whatsapp-agent/natural-system@7",
+      text: BUILT_IN_NATURAL_PROMPT.text,
+      source: { name: "whatsapp-agent/natural-system", version: 7, label: "draft" },
+    };
+    on.model.answer(
+      { toolCalls: [{ name: "get_trip", arguments: { trip_id: "T1" } }] },
+      { text: reply },
+      { text: reply },
+    );
+    await on.tryIt([{ from: "customer", text: "Kedarkantha ka rate?" }], CHAT_ID, draft);
+    await on.tryIt([{ from: "customer", text: "Kedarkantha ka rate?" }], CHAT_ID);
+
+    const [fromLangfuse, builtIn] = on.tracing.turns;
+    expect(fromLangfuse?.start).toMatchObject({
+      prompt: { name: "whatsapp-agent/natural-system", version: 7 },
+      metadata: { promptVersion: draft.version, promptLabel: "draft" },
+    });
+    expect(fromLangfuse?.generations.map((call) => call.prompt)).toEqual([
+      { name: "whatsapp-agent/natural-system", version: 7 },
+      { name: "whatsapp-agent/natural-system", version: 7 },
+    ]);
+    expect(builtIn?.start).not.toHaveProperty("prompt");
+    expect(builtIn?.start.metadata).toMatchObject({ promptVersion: "built-in-1", promptLabel: null });
+    expect(builtIn?.generations.map((call) => call.prompt)).toEqual([null]);
+  });
 
   it("is one turn of its test chat: the chat in, the reply out, its calls inside and what it learned noted", async () => {
     const on = await world();

@@ -160,7 +160,7 @@ const settings = (more: Partial<LoopSettings>): LoopSettings => ({
 });
 
 async function loop(more: Partial<LoopSettings> = {}, context = contextWith()): Promise<LoopEnd> {
-  trace = startNaturalTrace("natural-1", more.startedMs ?? START);
+  trace = startNaturalTrace({ version: "natural-1" }, more.startedMs ?? START);
   return runNaturalLoop(context, io, settings(more), trace);
 }
 
@@ -641,6 +641,7 @@ describe("the natural agent's loop", () => {
     expect(finished()).toEqual({
       agent: "natural",
       promptVersion: "natural-1",
+      promptLabel: null,
       outcome: "replied",
       fallback: null,
       restarted: null,

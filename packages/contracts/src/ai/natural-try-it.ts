@@ -54,6 +54,10 @@ const postedState = z.strictObject({
   }),
 });
 
+/** The prompt a test turn runs on: the live one (Langfuse's label production), or the draft (label draft). */
+export const naturalTestPrompts = ["live", "draft"] as const;
+export type NaturalTestPrompt = (typeof naturalTestPrompts)[number];
+
 export const naturalTestInput = z
   .strictObject({
     /** As lite's: oldest first, ending with the customer's line this turn answers. */
@@ -62,6 +66,8 @@ export const naturalTestInput = z
     state: postedState.nullable(),
     model: z.enum(testAiModels),
     temperature: z.enum(testAiTemperatures),
+    /** Live unless the client names one, so a page loaded before the choice existed still works. */
+    prompt: z.enum(naturalTestPrompts).default("live"),
     /**
      * The test chat's id, the same on each of its turns and new when it starts again: its turns' trace session. With
      * none, the turn's trace is a session of its own.

@@ -67,6 +67,15 @@ describe("Try it on the natural agent", () => {
     expect(naturalTestInput.safeParse({ ...input, chatId: "+91 98765 43210" }).success).toBe(false);
   });
 
+  it("takes the prompt to try, live or the draft, live when the client names none, and nothing else", () => {
+    expect(naturalTestInput.parse({ ...input, prompt: "draft" }).prompt).toBe("draft");
+    expect(naturalTestInput.parse({ ...input, prompt: "live" }).prompt).toBe("live");
+    expect(naturalTestInput.parse(input).prompt).toBe("live");
+    for (const prompt of ["production", "langfuse:whatsapp-agent/natural-system@3", "", null]) {
+      expect(naturalTestInput.safeParse({ ...input, prompt }).success).toBe(false);
+    }
+  });
+
   it("refuses unknown keys in a posted state", () => {
     const withExtraKey = { ...input, state: { ...state, summary: "" } };
     expect(naturalTestInput.safeParse(withExtraKey).success).toBe(false);
@@ -123,6 +132,7 @@ describe("Try it on the natural agent", () => {
       trace: {
         agent: "natural",
         promptVersion: "built-in-1",
+        promptLabel: null,
         outcome: "replied",
         fallback: null,
         restarted: null,
@@ -135,5 +145,12 @@ describe("Try it on the natural agent", () => {
     };
     expect(naturalTestAnswer.parse(answer).payment).toEqual(["UPI: casetrips@okbank"]);
     expect(naturalTestAnswer.safeParse({ ...answer, messages: ["a", "b", "c"] }).success).toBe(false);
+    // The Langfuse label the prompt was read at; null is the built-in text.
+    const fromDraft = {
+      ...answer.trace,
+      promptVersion: "langfuse:whatsapp-agent/natural-system@7",
+      promptLabel: "draft",
+    };
+    expect(naturalTestAnswer.parse({ ...answer, trace: fromDraft }).trace.promptLabel).toBe("draft");
   });
 });

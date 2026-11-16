@@ -1,10 +1,12 @@
 // A natural turn's trace for "Why": each model call with its tool calls, each guard's verdict, what was staged, and
-// the flags, with the prompt version the turn ran.
+// the flags, with the prompt version the turn ran and the Langfuse label it was read at.
 import { z } from "zod";
 
 export const naturalTrace = z.object({
   agent: z.literal("natural"),
   promptVersion: z.string(),
+  /** "production", "draft": the Langfuse label the prompt was read at; null for the built-in text. */
+  promptLabel: z.string().nullable(),
   outcome: z.string(),
   fallback: z.string().nullable(),
   restarted: z.string().nullable(),
