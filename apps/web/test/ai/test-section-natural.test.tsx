@@ -275,6 +275,17 @@ describe("Try it on the new agent", () => {
     expect(screen.getAllByText(natural.why.noDraft)).toHaveLength(1);
   });
 
+  it("shows each message as it was split, its line breaks and blank lines kept", async () => {
+    const list = "Snow Lake mein ye included hai:\n\n• Dehradun se transport\n• Saare meals\n\n*Porter* alag se.";
+    await chat(naturalTurn([list, "Aapke group mein kitne log hain?"]));
+    const bubble = await screen.findByText(
+      (_content, element) => element?.tagName === "P" && element.textContent === `${words.agent} ${list}`,
+    );
+    // The bubble keeps the newlines it was given: a • list stays a list, a blank line a gap.
+    expect(bubble).toHaveClass("whitespace-pre-line");
+    expect(screen.getByText("Aapke group mein kitne log hain?")).toBeVisible();
+  });
+
   it("shows two messages and the payment lines code would send after them", async () => {
     const sent = ["Done! I've held 2 seats on Sat 12 Dec.", "Pay the ₹6,000 advance to confirm them."];
     const payment = ["UPI: trails@okbank", "Kerala Trails, account 000012345678, IFSC BANK0000001"];

@@ -24,7 +24,8 @@ export function naturalTryItNote(answer: NaturalTestAnswer): TraceNote {
     output:
       answer.messages.length === 0
         ? { outcome: answer.outcome, fallback: trace.fallback }
-        : { role: "assistant", content: answer.messages.join("\n\n") },
+        : // Two messages read as the model wrote them: a blank line is spacing inside one, a `---` line sits between.
+          { role: "assistant", content: answer.messages.join("\n---\n") },
     metadata: {
       promptVersion: trace.promptVersion,
       outcome: answer.outcome,

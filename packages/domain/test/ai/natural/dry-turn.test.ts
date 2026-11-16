@@ -313,6 +313,18 @@ describe("the natural agent's dry turn", () => {
     });
   });
 
+  it("sends two messages split at a line of ---, a list with blank lines whole, and adds each to the history", async () => {
+    const on = await world();
+    const list = "Kedarkantha mein:\n\n• Tents aur homestay\n• Saare meals\n\nPorter alag se.";
+    on.model.answer({ text: `${list}\n---\nAapke group mein kitne log hain?` });
+    const answer = await on.dry(["Kedarkantha mein kya included hai?"]);
+    expect(answer.messages).toEqual([list, "Aapke group mein kitne log hain?"]);
+    expect(answer.history).toEqual([
+      { from: "agent", text: list },
+      { from: "agent", text: "Aapke group mein kitne log hain?" },
+    ]);
+  });
+
   it("adds [sent: …] and [offered: …] marks to the history", async () => {
     const on = await world();
     const words = `Brochure bhej rahi hoon. ${offerWords}`;

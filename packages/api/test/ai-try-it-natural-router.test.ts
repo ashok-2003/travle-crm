@@ -235,7 +235,7 @@ describe("ai.testNatural", () => {
       },
     ]);
     expect(turns[1]?.sessionId).not.toBe(turns[0]?.sessionId);
-    expect(notes[0]).toEqual({ role: "assistant", content: shown.messages.join("\n\n") });
+    expect(notes[0]).toEqual({ role: "assistant", content: shown.messages.join("\n---\n") });
   });
 
   it("answers AI_NOT_READY when the server has no model for the agent", async () => {

@@ -153,6 +153,15 @@ describe("Try it on the natural agent, traced", () => {
     });
   });
 
+  it("notes two messages with the --- line between them, so a blank line inside one stays spacing", async () => {
+    const on = await world();
+    const list = "Kedarkantha:\n\n• 6 days\n• Saare meals";
+    on.model.answer({ text: `${list}\n---\nKitne log?` });
+    const answer = await on.tryIt([{ from: "customer", text: "Kedarkantha mein kya hai?" }], CHAT_ID);
+    expect(answer.messages).toEqual([list, "Kitne log?"]);
+    expect(shown(on.tracing)?.output).toEqual({ role: "assistant", content: `${list}\n---\nKitne log?` });
+  });
+
   it("answers as the untraced dry turn does", async () => {
     const on = await world();
     on.model.answer({ text: reply }, { text: reply });
