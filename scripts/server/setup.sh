@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Makes a fresh Ubuntu 24.04 server on Oracle Cloud ready for the product (docs/runbook.md). Safe to run again. It
 # sets up:
-# - security updates that install themselves (rebooting at 03:30 India time when one needs it), and SSH keys only;
+# - security updates that install themselves (rebooting when one needs it: at 03:30 India time, or 02:30 where Postgres
+#   runs, so a database server and its app server never restart together), and SSH keys only;
 # - the server's own firewall opened for 80 and 443 beside SSH (Oracle's images refuse everything else);
 # - Docker from Docker's own repository, with rotated logs;
 # - huge pages for Postgres's shared buffers, and a little swap for builds;
@@ -40,11 +41,15 @@ cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
-# The server keeps UTC: 22:00 UTC is 03:30 in India, after the 01:30 backup and before the day starts.
-cat >/etc/apt/apt.conf.d/52travel-crm-upgrades <<'EOF'
-// When a security update needs a reboot, it happens at 03:30 India time (scripts/server/setup.sh).
+# The server keeps UTC: 22:00 UTC is 03:30 in India, after the 01:30 backup and before the day starts. A server with
+# Postgres restarts an hour earlier (21:00 UTC, 02:30 in India), so beside our own database the database server and
+# the app server never restart at once (docs/runbook.md, "Our own database").
+reboot_at="21:00"
+if [ -n "$managed_database" ]; then reboot_at="22:00"; fi
+cat >/etc/apt/apt.conf.d/52travel-crm-upgrades <<EOF
+// When a security update needs a reboot, it happens at $reboot_at UTC (scripts/server/setup.sh).
 Unattended-Upgrade::Automatic-Reboot "true";
-Unattended-Upgrade::Automatic-Reboot-Time "22:00";
+Unattended-Upgrade::Automatic-Reboot-Time "$reboot_at";
 EOF
 timedatectl set-timezone Etc/UTC
 

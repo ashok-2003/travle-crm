@@ -9,14 +9,14 @@ import { gstStateCode, gstin, phoneNumber } from "../kernel/index.js";
  * The one rule for every optional text: a blank box is no value. A form posts "" for an empty field, so blank (or only
  * spaces) becomes null before the value's own rules run, and null stays null.
  */
-const optional = <T extends z.ZodType<unknown, string>>(schema: T) =>
+export const optional = <T extends z.ZodType<unknown, string>>(schema: T) =>
   z
     .string()
     .nullable()
     .transform((text) => (text === null || text.trim() === "" ? null : text))
     .pipe(schema.nullable());
 
-const optionalText = (max: number) => optional(z.string().trim().max(max));
+export const optionalText = (max: number) => optional(z.string().trim().max(max));
 
 /** Checked before upper-casing: Unicode case mapping turns some letters into ASCII capitals. */
 const capitals = (pattern: RegExp, message: string) => z.string().trim().regex(pattern, message).toUpperCase();

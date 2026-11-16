@@ -4,6 +4,7 @@
 import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import {
   AlarmClockIcon,
+  BotIcon,
   CalendarCheckIcon,
   ChartColumnIcon,
   BriefcaseBusinessIcon,
@@ -15,9 +16,11 @@ import {
   IndianRupeeIcon,
   InboxIcon,
   MessageCircleIcon,
+  PackageIcon,
   SettingsIcon,
   ShieldCheckIcon,
   UsersIcon,
+  WalletIcon,
   type LucideIcon,
 } from "lucide-react";
 import { holds, type SignedInMember } from "@/session/me-context";
@@ -35,8 +38,11 @@ export interface NavigationItem {
     | "leads"
     | "followUps"
     | "inbox"
+    | "aiAgent"
     | "quotes"
+    | "packages"
     | "bookings"
+    | "payments"
     | "departures"
     | "suppliers"
     | "reports"
@@ -68,13 +74,30 @@ export const navigationItems: readonly NavigationItem[] = [
     module: "crm",
   },
   { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
+  { key: "aiAgent", group: "work", href: routes.aiAgent, icon: BotIcon, requires: "ai:manage", module: "ai" },
   { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },
+  {
+    key: "packages",
+    group: "work",
+    href: routes.packages,
+    icon: PackageIcon,
+    requires: "quotes:view",
+    module: "quotes",
+  },
   {
     key: "bookings",
     group: "work",
     href: routes.bookings,
     icon: BriefcaseBusinessIcon,
     requires: "bookings:view",
+    module: "bookings",
+  },
+  {
+    key: "payments",
+    group: "work",
+    href: routes.payments,
+    icon: WalletIcon,
+    requires: "quotes:record_payments",
     module: "bookings",
   },
   {

@@ -67,11 +67,14 @@ export async function createTask(
     record: TaskRecordLink | null;
     /** Added by the AI from a chat. */
     byAi?: boolean;
+    /** An id the caller derived from what the task is for, so a repeat can find the task it made. */
+    id?: string;
   },
 ): Promise<Task> {
   const created = taskFromRow(
     await tx.task.create({
       data: {
+        ...(task.id === undefined ? {} : { id: task.id }),
         kind: task.kind,
         title: task.title,
         dueAt: task.dueAt,

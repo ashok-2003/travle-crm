@@ -1,6 +1,6 @@
 // A record's files: listing them, removing one (a soft delete), and the organization's storage used.
 import type { AttachmentRefInput, AttachmentSummary } from "@travel-crm/contracts/files";
-import { softDeleted } from "@travel-crm/db";
+import { softDeleted, type OrgTx } from "@travel-crm/db";
 import { DomainError, type Actor } from "../kernel/index.js";
 import { attachmentFields, canViewSensitive, findAttachment, summaryFor } from "./attachment-row.js";
 import type { FilesDependencies } from "./dependencies.js";
@@ -25,6 +25,40 @@ export async function listAttachments(
     });
     return rows.map((row) => summaryFor(actor, row));
   });
+}
+
+/**
+ * The record's ready files inside a transaction already open, oldest first, with no links and no member: for system
+ * work (the AI's turn) that holds no MemberAccess. Sensitive files are never listed.
+ */
+export async function readyAttachmentsIn(
+  tx: OrgTx,
+  record: { recordType: string; recordId: string },
+): Promise<{ id: string; fileName: string; contentType: string }[]> {
+  return tx.attachment.findMany({
+    where: { recordType: record.recordType, recordId: record.recordId, status: "ready", sensitive: false },
+    select: { id: true, fileName: true, contentType: true },
+    orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
+  });
+}
+
+/** The same for many records of one type in one query, by record id (a record with none has an empty list). */
+export async function readyAttachmentsOfRecordsIn(
+  tx: OrgTx,
+  recordType: string,
+  recordIds: readonly string[],
+): Promise<Map<string, { id: string; fileName: string; contentType: string }[]>> {
+  const found = new Map<string, { id: string; fileName: string; contentType: string }[]>(
+    recordIds.map((id) => [id, []]),
+  );
+  if (recordIds.length === 0) return found;
+  const rows = await tx.attachment.findMany({
+    where: { recordType, recordId: { in: [...recordIds] }, status: "ready", sensitive: false },
+    select: { id: true, fileName: true, contentType: true, recordId: true },
+    orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
+  });
+  for (const { recordId, ...file } of rows) found.get(recordId)?.push(file);
+  return found;
 }
 
 /** The ready files of many records of one type in one query, by record id (a record with none has no entry). */

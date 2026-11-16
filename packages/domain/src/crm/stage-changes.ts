@@ -59,9 +59,14 @@ const saleOrder: readonly string[] = ["new", "contacted", "quote_sent", "booking
 export async function advanceLeadStage(
   tx: OrgTx,
   actor: Actor,
-  change: { leadId: string; stage: "quote_sent" | "booking_requested" | "won" },
+  change:
+    | { leadId: string; stage: "contacted" | "quote_sent" | "booking_requested"; byAi?: boolean }
+    | { leadId: string; stage: "won"; byAi?: false },
   now: Date,
 ): Promise<boolean> {
+  // The AI never wins a lead, whatever the types said.
+  const stage: string = change.stage;
+  if (change.byAi === true && stage === "won") return false;
   const lead = await lockLead(tx, change.leadId);
   const from = saleOrder.indexOf(lead.stage);
   if (from === -1 || saleOrder.indexOf(change.stage) <= from) return false;

@@ -14,6 +14,7 @@ import { organizationTimeZone } from "../identity/index.js";
 import { defineListener, publishEvent, type EventListener } from "../jobs/index.js";
 import { addDays, parseCalendarDate, systemActor, yearIn } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
+import { moveStandInPayments } from "../quotes/index.js";
 import { createTask, finishTasks } from "../tasks/index.js";
 import { dayOf } from "./rows.js";
 import { rebuildReminders, skipUnsentReminders } from "./reminders.js";
@@ -62,6 +63,8 @@ export async function createBookingFromQuote(
     select: { id: true, quoteId: true },
   });
   if (chat !== null) {
+    // The money paid on the chat's quote goes with the booking; a quote smaller than that money is refused.
+    await moveStandInPayments(tx, actor, { fromQuoteId: chat.quoteId, toQuoteId: quote.id });
     const endDay = lastDayOf(quote.startDate, quote.days);
     await tx.booking.update({
       where: { id: chat.id },
@@ -79,6 +82,8 @@ export async function createBookingFromQuote(
       entityId: chat.id,
       after: { quoteId: quote.id },
     });
+    // The real quote's payments due (and the money moved onto it) decide the balance reminders from now on.
+    await rebuildReminders(tx, chat.id, now);
     return chat.id;
   }
   const timeZone = await organizationTimeZone(tx, input.organizationId);

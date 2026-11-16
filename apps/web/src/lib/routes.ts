@@ -34,6 +34,8 @@ export const routes = {
   quotes: "/quotes",
   /** Accepted quotes as bookings the agency confirms and runs (release 6); one booking's page is bookingRoute(bookingId). */
   bookings: "/bookings",
+  /** Payments waiting for a person to confirm or refuse them (plan 3, payments to check). */
+  payments: "/payments",
   /** Group departures with seats, holds and a rooming list (release 7a); one departure's page is departureRoute(departureId). */
   departures: "/departures",
   /** The hotels, transport operators and guides the agency buys from; one supplier's page is supplierRoute(supplierId). */
@@ -71,8 +73,10 @@ export const routes = {
   departureSettings: "/settings/departures",
   /** How bookings run: the payment schedule, reminders, the cancellation steps and the review link (release 6). */
   bookingSettings: "/settings/bookings",
-  /** Suggest reply's switch and the agency's instructions to the AI. */
+  /** Suggest reply's switch and the agency's documents for package drafts. */
   aiSettings: "/settings/ai",
+  /** The AI agent's own page: overview, setup and trying it. */
+  aiAgent: "/ai-agent",
   /** The agency's WhatsApp number and its state. */
   whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */

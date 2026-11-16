@@ -42,7 +42,10 @@ test("a customer opens a shared link, and the sharer's bell says so until it is 
   await expect(panel.getByText(`Opened: ${shared.label}`)).toBeVisible();
 });
 
-test("an Owner turns off email for opened links, and the choice stays", async ({ page, agency }) => {
+test("an Owner turns on email for opened links, off until they choose, and the choice stays", async ({
+  page,
+  agency,
+}) => {
   await signInByEmail(page, agency.owner);
   await page.goto("/account");
   await page.getByRole("link", { name: "Choose what reaches you" }).click();
@@ -50,14 +53,15 @@ test("an Owner turns off email for opened links, and the choice stays", async ({
   await expect(page.getByRole("heading", { level: 1, name: "Notifications" })).toBeVisible();
 
   const opens = page.getByRole("group", { name: "A customer opens a link you shared" });
+  // Email starts off for whoever never chose (optedOutByDefault); push starts on.
   const email = opens.getByRole("switch", { name: "Email" });
-  await expect(email).toBeChecked();
+  await expect(email).not.toBeChecked();
   const saved = page.waitForResponse((response) => response.url().includes("notifications.preferences.set"));
   await email.click();
   expect((await saved).ok()).toBe(true);
-  await expect(email).not.toBeChecked();
+  await expect(email).toBeChecked();
 
   await page.reload();
-  await expect(opens.getByRole("switch", { name: "Email" })).not.toBeChecked();
+  await expect(opens.getByRole("switch", { name: "Email" })).toBeChecked();
   await expect(opens.getByRole("switch", { name: "Push" })).toBeChecked();
 });

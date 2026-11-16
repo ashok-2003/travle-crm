@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 
-export const blankNames = ["name", "destination", "month", "agent", "amount", "link"] as const;
+export const blankNames = ["name", "destination", "month", "agent", "amount", "link", "trip", "date"] as const;
 export type BlankName = (typeof blankNames)[number];
 
 const BLANK = /\{([a-z]+)\}/g;
@@ -48,3 +48,12 @@ export const filledMessage = z.object({
   open: z.array(z.string()),
 });
 export type FilledMessage = z.infer<typeof filledMessage>;
+
+/** The only blanks a payment message is given values for. */
+export const paymentBlankNames: readonly BlankName[] = ["name", "amount", "trip", "date"];
+
+/** A payment message's text: the library's checks, and only the four blanks the payment gives values for. */
+export const paymentMessageBody = libraryMessageBody.refine(
+  (text) => blanksIn(text).every((name) => paymentBlankNames.includes(name as BlankName)),
+  { message: "UNKNOWN_BLANK" },
+);

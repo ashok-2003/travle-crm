@@ -2,3 +2,4 @@
 // packages they start from (release 7b).
 export * from "./quotes.js";
 export * from "./packages.js";
+export * from "./room-prices.js";

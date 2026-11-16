@@ -24,9 +24,23 @@ export const leadEventKinds = [
   "whatsapp-contact",
   /** A step of the lead's booking: it was made, confirmed, paid, cancelled... (release 6). */
   "booking-event",
+  /** The lite AI set or changed a lead field from the chat (plan 3a). */
+  "ai-field-set",
 ] as const;
 export const leadEventKind = z.enum(leadEventKinds);
 export type LeadEventKind = z.infer<typeof leadEventKind>;
+
+/** The lead fields the lite agent fills, marked as the AI's until a person edits them. */
+export const aiFilledFields = [
+  "destination",
+  "when",
+  "adults",
+  "children_ages",
+  "departure_city",
+  "room_type",
+  "name",
+] as const;
+export type AiFilledField = (typeof aiFilledFields)[number];
 
 export const timelineInput = z.strictObject({
   leadId: recordId,
@@ -56,7 +70,8 @@ export const timelineEntry = z.discriminatedUnion("kind", [
     outcome: callOutcome,
     note: callNote.nullable(),
   }),
-  z.object({ ...entry, kind: z.literal("stage-changed"), stage: leadStage }),
+  /** byAi: the lite AI moved the stage from the chat. */
+  z.object({ ...entry, kind: z.literal("stage-changed"), stage: leadStage, byAi: z.boolean() }),
   z.object({ ...entry, kind: z.literal("reassigned"), ownerUserId: recordId.nullable() }),
   z.object({ ...entry, kind: z.literal("follow-up-added"), task: timelineTask }),
   z.object({ ...entry, kind: z.literal("follow-up-done"), task: timelineTask }),
@@ -79,6 +94,14 @@ export const timelineEntry = z.discriminatedUnion("kind", [
     bookingId: recordId,
     number: z.string(),
     event: bookingEvent,
+  }),
+  /** from: the words before, null when the field was empty; to: the words now. */
+  z.object({
+    ...entry,
+    kind: z.literal("ai-field-set"),
+    field: z.enum(aiFilledFields),
+    from: z.string().nullable(),
+    to: z.string(),
   }),
 ]);
 export type TimelineEntry = z.infer<typeof timelineEntry>;

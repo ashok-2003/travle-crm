@@ -1,12 +1,18 @@
-// The agency's own switch for Suggest reply and its instructions to the AI. Off until an Owner or Admin (ai:manage) turns
-// it on; every change is audited with what changed, never the instructions' words.
+// The agency's own switch for Suggest reply, the score and the other AI helpers. Off until an Owner or Admin (ai:manage)
+// turns it on; every change is audited with what changed. The instructions and custom-trips columns an earlier release
+// let it set stay stored until the contract release, read and written by nothing.
 import { aiSettings, type AiSettings, type SaveAiSettingsInput } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { MONTHLY_AI_LIMIT, usedThisMonth } from "./usage.js";
 
-const columns = { enabled: true, scoring: true, fillLeads: true, writeStyle: true, instructions: true } as const;
+const columns = {
+  enabled: true,
+  scoring: true,
+  fillLeads: true,
+  writeStyle: true,
+} as const;
 
 /** Whether the agency has turned Suggest reply on. */
 export async function aiEnabled(tx: OrgTx): Promise<boolean> {
@@ -34,7 +40,6 @@ export async function aiSettingsOf(
     scoring: row?.scoring ?? true,
     fillLeads: row?.fillLeads ?? true,
     writeStyle: row?.writeStyle ?? "warm",
-    instructions: row?.instructions ?? "",
     providerReady: context.providerReady,
     monthlyLimit: MONTHLY_AI_LIMIT,
     usedThisMonth: await usedThisMonth(tx, context.now, timeZone),
@@ -53,7 +58,6 @@ export async function saveAiSettings(
     scoring: input.scoring,
     fillLeads: input.fillLeads ?? before?.fillLeads ?? true,
     writeStyle: input.writeStyle ?? before?.writeStyle ?? "warm",
-    instructions: input.instructions,
     updatedBy: access.userId,
   };
   await tx.aiSettings.upsert({
@@ -70,14 +74,12 @@ export async function saveAiSettings(
       scoring: before?.scoring ?? true,
       fillLeads: before?.fillLeads ?? true,
       writeStyle: before?.writeStyle ?? "warm",
-      instructionsLength: before?.instructions.length ?? 0,
     },
     after: {
       enabled: input.enabled,
       scoring: input.scoring,
       fillLeads: data.fillLeads,
       writeStyle: data.writeStyle,
-      instructionsLength: input.instructions.length,
     },
   });
   return aiSettingsOf(tx, { organizationId: access.organizationId, ...context });

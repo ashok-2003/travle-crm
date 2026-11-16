@@ -8,9 +8,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 
-export function useDepartureList(filter: DepartureFilter, enabled = true) {
+/** The departures of a filter; `templateId` limits them to those of one package. */
+export function useDepartureList(filter: DepartureFilter, enabled = true, templateId?: string) {
   const trpc = useTRPC();
-  return useQuery({ ...trpc.departures.list.queryOptions({ filter }), enabled });
+  return useQuery({
+    ...trpc.departures.list.queryOptions(templateId === undefined ? { filter } : { filter, templateId }),
+    enabled,
+  });
 }
 
 export function useDeparture(departureId: string) {

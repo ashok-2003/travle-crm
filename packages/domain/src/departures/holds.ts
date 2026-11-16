@@ -32,15 +32,25 @@ export async function createHold(
   input: CreateHoldInput,
   now: Date,
 ): Promise<{ id: string; expiresAt: Date }> {
-  const lead = await getLead(tx, access, input.leadId);
+  await getLead(tx, access, input.leadId);
+  return createHoldFor(tx, access, input, now);
+}
+
+/** The same hold for whoever acts, the lead already known to exist (the AI's booking holds as the system). */
+export async function createHoldFor(
+  tx: OrgTx,
+  actor: Actor,
+  input: CreateHoldInput,
+  now: Date,
+): Promise<{ id: string; expiresAt: Date }> {
   const departure = await findDepartureForChange(tx, input.departureId);
   assertOpenForSeats(departure);
   // A hold past its time that the job has not yet marked is over: it must not block a new one (one active hold a lead).
-  for (const lapsed of await readLapsed(tx, { departureId: departure.id, leadId: lead.id }, now)) {
-    await expireLapsedHold(tx, systemActor(access.organizationId), lapsed, now);
+  for (const lapsed of await readLapsed(tx, { departureId: departure.id, leadId: input.leadId }, now)) {
+    await expireLapsedHold(tx, systemActor(actor.organizationId), lapsed, now);
   }
   const already = await tx.departureHold.findFirst({
-    where: { departureId: departure.id, leadId: lead.id, status: "active" },
+    where: { departureId: departure.id, leadId: input.leadId, status: "active" },
     select: { id: true },
   });
   if (already !== null) {
@@ -55,11 +65,11 @@ export async function createHold(
     .create({
       data: {
         departureId: departure.id,
-        leadId: lead.id,
+        leadId: input.leadId,
         seats: input.seats,
         expiresAt,
         note: input.note,
-        createdBy: access.userId,
+        createdBy: actor.userId,
       },
       select: { id: true },
     })
@@ -70,11 +80,11 @@ export async function createHold(
       }
       throw error;
     });
-  await recordAudit(tx, access, {
+  await recordAudit(tx, actor, {
     action: "departure.hold-created",
     entityType: "departure",
     entityId: departure.id,
-    after: { holdId: hold.id, leadId: lead.id, seats: input.seats, expiresAt: expiresAt.toISOString() },
+    after: { holdId: hold.id, leadId: input.leadId, seats: input.seats, expiresAt: expiresAt.toISOString() },
   });
   return { id: hold.id, expiresAt };
 }

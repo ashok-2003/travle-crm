@@ -2,6 +2,7 @@
 // owns one namespace file, so features can be written side by side without touching each other's words.
 import account from "./messages/en-IN/account.json";
 import ai from "./messages/en-IN/ai.json";
+import aiAgent from "./messages/en-IN/ai-agent.json";
 import audit from "./messages/en-IN/audit.json";
 import bookings from "./messages/en-IN/bookings.json";
 import business from "./messages/en-IN/business.json";
@@ -25,6 +26,7 @@ import consoleWhatsapp from "./messages/en-IN/console-whatsapp.json";
 import leads from "./messages/en-IN/leads.json";
 import metaLeads from "./messages/en-IN/meta-leads.json";
 import packagePages from "./messages/en-IN/package-pages.json";
+import payments from "./messages/en-IN/payments.json";
 import packages from "./messages/en-IN/packages.json";
 import notifications from "./messages/en-IN/notifications.json";
 import home from "./messages/en-IN/home.json";
@@ -76,11 +78,13 @@ export const messages = {
   metaLeads,
   notifications,
   packages,
+  payments,
   packagePages,
   home,
   pwa,
   quotes,
   ai,
+  aiAgent,
   reports,
   roles,
   sales,

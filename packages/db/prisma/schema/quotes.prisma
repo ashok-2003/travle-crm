@@ -64,6 +64,7 @@ model Quote {
   payments           QuotePayment[]
   costs              TripCost[]
   bookings           Booking[]
+  aiBookings         AiBooking[]
 
   @@unique([organizationId, id])
   @@index([organizationId, leadId], map: "quote_lead")

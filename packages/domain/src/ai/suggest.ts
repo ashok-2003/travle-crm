@@ -9,10 +9,10 @@ import type { AiModel } from "@travel-crm/integrations/ai";
 import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { listQuickReplies, tripKitWords, visibleConversation } from "../inbox/index.js";
-import { DomainError } from "../kernel/index.js";
+import { calendarDateIn, DomainError } from "../kernel/index.js";
 import { calendarText } from "./calendar.js";
-import { knowledgeWords } from "./knowledge.js";
 import { promptOf, type PromptFacts } from "./prompt.js";
+import { tripsOnOffer } from "./trips-on-offer.js";
 import { aiEnabled } from "./settings.js";
 import { MONTHLY_AI_LIMIT, releaseAiCall, reserveAiCall, usedThisMonth } from "./usage.js";
 
@@ -82,22 +82,20 @@ async function prepare(
     take: CHAT_MESSAGES,
     select: { direction: true, body: true, caption: true },
   });
-  const settings = await tx.aiSettings.findFirstOrThrow({ select: { instructions: true } });
   // One step at a time: they share the transaction's connection.
   const quickReplies = await listQuickReplies(tx);
   const tripKits = await tripKitWords(tx);
   const lead = await leadFacts(tx, access, chat.personId);
-  const knowledge = await knowledgeWords(tx);
+  const trips = await tripsOnOffer(tx, calendarDateIn(context.now, timeZone));
   const firstName = chat.person?.name.split(/\s+/)[0] ?? null;
   return {
     timeZone,
     facts: {
       agencyName: context.agencyName,
       calendar: calendarText(context.now, timeZone),
-      instructions: settings.instructions,
       firstName: firstName === "" ? null : firstName,
       lead,
-      knowledge,
+      trips,
       tripKits,
       quickReplies: quickReplies.slice(0, 20).map((reply) => ({ title: reply.title, body: reply.body })),
       chat: recent

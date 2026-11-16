@@ -52,15 +52,8 @@ describe("suggest reply", () => {
       }),
     );
     const model = createMemoryAiModel();
-    const turnOn = (instructions = "") =>
-      inOrg((tx) =>
-        saveAiSettings(
-          tx,
-          owner,
-          { enabled: true, scoring: true, instructions },
-          { providerReady: true, now: testNow },
-        ),
-      );
+    const turnOn = () =>
+      inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: testNow }));
     const ask = (member = seller, ai: MemoryAiModel = model) =>
       suggestReply(test.db, ai, member, { conversationId: chat.id }, { agencyName: "Sharma Holidays", now: testNow });
     return { organizationId, inOrg, owner, seller, outsider, chat, model, turnOn, ask };
@@ -75,18 +68,18 @@ describe("suggest reply", () => {
     expect(owner.userId).toBeDefined();
   });
 
-  it("audits turning it on, without the instructions' words", async () => {
+  it("audits turning it on, with nothing of the old free text", async () => {
     const { turnOn, inOrg } = await agency();
-    await turnOn("Never offer discounts. Reply in Hinglish.");
+    await turnOn();
     const entries = await inOrg((tx) => tx.auditEntry.findMany({ where: { action: "ai-settings.changed" } }));
     expect(entries).toHaveLength(1);
-    expect(JSON.stringify(entries[0])).not.toContain("Hinglish");
-    expect(entries[0]).toMatchObject({ after: { enabled: true, scoring: true, instructionsLength: 41 } });
+    expect(entries[0]).toMatchObject({ after: { enabled: true, scoring: true } });
+    expect(JSON.stringify(entries[0])).not.toMatch(/instructionsLength|customTrips/);
   });
 
   it("drafts from the chat, the lead and the agency's words, with no contact details, and keeps no words", async () => {
     const { ask, model, turnOn, inOrg, organizationId, owner, chat } = await agency();
-    await turnOn("Never offer discounts.");
+    await turnOn();
     await inOrg((tx) =>
       createQuickReply(tx, owner, { shortcut: "hello", title: "Greeting", body: "Namaste from Sharma Holidays!" }),
     );
@@ -98,7 +91,6 @@ describe("suggest reply", () => {
     const [request] = model.requests;
     expect(request).toMatchObject({ feature: "suggest_reply", user: organizationId });
     const prompt = request?.messages.map((message) => message.content).join("\n") ?? "";
-    expect(prompt).toContain("Never offer discounts.");
     expect(prompt).toContain("Namaste from Sharma Holidays!");
     expect(prompt).toContain("Manali trip for 4 adults");
     expect(prompt).toContain("Rahul");

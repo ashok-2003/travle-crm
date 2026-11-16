@@ -177,6 +177,20 @@ describe("TodayScreen", () => {
     expect(screen.getByRole("button", { name: words.addTask.action })).toBeVisible();
   });
 
+  it("counts the payments to check in the day, with a line that leads to them", async () => {
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 2 } });
+    renderToday();
+    expect(await screen.findByText("Fri 16 Oct · 10 things")).toBeVisible();
+    const section = await region(words.paymentsToCheck.title);
+    expect(within(section).getByRole("link", { name: /2 payments are waiting/ })).toHaveAttribute("href", "/payments");
+  });
+
+  it("counts a claim waiting for its check once in the day, not again as its task", async () => {
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 2, checkTasks: 1 } });
+    renderToday();
+    expect(await screen.findByText("Fri 16 Oct · 9 things")).toBeVisible();
+  });
+
   it("shows Overdue, New leads not contacted yet and Due today, each with its count and Show more", async () => {
     day.nextPages["due-today"] = [rohanDue];
     const api = renderToday();

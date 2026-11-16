@@ -20,6 +20,8 @@ model OrganizationProfile {
   bankAccountNumber String?      @map("bank_account_number")
   bankIfsc          String?      @map("bank_ifsc")
   bankName          String?      @map("bank_name")
+  /// The agency's UPI ID, e.g. "sharma@okbank" (CHECK organization_profile_upi_id_length); the agent quotes it with the advance.
+  upiId             String?      @map("upi_id")
   /// 2-5 capital letters invoices are numbered with, e.g. "SH" for SH-2026-0042 (spec 7.1's checklist); never SMPL or
   /// DOC, which number the platform's own documents (CHECK organization_profile_invoice_prefix_not_reserved).
   invoicePrefix     String?      @map("invoice_prefix")

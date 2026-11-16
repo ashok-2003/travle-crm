@@ -89,6 +89,6 @@
     "accounts:create": "Create invoices, receipts and payments",
     "accounts:edit": "Change invoices, receipts and payments",
     "ai:suggest": "Ask the AI to suggest a reply in a chat",
-    "ai:manage": "Turn the AI on and write its instructions"
+    "ai:manage": "Turn the AI on"
   }
 }

@@ -24,7 +24,8 @@ describe("today's opened quotes and payments due", () => {
   const aSalesperson = (): MemberAccess => memberWithStarterRole("sales", { organizationId, userId: randomUUID() });
   const section = (access: MemberAccess, name: "quote-opened" | "payments-due") =>
     inOrg((tx) => todaySection(tx, access, { section: name, limit: 20 }, now));
-  const counts = async (access: MemberAccess) => (await inOrg((tx) => todaySummary(tx, access, now))).counts;
+  const counts = async (access: MemberAccess) =>
+    (await inOrg((tx) => todaySummary(tx, access, now, { bookingsOn: true }))).counts;
 
   beforeAll(async () => {
     const urls = inject("dbUrls");

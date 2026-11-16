@@ -1,6 +1,7 @@
 // Who on the team hears what (the owner, 2026-10-29): the members chosen for email get every notification that goes
 // further than the bell by email too, and the members chosen for copies get every team alert (a hot lead, a booking,
-// the AI asking for a person...), whoever it was for. notify() reads it; each person's own opt-outs still apply.
+// the AI asking for a person...), whoever it was for. notify() reads it; each person's own choices still apply, and
+// email reaches only those who turned it on (it starts off: optedOutByDefault).
 import type { SaveTeamRoutingInput } from "@travel-crm/contracts/notifications";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
@@ -9,8 +10,11 @@ import type { MemberAccess } from "../identity/index.js";
 /** The alerts about the business that a manager may want a copy of; a person's own notices (a mention, an export) are not. */
 export const TEAM_ALERT_KINDS: readonly string[] = [
   "ai.handoff",
+  "departure.schedule-kept",
   "ai.booking",
   "ai.payment-proof",
+  "ai.agent-not-ready",
+  "payment.proof-to-match",
   "sales.hot-lead",
   "lead.slow-reply",
   "lead.unassigned",

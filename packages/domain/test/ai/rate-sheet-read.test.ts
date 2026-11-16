@@ -48,12 +48,7 @@ describe("reading a supplier's rate sheet", () => {
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
     if (options.aiOn !== false) {
       await inOrg((tx) =>
-        saveAiSettings(
-          tx,
-          owner,
-          { enabled: true, scoring: true, instructions: "" },
-          { providerReady: true, now: NOW },
-        ),
+        saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: NOW }),
       );
     }
     const supplier = await inOrg((tx) => createSupplier(tx, owner, hotel));

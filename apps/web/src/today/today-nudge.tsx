@@ -3,7 +3,7 @@
 // Home's nudge (spec 3.1, the mockup): how many things today and how many are overdue, then at most three of them,
 // today.summary's top (the first overdue, the new lead waiting longest, the next due today), each leading to its lead
 // with its urgency in colour, and Open Today, Home's main button. Never a long list on Home: Today holds that.
-import type { TodayItem } from "@travel-crm/contracts/today";
+import { todayTotal, type TodayItem } from "@travel-crm/contracts/today";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment, useId } from "react";
@@ -98,8 +98,8 @@ export function TodayNudge() {
   const headingId = useId();
 
   if (summary.data) {
-    const { overdue, newLeads, dueToday, quoteOpened, paymentsDue, tripDetails, departures } = summary.data.counts;
-    const total = overdue + newLeads + dueToday + quoteOpened + paymentsDue + tripDetails + departures;
+    const { overdue } = summary.data.counts;
+    const total = todayTotal(summary.data.counts);
     const top = summary.data.top.slice(0, SHOWN);
     return (
       <Card role="region" aria-labelledby={headingId}>

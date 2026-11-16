@@ -102,4 +102,20 @@ describe("subscription grants", () => {
       /permission denied/,
     );
   });
+
+  it("the runtime reads both agent pauses but can't set them", async () => {
+    const pause = { aiAgentPausedAt: new Date(), aiAgentPausedBy: randomUUID() };
+    expect(
+      await db.forOrg(organizationId, (tx) => tx.subscription.findUnique({ where: { organizationId } })),
+    ).toMatchObject({ aiAgentPausedAt: null });
+    expect(
+      await db.forOrg(organizationId, (tx) => tx.subscriptionPolicy.findUnique({ where: { id: true } })),
+    ).toMatchObject({ aiAgentPausedAt: null });
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.subscription.update({ where: { organizationId }, data: pause })),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      db.forOrg(organizationId, (tx) => tx.subscriptionPolicy.update({ where: { id: true }, data: pause })),
+    ).rejects.toThrow(/permission denied/);
+  });
 });

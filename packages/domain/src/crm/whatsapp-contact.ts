@@ -6,6 +6,7 @@
 import { internationalPhone } from "@travel-crm/contracts/kernel";
 import type { TripInput } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
+import { recordAudit } from "../audit/index.js";
 import { DomainError, type Actor } from "../kernel/index.js";
 import { isBlocked } from "./blocking.js";
 import { recordLeadEvent } from "./lead-events.js";
@@ -166,4 +167,36 @@ export async function recordWhatsAppFirstReply(tx: OrgTx, personId: string, at: 
   const open = await newestOpenLead(tx, personId);
   if (open === null) return;
   await tx.lead.updateMany({ where: { id: open.id, firstReplyAt: null }, data: { firstReplyAt: at } });
+}
+
+/**
+ * Sets a WhatsApp person's name from what the customer said, but only while the name is still the stand-in a nameless number
+ * got or the profile name WhatsApp gave: a name a member typed is theirs. The lead's timeline says what the AI set; a stand-in
+ * is not quoted there, since it holds the number. Returns whether the name changed.
+ */
+export async function renameWhatsAppPerson(
+  tx: OrgTx,
+  actor: Actor,
+  input: { personId: string; leadId: string; name: string; profileName: string | null; phoneE164: string },
+): Promise<boolean> {
+  const name = input.name.trim().slice(0, 80);
+  if (name === "") return false;
+  const person = await tx.person.findUnique({ where: { id: input.personId }, select: { name: true } });
+  if (person === null || person.name === name) return false;
+  const profile = input.profileName?.trim().slice(0, 120) ?? "";
+  const placeholder = isWhatsAppPlaceholderName(person.name, input.phoneE164);
+  if (!placeholder && (profile === "" || person.name !== profile)) return false;
+  await tx.person.update({ where: { id: input.personId }, data: { name } });
+  await recordLeadEvent(tx, actor, {
+    leadId: input.leadId,
+    kind: "ai-field-set",
+    byAi: true,
+    aiField: { field: "name", from: placeholder ? null : person.name.slice(0, 120), to: name },
+  });
+  await recordAudit(tx, actor, {
+    action: "ai.person-named",
+    entityType: "person",
+    entityId: input.personId,
+  });
+  return true;
 }

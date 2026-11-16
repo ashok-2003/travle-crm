@@ -47,3 +47,16 @@ export function formatMoney(amount: Money, options: { symbol?: boolean } = {}): 
   const symbol = options.symbol === false ? "" : currencySymbols[amount.currency];
   return `${amount.amountPaise < 0 ? "-" : ""}${symbol}${rupees}.${paise}`;
 }
+
+/**
+ * Money as a customer reads it in a message: whole rupees, "₹6,999" or "₹1,25,000", and paise only when they aren't
+ * zero ("₹6,999.50"). Exact on integer paise, like formatMoney, and never rounds.
+ */
+export function formatRupees(amountPaise: number | bigint): string {
+  const paise = BigInt(amountPaise);
+  const magnitude = paise < 0n ? -paise : paise;
+  const rupees = groupDigits((magnitude / 100n).toString());
+  const rest = magnitude % 100n;
+  const fraction = rest === 0n ? "" : `.${rest.toString().padStart(2, "0")}`;
+  return `${paise < 0n ? "-" : ""}₹${rupees}${fraction}`;
+}

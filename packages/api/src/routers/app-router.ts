@@ -6,6 +6,7 @@ import { attachmentsRouter } from "./attachments.js";
 import { auditRouter } from "./audit.js";
 import { blockedContactsRouter } from "./blocked-contacts.js";
 import { bookingsRouter } from "./bookings.js";
+import { paymentsToCheckRouter } from "./payments-to-check.js";
 import { callsRouter } from "./calls.js";
 import { departuresRouter } from "./departures.js";
 import { destinationsRouter } from "./destinations.js";
@@ -76,6 +77,7 @@ export const appRouter = router({
   packages: packagesRouter,
   publicPages: publicPagesRouter,
   bookings: bookingsRouter,
+  paymentsToCheck: paymentsToCheckRouter,
   departures: departuresRouter,
   suppliers: suppliersRouter,
   ai: aiRouter,

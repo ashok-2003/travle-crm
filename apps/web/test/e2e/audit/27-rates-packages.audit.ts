@@ -2,6 +2,7 @@
 // minimum-margin warning, a package with two tiers, a package's public page and its enquiry form (joining a departure).
 import { saveBusinessProfile } from "../support/documents";
 import { expect, signInByEmail, test } from "../support/fixtures";
+import { ownDeparture } from "../support/departures";
 import { callApi, dayInIndia } from "../support/leads";
 import {
   aDestination,
@@ -112,6 +113,7 @@ test("rates, a priced quote with the warning, a package with tiers, and its publ
       pricePaise: 3_200_000,
       cutoffOn: null,
       notes: "",
+      ...ownDeparture,
     });
   }
   const visitor = await visitorsDevice(browser);

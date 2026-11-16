@@ -71,7 +71,10 @@ export async function withdrawWhatsApp(
     },
   });
   const inChats = { organizationId, conversationId: { in: conversationIds } };
-  let inboxRows = (await tx.whatsappBroadcastRecipient.deleteMany({ where: inChats })).count;
+  // Payments to check: the proofs kept from these chats name the chat, the message and the lead; a plain DELETE (the runtime
+  // role has no right to it, the platform role does).
+  let inboxRows = (await tx.paymentProof.deleteMany({ where: inChats })).count;
+  inboxRows += (await tx.whatsappBroadcastRecipient.deleteMany({ where: inChats })).count;
   inboxRows += (await tx.scheduledMessage.deleteMany({ where: inChats })).count;
   inboxRows += (await tx.conversationTag.deleteMany({ where: inChats })).count;
   inboxRows += (await tx.conversationRead.deleteMany({ where: inChats })).count;

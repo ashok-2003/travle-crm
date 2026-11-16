@@ -8,13 +8,9 @@ import type { LeadDetail, TravelWhen, TripDetail } from "@travel-crm/contracts/c
 import { multiply, money, yearIn } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
-import { SparklesIcon } from "lucide-react";
-import { useDecideLeadAiFields, useLeadAiFields } from "@/ai/use-ai";
-import { InfoHint } from "@/components/info-hint";
-import { RefusalAlert } from "@/components/refusal-alert";
-import { Button } from "@/components/ui/button";
+import { AiValue } from "@/ai/ai-value";
+import { useLeadAiFields } from "@/ai/use-ai";
 import { Details, type Detail } from "@/components/details";
-import { useWriteAccess } from "@/subscription/write-access";
 import { rupees } from "@/components/forms/money-field";
 import { formatRupees } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
@@ -84,49 +80,21 @@ const rowOf: Record<SuggestedLeadField, TripRow> = {
   room_type: "roomType",
 };
 
-/** What the AI filled in from the customer's first messages, until a person confirms or dismisses it. */
-function SuggestedPanel({ leadId, rows }: { leadId: string; rows: TripRow[] }) {
-  const t = useTranslations("leads.lead.trip.suggested");
-  const labels = useTranslations("leads.lead.trip.labels");
-  const decide = useDecideLeadAiFields(leadId);
-  const write = useWriteAccess("change");
-  return (
-    <div data-ai-suggested className="flex flex-col gap-2 rounded-lg bg-people-tint/50 p-3 text-people-tint-ink">
-      <p className="flex items-center gap-2 font-medium">
-        <SparklesIcon aria-hidden="true" className="size-4" />
-        {t("title", { fields: [...new Set(rows)].map((row) => labels(row)).join(", ") })}
-      </p>
-      <p className="text-caption">{t("hint")}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          disabled={decide.isPending || !write.allowed}
-          onClick={() => {
-            decide.mutate({ leadId, decision: "confirm" });
-          }}
-        >
-          {t("confirm")}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={decide.isPending || !write.allowed}
-          onClick={() => {
-            decide.mutate({ leadId, decision: "dismiss" });
-          }}
-        >
-          {t("dismiss")}
-        </Button>
-      </div>
-      <RefusalAlert error={decide.error} />
-    </div>
-  );
-}
-
 export function TripCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads");
   const suggestions = useLeadAiFields(lead.id).data?.fields ?? [];
-  const aiRows = new Map(suggestions.map((one) => [rowOf[one.field], one.excerpt]));
+  // A row may hold two fields (adults and the children's ages): the newest one's day and words are shown.
+  const aiRows = new Map<TripRow, { fields: SuggestedLeadField[]; filledAt: string; excerpt: string }>();
+  for (const one of suggestions) {
+    const row = rowOf[one.field];
+    const before = aiRows.get(row);
+    const newest = before === undefined || one.filledAt > before.filledAt ? one : before;
+    aiRows.set(row, {
+      fields: [...(before?.fields ?? []), one.field],
+      filledAt: newest.filledAt,
+      excerpt: newest.excerpt,
+    });
+  }
   const words = useTripWords();
   const canEdit = useHolds("leads:edit");
   const [editing, setEditing] = useState(false);
@@ -151,17 +119,15 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
       : undefined;
   const asked = (key: "departureCity" | "tripType" | "hotelCategory" | "food" | "roomType", value: string | null) =>
     value === null ? [] : [{ label: t(`lead.trip.labels.${key}`), value: marked(key, value) }];
-  // A suggested row's value wears the people violet, with the customer's own words a tap away.
+  // A row the AI filled wears the people violet, with where it came from a tap away.
   const marked = (key: TripRow, value: ReactNode): ReactNode => {
-    if (!aiRows.has(key)) return value;
-    const excerpt = aiRows.get(key);
-    return (
-      <span className="inline-flex flex-wrap items-center gap-1 rounded-badge bg-people-tint px-1 text-people-tint-ink">
+    const ai = aiRows.get(key);
+    return ai === undefined ? (
+      value
+    ) : (
+      <AiValue leadId={lead.id} fields={ai.fields} filledAt={ai.filledAt} excerpt={ai.excerpt}>
         {value}
-        {excerpt !== undefined && excerpt !== "" && (
-          <InfoHint term={t("lead.trip.suggested.term")}>{t("lead.trip.suggested.said", { words: excerpt })}</InfoHint>
-        )}
-      </span>
+      </AiValue>
     );
   };
   const rows: Detail[] = [
@@ -195,7 +161,6 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
         )
       }
     >
-      {canEdit && aiRows.size > 0 && <SuggestedPanel leadId={lead.id} rows={[...aiRows.keys()]} />}
       <Details rows={rows} />
       {canEdit && <EditTripDialog lead={lead} dialog={{ open: editing, setOpen: setEditing }} returnFocusTo={opener} />}
     </LeadCard>

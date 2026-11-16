@@ -15,6 +15,7 @@ const base: WorkerJobDependencies = {
   db: unused,
   identity,
   files: unused,
+  storage: unused,
   spreadsheets: unused,
   subscriptions: unused,
   seatLimit: unused,

@@ -66,23 +66,31 @@ describe("NotificationPreferencesScreen", () => {
     });
     expect(await screen.findByRole("heading", { level: 1, name: preferences.title })).toBeVisible();
     const kind = preferences.kinds.shareLinkOpened.label;
-    expect(await switchFor(preferences.everything.label, "email")).toBeChecked();
+    expect(await switchFor(preferences.everything.label, "email")).not.toBeChecked();
     expect(await switchFor(preferences.everything.label, "push")).not.toBeChecked();
-    expect(await switchFor(kind, "email")).toBeChecked();
+    expect(await switchFor(kind, "email")).not.toBeChecked();
     expect(await switchFor(kind, "push")).toBeChecked();
     expect(screen.getByText(preferences.kindWins)).toBeVisible();
+  });
+
+  it("starts with email off and push on for a person who never chose, and says email waits for them", async () => {
+    renderScreen({ "notifications.preferences.list": choices([]) });
+    expect(await switchFor(preferences.everything.label, "email")).not.toBeChecked();
+    expect(await switchFor(preferences.kinds.shareLinkOpened.label, "email")).not.toBeChecked();
+    expect(await switchFor(preferences.everything.label, "push")).toBeChecked();
+    expect(screen.getByText(preferences.emailStartsOff)).toBeVisible();
   });
 
   it("saves a change at once", async () => {
     renderScreen({
       "notifications.preferences.list": choices([]),
-      "notifications.preferences.set": { data: { channel: "email", kind: "*", optedOut: true } },
+      "notifications.preferences.set": { data: { channel: "email", kind: "*", optedOut: false } },
     });
     const email = await switchFor(preferences.everything.label, "email");
     await userEvent.click(email);
-    expect(email).not.toBeChecked();
+    expect(email).toBeChecked();
     await waitFor(() => {
-      expect(sentInputs("notifications.preferences.set")).toEqual([{ channel: "email", kind: "*", optedOut: true }]);
+      expect(sentInputs("notifications.preferences.set")).toEqual([{ channel: "email", kind: "*", optedOut: false }]);
     });
   });
 
@@ -121,7 +129,7 @@ describe("NotificationPreferencesScreen", () => {
     expect(await screen.findByText(preferences.loadFailed)).toBeVisible();
     api.answer("notifications.preferences.list", choices([]));
     await userEvent.click(screen.getByRole("button", { name: messages.common.tryAgain }));
-    expect(await switchFor(preferences.everything.label, "email")).toBeChecked();
+    expect(await switchFor(preferences.everything.label, "push")).toBeChecked();
   });
 });
 

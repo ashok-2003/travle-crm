@@ -12,8 +12,11 @@ export type AutoSendResult =
 /** Reasons a later minute may mend. */
 const LATER = ["TEMPLATE_CAP_REACHED", "TIER_LIMIT_REACHED", "paused", "not_connected"];
 
-/** The lead's person's chat on the agency's live number, made when there is none; null without a phone or a number. */
-export async function chatForLead(tx: OrgTx, leadId: string) {
+/**
+ * The lead's person's chat on the agency's live number, made when there is none (unless `make` is false, for a look that
+ * changes nothing: then a chat not made yet is "none_yet"); null without a phone or a number.
+ */
+export async function chatForLead(tx: OrgTx, leadId: string, make = true) {
   const lead = await tx.lead.findUnique({
     where: { id: leadId },
     select: { personId: true, person: { select: { phoneE164: true } } },
@@ -24,11 +27,13 @@ export async function chatForLead(tx: OrgTx, leadId: string) {
   if (connection === null || connection.mode === "demo" || !["connected", "problem"].includes(connection.status)) {
     return { chat: null, reason: connection?.status === "paused" ? "paused" : "not_connected" } as const;
   }
-  await tx.whatsappConversation.createMany({
-    data: [{ connectionId: connection.id, phoneE164, personId: lead.personId }],
-    skipDuplicates: true,
-  });
-  const chat = await tx.whatsappConversation.findFirstOrThrow({
+  if (make) {
+    await tx.whatsappConversation.createMany({
+      data: [{ connectionId: connection.id, phoneE164, personId: lead.personId }],
+      skipDuplicates: true,
+    });
+  }
+  const chat = await tx.whatsappConversation.findFirst({
     where: { connectionId: connection.id, phoneE164 },
     select: {
       id: true,
@@ -40,7 +45,8 @@ export async function chatForLead(tx: OrgTx, leadId: string) {
       state: true,
     },
   });
-  if (chat.personId === null) {
+  if (chat === null) return { chat: null, reason: "none_yet" } as const;
+  if (chat.personId === null && make) {
     await tx.whatsappConversation.update({ where: { id: chat.id }, data: { personId: lead.personId } });
   }
   if (chat.hidden || chat.state !== "open") return { chat: null, reason: "unavailable" } as const;
@@ -68,7 +74,25 @@ export async function sendToLead(
       ? { kind: "later", reason: found.reason }
       : { kind: "never", reason: found.reason };
   }
-  const chat = found.chat;
+  return sendToChat(tx, found.chat, input, now);
+}
+
+type ChatToSendTo = NonNullable<Awaited<ReturnType<typeof chatForLead>>["chat"]>;
+
+/** The same send, to a chat already in hand (a conversation with no lead): free text in the window, else the template. */
+export async function sendToChat(
+  tx: OrgTx,
+  chat: ChatToSendTo,
+  input: {
+    organizationId: string;
+    templateId: string | null;
+    params: readonly string[];
+    sessionText?: string;
+    agreed: boolean;
+    clientToken: string;
+  },
+  now: Date,
+): Promise<AutoSendResult> {
   if (input.sessionText !== undefined && windowIsOpen(chat.lastInboundAt, now)) {
     const sent = await queueSystemText(
       tx,

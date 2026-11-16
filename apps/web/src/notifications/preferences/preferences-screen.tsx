@@ -59,6 +59,7 @@ export function NotificationPreferencesScreen() {
         {impersonated && (
           <p className="text-label text-muted-foreground">{t("impersonating", { name: me.user.name })}</p>
         )}
+        {hasEmail && <p className="text-label text-muted-foreground">{t("emailStartsOff")}</p>}
         {!hasEmail && <p className="text-label text-muted-foreground">{t("noEmail")}</p>}
         <Card>
           <CardContent className="flex flex-col gap-3">

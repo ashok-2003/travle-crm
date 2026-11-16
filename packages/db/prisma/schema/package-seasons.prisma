@@ -1,0 +1,28 @@
+// A group package's seasons: the dates a set of per-person prices holds (release: group packages).
+
+/// A season of a group package (Nov 2026): per-person prices in paise by room type. Seasons of one package never overlap (the
+/// migration's EXCLUDE constraint package_season_no_overlap). Plain data: rows are deleted for real, not soft-deleted.
+model PackageSeason {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId       String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                   String        @id @default(uuid(7)) @db.Uuid
+  templateId           String        @map("template_id") @db.Uuid
+  label                String
+  startsOn             DateTime      @map("starts_on") @db.Date
+  endsOn               DateTime      @map("ends_on") @db.Date
+  priceSinglePaise     BigInt?       @map("price_single_paise")
+  priceDoublePaise     BigInt?       @map("price_double_paise")
+  priceTriplePaise     BigInt?       @map("price_triple_paise")
+  priceQuadPaise       BigInt?       @map("price_quad_paise")
+  priceChildBedPaise   BigInt?       @map("price_child_bed_paise")
+  priceChildNoBedPaise BigInt?       @map("price_child_no_bed_paise")
+  createdBy            String?       @map("created_by") @db.Uuid
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  template             QuoteTemplate @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, templateId, startsOn], map: "package_season_by_template")
+  @@map("package_season")
+}

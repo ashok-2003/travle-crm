@@ -26,8 +26,7 @@ async function shoot(page: Page, testInfo: TestInfo, name: string): Promise<void
   if (before !== null) await page.setViewportSize(before);
 }
 
-const turnOnAi = (page: Page) =>
-  callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm", instructions: "" });
+const turnOnAi = (page: Page) => callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm" });
 
 async function openRateSheet(page: Page, supplierId: string) {
   await page.goto(`/suppliers/${supplierId}`);

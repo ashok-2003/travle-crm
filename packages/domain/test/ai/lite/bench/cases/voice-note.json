@@ -1,0 +1,16 @@
+{
+  "name": "voice note",
+  "chat": [
+    {
+      "from": "customer",
+      "kind": "audio"
+    }
+  ],
+  "scripted": [],
+  "expect": {
+    "sent": true,
+    "flagged": true,
+    "move": "hand_over",
+    "handOver": "voice_note"
+  }
+}

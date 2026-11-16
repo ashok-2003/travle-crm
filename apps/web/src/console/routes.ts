@@ -14,6 +14,11 @@ export const consoleRoutes = {
   /** The emails that failed, a super admin's; each one's page under it. */
   emails: "/console/emails",
   email: (emailId: string) => `/console/emails/${emailId}`,
+  /** The lite AI agent's prompt library, a super admin's; its turns are listed under an organization. */
+  aiPrompts: "/console/ai-prompts",
+  aiTraces: (organizationId: string, conversationId?: string) =>
+    `/console/organizations/${organizationId}/ai-traces${conversationId === undefined ? "" : `?chat=${conversationId}`}`,
+  aiTrace: (organizationId: string, traceId: string) => `/console/organizations/${organizationId}/ai-traces/${traceId}`,
   /** The WhatsApp numbers agencies use, and the webhook MSG91 calls. */
   whatsapp: "/console/whatsapp",
   log: "/console/log",

@@ -14,7 +14,7 @@ describe("delivering notifications", () => {
   const kit = useDeliveryKit("Deliveries");
 
   it("emails from the organization's name with its Reply-To and a way to opt out, and pushes every browser", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     const phone = await kit.subscribe(asha, "phone");
     const laptop = await kit.subscribe(asha, "laptop");
     const { id, event } = await kit.notifyMember(asha);
@@ -45,7 +45,7 @@ describe("delivering notifications", () => {
   });
 
   it("sends nothing again when the same delivery runs twice", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     await kit.subscribe(asha, "phone");
     const { event } = await kit.notifyMember(asha);
     await deliver(kit, event);
@@ -58,13 +58,25 @@ describe("delivering notifications", () => {
 
   it("leaves Reply-To out when the organization has no contact email", async () => {
     kit.profile = { ...kit.profile, contactEmail: null };
-    const { event } = await kit.notifyMember(kit.addMember("asha@agency.example"));
+    const { event } = await kit.notifyMember(await kit.addMember("asha@agency.example"));
     await deliver(kit, event);
     expect(kit.email.sent[0]?.replyTo).toBeUndefined();
   });
 
+  it("emails nobody who never turned email on, and still pushes to them", async () => {
+    const asha = await kit.addMember("asha@agency.example", { emailTurnedOn: false });
+    const phone = await kit.subscribe(asha, "phone");
+    const { id, event } = await kit.notifyMember(asha);
+
+    await deliver(kit, event);
+
+    expect(kit.email.sent).toEqual([]);
+    expect(kit.push.sent.map((sent) => sent.subscription.endpoint)).toEqual([phone]);
+    expect((await kit.row(id)).emailedAt).toBeNull();
+  });
+
   it("respects opt-outs: a kind's own setting wins over every kind", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     await kit.subscribe(asha, "phone");
     const person = personIn(kit.organizationId, asha);
     onTestFinished(async () => {
@@ -92,7 +104,7 @@ describe("delivering notifications", () => {
   });
 
   it("sends no email to someone who opted out of that very kind, though they allowed every kind", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     const person = personIn(kit.organizationId, asha);
     await kit.db.forOrg(kit.organizationId, (tx) =>
       setPreference(tx, person, { channel: "email", kind: "*", optedOut: false }),
@@ -108,7 +120,7 @@ describe("delivering notifications", () => {
   });
 
   it("never emails staff without email, and still pushes to them", async () => {
-    const ravi = kit.addMember(null);
+    const ravi = await kit.addMember(null);
     const endpoint = await kit.subscribe(ravi, "ravi");
     const { event } = await kit.notifyMember(ravi);
 
@@ -127,7 +139,7 @@ describe("delivering notifications", () => {
   });
 
   it("deletes a subscription the push service has forgotten, and keeps the others", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     const forgotten = await kit.subscribe(asha, "phone");
     const kept = await kit.subscribe(asha, "laptop");
     kit.push.markGone(forgotten);
@@ -142,7 +154,7 @@ describe("delivering notifications", () => {
   });
 
   it("fails when email fails, so the job retries, and the retry sends it", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     const { id, event } = await kit.notifyMember(asha, { channels: ["email"] });
     const down: EmailSender = { send: () => Promise.reject(new Error("SMTP is down")) };
 
@@ -154,7 +166,7 @@ describe("delivering notifications", () => {
   });
 
   it("does nothing for a notification that isn't in the event's organization", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     await kit.subscribe(asha, "phone");
     const { event } = await kit.notifyMember(asha);
     const otherOrganizationId = await createTestOrganization(kit.platform, "Other deliveries");
@@ -169,7 +181,7 @@ describe("delivering notifications", () => {
   });
 
   it("shortens a long notification so every push fits, and still pushes", async () => {
-    const ravi = kit.addMember(null);
+    const ravi = await kit.addMember(null);
     const endpoint = await kit.subscribe(ravi, "ravi");
     const { event } = await kit.notifyMember(ravi, {
       title: "🙂".repeat(120),
@@ -186,7 +198,7 @@ describe("delivering notifications", () => {
   });
 
   it("retries a push after a transient failure, and pushes once it works", async () => {
-    const ravi = kit.addMember(null);
+    const ravi = await kit.addMember(null);
     const endpoint = await kit.subscribe(ravi, "ravi");
     const { id, event } = await kit.notifyMember(ravi, { channels: ["push"] });
     kit.push.failNext(1);

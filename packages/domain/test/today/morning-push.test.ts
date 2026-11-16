@@ -26,7 +26,9 @@ describe("the morning push", () => {
   const dependencies = (): MorningPushDependencies => ({
     db,
     logger: quiet,
-    subscriptions: { entitlementsOf: () => Promise.resolve({ access } as never) },
+    subscriptions: {
+      entitlementsOf: () => Promise.resolve({ access, modules: new Set(["crm", "bookings"]) } as never),
+    },
     identity: {
       organizationsPage: () => Promise.resolve([{ id: organizationId, timeZone: IST }]),
       memberContacts: (_organization, userIds) =>

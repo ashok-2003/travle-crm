@@ -24,6 +24,7 @@ import { LeadBookingsCard } from "@/bookings/lead-bookings-card";
 import { LeadDeparturesCard } from "@/departures/lead-departures-card";
 import { LeadQuotesCard } from "@/quotes/lead-quotes-card";
 import { LeadInsight } from "@/ai/insight-card";
+import { StageSuggestionAlert } from "@/ai/stage-suggestion";
 import { LeadBookings } from "@/ai/lead-bookings";
 import { LeadSalesCard } from "@/sales/lead-sales-card";
 import { isOnPlan } from "@/shell/navigation";
@@ -56,6 +57,7 @@ function LeadColumns({ lead }: { lead: LeadDetail }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
       <div className="flex flex-col gap-6">
+        <StageSuggestionAlert leadId={lead.id} />
         <LeadSalesCard leadId={lead.id} open={isOpenStage(lead.stage)} />
         <LeadBookings leadId={lead.id} />
         <LeadInsight leadId={lead.id} />

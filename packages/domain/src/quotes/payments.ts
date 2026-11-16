@@ -16,6 +16,7 @@ import { advanceLeadStage, retreatLeadStage } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { assertTakesStandInPayments } from "./placeholder-payments.js";
 import { assertDraft, findQuoteForChange, paidOf } from "./quote-rows.js";
 
 const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
@@ -101,6 +102,8 @@ export async function recordPayment(
   if (input.amountPaise > left) {
     throw new DomainError("CONFLICT", "PAYMENT_EXCEEDS_BALANCE", "That is more than is left to pay on this quote");
   }
+  // Money paid on the lead's chat-made quote will move here (its booking takes this quote): all of it must fit.
+  await assertTakesStandInPayments(tx, quote.id, input.amountPaise);
   const accepts = quote.status !== "accepted";
   const lead = await tx.lead.findUniqueOrThrow({ where: { id: quote.leadId }, select: { stage: true } });
   const row = await tx.quotePayment.create({

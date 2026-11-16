@@ -3,7 +3,7 @@
 // with the sheet's words beside them, and a sheet divided into parts by tab or by pages.
 import { createMemorySpreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { describe, expect, it } from "vitest";
-import { parsePrintedPrice, numbersIn, priceInLine, taxWordsIn } from "../../src/ai/rates/price.js";
+import { amountsIn, parsePrintedPrice, numbersIn, priceInLine, taxWordsIn } from "../../src/ai/rates/price.js";
 import { proposedRates } from "../../src/ai/rates/rows.js";
 import { parsePrintedDay } from "../../src/ai/rates/season-dates.js";
 import { excelParts, pdfParts } from "../../src/ai/rates/source.js";
@@ -360,5 +360,11 @@ describe("a sheet divided into parts", () => {
     const parts = await pdfParts(tinyPdf([page(1), page(2), page(3), page(4)]));
     expect(parts.length).toBeGreaterThan(1);
     expect(parts[0]?.label).toMatch(/^Pages? 1/);
+  });
+});
+
+describe("amountsIn", () => {
+  it("reads both amounts of Double ₹6,999, Triple ₹5,999 (a trailing comma is not part of an amount)", () => {
+    expect(amountsIn("Double ₹6,999, Triple ₹5,999")).toEqual(new Set([699900, 599900]));
   });
 });

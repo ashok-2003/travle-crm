@@ -15,6 +15,7 @@ import {
 } from "../../src/inbox/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import { systemActor } from "../../src/kernel/index.js";
+import { aLead } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
@@ -97,6 +98,26 @@ describe("erasing a customer who is in the sales inbox", () => {
         });
       }
     });
+    const trace = (conversationId: string) =>
+      inOrg((tx) =>
+        tx.aiTurnTrace.create({
+          data: {
+            id: randomUUID(),
+            conversationId,
+            startedAt: testNow,
+            kind: "reply",
+            outcome: "replied",
+            inputTokens: 1,
+            outputTokens: 1,
+            durationMs: 1,
+            promptVersions: {},
+            fileKey: `organizations/${organizationId}/ai-traces/2026-10-23/${randomUUID()}.json.gz`,
+            expiresAt: new Date("2100-01-01T00:00:00Z"), // far off: no other file's sweep may take it first
+          },
+        }),
+      );
+    await trace(mine.id);
+    const otherTrace = await trace(other.id);
     await inOrg(async (tx) => {
       const template = await tx.whatsappTemplate.create({
         data: {
@@ -132,9 +153,13 @@ describe("erasing a customer who is in the sales inbox", () => {
       ),
     );
 
-    await platformDb.transaction((tx) =>
+    const erased = await platformDb.transaction((tx) =>
       eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
     );
+    expect(erased).toMatchObject({ aiTraces: 1 });
+    expect(
+      (await inOrg((tx) => tx.aiTurnTrace.findUniqueOrThrow({ where: { id: otherTrace.id } }))).expiresAt.getTime(),
+    ).toBeGreaterThan(testNow.getTime());
 
     const kept = (chatId: string) =>
       inOrg(async (tx) => ({
@@ -150,5 +175,58 @@ describe("erasing a customer who is in the sales inbox", () => {
     const notes = (await inOrg((tx) => tx.leadNote.findMany())).map((note) => note.body);
     expect(notes).not.toContain(`Neha wants a Spiti trip (${mine.id})`);
     expect(notes).toContain(`Neha wants a Spiti trip (${other.id})`);
+  });
+  const recordUnmatchedNotice = (tx: Parameters<Parameters<TestInbox["db"]["forOrg"]>[1]>[0], chatId: string) =>
+    tx.notification.create({
+      data: {
+        recipientUserId: randomUUID(),
+        kind: "payment.proof-to-match",
+        title: "Neha sent a payment screenshot",
+        body: "Check it.",
+        link: `/inbox/${chatId}`,
+        sourceEventId: randomUUID(),
+      },
+    });
+
+  it("deletes the payment proofs kept from their chat and leaves another customer's", async () => {
+    const connection = await aConnectedAgency(test);
+    const { organizationId } = connection;
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const phones = [freshPhone(), freshPhone()];
+    for (const phone of phones) {
+      await deliver(test, fromCustomer(connection, { customerNumber: phone.replace("+", ""), text: "Hi" }));
+    }
+    const chats = await inOrg((tx) => tx.whatsappConversation.findMany({ orderBy: { phoneE164: "asc" } }));
+    const mine = chats.find((chat) => chat.phoneE164 === phones[0]);
+    const other = chats.find((chat) => chat.phoneE164 === phones[1]);
+    if (mine === undefined || mine.personId === null || other === undefined) throw new Error("Both need a chat");
+    const personId = mine.personId;
+    await inOrg(async (tx) => {
+      for (const chat of [mine, other]) {
+        const lead = await aLead(tx, { personId: chat.personId ?? personId });
+        const shot = await tx.whatsappMessage.create({
+          data: {
+            conversationId: chat.id,
+            direction: "in",
+            origin: "customer",
+            kind: "image",
+            wamid: `wamid.${randomUUID()}`,
+            status: "received",
+            occurredAt: testNow,
+          },
+        });
+        await tx.paymentProof.create({ data: { conversationId: chat.id, messageId: shot.id, leadId: lead.id } });
+        await recordUnmatchedNotice(tx, chat.id);
+      }
+    });
+
+    await platformDb.transaction((tx) =>
+      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
+    );
+
+    expect(await inOrg((tx) => tx.paymentProof.count({ where: { conversationId: mine.id } }))).toBe(0);
+    expect(await inOrg((tx) => tx.paymentProof.count({ where: { conversationId: other.id } }))).toBe(1);
+    expect(await inOrg((tx) => tx.notification.count({ where: { link: { contains: mine.id } } }))).toBe(0);
+    expect(await inOrg((tx) => tx.notification.count({ where: { link: { contains: other.id } } }))).toBe(1);
   });
 });

@@ -26,7 +26,7 @@ describe("the OpenRouter adapter", () => {
     const { fetcher, calls } = fakeFetch(answer("Hi there"));
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [] },
       fetch: fetcher,
     });
     expect(await model.complete({ feature: "suggest_reply", messages, user: "org-1" })).toEqual({
@@ -35,6 +35,11 @@ describe("the OpenRouter adapter", () => {
       model: "m",
       inputTokens: 0,
       outputTokens: 0,
+      toolCalls: [],
+      finishReason: "stop",
+      cachedTokens: 0,
+      reasoningTokens: 0,
+      ms: expect.any(Number) as number,
     });
     const call = calls[0];
     if (call === undefined) throw new Error("no request was sent");
@@ -45,7 +50,7 @@ describe("the OpenRouter adapter", () => {
   });
 
   it("sends OpenRouter's provider field to OpenRouter alone, never to Google's or any other endpoint", async () => {
-    const models = { suggest_reply: ["gemini-2.5-flash"], score_lead: [], autopilot: [], learn: [] };
+    const models = { suggest_reply: ["gemini-2.5-flash"], score_lead: [], autopilot: [] };
     const google = fakeFetch(answer("From Gemini", "gemini-2.5-flash"));
     const gemini = createOpenRouterModel({
       apiKey: KEY,
@@ -91,7 +96,7 @@ describe("the OpenRouter adapter", () => {
     const first = fakeFetch(new Response("", { status: 429 }), answer("From the fallback", "b/two"));
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [] },
       fetch: first.fetcher,
     });
     expect(await model.complete({ feature: "suggest_reply", messages })).toMatchObject({ ok: true, model: "b/two" });
@@ -100,7 +105,7 @@ describe("the OpenRouter adapter", () => {
     const none = fakeFetch(new Response("", { status: 429 }), new Response("", { status: 503 }));
     const limited = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [] },
       fetch: none.fetcher,
     });
     expect(await limited.complete({ feature: "suggest_reply", messages })).toEqual({
@@ -117,7 +122,7 @@ describe("the OpenRouter adapter", () => {
     );
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [] },
       fetch: replies.fetcher,
     });
     await model.complete({ feature: "suggest_reply", messages });
@@ -129,7 +134,7 @@ describe("the OpenRouter adapter", () => {
     const { fetcher } = fakeFetch(new Error(`connect failed for ${KEY}`));
     const model = createOpenRouterModel({
       apiKey: KEY,
-      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [], learn: [] },
+      models: { suggest_reply: ["a/one"], score_lead: ["s/one"], autopilot: [] },
       fetch: fetcher,
     });
     const result = await model.complete({ feature: "suggest_reply", messages });
@@ -140,8 +145,8 @@ describe("the OpenRouter adapter", () => {
   it("is not configured without a key or a model, and sends nothing", async () => {
     const { fetcher, calls } = fakeFetch();
     for (const options of [
-      { apiKey: "", models: { suggest_reply: ["a"], score_lead: ["s"], autopilot: [], learn: [] } },
-      { apiKey: KEY, models: { suggest_reply: [], score_lead: [], autopilot: [], learn: [] } },
+      { apiKey: "", models: { suggest_reply: ["a"], score_lead: ["s"], autopilot: [] } },
+      { apiKey: KEY, models: { suggest_reply: [], score_lead: [], autopilot: [] } },
     ]) {
       const model = createOpenRouterModel({ ...options, fetch: fetcher });
       expect(await model.complete({ feature: "suggest_reply", messages })).toEqual({
@@ -183,5 +188,132 @@ describe("the OpenRouter adapter", () => {
       { type: "input_audio", input_audio: { data: "AQID", format: "wav" } },
       { type: "image_url", image_url: { url: "data:image/png;base64,BAU=" } },
     ]);
+  });
+
+  const schema = { name: "read", jsonSchema: { type: "object", properties: { a: { type: "string" } } } };
+  const unsupported = () =>
+    new Response(JSON.stringify({ error: { message: "No endpoints found that support the requested parameters" } }), {
+      status: 400,
+    });
+
+  it("a schema request sends json_schema with ZDR", async () => {
+    const { fetcher, calls } = fakeFetch(answer('{"a":"x"}'));
+    const model = createOpenRouterModel({ apiKey: KEY, models: { autopilot: ["a/one"] }, fetch: fetcher });
+    await model.complete({ feature: "autopilot", messages, json: true, schema });
+    expect(bodyOf(calls[0] ?? { init: {} })).toMatchObject({
+      response_format: { type: "json_schema", json_schema: { name: "read", strict: false, schema: schema.jsonSchema } },
+      provider: { zdr: true, require_parameters: true },
+    });
+  });
+
+  it("a model with no json_schema endpoint is asked again in json mode with the schema", async () => {
+    for (const refusal of [new Response("{}", { status: 404 }), unsupported()]) {
+      const { fetcher, calls } = fakeFetch(refusal, answer('{"a":"x"}'));
+      const model = createOpenRouterModel({ apiKey: KEY, models: { autopilot: ["a/one"] }, fetch: fetcher });
+      expect(await model.complete({ feature: "autopilot", messages, schema })).toMatchObject({ ok: true });
+      expect(calls).toHaveLength(2);
+      const retry = bodyOf(calls[1] ?? { init: {} });
+      expect(retry).toMatchObject({ model: "a/one", response_format: { type: "json_object" } });
+      const sent = retry.messages as { role: string; content: string }[];
+      expect(sent[0]).toEqual({
+        role: "system",
+        content: `Answer as JSON matching: ${JSON.stringify(schema.jsonSchema)}`,
+      });
+      expect(sent[1]?.content).toBe("Hello");
+    }
+  });
+
+  it("appends the schema to an existing system message and goes on to the next model when the retry fails too", async () => {
+    const { fetcher, calls } = fakeFetch(
+      new Response("{}", { status: 404 }),
+      new Response("{}", { status: 404 }),
+      answer('{"a":"x"}', "b/two"),
+    );
+    const model = createOpenRouterModel({ apiKey: KEY, models: { autopilot: ["a/one", "b/two"] }, fetch: fetcher });
+    const result = await model.complete({
+      feature: "autopilot",
+      messages: [{ role: "system", content: "Be brief." }, ...messages],
+      schema,
+    });
+    expect(result).toMatchObject({ ok: true, model: "b/two" });
+    const retry = bodyOf(calls[1] ?? { init: {} }).messages as { content: string }[];
+    expect(retry[0]?.content).toBe(`Be brief.\n\nAnswer as JSON matching: ${JSON.stringify(schema.jsonSchema)}`);
+    expect(bodyOf(calls[2] ?? { init: {} })).toMatchObject({
+      model: "b/two",
+      response_format: { type: "json_schema" },
+    });
+  });
+
+  it("any 400 to a schema request is asked again in json mode: Gemini's wording, or a body that can't be read", async () => {
+    const gemini = () =>
+      new Response(
+        JSON.stringify([
+          {
+            error: {
+              code: 400,
+              message: "Invalid JSON payload received. Unknown name \"additionalProperties\" at 'response_format'",
+              status: "INVALID_ARGUMENT",
+            },
+          },
+        ]),
+        { status: 400 },
+      );
+    const unreadable = () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.error(new Error("broken"));
+          },
+        }),
+        { status: 400 },
+      );
+    for (const refusal of [gemini(), unreadable(), new Response("bad request", { status: 400 })]) {
+      const { fetcher, calls } = fakeFetch(refusal, answer('{"a":"x"}'));
+      const model = createOpenRouterModel({ apiKey: KEY, models: { autopilot: ["a/one"] }, fetch: fetcher });
+      expect(await model.complete({ feature: "autopilot", messages, schema })).toMatchObject({ ok: true });
+      expect(calls).toHaveLength(2);
+      expect(bodyOf(calls[1] ?? { init: {} })).toMatchObject({
+        model: "a/one",
+        response_format: { type: "json_object" },
+      });
+    }
+  });
+
+  it("a 400 on the json retry, or to a request with no schema, is not asked again", async () => {
+    const twice = fakeFetch(new Response("bad", { status: 400 }), new Response("bad", { status: 400 }));
+    const schemaModel = createOpenRouterModel({ apiKey: KEY, models: { autopilot: ["a/one"] }, fetch: twice.fetcher });
+    expect(await schemaModel.complete({ feature: "autopilot", messages, schema })).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    expect(twice.calls).toHaveLength(2);
+    const plain = fakeFetch(new Response("bad request", { status: 400 }));
+    const model = createOpenRouterModel({ apiKey: KEY, models: { autopilot: ["a/one"] }, fetch: plain.fetcher });
+    expect(await model.complete({ feature: "autopilot", messages, json: true })).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    expect(plain.calls).toHaveLength(1);
+  });
+
+  it("a 429 on the json retry rests the model, and the next call goes straight to the next one", async () => {
+    const { fetcher, calls } = fakeFetch(
+      new Response("bad", { status: 400 }),
+      new Response("slow down", { status: 429, headers: { "retry-after": "120" } }),
+      answer('{"a":"x"}', "b/two"),
+      answer('{"a":"y"}', "b/two"),
+    );
+    const model = createOpenRouterModel({ apiKey: KEY, models: { autopilot: ["a/one", "b/two"] }, fetch: fetcher });
+    expect(await model.complete({ feature: "autopilot", messages, schema })).toMatchObject({
+      ok: true,
+      model: "b/two",
+    });
+    expect(calls).toHaveLength(3);
+    expect(await model.complete({ feature: "autopilot", messages, schema })).toMatchObject({
+      ok: true,
+      model: "b/two",
+    });
+    expect(calls).toHaveLength(4);
+    expect(bodyOf(calls[3] ?? { init: {} })).toMatchObject({ model: "b/two" });
   });
 });

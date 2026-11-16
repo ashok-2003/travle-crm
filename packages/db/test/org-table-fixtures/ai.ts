@@ -46,6 +46,14 @@ export const fixtures: OrgTableFixtures = {
     },
     undeletable: true,
   },
+  lead_ai_suggestion: {
+    create: async (tx: OrgTx) => {
+      const person = await tx.person.create({ data: { name: "Isolation", email: `ai-${randomUUID()}@example.test` } });
+      const lead = await tx.lead.create({ data: { personId: person.id, source: "walk_in" } });
+      return tx.leadAiSuggestion.create({ data: { leadId: lead.id, kind: "lost", lostReason: "other", reason: "x" } });
+    },
+    undeletable: true,
+  },
   ai_settings: { create: (tx) => tx.aiSettings.create({ data: { enabled: true } }), undeletable: true },
   ai_autopilot: { create: (tx) => tx.aiAutopilot.create({ data: { autopilot: false } }), undeletable: true },
   ai_learning: {
@@ -149,5 +157,65 @@ export const fixtures: OrgTableFixtures = {
       });
     },
     undeletable: true,
+  },
+  payment_proof: {
+    create: async (tx: OrgTx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: digits(),
+          displayNumber: "+910000000000",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const conversation = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+91${digits().slice(2)}` },
+      });
+      const message = await tx.whatsappMessage.create({
+        data: {
+          conversationId: conversation.id,
+          direction: "in",
+          origin: "customer",
+          kind: "image",
+          wamid: randomUUID(),
+          status: "received",
+          occurredAt: new Date(),
+        },
+      });
+      return tx.paymentProof.create({ data: { conversationId: conversation.id, messageId: message.id } });
+    },
+    undeletable: true,
+  },
+  ai_turn_trace: {
+    create: async (tx: OrgTx) => {
+      const connection = await tx.whatsappConnection.create({
+        data: {
+          integratedNumber: digits(),
+          displayNumber: "+910000000000",
+          mode: "new_number",
+          status: "disconnected",
+        },
+      });
+      const conversation = await tx.whatsappConversation.create({
+        data: { connectionId: connection.id, phoneE164: `+91${digits().slice(2)}` },
+      });
+      const id = randomUUID();
+      return tx.aiTurnTrace.create({
+        data: {
+          id,
+          conversationId: conversation.id,
+          startedAt: new Date(),
+          kind: "reply",
+          outcome: "replied",
+          inputTokens: 0,
+          outputTokens: 0,
+          durationMs: 0,
+          promptVersions: {},
+          fileKey: `isolation/${id}.json.gz`,
+          expiresAt: new Date(),
+        },
+      });
+    },
+    appendOnly: true,
   },
 };

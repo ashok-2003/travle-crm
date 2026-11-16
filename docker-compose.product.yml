@@ -47,6 +47,7 @@ x-api-environment: &api-environment
   AI_API_KEY: ${AI_API_KEY:-}
   AI_CHAT_MODELS: ${AI_CHAT_MODELS:-}
   AI_FAST_MODELS: ${AI_FAST_MODELS:-}
+  AI_AGENT_MODELS: ${AI_AGENT_MODELS:-}
   AI_BACKUP_BASE_URL: ${AI_BACKUP_BASE_URL:-}
   AI_BACKUP_API_KEY: ${AI_BACKUP_API_KEY:-}
   AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
@@ -56,6 +57,13 @@ x-api-environment: &api-environment
   AI_PRICE_INPUT_PAISE_PER_MILLION: ${AI_PRICE_INPUT_PAISE_PER_MILLION:-}
   AI_PRICE_OUTPUT_PAISE_PER_MILLION: ${AI_PRICE_OUTPUT_PAISE_PER_MILLION:-}
   AI_USD_INR_RATE: ${AI_USD_INR_RATE:-}
+  # Tracing of the AI's calls and the agent's turns in Langfuse, chats' words included (docs/deploy-checklist.md, "Tracing
+  # the AI"): the project's keys and its region's address, all three or none; blank leaves it off. Traces go under the
+  # environment NODE_ENV names unless LANGFUSE_TRACING_ENVIRONMENT names another.
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+  LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+  LANGFUSE_TRACING_ENVIRONMENT: ${LANGFUSE_TRACING_ENVIRONMENT:-}
   # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
   # webhook block and check a number.
   MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}
@@ -203,10 +211,15 @@ services:
       AI_API_KEY: ""
       AI_CHAT_MODELS: ""
       AI_FAST_MODELS: ""
+      AI_AGENT_MODELS: ""
       AI_BACKUP_BASE_URL: ""
       AI_BACKUP_API_KEY: ""
       AI_BACKUP_CHAT_MODELS: ""
       AI_BACKUP_FAST_MODELS: ""
+      # Nor Langfuse's keys: with no model, it has nothing to trace.
+      LANGFUSE_PUBLIC_KEY: ""
+      LANGFUSE_SECRET_KEY: ""
+      LANGFUSE_BASE_URL: ""
       DEMO_ORGANIZATION_CODE: DEMO
       DEMO_PASSWORD: demo-only-password
     depends_on: *api-depends-on

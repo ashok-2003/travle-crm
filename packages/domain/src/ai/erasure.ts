@@ -26,7 +26,9 @@ export async function withdrawAiParts(
   fills: number;
   offers: number;
   fields: number;
+  suggestions: number;
   inputFiles: number;
+  traces: number;
 }> {
   const conversation = {
     OR: [
@@ -35,6 +37,15 @@ export async function withdrawAiParts(
     ],
   };
   const drafts = await tx.aiDraft.deleteMany({ where: { organizationId: input.organizationId, conversation } });
+  // Their turns' traces hold their words in a file: due now, so the console's next sweep (within the hour) deletes both.
+  const traces = await tx.aiTurnTrace.updateMany({
+    where: {
+      organizationId: input.organizationId,
+      expiresAt: { gt: input.now },
+      OR: [{ conversation }, { leadId: { in: [...input.leadIds] } }],
+    },
+    data: { expiresAt: input.now },
+  });
   const chats = await tx.aiChat.deleteMany({ where: { organizationId: input.organizationId, conversation } });
   const lessons = await tx.aiLearning.deleteMany({ where: { organizationId: input.organizationId } });
   const insights = await tx.leadAiInsight.deleteMany({
@@ -48,6 +59,9 @@ export async function withdrawAiParts(
     where: { organizationId: input.organizationId, leadId: { in: leadIds } },
   });
   const fields = await tx.leadAiField.deleteMany({
+    where: { organizationId: input.organizationId, leadId: { in: leadIds } },
+  });
+  const suggestions = await tx.leadAiSuggestion.deleteMany({
     where: { organizationId: input.organizationId, leadId: { in: leadIds } },
   });
   const fillRows = await tx.aiFill.findMany({
@@ -77,9 +91,11 @@ export async function withdrawAiParts(
     where: { organizationId: input.organizationId, id: { in: fillRows.map((fill) => fill.id) } },
   });
   return {
+    traces: traces.count,
     fills: fills.count,
     offers: offers.count,
     fields: fields.count,
+    suggestions: suggestions.count,
     inputFiles,
     drafts: drafts.count,
     insights: insights.count,

@@ -1,4 +1,4 @@
-// Isolation fixtures for release 7b: a supplier's seasons and rates (plain data the runtime role may delete), a package's tiers,
+// Isolation fixtures for release 7b: a package's seasons (hard-deleted), a supplier's seasons and rates (plain data the runtime role may delete), a package's tiers,
 // the agency's public-page settings (kept and changed, never deleted), and the package enquiry ledger (append only for the
 // runtime role: the platform role sweeps it).
 import { randomUUID } from "node:crypto";
@@ -24,6 +24,18 @@ export const fixtures: OrgTableFixtures = {
     create: async (tx) =>
       tx.supplierRate.create({
         data: { seasonId: (await aSeason(tx)).id, item: "Deluxe room", unit: "per_room_night", costPaise: 350000n },
+      }),
+  },
+  package_season: {
+    create: async (tx) =>
+      tx.packageSeason.create({
+        data: {
+          templateId: (await aPackage(tx)).id,
+          label: "Nov",
+          startsOn: new Date("2026-11-01"),
+          endsOn: new Date("2026-11-30"),
+          priceTriplePaise: 1500000n,
+        },
       }),
   },
   quote_template_tier: {

@@ -2,12 +2,12 @@
 // waiting for a reply, split at the agency's midnight, with the top three for Home, each section 20 a page, and each
 // lead's name, phone and trip line beside its task.
 import { randomUUID } from "node:crypto";
-import type { TodayItem, TodaySectionName } from "@travel-crm/contracts/today";
+import { todayTotal, type TodayItem, type TodaySectionName } from "@travel-crm/contracts/today";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import type { MemberAccess } from "../../src/identity/index.js";
+import { PermissionSet, type MemberAccess } from "../../src/identity/index.js";
 import { todaySection, todaySummary } from "../../src/today/index.js";
 import { aLead, aPerson, aTask, freshPhone } from "../crm/support/records.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
@@ -31,7 +31,8 @@ describe("today", () => {
   const inOrg = <T>(work: (tx: OrgTx) => Promise<T>): Promise<T> => db.forOrg(organizationId, work);
   /** A salesperson of their own: every test's items belong to a person no other test uses. */
   const aSalesperson = (): MemberAccess => memberWithStarterRole("sales", { organizationId, userId: randomUUID() });
-  const summaryOf = (access: MemberAccess, now: Date) => inOrg((tx) => todaySummary(tx, access, now));
+  const summaryOf = (access: MemberAccess, now: Date, bookingsOn = false) =>
+    inOrg((tx) => todaySummary(tx, access, now, { bookingsOn }));
   const sectionOf = (
     access: MemberAccess,
     section: TodaySectionName,
@@ -89,11 +90,53 @@ describe("today", () => {
       paymentsDue: 0,
       tripDetails: 0,
       departures: 0,
+      paymentsToCheck: 0,
+      checkTasks: 0,
     });
     expect(idsOf((await sectionOf(me, "overdue", now)).items)).toEqual([ids.overdueFollowUp, ids.overdueTask]);
     expect(idsOf((await sectionOf(me, "new-leads", now)).items)).toEqual([ids.newLead]);
     expect(idsOf((await sectionOf(me, "due-today", now)).items)).toEqual([ids.dueToday]);
     expect((await sectionOf(me, "overdue", now)).nextCursor).toBeNull();
+  });
+
+  it("counts payments to check only on a plan with bookings, and a pending claim's own task once in the day", async () => {
+    // Sees their own leads' bookings and records payments: the payments to check are theirs to count.
+    const me: MemberAccess = {
+      ...aSalesperson(),
+      permissions: PermissionSet.of([
+        { permission: "leads:view", scope: "own" },
+        { permission: "bookings:view", scope: "own" },
+        { permission: "quotes:record_payments", scope: "all" },
+      ]),
+    };
+    const now = at("2026-10-17T06:30:00Z");
+    await inOrg(async (tx) => {
+      const lead = await aLead(tx, { ownerUserId: me.userId, stage: "won" });
+      const quote = await tx.quote.create({
+        data: { leadId: lead.id, title: "Spiti", status: "accepted", subtotalPaise: 100_000n, totalPaise: 100_000n },
+        select: { id: true },
+      });
+      const booking = await tx.booking.create({
+        data: {
+          quoteId: quote.id,
+          leadId: lead.id,
+          number: `BK-2026-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+        },
+        select: { id: true },
+      });
+      // The claim's "Check payment" task, overdue for me.
+      const task = await aTask(tx, {
+        assigneeUserId: me.userId,
+        dueAt: at("2026-10-17T04:00:00Z"),
+        record: { recordType: "booking", recordId: booking.id },
+      });
+      await tx.paymentClaim.create({ data: { bookingId: booking.id, amountPaise: 50_000n, taskId: task.id } });
+    });
+    expect((await summaryOf(me, now, false)).counts).toMatchObject({ overdue: 1, paymentsToCheck: 0, checkTasks: 0 });
+    const on = await summaryOf(me, now, true);
+    expect(on.counts).toMatchObject({ overdue: 1, paymentsToCheck: 1, checkTasks: 1 });
+    // The claim and its task are one thing in the day.
+    expect(todayTotal(on.counts)).toBe(1);
   });
 
   it("splits overdue and due today at the agency's midnight", async () => {

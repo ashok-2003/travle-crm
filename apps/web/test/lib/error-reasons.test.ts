@@ -132,3 +132,12 @@ describe("errors.json's reasons", () => {
     expect(sideDoorCodes()).toContain("TARGET_HAS_PENDING_STEP");
   });
 });
+
+describe("the attachment sentence", () => {
+  it("is true of an upload as well as a WhatsApp attachment", () => {
+    const sentence = errors.reasons.ATTACHMENT_TYPE;
+    expect(sentence).not.toMatch(/whatsapp/i);
+    expect(sentence).toMatch(/kind of file/i);
+    expect(sentence).toMatch(/upload/i);
+  });
+});

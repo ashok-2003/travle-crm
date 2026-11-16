@@ -13,7 +13,7 @@ describe("claiming deliveries", () => {
     kit.db.forOrg(kit.organizationId, (tx) => tx.notification.update({ where: { id }, data: { emailClaimedAt: at } }));
 
   it("sends once when the same delivery runs twice at the same time, to each browser once", async () => {
-    const asha = kit.addMember("asha@agency.example");
+    const asha = await kit.addMember("asha@agency.example");
     const phone = await kit.subscribe(asha, "phone");
     const laptop = await kit.subscribe(asha, "laptop");
     const { event } = await kit.notifyMember(asha);
@@ -38,7 +38,7 @@ describe("claiming deliveries", () => {
   });
 
   it("takes over a claim older than the lease when nothing was sent, as its run must have crashed", async () => {
-    const { id, event } = await kit.notifyMember(kit.addMember("asha@agency.example"), { channels: ["email"] });
+    const { id, event } = await kit.notifyMember(await kit.addMember("asha@agency.example"), { channels: ["email"] });
     await claimEmail(id, new Date(Date.now() - 10 * MINUTE));
 
     await deliver(kit, event);
@@ -48,7 +48,7 @@ describe("claiming deliveries", () => {
   });
 
   it("asks to be retried while another run holds a fresh claim, and sends nothing itself", async () => {
-    const { id, event } = await kit.notifyMember(kit.addMember("asha@agency.example"), { channels: ["email"] });
+    const { id, event } = await kit.notifyMember(await kit.addMember("asha@agency.example"), { channels: ["email"] });
     await claimEmail(id, new Date());
 
     await expect(deliver(kit, event)).rejects.toThrow(/another run/);
@@ -58,7 +58,7 @@ describe("claiming deliveries", () => {
   });
 
   it("skips quietly when the run holding the claim has finished sending", async () => {
-    const { id, event } = await kit.notifyMember(kit.addMember("asha@agency.example"), { channels: ["email"] });
+    const { id, event } = await kit.notifyMember(await kit.addMember("asha@agency.example"), { channels: ["email"] });
     await kit.db.forOrg(kit.organizationId, (tx) =>
       tx.notification.update({ where: { id }, data: { emailClaimedAt: new Date(), emailedAt: new Date() } }),
     );

@@ -1,6 +1,12 @@
 // Each person's opt-outs (spec 9.4: DPDP and WhatsApp rules) and their browsers' push subscriptions.
 import { z } from "zod";
-import { base64url, notificationChannel, preferenceKind } from "./fields.js";
+import { base64url, notificationChannel, preferenceKind, type NotificationChannel } from "./fields.js";
+
+/**
+ * What a person who never chose gets on each channel (the owner, 2026-11-05): push, but no email until they turn it on
+ * for every kind or for one. Delivery and the preferences screen both read it, so they always agree.
+ */
+export const optedOutByDefault: Readonly<Record<NotificationChannel, boolean>> = { email: true, push: false };
 
 /** Turns email or push off (or back on) for one kind, or for every kind with "*". A kind's own setting wins. */
 export const notificationPreferenceInput = z.strictObject({

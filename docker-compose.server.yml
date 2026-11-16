@@ -7,10 +7,12 @@
 # images run (RELEASE, the commit). Only Caddy publishes ports: 80 and 443.
 #
 # The settings' SERVER_ROLE says what this server runs, through profiles compose.sh turns on: `all` (one server: the
-# api, the worker, the console and the web app), or the two small servers behind a web app hosted elsewhere
-# (docs/runbook.md, "Two small servers"): `api` (the api and the worker) and `console` (the console alone, so the
-# platform role's connection string is on no server the api runs on). The migrations run where DATABASE_MIGRATOR_URL
-# is set (profile `migrations`), and the server's own Postgres where the database is the host `postgres`.
+# api, the worker, the console and the web app), or two small servers behind a web app hosted elsewhere: beside a
+# managed database (docs/runbook.md, "Two small servers"), `api` (the api and the worker) and `console` (the console
+# alone, so the platform role's connection string is on no server the api runs on); beside our own (docs/runbook.md,
+# "Our own database"), `app` (the api, the worker and the console) and `database` (Postgres alone, with
+# docker/server/database.yml). The migrations run where DATABASE_MIGRATOR_URL is set (profile `migrations`), and the
+# server's own Postgres where the database is the host `postgres`.
 
 # What the api, the worker and the console share. NODE_ENV is production (the image's), so each refuses to start on
 # an http address, an off rate limit, a weak secret or .env.example's VAPID pair. AUTH_TRUSTED_PROXIES stays empty:
@@ -62,6 +64,7 @@ x-api-environment: &api-environment
   AI_API_KEY: ${AI_API_KEY:-}
   AI_CHAT_MODELS: ${AI_CHAT_MODELS:-}
   AI_FAST_MODELS: ${AI_FAST_MODELS:-}
+  AI_AGENT_MODELS: ${AI_AGENT_MODELS:-}
   AI_BACKUP_BASE_URL: ${AI_BACKUP_BASE_URL:-}
   AI_BACKUP_API_KEY: ${AI_BACKUP_API_KEY:-}
   AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
@@ -71,6 +74,13 @@ x-api-environment: &api-environment
   AI_PRICE_INPUT_PAISE_PER_MILLION: ${AI_PRICE_INPUT_PAISE_PER_MILLION:-}
   AI_PRICE_OUTPUT_PAISE_PER_MILLION: ${AI_PRICE_OUTPUT_PAISE_PER_MILLION:-}
   AI_USD_INR_RATE: ${AI_USD_INR_RATE:-}
+  # Tracing of the AI's calls and the agent's turns in Langfuse, chats' words included (docs/deploy-checklist.md, "Tracing
+  # the AI"): the project's keys and its region's address, all three or none; blank leaves it off. Traces go under the
+  # environment NODE_ENV names unless LANGFUSE_TRACING_ENVIRONMENT names another.
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+  LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+  LANGFUSE_TRACING_ENVIRONMENT: ${LANGFUSE_TRACING_ENVIRONMENT:-}
   # WhatsApp through MSG91 (ADR 0035): all three or none; blank leaves them off. The console reads them too, to show the
   # webhook block and check a number.
   MSG91_AUTHKEY: ${MSG91_AUTHKEY:-}
@@ -120,12 +130,13 @@ services:
       - shared_buffers=${POSTGRES_SHARED_BUFFERS:?}
       - -c
       - huge_pages=try
+      # A database server of 1 GB sets smaller ones (secrets.sh init, docs/runbook.md, "Our own database").
       - -c
-      - effective_cache_size=4GB
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4GB}
       - -c
       - work_mem=16MB
       - -c
-      - maintenance_work_mem=256MB
+      - maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-256MB}
       - -c
       - max_connections=150
     shm_size: 256m
@@ -236,10 +247,15 @@ services:
       AI_API_KEY: ""
       AI_CHAT_MODELS: ""
       AI_FAST_MODELS: ""
+      AI_AGENT_MODELS: ""
       AI_BACKUP_BASE_URL: ""
       AI_BACKUP_API_KEY: ""
       AI_BACKUP_CHAT_MODELS: ""
       AI_BACKUP_FAST_MODELS: ""
+      # Nor Langfuse's keys: with no model, it has nothing to trace.
+      LANGFUSE_PUBLIC_KEY: ""
+      LANGFUSE_SECRET_KEY: ""
+      LANGFUSE_BASE_URL: ""
     depends_on: *api-depends-on
     healthcheck:
       test:

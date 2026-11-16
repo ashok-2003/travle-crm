@@ -100,6 +100,28 @@ describe("a departure's waitlist, quotes, money and Today", () => {
     expect((await world.inOrg((tx) => getDeparture(tx, departure.id, now))).waitlist).toEqual([]);
   });
 
+  it("a hold on a group package's departure starts a quote whose line needs a price, not a flat one", async () => {
+    const pack = await world.inOrg((tx) =>
+      tx.quoteTemplate.create({
+        data: { name: "Flow group", title: "Flow group", kind: "group" },
+        select: { id: true },
+      }),
+    );
+    const departure = await world.inOrg(async (tx) => {
+      const made = await aDeparture(tx, { pricePaise: 1_250_000n, startDate: "2026-11-12", endDate: "2026-11-16" });
+      await tx.departure.update({ where: { id: made.id }, data: { templateId: pack.id } });
+      return made;
+    });
+    const lead = await aSellersLead(world);
+    const hold = await world.inOrg((tx) =>
+      createHold(tx, world.seller, { departureId: departure.id, leadId: lead.id, seats: 2, note: "" }, now),
+    );
+    const { quoteId } = await world.inOrg((tx) => makeQuoteFromHold(tx, world.seller, hold.id, context));
+    const quote = await world.inOrg((tx) => getQuote(tx, world.seller, quoteId));
+    expect(quote.items).toMatchObject([{ quantity: 2, unitPricePaise: 0, needsRate: true }]);
+    expect(quote.needsRateLines).toBe(1);
+  });
+
   it("makes a draft quote from a hold with the departure's dates and price, and keeps those dates when it is edited", async () => {
     const departure = await world.inOrg((tx) =>
       aDeparture(tx, { pricePaise: 1_250_000n, startDate: "2026-11-10", endDate: "2026-11-14" }),

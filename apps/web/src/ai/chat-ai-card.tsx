@@ -1,20 +1,21 @@
 "use client";
 
 // A chat's AI, in the contact panel: whether it answers here (the agency's default, on or off), whether it handed the chat to
-// a person and why (with a way to give it back), what it flagged for the team and when it follows up. Every message it sends
-// is marked "Sent by the AI" in the chat. Hidden for an agency without the AI.
+// a person and why (with a way to give it back), and what it noted about the customer. Who writes next, what it flagged and
+// when it follows up are said by the bar over the reply box. Every message it sends is marked "Sent by the AI" in the chat.
+// An agency whose agent is off or not set up reads that, whatever the chat's mode. Hidden for an agency without the AI.
 import { BotIcon, BotOffIcon, HandIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { RefusalAlert } from "@/components/refusal-alert";
+import { TextLink } from "@/components/text-link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatDayTime } from "@/lib/format";
-import { useHolds, useMe } from "@/session/me-context";
+import { routes } from "@/lib/routes";
+import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
-import { ChatVoicePanel } from "./chat-voice-panel";
 import { useChatAi, useResumeChatAi, useSetChatAi } from "./use-ai";
 
 const modes = ["default", "on", "off"] as const;
@@ -26,7 +27,7 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
   const resume = useResumeChatAi(conversationId);
   const access = useWriteAccess("change");
   const mayReply = useHolds("inbox:reply");
-  const { timeZone } = useMe().organization;
+  const mayManage = useHolds("ai:manage");
   if (ai.data === undefined) {
     return ai.isError ? (
       <LoadFailedAlert message={t("loadFailed")} error={ai.error} onRetry={() => void ai.refetch()} />
@@ -46,53 +47,42 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
         {t("title")}
       </h3>
       <p className={state.answering ? "font-medium text-people-tint-ink" : "text-muted-foreground"}>
-        {state.handedOff
-          ? t("handedOff")
-          : state.turn === "thinking"
-            ? t("thinking")
-            : state.turn === "queued"
-              ? t("queued")
-              : state.answering
-                ? t("answering")
-                : t("notAnswering")}
+        {state.agent !== "ready"
+          ? t(state.agent === "off" ? "agentOff" : "agentNotReady")
+          : state.handedOff
+            ? t("handedOff")
+            : state.turn === "thinking"
+              ? t("thinking")
+              : state.turn === "queued"
+                ? t("queued")
+                : state.answering
+                  ? t("answering")
+                  : t("notAnswering")}
       </p>
-      {state.personPausedUntil !== null && (
-        <p className="text-label text-muted-foreground">
-          {t("personPaused", { until: formatDayTime(new Date(state.personPausedUntil), { timeZone }) })}
-        </p>
-      )}
+      {state.agent !== "ready" && mayManage && <TextLink href={routes.aiAgent}>{t("agentLink")}</TextLink>}
       {state.handedOff && (
         <Alert>
           <HandIcon aria-hidden="true" />
           <AlertTitle>{t("handoffTitle")}</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
             <span>{state.handoffReason ?? t("handoffNoReason")}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={busy}
-              onClick={() => {
-                resume.mutate({ conversationId });
-              }}
-            >
-              {resume.isPending && <Spinner aria-hidden="true" />}
-              {t("resume")}
-            </Button>
+            {/* Given back to an agent that answers no chat, it would answer nothing: the line above says why. */}
+            {state.agent === "ready" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                disabled={busy}
+                onClick={() => {
+                  resume.mutate({ conversationId });
+                }}
+              >
+                {resume.isPending && <Spinner aria-hidden="true" />}
+                {t("resume")}
+              </Button>
+            )}
           </AlertDescription>
         </Alert>
-      )}
-      {state.attention !== null && (
-        <Alert>
-          <AlertTitle>{t("attentionTitle")}</AlertTitle>
-          <AlertDescription>{state.attention}</AlertDescription>
-        </Alert>
-      )}
-      {state.followUpAt !== null && (
-        <p className="text-label text-muted-foreground">
-          {t("followUp", { when: formatDayTime(new Date(state.followUpAt), { timeZone }) })}
-          {state.followUpReason === null ? "" : ` · ${state.followUpReason}`}
-        </p>
       )}
       <div className="flex flex-col gap-1.5">
         <span className="text-label text-muted-foreground">{t("modeLabel")}</span>
@@ -114,8 +104,13 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
           ))}
         </ToggleGroup>
       </div>
+      {state.summary !== "" && (
+        <div className="flex flex-col gap-1">
+          <h4 className="text-label font-medium text-muted-foreground">{t("noted")}</h4>
+          <p className="whitespace-pre-line">{state.summary}</p>
+        </div>
+      )}
       <RefusalAlert error={setMode.error ?? resume.error} />
-      <ChatVoicePanel conversationId={conversationId} voice={state.voice} disabled={busy} />
     </section>
   );
 }

@@ -9,52 +9,24 @@ import {
   tierLine,
   type PackageDetail,
   type PublishGap,
+  type SetPackageSellableInput,
   type SaveTierInput,
   type UpdatePackageInput,
 } from "@travel-crm/contracts/quotes";
 import { isUniqueViolation, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
+import { findOrAddDestination } from "../catalog/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import type { CalendarDate } from "../kernel/index.js";
 import { withoutCosts } from "./margin.js";
+import { findPackage, nameTaken, type PackageRow } from "./package-row.js";
+import { seasonsOf } from "./package-seasons.js";
+import { packageSellGaps } from "./package-sell-gaps.js";
 import { itemsOf } from "./quote-rows.js";
 
 const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-const nameTaken = () => new DomainError("CONFLICT", "PACKAGE_NAME_TAKEN", "Another package already has this name");
 const slugTaken = () => new DomainError("CONFLICT", "PACKAGE_SLUG_TAKEN", "Another package already has this address");
-
-export const packageColumns = {
-  id: true,
-  name: true,
-  title: true,
-  days: true,
-  items: true,
-  inclusions: true,
-  exclusions: true,
-  notes: true,
-  taxRateBasisPoints: true,
-  slug: true,
-  destinationId: true,
-  nights: true,
-  summary: true,
-  highlights: true,
-  priceDisplay: true,
-  fromPricePaise: true,
-  published: true,
-  defaultTravellerLevel: true,
-  cancellationNotes: true,
-  destination: { select: { name: true } },
-} as const;
-
-type PackageRow = NonNullable<Awaited<ReturnType<typeof readPackage>>>;
-const readPackage = (tx: OrgTx, packageId: string) =>
-  tx.quoteTemplate.findUnique({ where: { id: packageId }, select: packageColumns });
-
-export async function findPackage(tx: OrgTx, packageId: string): Promise<PackageRow> {
-  const row = await readPackage(tx, packageId);
-  if (row === null) throw notFound();
-  return row;
-}
 
 /** What a package still lacks before its page can be published. */
 export function publishGaps(row: Pick<PackageRow, "name" | "slug" | "summary">, photoCount: number): PublishGap[] {
@@ -94,12 +66,34 @@ export async function tiersOf(tx: OrgTx, packageId: string) {
   );
 }
 
+/** Lets the AI sell the package, or stops it. Turning on needs nothing missing; turning off always works. */
+export async function setPackageSellable(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SetPackageSellableInput,
+  today: CalendarDate,
+): Promise<void> {
+  const row = await findPackage(tx, input.packageId);
+  if (row.aiSellable === input.sellable) return;
+  if (input.sellable && (await packageSellGaps(tx, access.organizationId, row.id, today)).length > 0) {
+    throw new DomainError("VALIDATION", "PACKAGE_NOT_READY_TO_SELL", "Fill in what the package still needs first");
+  }
+  await tx.quoteTemplate.update({ where: { id: row.id }, data: { aiSellable: input.sellable } });
+  await recordAudit(tx, access, {
+    action: "package.sellable-changed",
+    entityType: "quote_template",
+    entityId: row.id,
+    before: { sellable: row.aiSellable },
+    after: { sellable: input.sellable, name: row.name },
+  });
+}
+
 /** The package for its editor. Costs in its lines are shown only to whoever may see margins. */
 export async function getPackage(
   tx: OrgTx,
   access: MemberAccess,
   packageId: string,
-  context: { photoCount: number; agencyCode: string },
+  context: { photoCount: number; agencyCode: string; today: CalendarDate },
 ): Promise<PackageDetail> {
   const row = await findPackage(tx, packageId);
   const settings = await tx.publicPageSettings.findFirst({ select: { enabled: true } });
@@ -122,10 +116,22 @@ export async function getPackage(
     fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
     defaultTravellerLevel: row.defaultTravellerLevel,
     cancellationNotes: row.cancellationNotes,
+    kind: row.kind,
+    roomTypes: row.roomTypes,
+    pricesIncludeGst: row.pricesIncludeGst,
+    advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
+    pickupPoints: row.pickupPoints,
+    startCity: row.startCity,
+    weeklyDays: row.weeklyDays,
+    departureMonths: row.departureMonths,
+    seatsPerDeparture: row.seatsPerDeparture,
+    sellable: row.aiSellable,
+    sellGaps: await packageSellGaps(tx, access.organizationId, row.id, context.today),
     published: row.published,
     destinationName: row.destination?.name ?? null,
     items: access.permissions.has("money:view_margin") ? items : withoutCosts(items),
     tiers: await tiersOf(tx, row.id),
+    seasons: await seasonsOf(tx, row.id),
     photoCount: context.photoCount,
     gaps: publishGaps(row, context.photoCount),
     pagesEnabled: settings?.enabled ?? false,
@@ -133,9 +139,13 @@ export async function getPackage(
   });
 }
 
+/**
+ * Saves the package's words, address, destination and group-trip fields. A new destination's name (the editor's
+ * 'Add "Spiti"') is found or added as the lead form's is, in this transaction, so a refused save adds none.
+ */
 export async function updatePackage(tx: OrgTx, access: MemberAccess, input: UpdatePackageInput): Promise<void> {
   const before = await findPackage(tx, input.packageId);
-  const { packageId, ...fields } = input;
+  const { packageId, newDestinationName, ...fields } = input;
   if (fields.priceDisplay === "from" && fields.fromPricePaise === null) {
     throw new DomainError("VALIDATION", "FROM_PRICE_REQUIRED", "Enter the price to show, or choose 'Price on enquiry'");
   }
@@ -169,12 +179,18 @@ export async function updatePackage(tx: OrgTx, access: MemberAccess, input: Upda
   ) {
     throw slugTaken();
   }
+  const destinationId =
+    newDestinationName === undefined
+      ? fields.destinationId
+      : (await findOrAddDestination(tx, access, newDestinationName)).id;
   try {
     await tx.quoteTemplate.update({
       where: { id: packageId },
       data: {
         ...fields,
+        destinationId,
         fromPricePaise: fields.fromPricePaise === null ? null : BigInt(fields.fromPricePaise),
+        advancePerPersonPaise: fields.advancePerPersonPaise === null ? null : BigInt(fields.advancePerPersonPaise),
       },
     });
   } catch (error) {
@@ -184,12 +200,23 @@ export async function updatePackage(tx: OrgTx, access: MemberAccess, input: Upda
     }
     throw error;
   }
+  const kept = (row: {
+    kind: string;
+    roomTypes: readonly string[];
+    pricesIncludeGst: boolean;
+    advancePerPersonPaise: number | bigint | null;
+  }) => ({
+    kind: row.kind,
+    roomTypes: [...row.roomTypes],
+    pricesIncludeGst: row.pricesIncludeGst,
+    advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
+  });
   await recordAudit(tx, access, {
     action: "quote-package.changed",
     entityType: "quote_template",
     entityId: packageId,
-    before: { name: before.name, slug: before.slug },
-    after: { name: fields.name, slug: fields.slug },
+    before: { name: before.name, slug: before.slug, ...kept(before) },
+    after: { name: fields.name, slug: fields.slug, ...kept(fields) },
   });
 }
 

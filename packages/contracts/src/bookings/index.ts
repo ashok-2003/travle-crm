@@ -3,3 +3,4 @@ export * from "./bookings.js";
 export * from "./events.js";
 export * from "./public.js";
 export * from "./settings.js";
+export * from "./payments-to-check.js";

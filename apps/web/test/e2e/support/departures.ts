@@ -4,6 +4,12 @@ import { expect, type Browser, type Page } from "@playwright/test";
 import { acceptOnTheLink, bookingOf } from "./bookings";
 import { addLeadThroughApi, callApi, dayInIndia, leadInput } from "./leads";
 
+/** A departure of its own (group packages): no package, and no room prices of its own. */
+export const ownDeparture = {
+  templateId: null,
+  prices: { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null },
+} as const;
+
 /** A day yyyy-mm-dd as a date input shows it. */
 export const inputDay = (day: string): string => day.split("-").reverse().join("/");
 
@@ -21,6 +27,7 @@ export async function aDeparture(
     pricePaise: options.priceRupees === undefined ? null : options.priceRupees * 100,
     cutoffOn: null,
     notes: "",
+    ...ownDeparture,
   });
   return id;
 }

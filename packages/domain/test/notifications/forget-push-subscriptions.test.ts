@@ -30,8 +30,8 @@ describe("forgetting a removed member's browsers", () => {
   });
 
   it("deletes every subscription of the person removed, and no one else's", async () => {
-    const leaving = kit.addMember("leaving@example.test");
-    const staying = kit.addMember("staying@example.test");
+    const leaving = await kit.addMember("leaving@example.test");
+    const staying = await kit.addMember("staying@example.test");
     await kit.subscribe(leaving, "leaving-phone");
     await kit.subscribe(leaving, "leaving-laptop");
     const kept = await kit.subscribe(staying, "staying-phone");
@@ -42,7 +42,7 @@ describe("forgetting a removed member's browsers", () => {
   });
 
   it("changes nothing when it runs again for the same removal", async () => {
-    const leaving = kit.addMember(null);
+    const leaving = await kit.addMember(null);
     await kit.subscribe(leaving, "shared-tablet");
     const event = staffRemoved(leaving);
 
@@ -53,7 +53,7 @@ describe("forgetting a removed member's browsers", () => {
   });
 
   it("refuses an event that doesn't carry the two ids, and deletes nothing", async () => {
-    const leaving = kit.addMember(null);
+    const leaving = await kit.addMember(null);
     const kept = await kit.subscribe(leaving, "not-yet");
     const malformed = { ...staffRemoved(leaving), payload: { userId: "someone" } };
     // The contract's check: memberId is missing and userId is not a UUID.

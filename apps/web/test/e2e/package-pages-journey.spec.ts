@@ -3,6 +3,7 @@
 // the plain page for one that is not there. Nothing private is on the page: no cost, supplier or seat count.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
+import { ownDeparture } from "./support/departures";
 import { callApi, dayInIndia } from "./support/leads";
 import {
   aDestination,
@@ -38,6 +39,7 @@ async function aDeparture(
     pricePaise: 3_200_000,
     cutoffOn: null,
     notes: "",
+    ...ownDeparture,
   });
   return id;
 }

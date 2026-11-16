@@ -183,24 +183,3 @@ export function aiDocumentListener(dependencies: {
     },
   });
 }
-
-/** Characters of the agency's knowledge a prompt carries at most. */
-const KNOWLEDGE_BUDGET = 8_000;
-
-/** The agency's enabled, ready knowledge as one block of data for a prompt, within a budget; empty for none. */
-export async function knowledgeWords(tx: OrgTx): Promise<{ title: string; body: string }[]> {
-  const rows = await tx.aiKnowledge.findMany({
-    where: { enabled: true, status: "ready" },
-    orderBy: { updatedAt: "desc" },
-    select: { title: true, body: true },
-  });
-  let left = KNOWLEDGE_BUDGET;
-  const chosen: { title: string; body: string }[] = [];
-  for (const row of rows) {
-    if (row.body.trim() === "" || left <= 0) continue;
-    const body = row.body.trim().slice(0, left);
-    chosen.push({ title: row.title, body });
-    left -= body.length;
-  }
-  return chosen;
-}

@@ -27,3 +27,6 @@ export function repeatsEarlier(reply: string, sent: readonly string[]): boolean 
     return shared / new Set([...own, ...theirs]).size >= SAME_SHARE;
   });
 }
+
+/** The messages sent in the chat that a reply is checked against for a repeat. */
+export const RECENT_SENT = 10;

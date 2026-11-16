@@ -1,0 +1,25 @@
+/// A photo or PDF a customer sent in a chat, for a person to match to a payment (payments to check): pending until a
+/// person confirms it against a booking, dismisses it, or it is matched. Rows are updated, never deleted.
+model PaymentProof {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String               @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String               @id @default(uuid(7)) @db.Uuid
+  conversationId String               @map("conversation_id") @db.Uuid
+  messageId      String               @map("message_id") @db.Uuid
+  leadId         String?              @map("lead_id") @db.Uuid
+  /// pending, dismissed or matched (CHECK payment_proof_status_value).
+  status         String               @default("pending")
+  decidedBy      String?              @map("decided_by") @db.Uuid
+  decidedAt      DateTime?            @map("decided_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  message        WhatsappMessage      @relation(fields: [organizationId, messageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lead           Lead?                @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, messageId], map: "payment_proof_message")
+  /// The list of proofs waiting for a person.
+  @@index([organizationId, createdAt(sort: Desc)], map: "payment_proof_pending", where: raw("(status = 'pending')"))
+  @@map("payment_proof")
+}

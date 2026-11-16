@@ -8,6 +8,7 @@ import {
   type PlatformClient,
   type PlatformDatabase,
 } from "@travel-crm/db/platform";
+import type { PlanModule } from "@travel-crm/contracts/subscriptions";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { PermissionSet, type Identity, type MemberAccess, type Permission } from "@travel-crm/domain/identity";
 import { createPlan, createSubscriptionAccess, demoPlan, startSubscription } from "@travel-crm/domain/subscriptions";
@@ -44,7 +45,10 @@ export function createHarness(): Harness {
 }
 
 /** An agency subscribed on a plan with crm (or the demo's plan), paid through the end of October 2026. */
-export async function anAgency(harness: Harness, options: { demo?: boolean } = {}): Promise<string> {
+export async function anAgency(
+  harness: Harness,
+  options: { demo?: boolean; modules?: PlanModule[] } = {},
+): Promise<string> {
   const organizationId = await createTestOrganization(harness.platform, "Asha Travels");
   await harness.platformDb.transaction(async (tx) => {
     const plan = options.demo
@@ -59,7 +63,7 @@ export async function anAgency(harness: Harness, options: { demo?: boolean } = {
           seatLimit: 5,
           whatsappNumberLimit: 1,
           storageLimitBytes: 5_000_000_000,
-          modules: ["crm"],
+          modules: options.modules ?? ["crm"],
         });
     await startSubscription(
       tx,
@@ -77,6 +81,8 @@ export interface CallerOptions {
   /** The permissions the member holds, all records; every one when left out. */
   granted?: Permission[];
   now?: Date;
+  /** Services to put in the request context (an AI model, a files service) over the defaults. */
+  context?: Partial<Context>;
 }
 
 export function memberOf(organizationId: string, granted?: Permission[]): MemberAccess {
@@ -104,9 +110,23 @@ export function callerOf(
 ) {
   const owner = options.owner === undefined ? randomUUID() : options.owner;
   const identity = {
+    // The session a fresh procedure reads from the database: the member's own, in this organization.
+    auth: {
+      api: {
+        getSession: () =>
+          Promise.resolve({
+            headers: new Headers(),
+            response: {
+              session: { activeOrganizationId: options.organizationId, impersonatedBy: null },
+              user: { id: member.userId },
+            },
+          }),
+      },
+    },
     resolveAccess: () => Promise.resolve(member),
     recordActivity: () => Promise.resolve(),
     firstOwner: () => Promise.resolve(owner),
+    membersHolding: () => Promise.resolve([]),
     organizationProfile: () =>
       Promise.resolve({
         id: options.organizationId,
@@ -131,6 +151,7 @@ export function callerOf(
     resHeaders: new Headers(),
     session: { activeOrganizationId: options.organizationId, impersonatedBy: null },
     user: { id: member.userId },
+    ...options.context,
   } as unknown as Context;
   return { caller: t.createCallerFactory(appRouter)(context), member, owner };
 }

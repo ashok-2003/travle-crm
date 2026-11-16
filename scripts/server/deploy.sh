@@ -7,7 +7,9 @@
 # On the two small servers (SERVER_ROLE `api` or `console`) only the api's image runs, release.sh brings it ready made
 # (they're too small to build it), the migrations run only where DATABASE_MIGRATOR_URL is set, and after the smoke
 # check the working hours put the worker and the console's jobs back as the time calls for: stopped, or off, at night
-# outside a burst (scripts/server/work-hours.sh).
+# outside a burst (scripts/server/work-hours.sh). Beside our own database (docs/runbook.md, "Our own database"), the app
+# server (`app`) deploys like the api's, migrating over the private network, and the database server (`database`) runs
+# Postgres alone: no image, no https, so its check is that Postgres answers.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/paths.sh
@@ -31,11 +33,15 @@ compose() {
   scripts/server/compose.sh "$@"
 }
 
-images=("travel-crm-api:$release")
-if [ "$role" = all ]; then
-  images+=("travel-crm-web:$release")
-fi
-if docker image inspect "${images[@]}" >/dev/null 2>&1; then
+images=()
+case "$role" in
+  all) images=("travel-crm-api:$release" "travel-crm-web:$release") ;;
+  database) ;;
+  *) images=("travel-crm-api:$release") ;;
+esac
+if [ "${#images[@]}" -eq 0 ]; then
+  echo "Postgres alone runs here: no images of the release's"
+elif docker image inspect "${images[@]}" >/dev/null 2>&1; then
   echo "Release $release's images are already here: no build"
 elif [ "$role" = all ]; then
   echo "Building release $release (the first build takes a while)"
@@ -84,6 +90,13 @@ keep_previous="$(cut -c 1-12 "$previous_release_file" 2>/dev/null || true)"
 docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^travel-crm-(api|web):' |
   grep -v -E ":($release|${keep_previous:-none})\$" | xargs -r docker image rm >/dev/null || true
 docker builder prune --force --filter until=336h >/dev/null || true
+
+if [ "$role" = database ]; then
+  compose exec -T postgres pg_isready --host 127.0.0.1 --username postgres --dbname travel_crm >/dev/null ||
+    fail "Postgres doesn't answer on the database server"
+  echo "Release $release: Postgres answers on the database server"
+  exit 0
+fi
 
 app_host="$(sed -n -E "s/^APP_HOST='(.*)'\$/\1/p" "$settings_file")"
 # The address people use (APP_URL), which the api's sign-in takes requests from; this server's own when blank.

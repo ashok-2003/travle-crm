@@ -24,8 +24,9 @@ uses_local_database() {
   grep -q -s -E "^DATABASE_URL='postgresql://[^@']*@postgres:5432/" "$settings_file"
 }
 
-# What this server runs (docker-compose.server.yml): `all`, or one of the two small servers, `api` or `console`
-# (docs/runbook.md, "Two small servers"). Settings without SERVER_ROLE are `all`.
+# What this server runs (docker-compose.server.yml): `all`, or one of the two small servers: `api` and `console`
+# beside a managed database (docs/runbook.md, "Two small servers"), or `app` (the api, the worker and the console) and
+# `database` (Postgres alone) with our own (docs/runbook.md, "Our own database"). Settings without SERVER_ROLE are `all`.
 server_role() {
   local role
   role="$(sed -n -E "s/^SERVER_ROLE='(.*)'\$/\1/p" "$settings_file" 2>/dev/null | tail -n 1)"

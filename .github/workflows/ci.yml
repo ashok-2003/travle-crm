@@ -1,6 +1,11 @@
-# Spec 12.1's gates on every pull request and every push to main, a job each, so a failure names its gate. Each step
-# runs a pnpm command that runs the same on a laptop (CLAUDE.md's command table); actions are pinned by commit, with
-# their version beside it for Renovate. Code scanning has a workflow of its own (codeql.yml).
+# Spec 12.1's gates on every pull request, a job each, so a failure names its gate. Each step runs a pnpm command that
+# runs the same on a laptop (CLAUDE.md's command table); actions are pinned by commit, with their version beside it for
+# Renovate. Code scanning has a workflow of its own (codeql.yml).
+#
+# A push to main runs only the quick gates (types, lint, tests, migrations, audit): they catch two pull requests that
+# each passed but break together, and a commit pushed straight to main. The journeys, Lighthouse and the images already
+# ran on the pull request; repeating them after the merge stops nothing (the deploy doesn't wait for CI) and takes
+# runner slots the deploy needs. Run the workflow by hand to put main through every gate.
 name: CI
 
 on:
@@ -74,7 +79,7 @@ jobs:
     # Six shards: one run of every journey, on a phone and a desktop, outlasts Playwright's twenty-minute limit on a
     # runner of two cores.
     name: Journeys (${{ matrix.shard }}/6)
-    if: github.event_name != 'schedule'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -98,7 +103,7 @@ jobs:
 
   lighthouse:
     name: Lighthouse
-    if: github.event_name != 'schedule'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -124,7 +129,7 @@ jobs:
 
   images:
     name: Docker images and the whole product
-    if: github.event_name != 'schedule'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:

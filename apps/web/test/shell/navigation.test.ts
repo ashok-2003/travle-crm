@@ -19,8 +19,11 @@ describe("visibleNavigationItems", () => {
       "leads",
       "followUps",
       "inbox",
+      "aiAgent",
       "quotes",
+      "packages",
       "bookings",
+      "payments",
       "departures",
       "suppliers",
       "reports",
@@ -108,5 +111,16 @@ describe("isCurrent", () => {
     expect(isCurrent(settings, "/setup")).toBe(true);
     expect(isCurrent(home, "/setup")).toBe(false);
     expect(isCurrent(settings, "/setups")).toBe(false);
+  });
+});
+
+describe("the AI agent item", () => {
+  it("shows for ai:manage on a plan with the AI module, and not otherwise", () => {
+    const manager = member({ permissions: ["ai:manage"] });
+    expect(keys(visibleNavigationItems(manager, ["ai"]))).toContain("aiAgent");
+    expect(keys(visibleNavigationItems(manager, ["crm"]))).not.toContain("aiAgent");
+    expect(keys(visibleNavigationItems(member({ permissions: ["inbox:view"] }), ["ai", "inbox"]))).not.toContain(
+      "aiAgent",
+    );
   });
 });

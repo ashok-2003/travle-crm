@@ -12,26 +12,24 @@ import { member } from "../support/members";
 const chat: ChatAi = {
   mode: "default",
   answering: true,
+  agent: "ready",
   handedOff: false,
   handoffReason: null,
-  memory: "",
-  lastReplyAt: null,
+  summary: "",
   turn: null,
   followUpAt: null,
   followUpReason: null,
   attention: null,
   personPausedUntil: null,
-  voice: null,
-  persona: "default",
   agentName: "Riya from Sharma Holidays",
   available: true,
 };
 const t = messages.ai.chat;
 
-function render(state: Partial<ChatAi>, view: "bar" | "typing") {
+function render(state: Partial<ChatAi>, view: "bar" | "typing", extra: "ai:manage"[] = []) {
   const { calls } = stubApi({ "ai.chatAi": { data: { ...chat, ...state } } });
   const queryClient = newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "ai"] as never });
-  const me = member({ permissions: ["ai:suggest", "inbox:view", "inbox:reply"] });
+  const me = member({ permissions: ["ai:suggest", "inbox:view", "inbox:reply", ...extra] });
   renderWithApi(
     view === "bar" ? (
       <AiReplyBar conversationId="chat-1" />
@@ -70,6 +68,22 @@ describe("the AI bar over the reply box", () => {
     render({ answering: false, mode: "off" }, "bar");
     expect(await screen.findByText(t.barOff)).toBeVisible();
     expect(screen.getByRole("button", { name: t.letAnswer })).toBeVisible();
+  });
+
+  it("says the agency's agent is off in place of Let AI answer, with the way to the AI agent page", async () => {
+    render({ mode: "on", answering: false, agent: "off" }, "bar", ["ai:manage"]);
+    expect(await screen.findByText(t.agentOff)).toBeVisible();
+    expect(screen.getByRole("link", { name: t.agentLink })).toHaveAttribute("href", "/ai-agent");
+    expect(screen.queryByRole("button", { name: t.letAnswer })).toBeNull();
+    expect(screen.queryByText(/is answering this chat/)).toBeNull();
+  });
+
+  it("says the agency's agent isn't set up yet, even in a chat it handed over", async () => {
+    render({ answering: false, agent: "not_ready", handedOff: true, handoffReason: "asked for a person" }, "bar");
+    expect(await screen.findByText(t.agentNotReady)).toBeVisible();
+    expect(screen.queryByRole("button", { name: t.letAnswer })).toBeNull();
+    // Only whoever manages the AI can open its page.
+    expect(screen.queryByRole("link", { name: t.agentLink })).toBeNull();
   });
 
   it("is not there where the AI is not available", async () => {

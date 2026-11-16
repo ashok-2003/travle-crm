@@ -8,6 +8,7 @@ import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, publicActor } from "../kernel/index.js";
+import { assertTakesStandInPayments } from "./placeholder-payments.js";
 import { dayOf, daysOf, findQuoteForSystem, itemsOf, paidOf } from "./quote-rows.js";
 import { coveredInstallments } from "./totals.js";
 import { quoteSettingsOf, upiPayLink } from "./settings.js";
@@ -151,6 +152,7 @@ export async function acceptQuoteFromLink(
   if (quote.status === "draft") throw new DomainError("CONFLICT", "QUOTE_NOT_SENT", "This quote was not sent yet");
   const name = input.name.trim().slice(0, 120);
   if (name === "") throw new DomainError("VALIDATION", "NAME_REQUIRED", "Type your name to accept");
+  await assertTakesStandInPayments(tx, quote.id);
   const actor = publicActor(input.organizationId);
   await tx.quote.update({ where: { id: quote.id }, data: { status: "accepted", acceptedAt: now, acceptedName: name } });
   await tx.quote.updateMany({

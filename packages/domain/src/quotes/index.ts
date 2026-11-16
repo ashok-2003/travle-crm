@@ -1,7 +1,8 @@
 // Public API of @travel-crm/domain/quotes: a lead's quotations, the money due and paid on them, their documents and the
 // customer's link (step 3, P0). It sits above crm, which it calls; nothing below calls it.
 export { acceptQuoteFromLink, publicQuoteOf, type PublicQuote } from "./public-quote.js";
-export { agreedQuote } from "./agreed-quote.js";
+export { agreedQuote, raiseAgreedQuote } from "./agreed-quote.js";
+export { assertTakesStandInPayments, moveStandInPayments } from "./placeholder-payments.js";
 export { moneySummaryOf } from "./money-summary.js";
 export { addInstallment, recordPayment, removeInstallment, voidPayment } from "./payments.js";
 export {
@@ -11,17 +12,36 @@ export {
   issueQuotePdf,
   type DocumentContext,
 } from "./quote-documents.js";
-export { deletePackage, duplicateQuote, listPackages, quoteFromPackage, savePackage } from "./packages.js";
 export {
-  findPackage,
+  createPackage,
+  deletePackage,
+  duplicateQuote,
+  listPackages,
+  quoteFromPackage,
+  savePackage,
+} from "./packages.js";
+export {
   getPackage,
   publishGaps,
   removeTier,
   saveTier,
   setPackagePublished,
+  setPackageSellable,
   tiersOf,
   updatePackage,
 } from "./package-edit.js";
+export { exTaxSubtotal, fromPrices, onlyRoomType, priceOn, totalFor, type SeasonPrices } from "./room-prices.js";
+export { attachDraftBrochure, createGroupPackage } from "./group-package-create.js";
+export { findPackage } from "./package-row.js";
+export { removePackageSeason, savePackageSeason, seasonsByPackage, seasonsOf } from "./package-seasons.js";
+export {
+  departurePriceColumn,
+  packageSellGaps,
+  packagesAwaitingPayment,
+  packagesOnOffer,
+  sellablePackage,
+  sellablePackages,
+} from "./package-sell-gaps.js";
 export {
   confirmPackagePhoto,
   listPackagePhotos,
@@ -30,14 +50,25 @@ export {
   requestPackagePhotoUpload,
   type PackagePhotoDependencies,
 } from "./package-photos.js";
+export {
+  confirmPackageFile,
+  listPackageFiles,
+  packageFilesByPackage,
+  packageFilesIn,
+  removePackageFile,
+  requestPackageFileUpload,
+  type PackageFileDependencies,
+} from "./package-files.js";
+export { groupTotal, type GroupTax, type GroupTotal } from "./group-total.js";
 export { calculateFromPrice, makeQuotesFromPackage, quantityFor, tierItems } from "./package-quote.js";
 export { marginOf } from "./margin.js";
 export { noRateForDates, priceLine, pricedLineOn, sellingPrice } from "./rate-pricing.js";
 export { quoteOwedSql, quoteSalesSql, quoteTaxSql } from "./sales-sql.js";
 export { eraseQuoteParts, type QuotesErased } from "./erasure.js";
-export { assertDraft, findQuoteForChange, findQuoteInScope } from "./quote-rows.js";
+export { assertDraft, daysOf, findQuoteForChange, findQuoteInScope } from "./quote-rows.js";
 export {
   createQuote,
+  createQuoteFor,
   deleteQuote,
   getQuote,
   listLeadQuotes,

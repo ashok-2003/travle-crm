@@ -26,6 +26,12 @@ const columns = {
   balanceParams: true,
   detailsTemplateId: true,
   detailsParams: true,
+  paymentConfirmedText: true,
+  paymentNotFoundText: true,
+  paymentConfirmedTemplateId: true,
+  paymentConfirmedParams: true,
+  paymentNotFoundTemplateId: true,
+  paymentNotFoundParams: true,
   reportingTemplateId: true,
   reportingParams: true,
   feedbackTemplateId: true,
@@ -56,6 +62,13 @@ export const defaultBookingSettings: Omit<BookingSettingsView, "rules"> = {
   balanceParams: [],
   detailsTemplateId: null,
   detailsParams: [],
+  paymentConfirmedText: "Thank you {name}! We have received {amount} for {trip} on {date}. Your booking is confirmed.",
+  paymentNotFoundText:
+    "Hi {name}, we could not find your payment of {amount} yet. Could you send the transaction reference or a clearer screenshot?",
+  paymentConfirmedTemplateId: null,
+  paymentConfirmedParams: [],
+  paymentNotFoundTemplateId: null,
+  paymentNotFoundParams: [],
   reportingTemplateId: null,
   reportingParams: [],
   feedbackTemplateId: null,
@@ -110,6 +123,8 @@ export async function saveBookingSettings(
 ): Promise<BookingSettingsView> {
   await assertTemplate(tx, input.balanceTemplateId, input.balanceParams);
   await assertTemplate(tx, input.detailsTemplateId, input.detailsParams);
+  await assertTemplate(tx, input.paymentConfirmedTemplateId, input.paymentConfirmedParams);
+  await assertTemplate(tx, input.paymentNotFoundTemplateId, input.paymentNotFoundParams);
   await assertTemplate(tx, input.reportingTemplateId, input.reportingParams);
   await assertTemplate(tx, input.feedbackTemplateId, input.feedbackParams);
   const before = await bookingSettingsOf(tx);
@@ -129,8 +144,22 @@ export async function saveBookingSettings(
     action: "booking-settings.changed",
     entityType: "booking_settings",
     entityId: access.organizationId,
-    before: { advanceBasisPoints: before.advanceBasisPoints, steps: before.rules.length },
-    after: { advanceBasisPoints: input.advanceBasisPoints, steps: rules.length },
+    before: {
+      advanceBasisPoints: before.advanceBasisPoints,
+      steps: before.rules.length,
+      paymentConfirmedText: before.paymentConfirmedText,
+      paymentNotFoundText: before.paymentNotFoundText,
+      paymentConfirmedTemplateId: before.paymentConfirmedTemplateId,
+      paymentNotFoundTemplateId: before.paymentNotFoundTemplateId,
+    },
+    after: {
+      advanceBasisPoints: input.advanceBasisPoints,
+      steps: rules.length,
+      paymentConfirmedText: input.paymentConfirmedText,
+      paymentNotFoundText: input.paymentNotFoundText,
+      paymentConfirmedTemplateId: input.paymentConfirmedTemplateId,
+      paymentNotFoundTemplateId: input.paymentNotFoundTemplateId,
+    },
   });
   return bookingSettingsOf(tx);
 }

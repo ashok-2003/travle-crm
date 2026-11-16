@@ -109,5 +109,75 @@
     "description": "Chats stay. Remove the number in MSG91's panel too.",
     "confirm": "Disconnect"
   },
-  "retry": "Try again"
+  "retry": "Try again",
+  "agentState": {
+    "title": "AI agent setup",
+    "on": "The agency has turned its AI agent on.",
+    "off": "The agency's AI agent is off.",
+    "ready": "Its setup is finished.",
+    "missing": "Its setup isn't finished: {steps}.",
+    "noAi": "Its plan has no AI.",
+    "steps": {
+      "whatsapp": "WhatsApp number",
+      "packages": "packages the AI can sell",
+      "payment": "payment QR",
+      "answers": "answers to the fixed questions",
+      "basics": "agent name and tone",
+      "ads": "ad links"
+    },
+    "answering": "Ready to answer",
+    "notAnswering": "Won't answer yet",
+    "paused": "Paused",
+    "loading": "Loading the AI agent's setup",
+    "loadFailed": "The AI agent's setup didn't load."
+  },
+  "agentPause": {
+    "oneAtATime": "Resume one agency at a time",
+    "oneAtATimeTitle": "Resume one agency at a time?",
+    "oneAtATimeBody": "Each agency is paused on its own first, then the pause for every agency is lifted. No agency answers until you resume it from its page.",
+    "oneAtATimeConfirm": "Pause each, then lift",
+    "oneAtATimeDone": "{count, plural, one {One agency is paused on its own} other {# agencies are paused on their own}}. Resume each from its page.",
+    "everyone": {
+      "title": "AI agent on WhatsApp",
+      "running": "Answering for every agency that has it on.",
+      "paused": "Paused for every agency since {time}. No AI replies or follow-ups go out.",
+      "pause": "Pause for every agency",
+      "resume": "Resume for every agency",
+      "pauseDialog": {
+        "title": "Pause the AI agent for every agency?",
+        "description": "No agency's AI will answer or follow up on WhatsApp until you resume it. Their settings are kept, and staff can still reply.",
+        "confirm": "Pause for every agency"
+      },
+      "resumeDialog": {
+        "title": "Resume the AI agent for every agency?",
+        "description": "Agencies that have it on start answering again with their next customer message.",
+        "confirm": "Resume"
+      }
+    },
+    "agency": {
+      "title": "AI agent",
+      "running": "Running",
+      "pausedAgency": "Paused for this agency since {time}",
+      "pausedEveryone": "Paused for every agency since {time}",
+      "pause": "Pause for this agency",
+      "resume": "Resume for this agency",
+      "pauseDialog": {
+        "title": "Pause the AI agent for {name}?",
+        "description": "{name}'s AI won't answer or follow up on WhatsApp until you resume it. Its settings are kept.",
+        "confirm": "Pause"
+      },
+      "resumeDialog": {
+        "title": "Resume the AI agent for {name}?",
+        "description": "It starts answering again with the next customer message, if the agency has it on.",
+        "descriptionWhileEveryonePaused": "It stays paused for every agency until that pause is resumed too.",
+        "confirm": "Resume"
+      }
+    },
+    "loading": "Loading the AI agent's state",
+    "loadFailed": "The AI agent's state didn't load.",
+    "status": {
+      "running": "Running",
+      "paused": "Paused"
+    }
+  }
 }
