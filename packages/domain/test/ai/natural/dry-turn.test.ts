@@ -203,6 +203,21 @@ describe("the natural agent's dry turn", () => {
     expect(contentOf(on.model.requests[2]?.messages.at(-1))).toContain("Live offer: none.");
   });
 
+  it("lets the next turn repeat the live offer's figures, a total no price table gives included", async () => {
+    const on = await world();
+    on.model.answer({ text: offerWords, toolCalls: [offerCall] });
+    const asked = "Kedarkantha 19 Dec, 2 log";
+    const first = await on.dry([asked]);
+    const { offer } = first.state.facts;
+    // As if a child's place had made the offer's total: ₹24,498, less the ₹6,000 advance.
+    const facts = { ...first.state.facts, offer: offer === null ? null : { ...offer, totalPaise: 2_449_800 } };
+    const again = "Total ₹24,498, advance ₹6,000 abhi, balance ₹18,498 trek se pehle.";
+    // Refused, the same words would come back on the retry.
+    on.model.answer({ text: again }, { text: again });
+    const second = await on.dry([asked, ...first.history, "total kitna tha?"], { ...first.state, facts }, later(5));
+    expect(second).toMatchObject({ outcome: "replied", messages: [again] });
+  });
+
   it("keeps a quote's total the words state as told, and moves the lead to Quote sent", async () => {
     const on = await world();
     on.model.answer(

@@ -1,8 +1,8 @@
 // One natural turn as a dry run (Try it, the bench; spec 9.5): the live loop on a chat and the state the last turn handed
 // back, against the agency's real data. Reads and checks run on the data, each in a transaction of its own; actions are
 // staged and described, never done: nothing is sent, held, booked or stored, and only the month's AI calls count, as each
-// live call does. The guards read what a live turn's would: this turn's offer, Team lines of the last 30 days, the
-// answers and each trip's text, whole for a trip get_trip read.
+// live call does. The guards read what a live turn's would: this turn's offer and the live one, Team lines of the last
+// 30 days, the answers and each trip's text, whole for a trip get_trip read.
 import {
   naturalFacts,
   type DryLead,
@@ -114,8 +114,11 @@ function beforeTheModel(newLines: readonly NaturalChatLine[]) {
   return { notice: null, withTools: true, forced: [] };
 }
 
-/** What the guards and the trace's flags read; a trip get_trip read counts whole from then on (G1 grounds its text). */
-function guardReads(agency: DryAgency, lines: readonly NaturalChatLine[], told: NaturalFacts["told"], now: Date) {
+/**
+ * What the guards and the trace's flags read; a trip get_trip read counts whole from then on (G1 grounds its text), and
+ * G1 grounds the totals told and the live offer the turn block shows.
+ */
+function guardReads(agency: DryAgency, lines: readonly NaturalChatLine[], facts: NaturalFacts, now: Date) {
   const { today, answers } = agency;
   const whole = new Map<string, TripSheet>();
   const sheets = () => agency.sheets.map((sheet) => whole.get(sheet.packageId) ?? sheet);
@@ -142,7 +145,16 @@ function guardReads(agency: DryAgency, lines: readonly NaturalChatLine[], told: 
     context(staged: StagedSet, quoted: readonly QuoteFigures[]): GuardContext {
       const offer = staged.get("offer_booking");
       return {
-        grounded: groundedAmounts({ sheets: sheets(), today, answers, teamLines, told, quoted, now }),
+        grounded: groundedAmounts({
+          sheets: sheets(),
+          today,
+          answers,
+          teamLines,
+          told: facts.told,
+          quoted,
+          liveOffer: facts.offer,
+          now,
+        }),
         customerText,
         offer: offer?.tool === "offer_booking" ? offer.offer : null,
         paymentConfirmed: false,
@@ -186,7 +198,7 @@ export async function naturalDryTurnInFull(
     notice: before.notice,
     withTools: before.withTools,
   });
-  const reads = guardReads(agency, lines, facts.told, now);
+  const reads = guardReads(agency, lines, facts, now);
   const readContext = (tx: OrgTx): ReadContext => ({ tx, sheets, labels: context.labels, today, now });
   const actions: Omit<ActionContext, "quotedThisTurn"> = {
     sheets,

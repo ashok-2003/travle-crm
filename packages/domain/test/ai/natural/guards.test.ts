@@ -104,6 +104,8 @@ interface Setup {
   quoted?: readonly QuoteFigures[];
   customerText?: string;
   offer?: LiveOffer | null;
+  /** The live offer an earlier turn made, which the turn block shows. */
+  liveOffer?: LiveOffer | null;
   paymentConfirmed?: boolean;
   bookingConfirmed?: boolean;
   ownerText?: string;
@@ -120,6 +122,7 @@ function contextOf(setup: Setup = {}): GuardContext {
     teamLines,
     told: setup.told ?? [],
     quoted: setup.quoted ?? [],
+    liveOffer: setup.liveOffer ?? null,
     now,
   });
   return {
@@ -237,6 +240,14 @@ describe("G1: every amount in the words is one the data holds", () => {
     expect(check("The total stays ₹24,498.", { told: [toldAt(29)] })).toMatchObject({ ok: true });
     expect(check("₹9,000 advance, balance ₹15,498.", { told: [toldAt(29)] })).toMatchObject({ ok: true });
     expect(check("The total stays ₹24,498.", { told: [toldAt(31)] })).toMatchObject(refusedBy("G1"));
+  });
+
+  it("passes the live offer's total, advance and balance, which the turn block shows", () => {
+    // A child's place makes a total the adults' price times the party doesn't give: ₹24,498, less ₹9,000 is ₹15,498.
+    const withChild: LiveOffer = { ...offer, adults: 2, childrenAges: [8], totalPaise: 2_449_800 };
+    const words = "Total ₹24,498 hi hai: ₹9,000 advance abhi, balance ₹15,498 baad mein.";
+    expect(check(words, { liveOffer: withChild })).toMatchObject({ ok: true });
+    expect(check(words)).toMatchObject(refusedBy("G1"));
   });
 
   it("refuses the customer's own figure and says to refer to it without the amount", () => {

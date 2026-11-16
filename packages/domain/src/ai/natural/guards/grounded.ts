@@ -1,6 +1,7 @@
-// G1's grounded set (spec 5, fix round 1's rulings): every amount the agency's data, this turn's quotes and the team
-// stand behind, and the figures that follow from them (a balance, the GST itself, an owner's discount, a rupee rounded).
-import type { AgencyAnswers, ToldTotal } from "@travel-crm/contracts/ai";
+// G1's grounded set (spec 5, fix round 1's rulings): every amount the agency's data, this turn's quotes, the live offer
+// and the team stand behind, and the figures that follow from them (a balance, the GST itself, an owner's discount, a
+// rupee rounded).
+import type { AgencyAnswers, LiveOffer, ToldTotal } from "@travel-crm/contracts/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
 import type { QuoteFigures, TripSheet } from "../types.js";
 import { amountsIn, looseAmountsIn } from "./amounts.js";
@@ -117,7 +118,8 @@ function quotedAmounts(quote: QuoteFigures, tax: Tax): number[] {
  * room and with GST when prices exclude it, the from-prices and advances, each for 1 to 10 people; this turn's quote
  * figures; totals told in the last 30 days; amounts in the answers, trip text and Team lines, which the caller passes
  * for the last 30 days) and what follows from them: the balance after the advance, the GST itself, a price less a
- * discount percent that owner or Team text gives, and each rounded to the rupee. Never the customer's amounts.
+ * discount percent that owner or Team text gives, and each rounded to the rupee. Also the live offer an earlier turn
+ * made (its total, advance and balance), which the turn block shows. Never the customer's amounts.
  */
 export function groundedAmounts(input: {
   sheets: readonly TripSheet[];
@@ -126,6 +128,7 @@ export function groundedAmounts(input: {
   teamLines: readonly string[];
   told: readonly ToldTotal[];
   quoted: readonly QuoteFigures[];
+  liveOffer: LiveOffer | null;
   now: Date;
 }): GroundedSet {
   const sheetOf = (packageId: string) => input.sheets.find((sheet) => sheet.packageId === packageId);
@@ -141,11 +144,13 @@ export function groundedAmounts(input: {
       const people = one.adults + one.childrenAges.length;
       return advance === null ? [one.totalPaise] : [one.totalPaise, one.totalPaise - advance * people];
     });
+  const offer = input.liveOffer;
   return groundedSetOf(
     [
       ...input.sheets.flatMap((sheet) => sheetAmounts(sheet, input.today, discounts)),
       ...input.quoted.flatMap((quote) => quotedAmounts(quote, sheetOf(quote.terms.packageId) ?? NO_TAX)),
       ...told,
+      ...(offer === null ? [] : [offer.totalPaise, offer.advancePaise, offer.totalPaise - offer.advancePaise]),
       ...answers.flatMap((answer) => amountsIn(answer)).map((one) => one.paise),
       ...input.teamLines.flatMap((line) => looseAmountsIn(line)).map((one) => one.paise),
     ].filter((paise) => paise > 0),
