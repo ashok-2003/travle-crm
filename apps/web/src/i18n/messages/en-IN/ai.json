@@ -142,6 +142,11 @@
     "reset": "Start again",
     "thinking": "The AI agent is answering…",
     "choices": {
+      "agent": "Agent",
+      "agents": {
+        "current": "Current agent",
+        "natural": "New agent"
+      },
       "model": "Model",
       "models": {
         "live": "Live model",
@@ -153,7 +158,74 @@
         "point4": "0.4"
       },
       "onlyFlash": "Only Gemini Flash takes a temperature.",
-      "thisChatOnly": "The model and temperature apply only to this test chat, never to your customers' chats."
+      "thisChatOnly": "The agent, model and temperature apply only to this test chat, never to your customers' chats. Choosing another agent starts the chat again."
+    },
+    "natural": {
+      "payment": "Then code sends:",
+      "quiet": "It would stay quiet: {reason}",
+      "fallback": "It couldn't answer, so it would send the fallback line and add a task",
+      "handOverReasons": {
+        "discount": "they asked for a discount or a better price",
+        "custom_trip": "they want a trip made for them",
+        "complaint": "they have a complaint",
+        "payment_check": "their payment needs checking",
+        "wants_person": "they asked for a person",
+        "abuse": "the chat turned abusive",
+        "big_group": "the group is bigger than the AI books",
+        "existing_booking": "it's about a booking they already have"
+      },
+      "outcomes": {
+        "replied": "Replied",
+        "quiet": "Stayed quiet",
+        "handed_off": "Handed to your team",
+        "fallback": "Sent the fallback line"
+      },
+      "fields": {
+        "trip": "trip",
+        "dates": "dates",
+        "adults": "adults",
+        "children": "children",
+        "pickup": "pickup city",
+        "room": "room",
+        "name": "name"
+      },
+      "actions": {
+        "updateLead": "It would save the lead's {fields}.",
+        "updateNotes": "It would add notes to the lead.",
+        "sendBrochure": "It would send the {trip} brochure ({files, plural, one {# file} other {# files}}).",
+        "offerBooking": "It would offer {trip} on {date} for {people, plural, one {# person} other {# people}}: {total} in all, {advance} advance.",
+        "book": "It would hold {seats, plural, one {# seat} other {# seats}} of {trip} on {date} and send the payment details and QR for the {advance} advance.",
+        "resendPayment": "It would send the payment details and QR again.",
+        "followUp": "It would follow up on {time}: {about}",
+        "noFollowUp": "It would plan no follow-up.",
+        "task": "It would add a task for your team: {text}",
+        "callBack": "It would add a call-back for your team: {text}",
+        "note": "It would add a note to the lead: {text}",
+        "handOver": "It would hand the chat to your team ({reason}): {summary}",
+        "suggestLost": "It would suggest marking the lead Lost: {reason}",
+        "suggestNotALead": "It would suggest marking the lead Not a lead: {reason}"
+      },
+      "why": {
+        "prompt": "Prompt version",
+        "outcome": "Outcome",
+        "fallback": "Fallback reason",
+        "restarted": "Started over",
+        "calls": "Model calls",
+        "time": "Time",
+        "seconds": "{seconds} s",
+        "tokens": "Tokens",
+        "tokenCounts": "{input} in, {cached} cached, {output} out, {reasoning} reasoning",
+        "eachCall": "Each call",
+        "noModel": "No model answered",
+        "callLine": "{seconds} s · {tokens} · ended: {finish}",
+        "wrote": "Wrote: {words}",
+        "result": "→ {result}",
+        "guards": "Checks",
+        "noGuards": "No words to check.",
+        "guardPassed": "{guard} passed",
+        "guardRefused": "{guard} refused",
+        "flags": "Flags"
+      }
     },
     "noAnswer": "It would send nothing.",
     "handoff": "It would hand the chat to your team: {reason}",
