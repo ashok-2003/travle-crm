@@ -71,7 +71,8 @@ async function destinations(page: Page, testInfo: TestInfo): Promise<string[]> {
     .filter({ visible: true })
     .getByRole("link")
     .allTextContents();
-  await page.getByRole("button", { name: "More" }).click();
+  // Exact: the dashboard's "Show more organizations" button also matches "More".
+  await page.getByRole("button", { name: "More", exact: true }).click();
   const more = await page.getByRole("dialog").getByRole("link").allTextContents();
   return [...bar, ...more];
 }
