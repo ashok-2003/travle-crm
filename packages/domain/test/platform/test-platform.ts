@@ -11,6 +11,7 @@ import {
   type MemoryJobAdministration,
   type MemoryJobQueue,
 } from "@travel-crm/integrations/jobs";
+import { createMemoryPushSender, type MemoryPushSender } from "@travel-crm/integrations/push";
 import { createMemoryLogger, type MemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage, type MemoryStorage } from "@travel-crm/integrations/storage";
 import { inject } from "vitest";
@@ -30,6 +31,8 @@ export interface TestPlatform {
   identity: TestIdentity;
   /** The emails the console sent (incidents, resends), each recorded in the email log as the console's are. */
   emails: MemoryEmailSender;
+  /** The web pushes the console sent to super admins' browsers. */
+  push: MemoryPushSender;
   /** What the platform's services logged. */
   logger: MemoryLogger;
   close(): Promise<void>;
@@ -44,6 +47,7 @@ export function createTestPlatform(): TestPlatform {
   const jobs = createMemoryJobAdministration();
   const logger = createMemoryLogger();
   const emails = createMemoryEmailSender();
+  const push = createMemoryPushSender();
   const services = createPlatformServices({
     platformDatabaseUrl: urls.platform,
     maxConnections: 2,
@@ -54,6 +58,8 @@ export function createTestPlatform(): TestPlatform {
     jobs,
     logger,
     email: recordedEmailSender(emails, emailLogStore(db), logger),
+    push,
+    pushPublicKey: "test-public-key",
   });
   return {
     services,
@@ -62,6 +68,7 @@ export function createTestPlatform(): TestPlatform {
     jobs,
     identity,
     emails,
+    push,
     logger,
     close: async () => {
       await services.platformDb.disconnect();
