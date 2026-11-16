@@ -1,6 +1,6 @@
 "use client";
 
-// The dashboard's system health (the owner, 2026-11-02): what is broken now (the AI, jobs, the api, the worker), each
+// The Platform updates page's system health (the owner, 2026-11-02; moved off the dashboard 2026-11-17): what is broken now (the AI, jobs, the api, the worker), each
 // with what it means, since when and how often it was reported, or a line that all is working; and the last week's
 // incidents, resolved. Read again every minute. The super admins are emailed too; this is where they look.
 import type { IncidentKind, PlatformIncident } from "@travel-crm/contracts/platform";
@@ -14,7 +14,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { consoleRoutes } from "../routes";
-import { DASHBOARD_STALE_MS } from "./use-organizations-overview";
 
 const READ_EVERY_MS = 60_000;
 
@@ -32,7 +31,7 @@ export function SystemHealth() {
   const trpc = useConsoleTRPC();
   const instantText = useInstantText();
   const incidents = useQuery(
-    trpc.dashboard.incidents.queryOptions(undefined, { refetchInterval: READ_EVERY_MS, staleTime: DASHBOARD_STALE_MS }),
+    trpc.dashboard.incidents.queryOptions(undefined, { refetchInterval: READ_EVERY_MS, staleTime: READ_EVERY_MS }),
   );
   if (incidents.isError) {
     return (
