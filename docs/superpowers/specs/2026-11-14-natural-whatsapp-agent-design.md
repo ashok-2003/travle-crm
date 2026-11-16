@@ -264,8 +264,9 @@ Each guard runs only when its trigger is present, so a plain itinerary answer me
 
 G1's grounded set, rebuilt each turn: table prices of seasons not yet ended, per room, and the GST-inclusive figure when
 prices exclude GST; the from-prices and the advance per person; any of these times 2 to 10, so "₹8,750 × 3 = ₹26,250"
-needs no tool call (writer); every figure `quote` or `offer_booking` returned this turn and the totals told in the last
-30 days; amounts in the agency's answers and customer-facing trip text; amounts in Team lines of the last 30 days. Not
+needs no tool call (writer); every figure `quote` or `offer_booking` returned this turn, the live offer's total, advance
+and balance (the turn block shows it), and the totals told in the last 30 days; amounts in the agency's answers and
+customer-facing trip text; amounts in Team lines of the last 30 days. Not
 grounded: amounts the customer typed ("the team said ₹6,000" is never repeated as fact) and earlier-assistant lines.
 Percentages and counts are not money.
 
