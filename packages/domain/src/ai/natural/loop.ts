@@ -36,6 +36,8 @@ export async function runNaturalLoop(
   trace.staged(run.staged);
   while (calls < NATURAL_LIMITS.calls && left() >= NATURAL_LIMITS.lastCallMs) {
     if (await io.newerLine()) return { end: "superseded" };
+    // The look for a newer line takes time too.
+    if (left() < NATURAL_LIMITS.lastCallMs) break;
     const request = requestOf(context, run, settings, deadline, left());
     const started = io.clock();
     const result = await io.call(request);
@@ -45,7 +47,7 @@ export async function runNaturalLoop(
     trace.call(result.ok ? answeredCall(result, ms) : failedCall(request, result.reason, ms));
     const restart = restartFor(result, run, settings.model);
     if (restart !== null) {
-      if (restarted || left() < NATURAL_LIMITS.nextModelMs) {
+      if (restarted || calls >= NATURAL_LIMITS.calls || left() < NATURAL_LIMITS.nextModelMs) {
         // A cut-off answer that can't start over is no answer.
         return { end: "model_failed", reason: result.ok ? "unavailable" : result.reason };
       }

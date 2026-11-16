@@ -1,6 +1,6 @@
 // The natural agent's loop (spec 3.2; rulings 11, 12, 14, 22; pre-flight #5, #11, #12, #14, #16) with a scripted model, a
 // fake IO and a fake clock, no database: its requests, tool calls, guard retry, restarts, caps and failure path.
-import { naturalToolDefinitions, type NaturalToolName } from "@travel-crm/contracts/ai";
+import { handOverArguments, naturalToolDefinitions, type NaturalToolName } from "@travel-crm/contracts/ai";
 import { createMemoryAiModel, type AiRequest, type MemoryAiModel } from "@travel-crm/integrations/ai";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { NaturalContext } from "../../../src/ai/natural/context/build.js";
@@ -24,6 +24,9 @@ const LITE = "google/gemini-3.5-flash-lite";
 // The customer wrote "Kedarkantha ka rate?": the Hinglish fallback line.
 const FALLBACK_LINE = "Ye team se check karke yahin batate hain.";
 const NO_WORDS = "[app check, not from the customer] Your reply had no words. Write the reply, or call stay_quiet.";
+const HAND_OVER_LINE =
+  "[app check, not from the customer] Your hand-over had no words. Write one short line saying you've told the team " +
+  "and they'll reply here.";
 const READ_FAILED =
   "refused: that couldn't be read just now; answer from what you have, or say you'll check with the team and call " +
   "create_task";
@@ -68,7 +71,6 @@ const staging: Partial<Record<NaturalToolName, StagedAction>> = {
     via: "offer",
   },
   resend_payment: { tool: "resend_payment" },
-  hand_over: { tool: "hand_over", reason: "wants_person", summary: "Wants a call" },
   stay_quiet: { tool: "stay_quiet", reason: "said ok" },
 };
 
@@ -127,9 +129,12 @@ function fakeIO(): FakeIO {
         figures: name === "quote" ? quoted : null,
       });
     },
-    stage: (name, _args, words, sofar) => {
+    stage: (name, args, words, sofar) => {
       fake.stagings.push({ name, words, quoted: [...sofar] });
-      const staged = staging[name] ?? { tool: "add_note", text: name };
+      const handing = name === "hand_over" ? handOverArguments.safeParse(args) : null;
+      const staged: StagedAction = handing?.success
+        ? { tool: "hand_over", reason: handing.data.reason, summary: handing.data.summary }
+        : (staging[name] ?? { tool: "add_note", text: name });
       return Promise.resolve({ staged, result: `${name}: staged` });
     },
     check: (words, staged, sofar) => {
@@ -296,12 +301,13 @@ describe("the natural agent's loop", () => {
   it("answers a read or an action that failed with a refusal, never a throw", async () => {
     io.read = () => Promise.reject(new Error("connection lost"));
     io.stage = () => {
-      throw new Error("connection lost");
+      throw new TypeError("terms is undefined");
     };
     model.answer({ toolCalls: [quoteCall, offerCall] }, "Team se check karke yahin batate hain.");
     expect(await loop()).toMatchObject({ end: "final", messages: ["Team se check karke yahin batate hain."] });
     expect(toolResults(model.requests[1])).toEqual([READ_FAILED, STAGE_FAILED]);
-    expect(finished().flags).toEqual(["tool_failed:quote", "tool_failed:offer_booking"]);
+    // The error's name tells an outage from a bug in "Why".
+    expect(finished().flags).toEqual(["tool_failed:quote:Error", "tool_failed:offer_booking:TypeError"]);
   });
 
   it("sends the words when stay_quiet comes with them, and flags it (Review Focus 4, ruling 11)", async () => {
@@ -377,6 +383,17 @@ describe("the natural agent's loop", () => {
     expect(end.end === "fallback" && end.task).toContain("Aapke liye 10% off.");
   });
 
+  it("keeps an earlier hand-over's reason in the discount hand-over's summary", async () => {
+    const retry = "Say the team will check; quote no discount nobody gave.";
+    io.verdicts.push(failing("G4", retry, "hand_over_discount"), failing("G4", retry, "hand_over_discount"));
+    model.answer("Screenshot mil gaya, aur 10% off bhi.", "Aapke liye 10% off.");
+    const end = await loop({ forced: [handOver] });
+    expect(end.end === "fallback" && end.staged.get("hand_over")).toMatchObject({
+      reason: "discount",
+      summary: expect.stringContaining("Also payment_check: Payment screenshot to check") as unknown,
+    });
+  });
+
   it("withdraws an offer whose words twice miss its date and advance, and sends the words", async () => {
     const g2 = failing(
       "G2",
@@ -416,6 +433,14 @@ describe("the natural agent's loop", () => {
     model.answer(...Array.from({ length: 4 }, () => ({ toolCalls: [quoteCall] })));
     expect(await loop({ startedMs: START - 110_000 })).toMatchObject({ end: "fallback", reason: "deadline" });
     expect(model.requests.slice(1).map((request) => request.timeoutMs)).toEqual([10_000, 8_000, 6_000]);
+    // A slow look for a newer line counts too: no call starts after it with under 5 s left.
+    io.now = START;
+    io.newerLine = () => {
+      io.now += 20_000;
+      return Promise.resolve(false);
+    };
+    expect(await loop({ startedMs: START - 96_000 })).toMatchObject({ end: "fallback", reason: "deadline" });
+    expect(model.requests).toHaveLength(4);
   });
 
   it("ends superseded when a newer customer line has come", async () => {
@@ -485,6 +510,13 @@ describe("the natural agent's loop", () => {
     expect(await loop({ startedMs: START - 101_000 })).toEqual({ end: "model_failed", reason: "unavailable" });
   });
 
+  it("doesn't start over on the turn's last call", async () => {
+    model.answer({ ok: false, reason: "bad_request" }, "never asked");
+    expect(await loop({ callsUsed: 3 })).toEqual({ end: "model_failed", reason: "bad_request" });
+    expect(model.requests).toHaveLength(1);
+    expect(finished().restarted).toBeNull();
+  });
+
   it("ends model_failed when the model can't answer, and on the month's limit", async () => {
     model.answer({ ok: false, reason: "unavailable" });
     expect(await loop()).toEqual({ end: "model_failed", reason: "unavailable" });
@@ -522,11 +554,11 @@ describe("the natural agent's loop", () => {
     expect(io.checks.map((check) => check.words)).toEqual(["Weekend batch Sat 19 Dec hai.\n\nKitne log?"]);
   });
 
-  it("ends with a staged hand_over, stay_quiet or send_brochure and no words", async () => {
+  it("ends with a staged stay_quiet or send_brochure and no words, or a hand-over for abuse", async () => {
     const enders = [
-      ["hand_over", { reason: "wants_person", summary: "Wants a call" }],
       ["stay_quiet", { reason: "said ok" }],
       ["send_brochure", { trip_id: "T1" }],
+      ["hand_over", { reason: "abuse", summary: "Abusive messages" }],
     ] as const;
     for (const [name, args] of enders) {
       model.answer({ toolCalls: [{ name, arguments: args }] });
@@ -535,6 +567,39 @@ describe("the natural agent's loop", () => {
       expect(end.end === "final" && [...end.staged.keys()]).toEqual([name]);
     }
     expect(model.requests).toHaveLength(3);
+  });
+
+  it("asks a wordless hand-over for its line to the customer, and the guards check that line", async () => {
+    const handing = { name: "hand_over", arguments: { reason: "discount", summary: "Wants 10% off for 6" } };
+    const line = "Maine team ko bata diya hai, woh yahin reply karenge.";
+    model.answer({ toolCalls: [handing] }, line);
+    const end = await loop();
+    expect(end).toMatchObject({ end: "final", messages: [line] });
+    expect(end.end === "final" && end.staged.get("hand_over")).toMatchObject({ reason: "discount" });
+    expect(model.requests[1]?.messages.at(-1)).toEqual({ role: "user", content: HAND_OVER_LINE });
+    expect(io.checks.map((check) => check.words)).toEqual([line]);
+  });
+
+  it("sends the fallback line, the hand-over kept, when the hand-over's extra call has no words either", async () => {
+    const handing = { name: "hand_over", arguments: { reason: "wants_person", summary: "Wants a call" } };
+    // stay_quiet can't silence a hand-over that owes the customer a line.
+    const quiet = { name: "stay_quiet", arguments: { reason: "handed over" } };
+    model.answer({ toolCalls: [handing, quiet] }, "");
+    const end = await loop();
+    expect(end).toMatchObject({ end: "fallback", reason: "model", messages: [FALLBACK_LINE] });
+    expect(end.end === "fallback" && [...end.staged.keys()]).toEqual(["hand_over"]);
+    expect(model.requests).toHaveLength(2);
+  });
+
+  it("asks for words beside a booking, whatever else ends the turn", async () => {
+    const book = {
+      name: "book",
+      arguments: { ...quoteCall.arguments, full_name: "Rohan Mehta", customer_words: "haan, book karo" },
+    };
+    const line = "Sat 19 Dec ki 2 seats hold kar di hain; advance ₹6,000 ka QR neeche hai.";
+    model.answer({ toolCalls: [book, { name: "send_brochure", arguments: { trip_id: "T1" } }] }, line);
+    expect(await loop()).toMatchObject({ end: "final", messages: [line] });
+    expect(model.requests).toHaveLength(2);
   });
 
   it("puts each quote's and the offer's figures in quoted, for the actions and the guards", async () => {
