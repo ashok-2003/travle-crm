@@ -28,6 +28,8 @@ import {
   aiOverview,
   chatAi,
   conversationAiInput,
+  naturalTestAnswer,
+  naturalTestInput,
   testAiAnswer,
   testAiInput,
   setChatAiInput,
@@ -65,6 +67,8 @@ import {
   aiSettingsOf,
   chatAiOf,
   liteDryRun,
+  naturalDryRun,
+  naturalPromptOf,
   resumeChat,
   setChatMode,
   confirmDocument,
@@ -428,5 +432,29 @@ export const aiRouter = router({
         ...(input.temperature === "0.4" ? { temperature: 0.4 } : {}),
       };
       return liteDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, chat, new Date());
+    }),
+
+  /**
+   * Try it on the natural agent, beside `test`: the same permission, the same Flash and 0.4 choice, its own strict input
+   * and answer. A server with no model for the agent answers AI_NOT_READY; any other model failure comes back as the
+   * fallback line and a task, as it would live. Nothing is sent or kept but the month's AI calls.
+   */
+  testNatural: freshProcedure
+    .requires("ai:manage")
+    .input(naturalTestInput)
+    .output(naturalTestAnswer)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.ai?.configured)
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      const agencyName = async (organizationId: string) =>
+        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
+      const chat = {
+        messages: input.messages,
+        state: input.state,
+        prompt: await naturalPromptOf(ctx.db),
+        ...(input.model === "flash" ? { model: TEST_CHAT_FLASH_MODEL } : {}),
+        ...(input.temperature === "0.4" ? { temperature: 0.4 } : {}),
+      };
+      return naturalDryRun({ db: ctx.db, ai: ctx.ai, agencyName }, ctx.member, chat, new Date());
     }),
 });
