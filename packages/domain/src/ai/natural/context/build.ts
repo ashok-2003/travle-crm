@@ -68,7 +68,7 @@ export function buildNaturalContext(input: NaturalContextInput): NaturalContext 
       ...chat,
       { role: "user", content: turn },
     ],
-    tools: input.withTools ? naturalToolDefinitions({ tripLabels: [...labels.keys()], indexed: trips.indexed }) : [],
+    tools: input.withTools ? naturalToolDefinitions({ tripLabels: [...labels.keys()] }) : [],
     labels,
     indexed: trips.indexed,
     newLines,

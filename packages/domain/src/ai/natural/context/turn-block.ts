@@ -164,7 +164,7 @@ function focusTrips(input: TurnBlockInput): TripSheet[] {
 const withTrips = (head: string, trips: readonly string[], tail: string) =>
   trips.length === 0
     ? `${head}\n${tail}`
-    : `${head}\nTrips this chat is about, in full:\n\n${trips.join("\n\n")}\n\n${tail}`;
+    : `${head}\nTrips this chat is about, summarised:\n\n${trips.join("\n\n")}\n\n${tail}`;
 
 export function turnBlock(input: TurnBlockInput): string {
   const sheetOf = (packageId: string | null) => input.sheets.find((sheet) => sheet.packageId === packageId);

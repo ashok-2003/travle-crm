@@ -74,8 +74,7 @@ const staging: Partial<Record<NaturalToolName, StagedAction>> = {
   stay_quiet: { tool: "stay_quiet", reason: "said ok" },
 };
 
-function contextWith(options: { indexed?: boolean; tools?: boolean } = {}): NaturalContext {
-  const indexed = options.indexed ?? true;
+function contextWith(options: { tools?: boolean } = {}): NaturalContext {
   return {
     messages: [
       { role: "system", content: "You are Riya, of Case Trips, on WhatsApp." },
@@ -84,12 +83,12 @@ function contextWith(options: { indexed?: boolean; tools?: boolean } = {}): Natu
         content: "<now>Sat 14 Nov 2026, 11:43 pm</now>\nNew messages:\n[Sat 14 Nov, 11:42 pm] Kedarkantha ka rate?",
       },
     ],
-    tools: options.tools === false ? [] : naturalToolDefinitions({ tripLabels: ["T1", "T2"], indexed }),
+    tools: options.tools === false ? [] : naturalToolDefinitions({ tripLabels: ["T1", "T2"] }),
     labels: new Map([
       ["T1", "package-1"],
       ["T2", "package-2"],
     ]),
-    indexed,
+    indexed: true,
     newLines: [
       { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
     ],
@@ -293,7 +292,8 @@ describe("the natural agent's loop", () => {
 
   it("refuses a tool the turn didn't offer as one there is no such tool", async () => {
     model.answer({ toolCalls: [{ name: "find_trips", arguments: { query: "Spiti" } }] }, "Spiti abhi nahi hai.");
-    await loop({}, contextWith({ indexed: false }));
+    // With no trip on sale, the turn offers no find_trips.
+    await loop({}, { ...contextWith(), tools: naturalToolDefinitions({ tripLabels: [] }) });
     expect(toolResults(model.requests[1])).toEqual(["refused: there is no tool called find_trips"]);
     expect(io.reads).toEqual([]);
   });

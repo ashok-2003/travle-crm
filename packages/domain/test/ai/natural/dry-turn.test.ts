@@ -326,6 +326,22 @@ describe("the natural agent's dry turn", () => {
     expect(flagContext.sheets.map((sheet) => sheet.label)).toEqual(["T1", "T2"]);
   });
 
+  it("offers the lookups with the trips inline, and get_trip reads past the sheet's cut", async () => {
+    const on = await world();
+    const notes = `${"Carry warm layers, gloves and a cap; nights at camp drop below zero. ".repeat(7)}A mule costs ₹1,200 a day.`;
+    await on.inOrg((tx) => tx.quoteTemplate.update({ where: { id: on.kedarkantha }, data: { notes } }));
+    const mule = "Haan, bag ke liye mule ₹1,200 per day mein milta hai.";
+    on.model.answer({ toolCalls: [{ name: "get_trip", arguments: { trip_id: "T1" } }] }, { text: mule });
+    const { answer } = await on.turn([line(1, "customer", NOW, "Kedarkantha pe bag ke liye mule milega? Kitna?")]);
+    const [asked, afterRead] = on.model.requests;
+    expect(asked?.tools?.map((tool) => tool.name)).toEqual(expect.arrayContaining(["find_trips", "get_trip"]));
+    // Both trips are inline, their notes cut to the budget, so the price is past the cut.
+    expect(contentOf(asked?.messages[0])).toContain("Day 1, Dehradun to Sankri");
+    expect(contentOf(asked?.messages[0])).not.toContain("₹1,200");
+    expect(contentOf(afterRead?.messages.at(-1))).toContain("A mule costs ₹1,200 a day.");
+    expect(answer).toMatchObject({ outcome: "replied", messages: [mule] });
+  });
+
   it("grounds a figure past a sheet's cut once get_trip has read the trip whole", async () => {
     // 16 trips with long text are past the trips' budget, so they are indexed and get_trip is offered; T1's mule price
     // sits past its notes' cut.

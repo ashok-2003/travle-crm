@@ -171,12 +171,12 @@ const assistantText = (context: Context) =>
 const toolNames = (context: Context) => context.tools.map((tool) => tool.name);
 
 describe("the natural agent's context", () => {
-  it("puts every trip in full and offers no lookup when they fit 8,000 tokens", () => {
+  it("puts every trip's sheet in the system string when they fit 8,000 tokens, and still offers the lookups", () => {
     const context = buildNaturalContext(input({ sheets: eightTrips }));
     expect(context.indexed).toBe(false);
-    expect(toolNames(context)).not.toContain("find_trips");
-    expect(toolNames(context)).not.toContain("get_trip");
-    expect(toolNames(context)).toContain("quote");
+    // The sheets are cut to their budget: get_trip reads past the cut, find_trips with a month past the 8 dates.
+    expect(toolNames(context)).toEqual(expect.arrayContaining(["find_trips", "get_trip", "quote"]));
+    expect(system(context)).toContain("Every trip the agency sells, summarised; get_trip reads one in full.");
     for (const trip of eightTrips) expect(system(context)).toContain(tripInFull(trip, today));
     expect(lastUser(context)).not.toContain("Day 1,");
   });

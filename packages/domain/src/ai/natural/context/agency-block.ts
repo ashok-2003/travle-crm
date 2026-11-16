@@ -1,6 +1,6 @@
-// The agency block (spec 4.1, 4.2): who the agent works for, the owner's answers fenced as owner text, and the trips, in
-// full when all fit their budget, else one index line each. It follows the prompt in the system string, so it changes
-// only when the agency's data does.
+// The agency block (spec 4.1, 4.2): who the agent works for, the owner's answers fenced as owner text, and the trips, each
+// one's sheet when all fit their budget, else one index line each. It follows the prompt in the system string, so it
+// changes only when the agency's data does.
 import { agencyQuestionTopics, withoutPaymentDetails, type AgencyAnswers } from "@travel-crm/contracts/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
 import { fenced } from "../../fenced.js";
@@ -33,12 +33,15 @@ export function agencyBlock(voice: AgentVoice, timeZone: string, answers: Agency
   ].join("\n");
 }
 
-/** Every trip in full when they all fit 8,000 tokens; else one index line each, and the lookups find the rest. */
+/**
+ * Every trip's sheet when they all fit 8,000 tokens, else one index line each. A sheet is cut to its budget, so either
+ * way the lookups read the rest.
+ */
 export function tripsBlock(sheets: readonly TripSheet[], today: CalendarDate): { text: string; indexed: boolean } {
   if (sheets.length === 0) return { text: "## Trips\nNo trip is on sale right now.", indexed: false };
   const inFull = [
     "## Trips",
-    "Every trip the agency sells, in full.",
+    "Every trip the agency sells, summarised; get_trip reads one in full.",
     ...sheets.map((sheet) => `\n${fenced(tripInFull(sheet, today))}`),
   ].join("\n");
   if (estimateTokens(inFull) <= NATURAL_BUDGETS.trips) return { text: inFull, indexed: false };

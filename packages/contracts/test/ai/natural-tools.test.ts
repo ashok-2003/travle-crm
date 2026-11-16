@@ -5,16 +5,15 @@ import { naturalToolDefinitions, parseToolArguments } from "../../src/ai/natural
 const labels = ["T1", "T2"];
 
 describe("the natural agent's tool definitions", () => {
-  it("offers 14 tools with indexed trips and 12 with inline ones", () => {
-    expect(naturalToolDefinitions({ tripLabels: labels, indexed: true })).toHaveLength(14);
-    const inline = naturalToolDefinitions({ tripLabels: labels, indexed: false }).map((tool) => tool.name);
-    expect(inline).toHaveLength(12);
-    expect(inline).not.toEqual(expect.arrayContaining(["find_trips"]));
-    expect(inline).not.toEqual(expect.arrayContaining(["get_trip"]));
+  it("offers all 14 tools when the turn has trips, inline or indexed", () => {
+    // Inline sheets are cut to their budget: get_trip reads past the cut, find_trips with a month past the 8 dates.
+    const names = naturalToolDefinitions({ tripLabels: labels }).map((tool) => tool.name);
+    expect(names).toHaveLength(14);
+    expect(names).toEqual(expect.arrayContaining(["find_trips", "get_trip"]));
   });
 
   it("enumerates the turn's trip labels in every trip_id", () => {
-    const tools = naturalToolDefinitions({ tripLabels: labels, indexed: true });
+    const tools = naturalToolDefinitions({ tripLabels: labels });
     const quote = tools.find((tool) => tool.name === "quote");
     expect(quote?.parameters).toMatchObject({ properties: { trip_id: { enum: ["T1", "T2"] } } });
     const naming = tools.filter((tool) => JSON.stringify(tool.parameters).includes("trip_id"));
@@ -32,7 +31,7 @@ describe("the natural agent's tool definitions", () => {
   });
 
   it("offers no tool that names a trip when there is none", () => {
-    const tools = naturalToolDefinitions({ tripLabels: [], indexed: false });
+    const tools = naturalToolDefinitions({ tripLabels: [] });
     expect(tools.map((tool) => tool.name)).toEqual([
       "update_lead",
       "resend_payment",
@@ -47,13 +46,13 @@ describe("the natural agent's tool definitions", () => {
   });
 
   it("sends no examples keyword and no schema dialect to the model", () => {
-    const wire = JSON.stringify(naturalToolDefinitions({ tripLabels: ["T1"], indexed: true }));
+    const wire = JSON.stringify(naturalToolDefinitions({ tripLabels: ["T1"] }));
     expect(wire).not.toContain("examples");
     expect(wire).not.toContain("$schema");
   });
 
   it("leaves a defaulted argument optional", () => {
-    const quote = naturalToolDefinitions({ tripLabels: labels, indexed: false }).find((tool) => tool.name === "quote");
+    const quote = naturalToolDefinitions({ tripLabels: labels }).find((tool) => tool.name === "quote");
     expect(quote?.parameters).toMatchObject({ required: ["trip_id", "date", "adults"], additionalProperties: false });
   });
 });

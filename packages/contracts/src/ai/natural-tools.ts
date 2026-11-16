@@ -26,7 +26,10 @@ export const naturalToolNames = [
 export type NaturalToolName = (typeof naturalToolNames)[number];
 /** The tools that only read: the model is called again with their results. */
 export const naturalReadTools: readonly NaturalToolName[] = ["find_trips", "get_trip", "quote"];
-/** Offered only when the turn has trips (ruling 21); `update_lead` stays, without its `trip_id`. */
+/**
+ * Offered only when the turn has trips (ruling 21); `update_lead` stays, without its `trip_id`. The lookups go with the
+ * trips inline too (spec 4.2): those sheets are cut, so get_trip reads past the cut and find_trips past their 8 dates.
+ */
 const tripTools: readonly NaturalToolName[] = [
   "find_trips",
   "get_trip",
@@ -35,8 +38,6 @@ const tripTools: readonly NaturalToolName[] = [
   "offer_booking",
   "book",
 ];
-/** Offered only when the trips are indexed (spec 4.2): inline, every trip is in the context already. */
-const indexTools: readonly NaturalToolName[] = ["find_trips", "get_trip"];
 
 const date = calendarDate.describe("yyyy-mm-dd");
 const childrenAges = z.array(z.int().min(0).max(17)).max(20).describe("Each child's age in years");
@@ -172,12 +173,8 @@ export interface NaturalToolDefinition {
 }
 
 /** The tools this turn offers, each `trip_id` an enum of the turn's labels (ruling 8). */
-export function naturalToolDefinitions(input: {
-  tripLabels: readonly string[];
-  indexed: boolean;
-}): NaturalToolDefinition[] {
+export function naturalToolDefinitions(input: { tripLabels: readonly string[] }): NaturalToolDefinition[] {
   return naturalToolNames
-    .filter((name) => input.indexed || !indexTools.includes(name))
     .filter((name) => input.tripLabels.length > 0 || !tripTools.includes(name))
     .map((name) => ({
       name,

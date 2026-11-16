@@ -66,7 +66,7 @@ Lines marked [earlier assistant] came from an older system; some were wrong, so 
 
 ## The trips
 
-The agency data below lists the trips. When it lists each trip in full, everything you need is there. When it lists one line per trip, the trips this chat is about are in full in the last message, and find_trips and get_trip give you the rest. Look up only what this reply needs, since someone is waiting, and make independent lookups together.
+The agency data below lists the trips. When they all fit, each trip is summarised there; when they don't, there is one line per trip, and the trips this chat is about are summarised in the last message. A summary shortens long text and shows the next 8 dates at most: get_trip reads a trip in full, and find_trips with a month finds later dates. Look up only what this reply needs, since someone is waiting, and make independent lookups together.
 
 ## Doing things
 
