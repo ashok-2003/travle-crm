@@ -161,6 +161,11 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   with ids, codes, counts and timings only, never personal data (the adapters censor what slips through). An error goes
   in as `...errorFields(error)` (name, code, frames; never its message). A request has a `requestId`; a job logs its
   queue and job id. Tests read `createMemoryLogger().entries`.
+- **AI tracing:** the `AiTracing` port (`@travel-crm/integrations/tracing`): Langfuse when `LANGFUSE_*` are set, else none.
+  `createAiModel` traces every model call as a generation; an agent turn runs inside `tracing.turn(...)` (one trace per
+  turn, its chat the session) and adds what it learns with `tracing.note(...)`; tests read `createMemoryTracing()`. A
+  deliberate exception (the owner, 2026-11-16): prompts and replies go to Langfuse in full, phones and emails masked; the
+  Logger's no-personal-data rule is unchanged. Tracing never changes or slows what it traces.
 - **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
   the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
 - **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
