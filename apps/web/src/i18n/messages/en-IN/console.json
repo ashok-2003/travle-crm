@@ -6,6 +6,7 @@
     "onboard": "Onboard",
     "plans": "Plans",
     "jobs": "Jobs",
+    "updates": "Platform updates",
     "emails": "Failed emails",
     "aiPrompts": "AI prompts",
     "log": "Log",
@@ -58,6 +59,9 @@
     "seats": "<n>{used}</n> of <n>{limit}</n>",
     "seatsNoLimit": "<n>{used}</n>, no limit",
     "neverActive": "Never"
+  },
+  "updates": {
+    "title": "Platform updates"
   },
   "health": {
     "heading": "System health",

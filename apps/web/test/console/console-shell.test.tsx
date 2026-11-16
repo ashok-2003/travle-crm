@@ -7,12 +7,15 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ConsoleTRPCProvider, createConsoleClient } from "@/console/data/console-trpc";
 import { ConsoleShell } from "@/console/shell/console-shell";
 import { StaffProvider } from "@/console/session/staff-context";
 import { DataProviders } from "@/data/providers";
 import { locale, messages } from "@/i18n/messages";
 import { loadPage } from "@/lib/navigate";
 import { stubApi } from "../support/api-stub";
+import { fakePushBrowser, THIS_PHONE } from "../notifications/fake-push-browser";
+import { inputsTo } from "../support/render-console";
 import { screenIs } from "../organization/render";
 import { platformStaff } from "../support/platform-staff";
 
@@ -27,11 +30,13 @@ function renderShell(level: "support" | "super-admin", queryClient = new QueryCl
     <NextIntlClientProvider locale={locale} messages={messages}>
       <DataProviders>
         <QueryClientProvider client={queryClient}>
-          <StaffProvider staff={platformStaff(level)}>
-            <ConsoleShell>
-              <p>The page</p>
-            </ConsoleShell>
-          </StaffProvider>
+          <ConsoleTRPCProvider trpcClient={createConsoleClient()} queryClient={queryClient}>
+            <StaffProvider staff={platformStaff(level)}>
+              <ConsoleShell>
+                <p>The page</p>
+              </ConsoleShell>
+            </StaffProvider>
+          </ConsoleTRPCProvider>
         </QueryClientProvider>
       </DataProviders>
     </NextIntlClientProvider>,
@@ -118,5 +123,20 @@ describe("ConsoleShell", () => {
     await vi.waitFor(() => {
       expect(api.calls).toContain("auth/sign-out");
     });
+  });
+
+  it("signs out of platform alerts first: the console's api is told, and so is the push service", async () => {
+    const browser = fakePushBrowser({ permission: "granted", subscribed: true });
+    const api = stubApi({ "auth/sign-out": { data: {} }, "platform.push.unsubscribe": { data: null } });
+    renderShell("super-admin");
+    await userEvent.click(within(await findSidebar()).getByRole("button", { name: navigation.signOut }));
+    await vi.waitFor(() => {
+      expect(loadPage).toHaveBeenCalledWith("/sign-in");
+    });
+    expect(api.calls).toContain("platform.push.unsubscribe");
+    expect(api.calls).not.toContain("notifications.push.unsubscribe");
+    expect(inputsTo("push.unsubscribe")).toEqual([{ endpoint: THIS_PHONE }]);
+    expect(browser.subscription()).toBeNull();
+    browser.restore();
   });
 });

@@ -127,6 +127,8 @@ test("Send to my phone pushes the number to the person's own device, and the pag
   if (!isPhone(testInfo)) {
     await page.addInitScript(standInPush);
     await page.goto("/account/notifications");
+    // The app asks to turn notifications on once a day; this journey turns them on with the card.
+    await page.getByRole("button", { name: "Not now" }).click();
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
     const device = page.getByRole("region", { name: "On this device" });
     await device.getByRole("button", { name: "Turn on push" }).click();
