@@ -83,14 +83,16 @@ export function createMemoryTracing(): MemoryTracing {
     async step(start, work, ended) {
       const step: MemoryStep = { start, ended: null, failure: null };
       running.getStore()?.steps.push(step);
-      try {
-        const result = await work();
-        step.ended = ended?.(result) ?? null;
-        return result;
-      } catch (error) {
+      const result = await work().catch((error: unknown) => {
         step.failure = failureOf(error);
         throw error;
+      });
+      try {
+        step.ended = ended?.(result) ?? null;
+      } catch {
+        // A description that fails costs the step its note, as in the Langfuse adapter: the work's result stands.
       }
+      return result;
     },
     generation(start) {
       const turn = running.getStore() ?? null;

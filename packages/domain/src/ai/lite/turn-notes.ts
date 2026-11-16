@@ -119,8 +119,12 @@ export function notingSink(tracing: AiTracing, inner: TraceSink | undefined): Tr
       return noted;
     },
     async record(trace) {
-      tracing.note(liteTraceNote(trace));
-      noted = true;
+      try {
+        tracing.note(liteTraceNote(trace));
+        noted = true;
+      } catch {
+        // A note that fails costs the trace its detail, never the stored trace or the turn.
+      }
       await inner?.record(trace);
     },
   };

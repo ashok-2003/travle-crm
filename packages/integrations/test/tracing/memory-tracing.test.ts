@@ -94,6 +94,21 @@ describe("the in-memory tracing", () => {
     ]);
   });
 
+  it("hands back a step's result even when describing it throws, as Langfuse does", async () => {
+    const tracing = createMemoryTracing();
+    const found = await tracing.turn(start("chat-1"), () =>
+      tracing.step(
+        { name: "look-up-and-decide", type: "retriever" },
+        () => Promise.resolve({ price: 599_900 }),
+        () => {
+          throw new Error("the mapping broke");
+        },
+      ),
+    );
+    expect(found).toEqual({ price: 599_900 });
+    expect(tracing.turns[0]?.steps[0]).toMatchObject({ ended: null, failure: null });
+  });
+
   it("shows a turn as Langfuse would: metadata merged by key, the rest replaced", async () => {
     const tracing = createMemoryTracing();
     await tracing.turn({ ...start("chat-1"), metadata: { token: "m1" } }, () => {
