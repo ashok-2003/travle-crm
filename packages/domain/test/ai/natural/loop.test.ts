@@ -75,6 +75,9 @@ const staging: Partial<Record<NaturalToolName, StagedAction>> = {
 };
 
 function contextWith(options: { tools?: boolean } = {}): NaturalContext {
+  const newLines: NaturalContext["newLines"] = [
+    { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
+  ];
   return {
     messages: [
       { role: "system", content: "You are Riya, of Case Trips, on WhatsApp." },
@@ -89,9 +92,8 @@ function contextWith(options: { tools?: boolean } = {}): NaturalContext {
       ["T2", "package-2"],
     ]),
     indexed: true,
-    newLines: [
-      { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
-    ],
+    newLines,
+    shown: newLines,
     sizes: { prompt: 0, agency: 0, trips: 0, chat: 0, turn: 0 },
   };
 }
