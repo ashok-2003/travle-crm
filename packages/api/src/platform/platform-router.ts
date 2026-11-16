@@ -12,6 +12,7 @@ import { invitesRouter } from "./routers/invites.js";
 import { organizationsRouter } from "./routers/organizations.js";
 import { plansRouter } from "./routers/plans.js";
 import { platformStaffRouter } from "./routers/platform-staff.js";
+import { pushRouter } from "./routers/push.js";
 import { subscriptionsRouter } from "./routers/subscriptions.js";
 import { usageRouter } from "./routers/usage.js";
 import { whatsappRouter } from "./routers/whatsapp.js";
@@ -33,6 +34,7 @@ export const platformRouter = platformT.router({
   emails: emailsRouter,
   whatsapp: whatsappRouter,
   platformStaff: platformStaffRouter,
+  push: pushRouter,
   invites: invitesRouter,
   usage: usageRouter,
   log: platformT.router({

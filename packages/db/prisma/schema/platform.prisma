@@ -154,8 +154,27 @@ model PlatformIncident {
   lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
   resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
   reports    Int       @default(1)
+  /// When the super admins were emailed about it; null while nobody has been (AI incidents wait half an hour).
+  emailedAt  DateTime? @map("emailed_at") @db.Timestamptz(6)
 
   @@unique([kind], map: "platform_incident_one_open", where: { resolvedAt: null })
   @@index([openedAt(sort: Desc)], map: "platform_incident_newest")
   @@map("platform_incident")
+}
+
+/// A super admin's browser, subscribed to the console's alerts (web push). Not organization-owned: no organization_id,
+/// no row-level security, and the runtime role has no rights on it. user_id names the staff member without a foreign
+/// key, like the platform log's actor; removing or demoting them deletes their rows.
+model PlatformPushSubscription {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// The push service's URL for this browser. A browser that subscribes again for another person moves to them.
+  endpoint  String   @unique
+  /// The browser's P-256 public key and auth secret, base64url: the payload is encrypted to them.
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("platform_push_subscription")
 }

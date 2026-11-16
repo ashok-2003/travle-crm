@@ -129,7 +129,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (the console's own)                                      | ●   | ●      | ●       |         | yes    |
 | `SMTP_HOST`, `EMAIL_FROM_ADDRESS` (`SMTP_PORT`, `SMTP_SECURE`)                                      | ●   | ●      | ●       |         |        |
 | `SMTP_USER`, `SMTP_PASSWORD`                                                                        | ○   | ○      | ○       |         | yes    |
-| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`                                                                 | ●   | ●      | ●       |         |        |
+| `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`: the console pushes to super admins with them too               | ●   | ●      | ●       |         |        |
 | `VAPID_PRIVATE_KEY`: the public key's pair (below)                                                  | ●   | ●      | ●       |         | yes    |
 | `GOOGLE_SHEETS_SERVICE_ACCOUNTS`: the Sheets sync's keys (below)                                    | ●   | ●      |         |         | yes    |
 | `SHEETS_HASH_KEY`: 32+ characters, never changed (below)                                            | ●   | ●      | ●       |         | yes    |
@@ -207,9 +207,14 @@ Secrets come from the platform's secret manager as environment variables, never 
     deploy. It only adds one platform table (`platform_incident`, no rights for the runtime role).
   - The api and the worker report what breaks (an AI call no model answered, a fault no route handled) as jobs on
     `platform.incident`; the console checks every five minutes (`platform.health-check`) for failed jobs and a worker
-    that stopped answering its ping (`health.worker-ping`). Each super admin is emailed when an incident opens and
-    when it is resolved after half an hour of quiet, and the console's dashboard shows it. No new setting: the console
-    sends through the same SMTP settings as the api. The check runs only while the console's jobs do (`CONSOLE_JOBS`),
+    that stopped answering its ping (`health.worker-ping`). Every super admin's subscribed browser gets a web push when
+    an incident opens and when it is resolved after half an hour of quiet (the owner, 2026-11-17); an email goes out when
+    a kind other than the AI's opens, and for an AI incident only if it is still open after half an hour, and
+    "Back to normal" is emailed only for an incident that was emailed. The console's Platform updates page (`/console/updates`) shows what is open and the last week's. The console
+    sends through the same SMTP settings as the api, and pushes with the same VAPID trio as the api and the worker
+    (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`: the table above), never a pair of its own.
+  - **Migration `20261217100000_platform_push` is applied by hand before the release is deployed.** It only adds: the
+    platform table `platform_push_subscription` (no rights for the runtime role) and `platform_incident.emailed_at`. The check runs only while the console's jobs do (`CONSOLE_JOBS`),
     and a database or a whole server that is down can't report itself: watch `/health` from outside too.
 - **Google Sheets** (the Sheets sync, ADR 0031; the owner's steps are in the spec's section 14):
   - Create a Google Cloud project with a company account, enable the **Google Sheets API** (the Drive API is not
