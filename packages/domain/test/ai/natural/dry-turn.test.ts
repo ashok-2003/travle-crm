@@ -274,7 +274,7 @@ describe("the natural agent's dry turn", () => {
   it("answers the fallback line and a task when the model can't answer", async () => {
     const on = await world();
     on.model.answer({ ok: false, reason: "unavailable" });
-    const line = "Ye team se check karke yahin batate hain.";
+    const line = "Ek minute, check karke yahin batate hain.";
     const answer = await on.dry(["Kedarkantha ka rate?"]);
     expect(answer).toMatchObject({
       outcome: "fallback",
@@ -319,7 +319,7 @@ describe("the natural agent's dry turn", () => {
     const trace = startNaturalTrace(BUILT_IN_NATURAL_PROMPT, NOW.getTime());
     expect(dryAnswerOf({ end: "superseded" }, read, trace, NOW.getTime())).toMatchObject({
       outcome: "fallback",
-      messages: ["Ye team se check karke yahin batate hain."],
+      messages: ["Ek minute, check karke yahin batate hain."],
       actions: [{ tool: "create_task", kind: "question" }],
       trace: { outcome: "fallback", fallback: "model_failed:superseded" },
     });
@@ -397,16 +397,16 @@ describe("the natural agent's dry turn", () => {
 
   it("gives a payment screenshot one call with no tools, and hands it to the team to check", async () => {
     const on = await world();
-    on.model.answer({ text: "Thank you! The team will check it and reply here." });
+    on.model.answer({ text: "Thank you! I'll check it and confirm here." });
     const { answer } = await on.turn([{ ...line(1, "customer", NOW, ""), kind: "image", mayBePayment: true }]);
     expect(answer).toMatchObject({
       outcome: "handed_off",
-      messages: ["Thank you! The team will check it and reply here."],
+      messages: ["Thank you! I'll check it and confirm here."],
       actions: [{ tool: "hand_over", reason: "payment_check" }],
     });
     expect(on.model.requests[0]?.tools).toBeUndefined();
     expect(contentOf(on.model.requests[0]?.messages.at(-1))).toContain(
-      "Their screenshot went to the team to check; this chat goes to the team after your reply.",
+      "Their payment screenshot is with you to check: thank them and say you'll confirm here once it's checked. A person takes this chat over after your reply.",
     );
   });
 

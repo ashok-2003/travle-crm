@@ -59,7 +59,8 @@ export interface NaturalDryRecord {
 const DAY_MS = 86_400_000;
 const TEAM_DAYS = 30;
 const DRY_CHAT = "dry-run";
-const PAYMENT_NOTICE = "Their screenshot went to the team to check; this chat goes to the team after your reply.";
+const PAYMENT_NOTICE =
+  "Their payment screenshot is with you to check: thank them and say you'll confirm here once it's checked. A person takes this chat over after your reply.";
 const VOICE_NOTICE = "Their voice note couldn't be played; ask them to type what they said.";
 const PAYMENT_CHECK: StagedAction = {
   tool: "hand_over",

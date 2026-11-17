@@ -19,6 +19,7 @@ const pinned: Record<string, string> = {
   "write.moves@2": "65ae1cbb2c5b07815f85b8ad2660e332c73ac0db597887050fddad9b526cc1ae",
   "fixed.texts@1": "8532a9dc282ff94810e2b0ac3bd413727868c6d521277932e18e5f22fb180dba",
   "fixed.texts@2": "f2431679715e339fb74c41e7370c71d15b6c1a0b6f561690b6aa54eebad3c1cb",
+  "fixed.texts@3": "cee25ea5adc0642334537cd8ace5134060c1f0a7aec670f169a243549c61d613",
 };
 
 const budgets: Record<string, number> = {
@@ -59,9 +60,15 @@ describe("the prompt library", () => {
   it("starts every piece at version 1, changed on the day it was added, but those changed since", () => {
     const changed = new Set(["fixed.texts", "write.moves"]);
     for (const piece of promptLibrary()) {
-      expect([piece.version, piece.changedOn]).toEqual(changed.has(piece.name) ? [2, "2026-11-13"] : [1, "2026-11-12"]);
+      const expected =
+        piece.name === "fixed.texts"
+          ? [3, "2026-11-17"]
+          : changed.has(piece.name)
+            ? [2, "2026-11-13"]
+            : [1, "2026-11-12"];
+      expect([piece.version, piece.changedOn]).toEqual(expected);
     }
-    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 1, 1, 2, 2]);
+    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 1, 1, 2, 3]);
   });
 
   it("write.moves 2 adds the follow-ups' lines", () => {

@@ -209,7 +209,7 @@ describe("what the model is told, and what code writes", () => {
     const part = (move: Move, over: Partial<LiteFacts> = {}) =>
       fixedPartOf(move, situation(), facts(over), "english", "Hills Travel", today);
     expect(part({ kind: "fixed", text: "identity" })?.text).toBe(
-      "I'm Hills Travel's assistant on WhatsApp. Someone from the team can join any time.",
+      "I'm from the Hills Travel team. Tell me, how can I help with your trip?",
     );
     const long = "x".repeat(60);
     expect(part({ kind: "fixed", text: "not_run" }, { notRun: ["Goa", long] })?.text).toContain(
