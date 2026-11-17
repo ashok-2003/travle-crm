@@ -9,29 +9,38 @@ export const SUMMARY_AFTER = 30;
 export const SUMMARY_MOST_LINES = 400;
 
 /** What the customer could see after the point: no reactions, no discarded sends. */
-const visibleAfter = (conversationId: string, after: Date | null) => ({
+export interface SummaryPoint {
+  at: Date;
+  id: string;
+}
+
+/** Messages are ordered by (time, id); two sent in the same instant are told apart by id. */
+const visibleAfter = (conversationId: string, after: SummaryPoint | null) => ({
   conversationId,
   kind: { not: "reaction" },
   status: { not: "superseded" },
-  ...(after === null ? {} : { occurredAt: { gt: after } }),
+  ...(after === null ? {} : { OR: [{ occurredAt: { gt: after.at } }, { occurredAt: after.at, id: { gt: after.id } }] }),
 });
 
 /** The newest `most` messages after the point, oldest first; the earlier system's lines whole, figures and dates kept. */
 export async function linesAfter(
   tx: OrgTx,
   conversationId: string,
-  after: Date | null,
+  after: SummaryPoint | null,
   most: number = SUMMARY_MOST_LINES,
-): Promise<NaturalChatLine[]> {
+): Promise<{ lines: NaturalChatLine[]; senders: ReadonlyMap<string, string> }> {
   const rows = await tx.whatsappMessage.findMany({
     where: visibleAfter(conversationId, after),
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: most,
     select: storedLineFields,
   });
-  return rows.reverse().map((row) => storedLineOf(row, { earlierWhole: true }));
+  const senders = new Map(
+    rows.flatMap((row) => (row.direction === "out" && row.sentBy !== null ? [[row.id, row.sentBy] as const] : [])),
+  );
+  return { lines: rows.reverse().map((row) => storedLineOf(row, { earlierWhole: true })), senders };
 }
 
-export function countAfter(tx: OrgTx, conversationId: string, after: Date | null): Promise<number> {
+export function countAfter(tx: OrgTx, conversationId: string, after: SummaryPoint | null): Promise<number> {
   return tx.whatsappMessage.count({ where: visibleAfter(conversationId, after) });
 }

@@ -3,7 +3,10 @@
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { Database } from "@travel-crm/db";
+import { countAfter, linesAfter } from "../../../src/ai/chat-summary/lines.js";
 import { refreshChatSummary } from "../../../src/ai/chat-summary/refresh.js";
+import { EARLIER_AGENTS_UNTIL } from "../../../src/ai/natural/chat-lines.js";
 import { countedModel } from "../../../src/ai/natural/counted-model.js";
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
@@ -129,8 +132,8 @@ describe("the chat summary's refresh", () => {
       direction: "out",
       origin: "automation",
       body: "Total ₹12,999 for 20 Dec",
-      clientToken: "ai-pay:old",
-      occurredAt: new Date(testNow.getTime() - 10 * MINUTE),
+      clientToken: "ai:old",
+      occurredAt: new Date(EARLIER_AGENTS_UNTIL.getTime() - 10 * MINUTE),
     });
     await add(1, { kind: "audio", body: null, aiText: "I want to book", aiTextKind: "transcript" });
     model.answer("notes");
@@ -139,6 +142,7 @@ describe("the chat summary's refresh", () => {
     expect(sent?.[0]?.content).toContain("# Chat summary for Sharma Holidays");
     const user = sent?.at(-1)?.content ?? "";
     expect(user).toContain("Customer, ");
+    expect(user).toMatch(/Earlier system, [^\n]*: Total ₹12,999 for 20 Dec/);
     expect(user).toContain('[voice note] heard: "I want to book"');
     expect(user).toContain("Previous notes:\nnone");
     expect(user).toContain("The lead card now:\n<lead>");
@@ -195,6 +199,37 @@ describe("the chat summary's refresh", () => {
     await inOrg((tx) => tx.aiUsage.updateMany({ data: { calls: MONTHLY_AI_LIMIT } }));
     expect(await refresh()).toMatchObject({ kind: "failed", reason: "limit" });
     expect(await stored()).toMatchObject({ chatSummary: "Customer: Asha", chatSummaryThroughId: first.id });
+  });
+
+  it("names the team member who wrote a line, and keeps Team for one who has left", async () => {
+    const { add, model, refresh } = await chat();
+    const amit = randomUUID();
+    const gone = randomUUID();
+    await add(30);
+    await add(1, { direction: "out", origin: "staff_crm", body: "Rs 500 off", sentBy: amit });
+    await add(1, { direction: "out", origin: "staff_crm", body: "Call you soon", sentBy: gone });
+    model.answer("notes");
+    const identity = { memberContacts: () => Promise.resolve([{ userId: amit, name: "Amit Rao", email: null }]) };
+    await refresh({ identity });
+    const user = model.requests[0]?.messages.at(-1)?.content ?? "";
+    expect(user).toMatch(/Team \(Amit\), [^\n]*: Rs 500 off/);
+    expect(user).toMatch(/\nTeam, [^\n]*: Call you soon/);
+  });
+
+  it("reads a message sent in the same instant as the point, by id", async () => {
+    const { add, inOrg, conversationId } = await chat();
+    const point = await add(1);
+    await add(1, { occurredAt: point.at });
+    expect(await inOrg((tx) => countAfter(tx, conversationId, point))).toBe(1);
+    const { lines } = await inOrg((tx) => linesAfter(tx, conversationId, point));
+    expect(lines).toHaveLength(1);
+  });
+
+  it("goes on with the old summary when the database fails", async () => {
+    const { add, refresh } = await chat();
+    await add(31);
+    const db = { forOrg: () => Promise.reject(new Error("connection lost")) } as unknown as Database;
+    expect(await refresh({ db })).toMatchObject({ kind: "failed", reason: "error" });
   });
 
   it("counts the call against the month", async () => {

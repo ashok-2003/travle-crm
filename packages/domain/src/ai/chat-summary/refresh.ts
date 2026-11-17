@@ -2,7 +2,9 @@
 // in, new notes out, one counted model call. A failed refresh keeps the old summary and point; the turn goes on.
 import type { Database } from "@travel-crm/db";
 import type { AiPrompts } from "@travel-crm/integrations/prompts";
+import type { Identity } from "../../identity/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
+import { withTeamNames } from "../natural/chat-lines.js";
 import { lineWords, stampOf } from "../natural/context/chat-turns.js";
 import { leadBlock } from "../natural/context/turn-block.js";
 import { cutText } from "../natural/context/tokens.js";
@@ -45,11 +47,12 @@ function summaryLine(line: NaturalChatLine, clock: Clock): string {
       ? ""
       : ` ${line.aiText.kind === "transcript" ? "heard" : "seen"}: "${oneLine(line.aiText.text)}"`;
   const words = lineWords(line, Number.POSITIVE_INFINITY, { earlierWhole: true });
-  return `${speakers[line.from]}, ${stampOf(line.at, clock)}: ${words}${said}`;
+  const who = line.from === "team" && line.teamName !== undefined ? `Team (${line.teamName})` : speakers[line.from];
+  return `${who}, ${stampOf(line.at, clock)}: ${words}${said}`;
 }
 
 export async function refreshChatSummary(
-  deps: { db: Database; call: LoopIO["call"]; prompts?: AiPrompts },
+  deps: { db: Database; call: LoopIO["call"]; prompts?: AiPrompts; identity?: Pick<Identity, "memberContacts"> },
   input: {
     organizationId: string;
     conversationId: string;
@@ -59,23 +62,48 @@ export async function refreshChatSummary(
     now: Date;
   },
 ): Promise<SummaryStep> {
+  let old: ChatSummary = { text: "", throughId: null, throughAt: null };
+  // A failed refresh, a database error included, never blocks the turn: it goes on with the summary it had.
+  try {
+    return await refresh(deps, input, (summary) => (old = summary));
+  } catch {
+    return { kind: "failed", summary: old, reason: "error" };
+  }
+}
+
+async function refresh(
+  deps: Parameters<typeof refreshChatSummary>[0],
+  input: Parameters<typeof refreshChatSummary>[1],
+  setOld: (summary: ChatSummary) => ChatSummary,
+): Promise<SummaryStep> {
   const { organizationId, conversationId, clock } = input;
   const read = await deps.db.forOrg(organizationId, async (tx) => {
     const chat = await tx.aiChat.findUnique({
       where: { organizationId_conversationId: { organizationId, conversationId } },
       select: { chatSummary: true, chatSummaryThroughId: true, chatSummaryThroughAt: true, summary: true },
     });
-    const through = chat?.chatSummaryThroughAt ?? null;
+    const through =
+      chat?.chatSummaryThroughAt != null && chat.chatSummaryThroughId !== null
+        ? { at: chat.chatSummaryThroughAt, id: chat.chatSummaryThroughId }
+        : null;
     const count = await countAfter(tx, conversationId, through);
-    const lines = count > SUMMARY_AFTER ? await linesAfter(tx, conversationId, through) : [];
-    return { chat, through, lines };
+    const read = count > SUMMARY_AFTER ? await linesAfter(tx, conversationId, through) : null;
+    return { chat, through, read };
   });
-  const old: ChatSummary = {
+  const old = setOld({
     text: read.chat?.chatSummary ?? "",
-    throughId: read.chat?.chatSummaryThroughId ?? null,
-    throughAt: read.through,
-  };
-  const newest = read.lines.at(-1);
+    throughId: read.through?.id ?? null,
+    throughAt: read.through?.at ?? null,
+  });
+  if (read.read === null || read.read.lines.length === 0) return { kind: "kept", summary: old };
+  const { senders } = read.read;
+  const userIds = [...new Set(senders.values())];
+  const contacts =
+    deps.identity === undefined || userIds.length === 0
+      ? []
+      : await deps.identity.memberContacts(organizationId, userIds);
+  const lines = withTeamNames(read.read.lines, senders, contacts);
+  const newest = lines.at(-1);
   if (newest === undefined) return { kind: "kept", summary: old };
 
   // With no point yet, lite's notes are the first previous summary (spec 9).
@@ -83,35 +111,34 @@ export async function refreshChatSummary(
   const prompt = await summaryPromptOf(deps.prompts);
   const user =
     `Previous notes:\n${previous.trim() === "" ? "none" : previous}\n\n` +
-    `Messages since, oldest first:\n${read.lines.map((line) => summaryLine(line, clock)).join("\n")}\n\n` +
+    `Messages since, oldest first:\n${lines.map((line) => summaryLine(line, clock)).join("\n")}\n\n` +
     `The lead card now:\n${leadBlock({ lead: input.lead, ...clock }, () => undefined)}`;
-  let answer;
-  try {
-    answer = await deps.call({
-      feature: "sales_agent",
-      messages: [
-        { role: "system", content: renderSummaryPrompt(prompt, input.agencyName) },
-        { role: "user", content: user },
-      ],
-      maxTokens: 1_500,
-      reasoning: { effort: "minimal" },
-      timeoutMs: 60_000,
-      user: organizationId,
-    });
-  } catch {
-    return { kind: "failed", summary: old, reason: "error" };
-  }
+  const answer = await deps.call({
+    feature: "sales_agent",
+    messages: [
+      { role: "system", content: renderSummaryPrompt(prompt, input.agencyName) },
+      { role: "user", content: user },
+    ],
+    maxTokens: 1_500,
+    reasoning: { effort: "minimal" },
+    timeoutMs: 60_000,
+    user: organizationId,
+  });
   if (!answer.ok) return { kind: "failed", summary: old, reason: answer.reason };
   const text = cutText(answer.text.trim(), SUMMARY_MOST_CHARACTERS);
   if (text === "") return { kind: "failed", summary: old, reason: "empty" };
 
-  // The point only moves forward: a refresh that lost a race to a later one leaves the later point in place.
+  // The point only moves forward, by (time, id): a refresh that lost a race leaves the later point in place.
   await deps.db.forOrg(organizationId, async (tx) => {
     await tx.aiChat.createMany({ data: [{ conversationId }], skipDuplicates: true });
     await tx.aiChat.updateMany({
       where: {
         conversationId,
-        OR: [{ chatSummaryThroughAt: null }, { chatSummaryThroughAt: { lt: newest.at } }],
+        OR: [
+          { chatSummaryThroughAt: null },
+          { chatSummaryThroughAt: { lt: newest.at } },
+          { chatSummaryThroughAt: newest.at, chatSummaryThroughId: { lt: newest.id } },
+        ],
       },
       data: {
         chatSummary: text,
