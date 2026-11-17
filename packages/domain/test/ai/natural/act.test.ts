@@ -407,7 +407,8 @@ describe("the natural agent's live act", () => {
     const question = (text: string): StagedAction => ({ tool: "create_task", kind: "question", text, callAt: null });
     done(await act(on, { messages: ["Let me check."], staged: stagedSet(question("Is there a student discount?")) }));
 
-    // A question the joined title can't hold: the title points to the note, which holds the question whole.
+    // A question the joined title can't hold: the title points to the note, which holds the title's questions and the
+    // new one whole.
     const fitness = `Can a first-timer who runs ${"5 km twice a week and climbs stairs at the office, ".repeat(3)}do it?`;
     expect(fitness.length).toBeGreaterThan(150);
     const second = await nextTurn(on, "Am I fit enough?", 5);
@@ -416,7 +417,7 @@ describe("the natural agent's live act", () => {
     );
     expect(joined.actions).toContain("task:joined");
     expect(await titles()).toEqual([`Is there a student discount?${POINTER}`]);
-    expect(await notes()).toEqual([`Question for the team: ${fitness}`]);
+    expect(await notes()).toEqual([`Question for the team: Is there a student discount?\n— ${fitness}`]);
 
     // The fallback's task (ruling 6, up to 500 characters) and a long call-back: each title is cut at a word and points
     // to its note, which holds the text whole.
@@ -451,6 +452,34 @@ describe("the natural agent's live act", () => {
     done(await act(on, quiet));
     done(await act(on, quiet));
     expect((await titles()).filter((title) => title === "Ask if the friend is joining")).toHaveLength(1);
+  });
+
+  it("notes every question the open title held when it first points to the note", async () => {
+    const on = await actAgency(test);
+    const question = (text: string): StagedAction => ({ tool: "create_task", kind: "question", text, callAt: null });
+    const first = `Does the trek fee cover ${"the tents, the meals and the porters on every day of it, ".repeat(2)}and the permits?`;
+    expect(first).toHaveLength(154);
+    done(await act(on, { messages: ["Let me check."], staged: stagedSet(question(first)) }));
+    const second = await nextTurn(on, "And a student discount?", 5);
+    const discount = question("Is there a student discount?");
+    done(await act(on, { ...second, messages: ["Let me check."], staged: stagedSet(discount) }));
+    const joined = `${first}\n— Is there a student discount?`;
+    // The second still fits in the title, at 185 characters.
+    expect(joined).toHaveLength(185);
+    const title = () =>
+      on.inOrg(async (tx) => (await tx.task.findFirstOrThrow({ where: { recordId: on.leadId } })).title);
+    expect(await title()).toBe(joined);
+
+    // The third doesn't (209): the title is cut and points to the note, which holds all three whole.
+    const third = await nextTurn(on, "Can I bring my dog?", 10);
+    done(
+      await act(on, { ...third, messages: ["Let me check."], staged: stagedSet(question("Can they bring a dog?")) }),
+    );
+    expect((await title()).endsWith("… (details in the lead's note)")).toBe(true);
+    const notes = await on.inOrg((tx) =>
+      tx.leadNote.findMany({ where: { leadId: on.leadId }, select: { body: true } }),
+    );
+    expect(notes).toEqual([{ body: `Question for the team: ${joined}\n— Can they bring a dog?` }]);
   });
 
   it("moves the stage forward only", async () => {
