@@ -6,7 +6,8 @@ import type { ToolAgent } from "@travel-crm/integrations/tool-agent";
 import { newLinesOf } from "../natural/context/chat-turns.js";
 import { countedModel } from "../natural/counted-model.js";
 import { dryAgency } from "../natural/dry-agency.js";
-import { dryBookTap, CHANGE_NOTICE } from "./dry-tap.js";
+import { isText } from "../natural/trips/trip-text.js";
+import { dryTap } from "./dry-tap.js";
 import { dryAnswerOf } from "../natural/dry-answer.js";
 import {
   dryActionContext,
@@ -54,7 +55,7 @@ export async function oneDryTurn(
       tools: "all",
       summary: null,
     });
-  let context = contextWith(turn.tap === "change" ? CHANGE_NOTICE : before.notice);
+  let context = contextWith(before.notice);
   // The read tools keep a trip read whole in these reads; one has no word guards to use them.
   const reads = guardReads(agency, lines, facts, now);
   const readContext = (tx: OrgTx): ReadContext => ({ tx, sheets, labels: context.labels, today, now });
@@ -70,8 +71,10 @@ export async function oneDryTurn(
     readContext,
   });
   const trace = startNaturalTrace(turn.prompt, startedMs, "one");
-  const tapped = turn.tap === "book" ? await dryBookTap(actions, facts.offer) : null;
-  if (tapped !== null && "notice" in tapped) context = contextWith(tapped.notice);
+  const tapped = turn.tap === undefined ? null : await dryTap(turn.tap, state, actions, lines);
+  if (tapped !== null && "notice" in tapped) {
+    context = contextWith([before.notice, tapped.notice].filter(isText).join("\n"));
+  }
   const end =
     tapped !== null && "end" in tapped
       ? tapped.end

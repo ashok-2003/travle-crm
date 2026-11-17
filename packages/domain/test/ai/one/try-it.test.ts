@@ -133,6 +133,7 @@ describe("Try it on the one agent", () => {
     const answer = await tap(on, chat, first.state, "book");
     expect(on.model.requests).toHaveLength(calls);
     expect(answer.actions).toEqual([expect.objectContaining({ tool: "book", seats: 2 })]);
+    expect(answer.messages).toEqual(["Your seats are held. The payment details are below."]);
     expect(answer.payment).not.toBeNull();
     expect(await on.rows()).toMatchObject({ holds: 0, bookings: 0 });
   });
