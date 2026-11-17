@@ -155,8 +155,8 @@ function LeadItem({ item }: { item: LeadItemData }) {
       <ItemActions className="basis-full flex-col items-start gap-2 md:flex-row md:items-start">
         {lead !== null && phone !== null && (
           <div className="flex flex-wrap gap-2">
-            <CallButton phone={phone} name={lead.personName} leadId={lead.id} variant="outline" />
-            <WhatsAppButton phone={phone} name={lead.personName} />
+            <CallButton phone={phone} name={lead.personName} leadId={lead.id} variant="outline" compact />
+            <WhatsAppButton phone={phone} name={lead.personName} leadId={lead.id} compact />
           </div>
         )}
         {item.kind === "task" && item.booking !== null && (

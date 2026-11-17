@@ -86,6 +86,11 @@ export const brand = {
       pressed: "#005f4d",
       ink: "#ffffff",
     },
+    /**
+     * WhatsApp's own green, for its logo alone on the buttons that open a WhatsApp chat (owner, 2026-11-18): a brand mark
+     * people know from their phones, never a status, a fill or text.
+     */
+    whatsappLogo: "#25d366",
     /** Money: amounts received, margins, invoices and the Accounts area. Never a status. */
     money: "#034f46",
     moneyPressed: "#07352f",

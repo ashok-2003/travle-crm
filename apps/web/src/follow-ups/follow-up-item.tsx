@@ -94,8 +94,8 @@ export function FollowUpItem({
       <ItemActions className="basis-full flex-col items-start gap-2 md:flex-row md:items-start">
         {lead.phone !== null && (
           <div className="flex flex-wrap gap-2">
-            <CallButton phone={lead.phone} name={lead.name} leadId={lead.id} variant="outline" />
-            <WhatsAppButton phone={lead.phone} name={lead.name} />
+            <CallButton phone={lead.phone} name={lead.name} leadId={lead.id} variant="outline" compact />
+            <WhatsAppButton phone={lead.phone} name={lead.name} leadId={lead.id} compact />
           </div>
         )}
         {whatsapp !== null && <TextLink href={inboxRoute(whatsapp.conversationId)}>{t("openChat")}</TextLink>}

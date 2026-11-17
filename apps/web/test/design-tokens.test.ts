@@ -44,6 +44,7 @@ const brandValueOf: Record<string, string> = {
   "sidebar.fill": colours.sidebar.fill,
   "sidebar.ink": colours.sidebar.ink,
   "sidebar.active": colours.sidebar.active,
+  "whatsapp-logo": colours.whatsappLogo,
   "send.fill": colours.send.fill,
   "send.pressed": colours.send.pressed,
   "send.ink": colours.send.ink,
