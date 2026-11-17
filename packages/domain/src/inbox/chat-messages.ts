@@ -86,6 +86,10 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
     sentBy: row.sentBy,
     occurredAt: row.occurredAt.toISOString(),
     starred: row.starredAt !== null,
+    aiText:
+      row.aiText === null || (row.aiTextKind !== "transcript" && row.aiTextKind !== "description")
+        ? null
+        : { kind: row.aiTextKind, text: row.aiText },
   }));
 }
 

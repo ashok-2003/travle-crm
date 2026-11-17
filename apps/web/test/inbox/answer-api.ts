@@ -58,6 +58,7 @@ export function aMessage(fields: Record<string, unknown> = {}) {
     deliveredAt: null,
     readAt: null,
     starred: false,
+    aiText: null,
     ...fields,
   };
 }

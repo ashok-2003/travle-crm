@@ -62,6 +62,7 @@ const photo = (id: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
   sentBy: null,
   occurredAt: "2026-10-26T10:00:00.000Z",
   starred: false,
+  aiText: null,
   ...extra,
 });
 

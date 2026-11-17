@@ -188,6 +188,29 @@ describe("erasing a customer who is in the sales inbox", () => {
       },
     });
 
+  it("clears what the AI heard or saw when the customer is erased", async () => {
+    const connection = await aConnectedAgency(test);
+    const { organizationId } = connection;
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const phone = freshPhone();
+    await deliver(test, fromCustomer(connection, { customerNumber: phone.replace("+", ""), text: "Hi" }));
+    const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow({ where: { phoneE164: phone } }));
+    const message = await inOrg((tx) => tx.whatsappMessage.findFirstOrThrow({ where: { conversationId: chat.id } }));
+    await inOrg((tx) =>
+      tx.whatsappMessage.update({
+        where: { id: message.id },
+        data: { aiText: "I want to go to Goa", aiTextKind: "transcript", aiTextAt: testNow },
+      }),
+    );
+    if (chat.personId === null) throw new Error("The chat needs a person");
+    const personId = chat.personId;
+    await platformDb.transaction((tx) =>
+      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
+    );
+    const after = await inOrg((tx) => tx.whatsappMessage.findUniqueOrThrow({ where: { id: message.id } }));
+    expect(after).toMatchObject({ aiText: null, aiTextKind: null, aiTextAt: null });
+  });
+
   it("deletes the payment proofs kept from their chat and leaves another customer's", async () => {
     const connection = await aConnectedAgency(test);
     const { organizationId } = connection;
