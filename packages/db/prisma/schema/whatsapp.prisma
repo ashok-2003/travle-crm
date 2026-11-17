@@ -182,6 +182,11 @@ model WhatsappMessage {
   /// MSG91's link to an inbound file, blanked when the file is stored.
   mediaUrl        String?                      @map("media_url")
   mediaAttempts   Int                          @default(0) @map("media_attempts")
+  /// What the AI agent heard in a voice note (transcript) or saw in a photo (description): at most 2,000 characters, written once.
+  aiText          String?                      @map("ai_text")
+  /// transcript or description.
+  aiTextKind      String?                      @map("ai_text_kind")
+  aiTextAt        DateTime?                    @map("ai_text_at") @db.Timestamptz(6)
   /// Starred for the team (sales inbox spec 6).
   starredAt       DateTime?                    @map("starred_at") @db.Timestamptz(6)
   starredBy       String?                      @map("starred_by") @db.Uuid

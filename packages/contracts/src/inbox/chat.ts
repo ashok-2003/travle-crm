@@ -169,6 +169,8 @@ export const chatMessage = z.object({
   deliveredAt: timestamp.nullable(),
   readAt: timestamp.nullable(),
   starred: z.boolean(),
+  /** What the AI agent heard in a voice note or saw in a photo; it may be wrong. */
+  aiText: z.object({ kind: z.enum(["transcript", "description"]), text: z.string() }).nullable(),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
 
