@@ -1,9 +1,14 @@
 // The one agent's tools as plain functions for the tool-agent port: a read answers at once, an action is checked and
 // staged into the turn's run, and a call that fails or is refused answers in words the model can act on, never a throw.
-import { parseOneToolArguments, type NaturalToolName, type OneToolSchema } from "@travel-crm/contracts/ai";
+import {
+  naturalReadTools,
+  parseOneToolArguments,
+  type NaturalToolName,
+  type OneToolSchema,
+} from "@travel-crm/contracts/ai";
 import type { AgentTool } from "@travel-crm/integrations/tool-agent";
 import { READ_FAILED, STAGE_FAILED, settled } from "../natural/loop/tool-calls.js";
-import type { LoopIO } from "../natural/loop/types.js";
+import type { LoopIO, ReadToolName } from "../natural/loop/types.js";
 import { withStaged, type StageOutcome } from "../natural/tools/action-tools.js";
 import type { NaturalTraceBuilder } from "../natural/trace.js";
 import type { QuoteFigures, StagedAction, StagedSet } from "../natural/types.js";
@@ -27,6 +32,8 @@ export interface OneToolIO {
   ) => Promise<StageOutcome>;
 }
 
+const isRead = (name: NaturalToolName): name is ReadToolName => naturalReadTools.includes(name);
+
 /** A turn's run: code's own actions staged already, none of them the model's. */
 export function startOneRun(forced: readonly StagedAction[]): OneRun {
   return { staged: new Map(forced.map((action) => [action.tool, action])), modelStaged: new Set(), quoted: [] };
@@ -44,7 +51,7 @@ export function oneAgentTools(
     trace.flag(`tool_failed:${name}:${error}`);
   };
 
-  async function read(name: "find_trips" | "get_trip" | "quote", args: Record<string, unknown>): Promise<string> {
+  async function read(name: ReadToolName, args: Record<string, unknown>): Promise<string> {
     const answer = await settled(() => io.read(name, args));
     if ("failed" in answer) {
       failed(name, answer.failed);
@@ -79,7 +86,7 @@ export function oneAgentTools(
       // The port only checks for an object, so each tool refuses its own bad arguments, in the domain's words.
       const parsed = parseOneToolArguments(name, raw, tripLabels);
       if (!parsed.ok) return `refused: ${parsed.problem}`;
-      if (name === "find_trips" || name === "get_trip" || name === "quote") return read(name, parsed.args);
+      if (isRead(parsed.name)) return read(parsed.name, parsed.args);
       return stage(name, parsed.args, words);
     },
   }));

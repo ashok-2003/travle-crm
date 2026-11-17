@@ -1,13 +1,13 @@
 // The one agent's tools as plain functions: reads answer and keep their quote, actions stage into the run, and a call
 // that fails or is refused tells the model the way on. No database: the reads and the stage are fakes (and one test
 // runs the real checks on a fake quote).
-import { oneToolSchemas, naturalFacts, type BookingTerms } from "@travel-crm/contracts/ai";
+import { oneToolSchemas } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
 import { startNaturalTrace } from "../../../src/ai/natural/trace.js";
-import { stageAction, type ActionContext } from "../../../src/ai/natural/tools/action-tools.js";
-import type { QuoteFigures, StagedAction, TripSheet } from "../../../src/ai/natural/types.js";
+import { stageAction } from "../../../src/ai/natural/tools/action-tools.js";
+import type { QuoteFigures, StagedAction } from "../../../src/ai/natural/types.js";
 import { oneAgentTools, startOneRun, type OneToolIO } from "../../../src/ai/one/tools.js";
-import { parseCalendarDate } from "../../../src/kernel/index.js";
+import { ctx, facts, hoursAgo, saying } from "../natural/fixtures.js";
 
 const labels = ["T1", "T2"];
 const figures = (total: number): QuoteFigures => ({
@@ -142,39 +142,21 @@ describe("the one agent's tools", () => {
   });
 
   it("books on a total told for exactly these terms, with no live offer", async () => {
-    const at = new Date("2026-11-14T13:00:00Z");
-    const terms: BookingTerms = { ...figures(0).terms, payInFull: false };
-    const sheet = {
-      label: "T1",
-      packageId: "package-1",
-      title: "Kedarkantha Trek",
-      place: "Sankri",
-      rooms: ["double"],
-      departures: [],
-    } as unknown as TripSheet;
-    const context = {
-      sheets: [sheet],
-      labels: new Map([["T1", "package-1"]]),
-      today: parseCalendarDate("2026-11-14"),
-      now: new Date("2026-11-14T18:13:00Z"),
-      facts: {
-        ...naturalFacts.parse({ agent: "natural" }),
-        told: [{ ...terms, totalPaise: 2_599_800, at: at.toISOString() }],
-        lastTurnAt: at.toISOString(),
-      },
-      lead: { name: "", packageId: null },
-      lines: [],
-      newLines: [],
-      paymentReady: true,
-      booking: null,
-      profileName: null,
-      quoteOf: () => Promise.resolve(figures(2_599_800)),
-    } as unknown as ActionContext;
+    const at = hoursAgo(5);
+    const told = { ...figures(0).terms, totalPaise: 2_599_800, at: at.toISOString() };
+    const context = ctx({ facts: facts({ told: [told], lastTurnAt: at.toISOString() }), ...saying("theek hai") });
     const { run, call } = setup({
       stage: (name, args, words) => stageAction(context, name, args, words, { agent: "one" }),
     });
     await call("book", quoteArgs);
     expect(run.staged.get("book")).toMatchObject({ tool: "book", via: "told", fullName: null, customerWords: null });
     expect(run.modelStaged).toEqual(new Set(["book"]));
+  });
+
+  it("refuses one's book with a full_name, which it doesn't take", async () => {
+    const { run, call, stages } = setup();
+    expect(await call("book", { ...quoteArgs, full_name: "Rohan Mehta" })).toMatch(/^refused: /);
+    expect(stages).toEqual([]);
+    expect(run.staged.size).toBe(0);
   });
 });
