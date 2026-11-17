@@ -1,7 +1,8 @@
-// The worker keeps each lite turn's trace: the autopilot's dependencies carry a sink on the worker's own storage, and the
-// process's tracing (Langfuse) when it has one.
+// The worker keeps each lite turn's trace: the autopilot's dependencies carry a sink on the worker's own storage, the
+// process's tracing (Langfuse) when it has one, and its Langfuse prompts for the natural agent.
 import { randomUUID } from "node:crypto";
 import { startTrace } from "@travel-crm/domain/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -73,5 +74,21 @@ describe("the worker's turn traces", () => {
     const tracing = createMemoryTracing();
     expect(autopilotDependencies({ ...base, tracing }, model)).toMatchObject({ tracing });
     expect(autopilotDependencies(base, model)).not.toHaveProperty("tracing");
+  });
+
+  it("the natural agent's turns read their prompt from the process's Langfuse prompts, when it has them", () => {
+    const model = { configured: true, complete: () => Promise.reject(new Error("not called")) };
+    const base = {
+      db: server.db,
+      identity: server.identity,
+      files: server.files,
+      subscriptions: server.subscriptions,
+      storage: createMemoryStorage(),
+      logger: server.logger,
+      managers: () => Promise.resolve([]),
+    };
+    const prompts = createMemoryPrompts();
+    expect(autopilotDependencies({ ...base, prompts }, model)).toMatchObject({ prompts });
+    expect(autopilotDependencies(base, model)).not.toHaveProperty("prompts");
   });
 });
