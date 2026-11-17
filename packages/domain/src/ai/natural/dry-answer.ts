@@ -291,10 +291,10 @@ export function dryAnswerOf(
     read.sheets.find((sheet) => sheet.packageId === packageId)?.title ?? "a trip not on sale now";
   const actions = [...ended.staged.values()].map((action) => described(action, titleOf));
   if (ended.task !== null) actions.push({ tool: "create_task", kind: "question", text: ended.task });
-  // Only the one agent's offer is sent as a card; natural's has none.
+  // Only the one agent's offer is sent as a card; natural's has none, and none goes beside held seats or a hand-over.
   const offered = stagedOf(ended.staged, "offer_booking");
   const card =
-    offered?.card === true
+    offered?.card === true && ended.outcome !== "handed_off" && !ended.staged.has("book")
       ? { body: offerCardBody(offered.offer, read.sheets, read.today), buttons: [BOOK_TITLE, CHANGE_TITLE] }
       : null;
   const paying = ended.staged.has("book") || ended.staged.has("resend_payment");
