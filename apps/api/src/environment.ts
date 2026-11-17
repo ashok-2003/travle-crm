@@ -303,11 +303,23 @@ export class EnvironmentError extends Error {
   }
 }
 
+/**
+ * LangChain's own variables: some send every chat to LangSmith or print it to the logs, and a later version may add more.
+ * The tool agent removes the five it knows before each run; refusing the whole family here means a server never starts
+ * with one, whatever LangChain reads next.
+ */
+const langChainProblems = (source: Record<string, string | undefined>): string[] =>
+  Object.entries(source)
+    .filter(([name, value]) => /^(LANGSMITH|LANGCHAIN)_/.test(name) && value !== undefined && value !== "")
+    .map(([name]) => `${name}: must be unset: LangChain would send the chats to LangSmith or print them`);
+
 export function loadEnvironment(source: Record<string, string | undefined>): Environment {
   const result = environmentSchema.safeParse(source);
-  if (!result.success) {
-    throw new EnvironmentError(result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`));
-  }
+  const problems = [
+    ...(result.success ? [] : result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`)),
+    ...langChainProblems(source),
+  ];
+  if (!result.success || problems.length > 0) throw new EnvironmentError(problems);
   const { data } = result;
   return { ...data, LOG_LEVEL: data.LOG_LEVEL ?? (developmentLike(data.NODE_ENV) ? "debug" : "info") };
 }
