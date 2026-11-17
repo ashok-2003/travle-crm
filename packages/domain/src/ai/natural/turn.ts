@@ -32,7 +32,7 @@ export interface NaturalTurnDependencies extends LiteDependencies {
 }
 
 /** Ruling 5: the fallback line and code's hand-over at a limit, with no model call. */
-function atLimit(turn: LiveTurn, reason: CodeHandOverReason, customerText: string): Promise<TurnDone> {
+export function atLimit(turn: LiveTurn, reason: CodeHandOverReason, customerText: string): Promise<TurnDone> {
   return actAndSettle(turn, {
     messages: [fallbackLine(customerText)],
     staged: new Map(),
@@ -133,7 +133,7 @@ export async function runNaturalTurn(
 }
 
 /** A turn its gates ended before anything was read for the model. */
-const gateDone = (outcome: LiteOutcome): TurnDone => ({
+export const gateDone = (outcome: LiteOutcome): TurnDone => ({
   outcome,
   reason: null,
   messages: [],
