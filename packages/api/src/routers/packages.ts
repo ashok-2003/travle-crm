@@ -12,6 +12,7 @@ import {
   quoteDetail,
   brochureRefInput,
   requestBrochureInput,
+  describeBrochureInput,
   packageFiles,
   packagePhotoList,
   packagePhotoRefInput,
@@ -29,6 +30,7 @@ import { generatePackageDepartures, makeGroupQuote, reconcilePackageDepartures }
 import {
   calculateFromPrice,
   confirmPackageFile,
+  describeBrochure,
   confirmPackagePhoto,
   findPackage,
   getPackage,
@@ -203,6 +205,11 @@ export const packagesRouter = router({
     .mutation(({ ctx, input }) => requestPackageFileUpload(ctx, ctx.member, input)),
 
   confirmFile: editor.input(brochureRefInput).mutation(({ ctx, input }) => confirmPackageFile(ctx, ctx.member, input)),
+
+  /** The owner's name and description for a brochure: what the AI agent calls it and captions it with. */
+  describeFile: editor
+    .input(describeBrochureInput)
+    .mutation(({ ctx, input }) => describeBrochure(ctx, ctx.member, input)),
 
   removeFile: editor.input(brochureRefInput).mutation(({ ctx, input }) => removePackageFile(ctx, ctx.member, input)),
 });
