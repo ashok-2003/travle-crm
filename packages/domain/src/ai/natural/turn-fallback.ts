@@ -22,12 +22,18 @@ export async function runNaturalFallback(
     .map((line) => line.text.trim())
     .filter((text) => text !== "")
     .join(" / ");
+  // At the day's cap or a full month the line goes with code's hand-over, as in the live turn (ruling 5): never silence.
+  const limit = prepared.monthFull
+    ? { reason: "month_limit", summary: "" }
+    : prepared.repliesToday >= prepared.dayCap
+      ? { reason: "day_cap", summary: "" }
+      : null;
   const turn: LiveTurn = { deps, input, now, prepared, traceId: randomUUID(), actions: [] };
   const done = await actAndSettle(turn, {
     messages: [fallbackLine(wrote)],
     staged: new Map(),
     quoted: [],
-    handOver: null,
+    handOver: limit,
     task: {
       kind: "question",
       text:
