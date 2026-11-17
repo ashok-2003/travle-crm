@@ -1,7 +1,7 @@
 // The AI agent's last day at a glance (the AI agent page's head): chats it answered and messages it sent, chats it flagged
 // or handed over, and bookings it took.
 import type { AiOverview } from "@travel-crm/contracts/ai";
-import type { OrgTx } from "@travel-crm/db";
+import { emptySql, sql, type OrgTx } from "@travel-crm/db";
 
 const DAY_MS = 86_400_000;
 /** A bound on each read of flagged chats: far above a day's real number, so the count stays cheap. */
@@ -30,6 +30,19 @@ async function flaggedChats(tx: OrgTx, since: Date): Promise<number> {
     ...suggested.map((row) => row.conversationId ?? `lead:${row.leadId}`),
   ];
   return new Set(keys).size;
+}
+
+/**
+ * The chats the AI wrote in since an instant (all time for null), each once, counted in SQL so no row cap bends it.
+ * The AI's messages are the ones whose client token starts "ai:".
+ */
+export async function chatsAnsweredSince(tx: OrgTx, since: Date | null): Promise<number> {
+  const rows = await tx.$queryRaw<{ n: number }[]>(sql`
+    SELECT count(DISTINCT conversation_id)::int AS n
+    FROM whatsapp_message
+    WHERE direction = 'out' AND client_token LIKE 'ai:%'
+      ${since === null ? emptySql : sql`AND occurred_at >= ${since}::timestamptz`}`);
+  return rows[0]?.n ?? 0;
 }
 
 export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {

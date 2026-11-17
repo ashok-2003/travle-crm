@@ -3,6 +3,7 @@
 // the inbox shows it, the events and job of its turns, and the day's overview. Try it is in try-it.ts.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
+import { period } from "../kernel/period.js";
 
 export const aiChatModes = ["default", "on", "off"] as const;
 export const aiChatMode = z.enum(aiChatModes);
@@ -63,3 +64,8 @@ export const aiOverview = z.object({
   bookingsRequested: z.int(),
 });
 export type AiOverview = z.infer<typeof aiOverview>;
+
+/** The chats the AI answered in a period (Home's card). */
+export const chatsAnsweredInput = z.strictObject({ period });
+export const chatsAnswered = z.object({ chats: z.int() });
+export type ChatsAnswered = z.infer<typeof chatsAnswered>;
