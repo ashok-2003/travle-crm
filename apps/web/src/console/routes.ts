@@ -11,6 +11,8 @@ export const consoleRoutes = {
   dataProtection: (organizationId: string) => `/console/organizations/${organizationId}/data-protection`,
   plans: "/console/plans",
   jobs: "/console/jobs",
+  /** What is broken now and the last week's incidents; the dashboard shows only what is broken now. */
+  health: "/console/health",
   /** The emails that failed, a super admin's; each one's page under it. */
   emails: "/console/emails",
   email: (emailId: string) => `/console/emails/${emailId}`,
