@@ -30,7 +30,11 @@ export function without(set: StagedSet, tools: readonly StagedAction["tool"][]):
 }
 
 /** A dropped action in the team's words, so they can do it themselves; null when there is nothing to do. */
-function notDone(action: StagedAction, tripOf: (packageId: string) => string, today: CalendarDate): string | null {
+export function notDone(
+  action: StagedAction,
+  tripOf: (packageId: string) => string,
+  today: CalendarDate,
+): string | null {
   const trip = (terms: Omit<BookingTerms, "payInFull">) =>
     `${tripOf(terms.packageId)} for ${String(terms.adults + terms.childrenAges.length)} on ` +
     formatShortDay(parseCalendarDate(terms.startsOn), today);

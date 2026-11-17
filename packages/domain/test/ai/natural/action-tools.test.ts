@@ -681,3 +681,58 @@ describe("stageAction", () => {
     ]);
   });
 });
+
+describe("stageAction for the one agent", () => {
+  const one = { agent: "one" as const };
+  const book = terms({ room: "double" });
+  const stageOne = (context: ActionContext, name: Parameters<typeof stageAction>[1], args: Record<string, unknown>) =>
+    stageAction(context, name, args, "", one);
+
+  it("stages one's book on a live offer with no name or words", async () => {
+    const outcome = await stageOne(ctx(afterOffer("haan")), "book", book);
+    expect(outcome).toMatchObject({
+      staged: { tool: "book", via: "offer", fullName: null, customerWords: null, terms: offerTerms },
+    });
+  });
+
+  it("refuses one's book with no live offer or total told, and when the price changed", async () => {
+    expect(await stageOne(ctx(saying("haan")), "book", book)).toEqual({
+      refused:
+        "refused: there is no live offer or total told for these terms; make the offer first with offer_booking, " +
+        "and book after their yes",
+    });
+    const dearer = async (asked: BookingTerms) => ({ ...(await quoteOf(asked)), totalPaise: 2_699_800 });
+    expect(await stageOne(ctx({ ...afterOffer("haan"), quoteOf: dearer }), "book", book)).toEqual({
+      refused:
+        "refused: the price changed since the offer: the total is now ₹26,998; make the offer again with offer_booking",
+    });
+  });
+
+  it("still refuses natural's book without customer_words", async () => {
+    expect(await stageAction(ctx(afterOffer("haan")), "book", book, "")).toEqual({
+      refused: expect.stringContaining("refused:") as unknown,
+    });
+  });
+
+  it("stages one's hand-over for b2b, and natural refuses it", async () => {
+    const args = { reason: "b2b", summary: "A travel agent asking for rates" };
+    expect(await stageOne(ctx(), "hand_over", args)).toMatchObject({
+      staged: { tool: "hand_over", reason: "b2b", summary: "A travel agent asking for rates" },
+    });
+    expect(await stageAction(ctx(), "hand_over", args, "")).toMatchObject({ refused: expect.any(String) as unknown });
+  });
+
+  it("tells one's model no offer card goes yet, with no full name asked", async () => {
+    expect(await stageOne(ctx(), "offer_booking", terms({ room: "double" }))).toMatchObject({
+      result:
+        "offered: T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance ₹6,000 (₹3,000 per " +
+        "person). No offer card goes yet, so your words state the date, the total and the advance, and ask if " +
+        "they want to book",
+    });
+    expect(await stageOne(ctx(), "offer_booking", terms({ room: "double", pay_in_full: true }))).toMatchObject({
+      result: expect.stringContaining(
+        "so your words state the date and the total, and ask if they want to book",
+      ) as unknown,
+    });
+  });
+});

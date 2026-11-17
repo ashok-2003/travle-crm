@@ -1,5 +1,5 @@
 // The shapes the natural agent's parts share: the chat as it reads to the model, the lead, a trip, a quote, staged actions.
-import type { LiveOffer, BookingTerms, NaturalHandOverReason, NaturalTaskKind } from "@travel-crm/contracts/ai";
+import type { LiveOffer, BookingTerms, NaturalTaskKind, OneHandOverReason } from "@travel-crm/contracts/ai";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -117,15 +117,16 @@ export type StagedAction =
       tool: "book";
       terms: BookingTerms;
       figures: QuoteFigures;
-      fullName: string;
-      customerWords: string;
+      // Null on the one agent: the booking takes the lead's or WhatsApp's name, and no words are copied.
+      fullName: string | null;
+      customerWords: string | null;
       via: "offer" | "told";
     }
   | { tool: "resend_payment" }
   | { tool: "plan_follow_up"; at: Date | null; about: string }
   | { tool: "create_task"; kind: NaturalTaskKind; text: string; callAt: Date | null }
   | { tool: "add_note"; text: string }
-  | { tool: "hand_over"; reason: NaturalHandOverReason; summary: string }
+  | { tool: "hand_over"; reason: OneHandOverReason; summary: string }
   | { tool: "suggest_close"; kind: "lost" | "not_a_lead"; reason: string }
   | { tool: "stay_quiet"; reason: string };
 

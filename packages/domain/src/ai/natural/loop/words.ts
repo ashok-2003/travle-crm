@@ -52,6 +52,7 @@ export const HAND_OVER_WORDS =
 
 const WHY: Record<FallbackReason, string> = {
   cap: `The AI used its ${String(NATURAL_LIMITS.calls)} calls without a reply it could send`,
+  steps: "The AI took too many steps without a reply it could send",
   deadline: "The AI ran out of time before a reply it could send",
   model: "The AI wrote no reply",
   "guard:G1": "The AI's reply twice held an amount that isn't in the agency's prices",

@@ -25,6 +25,7 @@ export interface NaturalTraceBuilder {
 export function startNaturalTrace(
   prompt: Pick<NaturalPrompt, "version" | "source">,
   startedMs: number,
+  agent: "natural" | "one" = "natural",
 ): NaturalTraceBuilder {
   const promptVersion = prompt.version;
   const promptLabel = prompt.source?.label ?? null;
@@ -53,7 +54,7 @@ export function startNaturalTrace(
       restarted = reason;
     },
     finish: (outcome, fallback, endedMs) => ({
-      agent: "natural",
+      agent,
       promptVersion,
       promptLabel,
       outcome,
@@ -100,6 +101,16 @@ function termsWords(terms: Omit<BookingTerms, "payInFull">): string {
   return `${dayWords(terms.startsOn)}, ${adults}${children}, ${terms.room ?? "any room"}`;
 }
 
+/** A booking: its terms and total, then the name and words the customer gave when natural asked for them. */
+function bookSummary(action: Extract<StagedAction, { tool: "book" }>): string {
+  const said = [action.fullName, action.customerWords === null ? null : `"${action.customerWords}"`].filter(
+    (part) => part !== null,
+  );
+  const via = `(${action.via === "offer" ? "the live offer" : "a total told"})`;
+  const head = `${termsWords(action.terms)}; total ${formatRupees(action.figures.totalPaise)}`;
+  return said.length === 0 ? `${head} ${via}` : `${head}; ${said.join(", ")} ${via}`;
+}
+
 function summaryOf(action: StagedAction): string {
   switch (action.tool) {
     case "update_lead": {
@@ -116,10 +127,7 @@ function summaryOf(action: StagedAction): string {
       return `${termsWords(offer)}; total ${formatRupees(offer.totalPaise)}, ${due}`;
     }
     case "book":
-      return (
-        `${termsWords(action.terms)}; total ${formatRupees(action.figures.totalPaise)}; ${action.fullName}, ` +
-        `"${action.customerWords}" (${action.via === "offer" ? "the live offer" : "a total told"})`
-      );
+      return bookSummary(action);
     case "resend_payment":
       return "the payment message again";
     case "plan_follow_up":

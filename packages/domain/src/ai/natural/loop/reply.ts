@@ -10,9 +10,9 @@ import type { LoopEnd, LoopIO, TurnRun } from "./types.js";
 import { appCheck, HAND_OVER_WORDS, NO_WORDS } from "./words.js";
 
 /** The model's actions that end a turn without words: a brochure goes, or nothing should (spec 3.2). */
-const QUIET_ENDERS = ["send_brochure", "stay_quiet"] as const;
+export const QUIET_ENDERS = ["send_brochure", "stay_quiet"] as const;
 /** Payment lines and a QR never go without the model's sentence beside them. */
-const NEEDS_WORDS = ["book", "resend_payment"] as const;
+export const NEEDS_WORDS = ["book", "resend_payment"] as const;
 const DISCOUNT_SUMMARY = "Discount or team promise: the AI's reply twice named one nobody gave. A person decides.";
 
 export interface Response {
@@ -54,7 +54,7 @@ export function afterResponse(
  * (spec 3.5), unless it is for abuse, where silence is right; a hold or a resend needs a sentence; otherwise a brochure
  * or stay_quiet the model staged ends it. Code's own actions never do (pre-flight #14).
  */
-function mayEndSilent(run: TurnRun): boolean {
+export function mayEndSilent(run: Pick<TurnRun, "staged" | "modelStaged">): boolean {
   const handOver = run.staged.get("hand_over");
   if (handOver?.tool === "hand_over" && handOver.reason !== "abuse") return false;
   if (NEEDS_WORDS.some((tool) => run.staged.has(tool))) return false;

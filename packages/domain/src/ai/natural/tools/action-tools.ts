@@ -6,6 +6,8 @@ import {
   bookArguments,
   createTaskArguments,
   handOverArguments,
+  oneHandOverArguments,
+  parseOneToolArguments,
   parseToolArguments,
   planFollowUpArguments,
   sendBrochureArguments,
@@ -87,8 +89,11 @@ export async function stageAction(
   name: NaturalToolName,
   args: Record<string, unknown>,
   words: string,
+  options: { agent?: "natural" | "one" } = {},
 ): Promise<StageOutcome> {
-  const checked = parseToolArguments(name, args, [...context.labels.keys()]);
+  const one = options.agent === "one";
+  const labels = [...context.labels.keys()];
+  const checked = one ? parseOneToolArguments(name, args, labels) : parseToolArguments(name, args, labels);
   if (!checked.ok) return refused(checked.problem);
   const asked = checked.args;
   switch (name) {
@@ -97,9 +102,9 @@ export async function stageAction(
     case "send_brochure":
       return withArgs(sendBrochureArguments, asked, ({ trip_id }) => sendBrochure(context, trip_id, words));
     case "offer_booking":
-      return offerBooking(context, asked);
+      return offerBooking(context, asked, one);
     case "book":
-      return withArgs(bookArguments, asked, (yes) => book(context, asked, yes));
+      return one ? bookOnTerms(context, asked) : withArgs(bookArguments, asked, (yes) => book(context, asked, yes));
     case "resend_payment":
       return awaitsPayment(context.booking)
         ? stage({ tool: "resend_payment" }, "the app sends the payment message and QR again after your reply")
@@ -113,7 +118,7 @@ export async function stageAction(
         stage({ tool: "add_note", text }, "note added for the team"),
       );
     case "hand_over":
-      return withArgs(handOverArguments, asked, ({ reason, summary }) =>
+      return withArgs(one ? oneHandOverArguments : handOverArguments, asked, ({ reason, summary }) =>
         stage(
           { tool: "hand_over", reason, summary },
           "handed to a person after your reply; as one of the team, say you'll check and get back to them here, with no promised time",
@@ -319,7 +324,11 @@ function sendBrochure(context: ActionContext, label: string, words: string): Sta
   );
 }
 
-async function offerBooking(context: ActionContext, args: Record<string, unknown>): Promise<StageOutcome> {
+async function offerBooking(
+  context: ActionContext,
+  args: Record<string, unknown>,
+  one: boolean,
+): Promise<StageOutcome> {
   const terms = termsOf(args, context.labels);
   if ("refused" in terms) return terms;
   const figures = await offerChecks(context, terms);
@@ -337,8 +346,11 @@ async function offerBooking(context: ActionContext, args: Record<string, unknown
       offer: { ...figures.terms, departureId: figures.departureId, totalPaise, advancePaise, at },
       figures,
     },
-    `offered: ${termsWords(figures.terms, context.sheets, context.today)}; ${money}. Your words state the date and ` +
-      `the ${inFull ? "total" : "advance"}, and ask for their full name or a yes`,
+    `offered: ${termsWords(figures.terms, context.sheets, context.today)}; ${money}. ` +
+      (one
+        ? // No offer card goes yet (ruling P5), so the words carry what the card would.
+          `No offer card goes yet, so your words state ${inFull ? "the date and the total" : "the date, the total and the advance"}, and ask if they want to book`
+        : `Your words state the date and the ${inFull ? "total" : "advance"}, and ask for their full name or a yes`),
   );
 }
 
@@ -347,9 +359,21 @@ async function book(
   args: Record<string, unknown>,
   yes: Asked<typeof bookArguments>,
 ): Promise<StageOutcome> {
+  return stageBook(context, args, { fullName: yes.full_name, customerWords: yes.customer_words });
+}
+
+/** The one agent's `book`: the terms alone, held on the live offer or a total told, with no name or words kept. */
+function bookOnTerms(context: ActionContext, args: Record<string, unknown>): Promise<StageOutcome> {
+  return stageBook(context, args, null);
+}
+
+async function stageBook(
+  context: ActionContext,
+  args: Record<string, unknown>,
+  said: { fullName: string; customerWords: string } | null,
+): Promise<StageOutcome> {
   const terms = termsOf(args, context.labels);
   if ("refused" in terms) return terms;
-  const said = { fullName: yes.full_name, customerWords: yes.customer_words };
   const checked = await bookChecks(context, terms, said);
   if ("refused" in checked) return checked;
   const { figures, via } = checked;
@@ -357,7 +381,14 @@ async function book(
     ? `${formatRupees(figures.totalPaise)} due now`
     : `advance ${formatRupees(figures.advancePaise)} due now`;
   return stage(
-    { tool: "book", terms: figures.terms, figures, ...said, via },
+    {
+      tool: "book",
+      terms: figures.terms,
+      figures,
+      fullName: said?.fullName ?? null,
+      customerWords: said?.customerWords ?? null,
+      via,
+    },
     `held once your reply goes: ${termsWords(figures.terms, context.sheets, context.today)}; total ` +
       `${formatRupees(figures.totalPaise)}; ${due}. The app then sends the payment message and QR: leave payment ` +
       "details out of your words",
