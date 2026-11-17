@@ -54,6 +54,24 @@ describe("PackageFilesCard brochures", () => {
     expect(screen.getByRole("link", { name: /kedarnath\.pdf/ })).toHaveAttribute("href", described.url);
   });
 
+  it("reads an empty name or description as none", async () => {
+    await renderCard([{ ...described, name: "", description: "" }]);
+    expect(await screen.findByText(words.noName)).toBeTruthy();
+    expect(screen.getByText(words.noDescription)).toBeTruthy();
+  });
+
+  it("shows a refused save's sentence", async () => {
+    const api = await renderCard([described]);
+    await userEvent.click(await screen.findByRole("button", { name: "Describe kedarnath.pdf" }));
+    await screen.findByLabelText(words.details.name);
+    await userEvent.click(screen.getByRole("button", { name: words.details.save }));
+    await waitFor(() => {
+      expect(api.calls).toHaveLength(2);
+    });
+    api.last().refuse(404, "BROCHURE_NOT_FOUND");
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
   it("describes a brochure and shows the saved words", async () => {
     const api = await renderCard([plain]);
     await userEvent.click(await screen.findByRole("button", { name: "Describe spiti.pdf" }));

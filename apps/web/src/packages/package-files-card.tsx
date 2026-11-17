@@ -24,6 +24,9 @@ import { usePackageFileChanges, usePackageFiles } from "./use-package-files";
 
 const BROCHURE_TYPES = "application/pdf,image/jpeg,image/png,image/webp";
 
+/** An empty string is no words at all (the table's default). */
+const words = (text: string | null) => (text === null || text === "" ? null : text);
+
 /** One brochure: its name over its description, the file to open, and the buttons that describe or remove it. */
 function BrochureRow({
   packageId,
@@ -46,10 +49,10 @@ function BrochureRow({
   return (
     <li className="flex items-start justify-between gap-2">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="font-medium">{file.name ?? t("noName")}</span>
-        <span className="text-muted-foreground">{file.description ?? t("noDescription")}</span>
+        <span className="font-medium break-words">{words(file.name) ?? t("noName")}</span>
+        <span className="text-muted-foreground break-words">{words(file.description) ?? t("noDescription")}</span>
         {file.url === null ? (
-          <span>{file.fileName}</span>
+          <span className="break-words">{file.fileName}</span>
         ) : (
           <TextLink inline newTab href={file.url}>
             {file.fileName}
