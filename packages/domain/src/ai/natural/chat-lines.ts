@@ -17,7 +17,7 @@ const EARLIER_PAYMENT_PREFIX = "ai-pay:";
 const PERSON_ORIGINS = new Set(["staff_crm", "staff_phone"]);
 const PAYMENT_DETAILS = "sent: payment details";
 
-const fields = {
+export const storedLineFields = {
   id: true,
   direction: true,
   origin: true,
@@ -28,9 +28,11 @@ const fields = {
   clientToken: true,
   sentBy: true,
   occurredAt: true,
+  aiText: true,
+  aiTextKind: true,
 } as const;
 
-interface StoredLine {
+export interface StoredLine {
   id: string;
   direction: string;
   origin: string;
@@ -41,6 +43,8 @@ interface StoredLine {
   clientToken: string | null;
   sentBy: string | null;
   occurredAt: Date;
+  aiText: string | null;
+  aiTextKind: string | null;
 }
 
 const isAiToken = (token: string) => token.startsWith(AI_TOKEN_PREFIX) || token.startsWith(EARLIER_PAYMENT_PREFIX);
@@ -66,10 +70,12 @@ function actionOf(row: StoredLine, from: NaturalChatLine["from"], earlierWhole: 
   return `sent: ${from === "earlier" && !earlierWhole ? withoutAmountsAndDates(named) : named}`;
 }
 
-function lineOf(row: StoredLine, earlierWhole: boolean): NaturalChatLine {
+/** A stored message as a chat line; the summary reads its rows through this too. */
+export function storedLineOf(row: StoredLine, options: { earlierWhole?: boolean } = {}): NaturalChatLine {
   const from = fromOf(row);
   const text = row.body ?? row.caption ?? "";
-  const action = actionOf(row, from, earlierWhole);
+  const action = actionOf(row, from, options.earlierWhole === true);
+  const kind = row.aiTextKind === "transcript" || row.aiTextKind === "description" ? row.aiTextKind : null;
   return {
     id: row.id,
     from,
@@ -78,6 +84,7 @@ function lineOf(row: StoredLine, earlierWhole: boolean): NaturalChatLine {
     text,
     ...(row.fileName === null ? {} : { fileName: row.fileName }),
     ...(action === null ? {} : { action }),
+    ...(row.aiText === null || kind === null ? {} : { aiText: { kind, text: row.aiText } }),
     ...(from === "customer" && row.kind === "audio" && text.trim() === "" ? { untranscribed: true } : {}),
   };
 }
@@ -98,9 +105,9 @@ export async function naturalChatLines(
     where: { conversationId, kind: { not: "reaction" }, status: { not: "superseded" } },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: CHAT_READ,
-    select: fields,
+    select: storedLineFields,
   });
-  const lines = rows.reverse().map((row) => lineOf(row, options.earlierWhole === true));
+  const lines = rows.reverse().map((row) => storedLineOf(row, options));
   const senders = new Map(
     rows.flatMap((row) => (row.direction === "out" && row.sentBy !== null ? [[row.id, row.sentBy] as const] : [])),
   );

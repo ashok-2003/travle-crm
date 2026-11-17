@@ -40,7 +40,12 @@ function setup(io: Partial<OneToolIO> = {}, forced: StagedAction[] = []) {
     },
     ...io,
   };
-  const tools = oneAgentTools(oneToolSchemas({ tripLabels: labels }), full, run, trace, labels);
+  const media = new Map<string, { messageId: string; kind: "audio" | "image" }>([
+    ["m3", { messageId: "message-3", kind: "audio" }],
+    ["m7", { messageId: "message-7", kind: "image" }],
+  ]);
+  const schemas = oneToolSchemas({ tripLabels: labels, voiceNotes: ["m3"], photos: ["m7"] });
+  const tools = oneAgentTools(schemas, full, run, trace, labels, media);
   const call = (name: string, args: Record<string, unknown>, words = "") => {
     const found = tools.find((tool) => tool.name === name);
     if (found === undefined) throw new Error(`no tool ${name}`);
@@ -50,6 +55,32 @@ function setup(io: Partial<OneToolIO> = {}, forced: StagedAction[] = []) {
 }
 
 describe("the one agent's tools", () => {
+  it("answers a media tool from the media IO, and a reference the turn lacks as refused", async () => {
+    const asked: [string, Record<string, unknown>][] = [];
+    const { run, call } = setup({
+      media: (name, args) => {
+        asked.push([name, args]);
+        return Promise.resolve("seen: a receipt");
+      },
+    });
+    expect(await call("look_at_image", { message: "m7", question: "the amount?" })).toBe("seen: a receipt");
+    expect(await call("transcribe_voice_note", { message: "m3" })).toBe("seen: a receipt");
+    expect(asked).toEqual([
+      ["look_at_image", { message: "m7", question: "the amount?" }],
+      ["transcribe_voice_note", { message: "m3" }],
+    ]);
+    // Someone else's reference, a photo's reference to the voice tool, and a failed read.
+    expect(await call("look_at_image", { message: "m9" })).toMatch(/^refused:/u);
+    expect(await call("transcribe_voice_note", { message: "m7" })).toMatch(/^refused:/u);
+    expect(asked).toHaveLength(2);
+    expect(run.staged.size).toBe(0);
+    const failing = setup({ media: () => Promise.reject(new Error("boom")) });
+    expect(await failing.call("look_at_image", { message: "m7" })).not.toContain("boom");
+    expect(
+      failing.trace.finish("replied", null, 0).flags.some((flag) => flag.startsWith("tool_failed:look_at_image")),
+    ).toBe(true);
+  });
+
   it("answers a read and keeps its quote", async () => {
     const { run, call } = setup();
     expect(await call("quote", quoteArgs)).toBe("quoted: ₹25,998");

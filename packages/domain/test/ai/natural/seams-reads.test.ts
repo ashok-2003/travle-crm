@@ -60,6 +60,35 @@ describe("natural's seams for reads and refusal", () => {
     expect(lineWords(yours, 1_000)).toBe(lineWords(yours, 1_000, { earlierWhole: true }));
   });
 
+  it("writes a reference and the saved words only on a line that has one", async () => {
+    const voice: NaturalChatLine = { id: "a", from: "customer", at: liveNow, kind: "audio", text: "" };
+    const photo: NaturalChatLine = { ...voice, kind: "image", text: "kya rate hai?" };
+    // Natural's lines carry neither, so its words are as they were.
+    expect(lineWords(voice, 1_000)).toBe("[voice note]");
+    expect(lineWords(photo, 1_000)).toBe("[photo] kya rate hai?");
+    expect(lineWords({ ...voice, ref: "m3" }, 1_000)).toBe("[voice note m3]");
+    expect(lineWords({ ...photo, ref: "m7" }, 1_000)).toBe("[photo m7] kya rate hai?");
+    expect(lineWords({ ...voice, ref: "m3", aiText: { kind: "transcript", text: "do log\nhain" } }, 1_000)).toBe(
+      '[voice note m3] (heard: "do log hain")',
+    );
+    expect(
+      lineWords({ ...photo, ref: "m7", aiText: { kind: "description", text: "A UPI receipt of ₹6,000." } }, 1_000),
+    ).toBe('[photo m7] kya rate hai? (seen: "A UPI receipt of ₹6,000.")');
+
+    // The stored words come with the line.
+    const on = await liveAgency(test);
+    const id = await on.write({ direction: "in", at: liveAt(-100), kind: "audio" });
+    await on.inOrg((tx) =>
+      tx.whatsappMessage.update({
+        where: { id },
+        data: { aiText: "do log hain", aiTextKind: "transcript", aiTextAt: liveNow },
+      }),
+    );
+    const { lines } = await on.inOrg((tx) => naturalChatLines(tx, on.chat.id));
+    expect(lines.find((one) => one.id === id)?.aiText).toEqual({ kind: "transcript", text: "do log hain" });
+    expect(lines.find((one) => one.from === "customer" && one.id !== id)?.aiText).toBeUndefined();
+  });
+
   it("builds the refused booking's act: the fallback line, the agency's actions kept, the task naming the booking", async () => {
     const on = await liveAgency(test);
     const prepared = await on.prepare();

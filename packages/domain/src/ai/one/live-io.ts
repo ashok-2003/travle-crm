@@ -12,6 +12,7 @@ import { stageAction } from "../natural/tools/action-tools.js";
 import { runReadTool, type ReadContext } from "../natural/tools/read-tools.js";
 import type { ToolTurnSink } from "../traces/trace-sink.js";
 import type { OneContext } from "./context.js";
+import { lookAtImage, transcribeVoiceNote } from "./media.js";
 import type { OneLoopIO } from "./loop.js";
 
 export interface OneTurnDependencies extends LiteDependencies {
@@ -25,7 +26,7 @@ export interface OneTurnDependencies extends LiteDependencies {
 
 /** The loop's IO for one live turn on `context`, the context built from `prepared`; `clock` in epoch milliseconds. */
 export function oneLiveIO(
-  deps: Pick<OneTurnDependencies, "db" | "ai" | "toolAgent">,
+  deps: Pick<OneTurnDependencies, "db" | "ai" | "toolAgent" | "files">,
   prepared: NaturalPrepared,
   input: LiteTurnInput,
   context: OneContext,
@@ -37,9 +38,22 @@ export function oneLiveIO(
   const { sheets, today, timeZone } = prepared;
   const readContext = (tx: OrgTx): ReadContext => ({ tx, sheets, labels: context.labels, today, now });
   const actions = liveActionContext(db, prepared, input, context, now);
+  const call = countedModel(deps.ai, { db, organizationId, now, timeZone });
   return {
     agent: deps.toolAgent,
-    call: countedModel(deps.ai, { db, organizationId, now, timeZone }),
+    call,
+    // The tool layer has already checked the reference is this chat's own customer file.
+    media: async (name, args) => {
+      const messageId = context.media.get(String(args.message))?.messageId;
+      if (messageId === undefined) return "refused: that isn't one of this chat's files";
+      const reading = { db, files: deps.files, call, organizationId };
+      const where = { conversationId: input.conversationId, messageId };
+      const done =
+        name === "look_at_image"
+          ? await lookAtImage(reading, { ...where, question: typeof args.question === "string" ? args.question : null })
+          : await transcribeVoiceNote(reading, where);
+      return done.ok ? done.text : done.refused;
+    },
     read: (name, args) => db.forOrg(organizationId, (tx) => runReadTool(readContext(tx), name, args)),
     stage: (name, args, words, quoted) =>
       stageAction({ ...actions, quotedThisTurn: quoted }, name, args, words, { agent: "one" }),

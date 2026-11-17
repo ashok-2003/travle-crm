@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { naturalTestAnswer, naturalDryAction } from "../../src/ai/natural-try-it.js";
 import { parseToolArguments } from "../../src/ai/natural-tools.js";
 import { naturalTrace } from "../../src/ai/natural-trace.js";
-import { oneToolSchemas, parseOneToolArguments } from "../../src/ai/one-tools.js";
+import { oneReadTools, oneToolSchemas, parseOneToolArguments } from "../../src/ai/one-tools.js";
 import { oneTestInput } from "../../src/ai/one-try-it.js";
 import { z } from "zod";
 
@@ -89,6 +89,25 @@ describe("the one agent's tool schemas", () => {
     // With no brochures it isn't offered; natural's own tool still takes a trip.
     expect(oneToolSchemas({ tripLabels: labels }).map((tool) => tool.name)).not.toContain("send_brochure");
     expect(parseToolArguments("send_brochure", { trip_id: "T1" }, labels).ok).toBe(true);
+  });
+
+  it("offers transcribe_voice_note and look_at_image only for the turn's own references", () => {
+    const names = (more: { voiceNotes?: string[]; photos?: string[] }) =>
+      oneToolSchemas({ tripLabels: labels, ...more }).map((tool) => tool.name);
+    expect(names({})).not.toContain("transcribe_voice_note");
+    expect(names({})).not.toContain("look_at_image");
+    expect(names({ voiceNotes: ["m3"] })).toContain("transcribe_voice_note");
+    expect(names({ voiceNotes: ["m3"] })).not.toContain("look_at_image");
+    const look = oneToolSchemas({ tripLabels: labels, photos: ["m7"] }).find((tool) => tool.name === "look_at_image");
+    expect(look?.schema.safeParse({ message: "m7", question: "the amount?" }).success).toBe(true);
+    expect(look?.schema.safeParse({ message: "m3" }).success).toBe(false);
+    expect(look?.schema.safeParse({ message: "m7", question: "" }).success).toBe(false);
+    expect(oneReadTools).toEqual(expect.arrayContaining(["quote", "transcribe_voice_note", "look_at_image"]));
+    const more = { voiceNotes: ["m3"], photos: ["m7"] };
+    expect(parseOneToolArguments("look_at_image", { message: "m7" }, labels, more)).toMatchObject({ ok: true });
+    expect(parseOneToolArguments("look_at_image", { message: "m3" }, labels, more).ok).toBe(false);
+    expect(parseOneToolArguments("transcribe_voice_note", '{"message":"m3"}', labels, more).ok).toBe(true);
+    expect(parseOneToolArguments("transcribe_voice_note", { message: "m3", extra: 1 }, labels, more).ok).toBe(false);
   });
 
   it("describes book with no customer words in its JSON Schema", () => {

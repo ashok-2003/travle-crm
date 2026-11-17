@@ -5,6 +5,7 @@ import { naturalHandOverReasons } from "./natural.js";
 import {
   checked,
   handOverArguments,
+  naturalReadTools,
   naturalToolNames,
   naturalTools,
   offerBookingArguments,
@@ -51,8 +52,30 @@ const tripTools: readonly NaturalToolName[] = [
   "book",
 ];
 
+export type OneMediaToolName = "transcribe_voice_note" | "look_at_image";
+export type OneToolName = NaturalToolName | OneMediaToolName;
+const mediaToolNames: readonly OneMediaToolName[] = ["transcribe_voice_note", "look_at_image"];
+/** The tools that only read: the model is called again with their results. */
+export const oneReadTools: readonly OneToolName[] = [...naturalReadTools, ...mediaToolNames];
+
+/** `message` is a reference the chat shows (m3); the turn's own are the only ones offered. */
+const transcribeArguments = z.strictObject({ message: z.string() });
+const lookArguments = z.strictObject({ message: z.string(), question: z.string().min(1).max(200).optional() });
+const mediaTools = {
+  transcribe_voice_note: {
+    description:
+      "Hears what a customer's voice note says. Pass its reference, as [voice note m3] shows it, then answer it like a typed message.",
+    fields: transcribeArguments,
+  },
+  look_at_image: {
+    description:
+      "Looks at a customer's photo, as [photo m7] shows it. You can pass a question about what to look for. Not for a sticker or a forward that needs no reply.",
+    fields: lookArguments,
+  },
+};
+
 export interface OneToolSchema {
-  name: NaturalToolName;
+  name: OneToolName;
   description: string;
   schema: z.ZodType<Record<string, unknown>>;
 }
@@ -61,9 +84,33 @@ export interface OneToolSchema {
 export function oneToolSchemas(input: {
   tripLabels: readonly string[];
   brochureLabels?: readonly string[];
+  /** References of the turn's voice notes and photos; each tool is offered with one at least. */
+  voiceNotes?: readonly string[];
+  photos?: readonly string[];
 }): OneToolSchema[] {
   const brochureLabels = input.brochureLabels ?? [];
-  return naturalToolNames
+  const { voiceNotes = [], photos = [] } = input;
+  const media: OneToolSchema[] = [
+    ...(voiceNotes.length === 0
+      ? []
+      : [
+          {
+            name: "transcribe_voice_note" as const,
+            description: mediaTools.transcribe_voice_note.description,
+            schema: transcribeArguments.extend({ message: z.enum(voiceNotes) }),
+          },
+        ]),
+    ...(photos.length === 0
+      ? []
+      : [
+          {
+            name: "look_at_image" as const,
+            description: mediaTools.look_at_image.description,
+            schema: lookArguments.extend({ message: z.enum(photos) }),
+          },
+        ]),
+  ];
+  const natural: OneToolSchema[] = naturalToolNames
     .filter(
       (name) =>
         (input.tripLabels.length > 0 || !tripTools.includes(name)) &&
@@ -76,6 +123,7 @@ export function oneToolSchemas(input: {
           : withLabels(oneTools[name].fields, input.tripLabels);
       return { name, description: oneTools[name].description, schema: checked(oneTools[name], fields) };
     });
+  return [...natural, ...media];
 }
 
 /** As parseToolArguments, on one's table; `brochureLabels`, when given, are the brochures `send_brochure` may name. */
@@ -83,8 +131,10 @@ export function parseOneToolArguments(
   name: string,
   raw: string | Readonly<Record<string, unknown>>,
   tripLabels: readonly string[],
-  more: { brochureLabels?: readonly string[] } = {},
-): { ok: true; name: NaturalToolName; args: Record<string, unknown> } | { ok: false; problem: string } {
+  more: { brochureLabels?: readonly string[]; voiceNotes?: readonly string[]; photos?: readonly string[] } = {},
+): { ok: true; name: OneToolName; args: Record<string, unknown> } | { ok: false; problem: string } {
+  const media = mediaToolNames.find((known) => known === name);
+  if (media !== undefined) return parseMedia(media, raw, media === "look_at_image" ? more.photos : more.voiceNotes);
   const parsed = parseOnTable(oneTools, name, raw, tripLabels);
   const { brochureLabels } = more;
   if (parsed.ok && parsed.name === "send_brochure" && brochureLabels !== undefined) {
@@ -96,4 +146,31 @@ export function parseOneToolArguments(
     }
   }
   return parsed;
+}
+
+/** A media call's arguments, the reference checked against the turn's own (another chat's or a typo is refused). */
+function parseMedia(
+  name: OneMediaToolName,
+  raw: string | Readonly<Record<string, unknown>>,
+  refs: readonly string[] = [],
+): { ok: true; name: OneToolName; args: Record<string, unknown> } | { ok: false; problem: string } {
+  let value: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      value = raw.trim() === "" ? {} : (JSON.parse(raw) as unknown);
+    } catch {
+      return { ok: false, problem: "the arguments weren't JSON" };
+    }
+  }
+  const parsed = mediaTools[name].fields.safeParse(value);
+  if (!parsed.success) return { ok: false, problem: "the arguments need a message reference (and a short question)" };
+  const { message } = parsed.data;
+  if (!refs.includes(message)) {
+    const kind = name === "look_at_image" ? "photos" : "voice notes";
+    return {
+      ok: false,
+      problem: `${message} isn't one of this chat's ${kind}; ${refs.length > 0 ? refs.join(", ") : "there are none"}`,
+    };
+  }
+  return { ok: true, name, args: parsed.data };
 }

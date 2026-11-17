@@ -80,6 +80,7 @@ function contextOf(): OneContext {
       { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
     ],
     tools: oneToolSchemas({ tripLabels: ["T1", "T2"], brochureLabels: ["B1", "B2"] }),
+    media: new Map(),
   };
 }
 
@@ -265,6 +266,31 @@ describe("the one agent's loop", () => {
     const end = await loop();
     expect(end).toMatchObject({ end: "final", messages: [reply], callsUsed: 3 });
     expect(stagedOf(end)).toEqual([]);
+  });
+
+  it("never takes words beside a media read as the reply", async () => {
+    const reply = "Samajh gayi, do log. Kaunsi date?";
+    const context = {
+      ...contextOf(),
+      tools: oneToolSchemas({ tripLabels: ["T1", "T2"], voiceNotes: ["m3"] }),
+      media: new Map([["m3", { messageId: "message-3", kind: "audio" as const }]]),
+    };
+    io.media = () => Promise.resolve("do log hain");
+    model.answer(
+      {
+        text: "Ek minute, sun leti hoon.",
+        toolCalls: [{ name: "transcribe_voice_note", arguments: { message: "m3" } }],
+      },
+      "",
+      reply,
+    );
+    trace = startNaturalTrace({ version: "one-1" }, START, "one");
+    const settings: OneSettings = { organizationId: ORGANIZATION, forced: [], today: parseCalendarDate("2026-11-14") };
+    expect(await runOneLoop(context, io, settings, trace)).toMatchObject({
+      end: "final",
+      messages: [reply],
+      callsUsed: 3,
+    });
   });
 
   it("never holds seats or resends payment without words", async () => {
