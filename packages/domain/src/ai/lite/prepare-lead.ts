@@ -70,9 +70,14 @@ export async function packageIndexOf(
 
 /**
  * The lead's trip values that are a person's: every one but those still the AI's suggestion (a `suggested` row whose hash
- * the value still matches). A value a person confirmed ("Looks right") is theirs too, so the turn keeps it.
+ * the value still matches). A value a person confirmed ("Looks right") is theirs too, so the turn keeps it. Lite folds
+ * all but the place into its facts; `place: true` adds the place a person set, for the natural agent.
  */
-export async function typedByPerson(tx: OrgTx, leadId: string): Promise<Partial<Record<TripField, unknown>>> {
+export async function typedByPerson(
+  tx: OrgTx,
+  leadId: string,
+  options: { place?: boolean } = {},
+): Promise<Partial<Record<TripField, unknown>>> {
   const current = await tripFieldValues(tx, leadId);
   if (current === null) return {};
   const rows = await tx.leadAiField.findMany({
@@ -80,7 +85,8 @@ export async function typedByPerson(tx: OrgTx, leadId: string): Promise<Partial<
     select: { field: true, valueHash: true },
   });
   const typed: Partial<Record<TripField, unknown>> = {};
-  for (const field of FOLDED) {
+  const fields: readonly TripField[] = options.place === true ? ["destination", ...FOLDED] : FOLDED;
+  for (const field of fields) {
     const value = current[field];
     const theAis = rows.some((row) => row.field === field && row.valueHash === valueHash(aiFieldPaths[field], value));
     if (value !== null && !theAis) typed[field] = value;
