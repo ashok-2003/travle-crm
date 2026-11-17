@@ -8,6 +8,7 @@ import { naturalPromptLabels } from "@travel-crm/contracts/ai";
 import { withTracing, type AiModel } from "@travel-crm/integrations/ai";
 import { createMemoryPrompts, type ManagedPrompt } from "@travel-crm/integrations/prompts";
 import { createMemoryTracing, notedTurn, type MemoryTracing } from "@travel-crm/integrations/tracing";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AI_BOOKING_KIND } from "../../../src/ai/booking.js";
 import { replyDayOf } from "../../../src/ai/may-write.js";
@@ -15,6 +16,7 @@ import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import { BUILT_IN_NATURAL_PROMPT } from "../../../src/ai/natural/prompt.js";
 import { NATURAL_PROMPT_NAME } from "../../../src/ai/natural/prompt-source.js";
 import { runNaturalTurn } from "../../../src/ai/natural/turn.js";
+import type { LiteDependencies } from "../../../src/ai/lite/types.js";
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
 import { monthStartOf } from "../../../src/inbox/index.js";
 import { aLead } from "../../crm/support/records.js";
@@ -57,11 +59,12 @@ describe("the natural agent's live turn", () => {
      * One turn for the customer's line `token` at `at`, on `ai` (the fixture's memory model unless given). Amit manages
      * the agency's settings, so he hears of a booking beside the lead's owner.
      */
-    const turn = (token = on.message.id, at = liveNow, ai: AiModel = on.model) =>
+    const turn = (token = on.message.id, at = liveNow, ai: AiModel = on.model, extra: Partial<LiteDependencies> = {}) =>
       runNaturalTurn(
         {
           ...on.dependencies(),
           managers: () => Promise.resolve([on.amit.userId]),
+          ...extra,
           ai: withTracing(ai, tracing),
           tracing,
           prompts,
@@ -347,6 +350,47 @@ describe("the natural agent's live turn", () => {
     );
     expect(task.title).toContain("The seats couldn't be held");
     expect(await on.inOrg((tx) => tx.aiBooking.count({ where: { conversationId: on.chat.id } }))).toBe(0);
+  });
+
+  it("tells the customer and the team when the retry's booking is refused too", async () => {
+    const on = await world();
+    const yes = await on.offered();
+    on.model.answer({ toolCalls: [bookCall] }, { text: bookWords }, { toolCalls: [bookCall] }, { text: bookWords });
+    // The seats go as the first act runs, are back for the retry's booking, and go again before its act.
+    let calls = 0;
+    const flickering: AiModel = {
+      configured: true,
+      complete: async (request) => {
+        calls += 1;
+        if (calls === 2 || calls === 4) await on.holdSeats(19);
+        if (calls === 3) await on.inOrg((tx) => tx.departureHold.updateMany({ data: { expiresAt: new Date(0) } }));
+        return on.model.complete(request);
+      },
+    };
+    expect(await on.turn(yes, liveAt(300), flickering)).toBe("fallback");
+    // The offer's call, then two for the first act and two for the retry, both refused.
+    expect(on.model.requests).toHaveLength(5);
+    const sent = await on.outbound();
+    expect(sent.slice(1).map((message) => [message.clientToken, message.body])).toEqual([
+      [`ai:${yes}`, fallbackLine("haan, Rohan Mehta")],
+    ]);
+    const task = await on.inOrg((tx) =>
+      tx.task.findFirstOrThrow({ where: { recordType: "lead", recordId: on.leadId, byAi: true } }),
+    );
+    expect(task.title).toContain("The seats couldn't be held");
+  });
+
+  it("ends model_failed, logged by code, when what the act needs can't be read", async () => {
+    const on = await world();
+    const yes = await on.offered();
+    const logger = createMemoryLogger();
+    on.model.answer({ toolCalls: [bookCall] }, { text: bookWords });
+    const managers = () => Promise.reject(new Error("connection timeout for +919876543210"));
+    expect(await on.turn(yes, liveAt(300), on.model, { managers, logger })).toBe("model_failed");
+    expect(tokens(await on.outbound())).toEqual([expect.anything()]);
+    const failure = logger.entries.find((entry) => entry.reason === "act_deps_failed");
+    expect(failure).toMatchObject({ level: "error", conversationId: on.chat.id });
+    expect(JSON.stringify(logger.entries)).not.toContain("9876543210");
   });
 
   it("sends nothing when a person replies while the model is thinking", async () => {

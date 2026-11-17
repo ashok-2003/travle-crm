@@ -11,6 +11,7 @@ import {
 } from "@travel-crm/contracts/crm";
 import type { NaturalTaskKind } from "@travel-crm/contracts/ai";
 import { readAssignment } from "../../crm/index.js";
+import { errorFields } from "@travel-crm/integrations/logging";
 import { DomainError, type WorkingHours } from "../../kernel/index.js";
 import { flagChat } from "../lite/flag-chat.js";
 import { openLeadForChat } from "../lite/open-lead.js";
@@ -71,6 +72,9 @@ const UNREAD_HOURS: WorkingHours = {
   closesMinute: DEFAULT_CLOSES_MINUTE,
 };
 
+/** The code of a turn that ended because what its act needs could not be read. */
+const ACT_DEPS_FAILED = "act_deps_failed";
+
 const has = (staged: StagedSet, tools: readonly StagedAction["tool"][]) => tools.some((tool) => staged.has(tool));
 
 /** A returning customer's new lead, opened before anything is sent; or why the turn ends instead. A task needs one too (F1). */
@@ -128,11 +132,37 @@ async function actDepsOf(turn: LiveTurn, act: TurnAct): Promise<NaturalActDeps> 
   };
 }
 
+/**
+ * What the act needs, or the turn's end when it can't be read (a database timeout): nothing was written, so the turn
+ * ends `model_failed` and the worker tries again, and in the end sends the fallback line. Logged by ids and codes only.
+ */
+async function actDepsReadOf(
+  turn: LiveTurn,
+  act: TurnAct,
+): Promise<NaturalActDeps | { ended: LiteOutcome; reason: string }> {
+  try {
+    return await actDepsOf(turn, act);
+  } catch (error) {
+    turn.deps.logger?.error(
+      {
+        ...errorFields(error),
+        event: "ai.act-deps-failed",
+        reason: ACT_DEPS_FAILED,
+        organizationId: turn.input.organizationId,
+        conversationId: turn.input.conversationId,
+      },
+      "The natural agent couldn't read what its act needs",
+    );
+    return { ended: "model_failed", reason: ACT_DEPS_FAILED };
+  }
+}
+
 export async function actOnTurn(turn: LiveTurn, act: TurnAct): Promise<ActEnd> {
   const instead = await leadFor(turn, act);
   if (instead !== null) return instead;
   const { deps, input, prepared, now } = turn;
-  const actDeps = await actDepsOf(turn, act);
+  const actDeps = await actDepsReadOf(turn, act);
+  if ("ended" in actDeps) return actDeps;
   try {
     const result = await deps.db.forOrg(input.organizationId, (tx) =>
       actOnNaturalTurn(tx, actDeps, {
