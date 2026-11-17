@@ -285,7 +285,10 @@ Secrets come from the platform's secret manager as environment variables, never 
     (`AI_AGENT_MODELS`, the chat models when blank) run on any of these endpoints. `docker-compose.server.yml`
     passes all of them to the api and the worker; the console calls no model, so its AI keys are blank.
   - **Gemini on Vertex AI** (ruling R14, 2026-11-17): `AI_VERTEX_SERVICE_ACCOUNT` in place of `AI_API_KEY` (one or the
-    other), holding a service account's key file as base64 on one line (`base64 -i key.json | tr -d '\n'`), with
+    other), holding a service account's key file as base64 on one line, never shown on a screen: on the server, add the
+    line `AI_VERTEX_SERVICE_ACCOUNT=''` to the settings file if it isn't there (`secrets.sh set` changes only a setting
+    the file has), run `base64 -w0 key.json | sudo scripts/server/secrets.sh set AI_VERTEX_SERVICE_ACCOUNT`, then
+    `shred -u key.json`. With it,
     `AI_BASE_URL=https://aiplatform.googleapis.com/v1/projects/<project>/locations/global/endpoints/openapi` and
     `AI_CHAT_MODELS` and `AI_AGENT_MODELS` as Vertex names them: `google/gemini-3.5-flash-lite` (the owner, 2026-11-17;
     `google/gemini-3.8-flash` costs more). `AI_VOICE_MODELS`, `AI_IMAGE_MODELS` and `AI_SUMMARY_MODELS` give voice notes,
@@ -294,7 +297,8 @@ Secrets come from the platform's secret manager as environment variables, never 
     five minutes before it ends; a failure to mint is logged by its error's name and code. One process uses one
     credential for all its AI features. A backup key behind it (`AI_BACKUP_API_KEY`, AI Studio's) must name its own
     `AI_BACKUP_BASE_URL` and `AI_BACKUP_CHAT_MODELS`, or the process stops at start-up. The key is a secret: never
-    printed or logged, and the process stops at start-up if it isn't one whole key file.
+    printed or logged, and the process stops at start-up if it isn't one whole key file, or if
+    `GOOGLE_SDK_NODE_LOGGING` is set (Google's library would print its tokens).
   - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,
     `AI_BACKUP_CHAT_MODELS` or `AI_BACKUP_FAST_MODELS` say otherwise; a backup on another endpoint must name its own chat

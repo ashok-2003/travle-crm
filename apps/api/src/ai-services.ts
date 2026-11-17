@@ -66,6 +66,8 @@ function agentModels(
 function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
   // One credential for every feature: the service account (its token kept and renewed for the process's life), or the key.
   const vertex = environment.AI_VERTEX_SERVICE_ACCOUNT;
+  // Never a token to the adapter's default address (OpenRouter's): the bench skips the start-up check that refuses this.
+  if (vertex !== undefined && environment.AI_BASE_URL === undefined) return null;
   const credential = vertex === undefined ? environment.AI_API_KEY : serviceAccountToken(vertex, logger);
   if (credential !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];

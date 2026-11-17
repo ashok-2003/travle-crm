@@ -332,11 +332,18 @@ const langChainProblems = (source: Record<string, string | undefined>): string[]
     .filter(([name, value]) => /^(LANGSMITH|LANGCHAIN)_/.test(name) && value !== undefined && value !== "")
     .map(([name]) => `${name}: must be unset: LangChain would send the chats to LangSmith or print them`);
 
+/** google-auth-library's debug logging prints its token exchanges (a service account's access token included). */
+const googleLoggingProblems = (source: Record<string, string | undefined>): string[] =>
+  (source.GOOGLE_SDK_NODE_LOGGING ?? "") === ""
+    ? []
+    : ["GOOGLE_SDK_NODE_LOGGING: must be unset: Google's library would print its access tokens"];
+
 export function loadEnvironment(source: Record<string, string | undefined>): Environment {
   const result = environmentSchema.safeParse(source);
   const problems = [
     ...(result.success ? [] : result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`)),
     ...langChainProblems(source),
+    ...googleLoggingProblems(source),
   ];
   if (!result.success || problems.length > 0) throw new EnvironmentError(problems);
   const { data } = result;

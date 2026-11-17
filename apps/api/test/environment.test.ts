@@ -378,6 +378,14 @@ describe("environment", () => {
     expect(() => loadEnvironment({ ...valid, NODE_ENV: "development", LANGSMITH_TRACING: "" })).not.toThrow();
   });
 
+  it("refuses GOOGLE_SDK_NODE_LOGGING, which would print Google's token exchanges, naming it and never its value", () => {
+    const attempt = () =>
+      loadEnvironment({ ...valid, NODE_ENV: "development", GOOGLE_SDK_NODE_LOGGING: "auth-secret" });
+    expect(attempt).toThrow(/GOOGLE_SDK_NODE_LOGGING: must be unset/);
+    expect(attempt).not.toThrow(/auth-secret/);
+    expect(() => loadEnvironment({ ...valid, NODE_ENV: "development", GOOGLE_SDK_NODE_LOGGING: "" })).not.toThrow();
+  });
+
   it("reads trusted origins as a comma-separated list of origins", () => {
     const settings = authSettingsFrom(
       loadEnvironment({

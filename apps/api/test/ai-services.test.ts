@@ -182,4 +182,22 @@ describe("Vertex AI", () => {
     expect(urls).toEqual([`${VERTEX}/chat/completions`, `${VERTEX}/chat/completions`]);
     expect(headers).toEqual(["Bearer ya29.vertex-token", "Bearer ya29.vertex-token"]);
   });
+
+  it("makes no model, and mints no token, when the service account has no AI_BASE_URL (never OpenRouter's address)", () => {
+    const fetched: string[] = [];
+    vi.stubGlobal("fetch", (url: string) => {
+      fetched.push(url);
+      return Promise.resolve(new Response("{}"));
+    });
+    const before = tokenMade.length;
+    const key = { client_email: "agent@veeper-ai.iam.gserviceaccount.com", private_key: "pem" };
+    expect(
+      createAiModel(
+        settings({ AI_API_KEY: undefined, AI_VERTEX_SERVICE_ACCOUNT: key, AI_BASE_URL: undefined }),
+        logger,
+      ),
+    ).toBeNull();
+    expect(tokenMade.length).toBe(before);
+    expect(fetched).toEqual([]);
+  });
 });
