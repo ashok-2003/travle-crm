@@ -1,13 +1,22 @@
 "use client";
 
-// Try it's agent, model and temperature, for the test chat alone: the current agent or the new one (ruling 7: each has
-// its own procedure, and choosing the other empties the chat), the live turn's model or Gemini Flash, and the model's
-// own temperature or 0.4, which only Gemini Flash takes (its private routes alone accept one). Choosing another model
-// takes the temperature back to its default.
-import { testAiModels, testAiTemperatures, type TestAiModel, type TestAiTemperature } from "@travel-crm/contracts/ai";
+// Try it's agent, model, temperature and prompt, for the test chat alone: the current agent or the new one (ruling 7:
+// each has its own procedure, and choosing the other empties the chat), the live turn's model or Gemini Flash, the
+// model's own temperature or 0.4, which only Gemini Flash takes (its private routes alone accept one), and, for the new
+// agent alone, its live prompt or the draft being edited. Choosing another model takes the temperature back to its
+// default.
+import {
+  naturalTestPrompts,
+  testAiModels,
+  testAiTemperatures,
+  type NaturalTestPrompt,
+  type TestAiModel,
+  type TestAiTemperature,
+} from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { FormField } from "@/components/form-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 /** The agent a test chat talks to: the current (lite) one, or the new natural one. */
 export const testAgents = ["current", "natural"] as const;
@@ -17,9 +26,11 @@ export interface TestChoice {
   agent: TestAgent;
   model: TestAiModel;
   temperature: TestAiTemperature;
+  /** The new agent's prompt; the current agent has none to choose. */
+  prompt: NaturalTestPrompt;
 }
 
-export const liveChoice: TestChoice = { agent: "current", model: "live", temperature: "default" };
+export const liveChoice: TestChoice = { agent: "current", model: "live", temperature: "default", prompt: "live" };
 
 /** One labelled choice: the registry Select over a fixed list, each option in words. */
 function ChoiceSelect<Value extends string>({
@@ -79,9 +90,10 @@ export function TestChoices({
 }) {
   const t = useTranslations("ai.test.choices");
   const flash = choice.model === "flash";
+  const natural = choice.agent === "natural";
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className={cn("grid gap-3", natural ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")}>
         <ChoiceSelect
           label={t("agent")}
           value={choice.agent}
@@ -114,6 +126,19 @@ export function TestChoices({
             onChange({ ...choice, temperature });
           }}
         />
+        {natural && (
+          <ChoiceSelect
+            label={t("prompt")}
+            hint={t("draftHint")}
+            value={choice.prompt}
+            values={naturalTestPrompts}
+            wordsOf={(prompt) => t(`prompts.${prompt}`)}
+            disabled={disabled}
+            onChoose={(prompt) => {
+              onChange({ ...choice, prompt });
+            }}
+          />
+        )}
       </div>
       <p className="text-caption text-muted-foreground">{t("thisChatOnly")}</p>
     </div>

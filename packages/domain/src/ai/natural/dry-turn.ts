@@ -1,8 +1,8 @@
 // One natural turn as a dry run (Try it, the bench; spec 9.5): the live loop on a chat and the state the last turn handed
 // back, against the agency's real data. Reads and checks run on the data, each in a transaction of its own; actions are
 // staged and described, never done: nothing is sent, held, booked or stored, and only the month's AI calls count, as each
-// live call does. The guards read what a live turn's would: this turn's offer and the live one, Team lines of the last
-// 30 days, the answers and each trip's text, whole for a trip get_trip read.
+// live call does. The guards read what a live turn's would: this turn's offer and the live one, the chat lines the model
+// read (Team lines of the last 30 days), the answers and each trip's text, whole for a trip get_trip read.
 import {
   naturalFacts,
   type DryLead,
@@ -59,7 +59,8 @@ export interface NaturalDryRecord {
 const DAY_MS = 86_400_000;
 const TEAM_DAYS = 30;
 const DRY_CHAT = "dry-run";
-const PAYMENT_NOTICE = "Their screenshot went to the team to check; this chat goes to the team after your reply.";
+const PAYMENT_NOTICE =
+  "Their payment screenshot is with you to check: thank them and say you'll confirm here once it's checked. A person takes this chat over after your reply.";
 const VOICE_NOTICE = "Their voice note couldn't be played; ask them to type what they said.";
 const PAYMENT_CHECK: StagedAction = {
   tool: "hand_over",
@@ -115,17 +116,18 @@ function beforeTheModel(newLines: readonly NaturalChatLine[]) {
 }
 
 /**
- * What the guards and the trace's flags read; a trip get_trip read counts whole from then on (G1 grounds its text), and
- * G1 grounds the totals told and the live offer the turn block shows.
+ * What the guards and the trace's flags read: of the chat, only the lines the model read (`shown`), the Team's of the
+ * last 30 days; a trip get_trip read counts whole from then on (G1 grounds its text), and G1 grounds the totals told and
+ * the live offer the turn block shows.
  */
-function guardReads(agency: DryAgency, lines: readonly NaturalChatLine[], facts: NaturalFacts, now: Date) {
+function guardReads(agency: DryAgency, shown: readonly NaturalChatLine[], facts: NaturalFacts, now: Date) {
   const { today, answers } = agency;
   const whole = new Map<string, TripSheet>();
   const sheets = () => agency.sheets.map((sheet) => whole.get(sheet.packageId) ?? sheet);
   const ownerText = () => [...Object.values(answers), ...sheets().map(tripTextOf)].join("\n");
   const since = now.getTime() - TEAM_DAYS * DAY_MS;
-  const teamLines = lines.filter((line) => line.from === "team" && line.at.getTime() >= since).map((line) => line.text);
-  const customerText = lines
+  const teamLines = shown.filter((line) => line.from === "team" && line.at.getTime() >= since).map((line) => line.text);
+  const customerText = shown
     .filter((line) => line.from === "customer")
     .map((line) => line.text)
     .join("\n");
@@ -198,7 +200,7 @@ export async function naturalDryTurnInFull(
     notice: before.notice,
     withTools: before.withTools,
   });
-  const reads = guardReads(agency, lines, facts, now);
+  const reads = guardReads(agency, context.shown, facts, now);
   const readContext = (tx: OrgTx): ReadContext => ({ tx, sheets, labels: context.labels, today, now });
   const actions: Omit<ActionContext, "quotedThisTurn"> = {
     sheets,
@@ -242,7 +244,7 @@ export async function naturalDryTurnInFull(
     newerLine: () => Promise.resolve(false),
     clock,
   };
-  const trace = startNaturalTrace(turn.prompt.version, startedMs);
+  const trace = startNaturalTrace(turn.prompt, startedMs);
   const settings = { startedMs, organizationId, ...turn.choice, forced: before.forced, flagContext: reads.flagContext };
   const end = await runNaturalLoop(context, io, settings, trace);
   const newText = context.newLines.map((line) => line.text).join("\n");

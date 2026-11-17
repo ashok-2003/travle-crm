@@ -1,7 +1,7 @@
 // The natural agent's dry turn on agency T (Try it, the bench): one turn of the live loop on the posted chat and the state
 // the last turn handed back, on the agency's own data, with every action described and none done; only the month's AI
 // calls are kept. A turn's guards read this turn's offer, the Team lines of the last 30 days and whole trip text.
-import type { TestAiLine } from "@travel-crm/contracts/ai";
+import { naturalFacts, type DryLead, type TestAiLine } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   BUILT_IN_NATURAL_PROMPT,
@@ -9,8 +9,11 @@ import {
   naturalDryTurn,
   naturalDryTurnInFull,
   type NaturalChatLine,
+  type NaturalPrompt,
 } from "../../../src/ai/index.js";
 import { stampOf } from "../../../src/ai/natural/context/chat-turns.js";
+import { dryAnswerOf } from "../../../src/ai/natural/dry-answer.js";
+import { startNaturalTrace } from "../../../src/ai/natural/trace.js";
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
 import { monthStartOf } from "../../../src/inbox/index.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
@@ -239,6 +242,23 @@ describe("the natural agent's dry turn", () => {
     ]);
   });
 
+  it("keeps an offer's total the words state as told (ruling 17)", async () => {
+    const on = await world();
+    on.model.answer({ text: offerWords, toolCalls: [offerCall] });
+    const answer = await on.dry(["Kedarkantha 19 Dec, 2 log"]);
+    expect(answer.state.facts.told).toEqual([
+      {
+        packageId: on.kedarkantha,
+        startsOn: "2026-12-19",
+        adults: 2,
+        childrenAges: [],
+        room: "triple",
+        totalPaise: 1_899_800,
+        at: NOW.toISOString(),
+      },
+    ]);
+  });
+
   it("hands over in words of the model's own, with the reason in the actions", async () => {
     const on = await world();
     const words = "Main team ko bata deti hoon, woh yahin reply karenge.";
@@ -254,7 +274,7 @@ describe("the natural agent's dry turn", () => {
   it("answers the fallback line and a task when the model can't answer", async () => {
     const on = await world();
     on.model.answer({ ok: false, reason: "unavailable" });
-    const line = "Ye team se check karke yahin batate hain.";
+    const line = "Ek minute, check karke yahin batate hain.";
     const answer = await on.dry(["Kedarkantha ka rate?"]);
     expect(answer).toMatchObject({
       outcome: "fallback",
@@ -271,6 +291,40 @@ describe("the natural agent's dry turn", () => {
     expect(await on.usedThisMonth()).toBe(0);
   });
 
+  it("answers a turn that gave way to a newer line as a model failure, never with an error", () => {
+    // A dry turn has no newer line to give way to; were it to end so, Try it and the bench still get an answer.
+    const lead: DryLead = {
+      packageId: null,
+      day: null,
+      month: null,
+      adults: null,
+      childrenAges: [],
+      pickupCity: null,
+      room: null,
+      name: null,
+      stage: "new",
+      notes: [],
+      tasks: [],
+      booking: null,
+    };
+    const state = { facts: naturalFacts.parse({ agent: "natural" }), lead };
+    const read = {
+      now: NOW,
+      today: clock.today,
+      sheets: [],
+      paymentLines: null,
+      state,
+      newText: "Kedarkantha ka rate?",
+    };
+    const trace = startNaturalTrace(BUILT_IN_NATURAL_PROMPT, NOW.getTime());
+    expect(dryAnswerOf({ end: "superseded" }, read, trace, NOW.getTime())).toMatchObject({
+      outcome: "fallback",
+      messages: ["Ek minute, check karke yahin batate hain."],
+      actions: [{ tool: "create_task", kind: "question" }],
+      trace: { outcome: "fallback", fallback: "model_failed:superseded" },
+    });
+  });
+
   it("throws AI_LIMIT_REACHED when the month's calls are used up", async () => {
     const on = await world();
     await on.inOrg((tx) => tx.aiUsage.create({ data: { month: monthStartOf(NOW, ZONE), calls: MONTHLY_AI_LIMIT } }));
@@ -284,17 +338,44 @@ describe("the natural agent's dry turn", () => {
     await expect(on.dry(["Hi"])).rejects.toMatchObject({ reason: "AI_NOT_READY" });
   });
 
-  it("records the prompt's version in the trace", async () => {
+  it("records the prompt's version in the trace, and the Langfuse label it came from", async () => {
     const on = await world();
-    on.model.answer({ text: "Hi! Kab ka plan hai?" });
-    const answer = await naturalDryTurn(on.deps, on.organizationId, {
-      lines: [line(1, "customer", NOW, "Hi")],
-      state: null,
-      now: NOW,
-      prompt: { ...BUILT_IN_NATURAL_PROMPT, version: "draft-7" },
-      choice: {},
+    on.model.answer({ text: "Hi! Kab ka plan hai?" }, { text: "Hi! Kab ka plan hai?" });
+    const turnOn = (prompt: NaturalPrompt) =>
+      naturalDryTurn(on.deps, on.organizationId, {
+        lines: [line(1, "customer", NOW, "Hi")],
+        state: null,
+        now: NOW,
+        prompt,
+        choice: {},
+      });
+    const draft = {
+      version: "langfuse:whatsapp-agent/natural-system@7",
+      text: BUILT_IN_NATURAL_PROMPT.text,
+      source: { name: "whatsapp-agent/natural-system", version: 7, label: "draft" },
+    };
+    expect((await turnOn(draft)).trace).toMatchObject({
+      agent: "natural",
+      promptVersion: "langfuse:whatsapp-agent/natural-system@7",
+      promptLabel: "draft",
+      outcome: "replied",
     });
-    expect(answer.trace).toMatchObject({ agent: "natural", promptVersion: "draft-7", outcome: "replied" });
+    expect((await turnOn(BUILT_IN_NATURAL_PROMPT)).trace).toMatchObject({
+      promptVersion: "built-in-1",
+      promptLabel: null,
+    });
+  });
+
+  it("sends two messages split at a line of ---, a list with blank lines whole, and adds each to the history", async () => {
+    const on = await world();
+    const list = "Kedarkantha mein:\n\n• Tents aur homestay\n• Saare meals\n\nPorter alag se.";
+    on.model.answer({ text: `${list}\n---\nAapke group mein kitne log hain?` });
+    const answer = await on.dry(["Kedarkantha mein kya included hai?"]);
+    expect(answer.messages).toEqual([list, "Aapke group mein kitne log hain?"]);
+    expect(answer.history).toEqual([
+      { from: "agent", text: list },
+      { from: "agent", text: "Aapke group mein kitne log hain?" },
+    ]);
   });
 
   it("adds [sent: …] and [offered: …] marks to the history", async () => {
@@ -316,16 +397,16 @@ describe("the natural agent's dry turn", () => {
 
   it("gives a payment screenshot one call with no tools, and hands it to the team to check", async () => {
     const on = await world();
-    on.model.answer({ text: "Thank you! The team will check it and reply here." });
+    on.model.answer({ text: "Thank you! I'll check it and confirm here." });
     const { answer } = await on.turn([{ ...line(1, "customer", NOW, ""), kind: "image", mayBePayment: true }]);
     expect(answer).toMatchObject({
       outcome: "handed_off",
-      messages: ["Thank you! The team will check it and reply here."],
+      messages: ["Thank you! I'll check it and confirm here."],
       actions: [{ tool: "hand_over", reason: "payment_check" }],
     });
     expect(on.model.requests[0]?.tools).toBeUndefined();
     expect(contentOf(on.model.requests[0]?.messages.at(-1))).toContain(
-      "Their screenshot went to the team to check; this chat goes to the team after your reply.",
+      "Their payment screenshot is with you to check: thank them and say you'll confirm here once it's checked. A person takes this chat over after your reply.",
     );
   });
 
@@ -356,6 +437,27 @@ describe("the natural agent's dry turn", () => {
     expect(guardContext.ownerText).toContain("10 and above, with a parent.");
     expect(guardContext.ownerText).toContain("Dehradun to Sankri");
     expect(flagContext.sheets.map((sheet) => sheet.label)).toEqual(["T1", "T2"]);
+  });
+
+  it("grounds no figure from a Team line the model's window left out, nor reads a customer line it left out", async () => {
+    const on = await world();
+    on.model.answer({ text: "Kedarkantha ₹9,499 per person se shuru hai." });
+    // Six lines of the last week fill the window, so the lines of three weeks ago, inside 30 days, are out of it.
+    const week = [1, 2, 3, 4, 5, 6].map((day) =>
+      day % 2 === 0
+        ? line(10 + day, "you", daysAgo(7 - day), "Ji, batayiye.")
+        : line(10 + day, "customer", daysAgo(7 - day), "Kedarkantha ke baare mein batao"),
+    );
+    const { guardContext } = await on.turn([
+      line(1, "customer", daysAgo(21), "Students ke liye ₹2,345 wala offer hai?"),
+      { ...line(2, "team", daysAgo(20), "₹1,234 off for students this winter."), teamName: "Amit" },
+      ...week,
+      line(20, "customer", NOW, "Kedarkantha ka rate?"),
+    ]);
+    expect(guardContext.teamText).toBe("");
+    expect(guardContext.grounded.has(123_400, false)).toBe(false);
+    expect(guardContext.customerText).not.toContain("₹2,345");
+    expect(guardContext.customerText).toContain("Kedarkantha ka rate?");
   });
 
   it("offers the lookups with the trips inline, and get_trip reads past the sheet's cut", async () => {

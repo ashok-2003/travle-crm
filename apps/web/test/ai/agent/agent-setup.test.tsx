@@ -80,6 +80,11 @@ describe("the Setup checklist", () => {
     expect(screen.getAllByText(t.optional)).toHaveLength(1);
   });
 
+  it("links the AI's step to Settings, AI", async () => {
+    show({ steps: [step("ai"), ...steps] });
+    expect(await screen.findByRole("link", { name: t.steps.ai.open })).toHaveAttribute("href", "/settings/ai");
+  });
+
   it("links WhatsApp and Packages to their own screens", async () => {
     show();
     expect(await screen.findByRole("link", { name: t.steps.whatsapp.open })).toHaveAttribute(
@@ -167,6 +172,14 @@ describe("the switch that turns the agent on", () => {
       "/settings/whatsapp",
     );
     expect(within(list).getByRole("link", { name: t.steps.packages.todo })).toHaveAttribute("href", "/packages");
+  });
+
+  it("sends a missing AI to Settings, AI, first in the list", async () => {
+    show({ steps: [step("ai"), ...steps] });
+    await screen.findByRole("switch", { name: t.turnOn.title });
+    const list = missingList(t.turnOn.finishFirst);
+    expect(within(list).getAllByRole("link")[0]).toHaveAttribute("href", "/settings/ai");
+    expect(within(list).getAllByRole("link")[0]).toHaveTextContent(t.steps.ai.todo);
   });
 
   it("is on but not answering: the list is still there, under its own heading, and the switch can be turned off", async () => {

@@ -37,6 +37,8 @@ export interface NaturalContext {
   labels: ReadonlyMap<string, string>;
   indexed: boolean;
   newLines: NaturalChatLine[];
+  /** The chat lines the model reads: those the chat's window shows, then the new lines. The guards read these. */
+  shown: NaturalChatLine[];
   sizes: Record<keyof typeof NATURAL_BUDGETS, number>;
 }
 
@@ -65,18 +67,19 @@ export function buildNaturalContext(input: NaturalContextInput): NaturalContext 
   return {
     messages: [
       { role: "system", content: [prompt, agency, trips.text].join("\n\n") },
-      ...chat,
+      ...chat.messages,
       { role: "user", content: turn },
     ],
     tools: input.withTools ? naturalToolDefinitions({ tripLabels: [...labels.keys()] }) : [],
     labels,
     indexed: trips.indexed,
     newLines,
+    shown: [...chat.shown, ...newLines],
     sizes: {
       prompt: estimateTokens(prompt),
       agency: estimateTokens(agency),
       trips: estimateTokens(trips.text),
-      chat: estimateTokens(chat.map((message) => message.content).join("\n")),
+      chat: estimateTokens(chat.messages.map((message) => message.content).join("\n")),
       turn: estimateTokens(turn),
     },
   };

@@ -5,6 +5,7 @@
 // silence, the bookings it takes with the customer's payment proof, and the traces of its turns. It sits above crm and
 // inbox, which it calls; nothing below calls it.
 export type { AiModel } from "@travel-crm/integrations/ai";
+export type { AiPrompts } from "@travel-crm/integrations/prompts";
 export type { AiTracing } from "@travel-crm/integrations/tracing";
 export { aiAllowed } from "./allowed.js";
 export { withdrawAiParts } from "./erasure.js";

@@ -42,6 +42,7 @@ export interface DryTurnRead {
 interface Ended {
   messages: string[];
   staged: StagedSet;
+  /** This turn's quotes, and its offer's and booking's figures, which the loop adds as they are staged. */
   quoted: readonly QuoteFigures[];
   /** The task a fallback leaves the team. */
   task: string | null;
@@ -74,7 +75,7 @@ const peopleOf = (terms: { adults: number; childrenAges: readonly number[] }) =>
  * The live turn re-queues a model that didn't answer after 1 minute and 5, then sends the fallback line with a task
  * (spec 3.6); with no calls left this month, or no model for the agent on this server, Try it refuses as lite's does.
  */
-function modelFailed(reason: AiFailure | "limit", newText: string): Ended {
+function modelFailed(reason: AiFailure | "limit" | "superseded", newText: string): Ended {
   if (reason === "limit") throw refuse("AI_LIMIT_REACHED", "This month's AI calls are used up", "LIMIT_REACHED");
   if (reason === "not_configured") throw modelRefusal(reason);
   const line = fallbackLine(newText);
@@ -115,7 +116,8 @@ function endedOf(end: LoopEnd, newText: string): Ended {
     case "model_failed":
       return modelFailed(end.reason, newText);
     case "superseded":
-      throw new Error("A dry turn has no newer line to give way to");
+      // A dry turn has no newer line to give way to; were it to end so, it still answers, as a model that didn't.
+      return modelFailed("superseded", newText);
   }
 }
 

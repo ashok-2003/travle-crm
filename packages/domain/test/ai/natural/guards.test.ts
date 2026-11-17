@@ -19,6 +19,7 @@ const kedarkantha: TripSheet = {
   packageId: "kedarkantha",
   title: "Kedarkantha Trek",
   place: "Sankri, Uttarakhand",
+  destinationId: null,
   nights: 5,
   startCity: "Dehradun",
   summary: "Kedarkantha Trek: a winter trek with snow camps.",
@@ -457,7 +458,7 @@ describe("G3: payment received or booking confirmed, only when the data shows it
       ok: false,
       guard: "G3",
       fallback: "fallback_task",
-      retry: "No payment is recorded on this chat yet: don't say it came; say the team checks it and confirms here.",
+      retry: "No payment is recorded on this chat yet: don't say it came; say you'll check it and confirm here.",
     });
     // ₹9,000 is grounded (3 × the advance), so only G3 stands between this claim and the customer.
     expect(check("We received your ₹९,०००, thank you!")).toMatchObject(refusedBy("G3"));
@@ -478,7 +479,7 @@ describe("G3: payment received or booking confirmed, only when the data shows it
       ok: false,
       guard: "G3",
       retry:
-        "The booking isn't confirmed yet: don't say it is; say the team confirms it here once the payment is checked.",
+        "The booking isn't confirmed yet: don't say it is; say you'll confirm it here once the payment is checked.",
     });
   });
 
@@ -497,7 +498,8 @@ describe("G4: the team's word and discounts, only when owner or Team text holds 
       ok: false,
       guard: "G4",
       fallback: "hand_over_discount",
-      retry: "No Team line in this chat says that: don't credit the team with it; say you'll check with them instead.",
+      retry:
+        "No Team line in this chat says that: don't credit the team with it; say you'll check and come back instead.",
     });
     expect(check("Team ne bola 10% off milega.", { teamLines: ["10% off for this group, approved"] })).toMatchObject({
       ok: true,

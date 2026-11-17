@@ -32,6 +32,16 @@ const context = {
 };
 const slotsOf = (template: string) => [...template.matchAll(/\{(\w+)\}/g)].map((match) => match[1] ?? "");
 
+describe("the agent speaks as one of the team", () => {
+  it("never says someone else from the team will reply, in any language", () => {
+    for (const language of liteLanguages)
+      for (const key of ["hand_over", "voice_note", "identity", "screenshot_received", "ask_screenshot"] as const)
+        expect(fixedTextTable[key][language]).not.toMatch(
+          /team ka koi|someone from the team|the team will|टीम का कोई|team jaldi|टीम उसे|टीम जल्द/i,
+        );
+  });
+});
+
 describe("the fixed texts", () => {
   it("every fixed text, in every language, passes the reply check", () => {
     for (const key of keys) {

@@ -1,0 +1,148 @@
+// The Langfuse adapter of the prompts port, through Langfuse's client and its cache: after a prompt's first fetch the
+// cache serves it at once, and once it is older than the TTL serves it still while fetching it again in the background
+// (Langfuse's caching docs). A Langfuse that is slow or down costs a call at most `timeoutMs`: a fetch the cache can't
+// answer is waited for that long, then the call answers null (the caller's own text) while the fetch, if it ends, fills
+// the cache; for `retryAfterMs` after such a wait, the same prompt answers null at once instead of waiting again. Nothing
+// here throws: a refusal, a missing prompt and an answer of the wrong shape are all null. The SDK's console logger is
+// silenced; what went wrong goes to the Logger port, by name, label, reason and status, once per prompt per quiet window.
+import { LangfuseClient, type ChatPromptClient, type TextPromptClient } from "@langfuse/client";
+import { quietLangfuseSdk } from "../langfuse/sdk-logging.js";
+import { errorFields } from "../logging/error-fields.js";
+import type { LogFields, Logger } from "../logging/logger.js";
+import type { AiPrompts, ManagedPrompt } from "./ai-prompts.js";
+
+export interface LangfusePromptsOptions {
+  publicKey: string;
+  secretKey: string;
+  /** The project's region, e.g. https://us.cloud.langfuse.com. */
+  baseUrl: string;
+  /** How long a call waits for a prompt the cache doesn't hold: 2 seconds by default. */
+  timeoutMs?: number;
+  /** How long the cache serves a prompt before fetching it again behind it: 60 seconds, the SDK's own default. */
+  cacheTtlSeconds?: number;
+  /** After a call waited its bound in vain, how long the prompt answers null at once: 30 seconds by default. */
+  retryAfterMs?: number;
+  /** Where a prompt that couldn't be had is said, at most once per prompt per `retryAfterMs`; none, nowhere. */
+  logger?: Logger;
+}
+
+/**
+ * The fetch itself is cut off a little after the call stops waiting, so the call's own bound always ends first and a
+ * hanging request never outlives it by much.
+ */
+const FETCH_GRACE_MS = 500;
+const LATE = Symbol("late");
+const SOURCE = "langfuse-prompts";
+
+/** What one fetch came to: a prompt to use, or why there is none. */
+type Fetched =
+  | { prompt: ManagedPrompt }
+  | { prompt: null; reason: "not_text" }
+  | { prompt: null; reason: "refused"; error: unknown };
+
+/** `work`'s answer, or LATE when it takes longer than `ms`; `work` must not reject. */
+async function within<T>(ms: number, work: Promise<T>): Promise<T | typeof LATE> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<typeof LATE>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(LATE);
+    }, ms);
+    timer.unref();
+  });
+  try {
+    return await Promise.race([work, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** A text prompt with words, as the port gives it; anything else (a chat prompt, a fallback, no words) is none. */
+function fetchedOf(found: TextPromptClient | ChatPromptClient, label: string): Fetched {
+  if (found.isFallback || found.type !== "text" || typeof found.prompt !== "string") {
+    return { prompt: null, reason: "not_text" };
+  }
+  if (found.prompt.trim() === "" || !Number.isInteger(found.version)) return { prompt: null, reason: "not_text" };
+  return { prompt: { name: found.name, version: found.version, label, text: found.prompt } };
+}
+
+/** The HTTP status Langfuse answered, when the error carries one. */
+function statusOf(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null || !("statusCode" in error)) return undefined;
+  return typeof error.statusCode === "number" ? error.statusCode : undefined;
+}
+
+export function createLangfusePrompts(options: LangfusePromptsOptions): AiPrompts {
+  quietLangfuseSdk();
+  const timeoutMs = options.timeoutMs ?? 2_000;
+  const cacheTtlSeconds = options.cacheTtlSeconds ?? 60;
+  const retryAfterMs = options.retryAfterMs ?? 30_000;
+  const client = new LangfuseClient({
+    publicKey: options.publicKey,
+    secretKey: options.secretKey,
+    baseUrl: options.baseUrl,
+  });
+  /** When each prompt that kept a call waiting in vain may be waited for again. */
+  const quietUntil = new Map<string, number>();
+  /** When each prompt's trouble was last said; a prompt fetched again clears it. */
+  const saidAt = new Map<string, number>();
+
+  /** Says why a prompt couldn't be had; a label Langfuse doesn't have (404) is no failure, so only a debug line. */
+  function say(key: string, prompt: LogFields, outcome: Exclude<Fetched, { prompt: ManagedPrompt }> | "timeout"): void {
+    const { logger } = options;
+    const last = saidAt.get(key);
+    if (logger === undefined || (last !== undefined && Date.now() - last < retryAfterMs)) return;
+    saidAt.set(key, Date.now());
+    const fields = { source: SOURCE, ...prompt };
+    if (outcome === "timeout") {
+      logger.warn({ ...fields, reason: "timeout" }, "Langfuse didn't answer in time: the built-in prompt stands in");
+    } else if (outcome.reason === "not_text") {
+      logger.warn({ ...fields, reason: "not_text" }, "Langfuse's prompt isn't a text prompt with words");
+    } else if (statusOf(outcome.error) === 404) {
+      logger.debug({ ...fields, status: 404 }, "Langfuse has no prompt at this label");
+    } else {
+      const status = statusOf(outcome.error);
+      logger.warn(
+        { ...fields, reason: "refused", ...(status === undefined ? {} : { status }), ...errorFields(outcome.error) },
+        "Langfuse refused the prompt's fetch: the built-in prompt stands in",
+      );
+    }
+  }
+
+  return {
+    async textPrompt(name, label, request = {}) {
+      const fresh = request.fresh === true;
+      const key = JSON.stringify([name, label, fresh]);
+      if ((quietUntil.get(key) ?? 0) > Date.now()) return null;
+      const fetching: Promise<Fetched> = Promise.resolve()
+        .then(() =>
+          client.prompt.get(name, {
+            type: "text",
+            label,
+            // A cache time of 0 is the SDK's way to ask Langfuse every time.
+            cacheTtlSeconds: fresh ? 0 : cacheTtlSeconds,
+            // One try: a retry would wait past the bound.
+            maxRetries: 0,
+            fetchTimeoutMs: timeoutMs + FETCH_GRACE_MS,
+          }),
+        )
+        .then((found) => fetchedOf(found, label))
+        .catch((error: unknown) => ({ prompt: null, reason: "refused", error }) as const);
+      const prompt = { prompt: name, label, ...(fresh ? { fresh } : {}) };
+      const fetched = await within(timeoutMs, fetching);
+      if (fetched === LATE) {
+        quietUntil.set(key, Date.now() + retryAfterMs);
+        say(key, prompt, "timeout");
+        // A fetch that ends after all has filled the cache: the next call may use it at once.
+        void fetching.then((late) => {
+          if (late.prompt === null) return;
+          quietUntil.delete(key);
+          saidAt.delete(key);
+        });
+        return null;
+      }
+      if (fetched.prompt === null) say(key, prompt, fetched);
+      else saidAt.delete(key);
+      return fetched.prompt;
+    },
+  };
+}
