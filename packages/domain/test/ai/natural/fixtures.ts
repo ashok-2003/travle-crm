@@ -37,6 +37,8 @@ export function sheet(number: number, title: string, place: string, fileIds: str
     advancePerPersonPaise: 300_000,
     departures: [],
     fileIds,
+    brochures: [],
+    photoIds: [],
   };
 }
 export const kedarkantha = sheet(1, "Kedarkantha Trek", "Sankri, Uttarakhand", [

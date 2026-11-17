@@ -51,6 +51,8 @@ const sheet: TripSheet = {
   advancePerPersonPaise: 300_000,
   departures: [],
   fileIds: [],
+  brochures: [],
+  photoIds: [],
 };
 
 let ids = 0;

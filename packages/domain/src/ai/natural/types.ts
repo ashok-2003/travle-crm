@@ -58,6 +58,9 @@ export interface TripSheet {
   }[];
   // Brochures first, then photos.
   fileIds: string[];
+  // The same files with the owner's words, for the one agent; natural reads only fileIds.
+  brochures: { attachmentId: string; name: string | null; description: string | null }[];
+  photoIds: string[];
 }
 
 export interface NaturalLeadView {
