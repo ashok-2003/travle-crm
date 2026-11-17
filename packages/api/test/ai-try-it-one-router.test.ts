@@ -26,14 +26,20 @@ describe("ai.testOne", () => {
     return { toolAgent, runs };
   };
 
-  async function anAiAgency(options: { ready?: boolean; toolAgent?: ToolAgent | null } = {}) {
+  async function anAiAgency(
+    options: { ready?: boolean; toolAgent?: ToolAgent | null; prompts?: Context["prompts"] } = {},
+  ) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const model: NonNullable<Context["ai"]> = {
       configured: options.ready !== false,
       complete: () => Promise.resolve({ ok: false, reason: "not_configured" }),
     };
     const toolAgent = options.toolAgent === null ? undefined : options.toolAgent;
-    const context = { ai: model, ...(toolAgent === undefined ? {} : { toolAgent }) };
+    const context = {
+      ai: model,
+      ...(toolAgent === undefined ? {} : { toolAgent }),
+      ...(options.prompts === undefined ? {} : { prompts: options.prompts }),
+    };
     const owner = callerOf(harness, { organizationId, context });
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
@@ -84,5 +90,35 @@ describe("ai.testOne", () => {
     const flash = await caller.ai.testOne({ messages: hi, state: null, model: "flash", temperature: "0.4" });
     expect(flash.messages).toEqual([words]);
     expect(agent.runs[1]?.request).toMatchObject({ model: "google/gemini-3.5-flash", temperature: 0.4 });
+  });
+
+  /** Langfuse's prompts as a fake: a latest version when `hasLatest`, a production one always, each ask kept. */
+  const langfuse = (hasLatest: boolean) => {
+    const asked: { name: string; label: string; fresh: boolean }[] = [];
+    const prompts: NonNullable<Context["prompts"]> = {
+      textPrompt: (name, label, request = {}) => {
+        asked.push({ name, label, fresh: request.fresh === true });
+        if (label === "production") return Promise.resolve({ name, version: 4, label, text: "The live prompt." });
+        if (label === "latest" && hasLatest) return Promise.resolve({ name, version: 7, label, text: "The latest." });
+        return Promise.resolve(null);
+      },
+    };
+    return { prompts, asked };
+  };
+
+  it("runs on Langfuse's latest prompt, read fresh, and on the built-in text when there is none", async () => {
+    const fake = langfuse(true);
+    const caller = await anAiAgency({ toolAgent: answering().toolAgent, prompts: fake.prompts });
+    const shown = await caller.ai.testOne({ messages: hi, state: null, ...live });
+    expect(shown.trace).toMatchObject({
+      promptVersion: "langfuse:whatsapp-agent/real-agent@7",
+      promptLabel: "latest",
+    });
+    expect(fake.asked).toEqual([{ name: "whatsapp-agent/real-agent", label: "latest", fresh: true }]);
+
+    const without = langfuse(false);
+    const other = await anAiAgency({ toolAgent: answering().toolAgent, prompts: without.prompts });
+    const builtIn = await other.ai.testOne({ messages: hi, state: null, ...live });
+    expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-one-2", promptLabel: null });
   });
 });
