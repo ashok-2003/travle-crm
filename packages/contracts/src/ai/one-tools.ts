@@ -35,6 +35,10 @@ const oneTools: ToolTable = {
     "Sends one brochure, captioned with its name, and up to two of its trip's photos not sent before in this chat.",
     oneSendBrochureArguments,
   ),
+  offer_booking: tool(
+    "Records a booking offer on the chat and returns its terms, total and advance. The app sends the offer card with Book and Change buttons after your words.",
+    offerBookingArguments,
+  ),
   book: tool(
     "Holds the seats on the live offer's terms, or a total told, once the customer said yes. After your reply, the app sends the payment message and QR.",
     oneBookArguments,

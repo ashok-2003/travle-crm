@@ -9,6 +9,7 @@ import { createMemoryTracing, notedTurn, type MemoryTracing } from "@travel-crm/
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { replyDayOf } from "../../../src/ai/may-write.js";
 import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
+import { offerButtons } from "../../../src/ai/one/card.js";
 import { BUILT_IN_ONE_PROMPT, ONE_PROMPT_NAME } from "../../../src/ai/one/prompt.js";
 import { runOneTurn } from "../../../src/ai/one/turn.js";
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
@@ -127,9 +128,9 @@ describe("the one agent's live turn", () => {
       );
       return { yes, outcome };
     };
-    /** What went after the offer's reply, as [token, words]. */
+    /** What went after the offer's reply and its card, as [token, words]. */
     const sentAfterOffer = async () =>
-      (await outbound()).slice(1).map((message) => [message.clientToken, message.body]);
+      (await outbound()).slice(2).map((message) => [message.clientToken, message.body]);
     const bookings = () => on.inOrg((tx) => tx.aiBooking.count({ where: { conversationId: on.chat.id } }));
     return {
       ...on,
@@ -197,8 +198,8 @@ describe("the one agent's live turn", () => {
       on.model.answer({ toolCalls: [bookCall], reasoningDetails: thought }, { text: bookWords });
       expect(await on.turn(yes, liveAt(300), on.model, langGraph)).toBe("replied");
       const sent = await on.outbound();
-      expect(tokens(sent).slice(1)).toEqual([`ai:${yes}`, `ai:${yes}:pay`, `ai:${yes}:qr`]);
-      expect(sent[1]?.body).toBe(bookWords);
+      expect(tokens(sent).slice(2)).toEqual([`ai:${yes}`, `ai:${yes}:pay`, `ai:${yes}:qr`]);
+      expect(sent[2]?.body).toBe(bookWords);
       // The thought signature went back with the call it came with.
       const answered = on.model.requests.at(-1)?.messages.find((message) => message.toolCalls !== undefined);
       expect(answered?.reasoningDetails).toEqual(thought);
@@ -208,6 +209,26 @@ describe("the one agent's live turn", () => {
       expect(person.name).toBe(CUSTOMER_NAME);
     },
   );
+
+  it("offers with a card on the LangGraph adapter", async () => {
+    const on = await world();
+    const asked = await on.writes("Kedarkantha 19 Dec, 2 log", -60);
+    on.model.answer({ text: offerWords, toolCalls: [offerCall], reasoningDetails: thought }, "");
+    expect(await on.turn(asked, liveNow, on.model, createLangGraphToolAgent())).toBe("replied");
+    const offerId = (await on.chatState())?.facts;
+    const id = (offerId as { offer?: { id?: string } } | null)?.offer?.id ?? "";
+    expect(id).not.toBe("");
+    const sent = await on.inOrg((tx) =>
+      tx.whatsappMessage.findMany({
+        where: { conversationId: on.chat.id, direction: "out" },
+        orderBy: { createdAt: "asc" },
+        select: { clientToken: true, body: true, buttons: true },
+      }),
+    );
+    expect(sent.map((message) => message.clientToken)).toEqual([`ai:${asked}`, `ai:${asked}:card`]);
+    expect(sent[1]?.body).toContain("Total ₹18,998 · ₹6,000 advance now");
+    expect(sent[1]?.buttons).toEqual(offerButtons(id));
+  });
 
   it("sends B1 by its id on the LangGraph adapter, captioned with the trip's title for a nameless brochure", async () => {
     const on = await world();

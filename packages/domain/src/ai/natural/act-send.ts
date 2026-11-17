@@ -12,6 +12,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { agencyPaymentQrRecord, paymentLinesOf, type AgencyPaymentDetails } from "../../profile/index.js";
 import { packageFilesIn } from "../../quotes/index.js";
 import { sendAiFile, sendAiText, type AiMessageTarget } from "../agent-send.js";
+import { offerButtons, offerCardBody } from "../one/card.js";
 import { stagedOf, type NaturalActDeps, type NaturalActInput } from "./act-types.js";
 
 export interface SentTurn {
@@ -67,6 +68,15 @@ export async function sendTurn(
   if (first !== undefined) sent.sentIds.push(await sendAiText(tx, target, `ai:${token}`, first, "reply"));
   // The loop splits at most two; anything past the second stays in it.
   if (rest.length > 0) sent.sentIds.push(await sendAiText(tx, target, `ai:${token}:m2`, rest.join("\n\n"), "reply"));
+  // The one agent's offer goes as a card: code's words from the offer record, with its two buttons.
+  const offered = stagedOf(input.staged, "offer_booking");
+  if (offered?.card === true && offered.offer.id !== undefined) {
+    const body = offerCardBody(offered.offer, input.sheets, input.today);
+    sent.sentIds.push(
+      await sendAiText(tx, target, `ai:${token}:card`, body, "reply", undefined, offerButtons(offered.offer.id)),
+    );
+    sent.codes.push("card");
+  }
   const brochure = stagedOf(input.staged, "send_brochure");
   if (brochure !== null) {
     sent.tripId = brochure.packageId;

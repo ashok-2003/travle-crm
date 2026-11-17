@@ -126,7 +126,7 @@ export type StagedAction =
       resend?: readonly string[];
     }
   // The quote behind the offer: its figures are this turn's to ground (G1) and to name the trip by (G6).
-  | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures }
+  | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures; card?: true }
   | {
       tool: "book";
       terms: BookingTerms;

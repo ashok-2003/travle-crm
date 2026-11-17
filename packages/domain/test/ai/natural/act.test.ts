@@ -14,6 +14,7 @@ import {
   type NaturalActInput,
   type NaturalActResult,
 } from "../../../src/ai/natural/act.js";
+import { offerButtons } from "../../../src/ai/one/card.js";
 import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import type { QuoteFigures, StagedAction, StagedSet } from "../../../src/ai/natural/types.js";
 import { tripFieldValues } from "../../../src/crm/index.js";
@@ -208,6 +209,34 @@ describe("the natural agent's live act", () => {
     const one = await liveAgency(test);
     done(await act(one, { messages: ["Hi Rahul! Which month suits you?"] }));
     expect(tokensOf(await outbound(one))).toEqual([`ai:${one.message.id}`]);
+  });
+
+  it("sends the card after the words, once per turn", async () => {
+    const on = await liveAgency(test);
+    const token = on.message.id;
+    const figures = await on.quote(threeOn19Dec(on));
+    const offerId = "0194f5a0-0000-7000-8000-000000000002";
+    const made = offerOf(figures);
+    if (made.tool !== "offer_booking") throw new Error("not an offer");
+    const offer: StagedAction = { ...made, card: true, offer: { ...made.offer, id: offerId } };
+    const changes = { messages: ["Ye raha aapka offer."], staged: stagedSet(offer), quoted: [figures] };
+    const result = done(await act(on, changes));
+    const sent = await outbound(on);
+    expect(tokensOf(sent)).toEqual([`ai:${token}`, `ai:${token}:card`]);
+    expect(textOf(sent[1])).toContain("Total ₹28,497");
+    expect(result.facts.offer?.id).toBe(offerId);
+    const card = await on.inOrg((tx) =>
+      tx.whatsappMessage.findFirstOrThrow({ where: { clientToken: `ai:${token}:card` }, select: { buttons: true } }),
+    );
+    expect(card.buttons).toEqual(offerButtons(offerId));
+    expect(await act(on, changes)).toBe("already");
+    expect(tokensOf(await outbound(on))).toEqual(tokensOf(sent));
+  });
+
+  it("sends no card beside the fallback line", async () => {
+    const on = await liveAgency(test);
+    done(await act(on, { messages: [fallbackLine(FIRST_LINE)] }));
+    expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
   });
 
   it("holds the seats, then sends the agency's payment lines and QR after the words", async () => {
