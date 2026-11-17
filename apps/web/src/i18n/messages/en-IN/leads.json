@@ -255,6 +255,13 @@
       "chosen": "The chosen destination",
       "tripType": "Trip type",
       "anyTripType": "Any trip type",
+      "cameIn": "Came in",
+      "anyTime": "Any time",
+      "createdPeriods": {
+        "today": "Today",
+        "week": "This week",
+        "month": "This month"
+      },
       "clear": "Clear all",
       "apply": "Show leads"
     },

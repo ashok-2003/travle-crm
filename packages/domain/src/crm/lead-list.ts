@@ -14,7 +14,8 @@ import {
 import type { Task } from "@travel-crm/contracts/tasks";
 import type { OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
-import { scopeFilter, type MemberAccess } from "../identity/index.js";
+import { organizationTimeZone, scopeFilter, type MemberAccess } from "../identity/index.js";
+import { periodStart } from "../kernel/index.js";
 import { nextOpenTasks } from "../tasks/index.js";
 import { leadCountsQuery, leadListQuery, type LeadCountsFilter } from "./lead-list-query.js";
 import { budgetOf, tripSummaryOf, type TripColumns } from "./trip-columns.js";
@@ -65,7 +66,7 @@ function searchFor(text: string | undefined): LeadCountsFilter["search"] {
   return { kind: "digits", digits: digits === "" ? typed : digits };
 }
 
-export function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCountsFilter {
+export function filterFor(access: MemberAccess, input: LeadCountsInput, createdFrom?: Date): LeadCountsFilter {
   const search = searchFor(input.search);
   const ownerUserId = ownerFor(access, input);
   // The Unassigned queue is everyone's unowned leads; a salesperson, scoped to their own, never sees it.
@@ -76,8 +77,16 @@ export function filterFor(access: MemberAccess, input: LeadCountsInput): LeadCou
     ...(input.source === undefined ? {} : { source: input.source }),
     ...(input.destinationId === undefined ? {} : { destinationId: input.destinationId }),
     ...(input.tripType === undefined ? {} : { tripType: input.tripType }),
+    ...(createdFrom === undefined ? {} : { createdFrom }),
     ...(search === undefined ? {} : { search }),
   };
+}
+
+/** Where the "came in" filter starts, read in the agency's zone only when one is asked for. */
+async function createdFromOf(tx: OrgTx, access: MemberAccess, input: LeadCountsInput): Promise<Date | undefined> {
+  if (input.created === undefined) return undefined;
+  const timeZone = await organizationTimeZone(tx, access.organizationId);
+  return periodStart(input.created, new Date(), timeZone) ?? undefined;
 }
 
 function itemOf(
@@ -113,7 +122,7 @@ export async function listLeads(
   // One more than a page tells whether another page follows.
   const rows = await tx.$queryRaw<LeadListRow[]>(
     leadListQuery({
-      ...filterFor(access, input),
+      ...filterFor(access, input, await createdFromOf(tx, access, input)),
       stages,
       ...(input.before === undefined ? {} : { before: input.before }),
       limit: input.limit + 1,
@@ -135,7 +144,9 @@ export async function listLeads(
 
 /** Open leads by stage, for the same view and filters. */
 export async function countLeads(tx: OrgTx, access: MemberAccess, input: LeadCountsInput): Promise<LeadCounts> {
-  const rows = await tx.$queryRaw<{ stage: string; n: number }[]>(leadCountsQuery(filterFor(access, input)));
+  const rows = await tx.$queryRaw<{ stage: string; n: number }[]>(
+    leadCountsQuery(filterFor(access, input, await createdFromOf(tx, access, input))),
+  );
   const counts: LeadCounts = { open: 0, new: 0, contacted: 0, quote_sent: 0, booking_requested: 0 };
   for (const { stage, n } of rows) {
     const open = openLeadStages.find((candidate) => candidate === stage);

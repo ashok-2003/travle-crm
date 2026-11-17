@@ -1,6 +1,7 @@
 // Adding leads, the known-contact check, and the list (spec 3.2, 3.3). A known contact's open lead is named by its
 // destination and owner; its id only when the asker can see it (R24), so no client names a lead it can't see.
 import { z } from "zod";
+import { createdWithin } from "../kernel/period.js";
 import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
 import { taskKind } from "../tasks/tasks.js";
@@ -81,6 +82,8 @@ export const listLeadsInput = z.strictObject({
   source: leadSource.optional(),
   destinationId: recordId.optional(),
   tripType: tripType.optional(),
+  /** Only leads that came in this day, week or month, in the agency's time zone. */
+  created: createdWithin.optional(),
   /** A name, forgiving of typos, or four or more digits of a phone. */
   search: z.string().trim().min(2).max(80).optional(),
   /** The last lead id of the previous page. */

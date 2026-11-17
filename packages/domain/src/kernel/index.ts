@@ -17,6 +17,7 @@ export {
   type Money,
 } from "./money.js";
 export { allocate, fractionOf, percentageOf, type Rounding } from "./money-rounding.js";
+export { periodStart } from "./period.js";
 export { ipv6Groups } from "./ip-address.js";
 export {
   indiaGst,

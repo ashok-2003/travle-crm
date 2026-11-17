@@ -8,7 +8,8 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { countLeads, listLeads } from "../../src/crm/index.js";
-import type { MemberAccess } from "../../src/identity/index.js";
+import { organizationTimeZone, type MemberAccess } from "../../src/identity/index.js";
+import { periodStart } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { aLead, aPerson, aTask, type LeadSeed } from "./support/records.js";
 
@@ -282,5 +283,21 @@ describe("the lead list", () => {
     } while (before !== null);
     expect(seen).toEqual(wanted);
     expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it("created=week lists and counts only leads that came in since Monday", async () => {
+    const owner = randomUUID();
+    const monday = periodStart("week", new Date(), await inOrg((tx) => organizationTimeZone(tx, organizationId)));
+    if (monday === null) throw new Error("a week has a start");
+    const hour = 60 * 60 * 1000;
+    const [lastSunday, thisMonday] = await leadsOf(owner, [
+      { createdAt: new Date(monday.getTime() - hour) },
+      { createdAt: new Date(monday.getTime() + hour) },
+    ]);
+    const filter = { view: "everyone", ownerUserId: owner, created: "week" };
+    expect(await ids(manager, filter)).toEqual([thisMonday]);
+    expect((await counts(manager, filter)).open).toBe(1);
+    expect(await ids(manager, { view: "everyone", ownerUserId: owner })).toEqual([thisMonday, lastSunday]);
+    expect((await counts(manager, { view: "everyone", ownerUserId: owner })).open).toBe(2);
   });
 });

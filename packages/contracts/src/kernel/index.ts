@@ -1,5 +1,6 @@
 // Public API of @travel-crm/contracts/kernel: field rules for the shared kernel's values.
 export * from "./gst.js";
 export * from "./money.js";
+export * from "./period.js";
 export * from "./phone.js";
 export * from "./time.js";
