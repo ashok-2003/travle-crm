@@ -113,7 +113,14 @@ export type StagedAction =
       }>;
       notes: string[];
     }
-  | { tool: "send_brochure"; packageId: string; fileIds: string[] }
+  | {
+      tool: "send_brochure";
+      packageId: string;
+      fileIds: string[];
+      // Both absent for natural: the one agent's brochure name, and the files it sends again though this chat had them.
+      caption?: string;
+      resend?: readonly string[];
+    }
   // The quote behind the offer: its figures are this turn's to ground (G1) and to name the trip by (G6).
   | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures }
   | {

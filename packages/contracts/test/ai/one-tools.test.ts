@@ -32,7 +32,7 @@ const trace = {
 
 describe("the one agent's tool schemas", () => {
   it("offers natural's fourteen tools, without the trip tools when the agency has no trips", () => {
-    expect(oneToolSchemas({ tripLabels: labels })).toHaveLength(14);
+    expect(oneToolSchemas({ tripLabels: labels, brochureLabels: ["B1"] })).toHaveLength(14);
     expect(oneToolSchemas({ tripLabels: [] }).map((tool) => tool.name)).toEqual([
       "update_lead",
       "resend_payment",
@@ -69,6 +69,26 @@ describe("the one agent's tool schemas", () => {
     expect(update?.schema.safeParse({}).success).toBe(false);
     expect(update?.schema.safeParse({ trip_id: "T1" }).success).toBe(true);
     expect(update?.schema.safeParse({ trip_id: "T9" }).success).toBe(false);
+  });
+
+  it("sends a brochure by its label, and refuses one that isn't listed", () => {
+    const brochureLabels = ["B1", "B2"];
+    expect(parseOneToolArguments("send_brochure", { brochure_id: "B2" }, labels, { brochureLabels })).toMatchObject({
+      ok: true,
+    });
+    expect(parseOneToolArguments("send_brochure", { brochure_id: "B7" }, labels, { brochureLabels })).toEqual({
+      ok: false,
+      problem: "B7 isn't one of the brochures; the brochures are B1, B2",
+    });
+    expect(parseOneToolArguments("send_brochure", { trip_id: "T1" }, labels, { brochureLabels }).ok).toBe(false);
+    const offered = oneToolSchemas({ tripLabels: labels, brochureLabels });
+    const schema = offered.find((tool) => tool.name === "send_brochure")?.schema;
+    if (schema === undefined) throw new Error("send_brochure is offered");
+    expect(JSON.stringify(z.toJSONSchema(schema, { io: "input" }))).toContain('"enum":["B1","B2"]');
+    expect(schema.safeParse({ brochure_id: "B3" }).success).toBe(false);
+    // With no brochures it isn't offered; natural's own tool still takes a trip.
+    expect(oneToolSchemas({ tripLabels: labels }).map((tool) => tool.name)).not.toContain("send_brochure");
+    expect(parseToolArguments("send_brochure", { trip_id: "T1" }, labels).ok).toBe(true);
   });
 
   it("describes book with no customer words in its JSON Schema", () => {

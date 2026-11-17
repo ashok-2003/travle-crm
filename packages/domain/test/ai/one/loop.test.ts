@@ -42,7 +42,7 @@ const terms = { trip_id: "T1", date: "2026-12-19", adults: 2 };
 const quoteCall = { name: "quote", arguments: terms };
 const offerCall = { name: "offer_booking", arguments: terms };
 const bookCall = { name: "book", arguments: terms };
-const brochureCall = { name: "send_brochure", arguments: { trip_id: "T1" } };
+const brochureCall = { name: "send_brochure", arguments: { brochure_id: "B1" } };
 const leadCall = { name: "update_lead", arguments: { adults: 2 } };
 const quietCall = { name: "stay_quiet", arguments: { reason: "said ok" } };
 const handOverCall = (reason: string) => ({ name: "hand_over", arguments: { reason, summary: "Wants 10% off for 6" } });
@@ -79,7 +79,7 @@ function contextOf(): OneContext {
     newLines: [
       { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
     ],
-    tools: oneToolSchemas({ tripLabels: ["T1", "T2"] }),
+    tools: oneToolSchemas({ tripLabels: ["T1", "T2"], brochureLabels: ["B1", "B2"] }),
   };
 }
 
@@ -381,7 +381,7 @@ describe("the one agent's loop", () => {
     io.stage = (name, ...rest) =>
       name === "send_brochure" ? Promise.resolve({ refused: refusal }) : stage(name, ...rest);
     const words = "Sat 19 Dec: advance ₹6,000. Book karein?";
-    const brochureT2 = { name: "send_brochure", arguments: { trip_id: "T2" } };
+    const brochureT2 = { name: "send_brochure", arguments: { brochure_id: "B2" } };
     model.answer(
       { toolCalls: [quoteCall, brochureT2], model: LITE },
       { text: words, toolCalls: [offerCall], model: LITE },
@@ -410,7 +410,7 @@ describe("the one agent's loop", () => {
           ...tokens,
           finishReason: "tool_calls",
           words: null,
-          tools: [tool("quote", terms, QUOTE_RESULT), tool("send_brochure", { trip_id: "T2" }, refusal, true)],
+          tools: [tool("quote", terms, QUOTE_RESULT), tool("send_brochure", { brochure_id: "B2" }, refusal, true)],
         },
         {
           model: LITE,

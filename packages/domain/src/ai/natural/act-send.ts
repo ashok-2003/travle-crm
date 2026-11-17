@@ -1,5 +1,5 @@
 // The natural turn's messages, in order (spec 3.2, 3.3): the model's words as one or two messages, a brochure's files
-// captioned with the trip's title (none this chat was sent before, three at most), and after a hold or `resend_payment`
+// captioned with the trip's title, or the one agent's brochure name (none this chat was sent before unless the one agent sends it again, three at most), and after a hold or `resend_payment`
 // the agency's payment lines as one text, then its QR. Each carries a token made from the turn's ("ai:<t>", ":m2",
 // ":f<n>", ":pay", ":qr"), so a repeat sends none twice; a refusal throws and the turn rolls back.
 import { MAX_AI_MEDIA_PER_REPLY } from "@travel-crm/contracts/ai";
@@ -27,7 +27,7 @@ export interface SentTurn {
 async function unsentFiles(
   tx: OrgTx,
   input: NaturalActInput,
-  brochure: { packageId: string; fileIds: string[] },
+  brochure: { packageId: string; fileIds: string[]; resend?: readonly string[] },
 ): Promise<{ id: string; from: AttachmentRefInput }[]> {
   const { packageId } = brochure;
   const { brochures, photos } = await packageFilesIn(tx, packageId);
@@ -35,7 +35,8 @@ async function unsentFiles(
     ...brochures.map((one) => [one.id, PACKAGE_BROCHURE_RECORD_TYPE] as const),
     ...photos.map((one) => [one.id, PACKAGE_PHOTO_RECORD_TYPE] as const),
   ]);
-  const sent = new Set(input.facts.sentFileIds);
+  // A file the one agent sends again though the chat had it.
+  const sent = new Set(input.facts.sentFileIds.filter((id) => !brochure.resend?.includes(id)));
   return brochure.fileIds
     .flatMap((id) => {
       const recordType = recordTypes.get(id);
@@ -69,7 +70,8 @@ export async function sendTurn(
   const brochure = stagedOf(input.staged, "send_brochure");
   if (brochure !== null) {
     sent.tripId = brochure.packageId;
-    const caption = input.sheets.find((sheet) => sheet.packageId === brochure.packageId)?.title ?? "";
+    const caption =
+      brochure.caption ?? input.sheets.find((sheet) => sheet.packageId === brochure.packageId)?.title ?? "";
     for (const [index, file] of (await unsentFiles(tx, input, brochure)).entries()) {
       const fileToken = `ai:${token}:f${String(index + 1)}`;
       sent.sentIds.push(await sendAiFile(tx, deps, target, fileToken, file.from, "file", caption));
