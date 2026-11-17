@@ -299,6 +299,10 @@ Secrets come from the platform's secret manager as environment variables, never 
     `AI_BACKUP_BASE_URL` and `AI_BACKUP_CHAT_MODELS`, or the process stops at start-up. The key is a secret: never
     printed or logged, and the process stops at start-up if it isn't one whole key file, or if
     `GOOGLE_SDK_NODE_LOGGING` is set (Google's library would print its tokens).
+  - **LangChain's own variables are refused** (the one agent, 2026-11-17): the api, the worker and the console stop at
+    start-up when any `LANGSMITH_*` or `LANGCHAIN_*` variable is set and not blank, naming it (never its value).
+    LangChain would otherwise send each chat to LangSmith or print it. The tool agent also clears five of them before
+    each run.
   - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,
     `AI_BACKUP_CHAT_MODELS` or `AI_BACKUP_FAST_MODELS` say otherwise; a backup on another endpoint must name its own chat
@@ -343,6 +347,15 @@ Secrets come from the platform's secret manager as environment variables, never 
     process's log (`source: langfuse-prompts`, its name, label, reason and status), at most once per prompt every 30
     seconds; a label Langfuse doesn't have, such as no `draft` yet, is only a `debug` line.
   - To start, create the prompt from the built-in text, as it is, with the label `production`.
+- **The one agent's prompts** live in the same Langfuse project, read with the same settings:
+  - The agent's prompt is the text prompt `whatsapp-agent/real-agent`, with the variables `{{agency_name}}`,
+    `{{agent_name}}` and `{{tone}}`. Live turns read the label `production`. Try it reads `latest` afresh each turn,
+    so the newest version can be tried without moving a label.
+  - No version has `production` yet: the owner moves it when the one agent goes live. Until then, live turns of the
+    one agent run the built-in text (`packages/domain/src/ai/one/prompt-text.ts`, version `built-in-one-3`). It is
+    Langfuse's version 3, and a test keeps it equal to `docs/superpowers/specs/2026-11-17-one-whatsapp-agent-prompt.md`.
+  - The chat summary's prompt is `whatsapp-agent/chat-summary` (label `production`). Its built-in fallback is the
+    spec's Appendix A (version `built-in-summary-1`). To start, create it from that text with the label `production`.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
     printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to

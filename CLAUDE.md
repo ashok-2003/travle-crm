@@ -185,6 +185,15 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   visitor's address is read by `PUBLIC_FORM_PROXY_HOPS`, never trusted from the left of the header, and no address,
   phone, email or message is ever logged. Turnstile sits behind the `BotCheck` port and fails open only when Cloudflare
   can't answer. Offers consent is crm's `person_consent` ledger, behind `features.marketingConsent`.
+- **The one WhatsApp agent** (spec `2026-11-17-one-whatsapp-agent-design.md`, `packages/domain/src/ai/one`):
+  - an agency's `ai_autopilot.agent` is `lite`, `natural` (the default) or `one`, chosen in the console;
+  - `one` runs LangGraph through the `tool-agent` port, on Gemini through Vertex AI (`AI_VERTEX_SERVICE_ACCOUNT`);
+  - its prompt is Langfuse `whatsapp-agent/real-agent`, and Try it is `ai.testOne`;
+  - it sends a brochure by the owner's name and description (`package_brochure`), hears voice notes and sees photos
+    (saved on the message), and offers bookings as a card with Book and Change buttons (a tap's id is
+    `whatsapp_message.button_reply_id`);
+  - it reads a chat summary (`ai_chat.chat_summary`) and only the messages after its point;
+  - the reply's words have no code checks: the prompt carries those rules, and the tools keep the data checks.
 - **Assignment** (release 4): a lead that arrives by itself (an import row or Sheets row naming no owner, the website
   form) is owned by `chooseOwner` (`packages/domain/src/crm/assignment`): a returning customer's previous owner, the first
   matching rule, then the agency's mode (the Owner, turns, fewest open leads), else Unassigned. Only the turns skip a
