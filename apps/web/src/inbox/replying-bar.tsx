@@ -40,7 +40,7 @@ export function ReplyingBar({
     : message.sentBy === me
       ? t("reply.youName")
       : (nameOf(message.sentBy) ?? t("reply.teammate"));
-  const words = message.body ?? message.caption;
+  const words = message.tapped && message.body === null ? t("tappedNoWords") : (message.body ?? message.caption);
   const kind: KindWord | "unsupported" = isKindWord(message.kind) ? kindWord[message.kind] : "unsupported";
   return (
     <Item variant="muted" size="sm">

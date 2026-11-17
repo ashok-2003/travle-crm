@@ -12,12 +12,17 @@ export interface MediaReadDependencies {
   files: Files;
   call: LoopIO["call"];
   organizationId: string;
+  /** Waits between looks at a file still being copied; tests pass a fake one. */
+  sleep?: (ms: number) => Promise<void>;
 }
 /** `refused` is a sentence for the model, starting "refused: ". */
 export type MediaRead = { ok: true; text: string } | { ok: false; refused: string };
 
 const VOICE_MAX_BYTES = 10 * 1024 * 1024;
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+// The reply turn starts 3 s after the message, often before the file is copied: look again for a while before giving up.
+const COPY_WAIT_MS = 15_000;
+const COPY_LOOK_EVERY_MS = 1_500;
 const SAVED_MAX_CHARACTERS = 2_000;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -78,18 +83,31 @@ export function lookAtImage(
 }
 
 async function read(
-  { db, files, call, organizationId }: MediaReadDependencies,
+  {
+    db,
+    files,
+    call,
+    organizationId,
+    sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
+  }: MediaReadDependencies,
   { conversationId, messageId }: Input,
   way: Way,
   question: string | null,
 ): Promise<MediaRead> {
   // Only a customer's own file in this chat: another chat's, our own and a sticker (kind "sticker") are not theirs to read.
-  const message = await db.forOrg(organizationId, (tx) =>
-    tx.whatsappMessage.findFirst({
-      where: { id: messageId, conversationId, direction: "in", kind: way.kind },
-      select: { aiText: true, mediaState: true },
-    }),
-  );
+  const look = () =>
+    db.forOrg(organizationId, (tx) =>
+      tx.whatsappMessage.findFirst({
+        where: { id: messageId, conversationId, direction: "in", kind: way.kind },
+        select: { aiText: true, mediaState: true },
+      }),
+    );
+  let message = await look();
+  for (let waited = 0; message?.mediaState === "pending" && message.aiText === null && waited < COPY_WAIT_MS;) {
+    await sleep(COPY_LOOK_EVERY_MS);
+    waited += COPY_LOOK_EVERY_MS;
+    message = await look();
+  }
   if (message === null) return refuse(`that isn't their ${way.noun}`);
   const kept = message.aiText;
   if (kept !== null && question === null) return { ok: true, text: textOf(way, kept, null) };

@@ -48,19 +48,30 @@ describe("what the one agent reads of the chat", () => {
     expect(on.trace.finish("sent", null, 1).flags).toContain("summary:refreshed");
   });
 
-  it("keeps the new messages after a refresh that covered them", async () => {
+  it("stops the refresh before the turn's first new line, so a voice note's words are never lost", async () => {
     const on = await world(35);
+    await on.write({ direction: "out", at: liveAt(-50), body: "Hello!", clientToken: "ai:hello" });
+    await on.write({ direction: "in", at: liveAt(-40), body: "new voice note" });
     on.model.answer("Notes.");
     const memory = await on.read();
-    expect(memory.lines.map((line) => line.text)).toContain("line 35");
+    expect(memory.lines.map((line) => line.text)).toEqual(["new voice note"]);
+    const asked = JSON.stringify(on.model.requests.at(-1));
+    expect(asked).toContain("line 35");
+    expect(asked).not.toContain("new voice note");
+    const point = await test.db.forOrg(on.organizationId, (tx) =>
+      tx.aiChat.findFirstOrThrow({ select: { chatSummaryThroughAt: true } }),
+    );
+    expect(point.chatSummaryThroughAt?.getTime()).toBeLessThan(liveAt(-40).getTime());
   });
 
   it("reads what prepare read when the refresh failed", async () => {
     const on = await world(35);
+    await on.write({ direction: "out", at: liveAt(-50), body: "Hello!", clientToken: "ai:hello" });
+    await on.write({ direction: "in", at: liveAt(-40), body: "question" });
     on.model.answer({ ok: false, reason: "unavailable" });
     const memory = await on.read();
     expect(memory.summary).toBeNull();
-    expect(memory.lines).toHaveLength(36);
+    expect(memory.lines).toHaveLength(38);
     expect(on.trace.finish("sent", null, 1).flags).toContain("summary:failed:unavailable");
   });
 
@@ -73,7 +84,7 @@ describe("what the one agent reads of the chat", () => {
     expect((await on.read()).lines.map((line) => line.text)).toEqual(["question"]);
     await on.write({ direction: "out", at: liveAt(-30), body: "team after", sentBy: on.amit.userId });
     await on.write({ direction: "in", at: liveAt(-10), body: "late" });
-    expect((await on.read()).lines.map((line) => line.text)).toEqual(["team after", "late"]);
+    expect((await on.read()).lines.map((line) => line.text)).toEqual(["question", "team after", "late"]);
   });
 
   it("tells two lines of the same instant apart by id", async () => {
