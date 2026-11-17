@@ -109,6 +109,28 @@ describe("the one agent's live turn", () => {
           update: atTheCap,
         });
       });
+    /**
+     * The customer's yes after the offer, whose booking the act refuses (the seats go while the model writes); the
+     * model answers `retry` on its one more run. The yes's line id and the turn's outcome.
+     */
+    const refusedYes = async (...retry: Parameters<typeof on.model.answer>) => {
+      const yes = await offered();
+      on.model.answer(
+        { toolCalls: [bookCall], reasoningDetails: thought },
+        { text: bookWords, reasoningDetails: thought },
+        ...retry,
+      );
+      const outcome = await turn(
+        yes,
+        liveAt(300),
+        during(2, () => holdSeats(19)),
+      );
+      return { yes, outcome };
+    };
+    /** What went after the offer's reply, as [token, words]. */
+    const sentAfterOffer = async () =>
+      (await outbound()).slice(1).map((message) => [message.clientToken, message.body]);
+    const bookings = () => on.inOrg((tx) => tx.aiBooking.count({ where: { conversationId: on.chat.id } }));
     return {
       ...on,
       tracing,
@@ -120,8 +142,10 @@ describe("the one agent's live turn", () => {
       aiTask,
       during,
       offered,
-      holdSeats,
       atTheDayCap,
+      refusedYes,
+      sentAfterOffer,
+      bookings,
     };
   }
 
@@ -218,7 +242,20 @@ describe("the one agent's live turn", () => {
     );
     expect(await full.turn()).toBe("handed_off");
     expect(full.model.requests).toEqual([]);
+    expect((await full.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
     expect((await full.chatState())?.handoffReason).toBe("This month's AI replies are used up");
+  });
+
+  it("hands over as at the limit when the month's last call goes during the turn", async () => {
+    const on = await world();
+    await on.inOrg((tx) =>
+      tx.aiUsage.create({ data: { month: monthStartOf(liveNow, ZONE), calls: MONTHLY_AI_LIMIT - 1 } }),
+    );
+    on.model.answer({ toolCalls: [{ name: "get_trip", arguments: { trip_id: "T1" } }] }, { text: priceWords });
+    expect(await on.turn()).toBe("handed_off");
+    expect(on.model.requests).toHaveLength(1);
+    expect((await on.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect((await on.chatState())?.handoffReason).toBe("This month's AI replies are used up");
   });
 
   it("answers a payment screenshot with one call and no tools, and hands it to the team", async () => {
@@ -240,35 +277,44 @@ describe("the one agent's live turn", () => {
 
   it("tries once more when the act can't hold the seats, keeping the reasoning details, then falls back", async () => {
     const on = await world();
-    const yes = await on.offered();
-    const turnStarts = on.model.requests.length;
-    // The seats go while the model writes: book was staged on seats that were there. The model has no third answer.
-    on.model.answer(
-      { toolCalls: [bookCall], reasoningDetails: thought },
-      { text: bookWords, reasoningDetails: thought },
-    );
-    expect(
-      await on.turn(
-        yes,
-        liveAt(300),
-        on.during(2, () => on.holdSeats(19)),
-      ),
-    ).toBe("fallback");
-    expect(on.model.requests).toHaveLength(turnStarts + 3);
-    const again = on.model.requests.at(-1);
+    // The model has no answer for the one more run.
+    const { yes, outcome } = await on.refusedYes();
+    expect(outcome).toBe("fallback");
+    const [first, , again] = on.model.requests.slice(-3);
     expect(again?.messages.at(-1)?.content).toContain("The seats couldn't be held");
     // The model that wrote the transcript, and its signatures, answers it.
     expect(again?.model).toBe("memory-model");
     // Every answer of this turn goes back with its thought signature.
-    const thisTurn = again?.messages.slice(on.model.requests[turnStarts]?.messages.length) ?? [];
+    const thisTurn = again?.messages.slice(first?.messages.length) ?? [];
     expect(thisTurn.filter((message) => message.role === "assistant")).toHaveLength(2);
     expect(thisTurn.filter((m) => m.role === "assistant").every((m) => m.reasoningDetails !== undefined)).toBe(true);
-    const sent = await on.outbound();
-    expect(sent.slice(1).map((message) => [message.clientToken, message.body])).toEqual([
-      [`ai:${yes}`, fallbackLine("haan, kar do")],
-    ]);
+    expect(await on.sentAfterOffer()).toEqual([[`ai:${yes}`, fallbackLine("haan, kar do")]]);
     expect((await on.aiTask()).title).toContain("The seats couldn't be held");
-    expect(await on.inOrg((tx) => tx.aiBooking.count({ where: { conversationId: on.chat.id } }))).toBe(0);
+    expect(await on.bookings()).toBe(0);
+  });
+
+  it("sends the one more run's answer, with no booking, when the act can't hold the seats", async () => {
+    const on = await world();
+    const otherDate = "Sorry, 19 Dec ki seats abhi chali gayi. Sat 26 Dec chalega? 2 log, total ₹18,998.";
+    const { yes, outcome } = await on.refusedYes({ text: otherDate });
+    expect(outcome).toBe("replied");
+    expect(await on.sentAfterOffer()).toEqual([[`ai:${yes}`, otherDate]]);
+    expect(await on.bookings()).toBe(0);
+  });
+
+  it("never ends the refused booking's turn silent, nor loses the booking from the team's task", async () => {
+    const on = await world();
+    // stay_quiet alone, after "Nothing was sent; reply again": the customer still gets a line, the team a task.
+    const quiet = { name: "stay_quiet", arguments: { reason: "nothing to add" } };
+    const { yes, outcome } = await on.refusedYes({ toolCalls: [quiet] }, "");
+    expect(outcome).toBe("fallback");
+    expect(await on.sentAfterOffer()).toEqual([[`ai:${yes}`, fallbackLine("haan, kar do")]]);
+    expect((await on.aiTask()).title).toContain("The seats couldn't be held");
+
+    // No words twice: the run's own fallback, whose task still names the booking not done.
+    const empty = await world();
+    expect((await empty.refusedYes("", "")).outcome).toBe("fallback");
+    expect((await empty.aiTask()).title).toContain("The seats couldn't be held");
   });
 
   it("sends nothing when the customer wrote again during the turn", async () => {

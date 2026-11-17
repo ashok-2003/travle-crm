@@ -51,11 +51,13 @@ export async function afterOneRefusal(
   switch (again.end) {
     case "superseded":
       return endedOf(turn, "superseded", null);
+    // The team's task names the booking not done, whatever ended the run.
     case "model_failed":
-      return refusedFallback(turn, trace, end.staged, refused, customerText);
     case "fallback":
-      return actAndSettle(turn, actOfEnd(again));
+      return refusedFallback(turn, trace, end.staged, refused, customerText);
     case "final": {
+      // The customer said yes and nothing went: a reply is owed, so a silent end (stay_quiet alone) falls back.
+      if (again.messages.length === 0) return refusedFallback(turn, trace, end.staged, refused, customerText);
       const act = actOfEnd(again);
       const result = await actOnTurn(turn, act);
       if ("refused" in result) return refusedFallback(turn, trace, again.staged, result, customerText);
