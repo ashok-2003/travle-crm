@@ -7,16 +7,17 @@ import { BUILT_IN_NATURAL_PROMPT, type NaturalPrompt } from "./prompt.js";
 
 export const NATURAL_PROMPT_NAME = "whatsapp-agent/natural-system";
 
-/** Langfuse's prompt at `label`, or null when Langfuse has none to give (or is off: no prompts at all). */
-export async function naturalPromptAt(
+/** Langfuse's prompt `name` at `label`, or null when Langfuse has none to give (or is off: no prompts at all). */
+export async function langfusePromptAt(
   prompts: AiPrompts | undefined,
+  name: string,
   label: string,
   request: PromptRequest = {},
 ): Promise<NaturalPrompt | null> {
   if (prompts === undefined) return null;
   let found;
   try {
-    found = await prompts.textPrompt(NATURAL_PROMPT_NAME, label, request);
+    found = await prompts.textPrompt(name, label, request);
   } catch {
     // The port never throws; if one did, the agent still answers on its own text.
     return null;
@@ -27,6 +28,15 @@ export async function naturalPromptAt(
     text: found.text,
     source: { name: found.name, version: found.version, label: found.label },
   };
+}
+
+/** The natural agent's Langfuse prompt at `label`. */
+export function naturalPromptAt(
+  prompts: AiPrompts | undefined,
+  label: string,
+  request: PromptRequest = {},
+): Promise<NaturalPrompt | null> {
+  return langfusePromptAt(prompts, NATURAL_PROMPT_NAME, label, request);
 }
 
 /** The prompt the agent runs on: Langfuse's live one, else the built-in text. */
