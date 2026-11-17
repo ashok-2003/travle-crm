@@ -145,7 +145,7 @@
       "agent": "Agent",
       "agents": {
         "current": "Current agent",
-        "natural": "Natural agent",
+        "natural": "New agent",
         "one": "One agent (LangGraph)"
       },
       "model": "Model",
