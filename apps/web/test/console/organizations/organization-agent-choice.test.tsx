@@ -39,8 +39,7 @@ describe("OrganizationAgentChoice", () => {
   it("lets a super admin change it after confirming, and lists the gate first", async () => {
     show({ agent: "lite", lastReplay: null, replaying: false });
     await userEvent.click(await screen.findByRole("button", { name: text.change }));
-    expect(await screen.findByText(text.dialog.steps.bench)).toBeVisible();
-    expect(screen.getByText(text.dialog.steps.replay)).toBeVisible();
+    expect(await screen.findByText(text.dialog.steps.setup)).toBeVisible();
     expect(screen.getByText(text.dialog.steps.tryIt)).toBeVisible();
     expect(inputsTo("aiAgent.chooseAgent")).toEqual([]);
     await userEvent.click(screen.getByRole("button", { name: text.dialog.confirm }));

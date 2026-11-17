@@ -331,7 +331,7 @@
     "title": "Agent",
     "current": "Current agent",
     "agents": {
-      "lite": "Current agent (lite)",
+      "lite": "Lite agent",
       "natural": "New agent"
     },
     "lastReplay": "Last replay",
@@ -344,13 +344,12 @@
       "title": "Move {name} to the {agent}?",
       "description": {
         "natural": "{name}'s WhatsApp chats will be answered by the new agent from the next message.",
-        "lite": "{name}'s WhatsApp chats will go back to the current agent (lite) from the next message."
+        "lite": "{name}'s WhatsApp chats will go back to the lite agent from the next message."
       },
       "gate": "Before moving to the new agent, check that:",
       "steps": {
-        "bench": "the bench gate passed on this release",
-        "replay": "the replay of this agency's recent chats passed",
-        "tryIt": "the owner tried it in Try it"
+        "setup": "its AI agent's setup is ready (Setup shows every step done)",
+        "tryIt": "you tried the new agent in its Try it, writing as its customers do"
       },
       "confirm": "Change agent"
     }

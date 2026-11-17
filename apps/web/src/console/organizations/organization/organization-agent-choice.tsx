@@ -16,7 +16,8 @@ import { useConsoleTRPC } from "../../data/console-trpc";
 import { isSuperAdmin, useStaff } from "../../session/staff-context";
 import { DetailList, DetailSection } from "./detail-list";
 
-const GATE_STEPS = ["bench", "replay", "tryIt"] as const;
+// What a super admin checks before moving an agency; the replay and the bench join when they are built (plan 2).
+const GATE_STEPS = ["setup", "tryIt"] as const;
 
 export function OrganizationAgentChoice({
   organizationId,
