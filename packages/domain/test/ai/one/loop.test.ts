@@ -199,9 +199,11 @@ describe("the one agent's loop", () => {
   });
 
   it("asks once more when the reply has no words, then falls back", async () => {
-    model.answer("", "Kab ka plan hai, aur kitne log?");
+    model.answer({ text: "", model: LITE }, "Kab ka plan hai, aur kitne log?");
     expect(await loop()).toMatchObject({ end: "final", messages: ["Kab ka plan hai, aur kitne log?"], callsUsed: 2 });
     expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${NO_WORDS}`);
+    // The model that wrote the transcript goes on with it (P7).
+    expect(model.requests.map((request) => request.model)).toEqual([undefined, LITE]);
 
     model.answer({ toolCalls: [leadCall] }, "", { text: "  " });
     const end = await loop();
@@ -232,6 +234,25 @@ describe("the one agent's loop", () => {
     expect(end).toMatchObject({ end: "final", messages: [words], callsUsed: 2 });
     expect(stagedOf(end)).toEqual(["send_brochure"]);
     expect(io.stagings).toEqual([{ name: "send_brochure", words, quoted: 0 }]);
+
+    // A read after them takes nothing away.
+    model.answer({ text: words, toolCalls: [brochureCall] }, { toolCalls: [quoteCall] }, "");
+    expect(await loop()).toMatchObject({ end: "final", messages: [words], callsUsed: 3 });
+  });
+
+  it("never sends earlier words beside a later action that came without words", async () => {
+    // The brochure's words would otherwise go with the hold and its QR.
+    const line = "Sat 19 Dec ki 2 seats hold kar di hain; advance ₹6,000 ka QR neeche hai.";
+    model.answer(
+      { text: "Kedarkantha ka brochure bhej rahi hoon.", toolCalls: [brochureCall] },
+      { toolCalls: [bookCall] },
+      "",
+      line,
+    );
+    const end = await loop();
+    expect(model.requests[3]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${NO_WORDS}`);
+    expect(end).toMatchObject({ end: "final", messages: [line], callsUsed: 4 });
+    expect(stagedOf(end)).toEqual(["send_brochure", "book"]);
   });
 
   it("never takes the words beside a read or a refused action as the reply", async () => {
@@ -320,6 +341,13 @@ describe("the one agent's loop", () => {
     expect(await loop()).toEqual({ end: "superseded" });
     // Asked before each model call: the second was never made.
     expect(model.requests).toHaveLength(3);
+
+    // The run that asks for words asks too.
+    asked = 0;
+    model = createMemoryAiModel();
+    model.answer("", "Kab ka plan hai?");
+    expect(await loop()).toEqual({ end: "superseded" });
+    expect(model.requests).toHaveLength(1);
   });
 
   it("keeps code's forced actions, which never end a turn without words", async () => {
@@ -340,7 +368,7 @@ describe("the one agent's loop", () => {
     expect(fallback.end === "fallback" && fallback.task).toContain("Not done: the AI meant to send T1's brochure.");
   });
 
-  it("traces each call, each tool with its refusals, the staged actions, and the one agent's name", async () => {
+  it("traces each call, each tool with its refusals, and the staged actions", async () => {
     const call = io.call;
     io.call = async (request) => {
       const result = await call(request);

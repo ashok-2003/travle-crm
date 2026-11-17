@@ -124,6 +124,13 @@ async function callProvider(
       parameters: message.templateParams,
     });
   }
+  if (message.kind === "text" && message.buttons !== null) {
+    return provider.sendButtons(message.integratedNumber, message.phoneE164, {
+      body: message.body ?? "",
+      buttons: message.buttons,
+      ...replyTo,
+    });
+  }
   if (message.kind === "text")
     return provider.sendText(message.integratedNumber, message.phoneE164, message.body ?? "", replyTo);
   const [file] = await dependencies.files.list(systemActor(organizationId), {

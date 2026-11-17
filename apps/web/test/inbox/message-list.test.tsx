@@ -185,6 +185,53 @@ describe("a voice note and a place", () => {
     expect(api.calls.length).toBeGreaterThan(0);
   });
 
+  it("shows a card's buttons and a customer's tap", async () => {
+    const api = answerApi({
+      "inbox.conversation": header,
+      "salesInbox.notes": notes,
+      "inbox.markRead": null,
+      "inbox.messages": {
+        items: [
+          aMessage({ id: id(2), body: "Book these seats", tapped: true }),
+          aMessage({
+            id: id(1),
+            direction: "out",
+            origin: "automation",
+            status: "sent",
+            body: "Goa, total 22,600",
+            buttons: [
+              { id: "book:1", title: "Book these seats" },
+              { id: "change:1", title: "Change something" },
+            ],
+          }),
+        ],
+        nextCursor: null,
+        people: {},
+        unread: { count: 0, firstMessageId: null },
+      },
+    });
+    renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
+    expect(await screen.findByText("Buttons: Book these seats · Change something")).toBeInTheDocument();
+    expect(screen.getByText("Tapped: Book these seats")).toBeInTheDocument();
+    expect(api.calls.length).toBeGreaterThan(0);
+  });
+
+  it("shows a tap with no words as a tap", async () => {
+    answerApi({
+      "inbox.conversation": header,
+      "salesInbox.notes": notes,
+      "inbox.markRead": null,
+      "inbox.messages": {
+        items: [aMessage({ id: id(1), body: null, tapped: true })],
+        nextCursor: null,
+        people: {},
+        unread: { count: 0, firstMessageId: null },
+      },
+    });
+    renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
+    expect(await screen.findByText("Tapped a button")).toBeInTheDocument();
+  });
+
   it("shows a place's coordinates with a link that opens Maps in another tab", () => {
     renderWithApi(<LocationCard latitude={19.076} longitude={72.8777} />, newQueryClient());
     const link = screen.getByRole("link", { name: "Open in Maps" });
