@@ -50,6 +50,15 @@ describe("StageSuggestionAlert", () => {
     expect(screen.getByText("Said they're not interested.")).toBeVisible();
   });
 
+  it("shows Yes as a destructive button, since it ends the lead, and No as a plain outline", async () => {
+    await show();
+    expect(await screen.findByRole("button", { name: "Yes, mark it Lost" })).toHaveAttribute(
+      "data-variant",
+      "destructive",
+    );
+    expect(screen.getByRole("button", { name: "No" })).toHaveAttribute("data-variant", "outline");
+  });
+
   it("names Not a lead for that kind", async () => {
     await show(undefined, { ...suggestion, kind: "not_a_lead", lostReason: null, reason: "Looks fake: spam" });
     expect(await screen.findByText("The AI suggests marking this lead Not a lead")).toBeVisible();

@@ -29,7 +29,9 @@ export function SuggestionButtons({ suggestion }: { suggestion: StageSuggestion 
     <div className="flex flex-col gap-2">
       <RefusalAlert error={decide.error} />
       <div className="flex flex-wrap items-center gap-2">
+        {/* Yes ends the lead (Lost, Not a lead): destructive, as every ending action is (DESIGN.md Buttons). */}
         <Button
+          variant="destructive"
           disabled={!access.allowed || decide.isPending}
           aria-describedby={access.hint === null ? undefined : hintId}
           onClick={() => {
