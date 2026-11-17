@@ -16,6 +16,10 @@ export interface NaturalChatLine {
   action?: string;
   untranscribed?: boolean;
   mayBePayment?: boolean;
+  // What was heard or seen, kept on the message; only the one agent reads it.
+  aiText?: { kind: "transcript" | "description"; text: string };
+  // The one agent's name for a customer's voice note or photo ("m3"); natural sets none.
+  ref?: string;
 }
 
 /** A room price per person, in paise, for each room type that has one. */
@@ -122,7 +126,7 @@ export type StagedAction =
       resend?: readonly string[];
     }
   // The quote behind the offer: its figures are this turn's to ground (G1) and to name the trip by (G6).
-  | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures }
+  | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures; card?: true }
   | {
       tool: "book";
       terms: BookingTerms;

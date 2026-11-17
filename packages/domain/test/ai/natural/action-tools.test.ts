@@ -666,17 +666,20 @@ describe("stageAction for the one agent", () => {
     expect(await stageAction(ctx(), "hand_over", args, "")).toMatchObject({ refused: expect.any(String) as unknown });
   });
 
-  it("tells one's model no offer card goes yet, with no full name asked", async () => {
-    expect(await stageOne(ctx(), "offer_booking", terms({ room: "double" }))).toMatchObject({
+  it("gives one's offer an id and a card, and tells the model not to retype the figures", async () => {
+    const outcome = await stageOne(ctx(), "offer_booking", terms({ room: "double" }));
+    expect(outcome).toMatchObject({
+      staged: {
+        tool: "offer_booking",
+        card: true,
+        offer: { id: expect.stringMatching(/^[0-9a-f-]{36}$/u) as unknown },
+      },
       result:
         "offered: T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance ₹6,000 (₹3,000 per " +
-        "person). No offer card goes yet, so your words state the date, the total and the advance, and ask if " +
-        "they want to book",
+        "person). The app sends the offer card with these figures and Book and Change buttons after your words: " +
+        "keep your line short and don't retype the figures",
     });
-    expect(await stageOne(ctx(), "offer_booking", terms({ room: "double", pay_in_full: true }))).toMatchObject({
-      result: expect.stringContaining(
-        "so your words state the date and the total, and ask if they want to book",
-      ) as unknown,
-    });
+    // Natural's offer has neither.
+    expect(await stageAction(ctx(), "offer_booking", terms({ room: "double" }), "")).not.toHaveProperty("staged.card");
   });
 });

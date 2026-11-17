@@ -53,8 +53,11 @@ export function lineWords(line: NaturalChatLine, most: number, options: { earlie
     oneLine(line.from === "earlier" && options.earlierWhole !== true ? withoutAmountsAndDates(line.text) : line.text),
     most,
   );
+  // The one agent's reference names the file, so the model can ask for it, before a payment guess.
+  const named = line.ref === undefined ? null : `[${line.kind === "audio" ? "voice note" : "photo"} ${line.ref}]`;
   const marker =
-    line.mayBePayment === true
+    named ??
+    (line.mayBePayment === true
       ? "[payment screenshot]"
       : line.kind === "document"
         ? line.fileName === undefined
@@ -62,9 +65,14 @@ export function lineWords(line: NaturalChatLine, most: number, options: { earlie
           : `[file: ${oneLine(line.fileName)}]`
         : line.kind === "text" || line.kind === "template"
           ? null
-          : (markers[line.kind] ?? "[message]");
+          : (markers[line.kind] ?? "[message]"));
+  const said =
+    // Only the one agent names a file (ref) and so reads what was heard or seen; natural's words stay as they were.
+    line.aiText === undefined || line.ref === undefined
+      ? ""
+      : ` (${line.aiText.kind === "transcript" ? "heard" : "seen"}: "${oneLine(line.aiText.text)}")`;
   if (marker === null) return text === "" ? "[message]" : text;
-  return text === "" ? marker : `${marker} ${text}`;
+  return `${text === "" ? marker : `${marker} ${text}`}${said}`;
 }
 
 const customerLine = (line: NaturalChatLine, clock: Omit<ChatClock, "now">, most: number) =>

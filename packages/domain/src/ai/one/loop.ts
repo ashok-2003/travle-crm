@@ -1,7 +1,7 @@
 // The one agent's turn (spec 3; rulings R7, P7, P8): the tool agent runs the model and the tools until it answers, and
 // the turn ends as natural's loop ends, so natural's act, dry answer and follow-up take it as they are. No word checks
 // (R5) and no cap but LangGraph's steps; a failed model call ends the turn, and the worker's retries take over.
-import { naturalReadTools } from "@travel-crm/contracts/ai";
+import { oneReadTools } from "@travel-crm/contracts/ai";
 import type { AiMessage, AiToolCall } from "@travel-crm/integrations/ai";
 import type { AgentModelCall, ToolAgent, ToolAgentInput } from "@travel-crm/integrations/tool-agent";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -60,7 +60,7 @@ function wordsBesideActions(transcript: readonly AiMessage[]): string {
       message.role === "tool" && message.content.startsWith("refused:") ? [message.toolCallId] : [],
     ),
   );
-  const staged = (call: AiToolCall) => !naturalReadTools.some((read) => read === call.name) && !refused.has(call.id);
+  const staged = (call: AiToolCall) => !oneReadTools.some((read) => read === call.name) && !refused.has(call.id);
   const answer = since.findLast((message) => (message.toolCalls ?? []).some(staged));
   return answer?.toolCalls?.every(staged) === true ? replyWords(answer.content) : "";
 }
@@ -82,7 +82,7 @@ export async function runOneLoop(
   trace.staged(run.staged);
   const input: ToolAgentInput = {
     messages: context.messages,
-    tools: oneAgentTools(context.tools, io, run, trace, [...context.labels.keys()]),
+    tools: oneAgentTools(context.tools, io, run, trace, [...context.labels.keys()], context.media),
     request: {
       feature: "sales_agent",
       maxTokens: NATURAL_LIMITS.maxTokens,

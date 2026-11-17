@@ -25,6 +25,20 @@ export interface OneContext {
   newLines: NaturalChatLine[];
   /** What the turn offers. */
   tools: OneToolSchema[];
+  /** The customer's voice notes and photos by the reference the chat shows (m1, m2...), for the media tools. */
+  media: ReadonlyMap<string, { messageId: string; kind: "audio" | "image" }>;
+}
+
+/** The customer's voice notes and photos named m1, m2... oldest first; the model passes these to the media tools. */
+function withReferences(lines: readonly NaturalChatLine[]) {
+  const media = new Map<string, { messageId: string; kind: "audio" | "image" }>();
+  const named = lines.map((line) => {
+    if (line.from !== "customer" || (line.kind !== "audio" && line.kind !== "image")) return line;
+    const ref = `m${String(media.size + 1)}`;
+    media.set(ref, { messageId: line.id, kind: line.kind });
+    return { ...line, ref };
+  });
+  return { named, media };
 }
 
 export function buildOneContext(input: OneContextInput): OneContext {
@@ -33,10 +47,11 @@ export function buildOneContext(input: OneContextInput): OneContext {
   const agency = agencyBlock(input.voice, input.timeZone, input.answers);
   const trips = tripsBlock(input.sheets, input.today);
   const lastTurnAt = input.facts.lastTurnAt === null ? null : new Date(input.facts.lastTurnAt);
-  const newLines = newLinesOf(input.lines, lastTurnAt);
+  const { named: lines, media } = withReferences(input.lines);
+  const newLines = newLinesOf(lines, lastTurnAt);
   const clock = { now: input.now, today: input.today, timeZone: input.timeZone };
   const history = oneHistory(
-    input.lines.filter((line) => !newLines.includes(line)),
+    lines.filter((line) => !newLines.includes(line)),
     clock,
     input.summary,
   );
@@ -58,6 +73,8 @@ export function buildOneContext(input: OneContextInput): OneContext {
   const all = oneToolSchemas({
     tripLabels: [...labels.keys()],
     brochureLabels: [...brochureLabelsOf(input.sheets).keys()],
+    voiceNotes: [...media].filter(([, one]) => one.kind === "audio").map(([ref]) => ref),
+    photos: [...media].filter(([, one]) => one.kind === "image").map(([ref]) => ref),
   });
   return {
     messages: [
@@ -71,6 +88,7 @@ export function buildOneContext(input: OneContextInput): OneContext {
       { role: "user", content: turn },
     ],
     labels,
+    media,
     newLines,
     tools: input.tools === "all" ? all : input.tools === "none" ? [] : all.filter((tool) => tool.name === "stay_quiet"),
   };

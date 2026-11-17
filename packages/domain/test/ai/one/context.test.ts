@@ -110,6 +110,28 @@ describe("the one agent's context", () => {
     expect(earlier?.content).toBe(`${EARLIER_HEADING}\nThe trek is ₹21,000 a head, leaving 12 Dec.\nSeats are free.`);
   });
 
+  it("names each voice note and photo m1 on, with what was heard or seen", () => {
+    const lines = [
+      line("customer", 3, "", { kind: "audio", aiText: { kind: "transcript", text: "do log hain" } }),
+      line("you", 2, "ok"),
+      line("customer", 1, "", { kind: "image" }),
+      line("customer", 1, "", { kind: "sticker" }),
+      line("customer", 0, "see", { kind: "audio" }),
+    ];
+    const context = buildOneContext(input({ lines }));
+    const text = `${chatText(context)}\n${context.messages.at(-1)?.content ?? ""}`;
+    expect(text).toContain('[voice note m1] (heard: "do log hain")');
+    expect(text).toContain("[photo m2]");
+    expect(text).toContain("[voice note m3] see");
+    expect(text).not.toContain("m4");
+    expect(context.media.get("m2")).toEqual({ messageId: lines[2]?.id, kind: "image" });
+    expect([...context.media.keys()]).toEqual(["m1", "m2", "m3"]);
+    expect(context.tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(["transcribe_voice_note", "look_at_image"]),
+    );
+    expect(buildOneContext(input()).tools.map((tool) => tool.name)).not.toContain("look_at_image");
+  });
+
   it("keeps the earlier system's heading and the summary off our own lines", () => {
     const lines = [
       line("you", 3, "ours before"),
