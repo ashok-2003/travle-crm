@@ -13,6 +13,7 @@ import {
   type NaturalActInput,
   type NaturalActResult,
 } from "../../../src/ai/natural/act.js";
+import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import type { QuoteFigures, StagedAction, StagedSet } from "../../../src/ai/natural/types.js";
 import { tripFieldValues } from "../../../src/crm/index.js";
 import {
@@ -302,7 +303,7 @@ describe("the natural agent's live act", () => {
       );
     const first = done(
       await act(on, {
-        messages: ["Let me check that with the team."],
+        messages: ["Let me check that and get back to you here."],
         staged: stagedOf(question("Is there a student discount?")),
       }),
     );
@@ -339,7 +340,7 @@ describe("the natural agent's live act", () => {
     done(
       await act(on, {
         ...third,
-        messages: ["Sure, the team will call you at 6."],
+        messages: ["Sure, we will call you at 6."],
         staged: stagedOf({ tool: "create_task", kind: "call_back", text: "Call Rahul about the dates", callAt }),
         task: { kind: "question", text: "Wants a call at 6" },
       }),
@@ -399,7 +400,7 @@ describe("the natural agent's live act", () => {
     const on = await actAgency(test);
     const result = done(
       await act(on, {
-        messages: ["I've asked the team about a group price; they'll reply here."],
+        messages: ["Let me check a group price for you and get back to you here."],
         handOver: { reason: "discount", summary: "Wants 20% off for 6 people" },
       }),
     );
@@ -439,7 +440,7 @@ describe("the natural agent's live act", () => {
     expect(await act(on, { messages: ["Kedarkantha is lovely in December."] })).toEqual({ stopped: "day_limit" });
     expect(await kept(on)).toEqual(nothingKept);
 
-    const line = "Let me check this with the team; they'll reply here.";
+    const line = fallbackLine("Hi, is the Kedarkantha trek on in December?");
     const result = done(await act(on, { messages: [line], handOver: { reason: "day_cap", summary: "" } }));
     expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
     expect(result.handedOver).toBe(true);
