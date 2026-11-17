@@ -15,6 +15,7 @@ import { fallbackLine } from "./fallback-line.js";
 import type { CodeHandOverReason } from "./hand-over-words.js";
 import { liveLoopIO } from "./live-io.js";
 import { runNaturalLoop, type LoopSettings } from "./loop.js";
+import { runNaturalNudge } from "./nudge-turn.js";
 import { prepareNaturalTurn } from "./prepare.js";
 import type { NaturalPrompt } from "./prompt.js";
 import { naturalPromptOf } from "./prompt-source.js";
@@ -110,8 +111,7 @@ export async function runNaturalTurn(
 ): Promise<LiteOutcome> {
   const clock = () => deps.clock?.().getTime() ?? Date.now();
   const startedMs = clock();
-  // The natural follow-up is Task 7's turn: until it lands, a follow-up that came due sends nothing.
-  if (input.kind === "nudge") return "nothing";
+  if (input.kind === "nudge") return runNaturalNudge(deps, input, now);
   const [prompt, prepared] = await Promise.all([naturalPromptOf(deps.prompts), prepareNaturalTurn(deps, input, now)]);
   const leadId = typeof prepared === "string" ? null : prepared.leadId;
   return traced(deps.tracing, naturalTurnStart(input, prompt, leadId), async () => {
