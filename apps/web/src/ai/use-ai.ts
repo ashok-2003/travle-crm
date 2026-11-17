@@ -108,6 +108,12 @@ export function useAiOverview() {
   return useQuery({ ...trpc.ai.overview.queryOptions(), staleTime: 30_000 });
 }
 
+/** Which agent Try it runs: the agency's own, from its setting. */
+export function useTestAgent() {
+  const trpc = useTRPC();
+  return useQuery({ ...trpc.ai.testAgent.queryOptions(), staleTime: 30_000 });
+}
+
 export function useTestAi() {
   const trpc = useTRPC();
   return useMutation(trpc.ai.test.mutationOptions());
@@ -119,7 +125,7 @@ export function useTestNatural() {
   return useMutation(trpc.ai.testNatural.mutationOptions());
 }
 
-/** Try it on the one agent: its own procedure, with natural's state and no prompt choice (it reads the latest). */
+/** Try it on the one agent: its own procedure, with natural's state. */
 export function useTestOne() {
   const trpc = useTRPC();
   return useMutation(trpc.ai.testOne.mutationOptions());

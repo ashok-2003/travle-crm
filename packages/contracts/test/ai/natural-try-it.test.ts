@@ -50,8 +50,6 @@ const input = {
     { from: "customer", text: "haan, Rohan Mehta" },
   ],
   state,
-  model: "live",
-  temperature: "default",
 };
 
 describe("Try it on the natural agent", () => {
@@ -67,12 +65,9 @@ describe("Try it on the natural agent", () => {
     expect(naturalTestInput.safeParse({ ...input, chatId: "+91 98765 43210" }).success).toBe(false);
   });
 
-  it("takes the prompt to try, live or the draft, live when the client names none, and nothing else", () => {
-    expect(naturalTestInput.parse({ ...input, prompt: "draft" }).prompt).toBe("draft");
-    expect(naturalTestInput.parse({ ...input, prompt: "live" }).prompt).toBe("live");
-    expect(naturalTestInput.parse(input).prompt).toBe("live");
-    for (const prompt of ["production", "langfuse:whatsapp-agent/natural-system@3", "", null]) {
-      expect(naturalTestInput.safeParse({ ...input, prompt }).success).toBe(false);
+  it("refuses a model, a temperature or a prompt choice: the agency tests the live agent", () => {
+    for (const extra of [{ model: "flash" }, { temperature: "0.4" }, { prompt: "draft" }]) {
+      expect(naturalTestInput.safeParse({ ...input, ...extra }).success).toBe(false);
     }
   });
 
@@ -97,11 +92,9 @@ describe("Try it on the natural agent", () => {
     for (const one of posted) expect(naturalTestInput.safeParse({ ...input, state: one }).success).toBe(false);
   });
 
-  it("refuses a chat that ends with the agent's line, and a temperature on the live model", () => {
+  it("refuses a chat that ends with the agent's line", () => {
     const endsWithUs = { ...input, messages: input.messages.slice(0, 2) };
     expect(naturalTestInput.safeParse(endsWithUs).success).toBe(false);
-    expect(naturalTestInput.safeParse({ ...input, temperature: "0.4" }).success).toBe(false);
-    expect(naturalTestInput.safeParse({ ...input, model: "flash", temperature: "0.4" }).success).toBe(true);
   });
 
   it("describes each action by its tool, with the trip's title, the day and the money", () => {

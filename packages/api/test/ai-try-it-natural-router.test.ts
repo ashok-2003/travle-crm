@@ -1,7 +1,7 @@
 // ai.testNatural on the real router is Try it for the natural agent: one dry turn of the sales agent on a test chat. The
 // chat and the state it carries are checked before anything runs, and only ai:manage may try it.
 import { TRPCError } from "@trpc/server";
-import { saveAiSettings } from "@travel-crm/domain/ai";
+import { saveAiSettings, setAgent } from "@travel-crm/domain/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Context } from "../src/context.js";
 import { anAgency, callerOf, createHarness, type Harness } from "./forms-support.js";
@@ -18,6 +18,7 @@ describe("ai.testNatural", () => {
     options: {
       granted?: Parameters<typeof callerOf>[1]["granted"];
       ready?: boolean;
+      agent?: "lite" | "natural";
       tracing?: Context["tracing"];
       prompts?: Context["prompts"];
     } = {},
@@ -48,6 +49,7 @@ describe("ai.testNatural", () => {
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
+    await harness.db.forOrg(organizationId, (tx) => setAgent(tx, owner.member, options.agent ?? "natural"));
     const { caller } =
       options.granted === undefined ? owner : callerOf(harness, { organizationId, granted: options.granted, context });
     return { caller, asked };
@@ -66,38 +68,37 @@ describe("ai.testNatural", () => {
   };
 
   const hi = [{ from: "customer" as const, text: "hi" }];
-  const live = { model: "live", temperature: "default" } as const;
 
   it("refuses a member without ai:manage", async () => {
     const { caller, asked } = await anAiAgency({ granted: ["ai:suggest", "inbox:view", "inbox:reply"] });
-    expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null, ...live }))).toBe("MISSING_PERMISSION");
+    expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null }))).toBe("MISSING_PERMISSION");
     expect(asked).toEqual([]);
   });
 
   it("refuses a chat that ends with the agent's line", async () => {
     const { caller, asked } = await anAiAgency();
     const messages = [...hi, { from: "agent" as const, text: "Hello!" }];
-    expect(await codeOf(caller.ai.testNatural({ messages, state: null, ...live }))).toBe("BAD_REQUEST");
+    expect(await codeOf(caller.ai.testNatural({ messages, state: null }))).toBe("BAD_REQUEST");
     expect(asked).toEqual([]);
   });
 
   it("refuses unknown keys in the state", async () => {
     const { caller, asked } = await anAiAgency();
-    const first = await caller.ai.testNatural({ messages: hi, state: null, ...live });
+    const first = await caller.ai.testNatural({ messages: hi, state: null });
     const { facts, lead } = first.state;
     for (const state of [
       { facts: { ...facts, injected: true }, lead },
       { facts, lead: { ...lead, injected: true } },
       { facts, lead, injected: true },
     ]) {
-      expect(await codeOf(caller.ai.testNatural({ messages: hi, state, ...live }))).toBe("BAD_REQUEST");
+      expect(await codeOf(caller.ai.testNatural({ messages: hi, state }))).toBe("BAD_REQUEST");
     }
     expect(asked).toHaveLength(1);
   });
 
   it("asks as the new agent: sales_agent, tools offered, no temperature", async () => {
     const { caller, asked } = await anAiAgency();
-    await caller.ai.testNatural({ messages: hi, state: null, ...live });
+    await caller.ai.testNatural({ messages: hi, state: null });
     const [first] = asked;
     expect(first?.feature).toBe("sales_agent");
     expect(first?.tools?.length).toBeGreaterThan(0);
@@ -107,30 +108,18 @@ describe("ai.testNatural", () => {
     }
   });
 
-  it("passes Try it's Flash and 0.4 on to the request", async () => {
+  it("refuses a model, a temperature or a prompt choice", async () => {
     const { caller, asked } = await anAiAgency();
-    await caller.ai.testNatural({ messages: hi, state: null, model: "flash", temperature: "0.4" });
-    expect(asked.length).toBeGreaterThan(0);
-    for (const request of asked) {
-      expect(request).toMatchObject({ model: "google/gemini-3.5-flash-lite", temperature: 0.4 });
+    for (const choice of [{ model: "flash" }, { temperature: "0.4" }, { prompt: "draft" }]) {
+      expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null, ...choice }))).toBe("BAD_REQUEST");
     }
-  });
-
-  it("refuses a temperature for any model but Gemini Flash-Lite", async () => {
-    const { caller, asked } = await anAiAgency();
-    expect(
-      await codeOf(caller.ai.testNatural({ messages: hi, state: null, model: "live", temperature: "0.4" } as never)),
-    ).toBe("BAD_REQUEST");
     expect(asked).toEqual([]);
   });
 
-  it("refuses a prompt choice that is neither live nor draft", async () => {
-    const { caller, asked } = await anAiAgency();
-    for (const prompt of ["production", "langfuse:whatsapp-agent/natural-system@3", ""]) {
-      expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null, ...live, prompt } as never))).toBe(
-        "BAD_REQUEST",
-      );
-    }
+  it("refuses a turn when the agency's agent is not the natural one", async () => {
+    const { caller, asked } = await anAiAgency({ agent: "lite" });
+    expect(await caller.ai.testAgent()).toEqual({ agent: "lite" });
+    expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null }))).toBe("AGENT_CHANGED");
     expect(asked).toEqual([]);
   });
 
@@ -153,7 +142,7 @@ describe("ai.testNatural", () => {
   it("runs on Langfuse's live prompt, filled in for the agency, and on the built-in text without Langfuse", async () => {
     const fake = langfuse(true);
     const { caller, asked } = await anAiAgency({ prompts: fake.prompts });
-    const shown = await caller.ai.testNatural({ messages: hi, state: null, ...live });
+    const shown = await caller.ai.testNatural({ messages: hi, state: null });
     expect(shown.trace).toMatchObject({
       promptVersion: "langfuse:whatsapp-agent/natural-system@4",
       promptLabel: "production",
@@ -162,45 +151,17 @@ describe("ai.testNatural", () => {
     expect(fake.asked).toEqual([{ label: "production", fresh: false }]);
 
     const without = await anAiAgency();
-    const builtIn = await without.caller.ai.testNatural({ messages: hi, state: null, ...live });
+    const builtIn = await without.caller.ai.testNatural({ messages: hi, state: null });
     expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-1", promptLabel: null });
-  });
-
-  it("runs on the draft when asked, read fresh, and on the live prompt when there is no draft", async () => {
-    const fake = langfuse(true);
-    const { caller, asked } = await anAiAgency({ prompts: fake.prompts });
-    const drafted = await caller.ai.testNatural({ messages: hi, state: null, ...live, prompt: "draft" });
-    expect(drafted.trace).toMatchObject({
-      promptVersion: "langfuse:whatsapp-agent/natural-system@7",
-      promptLabel: "draft",
-    });
-    expect(systemOf(asked[0])).toMatch(/^The draft prompt for Asha Travels\./);
-    // The live prompt is read beside the draft, so a draft that isn't there costs no second wait.
-    expect(fake.asked).toEqual([
-      { label: "draft", fresh: true },
-      { label: "production", fresh: false },
-    ]);
-
-    const noDraft = langfuse(false);
-    const other = await anAiAgency({ prompts: noDraft.prompts });
-    const fellBack = await other.caller.ai.testNatural({ messages: hi, state: null, ...live, prompt: "draft" });
-    expect(fellBack.trace).toMatchObject({
-      promptVersion: "langfuse:whatsapp-agent/natural-system@4",
-      promptLabel: "production",
-    });
-    expect(noDraft.asked).toEqual([
-      { label: "draft", fresh: true },
-      { label: "production", fresh: false },
-    ]);
   });
 
   it("hands the state back for the next turn", async () => {
     const { caller } = await anAiAgency();
-    const first = await caller.ai.testNatural({ messages: hi, state: null, ...live });
+    const first = await caller.ai.testNatural({ messages: hi, state: null });
     expect(first.state.facts.agent).toBe("natural");
     expect(first.messages).toEqual(["Hi! Which trip are you looking at?"]);
     const chat = [...hi, ...first.history, { from: "customer" as const, text: "ok" }];
-    const second = await caller.ai.testNatural({ messages: chat, state: first.state, ...live });
+    const second = await caller.ai.testNatural({ messages: chat, state: first.state });
     expect(second.state.facts.agent).toBe("natural");
   });
 
@@ -220,8 +181,8 @@ describe("ai.testNatural", () => {
     };
     const { caller } = await anAiAgency({ tracing });
     const chatId = "0192f3a0-0000-7000-8000-0000000000ff";
-    const shown = await caller.ai.testNatural({ messages: hi, state: null, ...live, chatId });
-    await caller.ai.testNatural({ messages: hi, state: null, ...live });
+    const shown = await caller.ai.testNatural({ messages: hi, state: null, chatId });
+    await caller.ai.testNatural({ messages: hi, state: null });
     expect(turns).toEqual([
       {
         name: "whatsapp-agent.natural.try-it",
@@ -240,6 +201,6 @@ describe("ai.testNatural", () => {
 
   it("answers AI_NOT_READY when the server has no model for the agent", async () => {
     const { caller } = await anAiAgency({ ready: false });
-    expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null, ...live }))).toBe("AI_NOT_READY");
+    expect(await codeOf(caller.ai.testNatural({ messages: hi, state: null }))).toBe("AI_NOT_READY");
   });
 });

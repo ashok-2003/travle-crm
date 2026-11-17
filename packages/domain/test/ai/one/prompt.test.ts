@@ -4,13 +4,7 @@ import { readFileSync } from "node:fs";
 import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
 import { describe, expect, it } from "vitest";
 import { renderNaturalPrompt } from "../../../src/ai/natural/prompt.js";
-import {
-  BUILT_IN_ONE_PROMPT,
-  ONE_PROMPT_NAME,
-  onePromptLabels,
-  onePromptOf,
-  oneTryItPrompt,
-} from "../../../src/ai/one/prompt.js";
+import { BUILT_IN_ONE_PROMPT, ONE_PROMPT_NAME, onePromptLabels, onePromptOf } from "../../../src/ai/one/prompt.js";
 import { ONE_PROMPT_TEXT } from "../../../src/ai/one/prompt-text.js";
 
 const voice = { agentName: "Riya", agencyName: "Sharma Holidays", tone: "friendly" } as const;
@@ -52,18 +46,5 @@ describe("the one agent's prompt", () => {
     // Only `latest` exists (the owner's v2 has no production label yet): live turns still use the built-in text.
     expect(await onePromptOf(createMemoryPrompts([kept(2, "latest", "Draft")]))).toEqual(BUILT_IN_ONE_PROMPT);
     expect(await onePromptOf(undefined)).toEqual(BUILT_IN_ONE_PROMPT);
-  });
-
-  it("tries the latest version in Try it, read past the cache, and nothing else", async () => {
-    const both = createMemoryPrompts([kept(3, "production", "Live words"), kept(4, "latest", "Newest words")]);
-    expect(await oneTryItPrompt(both)).toMatchObject({ text: "Newest words", source: { label: "latest", version: 4 } });
-    expect(both.asked).toEqual([{ name: ONE_PROMPT_NAME, label: "latest", fresh: true }]);
-  });
-
-  it("falls back to the built-in text, never the production prompt, when latest is missing or Langfuse is off", async () => {
-    const liveOnly = createMemoryPrompts([kept(3, "production", "Live words")]);
-    expect(await oneTryItPrompt(liveOnly)).toEqual(BUILT_IN_ONE_PROMPT);
-    expect(liveOnly.asked).toEqual([{ name: ONE_PROMPT_NAME, label: "latest", fresh: true }]);
-    expect(await oneTryItPrompt(undefined)).toEqual(BUILT_IN_ONE_PROMPT);
   });
 });

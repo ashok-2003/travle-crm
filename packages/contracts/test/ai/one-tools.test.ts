@@ -13,8 +13,6 @@ const book = { trip_id: "T1", date: "2026-12-19", adults: 2 };
 const input = {
   messages: [{ from: "customer", text: "Kedarkantha 19 Dec, 2 log" }],
   state: null,
-  model: "live",
-  temperature: "default",
 };
 const trace = {
   agent: "one",
@@ -133,12 +131,12 @@ describe("the one agent's trace, dry actions and test input", () => {
     expect(naturalDryAction.parse({ tool: "hand_over", ...handOver }).tool).toBe("hand_over");
   });
 
-  it("refuses a prompt choice and any unknown key in one's test input, and a temperature without Flash", () => {
+  it("refuses a model, a temperature, a prompt choice and any unknown key in one's test input", () => {
     expect(oneTestInput.safeParse(input).success).toBe(true);
     expect(oneTestInput.safeParse({ ...input, prompt: "draft" }).success).toBe(false);
     expect(oneTestInput.safeParse({ ...input, extra: 1 }).success).toBe(false);
     expect(oneTestInput.safeParse({ ...input, temperature: "0.4" }).success).toBe(false);
-    expect(oneTestInput.safeParse({ ...input, model: "flash", temperature: "0.4" }).success).toBe(true);
+    expect(oneTestInput.safeParse({ ...input, model: "flash" }).success).toBe(false);
   });
 
   it("takes a tap only as book or change", () => {

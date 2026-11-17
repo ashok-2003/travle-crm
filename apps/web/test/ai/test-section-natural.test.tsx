@@ -1,5 +1,5 @@
-// Try it on the new agent: the Agent choice sends turns to ai.testNatural with the state the last one handed back, the
-// chat's lines (the customer's and each answer's history) and the test chat's id; changing the agent empties the chat.
+// Try it on the new agent (the agency's own): it sends turns to ai.testNatural with the state the last one handed back,
+// the chat's lines (the customer's and each answer's history) and the test chat's id, and no model, temperature or prompt.
 // A turn shows its messages, the payment lines code would send after them, a status line, and a "Why" with each call's
 // tools, the guards' verdicts and what it would do, in the screen's own forms.
 import { money } from "@travel-crm/domain/kernel";
@@ -9,21 +9,17 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { TestSection } from "@/ai/test-section";
 import { messages } from "@/i18n/messages";
 import { formatCalendarDay, formatDayTime, formatRupees } from "@/lib/format";
-import { fakeApi, newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
+import { fakeApi, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
+import { clientRunning } from "./try-it-client";
 
 const words = messages.ai.test;
-const { choices, natural } = words;
-const client = () => newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "ai"] as never });
+const { natural } = words;
+
+const client = () => clientRunning("natural");
 beforeEach(() => {
   screenIs("wide");
-  // Radix's Select reaches for pointer capture and scrolling, which jsdom lacks.
-  Object.assign(Element.prototype, {
-    hasPointerCapture: () => false,
-    releasePointerCapture: () => undefined,
-    scrollIntoView: () => undefined,
-  });
 });
 
 /** The state a natural turn hands back: the chat's facts and the dry lead, told apart by when the turn ran. */
@@ -125,33 +121,24 @@ async function send(text: string) {
   await userEvent.click(screen.getByRole("button", { name: words.send }));
 }
 
-async function choose(label: string, option: string) {
-  await userEvent.click(screen.getByRole("combobox", { name: label }));
-  await userEvent.click(await screen.findByRole("option", { name: option }));
-}
-
 /** Sends one line to the new agent with the api answering `answer`. */
 async function chat(answer: object) {
   stubApi({ "ai.testNatural": { data: answer } });
   renderWithApi(<TestSection />, client());
-  await choose(choices.agent, choices.agents.natural);
   await send("Kedarkantha on 12 Dec for 2?");
 }
 
-const live = { model: "live", temperature: "default", prompt: "live" };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 describe("Try it on the new agent", () => {
   it("sends the new agent's turns to ai.testNatural with the state it handed back", async () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
-    await choose(choices.agent, choices.agents.natural);
     await send("Kedarkantha in Dec?");
     expect(api.last().path).toBe("ai.testNatural");
     expect(api.last().input).toEqual({
       messages: [{ from: "customer", text: "Kedarkantha in Dec?" }],
       state: null,
-      ...live,
       chatId: expect.stringMatching(uuid) as unknown,
     });
     const { chatId } = api.last().input as { chatId: string };
@@ -161,13 +148,12 @@ describe("Try it on the new agent", () => {
     await send("12 Dec for 2");
     expect(api.last().path).toBe("ai.testNatural");
     // The same test chat, so the same id: its turns are one session of traces.
-    expect(api.last().input).toMatchObject({ state: first.state, ...live, chatId });
+    expect(api.last().input).toMatchObject({ state: first.state, chatId });
   });
 
   it("starts a new test chat, with a new id, on Start again", async () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
-    await choose(choices.agent, choices.agents.natural);
     await send("Kedarkantha in Dec?");
     const { chatId } = api.last().input as { chatId: string };
     api.last().answer(naturalTurn(["Yes! It departs every Saturday in December."]));
@@ -178,101 +164,17 @@ describe("Try it on the new agent", () => {
     expect((api.last().input as { chatId: string }).chatId).not.toBe(chatId);
   });
 
-  it("empties the chat when the agent changes, keeping the model and temperature", async () => {
+  it("names no model, temperature or prompt, and shows which prompt version ran in Why", async () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
-    await choose(choices.model, choices.models.flash);
-    await choose(choices.temperature, choices.temperatures.point4);
-    await send("hi");
-    expect(api.last().path).toBe("ai.test");
-    api.last().answer({
-      answer: "Hello! Where would you like to go?",
-      handoff: false,
-      reason: "",
-      dryRun: { actions: [], blocked: null },
-      state: { facts: { agent: "lite", packageId: null }, summary: "Said hello." },
-      trace: {
-        models: { understand: null, write: null },
-        intents: [],
-        move: null,
-        stage: null,
-        why: null,
-        lookups: [],
-        checks: [],
-        writes: [],
-        handOver: null,
-      },
-    });
-    await screen.findByText("Hello! Where would you like to go?");
-    await choose(choices.agent, choices.agents.natural);
-    expect(screen.queryByText("Hello! Where would you like to go?")).toBeNull();
-    expect(screen.queryByText("hi")).toBeNull();
-    await send("hello again");
-    expect(api.last().path).toBe("ai.testNatural");
-    expect(api.last().input).toEqual({
-      messages: [{ from: "customer", text: "hello again" }],
-      state: null,
-      model: "flash",
-      temperature: "0.4",
-      prompt: "live",
-      chatId: expect.stringMatching(uuid) as unknown,
-    });
-    api.last().answer(naturalTurn(["Hello! Which trip are you looking at?"]));
-    await screen.findByText("Hello! Which trip are you looking at?");
-    await choose(choices.agent, choices.agents.current);
-    expect(screen.queryByText("Hello! Which trip are you looking at?")).toBeNull();
-    await send("back");
-    expect(api.last().path).toBe("ai.test");
-    expect(api.last().input).toEqual({
-      messages: [{ from: "customer", text: "back" }],
-      state: null,
-      model: "flash",
-      temperature: "0.4",
-    });
-  });
-
-  it("offers the Prompt choice for the new agent only, live first, and sends the draft when chosen", async () => {
-    const api = fakeApi();
-    renderWithApi(<TestSection />, client());
-    expect(screen.queryByRole("combobox", { name: choices.prompt })).toBeNull();
-    await choose(choices.agent, choices.agents.natural);
-    expect(screen.getByRole("combobox", { name: choices.prompt })).toHaveTextContent(choices.prompts.live);
-    await choose(choices.prompt, choices.prompts.draft);
     await send("Kedarkantha in Dec?");
-    expect(api.last().path).toBe("ai.testNatural");
-    expect(api.last().input).toMatchObject({ prompt: "draft" });
-    api.last().answer(naturalTurn(["Yes! It departs every Saturday in December."]));
-    await screen.findByText("Yes! It departs every Saturday in December.");
-
-    // The current agent has no prompt to choose, and its turns name none.
-    await choose(choices.agent, choices.agents.current);
-    expect(screen.queryByRole("combobox", { name: choices.prompt })).toBeNull();
-    await send("hi");
-    expect(api.last().path).toBe("ai.test");
+    expect(api.last().input).not.toHaveProperty("model");
+    expect(api.last().input).not.toHaveProperty("temperature");
     expect(api.last().input).not.toHaveProperty("prompt");
-  });
-
-  it("says in Why which prompt each turn ran, and when the draft it chose wasn't there", async () => {
-    const api = fakeApi();
-    renderWithApi(<TestSection />, client());
-    await choose(choices.agent, choices.agents.natural);
-    await choose(choices.prompt, choices.prompts.draft);
-    await send("Kedarkantha in Dec?");
-    const live = "langfuse:whatsapp-agent/natural-system@4";
-    api.last().answer(naturalTurn([reply], { trace: { ...trace, promptVersion: live, promptLabel: "production" } }));
+    const version = "langfuse:whatsapp-agent/natural-system@4";
+    api.last().answer(naturalTurn([reply], { trace: { ...trace, promptVersion: version, promptLabel: "production" } }));
     await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
-    expect(screen.getByText(live)).toBeVisible();
-    expect(screen.getByText(natural.why.noDraft)).toBeVisible();
-
-    await send("12 Dec for 2");
-    const draft = "langfuse:whatsapp-agent/natural-system@7";
-    api.last().answer(naturalTurn(["Done."], { trace: { ...trace, promptVersion: draft, promptLabel: "draft" } }));
-    await screen.findByText("Done.");
-    const [, second] = screen.getAllByRole("button", { name: words.why.open });
-    if (second === undefined) throw new Error("no second Why");
-    await userEvent.click(second);
-    expect(screen.getByText(draft)).toBeVisible();
-    expect(screen.getAllByText(natural.why.noDraft)).toHaveLength(1);
+    expect(screen.getByText(version)).toBeVisible();
   });
 
   it("shows each message as it was split, its line breaks and blank lines kept", async () => {
@@ -341,7 +243,6 @@ describe("Try it on the new agent", () => {
     expect(screen.getByText('quote({"trip_id":"T1","date":"2026-12-12","adults":2})')).toBeVisible();
     expect(screen.getByText(/refused: no departure on Fri 11 Dec/)).toBeVisible();
     expect(screen.getByText("built-in-1")).toBeVisible();
-    expect(screen.queryByText(natural.why.noDraft)).toBeNull();
     expect(screen.getByText(natural.outcomes.replied)).toBeVisible();
     expect(screen.getByText(natural.why.seconds.replace("{seconds}", "4.2"))).toBeVisible();
     expect(screen.getByText("13,300 in, 12,300 cached, 200 out, 300 reasoning")).toBeVisible();
@@ -381,7 +282,6 @@ describe("Try it on the new agent", () => {
   it("posts each answer's history lines as the agent's lines in the next turn", async () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
-    await choose(choices.agent, choices.agents.natural);
     await send("Kedarkantha details?");
     const history = [
       { from: "agent", text: "Here is the Kedarkantha brochure." },
@@ -397,7 +297,6 @@ describe("Try it on the new agent", () => {
         { from: "customer", text: "price for 2?" },
       ],
       state: stateAt(1),
-      ...live,
       chatId: expect.stringMatching(uuid) as unknown,
     });
   });

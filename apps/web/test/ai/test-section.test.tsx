@@ -6,20 +6,15 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { TestSection } from "@/ai/test-section";
 import { messages } from "@/i18n/messages";
-import { fakeApi, newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
+import { fakeApi, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
+import { clientRunning } from "./try-it-client";
 
 const words = messages.ai.test;
-const client = () => newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "ai"] as never });
+const client = () => clientRunning("lite");
 beforeEach(() => {
   screenIs("wide");
-  // Radix's Select reaches for pointer capture and scrolling, which jsdom lacks.
-  Object.assign(Element.prototype, {
-    hasPointerCapture: () => false,
-    releasePointerCapture: () => undefined,
-    scrollIntoView: () => undefined,
-  });
 });
 
 const trace = {
@@ -48,9 +43,6 @@ const turn = (answer: string, more: object = {}) => ({
   ...more,
 });
 
-/** What every turn sends until the owner chooses otherwise: the live model at its own temperature. */
-const live = { model: "live", temperature: "default" };
-
 async function send(text: string) {
   await userEvent.type(screen.getByLabelText(words.message), text);
   await userEvent.click(screen.getByRole("button", { name: words.send }));
@@ -68,7 +60,7 @@ describe("Try it", () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
     await send("kedarnath?");
-    expect(api.last().input).toEqual({ messages: [{ from: "customer", text: "kedarnath?" }], state: null, ...live });
+    expect(api.last().input).toEqual({ messages: [{ from: "customer", text: "kedarnath?" }], state: null });
     // While the turn runs: Send is off and the agent is shown answering.
     expect(screen.getByRole("button", { name: words.send })).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent(words.thinking);
@@ -85,7 +77,6 @@ describe("Try it", () => {
         { from: "customer", text: "how much?" },
       ],
       state: first.state,
-      ...live,
     });
     api.last().answer(turn("From ₹5,999 a person."));
     expect(await screen.findByText("From ₹5,999 a person.")).toBeVisible();
@@ -123,39 +114,7 @@ describe("Try it", () => {
     expect(screen.queryByText("Hello! Where would you like to go?")).toBeNull();
     expect(screen.queryByText("hi")).toBeNull();
     await send("hello again");
-    expect(api.last().input).toEqual({ messages: [{ from: "customer", text: "hello again" }], state: null, ...live });
-  });
-
-  it("takes 0.4 only with Gemini Flash, sends both choices, and keeps them when the chat starts again", async () => {
-    const choices = words.choices;
-    const api = fakeApi();
-    renderWithApi(<TestSection />, client());
-    expect(screen.getByText(choices.onlyFlash)).toBeVisible();
-    await userEvent.click(screen.getByRole("combobox", { name: choices.temperature }));
-    expect(await screen.findByRole("option", { name: choices.temperatures.point4 })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-    await userEvent.keyboard("{Escape}");
-    await userEvent.click(screen.getByRole("combobox", { name: choices.model }));
-    await userEvent.click(await screen.findByRole("option", { name: choices.models.flash }));
-    expect(screen.queryByText(choices.onlyFlash)).toBeNull();
-    await userEvent.click(screen.getByRole("combobox", { name: choices.temperature }));
-    await userEvent.click(await screen.findByRole("option", { name: choices.temperatures.point4 }));
-    await send("hi");
-    const flash = { model: "flash", temperature: "0.4" };
-    expect(api.last().input).toEqual({ messages: [{ from: "customer", text: "hi" }], state: null, ...flash });
-    api.last().answer(turn("Hello!"));
-    await screen.findByText("Hello!");
-    await userEvent.click(screen.getByRole("button", { name: words.reset }));
-    await send("again");
-    expect(api.last().input).toEqual({ messages: [{ from: "customer", text: "again" }], state: null, ...flash });
-    api.last().answer(turn("Hello again!"));
-    await screen.findByText("Hello again!");
-    // Back to the live model, the temperature goes back to its own.
-    await userEvent.click(screen.getByRole("combobox", { name: choices.model }));
-    await userEvent.click(await screen.findByRole("option", { name: choices.models.live }));
-    expect(screen.getByRole("combobox", { name: choices.temperature })).toHaveTextContent(choices.temperatures.default);
+    expect(api.last().input).toEqual({ messages: [{ from: "customer", text: "hello again" }], state: null });
   });
 
   it("shows a hand-over as a line in the thread, under the words the customer would get", async () => {
@@ -224,7 +183,6 @@ describe("Try it", () => {
         { from: "customer", text: "hello?" },
       ],
       state: stopped.state,
-      ...live,
     });
   });
 
