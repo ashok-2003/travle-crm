@@ -62,9 +62,12 @@ const updateLeadFields = z.strictObject({
   room: roomType.optional(),
   name: z.string().max(80).optional(),
 });
-export const updateLeadArguments = updateLeadFields.refine((args) => Object.keys(args).length > 0, {
-  message: "give at least one detail the customer said",
-});
+/** The parse-only checks JSON Schema can't say, as functions so a table can lay them over fields with other labels. */
+export type Check = <Schema extends Checked>(schema: Schema) => Schema;
+export type Checked = z.ZodType<Record<string, unknown>>;
+const needsOneDetail: Check = (schema) =>
+  schema.refine((args) => Object.keys(args).length > 0, { message: "give at least one detail the customer said" });
+export const updateLeadArguments = needsOneDetail(updateLeadFields);
 export const sendBrochureArguments = z.strictObject({ trip_id: z.string() });
 export const offerBookingArguments = quoteArguments.extend({
   pay_in_full: z.boolean().describe("True when they pay the whole amount now, not the advance").optional(),
@@ -79,15 +82,17 @@ const planFollowUpFields = z.strictObject({
   date: date.describe("yyyy-mm-dd, only with on_date").optional(),
   about: z.string().min(1).max(200),
 });
-export const planFollowUpArguments = planFollowUpFields
-  .refine((args) => args.when !== "on_date" || args.date !== undefined, {
-    message: "on_date needs a date",
-    path: ["date"],
-  })
-  .refine((args) => args.when === "on_date" || args.date === undefined, {
-    message: "give a date only with on_date",
-    path: ["date"],
-  });
+const datesGoWithOnDate: Check = (schema) =>
+  schema
+    .refine((args) => args.when !== "on_date" || args.date !== undefined, {
+      message: "on_date needs a date",
+      path: ["date"],
+    })
+    .refine((args) => args.when === "on_date" || args.date === undefined, {
+      message: "give a date only with on_date",
+      path: ["date"],
+    });
+export const planFollowUpArguments = datesGoWithOnDate(planFollowUpFields);
 export const createTaskArguments = z.strictObject({
   kind: z.enum(naturalTaskKinds),
   text: z.string().min(1).max(500),
@@ -109,21 +114,22 @@ export const suggestCloseArguments = z.strictObject({
 export const stayQuietArguments = z.strictObject({ reason: z.string().min(1).max(200) });
 
 type ToolFields = z.ZodObject<z.core.$ZodShape, z.core.$strict>;
-interface Tool {
+export interface ToolEntry {
   description: string;
   /** The arguments as an object, for the definition. */
   fields: ToolFields;
-  /** The arguments as parsed: the fields, and any check JSON Schema can't say. */
-  parsed: z.ZodType<Record<string, unknown>>;
+  /** The check JSON Schema can't say, laid over the fields as parsed. */
+  check: Check | undefined;
 }
-const tool = (description: string, fields: ToolFields, parsed: Tool["parsed"] = fields): Tool => ({
+export type ToolTable = Record<NaturalToolName, ToolEntry>;
+export const tool = (description: string, fields: ToolFields, check?: Check): ToolEntry => ({
   description,
   fields,
-  parsed,
+  check,
 });
 
 /** What each tool does, as spec 3.3's "What it does" says it. */
-const tools: Record<NaturalToolName, Tool> = {
+export const naturalTools: ToolTable = {
   find_trips: tool(
     'Finds up to 5 trips for a place, month or kind of trip. A near spelling comes back as "closest, not a match".',
     findTripsArguments,
@@ -136,7 +142,7 @@ const tools: Record<NaturalToolName, Tool> = {
   update_lead: tool(
     "Saves on the lead what the customer said about their trip, marked as filled by the AI.",
     updateLeadFields,
-    updateLeadArguments,
+    needsOneDetail,
   ),
   send_brochure: tool(
     "Sends the trip's brochure and photos, each captioned with the trip's title.",
@@ -154,7 +160,7 @@ const tools: Record<NaturalToolName, Tool> = {
   plan_follow_up: tool(
     "Sets the next follow-up: in a few hours, this evening, tomorrow morning or evening, on a date, or none.",
     planFollowUpFields,
-    planFollowUpArguments,
+    datesGoWithOnDate,
   ),
   create_task: tool("Gives the team a task: a question the data can't answer, or a call back.", createTaskArguments),
   add_note: tool("Adds a note on the lead.", addNoteArguments),
@@ -178,13 +184,13 @@ export function naturalToolDefinitions(input: { tripLabels: readonly string[] })
     .filter((name) => input.tripLabels.length > 0 || !tripTools.includes(name))
     .map((name) => ({
       name,
-      description: tools[name].description,
-      parameters: parametersOf(withLabels(tools[name].fields, input.tripLabels)),
+      description: naturalTools[name].description,
+      parameters: parametersOf(withLabels(naturalTools[name].fields, input.tripLabels)),
     }));
 }
 
 /** The fields with `trip_id` as an enum of the labels, or without it when the turn has none. */
-function withLabels(fields: ToolFields, labels: readonly string[]): z.core.$ZodType {
+export function withLabels(fields: ToolFields, labels: readonly string[]): ToolFields {
   const tripId = fields.shape.trip_id;
   if (tripId === undefined) return fields;
   if (labels.length === 0) return fields.omit({ trip_id: true });
@@ -196,7 +202,7 @@ function withLabels(fields: ToolFields, labels: readonly string[]): z.core.$ZodT
  * The JSON Schema the model reads, as the parser takes it (a defaulted argument is optional), with no `examples` and
  * no `$schema` line, which tells the model nothing and costs tokens on every tool of every call.
  */
-function parametersOf(fields: z.core.$ZodType): Record<string, unknown> {
+export function parametersOf(fields: z.core.$ZodType): Record<string, unknown> {
   const schema = withoutExamples(z.toJSONSchema(fields, { io: "input" }));
   return Object.fromEntries(Object.entries(schema).filter(([key]) => key !== "$schema"));
 }
@@ -210,19 +216,35 @@ export function parseToolArguments(
   raw: string | Readonly<Record<string, unknown>>,
   tripLabels: readonly string[],
 ): { ok: true; name: NaturalToolName; args: Record<string, unknown> } | { ok: false; problem: string } {
-  const toolName = naturalToolNames.find((known) => known === name);
+  return parseOnTable(naturalTools, name, raw, tripLabels);
+}
+
+/** The parse, on whichever agent's table, so each agent's tools are checked by the same sentences. */
+export function parseOnTable<Name extends string>(
+  table: Record<Name, ToolEntry>,
+  name: string,
+  raw: string | Readonly<Record<string, unknown>>,
+  tripLabels: readonly string[],
+): { ok: true; name: Name; args: Record<string, unknown> } | { ok: false; problem: string } {
+  const toolName = (Object.keys(table) as Name[]).find((known) => known === name);
   if (toolName === undefined) return { ok: false, problem: `there is no tool called ${name}` };
   const value = typeof raw === "string" ? jsonOf(raw) : raw;
   if (value === undefined) return { ok: false, problem: "the arguments weren't JSON" };
   if (!isObject(value)) return { ok: false, problem: "the arguments weren't a JSON object" };
+  const entry = table[toolName];
   const tripId = value.trip_id;
-  if ("trip_id" in tools[toolName].fields.shape && typeof tripId === "string" && !tripLabels.includes(tripId)) {
+  if ("trip_id" in entry.fields.shape && typeof tripId === "string" && !tripLabels.includes(tripId)) {
     const trips = tripLabels.length > 0 ? `the trips are ${tripLabels.join(", ")}` : "the agency has no trips listed";
     return { ok: false, problem: `${tripId} isn't one of the trips; ${trips}` };
   }
-  const parsed = tools[toolName].parsed.safeParse(value);
+  const parsed = checked(entry).safeParse(value);
   if (!parsed.success) return { ok: false, problem: problemOf(parsed.error) };
   return { ok: true, name: toolName, args: parsed.data };
+}
+
+/** The tool's fields with its parse-only check on top. */
+export function checked(entry: ToolEntry, fields: ToolFields = entry.fields): Checked {
+  return entry.check === undefined ? fields : entry.check(fields);
 }
 
 /** The parsed text; `{}` for none, since a call without arguments may send no text; undefined when it isn't JSON. */

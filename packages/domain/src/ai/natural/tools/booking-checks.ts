@@ -68,7 +68,7 @@ export async function offerChecks(context: BookingContext, terms: BookingTerms):
  * The offer, while it is live: made in the last turn that ran, and nobody but the customer has written since our
  * message that made it (a team line or an automatic one may have changed what they are answering).
  */
-function liveOfferOf({ facts, lines }: BookingContext): LiveOffer | null {
+export function liveOfferOf({ facts, lines }: Pick<BookingContext, "facts" | "lines">): LiveOffer | null {
   const { offer, lastTurnAt } = facts;
   if (offer === null || lastTurnAt === null || Date.parse(offer.at) < Date.parse(lastTurnAt)) return null;
   return lines.findLast((line) => line.from !== "customer")?.from === "you" ? offer : null;
@@ -93,12 +93,12 @@ function nameKnown({ lines, lead, profileName }: BookingContext, fullName: strin
 /**
  * `book`'s checks, in order: the offer's again; then ruling 1 (the quote's own terms equal the live offer's, or, with no
  * live offer, a total told; the customer's words are in a new line; the name is known); then the total is still the
- * one they were shown.
+ * one they were shown. The one agent passes `said` null: it copies no words and asks for no name, so those two are skipped.
  */
 export async function bookChecks(
   context: BookingContext,
   terms: BookingTerms,
-  said: { fullName: string; customerWords: string },
+  said: { fullName: string; customerWords: string } | null,
 ): Promise<{ figures: QuoteFigures; via: "offer" | "told" } | Refused> {
   const figures = await offerChecks(context, terms);
   if ("refused" in figures) return figures;
@@ -117,13 +117,13 @@ export async function bookChecks(
         "after their yes",
     );
   }
-  if (!context.newLines.some((line) => containsWords(line.text, said.customerWords))) {
+  if (said !== null && !context.newLines.some((line) => containsWords(line.text, said.customerWords))) {
     return refused(
       "customer_words must be their own words, copied from a message they sent after the offer; if they haven't " +
         "said yes, ask",
     );
   }
-  if (!nameKnown(context, said.fullName)) {
+  if (said !== null && !nameKnown(context, said.fullName)) {
     return refused(
       `"${fenced(said.fullName)}" isn't in the chat, on the lead or on their WhatsApp profile; ask for their full ` +
         "name as on their ID",

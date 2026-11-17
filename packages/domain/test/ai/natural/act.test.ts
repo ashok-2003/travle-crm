@@ -14,6 +14,7 @@ import {
   type NaturalActInput,
   type NaturalActResult,
 } from "../../../src/ai/natural/act.js";
+import { offerButtons } from "../../../src/ai/one/card.js";
 import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import type { QuoteFigures, StagedAction, StagedSet } from "../../../src/ai/natural/types.js";
 import { tripFieldValues } from "../../../src/crm/index.js";
@@ -210,6 +211,55 @@ describe("the natural agent's live act", () => {
     expect(tokensOf(await outbound(one))).toEqual([`ai:${one.message.id}`]);
   });
 
+  it("sends the card after the words, once per turn", async () => {
+    const on = await liveAgency(test);
+    const token = on.message.id;
+    const figures = await on.quote(threeOn19Dec(on));
+    const offerId = "0194f5a0-0000-7000-8000-000000000002";
+    const made = offerOf(figures);
+    if (made.tool !== "offer_booking") throw new Error("not an offer");
+    const offer: StagedAction = { ...made, card: true, offer: { ...made.offer, id: offerId } };
+    const changes = { messages: ["Ye raha aapka offer."], staged: stagedSet(offer), quoted: [figures] };
+    const result = done(await act(on, changes));
+    const sent = await outbound(on);
+    expect(tokensOf(sent)).toEqual([`ai:${token}`, `ai:${token}:card`]);
+    expect(textOf(sent[1])).toContain("Total ₹28,497");
+    expect(result.facts.offer?.id).toBe(offerId);
+    const card = await on.inOrg((tx) =>
+      tx.whatsappMessage.findFirstOrThrow({ where: { clientToken: `ai:${token}:card` }, select: { buttons: true } }),
+    );
+    expect(card.buttons).toEqual(offerButtons(offerId));
+    expect(await act(on, changes)).toBe("already");
+    expect(tokensOf(await outbound(on))).toEqual(tokensOf(sent));
+  });
+
+  it("sends no card beside a booking or a hand-over staged in the same turn", async () => {
+    const on = await liveAgency(test);
+    const figures = await on.quote(threeOn19Dec(on));
+    const made = { ...offerOf(figures), card: true } as StagedAction;
+    const idOf = (action: StagedAction): StagedAction =>
+      action.tool === "offer_booking"
+        ? { ...action, offer: { ...action.offer, id: "0194f5a0-0000-7000-8000-000000000003" } }
+        : action;
+    done(await act(on, { messages: ["Done."], staged: stagedSet(idOf(made), bookOf(figures)), quoted: [figures] }));
+    expect(tokensOf(await outbound(on)).filter((token) => token?.endsWith(":card"))).toEqual([]);
+
+    const other = await liveAgency(test);
+    const handed = await act(other, {
+      messages: ["Ek minute."],
+      staged: stagedSet(idOf(made)),
+      handOver: { reason: "discount", summary: "Wants a discount" },
+    });
+    done(handed);
+    expect(tokensOf(await outbound(other)).filter((token) => token?.endsWith(":card"))).toEqual([]);
+  });
+
+  it("sends no card beside the fallback line", async () => {
+    const on = await liveAgency(test);
+    done(await act(on, { messages: [fallbackLine(FIRST_LINE)] }));
+    expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
+  });
+
   it("holds the seats, then sends the agency's payment lines and QR after the words", async () => {
     const on = await liveAgency(test);
     const token = on.message.id;
@@ -292,6 +342,38 @@ describe("the natural agent's live act", () => {
     const next = await nextTurn(on, "Send the brochure again?", 5);
     done(await act(on, { ...next, messages: ["It's just above."], staged: stagedSet(brochure), facts: result.facts }));
     expect(tokensOf(await outbound(on))).toEqual([`ai:${token}`, `ai:${token}:f1`, `ai:${next.token}`]);
+  });
+
+  it("sends the brochure again with its name as the caption, within three files", async () => {
+    const on = await liveAgency(test);
+    const token = on.message.id;
+    const asked: StagedAction = { tool: "send_brochure", packageId: on.kedarkantha, fileIds: [on.brochureId] };
+    const first = done(await act(on, { messages: ["Here it is."], staged: stagedSet(asked) }));
+    const next = await nextTurn(on, "Send the brochure again?", 5);
+    // The one agent's stage: more files than three are cut by the act, and the brochure goes though this chat had it.
+    const again: StagedAction = {
+      ...asked,
+      fileIds: [on.brochureId, randomUUID(), randomUUID(), randomUUID()],
+      caption: "Winter plan",
+      resend: [on.brochureId],
+    };
+    done(await act(on, { ...next, messages: ["Here again."], staged: stagedSet(again), facts: first.facts }));
+    const sent = await outbound(on);
+    expect(tokensOf(sent)).toEqual([`ai:${token}`, `ai:${token}:f1`, `ai:${next.token}`, `ai:${next.token}:f1`]);
+    expect(sent[3]).toMatchObject({ kind: "document", caption: "Winter plan" });
+  });
+
+  it("skips a brochure removed since the turn read it, and still answers", async () => {
+    const on = await liveAgency(test);
+    const gone: StagedAction = {
+      tool: "send_brochure",
+      packageId: on.kedarkantha,
+      fileIds: [randomUUID()],
+      caption: "Winter plan",
+      resend: [],
+    };
+    done(await act(on, { messages: ["Here it is."], staged: stagedSet(gone) }));
+    expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
   });
 
   it("saves update_lead's fields AI-marked, and a person's value stays with the other as a note", async () => {

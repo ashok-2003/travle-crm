@@ -46,7 +46,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Ports and adapters (ADR 0008).** Domain code never imports a vendor SDK. It takes a port from
   `@travel-crm/integrations/<adapter>` (`ObjectStorage`, `JobQueue`, …) as a parameter; the api and worker pass the real
   adapter, tests pass the in-memory one. Only `packages/integrations` imports pg-boss, the AWS SDK, nodemailer,
-  web-push, pino, React-PDF, the spreadsheet libraries and Langfuse's and OpenTelemetry's packages, and it imports
+  web-push, pino, React-PDF, the spreadsheet libraries, Langfuse's and OpenTelemetry's packages and LangChain's and
+  LangGraph's (the WhatsApp agent's loop, `tool-agent`), and it imports
   nothing of ours but `@travel-crm/brand`.
 - **The product's name, colours and contacts** come from `@travel-crm/brand`, never typed elsewhere.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
@@ -184,6 +185,15 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   visitor's address is read by `PUBLIC_FORM_PROXY_HOPS`, never trusted from the left of the header, and no address,
   phone, email or message is ever logged. Turnstile sits behind the `BotCheck` port and fails open only when Cloudflare
   can't answer. Offers consent is crm's `person_consent` ledger, behind `features.marketingConsent`.
+- **The one WhatsApp agent** (spec `2026-11-17-one-whatsapp-agent-design.md`, `packages/domain/src/ai/one`):
+  - an agency's `ai_autopilot.agent` is `lite`, `natural` (the default) or `one`, chosen in the console;
+  - `one` runs LangGraph through the `tool-agent` port, on Gemini through Vertex AI (`AI_VERTEX_SERVICE_ACCOUNT`);
+  - its prompt is Langfuse `whatsapp-agent/real-agent`, and Try it is `ai.testOne`;
+  - it sends a brochure by the owner's name and description (`package_brochure`), hears voice notes and sees photos
+    (saved on the message), and offers bookings as a card with Book and Change buttons (a tap's id is
+    `whatsapp_message.button_reply_id`);
+  - it reads a chat summary (`ai_chat.chat_summary`) and only the messages after its point;
+  - the reply's words have no code checks: the prompt carries those rules, and the tools keep the data checks.
 - **Assignment** (release 4): a lead that arrives by itself (an import row or Sheets row naming no owner, the website
   form) is owned by `chooseOwner` (`packages/domain/src/crm/assignment`): a returning customer's previous owner, the first
   matching rule, then the agency's mode (the Owner, turns, fewest open leads), else Unassigned. Only the turns skip a
@@ -249,7 +259,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
-- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`, `bot-check`, `tracing`, `prompts`),
+- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`, `bot-check`, `tracing`, `prompts`, `tool-agent`),
   each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need

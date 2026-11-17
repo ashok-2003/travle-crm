@@ -1,5 +1,5 @@
 // The shapes the natural agent's parts share: the chat as it reads to the model, the lead, a trip, a quote, staged actions.
-import type { LiveOffer, BookingTerms, NaturalHandOverReason, NaturalTaskKind } from "@travel-crm/contracts/ai";
+import type { LiveOffer, BookingTerms, NaturalTaskKind, OneHandOverReason } from "@travel-crm/contracts/ai";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -16,6 +16,10 @@ export interface NaturalChatLine {
   action?: string;
   untranscribed?: boolean;
   mayBePayment?: boolean;
+  // What was heard or seen, kept on the message; only the one agent reads it.
+  aiText?: { kind: "transcript" | "description"; text: string };
+  // The one agent's name for a customer's voice note or photo ("m3"); natural sets none.
+  ref?: string;
 }
 
 /** A room price per person, in paise, for each room type that has one. */
@@ -58,6 +62,9 @@ export interface TripSheet {
   }[];
   // Brochures first, then photos.
   fileIds: string[];
+  // The same files with the owner's words, for the one agent; natural reads only fileIds.
+  brochures: { attachmentId: string; name: string | null; description: string | null }[];
+  photoIds: string[];
 }
 
 export interface NaturalLeadView {
@@ -110,22 +117,30 @@ export type StagedAction =
       }>;
       notes: string[];
     }
-  | { tool: "send_brochure"; packageId: string; fileIds: string[] }
+  | {
+      tool: "send_brochure";
+      packageId: string;
+      fileIds: string[];
+      // Both absent for natural: the one agent's brochure name, and the files it sends again though this chat had them.
+      caption?: string;
+      resend?: readonly string[];
+    }
   // The quote behind the offer: its figures are this turn's to ground (G1) and to name the trip by (G6).
-  | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures }
+  | { tool: "offer_booking"; offer: LiveOffer; figures: QuoteFigures; card?: true }
   | {
       tool: "book";
       terms: BookingTerms;
       figures: QuoteFigures;
-      fullName: string;
-      customerWords: string;
+      // Null on the one agent: the booking takes the lead's or WhatsApp's name, and no words are copied.
+      fullName: string | null;
+      customerWords: string | null;
       via: "offer" | "told";
     }
   | { tool: "resend_payment" }
   | { tool: "plan_follow_up"; at: Date | null; about: string }
   | { tool: "create_task"; kind: NaturalTaskKind; text: string; callAt: Date | null }
   | { tool: "add_note"; text: string }
-  | { tool: "hand_over"; reason: NaturalHandOverReason; summary: string }
+  | { tool: "hand_over"; reason: OneHandOverReason; summary: string }
   | { tool: "suggest_close"; kind: "lost" | "not_a_lead"; reason: string }
   | { tool: "stay_quiet"; reason: string };
 

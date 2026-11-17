@@ -7,6 +7,7 @@ import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { AiPrompts } from "@travel-crm/integrations/prompts";
+import type { ToolAgent } from "@travel-crm/integrations/tool-agent";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { Files } from "../files/index.js";
 import type { Identity } from "../identity/index.js";
@@ -21,6 +22,8 @@ import { AI_TOKEN_PREFIX, agentAnswers, mayWrite } from "./may-write.js";
 import { runNaturalFallback } from "./natural/turn-fallback.js";
 import { runNaturalTurn } from "./natural/turn.js";
 import { tellAgentNotReady } from "./not-ready-notice.js";
+import { runOneTurn } from "./one/turn.js";
+import type { ToolTurnSink } from "./traces/trace-sink.js";
 
 export { AI_HANDOFF_KIND } from "./tell-owner.js";
 export { AI_TOKEN_PREFIX, agentAnswers, mayWrite };
@@ -50,6 +53,10 @@ export interface AgentDependencies {
   tracing?: AiTracing;
   /** Langfuse's prompts: the natural agent runs on the prompt at label production; without them, its built-in text. */
   prompts?: AiPrompts;
+  /** Runs the one agent's model and tools (LangGraph's in the worker); a server without one answers nothing for it. */
+  toolAgent?: ToolAgent;
+  /** Keeps each one turn as a row of ai_turn_trace; without one, none is kept. */
+  toolTurns?: ToolTurnSink;
 }
 
 /**
@@ -58,19 +65,24 @@ export interface AgentDependencies {
  */
 export async function runAgentTurn(dependencies: AgentDependencies, input: LiteTurnInput, now: Date): Promise<string> {
   const checked = await agentChecked(dependencies, input);
+  const { toolAgent } = dependencies;
   const outcome =
-    checked === "natural"
-      ? await runNaturalTurn(dependencies, input, now)
-      : await tracedLite(dependencies, input, (traced) =>
-          checked === "lite" ? runLiteTurn(traced, input, now) : Promise.resolve(checked),
-        );
+    checked === "one"
+      ? toolAgent === undefined
+        ? "not_configured"
+        : await runOneTurn({ ...dependencies, toolAgent }, input, now)
+      : checked === "natural"
+        ? await runNaturalTurn(dependencies, input, now)
+        : await tracedLite(dependencies, input, (traced) =>
+            checked === "lite" ? runLiteTurn(traced, input, now) : Promise.resolve(checked),
+          );
   // Switched on, but its setup came undone: the customer got nothing, so the managers hear of it, once a day.
   if (outcome === "not_ready") await tellAgentNotReady(dependencies, input.organizationId, now);
   return outcome;
 }
 
 /**
- * The last try of a natural turn whose model failed twice: the fallback line and a task for the team, with no model call,
+ * The last try of a natural or one turn whose model failed twice: the fallback line and a task for the team, with no model call,
  * through the same checks as a turn. Lite has no such try.
  */
 export async function runAgentFallback(
@@ -79,14 +91,16 @@ export async function runAgentFallback(
   now: Date,
 ): Promise<string> {
   const checked = await agentChecked(dependencies, input);
-  return checked === "natural" ? runNaturalFallback(dependencies, input, now) : runAgentTurn(dependencies, input, now);
+  return checked === "natural" || checked === "one"
+    ? runNaturalFallback(dependencies, input, now)
+    : runAgentTurn(dependencies, input, now);
 }
 
 /** The agent that answers, or why none does: no model on this server, no AI on the plan, or paused by platform staff. */
 async function agentChecked(
   dependencies: AgentDependencies,
   input: LiteTurnInput,
-): Promise<"lite" | "natural" | "not_configured" | "not_allowed" | "paused"> {
+): Promise<"lite" | "natural" | "one" | "not_configured" | "not_allowed" | "paused"> {
   if (!dependencies.ai.configured) return "not_configured";
   // No AI for an agency whose plan lacks it or whose subscription is read-only, suspended or cancelled.
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(input.organizationId))) return "not_allowed";

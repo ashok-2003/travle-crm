@@ -2,13 +2,14 @@
 // season rules, an audit entry, the draft's applied fields on its fill, and, apart from the transaction, the cited PDF as a brochure.
 import { AI_KNOWLEDGE_RECORD_TYPE, PACKAGE_BROCHURE_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { CreateGroupPackageInput } from "@travel-crm/contracts/ai";
-import { MAX_PACKAGE_BROCHURES } from "@travel-crm/contracts/quotes";
+import { BROCHURE_DESCRIPTION_MAX, BROCHURE_NAME_MAX, MAX_PACKAGE_BROCHURES } from "@travel-crm/contracts/quotes";
 import { isUniqueViolation, type Database, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { findOrAddDestination } from "../catalog/index.js";
 import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { saveBrochureWords } from "./package-brochures.js";
 import { nameTaken } from "./package-row.js";
 import { savePackageSeason } from "./package-seasons.js";
 
@@ -129,6 +130,7 @@ export async function attachDraftBrochure(
   access: MemberAccess,
   packageId: string,
   knowledgeId: string,
+  words?: { name: string; description: string },
 ): Promise<void> {
   const source = await db.forOrg(access.organizationId, async (tx) => {
     const piece = await tx.aiKnowledge.findUnique({
@@ -145,9 +147,18 @@ export async function attachDraftBrochure(
   if (held.length >= MAX_PACKAGE_BROCHURES) {
     throw new DomainError("LIMIT_REACHED", "PACKAGE_BROCHURE_LIMIT", "A package holds five brochures at most");
   }
-  await files.copyFile(
+  const copy = await files.copyFile(
     access,
     { recordType: AI_KNOWLEDGE_RECORD_TYPE, ...source },
     { recordType: PACKAGE_BROCHURE_RECORD_TYPE, recordId: packageId },
   );
+  // A draft's words are a start, so a long or empty one is trimmed or skipped rather than failing the import.
+  const oneLine = (text: string, most: number) => text.replace(/\s+/gu, " ").trim().slice(0, most);
+  const name = oneLine(words?.name ?? "", BROCHURE_NAME_MAX);
+  if (words !== undefined && name !== "") {
+    const description = oneLine(words.description, BROCHURE_DESCRIPTION_MAX);
+    await db.forOrg(access.organizationId, (tx) =>
+      saveBrochureWords(tx, access, { packageId, attachmentId: copy.id, name, description }),
+    );
+  }
 }

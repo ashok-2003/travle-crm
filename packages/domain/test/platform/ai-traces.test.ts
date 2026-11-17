@@ -302,12 +302,38 @@ describe("the console's AI turn traces", () => {
     const { organizationId, a } = await agency();
     const trace = await aTurn(organizationId, a, 1);
     const row = await db.forOrg(organizationId, (tx) => tx.aiTurnTrace.findFirstOrThrow({ where: { id: trace.id } }));
+    if (row.fileKey === null) throw new Error("a lite turn has a file");
     await storage.delete(row.fileKey);
     expect(await readTraceFile(storage, row.fileKey)).toBeNull();
     const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
     expect(detail.file).toBeNull();
     expect(detail.trace.id).toBe(trace.id);
     expect(await opened(organizationId)).toHaveLength(1);
+  });
+
+  it("a one turn's row, which has no file, opens with the row and no file", async () => {
+    const { organizationId, a } = await agency();
+    const trace = { id: randomUUID() };
+    await createTraceSink({ db, storage, logger }).recordToolTurn({
+      id: trace.id,
+      organizationId,
+      conversationId: a.chatId,
+      leadId: null,
+      kind: "reply",
+      startedAt: new Date(NOW.getTime() - HOUR),
+      durationMs: 100,
+      outcome: "replied",
+      reason: null,
+      model: "m",
+      inputTokens: 1,
+      outputTokens: 1,
+      cachedTokens: 0,
+      failedChecks: 0,
+      promptVersions: { "real-agent": 0 },
+    });
+    const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
+    expect(detail.file).toBeNull();
+    expect(detail.trace.id).toBe(trace.id);
   });
 
   it("a turn on an older prompt names both versions", async () => {

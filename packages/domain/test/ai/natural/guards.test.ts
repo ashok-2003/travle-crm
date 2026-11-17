@@ -46,6 +46,8 @@ const kedarkantha: TripSheet = {
     ...bySeason(949_900),
   })),
   fileIds: ["brochure"],
+  brochures: [],
+  photoIds: [],
 };
 const brahmatal: TripSheet = {
   ...kedarkantha,

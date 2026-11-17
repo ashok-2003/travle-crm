@@ -6,6 +6,9 @@ import {
   bookArguments,
   createTaskArguments,
   handOverArguments,
+  oneHandOverArguments,
+  oneSendBrochureArguments,
+  parseOneToolArguments,
   parseToolArguments,
   planFollowUpArguments,
   sendBrochureArguments,
@@ -17,7 +20,14 @@ import {
 import { travelWhen, type TravelWhen } from "@travel-crm/contracts/crm";
 import { isCalendarDate, isTimeOfDay } from "@travel-crm/contracts/kernel";
 import { roomType } from "@travel-crm/contracts/quotes";
-import { formatRupees, formatShortDay, instantAt, parseCalendarDate, parseTimeOfDay } from "../../../kernel/index.js";
+import {
+  formatRupees,
+  formatShortDay,
+  instantAt,
+  newUuidV7,
+  parseCalendarDate,
+  parseTimeOfDay,
+} from "../../../kernel/index.js";
 import { fenced } from "../../fenced.js";
 import { travellerWords } from "../../lite/context/lead-card.js";
 import type { TripField } from "../../lite/lead-writes.js";
@@ -25,6 +35,7 @@ import { normalised } from "../../lite/read-words.js";
 import { lockedFields, otherTime, sameAges } from "../../lite/typed-lock.js";
 import { stampOf } from "../context/chat-turns.js";
 import { namedTrips } from "../context/turn-block.js";
+import { brochureLabelsOf } from "../trips/brochures.js";
 import { isText, roomNames } from "../trips/trip-text.js";
 import type { QuoteFigures, StagedAction, StagedSet, TripSheet } from "../types.js";
 import { awaitsPayment, bookChecks, offerChecks, type BookingContext } from "./booking-checks.js";
@@ -87,19 +98,27 @@ export async function stageAction(
   name: NaturalToolName,
   args: Record<string, unknown>,
   words: string,
+  options: { agent?: "natural" | "one" } = {},
 ): Promise<StageOutcome> {
-  const checked = parseToolArguments(name, args, [...context.labels.keys()]);
+  const one = options.agent === "one";
+  const labels = [...context.labels.keys()];
+  const brochureLabels = [...brochureLabelsOf(context.sheets).keys()];
+  const checked = one
+    ? parseOneToolArguments(name, args, labels, { brochureLabels })
+    : parseToolArguments(name, args, labels);
   if (!checked.ok) return refused(checked.problem);
   const asked = checked.args;
   switch (name) {
     case "update_lead":
       return withArgs(updateLeadArguments, asked, (lead) => updateLead(context, lead));
     case "send_brochure":
-      return withArgs(sendBrochureArguments, asked, ({ trip_id }) => sendBrochure(context, trip_id, words));
+      return one
+        ? withArgs(oneSendBrochureArguments, asked, ({ brochure_id }) => sendOneBrochure(context, brochure_id))
+        : withArgs(sendBrochureArguments, asked, ({ trip_id }) => sendBrochure(context, trip_id, words));
     case "offer_booking":
-      return offerBooking(context, asked);
+      return offerBooking(context, asked, one);
     case "book":
-      return withArgs(bookArguments, asked, (yes) => book(context, asked, yes));
+      return one ? bookOnTerms(context, asked) : withArgs(bookArguments, asked, (yes) => book(context, asked, yes));
     case "resend_payment":
       return awaitsPayment(context.booking)
         ? stage({ tool: "resend_payment" }, "the app sends the payment message and QR again after your reply")
@@ -113,7 +132,7 @@ export async function stageAction(
         stage({ tool: "add_note", text }, "note added for the team"),
       );
     case "hand_over":
-      return withArgs(handOverArguments, asked, ({ reason, summary }) =>
+      return withArgs(one ? oneHandOverArguments : handOverArguments, asked, ({ reason, summary }) =>
         stage(
           { tool: "hand_over", reason, summary },
           "handed to a person after your reply; as one of the team, say you'll check and get back to them here, with no promised time",
@@ -319,7 +338,32 @@ function sendBrochure(context: ActionContext, label: string, words: string): Sta
   );
 }
 
-async function offerBooking(context: ActionContext, args: Record<string, unknown>): Promise<StageOutcome> {
+/** The one agent's brochure: any listed one, again when asked; its photos not sent before fill the rest of the three. */
+function sendOneBrochure(context: ActionContext, label: string): StageOutcome {
+  const brochure = brochureLabelsOf(context.sheets).get(label);
+  const sheet = context.sheets.find((one) => one.packageId === brochure?.packageId);
+  if (brochure === undefined || sheet === undefined) return UNPARSED;
+  const sent = new Set(context.facts.sentFileIds);
+  const photoIds = sheet.photoIds.filter((id) => !sent.has(id));
+  const fileIds = [brochure.attachmentId, ...photoIds].slice(0, MOST_FILES);
+  const again = sent.has(brochure.attachmentId) ? "; it went in this chat before and goes again" : "";
+  return stage(
+    {
+      tool: "send_brochure",
+      packageId: brochure.packageId,
+      fileIds,
+      caption: brochure.name,
+      resend: [brochure.attachmentId],
+    },
+    `goes with your reply: ${label} ${brochure.name}, and ${String(fileIds.length - 1)} photos${again}`,
+  );
+}
+
+async function offerBooking(
+  context: ActionContext,
+  args: Record<string, unknown>,
+  one: boolean,
+): Promise<StageOutcome> {
   const terms = termsOf(args, context.labels);
   if ("refused" in terms) return terms;
   const figures = await offerChecks(context, terms);
@@ -334,11 +378,23 @@ async function offerBooking(context: ActionContext, args: Record<string, unknown
   return stage(
     {
       tool: "offer_booking",
-      offer: { ...figures.terms, departureId: figures.departureId, totalPaise, advancePaise, at },
+      offer: {
+        // The one agent's card names its offer in its buttons.
+        ...(one ? { id: newUuidV7() } : {}),
+        ...figures.terms,
+        departureId: figures.departureId,
+        totalPaise,
+        advancePaise,
+        at,
+      },
       figures,
+      ...(one ? { card: true as const } : {}),
     },
-    `offered: ${termsWords(figures.terms, context.sheets, context.today)}; ${money}. Your words state the date and ` +
-      `the ${inFull ? "total" : "advance"}, and ask for their full name or a yes`,
+    `offered: ${termsWords(figures.terms, context.sheets, context.today)}; ${money}. ` +
+      (one
+        ? // The card carries the figures, so the model's line stays short.
+          "The app sends the offer card with these figures and Book and Change buttons after your words: keep your line short and don't retype the figures"
+        : `Your words state the date and the ${inFull ? "total" : "advance"}, and ask for their full name or a yes`),
   );
 }
 
@@ -347,9 +403,21 @@ async function book(
   args: Record<string, unknown>,
   yes: Asked<typeof bookArguments>,
 ): Promise<StageOutcome> {
+  return stageBook(context, args, { fullName: yes.full_name, customerWords: yes.customer_words });
+}
+
+/** The one agent's `book`: the terms alone, held on the live offer or a total told, with no name or words kept. */
+function bookOnTerms(context: ActionContext, args: Record<string, unknown>): Promise<StageOutcome> {
+  return stageBook(context, args, null);
+}
+
+async function stageBook(
+  context: ActionContext,
+  args: Record<string, unknown>,
+  said: { fullName: string; customerWords: string } | null,
+): Promise<StageOutcome> {
   const terms = termsOf(args, context.labels);
   if ("refused" in terms) return terms;
-  const said = { fullName: yes.full_name, customerWords: yes.customer_words };
   const checked = await bookChecks(context, terms, said);
   if ("refused" in checked) return checked;
   const { figures, via } = checked;
@@ -357,7 +425,14 @@ async function book(
     ? `${formatRupees(figures.totalPaise)} due now`
     : `advance ${formatRupees(figures.advancePaise)} due now`;
   return stage(
-    { tool: "book", terms: figures.terms, figures, ...said, via },
+    {
+      tool: "book",
+      terms: figures.terms,
+      figures,
+      fullName: said?.fullName ?? null,
+      customerWords: said?.customerWords ?? null,
+      via,
+    },
     `held once your reply goes: ${termsWords(figures.terms, context.sheets, context.today)}; total ` +
       `${formatRupees(figures.totalPaise)}; ${due}. The app then sends the payment message and QR: leave payment ` +
       "details out of your words",

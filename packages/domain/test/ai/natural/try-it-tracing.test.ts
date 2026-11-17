@@ -50,23 +50,23 @@ describe("Try it on the natural agent, traced", () => {
 
   it("links each of its model calls to the Langfuse prompt it ran, and a built-in turn's to none", async () => {
     const on = await world();
-    const draft: NaturalPrompt = {
+    const live: NaturalPrompt = {
       version: "langfuse:whatsapp-agent/natural-system@7",
       text: BUILT_IN_NATURAL_PROMPT.text,
-      source: { name: "whatsapp-agent/natural-system", version: 7, label: "draft" },
+      source: { name: "whatsapp-agent/natural-system", version: 7, label: "production" },
     };
     on.model.answer(
       { toolCalls: [{ name: "get_trip", arguments: { trip_id: "T1" } }] },
       { text: reply },
       { text: reply },
     );
-    await on.tryIt([{ from: "customer", text: "Kedarkantha ka rate?" }], CHAT_ID, draft);
+    await on.tryIt([{ from: "customer", text: "Kedarkantha ka rate?" }], CHAT_ID, live);
     await on.tryIt([{ from: "customer", text: "Kedarkantha ka rate?" }], CHAT_ID);
 
     const [fromLangfuse, builtIn] = on.tracing.turns;
     expect(fromLangfuse?.start).toMatchObject({
       prompt: { name: "whatsapp-agent/natural-system", version: 7 },
-      metadata: { promptVersion: draft.version, promptLabel: "draft" },
+      metadata: { promptVersion: live.version, promptLabel: "production" },
     });
     expect(fromLangfuse?.generations.map((call) => call.prompt)).toEqual([
       { name: "whatsapp-agent/natural-system", version: 7 },

@@ -17,7 +17,7 @@ const EARLIER_PAYMENT_PREFIX = "ai-pay:";
 const PERSON_ORIGINS = new Set(["staff_crm", "staff_phone"]);
 const PAYMENT_DETAILS = "sent: payment details";
 
-const fields = {
+export const storedLineFields = {
   id: true,
   direction: true,
   origin: true,
@@ -28,9 +28,11 @@ const fields = {
   clientToken: true,
   sentBy: true,
   occurredAt: true,
+  aiText: true,
+  aiTextKind: true,
 } as const;
 
-interface StoredLine {
+export interface StoredLine {
   id: string;
   direction: string;
   origin: string;
@@ -41,6 +43,8 @@ interface StoredLine {
   clientToken: string | null;
   sentBy: string | null;
   occurredAt: Date;
+  aiText: string | null;
+  aiTextKind: string | null;
 }
 
 const isAiToken = (token: string) => token.startsWith(AI_TOKEN_PREFIX) || token.startsWith(EARLIER_PAYMENT_PREFIX);
@@ -54,7 +58,7 @@ function fromOf(row: StoredLine): NaturalChatLine["from"] {
 }
 
 /** An AI file as what it sent, and the payment lines and QR as one action: their words are the agency's, never the model's. */
-function actionOf(row: StoredLine, from: NaturalChatLine["from"]): string | null {
+function actionOf(row: StoredLine, from: NaturalChatLine["from"], earlierWhole: boolean): string | null {
   if (from !== "you" && from !== "earlier") return null;
   const token = row.clientToken ?? "";
   if (token.startsWith(EARLIER_PAYMENT_PREFIX) || token.endsWith(":pay") || token.endsWith(":qr")) {
@@ -62,14 +66,16 @@ function actionOf(row: StoredLine, from: NaturalChatLine["from"]): string | null
   }
   if (row.kind === "text" || row.kind === "template") return null;
   const named = [row.caption, row.fileName].map((one) => one?.trim() ?? "").find((one) => one !== "") ?? "a file";
-  // An earlier assistant's caption may hold its made-up figures, which its words never show either.
-  return `sent: ${from === "earlier" ? withoutAmountsAndDates(named) : named}`;
+  // An earlier assistant's caption may hold its made-up figures, which its words never show either, unless asked.
+  return `sent: ${from === "earlier" && !earlierWhole ? withoutAmountsAndDates(named) : named}`;
 }
 
-function lineOf(row: StoredLine): NaturalChatLine {
+/** A stored message as a chat line; the summary reads its rows through this too. */
+export function storedLineOf(row: StoredLine, options: { earlierWhole?: boolean } = {}): NaturalChatLine {
   const from = fromOf(row);
   const text = row.body ?? row.caption ?? "";
-  const action = actionOf(row, from);
+  const action = actionOf(row, from, options.earlierWhole === true);
+  const kind = row.aiTextKind === "transcript" || row.aiTextKind === "description" ? row.aiTextKind : null;
   return {
     id: row.id,
     from,
@@ -78,6 +84,7 @@ function lineOf(row: StoredLine): NaturalChatLine {
     text,
     ...(row.fileName === null ? {} : { fileName: row.fileName }),
     ...(action === null ? {} : { action }),
+    ...(row.aiText === null || kind === null ? {} : { aiText: { kind, text: row.aiText } }),
     ...(from === "customer" && row.kind === "audio" && text.trim() === "" ? { untranscribed: true } : {}),
   };
 }
@@ -85,20 +92,22 @@ function lineOf(row: StoredLine): NaturalChatLine {
 /**
  * The chat's newest 60 lines the customer could see, oldest first, reactions left out (a reaction on our message is no
  * line of its own), and for each team line a member wrote, that member's user id: identity names them after the
- * transaction.
+ * transaction. `earlierWhole` keeps an earlier assistant's file caption as it was written (the one agent reads its
+ * predecessors' figures).
  */
 export async function naturalChatLines(
   tx: OrgTx,
   conversationId: string,
+  options: { earlierWhole?: boolean } = {},
 ): Promise<{ lines: NaturalChatLine[]; senders: ReadonlyMap<string, string> }> {
   const rows = await tx.whatsappMessage.findMany({
     // A discarded message or a cancelled broadcast's recalled send never reached the customer.
     where: { conversationId, kind: { not: "reaction" }, status: { not: "superseded" } },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: CHAT_READ,
-    select: fields,
+    select: storedLineFields,
   });
-  const lines = rows.reverse().map(lineOf);
+  const lines = rows.reverse().map((row) => storedLineOf(row, options));
   const senders = new Map(
     rows.flatMap((row) => (row.direction === "out" && row.sentBy !== null ? [[row.id, row.sentBy] as const] : [])),
   );

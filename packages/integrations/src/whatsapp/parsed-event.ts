@@ -17,8 +17,19 @@ export type WhatsAppMessageKind = (typeof whatsAppMessageKinds)[number];
 export const whatsAppStatuses = ["sent", "delivered", "read", "failed"] as const;
 export type WhatsAppStatus = (typeof whatsAppStatuses)[number];
 
+/**
+ * What the customer tapped, kept as one value so the id and its kind cannot disagree: both set or both null. The id is
+ * exactly what WhatsApp returned (1 to 256 characters); only `"button"` is one of our reply buttons, so a handler that acts
+ * on a tap must require `replyKind === "button"` and its own id format. A list row is `"list"`; a template's quick reply
+ * is `"quick_reply"` and its id is text from the template's setup, never ours.
+ */
+export type ParsedReply =
+  { buttonReplyId: string; replyKind: "button" | "list" | "quick_reply" } | { buttonReplyId: null; replyKind: null };
+
 /** A message the customer sent us, or (an echo) one the agency sent from the phone. */
-export interface ParsedMessage {
+export type ParsedMessage = ParsedMessageFields & ParsedReply;
+
+interface ParsedMessageFields {
   /** WhatsApp's message id. */
   wamid: string;
   /** Our number, digits as MSG91 writes it: routes the event to an agency. */

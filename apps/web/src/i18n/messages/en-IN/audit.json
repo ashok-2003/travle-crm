@@ -270,6 +270,7 @@
       "created-from-draft": "Saved a package from an AI draft",
       "season-saved": "Saved a package's season and room prices",
       "season-removed": "Removed a package's season",
+      "brochure-described": "Named or described a package's brochure",
       "sellable-changed": "Let the AI sell a package, or stopped it"
     },
     "ai-agent": {

@@ -75,22 +75,22 @@ describe("the console's choice of an agency's agent", () => {
       await dataOf<OrganizationAgentChoice>(
         await consoleQuery(testConsole, "aiAgent.agentChoice", support.jar, { organizationId }),
       ),
-    ).toMatchObject({ agent: "lite", lastReplay: null });
+    ).toMatchObject({ agent: "natural", lastReplay: null });
     expect(
       await refusalOf(
-        await consoleMutate(testConsole, "aiAgent.chooseAgent", { organizationId, agent: "natural" }, support.jar),
+        await consoleMutate(testConsole, "aiAgent.chooseAgent", { organizationId, agent: "lite" }, support.jar),
       ),
     ).toEqual({ status: 403, reason: "SUPER_ADMIN_ONLY" });
     expect(
       await dataOf<OrganizationAgentChoice>(
-        await consoleMutate(testConsole, "aiAgent.chooseAgent", { organizationId, agent: "natural" }, superAdmin.jar),
+        await consoleMutate(testConsole, "aiAgent.chooseAgent", { organizationId, agent: "lite" }, superAdmin.jar),
       ),
-    ).toMatchObject({ agent: "natural" });
+    ).toMatchObject({ agent: "lite" });
     expect(
       await dataOf<OrganizationAgentChoice>(
         await consoleQuery(testConsole, "aiAgent.agentChoice", support.jar, { organizationId }),
       ),
-    ).toMatchObject({ agent: "natural" });
+    ).toMatchObject({ agent: "lite" });
   });
 
   it("refuses an unknown agent", async () => {

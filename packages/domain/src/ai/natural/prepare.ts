@@ -119,12 +119,17 @@ async function withPaymentFlags(
   return lines.map((line) => (media.has(line) ? { ...line, mayBePayment: true } : line));
 }
 
-async function readTurn(tx: OrgTx, input: LiteTurnInput, now: Date): Promise<Read | LiteOutcome> {
+async function readTurn(
+  tx: OrgTx,
+  input: LiteTurnInput,
+  now: Date,
+  options: { earlierWhole?: boolean },
+): Promise<Read | LiteOutcome> {
   const { organizationId } = input;
   const passed = await turnGates(tx, input, now, { limits: false });
   if (typeof passed === "string") return passed;
   const { chat, timeZone, today, sellable, limits } = passed;
-  const read = await naturalChatLines(tx, chat.id);
+  const read = await naturalChatLines(tx, chat.id, options);
   if (read.lines.length === 0) return "nothing";
   const sheets = await tripSheetsOf(tx, sellable, today, now);
   const leadId = (await openLeadOfChat(tx, chat.personId))?.id ?? null;
@@ -168,14 +173,18 @@ async function readTurn(tx: OrgTx, input: LiteTurnInput, now: Date): Promise<Rea
   };
 }
 
-/** Either why the turn ends now (lite's outcome), or everything the natural turn reads. */
+/**
+ * Either why the turn ends now (lite's outcome), or everything the natural turn reads. `earlierWhole` keeps an
+ * earlier assistant's file captions whole.
+ */
 export async function prepareNaturalTurn(
   deps: LiteDependencies,
   input: LiteTurnInput,
   now: Date,
+  options: { earlierWhole?: boolean } = {},
 ): Promise<NaturalPrepared | LiteOutcome> {
   const { organizationId } = input;
-  const read = await deps.db.forOrg(organizationId, (tx) => readTurn(tx, input, now));
+  const read = await deps.db.forOrg(organizationId, (tx) => readTurn(tx, input, now, options));
   if (typeof read === "string") return read;
   const userIds = new Set([...read.senders.values(), ...read.notes.map((note) => note.userId)]);
   const contacts: MemberContact[] =

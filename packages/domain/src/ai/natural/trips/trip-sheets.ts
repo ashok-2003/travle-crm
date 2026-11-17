@@ -7,7 +7,13 @@ import { quoteTaxRate, roomTypes, type RoomPrices, type RoomType } from "@travel
 import type { OrgTx } from "@travel-crm/db";
 import { openDepartureDetailsByPackage } from "../../../departures/index.js";
 import type { CalendarDate } from "../../../kernel/index.js";
-import { fromPrices, packageFilesByPackage, priceOn, seasonsByPackage } from "../../../quotes/index.js";
+import {
+  brochuresByPackage,
+  fromPrices,
+  packageFilesByPackage,
+  priceOn,
+  seasonsByPackage,
+} from "../../../quotes/index.js";
 import { lowestAdultPrice, strings, withoutContacts } from "../../lite/lookups/package-reads.js";
 import type { PackageIndexEntry } from "../../lite/types.js";
 import { cutText } from "../context/tokens.js";
@@ -86,7 +92,7 @@ export async function tripSheetsOf(
   const limits = textLimits(options.whole !== true);
   const ids = sellable.filter((one) => one.kind === "group").map((one) => one.id);
   if (ids.length === 0) return [];
-  const [rows, departures, seasons, files] = await Promise.all([
+  const [rows, departures, seasons, files, words] = await Promise.all([
     tx.quoteTemplate.findMany({
       where: { id: { in: ids } },
       select: {
@@ -113,6 +119,7 @@ export async function tripSheetsOf(
     openDepartureDetailsByPackage(tx, ids, today, now),
     seasonsByPackage(tx, ids),
     packageFilesByPackage(tx, ids),
+    brochuresByPackage(tx, ids),
   ]);
   const found = ids.flatMap((id) => rows.filter((row) => row.id === id));
   return found.map((row, index) => {
@@ -166,6 +173,8 @@ export async function tripSheetsOf(
         return { id: one.id, startsOn: one.startsOn, freeSeats: one.freeSeats, priceFrom, perPersonPaise };
       }),
       fileIds: [...brochures, ...photos],
+      brochures: words.get(row.id) ?? [],
+      photoIds: photos,
     };
   });
 }

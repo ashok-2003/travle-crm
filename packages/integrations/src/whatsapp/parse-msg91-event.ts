@@ -96,7 +96,8 @@ const kindNames: Readonly<Record<string, WhatsAppMessageKind>> = {
 function replyText(bag: Bag): string | null {
   for (const name of ["button", "interactive"]) {
     const value = unstring(bag[name]);
-    if (typeof value === "string" && value !== "") return value.trim() || null;
+    // A string that still looks like JSON failed to parse: it is not words anyone typed.
+    if (typeof value === "string" && value !== "" && !/^\s*[{[]/.test(value)) return value.trim() || null;
     if (isBag(value)) {
       const nested = pick(value, ["text", "title", "payload"]);
       if (nested !== null) return nested;
@@ -108,6 +109,61 @@ function replyText(bag: Bag): string | null {
         }
       }
     }
+  }
+  return null;
+}
+
+interface Tap {
+  /** Exactly as WhatsApp returned it: 1 to 256 characters, no control characters (what we send is checked the same way). */
+  id: string;
+  title: string | null;
+  kind: Exclude<ParsedMessage["replyKind"], null>;
+}
+
+/** An id kept as it came, or null: a string only, never trimmed or rewritten, within WhatsApp's own limit. */
+function exactId(value: unknown): string | null {
+  return typeof value === "string" && value.length >= 1 && value.length <= 256 && !/\p{Cc}/u.test(value) ? value : null;
+}
+
+/** A tap in Meta's `interactive` object: a button reply or a list row. */
+function tapInInteractive(value: unknown): Tap | null {
+  const interactive = unstring(value);
+  if (!isBag(interactive)) return null;
+  for (const [names, kind] of [
+    [["button_reply", "buttonReply"], "button"],
+    [["list_reply", "listReply"], "list"],
+  ] as const) {
+    for (const name of names) {
+      const reply = unstring(interactive[name]);
+      if (!isBag(reply)) continue;
+      const id = exactId(reply.id);
+      if (id !== null) return { id, title: pick(reply, ["title"]), kind };
+    }
+  }
+  return null;
+}
+
+/**
+ * The button or list row the customer tapped, and its id. SPIKE(S1): MSG91 does not document where the id arrives, so every
+ * likely place is read in turn: `interactive` (an object or a JSON string), Meta's raw message in `messages`, then a template's
+ * quick reply in `button.payload`. A tap that carries no id here still reads as its title (the caller's text).
+ */
+function tapOf(bag: Bag): Tap | null {
+  const direct = tapInInteractive(bag.interactive);
+  if (direct !== null) return direct;
+  const raw = unstring(bag.messages);
+  for (const message of Array.isArray(raw) ? raw : [raw]) {
+    const parsed = unstring(message);
+    if (isBag(parsed)) {
+      const inMessage = tapInInteractive(parsed.interactive);
+      if (inMessage !== null) return inMessage;
+    }
+  }
+  const button = unstring(bag.button);
+  if (isBag(button)) {
+    // A template's quick reply carries text from the template's own setup, so it is never a reply button of ours.
+    const payload = exactId(button.payload);
+    if (payload !== null) return { id: payload, title: pick(button, ["text", "title"]), kind: "quick_reply" };
   }
   return null;
 }
@@ -154,6 +210,8 @@ function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNu
         }
       : null;
   const textual = contentType === "button" || contentType === "interactive";
+  // Only an interactive or button event can be a tap: MSG91 sends empty `interactive` and `button` fields on every message.
+  const tap = kind === "text" && textual ? tapOf(bag) : null;
   // Only a plain word is kept: the name goes into a log line, where nothing a customer wrote may go.
   const unknownType = kind === "unsupported" ? (/^[a-z0-9_.-]{1,40}$/.test(contentType) ? contentType : "other") : null;
   return {
@@ -167,9 +225,10 @@ function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNu
     text:
       kind === "text"
         ? textual
-          ? (replyText(bag) ?? pick(bag, ["text", "message"]))
+          ? (cleaned(tap?.title ?? null) ?? replyText(bag) ?? pick(bag, ["text", "message"]))
           : pick(bag, ["text", "message", "body"])
         : null,
+    ...(tap === null ? { buttonReplyId: null, replyKind: null } : { buttonReplyId: tap.id, replyKind: tap.kind }),
     caption: pick(bag, ["caption"]),
     fileName: pick(bag, ["filename", "fileName", "file_name"]),
     mediaUrl: ["image", "video", "audio", "document", "sticker"].includes(kind)

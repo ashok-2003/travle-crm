@@ -16,16 +16,43 @@ export const aiFeatures = [
   "read_rates",
   "draft_packages",
   "sales_agent",
+  // The one agent's other uses, each with its own models: a voice note heard, a photo looked at, the chat's summary.
+  "agent_voice",
+  "agent_image",
+  "chat_summary",
 ] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 
+/** The audio formats OpenRouter's `input_audio` takes that WhatsApp sends (voice notes are OGG/Opus; AMR has none). */
+export type AiAudioFormat = "wav" | "mp3" | "ogg" | "aac" | "m4a";
+
+const audioFormats: Record<string, AiAudioFormat> = {
+  "audio/ogg": "ogg",
+  "audio/opus": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/aac": "aac",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/wave": "wav",
+};
+
+/** The format for a content type (parameters like `; codecs=opus` ignored), or null when the model can't take it. */
+export function audioFormatOf(contentType: string): AiAudioFormat | null {
+  const base = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+  return audioFormats[base] ?? null;
+}
+
 /**
- * Something besides words that a user message carries. Gemini's OpenAI-compatible endpoint takes only WAV and MP3 audio
- * (checked 2026-10-30: webm, ogg and mp4 are refused), so the browser encodes WAV itself.
+ * Something besides words that a user message carries. Gemini's own OpenAI-compatible endpoint takes only WAV and MP3
+ * audio (checked 2026-10-30), so the browser encodes WAV itself; through OpenRouter, WhatsApp's OGG voice notes are sent
+ * as they are (whether OpenRouter accepts them for Gemini is for the live test to show).
  */
 export type AiPart =
   | { type: "image"; mimeType: "image/jpeg" | "image/png" | "image/webp"; bytes: Uint8Array }
-  | { type: "audio"; format: "wav" | "mp3"; bytes: Uint8Array };
+  | { type: "audio"; format: AiAudioFormat; bytes: Uint8Array };
 
 /** A function the model may call: its name, what it is for, and a JSON Schema of its arguments. */
 export interface AiTool {
@@ -39,6 +66,11 @@ export interface AiToolCall {
   id: string;
   name: string;
   arguments: string;
+  /**
+   * What the provider attached to this call besides id, type and function (Gemini's thought signature, in
+   * `extra_content`), sent back unchanged with the call. Opaque to everything but the adapter.
+   */
+  providerData?: Record<string, unknown>;
 }
 
 /**

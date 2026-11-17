@@ -1,7 +1,7 @@
 // ai.test on the real router is Try it for the one agent: the lite turn as a dry run on a test chat, so its first model
 // call is Understand. The chat and the state it carries are checked before anything runs, and only ai:manage may try it.
 import { TRPCError } from "@trpc/server";
-import { saveAiSettings } from "@travel-crm/domain/ai";
+import { saveAiSettings, setAgent } from "@travel-crm/domain/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Context } from "../src/context.js";
 import { anAgency, callerOf, createHarness, type Harness } from "./forms-support.js";
@@ -68,6 +68,7 @@ describe("ai.test", () => {
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
+    await harness.db.forOrg(organizationId, (tx) => setAgent(tx, owner.member, "lite"));
     const { caller } = granted === undefined ? owner : callerOf(harness, { organizationId, granted, context });
     return { caller, schemas, asked };
   }
@@ -85,12 +86,10 @@ describe("ai.test", () => {
   };
 
   const hi = [{ from: "customer" as const, text: "hi" }];
-  /** The live model at its own temperature: what every call sends unless it says otherwise. */
-  const live = { model: "live", temperature: "default" } as const;
 
   it("runs the lite dry run: the first model call is the Understand form", async () => {
     const { caller, schemas } = await anAiAgency();
-    const shown = await caller.ai.test({ messages: hi, state: null, ...live });
+    const shown = await caller.ai.test({ messages: hi, state: null });
     expect(schemas[0]).toBe("understand_form");
     // The state to send back next turn: the lite facts and Understand's summary.
     expect(shown.state).toMatchObject({ facts: { agent: "lite" }, summary: "Said hello." });
@@ -113,7 +112,7 @@ describe("ai.test", () => {
       shutdown: () => Promise.resolve(),
     };
     const { caller } = await anAiAgency(undefined, tracing);
-    const shown = await caller.ai.test({ messages: hi, state: null, ...live });
+    const shown = await caller.ai.test({ messages: hi, state: null });
     expect(turns).toEqual([
       {
         name: "whatsapp-agent.try-it",
@@ -131,11 +130,11 @@ describe("ai.test", () => {
       asked
         .filter((request) => request.schema?.name === "understand_form")
         .map((request) => JSON.stringify(request.messages));
-    const first = await caller.ai.test({ messages: hi, state: null, ...live });
+    const first = await caller.ai.test({ messages: hi, state: null });
     expect(first.state.summary).toBe("Said hello.");
     expect(read()[0]).not.toContain("Said hello.");
     const chat = [...hi, { from: "agent" as const, text: first.answer }, { from: "customer" as const, text: "ok" }];
-    await caller.ai.test({ messages: chat, state: first.state, ...live });
+    await caller.ai.test({ messages: chat, state: first.state });
     // The summary the first turn handed out is what the second turn's Understand read.
     expect(read()[1]).toContain("Said hello.");
   });
@@ -150,7 +149,7 @@ describe("ai.test", () => {
       { facts, summary: "x".repeat(1001) },
       { facts },
     ]) {
-      expect(await codeOf(caller.ai.test({ messages: hi, state, ...live } as never))).toBe("BAD_REQUEST");
+      expect(await codeOf(caller.ai.test({ messages: hi, state } as never))).toBe("BAD_REQUEST");
     }
     expect(schemas).toEqual([]);
   });
@@ -163,17 +162,17 @@ describe("ai.test", () => {
       Array.from({ length: 41 }, () => line("customer")),
       [line("customer"), line("agent")],
     ]) {
-      expect(await codeOf(caller.ai.test({ messages, state: null, ...live }))).toBe("BAD_REQUEST");
+      expect(await codeOf(caller.ai.test({ messages, state: null }))).toBe("BAD_REQUEST");
     }
     expect(
-      await codeOf(caller.ai.test({ messages: [{ from: "customer", text: "x".repeat(1001) }], state: null, ...live })),
+      await codeOf(caller.ai.test({ messages: [{ from: "customer", text: "x".repeat(1001) }], state: null })),
     ).toBe("BAD_REQUEST");
     expect(schemas).toEqual([]);
   });
 
   it("asks the live models at their own temperature, naming neither", async () => {
     const { caller, asked } = await anAiAgency();
-    await caller.ai.test({ messages: hi, state: null, ...live });
+    await caller.ai.test({ messages: hi, state: null });
     expect(asked.length).toBeGreaterThan(0);
     for (const request of asked) {
       expect(request).not.toHaveProperty("model");
@@ -181,40 +180,17 @@ describe("ai.test", () => {
     }
   });
 
-  it("asks Gemini Flash, at 0.4 when chosen, for every call of the turn", async () => {
-    const { caller, asked } = await anAiAgency();
-    const shown = await caller.ai.test({ messages: hi, state: null, model: "flash", temperature: "0.4" });
-    expect(asked.length).toBeGreaterThan(0);
-    for (const request of asked) {
-      expect(request).toMatchObject({ model: "google/gemini-3.5-flash", temperature: 0.4 });
-    }
-    expect(shown.trace.models).toEqual({ understand: "memory-model", write: "memory-model" });
-    const before = asked.length;
-    await caller.ai.test({ messages: hi, state: null, model: "flash", temperature: "default" });
-    const atDefault = asked.slice(before);
-    expect(atDefault.length).toBeGreaterThan(0);
-    for (const request of atDefault) {
-      expect(request).toMatchObject({ model: "google/gemini-3.5-flash" });
-      expect(request).not.toHaveProperty("temperature");
-    }
-  });
-
-  it("refuses a temperature for any model but Gemini Flash, and a model or temperature it doesn't know", async () => {
+  it("refuses a model or a temperature choice", async () => {
     const { caller, schemas } = await anAiAgency();
-    for (const choice of [
-      { model: "live", temperature: "0.4" },
-      { model: "pro", temperature: "default" },
-      { model: "flash", temperature: "0.9" },
-      { model: "flash" },
-    ]) {
-      expect(await codeOf(caller.ai.test({ messages: hi, state: null, ...choice } as never))).toBe("BAD_REQUEST");
+    for (const choice of [{ model: "flash" }, { temperature: "0.4" }]) {
+      expect(await codeOf(caller.ai.test({ messages: hi, state: null, ...choice }))).toBe("BAD_REQUEST");
     }
     expect(schemas).toEqual([]);
   });
 
   it("refuses a member without ai:manage", async () => {
     const { caller, schemas } = await anAiAgency(["ai:suggest", "inbox:view", "inbox:reply"]);
-    expect(await codeOf(caller.ai.test({ messages: hi, state: null, ...live }))).toBe("MISSING_PERMISSION");
+    expect(await codeOf(caller.ai.test({ messages: hi, state: null }))).toBe("MISSING_PERMISSION");
     expect(schemas).toEqual([]);
   });
 });

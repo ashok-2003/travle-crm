@@ -132,7 +132,10 @@ shipping.on("close", () => process.exit(0));
   it("carries every other package itself, so the image needs no other node_modules", async () => {
     const leftOut = await runtimePackages(apiDirectory);
     const carried = new Set(Object.keys(metafile.inputs).flatMap((input) => installedPackageOf(input) ?? []));
-    expect([...carried]).toEqual(expect.arrayContaining(["better-auth", "hono", "@prisma/client", "pg", "zod"]));
+    // Not zod: it's a runtime dependency of the integrations package (LangGraph's peer), so the image installs one copy.
+    expect([...carried]).toEqual(
+      expect.arrayContaining(["better-auth", "hono", "@prisma/client", "pg", "libphonenumber-js"]),
+    );
     expect(leftOut.filter((name) => carried.has(name))).toEqual([]);
   });
 

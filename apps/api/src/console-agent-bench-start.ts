@@ -25,9 +25,13 @@ const {
   AI_SCORE_MODELS,
   AI_BASE_URL,
   AI_API_KEY,
+  AI_VERTEX_SERVICE_ACCOUNT,
   AI_CHAT_MODELS,
   AI_FAST_MODELS,
   AI_AGENT_MODELS,
+  AI_VOICE_MODELS,
+  AI_IMAGE_MODELS,
+  AI_SUMMARY_MODELS,
   AI_ZERO_RETENTION,
   AI_BACKUP_BASE_URL,
   AI_BACKUP_API_KEY,
@@ -49,9 +53,13 @@ const benchSettings = z
     AI_SCORE_MODELS,
     AI_BASE_URL,
     AI_API_KEY,
+    AI_VERTEX_SERVICE_ACCOUNT,
     AI_CHAT_MODELS,
     AI_FAST_MODELS,
     AI_AGENT_MODELS,
+    AI_VOICE_MODELS,
+    AI_IMAGE_MODELS,
+    AI_SUMMARY_MODELS,
     AI_ZERO_RETENTION,
     AI_BACKUP_BASE_URL,
     AI_BACKUP_API_KEY,
@@ -119,7 +127,12 @@ export async function startBenchServices(settings: BenchSettings): Promise<Bench
     await close().catch(() => undefined);
     throw error;
   }
-  return { platform, ai: createAiModel({ ...settings, AI_TEST_SERVER_URL: undefined }, tracing), tracing, close };
+  return {
+    platform,
+    ai: createAiModel({ ...settings, AI_TEST_SERVER_URL: undefined }, logger, tracing),
+    tracing,
+    close,
+  };
 }
 
 export interface AgentBenchProcessOptions {

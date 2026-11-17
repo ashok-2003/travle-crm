@@ -148,10 +148,13 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `OPENROUTER_API_KEY`: the AI (below); unset: off                                                    | ○   | ○      |         |         | yes    |
 | `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS`: OpenRouter slugs (below)                                    | ○   | ○      |         |         |        |
 | `AI_API_KEY`: the AI on any OpenAI-compatible endpoint (below); replaces `OPENROUTER_API_KEY`       | ○   | ○      |         |         | yes    |
+| `AI_VERTEX_SERVICE_ACCOUNT`: Gemini on Vertex AI, in place of `AI_API_KEY`; base64 of a key file    | ○   | ○      |         |         | yes    |
 | `AI_BASE_URL`: its address (Google's Gemini direct; https in production)                            | ○   | ○      |         |         |        |
 | `AI_CHAT_MODELS`: its models, comma-separated; needed with `AI_API_KEY`                             | ○   | ○      |         |         |        |
 | `AI_FAST_MODELS`: the ones that only score leads (the chat ones when blank)                         | ○   | ○      |         |         |        |
 | `AI_AGENT_MODELS`: the new agent's models, comma-separated (the chat models when blank)             | ○   | ○      |         |         |        |
+| `AI_VOICE_MODELS`, `AI_IMAGE_MODELS`: voice notes' and photos' models (the agent's when blank)      | ○   | ○      |         |         |        |
+| `AI_SUMMARY_MODELS`: the chat summary's models (the agent's when blank)                             | ○   | ○      |         |         |        |
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
@@ -278,11 +281,29 @@ Secrets come from the platform's secret manager as environment variables, never 
     `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the
     process stops if the key has no chat models, if the others come without the key, or if the base URL is not https in
     production. OpenRouter's `provider` zero-data-retention field is sent only to OpenRouter, so a direct endpoint keeps what
-    its own terms say (Google's free tier may use prompts: keep billing on for the project). The new sales agent
-    (`AI_AGENT_MODELS`, the chat models when blank) runs on OpenRouter only: on any other base URL, the first key's or the
-    backup's, it has no models and answers that the AI isn't ready. `docker-compose.server.yml`
+    its own terms say (Google's free tier may use prompts: keep billing on for the project). The sales agents
+    (`AI_AGENT_MODELS`, the chat models when blank) run on any of these endpoints. `docker-compose.server.yml`
     passes all of them to the api and the worker; the console calls no model, so its AI keys are blank.
-  - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` only) is asked when the first AI can't
+  - **Gemini on Vertex AI** (ruling R14, 2026-11-17): `AI_VERTEX_SERVICE_ACCOUNT` in place of `AI_API_KEY` (one or the
+    other), holding a service account's key file as base64 on one line, never shown on a screen: on the server, add the
+    line `AI_VERTEX_SERVICE_ACCOUNT=''` to the settings file if it isn't there (`secrets.sh set` changes only a setting
+    the file has), run `base64 -w0 key.json | sudo scripts/server/secrets.sh set AI_VERTEX_SERVICE_ACCOUNT`, then
+    `shred -u key.json`. With it,
+    `AI_BASE_URL=https://aiplatform.googleapis.com/v1/projects/<project>/locations/global/endpoints/openapi` and
+    `AI_CHAT_MODELS` and `AI_AGENT_MODELS` as Vertex names them: `google/gemini-3.5-flash-lite` (the owner, 2026-11-17;
+    `google/gemini-3.8-flash` costs more). `AI_VOICE_MODELS`, `AI_IMAGE_MODELS` and `AI_SUMMARY_MODELS` give voice notes,
+    photos and the chat summary models of their own (`AI_AGENT_MODELS` when blank). Every model list that is set (`AI_FAST_MODELS`, `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS` too) needs Vertex's `google/…` names. The account needs the Vertex AI User
+    role. Each request carries an OAuth token minted from the key (scope cloud-platform), kept for its hour and renewed
+    five minutes before it ends; a failure to mint is logged by its error's name and code. One process uses one
+    credential for all its AI features. A backup key behind it (`AI_BACKUP_API_KEY`, AI Studio's) must name its own
+    `AI_BACKUP_BASE_URL` and `AI_BACKUP_CHAT_MODELS`, or the process stops at start-up. The key is a secret: never
+    printed or logged, and the process stops at start-up if it isn't one whole key file, or if
+    `GOOGLE_SDK_NODE_LOGGING` is set (Google's library would print its tokens).
+  - **LangChain's own variables are refused** (the one agent, 2026-11-17): the api, the worker and the console stop at
+    start-up when any `LANGSMITH_*` or `LANGCHAIN_*` variable is set and not blank, naming it (never its value).
+    LangChain would otherwise send each chat to LangSmith or print it. The tool agent also clears five of them before
+    each run.
+  - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,
     `AI_BACKUP_CHAT_MODELS` or `AI_BACKUP_FAST_MODELS` say otherwise; a backup on another endpoint must name its own chat
     models (the start-up check refuses it otherwise). A model that answered 429 rests (its Retry-After, else a
@@ -312,9 +333,8 @@ Secrets come from the platform's secret manager as environment variables, never 
     variable of any other name stays in the text as written.
   - The label `production` is live: the agent reads the version it points to, kept for a minute in each process. A moved
     label shows a minute on: the first turn after the minute still runs the old version (it fetches the new one behind
-    it), the next turn the new one. The label `draft` is for Try it alone: its Prompt choice "Draft" reads it afresh each
-    turn, beside the live prompt, and runs the live one when the draft can't be read, saying so in Why. Edit the draft,
-    try it, then move `production` to that version to put it live; move `production` back to undo.
+    it), the next turn the new one. Try it reads the same `production`
+    label, so it tests what runs live. Move `production` to a new version to put it live; move it back to undo.
   - The built-in text (`packages/domain/src/ai/natural/prompt-text.ts`, version `built-in-1`) is the fallback: the agent
     runs on it without the keys, when a process has never read the prompt (none at that label yet, or Langfuse down
     since the start), and when Langfuse doesn't answer within 2 seconds (then it asks again only after 30 seconds). Once
@@ -324,8 +344,16 @@ Secrets come from the platform's secret manager as environment variables, never 
     links each of its generations to that version, so the prompt's Metrics in Langfuse count them.
   - Langfuse's SDK prints nothing (its console logger is off). A prompt that can't be had is a `warn` line of the
     process's log (`source: langfuse-prompts`, its name, label, reason and status), at most once per prompt every 30
-    seconds; a label Langfuse doesn't have, such as no `draft` yet, is only a `debug` line.
+    seconds; a label Langfuse doesn't have, such as no `production` yet, is only a `debug` line.
   - To start, create the prompt from the built-in text, as it is, with the label `production`.
+- **The one agent's prompts** live in the same Langfuse project, read with the same settings:
+  - The agent's prompt is the text prompt `whatsapp-agent/real-agent`, with the variables `{{agency_name}}`,
+    `{{agent_name}}` and `{{tone}}`. Live turns and Try it both read the label `production`.
+  - No version has `production` yet: the owner moves it when the one agent goes live. Until then, live turns of the
+    one agent run the built-in text (`packages/domain/src/ai/one/prompt-text.ts`, version `built-in-one-3`). It is
+    Langfuse's version 3, and a test keeps it equal to `docs/superpowers/specs/2026-11-17-one-whatsapp-agent-prompt.md`.
+  - The chat summary's prompt is `whatsapp-agent/chat-summary` (label `production`). Its built-in fallback is the
+    spec's Appendix A (version `built-in-summary-1`). To start, create it from that text with the label `production`.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
     printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to

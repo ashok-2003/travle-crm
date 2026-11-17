@@ -320,9 +320,27 @@
   },
   "files": {
     "title": "Brochures",
-    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each). The AI shares them with customers who ask for details.",
+    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each). The AI shares them with customers who ask for details. The AI picks a brochure by its name and description.",
     "brochures": "Brochures",
     "noBrochures": "No brochures yet.",
+    "noName": "No name yet: the AI uses the trip's title",
+    "noDescription": "No description yet",
+    "describe": "Describe",
+    "describeNamed": "Describe {name}",
+    "details": {
+      "title": "Describe this brochure",
+      "dialogDescription": "The AI picks a brochure by its name and description, and sends it with its name.",
+      "name": "Name",
+      "description": "Description",
+      "count": "{used} of {max} characters",
+      "save": "Save",
+      "saving": "Saving",
+      "saved": "Brochure saved",
+      "problems": {
+        "required": "Give it a name.",
+        "tooLong": "This is too long: keep to the count shown."
+      }
+    },
     "addBrochure": "Add a brochure",
     "adding": "Adding",
     "remove": "Remove",

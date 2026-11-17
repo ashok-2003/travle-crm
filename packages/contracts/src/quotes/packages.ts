@@ -282,6 +282,9 @@ export const packageFile = z.object({
   fileName: z.string(),
   contentType: z.string(),
   url: z.string().nullable(),
+  /** The owner's words for a brochure; null until described. */
+  name: z.string().nullable(),
+  description: z.string().nullable(),
 });
 export type PackageFile = z.infer<typeof packageFile>;
 export const packageFiles = z.object({ brochures: z.array(packageFile) });
@@ -300,3 +303,19 @@ export const packageFileRefInput = z.strictObject({
 /** Brochures are staff's to manage with the package. */
 export const requestBrochureInput = requestPackageFileInput.extend({ kind: z.literal("brochure") });
 export const brochureRefInput = packageFileRefInput.extend({ kind: z.literal("brochure") });
+
+export const BROCHURE_NAME_MAX = 80;
+export const BROCHURE_DESCRIPTION_MAX = 300;
+/** One trimmed line: line breaks and runs of spaces become a single space, so no markup layout survives. */
+const oneLine = (most: number) =>
+  z
+    .string()
+    .transform((text) => text.replace(/\s+/gu, " ").trim())
+    .pipe(z.string().max(most));
+export const describeBrochureInput = z.strictObject({
+  packageId: recordId,
+  attachmentId: z.uuid(),
+  name: oneLine(BROCHURE_NAME_MAX).pipe(z.string().min(1)),
+  description: oneLine(BROCHURE_DESCRIPTION_MAX),
+});
+export type DescribeBrochureInput = z.infer<typeof describeBrochureInput>;

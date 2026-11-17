@@ -100,7 +100,7 @@ export function MessageActions({ message, className }: { message: ChatMessage; c
   const [showingInfo, setShowingInfo] = useState(false);
   const { replyTo } = useReplying();
   const trigger = useRef<HTMLButtonElement>(null);
-  const words = message.body ?? message.caption;
+  const words = message.tapped && message.body === null ? t("tappedNoWords") : (message.body ?? message.caption);
   return (
     <>
       <DropdownMenu>

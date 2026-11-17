@@ -45,13 +45,19 @@ export const stampOf = (at: Date, clock: Omit<ChatClock, "now">) =>
 
 /**
  * What a line says on one line, fenced, cut past `most` characters: a past action in brackets, media as a marker, an
- * earlier assistant's figures out.
+ * earlier assistant's figures out (unless `earlierWhole`).
  */
-function wordsOf(line: NaturalChatLine, most: number): string {
+export function lineWords(line: NaturalChatLine, most: number, options: { earlierWhole?: boolean } = {}): string {
   if (line.action !== undefined) return `[${oneLine(line.action)}]`;
-  const text = cutText(oneLine(line.from === "earlier" ? withoutAmountsAndDates(line.text) : line.text), most);
+  const text = cutText(
+    oneLine(line.from === "earlier" && options.earlierWhole !== true ? withoutAmountsAndDates(line.text) : line.text),
+    most,
+  );
+  // The one agent's reference names the file, so the model can ask for it, before a payment guess.
+  const named = line.ref === undefined ? null : `[${line.kind === "audio" ? "voice note" : "photo"} ${line.ref}]`;
   const marker =
-    line.mayBePayment === true
+    named ??
+    (line.mayBePayment === true
       ? "[payment screenshot]"
       : line.kind === "document"
         ? line.fileName === undefined
@@ -59,13 +65,18 @@ function wordsOf(line: NaturalChatLine, most: number): string {
           : `[file: ${oneLine(line.fileName)}]`
         : line.kind === "text" || line.kind === "template"
           ? null
-          : (markers[line.kind] ?? "[message]");
+          : (markers[line.kind] ?? "[message]"));
+  const said =
+    // Only the one agent names a file (ref) and so reads what was heard or seen; natural's words stay as they were.
+    line.aiText === undefined || line.ref === undefined
+      ? ""
+      : ` (${line.aiText.kind === "transcript" ? "heard" : "seen"}: "${oneLine(line.aiText.text)}")`;
   if (marker === null) return text === "" ? "[message]" : text;
-  return text === "" ? marker : `${marker} ${text}`;
+  return `${text === "" ? marker : `${marker} ${text}`}${said}`;
 }
 
 const customerLine = (line: NaturalChatLine, clock: Omit<ChatClock, "now">, most: number) =>
-  `[${stampOf(line.at, clock)}] ${wordsOf(line, most)}`;
+  `[${stampOf(line.at, clock)}] ${lineWords(line, most)}`;
 
 /** A new line as the turn block lists it: whole, since these are the words this turn answers. */
 export const newLineWords = (line: NaturalChatLine, clock: Omit<ChatClock, "now">) =>
@@ -73,7 +84,7 @@ export const newLineWords = (line: NaturalChatLine, clock: Omit<ChatClock, "now"
 
 function writtenLine(line: NaturalChatLine, clock: ChatClock): string {
   if (line.from === "customer") return customerLine(line, clock, LINE_CUT);
-  const words = wordsOf(line, LINE_CUT);
+  const words = lineWords(line, LINE_CUT);
   if (line.from === "team") {
     const name = line.teamName === undefined || line.teamName.trim() === "" ? "" : `, ${oneLine(line.teamName)}`;
     return `(Team${name}) ${words}`;

@@ -141,30 +141,9 @@
     "send": "Send",
     "reset": "Start again",
     "thinking": "The AI agent is answering…",
-    "choices": {
-      "agent": "Agent",
-      "agents": {
-        "current": "Current agent",
-        "natural": "New agent"
-      },
-      "model": "Model",
-      "models": {
-        "live": "Live model",
-        "flash": "Gemini Flash"
-      },
-      "temperature": "Temperature",
-      "temperatures": {
-        "default": "Default",
-        "point4": "0.4"
-      },
-      "onlyFlash": "Only Gemini Flash takes a temperature.",
-      "prompt": "Prompt",
-      "prompts": {
-        "live": "Live (production)",
-        "draft": "Draft"
-      },
-      "draftHint": "Draft tries the prompt being edited, or the live one when there is no draft.",
-      "thisChatOnly": "These choices apply only to this test chat, never to your customers' chats. Choosing another agent starts the chat again."
+    "card": {
+      "caption": "Then it would send this card:",
+      "tapped": "Tapped: {title}"
     },
     "natural": {
       "payment": "Then code sends:",
@@ -178,7 +157,8 @@
         "wants_person": "they asked for a person",
         "abuse": "the chat turned abusive",
         "big_group": "the group is bigger than the AI books",
-        "existing_booking": "it's about a booking they already have"
+        "existing_booking": "it's about a booking they already have",
+        "b2b": "it's a business or agent enquiry"
       },
       "outcomes": {
         "replied": "Replied",
@@ -213,8 +193,6 @@
       },
       "why": {
         "prompt": "Prompt version",
-        "draft": "Draft",
-        "noDraft": "The draft couldn't be read, so this turn ran the prompt above.",
         "outcome": "Outcome",
         "fallback": "Fallback reason",
         "restarted": "Started over",

@@ -1,5 +1,5 @@
 // Try it on the natural agent (spec 9.5, ruling 7), beside lite's: each turn posts the chat so far, the state the last turn
-// handed back (the chat's facts and the dry lead), the chat's model and temperature and its id; it answers what the
+// handed back (the chat's facts and the dry lead), and the chat's id; it answers what the
 // customer would get, the payment lines code would send after them, each action described, the next state, the lines to
 // add to the chat and the trace. Nothing is sent or kept but the month's AI calls.
 import { z } from "zod";
@@ -7,9 +7,10 @@ import { calendarMonth } from "../crm/trip.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
 import { roomType } from "../quotes/room-prices.js";
-import { liveOffer, naturalFacts, naturalHandOverReasons, naturalTaskKinds, toldTotal } from "./natural.js";
+import { liveOffer, naturalFacts, naturalTaskKinds, toldTotal } from "./natural.js";
 import { naturalTrace } from "./natural-trace.js";
-import { testAiInput, testAiLine, testAiModels, testAiTemperatures } from "./try-it.js";
+import { oneHandOverReasons } from "./one-tools.js";
+import { testAiInput, testAiLine } from "./try-it.js";
 
 /** How far a dry lead goes: Won is the team's, and Lost or Not a lead only ever suggested. */
 export const dryLeadStages = ["new", "contacted", "quote_sent", "booking_requested"] as const;
@@ -41,7 +42,7 @@ export const naturalTestState = z.object({ facts: naturalFacts, lead: dryLead })
 export type NaturalTestState = z.infer<typeof naturalTestState>;
 
 /** The state as a turn posts it back: every object strict, so a key no turn handed out is refused. */
-const postedState = z.strictObject({
+export const postedState = z.strictObject({
   facts: z.strictObject({
     ...naturalFacts.shape,
     offer: z.strictObject(liveOffer.shape).nullable().default(null),
@@ -54,35 +55,20 @@ const postedState = z.strictObject({
   }),
 });
 
-/** The prompt a test turn runs on: the live one (Langfuse's label production), or the draft (label draft). */
-export const naturalTestPrompts = ["live", "draft"] as const;
-export type NaturalTestPrompt = (typeof naturalTestPrompts)[number];
-/** The Langfuse label each prompt is read at, as a turn's trace names it. */
-export const naturalPromptLabels = { live: "production", draft: "draft" } as const satisfies Record<
-  NaturalTestPrompt,
-  string
->;
+/** The Langfuse label the live prompt is read at, as a turn's trace names it. */
+export const naturalPromptLabels = { live: "production" } as const;
 
-export const naturalTestInput = z
-  .strictObject({
-    /** As lite's: oldest first, ending with the customer's line this turn answers. */
-    messages: testAiInput.shape.messages,
-    /** The last turn's state, sent back as it came; null starts a new chat. */
-    state: postedState.nullable(),
-    model: z.enum(testAiModels),
-    temperature: z.enum(testAiTemperatures),
-    /** Live unless the client names one, so a page loaded before the choice existed still works. */
-    prompt: z.enum(naturalTestPrompts).default("live"),
-    /**
-     * The test chat's id, the same on each of its turns and new when it starts again: its turns' trace session. With
-     * none, the turn's trace is a session of its own.
-     */
-    chatId: z.uuid().optional(),
-  })
-  .refine((input) => input.temperature === "default" || input.model === "flash", {
-    message: "Only Gemini Flash takes a temperature",
-    path: ["temperature"],
-  });
+export const naturalTestInput = z.strictObject({
+  /** As lite's: oldest first, ending with the customer's line this turn answers. */
+  messages: testAiInput.shape.messages,
+  /** The last turn's state, sent back as it came; null starts a new chat. */
+  state: postedState.nullable(),
+  /**
+   * The test chat's id, the same on each of its turns and new when it starts again: its turns' trace session. With
+   * none, the turn's trace is a session of its own.
+   */
+  chatId: z.uuid().optional(),
+});
 export type NaturalTestInput = z.infer<typeof naturalTestInput>;
 
 /** The lead's fields an update_lead saves, as the screen names them. */
@@ -110,7 +96,7 @@ export const naturalDryAction = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("plan_follow_up"), at: z.iso.datetime().nullable(), about: z.string() }),
   z.object({ tool: z.literal("create_task"), kind: z.enum(naturalTaskKinds), text: z.string() }),
   z.object({ tool: z.literal("add_note"), text: z.string() }),
-  z.object({ tool: z.literal("hand_over"), reason: z.enum(naturalHandOverReasons), summary: z.string() }),
+  z.object({ tool: z.literal("hand_over"), reason: z.enum(oneHandOverReasons), summary: z.string() }),
   z.object({ tool: z.literal("suggest_close"), kind: z.enum(["lost", "not_a_lead"]), reason: z.string() }),
   z.object({ tool: z.literal("stay_quiet"), reason: z.string() }),
 ]);
@@ -125,6 +111,8 @@ export const naturalTestAnswer = z.object({
   messages: z.array(z.string()).max(2),
   /** The agency's payment lines code would send after them, with the QR; null when none would go. */
   payment: z.array(z.string()).nullable(),
+  /** The offer card the one agent would send after its words: its body and its button titles. */
+  card: z.object({ body: z.string(), buttons: z.array(z.string()) }).optional(),
   actions: z.array(naturalDryAction),
   outcome: z.enum(naturalTestOutcomes),
   state: naturalTestState,

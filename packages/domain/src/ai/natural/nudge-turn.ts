@@ -22,12 +22,12 @@ import { logNaturalTurn, naturalTurnNote, naturalTurnStart } from "./turn-note.j
 const MOST_FOLLOW_UPS = 2;
 
 /** The live turn's dependencies (`NaturalTurnDependencies` in turn.ts, which routes here): lite's, and Langfuse's prompts. */
-interface NudgeDependencies extends LiteDependencies {
+export interface NudgeDependencies extends LiteDependencies {
   prompts?: AiPrompts;
 }
 
 /** What the model reads beside the chat: which follow-up this is, since when, and what is asked of it. */
-const noticeOf = (number: number, quietSince: string) =>
+export const nudgeNotice = (number: number, quietSince: string) =>
   `This is follow-up ${String(number)} of ${String(MOST_FOLLOW_UPS)}, and the customer has been quiet since ${quietSince}; ` +
   "there are no new messages. Write one short, warm line as yourself, picking up where the chat left off, or call " +
   "stay_quiet if there is nothing worth saying. Never pushy, and never the same words as before.";
@@ -38,7 +38,7 @@ const noticeOf = (number: number, quietSince: string) =>
  * a quiet turn read does not end it), the open lead, and the waking hours, which hold it until 09:00 while the window
  * still can.
  */
-async function nudgeGate(
+export async function nudgeGate(
   deps: NudgeDependencies,
   input: LiteTurnInput,
   prepared: NaturalPrepared,
@@ -85,7 +85,7 @@ function contextOf(prepared: NaturalPrepared, prompt: NaturalPrompt, input: { nu
     facts,
     lines: prepared.lines,
     cameFrom: prepared.cameFrom,
-    notice: noticeOf(input.number, stampOf(quiet, { today, timeZone })),
+    notice: nudgeNotice(input.number, stampOf(quiet, { today, timeZone })),
     withTools: true,
   });
   return { ...context, tools: context.tools.filter((tool) => tool.name === "stay_quiet") } satisfies NaturalContext;

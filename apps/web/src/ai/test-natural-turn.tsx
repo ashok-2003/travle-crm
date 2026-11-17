@@ -3,8 +3,9 @@
 // One answer of the new agent in the Try it chat: up to two messages in our green bubbles; then the agency's payment
 // lines, which code (never the model) would send after them, as a bubble of their own under a caption; a line of its own
 // when it would hand the chat over, stay quiet or send the fallback line; and "Why", closed until opened.
-import type { NaturalTestAnswer, NaturalTestPrompt } from "@travel-crm/contracts/ai";
+import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 import { actionOf } from "./test-natural-actions";
 import { TestNaturalWhy } from "./test-natural-why";
 import { OutBubble, WhyToggle } from "./test-turn";
@@ -37,8 +38,47 @@ function NaturalStatus({ answer }: { answer: NaturalTestAnswer }) {
   return null;
 }
 
-/** `prompt` is the prompt the turn was asked to run, which "Why" holds against the one it ran. */
-export function TestNaturalTurn({ answer, prompt }: { answer: NaturalTestAnswer; prompt: NaturalTestPrompt }) {
+/** The offer card the turn would send; the latest answer's buttons can be tapped (`onTap`), an earlier one's are not. */
+function TestCard({
+  card,
+  onTap,
+}: {
+  card: NonNullable<NaturalTestAnswer["card"]>;
+  onTap: ((button: "book" | "change", title: string) => void) | undefined;
+}) {
+  const t = useTranslations("ai.test.card");
+  return (
+    <>
+      <p className="text-caption text-muted-foreground">{t("caption")}</p>
+      <OutBubble>
+        <span className="block whitespace-pre-line">{card.body}</span>
+      </OutBubble>
+      <div className="flex flex-wrap justify-end gap-2">
+        {card.buttons.map((title, index) => (
+          <Button
+            key={title}
+            type="button"
+            variant="outline"
+            disabled={onTap === undefined}
+            onClick={() => {
+              onTap?.(index === 0 ? "book" : "change", title);
+            }}
+          >
+            {title}
+          </Button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+export function TestNaturalTurn({
+  answer,
+  onTap,
+}: {
+  answer: NaturalTestAnswer;
+  onTap?: (button: "book" | "change", title: string) => void;
+}) {
   const t = useTranslations("ai.test");
   const payment = answer.payment ?? [];
   return (
@@ -63,9 +103,10 @@ export function TestNaturalTurn({ answer, prompt }: { answer: NaturalTestAnswer;
           </OutBubble>
         </>
       )}
+      {answer.card && <TestCard card={answer.card} onTap={onTap} />}
       <NaturalStatus answer={answer} />
       <WhyToggle>
-        <TestNaturalWhy answer={answer} prompt={prompt} />
+        <TestNaturalWhy answer={answer} />
       </WhyToggle>
     </li>
   );

@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 export const naturalTrace = z.object({
-  agent: z.literal("natural"),
+  agent: z.enum(["natural", "one"]),
   promptVersion: z.string(),
   /** "production", "draft": the Langfuse label the prompt was read at; null for the built-in text. */
   promptLabel: z.string().nullable(),

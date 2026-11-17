@@ -125,6 +125,12 @@ export const conversationHeader = z.object({
 });
 export type ConversationHeader = z.infer<typeof conversationHeader>;
 
+/** The reply buttons of a card: one to three, each an id and its title. */
+export const chatButtons = z
+  .array(z.object({ id: z.string(), title: z.string() }))
+  .min(1)
+  .max(3);
+
 export const chatMessage = z.object({
   id: recordId,
   direction: z.enum(["in", "out"]),
@@ -169,6 +175,12 @@ export const chatMessage = z.object({
   deliveredAt: timestamp.nullable(),
   readAt: timestamp.nullable(),
   starred: z.boolean(),
+  /** What the AI agent heard in a voice note or saw in a photo; it may be wrong. */
+  aiText: z.object({ kind: z.enum(["transcript", "description"]), text: z.string() }).nullable(),
+  /** The reply buttons of a card the agency sent. */
+  buttons: chatButtons.nullable(),
+  /** The customer pressed a reply button (its words, if any, are the body). */
+  tapped: z.boolean(),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;
 

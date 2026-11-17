@@ -499,12 +499,12 @@ describe("the lite agent's turn", () => {
     const traces = createTraceSink({ db: test.db, storage, logger: createMemoryLogger() });
     expect(await on.turn(undefined, { traces })).toBe("replied");
     const row = await on.inOrg((tx) => tx.aiTurnTrace.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
-    const file = await readTraceFile(storage, row.fileKey);
+    const file = await readTraceFile(storage, row.fileKey ?? "");
     expect(file?.trace.messageIds).toEqual([on.message.id]);
     expect(file?.trace.understand?.blocks).toHaveProperty("Package index");
     expect(file?.trace.understand?.blocks).not.toHaveProperty("Messages");
     expect(file?.trace.write?.blocks).not.toHaveProperty("Messages");
-    const bytes = await storage.get(row.fileKey);
+    const bytes = await storage.get(row.fileKey ?? "");
     expect(bytes).not.toBeNull();
     expect(gunzipSync(bytes ?? new Uint8Array()).toString("utf8")).not.toContain("is the Kedarnath yatra running");
   });

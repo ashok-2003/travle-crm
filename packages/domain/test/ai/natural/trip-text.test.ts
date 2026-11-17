@@ -43,6 +43,8 @@ const kedarkantha: TripSheet = {
     { id: "d26", startsOn: day("2026-12-26"), freeSeats: 12, ...bySeason },
   ],
   fileIds: ["brochure"],
+  brochures: [],
+  photoIds: [],
 };
 const withNotes = (notes: string): TripSheet => ({ ...kedarkantha, notes });
 const excludingGst: TripSheet = { ...kedarkantha, pricesIncludeGst: false };

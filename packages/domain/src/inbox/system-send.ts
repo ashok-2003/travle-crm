@@ -4,6 +4,7 @@
 // through the same outbox; an automatic answer is written as "automation" and leaves the chat waiting for a person's
 // reply. The client token makes a repeat (a job run twice) one message.
 import type { OrgTx } from "@travel-crm/db";
+import type { WhatsAppButton } from "@travel-crm/integrations/whatsapp";
 import { publishEvent } from "../jobs/index.js";
 import { liveConnection } from "./connection-row.js";
 import { MESSAGE_QUEUED_EVENT, showAsLast } from "./outbox.js";
@@ -29,6 +30,8 @@ export async function queueSystemText(
      * its caption. Its id is the message's, which the file was stored under.
      */
     media?: { messageId: string; kind: "image" | "video" | "audio" | "document"; fileName: string };
+    /** A card: `body` goes with these reply buttons (1 to 3), sent by the outbox as one message. */
+    buttons?: readonly WhatsAppButton[];
   },
   now: Date,
 ): Promise<SystemSendResult> {
@@ -50,7 +53,13 @@ export async function queueSystemText(
         direction: "out",
         origin: input.origin,
         ...(input.media === undefined
-          ? { kind: "text", body: input.body }
+          ? {
+              kind: "text",
+              body: input.body,
+              ...(input.buttons === undefined
+                ? {}
+                : { buttons: input.buttons.map(({ id, title }) => ({ id, title })) }),
+            }
           : {
               id: input.media.messageId,
               kind: input.media.kind,

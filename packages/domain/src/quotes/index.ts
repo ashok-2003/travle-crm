@@ -50,6 +50,7 @@ export {
   requestPackagePhotoUpload,
   type PackagePhotoDependencies,
 } from "./package-photos.js";
+export { brochuresByPackage, describeBrochure, type BrochureWords } from "./package-brochures.js";
 export {
   confirmPackageFile,
   listPackageFiles,

@@ -276,14 +276,15 @@ module.exports = {
       comment:
         "Domain code never calls a vendor SDK (spec 3): it calls a port in @travel-crm/integrations, and only that " +
         "package imports pg-boss, the AWS SDK, nodemailer, web-push, pino, React-PDF or the spreadsheet libraries " +
-        "(csv-parse, csv-stringify, read-excel-file, fflate, saxen; ADR 0030), google-auth-library (ADR 0031) and the " +
-        "tracing's and the prompts' Langfuse and OpenTelemetry packages.",
+        "(csv-parse, csv-stringify, read-excel-file, fflate, saxen; ADR 0030), google-auth-library (ADR 0031), the " +
+        "tracing's and the prompts' Langfuse and OpenTelemetry packages, and the one agent's LangChain and LangGraph " +
+        "(@langchain/*, behind the tool-agent port).",
       severity: "error",
       from: { pathNot: "^packages/integrations/" },
       to: {
         path:
           "(^|/)node_modules/(pg-boss|pino|@aws-sdk/[^/]+|nodemailer|web-push|@react-pdf/[^/]+|csv-parse|csv-stringify|" +
-          "read-excel-file|fflate|saxen|google-auth-library|@langfuse/[^/]+|@opentelemetry/[^/]+)(/|$)",
+          "read-excel-file|fflate|saxen|google-auth-library|@langfuse/[^/]+|@opentelemetry/[^/]+|@langchain/[^/]+)(/|$)",
       },
     },
     {

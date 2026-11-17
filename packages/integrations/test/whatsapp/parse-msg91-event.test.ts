@@ -56,6 +56,117 @@ describe("parseMsg91Event", () => {
     expect(one("inbound-button")).toMatchObject({ kind: "text", text: "Send me the quote" });
   });
 
+  it("reads a tap's id from interactive as an object, as a string, and from messages", () => {
+    expect(one("tap-interactive-object")).toMatchObject({
+      kind: "text",
+      text: "Book these seats",
+      buttonReplyId: "book:0190f3a2-0000-7000-8000-000000000001",
+      replyKind: "button",
+      quotedWamid: "wamid.CARD1",
+    });
+    expect(one("tap-interactive-string")).toMatchObject({
+      kind: "text",
+      text: "Change something",
+      buttonReplyId: "change:0190f3a2-0000-7000-8000-000000000001",
+      replyKind: "button",
+    });
+    expect(one("tap-messages-only")).toMatchObject({
+      kind: "text",
+      text: "Book these seats",
+      buttonReplyId: "book:0190f3a2-0000-7000-8000-000000000001",
+      replyKind: "button",
+    });
+  });
+
+  it("reads a list reply and a template's quick reply", () => {
+    expect(one("tap-list-reply")).toMatchObject({
+      kind: "text",
+      text: "Goa in December",
+      buttonReplyId: "row-7",
+      replyKind: "list",
+    });
+    expect(one("inbound-button")).toMatchObject({
+      kind: "text",
+      text: "Send me the quote",
+      buttonReplyId: "quote",
+      replyKind: "quick_reply",
+    });
+  });
+
+  it("keeps the tapped title as the words, and no id when none came", () => {
+    expect(one("tap-title-only")).toMatchObject({
+      kind: "text",
+      text: "Book these seats",
+      buttonReplyId: null,
+      replyKind: null,
+    });
+    expect(one("inbound-text")).toMatchObject({ buttonReplyId: null, replyKind: null });
+  });
+
+  describe("a tap is read strictly", () => {
+    const base = { customerNumber: "919876543210", integratedNumber: "918888800000", uuid: "wamid.S1", direction: "0" };
+    const reply = (id: unknown) => ({ type: "button_reply", button_reply: { id, title: "Book these seats" } });
+    const parsed = (extra: Record<string, unknown>) => {
+      const [event] = parseMsg91Event({ ...base, ...extra });
+      return event;
+    };
+    const untapped = { buttonReplyId: null, replyKind: null };
+
+    it("ignores an interactive or button field on a plain text message, and a text that looks like an id", () => {
+      expect(parsed({ contentType: "text", text: "hi", interactive: reply("book:1") })).toMatchObject({
+        text: "hi",
+        ...untapped,
+      });
+      expect(parsed({ contentType: "text", text: "hi", button: { payload: "Stop", text: "Stop" } })).toMatchObject(
+        untapped,
+      );
+      expect(parsed({ contentType: "text", text: "book:0190f3a2-0000-7000-8000-000000000001" })).toMatchObject({
+        text: "book:0190f3a2-0000-7000-8000-000000000001",
+        ...untapped,
+      });
+    });
+
+    it("never reads a template's quick reply or a list row as a reply button", () => {
+      expect(
+        parsed({
+          contentType: "button",
+          button: { payload: "book:0190f3a2-0000-7000-8000-000000000001", text: "Yes" },
+        }),
+      ).toMatchObject({ replyKind: "quick_reply" });
+      expect(
+        parsed({
+          contentType: "interactive",
+          interactive: { type: "list_reply", list_reply: { id: "book:1", title: "A" } },
+        }),
+      ).toMatchObject({ buttonReplyId: "book:1", replyKind: "list" });
+    });
+
+    it("keeps an id exactly as sent, and takes none that is empty, too long, odd or missing", () => {
+      const exact = "book:0190f3a2-0000-7000-8000-000000000001";
+      expect(parsed({ contentType: "interactive", interactive: reply(exact) })).toMatchObject({
+        buttonReplyId: exact,
+        replyKind: "button",
+      });
+      expect(parsed({ contentType: "interactive", interactive: reply("x".repeat(256)) })).toMatchObject({
+        replyKind: "button",
+      });
+      for (const id of ["", "x".repeat(257), "a\u0000b", 42, null]) {
+        expect(parsed({ contentType: "interactive", text: "Book these seats", interactive: reply(id) })).toMatchObject({
+          kind: "text",
+          text: "Book these seats",
+          ...untapped,
+        });
+      }
+      expect(
+        parsed({ contentType: "interactive", text: "Book these seats", interactive: { type: "button_reply" } }),
+      ).toMatchObject(untapped);
+      expect(parsed({ contentType: "interactive", text: "Hi", interactive: "{not json" })).toMatchObject({
+        text: "Hi",
+        ...untapped,
+      });
+    });
+  });
+
   it("keeps a kind it does not know as unsupported, with its content type for the log", () => {
     expect(one("inbound-unsupported")).toMatchObject({
       type: "inbound",
