@@ -15,14 +15,9 @@ export async function onePromptOf(prompts: AiPrompts | undefined): Promise<Natur
   return (await langfusePromptAt(prompts, ONE_PROMPT_NAME, onePromptLabels.live)) ?? BUILT_IN_ONE_PROMPT;
 }
 
-/**
- * Try it's prompt: the latest version, read past the cache so an edit shows on the next turn, else the production one,
- * else the built-in text. Both labels are read at once, so a slow Langfuse costs one wait, never two.
- */
+/** Try it's prompt: the latest version, read past the cache so an edit shows on the next turn, else the built-in text. */
 export async function oneTryItPrompt(prompts: AiPrompts | undefined): Promise<NaturalPrompt> {
-  const [latest, live] = await Promise.all([
-    langfusePromptAt(prompts, ONE_PROMPT_NAME, onePromptLabels.tryIt, { fresh: true }),
-    onePromptOf(prompts),
-  ]);
-  return latest ?? live;
+  return (
+    (await langfusePromptAt(prompts, ONE_PROMPT_NAME, onePromptLabels.tryIt, { fresh: true })) ?? BUILT_IN_ONE_PROMPT
+  );
 }

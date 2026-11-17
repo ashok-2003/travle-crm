@@ -54,20 +54,16 @@ describe("the one agent's prompt", () => {
     expect(await onePromptOf(undefined)).toEqual(BUILT_IN_ONE_PROMPT);
   });
 
-  it("tries the latest version in Try it, read past the cache, else production, else the built-in text", async () => {
+  it("tries the latest version in Try it, read past the cache, and nothing else", async () => {
     const both = createMemoryPrompts([kept(3, "production", "Live words"), kept(4, "latest", "Newest words")]);
     expect(await oneTryItPrompt(both)).toMatchObject({ text: "Newest words", source: { label: "latest", version: 4 } });
-    const liveOnly = createMemoryPrompts([kept(3, "production", "Live words")]);
-    expect(await oneTryItPrompt(liveOnly)).toMatchObject({ text: "Live words", source: { label: "production" } });
-    expect(await oneTryItPrompt(createMemoryPrompts())).toEqual(BUILT_IN_ONE_PROMPT);
+    expect(both.asked).toEqual([{ name: ONE_PROMPT_NAME, label: "latest", fresh: true }]);
   });
 
-  it("asks Langfuse for both labels at once", async () => {
-    const prompts = createMemoryPrompts([kept(4, "latest", "Newest words")]);
-    await oneTryItPrompt(prompts);
-    expect(prompts.asked).toEqual([
-      { name: ONE_PROMPT_NAME, label: "latest", fresh: true },
-      { name: ONE_PROMPT_NAME, label: "production", fresh: false },
-    ]);
+  it("falls back to the built-in text, never the production prompt, when latest is missing or Langfuse is off", async () => {
+    const liveOnly = createMemoryPrompts([kept(3, "production", "Live words")]);
+    expect(await oneTryItPrompt(liveOnly)).toEqual(BUILT_IN_ONE_PROMPT);
+    expect(liveOnly.asked).toEqual([{ name: ONE_PROMPT_NAME, label: "latest", fresh: true }]);
+    expect(await oneTryItPrompt(undefined)).toEqual(BUILT_IN_ONE_PROMPT);
   });
 });
