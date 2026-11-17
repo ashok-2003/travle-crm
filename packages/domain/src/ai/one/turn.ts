@@ -47,19 +47,19 @@ async function liveTurn(
   // At a limit the photo's task still goes: the turn moves past the photo.
   if (prepared.monthFull) return atLimit(turn, "month_limit", customerText, before.task);
   if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap", customerText, before.task);
-  // The summary is refreshed before the model; the agent then reads it and only the lines after its point.
-  const memory = await chatMemoryOf(deps, prepared, input, now, trace);
-  const read = memory.summary === null ? prepared : { ...prepared, lead: { ...prepared.lead, summary: null } };
-  const contextOf = (notice: string | null) =>
-    buildOneContext({ ...read, lines: memory.lines, prompt, now, notice, tools: "all", summary: memory.summary });
-  const plain = contextOf(before.notice);
-  // A Book tap on the live offer books here, with no model; any other tap is a notice for it.
+  const plain = buildOneContext({ ...prepared, prompt, now, notice: before.notice, tools: "all", summary: null });
+  // A Book tap on the live offer books here, with no model (so no summary call); any other tap is a notice for it.
   const tap = await tapStep(turn, liveActionContext(deps.db, prepared, input, plain, now));
   if (tap !== null && "done" in tap) {
     trace.flag("tap:book");
     return tap.done;
   }
-  const context = tap === null ? plain : contextOf([before.notice, tap.notice].filter(isText).join("\n"));
+  // The summary is refreshed before the model; the agent then reads it and only the lines after its point.
+  const memory = await chatMemoryOf(deps, prepared, input, now, trace);
+  const read = memory.summary === null ? prepared : { ...prepared, lead: { ...prepared.lead, summary: null } };
+  const contextOf = (notice: string | null) =>
+    buildOneContext({ ...read, lines: memory.lines, prompt, now, notice, tools: "all", summary: memory.summary });
+  const context = contextOf(tap === null ? before.notice : [before.notice, tap.notice].filter(isText).join("\n"));
   const io = oneLiveIO(deps, prepared, input, context, now, clock);
   const settings: OneSettings = { organizationId: input.organizationId, forced: before.forced, today: prepared.today };
   const end = await runOneLoop(context, io, settings, trace);
