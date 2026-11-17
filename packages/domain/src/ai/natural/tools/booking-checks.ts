@@ -68,7 +68,7 @@ export async function offerChecks(context: BookingContext, terms: BookingTerms):
  * The offer, while it is live: made in the last turn that ran, and nobody but the customer has written since our
  * message that made it (a team line or an automatic one may have changed what they are answering).
  */
-function liveOfferOf({ facts, lines }: BookingContext): LiveOffer | null {
+export function liveOfferOf({ facts, lines }: Pick<BookingContext, "facts" | "lines">): LiveOffer | null {
   const { offer, lastTurnAt } = facts;
   if (offer === null || lastTurnAt === null || Date.parse(offer.at) < Date.parse(lastTurnAt)) return null;
   return lines.findLast((line) => line.from !== "customer")?.from === "you" ? offer : null;
