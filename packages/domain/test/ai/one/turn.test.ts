@@ -9,6 +9,7 @@ import { createMemoryTracing, notedTurn, type MemoryTracing } from "@travel-crm/
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { replyDayOf } from "../../../src/ai/may-write.js";
 import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
+import { PAYMENT_PHOTO_TASK } from "../../../src/ai/one/before-the-model.js";
 import { BUILT_IN_ONE_PROMPT, ONE_PROMPT_NAME } from "../../../src/ai/one/prompt.js";
 import { runOneTurn } from "../../../src/ai/one/turn.js";
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
@@ -142,6 +143,7 @@ describe("the one agent's live turn", () => {
       aiTask,
       during,
       offered,
+      holdSeats,
       atTheDayCap,
       refusedYes,
       sentAfterOffer,
@@ -277,21 +279,67 @@ describe("the one agent's live turn", () => {
     expect((await on.chatState())?.handoffReason).toBe("This month's AI replies are used up");
   });
 
-  it("answers a payment screenshot with one call and no tools, and hands it to the team", async () => {
-    const on = await world();
+  /** A payment photo in the chat: the UPI line the QR went out on, then the customer's image. */
+  const paymentPhoto = async (on: Awaited<ReturnType<typeof world>>) => {
     await on.write({ direction: "out", at: liveAt(-100), body: "UPI: casetrips@okbank", clientToken: "ai:turn-1:pay" });
-    const photo = await on.write({ direction: "in", at: liveAt(-60), kind: "image" });
-    on.model.answer({ text: "Thank you! Check karke yahin confirm karti hoon." });
-    expect(await on.turn(photo)).toBe("handed_off");
+    return on.write({ direction: "in", at: liveAt(-60), kind: "image" });
+  };
+
+  it("gives the team a payment task and answers with tools, handing nothing over", async () => {
+    const on = await world();
+    const photo = await paymentPhoto(on);
+    on.model.answer({ text: "Thank you! Team check kar rahi hai." });
+    expect(await on.turn(photo)).toBe("replied");
     expect(on.model.requests).toHaveLength(1);
-    expect(on.model.requests[0]?.tools).toBeUndefined();
-    expect(contentOf(on.model.requests[0]?.messages.at(-1))).toContain("Their payment screenshot is with you to check");
-    expect((await on.outbound()).map((message) => message.body).at(-1)).toBe(
-      "Thank you! Check karke yahin confirm karti hoon.",
+    expect(on.model.requests[0]?.tools).not.toBeUndefined();
+    expect(contentOf(on.model.requests[0]?.messages.at(-1))).toContain("never say the money arrived");
+    expect((await on.chatState())?.handoffReason ?? null).toBeNull();
+    expect((await on.aiTask()).title).toContain("check it in Payments");
+  });
+
+  it("still gives the team the payment task at the day's cap", async () => {
+    const on = await world();
+    const photo = await paymentPhoto(on);
+    await on.atTheDayCap();
+    expect(await on.turn(photo)).toBe("handed_off");
+    expect(on.model.requests).toEqual([]);
+    expect((await on.aiTask()).title).toContain("check it in Payments");
+  });
+
+  it("keeps the payment task when the act refuses the booking and the one more run answers", async () => {
+    const on = await world();
+    const yes = await on.offered();
+    // The photo comes with the yes, in the same batch.
+    await on.write({ direction: "out", at: liveAt(230), body: "UPI: casetrips@okbank", clientToken: "ai:turn-1:pay" });
+    await on.write({ direction: "in", at: liveAt(235), kind: "image" });
+    on.model.answer(
+      { toolCalls: [bookCall], reasoningDetails: thought },
+      { text: bookWords, reasoningDetails: thought },
+      { text: "Seats abhi nahi mil rahi, team batayegi." },
     );
-    expect((await on.chatState())?.handoffReason).toBe(
-      "Sent a payment screenshot for you to check: A payment screenshot came in this chat: check it in Payments.",
+    await on.turn(
+      yes,
+      liveAt(300),
+      on.during(2, () => on.holdSeats(19)),
     );
+    const tasks = await on.inOrg((tx) =>
+      tx.task.findMany({ where: { recordType: "lead", recordId: on.leadId, byAi: true } }),
+    );
+    const notes = await on.inOrg((tx) => tx.leadNote.findMany({ where: { leadId: on.leadId, byAi: true } }));
+    const text = [...tasks.map((task) => task.title), ...notes.map((note) => note.body)].join("\n");
+    expect(text).toContain("check it in Payments");
+  });
+
+  it("adds the payment task to a fallback's", async () => {
+    const on = await world();
+    const photo = await paymentPhoto(on);
+    const lookup = { toolCalls: [{ name: "get_trip", arguments: { trip_id: "T1" } }] };
+    on.model.answer(...Array.from({ length: 13 }, () => lookup));
+    expect(await on.turn(photo)).toBe("fallback");
+    expect((await on.aiTask()).title).toContain("too many steps");
+    // The title holds 200 characters, so the whole text is in the lead's note.
+    const notes = await on.inOrg((tx) => tx.leadNote.findMany({ where: { leadId: on.leadId, byAi: true } }));
+    expect(notes.map((note) => note.body).join("\n")).toContain(`Also: ${PAYMENT_PHOTO_TASK}`);
   });
 
   it("tries once more when the act can't hold the seats, keeping the reasoning details, then falls back", async () => {
