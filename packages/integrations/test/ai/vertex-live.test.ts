@@ -14,7 +14,7 @@ const file = process.env.VERTEX_SA_FILE ?? "";
 const baseUrl =
   process.env.VERTEX_BASE_URL ??
   "https://aiplatform.googleapis.com/v1/projects/veeper-ai/locations/global/endpoints/openapi";
-const model = process.env.VERTEX_MODEL ?? "google/gemini-3.8-flash";
+const model = process.env.VERTEX_MODEL ?? "google/gemini-3.5-flash-lite";
 
 describe.skipIf(file === "")("Gemini on Vertex AI (live)", () => {
   const vertex = () =>
