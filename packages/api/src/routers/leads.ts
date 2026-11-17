@@ -26,6 +26,8 @@ import {
   moveStageInput,
   reassignLeadInput,
   removedLeads,
+  stageBreakdown,
+  stageBreakdownInput,
   timelineInput,
   timelinePage,
 } from "@travel-crm/contracts/crm";
@@ -49,6 +51,7 @@ import {
   removeAllLeads,
   removeLead,
   reopenLead,
+  stageBreakdownOf,
 } from "@travel-crm/domain/crm";
 import { aiFilledLeadIds, leadSaved, recordFillApplied, tripSaved } from "@travel-crm/domain/ai";
 import { listQuickReplies } from "@travel-crm/domain/inbox";
@@ -95,6 +98,14 @@ export const leadsRouter = router({
     .input(leadCountsInput)
     .output(leadCounts)
     .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => countLeads(tx, ctx.member, input))),
+
+  /** Every stage of the leads that came in during a period, in the caller's scope (Home's card). */
+  stageBreakdown: viewer
+    .input(stageBreakdownInput)
+    .output(stageBreakdown)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => stageBreakdownOf(tx, ctx.member, input.period, new Date())),
+    ),
 
   /** Who may own a lead (names only): every lead worker for a holder of leads:assign, otherwise only themselves. */
   owners: viewer.output(z.array(leadWorker)).query(async ({ ctx }) => {

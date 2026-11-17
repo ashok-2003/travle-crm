@@ -1,7 +1,7 @@
 // Adding leads, the known-contact check, and the list (spec 3.2, 3.3). A known contact's open lead is named by its
 // destination and owner; its id only when the asker can see it (R24), so no client names a lead it can't see.
 import { z } from "zod";
-import { createdWithin } from "../kernel/period.js";
+import { createdWithin, period } from "../kernel/period.js";
 import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
 import { taskKind } from "../tasks/tasks.js";
@@ -135,6 +135,25 @@ export const leadCounts = z.object({
   booking_requested: z.int(),
 });
 export type LeadCounts = z.infer<typeof leadCounts>;
+
+/** Leads that came in during a period, by stage (Home's card). */
+export const stageBreakdownInput = z.strictObject({ period });
+export type StageBreakdownInput = z.infer<typeof stageBreakdownInput>;
+
+export const stageBreakdown = z.object({
+  /** Every lead but the Not a lead ones. */
+  total: z.int(),
+  stages: z.object({
+    new: z.int(),
+    contacted: z.int(),
+    quote_sent: z.int(),
+    booking_requested: z.int(),
+    won: z.int(),
+    lost: z.int(),
+    not_a_lead: z.int(),
+  }),
+});
+export type StageBreakdown = z.infer<typeof stageBreakdown>;
 
 /** Someone who can own leads, for the owner and assignee pickers: names only. */
 export const leadWorker = z.object({ userId: recordId, name: z.string() });

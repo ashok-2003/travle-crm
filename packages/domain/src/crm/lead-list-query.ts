@@ -91,6 +91,15 @@ export function leadCountsQuery(filter: LeadCountsFilter): Sql {
     GROUP BY lead.stage`;
 }
 
+/** Live leads of any stage counted by stage, for the same conditions as the list (a "came in" period, the scope). */
+export function leadStageCountsQuery(filter: LeadCountsFilter): Sql {
+  return sql`
+    SELECT lead.stage, count(*)::int AS n
+    FROM lead
+    WHERE ${filterConditions(filter)}
+    GROUP BY lead.stage`;
+}
+
 /** The leads a list holds across all its pages (B41's count): the same conditions as leadListQuery, on live people. */
 export function exportCountQuery(filter: LeadCountsFilter & { stages: readonly LeadStage[]; through?: string }): Sql {
   return sql`
