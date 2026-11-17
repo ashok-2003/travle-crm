@@ -1,12 +1,15 @@
 // When the lite agent's two follow-ups go (plan 3b, Task 1): about 4 hours after its reply and about 20 hours after the
 // customer's last message, 9 am to 9 pm in the agency's time zone, inside WhatsApp's 24-hour window less its 1-hour
 // margin, one pulled back into the evening on its chat's own minute from 20:00 to 20:58, and what each turn leaves for
-// them.
+// them; and whether the silence one goes into still stands.
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
-import { followUpAt, followUpPlan, inWakingHours, nextMorning } from "../../../src/ai/lite/follow-ups.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { followUpAt, followUpPlan, inWakingHours, nextMorning, stillQuiet } from "../../../src/ai/lite/follow-ups.js";
 import type { Move } from "../../../src/ai/lite/types.js";
 import { addDays, instantAt, parseCalendarDate, parseTimeOfDay } from "../../../src/kernel/index.js";
+import { createTestInbox, type TestInbox } from "../../inbox/support.js";
+import { liteAgency, liteTurnAt } from "./support/lite-agency.js";
+import { greeting, understood, written } from "./support/turn-script.js";
 
 const india = "Asia/Kolkata";
 const day = parseCalendarDate("2026-11-10");
@@ -220,5 +223,84 @@ describe("when a due follow-up may still go", () => {
     expect(nextMorning(local("02:00", 1), local("15:30"), india)).toEqual(local("09:00", 1));
     // Wrote 02:00: the window's end is 01:00 the next day, before any morning.
     expect(nextMorning(local("21:00"), local("02:00"), india)).toBeNull();
+  });
+});
+
+describe("whether the silence still stands", () => {
+  let test: TestInbox;
+  beforeAll(() => {
+    test = createTestInbox();
+  });
+  afterAll(() => test.close());
+
+  it("counts a reaction as an answer only when asked to", async () => {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    expect(await on.turn()).toBe("replied");
+    const quiet = (options?: { reactions?: boolean }) => on.inOrg((tx) => stillQuiet(tx, on.chat.id, options));
+    expect(await quiet()).toBe(true);
+    expect(await quiet({ reactions: true })).toBe(true);
+    // A customer's 👍 is no line of its own: inbound sets its emoji on the message it is for, here our reply.
+    await on.inOrg((tx) =>
+      tx.whatsappMessage.updateMany({
+        where: { conversationId: on.chat.id, direction: "out" },
+        data: { reaction: "👍" },
+      }),
+    );
+    expect(await quiet()).toBe(true);
+    expect(await quiet({ reactions: true })).toBe(false);
+  });
+
+  /** The reply turn, then `emoji` set on our messages sent before `before` (all of them by default). */
+  async function reacted(emoji: string, before?: Date) {
+    const on = await liteAgency(test);
+    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    expect(await on.turn()).toBe("replied");
+    const react = (sentBefore = before) =>
+      on.inOrg((tx) =>
+        tx.whatsappMessage.updateMany({
+          where: {
+            conversationId: on.chat.id,
+            direction: "out",
+            ...(sentBefore === undefined ? {} : { occurredAt: { lt: sentBefore } }),
+          },
+          data: { reaction: emoji },
+        }),
+      );
+    return { on, react, quiet: () => on.inOrg((tx) => stillQuiet(tx, on.chat.id, { reactions: true })) };
+  }
+
+  it("leaves the chat quiet when the customer cleared their reaction", async () => {
+    // WhatsApp clears a reaction with an empty emoji, and inbound keeps it as "".
+    const { react, quiet } = await reacted("");
+    await react();
+    expect(await quiet()).toBe(true);
+  });
+
+  it("leaves the chat quiet for a reaction on a message sent before our last one", async () => {
+    const followUpAt = new Date(liteTurnAt.getTime() + 4 * 3_600_000);
+    const { on, react, quiet } = await reacted("👍", followUpAt);
+    // The first follow-up went after the reply: our last message is now the follow-up.
+    await on.inOrg(async (tx) => {
+      await tx.whatsappMessage.create({
+        data: {
+          conversationId: on.chat.id,
+          direction: "out",
+          origin: "automation",
+          kind: "text",
+          body: "Hope your day is going well. Which trip would you like?",
+          status: "sent",
+          clientToken: `ai:nudge:${on.chat.id}:1`,
+          occurredAt: followUpAt,
+        },
+      });
+      await tx.aiChat.updateMany({ where: { conversationId: on.chat.id }, data: { lastReplyAt: followUpAt } });
+    });
+    // The 👍 is on the reply: when it came is unknown, so it may be older than the follow-up.
+    await react();
+    expect(await quiet()).toBe(true);
+    // One on the follow-up itself came after it.
+    await react(new Date(followUpAt.getTime() + 1));
+    expect(await quiet()).toBe(false);
   });
 });
