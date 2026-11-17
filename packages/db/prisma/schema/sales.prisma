@@ -155,6 +155,7 @@ model QuoteTemplate {
   destination           Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   tiers                 QuoteTemplateTier[]
   seasons               PackageSeason[]
+  brochures             PackageBrochure[]
   departures            Departure[]
   quotes                Quote[]
   enquiries             PackageEnquiry[]
@@ -164,4 +165,26 @@ model QuoteTemplate {
   @@unique([organizationId, name], map: "quote_template_live_name", where: { deletedAt: null })
   @@unique([organizationId, slug], map: "quote_template_live_slug", where: { deletedAt: null })
   @@map("quote_template")
+}
+
+/// A package's brochure with the owner's words (the file is an attachment of the package; no key to it, see the migration).
+model PackageBrochure {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String        @id @default(uuid(7)) @db.Uuid
+  packageId      String        @map("package_id") @db.Uuid
+  attachmentId   String        @map("attachment_id") @db.Uuid
+  /// 1 to 80 characters (CHECK package_brochure_name_length).
+  name           String
+  /// At most 300 characters (CHECK package_brochure_description_length).
+  description    String        @default("")
+  updatedBy      String?       @map("updated_by") @db.Uuid
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  package        QuoteTemplate @relation(fields: [organizationId, packageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, attachmentId])
+  @@index([organizationId, packageId], map: "package_brochure_by_package")
+  @@map("package_brochure")
 }

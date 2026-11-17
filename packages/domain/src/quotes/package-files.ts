@@ -18,6 +18,7 @@ import { readyAttachmentsIn, readyAttachmentsOfRecordsIn, type Files } from "../
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { filesWithLinks, requirePackage } from "./package-file-links.js";
+import { brochuresByPackage } from "./package-brochures.js";
 
 export interface PackageFileDependencies {
   db: Pick<Database, "forOrg">;
@@ -76,7 +77,15 @@ export async function listPackageFiles(
 ): Promise<{ brochures: PackageFile[] }> {
   await requirePackage(dependencies, access, packageId);
   const brochures = await filesWithLinks(dependencies.files, access, recordOf(packageId));
-  return packageFiles.parse({ brochures: brochures.map(withAttachmentId) });
+  const words = await dependencies.db.forOrg(access.organizationId, (tx) => brochuresByPackage(tx, [packageId]));
+  const wordsOf = new Map((words.get(packageId) ?? []).map((one) => [one.attachmentId, one]));
+  return packageFiles.parse({
+    brochures: brochures.map((file) => ({
+      ...withAttachmentId(file),
+      name: wordsOf.get(file.id)?.name ?? null,
+      description: wordsOf.get(file.id)?.description ?? null,
+    })),
+  });
 }
 
 /** Pending uploads don't count, so this runs again at confirmation, when a file really joins the five. */
@@ -144,4 +153,8 @@ export async function removePackageFile(
     ...recordOf(input.packageId),
     attachmentId: input.attachmentId,
   });
+  // The words go with the file: nothing reads them without it, and they hold no history worth keeping.
+  await dependencies.db.forOrg(access.organizationId, (tx) =>
+    tx.packageBrochure.deleteMany({ where: { packageId: input.packageId, attachmentId: input.attachmentId } }),
+  );
 }
