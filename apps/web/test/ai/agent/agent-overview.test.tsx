@@ -1,6 +1,6 @@
 // The AI agent page: each state, the handed-over chats and their links, the payments count only for who may see it, the tabs.
 import { brand } from "@travel-crm/brand";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentScreen } from "@/ai/agent/agent-screen";
@@ -77,7 +77,7 @@ describe("the AI agent page's state", () => {
     ["Not set up yet, with a link to Setup, while it is off and not ready", {}, t.state.notSetUp, true],
     ["Off when it is ready but off", { ready: true }, t.state.off, false],
     ["On while it answers", { ready: true, on: true }, t.state.on, false],
-    ["On, but setup isn't finished, when it is on and no longer ready", { on: true }, t.state.onNotReady, false],
+    ["On, but not answering, when it is on and no longer ready", { on: true }, t.state.onNotReady, false],
     ["Paused when it is on", { ready: true, on: true, pausedBySupport: true }, paused, false],
     ["Paused when it is off and ready", { ready: true, pausedBySupport: true }, paused, false],
     ["Paused when it is off and not ready, with no Setup link", { pausedBySupport: true }, paused, false],
@@ -86,6 +86,23 @@ describe("the AI agent page's state", () => {
     renderWithApi(<AgentScreen />, client(), owner);
     await screen.findByText(shown);
     onlyState(shown, { setupLink });
+  });
+
+  it("says an agent left on while the agency's AI is off won't answer, and why, each step a link", async () => {
+    const step = (key: string) => ({ key, done: false, optional: key === "ads", count: null, total: null });
+    api({ "ai.agentSetup": { ...setup, on: true, steps: [step("ai"), step("payment"), step("ads")] } });
+    renderWithApi(<AgentScreen />, client(), owner);
+    await screen.findByText(t.state.onNotReady);
+    onlyState(t.state.onNotReady, { setupLink: false });
+    const list = screen.getByRole("group", { name: t.state.wontAnswerUntil });
+    const links = within(list)
+      .getAllByRole("link")
+      .map((link) => [link.textContent, link.getAttribute("href")]);
+    // From the Overview, a step on the Setup tab opens that tab at the step; optional ads are never in it.
+    expect(links).toEqual([
+      [t.setup.steps.ai.todo, "/settings/ai"],
+      [t.setup.steps.payment.todo, "/ai-agent?tab=setup#step-payment"],
+    ]);
   });
 });
 

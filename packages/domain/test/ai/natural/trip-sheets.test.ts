@@ -60,11 +60,16 @@ describe("the natural agent's trip sheets", () => {
       tx.attachment.findMany({ where: { recordId: kedarkantha }, select: { id: true, recordType: true } }),
     );
     const idOf = (recordType: string) => files.find((file) => file.recordType === recordType)?.id;
+    const trip = await inOrg((tx) =>
+      tx.quoteTemplate.findUniqueOrThrow({ where: { id: kedarkantha }, select: { destinationId: true } }),
+    );
+    expect(trip.destinationId).not.toBeNull();
     expect(sheet).toMatchObject({
       label: "T1",
       packageId: kedarkantha,
       title: "Kedarkantha Trek",
       place: "Sankri, Uttarakhand",
+      destinationId: trip.destinationId,
       nights: 5,
       startCity: "Dehradun",
       pickups: ["Dehradun ISBT, 6:30 am", "Dehradun railway station, 7 am"],

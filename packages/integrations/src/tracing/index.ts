@@ -10,6 +10,7 @@ export {
   type TraceLevel,
   type TraceNote,
   type TracedGeneration,
+  type TracedPrompt,
   type TurnStart,
 } from "./ai-tracing.js";
 export { createLangfuseTracing, type LangfuseTracingOptions } from "./langfuse.js";

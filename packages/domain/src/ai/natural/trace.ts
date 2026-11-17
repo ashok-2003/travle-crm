@@ -3,6 +3,7 @@
 import type { BookingTerms, NaturalTrace } from "@travel-crm/contracts/ai";
 import type { AiFailure, AiRequest, AiResult } from "@travel-crm/integrations/ai";
 import { formatRupees, formatShortDay, parseCalendarDate } from "../../kernel/index.js";
+import type { NaturalPrompt } from "./prompt.js";
 import type { StagedAction, StagedSet } from "./types.js";
 
 type TraceCall = NaturalTrace["calls"][number];
@@ -20,7 +21,13 @@ export interface NaturalTraceBuilder {
   finish(outcome: string, fallback: string | null, endedMs: number): NaturalTrace;
 }
 
-export function startNaturalTrace(promptVersion: string, startedMs: number): NaturalTraceBuilder {
+/** The prompt as the trace names it: its version, and the Langfuse label it was read at (none for the built-in text). */
+export function startNaturalTrace(
+  prompt: Pick<NaturalPrompt, "version" | "source">,
+  startedMs: number,
+): NaturalTraceBuilder {
+  const promptVersion = prompt.version;
+  const promptLabel = prompt.source?.label ?? null;
   const calls: TraceCall[] = [];
   const guards: NaturalTrace["guards"] = [];
   let staged: NaturalTrace["staged"] = [];
@@ -48,6 +55,7 @@ export function startNaturalTrace(promptVersion: string, startedMs: number): Nat
     finish: (outcome, fallback, endedMs) => ({
       agent: "natural",
       promptVersion,
+      promptLabel,
       outcome,
       fallback,
       restarted,

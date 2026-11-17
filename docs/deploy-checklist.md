@@ -155,7 +155,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
-| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`: both or neither (Tracing the AI, below)               | ○   | ○      |         |         | yes    |
+| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`: both or neither (Tracing the AI, the agent's prompt)  | ○   | ○      |         |         | yes    |
 | `LANGFUSE_BASE_URL`: Langfuse's region, needed with the keys; https in production                   | ○   | ○      |         |         |        |
 | `LANGFUSE_TRACING_ENVIRONMENT`: the traces' environment (`NODE_ENV`'s when unset)                   | ○   | ○      |         |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                                                    | ○   | ○      | ○       |         |        |
@@ -300,6 +300,27 @@ Secrets come from the platform's secret manager as environment variables, never 
     six seconds for the last of them.
   - An erased customer's traces are not yet deleted from Langfuse: until that step is added to the erasure, delete them
     by hand there (Tracing, filtered by the session, which is the chat's id).
+- **The natural agent's prompt** (`@travel-crm/integrations/prompts`) lives in Langfuse's prompt management, in the same
+  project as the traces and read with the same three `LANGFUSE_*` settings; nothing else is set:
+  - It is the **text** prompt named `whatsapp-agent/natural-system` (a `whatsapp-agent` folder in Langfuse's Prompts).
+    Its variables are `{{agent_name}}`, `{{agency_name}}` and `{{tone}}`, which the agent fills for each agency; a
+    variable of any other name stays in the text as written.
+  - The label `production` is live: the agent reads the version it points to, kept for a minute in each process. A moved
+    label shows a minute on: the first turn after the minute still runs the old version (it fetches the new one behind
+    it), the next turn the new one. The label `draft` is for Try it alone: its Prompt choice "Draft" reads it afresh each
+    turn, beside the live prompt, and runs the live one when the draft can't be read, saying so in Why. Edit the draft,
+    try it, then move `production` to that version to put it live; move `production` back to undo.
+  - The built-in text (`packages/domain/src/ai/natural/prompt-text.ts`, version `built-in-1`) is the fallback: the agent
+    runs on it without the keys, when a process has never read the prompt (none at that label yet, or Langfuse down
+    since the start), and when Langfuse doesn't answer within 2 seconds (then it asks again only after 30 seconds). Once
+    a process has read a version, it keeps that version when Langfuse fails: removing the `production` label or the
+    prompt brings the built-in text back only after a restart, so move the label instead. Why and each trace show the
+    version a turn ran: `langfuse:whatsapp-agent/natural-system@<version>` or `built-in-1`. A turn on a Langfuse prompt
+    links each of its generations to that version, so the prompt's Metrics in Langfuse count them.
+  - Langfuse's SDK prints nothing (its console logger is off). A prompt that can't be had is a `warn` line of the
+    process's log (`source: langfuse-prompts`, its name, label, reason and status), at most once per prompt every 30
+    seconds; a label Langfuse doesn't have, such as no `draft` yet, is only a `debug` line.
+  - To start, create the prompt from the built-in text, as it is, with the label `production`.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
     printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to

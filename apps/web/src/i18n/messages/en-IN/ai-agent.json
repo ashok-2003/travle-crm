@@ -19,8 +19,8 @@
   },
   "state": {
     "on": "On: answering WhatsApp chats",
-    "onNotReady": "On, but setup isn't finished",
-    "finishSetup": "Finish setup",
+    "onNotReady": "On, but not answering chats",
+    "wontAnswerUntil": "It won't answer until you:",
     "off": "Off",
     "paused": "Paused by {product} support",
     "notSetUp": "Not set up yet",
@@ -62,6 +62,12 @@
     "editNamed": "Edit {title}",
     "closeNamed": "Close {title}",
     "steps": {
+      "ai": {
+        "title": "Use the AI",
+        "open": "Open AI settings",
+        "done": "The AI is on for your agency",
+        "todo": "Turn on the AI in Settings, AI"
+      },
       "whatsapp": {
         "title": "WhatsApp number",
         "open": "Connect your WhatsApp number",

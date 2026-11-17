@@ -2,7 +2,8 @@
 // and name), the session the chat's own id, or a random one when the client sends none (never a customer's chat). The test
 // chat goes in, what the customer would get comes out, and what the turn learned is noted: each tool call with its
 // arguments and result, the guards' verdicts, a fallback and its reason, the staged actions and the prompt version. Its
-// model calls nest inside as generations. Without a tracing it is the dry run alone.
+// model calls nest inside as generations, linked to the turn's prompt when it came from Langfuse. Without a tracing it is
+// the dry run alone.
 import { randomUUID } from "node:crypto";
 import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
 import type { AiTracing, TraceLevel, TraceNote } from "@travel-crm/integrations/tracing";
@@ -23,7 +24,8 @@ export function naturalTryItNote(answer: NaturalTestAnswer): TraceNote {
     output:
       answer.messages.length === 0
         ? { outcome: answer.outcome, fallback: trace.fallback }
-        : { role: "assistant", content: answer.messages.join("\n\n") },
+        : // Two messages read as the model wrote them: a blank line is spacing inside one, a `---` line sits between.
+          { role: "assistant", content: answer.messages.join("\n---\n") },
     metadata: {
       promptVersion: trace.promptVersion,
       outcome: answer.outcome,
@@ -53,6 +55,7 @@ export function naturalTryItTurn(
 ): Promise<NaturalTestAnswer> {
   const { tracing } = deps;
   if (tracing === undefined) return naturalDryRun(deps, access, chat, now);
+  const { source } = chat.prompt;
   return tracing.turn(
     {
       name: "whatsapp-agent.natural.try-it",
@@ -64,10 +67,13 @@ export function naturalTryItTurn(
         role: line.from === "customer" ? "user" : "assistant",
         content: line.text,
       })),
+      // A prompt from Langfuse is linked to each model call; the built-in text is none of Langfuse's.
+      ...(source === undefined ? {} : { prompt: { name: source.name, version: source.version } }),
       metadata: {
         agent: "natural",
         tryIt: true,
         promptVersion: chat.prompt.version,
+        promptLabel: source?.label ?? null,
         model: chat.model ?? "live",
         temperature: chat.temperature ?? null,
         state: chat.state,
