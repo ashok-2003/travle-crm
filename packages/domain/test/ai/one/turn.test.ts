@@ -467,4 +467,20 @@ describe("the one agent's live turn", () => {
       "Asks about a business booking or agent rates: An agency asking for B2B rates",
     );
   });
+
+  it("summarises a 31-message chat before the model, which reads no line before the point", async () => {
+    const on = await world();
+    for (let n = 0; n < 30; n += 1) await on.writes(`older line ${String(n)}`, -3_000 + n);
+    // Our own line closes the older talk, so only the customer's last line is new.
+    await on.write({ direction: "out", at: liveAt(-2_500), body: "Hello!", clientToken: "ai:hello" });
+    on.model.answer("Notes: wants Kedarkantha.", priceWords);
+    expect(await on.turn()).toBe("replied");
+    const [summary, reply] = on.model.requests;
+    expect(summary?.messages.at(-1)?.content).toContain("older line 0");
+    const read = JSON.stringify(reply?.messages);
+    expect(read).toContain("Notes: wants Kedarkantha.");
+    expect(read).toContain(FIRST_LINE);
+    expect(read).not.toContain("older line");
+    expect((await on.chatState())?.chatSummary).toBe("Notes: wants Kedarkantha.");
+  });
 });

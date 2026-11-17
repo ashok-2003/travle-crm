@@ -116,4 +116,23 @@ describe("the one agent's follow-up", () => {
       statusMessage: "replied",
     });
   });
+
+  it("follows up on the summary and the lines after it", async () => {
+    const on = await world();
+    for (let n = 0; n < 30; n += 1) {
+      await on.write({
+        direction: "in",
+        at: new Date(liveNow.getTime() - 3_000_000 + n * 1000),
+        body: `older line ${String(n)}`,
+      });
+    }
+    // The reply turn summarises the 31 lines first; the follow-up finds the summary and reads only what follows.
+    on.model.answer("Notes: wants Kedarkantha.");
+    const due = await on.replied();
+    on.model.answer(NUDGE_WORDS);
+    expect(await on.nudge(1, due)).toBe("replied");
+    const nudge = JSON.stringify(on.model.requests.at(-1)?.messages);
+    expect(nudge).toContain("Notes: wants Kedarkantha.");
+    expect(nudge).not.toContain("older line");
+  });
 });

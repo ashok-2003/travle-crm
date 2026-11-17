@@ -14,6 +14,7 @@ import { actOfEnd, doneOf, endedOf, type TurnDone } from "../natural/turn-done.j
 import { naturalTurnStart } from "../natural/turn-note.js";
 import { gateDone } from "../natural/turn.js";
 import { buildOneContext } from "./context.js";
+import { chatMemoryOf } from "./memory.js";
 import { oneLiveIO, type OneTurnDependencies } from "./live-io.js";
 import { runOneLoop } from "./loop.js";
 import { onePromptOf } from "./prompt.js";
@@ -32,7 +33,17 @@ async function followUp(
   const { facts, timeZone, today } = prepared;
   const quiet = facts.lastTurnAt === null ? now : new Date(facts.lastTurnAt);
   const notice = nudgeNotice(number, stampOf(quiet, { today, timeZone }));
-  const context = buildOneContext({ ...prepared, prompt, now, notice, tools: "stay_quiet", summary: null });
+  const memory = await chatMemoryOf(deps, prepared, input, now, trace);
+  const read = memory.summary === null ? prepared : { ...prepared, lead: { ...prepared.lead, summary: null } };
+  const context = buildOneContext({
+    ...read,
+    lines: memory.lines,
+    prompt,
+    now,
+    notice,
+    tools: "stay_quiet",
+    summary: memory.summary,
+  });
   const io = oneLiveIO(deps, prepared, input, context, now, clock);
   const end = await runOneLoop(context, io, { organizationId: input.organizationId, forced: [], today }, trace);
   switch (end.end) {

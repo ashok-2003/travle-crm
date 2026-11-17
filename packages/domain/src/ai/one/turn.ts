@@ -19,6 +19,7 @@ import { naturalTurnStart, turnInputOf } from "../natural/turn-note.js";
 import { atLimit, gateDone } from "../natural/turn.js";
 import { oneBeforeTheModel, withPaymentTask } from "./before-the-model.js";
 import { buildOneContext } from "./context.js";
+import { chatMemoryOf } from "./memory.js";
 import { oneLiveIO, type OneTurnDependencies } from "./live-io.js";
 import { runOneLoop, type OneSettings } from "./loop.js";
 import { runOneNudge } from "./nudge.js";
@@ -46,8 +47,11 @@ async function liveTurn(
   // At a limit the photo's task still goes: the turn moves past the photo.
   if (prepared.monthFull) return atLimit(turn, "month_limit", customerText, before.task);
   if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap", customerText, before.task);
+  // The summary is refreshed before the model; the agent then reads it and only the lines after its point.
+  const memory = await chatMemoryOf(deps, prepared, input, now, trace);
+  const read = memory.summary === null ? prepared : { ...prepared, lead: { ...prepared.lead, summary: null } };
   const contextOf = (notice: string | null) =>
-    buildOneContext({ ...prepared, prompt, now, notice, tools: "all", summary: null });
+    buildOneContext({ ...read, lines: memory.lines, prompt, now, notice, tools: "all", summary: memory.summary });
   const plain = contextOf(before.notice);
   // A Book tap on the live offer books here, with no model; any other tap is a notice for it.
   const tap = await tapStep(turn, liveActionContext(deps.db, prepared, input, plain, now), before.task);
