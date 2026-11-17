@@ -89,7 +89,7 @@ describe.each([
         events.push(`start ${String(args.n)}: ${call.words}`);
         await new Promise((resolve) => setTimeout(resolve, args.n === 1 ? 20 : 0));
         events.push(`end ${String(args.n)}`);
-        return "done";
+        return `done ${String(args.n)}`;
       },
     };
     const { input } = turn(
@@ -104,8 +104,16 @@ describe.each([
       { toolCalls: [{ name: "slow", arguments: { n: 3 } }] },
       "Done.",
     );
-    expect(await agent.run(input)).toMatchObject({ end: "answered", text: "Done." });
+    const end = await agent.run(input);
+    expect(end).toMatchObject({ end: "answered", text: "Done." });
     expect(events).toEqual(["start 1: First.", "end 1", "start 2: First.", "end 2", "start 3: ", "end 3"]);
+    // The results go back in the calls' order too, the slow first one first.
+    const results = end.end === "answered" ? end.transcript.filter((message) => message.role === "tool") : [];
+    expect(results).toStrictEqual([
+      { role: "tool", content: "done 1", toolCallId: "call_1" },
+      { role: "tool", content: "done 2", toolCallId: "call_2" },
+      { role: "tool", content: "done 3", toolCallId: "call_3" },
+    ]);
   });
 
   it("hands the tool arguments its schema would refuse, and answers the model the tool's own refusal", async () => {
