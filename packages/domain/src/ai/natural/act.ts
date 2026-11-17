@@ -57,7 +57,9 @@ export async function actOnNaturalTurn(
   // The day's cap stops every turn but code's own hand-over at a limit (ruling 5): at the cap with the month's limit
   // reached too, either reason goes. A reaction answers a follow-up (ruling 13).
   const atLimit = handOver !== null && codeHandOverReasons.has(handOver.reason);
-  const stopped = await stoppedSince(tx, input, chat, { reactions: true, dayCap: !atLimit });
+  // A follow-up's silence counts from the last turn that ran, a quiet one included (ruling 13).
+  const since = input.facts.lastTurnAt === null ? null : new Date(input.facts.lastTurnAt);
+  const stopped = await stoppedSince(tx, input, chat, { reactions: true, dayCap: !atLimit, since });
   // Nothing is written yet: ending here keeps nothing and tells nobody, as a turn that never began.
   if (stopped !== null) return { stopped };
   await assertNewest(tx, input);
