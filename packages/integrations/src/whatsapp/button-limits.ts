@@ -9,11 +9,13 @@ export function buttonsFit(message: WhatsAppButtonsToSend): boolean {
   const { buttons, body, footer } = message;
   if (buttons.length < 1 || buttons.length > BUTTON_LIMITS.buttons) return false;
   if (body.trim() === "" || body.length > BUTTON_LIMITS.body) return false;
-  if (footer !== undefined && footer.length > BUTTON_LIMITS.footer) return false;
+  if (footer !== undefined && (footer.trim() === "" || footer.length > BUTTON_LIMITS.footer)) return false;
   if (new Set(buttons.map((button) => button.id)).size !== buttons.length) return false;
+  if (new Set(buttons.map((button) => button.title)).size !== buttons.length) return false;
   return buttons.every(
     (button) =>
-      button.id !== "" &&
+      // An id comes back exactly as sent, so it holds no whitespace or control characters to be rewritten on the way.
+      /^[^\s\p{Cc}]+$/u.test(button.id) &&
       button.id.length <= BUTTON_LIMITS.id &&
       button.title.trim() !== "" &&
       button.title.length <= BUTTON_LIMITS.title,

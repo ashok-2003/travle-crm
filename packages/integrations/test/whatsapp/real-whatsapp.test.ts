@@ -113,6 +113,10 @@ describe("the real WhatsApp provider", () => {
       { body: "b".repeat(1025), buttons: [ok] },
       { body: "", buttons: [ok] },
       { body: "x", footer: "f".repeat(61), buttons: [ok] },
+      { body: "x", footer: "", buttons: [ok] },
+      { body: "x", buttons: [ok, { id: "b", title: "A" }] },
+      { body: "x", buttons: [{ id: "a b", title: "A" }] },
+      { body: "x", buttons: [{ id: "a\n", title: "A" }] },
     ];
     for (const message of cases) {
       expect(await adapter.sendButtons("918888800000", "919876543210", message)).toEqual({
