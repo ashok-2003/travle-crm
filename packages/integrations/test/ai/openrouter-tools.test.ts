@@ -10,6 +10,7 @@ import {
   type AiTool,
 } from "../../src/ai/index.js";
 
+const OPENROUTER = "https://openrouter.ai/api/v1";
 const KEY = "sk-or-secret-key-1234567890";
 const schema = {
   type: "object",
@@ -288,5 +289,51 @@ describe("native tool calling through the OpenRouter adapter", () => {
     expect(await model.complete(request)).toMatchObject({
       toolCalls: [{ id: "call_1", name: "quote", arguments: '{"trip_id": "T1",' }],
     });
+  });
+});
+
+describe("tool calling on Gemini's own OpenAI-compatible endpoint", () => {
+  const GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai";
+  const geminiModel = (fetcher: typeof fetch, baseUrl = GEMINI) =>
+    createOpenRouterModel({ apiKey: KEY, models, fetch: fetcher, baseUrl });
+
+  it("sends reasoning_effort, and neither reasoning nor provider", async () => {
+    const { fetcher, bodies } = fakeFetch(words("Hi"));
+    await geminiModel(fetcher).complete({ ...request, reasoning: { effort: "low" } });
+    expect(bodies[0]?.reasoning_effort).toBe("low");
+    expect(bodies[0]).not.toHaveProperty("reasoning");
+    expect(bodies[0]).not.toHaveProperty("provider");
+  });
+
+  it("keeps a tool call's extra data (the thought signature) and sends it back unchanged with that call", async () => {
+    const extra = { google: { thought_signature: "sig-abc" } };
+    const call = { id: "call-1", type: "function", function: { name: "quote", arguments: '{"trip_id":"T1"}' } };
+    const { fetcher, bodies } = fakeFetch(
+      completion({ content: null, tool_calls: [{ ...call, extra_content: extra }] }, "tool_calls"),
+      words("Rs 12,000"),
+    );
+    const model = geminiModel(fetcher);
+    const first = await model.complete(request);
+    if (!first.ok) throw new Error("expected an answer");
+    const history: AiMessage[] = [
+      ...question,
+      {
+        role: "assistant",
+        content: first.text,
+        ...(first.toolCalls === undefined ? {} : { toolCalls: first.toolCalls }),
+      },
+      { role: "tool", content: "12000", toolCallId: "call-1" },
+    ];
+    await model.complete({ ...request, messages: history });
+    const sent = bodies[1]?.messages as { tool_calls?: unknown[] }[];
+    expect(sent[1]?.tool_calls).toEqual([{ ...call, extra_content: extra }]);
+  });
+
+  it("sends OpenRouter's request as before: reasoning, and provider routing", async () => {
+    const { fetcher, bodies } = fakeFetch(words("Hi"));
+    await geminiModel(fetcher, OPENROUTER).complete({ ...request, reasoning: { effort: "low" } });
+    expect(bodies[0]?.reasoning).toEqual({ effort: "low" });
+    expect(bodies[0]).not.toHaveProperty("reasoning_effort");
+    expect(bodies[0]?.provider).toEqual({ zdr: true, require_parameters: true });
   });
 });

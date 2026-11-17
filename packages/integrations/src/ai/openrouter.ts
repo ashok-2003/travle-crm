@@ -4,7 +4,8 @@
 // request that names its own model asks that one alone.
 // OpenRouter's own fields (`provider.zdr`, zero data retention on every request) are sent ONLY to OpenRouter: other
 // endpoints reject fields they don't know, and keep what their own terms say. Tools go as OpenAI-style functions; reasoning
-// (`reasoning`, `reasoning_details`) in OpenRouter's form, which the agent that sets it runs on alone. The key is sent as a
+// is `reasoning` and `reasoning_details` on OpenRouter, `reasoning_effort` elsewhere (Gemini), and a tool call's extra data
+// (Gemini's thought signature) goes back unchanged. The key is sent as a
 // header and appears nowhere else: not in a message, a log or an error.
 import {
   NEXT_MODEL_MIN_LEFT_MS,
@@ -42,7 +43,10 @@ interface ChatCompletion {
   choices?: {
     message?: {
       content?: string | null;
-      tool_calls?: { id?: string; function?: { name?: string; arguments?: string } }[];
+      tool_calls?: ({ id?: string; type?: string; function?: { name?: string; arguments?: string } } & Record<
+        string,
+        unknown
+      >)[];
       reasoning_details?: unknown;
     };
     finish_reason?: string;
@@ -83,7 +87,10 @@ function contentOf(message: AiMessage): unknown {
 interface WireMessage {
   role: AiMessage["role"];
   content: unknown;
-  tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[];
+  tool_calls?: ({ id: string; type: "function"; function: { name: string; arguments: string } } & Record<
+    string,
+    unknown
+  >)[];
   reasoning_details?: unknown;
   tool_call_id?: string;
 }
@@ -101,6 +108,8 @@ export function wireMessage(message: AiMessage): WireMessage {
       ? {}
       : {
           tool_calls: toolCalls.map((call) => ({
+            // The provider's own data first, so it can never overwrite the call's id, type or function.
+            ...call.providerData,
             id: call.id,
             type: "function" as const,
             function: { name: call.name, arguments: call.arguments },
@@ -144,6 +153,14 @@ function responseFormat(request: AiRequest, asJson: boolean): object {
   return request.json === true || request.schema !== undefined ? { response_format: { type: "json_object" } } : {};
 }
 
+/** The reasoning effort in the endpoint's own form: OpenRouter's `reasoning`, Gemini's (and OpenAI's) `reasoning_effort`. */
+function reasoningSetting(request: AiRequest, openRouter: boolean): object {
+  if (request.reasoning === undefined) return {};
+  return openRouter
+    ? { reasoning: { effort: request.reasoning.effort } }
+    : { reasoning_effort: request.reasoning.effort };
+}
+
 const hasTools = (request: AiRequest): boolean => (request.tools ?? []).length > 0;
 
 /**
@@ -185,11 +202,17 @@ const finishReasonOf = (reason: string | undefined): AiFinishReason =>
 function answerOf(body: ChatCompletion, model: string, ms: number): Extract<AiResult, { ok: true }> | null {
   const choice = body.choices?.[0];
   const text = choice?.message?.content ?? "";
-  const toolCalls = (choice?.message?.tool_calls ?? []).map((call) => ({
-    id: call.id ?? "",
-    name: call.function?.name ?? "",
-    arguments: call.function?.arguments ?? "",
-  }));
+  const toolCalls = (choice?.message?.tool_calls ?? []).map((call) => {
+    // Everything but the id, the type and the function is the provider's own (Gemini's thought signature).
+    const { id, function: fn, ...rest } = call;
+    const providerData = Object.fromEntries(Object.entries(rest).filter(([key]) => key !== "type"));
+    return {
+      id: id ?? "",
+      name: fn?.name ?? "",
+      arguments: fn?.arguments ?? "",
+      ...(Object.keys(providerData).length === 0 ? {} : { providerData }),
+    };
+  });
   if (text.trim() === "" && toolCalls.length === 0) return null;
   const reasoningDetails = choice?.message?.reasoning_details;
   return {
@@ -248,7 +271,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
                 ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
                 ...responseFormat(request, asJson),
                 ...toolSettings(request),
-                ...(request.reasoning === undefined ? {} : { reasoning: { effort: request.reasoning.effort } }),
+                ...reasoningSetting(request, openRouter),
                 ...(request.user === undefined ? {} : { user: request.user }),
                 // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
                 ...(openRouter && options.zeroRetention !== false

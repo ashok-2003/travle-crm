@@ -62,6 +62,11 @@ export interface AiToolCall {
   id: string;
   name: string;
   arguments: string;
+  /**
+   * What the provider attached to this call besides id, type and function (Gemini's thought signature, in
+   * `extra_content`), sent back unchanged with the call. Opaque to everything but the adapter.
+   */
+  providerData?: Record<string, unknown>;
 }
 
 /**
