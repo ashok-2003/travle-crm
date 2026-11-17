@@ -44,6 +44,21 @@ export interface WhatsAppTextOptions {
   replyTo?: string;
 }
 
+/** One reply button. The id comes back when it is tapped, so it holds ids only, never personal data. */
+export interface WhatsAppButton {
+  id: string;
+  title: string;
+}
+
+/** A message with reply buttons: 1 to 3, titles up to 20 characters, ids unique, body up to 1,024, footer up to 60. */
+export interface WhatsAppButtonsToSend {
+  body: string;
+  buttons: readonly WhatsAppButton[];
+  footer?: string;
+  /** The WhatsApp message id this one answers, shown as its quote. SPIKE(reply-context). */
+  replyTo?: string;
+}
+
 export interface WhatsAppTemplateSend {
   name: string;
   language: string;
@@ -100,6 +115,8 @@ export interface WhatsAppProvider {
   /** `number` is the agency's integrated number, as MSG91 writes it (digits); `to` is E.164 or digits. */
   sendText(number: string, to: string, text: string, options?: WhatsAppTextOptions): Promise<WhatsAppSendResult>;
   sendMedia(number: string, to: string, media: WhatsAppMediaToSend): Promise<WhatsAppSendResult>;
+  /** A message past WhatsApp's limits answers `{ ok: false, reason: "other", providerCode: "invalid_buttons" }` with no request. */
+  sendButtons(number: string, to: string, message: WhatsAppButtonsToSend): Promise<WhatsAppSendResult>;
   sendTemplate(number: string, to: string, template: WhatsAppTemplateSend): Promise<WhatsAppSendResult>;
   listTemplates(number: string): Promise<WhatsAppListResult>;
   createTemplate(number: string, template: WhatsAppTemplateDraft): Promise<WhatsAppCreateResult>;

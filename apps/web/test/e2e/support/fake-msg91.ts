@@ -50,6 +50,8 @@ export interface FakeSent {
   replyTo: string | null;
   /** For a template: its name, language and the values of its blanks. */
   template: { name: string; language: string; parameters: string[] } | null;
+  /** For an interactive send (`content_type: "interactive"`): its reply buttons; `text` then holds the body. */
+  buttons: { id: string; title: string }[] | null;
 }
 
 /** A template the fake holds for a number, as MSG91's list answers it. */
@@ -101,6 +103,17 @@ async function bodyOf(request: IncomingMessage): Promise<Record<string, unknown>
 const textOrNull = (value: unknown) => (typeof value === "string" && value !== "" ? value : null);
 const textOf = (value: unknown) => textOrNull(value) ?? "";
 
+/** The body and reply buttons of an interactive send, as MSG91 documents it (reply buttons only); null for anything else. */
+function interactiveOf(value: unknown): { body: string | null; buttons: { id: string; title: string }[] } | null {
+  const interactive = value as { type?: unknown; body?: { text?: unknown }; action?: { buttons?: unknown } } | null;
+  if (interactive?.type !== "button" || !Array.isArray(interactive.action?.buttons)) return null;
+  const buttons = (interactive.action.buttons as { reply?: { id?: unknown; title?: unknown } }[]).map((button) => ({
+    id: textOf(button.reply?.id),
+    title: textOf(button.reply?.title),
+  }));
+  return { body: textOrNull(interactive.body?.text), buttons };
+}
+
 export interface FakeMsg91 {
   /** The base URL the processes are given as MSG91_TEST_SERVER_URL. */
   url: string;
@@ -150,6 +163,7 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
           language: textOf(language.code),
           parameters: Object.values(target?.components ?? {}).map((component) => textOf(component.value)),
         },
+        buttons: null,
       });
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ status: "success", data: { messages: [{ id: wamid }], request_id: wamid } }));
@@ -218,18 +232,20 @@ export async function startFakeMsg91(): Promise<FakeMsg91> {
         return;
       }
       const wamid = `wamid.fake-${crypto.randomUUID()}`;
+      const interactive = interactiveOf(body.interactive);
       sent.push({
         wamid,
         to,
         from: textOf(body.integrated_number),
         contentType: textOf(body.content_type),
-        text: textOrNull(body.text),
+        text: interactive === null ? textOrNull(body.text) : interactive.body,
         url: textOrNull(body.attachment_url ?? body.url),
         caption: textOrNull(body.caption),
         fileName: textOrNull(body.filename),
         voice: body.voice === true,
         replyTo: textOrNull((body.context as { message_id?: unknown } | undefined)?.message_id),
         template: null,
+        buttons: interactive?.buttons ?? null,
       });
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ status: "success", data: { messages: [{ id: wamid }], request_id: wamid } }));

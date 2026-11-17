@@ -1,8 +1,10 @@
 // An in-memory WhatsAppProvider for the domain's, the api's and the journeys' tests (ADR 0035): a scripted MSG91 that holds
 // numbers, templates, files and the messages sent, a settable clock, a switch for each failure kind, and the delivery
 // reports MSG91 would send for what was sent (you advance them yourself).
+import { buttonsFit } from "./button-limits.js";
 import {
   failed,
+  type WhatsAppButtonsToSend,
   type WhatsAppCreateResult,
   type WhatsAppFailureReason,
   type WhatsAppListResult,
@@ -23,12 +25,14 @@ export interface SentMessage {
   wamid: string;
   number: string;
   to: string;
-  kind: "text" | "media" | "template";
+  kind: "text" | "media" | "template" | "buttons";
   text?: string;
   /** The message id this one answered, as sent. */
   replyTo?: string;
   media?: WhatsAppMediaToSend;
   template?: WhatsAppTemplateSend;
+  /** For buttons: the buttons and footer as sent; the body is `text`. */
+  buttons?: { buttons: WhatsAppButtonsToSend["buttons"]; footer?: string };
   sentAt: Date;
 }
 
@@ -153,6 +157,19 @@ export function createMemoryWhatsAppProvider(options: { now?: Date } = {}): Memo
       ),
     sendMedia: (number, to, media) =>
       Promise.resolve().then(() => send("sendMedia", number, to, { kind: "media", media })),
+    sendButtons: (number, to, message) =>
+      Promise.resolve().then(() => {
+        if (!buttonsFit(message)) return failed("other", { providerCode: "invalid_buttons" });
+        return send("sendButtons", number, to, {
+          kind: "buttons",
+          text: message.body,
+          buttons: {
+            buttons: message.buttons.map((button) => ({ ...button })),
+            ...(message.footer === undefined ? {} : { footer: message.footer }),
+          },
+          ...(message.replyTo === undefined ? {} : { replyTo: message.replyTo }),
+        });
+      }),
     sendTemplate: (number, to, template) =>
       Promise.resolve().then(() => {
         const approved = (templates.get(digits(number)) ?? []).find(
