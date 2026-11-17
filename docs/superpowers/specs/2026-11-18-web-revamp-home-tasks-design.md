@@ -62,7 +62,9 @@ DESIGN.md's rule, applied everywhere: blue fill for the one main action of a scr
 red text; red fill only on a dialog's final confirm) for anything that ends or removes (Mark lost, Not a lead,
 Delete, Cancel a booking); plain outline (ink) for everything else (Done, Snooze, Keep, Edit, Open chat). Known
 breaks: the AI's "Yes, mark Lost" suggestion button is blue fill; Done and Snooze are blue text that reads as links.
-A sweep of every screen lists and fixes the rest.
+This branch fixes the shared pieces (task actions, the stage suggestion, the contact buttons), these three pages, and
+any agency screen where an ending or removing action is blue fill (a listed sweep). The console and other colour
+questions wait for their pages. DESIGN.md's named fills keep their roles (the chat's green Send, the people violet).
 
 ## 5. Home (`/dashboard`)
 
