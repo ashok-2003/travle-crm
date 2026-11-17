@@ -178,7 +178,8 @@
         "wants_person": "they asked for a person",
         "abuse": "the chat turned abusive",
         "big_group": "the group is bigger than the AI books",
-        "existing_booking": "it's about a booking they already have"
+        "existing_booking": "it's about a booking they already have",
+        "b2b": "it's a business or agent enquiry"
       },
       "outcomes": {
         "replied": "Replied",
