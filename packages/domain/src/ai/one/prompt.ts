@@ -8,7 +8,7 @@ import { ONE_PROMPT_TEXT } from "./prompt-text.js";
 export const ONE_PROMPT_NAME = "whatsapp-agent/real-agent";
 export const onePromptLabels = { live: "production", tryIt: "latest" } as const;
 
-export const BUILT_IN_ONE_PROMPT: NaturalPrompt = { version: "built-in-one-2", text: ONE_PROMPT_TEXT };
+export const BUILT_IN_ONE_PROMPT: NaturalPrompt = { version: "built-in-one-3", text: ONE_PROMPT_TEXT };
 
 /** The prompt live turns run on: Langfuse's production one, else the built-in text. */
 export async function onePromptOf(prompts: AiPrompts | undefined): Promise<NaturalPrompt> {

@@ -30,7 +30,7 @@ function promptFileText(): string {
 describe("the one agent's prompt", () => {
   it("holds the prompt file's v2 text exactly", () => {
     expect(ONE_PROMPT_TEXT).toBe(promptFileText());
-    expect(BUILT_IN_ONE_PROMPT).toEqual({ version: "built-in-one-2", text: ONE_PROMPT_TEXT });
+    expect(BUILT_IN_ONE_PROMPT).toEqual({ version: "built-in-one-3", text: ONE_PROMPT_TEXT });
   });
 
   it("fills the agency, the agent and the tone, and leaves no placeholder", () => {
