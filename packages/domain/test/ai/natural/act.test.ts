@@ -255,6 +255,28 @@ describe("the natural agent's live act", () => {
     expect(seen).toEqual({ person: "Rohan Mehta", notice: "New booking: Rohan Mehta said yes" });
   });
 
+  it("keeps the booked name as a note beside a name a person typed, which stands", async () => {
+    const on = await actAgency(test);
+    // The team typed the customer's name: neither a WhatsApp stand-in nor their profile name ("Rahul").
+    await on.inOrg((tx) => tx.person.update({ where: { id: on.chat.personId ?? "" }, data: { name: "Rahul Sharma" } }));
+    const figures = await on.quote(threeOn19Dec(on));
+    const result = done(
+      await act(on, {
+        messages: ["Done: 3 seats on Sat 19 Dec are held for you."],
+        staged: stagedSet(bookOf(figures, "Rahul Verma")),
+        quoted: [figures],
+      }),
+    );
+    expect(result.actions).not.toContain("name");
+    const seen = await on.inOrg(async (tx) => ({
+      person: (await tx.person.findUniqueOrThrow({ where: { id: on.chat.personId ?? "" } })).name,
+      noted: await tx.leadNote.count({
+        where: { leadId: on.leadId, byAi: true, body: "Booked under the name Rahul Verma." },
+      }),
+    }));
+    expect(seen).toEqual({ person: "Rahul Sharma", noted: 1 });
+  });
+
   it("sends a brochure's files captioned with the trip's title", async () => {
     const on = await actAgency(test);
     const token = on.message.id;
