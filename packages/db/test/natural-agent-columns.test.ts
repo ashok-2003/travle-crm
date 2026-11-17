@@ -56,11 +56,11 @@ describe("the natural agent's columns", () => {
     await expect(insertTrace({ kind: "replay", agent: "natural" })).rejects.toMatchObject({ code: "23503" });
   });
 
-  it("starts an agency on lite", async () => {
+  it("starts an agency on natural", async () => {
     const { rows } = await client.query<{ column_default: string }>(
       `SELECT column_default FROM information_schema.columns
        WHERE table_name = 'ai_autopilot' AND column_name = 'agent'`,
     );
-    expect(rows[0]?.column_default).toContain("'lite'");
+    expect(rows[0]?.column_default).toContain("'natural'");
   });
 });

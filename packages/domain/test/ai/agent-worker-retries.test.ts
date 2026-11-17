@@ -1,6 +1,6 @@
 // No silence (plan 2, Task 8): a natural turn whose model fails is sent again after a minute, then after five; the third
 // failure sends the fallback line with a team task, and the AI stays on. An old attempt ends quietly when the customer
-// wrote since, and six chats run at once.
+// wrote since, and five chats run at once.
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { aiReplyHandler, type AgentDependencies } from "../../src/ai/index.js";
 import { replyDayOf } from "../../src/ai/may-write.js";
@@ -131,7 +131,7 @@ describe("a failed natural turn is tried again, never left silent", () => {
     expect(on.model.requests).toHaveLength(0);
   });
 
-  it("runs six chats at once", () => {
-    expect(handlerOf({ dependencies: () => ({}) } as unknown as LiveAgency).concurrency).toBe(6);
+  it("runs five chats at once", () => {
+    expect(handlerOf({ dependencies: () => ({}) } as unknown as LiveAgency).concurrency).toBe(5);
   });
 });

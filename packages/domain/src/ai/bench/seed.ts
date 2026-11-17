@@ -88,6 +88,8 @@ export async function seedBenchAgency(
     create: {
       organizationId,
       autopilot: true,
+      // The bench measures the lite agent, so its agency answers as lite whatever a new agency starts on.
+      agent: "lite",
       agentName: "Riya",
       tone: "friendly",
       answers: {
