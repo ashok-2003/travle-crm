@@ -143,6 +143,7 @@ describe("the one agent's live turn", () => {
       aiTask,
       during,
       offered,
+      holdSeats,
       atTheDayCap,
       refusedYes,
       sentAfterOffer,
@@ -294,6 +295,39 @@ describe("the one agent's live turn", () => {
     expect(contentOf(on.model.requests[0]?.messages.at(-1))).toContain("never say the money arrived");
     expect((await on.chatState())?.handoffReason ?? null).toBeNull();
     expect((await on.aiTask()).title).toContain("check it in Payments");
+  });
+
+  it("still gives the team the payment task at the day's cap", async () => {
+    const on = await world();
+    const photo = await paymentPhoto(on);
+    await on.atTheDayCap();
+    expect(await on.turn(photo)).toBe("handed_off");
+    expect(on.model.requests).toEqual([]);
+    expect((await on.aiTask()).title).toContain("check it in Payments");
+  });
+
+  it("keeps the payment task when the act refuses the booking and the one more run answers", async () => {
+    const on = await world();
+    const yes = await on.offered();
+    // The photo comes with the yes, in the same batch.
+    await on.write({ direction: "out", at: liveAt(230), body: "UPI: casetrips@okbank", clientToken: "ai:turn-1:pay" });
+    await on.write({ direction: "in", at: liveAt(235), kind: "image" });
+    on.model.answer(
+      { toolCalls: [bookCall], reasoningDetails: thought },
+      { text: bookWords, reasoningDetails: thought },
+      { text: "Seats abhi nahi mil rahi, team batayegi." },
+    );
+    await on.turn(
+      yes,
+      liveAt(300),
+      on.during(2, () => on.holdSeats(19)),
+    );
+    const tasks = await on.inOrg((tx) =>
+      tx.task.findMany({ where: { recordType: "lead", recordId: on.leadId, byAi: true } }),
+    );
+    const notes = await on.inOrg((tx) => tx.leadNote.findMany({ where: { leadId: on.leadId, byAi: true } }));
+    const text = [...tasks.map((task) => task.title), ...notes.map((note) => note.body)].join("\n");
+    expect(text).toContain("check it in Payments");
   });
 
   it("adds the payment task to a fallback's", async () => {

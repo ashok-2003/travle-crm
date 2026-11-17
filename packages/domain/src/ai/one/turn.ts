@@ -10,11 +10,11 @@ import { newLinesOf } from "../natural/context/chat-turns.js";
 import type { NaturalPrompt } from "../natural/prompt.js";
 import { prepareNaturalTurn } from "../natural/prepare.js";
 import { startNaturalTrace, type NaturalTraceBuilder } from "../natural/trace.js";
-import { actOnTurn, type LiveTurn, type TurnAct } from "../natural/turn-act.js";
+import { actOnTurn, type LiveTurn } from "../natural/turn-act.js";
 import { actAndSettle, actOfEnd, doneOf, endedOf, type TurnDone } from "../natural/turn-done.js";
 import { naturalTurnStart, turnInputOf } from "../natural/turn-note.js";
 import { atLimit, gateDone } from "../natural/turn.js";
-import { oneBeforeTheModel } from "./before-the-model.js";
+import { oneBeforeTheModel, withPaymentTask } from "./before-the-model.js";
 import { buildOneContext } from "./context.js";
 import { oneLiveIO, type OneTurnDependencies } from "./live-io.js";
 import { runOneLoop, type OneSettings } from "./loop.js";
@@ -25,12 +25,6 @@ import { keepToolTurn } from "./turn-row.js";
 import { afterOneRefusal } from "./turn-refused.js";
 
 export type { OneTurnDependencies } from "./live-io.js";
-
-/** A reply's act takes code's payment task; a fallback's, which has a task already, has it added to its text. */
-function withPaymentTask(act: TurnAct, task: { kind: "question"; text: string } | null): TurnAct {
-  if (task === null) return act;
-  return { ...act, task: act.task === null ? task : { ...act.task, text: `${act.task.text} Also: ${task.text}` } };
-}
 
 async function liveTurn(
   deps: OneTurnDependencies,
@@ -44,15 +38,16 @@ async function liveTurn(
   const newLines = newLinesOf(prepared.lines, lastTurnAt);
   const customerText = newLines.map((line) => line.text).join("\n");
   deps.tracing?.note({ input: turnInputOf(newLines) });
-  if (prepared.monthFull) return atLimit(turn, "month_limit", customerText);
-  if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap", customerText);
   const before = oneBeforeTheModel(newLines);
+  // At a limit the photo's task still goes: the turn moves past the photo.
+  if (prepared.monthFull) return atLimit(turn, "month_limit", customerText, before.task);
+  if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap", customerText, before.task);
   const context = buildOneContext({
     ...prepared,
     prompt,
     now,
     notice: before.notice,
-    tools: before.tools,
+    tools: "all",
     summary: null,
   });
   const io = oneLiveIO(deps, prepared, input, context, now, clock);
@@ -63,7 +58,7 @@ async function liveTurn(
       return endedOf(turn, "superseded", null);
     case "model_failed":
       // The month's last call went to another chat while this one ran: as at the limit.
-      if (end.reason === "limit") return atLimit(turn, "month_limit", customerText);
+      if (end.reason === "limit") return atLimit(turn, "month_limit", customerText, before.task);
       return endedOf(turn, "model_failed", end.reason);
     case "fallback":
       return actAndSettle(turn, withPaymentTask(actOfEnd(end), before.task));
@@ -71,7 +66,13 @@ async function liveTurn(
       const act = withPaymentTask(actOfEnd(end), before.task);
       const result = await actOnTurn(turn, act);
       if ("refused" in result)
-        return afterOneRefusal(turn, { context, io, settings, trace }, end, result, customerText);
+        return afterOneRefusal(
+          turn,
+          { context, io, settings, trace, paymentTask: before.task },
+          end,
+          result,
+          customerText,
+        );
       return doneOf(turn, act, result);
     }
   }

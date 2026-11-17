@@ -49,7 +49,7 @@ export async function oneDryTurn(
     lines,
     cameFrom: null,
     notice: before.notice,
-    tools: before.tools,
+    tools: "all",
     summary: null,
   });
   // The read tools keep a trip read whole in these reads; one has no word guards to use them.

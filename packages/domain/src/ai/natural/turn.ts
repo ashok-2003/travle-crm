@@ -20,7 +20,7 @@ import { prepareNaturalTurn } from "./prepare.js";
 import type { NaturalPrompt } from "./prompt.js";
 import { naturalPromptOf } from "./prompt-source.js";
 import { startNaturalTrace, type NaturalTraceBuilder } from "./trace.js";
-import { actOnTurn, type LiveTurn } from "./turn-act.js";
+import { actOnTurn, type LiveTurn, type TurnAct } from "./turn-act.js";
 import { actAndSettle, actOfEnd, doneOf, endedOf, type TurnDone } from "./turn-done.js";
 import { logNaturalTurn, naturalTurnNote, naturalTurnStart, turnInputOf } from "./turn-note.js";
 import { afterRefusal } from "./turn-refused.js";
@@ -32,13 +32,18 @@ export interface NaturalTurnDependencies extends LiteDependencies {
 }
 
 /** Ruling 5: the fallback line and code's hand-over at a limit, with no model call. */
-export function atLimit(turn: LiveTurn, reason: CodeHandOverReason, customerText: string): Promise<TurnDone> {
+export function atLimit(
+  turn: LiveTurn,
+  reason: CodeHandOverReason,
+  customerText: string,
+  task: TurnAct["task"] = null,
+): Promise<TurnDone> {
   return actAndSettle(turn, {
     messages: [fallbackLine(customerText)],
     staged: new Map(),
     quoted: [],
     handOver: { reason, summary: "" },
-    task: null,
+    task,
     model: null,
     fallback: null,
   });

@@ -16,7 +16,6 @@ describe("the one agent before the model", () => {
   it("adds the payment task and notice for a likely payment, and nothing forced", () => {
     expect(oneBeforeTheModel([line({ mayBePayment: true })])).toEqual({
       notice: PAYMENT_PHOTO_NOTICE,
-      tools: "all",
       forced: [],
       task: { kind: "question", text: PAYMENT_PHOTO_TASK },
     });
@@ -25,7 +24,6 @@ describe("the one agent before the model", () => {
   it("asks nothing of a voice note before the model", () => {
     expect(oneBeforeTheModel([line({ untranscribed: true })])).toEqual({
       notice: null,
-      tools: "all",
       forced: [],
       task: null,
     });
