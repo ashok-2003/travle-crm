@@ -159,8 +159,11 @@ function described(action: StagedAction, titleOf: (packageId: string) => string)
   }
 }
 
-/** Ruling 17: a quote or offer whose total the words state was told, for book's told shortcut. */
-function toldIn(ended: Ended, now: Date): ToldTotal[] {
+/** Ruling 17: a quote or offer whose total the words state was told, for book's told shortcut (the live act's too). */
+export function toldIn(
+  ended: { messages: readonly string[]; quoted: readonly QuoteFigures[] },
+  now: Date,
+): ToldTotal[] {
   const amounts = amountsIn(ended.messages.join("\n\n"));
   return ended.quoted
     .filter((quote) => amounts.some((one) => groundedSetOf([quote.totalPaise]).has(one.paise, one.shorthand)))
