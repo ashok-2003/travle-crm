@@ -56,7 +56,7 @@ describe("the request line", () => {
     const { app, entries } = appWithLog();
     await app.request("/health");
     await app.request("/refused");
-    const failed = await app.request("/boom?token=abc");
+    const failed = await app.request("/boom?token=quiz-token");
     expect(failed.status).toBe(500);
     expect(entries.map((entry) => [entry.level, entry.route, entry.status])).toEqual([
       ["debug", "/health", 200],
@@ -65,7 +65,8 @@ describe("the request line", () => {
     ]);
     expect(entries[2]).toMatchObject({ errorName: "Error", errorCode: "ECONNREFUSED" });
     expect(String(entries[2]?.errorStack)).toMatch(/^\s*at /);
-    expect(JSON.stringify(entries)).not.toMatch(/jane|abc/);
+    // A request id is hex: the token holds letters no id can, so the check never matches one by chance.
+    expect(JSON.stringify(entries)).not.toMatch(/jane|quiz-token/);
   });
 
   it("shows only the words of Better Auth's paths, never a token", async () => {
