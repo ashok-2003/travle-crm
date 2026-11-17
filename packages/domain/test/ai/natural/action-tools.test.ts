@@ -655,7 +655,8 @@ describe("stageAction", () => {
     const busy = ctx({ paymentReady: false, booking: { id: "booking-1", awaitingPayment: true } });
     expect(await stageAction(busy, "hand_over", { reason: "big_group", summary: "14 people, 26 Dec" }, "")).toEqual({
       staged: { tool: "hand_over", reason: "big_group", summary: "14 people, 26 Dec" },
-      result: "handed to a person after your reply; tell them someone will reply here, with no promised time",
+      result:
+        "handed to a person after your reply; as one of the team, say you'll check and get back to them here, with no promised time",
     });
     expect(await stageAction(busy, "suggest_close", { kind: "not_a_lead", reason: "A supplier" }, "")).toEqual({
       staged: { tool: "suggest_close", kind: "not_a_lead", reason: "A supplier" },
