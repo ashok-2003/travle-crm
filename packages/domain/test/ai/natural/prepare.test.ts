@@ -456,5 +456,9 @@ describe("the natural turn's live reads", () => {
     });
     expect(prepared.sheets.map((sheet) => sheet.packageId)).toEqual(on.packageIds);
     expect(prepared.chat).toMatchObject({ id: on.chat.id, profileName: "Rahul" });
+
+    // Meta's shortlink serves Instagram and Facebook ads alike: the turn names neither.
+    await on.inOrg((tx) => tx.whatsappAd.updateMany({ data: { sourceUrl: "https://fb.me/2xYz" } }));
+    expect((await preparedOf(on)).cameFrom).toEqual({ source: "an ad", packageId: kedarkantha });
   });
 });

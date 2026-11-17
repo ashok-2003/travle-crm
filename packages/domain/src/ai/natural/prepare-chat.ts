@@ -71,11 +71,11 @@ export async function bookingAheadOf(
   };
 }
 
-/** Where the ad's link points, as the customer saw it: Meta's links name Instagram or Facebook. */
+/** Where the ad's link points, when it names Instagram or Facebook; Meta's fb.me shortlink serves both, so it doesn't. */
 function adSourceOf(sourceUrl: string | null): string {
   const host = URL.parse(sourceUrl ?? "")?.hostname ?? "";
   if (host.includes("instagram")) return "Instagram ad";
-  return host.includes("facebook") || host === "fb.me" || host.endsWith(".fb.me") ? "Facebook ad" : "an ad";
+  return host.includes("facebook") ? "Facebook ad" : "an ad";
 }
 
 /** The ad the chat last came from, with its trip when that is on sale (`adPackageId`); null when no ad brought it. */
