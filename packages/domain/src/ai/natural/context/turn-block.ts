@@ -103,7 +103,10 @@ function offerWords(
     .join(", ");
 }
 
-function leadBlock(input: TurnBlockInput, sheetOf: (packageId: string | null) => TripSheet | undefined): string {
+export function leadBlock(
+  input: Pick<TurnBlockInput, "lead" | "today" | "timeZone">,
+  sheetOf: (packageId: string | null) => TripSheet | undefined,
+): string {
   const { lead, today, timeZone } = input;
   const name =
     lead.name.trim() === ""
