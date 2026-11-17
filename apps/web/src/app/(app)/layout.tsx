@@ -5,6 +5,7 @@
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { AppFrame } from "@/components/app-frame";
+import { AgencyPushOffer } from "@/notifications/push/agency-push-offer";
 import { CallReturn } from "@/leads/call/call-return";
 import { SessionGate } from "@/session/session-gate";
 import { AiStatusPrefetch } from "@/shell/ai-status-prefetch";
@@ -31,6 +32,7 @@ export default function SignedInLayout({ children }: { children: ReactNode }) {
               <CallReturn />
               <PageTracker />
               <WelcomeDialog />
+              <AgencyPushOffer />
               <TopBar />
               <Banners />
             </>

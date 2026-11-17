@@ -3,10 +3,10 @@
 // refuses support's calls there anyway.
 import {
   ActivityIcon,
+  BellRingIcon,
   BookOpenTextIcon,
   CirclePlusIcon,
   GiftIcon,
-  HeartPulseIcon,
   LayersIcon,
   LayoutDashboardIcon,
   MailWarningIcon,
@@ -29,7 +29,7 @@ export interface ConsoleNavigationItem {
     | "plans"
     | "whatsapp"
     | "jobs"
-    | "health"
+    | "updates"
     | "emails"
     | "aiPrompts"
     | "log"
@@ -48,7 +48,7 @@ export const consoleNavigationItems: readonly ConsoleNavigationItem[] = [
   { key: "plans", href: consoleRoutes.plans, icon: LayersIcon, superAdminOnly: false },
   { key: "whatsapp", href: consoleRoutes.whatsapp, icon: MessageCircleIcon, superAdminOnly: false },
   { key: "jobs", href: consoleRoutes.jobs, icon: ServerCogIcon, superAdminOnly: false },
-  { key: "health", href: consoleRoutes.health, icon: HeartPulseIcon, superAdminOnly: false },
+  { key: "updates", href: consoleRoutes.updates, icon: BellRingIcon, superAdminOnly: false },
   { key: "emails", href: consoleRoutes.emails, icon: MailWarningIcon, superAdminOnly: true },
   { key: "aiPrompts", href: consoleRoutes.aiPrompts, icon: BookOpenTextIcon, superAdminOnly: true },
   { key: "log", href: consoleRoutes.log, icon: ScrollTextIcon, superAdminOnly: false },

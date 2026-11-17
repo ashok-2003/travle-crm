@@ -1,7 +1,10 @@
 // The system's health on the console (the owner, 2026-11-02): reports from every process (the AI down or out of its
 // limit, the api's errors) and the console's own checks every five minutes (jobs that used all their retries, a worker
-// that stopped answering its ping) open an incident, one per kind at a time. Each super admin is emailed when one opens
-// and when it is resolved, after half an hour without a report; the dashboard shows what is open and the last week's.
+// that stopped answering its ping) open an incident, one per kind at a time. Every super admin's browser gets a web push
+// when one opens and when it is resolved, after half an hour without a report (the owner, 2026-11-17). The email is for
+// what lasts: a kind other than the AI's is emailed when it opens; an AI incident (a flaky provider opens many) only if
+// it is still open after half an hour, found by the health check, and "Back to normal" is emailed only for an incident
+// that was emailed. The console's Platform updates page shows what is open and the last week's.
 import {
   incidentKind,
   incidentReport,
@@ -22,6 +25,7 @@ import {
   type ScheduledJob,
 } from "../jobs/index.js";
 import { formatDateTime } from "../kernel/index.js";
+import { pushToSuperAdmins } from "./push.js";
 import type { PlatformServices } from "./services.js";
 
 export const HEALTH_CHECK_QUEUE = "platform.health-check";
@@ -29,9 +33,13 @@ export const HEALTH_CHECK_QUEUE = "platform.health-check";
 const QUIET_BEFORE_RESOLVED_MS = 30 * 60_000;
 /** A worker that hasn't answered a ping for this long has stopped. */
 const WORKER_SILENT_MS = 15 * 60_000;
+/** An AI incident this old, never emailed, is emailed once. */
+const AI_EMAIL_AFTER_MS = 30 * 60_000;
 const RECENT_MS = 7 * 24 * 60 * 60_000;
 /** The console's emails give times in India, as its jobs run. */
 const EMAIL_TIME_ZONE = "Asia/Kolkata";
+
+const AI_KINDS: readonly IncidentKind[] = ["ai.unavailable", "ai.rate-limited"];
 
 const titles: Record<IncidentKind, string> = {
   "ai.unavailable": "The AI isn't answering",
@@ -72,20 +80,19 @@ function incidentOf(row: {
   };
 }
 
-/** One more report of the open incident of its kind, or a new one (true). */
-async function record(tx: PlatformTx, kind: IncidentKind, detail: string, now: Date): Promise<boolean> {
+/** One more report of the open incident of its kind, or a new one (its id). */
+async function record(tx: PlatformTx, kind: IncidentKind, detail: string, now: Date): Promise<string | null> {
   const seen = { lastSeenAt: now, detail, reports: { increment: 1 } };
   const open = await tx.platformIncident.findFirst({ where: { kind, resolvedAt: null }, select: { id: true } });
   if (open !== null) {
     await tx.platformIncident.update({ where: { id: open.id }, data: seen });
-    return false;
+    return null;
   }
-  await tx.platformIncident.create({ data: { kind, detail, openedAt: now, lastSeenAt: now } });
-  return true;
+  return (await tx.platformIncident.create({ data: { kind, detail, openedAt: now, lastSeenAt: now } })).id;
 }
 
-/** Each super admin with a real address, told one thing; a failed send is logged and the rest still go. */
-async function tellSuperAdmins(services: PlatformServices, subject: string, paragraphs: string[]): Promise<void> {
+/** Each super admin with a real address, emailed one thing; a failed send is logged and the rest still go. */
+async function emailSuperAdmins(services: PlatformServices, subject: string, paragraphs: string[]): Promise<void> {
   const email = services.email;
   if (email == null) return;
   const staff = await services.platformDb.transaction((tx) => platformStaffAccounts(tx));
@@ -115,7 +122,7 @@ async function tellSuperAdmins(services: PlatformServices, subject: string, para
   }
 }
 
-/** Records a report, and tells the super admins when it opens an incident. */
+/** Records a report, and pushes to the super admins when it opens an incident (and emails, but for the AI's). */
 export async function reportPlatformIncident(
   services: PlatformServices,
   kind: IncidentKind,
@@ -123,38 +130,78 @@ export async function reportPlatformIncident(
   now: Date,
 ): Promise<void> {
   const write = () => services.platformDb.transaction((tx) => record(tx, kind, detail.slice(0, 200), now));
-  let opened: boolean;
+  let openedId: string | null;
   try {
-    opened = await write();
+    openedId = await write();
   } catch (error) {
     // Another report opened it a moment ago: this one is a report of it.
     if (!isUniqueViolation(error)) throw error;
-    opened = await write();
+    openedId = await write();
   }
-  if (!opened) return;
+  if (openedId === null) return;
   services.logger.warn({ queue: PLATFORM_INCIDENT_QUEUE, kind }, "An incident opened");
-  await tellSuperAdmins(services, `Platform alert: ${titles[kind]}`, [
+  const subject = `Platform alert: ${titles[kind]}`;
+  await pushToSuperAdmins(services, { title: subject, body: explanations[kind] }, PLATFORM_INCIDENT_QUEUE);
+  if (AI_KINDS.includes(kind)) return;
+  await markEmailed(services, openedId, now);
+  await emailSuperAdmins(services, subject, [
     explanations[kind],
     ...(detail === "" ? [] : [`Where: ${detail.slice(0, 200)}`]),
     `Since ${formatDateTime(now, { timeZone: EMAIL_TIME_ZONE, style: "date-time" })} (India time).`,
   ]);
 }
 
-/** Incidents quiet for half an hour are over: each is resolved, and the super admins told. */
-async function resolveQuiet(services: PlatformServices, now: Date): Promise<void> {
+/** Notes that the super admins were emailed about it. Only a null emailed_at is filled, so it is claimed once. */
+async function markEmailed(services: PlatformServices, id: string, now: Date): Promise<boolean> {
+  const { count } = await services.platformDb.transaction((tx) =>
+    tx.platformIncident.updateMany({ where: { id, emailedAt: null }, data: { emailedAt: now } }),
+  );
+  return count > 0;
+}
+
+/**
+ * An AI incident open for half an hour that nobody was emailed about: emailed now, once. The claim comes first, so two
+ * checks never send it twice; a console that crashes between the claim and the email loses that one email.
+ */
+export async function emailLongAiIncidents(services: PlatformServices, now: Date): Promise<void> {
+  const due = await services.platformDb.transaction((tx) =>
+    tx.platformIncident.findMany({
+      where: {
+        kind: { in: [...AI_KINDS] },
+        resolvedAt: null,
+        emailedAt: null,
+        openedAt: { lte: new Date(now.getTime() - AI_EMAIL_AFTER_MS) },
+      },
+      select: { id: true, kind: true, openedAt: true },
+    }),
+  );
+  for (const incident of due) {
+    if (!(await markEmailed(services, incident.id, now))) continue;
+    const kind = incidentKind.parse(incident.kind);
+    await emailSuperAdmins(services, `Still happening: ${titles[kind]}`, [
+      explanations[kind],
+      `It has lasted 30 minutes: since ${formatDateTime(incident.openedAt, { timeZone: EMAIL_TIME_ZONE, style: "date-time" })} (India time).`,
+    ]);
+  }
+}
+
+/** Incidents quiet for half an hour are over: each is resolved, pushed, and emailed if its opening or wait was. */
+export async function resolveQuiet(services: PlatformServices, now: Date): Promise<void> {
   const resolved = await services.platformDb.transaction((tx) =>
     tx.platformIncident.updateManyAndReturn({
       where: { resolvedAt: null, lastSeenAt: { lt: new Date(now.getTime() - QUIET_BEFORE_RESOLVED_MS) } },
       data: { resolvedAt: now },
-      select: { kind: true, openedAt: true },
+      select: { kind: true, openedAt: true, emailedAt: true },
     }),
   );
   for (const incident of resolved) {
     const kind = incidentKind.parse(incident.kind);
     services.logger.info({ queue: HEALTH_CHECK_QUEUE, kind }, "An incident was resolved");
-    await tellSuperAdmins(services, `Back to normal: ${titles[kind]}`, [
-      `Nothing has been reported for half an hour, so it is marked resolved. It started ${formatDateTime(incident.openedAt, { timeZone: EMAIL_TIME_ZONE, style: "date-time" })} (India time).`,
-    ]);
+    const subject = `Back to normal: ${titles[kind]}`;
+    const since = formatDateTime(incident.openedAt, { timeZone: EMAIL_TIME_ZONE, style: "date-time" });
+    const sentence = `Nothing has been reported for half an hour, so it is marked resolved. It started ${since} (India time).`;
+    await pushToSuperAdmins(services, { title: subject, body: sentence }, HEALTH_CHECK_QUEUE);
+    if (incident.emailedAt !== null) await emailSuperAdmins(services, subject, [sentence]);
   }
 }
 
@@ -171,7 +218,8 @@ export function incidentHandler(services: PlatformServices): JobHandler {
 
 /**
  * Every five minutes: a ping for the worker (its answer, on the pong queue, says it is alive), the jobs that failed since
- * the last check, a worker silent too long, and the incidents that went quiet. What it remembers lives in this process:
+ * the last check, a worker silent too long, the AI incidents that have lasted half an hour, and the incidents that went
+ * quiet. What it remembers lives in this process:
  * a console that restarts gives the worker the full quarter of an hour again.
  */
 export function healthCheck(services: PlatformServices): { schedule: ScheduledJob; pongHandler: JobHandler } {
@@ -196,7 +244,9 @@ export function healthCheck(services: PlatformServices): { schedule: ScheduledJo
         const queues = [...new Set(failed.map((job) => job.queue))].join(", ");
         await reportPlatformIncident(services, "jobs.failed", queues, now);
       }
+      // Resolve first: an incident that went quiet is over, not "still happening".
       await resolveQuiet(services, now);
+      await emailLongAiIncidents(services, now);
     },
   };
   const pongHandler: JobHandler = {

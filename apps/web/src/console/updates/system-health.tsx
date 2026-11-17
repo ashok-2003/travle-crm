@@ -1,9 +1,8 @@
 "use client";
 
-// System health (the owner, 2026-11-02): what is broken now (the AI, jobs, the api, the worker), each with what it means,
-// since when and how often it was reported, or a line that all is working. The dashboard shows that and a link to the
-// Health page, which adds the last week's incidents, resolved (the owner, 2026-11-08: the dashboard stays short). Read
-// again every minute. The super admins are emailed too; this is where they look.
+// The Platform updates page's system health (the owner, 2026-11-02; moved off the dashboard 2026-11-17): what is broken now (the AI, jobs, the api, the worker), each
+// with what it means, since when and how often it was reported, or a line that all is working; and the last week's
+// incidents, resolved. Read again every minute. The super admins are emailed too; this is where they look.
 import type { IncidentKind, PlatformIncident } from "@travel-crm/contracts/platform";
 import { useQuery } from "@tanstack/react-query";
 import { CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
@@ -15,7 +14,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { useConsoleTRPC } from "../data/console-trpc";
 import { consoleRoutes } from "../routes";
-import { DASHBOARD_STALE_MS } from "./use-organizations-overview";
 
 const READ_EVERY_MS = 60_000;
 
@@ -28,13 +26,12 @@ const kindKeys = {
   "worker.stalled": "workerStalled",
 } as const satisfies Record<IncidentKind, string>;
 
-/** The dashboard's panel; `history` (the Health page) lists the last week's incidents instead of linking to them. */
-export function SystemHealth({ history = false }: { history?: boolean }) {
+export function SystemHealth() {
   const t = useTranslations("console.health");
   const trpc = useConsoleTRPC();
   const instantText = useInstantText();
   const incidents = useQuery(
-    trpc.dashboard.incidents.queryOptions(undefined, { refetchInterval: READ_EVERY_MS, staleTime: DASHBOARD_STALE_MS }),
+    trpc.dashboard.incidents.queryOptions(undefined, { refetchInterval: READ_EVERY_MS, staleTime: READ_EVERY_MS }),
   );
   if (incidents.isError) {
     return (
@@ -46,16 +43,10 @@ export function SystemHealth({ history = false }: { history?: boolean }) {
   const when = (incident: PlatformIncident) =>
     t("since", { when: instantText(incident.openedAt), count: incident.reports });
   return (
-    <section
-      aria-label={history ? t("title") : undefined}
-      aria-labelledby={history ? undefined : "system-health-heading"}
-      className="flex flex-col gap-3"
-    >
-      {!history && (
-        <h2 id="system-health-heading" className="text-section font-semibold">
-          {t("heading")}
-        </h2>
-      )}
+    <section aria-labelledby="system-health-heading" className="flex flex-col gap-3">
+      <h2 id="system-health-heading" className="text-section font-semibold">
+        {t("heading")}
+      </h2>
       {open.length === 0 ? (
         <Alert>
           <CircleCheckIcon aria-hidden="true" />
@@ -77,10 +68,7 @@ export function SystemHealth({ history = false }: { history?: boolean }) {
           </Alert>
         ))
       )}
-      {!history && <TextLink href={consoleRoutes.health}>{t("pastIncidents", { count: recent.length })}</TextLink>}
-      {history && <h2 className="text-section font-semibold">{t("recent")}</h2>}
-      {history && recent.length === 0 && <p className="text-muted-foreground">{t("noneRecent")}</p>}
-      {history && recent.length > 0 && (
+      {recent.length > 0 && (
         <ItemGroup aria-label={t("recent")}>
           {recent.map((incident) => (
             <Item key={incident.id} size="sm">

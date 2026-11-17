@@ -140,7 +140,7 @@ export function createPageData({ buster, onLeaving, auth = authClient }: PageDat
       copy.startSaving();
     },
     /** Signs out: the screen goes at once, and the sign-in page loads once the device is wiped (session.ts). */
-    signOut: () => leave(routes.signIn, () => signOut(queryClient, auth)),
+    signOut: (forgetPush?: () => Promise<void>) => leave(routes.signIn, () => signOut(queryClient, auth, forgetPush)),
     /** Listens for other tabs signing out, me.get's answers, Better Auth 401s and the connection returning. */
     listen(): () => void {
       const stopListening = listenForSignOut(() => {

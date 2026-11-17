@@ -36,6 +36,9 @@ export async function startConsolePlatform({ environment, services, logger }: Pr
     logger,
     // The super admins are emailed when something breaks (incidents.ts).
     email: services.email,
+    // Web push to the super admins' browsers (incidents.ts): the api's sender and VAPID key, the same pair.
+    push: services.push,
+    pushPublicKey: environment.VAPID_PUBLIC_KEY,
     // The invite program's links are the web app's.
     appUrl: environment.APP_URL,
     aiPrices:

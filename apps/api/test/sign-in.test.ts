@@ -61,6 +61,20 @@ describe("sign-in", () => {
     expect(sessionCookie).toMatch(/SameSite=Lax/i);
   });
 
+  it("keeps a sign-in for 90 days, in the browser's cookie and in the session row", async () => {
+    const ninetyDays = 90 * 24 * 60 * 60;
+    const response = await signInByEmail(server, new CookieJar(), agency.owner.email, agency.owner.password);
+    const [sessionCookie] = response.headers.getSetCookie();
+    expect(sessionCookie).toMatch(new RegExp(`Max-Age=${String(ninetyDays)}(;|$)`, "i"));
+    const session = await server.platform.session.findFirstOrThrow({
+      where: { userId: agency.owner.userId },
+      orderBy: { createdAt: "desc" },
+    });
+    const secondsLeft = (session.expiresAt.getTime() - Date.now()) / 1000;
+    expect(secondsLeft).toBeGreaterThan(ninetyDays - 60);
+    expect(secondsLeft).toBeLessThanOrEqual(ninetyDays);
+  });
+
   it("signs in with organization code and username, both in any letter case", async () => {
     const jar = new CookieJar();
     const response = await signInWithCode(server, jar, {

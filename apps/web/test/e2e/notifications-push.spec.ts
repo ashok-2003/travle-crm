@@ -38,6 +38,13 @@ function standInPush(): void {
   };
 }
 
+/** Right after a sign-in the app asks to turn notifications on (push-offer.ts); these journeys use the card instead. */
+async function dismissPushOffer(page: Page): Promise<void> {
+  // signInByEmail signs in through the api and opens no page, so the app is opened first.
+  await page.goto("/");
+  await page.getByRole("button", { name: "Not now" }).click();
+}
+
 const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 
 async function signOutFrom(page: Page, testInfo: TestInfo): Promise<void> {
@@ -51,6 +58,7 @@ test("turning push on saves this browser, and signing out removes it first", asy
 }, testInfo) => {
   await page.addInitScript(standInPush);
   await signInByEmail(page, agency.owner);
+  await dismissPushOffer(page);
   await page.goto("/account/notifications");
   // A browser subscribes through the service worker, which the app registers on its first page.
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
@@ -72,6 +80,7 @@ test("turning push on saves this browser, and signing out removes it first", asy
 test("turning push off removes this browser from the api", async ({ page, agency, ownerPushEndpoints }) => {
   await page.addInitScript(standInPush);
   await signInByEmail(page, agency.owner);
+  await dismissPushOffer(page);
   await page.goto("/account/notifications");
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
   const device = page.getByRole("region", { name: "On this device" });
@@ -80,4 +89,20 @@ test("turning push off removes this browser from the api", async ({ page, agency
   await device.getByRole("button", { name: "Turn off push" }).click();
   await expect(device.getByRole("button", { name: "Turn on push" })).toBeVisible();
   expect(await ownerPushEndpoints()).toEqual([]);
+});
+
+test("right after signing in the app asks to turn notifications on, and Turn on saves this browser", async ({
+  page,
+  agency,
+  ownerPushEndpoints,
+}) => {
+  await page.addInitScript(standInPush);
+  await signInByEmail(page, agency.owner);
+  // An api sign-in never runs finishSignIn, so this is the once-a-day offer, not the post-sign-in one.
+  await page.goto("/");
+  const offer = page.getByRole("dialog", { name: "Please turn on notifications for the best experience" });
+  await expect(offer).toBeVisible();
+  await offer.getByRole("button", { name: "Turn on", exact: true }).click();
+  await expect(offer).toBeHidden();
+  await expect.poll(ownerPushEndpoints).toHaveLength(1);
 });

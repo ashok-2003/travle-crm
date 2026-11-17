@@ -93,7 +93,7 @@ test("support sees every destination but Failed emails, AI prompts and Staff, a 
     "Plans",
     "WhatsApp",
     "Jobs",
-    "Health",
+    "Platform updates",
     "Failed emails",
     "AI prompts",
     "Log",
@@ -114,7 +114,7 @@ test("support sees every destination but Failed emails, AI prompts and Staff, a 
     "Plans",
     "WhatsApp",
     "Jobs",
-    "Health",
+    "Platform updates",
     "Log",
   ]);
   // At the foot of the sidebar, or atop the phone's More sheet, which destinations() left open.

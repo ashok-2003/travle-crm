@@ -10,6 +10,7 @@ import {
 } from "@travel-crm/db/platform";
 import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import type { PushSender } from "@travel-crm/integrations/push";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { RecordedEmailSender } from "../email-log/index.js";
 import type { Identity } from "../identity/index.js";
@@ -63,6 +64,13 @@ export interface PlatformServices {
    * (incidents.ts), and a failed email is sent again (emails.ts). Absent in tests that send no email.
    */
   email?: RecordedEmailSender | null;
+  /**
+   * Web push to the super admins' browsers (push.ts): an incident opens or resolves with one. Absent in processes and
+   * tests with no push; then nothing is sent, and the AI incidents still email after half an hour.
+   */
+  push?: PushSender | null;
+  /** The VAPID public key a super admin's browser subscribes with (VAPID_PUBLIC_KEY); null or absent without push. */
+  pushPublicKey?: string | null;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {

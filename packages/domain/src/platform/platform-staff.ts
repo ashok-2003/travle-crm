@@ -25,6 +25,7 @@ import {
 } from "../identity/index.js";
 import { platformActor } from "../kernel/index.js";
 import { hashPassword } from "./password-hash.js";
+import { forgetPlatformPushSubscriptions } from "./push.js";
 import { recordPlatformAudit, type PlatformActor, type PlatformChange } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -94,6 +95,7 @@ export async function setPlatformStaffLevel(
   await services.platformDb.transaction(async (tx) => {
     const { before } = await changePlatformStaffLevel(tx, staff, input);
     if (before === input.level) return;
+    if (input.level !== "super-admin") await forgetPlatformPushSubscriptions(tx, input.userId);
     const change = { action: "platform-staff.level-changed", targetId: input.userId };
     await record(tx, staff, { ...change, before: { level: before }, after: { level: input.level } });
   });
@@ -108,6 +110,7 @@ export async function removePlatformStaff(
     const { before, endedImpersonations } = await removeFromPlatformStaff(tx, staff, input.userId);
     await record(tx, staff, { action: REMOVED, targetId: input.userId, before: { level: before } });
     await recordStops(tx, staff, endedImpersonations, "removed-from-platform-staff");
+    await forgetPlatformPushSubscriptions(tx, input.userId);
   });
 }
 

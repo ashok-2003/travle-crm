@@ -5,6 +5,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { finishSignIn } from "@/account/finish-sign-in";
 import { stubApi } from "../support/api-stub";
+import { consumeSignedIn } from "@/notifications/push/push-offer";
 import { fakePushBrowser, type FakePushBrowser } from "../notifications/fake-push-browser";
 
 let browser: FakePushBrowser | undefined;
@@ -25,6 +26,12 @@ describe("finishSignIn", () => {
     await finishSignIn(new QueryClient(), "/", open);
     expect(open).toHaveBeenCalledWith("/");
     expect(api.calls).toEqual([]);
+  });
+
+  it("marks the sign-in, after the wipe, so the next page asks to turn push on", async () => {
+    window.localStorage.clear();
+    await finishSignIn(new QueryClient(), "/", vi.fn(), () => Promise.resolve());
+    expect(consumeSignedIn()).toBe(true);
   });
 
   it("still opens the app when the browser can't forget the subscription, and reports it", async () => {
