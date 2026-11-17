@@ -28,16 +28,16 @@ function writtenLine(line: NaturalChatLine, clock: ChatClock): string {
 /** The chat before the new lines as user and assistant messages; a summary, when given, first. */
 export function oneHistory(lines: readonly NaturalChatLine[], clock: ChatClock, summary: string | null): AiMessage[] {
   const messages: AiMessage[] = summary === null ? [] : [{ role: "assistant", content: `${SUMMARY_MARK}\n${summary}` }];
-  let previous: NaturalChatLine | undefined;
+  // Lines join only within a kind: a summary, a run of earlier lines and our own lines are three separate messages.
+  let kind: "summary" | "earlier" | "other" = "summary";
   for (const line of lines) {
-    // The heading goes once before a run of earlier lines.
     const written = writtenLine(line, clock);
-    const text = line.from === "earlier" && previous?.from !== "earlier" ? `${EARLIER_HEADING}\n${written}` : written;
+    const thisKind = line.from === "earlier" ? "earlier" : "other";
     const role = line.from === "customer" ? "user" : "assistant";
     const last = messages.at(-1);
-    if (last?.role === role) last.content = `${last.content}\n${text}`;
-    else messages.push({ role, content: text });
-    previous = line;
+    if (last?.role === role && kind === thisKind) last.content = `${last.content}\n${written}`;
+    else messages.push({ role, content: thisKind === "earlier" ? `${EARLIER_HEADING}\n${written}` : written });
+    kind = thisKind;
   }
   return messages;
 }

@@ -107,6 +107,21 @@ describe("the one agent's context", () => {
     expect(earlier?.content).toBe(`${EARLIER_HEADING}\nThe trek is ₹21,000 a head, leaving 12 Dec.\nSeats are free.`);
   });
 
+  it("keeps the earlier system's heading and the summary off our own lines", () => {
+    const lines = [
+      line("you", 3, "ours before"),
+      line("earlier", 2, "old line"),
+      line("you", 1, "ours after"),
+      line("customer", 0, "ok"),
+    ];
+    const assistant = chat(buildOneContext(input({ lines }))).map((message) => message.content);
+    expect(assistant).toEqual(["ours before", `${EARLIER_HEADING}\nold line`, "ours after"]);
+    const summed = buildOneContext(
+      input({ lines: [line("you", 1, "hello"), line("customer", 0, "ok")], summary: "S" }),
+    );
+    expect(chat(summed).map((message) => message.content)).toEqual([`${SUMMARY_MARK}\nS`, "hello"]);
+  });
+
   it("names the team member, and marks an automatic line", () => {
     const lines = [
       line("customer", 3, "hi"),
