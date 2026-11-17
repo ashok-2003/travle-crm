@@ -171,6 +171,24 @@ model AiAutopilot {
   @@map("ai_autopilot")
 }
 
+/// The owner's own instructions to the AI agent on how to talk ("no emojis", "never repeat yourself"), one per row, in
+/// the order they were added. They shape the words only: code's rules (prices, payments, hand-overs) still win.
+model AiAgentInstruction {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  /// At most 200 characters (CHECK ai_agent_instruction_text_length).
+  text           String
+  createdBy      String       @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, createdAt, id], map: "ai_agent_instruction_in_order")
+  @@map("ai_agent_instruction")
+}
+
 /// A chat's autopilot state: whether it answers here, whether it handed the chat to a person and why, what it remembers of
 /// the conversation, what it is doing now and what it planned next.
 model AiChat {

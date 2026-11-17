@@ -1,5 +1,6 @@
 // Isolation fixtures for the AI: the agency's settings, a month's usage, a draft, a piece of knowledge, a lead's insight, a
-// file it sends, a booking it took and a call's log line. The runtime role deletes none of them.
+// file it sends, a booking it took, a call's log line and the owner's instructions. The runtime role deletes none of them
+// but the instructions, which the owner removes one at a time.
 import { randomUUID } from "node:crypto";
 import type { OrgTx } from "../../src/for-org.js";
 import type { OrgTableFixtures } from "../org-table-fixture.js";
@@ -56,6 +57,9 @@ export const fixtures: OrgTableFixtures = {
   },
   ai_settings: { create: (tx) => tx.aiSettings.create({ data: { enabled: true } }), undeletable: true },
   ai_autopilot: { create: (tx) => tx.aiAutopilot.create({ data: { autopilot: false } }), undeletable: true },
+  ai_agent_instruction: {
+    create: (tx) => tx.aiAgentInstruction.create({ data: { text: "Isolation", createdBy: randomUUID() } }),
+  },
   ai_learning: {
     create: (tx) => tx.aiLearning.create({ data: { kind: "need", text: "Isolation" } }),
     undeletable: true,

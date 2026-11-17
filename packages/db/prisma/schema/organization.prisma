@@ -118,6 +118,7 @@ model Organization {
   leadSignals                 LeadSignal[]
   aiSettings                  AiSettings?
   aiAutopilot                 AiAutopilot?
+  aiAgentInstructions         AiAgentInstruction[]
   aiChats                     AiChat[]
   aiTurnTraces                AiTurnTrace[]
   aiLearnings                 AiLearning[]

@@ -1,4 +1,4 @@
-// The AI agent's setup: the agency's answers to a fixed list of questions, and the agent's name and tone.
+// The AI agent's setup: the agency's answers to fixed questions, the agent's name and tone, the owner's instructions.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 
@@ -35,6 +35,30 @@ export const agentBasics = z.object({
 });
 export type AgentBasics = z.infer<typeof agentBasics>;
 
+/** How many instructions an agency may keep, and how long each may be: every one goes into every reply's prompt. */
+export const AGENT_INSTRUCTIONS_MAX = 20;
+export const AGENT_INSTRUCTION_LENGTH = 200;
+
+const instructionText = z.string().trim().min(1).max(AGENT_INSTRUCTION_LENGTH);
+
+/** One of the owner's own instructions on how the agent talks ("No emojis"). */
+export const agentInstruction = z.object({
+  id: z.uuid(),
+  text: z.string(),
+  updatedAt: z.iso.datetime(),
+});
+export const agentInstructionList = z.array(agentInstruction);
+export type AgentInstruction = z.infer<typeof agentInstruction>;
+
+export const addAgentInstructionInput = z.strictObject({ text: instructionText });
+export type AddAgentInstructionInput = z.infer<typeof addAgentInstructionInput>;
+
+export const updateAgentInstructionInput = z.strictObject({ id: z.uuid(), text: instructionText });
+export type UpdateAgentInstructionInput = z.infer<typeof updateAgentInstructionInput>;
+
+export const removeAgentInstructionInput = z.strictObject({ id: z.uuid() });
+export type RemoveAgentInstructionInput = z.infer<typeof removeAgentInstructionInput>;
+
 /** An ad that brought WhatsApp chats, and the package it promotes (the agent opens a chat from it with that package). */
 export const whatsappAd = z.object({
   id: z.uuid(),
@@ -56,10 +80,19 @@ export const linkAdInput = z.strictObject({ adId: z.uuid(), packageId: z.uuid().
 export type LinkAdInput = z.infer<typeof linkAdInput>;
 
 /**
- * The checklist before the agent may be turned on; "ads" is the one step that is optional. "ai" is the agency's own
+ * The checklist before the agent may be turned on; "instructions" and "ads" are optional. "ai" is the agency's own
  * "Use the AI" switch (Settings, AI): without it the agent answers nothing.
  */
-export const agentSetupSteps = ["ai", "whatsapp", "packages", "payment", "answers", "basics", "ads"] as const;
+export const agentSetupSteps = [
+  "ai",
+  "whatsapp",
+  "packages",
+  "payment",
+  "answers",
+  "basics",
+  "instructions",
+  "ads",
+] as const;
 
 export const agentSetup = z.object({
   steps: z.array(
