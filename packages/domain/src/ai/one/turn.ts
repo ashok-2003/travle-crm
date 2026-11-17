@@ -50,7 +50,7 @@ async function liveTurn(
     buildOneContext({ ...prepared, prompt, now, notice, tools: "all", summary: null });
   const plain = contextOf(before.notice);
   // A Book tap on the live offer books here, with no model; any other tap is a notice for it.
-  const tap = await tapStep(turn, liveActionContext(deps.db, prepared, input, plain, now), before.task);
+  const tap = await tapStep(turn, liveActionContext(deps.db, prepared, input, plain, now));
   if (tap !== null && "done" in tap) {
     trace.flag("tap:book");
     return tap.done;
