@@ -141,7 +141,7 @@ describe("environment", () => {
       .toString();
     const key = {
       type: "service_account",
-      client_email: "agent@veeper-ai.iam.gserviceaccount.com",
+      client_email: "agent@example-project.iam.gserviceaccount.com",
       private_key: privateKey,
     };
     const base64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64");

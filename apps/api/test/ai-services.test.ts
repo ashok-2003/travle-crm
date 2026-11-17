@@ -170,7 +170,7 @@ describe("Vertex AI", () => {
       headers.push((init.headers as Record<string, string>).authorization ?? "");
       return Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "Hi" } }] })));
     });
-    const key = { client_email: "agent@veeper-ai.iam.gserviceaccount.com", private_key: "pem" };
+    const key = { client_email: "agent@example-project.iam.gserviceaccount.com", private_key: "pem" };
     const vertex = createAiModel(
       settings({ AI_API_KEY: undefined, AI_VERTEX_SERVICE_ACCOUNT: key, AI_BASE_URL: VERTEX }),
       logger,
@@ -190,7 +190,7 @@ describe("Vertex AI", () => {
       return Promise.resolve(new Response("{}"));
     });
     const before = tokenMade.length;
-    const key = { client_email: "agent@veeper-ai.iam.gserviceaccount.com", private_key: "pem" };
+    const key = { client_email: "agent@example-project.iam.gserviceaccount.com", private_key: "pem" };
     expect(
       createAiModel(
         settings({ AI_API_KEY: undefined, AI_VERTEX_SERVICE_ACCOUNT: key, AI_BASE_URL: undefined }),

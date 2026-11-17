@@ -76,3 +76,6 @@ auditConfig:
   ignoreGhsas:
     # braces has no fixed version. Only ESLint's Next.js plugin reaches it, globbing patterns from our own config.
     - GHSA-vfj7-8cjw-p6xm
+    # picomatch has no fixed version (2026-11-18). Only ESLint's Next.js plugin reaches it (through fast-glob), matching
+    # globs from our own config, never user input.
+    - GHSA-fc5q-39xc-vjpf

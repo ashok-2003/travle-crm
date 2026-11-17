@@ -11,9 +11,19 @@ import { createLangGraphToolAgent, type AgentToolEntry } from "../../src/tool-ag
 import { request } from "../tool-agent/fixtures.js";
 
 const file = process.env.VERTEX_SA_FILE ?? "";
+// The project comes from the key file itself, so no project name is typed here.
+const projectOf = (path: string): string => {
+  const parsed: unknown = path === "" ? null : JSON.parse(readFileSync(path, "utf8"));
+  return typeof parsed === "object" &&
+    parsed !== null &&
+    "project_id" in parsed &&
+    typeof parsed.project_id === "string"
+    ? parsed.project_id
+    : "";
+};
 const baseUrl =
   process.env.VERTEX_BASE_URL ??
-  "https://aiplatform.googleapis.com/v1/projects/veeper-ai/locations/global/endpoints/openapi";
+  `https://aiplatform.googleapis.com/v1/projects/${projectOf(file)}/locations/global/endpoints/openapi`;
 const model = process.env.VERTEX_MODEL ?? "google/gemini-3.5-flash-lite";
 
 describe.skipIf(file === "")("Gemini on Vertex AI (live)", () => {
