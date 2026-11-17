@@ -407,4 +407,47 @@ describe("the natural agent's live turn", () => {
     expect((await on.chatState())?.facts).toMatchObject({ leadId: fresh.id, offer: { startsOn: "2026-12-19" } });
     expect(shown(on.tracing)?.metadata?.actions).toContain("lead:opened");
   });
+
+  /** Every lead the chat's person had is closed, so the turn finds none open; the ids of those closed. */
+  const closeLeads = (on: Awaited<ReturnType<typeof world>>) =>
+    on.inOrg(async (tx) => {
+      const leads = await tx.lead.findMany({ where: { personId: on.chat.personId ?? "" }, select: { id: true } });
+      await tx.lead.updateMany({ where: { id: { in: leads.map((one) => one.id) } }, data: { stage: "won" } });
+      return leads.map((one) => one.id);
+    });
+
+  it("opens a lead for the question task when the fallback answers a returning customer", async () => {
+    const on = await world();
+    const closed = await closeLeads(on);
+    const asked = await on.writes("Kedarkantha ka rate?", -60);
+    // A price the tools never showed, twice: the guards give up and the fallback line goes.
+    const invented = { text: "Kedarkantha ka rate ₹7,777 per person hai." };
+    on.model.answer(invented, invented);
+    expect(await on.turn(asked)).toBe("fallback");
+    const fresh = await on.inOrg((tx) =>
+      tx.lead.findFirstOrThrow({ where: { personId: on.chat.personId ?? "", id: { notIn: closed } } }),
+    );
+    const task = await on.inOrg((tx) => tx.task.findFirstOrThrow({ where: { recordType: "lead", byAi: true } }));
+    expect(task.recordId).toBe(fresh.id);
+  });
+
+  it("opens a lead for the hand-over at the day cap when the customer has only closed leads", async () => {
+    const on = await world();
+    const closed = await closeLeads(on);
+    await on.inOrg(async (tx) => {
+      const { maxRepliesPerDay } = await tx.aiAutopilot.findFirstOrThrow();
+      const atTheCap = { repliesOn: replyDayOf(liveNow), repliesCount: maxRepliesPerDay };
+      await tx.aiChat.upsert({
+        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+        create: { conversationId: on.chat.id, ...atTheCap },
+        update: atTheCap,
+      });
+    });
+    expect(await on.turn()).toBe("handed_off");
+    const open = await on.inOrg((tx) =>
+      tx.lead.findMany({ where: { personId: on.chat.personId ?? "", id: { notIn: closed } } }),
+    );
+    expect(open).toHaveLength(1);
+    expect((await on.chatState())?.facts).toMatchObject({ leadId: open[0]?.id });
+  });
 });
