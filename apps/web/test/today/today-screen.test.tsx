@@ -302,8 +302,8 @@ describe("TodayScreen", () => {
       const before = inOrder.slice(index, index + 1)[0];
       expect((before?.compareDocumentPosition(next) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
-    // The header counts them too: 8 things and the 2 more.
-    expect(await screen.findByText("Fri 16 Oct · 10 things")).toBeVisible();
+    // The header counts My tasks' things only: the quotes and payments sections are no longer part of the total.
+    expect(await screen.findByText("Fri 16 Oct · 8 things")).toBeVisible();
     expect(await within(payments).findByRole("link", { name: "Kiran Joshi" })).toBeVisible();
     expect(within(payments).getByText("₹25,000 was due 15 Oct")).toBeVisible();
     expect(within(payments).getByRole("link", { name: "Call Kiran Joshi" })).toHaveAttribute(

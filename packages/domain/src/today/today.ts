@@ -1,4 +1,4 @@
-// Today (spec 3.5): the signed-in person's own overdue and due-today follow-ups and tasks, their new leads waiting for a
+// Today (spec 3.5), My tasks on screen: the signed-in person's own overdue and due-today tasks (follow-ups are counted apart), their new leads waiting for a
 // reply, the quotes customers opened and went quiet on and the payments falling due (release 5), counted for the day in
 // the agency's zone (R35). Overdue is due before now; due today runs from now to
 // the agency's next midnight, so yesterday's undone work is overdue at 00:05 and 00:10 tomorrow isn't today at 23:50.
@@ -202,7 +202,11 @@ async function sectionItems(
   const assigneeUserId = access.userId;
   switch (section) {
     case "overdue":
-      return taskItems(tx, access, await listOpenTasks(tx, { assigneeUserId, dueBefore: now, ...cursor }));
+      return taskItems(
+        tx,
+        access,
+        await listOpenTasks(tx, { assigneeUserId, kind: "task", dueBefore: now, ...cursor }),
+      );
     case "new-leads":
       return newLeadItems(tx, access, await newLeadsWaiting(tx, { ownerUserId: access.userId, ...cursor }));
     case "payments-due":
@@ -214,7 +218,7 @@ async function sectionItems(
     case "quote-opened":
       return openedQuoteItems(tx, access, cursor, now);
     case "due-today": {
-      const dueToday = { assigneeUserId, dueFrom: now, dueBefore: endsAt, ...cursor };
+      const dueToday = { assigneeUserId, kind: "task" as const, dueFrom: now, dueBefore: endsAt, ...cursor };
       return taskItems(tx, access, await listOpenTasks(tx, dueToday));
     }
   }
@@ -253,9 +257,11 @@ export async function todaySummary(
   const checksPayments =
     plan.bookingsOn && access.permissions.has("quotes:record_payments") && access.permissions.has("bookings:view");
   const counts = {
-    overdue: await countOpenTasks(tx, { assigneeUserId, dueBefore: now }),
+    overdue: await countOpenTasks(tx, { assigneeUserId, kind: "task", dueBefore: now }),
     newLeads: await countNewLeadsWaiting(tx, access.userId),
-    dueToday: await countOpenTasks(tx, { assigneeUserId, dueFrom: now, dueBefore: endsAt }),
+    dueToday: await countOpenTasks(tx, { assigneeUserId, kind: "task", dueFrom: now, dueBefore: endsAt }),
+    // Apart from My tasks: the follow-ups have their own screen, so overdue and due today leave them out.
+    followUpsDue: await countOpenTasks(tx, { assigneeUserId, kind: "follow-up", dueBefore: endsAt }),
     quoteOpened: await countOpenedQuotesNoReply(tx, access, now),
     paymentsDue: await countPaymentsDue(tx, access, day),
     tripDetails: (await bookingsMissingDetails(tx, access.userId, day)).length,
