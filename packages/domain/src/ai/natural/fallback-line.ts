@@ -20,10 +20,14 @@ const LINES = {
   english: "Let me check this and get back to you here.",
 };
 
+/** The customer's language by their words: Hindi for Devanagari, Hinglish for a Hinglish word, else English. */
+export function languageOf(text: string): "hindi" | "hinglish" | "english" {
+  if (/[\u0900-\u097F]/u.test(text)) return "hindi";
+  const words = text.match(/\p{L}+/gu) ?? [];
+  return words.some((word) => HINGLISH.has(word.toLowerCase()) || PARTICLES.has(word)) ? "hinglish" : "english";
+}
+
 /** The line for the customer's new lines. */
 export function fallbackLine(customerText: string): string {
-  if (/[\u0900-\u097F]/u.test(customerText)) return LINES.hindi;
-  const words = customerText.match(/\p{L}+/gu) ?? [];
-  const hinglish = words.some((word) => HINGLISH.has(word.toLowerCase()) || PARTICLES.has(word));
-  return hinglish ? LINES.hinglish : LINES.english;
+  return LINES[languageOf(customerText)];
 }
