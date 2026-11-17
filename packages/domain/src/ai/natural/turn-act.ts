@@ -73,7 +73,7 @@ const UNREAD_HOURS: WorkingHours = {
 
 const has = (staged: StagedSet, tools: readonly StagedAction["tool"][]) => tools.some((tool) => staged.has(tool));
 
-/** A returning customer's new lead, opened before anything is sent; or why the turn ends instead. */
+/** A returning customer's new lead, opened before anything is sent; or why the turn ends instead. A task needs one too (F1). */
 async function leadFor(turn: LiveTurn, act: TurnAct): Promise<ActEnd | null> {
   const { deps, input, prepared } = turn;
   // F1: a question task or a code hand-over (the fallback, a cap) needs a lead to stand on, like a staged action does.
