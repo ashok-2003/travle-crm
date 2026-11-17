@@ -2,6 +2,7 @@
 // signer tests use to build MSG91's calls (ADR 0035).
 export * from "./whatsapp-provider.js";
 export * from "./parsed-event.js";
+export { BUTTON_LIMITS } from "./button-limits.js";
 export { customerNumberOf, parseMsg91Event } from "./parse-msg91-event.js";
 export { createMemoryWhatsAppProvider, type MemoryWhatsAppProvider, type SentMessage } from "./memory-whatsapp.js";
 export {

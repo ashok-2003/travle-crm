@@ -9,8 +9,10 @@ import {
   parseTemplates,
   sendSucceeded,
 } from "./msg91-responses.js";
+import { buttonsFit } from "./button-limits.js";
 import {
   failed,
+  type WhatsAppButtonsToSend,
   type WhatsAppCreateResult,
   type WhatsAppFailureReason,
   type WhatsAppListResult,
@@ -161,6 +163,27 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
         ...(media.voice === true ? { voice: true } : {}),
         ...replyContext(media.replyTo),
       }),
+    // MSG91's interactive reply buttons (its OpenAPI page, checked 2026-11-17): the same call as text, fields at the top level.
+    // SPIKE(reply-context): whether `context` is taken on an interactive send is untested.
+    sendButtons: (number, to, message: WhatsAppButtonsToSend) =>
+      buttonsFit(message)
+        ? send({
+            ...base(number, to),
+            content_type: "interactive",
+            interactive: {
+              type: "button",
+              body: { text: message.body },
+              ...(message.footer === undefined ? {} : { footer: { text: message.footer } }),
+              action: {
+                buttons: message.buttons.map((button) => ({
+                  type: "reply",
+                  reply: { id: button.id, title: button.title },
+                })),
+              },
+            },
+            ...replyContext(message.replyTo),
+          })
+        : Promise.resolve(failed("other", { providerCode: "invalid_buttons" })),
     sendTemplate: async (number, to, template: WhatsAppTemplateSend) => {
       const components = Object.fromEntries(
         template.parameters.map((value, index) => [`body_${String(index + 1)}`, { type: "text", value }]),

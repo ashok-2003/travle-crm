@@ -40,6 +40,10 @@ export interface ParsedMessage {
   reaction: { emoji: string; targetWamid: string | null } | null;
   /** The click-to-WhatsApp ad this message came from, when the webhook carried one with a source id or a headline. */
   referral: { sourceId: string | null; headline: string | null; sourceUrl: string | null } | null;
+  /** The id of the button or list row the customer tapped, from whichever field carried it; null when none came. */
+  buttonReplyId: string | null;
+  /** What was tapped: one of our reply buttons, a list row, or a template's quick reply; null for typed words. */
+  replyKind: "button" | "list" | "template" | null;
   /** MSG91's name for a content type we don't read (kind "unsupported"), so it can be logged and added; else absent. */
   unknownType?: string;
 }

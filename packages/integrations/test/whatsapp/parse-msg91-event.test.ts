@@ -56,6 +56,53 @@ describe("parseMsg91Event", () => {
     expect(one("inbound-button")).toMatchObject({ kind: "text", text: "Send me the quote" });
   });
 
+  it("reads a tap's id from interactive as an object, as a string, and from messages", () => {
+    expect(one("tap-interactive-object")).toMatchObject({
+      kind: "text",
+      text: "Book these seats",
+      buttonReplyId: "book:0190f3a2-0000-7000-8000-000000000001",
+      replyKind: "button",
+      quotedWamid: "wamid.CARD1",
+    });
+    expect(one("tap-interactive-string")).toMatchObject({
+      kind: "text",
+      text: "Change something",
+      buttonReplyId: "change:0190f3a2-0000-7000-8000-000000000001",
+      replyKind: "button",
+    });
+    expect(one("tap-messages-only")).toMatchObject({
+      kind: "text",
+      text: "Book these seats",
+      buttonReplyId: "book:0190f3a2-0000-7000-8000-000000000001",
+      replyKind: "button",
+    });
+  });
+
+  it("reads a list reply and a template's quick reply", () => {
+    expect(one("tap-list-reply")).toMatchObject({
+      kind: "text",
+      text: "Goa in December",
+      buttonReplyId: "row-7",
+      replyKind: "list",
+    });
+    expect(one("inbound-button")).toMatchObject({
+      kind: "text",
+      text: "Send me the quote",
+      buttonReplyId: "quote",
+      replyKind: "template",
+    });
+  });
+
+  it("keeps the tapped title as the words, and no id when none came", () => {
+    expect(one("tap-title-only")).toMatchObject({
+      kind: "text",
+      text: "Book these seats",
+      buttonReplyId: null,
+      replyKind: null,
+    });
+    expect(one("inbound-text")).toMatchObject({ buttonReplyId: null, replyKind: null });
+  });
+
   it("keeps a kind it does not know as unsupported, with its content type for the log", () => {
     expect(one("inbound-unsupported")).toMatchObject({
       type: "inbound",

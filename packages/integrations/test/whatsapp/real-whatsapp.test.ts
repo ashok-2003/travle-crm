@@ -57,6 +57,81 @@ describe("the real WhatsApp provider", () => {
     expect(bodies[2]).not.toHaveProperty("context");
   });
 
+  it("sends reply buttons as MSG91 documents them", async () => {
+    const { adapter, requests } = provider(() =>
+      json(200, { status: "success", data: { messages: [{ id: "wamid.B1" }] } }),
+    );
+    const result = await adapter.sendButtons("+91 88888 00000", "+919876543210", {
+      body: "Goa trip",
+      footer: "Tap one",
+      replyTo: "wamid.ASKED",
+      buttons: [
+        { id: "book:abc", title: "Book these seats" },
+        { id: "change:abc", title: "Change something" },
+      ],
+    });
+    expect(result).toEqual({ ok: true, wamid: "wamid.B1", requestId: null });
+    const [request] = requests;
+    expect(request?.url).toBe("https://msg91.test/api/v5/whatsapp/whatsapp-outbound-message/");
+    expect(JSON.parse(request?.init.body as string)).toEqual({
+      integrated_number: "918888800000",
+      recipient_number: "919876543210",
+      content_type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: "Goa trip" },
+        footer: { text: "Tap one" },
+        action: {
+          buttons: [
+            { type: "reply", reply: { id: "book:abc", title: "Book these seats" } },
+            { type: "reply", reply: { id: "change:abc", title: "Change something" } },
+          ],
+        },
+      },
+      context: { message_id: "wamid.ASKED" },
+    });
+  });
+
+  it("leaves out the footer and the quote when there are none", async () => {
+    const { adapter, requests } = provider(() => json(200, { status: "success" }));
+    await adapter.sendButtons("918888800000", "919876543210", { body: "x", buttons: [{ id: "a", title: "A" }] });
+    const body = JSON.parse(requests[0]?.init.body as string) as { interactive: object };
+    expect(body).not.toHaveProperty("context");
+    expect(body.interactive).not.toHaveProperty("footer");
+  });
+
+  it("refuses buttons past WhatsApp's limits without a request", async () => {
+    const { adapter, requests } = provider(() => json(200, {}));
+    const ok = { id: "a", title: "A" };
+    const cases = [
+      { body: "x", buttons: [] },
+      { body: "x", buttons: [ok, { id: "b", title: "B" }, { id: "c", title: "C" }, { id: "d", title: "D" }] },
+      { body: "x", buttons: [{ id: "a", title: "T".repeat(21) }] },
+      { body: "x", buttons: [{ id: "a", title: "" }] },
+      { body: "x", buttons: [ok, { id: "a", title: "Other" }] },
+      { body: "x", buttons: [{ id: "i".repeat(257), title: "A" }] },
+      { body: "b".repeat(1025), buttons: [ok] },
+      { body: "", buttons: [ok] },
+      { body: "x", footer: "f".repeat(61), buttons: [ok] },
+    ];
+    for (const message of cases) {
+      expect(await adapter.sendButtons("918888800000", "919876543210", message)).toEqual({
+        ok: false,
+        reason: "other",
+        providerCode: "invalid_buttons",
+      });
+    }
+    expect(requests).toHaveLength(0);
+    // The limits themselves pass.
+    const edge = await adapter.sendButtons("918888800000", "919876543210", {
+      body: "b".repeat(1024),
+      footer: "f".repeat(60),
+      buttons: [{ id: "i".repeat(256), title: "T".repeat(20) }],
+    });
+    expect(edge.ok).toBe(true);
+    expect(requests).toHaveLength(1);
+  });
+
   it("sends a file as MSG91's attachment_url, with its caption and, for a document, its name", async () => {
     const { adapter, requests } = provider(() =>
       json(200, { status: "success", data: { messages: [{ id: "wamid.M1" }] } }),

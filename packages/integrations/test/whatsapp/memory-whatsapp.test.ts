@@ -14,6 +14,41 @@ describe("the in-memory WhatsApp provider", () => {
     expect(await provider.sendText("910000000000", "919876543210", "x")).toEqual({ ok: false, reason: "bad_number" });
   });
 
+  it("records sent buttons in memory", async () => {
+    const provider = createMemoryWhatsAppProvider();
+    provider.addNumber("918888800000");
+    const buttons = [
+      { id: "book:1", title: "Book these seats" },
+      { id: "change:1", title: "Change something" },
+    ];
+    const result = await provider.sendButtons("918888800000", "+919876543210", {
+      body: "Goa, 19 Dec",
+      buttons,
+      footer: "Reply to change",
+      replyTo: "wamid.ASKED",
+    });
+    expect(result.ok).toBe(true);
+    expect(provider.sent).toHaveLength(1);
+    expect(provider.sent[0]).toMatchObject({
+      kind: "buttons",
+      to: "919876543210",
+      text: "Goa, 19 Dec",
+      replyTo: "wamid.ASKED",
+      buttons: { buttons, footer: "Reply to change" },
+    });
+  });
+
+  it("refuses buttons past WhatsApp's limits in memory too, recording nothing", async () => {
+    const provider = createMemoryWhatsAppProvider();
+    provider.addNumber("918888800000");
+    const result = await provider.sendButtons("918888800000", "919876543210", {
+      body: "x",
+      buttons: [{ id: "a", title: "A".repeat(21) }],
+    });
+    expect(result).toEqual({ ok: false, reason: "other", providerCode: "invalid_buttons" });
+    expect(provider.sent).toHaveLength(0);
+  });
+
   it("fails the next call as asked, then recovers", async () => {
     const provider = createMemoryWhatsAppProvider();
     provider.addNumber("918888800000");
