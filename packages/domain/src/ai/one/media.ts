@@ -120,7 +120,7 @@ async function read(
       ? { type: "audio", format, bytes: body }
       : { type: "image", mimeType: imageType ?? "image/jpeg", bytes: body };
   const result = await call({
-    feature: "sales_agent",
+    feature: format !== null ? "agent_voice" : "agent_image",
     messages: [
       { role: "system", content: way.kind === "audio" ? VOICE_PROMPT : IMAGE_PROMPT },
       {

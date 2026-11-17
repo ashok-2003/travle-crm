@@ -230,6 +230,10 @@ export const serviceVariables = {
   AI_FAST_MODELS: emptyAsUnset(modelList.optional()),
   /** The sales agents' own models (the chat models, or on OpenRouter's key the suggest ones, when unset). */
   AI_AGENT_MODELS: emptyAsUnset(modelList.optional()),
+  /** The one agent's other uses, each its own models (the agent's when unset): voice notes, photos, the chat summary. */
+  AI_VOICE_MODELS: emptyAsUnset(modelList.optional()),
+  AI_IMAGE_MODELS: emptyAsUnset(modelList.optional()),
+  AI_SUMMARY_MODELS: emptyAsUnset(modelList.optional()),
   AI_ZERO_RETENTION: emptyAsUnset(z.stringbool().optional()),
   /**
    * A backup for the AI above (the owner, 2026-11-02): AI_BACKUP_API_KEY, a second key (a paid one, or another provider's),

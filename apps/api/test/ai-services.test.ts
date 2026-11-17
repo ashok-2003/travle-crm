@@ -87,6 +87,46 @@ describe("the sales agent's models", () => {
     expect(asked.slice(3).map((call) => call.model)).toEqual(["a/suggest", "a/agent"]);
   });
 
+  it("gives voice notes, photos and the chat summary their own lists, else the agent's, else what the agent falls back to", async () => {
+    const { asked } = stubFetch();
+    const uses = ["agent_voice", "agent_image", "chat_summary"] as const;
+    const modelsOf = async (model: ReturnType<typeof createAiModel>) => {
+      const models: unknown[] = [];
+      for (const feature of uses) {
+        await model?.complete({ feature, messages, user: "org" });
+        models.push(asked.at(-1)?.model);
+      }
+      return models;
+    };
+    const own = { AI_VOICE_MODELS: ["g/voice"], AI_IMAGE_MODELS: ["g/image"], AI_SUMMARY_MODELS: ["g/summary"] };
+    expect(await modelsOf(createAiModel(settings({ ...own, AI_AGENT_MODELS: ["g/agent"] }), logger))).toEqual([
+      "g/voice",
+      "g/image",
+      "g/summary",
+    ]);
+    expect(await modelsOf(createAiModel(settings({ AI_AGENT_MODELS: ["g/agent"] }), logger))).toEqual([
+      "g/agent",
+      "g/agent",
+      "g/agent",
+    ]);
+    expect(await modelsOf(createAiModel(settings({}), logger))).toEqual([
+      "google/chat-one",
+      "google/chat-one",
+      "google/chat-one",
+    ]);
+    const openRouter = {
+      OPENROUTER_API_KEY: "sk-or-0123456789abcdef",
+      AI_SUGGEST_MODELS: ["a/suggest"],
+      AI_SCORE_MODELS: ["a/score"],
+    };
+    expect(await modelsOf(createAiModel({ ...openRouter, ...own }, logger))).toEqual([
+      "g/voice",
+      "g/image",
+      "g/summary",
+    ]);
+    expect(await modelsOf(createAiModel(openRouter, logger))).toEqual(["a/suggest", "a/suggest", "a/suggest"]);
+  });
+
   it("sends sales_agent to Gemini direct like any other feature, whatever model a request names", async () => {
     const { asked, fields } = stubFetch();
     const google = createAiModel(settings({ AI_BASE_URL: GOOGLE, AI_AGENT_MODELS: ["gemini-3.5-flash"] }), logger);

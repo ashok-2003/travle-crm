@@ -114,7 +114,7 @@ async function refresh(
     `Messages since, oldest first:\n${lines.map((line) => summaryLine(line, clock)).join("\n")}\n\n` +
     `The lead card now:\n${leadBlock({ lead: input.lead, ...clock }, () => undefined)}`;
   const answer = await deps.call({
-    feature: "sales_agent",
+    feature: "chat_summary",
     messages: [
       { role: "system", content: renderSummaryPrompt(prompt, input.agencyName) },
       { role: "user", content: user },

@@ -59,6 +59,15 @@ describe("environment", () => {
     expect(loadEnvironment({ ...production, AI_AGENT_MODELS: "" }).AI_AGENT_MODELS).toBeUndefined();
     expect(loadEnvironment(production).AI_AGENT_MODELS).toBeUndefined();
     expect(() => loadEnvironment({ ...production, AI_AGENT_MODELS: "bad name" })).toThrow(/AI_AGENT_MODELS/);
+    // The voice notes', the photos' and the chat summary's own lists read the same way.
+    for (const name of ["AI_VOICE_MODELS", "AI_IMAGE_MODELS", "AI_SUMMARY_MODELS"] as const) {
+      expect(loadEnvironment({ ...production, [name]: "google/gemini-3.5-flash-lite, g/two" })[name]).toEqual([
+        "google/gemini-3.5-flash-lite",
+        "g/two",
+      ]);
+      expect(loadEnvironment({ ...production, [name]: "" })[name]).toBeUndefined();
+      expect(() => loadEnvironment({ ...production, [name]: "bad name" })).toThrow(name);
+    }
   });
 
   it("takes the AI's endpoint, key and models together (Google's Gemini direct), over https in production", () => {
@@ -145,10 +154,7 @@ describe("environment", () => {
       AI_VERTEX_SERVICE_ACCOUNT: { client_email: key.client_email, private_key: privateKey },
       AI_CHAT_MODELS: ["google/gemini-3.8-flash"],
     });
-    // A backup stands behind it as behind a key; a compose file's blank is unset.
-    expect(
-      loadEnvironment({ ...production, ...vertex, AI_BACKUP_API_KEY: "sk-backup-0123456789" }).AI_BACKUP_API_KEY,
-    ).toBe("sk-backup-0123456789");
+    // A compose file's blank is unset.
     expect(loadEnvironment({ ...production, AI_VERTEX_SERVICE_ACCOUNT: "" }).AI_VERTEX_SERVICE_ACCOUNT).toBeUndefined();
     // One credential: not both, and it needs the endpoint and the models.
     expect(() => loadEnvironment({ ...production, ...vertex, AI_API_KEY: "AIza-test-key-0123456789" })).toThrow(
@@ -156,6 +162,23 @@ describe("environment", () => {
     );
     expect(() => loadEnvironment({ ...production, ...vertex, AI_BASE_URL: "" })).toThrow(/AI_BASE_URL/);
     expect(() => loadEnvironment({ ...production, ...vertex, AI_CHAT_MODELS: "" })).toThrow(/AI_CHAT_MODELS/);
+    // A backup key behind it names its own endpoint (and so its models): a key can't call Vertex.
+    const backupKey = "AIza-backup-key-0123456789";
+    try {
+      loadEnvironment({ ...production, ...vertex, AI_BACKUP_API_KEY: backupKey });
+      expect.unreachable();
+    } catch (error) {
+      expect(String(error)).toMatch(
+        /AI_BACKUP_BASE_URL: is needed with AI_BACKUP_API_KEY and AI_VERTEX_SERVICE_ACCOUNT/,
+      );
+      expect(String(error)).not.toContain(backupKey);
+    }
+    const studio = {
+      AI_BACKUP_API_KEY: backupKey,
+      AI_BACKUP_BASE_URL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      AI_BACKUP_CHAT_MODELS: "gemini-3.5-flash-lite",
+    };
+    expect(loadEnvironment({ ...production, ...vertex, ...studio }).AI_BACKUP_API_KEY).toBe(backupKey);
     // One key, whole, or the process stops, saying nothing of the value.
     for (const wrong of [base64([key, key]), base64({ ...key, private_key: "not a key" }), "secret-key-text"]) {
       try {

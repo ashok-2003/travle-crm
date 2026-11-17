@@ -25,6 +25,9 @@ export type AiSettings = Pick<
   | "AI_CHAT_MODELS"
   | "AI_FAST_MODELS"
   | "AI_AGENT_MODELS"
+  | "AI_VOICE_MODELS"
+  | "AI_IMAGE_MODELS"
+  | "AI_SUMMARY_MODELS"
   | "AI_ZERO_RETENTION"
   | "AI_BACKUP_API_KEY"
   | "AI_BACKUP_BASE_URL"
@@ -45,6 +48,19 @@ export function createAiModel(environment: AiSettings, logger: Logger, tracing: 
   return model === null ? null : withTracing(model, tracing);
 }
 
+/** The agent's models, and its other uses' own lists (the owner, 2026-11-17), each the agent's when unset. */
+function agentModels(
+  own: Partial<Pick<AiSettings, "AI_VOICE_MODELS" | "AI_IMAGE_MODELS" | "AI_SUMMARY_MODELS">>,
+  agent: readonly string[],
+) {
+  return {
+    sales_agent: agent,
+    agent_voice: own.AI_VOICE_MODELS ?? agent,
+    agent_image: own.AI_IMAGE_MODELS ?? agent,
+    chat_summary: own.AI_SUMMARY_MODELS ?? agent,
+  };
+}
+
 // The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
 // revisited before scale.
 function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
@@ -56,6 +72,7 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
     const fast = environment.AI_FAST_MODELS ?? chat;
     const zeroRetention =
       environment.AI_ZERO_RETENTION === undefined ? {} : { zeroRetention: environment.AI_ZERO_RETENTION };
+    const agent = agentModels(environment, environment.AI_AGENT_MODELS ?? chat);
     const first = createOpenRouterModel({
       apiKey: credential,
       // The chat models write for customers and read chats; the fast ones only score leads.
@@ -75,7 +92,7 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
         // Drafting a plan is longer writing than a reply: the chat models.
         draft_days: chat,
         draft_packages: chat,
-        sales_agent: environment.AI_AGENT_MODELS ?? chat,
+        ...agent,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
@@ -96,7 +113,10 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
         ask_report: backupFast,
         draft_days: backupChat,
         draft_packages: backupChat,
-        sales_agent: environment.AI_BACKUP_CHAT_MODELS ?? environment.AI_AGENT_MODELS ?? chat,
+        // The backup's own chat models serve every agent use; without them, the first's lists.
+        ...(environment.AI_BACKUP_CHAT_MODELS === undefined
+          ? agent
+          : agentModels({}, environment.AI_BACKUP_CHAT_MODELS)),
       },
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
@@ -121,7 +141,7 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
       reach_out: environment.AI_SUGGEST_MODELS,
       draft_days: environment.AI_SUGGEST_MODELS,
       draft_packages: environment.AI_SUGGEST_MODELS,
-      sales_agent: environment.AI_AGENT_MODELS ?? environment.AI_SUGGEST_MODELS,
+      ...agentModels(environment, environment.AI_AGENT_MODELS ?? environment.AI_SUGGEST_MODELS),
     },
     ...(testServer === undefined
       ? {}

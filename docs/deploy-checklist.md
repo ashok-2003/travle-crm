@@ -153,6 +153,8 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_CHAT_MODELS`: its models, comma-separated; needed with `AI_API_KEY`                             | ○   | ○      |         |         |        |
 | `AI_FAST_MODELS`: the ones that only score leads (the chat ones when blank)                         | ○   | ○      |         |         |        |
 | `AI_AGENT_MODELS`: the new agent's models, comma-separated (the chat models when blank)             | ○   | ○      |         |         |        |
+| `AI_VOICE_MODELS`, `AI_IMAGE_MODELS`: voice notes' and photos' models (the agent's when blank)      | ○   | ○      |         |         |        |
+| `AI_SUMMARY_MODELS`: the chat summary's models (the agent's when blank)                             | ○   | ○      |         |         |        |
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
@@ -285,11 +287,15 @@ Secrets come from the platform's secret manager as environment variables, never 
   - **Gemini on Vertex AI** (ruling R14, 2026-11-17): `AI_VERTEX_SERVICE_ACCOUNT` in place of `AI_API_KEY` (one or the
     other), holding a service account's key file as base64 on one line (`base64 -i key.json | tr -d '\n'`), with
     `AI_BASE_URL=https://aiplatform.googleapis.com/v1/projects/<project>/locations/global/endpoints/openapi` and
-    `AI_CHAT_MODELS` (and `AI_AGENT_MODELS`) as Vertex names them (`google/gemini-3.8-flash`). The account needs the
-    Vertex AI User role. Each request carries an OAuth token minted from the key (scope cloud-platform), kept for its
-    hour and renewed five minutes before it ends. One process uses one credential for all its AI features. The key is a
-    secret: never printed or logged, and the process stops at start-up if it isn't one whole key file.
-  - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` only) is asked when the first AI can't
+    `AI_CHAT_MODELS` and `AI_AGENT_MODELS` as Vertex names them: `google/gemini-3.5-flash-lite` (the owner, 2026-11-17;
+    `google/gemini-3.8-flash` costs more). `AI_VOICE_MODELS`, `AI_IMAGE_MODELS` and `AI_SUMMARY_MODELS` give voice notes,
+    photos and the chat summary models of their own (`AI_AGENT_MODELS` when blank). The account needs the Vertex AI User
+    role. Each request carries an OAuth token minted from the key (scope cloud-platform), kept for its hour and renewed
+    five minutes before it ends; a failure to mint is logged by its error's name and code. One process uses one
+    credential for all its AI features. A backup key behind it (`AI_BACKUP_API_KEY`, AI Studio's) must name its own
+    `AI_BACKUP_BASE_URL` and `AI_BACKUP_CHAT_MODELS`, or the process stops at start-up. The key is a secret: never
+    printed or logged, and the process stops at start-up if it isn't one whole key file.
+  - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,
     `AI_BACKUP_CHAT_MODELS` or `AI_BACKUP_FAST_MODELS` say otherwise; a backup on another endpoint must name its own chat
     models (the start-up check refuses it otherwise). A model that answered 429 rests (its Retry-After, else a

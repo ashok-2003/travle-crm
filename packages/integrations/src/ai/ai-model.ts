@@ -16,6 +16,10 @@ export const aiFeatures = [
   "read_rates",
   "draft_packages",
   "sales_agent",
+  // The one agent's other uses, each with its own models: a voice note heard, a photo looked at, the chat's summary.
+  "agent_voice",
+  "agent_image",
+  "chat_summary",
 ] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 

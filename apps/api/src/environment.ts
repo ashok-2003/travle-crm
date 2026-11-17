@@ -222,6 +222,17 @@ const environmentSchema = z
         problem(name, "is only for use with AI_BACKUP_API_KEY");
       }
     }
+    // Behind Vertex AI, a backup key is another endpoint's (AI Studio's): without its own address it would go to Vertex.
+    if (
+      environment.AI_VERTEX_SERVICE_ACCOUNT !== undefined &&
+      environment.AI_BACKUP_API_KEY !== undefined &&
+      environment.AI_BACKUP_BASE_URL === undefined
+    ) {
+      problem(
+        "AI_BACKUP_BASE_URL",
+        "is needed with AI_BACKUP_API_KEY and AI_VERTEX_SERVICE_ACCOUNT: a key can't call Vertex",
+      );
+    }
     // Another endpoint names its models its own way: the first's names would only answer 404 there.
     if (
       environment.AI_BACKUP_BASE_URL !== undefined &&
