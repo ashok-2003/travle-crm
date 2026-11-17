@@ -332,7 +332,8 @@
     "current": "Current agent",
     "agents": {
       "lite": "Lite agent",
-      "natural": "New agent"
+      "natural": "Natural agent",
+      "one": "One agent (LangGraph)"
     },
     "lastReplay": "Last replay",
     "replayResult": "{passed} of {chats} chats passed, {time}",
@@ -341,15 +342,17 @@
     "loadFailed": "The agent's choice didn't load.",
     "retry": "Try again",
     "dialog": {
+      "choose": "Move to",
       "title": "Move {name} to the {agent}?",
       "description": {
-        "natural": "{name}'s WhatsApp chats will be answered by the new agent from the next message.",
+        "natural": "{name}'s WhatsApp chats will be answered by the natural agent from the next message.",
+        "one": "{name}'s WhatsApp chats will be answered by the one agent from the next message.",
         "lite": "{name}'s WhatsApp chats will go back to the lite agent from the next message."
       },
-      "gate": "Before moving to the new agent, check that:",
+      "gate": "Before moving to the natural or one agent, check that:",
       "steps": {
-        "setup": "its AI agent's setup is ready (Setup shows every step done)",
-        "tryIt": "you tried the new agent in its Try it, writing as its customers do"
+        "setup": "its setup is ready (Setup shows every step done)",
+        "tryIt": "you tried the agent in its Try it, writing as its customers do"
       },
       "confirm": "Change agent"
     }

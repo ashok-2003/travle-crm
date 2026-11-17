@@ -86,7 +86,7 @@ export async function runAgentFallback(
 async function agentChecked(
   dependencies: AgentDependencies,
   input: LiteTurnInput,
-): Promise<"lite" | "natural" | "not_configured" | "not_allowed" | "paused"> {
+): Promise<"lite" | "natural" | "one" | "not_configured" | "not_allowed" | "paused"> {
   if (!dependencies.ai.configured) return "not_configured";
   // No AI for an agency whose plan lacks it or whose subscription is read-only, suspended or cancelled.
   if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(input.organizationId))) return "not_allowed";

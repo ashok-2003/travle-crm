@@ -55,6 +55,21 @@ describe("choosing an agency's agent from the console", () => {
     expect(page.entries.filter((entry) => entry.action === "ai-agent.agent-chosen")).toHaveLength(2);
   });
 
+  it("writes a move to one to the platform log and the agency's audit log", async () => {
+    const plan = await createTestPlan(test);
+    const { organizationId } = await onboardOrganization(test.services, support, onboardingInput(plan));
+    const admin = { userId: randomUUID() };
+    expect(await chooseOrganizationAgent(test.services, admin, { organizationId, agent: "one" })).toMatchObject({
+      agent: "one",
+    });
+    const own = await platform.auditEntry.findMany({ where: { organizationId, action: "ai-agent.agent-changed" } });
+    expect(own).toMatchObject([{ source: "platform", before: { agent: "natural" }, after: { agent: "one" } }]);
+    const page = await test.services.platformDb.transaction((tx) =>
+      listPlatformLog(tx, { targetOrganizationId: organizationId, limit: 50 }),
+    );
+    expect(page.entries.filter((entry) => entry.action === "ai-agent.agent-chosen")).toHaveLength(1);
+  });
+
   it("refuses an unknown organization", async () => {
     await expect(organizationAgentChoice(test.services, randomUUID())).rejects.toSatisfy(
       (error) => error instanceof DomainError && error.code === "NOT_FOUND",

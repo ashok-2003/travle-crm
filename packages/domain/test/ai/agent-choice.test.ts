@@ -49,6 +49,16 @@ describe("an agency's agent", () => {
     });
   });
 
+  it("reads one, and audits a move to it", async () => {
+    const { organizationId, inOrg, admin } = await agency();
+    expect(await inOrg((tx) => setAgent(tx, admin, "one"))).toEqual({ changed: true });
+    expect(await inOrg((tx) => agentOf(tx))).toBe("one");
+    const entries = (await auditOf(test, organizationId, organizationId)).filter(
+      (entry) => entry.action === "ai-agent.agent-changed",
+    );
+    expect(entries[0]).toMatchObject({ before: { agent: "natural" }, after: { agent: "one" } });
+  });
+
   it("leaves the agent as it was when the agency saves its own settings", async () => {
     const { inOrg, admin, owner } = await agency();
     await inOrg((tx) => setAgent(tx, admin, "lite"));
