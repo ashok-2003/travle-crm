@@ -9,6 +9,7 @@ import {
 } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
+import { buttonsOf } from "./buttons-column.js";
 import { visibleConversation } from "./views.js";
 
 type MessageRow = Awaited<ReturnType<OrgTx["whatsappMessage"]["findMany"]>>[number];
@@ -90,6 +91,8 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
       row.aiText === null || (row.aiTextKind !== "transcript" && row.aiTextKind !== "description")
         ? null
         : { kind: row.aiTextKind, text: row.aiText },
+    buttons: buttonsOf(row.buttons),
+    tapped: row.buttonReplyId !== null,
   }));
 }
 

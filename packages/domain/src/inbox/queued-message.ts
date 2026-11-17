@@ -1,5 +1,6 @@
 // The queued message the sender works on, with everything sending it needs read in one go (spec 4.4 S1-S5).
 import type { OrgTx } from "@travel-crm/db";
+import { buttonsOf } from "./buttons-column.js";
 
 export interface Queued {
   id: string;
@@ -7,6 +8,8 @@ export interface Queued {
   body: string | null;
   caption: string | null;
   fileName: string | null;
+  /** A card's reply buttons, or null for plain text. */
+  buttons: { id: string; title: string }[] | null;
   template: { name: string; language: string; category: string } | null;
   templateParams: string[];
   /** The WhatsApp id of the message our reply quotes; null with no quote, or when that message has none yet. */
@@ -37,6 +40,7 @@ export async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queue
       body: true,
       caption: true,
       fileName: true,
+      buttons: true,
       occurredAt: true,
       sentBy: true,
       templateParams: true,
@@ -66,6 +70,7 @@ export async function queuedMessage(tx: OrgTx, messageId: string): Promise<Queue
     body: message.body,
     caption: message.caption,
     fileName: message.fileName,
+    buttons: buttonsOf(message.buttons),
     template: message.template,
     templateParams: message.templateParams,
     replyTo: message.quotedMessage?.wamid ?? null,
