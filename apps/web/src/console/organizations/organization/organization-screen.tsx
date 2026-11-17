@@ -21,6 +21,7 @@ import { consoleRoutes } from "../../routes";
 import { isSuperAdmin, useStaff } from "../../session/staff-context";
 import { SubscriptionStatusBadge } from "../../subscription-status";
 import { OrganizationWhatsapp } from "../../whatsapp/organization-whatsapp";
+import { OrganizationAgentChoice } from "./organization-agent-choice";
 import { OrganizationAgentPause } from "./organization-agent-pause";
 import { OrganizationAgentState } from "./organization-agent-state";
 import { SubscriptionSection } from "../subscription/subscription-section";
@@ -101,6 +102,7 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
       <OrganizationWhatsapp organizationId={organization.id} organizationName={organization.name} />
       <OrganizationAgentState organizationId={organization.id} />
       <OrganizationAgentPause organizationId={organization.id} organizationName={organization.name} />
+      <OrganizationAgentChoice organizationId={organization.id} organizationName={organization.name} />
       <ProfileSection profile={profile} />
       <MembersSection organization={organization} />
     </div>

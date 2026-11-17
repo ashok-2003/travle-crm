@@ -116,7 +116,7 @@ export async function stageAction(
       return withArgs(handOverArguments, asked, ({ reason, summary }) =>
         stage(
           { tool: "hand_over", reason, summary },
-          "handed to a person after your reply; tell them someone will reply here, with no promised time",
+          "handed to a person after your reply; as one of the team, say you'll check and get back to them here, with no promised time",
         ),
       );
     case "suggest_close":

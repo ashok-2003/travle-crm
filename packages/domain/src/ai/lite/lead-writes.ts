@@ -111,13 +111,29 @@ function gapsOf(values: Partial<Record<TripField, unknown>>): TripGaps {
   return gaps;
 }
 
-/**
- * Fills the lead's trip from what the chat has settled: a field that is empty, or that the AI filled itself and nobody
- * has touched since (its value still hashes to the row's). A person's value and a dismissed value are left; an empty
- * dismissed field takes a different value the customer gave since. Returns the fields it set or changed.
- */
+/** Fills the lead's trip from what the chat has settled, as `writeAiTripFields` does. */
 export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Promise<AiFilledField[]> {
-  const { organizationId, leadId, today } = input;
+  const { organizationId, leadId, today, proofs } = input;
+  return writeAiTripFields(tx, { organizationId, leadId, values: desiredOf(input), today, proofs });
+}
+
+/**
+ * Writes the AI's trip values on the lead: a field that is empty, or that the AI filled itself and nobody has touched
+ * since (its value still hashes to the row's). A person's value and a dismissed value are left; an empty dismissed
+ * field takes a different value the customer gave since. Each is marked as the AI's, with the customer's words that
+ * prove it when `proofs` names them, and put on the timeline. Returns the fields it set or changed.
+ */
+export async function writeAiTripFields(
+  tx: OrgTx,
+  input: {
+    organizationId: string;
+    leadId: string;
+    values: Partial<Record<TripField, unknown>>;
+    today: CalendarDate;
+    proofs?: CheckedForm["proofs"];
+  },
+): Promise<AiFilledField[]> {
+  const { organizationId, leadId, today, values: desired, proofs = {} } = input;
   // Held until the transaction ends, so a person's save cannot slip in between the checks below and the write.
   try {
     await lockLead(tx, leadId);
@@ -129,7 +145,6 @@ export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Prom
   const current = await tripFieldValues(tx, leadId);
   if (current === null) return [];
   const rows = new Map((await tx.leadAiField.findMany({ where: { leadId } })).map((row) => [row.field, row]));
-  const desired = desiredOf(input);
   const toWrite: Partial<Record<TripField, unknown>> = {};
   const skip = new Set<GapField>();
   const overwrite = new Set<GapField>();
@@ -167,7 +182,7 @@ export async function writeLeadFromFacts(tx: OrgTx, input: LeadWriteInput): Prom
   const set: AiFilledField[] = [];
   const changed: AiFilledField[] = [];
   for (const field of written) {
-    const proof = input.proofs[field];
+    const proof = proofs[field];
     const row = {
       state: "suggested",
       valueHash: valueHash(aiFieldPaths[field], desired[field]),

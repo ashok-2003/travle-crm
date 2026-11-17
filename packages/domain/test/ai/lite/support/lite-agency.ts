@@ -180,6 +180,8 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
     firstOwner: () => Promise.resolve<string | null>(owner.userId),
     leadWorkers: () => Promise.resolve([{ userId: owner.userId, name: "Owner" }]),
     organizationProfile: () => Promise.resolve(null),
+    memberContacts: () => Promise.resolve([{ userId: owner.userId, name: "Owner", email: null }]),
+    membersHolding: () => Promise.resolve([owner.userId]),
   };
   /** The model as the turn calls it: with a tracing, every call traced, as the processes give it. */
   const modelFor = (tracing?: AiTracing) => (tracing === undefined ? model : withTracing(model, tracing));
