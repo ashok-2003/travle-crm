@@ -18,8 +18,9 @@ async function run(input: ToolAgentInput): Promise<ToolAgentEnd> {
     for (let step = 1; step <= limit; step += 2) {
       const answer = await nextAnswer(model, input, messages);
       messages.push(answer);
+      // LangGraph ends a run at its limit before it looks at the answer, so words on the last step end it `steps` too.
+      if (step === limit) break;
       if (callsOf(answer).length === 0) return answered(messages, model.calls);
-      if (step + 1 > limit) break;
       messages.push(...(await toolMessages(input, answer)));
     }
     return { end: "steps", calls: model.calls };

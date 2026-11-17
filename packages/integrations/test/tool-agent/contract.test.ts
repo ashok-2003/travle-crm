@@ -79,6 +79,31 @@ describe.each([
     });
   });
 
+  it("sends each answer's reasoning details back on its own assistant message in every later request", async () => {
+    const second = [{ type: "reasoning.encrypted", data: "c2lnLTI=", id: "tool_1", format: "google-gemini-v1" }];
+    const { ai, input } = turn(
+      [quote],
+      { text: "Let me check.", toolCalls: [quoteCall], reasoningDetails: signature },
+      { toolCalls: [quoteCall], reasoningDetails: second },
+      "₹9,499 per person",
+    );
+    await agent.run(input);
+    const round = (id: string, content: string, reasoningDetails: unknown) => [
+      {
+        role: "assistant",
+        content,
+        toolCalls: [{ id, name: "quote", arguments: '{"trip_id":"T1","adults":2}' }],
+        reasoningDetails,
+      },
+      { role: "tool", content: "T1: ₹9,499 per person", toolCallId: id },
+    ];
+    expect(ai.requests.map((sent) => sent.messages)).toStrictEqual([
+      [system, user],
+      [system, user, ...round("call_1", "Let me check.", signature)],
+      [system, user, ...round("call_1", "Let me check.", signature), ...round("call_2", "", second)],
+    ]);
+  });
+
   it("runs the calls one at a time in the model's order, each with the words of its answer", async () => {
     const events: string[] = [];
     const slow: AgentTool = {
@@ -216,6 +241,12 @@ describe.each([
       calls: 0,
     });
     expect(before.ai.requests).toHaveLength(0);
+  });
+
+  it("ends steps when the model answers in words on the last step the limit allows", async () => {
+    // Limit 5: model, tools, model, tools, model. LangGraph ends the run before it sees the last answer has no calls.
+    const { input } = turn([quote], { toolCalls: [quoteCall] }, { toolCalls: [quoteCall] }, "₹9,499 per person");
+    expect(await agent.run({ ...input, recursionLimit: 5 })).toStrictEqual({ end: "steps", calls: 3 });
   });
 });
 
