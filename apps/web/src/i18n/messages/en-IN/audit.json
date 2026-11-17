@@ -295,6 +295,7 @@
       "message-sent": "The AI sent a reply by itself",
       "chat-mode-changed": "Turned the AI on or off in a chat",
       "chat-resumed": "Gave a chat back to the AI",
+      "chat-handed-off": "The AI handed a chat to the team",
       "booking-decided": "Confirmed or cancelled a booking the AI took",
       "payment-refused": "Could not match the payment for a booking the AI took",
       "fill-applied": "Saved a form the AI filled in",
