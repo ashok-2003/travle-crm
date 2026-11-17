@@ -68,6 +68,7 @@ describe("the model calls' outline", () => {
       agentName: "Asha",
       agencyName: "Hills Travel",
       tone: "friendly",
+      instructions: ["Don't use emojis."],
       instruction: "Greet the customer.",
       facts: ["fact"],
       looked: ["looked up line"],
@@ -83,7 +84,7 @@ describe("the model calls' outline", () => {
     expect(written.request.messages[0]?.content).toBe(systemText(write?.system ?? []));
     const writeTitles = (write?.blocks ?? []).map((head) => head.title);
     expect(Object.keys(blocks)).toEqual(writeTitles);
-    expect(writeTitles).toHaveLength(8);
+    expect(writeTitles).toHaveLength(9);
     for (const head of write?.blocks ?? [])
       expect(blocks[head.title]?.startsWith(`## ${head.title}\n${head.purpose}\n`)).toBe(true);
   });
