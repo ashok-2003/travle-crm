@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 function show(
-  choice: { agent: "lite" | "natural"; lastReplay: typeof replay | null; replaying: boolean },
+  choice: { agent: "lite" | "natural" | "one"; lastReplay: typeof replay | null; replaying: boolean },
   staff = platformStaff("super-admin"),
 ) {
   const api = stubApi({
@@ -39,12 +39,26 @@ describe("OrganizationAgentChoice", () => {
   it("lets a super admin change it after confirming, and lists the gate first", async () => {
     show({ agent: "lite", lastReplay: null, replaying: false });
     await userEvent.click(await screen.findByRole("button", { name: text.change }));
+    await userEvent.click(await screen.findByRole("radio", { name: text.agents.natural }));
     expect(await screen.findByText(text.dialog.steps.setup)).toBeVisible();
     expect(screen.getByText(text.dialog.steps.tryIt)).toBeVisible();
     expect(inputsTo("aiAgent.chooseAgent")).toEqual([]);
     await userEvent.click(screen.getByRole("button", { name: text.dialog.confirm }));
     await waitFor(() => {
       expect(inputsTo("aiAgent.chooseAgent")).toEqual([{ organizationId, agent: "natural" }]);
+    });
+  });
+
+  it("offers the two other agents and moves the agency to the one chosen", async () => {
+    show({ agent: "lite", lastReplay: null, replaying: false });
+    await userEvent.click(await screen.findByRole("button", { name: text.change }));
+    expect(await screen.findByRole("radio", { name: text.agents.natural })).toBeVisible();
+    expect(screen.getByRole("radio", { name: text.agents.one })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: text.agents.lite })).toBeNull();
+    expect(screen.getByText(text.dialog.steps.setup)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: text.dialog.confirm }));
+    await waitFor(() => {
+      expect(inputsTo("aiAgent.chooseAgent")).toEqual([{ organizationId, agent: "one" }]);
     });
   });
 
