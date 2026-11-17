@@ -292,7 +292,7 @@ Secrets come from the platform's secret manager as environment variables, never 
     `AI_BASE_URL=https://aiplatform.googleapis.com/v1/projects/<project>/locations/global/endpoints/openapi` and
     `AI_CHAT_MODELS` and `AI_AGENT_MODELS` as Vertex names them: `google/gemini-3.5-flash-lite` (the owner, 2026-11-17;
     `google/gemini-3.8-flash` costs more). `AI_VOICE_MODELS`, `AI_IMAGE_MODELS` and `AI_SUMMARY_MODELS` give voice notes,
-    photos and the chat summary models of their own (`AI_AGENT_MODELS` when blank). The account needs the Vertex AI User
+    photos and the chat summary models of their own (`AI_AGENT_MODELS` when blank). Every model list that is set (`AI_FAST_MODELS`, `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS` too) needs Vertex's `google/…` names. The account needs the Vertex AI User
     role. Each request carries an OAuth token minted from the key (scope cloud-platform), kept for its hour and renewed
     five minutes before it ends; a failure to mint is logged by its error's name and code. One process uses one
     credential for all its AI features. A backup key behind it (`AI_BACKUP_API_KEY`, AI Studio's) must name its own
