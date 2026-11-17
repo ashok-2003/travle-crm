@@ -100,10 +100,10 @@ import { aiRatesRouter } from "./ai-rates.js";
 import { router } from "../trpc.js";
 
 /**
- * Try it's "Gemini Flash": a model the owner may try the agent on in the test chat alone (with a temperature, which its
- * zero-data-retention routes take and the live model's refuse). The live turn never asks it.
+ * Try it's model choice: the agent's own model, Gemini 3.5 Flash-Lite (the owner, 2026-11-17: Flash and 3.8 cost more),
+ * named alone and with a temperature if chosen, in the test chat only. The live turn never names it.
  */
-const TEST_CHAT_FLASH_MODEL = "google/gemini-3.5-flash";
+const TEST_CHAT_FLASH_MODEL = "google/gemini-3.5-flash-lite";
 
 export const aiRouter = router({
   /** "Fill it for me": the AI proposes values for a form; a person applies and saves. */

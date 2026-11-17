@@ -45,9 +45,14 @@ x-api-environment: &api-environment
   # https://generativelanguage.googleapis.com/v1beta/openai): with AI_API_KEY set these replace the OpenRouter ones above.
   AI_BASE_URL: ${AI_BASE_URL:-}
   AI_API_KEY: ${AI_API_KEY:-}
+  # Or Gemini on Vertex AI: a service account's key file, base64 on one line, in AI_API_KEY's place.
+  AI_VERTEX_SERVICE_ACCOUNT: ${AI_VERTEX_SERVICE_ACCOUNT:-}
   AI_CHAT_MODELS: ${AI_CHAT_MODELS:-}
   AI_FAST_MODELS: ${AI_FAST_MODELS:-}
   AI_AGENT_MODELS: ${AI_AGENT_MODELS:-}
+  AI_VOICE_MODELS: ${AI_VOICE_MODELS:-}
+  AI_IMAGE_MODELS: ${AI_IMAGE_MODELS:-}
+  AI_SUMMARY_MODELS: ${AI_SUMMARY_MODELS:-}
   AI_BACKUP_BASE_URL: ${AI_BACKUP_BASE_URL:-}
   AI_BACKUP_API_KEY: ${AI_BACKUP_API_KEY:-}
   AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
@@ -205,9 +210,13 @@ services:
       OPENROUTER_API_KEY: ""
       AI_BASE_URL: ""
       AI_API_KEY: ""
+      AI_VERTEX_SERVICE_ACCOUNT: ""
       AI_CHAT_MODELS: ""
       AI_FAST_MODELS: ""
       AI_AGENT_MODELS: ""
+      AI_VOICE_MODELS: ""
+      AI_IMAGE_MODELS: ""
+      AI_SUMMARY_MODELS: ""
       AI_BACKUP_BASE_URL: ""
       AI_BACKUP_API_KEY: ""
       AI_BACKUP_CHAT_MODELS: ""

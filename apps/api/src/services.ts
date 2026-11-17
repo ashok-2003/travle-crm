@@ -178,7 +178,7 @@ export function createServices(
   });
   const incidents = createIncidentReporter(jobs, logger);
   const tracing = tracingOf(environment, environment.NODE_ENV);
-  const ai = createAiModel(environment, tracing);
+  const ai = createAiModel(environment, logger, tracing);
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,
     privateKey: environment.VAPID_PRIVATE_KEY,

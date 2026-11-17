@@ -88,7 +88,7 @@ describe("the one agent reads a voice note or a photo", () => {
     expect(await saved(id)).toEqual({ aiText: "Mujhe Manali ka package chahiye", aiTextKind: "transcript" });
     const asked = model.requests[0];
     expect(asked).toMatchObject({
-      feature: "sales_agent",
+      feature: "agent_voice",
       maxTokens: 2000,
       reasoning: { effort: "minimal" },
       timeoutMs: 60_000,
@@ -121,7 +121,7 @@ describe("the one agent reads a voice note or a photo", () => {
       ok: true,
       text: "seen: A UPI receipt for Rs 5,000 on 12 Dec.",
     });
-    expect(model.requests).toHaveLength(1);
+    expect(model.requests.map((asked) => asked.feature)).toEqual(["agent_image"]);
     model.answer(JSON.stringify({ description: "ignored", answer: "12 Dec." }));
     expect(await lookAtImage(deps, { conversationId: chat.id, messageId: id, question: "When?" })).toEqual({
       ok: true,

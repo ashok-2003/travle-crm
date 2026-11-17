@@ -181,12 +181,12 @@ describe("ai.test", () => {
     }
   });
 
-  it("asks Gemini Flash, at 0.4 when chosen, for every call of the turn", async () => {
+  it("asks Gemini Flash-Lite, at 0.4 when chosen, for every call of the turn", async () => {
     const { caller, asked } = await anAiAgency();
     const shown = await caller.ai.test({ messages: hi, state: null, model: "flash", temperature: "0.4" });
     expect(asked.length).toBeGreaterThan(0);
     for (const request of asked) {
-      expect(request).toMatchObject({ model: "google/gemini-3.5-flash", temperature: 0.4 });
+      expect(request).toMatchObject({ model: "google/gemini-3.5-flash-lite", temperature: 0.4 });
     }
     expect(shown.trace.models).toEqual({ understand: "memory-model", write: "memory-model" });
     const before = asked.length;
@@ -194,12 +194,12 @@ describe("ai.test", () => {
     const atDefault = asked.slice(before);
     expect(atDefault.length).toBeGreaterThan(0);
     for (const request of atDefault) {
-      expect(request).toMatchObject({ model: "google/gemini-3.5-flash" });
+      expect(request).toMatchObject({ model: "google/gemini-3.5-flash-lite" });
       expect(request).not.toHaveProperty("temperature");
     }
   });
 
-  it("refuses a temperature for any model but Gemini Flash, and a model or temperature it doesn't know", async () => {
+  it("refuses a temperature for any model but Gemini Flash-Lite, and a model or temperature it doesn't know", async () => {
     const { caller, schemas } = await anAiAgency();
     for (const choice of [
       { model: "live", temperature: "0.4" },

@@ -27,6 +27,16 @@ export const assistantWithCalls: AiMessage = {
   ],
   reasoningDetails: signature,
 };
+/** Gemini's thought signature as Vertex AI and Gemini's own endpoint return it: on the call itself, no reasoning details. */
+export const callSignature = { extra_content: { google: { thought_signature: "c2lnLXY=" } } };
+export const assistantWithSignedCalls: AiMessage = {
+  role: "assistant",
+  content: "",
+  toolCalls: [
+    { id: "call_v1", name: "get_trip", arguments: '{"trip_id":"T1"}', providerData: callSignature },
+    { id: "call_v2", name: "quote", arguments: '{"trip_id":"T1","adults":2}' },
+  ],
+};
 export const assistant: AiMessage = { role: "assistant", content: "Kedarkantha is ₹9,499 per person." };
 export const toolResult: AiMessage = { role: "tool", content: "Kedarkantha, 6 days", toolCallId: "call_1" };
 

@@ -106,7 +106,7 @@ describe("the chat summary's refresh", () => {
       chatSummaryThroughAt: newest.at,
     });
     expect(model.requests[0]).toMatchObject({
-      feature: "sales_agent",
+      feature: "chat_summary",
       maxTokens: 1_500,
       reasoning: { effort: "minimal" },
       timeoutMs: 60_000,

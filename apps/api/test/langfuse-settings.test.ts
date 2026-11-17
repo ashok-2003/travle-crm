@@ -3,6 +3,7 @@
 // NODE_ENV's, and reads the natural agent's prompt from the same project.
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { noPrompts } from "@travel-crm/integrations/prompts";
 import { createMemoryTracing, noTracing } from "@travel-crm/integrations/tracing";
 import { describe, expect, it } from "vitest";
@@ -179,6 +180,7 @@ describe("the AI model a process builds", () => {
           AI_SCORE_MODELS: [],
           AI_TEST_SERVER_URL: undefined,
         },
+        createMemoryLogger(),
         tracing,
       );
       const result = await model?.complete({

@@ -16,6 +16,10 @@ export const aiFeatures = [
   "read_rates",
   "draft_packages",
   "sales_agent",
+  // The one agent's other uses, each with its own models: a voice note heard, a photo looked at, the chat's summary.
+  "agent_voice",
+  "agent_image",
+  "chat_summary",
 ] as const;
 export type AiFeature = (typeof aiFeatures)[number];
 
@@ -62,6 +66,11 @@ export interface AiToolCall {
   id: string;
   name: string;
   arguments: string;
+  /**
+   * What the provider attached to this call besides id, type and function (Gemini's thought signature, in
+   * `extra_content`), sent back unchanged with the call. Opaque to everything but the adapter.
+   */
+  providerData?: Record<string, unknown>;
 }
 
 /**

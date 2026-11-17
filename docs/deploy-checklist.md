@@ -148,10 +148,13 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `OPENROUTER_API_KEY`: the AI (below); unset: off                                                    | ○   | ○      |         |         | yes    |
 | `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS`: OpenRouter slugs (below)                                    | ○   | ○      |         |         |        |
 | `AI_API_KEY`: the AI on any OpenAI-compatible endpoint (below); replaces `OPENROUTER_API_KEY`       | ○   | ○      |         |         | yes    |
+| `AI_VERTEX_SERVICE_ACCOUNT`: Gemini on Vertex AI, in place of `AI_API_KEY`; base64 of a key file    | ○   | ○      |         |         | yes    |
 | `AI_BASE_URL`: its address (Google's Gemini direct; https in production)                            | ○   | ○      |         |         |        |
 | `AI_CHAT_MODELS`: its models, comma-separated; needed with `AI_API_KEY`                             | ○   | ○      |         |         |        |
 | `AI_FAST_MODELS`: the ones that only score leads (the chat ones when blank)                         | ○   | ○      |         |         |        |
 | `AI_AGENT_MODELS`: the new agent's models, comma-separated (the chat models when blank)             | ○   | ○      |         |         |        |
+| `AI_VOICE_MODELS`, `AI_IMAGE_MODELS`: voice notes' and photos' models (the agent's when blank)      | ○   | ○      |         |         |        |
+| `AI_SUMMARY_MODELS`: the chat summary's models (the agent's when blank)                             | ○   | ○      |         |         |        |
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
@@ -278,11 +281,25 @@ Secrets come from the platform's secret manager as environment variables, never 
     `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the
     process stops if the key has no chat models, if the others come without the key, or if the base URL is not https in
     production. OpenRouter's `provider` zero-data-retention field is sent only to OpenRouter, so a direct endpoint keeps what
-    its own terms say (Google's free tier may use prompts: keep billing on for the project). The new sales agent
-    (`AI_AGENT_MODELS`, the chat models when blank) runs on OpenRouter only: on any other base URL, the first key's or the
-    backup's, it has no models and answers that the AI isn't ready. `docker-compose.server.yml`
+    its own terms say (Google's free tier may use prompts: keep billing on for the project). The sales agents
+    (`AI_AGENT_MODELS`, the chat models when blank) run on any of these endpoints. `docker-compose.server.yml`
     passes all of them to the api and the worker; the console calls no model, so its AI keys are blank.
-  - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` only) is asked when the first AI can't
+  - **Gemini on Vertex AI** (ruling R14, 2026-11-17): `AI_VERTEX_SERVICE_ACCOUNT` in place of `AI_API_KEY` (one or the
+    other), holding a service account's key file as base64 on one line, never shown on a screen: on the server, add the
+    line `AI_VERTEX_SERVICE_ACCOUNT=''` to the settings file if it isn't there (`secrets.sh set` changes only a setting
+    the file has), run `base64 -w0 key.json | sudo scripts/server/secrets.sh set AI_VERTEX_SERVICE_ACCOUNT`, then
+    `shred -u key.json`. With it,
+    `AI_BASE_URL=https://aiplatform.googleapis.com/v1/projects/<project>/locations/global/endpoints/openapi` and
+    `AI_CHAT_MODELS` and `AI_AGENT_MODELS` as Vertex names them: `google/gemini-3.5-flash-lite` (the owner, 2026-11-17;
+    `google/gemini-3.8-flash` costs more). `AI_VOICE_MODELS`, `AI_IMAGE_MODELS` and `AI_SUMMARY_MODELS` give voice notes,
+    photos and the chat summary models of their own (`AI_AGENT_MODELS` when blank). The account needs the Vertex AI User
+    role. Each request carries an OAuth token minted from the key (scope cloud-platform), kept for its hour and renewed
+    five minutes before it ends; a failure to mint is logged by its error's name and code. One process uses one
+    credential for all its AI features. A backup key behind it (`AI_BACKUP_API_KEY`, AI Studio's) must name its own
+    `AI_BACKUP_BASE_URL` and `AI_BACKUP_CHAT_MODELS`, or the process stops at start-up. The key is a secret: never
+    printed or logged, and the process stops at start-up if it isn't one whole key file, or if
+    `GOOGLE_SDK_NODE_LOGGING` is set (Google's library would print its tokens).
+  - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,
     `AI_BACKUP_CHAT_MODELS` or `AI_BACKUP_FAST_MODELS` say otherwise; a backup on another endpoint must name its own chat
     models (the start-up check refuses it otherwise). A model that answered 429 rests (its Retry-After, else a
