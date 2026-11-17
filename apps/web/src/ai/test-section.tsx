@@ -3,7 +3,7 @@
 // Try it: the owner writes as a customer and the AI agent answers, turn after turn, in a chat laid out as WhatsApp lays
 // one out (the customer's lines on the left, the agent's on the right), with "Why" under each answer. Each turn sends the
 // chat so far, the state the last turn handed back, and the model and temperature chosen for this chat, to the chosen
-// agent's own procedure: the current agent's ai.test or the new agent's ai.testNatural (ruling 7), so choosing the other
+// agent's own procedure: the current agent's ai.test, the new agent's ai.testNatural or the one agent's ai.testOne (ruling 7), so choosing the other
 // agent empties the chat. The chat lives only in this screen's state, never stored or in the address; Start again
 // empties it and keeps the choice. The new agent's turns also send the test chat's id, a random one each time the chat
 // starts, which groups its turns' traces, and the prompt chosen, which each answer keeps for its "Why". Nothing is sent
@@ -30,7 +30,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { liveChoice, TestChoices, type TestChoice } from "./test-choices";
 import { TestNaturalTurn } from "./test-natural-turn";
 import { TestTurn } from "./test-turn";
-import { useTestAi, useTestNatural } from "./use-ai";
+import { useTestAi, useTestNatural, useTestOne } from "./use-ai";
 
 type Entry =
   | { from: "customer"; text: string }
@@ -64,7 +64,8 @@ export function TestSection() {
   const id = useId();
   const test = useTestAi();
   const natural = useTestNatural();
-  const pending = test.isPending || natural.isPending;
+  const one = useTestOne();
+  const pending = test.isPending || natural.isPending || one.isPending;
   const [entries, setEntries] = useState<Entry[]>([]);
   const [state, setState] = useState(noState);
   const [chatId, setChatId] = useState(() => crypto.randomUUID());
@@ -78,6 +79,19 @@ export function TestSection() {
     setEntries(next);
     setDraft("");
     const turn = { messages: linesOf(next), model: choice.model, temperature: choice.temperature };
+    if (choice.agent === "one") {
+      // The one agent always reads Langfuse's latest prompt, so there is none to send; its answer shows as natural's.
+      one.mutate(
+        { ...turn, state: state.natural, chatId },
+        {
+          onSuccess: (answer) => {
+            setEntries((shown) => [...shown, { from: "natural", answer, prompt: "live" }]);
+            setState({ ...noState, natural: answer.state });
+          },
+        },
+      );
+      return;
+    }
     if (choice.agent === "natural") {
       const { prompt } = choice;
       natural.mutate(
@@ -108,6 +122,7 @@ export function TestSection() {
     setDraft("");
     test.reset();
     natural.reset();
+    one.reset();
   };
   const choose = (next: TestChoice) => {
     if (next.agent !== choice.agent) reset();
@@ -182,7 +197,7 @@ export function TestSection() {
             </Button>
           </div>
         </form>
-        <RefusalAlert error={test.error ?? natural.error} />
+        <RefusalAlert error={test.error ?? natural.error ?? one.error} />
       </CardContent>
     </Card>
   );

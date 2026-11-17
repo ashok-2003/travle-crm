@@ -16,7 +16,7 @@ export interface NaturalTestChat {
 }
 
 /** The posted lines: the customer's as theirs, the agent's (its messages and marks) as ours. */
-function chatLinesOf(messages: readonly TestAiLine[], lastTurnAt: string | null, now: Date): NaturalChatLine[] {
+export function chatLinesOf(messages: readonly TestAiLine[], lastTurnAt: string | null, now: Date): NaturalChatLine[] {
   const ours = messages.findLastIndex((line) => line.from === "agent");
   const before = lastTurnAt === null ? now : new Date(lastTurnAt);
   return messages.map((line, index) => ({
