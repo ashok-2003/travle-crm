@@ -24,12 +24,36 @@
     "delete": "Delete",
     "deleteNamed": "Delete {name}",
     "deleteTitle": "Delete {name}?",
-    "deleteDescription": "Quotes made from it stay as they are."
+    "deleteDescription": "Quotes made from it stay as they are.",
+    "missing": "{count, plural, one {# detail missing for the AI} other {# details missing for the AI}}"
+  },
+  "pdf": {
+    "title": "Or make packages from PDF brochures",
+    "description": "Choose one PDF or up to {max} at once (10 MB each). The AI reads each one and makes a group package for every trip in it, with the brochure attached. Anything it still needs to sell a package shows in red, to fill in on the package's page.",
+    "choose": "Choose PDFs",
+    "working": "Making packages…",
+    "steps": {
+      "waiting": "Waiting its turn",
+      "uploading": "Uploading",
+      "reading": "Reading the PDF",
+      "making": "Making the packages",
+      "done": "Done",
+      "failed": "Not made"
+    },
+    "problems": {
+      "wrongType": "Not a PDF. Choose a PDF brochure.",
+      "tooLarge": "Larger than 10 MB. Choose a smaller PDF.",
+      "unreadable": "The PDF couldn't be read: it may be a scan or a picture. Choose one with its text, or make the package by hand."
+    },
+    "made": "{made, plural, =0 {No package made} one {# package made} other {# packages made}} from {trips, plural, =0 {no trips} one {# trip} other {# trips}} found.",
+    "complete": "Everything the AI needs is there",
+    "missing": "Missing for the AI to sell it: {gaps}",
+    "skipped": "{name}: not made. {reason}"
   },
   "create": {
     "new": "New package",
     "title": "New package",
-    "description": "Name it and choose its kind. You add its prices, dates and files on its own page next.",
+    "description": "Name it and choose its kind. You add its prices, dates and files on its own page next. Or make packages from PDF brochures below.",
     "name": "Package name",
     "nameHint": "What your team calls it, such as Manali 5 days.",
     "kind": "What kind of package",
@@ -259,6 +283,7 @@
     "on": "The AI may offer this package to customers.",
     "off": "The AI does not offer this package.",
     "needs": "Before the AI can sell it, it needs:",
+    "missingTitle": "The AI can't sell this package yet. Add:",
     "gaps": {
       "room_types": "At least one room type",
       "prices": "A price for each room type in a season",

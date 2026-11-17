@@ -26,6 +26,7 @@ const listed = (overrides: Partial<QuotePackage>): QuotePackage => ({
   fromPricePaise: null,
   aiSellable: false,
   departuresAhead: 0,
+  sellGaps: [],
   ...overrides,
 });
 

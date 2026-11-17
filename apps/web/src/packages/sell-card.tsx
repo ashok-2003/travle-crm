@@ -18,7 +18,7 @@ import { WriteHint } from "@/subscription/write-hint";
 import { usePackageChanges } from "./use-packages";
 
 /** Where to add what is missing: the agency's payment QR is on the AI agent's Setup tab, the rest is further down this page. */
-const gapPlace: Record<PackageDetail["sellGaps"][number], string> = {
+export const gapPlace: Record<PackageDetail["sellGaps"][number], string> = {
   room_types: "#group-details",
   prices: "#package-seasons",
   advance: "#group-details",

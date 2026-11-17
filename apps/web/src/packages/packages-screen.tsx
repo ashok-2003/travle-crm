@@ -1,8 +1,9 @@
 "use client";
 
 // /packages: the agency's ready trips, each with what it is (a group trip and its departures ahead, a custom trip and its
-// From price, or a quote's plan and price), whether its page is published and whether the AI sells it, and Delete. New
-// package starts an empty one; a quote's Save as package and the AI's drafts make one too.
+// From price, or a quote's plan and price), whether its page is published, whether the AI sells it or what it still
+// needs to (in red), and Delete. New package starts an empty one or makes them from PDF brochures; a quote's Save as
+// package and the AI's drafts make one too.
 import type { QuotePackage } from "@travel-crm/contracts/quotes";
 import { PackageIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -72,9 +73,13 @@ export function PackagesScreen() {
               </ItemTitle>
               <ItemDescription className="numbers">{summary(one)}</ItemDescription>
             </ItemContent>
-            {(one.published || one.aiSellable) && (
+            {(one.published || one.aiSellable || one.sellGaps.length > 0) && (
               <ItemActions>
-                {one.aiSellable && <StatusBadge tone="good">{t("aiSells")}</StatusBadge>}
+                {/* What the AI still needs to sell it, in red, so a package made from a PDF shows what to fill in. */}
+                {one.sellGaps.length > 0 && (
+                  <StatusBadge tone="bad">{t("missing", { count: one.sellGaps.length })}</StatusBadge>
+                )}
+                {one.aiSellable && one.sellGaps.length === 0 && <StatusBadge tone="good">{t("aiSells")}</StatusBadge>}
                 {one.published && <StatusBadge tone="good">{t("published")}</StatusBadge>}
               </ItemActions>
             )}

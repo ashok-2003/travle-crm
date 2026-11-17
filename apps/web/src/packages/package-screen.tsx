@@ -18,6 +18,7 @@ import { PackagePhotos } from "./package-photos";
 import { PublishCard } from "./publish-card";
 import { SeasonsCard } from "./seasons-card";
 import { SellCard } from "./sell-card";
+import { SellGapsAlert } from "./sell-gaps-alert";
 import { TiersCard } from "./tiers-card";
 import { usePackage } from "./use-packages";
 
@@ -31,6 +32,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
         <>
           <BackLink href={routes.packages} label={t("back")} />
           <PageHeader title={data.name} intro={t("intro")} />
+          <SellGapsAlert detail={data} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
             {/* Keyed by the saved package, so a save shows what was kept. */}
             <PackageForm key={savedKey(data)} detail={data} />
