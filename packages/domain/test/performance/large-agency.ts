@@ -116,7 +116,9 @@ export async function seedLargeAgency(
     )
     INSERT INTO task (organization_id, id, kind, title, due_at, first_due_at, assignee_user_id, record_type, record_id,
       done_at, done_by, cancelled_at, updated_at)
-    SELECT ${organizationId}::uuid, (${orderedIds(size.tasks)}::uuid[])[t], 'follow-up', 'Call back ' || t, due_at,
+    SELECT ${organizationId}::uuid, (${orderedIds(size.tasks)}::uuid[])[t],
+      -- A third are plain tasks: My tasks leaves the follow-ups out of its Overdue and Due today.
+      CASE WHEN t % 3 = 0 THEN 'task' ELSE 'follow-up' END, 'Call back ' || t, due_at,
       due_at, owner_user_id, 'lead', lead_id,
       CASE WHEN t % 20 < 12 THEN due_at END,
       CASE WHEN t % 20 < 12 THEN owner_user_id END,

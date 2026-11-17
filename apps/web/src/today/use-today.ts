@@ -7,6 +7,7 @@ import type { TodayItem, TodaySectionName } from "@travel-crm/contracts/today";
 import { useQuery } from "@tanstack/react-query";
 import { useCursorPages } from "@/data/use-cursor-pages";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
+import { useHolds } from "@/session/me-context";
 
 export function useTodaySummary() {
   const trpc = useTRPC();
@@ -31,10 +32,12 @@ export function useMyTasksPreview(limit = 5): {
   refetch: () => void;
 } {
   const trpc = useTRPC();
+  // The api needs leads:view for every section, so a member without it never asks.
+  const enabled = useHolds("leads:view");
   // Each section asks for no more than the preview shows; the keys sit under today.section, so a change reloads them.
-  const overdue = useQuery(trpc.today.section.queryOptions({ section: "overdue", limit }));
-  const dueToday = useQuery(trpc.today.section.queryOptions({ section: "due-today", limit }));
-  const newLeads = useQuery(trpc.today.section.queryOptions({ section: "new-leads", limit }));
+  const overdue = useQuery({ ...trpc.today.section.queryOptions({ section: "overdue", limit }), enabled });
+  const dueToday = useQuery({ ...trpc.today.section.queryOptions({ section: "due-today", limit }), enabled });
+  const newLeads = useQuery({ ...trpc.today.section.queryOptions({ section: "new-leads", limit }), enabled });
   const parts = [overdue, dueToday, newLeads];
   const ready = overdue.data !== undefined && dueToday.data !== undefined && newLeads.data !== undefined;
   return {

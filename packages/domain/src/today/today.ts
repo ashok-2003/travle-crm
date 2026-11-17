@@ -1,5 +1,5 @@
-// Today (spec 3.5), My tasks on screen: the signed-in person's own overdue and due-today tasks (follow-ups are counted apart), their new leads waiting for a
-// reply, the quotes customers opened and went quiet on and the payments falling due (release 5), counted for the day in
+// Today (spec 3.5), My tasks on screen: the signed-in person's own overdue and due-today tasks (follow-ups are counted
+// apart), their new leads waiting for a reply, the quotes customers opened and went quiet on and the payments falling due (release 5), counted for the day in
 // the agency's zone (R35). Overdue is due before now; due today runs from now to
 // the agency's next midnight, so yesterday's undone work is overdue at 00:05 and 00:10 tomorrow isn't today at 23:50.
 import type { Task } from "@travel-crm/contracts/tasks";

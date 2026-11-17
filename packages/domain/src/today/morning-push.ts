@@ -1,6 +1,6 @@
 // The morning push (release 5, spec 3.3): at the time each person picked, in the agency's zone, a push with the plain
-// count of their day, "5 tasks and 6 follow-ups today, 2 overdue". Every 15 minutes the worker looks at every agency for people whose
-// time has come and who have not had today's; a person with nothing to do gets no push. Counts only: no names, no
+// count of their day, "5 tasks and 6 follow-ups today, 2 overdue". Every 15 minutes the worker looks at every agency
+// for people whose time has come and who have not had today's; a person with nothing to do gets no push. Counts only: no names, no
 // numbers. The person's day goes in the same transaction as the notification, so a repeat sends nothing (the
 // notification's source is a key of the person and the day). Only people with a phone registered for push.
 import { DEFAULT_MORNING_TIME, MORNING_PUSH_KIND } from "@travel-crm/contracts/notifications";
