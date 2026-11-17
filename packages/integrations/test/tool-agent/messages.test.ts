@@ -3,6 +3,7 @@
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { messagesStateReducer } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { aiToolOf, fromLangChain, toLangChain } from "../../src/tool-agent/index.js";
 import {
   assistant,
@@ -66,5 +67,12 @@ describe("messages between our port and LangChain", () => {
       description: "One trip's dates, price and what it includes.",
       parameters: getTripParameters,
     });
+  });
+
+  it("reads an argument with a default as optional to the model", () => {
+    const schema = z.strictObject({ trip_id: z.string(), adults: z.number().int().default(2) });
+    const { parameters } = aiToolOf({ name: "quote", description: "A trip's price.", schema });
+    expect(parameters.required).toEqual(["trip_id"]);
+    expect(parameters.properties).toMatchObject({ adults: { default: 2 } });
   });
 });
