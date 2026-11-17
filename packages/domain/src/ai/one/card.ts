@@ -1,6 +1,6 @@
 // The offer card: code writes its words from the offer record, so the figures a customer taps are never the model's.
 import type { LiveOffer } from "@travel-crm/contracts/ai";
-import { BUTTON_LIMITS, type WhatsAppButton } from "@travel-crm/integrations/whatsapp";
+import type { WhatsAppButton } from "@travel-crm/integrations/whatsapp";
 import { formatRupees, formatShortDay, isUuid, parseCalendarDate, type CalendarDate } from "../../kernel/index.js";
 import { travellerWords } from "../lite/context/lead-card.js";
 import { isText, roomNames } from "../natural/trips/trip-text.js";
@@ -11,7 +11,7 @@ export const CHANGE_TITLE = "Change something";
 
 const cut = (text: string, most: number) => (text.length <= most ? text : `${text.slice(0, most - 1)}…`);
 
-/** The card's body (BT4): trip, day, party, room, start city, total and advance, within WhatsApp's limit. */
+/** The card's body (BT4): trip, day, party, room, start city, total and advance; the cuts keep it under 1,024. */
 export function offerCardBody(offer: LiveOffer, sheets: readonly TripSheet[], today: CalendarDate): string {
   const sheet = sheets.find((one) => one.packageId === offer.packageId);
   const money = offer.payInFull
@@ -27,14 +27,14 @@ export function offerCardBody(offer: LiveOffer, sheets: readonly TripSheet[], to
     .filter(isText)
     .join(" · ");
   const body = [
-    `*${sheet === undefined ? "Your trip" : cut(sheet.title, 60)}*`,
+    sheet === undefined ? null : `*${cut(sheet.title, 60)}*`,
     details,
     sheet === undefined || sheet.startCity === "" ? null : `From ${cut(sheet.startCity, 60)}`,
     money,
   ]
     .filter(isText)
     .join("\n");
-  return cut(body, BUTTON_LIMITS.body);
+  return body;
 }
 
 /** The two buttons; each id names the offer it answers, never a person. */

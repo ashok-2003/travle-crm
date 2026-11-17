@@ -233,6 +233,27 @@ describe("the natural agent's live act", () => {
     expect(tokensOf(await outbound(on))).toEqual(tokensOf(sent));
   });
 
+  it("sends no card beside a booking or a hand-over staged in the same turn", async () => {
+    const on = await liveAgency(test);
+    const figures = await on.quote(threeOn19Dec(on));
+    const made = { ...offerOf(figures), card: true } as StagedAction;
+    const idOf = (action: StagedAction): StagedAction =>
+      action.tool === "offer_booking"
+        ? { ...action, offer: { ...action.offer, id: "0194f5a0-0000-7000-8000-000000000003" } }
+        : action;
+    done(await act(on, { messages: ["Done."], staged: stagedSet(idOf(made), bookOf(figures)), quoted: [figures] }));
+    expect(tokensOf(await outbound(on)).filter((token) => token?.endsWith(":card"))).toEqual([]);
+
+    const other = await liveAgency(test);
+    const handed = await act(other, {
+      messages: ["Ek minute."],
+      staged: stagedSet(idOf(made)),
+      handOver: { reason: "discount", summary: "Wants a discount" },
+    });
+    done(handed);
+    expect(tokensOf(await outbound(other)).filter((token) => token?.endsWith(":card"))).toEqual([]);
+  });
+
   it("sends no card beside the fallback line", async () => {
     const on = await liveAgency(test);
     done(await act(on, { messages: [fallbackLine(FIRST_LINE)] }));
