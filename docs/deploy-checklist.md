@@ -333,9 +333,8 @@ Secrets come from the platform's secret manager as environment variables, never 
     variable of any other name stays in the text as written.
   - The label `production` is live: the agent reads the version it points to, kept for a minute in each process. A moved
     label shows a minute on: the first turn after the minute still runs the old version (it fetches the new one behind
-    it), the next turn the new one. The label `draft` is for Try it alone: its Prompt choice "Draft" reads it afresh each
-    turn, beside the live prompt, and runs the live one when the draft can't be read, saying so in Why. Edit the draft,
-    try it, then move `production` to that version to put it live; move `production` back to undo.
+    it), the next turn the new one. Try it reads the same `production`
+    label, so it tests what runs live. Move `production` to a new version to put it live; move it back to undo.
   - The built-in text (`packages/domain/src/ai/natural/prompt-text.ts`, version `built-in-1`) is the fallback: the agent
     runs on it without the keys, when a process has never read the prompt (none at that label yet, or Langfuse down
     since the start), and when Langfuse doesn't answer within 2 seconds (then it asks again only after 30 seconds). Once
@@ -345,12 +344,11 @@ Secrets come from the platform's secret manager as environment variables, never 
     links each of its generations to that version, so the prompt's Metrics in Langfuse count them.
   - Langfuse's SDK prints nothing (its console logger is off). A prompt that can't be had is a `warn` line of the
     process's log (`source: langfuse-prompts`, its name, label, reason and status), at most once per prompt every 30
-    seconds; a label Langfuse doesn't have, such as no `draft` yet, is only a `debug` line.
+    seconds; a label Langfuse doesn't have, such as no `production` yet, is only a `debug` line.
   - To start, create the prompt from the built-in text, as it is, with the label `production`.
 - **The one agent's prompts** live in the same Langfuse project, read with the same settings:
   - The agent's prompt is the text prompt `whatsapp-agent/real-agent`, with the variables `{{agency_name}}`,
-    `{{agent_name}}` and `{{tone}}`. Live turns read the label `production`. Try it reads `latest` afresh each turn,
-    so the newest version can be tried without moving a label.
+    `{{agent_name}}` and `{{tone}}`. Live turns and Try it both read the label `production`.
   - No version has `production` yet: the owner moves it when the one agent goes live. Until then, live turns of the
     one agent run the built-in text (`packages/domain/src/ai/one/prompt-text.ts`, version `built-in-one-3`). It is
     Langfuse's version 3, and a test keeps it equal to `docs/superpowers/specs/2026-11-17-one-whatsapp-agent-prompt.md`.

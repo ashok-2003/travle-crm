@@ -146,15 +146,15 @@ describe("Try it on the one agent", () => {
     expect(JSON.stringify(on.model.requests.at(-1))).toContain("Change something");
   });
 
-  it("traces it as the one agent's Try it, on the latest prompt", async () => {
+  it("traces it as the one agent's Try it, on the live prompt", async () => {
     const on = await world();
-    const latest: NaturalPrompt = {
+    const live: NaturalPrompt = {
       version: "langfuse:whatsapp-agent/real-agent@3",
       text: BUILT_IN_NATURAL_PROMPT.text,
-      source: { name: "whatsapp-agent/real-agent", version: 3, label: "latest" },
+      source: { name: "whatsapp-agent/real-agent", version: 3, label: "production" },
     };
     on.model.answer({ text: "Hi! Kaunsa trek dekh rahe hain?" });
-    await on.tryIt([{ from: "customer", text: "Hi" }], null, latest);
+    await on.tryIt([{ from: "customer", text: "Hi" }], null, live);
     const [turn] = on.tracing.turns;
     expect(on.tracing.turns).toHaveLength(1);
     expect(turn?.start).toMatchObject({
@@ -162,7 +162,7 @@ describe("Try it on the one agent", () => {
       sessionId: `try-it:${CHAT_ID}`,
       tags: ["whatsapp-agent", "one", "try-it"],
       prompt: { name: "whatsapp-agent/real-agent", version: 3 },
-      metadata: { agent: "one", tryIt: true, promptLabel: "latest" },
+      metadata: { agent: "one", tryIt: true, promptLabel: "production" },
     });
   });
 });

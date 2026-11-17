@@ -3,7 +3,7 @@
 // One answer of the new agent in the Try it chat: up to two messages in our green bubbles; then the agency's payment
 // lines, which code (never the model) would send after them, as a bubble of their own under a caption; a line of its own
 // when it would hand the chat over, stay quiet or send the fallback line; and "Why", closed until opened.
-import type { NaturalTestAnswer, NaturalTestPrompt } from "@travel-crm/contracts/ai";
+import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { actionOf } from "./test-natural-actions";
@@ -72,14 +72,11 @@ function TestCard({
   );
 }
 
-/** `prompt` is the prompt the turn was asked to run, which "Why" holds against the one it ran. */
 export function TestNaturalTurn({
   answer,
-  prompt,
   onTap,
 }: {
   answer: NaturalTestAnswer;
-  prompt: NaturalTestPrompt;
   onTap?: (button: "book" | "change", title: string) => void;
 }) {
   const t = useTranslations("ai.test");
@@ -109,7 +106,7 @@ export function TestNaturalTurn({
       {answer.card && <TestCard card={answer.card} onTap={onTap} />}
       <NaturalStatus answer={answer} />
       <WhyToggle>
-        <TestNaturalWhy answer={answer} prompt={prompt} />
+        <TestNaturalWhy answer={answer} />
       </WhyToggle>
     </li>
   );

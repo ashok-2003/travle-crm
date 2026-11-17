@@ -1,5 +1,5 @@
 // Try it on the one agent: the owner's test chat as chat lines, one dry turn on it, traced as one turn of that chat when
-// the server traces (Langfuse). Its prompt is always Langfuse's `latest`; nothing is sent, held or kept.
+// the server traces (Langfuse). Its prompt is the live one; nothing is sent, held or kept.
 import { randomUUID } from "node:crypto";
 import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
