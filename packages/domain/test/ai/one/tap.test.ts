@@ -40,8 +40,13 @@ describe("a tap on the offer card", () => {
   async function world() {
     const on = await liveAgency(test);
     const tracing = createMemoryTracing();
-    const turn = (token: string, at: Date) =>
-      runOneTurn({ ...on.dependencies(), tracing, toolAgent: createMemoryToolAgent() }, on.turnInput(token), at);
+    /** The turn for the line `token` at `at`, on the worker's dependencies with `changes`. */
+    const turn = (token: string, at: Date, changes: Partial<ReturnType<typeof on.dependencies>> = {}) =>
+      runOneTurn(
+        { ...on.dependencies(), ...changes, tracing, toolAgent: createMemoryToolAgent() },
+        on.turnInput(token),
+        at,
+      );
     const writes = (text: string, seconds: number) => on.write({ direction: "in", at: liveAt(seconds), body: text });
     const facts = async () =>
       naturalFacts.parse(
@@ -143,6 +148,15 @@ describe("a tap on the offer card", () => {
     const tapped = await hindi.taps(`book:${await hindi.offered("केदारकांठा 19 दिसंबर, 2 लोग")}`, 240);
     expect(await hindi.turn(tapped, liveAt(300))).toBe("replied");
     expect((await hindi.outbound())[2]?.body).toBe("आपकी सीटें होल्ड हो गई हैं, पेमेंट की डिटेल नीचे है।");
+
+    // Their latest lines, as the prompt's rule reads them: Hinglish once, then English.
+    const switched = await world();
+    await switched.writes("Bhai Kedarkantha ka kitna hai?", -110);
+    await switched.writes("Actually, we are two adults", -100);
+    await switched.writes("December works for us", -90);
+    const latest = await switched.taps(`book:${await switched.offered("Kedarkantha on 19 Dec please")}`, 240);
+    expect(await switched.turn(latest, liveAt(300))).toBe("replied");
+    expect((await switched.outbound())[2]?.body).toBe(tapBookedLine("english"));
   });
 
   it("books nothing on a second Book tap, and tells the agent what stands", async () => {
@@ -156,7 +170,11 @@ describe("a tap on the offer card", () => {
     const notice = turnBlockOf(on.model.requests.at(-1));
     expect(notice).toContain('They tapped "Book these seats" on an offer that is no longer live (Kedarkantha Trek;');
     expect(notice).toContain("Nothing was booked. There is no live offer now.");
-    expect(notice).toContain("Their booking is already held and waits for payment.");
+    expect(notice).toContain(
+      "Their booking is already held and waits for payment. Say so; resend_payment sends the payment details again " +
+        "if they ask.",
+    );
+    expect(notice).not.toContain("offer again");
   });
 
   it("books nothing on an old offer's tap, and names the live one", async () => {
@@ -192,7 +210,7 @@ describe("a tap on the offer card", () => {
     );
   });
 
-  it("books nothing when the seats went or the price changed, and gives the open dates", async () => {
+  it("books nothing when the seats went, or the price or the advance changed, and gives the open dates once", async () => {
     const seats = await world();
     const offerId = await seats.offered();
     await seats.holdSeats(19);
@@ -201,8 +219,11 @@ describe("a tap on the offer card", () => {
     expect(await seats.bookings()).toBe(0);
     const notice = turnBlockOf(seats.model.requests.at(-1));
     expect(notice).toContain('They tapped "Book these seats" on the offer (T1 ');
-    expect(notice).toContain("The seats couldn't be held: 1 left on Sat 19 Dec and the party is 2");
-    expect(notice).toContain("Open: Sat 5 Dec, Sat 12 Dec, Sat 26 Dec.");
+    expect(notice).toContain(
+      "The seats couldn't be held: 1 left on Sat 19 Dec and the party is 2; open with seats: Sat 5 Dec, Sat 12 Dec, " +
+        "Sat 26 Dec. Nothing was sent; reply again.",
+    );
+    expect(notice).not.toContain("Open:");
 
     const price = await world();
     const offered = await price.offered();
@@ -213,6 +234,44 @@ describe("a tap on the offer card", () => {
     expect(await price.turn(await price.taps(`book:${offered}`, 240), liveAt(300))).toBe("replied");
     expect(await price.bookings()).toBe(0);
     expect(turnBlockOf(price.model.requests.at(-1))).toContain("the price changed since the offer");
+
+    // The card said ₹6,000 advance now; the trip asks ₹3,500 a person since.
+    const advance = await world();
+    const shown = await advance.offered();
+    await advance.inOrg((tx) =>
+      tx.quoteTemplate.update({ where: { id: advance.kedarkantha }, data: { advancePerPersonPaise: 350_000n } }),
+    );
+    advance.model.answer({ text: "Advance badal gaya hai, naya offer bhejti hoon." });
+    expect(await advance.turn(await advance.taps(`book:${shown}`, 240), liveAt(300))).toBe("replied");
+    expect(await advance.bookings()).toBe(0);
+    expect(turnBlockOf(advance.model.requests.at(-1))).toContain(
+      "The seats couldn't be held: the advance changed since the offer: it is now ₹7,000; make the offer again",
+    );
+  });
+
+  it("books nothing when the act finds the seats gone, and gives the open dates", async () => {
+    const on = await world();
+    const offerId = await on.offered();
+    // The seats go after book's checks, as the act reads whom to tell of the booking.
+    let held = false;
+    const managers = async () => {
+      if (!held) await on.holdSeats(19);
+      held = true;
+      return [on.owner.userId];
+    };
+    on.model.answer({ text: "19 Dec ki seats abhi chali gayi; 26 Dec chalega?" });
+    const tap = await on.taps(`book:${offerId}`, 240);
+    expect(await on.turn(tap, liveAt(300), { managers })).toBe("replied");
+    expect(held).toBe(true);
+    expect(await on.bookings()).toBe(0);
+    const notice = turnBlockOf(on.model.requests.at(-1));
+    expect(notice).toContain('They tapped "Book these seats" on the offer (T1 ');
+    expect(notice).toContain("The seats couldn't be held: ");
+    expect(notice).toContain("Open: Sat 5 Dec, Sat 12 Dec, Sat 26 Dec. Nothing was sent; reply again.");
+    // Nothing went with the refused hold: the model's line goes under the tap's own token.
+    expect((await on.outbound()).slice(2)).toEqual([
+      { clientToken: `ai:${tap}`, body: "19 Dec ki seats abhi chali gayi; 26 Dec chalega?" },
+    ]);
   });
 
   it("runs the agent with a notice on Change", async () => {
@@ -225,6 +284,32 @@ describe("a tap on the offer card", () => {
     expect(notice).toContain('They tapped "Change something" on the offer (T1 ');
     expect(notice).toContain("2 adults, triple, total ₹18,998). Ask what they'd like to change.");
     expect((await on.outbound()).at(-1)?.body).toBe(answerWords);
+  });
+
+  it("lets the agent answer what they wrote with the tap, and book if they still want it", async () => {
+    const on = await world();
+    const offerId = await on.offered();
+    await on.writes("Pickup Delhi se ho sakta hai?", 230);
+    const tap = await on.taps(`book:${offerId}`, 240);
+    const calls = on.model.requests.length;
+    const words = "Pickup Dehradun se hai. 2 seats hold kar di hain, payment ki details neeche hain.";
+    on.model.answer(
+      { toolCalls: [{ name: "book", arguments: { trip_id: "T1", date: "2026-12-19", adults: 2, room: "triple" } }] },
+      { text: words },
+    );
+    expect(await on.turn(tap, liveAt(300))).toBe("replied");
+    expect(on.model.requests.length).toBeGreaterThan(calls);
+    expect(turnBlockOf(on.model.requests[calls])).toContain('They tapped "Book these seats" on the live offer (T1 ');
+    expect(turnBlockOf(on.model.requests[calls])).toContain(
+      "and wrote more. Nothing is booked yet: answer what they wrote, and book on these terms if they still want them.",
+    );
+    expect((await on.outbound()).slice(2).map((message) => message.clientToken)).toEqual([
+      `ai:${tap}`,
+      `ai:${tap}:pay`,
+      `ai:${tap}:qr`,
+    ]);
+    expect((await on.outbound())[2]?.body).toBe(words);
+    expect(await on.bookings()).toBe(1);
   });
 
   it("answers a tap with no id as words", async () => {
