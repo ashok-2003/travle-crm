@@ -7,6 +7,7 @@ import {
   createTaskArguments,
   handOverArguments,
   oneHandOverArguments,
+  oneSendBrochureArguments,
   parseOneToolArguments,
   parseToolArguments,
   planFollowUpArguments,
@@ -27,6 +28,7 @@ import { normalised } from "../../lite/read-words.js";
 import { lockedFields, otherTime, sameAges } from "../../lite/typed-lock.js";
 import { stampOf } from "../context/chat-turns.js";
 import { namedTrips } from "../context/turn-block.js";
+import { brochureLabelsOf } from "../trips/brochures.js";
 import { isText, roomNames } from "../trips/trip-text.js";
 import type { QuoteFigures, StagedAction, StagedSet, TripSheet } from "../types.js";
 import { awaitsPayment, bookChecks, offerChecks, type BookingContext } from "./booking-checks.js";
@@ -93,14 +95,19 @@ export async function stageAction(
 ): Promise<StageOutcome> {
   const one = options.agent === "one";
   const labels = [...context.labels.keys()];
-  const checked = one ? parseOneToolArguments(name, args, labels) : parseToolArguments(name, args, labels);
+  const brochureLabels = [...brochureLabelsOf(context.sheets).keys()];
+  const checked = one
+    ? parseOneToolArguments(name, args, labels, { brochureLabels })
+    : parseToolArguments(name, args, labels);
   if (!checked.ok) return refused(checked.problem);
   const asked = checked.args;
   switch (name) {
     case "update_lead":
       return withArgs(updateLeadArguments, asked, (lead) => updateLead(context, lead));
     case "send_brochure":
-      return withArgs(sendBrochureArguments, asked, ({ trip_id }) => sendBrochure(context, trip_id, words));
+      return one
+        ? withArgs(oneSendBrochureArguments, asked, ({ brochure_id }) => sendOneBrochure(context, brochure_id))
+        : withArgs(sendBrochureArguments, asked, ({ trip_id }) => sendBrochure(context, trip_id, words));
     case "offer_booking":
       return offerBooking(context, asked, one);
     case "book":
@@ -321,6 +328,27 @@ function sendBrochure(context: ActionContext, label: string, words: string): Sta
   return stage(
     { tool: "send_brochure", packageId: sheet.packageId, fileIds },
     `goes with your reply: ${trip}'s brochure and photos, ${files}`,
+  );
+}
+
+/** The one agent's brochure: any listed one, again when asked; its photos not sent before fill the rest of the three. */
+function sendOneBrochure(context: ActionContext, label: string): StageOutcome {
+  const brochure = brochureLabelsOf(context.sheets).get(label);
+  const sheet = context.sheets.find((one) => one.packageId === brochure?.packageId);
+  if (brochure === undefined || sheet === undefined) return UNPARSED;
+  const sent = new Set(context.facts.sentFileIds);
+  const photoIds = sheet.photoIds.filter((id) => !sent.has(id));
+  const fileIds = [brochure.attachmentId, ...photoIds].slice(0, MOST_FILES);
+  const again = sent.has(brochure.attachmentId) ? "; it went in this chat before and goes again" : "";
+  return stage(
+    {
+      tool: "send_brochure",
+      packageId: brochure.packageId,
+      fileIds,
+      caption: brochure.name,
+      resend: [brochure.attachmentId],
+    },
+    `goes with your reply: ${label} ${brochure.name}, and ${String(fileIds.length - 1)} photos${again}`,
   );
 }
 

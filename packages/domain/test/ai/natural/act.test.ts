@@ -294,6 +294,38 @@ describe("the natural agent's live act", () => {
     expect(tokensOf(await outbound(on))).toEqual([`ai:${token}`, `ai:${token}:f1`, `ai:${next.token}`]);
   });
 
+  it("sends the brochure again with its name as the caption, within three files", async () => {
+    const on = await liveAgency(test);
+    const token = on.message.id;
+    const asked: StagedAction = { tool: "send_brochure", packageId: on.kedarkantha, fileIds: [on.brochureId] };
+    const first = done(await act(on, { messages: ["Here it is."], staged: stagedSet(asked) }));
+    const next = await nextTurn(on, "Send the brochure again?", 5);
+    // The one agent's stage: more files than three are cut by the act, and the brochure goes though this chat had it.
+    const again: StagedAction = {
+      ...asked,
+      fileIds: [on.brochureId, randomUUID(), randomUUID(), randomUUID()],
+      caption: "Winter plan",
+      resend: [on.brochureId],
+    };
+    done(await act(on, { ...next, messages: ["Here again."], staged: stagedSet(again), facts: first.facts }));
+    const sent = await outbound(on);
+    expect(tokensOf(sent)).toEqual([`ai:${token}`, `ai:${token}:f1`, `ai:${next.token}`, `ai:${next.token}:f1`]);
+    expect(sent[3]).toMatchObject({ kind: "document", caption: "Winter plan" });
+  });
+
+  it("skips a brochure removed since the turn read it, and still answers", async () => {
+    const on = await liveAgency(test);
+    const gone: StagedAction = {
+      tool: "send_brochure",
+      packageId: on.kedarkantha,
+      fileIds: [randomUUID()],
+      caption: "Winter plan",
+      resend: [],
+    };
+    done(await act(on, { messages: ["Here it is."], staged: stagedSet(gone) }));
+    expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
+  });
+
   it("saves update_lead's fields AI-marked, and a person's value stays with the other as a note", async () => {
     const on = await liveAgency(test, { adults: 2 });
     const note = "Customer now says 3 adults; the lead says 2.";

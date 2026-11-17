@@ -245,6 +245,61 @@ describe("stageAction", () => {
     });
   });
 
+  /** T1 with a named brochure and three photos, T2 with a nameless brochure. */
+  const withBrochures = {
+    sheets: [
+      {
+        ...sheet(1, "Kedarkantha Trek", "Sankri", ["brochure-1", "photo-1", "photo-2", "photo-3"]),
+        brochures: [{ attachmentId: "brochure-1", name: "Winter plan", description: null }],
+        photoIds: ["photo-1", "photo-2", "photo-3"],
+      },
+      {
+        ...sheet(2, "Brahmatal Trek", "Lohajung", ["brochure-2"]),
+        brochures: [{ attachmentId: "brochure-2", name: null, description: null }],
+      },
+    ],
+  };
+
+  it("stages one's brochure by its id, with no named trip needed", async () => {
+    expect(await stageAction(ctx(withBrochures), "send_brochure", { brochure_id: "B2" }, "", { agent: "one" })).toEqual(
+      {
+        staged: {
+          tool: "send_brochure",
+          packageId: "package-2",
+          fileIds: ["brochure-2"],
+          caption: "Brahmatal Trek",
+          resend: ["brochure-2"],
+        },
+        result: "goes with your reply: B2 Brahmatal Trek, and 0 photos",
+      },
+    );
+    expect(await stageAction(ctx(withBrochures), "send_brochure", { brochure_id: "B9" }, "", { agent: "one" })).toEqual(
+      {
+        refused: "refused: B9 isn't one of the brochures; the brochures are B1, B2",
+      },
+    );
+  });
+
+  it("stages a brochure sent before again, and no photo twice", async () => {
+    const context = ctx({ ...withBrochures, facts: facts({ sentFileIds: ["brochure-1", "photo-1"] }) });
+    expect(await stageAction(context, "send_brochure", { brochure_id: "B1" }, "", { agent: "one" })).toEqual({
+      staged: {
+        tool: "send_brochure",
+        packageId: "package-1",
+        fileIds: ["brochure-1", "photo-2", "photo-3"],
+        caption: "Winter plan",
+        resend: ["brochure-1"],
+      },
+      result: "goes with your reply: B1 Winter plan, and 2 photos; it went in this chat before and goes again",
+    });
+  });
+
+  it("still refuses natural's brochure the chat didn't name", async () => {
+    expect(await stageAction(ctx(withBrochures), "send_brochure", { trip_id: "T2" }, "")).toEqual({
+      refused: "refused: the chat hasn't named T2 Brahmatal Trek: name it, or ask which trip",
+    });
+  });
+
   it("refuses a brochure sent before in this chat, and one with no files; sends at most 3 files", async () => {
     const aboutT1 = { lead: { ...lead, packageId: "package-1" } };
     expect(

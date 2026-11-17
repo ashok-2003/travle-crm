@@ -27,6 +27,7 @@ const lead: NaturalLeadView = {
   teamNotes: [],
   openTasks: [],
 };
+const FILE = "0192f1a0-0000-7000-8000-000000000001";
 const sheet: TripSheet = {
   label: "T1",
   packageId: "package-1",
@@ -169,6 +170,29 @@ describe("the one agent's context", () => {
     expect(turn.indexOf("The app sent the brochure.")).toBeLessThan(turn.indexOf("New messages:"));
     expect(turn.indexOf("New messages:")).toBeLessThan(turn.indexOf("Price?"));
     expect(context.newLines).toHaveLength(1);
+  });
+
+  it("lists the brochures in the system message and the ones sent in the turn block", () => {
+    const withBrochure = {
+      ...sheet,
+      fileIds: [FILE],
+      brochures: [{ attachmentId: FILE, name: "Winter plan", description: "Dates and costs" }],
+    };
+    const context = buildOneContext(
+      input({
+        sheets: [withBrochure],
+        notice: "The app sent a QR.",
+        facts: naturalFacts.parse({ agent: "natural", sentFileIds: [FILE] }),
+      }),
+    );
+    expect(context.messages[0]?.content).toContain(
+      "## Brochures\nB1 · T1 Kedarkantha Trek · Winter plan: Dates and costs",
+    );
+    const turn = context.messages.at(-1)?.content ?? "";
+    expect(turn.indexOf("Brochures sent in this chat: B1 Winter plan.")).toBeGreaterThan(-1);
+    expect(turn.indexOf("Brochures sent in this chat")).toBeLessThan(turn.indexOf("The app sent a QR."));
+    expect(context.tools.map((tool) => tool.name)).toContain("send_brochure");
+    expect(buildOneContext(input()).tools.map((tool) => tool.name)).not.toContain("send_brochure");
   });
 
   it("offers all tools, none, or stay_quiet alone, and no trip tools without trips", () => {

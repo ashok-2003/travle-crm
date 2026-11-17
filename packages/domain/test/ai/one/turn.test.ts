@@ -209,6 +209,25 @@ describe("the one agent's live turn", () => {
     },
   );
 
+  it("sends B1 by its id on the LangGraph adapter, captioned with the trip's title for a nameless brochure", async () => {
+    const on = await world();
+    const asked = await on.writes("Kedarkantha ka brochure bhejo", -60);
+    on.model.answer(
+      { text: "Ye raha brochure!", toolCalls: [{ name: "send_brochure", arguments: { brochure_id: "B1" } }] },
+      "",
+    );
+    expect(await on.turn(asked, liveNow, on.model, createLangGraphToolAgent())).toBe("replied");
+    const sent = await on.inOrg((tx) =>
+      tx.whatsappMessage.findMany({
+        where: { conversationId: on.chat.id, direction: "out" },
+        orderBy: { createdAt: "asc" },
+        select: { clientToken: true, kind: true, caption: true },
+      }),
+    );
+    expect(tokens(sent)).toEqual([`ai:${asked}`, `ai:${asked}:f1`]);
+    expect(sent[1]).toMatchObject({ kind: "document", caption: "Kedarkantha Trek" });
+  });
+
   it("shows the model the earlier system's lines whole", async () => {
     const on = await world();
     const before = new Date("2026-11-10T06:00:00Z");

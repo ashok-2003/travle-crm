@@ -7,6 +7,7 @@ import { newLinesOf } from "../natural/context/chat-turns.js";
 import type { NaturalContextInput } from "../natural/context/build.js";
 import { turnBlock } from "../natural/context/turn-block.js";
 import { renderNaturalPrompt } from "../natural/prompt.js";
+import { brochureLabelsOf, brochuresBlock, sentBrochuresLine } from "../natural/trips/brochures.js";
 import type { NaturalChatLine } from "../natural/types.js";
 import { oneHistory } from "./history.js";
 
@@ -44,16 +45,28 @@ export function buildOneContext(input: OneContextInput): OneContext {
     lead: input.lead,
     facts: input.facts,
     cameFrom: input.cameFrom,
-    notice: input.notice,
+    // What was sent comes before the notice, so the model sees both before the new messages.
+    notice:
+      [sentBrochuresLine(input.sheets, input.facts.sentFileIds), input.notice]
+        .filter((line) => line !== null)
+        .join("\n") || null,
     newLines,
     sheets: input.sheets,
     indexed: trips.indexed,
   });
   const labels = new Map(input.sheets.map((sheet) => [sheet.label, sheet.packageId]));
-  const all = oneToolSchemas({ tripLabels: [...labels.keys()] });
+  const all = oneToolSchemas({
+    tripLabels: [...labels.keys()],
+    brochureLabels: [...brochureLabelsOf(input.sheets).keys()],
+  });
   return {
     messages: [
-      { role: "system", content: [prompt, agency, trips.text].join("\n\n") },
+      {
+        role: "system",
+        content: [prompt, agency, trips.text, brochuresBlock(input.sheets)]
+          .filter((part) => part !== null)
+          .join("\n\n"),
+      },
       ...history,
       { role: "user", content: turn },
     ],
