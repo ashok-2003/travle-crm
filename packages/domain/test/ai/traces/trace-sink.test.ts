@@ -136,6 +136,76 @@ describe("the trace sink", () => {
     expect(JSON.stringify(logger.entries)).toContain("TimeoutError");
   });
 
+  async function aToolTurn() {
+    const { organizationId, trace } = await aTurn();
+    return {
+      organizationId,
+      turn: {
+        id: trace.id,
+        organizationId,
+        conversationId: trace.conversationId,
+        leadId: null,
+        kind: "reply" as const,
+        startedAt: trace.startedAt,
+        durationMs: 700,
+        outcome: "replied",
+        reason: null,
+        model: "m1",
+        inputTokens: 120,
+        outputTokens: 12,
+        cachedTokens: 60,
+        failedChecks: 2,
+        promptVersions: { "real-agent": 4 },
+        trace: {
+          agent: "one" as const,
+          promptVersion: "langfuse:real-agent@4",
+          promptLabel: "production",
+          outcome: "replied",
+          fallback: null,
+          restarted: null,
+          durationMs: 700,
+          calls: [],
+          guards: [],
+          staged: [],
+          flags: [],
+        },
+        messages: ["hello"],
+      },
+    };
+  }
+
+  it("keeps a one turn's row and file, its agent one and its refusals counted", async () => {
+    const { organizationId, turn } = await aToolTurn();
+    const storage = createMemoryStorage();
+    await createTraceSink({ db: test.db, storage, logger: createMemoryLogger() }).recordToolTurn(turn);
+    const row = await test.db.forOrg(organizationId, (tx) =>
+      tx.aiTurnTrace.findFirstOrThrow({ where: { id: turn.id } }),
+    );
+    expect(row).toMatchObject({
+      agent: "one",
+      move: null,
+      saleStage: null,
+      cachedTokens: 60,
+      failedChecks: 2,
+      promptVersions: { "real-agent": 4 },
+    });
+    const stored = await storage.get(row.fileKey);
+    const file = JSON.parse(gunzipSync(stored ?? new Uint8Array()).toString("utf8")) as object;
+    expect(file).toMatchObject({ version: 2, agent: "one", trace: { outcome: "replied" }, messages: ["hello"] });
+  });
+
+  it("loses a one turn's trace with a warning and never fails the turn", async () => {
+    const { turn } = await aToolTurn();
+    const logger = createMemoryLogger();
+    const broken = { ...createMemoryStorage(), put: () => Promise.reject(new TypeError("customer said hello")) };
+    await expect(
+      createTraceSink({ db: test.db, storage: broken, logger }).recordToolTurn(turn),
+    ).resolves.toBeUndefined();
+    const lines = logger.entries.filter((entry) => entry.event === "ai.trace-failed");
+    expect(lines).toHaveLength(1);
+    expect(JSON.stringify(logger.entries)).not.toContain("hello");
+  });
+
   it("the runtime role can't change or delete a trace", async () => {
     const { organizationId, trace } = await aTurn();
     await createTraceSink({ db: test.db, storage: createMemoryStorage(), logger: createMemoryLogger() }).record(trace);

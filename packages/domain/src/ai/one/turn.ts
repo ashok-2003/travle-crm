@@ -21,6 +21,7 @@ import { runOneLoop, type OneSettings } from "./loop.js";
 import { runOneNudge } from "./nudge.js";
 import { onePromptOf } from "./prompt.js";
 import { finishOneTurn } from "./turn-note.js";
+import { keepToolTurn } from "./turn-row.js";
 import { afterOneRefusal } from "./turn-refused.js";
 
 export type { OneTurnDependencies } from "./live-io.js";
@@ -80,7 +81,10 @@ export async function runOneTurn(deps: OneTurnDependencies, input: LiteTurnInput
     const trace = startNaturalTrace(prompt, startedMs, "one");
     const done = await liveTurn(deps, turn, prompt, trace, clock);
     const ended = clock();
-    return finishOneTurn(deps, input, done, trace.finish(done.outcome, done.fallback, ended), ended - startedMs);
+    const finished = trace.finish(done.outcome, done.fallback, ended);
+    const outcome = finishOneTurn(deps, input, done, finished, ended - startedMs);
+    await keepToolTurn(deps.toolTurns, input, done, finished, prompt, startedMs);
+    return outcome;
   };
   return deps.tracing === undefined ? work() : deps.tracing.turn(naturalTurnStart(input, prompt, leadId, "one"), work);
 }

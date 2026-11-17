@@ -10,6 +10,7 @@ import { liveActionContext, newerLineIn } from "../natural/live-io.js";
 import type { NaturalPrepared } from "../natural/prepare.js";
 import { stageAction } from "../natural/tools/action-tools.js";
 import { runReadTool, type ReadContext } from "../natural/tools/read-tools.js";
+import type { ToolTurnSink } from "../traces/trace-sink.js";
 import type { OneContext } from "./context.js";
 import type { OneLoopIO } from "./loop.js";
 
@@ -18,6 +19,8 @@ export interface OneTurnDependencies extends LiteDependencies {
   prompts?: AiPrompts;
   /** Runs the model and the tools (LangGraph's in the worker). */
   toolAgent: ToolAgent;
+  /** Keeps each turn that read the chat as a row of ai_turn_trace; without one, none is kept. */
+  toolTurns?: ToolTurnSink;
 }
 
 /** The loop's IO for one live turn on `context`, the context built from `prepared`; `clock` in epoch milliseconds. */
