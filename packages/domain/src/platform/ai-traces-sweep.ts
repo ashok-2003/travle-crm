@@ -40,7 +40,7 @@ export async function sweepAiTraces(services: PlatformServices, now: Date): Prom
     const gone: string[] = [];
     for (const trace of page) {
       try {
-        await services.storage.delete(trace.fileKey);
+        if (trace.fileKey !== null) await services.storage.delete(trace.fileKey);
         gone.push(trace.id);
         inARow = 0;
       } catch (error) {

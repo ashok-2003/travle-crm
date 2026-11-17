@@ -59,6 +59,11 @@ describe("a one turn's row", () => {
     on.model.answer({ text: WORDS });
     expect(await on.run()).toBe("replied");
     expect(await on.rows()).toHaveLength(1);
+    // A chat the agency has switched off: the reply's gate ends it before anything is read.
+    const quiet = await world();
+    await quiet.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: false } }));
+    expect(await quiet.run()).not.toBe("replied");
+    expect(await quiet.rows()).toHaveLength(0);
     // 02:00 on the agency's clock: the follow-up's gate ends it before the model.
     const night = new Date("2026-11-20T20:30:00Z");
     const nudge = { ...on.turnInput(), kind: "nudge" as const, token: `nudge:${on.chat.id}:1` };
@@ -102,7 +107,6 @@ describe("a one turn's row", () => {
       failedChecks: 1,
       durationMs: 900,
       promptVersions: { "real-agent": 0 },
-      messages: ["hi"],
     });
   });
 });

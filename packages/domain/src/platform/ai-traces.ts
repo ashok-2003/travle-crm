@@ -89,7 +89,9 @@ export async function openAiTrace(
   const priced = services.aiPrices != null;
   // A storage outage is a file that can't be read: the opening is already logged, and a throw would invite a retry
   // that logs it again.
-  const file = await readTraceFile(services.storage, row.fileKey).catch((error: unknown) => {
+  const file = await (
+    row.fileKey === null ? Promise.resolve(null) : readTraceFile(services.storage, row.fileKey)
+  ).catch((error: unknown) => {
     services.logger.warn(
       { event: "ai.trace-unreadable", traceId, ...errorFields(error) },
       "A turn's trace file was unreadable",

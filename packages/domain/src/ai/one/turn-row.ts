@@ -30,10 +30,8 @@ export function toolTurnRowOf(
     inputTokens: sum(trace, "inputTokens"),
     outputTokens: sum(trace, "outputTokens"),
     cachedTokens: sum(trace, "cachedTokens"),
-    failedChecks: trace.calls.flatMap((call) => call.tools).filter((tool) => tool.result.startsWith("refused:")).length,
+    failedChecks: trace.calls.flatMap((call) => call.tools).filter((tool) => tool.refused).length,
     promptVersions: { "real-agent": prompt.source?.version ?? 0 },
-    trace,
-    messages: done.messages,
   };
 }
 

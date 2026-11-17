@@ -18,7 +18,8 @@ export interface KeptTrace {
   inputTokens: number;
   outputTokens: number;
   durationMs: number;
-  fileKey: string;
+  /** Null for a one agent turn: its detail is in Langfuse, no file is kept. */
+  fileKey: string | null;
 }
 
 const columns = {

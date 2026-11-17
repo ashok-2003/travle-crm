@@ -1,10 +1,9 @@
 // The sink that keeps each lite turn's trace: an index row first, then the gzip file, so no file lacks a row to expire it.
+// A one agent turn keeps its row alone: Langfuse holds its detail.
 import type { Database, OrgTx } from "@travel-crm/db";
 import { errorFields } from "@travel-crm/integrations/logging";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
-import { gzipSync } from "node:zlib";
-import type { NaturalTrace } from "@travel-crm/contracts/ai";
 import type { LiteTrace, TraceSink } from "../lite/types.js";
 import { TRACE_DAYS, traceFileOf, traceKey } from "./trace-file.js";
 
@@ -27,7 +26,7 @@ function withinLimit(work: Promise<void>, ms: number): Promise<void> {
   });
 }
 
-/** A one turn's row and file: ids, counts, codes and timings in the row, the words only in the file. */
+/** A one turn's row: ids, counts, codes and timings, never words. */
 export interface ToolTurnTrace {
   id: string;
   organizationId: string;
@@ -42,12 +41,10 @@ export interface ToolTurnTrace {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
-  /** Tool results that began "refused:". */
+  /** Tool results that were refused. */
   failedChecks: number;
   /** { "real-agent": the Langfuse version, 0 for the built-in text }. */
   promptVersions: Record<string, number>;
-  trace: NaturalTrace;
-  messages: string[];
 }
 
 export interface ToolTurnSink {
@@ -60,18 +57,19 @@ export function createTraceSink(deps: {
   logger: Logger;
   timeoutMs?: number;
 }): TraceSink & ToolTurnSink {
-  /** The row first, then the file; a failure or a slow store is one warn line, never the turn's. */
+  /** The row first, then the file when there is one; a failure or a slow store is one warn line, never the turn's. */
   async function keep(
     trace: { id: string; organizationId: string; startedAt: Date },
-    row: (tx: Transaction, fileKey: string) => Promise<unknown>,
-    body: Uint8Array,
+    row: (tx: Transaction, fileKey: string | null) => Promise<unknown>,
+    body: Uint8Array | null,
   ) {
     try {
-      const fileKey = traceKey(trace.organizationId, trace.startedAt, trace.id);
+      const fileKey = body === null ? null : traceKey(trace.organizationId, trace.startedAt, trace.id);
       const write = async () => {
         // A row whose file never arrived is expected (a lost put): readers treat a missing file as null.
         await deps.db.forOrg(trace.organizationId, (tx) => row(tx, fileKey));
-        await deps.storage.put({ key: fileKey, contentType: "application/gzip", body });
+        if (fileKey !== null && body !== null)
+          await deps.storage.put({ key: fileKey, contentType: "application/gzip", body });
       };
       await withinLimit(write(), deps.timeoutMs ?? TRACE_WRITE_LIMIT_MS);
     } catch (error) {
@@ -84,11 +82,7 @@ export function createTraceSink(deps: {
   }
   return {
     record: (trace) => keep(trace, (tx, fileKey) => insertRow(tx, trace, fileKey), traceFileOf(trace)),
-    recordToolTurn: (turn) => {
-      const { trace, messages } = turn;
-      const file = gzipSync(JSON.stringify({ version: 2, agent: "one", trace, messages }));
-      return keep(turn, (tx, fileKey) => insertToolTurnRow(tx, turn, fileKey), file);
-    },
+    recordToolTurn: (turn) => keep(turn, (tx, fileKey) => insertToolTurnRow(tx, turn, fileKey), null),
   };
 }
 
@@ -103,7 +97,7 @@ async function expiryOf(tx: Transaction, trace: { conversationId: string; starte
   return new Date(trace.startedAt.getTime() + (chat?.state === "erased" ? 0 : TRACE_DAYS * DAY_MS));
 }
 
-function insertToolTurnRow(tx: Transaction, turn: ToolTurnTrace, fileKey: string) {
+function insertToolTurnRow(tx: Transaction, turn: ToolTurnTrace, fileKey: string | null) {
   return expiryOf(tx, turn).then((expiresAt) =>
     tx.aiTurnTrace.create({
       data: {
@@ -129,7 +123,7 @@ function insertToolTurnRow(tx: Transaction, turn: ToolTurnTrace, fileKey: string
   );
 }
 
-async function insertRow(tx: Transaction, trace: LiteTrace, fileKey: string) {
+async function insertRow(tx: Transaction, trace: LiteTrace, fileKey: string | null) {
   const expiresAt = await expiryOf(tx, trace);
   return tx.aiTurnTrace.create({
     data: {
@@ -163,7 +157,7 @@ export function tracesDue(
   now: Date,
   limit: number,
   visited: readonly string[] = [],
-): Promise<{ id: string; organizationId: string; fileKey: string }[]> {
+): Promise<{ id: string; organizationId: string; fileKey: string | null }[]> {
   return tx.aiTurnTrace.findMany({
     where: {
       OR: [{ expiresAt: { lte: now } }, { conversation: { state: "erased" } }],

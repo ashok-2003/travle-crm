@@ -484,7 +484,8 @@ model AiTurnTrace {
   /// { piece: version } of every prompt piece the turn used.
   promptVersions Json                 @map("prompt_versions")
   /// organizations/<org>/ai-traces/<yyyy-mm-dd>/<id>.json.gz
-  fileKey        String               @map("file_key")
+  /// Null for a one agent turn: Langfuse holds its detail.
+  fileKey        String?              @map("file_key")
   expiresAt      DateTime             @map("expires_at") @db.Timestamptz(6)
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   conversation   WhatsappConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
