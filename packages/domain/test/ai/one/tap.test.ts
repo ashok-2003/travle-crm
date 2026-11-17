@@ -298,6 +298,17 @@ describe("a tap on the offer card", () => {
     expect((await on.outbound()).at(-1)?.body).toBe(answerWords);
   });
 
+  it("never ends a tap's notice turn in silence: the fallback line and a task", async () => {
+    const on = await world();
+    const offerId = await on.offered();
+    const quiet = { name: "stay_quiet", arguments: { reason: "nothing to add" } };
+    on.model.answer({ toolCalls: [quiet] }, "");
+    const tap = await on.taps(`change:${offerId}`, 240, CHANGE_TITLE);
+    expect(await on.turn(tap, liveAt(300))).toBe("fallback");
+    expect((await on.outbound()).at(-1)?.clientToken).toBe(`ai:${tap}`);
+    expect(await on.bookings()).toBe(0);
+  });
+
   it("lets the agent answer what they wrote with the tap, and book if they still want it", async () => {
     const on = await world();
     const offerId = await on.offered();

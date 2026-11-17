@@ -126,7 +126,13 @@ describe("the one agent's follow-up", () => {
         body: `older line ${String(n)}`,
       });
     }
-    // The reply turn summarises the 31 lines first; the follow-up finds the summary and reads only what follows.
+    await on.write({
+      direction: "out",
+      at: new Date(liveNow.getTime() - 2_900_000),
+      body: "Hello!",
+      clientToken: "ai:hello",
+    });
+    // The reply turn summarises the 31 lines first (the customer's new line stays out of it); the follow-up finds the summary and reads only what follows.
     on.model.answer("Notes: wants Kedarkantha.");
     const due = await on.replied();
     on.model.answer(NUDGE_WORDS);

@@ -168,6 +168,21 @@ describe("replying with a quote", () => {
     });
   });
 
+  it("quotes a tap with no words as 'Tapped a button'", async () => {
+    answerApi({});
+    renderWithApi(
+      <ReplyingProvider conversationId={chatId}>
+        {bubble(message({ id: theirs, body: null, tapped: true }))}
+        <Composer header={header} windowOpenUntil="2099-01-01T00:00:00.000Z" />
+      </ReplyingProvider>,
+      newQueryClient(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "More for this message" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Reply" }));
+    const bar = screen.getByText("Replying to Rahul Mehta").closest("[data-slot=item]");
+    expect(within(bar as HTMLElement).getByText("Tapped a button")).toBeInTheDocument();
+  });
+
   it("drops the quote when its cross is pressed", async () => {
     const api = answerApi({ "inbox.send": { messageId: ours, status: "queued" } });
     chatWithBox();

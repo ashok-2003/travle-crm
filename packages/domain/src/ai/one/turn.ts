@@ -15,6 +15,7 @@ import { startNaturalTrace, type NaturalTraceBuilder } from "../natural/trace.js
 import { isText } from "../natural/trips/trip-text.js";
 import { actOnTurn, type LiveTurn } from "../natural/turn-act.js";
 import { actAndSettle, actOfEnd, doneOf, endedOf, type TurnDone } from "../natural/turn-done.js";
+import { refusedAct } from "../natural/turn-refused.js";
 import { naturalTurnStart, turnInputOf } from "../natural/turn-note.js";
 import { atLimit, gateDone } from "../natural/turn.js";
 import { oneBeforeTheModel, withPaymentTask } from "./before-the-model.js";
@@ -30,6 +31,12 @@ import { keepToolTurn } from "./turn-row.js";
 import { afterOneRefusal } from "./turn-refused.js";
 
 export type { OneTurnDependencies } from "./live-io.js";
+
+/** Why the team's task says the customer's tap got no reply from the agent. */
+const TAP_UNANSWERED = {
+  refused: "tap_unanswered",
+  message: "The customer tapped a button and the agent sent no words.",
+};
 
 async function liveTurn(
   deps: OneTurnDependencies,
@@ -73,6 +80,12 @@ async function liveTurn(
     case "fallback":
       return actAndSettle(turn, withPaymentTask(actOfEnd(end), before.task));
     case "final": {
+      // A tap's notice owes a reply (as a typed booking's refusal does): a silent end falls back, a hand-over aside.
+      if (tap !== null && end.messages.length === 0 && !end.staged.has("hand_over")) {
+        const act = withPaymentTask(refusedAct(turn, end.staged, TAP_UNANSWERED, customerText), before.task);
+        trace.staged(act.staged);
+        return actAndSettle(turn, act);
+      }
       const act = withPaymentTask(actOfEnd(end), before.task);
       const result = await actOnTurn(turn, act);
       if ("refused" in result)

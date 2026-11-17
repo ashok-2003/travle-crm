@@ -151,11 +151,10 @@ describe("the one agent reads a voice note or a photo", () => {
 
   it("refuses a file not kept yet or too big, and AMR audio, with no call", async () => {
     const { chat, model, deps, message } = await chatWith();
-    const pending = await message("audio", { state: "pending" });
     const big = await message("audio", { body: new Uint8Array(10 * 1024 * 1024 + 1) });
     const amr = await message("audio", { contentType: "audio/amr" });
     const bigPhoto = await message("image", { contentType: "image/jpeg", body: new Uint8Array(8 * 1024 * 1024 + 1) });
-    for (const messageId of [pending, big, amr]) {
+    for (const messageId of [big, amr]) {
       const result = await transcribeVoiceNote(deps, { conversationId: chat.id, messageId });
       expect(result).toMatchObject({ ok: false });
       expect(JSON.stringify(result)).toContain("ask them to type what they said");
@@ -163,6 +162,43 @@ describe("the one agent reads a voice note or a photo", () => {
     const photo = await lookAtImage(deps, { conversationId: chat.id, messageId: bigPhoto, question: null });
     expect(JSON.stringify(photo)).toContain("ask what it shows");
     expect(model.requests).toHaveLength(0);
+  });
+
+  it("waits for a file still being copied, and refuses only after 15 s", async () => {
+    const { chat, model, deps, message, inOrg } = await chatWith();
+    const slept: number[] = [];
+    const pending = await message("audio", { state: "pending" });
+    const arrives = async (ms: number) => {
+      slept.push(ms);
+      if (slept.length === 3) {
+        await test.files.storeGeneratedFile(systemActor(deps.organizationId), {
+          recordType: WHATSAPP_RECORD_TYPE,
+          recordId: pending,
+          fileName: "file",
+          contentType: "audio/ogg",
+          body: BYTES,
+          attachmentId: pending,
+        });
+        await inOrg((tx) => tx.whatsappMessage.update({ where: { id: pending }, data: { mediaState: "stored" } }));
+      }
+    };
+    model.answer("namaste");
+    const heard = await transcribeVoiceNote(
+      { ...deps, sleep: arrives },
+      { conversationId: chat.id, messageId: pending },
+    );
+    expect(heard.ok).toBe(true);
+    expect(JSON.stringify(heard)).toContain("namaste");
+    expect(slept).toEqual([1_500, 1_500, 1_500]);
+
+    const never = await message("audio", { state: "pending" });
+    const waits: number[] = [];
+    const refused = await transcribeVoiceNote(
+      { ...deps, sleep: (ms) => Promise.resolve(void waits.push(ms)) },
+      { conversationId: chat.id, messageId: never },
+    );
+    expect(JSON.stringify(refused)).toContain("ask them to type what they said");
+    expect(waits).toHaveLength(10);
   });
 
   it("answers a model that can't play it with the way on", async () => {

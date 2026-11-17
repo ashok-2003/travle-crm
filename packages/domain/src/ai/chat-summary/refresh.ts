@@ -60,6 +60,8 @@ export async function refreshChatSummary(
     lead: NaturalLeadView;
     clock: Clock;
     now: Date;
+    /** The turn's first new line: the refresh stops before it, so its words (a voice note's, a photo's) aren't lost. */
+    before?: { at: Date; id: string } | null;
   },
 ): Promise<SummaryStep> {
   let old: ChatSummary = { text: "", throughId: null, throughAt: null };
@@ -77,6 +79,7 @@ async function refresh(
   setOld: (summary: ChatSummary) => ChatSummary,
 ): Promise<SummaryStep> {
   const { organizationId, conversationId, clock } = input;
+  const before = input.before ?? null;
   const read = await deps.db.forOrg(organizationId, async (tx) => {
     const chat = await tx.aiChat.findUnique({
       where: { organizationId_conversationId: { organizationId, conversationId } },
@@ -86,8 +89,8 @@ async function refresh(
       chat?.chatSummaryThroughAt != null && chat.chatSummaryThroughId !== null
         ? { at: chat.chatSummaryThroughAt, id: chat.chatSummaryThroughId }
         : null;
-    const count = await countAfter(tx, conversationId, through);
-    const read = count > SUMMARY_AFTER ? await linesAfter(tx, conversationId, through) : null;
+    const count = await countAfter(tx, conversationId, through, before);
+    const read = count > SUMMARY_AFTER ? await linesAfter(tx, conversationId, through, before) : null;
     return { chat, through, read };
   });
   const old = setOld({
