@@ -5,12 +5,16 @@
 import type { BookingTerms } from "@travel-crm/contracts/ai";
 import { roomTypes } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
-import { calendarDateIn, DomainError, parseCalendarDate } from "../../kernel/index.js";
+import { addAiLeadNote, renameWhatsAppPerson } from "../../crm/index.js";
+import { calendarDateIn, DomainError, parseCalendarDate, systemActor } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, type AgencyPaymentDetails } from "../../profile/index.js";
 import { sellablePackage } from "../../quotes/index.js";
 import { takeAgentBooking } from "../agent-booking.js";
+import type { ChatPerson } from "../lite/act-lead.js";
 import { payAgainBooking, type LapsedBooking } from "../lite/act-money.js";
+import { usableName } from "../lite/decide/stage.js";
 import { liteRooms } from "../lite/lookups/package-reads.js";
+import { normalised } from "../lite/read-words.js";
 import { stagedOf, type NaturalActDeps, type NaturalActInput } from "./act-types.js";
 
 export interface NaturalMoney {
@@ -18,6 +22,8 @@ export interface NaturalMoney {
   bookingId: string | null;
   /** Where to pay, sent after the words. */
   payment: AgencyPaymentDetails;
+  /** The customer now goes by the full name they booked under. */
+  named: boolean;
 }
 
 export interface MoneyRefused {
@@ -31,16 +37,47 @@ interface Deal {
   departureId: string;
   totalPaise: number;
   expectedPaise: number;
+  /** The full name they booked under: `book`'s, none for a lapsed hold taken again. */
+  fullName: string | null;
+}
+
+/** Whom the turn books for: the open lead, and the chat's person. */
+interface Booker {
+  leadId: string | null;
+  person: ChatPerson;
 }
 
 const refuse = (message: string) => new DomainError("CONFLICT", "AI_ACTION_REFUSED", message);
+
+/**
+ * Keeps the full name they booked under (spec case 8): over a WhatsApp stand-in or profile name, before the booking's
+ * notice names them; beside a name a person typed, as a note. Inside the savepoint, so a refused booking keeps neither.
+ */
+async function keepBookedName(
+  tx: OrgTx,
+  input: NaturalActInput,
+  leadId: string,
+  person: ChatPerson,
+  fullName: string,
+): Promise<boolean> {
+  const name = fullName.trim();
+  if (person.personId === null || !usableName(name, person.phoneE164)) return false;
+  const actor = systemActor(input.organizationId);
+  const { personId, profileName, phoneE164 } = person;
+  if (await renameWhatsAppPerson(tx, actor, { personId, leadId, name, profileName, phoneE164 })) return true;
+  const kept = await tx.person.findUnique({ where: { id: personId }, select: { name: true } });
+  if (kept !== null && normalised(kept.name) !== normalised(name)) {
+    await addAiLeadNote(tx, actor, leadId, `Booked under the name ${name}.`);
+  }
+  return false;
+}
 
 /** Holds the party's seats and takes the booking at the total told, in this turn's booking. */
 async function bookDeal(
   tx: OrgTx,
   deps: NaturalActDeps,
   input: NaturalActInput,
-  leadId: string | null,
+  { leadId, person }: Booker,
   deal: Deal,
 ): Promise<NaturalMoney> {
   const { organizationId, today, now } = input;
@@ -62,6 +99,7 @@ async function bookDeal(
   const offered = roomTypes.filter((type) => pkg.roomTypes.includes(type));
   const count = terms.childrenAges.length;
   const children = count === 0 ? null : { count, ages: [...terms.childrenAges] };
+  const named = deal.fullName !== null && (await keepBookedName(tx, input, leadId, person, deal.fullName));
   const booked = await takeAgentBooking(tx, deps, {
     organizationId,
     conversationId: input.conversationId,
@@ -80,7 +118,7 @@ async function bookDeal(
   if (booked.holdExpiresAt === null) {
     throw new DomainError("CONFLICT", "HOLD_EXISTS", "The lead's seats on this departure are not held");
   }
-  return { bookingId: booked.bookingId, payment };
+  return { bookingId: booked.bookingId, payment, named };
 }
 
 /**
@@ -91,7 +129,7 @@ async function rebook(
   tx: OrgTx,
   deps: NaturalActDeps,
   input: NaturalActInput,
-  leadId: string | null,
+  booker: Booker,
   lapsed: LapsedBooking,
 ): Promise<NaturalMoney> {
   const departure = await tx.departure.findUnique({ where: { id: lapsed.departureId }, select: { startDate: true } });
@@ -107,7 +145,7 @@ async function rebook(
   );
   if (terms === undefined) throw refuse("The chat no longer holds the terms of the booking whose hold lapsed");
   const { totalPaise, expectedPaise, departureId } = lapsed;
-  return bookDeal(tx, deps, input, leadId, { terms, departureId, totalPaise, expectedPaise });
+  return bookDeal(tx, deps, input, booker, { terms, departureId, totalPaise, expectedPaise, fullName: null });
 }
 
 /**
@@ -133,19 +171,18 @@ export async function moneyOfTurn(
   tx: OrgTx,
   deps: NaturalActDeps,
   input: NaturalActInput,
-  leadId: string | null,
+  booker: Booker,
 ): Promise<NaturalMoney | MoneyRefused | null> {
   const book = stagedOf(input.staged, "book");
   if (book !== null) {
     const { terms, departureId, totalPaise, advancePaise } = book.figures;
+    const deal = { terms, departureId, totalPaise, fullName: book.fullName };
     const expectedPaise = terms.payInFull ? totalPaise : advancePaise;
-    return undoneOnRefusal(tx, () =>
-      bookDeal(tx, deps, input, leadId, { terms, departureId, totalPaise, expectedPaise }),
-    );
+    return undoneOnRefusal(tx, () => bookDeal(tx, deps, input, booker, { ...deal, expectedPaise }));
   }
   if (stagedOf(input.staged, "resend_payment") === null) return null;
   return undoneOnRefusal(tx, async () => {
-    const again = await payAgainBooking(tx, input, (lapsed) => rebook(tx, deps, input, leadId, lapsed));
-    return { bookingId: again.bookingId, payment: again.payment };
+    const again = await payAgainBooking(tx, input, (lapsed) => rebook(tx, deps, input, booker, lapsed));
+    return "named" in again ? again : { bookingId: again.bookingId, payment: again.payment, named: false };
   });
 }

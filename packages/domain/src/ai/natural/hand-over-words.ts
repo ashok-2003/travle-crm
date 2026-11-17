@@ -4,8 +4,9 @@
 import type { NaturalHandOverReason } from "@travel-crm/contracts/ai";
 import { cutText } from "./context/tokens.js";
 
-/** Code's own reasons, which the model's enum leaves out: no model call was made. */
+/** Code's own reasons at a limit, which the model's enum leaves out: no model call was made. */
 export type CodeHandOverReason = "day_cap" | "month_limit";
+export const codeHandOverReasons: ReadonlySet<string> = new Set<CodeHandOverReason>(["day_cap", "month_limit"]);
 
 /** The longest reason the chat keeps (lite's limit for `handoff_reason`). */
 export const HAND_OVER_REASON_MAX = 300;

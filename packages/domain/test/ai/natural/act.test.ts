@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { naturalFacts, type BookingTerms, type NaturalFacts } from "@travel-crm/contracts/ai";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { AI_BOOKING_KIND } from "../../../src/ai/booking.js";
 import { replyDayOf } from "../../../src/ai/may-write.js";
 import {
   actOnNaturalTurn,
@@ -37,7 +38,7 @@ const WORKING: WorkingHours = { workdays: 127, opensMinute: 10 * 60, closesMinut
 const ASSIGNER = randomUUID();
 
 const freshFacts = (): NaturalFacts => naturalFacts.parse({ agent: "natural" });
-const stagedOf = (...actions: StagedAction[]): StagedSet => new Map(actions.map((action) => [action.tool, action]));
+const stagedSet = (...actions: StagedAction[]): StagedSet => new Map(actions.map((action) => [action.tool, action]));
 const failure = (error: unknown) => (error instanceof DomainError ? error.reason : String(error));
 const done = (result: NaturalActResult) => {
   if (result === "already" || "stopped" in result || "refused" in result) {
@@ -131,11 +132,11 @@ describe("the natural agent's live act", () => {
     room: "triple",
     payInFull: false,
   });
-  const bookOf = (figures: QuoteFigures): StagedAction => ({
+  const bookOf = (figures: QuoteFigures, fullName = "Rahul Verma"): StagedAction => ({
     tool: "book",
     terms: figures.terms,
     figures,
-    fullName: "Rahul Verma",
+    fullName,
     customerWords: "haan book karo",
     via: "offer",
   });
@@ -216,7 +217,7 @@ describe("the natural agent's live act", () => {
     const result = done(
       await act(on, {
         messages: ["Done, Rahul: 3 seats on Sat 19 Dec are held for you."],
-        staged: stagedOf(bookOf(figures)),
+        staged: stagedSet(bookOf(figures)),
         quoted: [figures],
       }),
     );
@@ -235,11 +236,30 @@ describe("the natural agent's live act", () => {
     expect(result.actions).toEqual(expect.arrayContaining(["booking", "pay", "qr"]));
   });
 
+  it("keeps the full name the customer booked under, which the managers' notice names", async () => {
+    // WhatsApp's profile says only "R"; they booked as Rohan Mehta (spec case 8).
+    const on = await actAgency(test, { customerName: "R" });
+    const figures = await on.quote(threeOn19Dec(on));
+    const result = done(
+      await act(on, {
+        messages: ["Done, Rohan: 3 seats on Sat 19 Dec are held for you."],
+        staged: stagedSet(bookOf(figures, "Rohan Mehta")),
+        quoted: [figures],
+      }),
+    );
+    expect(result.actions).toContain("name");
+    const seen = await on.inOrg(async (tx) => ({
+      person: (await tx.person.findUniqueOrThrow({ where: { id: on.chat.personId ?? "" } })).name,
+      notice: (await tx.notification.findFirstOrThrow({ where: { kind: AI_BOOKING_KIND } })).title,
+    }));
+    expect(seen).toEqual({ person: "Rohan Mehta", notice: "New booking: Rohan Mehta said yes" });
+  });
+
   it("sends a brochure's files captioned with the trip's title", async () => {
     const on = await actAgency(test);
     const token = on.message.id;
     const brochure: StagedAction = { tool: "send_brochure", packageId: on.kedarkantha, fileIds: [on.brochureId] };
-    const result = done(await act(on, { messages: ["Here's the Kedarkantha brochure."], staged: stagedOf(brochure) }));
+    const result = done(await act(on, { messages: ["Here's the Kedarkantha brochure."], staged: stagedSet(brochure) }));
     const sent = await outbound(on);
     expect(tokensOf(sent)).toEqual([`ai:${token}`, `ai:${token}:f1`]);
     expect(sent[1]).toMatchObject({ kind: "document", caption: "Kedarkantha Trek" });
@@ -248,7 +268,7 @@ describe("the natural agent's live act", () => {
 
     // A file this chat was sent before (by either agent) never goes again.
     const next = await nextTurn(on, "Send the brochure again?", 5);
-    done(await act(on, { ...next, messages: ["It's just above."], staged: stagedOf(brochure), facts: result.facts }));
+    done(await act(on, { ...next, messages: ["It's just above."], staged: stagedSet(brochure), facts: result.facts }));
     expect(tokensOf(await outbound(on))).toEqual([`ai:${token}`, `ai:${token}:f1`, `ai:${next.token}`]);
   });
 
@@ -266,7 +286,9 @@ describe("the natural agent's live act", () => {
       },
       notes: [note],
     };
-    const result = done(await act(on, { messages: ["Noted, Rahul."], staged: stagedOf(update), typed: { adults: 2 } }));
+    const result = done(
+      await act(on, { messages: ["Noted, Rahul."], staged: stagedSet(update), typed: { adults: 2 } }),
+    );
     const lead = await on.inOrg(async (tx) => ({
       values: await tripFieldValues(tx, on.leadId),
       marked: await tx.leadAiField.findMany({ where: { leadId: on.leadId }, select: { field: true, state: true } }),
@@ -288,6 +310,19 @@ describe("the natural agent's live act", () => {
     expect(result.actions).toEqual(
       expect.arrayContaining(["lead:destination", "lead:when", "lead:departure_city", "name", "note"]),
     );
+
+    // A day alone takes its nights from the trip the chat offered.
+    const figures = await on.quote(threeOn19Dec(on));
+    const offer = offerOf(figures);
+    const facts = { ...result.facts, offer: offer.tool === "offer_booking" ? offer.offer : null };
+    const later = await nextTurn(on, "Make it the 26th", 5);
+    const day: StagedAction = { tool: "update_lead", fields: { day: parseCalendarDate("2026-12-26") }, notes: [] };
+    done(await act(on, { ...later, messages: ["Done."], staged: stagedSet(day), facts }));
+    expect((await on.inOrg((tx) => tripFieldValues(tx, on.leadId)))?.when).toEqual({
+      kind: "dates",
+      from: "2026-12-26",
+      to: "2026-12-31",
+    });
   });
 
   it("assigns a task to the lead's owner, due in 2 working hours, and joins a second question to the open one", async () => {
@@ -304,7 +339,7 @@ describe("the natural agent's live act", () => {
     const first = done(
       await act(on, {
         messages: ["Let me check that and get back to you here."],
-        staged: stagedOf(question("Is there a student discount?")),
+        staged: stagedSet(question("Is there a student discount?")),
       }),
     );
     expect(first.actions).toContain("task:question");
@@ -324,7 +359,7 @@ describe("the natural agent's live act", () => {
       await act(on, {
         ...second,
         messages: ["I'll ask about that too."],
-        staged: stagedOf(question("Can they bring a dog?")),
+        staged: stagedSet(question("Can they bring a dog?")),
       }),
     );
     expect(joined.actions).toContain("task:joined");
@@ -341,7 +376,7 @@ describe("the natural agent's live act", () => {
       await act(on, {
         ...third,
         messages: ["Sure, we will call you at 6."],
-        staged: stagedOf({ tool: "create_task", kind: "call_back", text: "Call Rahul about the dates", callAt }),
+        staged: stagedSet({ tool: "create_task", kind: "call_back", text: "Call Rahul about the dates", callAt }),
         task: { kind: "question", text: "Wants a call at 6" },
       }),
     );
@@ -356,6 +391,68 @@ describe("the natural agent's live act", () => {
     });
   });
 
+  it("keeps a task's whole text in a lead note when its title can't hold it, and never loses a joined question", async () => {
+    const on = await actAgency(test);
+    const POINTER = " (details in the lead's note)";
+    const titles = async () =>
+      (
+        await on.inOrg((tx) =>
+          tx.task.findMany({ where: { recordId: on.leadId }, orderBy: { createdAt: "asc" }, select: { title: true } }),
+        )
+      ).map((task) => task.title);
+    const notes = async () =>
+      (await on.inOrg((tx) => tx.leadNote.findMany({ where: { leadId: on.leadId }, select: { body: true } }))).map(
+        (note) => note.body,
+      );
+    const question = (text: string): StagedAction => ({ tool: "create_task", kind: "question", text, callAt: null });
+    done(await act(on, { messages: ["Let me check."], staged: stagedSet(question("Is there a student discount?")) }));
+
+    // A question the joined title can't hold: the title points to the note, which holds the question whole.
+    const fitness = `Can a first-timer who runs ${"5 km twice a week and climbs stairs at the office, ".repeat(3)}do it?`;
+    expect(fitness.length).toBeGreaterThan(150);
+    const second = await nextTurn(on, "Am I fit enough?", 5);
+    const joined = done(
+      await act(on, { ...second, messages: ["Let me check."], staged: stagedSet(question(fitness)) }),
+    );
+    expect(joined.actions).toContain("task:joined");
+    expect(await titles()).toEqual([`Is there a student discount?${POINTER}`]);
+    expect(await notes()).toEqual([`Question for the team: ${fitness}`]);
+
+    // The fallback's task (ruling 6, up to 500 characters) and a long call-back: each title is cut at a word and points
+    // to its note, which holds the text whole.
+    const fallback = `The AI didn't answer (timeout), so the customer got the fallback line. They wrote: "${"x ".repeat(80)}". Not done: may want to book Kedarkantha for 3 on 19 Dec.`;
+    const callBack = `Call Rahul: ${"he wants to talk through the trek day by day before he books, ".repeat(4)}`;
+    const third = await nextTurn(on, "Please call me", 10);
+    done(
+      await act(on, {
+        ...third,
+        messages: ["Sure."],
+        staged: stagedSet({ tool: "create_task", kind: "call_back", text: callBack, callAt: null }),
+        task: { kind: "question", text: fallback },
+      }),
+    );
+    const [first, called] = await titles();
+    expect(first).toBe(`Is there a student discount?${POINTER}`);
+    expect(called?.length).toBeLessThanOrEqual(200);
+    expect(called?.endsWith(`…${POINTER}`)).toBe(true);
+    expect(await notes()).toEqual(
+      expect.arrayContaining([`Question for the team: ${fallback}`, `Call back: ${callBack.trim()}`]),
+    );
+
+    // A quiet turn's task, its job run twice, is added once.
+    const quietTurn = await nextTurn(on, "Also my friend may join", 15);
+    const quiet = {
+      ...quietTurn,
+      staged: stagedSet(
+        { tool: "stay_quiet", reason: "Nothing to say yet" },
+        { tool: "create_task", kind: "call_back", text: "Ask if the friend is joining", callAt: null },
+      ),
+    };
+    done(await act(on, quiet));
+    done(await act(on, quiet));
+    expect((await titles()).filter((title) => title === "Ask if the friend is joining")).toHaveLength(1);
+  });
+
   it("moves the stage forward only", async () => {
     const on = await actAgency(test);
     const stage = () => on.inOrg(async (tx) => (await tx.lead.findUniqueOrThrow({ where: { id: on.leadId } })).stage);
@@ -365,7 +462,7 @@ describe("the natural agent's live act", () => {
 
     const second = await nextTurn(on, "Kedarkantha", 5);
     const update: StagedAction = { tool: "update_lead", fields: { packageId: on.kedarkantha }, notes: [] };
-    done(await act(on, { ...second, messages: ["Lovely choice."], staged: stagedOf(update) }));
+    done(await act(on, { ...second, messages: ["Lovely choice."], staged: stagedSet(update) }));
     expect(await stage()).toBe("contacted");
 
     const third = await nextTurn(on, "3 of us, 19 Dec", 10);
@@ -374,7 +471,7 @@ describe("the natural agent's live act", () => {
       await act(on, {
         ...third,
         messages: ["For 3 on Sat 19 Dec: total ₹28,497, advance ₹9,000. Shall I book?"],
-        staged: stagedOf(offerOf(figures, third.now)),
+        staged: stagedSet(offerOf(figures, third.now)),
         quoted: [figures],
       }),
     );
@@ -387,7 +484,7 @@ describe("the natural agent's live act", () => {
     await on.inOrg((tx) => tx.lead.update({ where: { id: on.leadId }, data: { stage: "booking_requested" } }));
     const fourth = await nextTurn(on, "Ok thanks", 15);
     const back = done(
-      await act(on, { ...fourth, messages: ["Anytime!"], staged: stagedOf(update), facts: offered.facts }),
+      await act(on, { ...fourth, messages: ["Anytime!"], staged: stagedSet(update), facts: offered.facts }),
     );
     expect(await stage()).toBe("booking_requested");
     expect(back.actions.some((code) => code.startsWith("stage:"))).toBe(false);
@@ -428,15 +525,18 @@ describe("the natural agent's live act", () => {
   });
 
   it("hands over at the day's cap, while the cap stops any other reply", async () => {
-    const on = await actAgency(test);
-    await on.inOrg(async (tx) => {
-      const { maxRepliesPerDay } = await tx.aiAutopilot.findFirstOrThrow();
-      await tx.aiChat.upsert({
-        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
-        create: { conversationId: on.chat.id, repliesOn: replyDayOf(actNow), repliesCount: maxRepliesPerDay },
-        update: { repliesOn: replyDayOf(actNow), repliesCount: maxRepliesPerDay },
+    /** The chat at the day's cap. */
+    const atTheCap = (on: ActAgency) =>
+      on.inOrg(async (tx) => {
+        const { maxRepliesPerDay } = await tx.aiAutopilot.findFirstOrThrow();
+        await tx.aiChat.upsert({
+          where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+          create: { conversationId: on.chat.id, repliesOn: replyDayOf(actNow), repliesCount: maxRepliesPerDay },
+          update: { repliesOn: replyDayOf(actNow), repliesCount: maxRepliesPerDay },
+        });
       });
-    });
+    const on = await actAgency(test);
+    await atTheCap(on);
     expect(await act(on, { messages: ["Kedarkantha is lovely in December."] })).toEqual({ stopped: "day_limit" });
     expect(await kept(on)).toEqual(nothingKept);
 
@@ -445,6 +545,12 @@ describe("the natural agent's live act", () => {
     expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
     expect(result.handedOver).toBe(true);
     expect((await chatState(on)).handoffReason).toBe("Wrote more than the AI answers in a day");
+
+    // The month's limit reached as well: its hand-over goes too, whichever of the two the turn names.
+    const both = await actAgency(test);
+    await atTheCap(both);
+    done(await act(both, { messages: [line], handOver: { reason: "month_limit", summary: "" } }));
+    expect((await chatState(both)).handoffReason).toBe("This month's AI replies are used up");
   });
 
   it("plans the follow-up the model chose, in waking hours", async () => {
@@ -453,7 +559,7 @@ describe("the natural agent's live act", () => {
     done(
       await act(on, {
         messages: ["Take your time and tell me which date suits you."],
-        staged: stagedOf({ tool: "plan_follow_up", at: tomorrow, about: "Ask which date suits them" }),
+        staged: stagedSet({ tool: "plan_follow_up", at: tomorrow, about: "Ask which date suits them" }),
       }),
     );
     // The reply's time is the turn's own, the same as its messages', so a reaction on them counts (ruling 13).
@@ -470,10 +576,40 @@ describe("the natural agent's live act", () => {
     done(
       await act(late, {
         messages: ["I'll check back later."],
-        staged: stagedOf({ tool: "plan_follow_up", at: at("2026-10-23", "23:30"), about: "Check back" }),
+        staged: stagedSet({ tool: "plan_follow_up", at: at("2026-10-23", "23:30"), about: "Check back" }),
       }),
     );
     expect((await chatState(late)).followUpAt).toEqual(at("2026-10-24", "09:00"));
+  });
+
+  it("keeps a quiet turn's planned follow-up, and a quiet turn without one leaves the earlier plan", async () => {
+    const on = await actAgency(test);
+    done(
+      await act(on, {
+        messages: ["We go on 5, 12, 19 and 26 Dec."],
+        staged: stagedSet({ tool: "plan_follow_up", at: at("2026-10-23", "19:00"), about: "Ask which date" }),
+      }),
+    );
+    // "ok" at 16:10: the model stays quiet and plans tomorrow morning instead (spec case 12).
+    const ok = await nextTurn(on, "ok", 40);
+    const morning = at("2026-10-24", "10:00");
+    const quiet = done(
+      await act(on, {
+        ...ok,
+        staged: stagedSet(
+          { tool: "stay_quiet", reason: "They said ok" },
+          { tool: "plan_follow_up", at: morning, about: "Ask which date suits them" },
+        ),
+      }),
+    );
+    expect(quiet.sentIds).toEqual([]);
+    const planned = { followUpAt: morning, followUpReason: "Ask which date suits them", followUpsSent: 0 };
+    // Nothing went, so the last reply is still the dates'.
+    expect(await chatState(on)).toMatchObject({ ...planned, lastReplyAt: actNow });
+
+    const thanks = await nextTurn(on, "Thanks!", 45);
+    done(await act(on, { ...thanks, staged: stagedSet({ tool: "stay_quiet", reason: "They said thanks" }) }));
+    expect(await chatState(on)).toMatchObject(planned);
   });
 
   it("counts a follow-up it sends, and a reaction on our message stops the next", async () => {
@@ -482,7 +618,7 @@ describe("the natural agent's live act", () => {
     done(
       await act(on, {
         messages: ["Which date suits you?"],
-        staged: stagedOf({ tool: "plan_follow_up", at: fourHours, about: "Ask about the date" }),
+        staged: stagedSet({ tool: "plan_follow_up", at: fourHours, about: "Ask about the date" }),
       }),
     );
     const nudge = { kind: "nudge" as const, token: `nudge:${on.chat.id}:1`, now: fourHours };
@@ -507,7 +643,7 @@ describe("the natural agent's live act", () => {
     const figures = await on.quote(threeOn19Dec(on));
     const turn = {
       messages: ["Done: 3 seats held."],
-      staged: stagedOf(
+      staged: stagedSet(
         bookOf(figures),
         { tool: "add_note", text: "Keen on 19 Dec" },
         { tool: "create_task", kind: "question", text: "Is there a student discount?", callAt: null },
@@ -547,7 +683,7 @@ describe("the natural agent's live act", () => {
     const takenFigures = await taken.quote(threeOn19Dec(taken));
     const refused = await act(
       taken,
-      { ...turn, staged: stagedOf(bookOf(takenFigures)), quoted: [takenFigures] },
+      { ...turn, staged: stagedSet(bookOf(takenFigures)), quoted: [takenFigures] },
       deps({ recipients: takeOver }),
     ).catch(failure);
     expect(refused).toBe("AGENT_STOPPED");
@@ -560,17 +696,20 @@ describe("the natural agent's live act", () => {
     await holdSeats(on, figures.departureId, 18);
     const result = await act(on, {
       messages: ["Done: 3 seats held."],
-      staged: stagedOf(bookOf(figures), { tool: "add_note", text: "Booked 19 Dec" }),
+      staged: stagedSet(bookOf(figures), { tool: "add_note", text: "Booked 19 Dec" }),
       quoted: [figures],
     });
     expect(result).toEqual({ refused: "NOT_ENOUGH_SEATS", message: expect.any(String) as unknown });
     expect(await kept(on)).toEqual(nothingKept);
+    // The name they booked under is undone with the booking.
+    const person = await on.inOrg((tx) => tx.person.findUniqueOrThrow({ where: { id: on.chat.personId ?? "" } }));
+    expect(person.name).toBe("Rahul");
 
     // A lapsed hold whose seats went meanwhile: the old booking is cancelled only with the new one, so it stays.
     const lapsed = await actAgency(test);
     const terms = threeOn19Dec(lapsed);
     const told = await lapsed.quote(terms);
-    done(await act(lapsed, { messages: ["Held."], staged: stagedOf(bookOf(told)), quoted: [told] }));
+    done(await act(lapsed, { messages: ["Held."], staged: stagedSet(bookOf(told)), quoted: [told] }));
     await lapsed.inOrg((tx) =>
       tx.departureHold.updateMany({ where: { leadId: lapsed.leadId }, data: { expiresAt: testNow } }),
     );
@@ -580,7 +719,7 @@ describe("the natural agent's live act", () => {
     const again = await act(lapsed, {
       ...next,
       messages: ["Here it is again."],
-      staged: stagedOf({ tool: "resend_payment" }),
+      staged: stagedSet({ tool: "resend_payment" }),
       facts,
     });
     expect(again).toMatchObject({ refused: "NOT_ENOUGH_SEATS" });
@@ -595,17 +734,17 @@ describe("the natural agent's live act", () => {
     ]);
   });
 
-  it("takes a lapsed hold again at the total told before the payment details go again", async () => {
+  it("takes a lapsed hold again at the total booked before the payment details go again", async () => {
     const on = await actAgency(test);
-    const terms = threeOn19Dec(on);
-    const figures = await on.quote(terms);
-    const first = done(await act(on, { messages: ["Held."], staged: stagedOf(bookOf(figures)), quoted: [figures] }));
+    const figures = await on.quote(threeOn19Dec(on));
+    // The offer said the date and the advance, never the total (G2 asks no more): the booking keeps its terms itself.
+    const first = done(
+      await act(on, { messages: ["Held: advance ₹9,000."], staged: stagedSet(bookOf(figures)), quoted: [figures] }),
+    );
     await on.inOrg((tx) => tx.departureHold.updateMany({ where: { leadId: on.leadId }, data: { expiresAt: testNow } }));
     const next = await nextTurn(on, "Please send the QR again", 5);
-    const facts = { ...first.facts, told: [{ ...terms, totalPaise: figures.totalPaise, at: actNow.toISOString() }] };
-    const again = done(
-      await act(on, { ...next, messages: ["Here it is again."], staged: stagedOf({ tool: "resend_payment" }), facts }),
-    );
+    const resend = { messages: ["Here it is again."], staged: stagedSet({ tool: "resend_payment" }) };
+    const again = done(await act(on, { ...next, ...resend, facts: first.facts }));
     expect(again.bookingId).not.toBeNull();
     expect(again.bookingId).not.toBe(first.bookingId);
     const bookings = await on.inOrg((tx) =>
@@ -634,7 +773,7 @@ describe("the natural agent's live act", () => {
       on,
       {
         messages: ["Done: 3 seats held."],
-        staged: stagedOf(bookOf(figures), { tool: "add_note", text: "Booked 19 Dec" }),
+        staged: stagedSet(bookOf(figures), { tool: "add_note", text: "Booked 19 Dec" }),
         quoted: [figures],
       },
       pausing,

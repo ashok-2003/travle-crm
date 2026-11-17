@@ -16,7 +16,9 @@ import { naturalAgency } from "./natural-agency.js";
 export const actNow = new Date(testNow.getTime() + 60_000);
 export const actToday = parseCalendarDate("2026-10-23");
 
-export async function actAgency(test: TestInbox, options: { adults?: number } = {}) {
+/** `adults` a person typed on the lead; `customerName` the customer's WhatsApp profile name (Rahul unless told). */
+export async function actAgency(test: TestInbox, options: { adults?: number; customerName?: string } = {}) {
+  const { customerName = "Rahul" } = options;
   const { organizationId, packageIds } = await naturalAgency(test);
   const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
   const owner = memberOf(organizationId, "org-owner");
@@ -27,7 +29,7 @@ export async function actAgency(test: TestInbox, options: { adults?: number } = 
   /** The customer writes `text` at `at`; returns the line, which a turn answering it takes as its token. */
   const say = async (text: string, at = testNow) => {
     const connection = { organizationId, connectionId, integratedNumber };
-    await deliver(test, fromCustomer(connection, { customerNumber, customerName: "Rahul", text }), at);
+    await deliver(test, fromCustomer(connection, { customerNumber, customerName, text }), at);
     return inOrg((tx) =>
       tx.whatsappMessage.findFirstOrThrow({ where: { direction: "in" }, orderBy: { occurredAt: "desc" } }),
     );

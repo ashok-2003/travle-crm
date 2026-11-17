@@ -14,6 +14,7 @@ import { sendTurn } from "./act-send.js";
 import { addTurnTasks } from "./act-task.js";
 import { stagedOf, type NaturalActDeps, type NaturalActInput, type NaturalActResult } from "./act-types.js";
 import { toldIn } from "./dry-answer.js";
+import { codeHandOverReasons } from "./hand-over-words.js";
 
 export type { NaturalActDeps, NaturalActInput, NaturalActResult };
 
@@ -53,8 +54,10 @@ export async function actOnNaturalTurn(
     },
   });
   const handOver = handOverOf(input);
-  // The day's cap stops every turn but the hand-over code makes at it (ruling 5); a reaction answers a follow-up (13).
-  const stopped = await stoppedSince(tx, input, chat, { reactions: true, dayCap: handOver?.reason !== "day_cap" });
+  // The day's cap stops every turn but code's own hand-over at a limit (ruling 5): at the cap with the month's limit
+  // reached too, either reason goes. A reaction answers a follow-up (ruling 13).
+  const atLimit = handOver !== null && codeHandOverReasons.has(handOver.reason);
+  const stopped = await stoppedSince(tx, input, chat, { reactions: true, dayCap: !atLimit });
   // Nothing is written yet: ending here keeps nothing and tells nobody, as a turn that never began.
   if (stopped !== null) return { stopped };
   await assertNewest(tx, input);
@@ -63,12 +66,16 @@ export async function actOnNaturalTurn(
   const lead = await openLeadOfChat(tx, chat.personId);
   // A lead the team closed while the follow-up was written: a person decided, and nothing is written yet.
   if (input.kind === "nudge" && lead === null) return { stopped: "no_open_lead" };
-  const money = await moneyOfTurn(tx, deps, input, lead?.id ?? null);
+  const money = await moneyOfTurn(tx, deps, input, { leadId: lead?.id ?? null, person: chat });
   if (money !== null && "refused" in money) return money;
   const sent = await sendTurn(tx, deps, input, { payment: money?.payment ?? null, handedOver: handOver !== null });
   const bookingId = money?.bookingId ?? null;
   const told = toldIn({ messages: input.messages, quoted: input.quoted }, input.now);
-  const actions = [...(bookingId === null ? [] : ["booking"]), ...sent.codes];
+  const actions = [
+    ...(bookingId === null ? [] : ["booking"]),
+    ...(money?.named === true ? ["name"] : []),
+    ...sent.codes,
+  ];
   const turn = { sentWords: input.messages.some((message) => message.trim() !== ""), told };
   if (lead !== null) actions.push(...(await writeTurnOnLead(tx, deps, input, lead, chat, turn)));
   // No open lead (the turn opens one first when an action needs it): a task still reaches the team.

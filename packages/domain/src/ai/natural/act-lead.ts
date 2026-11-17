@@ -16,13 +16,18 @@ import { isText } from "./trips/trip-text.js";
 
 type LeadFields = StagedOf<"update_lead">["fields"];
 
-/** update_lead's fields as lite's trip fields: a trip by its place, a day as the trip's dates, a month as itself. */
+/**
+ * update_lead's fields as lite's trip fields: a trip by its place, a day as the dates of the trip it names (else the
+ * one the chat offered), a month as itself.
+ */
 function tripValuesOf(fields: LeadFields, input: NaturalActInput): Partial<Record<TripField, unknown>> {
   const values: Partial<Record<TripField, unknown>> = {};
-  const sheet = input.sheets.find((one) => one.packageId === fields.packageId);
+  const sheetOf = (packageId: string | undefined) => input.sheets.find((one) => one.packageId === packageId);
+  const sheet = sheetOf(fields.packageId);
   if (sheet?.destinationId != null) values.destination = { kind: "existing", destinationId: sheet.destinationId };
   if (fields.day !== undefined) {
-    values.when = { kind: "dates", from: fields.day, to: addDays(fields.day, sheet?.nights ?? 0) };
+    const nights = (sheet ?? sheetOf(input.facts.offer?.packageId))?.nights ?? 0;
+    values.when = { kind: "dates", from: fields.day, to: addDays(fields.day, nights) };
   } else if (fields.month !== undefined) values.when = { kind: "month", month: fields.month };
   if (fields.adults !== undefined) values.adults = fields.adults;
   // A list of ages: "no children" leaves the field as it is.

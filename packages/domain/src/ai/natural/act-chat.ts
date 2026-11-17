@@ -2,7 +2,7 @@
 // offer this turn made, the totals told, the booking, the lead, when it ran), the day's reply count, when the AI last
 // wrote (the turn's own clock, which its messages carry too, so a reaction on them counts), the follow-up the model
 // planned, moved into waking hours, or a follow-up's count, and on a hand-over the reason, audited; and the owner told.
-import { naturalFacts, type NaturalFacts, type ToldTotal } from "@travel-crm/contracts/ai";
+import { naturalFacts, toldTotal, type NaturalFacts, type ToldTotal } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import { systemActor } from "../../kernel/index.js";
@@ -11,9 +11,10 @@ import { repliesToday, replyDayOf, type ChatRow } from "../may-write.js";
 import { tellOwner } from "../tell-owner.js";
 import type { SentTurn } from "./act-send.js";
 import { stagedOf, type NaturalActInput } from "./act-types.js";
+import { toldAfter } from "./dry-answer.js";
 import { handOverText } from "./hand-over-words.js";
+import { toldMatches } from "./tools/terms.js";
 
-const MONTH_MS = 30 * 86_400_000;
 const MINUTE_MS = 60_000;
 
 /** What the act's earlier steps did. */
@@ -23,6 +24,18 @@ export interface TurnDone {
   leadId: string | null;
   told: readonly ToldTotal[];
   handOver: { reason: string; summary: string } | null;
+}
+
+/**
+ * The terms and total of the booking this turn took, kept with the totals told: the offer it answered said the date
+ * and the advance (G2), not always the total, and a lapsed hold is taken again by them (review M1).
+ */
+function bookedTold(input: NaturalActInput, done: TurnDone): ToldTotal[] {
+  const book = stagedOf(input.staged, "book");
+  if (book === null || done.bookingId === null) return [];
+  const { terms, totalPaise } = book.figures;
+  const kept = done.told.some((one) => one.totalPaise === totalPaise && toldMatches(terms, one));
+  return kept ? [] : [toldTotal.parse({ ...terms, totalPaise, at: input.now.toISOString() })];
 }
 
 /** The chat's facts after the turn, as the dry turn writes them (dry-answer.ts), with what really went. */
@@ -37,7 +50,7 @@ function factsAfter(input: NaturalActInput, done: TurnDone): NaturalFacts {
     sentFileIds: [...new Set([...facts.sentFileIds, ...fileIds])].slice(-150),
     // The offer made in the last turn that ran (Plan 1, ruling 1): a turn that made none, quiet or not, ends it.
     offer: stagedOf(input.staged, "offer_booking")?.offer ?? null,
-    told: [...facts.told.filter((one) => now.getTime() - Date.parse(one.at) <= MONTH_MS), ...done.told].slice(-20),
+    told: toldAfter(facts.told, [...done.told, ...bookedTold(input, done)], now),
     bookingId: done.bookingId ?? facts.bookingId,
     lastTurnAt: now.toISOString(),
   });
@@ -51,9 +64,10 @@ function wakingTime(at: Date, chat: ChatRow, timeZone: string): Date | null {
 }
 
 /**
- * The follow-ups a turn leaves. A reply starts the count again with the time the model planned, when its words went and
- * no person must answer next. A follow-up that went counts itself, and the first plans the second as lite's does,
- * about 20 hours after the customer's line; anything else plans none.
+ * The follow-ups a turn leaves. A reply starts the count again with the time the model planned, unless a person must
+ * answer next; a quiet reply ("ok") keeps its plan too, and with none leaves the earlier plan standing (spec case 12).
+ * A follow-up that went counts itself, and the first plans the second as lite's does, about 20 hours after the
+ * customer's line; anything else plans none.
  */
 function followUpsAfter(
   input: NaturalActInput,
@@ -61,10 +75,10 @@ function followUpsAfter(
   state: { followUpsSent: number; followUpReason: string | null },
   turn: { sent: boolean; handedOver: boolean },
 ) {
-  const keepsGoing = turn.sent && !turn.handedOver;
   if (input.kind === "reply") {
     const plan = stagedOf(input.staged, "plan_follow_up");
-    const at = keepsGoing && plan?.at != null ? wakingTime(plan.at, chat, input.timeZone) : null;
+    if (plan === null && !turn.sent && !turn.handedOver) return {};
+    const at = plan?.at != null && !turn.handedOver ? wakingTime(plan.at, chat, input.timeZone) : null;
     // The model plans them now: a stop lite's words left on the chat is lite's.
     return {
       followUpsSent: 0,
@@ -73,7 +87,7 @@ function followUpsAfter(
       followUpsStopped: false,
     };
   }
-  if (!keepsGoing) return { followUpAt: null, followUpReason: null };
+  if (!turn.sent || turn.handedOver) return { followUpAt: null, followUpReason: null };
   const number = Math.min(state.followUpsSent + 1, 2);
   const { lastInboundAt } = chat;
   const next =
