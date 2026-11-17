@@ -13,6 +13,7 @@ import {
   tool,
   withLabels,
   type NaturalToolName,
+  type ToolEntry,
   type ToolTable,
 } from "./natural-tools.js";
 
@@ -59,19 +60,15 @@ const mediaToolNames: readonly OneMediaToolName[] = ["transcribe_voice_note", "l
 export const oneReadTools: readonly OneToolName[] = [...naturalReadTools, ...mediaToolNames];
 
 /** `message` is a reference the chat shows (m3); the turn's own are the only ones offered. */
-const transcribeArguments = z.strictObject({ message: z.string() });
-const lookArguments = z.strictObject({ message: z.string(), question: z.string().min(1).max(200).optional() });
-const mediaTools = {
-  transcribe_voice_note: {
-    description:
-      "Hears what a customer's voice note says. Pass its reference, as [voice note m3] shows it, then answer it like a typed message.",
-    fields: transcribeArguments,
-  },
-  look_at_image: {
-    description:
-      "Looks at a customer's photo, as [photo m7] shows it. You can pass a question about what to look for. Not for a sticker or a forward that needs no reply.",
-    fields: lookArguments,
-  },
+const mediaTable: Record<OneMediaToolName, ToolEntry> = {
+  transcribe_voice_note: tool(
+    "Hears what a customer's voice note says. Pass its reference, as [voice note m3] shows it, then answer it like a typed message.",
+    z.strictObject({ message: z.string() }),
+  ),
+  look_at_image: tool(
+    "Looks at a customer's photo, as [photo m7] shows it. You can pass a question about what to look for. Not for a sticker or a forward that needs no reply.",
+    z.strictObject({ message: z.string(), question: z.string().min(1).max(200).optional() }),
+  ),
 };
 
 export interface OneToolSchema {
@@ -90,26 +87,12 @@ export function oneToolSchemas(input: {
 }): OneToolSchema[] {
   const brochureLabels = input.brochureLabels ?? [];
   const { voiceNotes = [], photos = [] } = input;
-  const media: OneToolSchema[] = [
-    ...(voiceNotes.length === 0
-      ? []
-      : [
-          {
-            name: "transcribe_voice_note" as const,
-            description: mediaTools.transcribe_voice_note.description,
-            schema: transcribeArguments.extend({ message: z.enum(voiceNotes) }),
-          },
-        ]),
-    ...(photos.length === 0
-      ? []
-      : [
-          {
-            name: "look_at_image" as const,
-            description: mediaTools.look_at_image.description,
-            schema: lookArguments.extend({ message: z.enum(photos) }),
-          },
-        ]),
-  ];
+  // A media tool is offered with the references of its own kind, and only when the turn has one.
+  const media = mediaToolNames.flatMap((name): OneToolSchema[] => {
+    const refs = name === "look_at_image" ? photos : voiceNotes;
+    const { description, fields } = mediaTable[name];
+    return refs.length === 0 ? [] : [{ name, description, schema: fields.extend({ message: z.enum(refs) }) }];
+  });
   const natural: OneToolSchema[] = naturalToolNames
     .filter(
       (name) =>
@@ -154,23 +137,12 @@ function parseMedia(
   raw: string | Readonly<Record<string, unknown>>,
   refs: readonly string[] = [],
 ): { ok: true; name: OneToolName; args: Record<string, unknown> } | { ok: false; problem: string } {
-  let value: unknown = raw;
-  if (typeof raw === "string") {
-    try {
-      value = raw.trim() === "" ? {} : (JSON.parse(raw) as unknown);
-    } catch {
-      return { ok: false, problem: "the arguments weren't JSON" };
-    }
-  }
-  const parsed = mediaTools[name].fields.safeParse(value);
-  if (!parsed.success) return { ok: false, problem: "the arguments need a message reference (and a short question)" };
-  const { message } = parsed.data;
-  if (!refs.includes(message)) {
-    const kind = name === "look_at_image" ? "photos" : "voice notes";
-    return {
-      ok: false,
-      problem: `${message} isn't one of this chat's ${kind}; ${refs.length > 0 ? refs.join(", ") : "there are none"}`,
-    };
-  }
-  return { ok: true, name, args: parsed.data };
+  const parsed = parseOnTable(mediaTable, name, raw, []);
+  const message = parsed.ok ? parsed.args.message : null;
+  if (!parsed.ok || typeof message !== "string" || refs.includes(message)) return parsed;
+  const kind = name === "look_at_image" ? "photos" : "voice notes";
+  return {
+    ok: false,
+    problem: `${message} isn't one of this chat's ${kind}; ${refs.join(", ") || "there are none"}`,
+  };
 }

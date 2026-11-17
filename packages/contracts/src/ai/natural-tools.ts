@@ -220,13 +220,13 @@ export function parseToolArguments(
 }
 
 /** The parse, on whichever agent's table, so each agent's tools are checked by the same sentences. */
-export function parseOnTable(
-  table: ToolTable,
+export function parseOnTable<Name extends string>(
+  table: Record<Name, ToolEntry>,
   name: string,
   raw: string | Readonly<Record<string, unknown>>,
   tripLabels: readonly string[],
-): { ok: true; name: NaturalToolName; args: Record<string, unknown> } | { ok: false; problem: string } {
-  const toolName = naturalToolNames.find((known) => known === name);
+): { ok: true; name: Name; args: Record<string, unknown> } | { ok: false; problem: string } {
+  const toolName = (Object.keys(table) as Name[]).find((known) => known === name);
   if (toolName === undefined) return { ok: false, problem: `there is no tool called ${name}` };
   const value = typeof raw === "string" ? jsonOf(raw) : raw;
   if (value === undefined) return { ok: false, problem: "the arguments weren't JSON" };

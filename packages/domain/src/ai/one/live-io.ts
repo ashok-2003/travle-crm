@@ -44,8 +44,7 @@ export function oneLiveIO(
     call,
     // The tool layer has already checked the reference is this chat's own customer file.
     media: async (name, args) => {
-      const messageId = context.media.get(String(args.message))?.messageId;
-      if (messageId === undefined) return "refused: that isn't one of this chat's files";
+      const messageId = context.media.get(String(args.message))?.messageId ?? "";
       const reading = { db, files: deps.files, call, organizationId };
       const where = { conversationId: input.conversationId, messageId };
       const done =

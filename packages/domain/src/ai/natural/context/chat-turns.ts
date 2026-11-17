@@ -67,7 +67,8 @@ export function lineWords(line: NaturalChatLine, most: number, options: { earlie
           ? null
           : (markers[line.kind] ?? "[message]"));
   const said =
-    line.aiText === undefined
+    // Only the one agent names a file (ref) and so reads what was heard or seen; natural's words stay as they were.
+    line.aiText === undefined || line.ref === undefined
       ? ""
       : ` (${line.aiText.kind === "transcript" ? "heard" : "seen"}: "${oneLine(line.aiText.text)}")`;
   if (marker === null) return text === "" ? "[message]" : text;
