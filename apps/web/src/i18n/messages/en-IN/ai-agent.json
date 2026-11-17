@@ -99,6 +99,12 @@
         "done": "Name and tone chosen",
         "todo": "Choose a name and a tone"
       },
+      "instructions": {
+        "title": "Custom instructions",
+        "count": "{count, plural, one {# instruction} other {# instructions}}",
+        "done": "Instructions added",
+        "todo": "Tell the agent how to talk, like 'Don't use emojis'"
+      },
       "ads": {
         "title": "Ads",
         "none": "No chats have come from an ad yet.",
@@ -164,6 +170,42 @@
         "agentName": "Use up to 80 characters",
         "tone": "Choose a tone"
       }
+    },
+    "instructions": {
+      "loading": "Loading your instructions",
+      "loadFailed": "Your instructions didn't load.",
+      "intro": "The agent follows these in every reply, in this order. Its own rules on prices, payments and handing a chat to your team still come first.",
+      "new": "New instruction",
+      "hint": "Up to {max} characters. One instruction at a time.",
+      "add": "Add instruction",
+      "adding": "Adding",
+      "added": "Instruction added",
+      "ideas": "Ideas to add",
+      "addIdea": "Add: {text}",
+      "idea": {
+        "noEmojis": "Don't use emojis.",
+        "human": "Talk like a person from our team, simple and warm, never like a bot.",
+        "noRepeat": "Never repeat a line you have already sent in this chat.",
+        "answerFirst": "Always answer what the customer asked first, then ask one question."
+      },
+      "count": "{count} of {max} instructions",
+      "full": "You have {max} instructions, the most the agent keeps. Change or remove one to add another.",
+      "none": "No instructions yet.",
+      "listLabel": "Your instructions",
+      "edit": "Edit",
+      "editNamed": "Edit instruction {number}",
+      "editTitle": "Edit instruction {number}",
+      "editDescription": "The agent follows the new words from its next reply.",
+      "text": "Instruction",
+      "save": "Save instruction",
+      "saving": "Saving",
+      "saved": "Instruction saved",
+      "remove": "Remove",
+      "removeNamed": "Remove instruction {number}",
+      "removeTitle": "Remove instruction {number}?",
+      "removeDescription": "The agent stops following it from its next reply.",
+      "removed": "Instruction removed",
+      "required": "Write the instruction first."
     },
     "ads": {
       "loading": "Loading your ads",

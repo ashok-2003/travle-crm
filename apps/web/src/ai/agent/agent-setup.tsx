@@ -25,6 +25,7 @@ import { useAgentSetup } from "./use-agent";
 import { AdsStepEditor } from "./setup/ads-step";
 import { AnswersStepEditor } from "./setup/answers-step";
 import { BasicsStepEditor } from "./setup/basics-step";
+import { InstructionsStepEditor } from "./setup/instructions-step";
 import { PaymentStepEditor } from "./setup/payment-step";
 import { TurnOnStep } from "./setup/turn-on-step";
 
@@ -35,6 +36,7 @@ const editors: Partial<Record<StepKey, () => ReactNode>> = {
   payment: () => <PaymentStepEditor />,
   answers: () => <AnswersStepEditor />,
   basics: () => <BasicsStepEditor />,
+  instructions: () => <InstructionsStepEditor />,
   ads: () => <AdsStepEditor />,
 };
 
@@ -51,6 +53,7 @@ function StateLine({ step, mayManage }: { step: Step; mayManage: boolean }) {
   if (step.key === "packages" && !step.done && total !== null && total > 0) return <>{t("packages.needsPayment")}</>;
   if (step.key === "packages" && step.done && count !== null) return <>{t("packages.count", { count })}</>;
   if (step.key === "answers" && count !== null && total !== null) return <>{t("answers.count", { count, total })}</>;
+  if (step.key === "instructions" && step.done && count !== null) return <>{t("instructions.count", { count })}</>;
   if (step.key === "ads") {
     return <>{total === null || total === 0 ? t("ads.none") : t("ads.count", { count: count ?? 0, total })}</>;
   }

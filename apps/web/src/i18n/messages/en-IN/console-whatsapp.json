@@ -124,6 +124,7 @@
       "payment": "payment QR",
       "answers": "answers to the fixed questions",
       "basics": "agent name and tone",
+      "instructions": "custom instructions",
       "ads": "ad links"
     },
     "answering": "Ready to answer",

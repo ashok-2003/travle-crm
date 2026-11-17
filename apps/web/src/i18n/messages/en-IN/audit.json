@@ -277,6 +277,9 @@
       "resumed": "Resumed the AI agent on WhatsApp",
       "answers-changed": "Changed the AI agent's answers",
       "basics-changed": "Changed the AI agent's name or tone",
+      "instruction-added": "Added an instruction for the AI agent",
+      "instruction-changed": "Changed an instruction for the AI agent",
+      "instruction-removed": "Removed an instruction for the AI agent",
       "turned-on": "Turned the AI agent on",
       "turned-off": "Turned the AI agent off"
     },
@@ -525,6 +528,7 @@
     "ai_fill": "A form the AI filled in",
     "ai_knowledge": "A piece of what the AI knows",
     "ai_autopilot": "The AI's autopilot",
+    "ai_agent_instruction": "An instruction for the AI agent",
     "ai_learning": "An AI lesson",
     "whatsapp_message": "A message",
     "booking": "A booking",

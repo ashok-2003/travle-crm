@@ -89,6 +89,35 @@ export function useSaveBasics() {
   );
 }
 
+export function useAgentInstructions() {
+  const trpc = useTRPC();
+  return useQuery(trpc.ai.agentInstructions.queryOptions());
+}
+
+/** The instructions and the checklist (its count) loaded again, after any change to one. */
+export function useRefreshInstructions() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const refreshChecklist = useRefreshChecklist();
+  return async () => {
+    await queryClient.invalidateQueries({ queryKey: trpc.ai.agentInstructions.queryKey() });
+    await refreshChecklist();
+  };
+}
+
+export function useAddInstruction(onAdded: () => void) {
+  const trpc = useTRPC();
+  const refresh = useRefreshInstructions();
+  return useMutation(
+    trpc.ai.addAgentInstruction.mutationOptions({
+      onSuccess: async () => {
+        await refresh();
+        onAdded();
+      },
+    }),
+  );
+}
+
 export function useAds() {
   const trpc = useTRPC();
   return useQuery(trpc.ai.ads.queryOptions());

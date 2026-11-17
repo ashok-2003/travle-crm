@@ -36,6 +36,8 @@
     "AGENT_NOT_PAUSED_FOR_EVERYONE": "The AI agent isn't paused for every agency.",
     "AGENT_SETUP_INCOMPLETE": "Finish the AI agent's setup steps first: the page lists what is missing.",
     "INVALID_BASICS": "The agent's name can be at most 80 characters, and the tone must be Friendly or Professional.",
+    "INVALID_INSTRUCTION": "An instruction needs 1 to 200 characters.",
+    "TOO_MANY_INSTRUCTIONS": "The AI agent can keep at most 20 instructions. Change or remove one first.",
     "SEAT_LIMIT_REACHED": "Every seat on your plan is taken. Remove someone, or ask for more seats.",
     "IMPERSONATING": "Only the person themselves can do this, not support signed in as them.",
     "IMPERSONATION_TARGET_NOT_A_MEMBER": "This person is no longer active staff, so support can't sign in as them.",

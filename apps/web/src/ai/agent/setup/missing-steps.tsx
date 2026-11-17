@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { TextLink } from "@/components/text-link";
 import { routes } from "@/lib/routes";
 
-type RequiredStep = Exclude<AgentSetup["steps"][number]["key"], "ads">;
+type RequiredStep = Exclude<AgentSetup["steps"][number]["key"], "ads" | "instructions">;
 
 /** Where each step is done: the AI, WhatsApp and Packages have pages of their own, the rest are rows of the Setup tab. */
 const stepPlace: Record<RequiredStep, string> = {
@@ -19,9 +19,11 @@ const stepPlace: Record<RequiredStep, string> = {
   basics: "#step-basics",
 };
 
-/** The required steps not done, in the api's order: ads are optional, so they never block and never show here. */
+/** The required steps not done, in the api's order: ads and instructions are optional, so they never show here. */
 export const missingSteps = (steps: AgentSetup["steps"]): RequiredStep[] =>
-  steps.flatMap((step) => (step.optional || step.done || step.key === "ads" ? [] : [step.key]));
+  steps.flatMap((step) =>
+    step.optional || step.done || step.key === "ads" || step.key === "instructions" ? [] : [step.key],
+  );
 
 export function MissingSteps({
   id,
