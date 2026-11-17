@@ -3,6 +3,7 @@
 // wrote since, and six chats run at once.
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { aiReplyHandler, type AgentDependencies } from "../../src/ai/index.js";
+import { replyDayOf } from "../../src/ai/may-write.js";
 import { fallbackLine } from "../../src/ai/natural/fallback-line.js";
 import { uuidFromKey } from "../../src/jobs/index.js";
 import { createTestInbox, type TestInbox } from "../inbox/support.js";
@@ -95,6 +96,26 @@ describe("a failed natural turn is tried again, never left silent", () => {
     expect(task.recordId).not.toBe(on.leadId);
     expect(task.recordType).toBe("lead");
     expect((await outbound(on)).map((line) => line.body)).toEqual([fallbackLine(FIRST_LINE)]);
+  });
+
+  it("still sends the fallback line, a hand-over and a task when the day's cap was reached during the waits", async () => {
+    const on = await liveAgency(test);
+    await on.inOrg(async (tx) => {
+      const { maxRepliesPerDay } = await tx.aiAutopilot.findFirstOrThrow();
+      const atTheCap = { repliesOn: replyDayOf(liveNow), repliesCount: maxRepliesPerDay };
+      await tx.aiChat.upsert({
+        where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
+        create: { conversationId: on.chat.id, ...atTheCap },
+        update: atTheCap,
+      });
+    });
+    clockAt(liveNow);
+    await handlerOf(on).handle(jobOf(on, on.message.id, 2));
+    expect((await outbound(on)).map((line) => line.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    const state = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(state.handoffReason).toBe("Wrote more than the AI answers in a day");
+    const tasks = await on.inOrg((tx) => tx.task.findMany({ where: { byAi: true } }));
+    expect(tasks.map((task) => [task.recordType, task.recordId])).toEqual([["lead", on.leadId]]);
   });
 
   it("ends an old attempt quietly when the customer wrote since", async () => {
