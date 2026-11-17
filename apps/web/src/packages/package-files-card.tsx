@@ -6,6 +6,7 @@ import { MAX_PACKAGE_BROCHURES, type PackageFile } from "@travel-crm/contracts/q
 import { CircleAlertIcon, FilePlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
+import { BrochureDetailsDialog } from "./brochure-details-dialog";
 import { SectionCard } from "@/bookings/section-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -23,6 +24,77 @@ import { usePackageFileChanges, usePackageFiles } from "./use-package-files";
 
 const BROCHURE_TYPES = "application/pdf,image/jpeg,image/png,image/webp";
 
+/** An empty string is no words at all (the table's default). */
+const words = (text: string | null) => (text === null || text === "" ? null : text);
+
+/** One brochure: its name over its description, the file to open, and the buttons that describe or remove it. */
+function BrochureRow({
+  packageId,
+  file,
+  disabled,
+  hintId,
+  removing,
+  onRemove,
+}: {
+  packageId: string;
+  file: PackageFile;
+  disabled: boolean;
+  hintId: string;
+  removing: boolean;
+  onRemove: (opener: HTMLElement) => void;
+}) {
+  const t = useTranslations("packages.files");
+  const [open, setOpen] = useState(false);
+  const describeButton = useRef<HTMLButtonElement>(null);
+  return (
+    <li className="flex items-start justify-between gap-2">
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="font-medium break-words">{words(file.name) ?? t("noName")}</span>
+        <span className="text-muted-foreground break-words">{words(file.description) ?? t("noDescription")}</span>
+        {file.url === null ? (
+          <span className="break-words">{file.fileName}</span>
+        ) : (
+          <TextLink inline newTab href={file.url}>
+            {file.fileName}
+          </TextLink>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button
+          ref={describeButton}
+          variant="outline"
+          aria-label={t("describeNamed", { name: file.fileName })}
+          disabled={disabled}
+          aria-describedby={disabled ? hintId : undefined}
+          onClick={() => {
+            setOpen(true);
+          }}
+        >
+          {t("describe")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={t("removeNamed", { name: file.fileName })}
+          disabled={removing || disabled}
+          aria-describedby={disabled ? hintId : undefined}
+          onClick={(event) => {
+            onRemove(event.currentTarget);
+          }}
+        >
+          <Trash2Icon aria-hidden="true" />
+        </Button>
+      </div>
+      <BrochureDetailsDialog
+        packageId={packageId}
+        file={file}
+        held={{ open, setOpen }}
+        returnFocusTo={describeButton}
+      />
+    </li>
+  );
+}
+
 export function PackageFilesCard({ packageId }: { packageId: string }) {
   const t = useTranslations("packages.files");
   const files = usePackageFiles(packageId);
@@ -30,7 +102,7 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
   const [removing, setRemoving] = useState<PackageFile | null>(null);
-  const opener = useRef<HTMLElement | null>(null);
+  const opened = useRef<HTMLElement | null>(null);
   const brochurePicker = useRef<HTMLInputElement>(null);
   const brochures = files.data?.brochures ?? [];
   const [problem, setProblem] = useState<string | null>(null);
@@ -42,30 +114,6 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
     setProblem(wrong === null ? null : t(`problems.${wrong}`, { size: formatFileSize(brochureLimit) }));
     if (wrong === null) add.mutate(file);
   };
-  const row = (file: PackageFile) => (
-    <li key={file.attachmentId} className="flex items-center justify-between gap-2">
-      {file.url === null ? (
-        <span>{file.fileName}</span>
-      ) : (
-        <TextLink inline newTab href={file.url}>
-          {file.fileName}
-        </TextLink>
-      )}
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={t("removeNamed", { name: file.fileName })}
-        disabled={remove.isPending || !access.allowed}
-        aria-describedby={access.allowed ? undefined : hintId}
-        onClick={(event) => {
-          opener.current = event.currentTarget;
-          setRemoving(file);
-        }}
-      >
-        <Trash2Icon aria-hidden="true" />
-      </Button>
-    </li>
-  );
   return (
     <SectionCard title={t("title")}>
       <p className="text-muted-foreground">{t("intro", { max: MAX_PACKAGE_BROCHURES })}</p>
@@ -78,7 +126,22 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
       ) : brochures.length === 0 ? (
         <p className="text-muted-foreground">{t("noBrochures")}</p>
       ) : (
-        <ul>{brochures.map(row)}</ul>
+        <ul className="flex flex-col gap-4">
+          {brochures.map((file) => (
+            <BrochureRow
+              key={file.attachmentId}
+              packageId={packageId}
+              file={file}
+              disabled={!access.allowed}
+              hintId={hintId}
+              removing={remove.isPending}
+              onRemove={(opener) => {
+                opened.current = opener;
+                setRemoving(file);
+              }}
+            />
+          ))}
+        </ul>
       )}
       {problem !== null && (
         <Alert variant="destructive">
@@ -118,7 +181,7 @@ export function PackageFilesCard({ packageId }: { packageId: string }) {
         description={t("removeDescription")}
         action={t("remove")}
         request={remove}
-        returnFocusTo={opener}
+        returnFocusTo={opened}
         onConfirm={() => {
           if (removing === null) return;
           remove.mutate(

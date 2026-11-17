@@ -11,16 +11,22 @@ export function usePackageFiles(packageId: string) {
   return useQuery(trpc.packages.files.queryOptions({ packageId }));
 }
 
-function useRefreshFiles(packageId: string) {
+export function useRefreshPackageFiles(packageId: string) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: trpc.packages.files.queryKey({ packageId }) });
 }
 
+/** Saving a brochure's name and description; its dialog loads the list again once it is saved. */
+export function useDescribeBrochure() {
+  const trpc = useTRPC();
+  return useMutation(trpc.packages.describeFile.mutationOptions());
+}
+
 export function usePackageFileChanges(packageId: string) {
   const trpc = useTRPC();
   const client = useTRPCClient();
-  const refresh = useRefreshFiles(packageId);
+  const refresh = useRefreshPackageFiles(packageId);
   const add = useMutation({
     mutationFn: async (file: File) => {
       const slot = await client.packages.requestFileUpload.mutate({
