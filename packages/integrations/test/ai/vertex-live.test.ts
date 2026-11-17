@@ -61,7 +61,8 @@ describe.skipIf(file === "")("Gemini on Vertex AI (live)", () => {
       },
       onTool: (entry) => entries.push(entry),
     });
-    expect(end).toMatchObject({ end: "answered" });
+    // The name Vertex answers with is the one natural and the one agent pin later calls to: it must be askable again.
+    expect(end).toMatchObject({ end: "answered", model });
     expect(entries.map((entry) => entry.name)).toEqual(["find_trek", "get_price"]);
     expect(end.end === "answered" ? end.text : "").toMatch(/9,?499/);
     // Vertex signs the calls on the call itself, and every later request sent each signature back.
@@ -90,6 +91,8 @@ describe.skipIf(file === "")("Gemini on Vertex AI (live)", () => {
         },
       ],
       maxTokens: 2000,
+      // As production reads a voice note (media.ts): Vertex receives reasoning_effort "minimal".
+      reasoning: { effort: "minimal" },
       timeoutMs: 60_000,
     });
     expect(result).toMatchObject({ ok: true });

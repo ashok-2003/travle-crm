@@ -151,14 +151,14 @@
       "model": "Model",
       "models": {
         "live": "Live model",
-        "flash": "Gemini Flash"
+        "flash": "Gemini Flash-Lite"
       },
       "temperature": "Temperature",
       "temperatures": {
         "default": "Default",
         "point4": "0.4"
       },
-      "onlyFlash": "Only Gemini Flash takes a temperature.",
+      "onlyFlash": "Only Gemini Flash-Lite takes a temperature.",
       "prompt": "Prompt",
       "prompts": {
         "live": "Live (production)",

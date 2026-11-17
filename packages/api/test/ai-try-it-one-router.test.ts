@@ -89,7 +89,7 @@ describe("ai.testOne", () => {
     expect(agent.runs[0]?.request).not.toHaveProperty("model");
     const flash = await caller.ai.testOne({ messages: hi, state: null, model: "flash", temperature: "0.4" });
     expect(flash.messages).toEqual([words]);
-    expect(agent.runs[1]?.request).toMatchObject({ model: "google/gemini-3.5-flash", temperature: 0.4 });
+    expect(agent.runs[1]?.request).toMatchObject({ model: "google/gemini-3.5-flash-lite", temperature: 0.4 });
   });
 
   /** Langfuse's prompts as a fake: a latest version when `hasLatest`, a production one always, each ask kept. */

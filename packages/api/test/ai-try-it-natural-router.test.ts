@@ -112,11 +112,11 @@ describe("ai.testNatural", () => {
     await caller.ai.testNatural({ messages: hi, state: null, model: "flash", temperature: "0.4" });
     expect(asked.length).toBeGreaterThan(0);
     for (const request of asked) {
-      expect(request).toMatchObject({ model: "google/gemini-3.5-flash", temperature: 0.4 });
+      expect(request).toMatchObject({ model: "google/gemini-3.5-flash-lite", temperature: 0.4 });
     }
   });
 
-  it("refuses a temperature for any model but Gemini Flash", async () => {
+  it("refuses a temperature for any model but Gemini Flash-Lite", async () => {
     const { caller, asked } = await anAiAgency();
     expect(
       await codeOf(caller.ai.testNatural({ messages: hi, state: null, model: "live", temperature: "0.4" } as never)),
