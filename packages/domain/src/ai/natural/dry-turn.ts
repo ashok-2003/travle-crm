@@ -10,7 +10,7 @@ import { parseCalendarDate } from "../../kernel/index.js";
 import { buildNaturalContext } from "./context/build.js";
 import { newLinesOf } from "./context/chat-turns.js";
 import { countedModel } from "./counted-model.js";
-import { dryAgency } from "./dry-agency.js";
+import { dryAgency, type DryAgency } from "./dry-agency.js";
 import { dryAnswerOf } from "./dry-answer.js";
 import { checkWords, type GuardContext } from "./guards/check-words.js";
 import { runNaturalLoop, type LoopIO } from "./loop.js";
@@ -51,7 +51,7 @@ export interface NaturalDryRecord {
 
 const DRY_CHAT = "dry-run";
 
-const EMPTY_LEAD: DryLead = {
+export const EMPTY_DRY_LEAD: DryLead = {
   packageId: null,
   day: null,
   month: null,
@@ -67,7 +67,7 @@ const EMPTY_LEAD: DryLead = {
 };
 
 /** The dry lead as the turn block reads it: nobody's notes, and the AI's tasks as the open ones. */
-function leadViewOf(lead: DryLead): NaturalLeadView {
+export function dryLeadView(lead: DryLead): NaturalLeadView {
   return {
     name: lead.name ?? "",
     cameFrom: "",
@@ -85,6 +85,43 @@ function leadViewOf(lead: DryLead): NaturalLeadView {
   };
 }
 
+/** What an action's staging and checks read in a dry turn: Try it's lead and the chat as it was written. */
+export function dryActionContext(input: {
+  db: Database;
+  organizationId: string;
+  agency: DryAgency;
+  state: NaturalTestState;
+  labels: ReadonlyMap<string, string>;
+  newLines: readonly NaturalChatLine[];
+  lines: readonly NaturalChatLine[];
+  now: Date;
+  readContext: (tx: OrgTx) => ReadContext;
+}): Omit<ActionContext, "quotedThisTurn"> {
+  const { db, organizationId, agency, state, lines, now } = input;
+  const { sheets, today, timeZone } = agency;
+  return {
+    sheets,
+    labels: input.labels,
+    today,
+    now,
+    timeZone,
+    facts: state.facts,
+    lead: dryLeadView(state.lead),
+    lines,
+    newLines: input.newLines,
+    paymentReady: agency.paymentLines !== null,
+    // The seats an earlier turn would have held await their advance, as the chat's own AI booking.
+    booking: state.lead.booking === null ? null : { id: DRY_CHAT, awaitingPayment: true },
+    profileName: null,
+    quoteOf: (terms) => db.forOrg(organizationId, (tx) => quoteFor(input.readContext(tx), terms)),
+    conversationId: DRY_CHAT,
+    // Try it's lead has no value a person set.
+    typed: {},
+    lastInboundAt: lines.findLast((line) => line.from === "customer")?.at ?? now,
+    adPackageId: null,
+  };
+}
+
 /** The dry turn with what its guards and flags read: the bench's entry. */
 export async function naturalDryTurnInFull(
   deps: NaturalDryDependencies,
@@ -97,9 +134,9 @@ export async function naturalDryTurnInFull(
   const { now, lines } = turn;
   const agency = await dryAgency(db, organizationId, await deps.agencyName(organizationId), now);
   const { timeZone, today, sheets } = agency;
-  const state = turn.state ?? { facts: naturalFacts.parse({ agent: "natural" }), lead: EMPTY_LEAD };
+  const state = turn.state ?? { facts: naturalFacts.parse({ agent: "natural" }), lead: EMPTY_DRY_LEAD };
   const { facts } = state;
-  const lead = leadViewOf(state.lead);
+  const lead = dryLeadView(state.lead);
   const before = beforeTheModel(newLinesOf(lines, facts.lastTurnAt === null ? null : new Date(facts.lastTurnAt)));
   const context = buildNaturalContext({
     prompt: turn.prompt,
@@ -118,27 +155,17 @@ export async function naturalDryTurnInFull(
   });
   const reads = guardReads(agency, context.shown, facts, now);
   const readContext = (tx: OrgTx): ReadContext => ({ tx, sheets, labels: context.labels, today, now });
-  const actions: Omit<ActionContext, "quotedThisTurn"> = {
-    sheets,
+  const actions = dryActionContext({
+    db,
+    organizationId,
+    agency,
+    state,
     labels: context.labels,
-    today,
-    now,
-    timeZone,
-    facts,
-    lead,
-    lines,
     newLines: context.newLines,
-    paymentReady: agency.paymentLines !== null,
-    // The seats an earlier turn would have held await their advance, as the chat's own AI booking.
-    booking: state.lead.booking === null ? null : { id: DRY_CHAT, awaitingPayment: true },
-    profileName: null,
-    quoteOf: (terms) => db.forOrg(organizationId, (tx) => quoteFor(readContext(tx), terms)),
-    conversationId: DRY_CHAT,
-    // Try it's lead has no value a person set.
-    typed: {},
-    lastInboundAt: lines.findLast((line) => line.from === "customer")?.at ?? now,
-    adPackageId: null,
-  };
+    lines,
+    now,
+    readContext,
+  });
   let guardContext = reads.context(new Map(), []);
   const io: LoopIO = {
     call: countedModel(deps.ai, { db, organizationId, now, timeZone }),

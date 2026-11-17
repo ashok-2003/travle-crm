@@ -26,7 +26,7 @@ export interface TurnLoop {
 }
 
 type FinalEnd = Extract<LoopEnd, { end: "final" }>;
-interface Refused {
+export interface Refused {
   refused: string;
   message: string;
 }
@@ -63,7 +63,7 @@ async function openDates(turn: LiveTurn, party: { packageId: string; people: num
 }
 
 /** The app check the model reads before its one more call. */
-async function refusalNote(turn: LiveTurn, staged: StagedSet, refused: Refused): Promise<string> {
+export async function refusalNote(turn: LiveTurn, staged: StagedSet, refused: Refused): Promise<string> {
   const party = partyOf(turn, staged);
   const open = party === null ? "" : ` Open: ${await openDates(turn, party)}.`;
   return `The seats couldn't be held: ${reasonWords(refused)}.${open} Nothing was sent; reply again.`;
@@ -87,6 +87,19 @@ function refusalTask(turn: LiveTurn, staged: StagedSet, refused: Refused, line: 
 }
 
 /** The fallback line, the turn's own actions kept but what reaches the customer, and the team's task. */
+export function refusedAct(turn: LiveTurn, staged: StagedSet, refused: Refused, customerText: string): TurnAct {
+  const line = fallbackLine(customerText);
+  return {
+    messages: [line],
+    staged: without(staged, CUSTOMER_FACING),
+    quoted: [],
+    handOver: null,
+    task: { kind: "question", text: refusalTask(turn, staged, refused, line, customerText) },
+    model: null,
+    fallback: `refused:${refused.refused}`,
+  };
+}
+
 function refusedFallback(
   turn: LiveTurn,
   loop: TurnLoop,
@@ -94,18 +107,8 @@ function refusedFallback(
   refused: Refused,
   customerText: string,
 ): Promise<TurnDone> {
-  const line = fallbackLine(customerText);
-  const staged = without(end.staged, CUSTOMER_FACING);
-  loop.trace.staged(staged);
-  const act: TurnAct = {
-    messages: [line],
-    staged,
-    quoted: [],
-    handOver: null,
-    task: { kind: "question", text: refusalTask(turn, end.staged, refused, line, customerText) },
-    model: null,
-    fallback: `refused:${refused.refused}`,
-  };
+  const act = refusedAct(turn, end.staged, refused, customerText);
+  loop.trace.staged(act.staged);
   return actAndSettle(turn, act);
 }
 

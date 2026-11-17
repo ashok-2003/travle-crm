@@ -54,7 +54,7 @@ function fromOf(row: StoredLine): NaturalChatLine["from"] {
 }
 
 /** An AI file as what it sent, and the payment lines and QR as one action: their words are the agency's, never the model's. */
-function actionOf(row: StoredLine, from: NaturalChatLine["from"]): string | null {
+function actionOf(row: StoredLine, from: NaturalChatLine["from"], earlierWhole: boolean): string | null {
   if (from !== "you" && from !== "earlier") return null;
   const token = row.clientToken ?? "";
   if (token.startsWith(EARLIER_PAYMENT_PREFIX) || token.endsWith(":pay") || token.endsWith(":qr")) {
@@ -62,14 +62,14 @@ function actionOf(row: StoredLine, from: NaturalChatLine["from"]): string | null
   }
   if (row.kind === "text" || row.kind === "template") return null;
   const named = [row.caption, row.fileName].map((one) => one?.trim() ?? "").find((one) => one !== "") ?? "a file";
-  // An earlier assistant's caption may hold its made-up figures, which its words never show either.
-  return `sent: ${from === "earlier" ? withoutAmountsAndDates(named) : named}`;
+  // An earlier assistant's caption may hold its made-up figures, which its words never show either, unless asked.
+  return `sent: ${from === "earlier" && !earlierWhole ? withoutAmountsAndDates(named) : named}`;
 }
 
-function lineOf(row: StoredLine): NaturalChatLine {
+function lineOf(row: StoredLine, earlierWhole: boolean): NaturalChatLine {
   const from = fromOf(row);
   const text = row.body ?? row.caption ?? "";
-  const action = actionOf(row, from);
+  const action = actionOf(row, from, earlierWhole);
   return {
     id: row.id,
     from,
@@ -85,11 +85,13 @@ function lineOf(row: StoredLine): NaturalChatLine {
 /**
  * The chat's newest 60 lines the customer could see, oldest first, reactions left out (a reaction on our message is no
  * line of its own), and for each team line a member wrote, that member's user id: identity names them after the
- * transaction.
+ * transaction. `earlierWhole` keeps an earlier assistant's file caption as it was written (the one agent reads its
+ * predecessors' figures).
  */
 export async function naturalChatLines(
   tx: OrgTx,
   conversationId: string,
+  options: { earlierWhole?: boolean } = {},
 ): Promise<{ lines: NaturalChatLine[]; senders: ReadonlyMap<string, string> }> {
   const rows = await tx.whatsappMessage.findMany({
     // A discarded message or a cancelled broadcast's recalled send never reached the customer.
@@ -98,7 +100,7 @@ export async function naturalChatLines(
     take: CHAT_READ,
     select: fields,
   });
-  const lines = rows.reverse().map(lineOf);
+  const lines = rows.reverse().map((row) => lineOf(row, options.earlierWhole === true));
   const senders = new Map(
     rows.flatMap((row) => (row.direction === "out" && row.sentBy !== null ? [[row.id, row.sentBy] as const] : [])),
   );
