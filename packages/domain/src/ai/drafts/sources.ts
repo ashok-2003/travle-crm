@@ -1,7 +1,6 @@
 // An agency's documents as numbered lines (P1.L3: piece 1, line 3): the AI cites tokens, code turns each back into the real line.
 import { PACKAGE_DRAFT_CHARACTERS, type SourceRef } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
-import { autopilotOf } from "../autopilot.js";
 import { hashOf } from "../suggest.js";
 import { redactPayment } from "./payment-details.js";
 
@@ -17,11 +16,11 @@ export interface SourceLine {
 
 export interface SourcePiece {
   key: string;
-  /** What a reviewer sees as the source: "Knowledge: Spiti", "Instructions", "Strict rules", "Trip kit: Kerala". */
+  /** What a reviewer sees as the source: "Knowledge: Spiti", "Trip kit: Kerala". */
   label: string;
   /** The knowledge piece's own title; the label for the other kinds. */
   title: string;
-  kind: "knowledge" | "instructions" | "strict_rules" | "trip_kit";
+  kind: "knowledge" | "trip_kit";
   knowledgeId: string | null;
   hasFile: boolean;
   lines: SourceLine[];
@@ -61,14 +60,12 @@ function linesOf(text: string): string[] {
 
 const byText = (first: string, second: string) => (first < second ? -1 : first > second ? 1 : 0);
 
-/** Enabled, ready knowledge, the instructions, the strict rules and the trip kits, empty ones left out, in a stable order. */
+/** Enabled, ready knowledge documents and the trip kits, empty ones left out, in a stable order. The free text an agency stored before the move (instructions, strict rules) is read by no draft. */
 export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
   const knowledge = await tx.aiKnowledge.findMany({
     where: { enabled: true, status: "ready" },
     select: { id: true, title: true, body: true, kind: true, attachmentId: true },
   });
-  const settings = await tx.aiSettings.findFirst({ select: { instructions: true } });
-  const autopilot = await autopilotOf(tx);
   const kits = await tx.tripKit.findMany({ select: { id: true, name: true, message: true, keywords: true } });
   const raws: RawPiece[] = [
     ...[...knowledge]
@@ -82,24 +79,6 @@ export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
         hasFile: row.kind === "file" || row.attachmentId !== null,
         texts: linesOf(row.body),
       })),
-    {
-      key: "instructions",
-      label: "Instructions",
-      title: "Instructions",
-      kind: "instructions",
-      knowledgeId: null,
-      hasFile: false,
-      texts: linesOf(settings?.instructions ?? ""),
-    },
-    {
-      key: "strict_rules",
-      label: "Strict rules",
-      title: "Strict rules",
-      kind: "strict_rules",
-      knowledgeId: null,
-      hasFile: false,
-      texts: linesOf(autopilot.strictRules),
-    },
     ...[...kits]
       .sort((first, second) => byText(first.name, second.name) || byText(first.id, second.id))
       .map((kit) => ({

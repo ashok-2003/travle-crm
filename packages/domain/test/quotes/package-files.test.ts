@@ -1,5 +1,5 @@
-// A package's brochures and payment QR against the real database and in-memory storage: up to five brochures (PDF or
-// pictures), one payment QR picture that a new confirmed one replaces, and files that stay with their own package.
+// A package's brochures against the real database and in-memory storage: up to five brochures (PDF or
+// pictures), and files that stay with their own package.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   confirmPackageFile,
@@ -54,7 +54,7 @@ describe("a package's files", () => {
   }
 
   /** Requests and uploads a file but leaves it unconfirmed. */
-  async function upload(packageId: string, kind: "brochure" | "payment_qr", contentType = "application/pdf") {
+  async function upload(packageId: string, kind: "brochure", contentType = "application/pdf") {
     const { attachmentId, upload: target } = await requestPackageFileUpload(dependencies, world.manager, {
       packageId,
       kind,
@@ -71,11 +71,7 @@ describe("a package's files", () => {
   }
 
   /** Requests, uploads and confirms a file, as the browser does. */
-  async function add(
-    packageId: string,
-    kind: "brochure" | "payment_qr",
-    contentType = kind === "brochure" ? "application/pdf" : "image/png",
-  ) {
+  async function add(packageId: string, kind: "brochure", contentType = "application/pdf") {
     const { attachmentId, upload } = await requestPackageFileUpload(dependencies, world.manager, {
       packageId,
       kind,
@@ -92,6 +88,11 @@ describe("a package's files", () => {
     return attachmentId;
   }
 
+  it("a package's files are its brochures and photos: no payment picture", async () => {
+    const packageId = await aPackage();
+    expect(Object.keys(await listPackageFiles(dependencies, world.manager, packageId))).toEqual(["brochures"]);
+  });
+
   it("keeps up to five brochures", async () => {
     const packageId = await aPackage();
     for (let count = 0; count < 5; count += 1)
@@ -100,56 +101,15 @@ describe("a package's files", () => {
     expect(listed.brochures).toHaveLength(5);
     expect(listed.brochures[0]).toMatchObject({ contentType: "application/pdf" });
     expect(listed.brochures[0]?.url).toEqual(expect.any(String));
-    expect(listed.paymentQr).toBeNull();
 
     const first = listed.brochures[0]?.attachmentId ?? "";
     await removePackageFile(dependencies, world.manager, { packageId, kind: "brochure", attachmentId: first });
     expect((await listPackageFiles(dependencies, world.manager, packageId)).brochures).toHaveLength(4);
   });
 
-  it("a new payment QR replaces the old one", async () => {
+  it("refuses an oversize brochure and a sixth brochure", async () => {
     const packageId = await aPackage();
-    const old = await add(packageId, "payment_qr");
-    // An unconfirmed new upload never deletes the old one.
-    await requestPackageFileUpload(dependencies, world.manager, {
-      packageId,
-      kind: "payment_qr",
-      fileName: "new.png",
-      contentType: "image/png",
-      sizeBytes: 8,
-    });
-    expect((await listPackageFiles(dependencies, world.manager, packageId)).paymentQr?.attachmentId).toBe(old);
-
-    const fresh = await add(packageId, "payment_qr", "image/webp");
-    const listed = await listPackageFiles(dependencies, world.manager, packageId);
-    expect(listed.paymentQr).toMatchObject({ attachmentId: fresh, contentType: "image/webp" });
-    expect(
-      await dependencies.files.list(world.manager, { recordType: "package_payment_qr", recordId: packageId }),
-    ).toHaveLength(1);
-  });
-
-  it("audits the payment QR coming, being replaced and going, but not a brochure", async () => {
-    const packageId = await aPackage();
-    const first = await add(packageId, "payment_qr");
-    const second = await add(packageId, "payment_qr", "image/webp");
-    await removePackageFile(dependencies, world.manager, { packageId, kind: "payment_qr", attachmentId: second });
-    await add(packageId, "brochure");
-    const entries = await world.inOrg((tx) =>
-      tx.auditEntry.findMany({
-        where: { entityId: packageId, action: "package.payment-changed" },
-        orderBy: { occurredAt: "asc" },
-      }),
-    );
-    expect(entries.map((entry) => [entry.before, entry.after])).toEqual([
-      [null, { qrAttachmentId: first }],
-      [{ qrAttachmentId: first }, { qrAttachmentId: second }],
-      [{ qrAttachmentId: second }, null],
-    ]);
-  });
-
-  it("refuses a PDF as the QR and a sixth brochure", async () => {
-    const packageId = await aPackage();
-    const request = (kind: "brochure" | "payment_qr", contentType: string, sizeBytes = 8) =>
+    const request = (kind: "brochure", contentType: string, sizeBytes = 8) =>
       reasonOf(
         requestPackageFileUpload(dependencies, world.manager, {
           packageId,
@@ -159,8 +119,6 @@ describe("a package's files", () => {
           sizeBytes,
         }),
       );
-    expect(await request("payment_qr", "application/pdf")).toBe("CONTENT_TYPE_NOT_ALLOWED");
-    expect(await request("payment_qr", "image/png", 2 * 1024 * 1024 + 1)).toBe("ATTACHMENT_TOO_BIG");
     expect(await request("brochure", "application/pdf", 10 * 1024 * 1024 + 1)).toBe("ATTACHMENT_TOO_BIG");
     for (let count = 0; count < 5; count += 1) await add(packageId, "brochure");
     expect(await request("brochure", "application/pdf")).toBe("PACKAGE_BROCHURE_LIMIT");
@@ -206,20 +164,5 @@ describe("a package's files", () => {
       kind: "brochure",
       attachmentId: pending[0] ?? "",
     });
-  });
-
-  it("shows the newest QR when two are ready, and the next confirmation leaves only the newest", async () => {
-    const packageId = await aPackage();
-    // Two ready QRs, as after a replacement whose removal failed: both confirmed straight through the files service.
-    const first = await upload(packageId, "payment_qr", "image/png");
-    const second = await upload(packageId, "payment_qr", "image/png");
-    const record = { recordType: "package_payment_qr", recordId: packageId };
-    await dependencies.files.confirmUpload(world.manager, { ...record, attachmentId: first });
-    await dependencies.files.confirmUpload(world.manager, { ...record, attachmentId: second });
-    expect((await listPackageFiles(dependencies, world.manager, packageId)).paymentQr?.attachmentId).toBe(second);
-
-    const third = await add(packageId, "payment_qr");
-    expect((await listPackageFiles(dependencies, world.manager, packageId)).paymentQr?.attachmentId).toBe(third);
-    expect(await dependencies.files.list(world.manager, record)).toHaveLength(1);
   });
 });

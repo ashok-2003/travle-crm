@@ -144,6 +144,23 @@ describe("LogScreen", () => {
     expect(recorded.queryByText(/amountPaise|2026-10-16|29500000|16\/10/)).toBeNull();
   });
 
+  it("reads the every-agency pause as the AI agent, not as raw words", async () => {
+    open(
+      page([
+        entry({
+          action: "ai-agent.paused-everyone",
+          targetType: "platform",
+          targetId: "ai-agent",
+          before: { paused: false },
+          after: { paused: true },
+        }),
+      ]),
+    );
+    const paused = await entryOf(words.actions["ai-agent"]["paused-everyone"]);
+    expect(paused.getByText(words.targets.platform)).toBeVisible();
+    expect(paused.queryByText("ai-agent")).not.toBeInTheDocument();
+  });
+
   it("names other staff only for super admins: support sees platform staff", async () => {
     open(page([entry()]), platformStaff("support"));
     const changed = await entryOf(words.actions.plan.updated);

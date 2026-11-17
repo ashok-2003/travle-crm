@@ -98,6 +98,26 @@ describe("erasing a customer who is in the sales inbox", () => {
         });
       }
     });
+    const trace = (conversationId: string) =>
+      inOrg((tx) =>
+        tx.aiTurnTrace.create({
+          data: {
+            id: randomUUID(),
+            conversationId,
+            startedAt: testNow,
+            kind: "reply",
+            outcome: "replied",
+            inputTokens: 1,
+            outputTokens: 1,
+            durationMs: 1,
+            promptVersions: {},
+            fileKey: `organizations/${organizationId}/ai-traces/2026-10-23/${randomUUID()}.json.gz`,
+            expiresAt: new Date("2100-01-01T00:00:00Z"), // far off: no other file's sweep may take it first
+          },
+        }),
+      );
+    await trace(mine.id);
+    const otherTrace = await trace(other.id);
     await inOrg(async (tx) => {
       const template = await tx.whatsappTemplate.create({
         data: {
@@ -133,9 +153,13 @@ describe("erasing a customer who is in the sales inbox", () => {
       ),
     );
 
-    await platformDb.transaction((tx) =>
+    const erased = await platformDb.transaction((tx) =>
       eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
     );
+    expect(erased).toMatchObject({ aiTraces: 1 });
+    expect(
+      (await inOrg((tx) => tx.aiTurnTrace.findUniqueOrThrow({ where: { id: otherTrace.id } }))).expiresAt.getTime(),
+    ).toBeGreaterThan(testNow.getTime());
 
     const kept = (chatId: string) =>
       inOrg(async (tx) => ({

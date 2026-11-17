@@ -9,6 +9,8 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
+  advanceLeadStage,
+  recordLeadEvent,
   editLeadPerson,
   editLeadTrip,
   listLeadTimeline,
@@ -18,6 +20,7 @@ import {
 } from "../../src/crm/index.js";
 import { changeLeadOwner, changeLeadStage } from "../../src/crm/lead-core.js";
 import type { MemberAccess } from "../../src/identity/index.js";
+import { systemActor } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { backendPid, waitUntilBlockedBy } from "../lock-waits.js";
 import { aLead, aPerson, aTask, freshPhone, type LeadSeed } from "./support/records.js";
@@ -299,5 +302,28 @@ describe("changes from a lead's page", () => {
     expect(await eventsOf("personId", lead.personId)).toEqual([["person.edited", { personId: lead.personId }]]);
     await edit({ name: "Rahul K. Sharma", phone: freed, instagramHandle: "rahul.k" });
     expect(await auditOf(lead.personId)).toHaveLength(1);
+  });
+
+  it("reads the AI's field lines and stage moves back as the timeline's entries", async () => {
+    const lead = await newLead();
+    const actor = systemActor(organizationId);
+    await inOrg(async (tx) => {
+      await recordLeadEvent(tx, actor, {
+        leadId: lead.id,
+        kind: "ai-field-set",
+        byAi: true,
+        aiField: { field: "when", from: "Sat 14 Nov", to: "Sat 21 Nov" },
+      });
+      await advanceLeadStage(tx, actor, { leadId: lead.id, stage: "contacted", byAi: true }, new Date());
+    });
+    const { entries } = await inOrg((tx) => listLeadTimeline(tx, manager, { leadId: lead.id, limit: 10 }));
+    expect(entries).toMatchObject([
+      { kind: "stage-changed", stage: "contacted", byAi: true },
+      { kind: "ai-field-set", field: "when", from: "Sat 14 Nov", to: "Sat 21 Nov", actorUserId: null },
+    ]);
+    await move(lead.id, "quote_sent");
+    expect((await inOrg((tx) => listLeadTimeline(tx, manager, { leadId: lead.id, limit: 1 }))).entries).toMatchObject([
+      { kind: "stage-changed", stage: "quote_sent", byAi: false },
+    ]);
   });
 });

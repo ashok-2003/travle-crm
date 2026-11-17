@@ -25,7 +25,7 @@ import { useHolds, useMe } from "@/session/me-context";
 import { isOnPlan } from "@/shell/navigation";
 import { useSubscription } from "@/subscription/use-subscription";
 import { useWriteAccess } from "@/subscription/write-access";
-import { useLeadBookings, useSetBookingStatus } from "./use-ai-media";
+import { useLeadBookings, useSetBookingStatus } from "./use-ai-bookings";
 
 const statusTone: Record<AiBooking["status"], StatusTone> = {
   awaiting_payment: "attention",

@@ -9,7 +9,6 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
-import { skipAccessibilityCheck } from "./support/accessible-after-each";
 import { expect, signInToConsole, test } from "./support/console";
 import { saveBusinessProfile } from "./support/documents";
 import { signInByEmail } from "./support/fixtures";
@@ -30,7 +29,7 @@ async function shoot(page: Page, testInfo: TestInfo, name: string): Promise<void
 }
 
 const turnOnAi = (page: Page, writeStyle: "warm" | "premium" | "short" = "warm") =>
-  callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle, instructions: "" });
+  callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle });
 
 /** What the fake AI was sent by the feature whose rules start with `marker`. */
 async function requestsOf(marker: string): Promise<string[]> {
@@ -160,13 +159,9 @@ test("a quote is written up for the customer in Hindi and English, and goes to t
 });
 
 test("the write-up's style is chosen once in Settings, AI", async ({ page, agency }) => {
-  // The autopilot and voice sections of this screen (not this change) have select buttons with no name, which axe reports.
-  skipAccessibilityCheck(
-    "Settings, AI: the autopilot's select buttons have no accessible name (not part of the write-up)",
-  );
   await signInByEmail(page, agency.owner);
   await page.goto("/settings/ai");
-  await expect(page.getByRole("heading", { level: 1, name: "AI sales agent" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "AI", exact: true })).toBeVisible();
   await page.getByRole("radio", { name: "Short and to the point" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("AI settings saved")).toBeVisible();

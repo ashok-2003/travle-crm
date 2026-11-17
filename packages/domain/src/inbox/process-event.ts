@@ -38,6 +38,13 @@ async function handleEvent(
   }
   switch (event.type) {
     case "inbound":
+      // A content type we don't read shows as "unsupported" in the chat: its name (never its words) says what to add.
+      if (event.unknownType !== undefined) {
+        dependencies.logger.warn(
+          { event: "whatsapp.unknown-type", organizationId, contentType: event.unknownType },
+          "A WhatsApp message of a type we don't read",
+        );
+      }
       await receiveInbound(dependencies, organizationId, connection, event, now);
       return;
     case "echo":

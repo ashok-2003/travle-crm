@@ -23,7 +23,7 @@ export function PackageDeparturesCard({ detail }: { detail: PackageDetail }) {
   const mayCreate = useHolds("departures:create");
   const list = useDepartureList("upcoming", true, detail.id);
   return (
-    <SectionCard title={t("title")}>
+    <SectionCard title={t("title")} anchor="package-departures">
       <p className="text-muted-foreground">{t("intro")}</p>
       {list.data === undefined ? (
         list.isError ? (

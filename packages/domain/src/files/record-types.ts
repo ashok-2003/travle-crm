@@ -2,6 +2,7 @@
 // documents, import reports and exports are the system's alone; and the bulk files are short-lived, so the platform's
 // sweep and erasure delete them for good.
 import {
+  AGENCY_PAYMENT_QR_RECORD_TYPE,
   AI_KNOWLEDGE_RECORD_TYPE,
   AI_INPUT_RECORD_TYPE,
   AI_MEDIA_RECORD_TYPE,
@@ -73,7 +74,9 @@ export function allowedContentTypes(recordType: string): readonly string[] {
   if (recordType === PACKAGE_PHOTO_RECORD_TYPE) return packagePhotoContentTypes;
   // A brochure is a PDF or a picture; the payment QR is a picture only.
   if (recordType === PACKAGE_BROCHURE_RECORD_TYPE) return packageBrochureContentTypes;
-  if (recordType === PACKAGE_PAYMENT_QR_RECORD_TYPE) return packagePaymentQrContentTypes;
+  if (recordType === PACKAGE_PAYMENT_QR_RECORD_TYPE || recordType === AGENCY_PAYMENT_QR_RECORD_TYPE) {
+    return packagePaymentQrContentTypes;
+  }
   // A trip's details are sent on WhatsApp, so they take what a WhatsApp message does (videos and voice notes too).
   if (recordType === WHATSAPP_RECORD_TYPE || recordType === TRIP_KIT_RECORD_TYPE) return whatsappContentTypes;
   return spreadsheetRecordTypes.includes(recordType) ? spreadsheetContentTypes : attachmentContentTypes;

@@ -50,7 +50,7 @@ import {
   removeLead,
   reopenLead,
 } from "@travel-crm/domain/crm";
-import { leadSaved, recordFillApplied, tripSaved } from "@travel-crm/domain/ai";
+import { aiFilledLeadIds, leadSaved, recordFillApplied, tripSaved } from "@travel-crm/domain/ai";
 import { listQuickReplies } from "@travel-crm/domain/inbox";
 import { previewMessage, readyMessage } from "@travel-crm/domain/sales";
 import { z } from "zod";
@@ -71,13 +71,23 @@ export const leadsRouter = router({
     .output(leadListPage)
     .query(async ({ ctx, input }) => {
       const { organizationId } = ctx.member;
-      const page = await ctx.db.forOrg(organizationId, (tx) => listLeads(tx, ctx.member, input));
+      // The AI module sits above crm, so the router joins the two: which leads hold values the AI wrote.
+      const { page, filled } = await ctx.db.forOrg(organizationId, async (tx) => {
+        const found = await listLeads(tx, ctx.member, input);
+        return {
+          page: found,
+          filled: await aiFilledLeadIds(
+            tx,
+            found.items.map((item) => item.id),
+          ),
+        };
+      });
       const people = await memberNames(
         ctx.identity,
         organizationId,
         page.items.map((item) => item.ownerUserId),
       );
-      return { ...page, people };
+      return { ...page, items: page.items.map((item) => ({ ...item, aiFilled: filled.has(item.id) })), people };
     }),
 
   /** Open leads by stage, for the quick filters. */

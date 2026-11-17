@@ -16,6 +16,7 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
+import { AiFilledMark } from "@/ai/ai-filled-mark";
 import { useMe } from "@/session/me-context";
 import { NextStep } from "../next-step";
 import { StageBadge } from "../stage-badge";
@@ -38,6 +39,7 @@ export function LeadRows({ leads, filters }: { leads: LeadListItem[]; filters: L
                 <ItemHeader className="items-start">
                   <ItemTitle className="flex-wrap">
                     <span className="script-leading">{lead.person.name}</span>
+                    {lead.aiFilled && <AiFilledMark />}
                     {lead.returning && <ReturningBadge />}
                   </ItemTitle>
                   <StageBadge stage={lead.stage} />

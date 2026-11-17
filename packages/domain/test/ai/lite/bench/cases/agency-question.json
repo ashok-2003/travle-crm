@@ -1,0 +1,42 @@
+{
+  "name": "cancellation question",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "what is your cancellation policy?"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "agency_question",
+            "proof": "cancellation policy"
+          }
+        ],
+        "language": "english",
+        "lookups": [
+          {
+            "tool": "agency_answer",
+            "words": null,
+            "package": null,
+            "month": null,
+            "topic": "cancellation"
+          }
+        ]
+      }
+    },
+    {
+      "write": {
+        "text": "Here is our policy: [answer]",
+        "cannot_answer": false
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "move": "answer_agency",
+    "includes": ["Cancel 15 days before departure for a 50% refund."]
+  }
+}

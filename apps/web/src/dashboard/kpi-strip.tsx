@@ -25,7 +25,7 @@ export function FigureCell({
   label: string;
   index: number;
   count: number;
-  /** The next figure takes a row of its own on a phone: no hairline beside this one there. */
+  /** On a phone this figure ends its row (the next takes a row of its own, or the strip wraps here): no hairline beside it there. */
   wideNext?: boolean;
 }) {
   const wide = figure.wide === true;

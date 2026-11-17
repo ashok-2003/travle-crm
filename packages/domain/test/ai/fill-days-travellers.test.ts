@@ -30,14 +30,12 @@ describe("draft the days and read the travellers", () => {
     const organizationId = await anAgency(test, "Sharma Holidays");
     const owner = memberOf(organizationId, "org-owner");
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
-    await inOrg((tx) =>
-      saveAiSettings(
-        tx,
-        owner,
-        { enabled: true, scoring: true, instructions: "Always mention the tea." },
-        { providerReady: true, now: NOW },
-      ),
-    );
+    await inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: NOW }));
+    // Free text an agency typed before the move is stored but sent to no prompt.
+    await inOrg(async (tx) => {
+      await tx.aiSettings.updateMany({ data: { instructions: "Always mention the tea." } });
+      await tx.aiKnowledge.create({ data: { title: "Tea", body: "KNOWLEDGE_BODY_ABOUT_TEA" } });
+    });
     const model = createMemoryAiModel();
     const dependencies = { db: test.db, model, files: test.files };
     const calls = async () => (await inOrg((tx) => tx.aiUsage.findFirst()))?.calls ?? 0;
@@ -136,7 +134,8 @@ describe("draft the days and read the travellers", () => {
       expect(prompt).toContain("Food: jain");
       expect(prompt).toContain("Day 1: Arrive in Manali");
       expect(prompt).toContain("relaxed, no long drives");
-      expect(prompt).toContain("Always mention the tea.");
+      expect(prompt).not.toContain("Always mention the tea.");
+      expect(prompt).not.toContain("KNOWLEDGE_BODY_ABOUT_TEA");
       // The package's text is trimmed, and the budget is a tone, never an amount.
       expect(prompt).not.toContain("Snow activities. ".repeat(60));
       expect(prompt).toContain("budget in mind");
@@ -191,7 +190,7 @@ describe("draft the days and read the travellers", () => {
       expect(await reasonOf(draft(a, quoteId, "a 30 day trek"))).toBe("DRAFT_TOO_LONG");
       expect(a.model.requests).toHaveLength(0);
       expect(await a.calls()).toBe(0);
-      a.model.answer(six().replace("Depart", "Depart"));
+      a.model.answer(six());
       const proposal = await draft(a, quoteId, "6 days, relaxed");
       expect((proposal.fields[0]?.value as unknown[]).length).toBe(6);
     });

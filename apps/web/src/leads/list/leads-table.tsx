@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDay, formatPhoneNumber } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { NextStep } from "../next-step";
+import { AiFilledMark } from "@/ai/ai-filled-mark";
 import { OwnerBadge } from "../owner-badge";
 import { StageBadge } from "../stage-badge";
 import { useTripLine } from "../trip-line";
@@ -87,6 +88,7 @@ export function LeadsTable({
                   <TextLink inline href={leadHref(lead.id, filters)}>
                     <span className="script-leading">{lead.person.name}</span>
                   </TextLink>
+                  {lead.aiFilled && <AiFilledMark />}
                   {lead.returning && <ReturningBadge />}
                 </div>
                 {lead.person.phone && (

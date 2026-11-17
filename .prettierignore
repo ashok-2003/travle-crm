@@ -11,3 +11,5 @@ apps/web/test-results/
 apps/web/playwright-report/
 # Screenshots a builder takes for a review (shots/): not part of the code.
 shots/
+# Rendered prompts kept as snapshots: exact bytes, not formatted.
+packages/domain/test/ai/lite/surfaces/

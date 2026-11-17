@@ -5,10 +5,11 @@
 // cancelled, a repeat enquiry (its trip, source and note) and a trip edit; then who did it and when, in the agency's
 // zone. Nobody is "The system"; a name the page didn't carry is a former member's. A stage change carries its stage's
 // dot and a finished follow-up or task status green's (DESIGN.md "Stage Colours", "Green Is Done"); nothing else is
-// coloured.
+// coloured. What the AI did (its notes, stage moves and field changes) carries the violet AI chip before its title.
 import type { PeopleNames, TimelineEntry } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { AiChip } from "@/ai/ai-chip";
 import { StatusDot, type StatusTone } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -102,6 +103,15 @@ export function TimelineEntryItem({
           title: t("lead.timeline.moved", { stage: t(`stages.${entry.stage}`) }),
           mark: <StageDot stage={entry.stage} className={inline} />,
         };
+      case "ai-field-set": {
+        const field = t(`lead.timeline.aiFields.${entry.field}`);
+        return {
+          title:
+            entry.from === null
+              ? t("lead.timeline.aiSet", { field, to: entry.to })
+              : t("lead.timeline.aiChanged", { field, from: entry.from, to: entry.to }),
+        };
+      }
       case "reassigned":
         return {
           title:
@@ -158,8 +168,9 @@ export function TimelineEntryItem({
   };
 
   const { title, detail, mark, actions } = describe();
-  const ai = entry.kind === "note" && entry.byAi;
-  const actor = ai
+  const ai = (entry.kind === "note" || entry.kind === "stage-changed") && entry.byAi;
+  const aiActor = ai || entry.kind === "ai-field-set";
+  const actor = aiActor
     ? t("lead.timeline.ai")
     : entry.actorUserId === null
       ? t("lead.timeline.system")
@@ -170,6 +181,7 @@ export function TimelineEntryItem({
         <ItemTitle>
           <h3>
             {mark}
+            {aiActor && <AiChip />}
             {title}
           </h3>
         </ItemTitle>

@@ -13,7 +13,7 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import { searchDestinations } from "../../catalog/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
-import { fenced } from "../agent-prompt.js";
+import { fenced } from "../fenced.js";
 import { jsonObjectIn } from "../fill/json.js";
 import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";

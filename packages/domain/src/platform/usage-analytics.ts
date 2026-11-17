@@ -5,16 +5,14 @@
 // sees every organization, so each query names the organization it counts.
 import type { OrganizationUsage, UsageOverview } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
-import type { AiPrices, PlatformServices } from "./services.js";
+import { tokenCostPaise, type AiPrices, type PlatformServices } from "./services.js";
 
 const DAY_MS = 86_400_000;
 
 /** This month's cost so far, and at this pace by the month's end (UTC months). */
 function aiCost(prices: AiPrices | null, tokens: { input: number; output: number }, now: Date) {
   if (prices === null) return { costPaise: 0, projectedPaise: 0 };
-  const costPaise = Math.round(
-    (tokens.input * prices.inputPaisePerMillion + tokens.output * prices.outputPaisePerMillion) / 1_000_000,
-  );
+  const costPaise = tokenCostPaise(prices, tokens);
   const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
   const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
   const elapsedDays = Math.max(1, (now.getTime() - monthStart) / DAY_MS);

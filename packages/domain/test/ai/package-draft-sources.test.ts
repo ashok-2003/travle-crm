@@ -41,23 +41,23 @@ describe("package draft sources", () => {
       });
       return packageSources(tx);
     });
+    // The instructions and strict rules an agency stored before the move are no source: nobody can change them now.
     expect(pieces.map((p) => [p.label, p.kind])).toEqual([
       ["Knowledge: Spiti brochure", "knowledge"],
-      ["Instructions", "instructions"],
-      ["Strict rules", "strict_rules"],
       ["Trip kit: Kerala", "trip_kit"],
     ]);
-    const [knowledge, instructions, rules, kit] = pieces;
+    expect(JSON.stringify(pieces)).not.toMatch(/Always quote in rupees|Never give discounts/);
+    const [knowledge, kit] = pieces;
     expect(knowledge?.lines.slice(0, 2)).toEqual([
       { token: "P1.L1", text: "Day 1 Shimla" },
       { token: "P1.L2", text: "Day 2 Kalpa" },
     ]);
     expect(knowledge?.lines.map((l) => l.token)).toEqual(["P1.L1", "P1.L2", "P1.L3", "P1.L4", "P1.L5"]);
     expect(knowledge?.lines.map((l) => l.text.length)).toEqual([12, 11, 400, 400, 100]);
-    expect(instructions?.lines).toEqual([{ token: "P2.L1", text: "Always quote in rupees" }]);
-    expect(rules?.lines).toEqual([{ token: "P3.L1", text: "Never give discounts" }]);
     expect(kit?.lines.map((l) => l.text)).toEqual(["Kerala 5N", "Houseboat", "Keywords: kerala, alleppey"]);
-    expect(linesAsText(pieces.slice(1, 2))).toBe("Instructions\n[P2.L1] Always quote in rupees");
+    expect(linesAsText(pieces.slice(1, 2))).toBe(
+      "Trip kit: Kerala\n[P2.L1] Kerala 5N\n[P2.L2] Houseboat\n[P2.L3] Keywords: kerala, alleppey",
+    );
   });
 
   it("leaves out empty and turned-off pieces", async () => {

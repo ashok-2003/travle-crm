@@ -24,6 +24,9 @@ const words = messages.business.profile;
 function ChecklistProbe() {
   const trpc = useTRPC();
   useQuery(trpc.organization.setup.get.queryOptions());
+  // The AI agent's Setup tab holds the same bank details and its checklist follows the profile.
+  useQuery(trpc.organization.paymentDetails.get.queryOptions());
+  useQuery(trpc.ai.agentSetup.queryOptions());
   return null;
 }
 
@@ -72,6 +75,8 @@ describe("ProfileScreen", () => {
       "organization.profile.get": { data: saved },
       "subscription.get": subscription("full"),
       "organization.setup.get": { data: { steps: [], done: false } },
+      "organization.paymentDetails.get": { data: null },
+      "ai.agentSetup": { data: null },
     });
     renderWithApi(
       <>
@@ -112,6 +117,10 @@ describe("ProfileScreen", () => {
     expect(screen.queryByDisplayValue(/001234567890|0012 3456 7890/)).toBeNull();
     await waitFor(() => {
       expect(api.calls.filter((path) => path === "organization.setup.get")).toHaveLength(2);
+    });
+    await waitFor(() => {
+      expect(api.calls.filter((path) => path === "organization.paymentDetails.get")).toHaveLength(2);
+      expect(api.calls.filter((path) => path === "ai.agentSetup")).toHaveLength(2);
     });
   });
 

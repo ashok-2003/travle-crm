@@ -2,22 +2,28 @@
 // do next, worked out from the chat and what we know of the lead. Only for an agency with the AI on, whose plan has it and
 // whose subscription isn't suspended or cancelled; it spends one of the agency's monthly AI calls; it runs once for a burst
 // of the customer's messages (the newest one's turn, a few seconds after it), never again for the same one, at most once in
-// ten minutes for one lead (later lines wait and are read then), and not for an "ok" or a "thanks" once it has a guess;
-// and it never changes a lead's stage or anything but its own row. Erased with the customer.
-import { aiScoreJob, leadInsight, scoreAnswer, type LeadInsight } from "@travel-crm/contracts/ai";
+// ten minutes for one lead (later lines wait and are read then), not for an "ok" or a "thanks" once it has a guess, nor
+// for a chat the lite agent answers (its turn scores it); and it never changes a lead's stage or anything but its own
+// row. A chat whose lite turn is still under way is scored again two minutes later, unless that turn scored it. Erased
+// with the customer.
+import { aiScoreJob, liteFacts, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiMessage, AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import { openLeadOfChat } from "../crm/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { calendarDateIn } from "../kernel/index.js";
 import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
-import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
+import { defineListener, uuidFromKey, type EventListener, type JobHandler } from "../jobs/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
-import { knowledgeWords } from "./knowledge.js";
+import { autopilotOf } from "./autopilot.js";
+import { tripsOnOffer } from "./trips-on-offer.js";
+import { agentAnswers } from "./may-write.js";
+import { turnUnderWay } from "./turn-under-way.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
 import { aiEnabled, aiFillLeadsOn, aiScoringOn } from "./settings.js";
 import { releaseAiCall, reserveAiCall } from "./usage.js";
@@ -27,6 +33,8 @@ export const AI_SCORE_QUEUE = "ai.score";
 export const SCORE_SETTLE_MS = 20_000;
 /** The least time between two scorings of one lead: a busy chat is scored again only once this has passed. */
 export const SCORE_REST_MS = 10 * 60_000;
+/** How long a scoring waits for a lite turn under way to end, so a turn that writes no score still leaves one. */
+export const SCORE_LATER_MS = 2 * 60_000;
 const CHAT_MESSAGES = 20;
 
 /**
@@ -66,6 +74,30 @@ async function nothingNewSince(tx: OrgTx, conversationId: string, leadId: string
 }
 
 /**
+ * C4: the lite agent scores the chats it answers in its own turn, from the same model call. Its turn waiting or running
+ * postpones the scoring (`turn_under_way`: the job runs again a little later, `later`); a turn that scored the lead after
+ * the customer's newest line leaves it nothing to add, and saves the call (`agent_scores`). A turn may end without a
+ * score (the setup not ready, a hand-over before the model), so a later run scores it then. A chat the agent doesn't
+ * answer (handed over, switched off in the chat, the owner's switch off) is scored here as before.
+ */
+async function agentScores(
+  tx: OrgTx,
+  input: { conversationId: string; leadId: string; newestAt: Date; now: Date; later: boolean },
+): Promise<"turn_under_way" | "agent_scores" | null> {
+  const settings = await autopilotOf(tx);
+  if (!settings.autopilot) return null;
+  const chat = await tx.aiChat.findFirst({
+    where: { conversationId: input.conversationId },
+    select: { mode: true, handedOffAt: true, turnState: true, turnAt: true },
+  });
+  if (!agentAnswers(chat?.mode ?? "default", settings.autopilot) || chat?.handedOffAt != null) return null;
+  // A mark the worker left behind (it stopped mid-way) waits for no turn; a later run waits for none either.
+  if (!input.later && turnUnderWay(chat, input.now) !== null) return "turn_under_way";
+  const insight = await tx.leadAiInsight.findFirst({ where: { leadId: input.leadId }, select: { updatedAt: true } });
+  return insight !== null && insight.updatedAt > input.newestAt ? "agent_scores" : null;
+}
+
+/**
  * When the lead this chat is about was last scored, or null: never, or no lead yet (a first message's lead may be made
  * after this is asked, so the job still goes, and finds it).
  */
@@ -87,6 +119,8 @@ export interface ScoreDependencies {
   ai: AiModel;
   subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
   logger: Logger;
+  /** Where a scoring waiting for a lite turn is queued again; without one it ends, as the turn may score the lead. */
+  queue?: JobQueue;
 }
 
 /** A customer wrote: for an agency with the AI on, the lead's scoring is queued for the end of the burst, once per message. */
@@ -141,7 +175,17 @@ export function scoreHandler(dependencies: ScoreDependencies): JobHandler {
     concurrency: 5,
     handle: async (data) => {
       const job = aiScoreJob.parse(data);
-      const outcome = await scoreLead(dependencies, job, new Date());
+      const now = new Date();
+      const outcome = await scoreLead(dependencies, job, now);
+      // Once per message (its own id), and never from a run that was already the later one.
+      if (outcome === "turn_under_way" && job.later !== true && dependencies.queue !== undefined) {
+        const { organizationId, conversationId, messageId } = job;
+        await dependencies.queue.send(
+          AI_SCORE_QUEUE,
+          { organizationId, conversationId, messageId, later: true },
+          { startAfter: new Date(now.getTime() + SCORE_LATER_MS), id: uuidFromKey(`ai.score-later:${messageId}`) },
+        );
+      }
       dependencies.logger.info({ queue: AI_SCORE_QUEUE, outcome }, "The AI's lead scoring");
     },
   };
@@ -152,7 +196,7 @@ const TRIP_KEYS = `"trip": {"destination": the place, "dateFrom": first day as s
 const promptOf = (facts: {
   wantTrip: boolean;
   lead: readonly string[];
-  knowledge: readonly { title: string; body: string }[];
+  trips: readonly string[];
   chat: readonly { fromCustomer: boolean; text: string }[];
 }): AiMessage[] => {
   const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "›");
@@ -167,9 +211,7 @@ Use only what the chat and the facts say; leave a fact null when it isn't there.
       role: "user",
       content: [
         facts.lead.length === 0 ? "" : `What is known of the lead:\n<data>${fenced(facts.lead.join("\n"))}</data>`,
-        facts.knowledge.length === 0
-          ? ""
-          : `What the agency offers:\n<data>${fenced(facts.knowledge.map((piece) => `## ${piece.title}\n${piece.body}`).join("\n\n"))}</data>`,
+        facts.trips.length === 0 ? "" : `The trips the agency sells:\n<data>${fenced(facts.trips.join("\n"))}</data>`,
         `The chat, oldest first:\n<data>${fenced(
           facts.chat
             .map((line) => `${line.fromCustomer ? "Customer" : "Agency"}: ${line.text.slice(0, 500)}`)
@@ -194,7 +236,7 @@ interface Prepared {
 
 async function prepare(
   tx: OrgTx,
-  job: { organizationId: string; conversationId: string; messageId: string },
+  job: { organizationId: string; conversationId: string; messageId: string; later?: boolean | undefined },
   now: Date,
 ): Promise<Prepared | string> {
   if (!(await aiEnabled(tx))) return "off";
@@ -204,7 +246,7 @@ async function prepare(
   const newest = await tx.whatsappMessage.findFirst({
     where: { conversationId: job.conversationId, direction: "in" },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    select: { id: true },
+    select: { id: true, occurredAt: true },
   });
   if (newest?.id !== job.messageId) return "later_message";
   const chat = await tx.whatsappConversation.findUnique({
@@ -228,6 +270,16 @@ async function prepare(
     },
   });
   if (lead === null) return "no_lead";
+  // Before any call is reserved: the lite agent's own turn scores (and fills) the chats it answers.
+  const agentTurn = {
+    conversationId: job.conversationId,
+    leadId: lead.id,
+    newestAt: newest.occurredAt,
+    now,
+    later: job.later === true,
+  };
+  const agent = await agentScores(tx, agentTurn);
+  if (agent !== null) return agent;
   // Filling in only reads a lead's first customer messages, only while it is still missing something, and never otherwise.
   const firstMessages = await tx.whatsappMessage.findMany({
     where: { conversationId: job.conversationId, direction: "in" },
@@ -251,7 +303,7 @@ async function prepare(
     take: CHAT_MESSAGES,
     select: { direction: true, body: true, caption: true },
   });
-  const knowledge = await knowledgeWords(tx);
+  const trips = await tripsOnOffer(tx, calendarDateIn(now, timeZone));
   return {
     leadId: lead.id,
     timeZone,
@@ -268,7 +320,7 @@ async function prepare(
         lead.childrenAges.length === 0 ? "" : `Children: ${String(lead.childrenAges.length)}`,
         lead.departureCity === null ? "" : `Leaving from: ${lead.departureCity}`,
       ].filter((line) => line !== ""),
-      knowledge,
+      trips,
       chat: rows
         .reverse()
         .map((row) => ({ fromCustomer: row.direction === "in", text: row.body ?? row.caption ?? "" })),
@@ -276,10 +328,37 @@ async function prepare(
   };
 }
 
+/** What the lead page reads as the AI's guess: one row per lead, written by the scoring job and by the lite agent's turn. */
+export interface LeadInsightRow {
+  score: number;
+  label: "hot" | "warm" | "cold";
+  reasons: string[];
+  fake: boolean;
+  fakeReason: string | null;
+  summary: string;
+  nextStep: string;
+  facts: ScoreAnswer["facts"];
+  model: string;
+}
+
+/** Writes the lead's guess, replacing the last one. */
+export async function saveLeadInsight(
+  tx: OrgTx,
+  organizationId: string,
+  leadId: string,
+  insight: LeadInsightRow,
+): Promise<void> {
+  await tx.leadAiInsight.upsert({
+    where: { organizationId_leadId: { organizationId, leadId } },
+    create: { leadId, ...insight },
+    update: insight,
+  });
+}
+
 /** Scores one lead from its chat now, or says why not. Three short transactions around the model's answer. */
 export async function scoreLead(
   { db, ai, subscriptions }: Pick<ScoreDependencies, "db" | "ai" | "subscriptions">,
-  job: { organizationId: string; conversationId: string; messageId: string },
+  job: { organizationId: string; conversationId: string; messageId: string; later?: boolean | undefined },
   now: Date,
 ): Promise<string> {
   const { organizationId } = job;
@@ -299,7 +378,7 @@ export async function scoreLead(
     await db.forOrg(organizationId, (tx) => releaseAiCall(tx, now, prepared.timeZone));
     return "no_answer";
   }
-  const insight = {
+  const insight: LeadInsightRow = {
     score: parsed.score,
     label: parsed.label,
     reasons: parsed.reasons,
@@ -312,13 +391,7 @@ export async function scoreLead(
   };
   // The insight's own row is written, and the lead's empty fields filled in as suggestions; a guess never moves a lead's stage.
   const filled = await db.forOrg(organizationId, async (tx) => {
-    if (prepared.scoring) {
-      await tx.leadAiInsight.upsert({
-        where: { organizationId_leadId: { organizationId, leadId: prepared.leadId } },
-        create: { leadId: prepared.leadId, ...insight },
-        update: insight,
-      });
-    }
+    if (prepared.scoring) await saveLeadInsight(tx, organizationId, prepared.leadId, insight);
     if (prepared.fill === null || parsed.trip == null) return 0;
     const fields = await fillLeadFromChat(tx, {
       organizationId,
@@ -344,18 +417,36 @@ function safeParse(text: string) {
   }
 }
 
+/**
+ * The lite agent's notes from the chat the lead's person wrote in last (a person may have more than one number), on the
+ * lead they are about: the one the chat's facts were settled for, or the person's open lead. A returning customer's
+ * older trip never shows notes about the next one.
+ */
+async function chatSummaryOf(tx: OrgTx, leadId: string): Promise<string | null> {
+  const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { personId: true } });
+  if (lead === null) return null;
+  const chat = await tx.whatsappConversation.findFirst({
+    where: { personId: lead.personId },
+    orderBy: [{ lastInboundAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+    select: { id: true },
+  });
+  if (chat === null) return null;
+  const state = await tx.aiChat.findFirst({
+    where: { conversationId: chat.id },
+    select: { summary: true, facts: true },
+  });
+  if (state === null || state.summary === "") return null;
+  const facts = liteFacts.safeParse(state.facts);
+  if (facts.success && facts.data.leadId === leadId) return state.summary;
+  return (await openLeadOfChat(tx, lead.personId))?.id === leadId ? state.summary : null;
+}
+
 /** The AI's guess for a lead, if there is one. */
 export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsight | null> {
   const row = await tx.leadAiInsight.findFirst({ where: { leadId } });
   if (row === null) return null;
-  const facts = leadInsight.shape.facts.parse({
-    destination: null,
-    when: null,
-    travellers: null,
-    budget: null,
-    ...(row.facts as object),
-  });
   const label = row.label === "hot" || row.label === "cold" ? row.label : "warm";
+  const chatSummary = await chatSummaryOf(tx, leadId);
   return {
     score: row.score,
     label,
@@ -364,7 +455,7 @@ export async function leadInsightOf(tx: OrgTx, leadId: string): Promise<LeadInsi
     fakeReason: row.fakeReason,
     summary: row.summary,
     nextStep: row.nextStep,
-    facts,
+    chatSummary,
     updatedAt: row.updatedAt.toISOString(),
   };
 }

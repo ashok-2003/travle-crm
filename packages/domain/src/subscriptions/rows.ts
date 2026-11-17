@@ -71,6 +71,7 @@ export interface StoredSubscription {
   manualSuspensionAt: Date | null;
   manualSuspensionBy: string | null;
   manualSuspensionReason: string | null;
+  aiAgentPausedAt: Date | null;
   plan: PlanRow;
 }
 

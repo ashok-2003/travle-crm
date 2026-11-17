@@ -21,23 +21,27 @@ export {
   savePackage,
 } from "./packages.js";
 export {
-  departurePriceColumn,
   getPackage,
-  packageSellGaps,
   publishGaps,
   removeTier,
   saveTier,
-  sellablePackages,
-  setPackagePaymentDetails,
   setPackagePublished,
   setPackageSellable,
   tiersOf,
   updatePackage,
 } from "./package-edit.js";
-export { exTaxSubtotal, fromPrices, priceOn, totalFor, type SeasonPrices } from "./room-prices.js";
+export { exTaxSubtotal, fromPrices, onlyRoomType, priceOn, totalFor, type SeasonPrices } from "./room-prices.js";
 export { attachDraftBrochure, createGroupPackage } from "./group-package-create.js";
 export { findPackage } from "./package-row.js";
-export { removePackageSeason, savePackageSeason, seasonsOf } from "./package-seasons.js";
+export { removePackageSeason, savePackageSeason, seasonsByPackage, seasonsOf } from "./package-seasons.js";
+export {
+  departurePriceColumn,
+  packageSellGaps,
+  packagesAwaitingPayment,
+  packagesOnOffer,
+  sellablePackage,
+  sellablePackages,
+} from "./package-sell-gaps.js";
 export {
   confirmPackagePhoto,
   listPackagePhotos,
@@ -49,6 +53,7 @@ export {
 export {
   confirmPackageFile,
   listPackageFiles,
+  packageFilesByPackage,
   packageFilesIn,
   removePackageFile,
   requestPackageFileUpload,

@@ -6,6 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import type { ParsedMessage } from "@travel-crm/integrations/whatsapp";
 import { agencyFactsOf, mayBringIn, receiveWhatsAppContact, type WhatsAppContactOutcome } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
+import { noteAdOf } from "./ads.js";
 import { automationCouldAct, CUSTOMER_WROTE_EVENT, TEXT_RECEIVED_EVENT } from "./automation.js";
 import { systemActor } from "../kernel/index.js";
 import type { ConnectionRow } from "./connection-row.js";
@@ -99,6 +100,8 @@ export async function receiveInbound(
     if (row === undefined) return { repeat: true, copy: null };
 
     const writing = message.kind !== "reaction";
+    // The ad is noted now: the raw webhook that carried it is blanked after 7 days.
+    if (writing && message.referral !== null) await noteAdOf(tx, conversation.id, message.referral, now);
     let personId = conversation.personId;
     let hidden = conversation.hidden;
     if (facts !== null && writing) {

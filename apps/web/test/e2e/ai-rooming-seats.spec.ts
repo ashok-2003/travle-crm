@@ -29,8 +29,7 @@ async function shoot(page: Page, testInfo: TestInfo, name: string, folder = shot
   if (before !== null) await page.setViewportSize(before);
 }
 
-const turnOnAi = (page: Page) =>
-  callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm", instructions: "" });
+const turnOnAi = (page: Page) => callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm" });
 
 /** What the fake AI was sent by the feature whose rules start with `marker`. */
 async function requestsOf(marker: string): Promise<string[]> {

@@ -22,6 +22,13 @@ export interface AiPrices {
   outputPaisePerMillion: number;
 }
 
+/** What these tokens cost, in whole paise. */
+export function tokenCostPaise(prices: AiPrices, tokens: { input: number; output: number }): number {
+  return Math.round(
+    (tokens.input * prices.inputPaisePerMillion + tokens.output * prices.outputPaisePerMillion) / 1_000_000,
+  );
+}
+
 export interface PlatformServices {
   /** The platform role: every organization, in transactions that can step into one (asOrganization). */
   platformDb: PlatformDatabase;

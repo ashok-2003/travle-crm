@@ -2,11 +2,13 @@
 // owns one namespace file, so features can be written side by side without touching each other's words.
 import account from "./messages/en-IN/account.json";
 import ai from "./messages/en-IN/ai.json";
+import aiAgent from "./messages/en-IN/ai-agent.json";
 import audit from "./messages/en-IN/audit.json";
 import bookings from "./messages/en-IN/bookings.json";
 import business from "./messages/en-IN/business.json";
 import calendar from "./messages/en-IN/calendar.json";
 import common from "./messages/en-IN/common.json";
+import consoleAi from "./messages/en-IN/console-ai.json";
 import consoleGrowth from "./messages/en-IN/console-growth.json";
 import consoleOrganizations from "./messages/en-IN/console-organizations.json";
 import consolePlatform from "./messages/en-IN/console-platform.json";
@@ -57,6 +59,7 @@ export const messages = {
   common,
   // "console" would shadow the global console in this module, hence the import's longer name.
   console: consoleMessages,
+  consoleAi,
   consoleGrowth,
   consoleOrganizations,
   consolePlatform,
@@ -81,6 +84,7 @@ export const messages = {
   pwa,
   quotes,
   ai,
+  aiAgent,
   reports,
   roles,
   sales,

@@ -1,6 +1,7 @@
 // Suggest reply's request checks on the real router: the plan's AI module first, then the role's permission, and the
 // agency's settings for ai:manage alone (an Owner or Admin), read afresh.
 import { describe, expect, it } from "vitest";
+import { appRouter } from "../src/routers/app-router.js";
 import { callerFor } from "./request-probe.js";
 
 /** A refusal's reason, or "allowed" when the check let the call through to the handler (which these stand-ins can't run). */
@@ -34,13 +35,20 @@ describe("Suggest reply's request checks", () => {
     const plan = ["ai", "inbox", "crm"] as const;
     const seller = callerFor({ modules: [...plan], granted: ["ai:suggest", "inbox:view", "inbox:reply"] }).caller.ai;
     expect(await checked(seller.settings())).toBe("MISSING_PERMISSION");
-    expect(await checked(seller.saveSettings({ enabled: true, scoring: true, instructions: "" }))).toBe(
-      "MISSING_PERMISSION",
-    );
+    expect(await checked(seller.saveSettings({ enabled: true, scoring: true }))).toBe("MISSING_PERMISSION");
     const manager = callerFor({ modules: [...plan], granted: ["ai:manage"] });
     // Past the checks, the stand-in has no database: reaching its handler is the proof.
     expect(await checked(manager.caller.ai.settings())).not.toBe("MISSING_PERMISSION");
     expect(manager.reads.sessions).toBeGreaterThan(0);
+  });
+
+  it("refuses the instructions and custom-trips fields the settings no longer hold", async () => {
+    const manager = callerFor({ modules: ["ai", "inbox", "crm"], granted: ["ai:manage"] }).caller.ai;
+    const old = { enabled: true, scoring: true, instructions: "x" } as never;
+    expect(await checked(manager.saveSettings(old))).toBe("BAD_REQUEST");
+    expect(await checked(manager.saveSettings({ enabled: true, scoring: true, customTrips: true } as never))).toBe(
+      "BAD_REQUEST",
+    );
   });
 
   it("refuses a suspended or cancelled agency every AI call, and read-only ones a change", async () => {
@@ -143,5 +151,37 @@ describe("AI on a departure: request checks", () => {
         }),
       ),
     ).toBe("ORGANIZATION_READ_ONLY");
+  });
+});
+
+describe("the earlier agents' settings procedures", () => {
+  it("are gone: what an agency set or saw for them has no endpoint", () => {
+    const procedures = Object.keys(appRouter._def.procedures);
+    const gone = [
+      "media",
+      "requestMedia",
+      "confirmMedia",
+      "updateMedia",
+      "deleteMedia",
+      "mediaLink",
+      "autopilot",
+      "saveAutopilot",
+      "learnings",
+      "setLearning",
+      "learnNow",
+      "learnVoice",
+      "clearVoice",
+      "setChatPersona",
+      "learnChatVoice",
+      "clearChatVoice",
+    ];
+    for (const name of gone) expect(procedures).not.toContain(`ai.${name}`);
+  });
+
+  it("keep the knowledge documents that package drafts are written from", () => {
+    const procedures = Object.keys(appRouter._def.procedures);
+    for (const name of ["knowledge", "addKnowledge", "requestKnowledgeDocument", "confirmKnowledgeDocument"]) {
+      expect(procedures).toContain(`ai.${name}`);
+    }
   });
 });

@@ -24,7 +24,7 @@ import { greetingName } from "@/home/greeting-name";
 import { MonthCard } from "@/home/month-card";
 import { HotLeadsCard } from "@/sales/hot-leads-card";
 
-/** The destinations that set the organization up: not home, Today, Leads, Follow-ups, the Inbox, Quotes, Bookings, Departures, Suppliers or Finance (daily work), nor the audit log. */
+/** The destinations that set the organization up: not home, Today, Leads, Follow-ups, the Inbox, the AI agent, Quotes, Bookings, Departures, Suppliers or Finance (daily work), nor the audit log. */
 type SetUpItem = NavigationItem & {
   key: Exclude<
     NavigationItem["key"],
@@ -33,6 +33,7 @@ type SetUpItem = NavigationItem & {
     | "leads"
     | "followUps"
     | "inbox"
+    | "aiAgent"
     | "quotes"
     | "bookings"
     | "payments"
@@ -50,6 +51,7 @@ const notSetUp: readonly NavigationItem["key"][] = [
   "leads",
   "followUps",
   "inbox",
+  "aiAgent",
   "quotes",
   "bookings",
   "payments",

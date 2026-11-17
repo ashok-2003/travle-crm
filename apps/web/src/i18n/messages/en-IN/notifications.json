@@ -151,6 +151,10 @@
         "label": "A customer sent a payment screenshot",
         "hint": "When a customer whose booking waits for payment sends a photo or PDF."
       },
+      "aiAgentNotReady": {
+        "label": "The AI agent answers nobody",
+        "hint": "For whoever manages settings: when the AI agent is switched on but its setup isn't finished, so customers get no reply from it. Once a day at most."
+      },
       "paymentProofToMatch": {
         "label": "A payment screenshot needs matching",
         "hint": "When a customer sends a photo or PDF and no booking is waiting for payment."

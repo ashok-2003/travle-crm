@@ -5,10 +5,11 @@
 import { useId, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+/** `anchor`: where a link elsewhere (a switch that says what to add first) lands on the page. */
+export function SectionCard({ title, anchor, children }: { title: string; anchor?: string; children: ReactNode }) {
   const id = useId();
   return (
-    <Card role="region" aria-labelledby={id}>
+    <Card id={anchor} role="region" aria-labelledby={id} className="scroll-mt-6">
       <CardHeader>
         <CardTitle>
           <h2 id={id}>{title}</h2>

@@ -58,10 +58,12 @@ describe("empty seats", () => {
     await world.inOrg((tx) =>
       tx.aiSettings.upsert({
         where: { organizationId: world.organizationId },
-        create: { enabled: true },
-        update: { enabled: true },
+        // Free text an agency typed before the move is stored but sent to no prompt.
+        create: { enabled: true, instructions: "SEATS_INSTRUCTIONS" },
+        update: { enabled: true, instructions: "SEATS_INSTRUCTIONS" },
       }),
     );
+    await world.inOrg((tx) => tx.aiKnowledge.create({ data: { title: "Offer", body: "SEATS_KNOWLEDGE_BODY" } }));
     await world.inOrg((tx) =>
       tx.departureSettings.upsert({
         where: { organizationId: world.organizationId },
@@ -237,6 +239,8 @@ describe("empty seats", () => {
     expect(prompt).toContain("Spiti batch, 3 Nov");
     expect(prompt).not.toMatch(/\+91|Seats left: \d/);
     expect(prompt).not.toContain("1250000");
+    expect(prompt).not.toContain("SEATS_INSTRUCTIONS");
+    expect(prompt).not.toContain("SEATS_KNOWLEDGE_BODY");
     const fill = await world.inOrg((tx) => tx.aiFill.findUniqueOrThrow({ where: { id: message.fillId } }));
     expect(fill).toMatchObject({ target: "departure_offer", subjectId: person.leadId, appliedAt: null });
     expect(JSON.stringify(fill)).not.toContain("Hi Priya");

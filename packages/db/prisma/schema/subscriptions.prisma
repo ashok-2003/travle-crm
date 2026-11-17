@@ -66,6 +66,10 @@ model Subscription {
   manualSuspensionAt     DateTime?             @map("manual_suspension_at") @db.Timestamptz(6)
   manualSuspensionBy     String?               @map("manual_suspension_by") @db.Uuid
   manualSuspensionReason String?               @map("manual_suspension_reason")
+  /// The WhatsApp AI agent paused for this agency by platform staff (set with who, subscription_agent_pause). Only the
+  /// platform role writes it; the runtime reads it and the agent stays silent while it is set.
+  aiAgentPausedAt        DateTime?             @map("ai_agent_paused_at") @db.Timestamptz(6)
+  aiAgentPausedBy        String?               @map("ai_agent_paused_by") @db.Uuid
   /// Razorpay's id for this subscription once Razorpay Subscriptions bills it (spec 7.4); null while billing is by hand.
   providerSubscriptionId String?               @map("provider_subscription_id")
   createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -117,13 +121,17 @@ model SubscriptionPayment {
 /// console.
 model SubscriptionPolicy {
   /// Always true: the table holds one row (CHECK subscription_policy_one_row).
-  id           Boolean  @id @default(true)
-  trialDays    Int      @default(7) @map("trial_days")
-  pastDueDays  Int      @default(7) @map("past_due_days")
-  readOnlyDays Int      @default(14) @map("read_only_days")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              Boolean   @id @default(true)
+  trialDays       Int       @default(7) @map("trial_days")
+  pastDueDays     Int       @default(7) @map("past_due_days")
+  readOnlyDays    Int       @default(14) @map("read_only_days")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   /// The super admin who last changed it; null for the defaults.
-  updatedBy    String?  @map("updated_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  /// The WhatsApp AI agent paused for every agency by platform staff (set with who, subscription_policy_agent_pause).
+  /// Only the platform role writes it; the runtime reads it and the agent stays silent while it is set.
+  aiAgentPausedAt DateTime? @map("ai_agent_paused_at") @db.Timestamptz(6)
+  aiAgentPausedBy String?   @map("ai_agent_paused_by") @db.Uuid
 
   @@map("subscription_policy")
 }

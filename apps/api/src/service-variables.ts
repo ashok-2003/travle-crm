@@ -207,6 +207,11 @@ export const serviceVariables = {
   AI_API_KEY: emptyAsUnset(z.string().min(8, "must be the AI provider's API key").optional()),
   AI_CHAT_MODELS: emptyAsUnset(modelList.optional()),
   AI_FAST_MODELS: emptyAsUnset(modelList.optional()),
+  /**
+   * The natural sales agent's own models (the chat models, or on OpenRouter's key the suggest ones, when unset). The agent
+   * runs only on OpenRouter, whose reasoning fields it sends: on another AI_BASE_URL it has no models and says so.
+   */
+  AI_AGENT_MODELS: emptyAsUnset(modelList.optional()),
   AI_ZERO_RETENTION: emptyAsUnset(z.stringbool().optional()),
   /**
    * A backup for the AI above (the owner, 2026-11-02): AI_BACKUP_API_KEY, a second key (a paid one, or another provider's),
@@ -233,4 +238,28 @@ export const serviceVariables = {
    */
   AI_PRICE_INPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
   AI_PRICE_OUTPUT_PAISE_PER_MILLION: emptyAsUnset(z.coerce.number().int().min(0).optional()),
+  /**
+   * Langfuse, where the AI's turns and calls are traced in full, the chats' words included (the owner, 2026-11-16): the
+   * project's two keys (secrets, never printed or logged) and its region's address, all three or none; unset, nothing is
+   * traced. The environment the traces go under is NODE_ENV's unless LANGFUSE_TRACING_ENVIRONMENT names another.
+   */
+  LANGFUSE_PUBLIC_KEY: emptyAsUnset(
+    z
+      .string()
+      .regex(/^pk-lf-\S+$/, "must be a Langfuse public key (pk-lf-...)")
+      .optional(),
+  ),
+  LANGFUSE_SECRET_KEY: emptyAsUnset(
+    z
+      .string()
+      .regex(/^sk-lf-\S+$/, "must be a Langfuse secret key (sk-lf-...)")
+      .optional(),
+  ),
+  LANGFUSE_BASE_URL: emptyAsUnset(httpUrl.optional()).transform((url) => url?.replace(/\/+$/, "")),
+  LANGFUSE_TRACING_ENVIRONMENT: emptyAsUnset(
+    z
+      .string()
+      .regex(/^(?!langfuse)[a-z0-9_-]{1,40}$/, 'must be lowercase letters, digits, - or _, not starting "langfuse"')
+      .optional(),
+  ),
 };

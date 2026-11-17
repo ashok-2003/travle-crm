@@ -1,7 +1,7 @@
 // The console at /console (ADR 0019): a signed-out visitor signs in and comes back to it, platform staff who sign in
-// on the one sign-in page land on its dashboard, support sees no Failed emails or Staff destination, and an agency's
-// Owner is told it isn't theirs, with the way to their own app (console-impersonation.spec.ts has support stopping an
-// impersonation).
+// on the one sign-in page land on its dashboard, support sees no Failed emails, AI prompts or Staff destination, and
+// an agency's Owner is told it isn't theirs, with the way to their own app (console-impersonation.spec.ts has support
+// stopping an impersonation).
 // Each journey's last screen also gets the automatic accessibility check (support/accessible-after-each.ts).
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, signInToConsole, test, type PlatformStaff } from "./support/console";
@@ -71,12 +71,13 @@ async function destinations(page: Page, testInfo: TestInfo): Promise<string[]> {
     .filter({ visible: true })
     .getByRole("link")
     .allTextContents();
-  await page.getByRole("button", { name: "More" }).click();
+  // Exact: the dashboard's "Show more organizations" button also matches "More".
+  await page.getByRole("button", { name: "More", exact: true }).click();
   const more = await page.getByRole("dialog").getByRole("link").allTextContents();
   return [...bar, ...more];
 }
 
-test("support sees every destination but Failed emails and Staff, a super admin sees them too", async ({
+test("support sees every destination but Failed emails, AI prompts and Staff, a super admin sees them too", async ({
   page,
   support,
   superAdmin,
@@ -94,6 +95,7 @@ test("support sees every destination but Failed emails and Staff, a super admin 
     "Jobs",
     "Health",
     "Failed emails",
+    "AI prompts",
     "Log",
     "Staff",
   ]);

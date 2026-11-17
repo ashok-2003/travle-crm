@@ -1,0 +1,139 @@
+{
+  "superAdminsOnly": "Only a super admin can see the AI agent's prompts and turns: a turn holds a customer's words.",
+  "prompts": {
+    "title": "AI prompts",
+    "intro": "The fixed words the lite WhatsApp agent's two model calls are given, as they are now. A turn's trace names the versions it used.",
+    "loading": "Loading the prompts",
+    "loadFailed": "The prompts didn't load.",
+    "callsHeading": "What each call is given",
+    "piecesHeading": "The fixed pieces",
+    "call": {
+      "understand": "Understand",
+      "write": "Write"
+    },
+    "callIntro": {
+      "understand": "Reads the chat and fills in the form. It never writes to the customer.",
+      "write": "Writes the words of the one move code picked."
+    },
+    "system": "System message, the same every turn: <code>{pieces}</code>",
+    "blocks": "Then this turn's blocks, in this order. A block with nothing in it is left out.",
+    "columns": {
+      "block": "Block",
+      "purpose": "What it tells the model",
+      "budget": "Characters at most"
+    },
+    "answer": "Answers in JSON, to the schema “<code>{name}</code>”.",
+    "lookups": "Asks for up to 4 lookups, which code runs before Write: <code>{tools}</code>.",
+    "noLookups": "Asks for no lookups.",
+    "version": "Version {version}, changed {day}",
+    "fixedTexts": "Code sends these texts itself. No model writes them."
+  },
+  "traces": {
+    "title": "AI turns",
+    "intro": "Every turn the lite WhatsApp agent took in this agency's chats in the last 14 days, newest first. A turn's trace is deleted after 14 days, and at once when its customer is erased.",
+    "chatIntro": "One chat's turns in the last 14 days, newest first.",
+    "allChats": "All chats",
+    "back": "Back to the organization",
+    "link": "See the AI's turns",
+    "loading": "Loading the AI's turns",
+    "loadFailed": "The AI's turns didn't load.",
+    "empty": "No turns in the last 14 days. Only an agency on the lite agent has them.",
+    "showMore": "Show more turns",
+    "startAgain": "Back to the newest turns",
+    "noPricesTitle": "Costs aren't shown",
+    "noPricesDescription": "Set AI_PRICE_INPUT_PAISE_PER_MILLION and AI_PRICE_OUTPUT_PAISE_PER_MILLION on the console to see what each turn cost. Until then, tokens only.",
+    "chat": "Chat {code}",
+    "columns": {
+      "startedAt": "Time",
+      "chat": "Chat",
+      "kind": "Turn",
+      "outcome": "Outcome",
+      "move": "Move",
+      "model": "Model",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "duration": "Took"
+    },
+    "kinds": {
+      "reply": "Reply",
+      "nudge": "Follow-up"
+    },
+    "tokens": "{input} in · {output} out",
+    "duration": "{seconds} s",
+    "none": "None"
+  },
+  "trace": {
+    "title": "AI turn",
+    "back": "Back to the AI's turns",
+    "logged": "Opening a turn is written in the platform log, because it holds a customer's words.",
+    "loading": "Loading the turn",
+    "loadFailed": "The turn didn't load.",
+    "notFound": "This turn isn't kept any more: a trace is kept 14 days, and goes at once when its customer is erased.",
+    "fileMissing": "This turn's file is missing or can't be read, so only its index row is shown.",
+    "thisChat": "Every turn in this chat",
+    "details": {
+      "startedAt": "Started",
+      "kind": "Turn",
+      "outcome": "Outcome",
+      "reason": "Reason",
+      "model": "Model",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "duration": "Took",
+      "prompts": "Prompt versions"
+    },
+    "promptVersion": "{name} v{used}",
+    "promptChanged": "{name} v{used}, now v{current}",
+    "promptsLink": "See the prompts as they are now",
+    "tabs": {
+      "understand": "Understand",
+      "lookups": "Lookups ({count})",
+      "decision": "Decision",
+      "write": "Write",
+      "sent": "Checks and sent"
+    },
+    "noUnderstand": "This turn didn't call Understand.",
+    "messages": "Messages",
+    "messagesIntro": "The messages Understand read, as the chat keeps them now.",
+    "messagesGone": "{count, plural, one {# message is} other {# messages are}} no longer kept.",
+    "from": {
+      "customer": "Customer",
+      "you": "The AI",
+      "team": "Team"
+    },
+    "noWords": "No words",
+    "answer": "The form it returned",
+    "noAnswer": "No answer came back.",
+    "noLookups": "No lookups this turn.",
+    "asked": "Asked",
+    "got": "Got",
+    "decision": {
+      "move": "Move",
+      "stage": "Sale stage",
+      "why": "Why",
+      "intents": "Intents",
+      "note": "Note on the lead",
+      "task": "Task for the owner",
+      "suggest": "Suggested"
+    },
+    "suggestion": "{kind}: {reason}",
+    "noWrite": "This turn didn't call Write.",
+    "writeMessages": "Messages: the chat's newest 6 at the time; on a reply turn, the last 6 under Understand.",
+    "answers": "What it wrote",
+    "try": "Try {number}",
+    "checks": "Checks",
+    "check": {
+      "name": "Check",
+      "result": "Result",
+      "detail": "Detail"
+    },
+    "passed": "Passed",
+    "failed": "Failed",
+    "noChecks": "No checks ran.",
+    "sentText": "What was sent",
+    "nothingSent": "Nothing was sent.",
+    "sentMessages": "Messages sent",
+    "actions": "What it did in the app",
+    "noActions": "Nothing."
+  }
+}

@@ -9,7 +9,7 @@
     "console": "tsx --env-file-if-exists=../../.env src/console.ts",
     "first-super-admin": "tsx --env-file-if-exists=../../.env src/console-command.ts first-super-admin",
     "demo": "tsx --env-file-if-exists=../../.env src/console-command.ts demo",
-    "agent-cases": "tsx --env-file-if-exists=../../.env src/console-command.ts agent-cases",
+    "agent-bench": "tsx --env-file-if-exists=../../.env src/console-command.ts agent-bench",
     "build": "tsx scripts/build.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

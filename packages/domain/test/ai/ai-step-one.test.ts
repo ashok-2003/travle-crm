@@ -1,4 +1,4 @@
-// The AI's knowledge and its guess of how a lead will go: knowledge typed or read from a document and given to the AI as data,
+// The AI's knowledge documents (for package drafts) and its guess of how a lead will go: knowledge typed or read from a document,
 // deleted with its file; the scoring queued and run only for an agency with the AI on, a plan that has it and a subscription
 // that isn't suspended or cancelled, never moving a stage, within the monthly limit, once for a burst of messages, and erased
 // with the customer. Against the real database, under row-level security.
@@ -6,6 +6,8 @@ import { randomUUID } from "node:crypto";
 import { AI_KNOWLEDGE_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryJobQueue } from "@travel-crm/integrations/jobs";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   addKnowledge,
@@ -13,12 +15,14 @@ import {
   aiDocumentListener,
   confirmDocument,
   deleteKnowledge,
+  chatAiOf,
   leadInsightOf,
   listKnowledge,
   MONTHLY_AI_LIMIT,
   requestDocument,
   aiSettingsOf,
   saveAiSettings,
+  scoreHandler,
   scoreLead,
   scoreOnCustomerWroteListener,
   suggestReply,
@@ -31,6 +35,7 @@ import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import type { Entitlements } from "../../src/subscriptions/index.js";
 import { aLead } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
+import { storeAutopilot } from "./support/store-autopilot.js";
 import {
   aConnectedAgency,
   createTestInbox,
@@ -95,12 +100,7 @@ describe("the AI, step one", () => {
     );
     if (on)
       await inOrg((tx) =>
-        saveAiSettings(
-          tx,
-          owner,
-          { enabled: true, scoring: true, instructions: "" },
-          { providerReady: true, now: testNow },
-        ),
+        saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: testNow }),
       );
     const model = createMemoryAiModel();
     const job = { organizationId, conversationId: chat.id, messageId: message.id };
@@ -117,8 +117,91 @@ describe("the AI, step one", () => {
     return { organizationId, inOrg, owner, chat, message, lead, model, job, score };
   }
 
+  describe("the chat's notes on the customer", () => {
+    async function scoredLead() {
+      const setup = await agency();
+      setup.model.answer(JSON.stringify(answer));
+      await setup.score();
+      return setup;
+    }
+    it("reads the notes of the chat the person wrote in last", async () => {
+      const { inOrg, chat, lead } = await scoredLead();
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: chat.id, summary: "Older number's notes." } }));
+      const newer = await inOrg((tx) =>
+        tx.whatsappConversation.create({
+          data: {
+            connectionId: chat.connectionId,
+            phoneE164: freshPhone(),
+            personId: chat.personId,
+            lastInboundAt: new Date(testNow.getTime() + 60_000),
+          },
+        }),
+      );
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: newer.id, summary: "Newer number's notes." } }));
+      expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBe("Newer number's notes.");
+    });
+
+    it("shows on the lead the chat's facts are for, or the person's open lead; never on an older trip's", async () => {
+      const { inOrg, chat, lead } = await scoredLead();
+      const older = await inOrg(async (tx) => {
+        const won = await aLead(tx, {
+          personId: chat.personId ?? "",
+          stage: "won",
+          createdAt: new Date(testNow.getTime() - 90 * 86_400_000),
+        });
+        const row = await tx.leadAiInsight.findFirstOrThrow({ where: { leadId: lead.id } });
+        await tx.leadAiInsight.create({
+          data: {
+            leadId: won.id,
+            score: row.score,
+            label: row.label,
+            reasons: row.reasons,
+            fake: row.fake,
+            summary: row.summary,
+            nextStep: row.nextStep,
+            facts: row.facts ?? {},
+            model: row.model,
+          },
+        });
+        return won;
+      });
+      const notes = (facts: object) =>
+        inOrg((tx) =>
+          tx.aiChat.upsert({
+            where: { organizationId_conversationId: { organizationId: chat.organizationId, conversationId: chat.id } },
+            create: { conversationId: chat.id, summary: "Wants a quiet trip this time.", facts },
+            update: { facts },
+          }),
+        );
+      const summaryOf = async (leadId: string) => (await inOrg((tx) => leadInsightOf(tx, leadId)))?.chatSummary ?? null;
+      // Settled before any lead, or for the open one: the open lead's notes, not the past trip's.
+      await notes({ agent: "lite", leadId: null });
+      expect(await summaryOf(lead.id)).toBe("Wants a quiet trip this time.");
+      expect(await summaryOf(older.id)).toBeNull();
+      // Notes the chat settled for the past trip stay with it.
+      await notes({ agent: "lite", leadId: older.id });
+      expect(await summaryOf(older.id)).toBe("Wants a quiet trip this time.");
+    });
+
+    it("is null when the notes are empty", async () => {
+      const { inOrg, chat, lead } = await scoredLead();
+      expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBeNull();
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: chat.id, summary: "" } }));
+      expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.chatSummary).toBeNull();
+    });
+
+    it("is what the chat's AI state carries", async () => {
+      const { inOrg, chat, organizationId } = await scoredLead();
+      await inOrg((tx) => tx.aiChat.create({ data: { conversationId: chat.id, summary: "Likes quiet places." } }));
+      const state = await inOrg((tx) =>
+        chatAiOf(tx, { organizationId, conversationId: chat.id, available: true, now: testNow }),
+      );
+      expect(state.summary).toBe("Likes quiet places.");
+    });
+  });
+
   describe("knowledge", () => {
-    it("is added, changed and turned off, audited by length and never by words, and given to Suggest reply as data", async () => {
+    it("is added, changed and turned off, audited by length and never by words, and kept out of Suggest reply", async () => {
       const { inOrg, owner, model, chat, organizationId } = await agency();
       await inOrg((tx) => addKnowledge(tx, owner, { title: "Manali 5N", body: "Manali 5N/6D is ₹18,500 per person." }));
       await inOrg((tx) => addKnowledge(tx, owner, { title: "Old offer", body: "Goa at ₹9,999 (ended)." }));
@@ -126,7 +209,8 @@ describe("the AI, step one", () => {
       await inOrg((tx) =>
         updateKnowledge(tx, owner, { knowledgeId: second?.id ?? "", title: "Old offer", body: "Goa", enabled: false }),
       );
-      model.answer("Manali 5N/6D is ₹18,500 per person.");
+      // The document is kept for package drafts: Suggest reply no longer sends it.
+      model.answer("Namaste!");
       await suggestReply(
         test.db,
         model,
@@ -135,8 +219,7 @@ describe("the AI, step one", () => {
         { agencyName: "Sharma Holidays", now: testNow },
       );
       const prompt = model.requests[0]?.messages.map((message) => message.content).join("\n") ?? "";
-      expect(prompt).toContain("Manali 5N/6D is ₹18,500 per person.");
-      expect(prompt).not.toContain("Goa");
+      expect(prompt).not.toContain("Manali 5N/6D is ₹18,500 per person.");
       expect(first?.id).toBeDefined();
       const entries = await inOrg((tx) =>
         tx.auditEntry.findMany({ where: { action: { startsWith: "ai.knowledge" } } }),
@@ -261,7 +344,7 @@ describe("the AI, step one", () => {
         saveAiSettings(
           tx,
           owner,
-          { enabled: true, scoring: false, fillLeads: false, instructions: "" },
+          { enabled: true, scoring: false, fillLeads: false },
           { providerReady: true, now: testNow },
         ),
       );
@@ -308,7 +391,7 @@ describe("the AI, step one", () => {
         saveAiSettings(
           tx,
           owner,
-          { enabled: true, scoring: false, fillLeads: false, instructions: "" },
+          { enabled: true, scoring: false, fillLeads: false },
           { providerReady: true, now: testNow },
         ),
       );
@@ -410,6 +493,105 @@ describe("the AI, step one", () => {
       expect((await inOrg((tx) => tx.aiUsage.findFirstOrThrow())).calls).toBe(10);
     });
 
+    /** The agency with its autopilot on, and the chat's AI row as given. */
+    async function liteAgency(chat: { mode?: string; turnState?: string | null; turnAt?: Date }) {
+      const on = await agency();
+      await on.inOrg(async (tx) => {
+        await storeAutopilot(tx, on.organizationId, { autopilot: true });
+        await tx.aiChat.create({
+          data: {
+            conversationId: on.chat.id,
+            mode: chat.mode ?? "default",
+            turnState: chat.turnState ?? null,
+            turnAt: chat.turnAt ?? null,
+          },
+        });
+      });
+      return on;
+    }
+
+    it("the scoring job waits for a lite turn under way, and skips a chat the turn already scored", async () => {
+      const queued = await liteAgency({ turnState: "queued", turnAt: testNow });
+      queued.model.answer(JSON.stringify(answer));
+      expect(await queued.score()).toBe("turn_under_way");
+      expect(queued.model.requests).toHaveLength(0);
+      expect(await queued.inOrg((tx) => tx.aiUsage.count())).toBe(0);
+      // Its turn is over and scored the lead after the customer's newest line: nothing is left to score.
+      const scored = await liteAgency({});
+      await scored.inOrg((tx) =>
+        tx.leadAiInsight.create({
+          data: { leadId: scored.lead.id, score: 40, label: "warm", summary: "", nextStep: "", model: "memory-model" },
+        }),
+      );
+      expect(await scored.score()).toBe("agent_scores");
+      expect(scored.model.requests).toHaveLength(0);
+    });
+
+    it("a lite chat whose turn ends without scoring (setup not ready) is still scored, a little later", async () => {
+      const on = await liteAgency({ turnState: "thinking", turnAt: new Date() });
+      const queue = createMemoryJobQueue();
+      const logger = createMemoryLogger();
+      const handler = scoreHandler({
+        db: test.db,
+        ai: on.model,
+        subscriptions: { entitlementsOf: () => Promise.resolve(entitlements("active")) },
+        logger,
+        queue,
+      });
+      const before = Date.now();
+      await handler.handle(on.job);
+      expect(on.model.requests).toHaveLength(0);
+      expect(queue.sent).toHaveLength(1);
+      const [later] = queue.sent;
+      expect(later).toMatchObject({ queue: "ai.score", data: { ...on.job, later: true } });
+      const startAfter = later?.options.startAfter?.getTime() ?? 0;
+      expect(startAfter - before).toBeGreaterThanOrEqual(2 * 60_000);
+      // Its turn ends having written no score (the lite turn found the setup not ready).
+      await on.inOrg((tx) => tx.aiChat.updateMany({ data: { turnState: null } }));
+      on.model.answer(JSON.stringify(answer));
+      await handler.handle(later?.data ?? {});
+      expect(on.model.requests).toHaveLength(1);
+      expect(await on.inOrg((tx) => tx.leadAiInsight.count({ where: { leadId: on.lead.id } }))).toBe(1);
+      // Asked again for the same message, it re-queues nothing: one later run per message.
+      await on.inOrg((tx) => tx.aiChat.updateMany({ data: { turnState: "thinking", turnAt: new Date() } }));
+      await handler.handle(on.job);
+      expect(queue.sent).toHaveLength(1);
+    });
+
+    it("a later run skips a chat its lite turn scored after the customer's newest line", async () => {
+      const on = await liteAgency({});
+      await on.inOrg((tx) =>
+        tx.leadAiInsight.create({
+          data: { leadId: on.lead.id, score: 40, label: "warm", summary: "", nextStep: "", model: "memory-model" },
+        }),
+      );
+      const later = await scoreLead(
+        {
+          db: test.db,
+          ai: on.model,
+          subscriptions: { entitlementsOf: () => Promise.resolve(entitlements("active")) },
+        },
+        { ...on.job, later: true },
+        new Date(),
+      );
+      expect(later).toBe("agent_scores");
+      expect(on.model.requests).toHaveLength(0);
+    });
+
+    it("it still scores a chat with the AI off", async () => {
+      const off = await liteAgency({ mode: "off", turnState: null });
+      off.model.answer(JSON.stringify(answer));
+      expect(await off.score()).toBe("scored");
+      expect(off.model.requests).toHaveLength(1);
+    });
+
+    it("a turn the worker left behind long ago doesn't stop the scoring", async () => {
+      const stale = await liteAgency({ turnState: "thinking", turnAt: new Date(testNow.getTime() - 4 * 60_000) });
+      stale.model.answer(JSON.stringify(answer));
+      expect(await stale.score()).toBe("scored");
+      expect(stale.model.requests).toHaveLength(1);
+    });
+
     it("is erased with the customer", async () => {
       const { inOrg, lead, model, score, organizationId, chat } = await agency();
       model.answer(JSON.stringify(answer));
@@ -423,22 +605,20 @@ describe("the AI, step one", () => {
   });
 
   describe("the settings", () => {
-    it("saves whether the agency plans custom trips", async () => {
+    it("a save leaves the stored instructions and custom-trips columns as they were: package drafts still read them", async () => {
       const { organizationId, inOrg, owner } = await agency();
       const context = { providerReady: true, now: testNow };
-      expect((await inOrg((tx) => aiSettingsOf(tx, { organizationId, ...context }))).customTrips).toBe(false);
-      const on = await inOrg((tx) =>
-        saveAiSettings(tx, owner, { enabled: true, scoring: true, customTrips: true, instructions: "" }, context),
+      await inOrg((tx) =>
+        tx.aiSettings.updateMany({ data: { instructions: "Reply in Hinglish.", customTrips: true } }),
       );
-      expect(on.customTrips).toBe(true);
-      const unchanged = await inOrg((tx) =>
-        saveAiSettings(tx, owner, { enabled: true, scoring: true, instructions: "" }, context),
-      );
-      expect(unchanged.customTrips).toBe(true);
-      const off = await inOrg((tx) =>
-        saveAiSettings(tx, owner, { enabled: true, scoring: true, customTrips: false, instructions: "" }, context),
-      );
-      expect(off.customTrips).toBe(false);
+      const saved = await inOrg((tx) => saveAiSettings(tx, owner, { enabled: true, scoring: false }, context));
+      expect(saved).toMatchObject({ enabled: true, scoring: false });
+      expect(saved).not.toHaveProperty("instructions");
+      expect(await inOrg((tx) => tx.aiSettings.findFirstOrThrow())).toMatchObject({
+        instructions: "Reply in Hinglish.",
+        customTrips: true,
+      });
+      expect(await inOrg((tx) => aiSettingsOf(tx, { organizationId, ...context }))).not.toHaveProperty("customTrips");
     });
   });
 

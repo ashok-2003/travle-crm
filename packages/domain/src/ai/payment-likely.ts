@@ -3,8 +3,6 @@
 // passport or a selfie in a chat with nothing to pay is never listed.
 import type { OrgTx } from "@travel-crm/db";
 
-/** The client token of the agency's payment details, which the AI sends after its reply. */
-export const PAYMENT_DETAILS_TOKEN = "ai-pay:";
 const RECENT_MS = 14 * 24 * 60 * 60 * 1000;
 
 export async function mayBePayment(
@@ -17,8 +15,9 @@ export async function mayBePayment(
       direction: "out",
       occurredAt: { gte: new Date(input.at.getTime() - RECENT_MS), lte: input.at },
       OR: [
-        { clientToken: { startsWith: PAYMENT_DETAILS_TOKEN } },
-        // The grounded turn's payment text ("ai:<turn>:pay") and the package's payment QR ("ai:<turn>:qr").
+        // The payment details the earlier first agent sent ("ai-pay:"): a chat it was in at the move still counts for 14 days.
+        { clientToken: { startsWith: "ai-pay:" } },
+        // The turn's payment text ("ai:<turn>:pay") and the package's payment QR ("ai:<turn>:qr").
         { clientToken: { startsWith: "ai:", endsWith: ":pay" } },
         { clientToken: { startsWith: "ai:", endsWith: ":qr" } },
       ],

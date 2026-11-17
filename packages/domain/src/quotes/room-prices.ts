@@ -1,5 +1,6 @@
 // Which room prices apply on a date, what a group's rooms add up to, and the pre-tax part of a price that includes GST.
 import {
+  adultRoomTypes,
   roomCapacity,
   roomTypes,
   type RoomBooking,
@@ -85,14 +86,30 @@ export type RoomTotal =
   | { ok: true; totalPaise: number; lines: RoomLine[] }
   | { ok: false; reason: "NO_PRICE" | "ROOM_SPLIT"; roomType: RoomType };
 
-/** What the rooms cost: people times the room type's price, refused when no price is set or the people don't fill rooms. */
-export function totalFor(prices: RoomPrices, rooms: readonly RoomBooking[]): RoomTotal {
+/**
+ * The one room type a package sells, when it sells just one (a trek of triple tents): it is priced per person, every
+ * traveller takes it, and the agency shares out the rooms. Null when it sells several, or none.
+ */
+export function onlyRoomType(offered: readonly RoomType[]): RoomType | null {
+  const [only, ...others] = offered;
+  return only !== undefined && others.length === 0 ? only : null;
+}
+
+/**
+ * What the rooms of a package selling `offered` cost: people times the room type's price, refused when no price is set
+ * or the people don't fill rooms. A package selling one adult room type is per person, so there four may take triple;
+ * a child's bed or place is no room type, so a triple-only trek that also prices a child bed is per person too.
+ */
+export function totalFor(prices: RoomPrices, rooms: readonly RoomBooking[], offered: readonly RoomType[]): RoomTotal {
+  const wholeRooms = adultRoomTypes.filter((type) => offered.includes(type)).length !== 1;
   const lines: RoomLine[] = [];
   for (const { roomType, people } of rooms) {
     const pricePaise = prices[roomType];
     if (pricePaise === null) return { ok: false, reason: "NO_PRICE", roomType };
     const capacity = roomCapacity[roomType];
-    if (capacity !== null && people % capacity !== 0) return { ok: false, reason: "ROOM_SPLIT", roomType };
+    if (wholeRooms && capacity !== null && people % capacity !== 0) {
+      return { ok: false, reason: "ROOM_SPLIT", roomType };
+    }
     lines.push({ roomType, people, pricePaise, amountPaise: pricePaise * people });
   }
   return { ok: true, totalPaise: lines.reduce((sum, line) => sum + line.amountPaise, 0), lines };

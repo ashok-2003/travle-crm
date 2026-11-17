@@ -1,0 +1,100 @@
+{
+  "name": "book",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "manali 14 nov, 3 adults"
+    },
+    {
+      "from": "agency",
+      "text": "which room"
+    },
+    {
+      "from": "customer",
+      "text": "triple"
+    },
+    {
+      "from": "agency",
+      "text": "ok"
+    },
+    {
+      "from": "customer",
+      "text": "book it"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "gives_details",
+            "proof": "manali 14 nov, 3 adults"
+          }
+        ],
+        "language": "english",
+        "details": {
+          "package": {
+            "name": "Manali Escape",
+            "proof": "manali",
+            "changed": false
+          },
+          "date": {
+            "day": "2026-11-14",
+            "month": null,
+            "proof": "14 nov",
+            "changed": false
+          },
+          "adults": {
+            "count": 3,
+            "proof": "3 adults",
+            "changed": false
+          }
+        }
+      }
+    },
+    {
+      "write": {
+        "text": "Which room would you like?",
+        "cannot_answer": false
+      }
+    },
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "gives_details",
+            "proof": "triple"
+          }
+        ],
+        "language": "english",
+        "details": {
+          "room": {
+            "type": "triple",
+            "proof": "triple",
+            "changed": false
+          }
+        }
+      }
+    },
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "wants_to_book",
+            "proof": "book it"
+          }
+        ],
+        "language": "english"
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "move": "book",
+    "actions": {
+      "payment": true,
+      "booking": true
+    },
+    "knows": ["when", "people", "room"]
+  }
+}

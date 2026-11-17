@@ -7,18 +7,31 @@ import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { toast } from "sonner";
 import { SectionCard } from "@/bookings/section-card";
+import { TextLink } from "@/components/text-link";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { setupHref } from "@/ai/agent/agent-overview";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { usePackageChanges } from "./use-packages";
 
+/** Where to add what is missing: the agency's payment QR is on the AI agent's Setup tab, the rest is further down this page. */
+const gapPlace: Record<PackageDetail["sellGaps"][number], string> = {
+  room_types: "#group-details",
+  prices: "#package-seasons",
+  advance: "#group-details",
+  departures: "#package-departures",
+  from_price: "#package-details",
+  payment_details: `${setupHref}#step-payment`,
+};
+
 export function SellCard({ detail }: { detail: PackageDetail }) {
   const t = useTranslations("packages.sell");
   const id = useId();
   const hintId = `${id}-write`;
+  const needsId = `${id}-needs`;
   const mayManage = useHolds("settings:manage");
   const access = useWriteAccess("change");
   const { setSellable } = usePackageChanges();
@@ -30,7 +43,9 @@ export function SellCard({ detail }: { detail: PackageDetail }) {
         <Switch
           id={id}
           checked={detail.sellable}
-          aria-describedby={access.hint === null ? undefined : hintId}
+          aria-describedby={
+            [access.hint === null ? null : hintId, blocked ? needsId : null].filter(Boolean).join(" ") || undefined
+          }
           disabled={setSellable.isPending || !access.allowed || !mayManage || blocked}
           onCheckedChange={(sellable) => {
             setSellable.mutate(
@@ -44,14 +59,20 @@ export function SellCard({ detail }: { detail: PackageDetail }) {
         </FieldLabel>
       </Field>
       <WriteHint id={hintId} hint={access.hint} visible />
-      <FieldDescription>{t(detail.sellable ? "on" : "off")}</FieldDescription>
+      {/* Switched on with a gap is not offered: the line says so, above the list of what it still needs. */}
+      <FieldDescription>{t(detail.sellable && !gaps ? "on" : "off")}</FieldDescription>
       {!mayManage && <p className="text-caption text-muted-foreground">{t("managerOnly")}</p>}
       {gaps && (
         <div>
-          <p className="font-semibold">{t(detail.sellable ? "stillNeeds" : "needs")}</p>
-          <ul className="list-disc pl-5 text-muted-foreground">
+          <p id={needsId} className="font-semibold">
+            {t(detail.sellable ? "stillNeeds" : "needs")}
+          </p>
+          {/* One link a line, each a 44px touch target. */}
+          <ul className="flex flex-col">
             {detail.sellGaps.map((gap) => (
-              <li key={gap}>{t(`gaps.${gap}`)}</li>
+              <li key={gap}>
+                <TextLink href={gapPlace[gap]}>{t(`gaps.${gap}`)}</TextLink>
+              </li>
             ))}
           </ul>
         </div>

@@ -18,7 +18,6 @@ import {
 } from "../../departures/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
 import { formatMoney, money } from "../../kernel/index.js";
-import { knowledgeWords } from "../knowledge.js";
 import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
@@ -75,9 +74,8 @@ async function prepare(
   if (!(await reserveAiCall(tx, context.now, timeZone))) {
     throw refuse("AI_MONTH_LIMIT", "This agency has used this month's AI suggestions", "LIMIT_REACHED");
   }
-  const settings = await tx.aiSettings.findFirstOrThrow({ select: { instructions: true, writeStyle: true } });
+  const settings = await tx.aiSettings.findFirstOrThrow({ select: { writeStyle: true } });
   const departureSettings = await departureSettingsOf(tx);
-  const knowledge = await knowledgeWords(tx);
   const seats = (await seatsSoldAndHeld(tx, [departure.id], context.now)).get(departure.id) ?? { sold: 0, held: 0 };
   const counts = countsOf(departure.seatsTotal, seats.sold, seats.held);
   const allowedCount = departureSettings.shareSeatCounts ? counts.free : null;
@@ -100,8 +98,6 @@ async function prepare(
     pricePaise,
     facts: {
       agencyName: context.agencyName,
-      instructions: settings.instructions,
-      knowledge,
       style,
       firstName: first === "" ? null : first,
       earlier: { destination: person.destination, travelling: person.travelling, partySize: person.partySize },

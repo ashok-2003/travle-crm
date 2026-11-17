@@ -139,6 +139,31 @@ describe("a customer's erasure and export", () => {
     expect(left.map((entry) => entry.kind)).toEqual(["created", "stage-changed"]);
   });
 
+  it("deletes the AI's field lines, which hold their words, and keeps the AI's stage moves", async () => {
+    const customer = await inOrg((tx) => aCustomer(tx, "Tara Bose"));
+    const leadId = customer.open.id;
+    await inOrg(async (tx) => {
+      await tx.leadTimelineEntry.create({
+        data: {
+          leadId,
+          kind: "ai-field-set",
+          byAi: true,
+          aiField: "departure_city",
+          fromText: null,
+          toText: "Kolkata",
+        },
+      });
+      await tx.leadTimelineEntry.create({ data: { leadId, kind: "stage-changed", stage: "quote_sent", byAi: true } });
+    });
+
+    const erased = await erase(customer.person.id);
+
+    expect(erased.timelineEntries).toBe(4);
+    const left = await inOrg((tx) => tx.leadTimelineEntry.findMany({ where: { leadId }, orderBy: { id: "asc" } }));
+    expect(left.map((entry) => entry.kind)).toEqual(["created", "stage-changed", "stage-changed"]);
+    expect(left.some((entry) => entry.toText !== null)).toBe(false);
+  });
+
   it("removes blocked contacts that held their phone, email or handle", async () => {
     const customer = await inOrg((tx) => aCustomer(tx, "Meera Iyer"));
     const unrelated = await inOrg((tx) => tx.blockedContact.create({ data: { kind: "phone", value: freshPhone() } }));

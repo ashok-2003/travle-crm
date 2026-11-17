@@ -8,7 +8,6 @@ import type { OrgTx } from "@travel-crm/db";
 import { getLead } from "../../crm/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError } from "../../kernel/index.js";
-import { knowledgeWords } from "../knowledge.js";
 import { withoutTypedAmounts } from "../write-up/tokens.js";
 import type { DraftFacts } from "./draft-days-prompt.js";
 
@@ -121,8 +120,7 @@ export async function gatherDraftFacts(
   }
   // Now that the length is known, the plans whose nights fit it best.
   const chosen = nearest(plans, dayCount - 1);
-  const knowledge = await knowledgeWords(tx);
-  const settings = await tx.aiSettings.findFirstOrThrow({ select: { instructions: true, writeStyle: true } });
+  const settings = await tx.aiSettings.findFirstOrThrow({ select: { writeStyle: true } });
   const start = trip.when.kind === "dates" ? trip.when.from : quote.startDate;
   const month =
     trip.when.kind === "month"
@@ -149,8 +147,6 @@ export async function gatherDraftFacts(
       budgetConscious: trip.budget !== null,
       items: quote.items.map((item) => `${item.description}${item.detail === "" ? "" : ` (${item.detail})`}`),
       packages: chosen,
-      knowledge,
-      instructions: settings.instructions,
       writeStyle: settings.writeStyle,
       note,
     },

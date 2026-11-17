@@ -18,6 +18,8 @@ import { createSmtpEmailSender } from "@travel-crm/integrations/email";
 import { createRealGoogleSheets, type GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { createPgBossJobs, type PgBossJobs } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import { createWebPushSender, type PushSender } from "@travel-crm/integrations/push";
 import { createSpreadsheets, type Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import { createS3Storage, type ObjectStorage } from "@travel-crm/integrations/storage";
@@ -26,6 +28,7 @@ import { jobQueuePollingOf, jobQueueRoleOf } from "./job-polling.js";
 import { passwordResetEmails, resetPasswordPageOf } from "./password-reset-email.js";
 import { createMetaServices, type MetaServices } from "./meta-services.js";
 import { createAiModel } from "./ai-services.js";
+import { promptsOf, tracingOf } from "./langfuse-settings.js";
 import { createWhatsAppServices, type WhatsAppServices } from "./whatsapp-services.js";
 import type { ProcessName } from "./process-name.js";
 import { loggerOfRequest } from "./request-log.js";
@@ -49,6 +52,10 @@ export interface Services {
   meta: MetaServices | null;
   /** The AI that drafts replies (ADR 0029); null when OPENROUTER_API_KEY is not set: Suggest reply says it isn't set up. */
   ai: AiModel | null;
+  /** Where the AI's calls and the agent's turns are traced: Langfuse with its keys set, else nowhere. One per process. */
+  tracing: AiTracing;
+  /** The natural agent's prompt from Langfuse's prompt management (the same keys), else none: its built-in text. */
+  prompts: AiPrompts;
   /** Tells the console something broke (the AI, the api): it emails the super admins and shows it (incidents.ts). */
   incidents: IncidentReporter;
   /** WhatsApp through MSG91 (ADR 0035); null when the three MSG91 settings are not set: WhatsApp is off. */
@@ -67,7 +74,7 @@ export interface Services {
   botCheck: BotCheck | null;
   /** Checks the database role and the storage bucket, then starts pg-boss. Call before serving requests or working. */
   start(): Promise<void>;
-  /** Stops pg-boss (waiting for running jobs) and closes the database pools. */
+  /** Stops pg-boss (waiting for running jobs), sends the last traces and closes the database pools. */
   close(): Promise<void>;
 }
 
@@ -170,7 +177,8 @@ export function createServices(
     ...jobQueueRoleOf(processName, environment),
   });
   const incidents = createIncidentReporter(jobs, logger);
-  const ai = createAiModel(environment);
+  const tracing = tracingOf(environment, environment.NODE_ENV);
+  const ai = createAiModel(environment, tracing);
   const push = createWebPushSender({
     publicKey: environment.VAPID_PUBLIC_KEY,
     privateKey: environment.VAPID_PRIVATE_KEY,
@@ -200,6 +208,8 @@ export function createServices(
     meta: createMetaServices(environment, { db, rateLimiter, logger }),
     // A call no model answers is told to the console.
     ai: ai === null ? null : withIncidentReports(ai, incidents),
+    tracing,
+    prompts: promptsOf(environment, logger),
     incidents,
     whatsapp: createWhatsAppServices(environment),
     subscriptions,
@@ -221,6 +231,8 @@ export function createServices(
     },
     close: async () => {
       await jobs.stop();
+      // After the jobs, so the last turns' traces go too; bounded, so a slow Langfuse never holds the stop.
+      await tracing.shutdown();
       await identity.disconnect();
       await db.disconnect();
     },

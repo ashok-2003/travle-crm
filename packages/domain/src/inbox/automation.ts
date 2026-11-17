@@ -14,6 +14,7 @@ import { isUniqueViolation, softDeleted, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { agentPauseOf } from "../subscriptions/index.js";
 
 /** Published when a customer writes and the agency has an automatic answer that could fit (never a reaction, a blocked contact, or STOP). */
 export const CUSTOMER_WROTE_EVENT = "whatsapp.customer-wrote";
@@ -81,16 +82,26 @@ const auditView = (settings: InboxAutomation) => ({
 const minuteText = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
+/** The agent's own switch in the agency's settings: on says nothing yet about whether it can answer. */
+const agentSwitchedOn = async (tx: OrgTx): Promise<boolean> =>
+  (await tx.aiAutopilot.findFirst({ select: { autopilot: true } }))?.autopilot === true;
+
 /**
- * Whether the agency answers from its packages only. The column is the AI module's switch; inbox reads it in one line
- * rather than import ai (ai imports inbox), so a grounded agency's chats get no keyword trip kits.
+ * Whether the agency's AI agent can answer now: its switch is on, the AI module is on and platform staff have not paused
+ * it. Inbox reads these in a few lines rather than import ai (ai imports inbox). Keyword trip kits stand aside only for
+ * an agent that can answer, so a paused agency keeps them. The plan and subscription are not read here: they come from a
+ * service this path doesn't have, and an agency without the AI module has `ai_settings.enabled` off in practice.
  */
-export async function answersFromPackagesOnly(tx: OrgTx): Promise<boolean> {
-  return (await tx.aiAutopilot.findFirst({ select: { grounded: true } }))?.grounded === true;
+export async function aiAgentOn(tx: OrgTx, organizationId: string): Promise<boolean> {
+  if (!(await agentSwitchedOn(tx))) return false;
+  if ((await tx.aiSettings.findFirst({ select: { enabled: true } }))?.enabled !== true) return false;
+  return (await agentPauseOf(tx, organizationId)) === null;
 }
 
 /** Whether anything could act on a customer's message: the welcome or away message is on, a keyword answer is, or a trip's keywords. */
 export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
+  // The agent answers whatever the customer writes, so its event publishes whatever the automation settings say.
+  if (await agentSwitchedOn(tx)) return true;
   const settings = await automationOf(tx);
   if (
     (settings.welcomeEnabled && settings.welcomeMessage !== "") ||
@@ -103,8 +114,6 @@ export async function automationCouldAct(tx: OrgTx): Promise<boolean> {
   // no settings saved, the buying words are on by default.
   const sales = await tx.salesAutomation.findFirst({ select: { hotKeywords: true, followEnabled: true } });
   if (sales === null || sales.hotKeywords.length > 0 || sales.followEnabled) return true;
-  // A grounded agency's AI sends the files; keyword kits stay for the others (staff still send a kit from the chat).
-  if (await answersFromPackagesOnly(tx)) return false;
   return (await tx.tripKit.count({ where: { autoSend: true, keywords: { isEmpty: false } } })) > 0;
 }
 

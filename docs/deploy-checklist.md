@@ -151,9 +151,13 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_BASE_URL`: its address (Google's Gemini direct; https in production)                            | ○   | ○      |         |         |        |
 | `AI_CHAT_MODELS`: its models, comma-separated; needed with `AI_API_KEY`                             | ○   | ○      |         |         |        |
 | `AI_FAST_MODELS`: the ones that only score leads (the chat ones when blank)                         | ○   | ○      |         |         |        |
+| `AI_AGENT_MODELS`: the new agent's models, comma-separated (the chat models when blank)             | ○   | ○      |         |         |        |
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
+| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`: both or neither (Tracing the AI, the agent's prompt)  | ○   | ○      |         |         | yes    |
+| `LANGFUSE_BASE_URL`: Langfuse's region, needed with the keys; https in production                   | ○   | ○      |         |         |        |
+| `LANGFUSE_TRACING_ENVIRONMENT`: the traces' environment (`NODE_ENV`'s when unset)                   | ○   | ○      |         |         |        |
 | `LOG_LEVEL`: debug, info, warn or error (`info`)                                                    | ○   | ○      | ○       |         |        |
 | `AXIOM_TOKEN`, `AXIOM_DATASET`: both or neither (Logs, below)                                       | ○   | ○      | ○       |         | yes    |
 | `AXIOM_URL`: only for Axiom's EU region                                                             | ○   | ○      | ○       |         |        |
@@ -263,13 +267,15 @@ Secrets come from the platform's secret manager as environment variables, never 
   - Off for every agency until its plan includes the `ai` module (the console's plan editor) and its Owner or Admin turns it on
     in Settings, AI. A member asks for each draft; it reads the chat's last 12 messages, the lead's first name and trip
     facts, the agency's trip details and quick replies and its instructions, never a phone number or an email. At most 8,000
-    AI calls an agency a month, suggestions and the autopilot alike (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
+    AI calls an agency a month, Suggest reply and the WhatsApp agent alike (`MONTHLY_AI_LIMIT` in `packages/domain/src/ai/usage.ts`).
   - **Called directly on another endpoint** (the owner, 2026-10-29): `AI_API_KEY` with `AI_BASE_URL` (for Google's Gemini,
     `https://generativelanguage.googleapis.com/v1beta/openai`; OpenRouter's when unset) and `AI_CHAT_MODELS` (and optionally
     `AI_FAST_MODELS`, for lead scoring). With `AI_API_KEY` set they replace `OPENROUTER_API_KEY` and its model lists; the
     process stops if the key has no chat models, if the others come without the key, or if the base URL is not https in
     production. OpenRouter's `provider` zero-data-retention field is sent only to OpenRouter, so a direct endpoint keeps what
-    its own terms say (Google's free tier may use prompts: keep billing on for the project). `docker-compose.server.yml`
+    its own terms say (Google's free tier may use prompts: keep billing on for the project). The new sales agent
+    (`AI_AGENT_MODELS`, the chat models when blank) runs on OpenRouter only: on any other base URL, the first key's or the
+    backup's, it has no models and answers that the AI isn't ready. `docker-compose.server.yml`
     passes all of them to the api and the worker; the console calls no model, so its AI keys are blank.
   - **A backup** (the owner, 2026-11-02): `AI_BACKUP_API_KEY` (with `AI_API_KEY` only) is asked when the first AI can't
     answer: every model rate limited, down or gone. It keeps the first's endpoint and models unless `AI_BACKUP_BASE_URL`,
@@ -278,6 +284,43 @@ Secrets come from the platform's secret manager as environment variables, never 
     minute) without being asked, so the backup answers at once. Use a paid key or another provider's, never a second free
     account to get round a provider's limits: its terms forbid that, and its free tier may use the customers' words.
   - Existing plans get no AI: edit each plan in the console to add the module.
+- **Tracing the AI** (the owner, 2026-11-16; `@travel-crm/integrations/tracing`):
+  - With `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` (all three or none; for Langfuse Cloud US,
+    `https://us.cloud.langfuse.com`, https in production), the api and the worker send every AI call to Langfuse as a
+    generation (the messages in full, the answer, the model, the tokens, or the reason there was none), and each
+    WhatsApp agent turn (a reply, a follow-up, a Try it turn) as one trace of its chat: the conversation is the session,
+    the customer's words the input, what went out the output, and the turn's lite trace (what Understand and Write were
+    shown and answered, the lookups, the checks, the move and why) the metadata.
+  - This is a deliberate exception to "no personal data leaves": the chats' words go to Langfuse Cloud. Phone numbers and
+    email addresses are masked before they leave; the log lines' rule (no personal data) is unchanged.
+  - Traces go under `NODE_ENV`'s environment (`production` on the server) unless `LANGFUSE_TRACING_ENVIRONMENT` names
+    another. The console calls no model and is given no keys. `pnpm --filter @travel-crm/api-server agent-bench` traces
+    its real model's turns under `development`.
+  - A Langfuse that is down or slow changes nothing: spans are sent in the background, and a process's stop waits at most
+    six seconds for the last of them.
+  - An erased customer's traces are not yet deleted from Langfuse: until that step is added to the erasure, delete them
+    by hand there (Tracing, filtered by the session, which is the chat's id).
+- **The natural agent's prompt** (`@travel-crm/integrations/prompts`) lives in Langfuse's prompt management, in the same
+  project as the traces and read with the same three `LANGFUSE_*` settings; nothing else is set:
+  - It is the **text** prompt named `whatsapp-agent/natural-system` (a `whatsapp-agent` folder in Langfuse's Prompts).
+    Its variables are `{{agent_name}}`, `{{agency_name}}` and `{{tone}}`, which the agent fills for each agency; a
+    variable of any other name stays in the text as written.
+  - The label `production` is live: the agent reads the version it points to, kept for a minute in each process. A moved
+    label shows a minute on: the first turn after the minute still runs the old version (it fetches the new one behind
+    it), the next turn the new one. The label `draft` is for Try it alone: its Prompt choice "Draft" reads it afresh each
+    turn, beside the live prompt, and runs the live one when the draft can't be read, saying so in Why. Edit the draft,
+    try it, then move `production` to that version to put it live; move `production` back to undo.
+  - The built-in text (`packages/domain/src/ai/natural/prompt-text.ts`, version `built-in-1`) is the fallback: the agent
+    runs on it without the keys, when a process has never read the prompt (none at that label yet, or Langfuse down
+    since the start), and when Langfuse doesn't answer within 2 seconds (then it asks again only after 30 seconds). Once
+    a process has read a version, it keeps that version when Langfuse fails: removing the `production` label or the
+    prompt brings the built-in text back only after a restart, so move the label instead. Why and each trace show the
+    version a turn ran: `langfuse:whatsapp-agent/natural-system@<version>` or `built-in-1`. A turn on a Langfuse prompt
+    links each of its generations to that version, so the prompt's Metrics in Langfuse count them.
+  - Langfuse's SDK prints nothing (its console logger is off). A prompt that can't be had is a `warn` line of the
+    process's log (`source: langfuse-prompts`, its name, label, reason and status), at most once per prompt every 30
+    seconds; a label Langfuse doesn't have, such as no `draft` yet, is only a `debug` line.
+  - To start, create the prompt from the built-in text, as it is, with the label `production`.
 - **WhatsApp through MSG91** (ADR 0035; the owner's steps are in `docs/whatsapp-owner-steps.md`):
   - The three `MSG91_*` settings come together: one or two of the three stops the process, naming the missing variable and
     printing no value. None turns WhatsApp off: the inbox says "not set up" and the console says so. Give the same three to
@@ -475,6 +518,82 @@ server in Mumbai, with the same images under Docker Compose (`docker-compose.ser
 - **The web app's own page addresses hold no customer data,** so its access logs need no stripping for that: the lead
   list keeps its filters (ids and fixed values) in the address and its search text in the browser tab, never `?q=`
   (`apps/web/test/e2e/leads-add.spec.ts` checks every URL and Referer the browser sends).
+
+## Release: the move to the lite agent
+
+The release that makes every agency's WhatsApp agent the one lite agent and removes the first ("autopilot") agent and the
+grounded agent (`docs/superpowers/plans/2026-11-13-lite-agent-move.md`). It is code, not a flag: there is no setting to
+change for any agency. Expand only: nothing is dropped.
+
+**Before merging**
+
+1. Run `pnpm agent:bench` on the private cases with the real model (it needs Docker and the AI key; the report is written
+   privately outside the repository, never committed). Every check passes, or each failure is read in the report and
+   accepted. Have the owner read the Hindi and Hinglish fixed texts before any agency goes live.
+2. List the agencies whose agent switch is on (`SELECT organization_id FROM ai_autopilot WHERE autopilot`) and keep the
+   ids with the earlier list of agencies switched off by hand. A rollback needs them (below).
+
+There is nothing to press in the console before the merge: the release before has no agent pause. The release arrives
+paused instead (step 3).
+
+**The deploy**
+
+3. The merge deploys. The migrate step applies two migrations that change rows only, so the release before keeps working
+   while they apply:
+   - `20261214100000_lite_move` clears only the earlier agents' planned follow-ups. Nothing is deleted: the first
+     agent's memory, voice copies, persona and lessons stay in their tables, read by nothing.
+   - `20261214200000_lite_move_paused` turns on the pause for every agency, in the first super admin's name, so the new
+     worker starts with nobody answering. The release before never reads it.
+4. The servers update. The retired `ai.learn` schedule is removed when the worker starts (`RETIRED_SCHEDULES` in
+   `apps/api/src/worker-jobs.ts`); a turn the release before queued on `ai.reply` runs as a lite turn and ends
+   `paused`. `ai.read-document` stays: package drafts still read the documents agencies upload.
+5. Before anything else, open the console's WhatsApp page: it reads **Paused for every agency since …**. If it doesn't
+   (the database had no super admin when it migrated), press **Pause for every agency** now.
+
+   Why the minutes before this check are safe: until the servers update, the release before runs as it did before the
+   merge. After it, a lite turn needs the agency's payment QR, which no agency can have yet (its upload ships in this
+   release), so even an unpaused turn ends `not_ready` and sends nothing.
+
+6. Tell agencies to reload any open tab. A Settings, AI page left open from before the deploy is refused on save (the
+   instructions and custom-trips fields it sends no longer exist).
+
+**After the deploy, one agency at a time**
+
+7. Press **Resume one agency at a time**: every agency gets its own pause and the every-agency pause lifts.
+8. For each agency, open its console page and read its **AI agent setup** block (its badge reads **Paused** until step
+   9). Resume only an agency whose block says **The agency has turned its AI agent on.** and **Its setup is finished.**,
+   and not **Its plan has no AI.** An agent switched off answers nothing, and one switched on with its setup unfinished
+   answers nothing and tells the agency's managers once a day; its keyword trip kits stay quiet too. Tell the owner
+   what is missing. Payment is ready only with the agency's **payment QR** (the UPI ID and bank details are optional):
+   agencies upload it on AI agent, Setup.
+9. Ask a question in the agency's **Try it** (support impersonating, ADR 0019), then press **Resume for this agency**.
+   Watch its first day's turns in the console's AI traces.
+
+**Rolling back**
+
+**Pause for every agency** is the first lever to pull, a rollback the last. The console's pause doesn't reach the
+release before: its agent reads neither the pause nor the setup. Deployed again, it would answer at once in every agency
+whose switch is on, with the first agent (or the grounded agent where `grounded` is still true), agencies resumed on the
+lite agent included. So:
+
+1. First switch the agent off for every agency, as on the day of the hand pause:
+   `UPDATE ai_autopilot SET autopilot = false WHERE autopilot RETURNING organization_id`. Keep the ids for a restore.
+2. Then deploy the previous digests. No down migration: both migrations above change rows only, and the release
+   before reads nothing they changed.
+
+**Watch**
+
+- **Capacity.** Lite turns run three at once across all agencies (`ai.reply`), each holding a pooled connection through
+  its transactions. Watch the AI turns' timings while agencies move; if replies queue, raise `DATABASE_POOL_SIZE` of the
+  worker from 5 to 10 (Settings and secrets, above).
+- **The AI key.** The pilot's key is on a free tier (training use, low rate limits). Put a paid key in before more
+  agencies move.
+
+**Later: the contract release**
+
+The old columns and tables (the earlier agents' settings, chat memory and voice copies, `ai_learning`, `ai_media`, and
+the files of record types `ai_knowledge`, `ai_media` and `package_payment_qr`) are dropped in a later release, after
+those stored files are deleted. It deletes data, so it needs the owner's approval on its own; until then everything stays.
 
 ## Still open before launch
 

@@ -1,7 +1,6 @@
-// What the AI is told when it drafts a reply: fixed rules, the agency's own words (its instructions, trip kits and quick
+// What the AI is told when it drafts a reply: fixed rules, the agency's own words (its trip kits and quick
 // replies), the lead's details and the chat's last messages. The customer's words and the agency's are fenced as data, so
 // an instruction inside a message is not one. A person's full name, phone and email are never included.
-import { AI_INSTRUCTIONS_MAX } from "@travel-crm/contracts/ai";
 import type { AiMessage } from "@travel-crm/integrations/ai";
 
 const RULES = `You draft ONE WhatsApp reply for a travel agency's staff member, who will read it, change it and send it. You do not send anything.
@@ -15,14 +14,12 @@ Rules:
 
 export interface PromptFacts {
   agencyName: string;
-  /** What the agency wrote for its AI. */
-  instructions: string;
   /** The customer's first name, or null. */
   firstName: string | null;
   /** The lead's facts as short lines ("Destination: Manali"). */
   lead: readonly string[];
-  /** What the agency told its AI to know: packages, prices, policies. */
-  knowledge: readonly { title: string; body: string }[];
+  /** The trips the agency sells, by name (trips-on-offer.ts): no price, date or seat count. */
+  trips: readonly string[];
   tripKits: readonly { name: string; message: string }[];
   quickReplies: readonly { title: string; body: string }[];
   /** The chat, oldest first. */
@@ -41,14 +38,11 @@ export function promptOf(facts: PromptFacts): AiMessage[] {
     facts.calendar === undefined
       ? ""
       : `The calendar (work out every date, weekday, "kal" or "next Friday" from it alone, never from memory):\n<data>${fenced(facts.calendar)}</data>`,
-    facts.instructions === ""
-      ? ""
-      : `The agency's instructions:\n<data>${fenced(cut(facts.instructions, AI_INSTRUCTIONS_MAX))}</data>`,
     facts.lead.length === 0 ? "" : `What is known about this enquiry:\n<data>${fenced(facts.lead.join("\n"))}</data>`,
-    facts.knowledge.length === 0
+    facts.trips.length === 0
       ? ""
-      : `What the agency knows and offers (packages, prices, policies: the only prices you may quote):\n<data>${fenced(
-          facts.knowledge.map((piece) => `## ${piece.title}\n${piece.body}`).join("\n\n"),
+      : `The trips the agency sells (names only: never quote a price, date or seat count that isn't in the chat):\n<data>${fenced(
+          facts.trips.join("\n"),
         )}</data>`,
     facts.tripKits.length === 0
       ? ""

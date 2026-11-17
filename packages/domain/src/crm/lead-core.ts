@@ -39,7 +39,7 @@ export async function lockLead(tx: OrgTx, leadId: string) {
 export async function changeLeadStage(
   tx: OrgTx,
   actor: Actor,
-  change: { leadId: string; stage: LeadStage; lostReason?: LostReason | undefined },
+  change: { leadId: string; stage: LeadStage; lostReason?: LostReason | undefined; byAi?: boolean },
   now: Date,
 ): Promise<boolean> {
   const { leadId, stage: to } = change;
@@ -64,7 +64,13 @@ export async function changeLeadStage(
       await recordLeadEvent(tx, actor, { leadId, kind: "follow-up-cancelled", record, occurredAt: now });
     }
   }
-  await recordLeadEvent(tx, actor, { leadId, kind: "stage-changed", stage: to, occurredAt: now });
+  await recordLeadEvent(tx, actor, {
+    leadId,
+    kind: "stage-changed",
+    stage: to,
+    byAi: change.byAi === true,
+    occurredAt: now,
+  });
   const action: "lead.stage-changed" | "lead.reopened" =
     !isOpenStage(from) && isOpenStage(to) ? "lead.reopened" : "lead.stage-changed";
   await recordCrmAudit(tx, actor, {

@@ -67,19 +67,15 @@ describe("payment identifiers in the sources", () => {
     const upi = "manaliholidays@okhdfcbank";
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
     await inOrg((tx) =>
-      saveAiSettings(
-        tx,
-        owner,
-        { enabled: true, scoring: true, instructions: "" },
-        { providerReady: true, now: new Date() },
-      ),
+      saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
     // The id begins inside the first 400 characters and ends after them.
     const long = `Manali 5 Nights 6 Days ${"x".repeat(365)} pay ${upi} thanks`;
     await inOrg(async (tx) => {
       await tx.aiKnowledge.create({ data: { title: "Manali", body: long } });
-      await tx.aiAutopilot.updateMany({ data: { strictRules: `Advance to UPI ${upi} only` } });
-      await tx.aiSettings.updateMany({ data: { instructions: "Bank account no 50100123456789" } });
+      await tx.tripKit.create({
+        data: { name: "Advance", message: `Advance to UPI ${upi} only\nBank account no 50100123456789`, keywords: [] },
+      });
     });
     const pieces = await inOrg((tx) => packageSources(tx));
     const text = JSON.stringify(pieces);

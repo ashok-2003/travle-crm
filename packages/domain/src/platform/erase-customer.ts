@@ -112,6 +112,7 @@ export async function eraseCustomerParts(
     aiFills: ai.fills,
     departureOffersDeleted: ai.offers,
     aiInputFiles: ai.inputFiles,
+    aiTraces: ai.traces,
     notifications,
     files,
     sheetRowsWithdrawn: sheets.rowsWithdrawn,

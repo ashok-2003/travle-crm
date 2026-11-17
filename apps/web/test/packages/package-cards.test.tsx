@@ -87,7 +87,7 @@ describe("PackageDeparturesCard", () => {
 });
 
 describe("PackageFilesCard", () => {
-  it("lists the brochures and the QR", async () => {
+  it("lists the brochures", async () => {
     const api = fakeApi();
     renderWithApi(<PackageFilesCard packageId={packageId} />, newQueryClient());
     await waitFor(() => {
@@ -103,7 +103,6 @@ describe("PackageFilesCard", () => {
           url: "https://files.test/kedar.pdf",
         },
       ],
-      paymentQr: null,
     });
     expect(await screen.findByRole("link", { name: "kedar.pdf" })).toBeTruthy();
     expect(screen.queryByTestId("package-qr-input")).toBeNull();
@@ -118,7 +117,6 @@ describe("PackageFilesCard", () => {
     const attachmentId = "0190a000-0000-7000-8000-0000000000f1";
     api.last().answer({
       brochures: [{ attachmentId, fileName: "kedar.pdf", contentType: "application/pdf", url: null }],
-      paymentQr: null,
     });
     await userEvent.click(await screen.findByRole("button", { name: "Remove kedar.pdf" }));
     expect(api.calls).toHaveLength(1);
@@ -137,7 +135,7 @@ describe("PackageFilesCard", () => {
     await waitFor(() => {
       expect(api.calls.length).toBe(1);
     });
-    api.last().answer({ brochures: [], paymentQr: null });
+    api.last().answer({ brochures: [] });
     await screen.findByText(messages.packages.files.noBrochures);
     const file = new File(["%PDF"], "plan.pdf", { type: "application/pdf" });
     await userEvent.upload(screen.getByTestId("package-brochure-input"), file);
@@ -162,7 +160,7 @@ describe("a package file is checked in the browser first", () => {
     await waitFor(() => {
       expect(api.calls.length).toBe(1);
     });
-    api.last().answer({ brochures: [], paymentQr: null });
+    api.last().answer({ brochures: [] });
     await screen.findByText(messages.packages.files.noBrochures);
     const input = screen.getByTestId("package-brochure-input");
     await userEvent.upload(input, new File(["x"], "notes.txt", { type: "text/plain" }), { applyAccept: false });

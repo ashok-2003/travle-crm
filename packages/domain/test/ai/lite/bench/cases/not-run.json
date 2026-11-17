@@ -1,0 +1,33 @@
+{
+  "name": "a place we do not run",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "do you do ladakh?"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "package_question",
+            "proof": "do you do ladakh"
+          }
+        ],
+        "language": "english",
+        "details": {
+          "place": {
+            "words": "ladakh",
+            "proof": "ladakh",
+            "changed": false
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "move": "fixed"
+  }
+}

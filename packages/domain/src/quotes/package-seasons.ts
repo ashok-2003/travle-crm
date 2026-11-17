@@ -74,6 +74,22 @@ export async function seasonsOf(tx: OrgTx, packageId: string): Promise<(SeasonPr
   return rows.map(viewOf);
 }
 
+/** The seasons of each of these packages, earliest first, in one query (a package with none has an empty list). */
+export async function seasonsByPackage(
+  tx: OrgTx,
+  packageIds: readonly string[],
+): Promise<Map<string, (SeasonPrices & { id: string })[]>> {
+  const found = new Map<string, (SeasonPrices & { id: string })[]>(packageIds.map((id) => [id, []]));
+  if (packageIds.length === 0) return found;
+  const rows = await tx.packageSeason.findMany({
+    where: { templateId: { in: [...packageIds] } },
+    orderBy: [{ startsOn: "asc" }, { id: "asc" }],
+    select: { ...seasonColumns, templateId: true },
+  });
+  for (const row of rows) found.get(row.templateId)?.push(viewOf(row));
+  return found;
+}
+
 /** The exclusion constraint is the last word when two people save overlapping seasons together. */
 function overlapOnExclusionViolation(error: unknown): never {
   if (error instanceof Error && error.message.includes("package_season_no_overlap")) throw overlaps();

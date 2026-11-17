@@ -1,0 +1,28 @@
+{
+  "name": "discount",
+  "chat": [
+    {
+      "from": "customer",
+      "text": "thoda discount do na"
+    }
+  ],
+  "scripted": [
+    {
+      "understand": {
+        "intents": [
+          {
+            "name": "discount",
+            "proof": "discount do"
+          }
+        ],
+        "language": "hinglish"
+      }
+    }
+  ],
+  "expect": {
+    "sent": true,
+    "flagged": true,
+    "move": "hand_over",
+    "handOver": "discount"
+  }
+}

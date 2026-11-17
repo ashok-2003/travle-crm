@@ -1,7 +1,7 @@
 // "Also check the last 30 days" (Q3): the worker reads the form's last 30 days from Meta and makes an ordinary lead import
 // named after the form, whose columns take the form's matched fields with no matching step, and whose preview offers the
 // leads of people who already have a lead as "Already in your CRM". Leads of the last ten minutes are left to the catch-up.
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkLeadImportListener,
   earlierLeadsListener,
@@ -18,6 +18,13 @@ import { aRunningPage, now } from "./support/running.js";
 
 const test = createTestMeta();
 afterAll(() => test.close());
+// The listener reads the time itself: pinned to the leads' `now`, so their "last 30 days" never drifts with the real date.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const answers = (name: string, phone: string) => ({
   full_name: [name],

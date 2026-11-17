@@ -49,6 +49,17 @@ describe("environment", () => {
     expect(() => loadEnvironment({ ...production, LOG_LEVEL: "verbose" })).toThrow(/LOG_LEVEL/);
   });
 
+  it("reads AI_AGENT_MODELS as a list and treats an empty one as unset", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    expect(
+      loadEnvironment({ ...production, AI_AGENT_MODELS: "google/gemini-3.5-flash, google/gemini-3.5-flash-lite" })
+        .AI_AGENT_MODELS,
+    ).toEqual(["google/gemini-3.5-flash", "google/gemini-3.5-flash-lite"]);
+    expect(loadEnvironment({ ...production, AI_AGENT_MODELS: "" }).AI_AGENT_MODELS).toBeUndefined();
+    expect(loadEnvironment(production).AI_AGENT_MODELS).toBeUndefined();
+    expect(() => loadEnvironment({ ...production, AI_AGENT_MODELS: "bad name" })).toThrow(/AI_AGENT_MODELS/);
+  });
+
   it("takes the AI's endpoint, key and models together (Google's Gemini direct), over https in production", () => {
     const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
     const gemini = {

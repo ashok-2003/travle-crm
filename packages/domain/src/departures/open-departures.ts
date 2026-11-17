@@ -18,23 +18,20 @@ export interface OpenDepartureDetail extends OpenDeparture {
   prices: RoomPrices;
 }
 
-/** Every such departure of the package, soonest first. */
-export async function openDepartureDetails(
+const openWhere = (today: CalendarDate, from: CalendarDate) => ({
+  status: "open" as const,
+  startDate: { gte: asDate(from) },
+  OR: [{ cutoffOn: null }, { cutoffOn: { gte: asDate(today) } }],
+});
+
+type DepartureFound = Awaited<ReturnType<OrgTx["departure"]["findMany"]>>[number];
+
+/** The rows that still have a free seat, each with its package, their seats worked out in one read for all of them. */
+async function withFreeSeats(
   tx: OrgTx,
-  packageId: string,
-  today: CalendarDate,
+  rows: DepartureFound[],
   now: Date,
-  from: CalendarDate = today,
-): Promise<OpenDepartureDetail[]> {
-  const rows = await tx.departure.findMany({
-    where: {
-      templateId: packageId,
-      status: "open",
-      startDate: { gte: asDate(from) },
-      OR: [{ cutoffOn: null }, { cutoffOn: { gte: asDate(today) } }],
-    },
-    orderBy: [{ startDate: "asc" }, { id: "asc" }],
-  });
+): Promise<{ templateId: string | null; detail: OpenDepartureDetail }[]> {
   const seats = await seatsSoldAndHeld(
     tx,
     rows.map((row) => row.id),
@@ -46,15 +43,55 @@ export async function openDepartureDetails(
     return freeSeats > 0
       ? [
           {
-            id: row.id,
-            startsOn: parseCalendarDate(dayOf(row.startDate)),
-            freeSeats,
-            title: row.title,
-            prices: ownPricesOf(row),
+            templateId: row.templateId,
+            detail: {
+              id: row.id,
+              startsOn: parseCalendarDate(dayOf(row.startDate)),
+              freeSeats,
+              title: row.title,
+              prices: ownPricesOf(row),
+            },
           },
         ]
       : [];
   });
+}
+
+/** Every such departure of the package, soonest first. */
+export async function openDepartureDetails(
+  tx: OrgTx,
+  packageId: string,
+  today: CalendarDate,
+  now: Date,
+  from: CalendarDate = today,
+): Promise<OpenDepartureDetail[]> {
+  const rows = await tx.departure.findMany({
+    where: { templateId: packageId, ...openWhere(today, from) },
+    orderBy: [{ startDate: "asc" }, { id: "asc" }],
+  });
+  return (await withFreeSeats(tx, rows, now)).map((one) => one.detail);
+}
+
+/**
+ * The same for each of these packages, soonest first, in one read of the departures and one of their seats whatever the
+ * number of packages (a package with none open has an empty list).
+ */
+export async function openDepartureDetailsByPackage(
+  tx: OrgTx,
+  packageIds: readonly string[],
+  today: CalendarDate,
+  now: Date,
+): Promise<Map<string, OpenDepartureDetail[]>> {
+  const found = new Map<string, OpenDepartureDetail[]>(packageIds.map((id) => [id, []]));
+  if (packageIds.length === 0) return found;
+  const rows = await tx.departure.findMany({
+    where: { templateId: { in: [...packageIds] }, ...openWhere(today, today) },
+    orderBy: [{ startDate: "asc" }, { id: "asc" }],
+  });
+  for (const { templateId, detail } of await withFreeSeats(tx, rows, now)) {
+    if (templateId !== null) found.get(templateId)?.push(detail);
+  }
+  return found;
 }
 
 /** The next three open departures with free seats on or after `from` (today by default), soonest first. */

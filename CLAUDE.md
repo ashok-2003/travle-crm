@@ -9,29 +9,30 @@ and verify here, and the lessons that cost us time), and for screens [docs/ui-bu
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command                                        | What it does                                                                   |
-| ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| `pnpm install`                                 | install dependencies                                                           |
-| `pnpm db:up` / `pnpm db:down`                  | start / stop local Postgres (Docker)                                           |
-| `pnpm services:up`                             | start Postgres, MinIO (files) and Mailpit (email) locally                      |
-| `pnpm db:migrate`                              | apply migrations to local Postgres                                             |
-| `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)                            |
-| `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules                       |
-| `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs                |
-| `pnpm dev`                                     | services and migrations, then api, worker, console and web                     |
-| `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)                       |
-| `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080                         |
-| `pnpm format`                                  | format every file with Prettier                                                |
-| `pnpm check`                                   | format, scripts:test, typecheck, lint, tests, journeys, imports                |
-| `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)                            |
-| `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)                       |
-| `pnpm test:performance`                        | the at-scale and query-plan tests; CI runs them nightly, not on a pull request |
-| `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)                 |
-| `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)                      |
-| `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)                        |
-| `pnpm scripts:test`                            | the scripts' tests: compose project names, working hours (CI)                  |
-| `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`                   |
-| `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                                 |
+| Command                                        | What it does                                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `pnpm install`                                 | install dependencies                                                                          |
+| `pnpm db:up` / `pnpm db:down`                  | start / stop local Postgres (Docker)                                                          |
+| `pnpm services:up`                             | start Postgres, MinIO (files) and Mailpit (email) locally                                     |
+| `pnpm db:migrate`                              | apply migrations to local Postgres                                                            |
+| `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)                                           |
+| `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules                                      |
+| `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs                               |
+| `pnpm dev`                                     | services and migrations, then api, worker, console and web                                    |
+| `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)                                      |
+| `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080                                        |
+| `pnpm agent:bench`                             | replay chats through the lite agent on a throwaway database (Docker); report outside the repo |
+| `pnpm format`                                  | format every file with Prettier                                                               |
+| `pnpm check`                                   | format, scripts:test, typecheck, lint, tests, journeys, imports                               |
+| `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)                                           |
+| `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)                                      |
+| `pnpm test:performance`                        | the at-scale and query-plan tests; CI runs them nightly, not on a pull request                |
+| `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)                                |
+| `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)                                     |
+| `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)                                       |
+| `pnpm scripts:test`                            | the scripts' tests: compose project names, working hours (CI)                                 |
+| `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`                                  |
+| `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                                                |
 
 `pnpm check` is not all of CI: CI runs its parts and every command marked CI, each as a job of its own
 (`.github/workflows/ci.yml`), and CodeQL (`codeql.yml`).
@@ -45,7 +46,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 - **Ports and adapters (ADR 0008).** Domain code never imports a vendor SDK. It takes a port from
   `@travel-crm/integrations/<adapter>` (`ObjectStorage`, `JobQueue`, …) as a parameter; the api and worker pass the real
   adapter, tests pass the in-memory one. Only `packages/integrations` imports pg-boss, the AWS SDK, nodemailer,
-  web-push, pino, React-PDF and the spreadsheet libraries, and it imports nothing of ours but `@travel-crm/brand`.
+  web-push, pino, React-PDF, the spreadsheet libraries and Langfuse's and OpenTelemetry's packages, and it imports
+  nothing of ours but `@travel-crm/brand`.
 - **The product's name, colours and contacts** come from `@travel-crm/brand`, never typed elsewhere.
 - **Pinned versions.** Shared tool versions live in the `catalog:` in `pnpm-workspace.yaml`. Prisma is pinned to 7.10.0;
   npm's `latest` for `prisma` is an 8.0 release candidate. Never install "latest" without checking.
@@ -160,6 +162,16 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   with ids, codes, counts and timings only, never personal data (the adapters censor what slips through). An error goes
   in as `...errorFields(error)` (name, code, frames; never its message). A request has a `requestId`; a job logs its
   queue and job id. Tests read `createMemoryLogger().entries`.
+- **AI tracing:** the `AiTracing` port (`@travel-crm/integrations/tracing`): Langfuse when `LANGFUSE_*` are set, else none.
+  `createAiModel` traces every model call as a generation; an agent turn runs inside `tracing.turn(...)` (one trace per
+  turn, its chat the session) and adds what it learns with `tracing.note(...)`; tests read `createMemoryTracing()`. A
+  deliberate exception (the owner, 2026-11-16): prompts and replies go to Langfuse in full, phones and emails masked; the
+  Logger's no-personal-data rule is unchanged. Tracing never changes or slows what it traces.
+- **AI prompts** (the owner, 2026-11-16): Langfuse is the source of truth, read through the `AiPrompts` port
+  (`@travel-crm/integrations/prompts`; none without `LANGFUSE_*`). The natural agent's prompt is
+  `whatsapp-agent/natural-system`: live turns read label `production`, Try it's Draft reads `draft`, each generation
+  links to the version used, and the built-in text in code (kept equal to production) is the fallback when Langfuse is
+  slow (2 s) or down. Two messages in a reply are split at a line of only `---`.
 - **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
   the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
 - **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
@@ -237,7 +249,7 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   by design (ADR 0028).
   `@travel-crm/domain/<module>`, `@travel-crm/contracts/<module>` and `@travel-crm/integrations/<adapter>` each resolve
   to `src/<name>/index.ts`, so a new module needs no `package.json` change.
-- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`, `bot-check`),
+- `packages/integrations`: adapters to the outside world (`storage`, `email`, `push`, `jobs`, `pdf`, `spreadsheets`, `google-sheets`, `bot-check`, `tracing`, `prompts`),
   each a port plus a real and an in-memory adapter.
 - `packages/brand`: the product's name, colours, fonts and contacts (spec 10).
 - `packages/db`: Prisma schema, migrations, RLS, `forOrg`, soft delete, document numbers. The migrations need

@@ -2,8 +2,9 @@
 
 How the product runs for the pilot, and what to do when something has to change or goes wrong. The deploy checklist
 (`docs/deploy-checklist.md`) says what any deploy must get right. This page is about this one server. When Oracle
-has no ARM capacity, two small free servers stand in for it, with a managed database and the web app on Vercel
-("Two small servers (api and console)").
+has no ARM capacity, two small free servers stand in for it, with the web app on Vercel: first beside a managed
+database ("Two small servers (api and console)"), and since 2026-11-13 with our own ("Our own database (app and
+database servers)").
 
 ## What runs where
 
@@ -434,6 +435,53 @@ Run the same command on both servers, or the console's jobs and the worker keep 
 outside the working hours: to widen the hours past a burst, move the bursts first. The wake matters only on the api's
 server, where the worker runs. What the timers did:
 `journalctl -u travel-crm-work-start -u travel-crm-work-stop -u travel-crm-work-burst -u travel-crm-work-wake`.
+
+## Our own database (app and database servers)
+
+The two small servers since 2026-11-13, when Neon's free plan ran out of network transfer twelve days into the month
+(the worker's job polling: about 12 GB a month) and would have suspended the database until the next one. Mumbai had no
+ARM capacity, so the database got a small server of its own.
+
+- **The database server** (`SERVER_ROLE=database`, `travel-crm-console`, private address 10.0.0.228): Postgres 18
+  alone (`docker/server/database.yml`), published on the private address only, and no Caddy.
+  - Its settings keep the four database passwords (`secrets.sh init` made them). `DATABASE_URL` names the host
+    `postgres`, which is what starts Postgres here (`paths.sh`). `POSTGRES_LISTEN_ADDRESS` is the private address, and
+    `POSTGRES_EFFECTIVE_CACHE_SIZE` and `POSTGRES_MAINTENANCE_WORK_MEM` size Postgres for 1 GB.
+  - It backs up every night at 01:30 India time ("Backups and restoring"), and restarts for security updates at 02:30,
+    an hour before the app server (`setup.sh`).
+- **The app server** (`SERVER_ROLE=app`, `travel-crm-pilot`, 10.0.0.34): the api, the worker and the console, and Caddy
+  (`routes-app`). Its three connection strings name `10.0.0.228:5432`, and it holds the migrator's, so each deploy
+  applies the release's migrations there before the api starts.
+- **Oracle:** the subnet's default security list lets TCP 5432 in from the subnet (`10.0.0.0/24`). Nothing outside the
+  private network can reach Postgres.
+- **Vercel:** `API_ORIGIN` and `CONSOLE_ORIGIN` are both the app server's address.
+- **GitHub:** the `production` environment has no `DATABASE_MIGRATOR_URL` (the runner can't reach a private address).
+  `ORACLE_API_SERVER` is the app server and `ORACLE_CONSOLE_SERVER` the database server: `release-servers.sh` releases
+  the app server, then the database server, whose deploy only checks that Postgres answers.
+- **Memory:** the app server holds the three processes in 1 GB (about 560 MB idle) and its 4 GB of swap.
+- **The working hours** were for Neon's compute hours. With our own database they only spare the app server's memory
+  at night; `work-hours.sh off` on the app server runs everything all day and night.
+
+**Moving from a managed database, once** (2026-11-13, from Neon):
+
+1. **Oracle:** add the security list's rule above.
+2. **Release** a commit with the roles to both servers (they run as before until their settings change).
+3. **The database server:**
+   - stop what it ran: `work-hours.sh off`, then `compose.sh rm --stop --force console proxy`;
+   - in its settings: `SERVER_ROLE` `database`, `DATABASE_URL` to its own Postgres (as `init` writes it), and the three
+     `POSTGRES_*` settings above (add the lines if the file predates them); fill the backups' settings;
+   - `setup.sh` without `--managed-database` (huge pages, the backup timer, the 02:30 restarts), then a reboot;
+   - `deploy.sh`: Postgres starts empty, with the three roles.
+4. **The switch** (the product is down for a few minutes):
+   - on the app server, `compose.sh stop api worker console`;
+   - dump the managed database as its owner (`pg_dump --format custom`, as `backup.sh` does) and restore it on the
+     database server: `compose.sh exec -T postgres pg_restore -U postgres -d travel_crm --exit-on-error`;
+   - in the app server's settings: `SERVER_ROLE` `app`, the three connection strings to `10.0.0.228` with the database
+     server's passwords, and `DATABASE_PLATFORM_URL` too;
+   - `deploy.sh` on the app server: it migrates (nothing pending), starts, and runs the smoke check.
+5. **Vercel:** `CONSOLE_ORIGIN` to the app server's address, then redeploy. **GitHub:** delete
+   `DATABASE_MIGRATOR_URL` from `production`.
+6. **Keep the managed database** a week, untouched, then delete it.
 
 ## Switch to a real domain
 

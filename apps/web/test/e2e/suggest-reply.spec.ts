@@ -34,14 +34,13 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   await expect(chat.getByRole("combobox", { name: "Message" })).toBeVisible();
   await expect(chat.getByRole("button", { name: "Suggest a reply" })).toHaveCount(0);
 
-  // The Owner turns it on in Settings, AI, with an instruction.
+  // The Owner turns it on in Settings, AI.
   await owner.goto("/settings/ai");
-  await expect(owner.getByRole("heading", { level: 1, name: "AI sales agent" })).toBeVisible();
+  await expect(owner.getByRole("heading", { level: 1, name: "AI", exact: true })).toBeVisible();
   await owner.getByLabel("Let the AI draft replies and guess how leads will go").click();
-  await owner.getByLabel("Instructions for the AI").fill("Reply warm and short. Never offer a discount.");
   await owner.getByRole("button", { name: "Save", exact: true }).click();
   await expect(owner.getByText("AI settings saved")).toBeVisible();
-  // What the agency tells its AI to know.
+  // A document the agency gave for package drafts: stored, but no longer sent to Suggest reply.
   await owner.getByRole("button", { name: "Add text" }).click();
   await owner.getByLabel("Title").fill("Kerala 5N");
   await owner
@@ -64,19 +63,22 @@ test("an Owner turns Suggest reply on, a draft lands in the box, they change it 
   await expect(panel.getByText("Drafted by AI")).toBeVisible();
   expect(await sentTo(customer)).toHaveLength(0);
 
-  // What the AI was asked: zero data retention, the agency's instructions, the customer's words, and no phone number.
-  // The fake keeps every request of the whole run (the autopilot journey's too): this one is the draft's.
+  // What the AI was asked: zero data retention, the customer's words, and no phone number.
+  // The fake keeps every request of the whole run (every journey's): this agency's own draft is found by its organization.
   const request = (
     (await (await fetch(`${fakeOpenRouter()}/_requests`)).json()) as {
       authorization: string;
-      body: { provider: { zdr: boolean }; messages: { content: string }[] };
+      body: { provider: { zdr: boolean }; user?: string; messages: { content: string }[] };
     }[]
-  ).find((one) => one.body.messages.some((message) => message.content.includes("You draft ONE WhatsApp reply")));
+  ).find(
+    (one) =>
+      one.body.user === agency.organizationId &&
+      one.body.messages.some((message) => message.content.includes("You draft ONE WhatsApp reply")),
+  );
   expect(request?.body.provider.zdr).toBe(true);
   const prompt = request?.body.messages.map((message) => message.content).join("\n") ?? "";
-  expect(prompt).toContain("Never offer a discount.");
   expect(prompt).toContain("Kerala package for 4");
-  expect(prompt).toContain("Kerala 5 nights is ₹18,500 per person");
+  expect(prompt).not.toContain("Kerala 5 nights is ₹18,500 per person");
   expect(prompt).not.toContain(customer);
 
   // The person changes it: it is no longer marked, and what they send is what they wrote.

@@ -1,5 +1,5 @@
 // Package drafts (plan 2 of the WhatsApp sales agent rebuild), on a phone and a desktop, against the real api with the fake AI
-// (support/fake-openrouter.ts): the Owner gives the AI a knowledge piece about Manali 5N6D and strict rules that print a different
+// (support/fake-openrouter.ts): the Owner gives the AI a knowledge piece about Manali 5N6D and a trip kit that prints a different
 // triple price; "Find trips" lists Manali; "Draft" proposes its values, each with the line it was read from, both triple prices
 // offered; Save stays shut until one is chosen; the saved package is a group package with its season, and "AI can sell" is off.
 import { expectAccessible } from "./support/accessibility";
@@ -9,7 +9,7 @@ import { inAgency } from "./support/whatsapp";
 
 test.use({ actionTimeout: 15_000 });
 
-// The knowledge is piece 1 (lines P1.L1 to P1.L5) and the strict rules piece 2 (P2.L1): the instructions are empty.
+// The knowledge is piece 1 (lines P1.L1 to P1.L5) and the trip kit piece 2 (P2.L1).
 const KNOWLEDGE = [
   "Manali 5 Nights 6 Days group package",
   "Triple sharing Rs 6,999/- per person",
@@ -17,7 +17,7 @@ const KNOWLEDGE = [
   "Departures every Friday and Saturday",
   "Advance Rs 2,000/- per person to book",
 ].join("\n");
-const STRICT_RULES = "Manali 5N6D triple sharing is Rs 7,499/- per person";
+const KIT = "Manali 5N6D triple sharing is Rs 7,499/- per person";
 
 test("the Owner drafts a group package from the agency's documents, chooses between two triple prices, and saves it", async ({
   page,
@@ -25,14 +25,12 @@ test("the Owner drafts a group package from the agency's documents, chooses betw
 }) => {
   test.setTimeout(300_000);
   await signInByEmail(page, agency.owner);
-  await callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm", instructions: "" });
+  await callApi(page, "ai.saveSettings", { enabled: true, scoring: true, writeStyle: "warm" });
   await callApi(page, "ai.addKnowledge", { title: "Manali 5N6D", body: KNOWLEDGE });
-  const autopilot = await callApi<Record<string, unknown>>(page, "ai.autopilot", {});
-  // What was read back is what is saved again, but for the two fields the input does not take.
-  const settings = Object.fromEntries(
-    Object.entries(autopilot).filter(([name]) => name !== "learnedAt" && name !== "voice"),
+  // A trip kit that prints a different triple price: the second source drafts read.
+  await inAgency(agency.organizationId, (tx) =>
+    tx.tripKit.create({ data: { name: "Manali rates", message: KIT, keywords: [] } }),
   );
-  await callApi(page, "ai.saveAutopilot", { ...settings, strictRules: STRICT_RULES });
 
   await page.goto("/settings/ai");
   const section = page
@@ -41,7 +39,7 @@ test("the Owner drafts a group package from the agency's documents, chooses betw
   await expect(section.getByRole("button", { name: "Find trips" })).toBeVisible({ timeout: 60_000 });
   await section.getByRole("button", { name: "Find trips" }).click();
   await expect(section.getByText("Manali 5 Nights 6 Days")).toBeVisible();
-  await expect(section.getByText("From: Knowledge: Manali 5N6D, Strict rules")).toBeVisible();
+  await expect(section.getByText("From: Knowledge: Manali 5N6D, Trip kit: Manali rates")).toBeVisible();
   await expectAccessible(page);
 
   await section.getByRole("button", { name: "Draft Manali 5 Nights 6 Days" }).click();
@@ -56,7 +54,7 @@ test("the Owner drafts a group package from the agency's documents, chooses betw
   await expect(triple).toBeVisible();
   await expect(dialog.getByRole("radio", { name: /₹7,499/ })).toBeVisible();
   await expect(
-    dialog.getByText("From Strict rules: “Manali 5N6D triple sharing is Rs 7,499/- per person”"),
+    dialog.getByText("From Trip kit: Manali rates: “Manali 5N6D triple sharing is Rs 7,499/- per person”"),
   ).toBeVisible();
   await expectAccessible(page);
 

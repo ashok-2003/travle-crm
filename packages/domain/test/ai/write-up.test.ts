@@ -95,14 +95,12 @@ describe("quote write-up", () => {
     });
     const model = createMemoryAiModel();
     const turnOn = () =>
-      inOrg((tx) =>
-        saveAiSettings(
-          tx,
-          owner,
-          { enabled: true, scoring: true, instructions: "" },
-          { providerReady: true, now: testNow },
-        ),
-      );
+      inOrg(async (tx) => {
+        await saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: testNow });
+        // Free text an agency typed before the move is stored but sent to no prompt.
+        await tx.aiSettings.updateMany({ data: { instructions: "WRITEUP_INSTRUCTIONS" } });
+        await tx.aiKnowledge.create({ data: { title: "Offer", body: "WRITEUP_KNOWLEDGE_BODY" } });
+      });
     const write = (member = seller, language: "en" | "hi" = "en") =>
       writeUpQuote(
         test.db,
@@ -139,6 +137,8 @@ describe("quote write-up", () => {
     expect(prompt).toContain("Solang Valley");
     expect(prompt).toContain("Hotel, 5 nights");
     expect(prompt).not.toContain("777700");
+    expect(prompt).not.toContain("WRITEUP_INSTRUCTIONS");
+    expect(prompt).not.toContain("WRITEUP_KNOWLEDGE_BODY");
     expect(prompt).not.toContain("7,777");
     expect(request?.feature).toBe("write_up");
     expect(result.monthlyLimit).toBe(MONTHLY_AI_LIMIT);

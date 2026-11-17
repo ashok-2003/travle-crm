@@ -2,7 +2,8 @@
 // lead as before, also makes and links a confirmed release 6 booking with the proof kept; confirming again reuses it, a lead
 // with an accepted quote links to that quote's booking, and a real quote accepted later takes the chat's place, not a second.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { setBookingStatus, takeBooking } from "../../src/ai/booking.js";
+import { setBookingStatus } from "../../src/ai/booking.js";
+import { takeBooking } from "./ai-booking-fixture.js";
 import { createBookingFromQuote } from "../../src/bookings/index.js";
 import { agreedQuote } from "../../src/quotes/index.js";
 import { aLead } from "../crm/support/records.js";

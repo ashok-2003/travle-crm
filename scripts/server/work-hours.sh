@@ -145,9 +145,9 @@ check_bursts_outside_hours() {
 
 # --- What runs ------------------------------------------------------------------------------------------------------
 
-# Whether this server runs the worker, the console, or both.
-runs_worker() { [ "$(server_role)" != console ]; }
-runs_console() { [ "$(server_role)" != api ]; }
+# Whether this server runs the worker, the console, both, or neither (the database server).
+runs_worker() { case "$(server_role)" in all | api | app) return 0 ;; *) return 1 ;; esac; }
+runs_console() { case "$(server_role)" in all | console | app) return 0 ;; *) return 1 ;; esac; }
 
 set_console_jobs() {
   install -d -m 0755 "$(dirname "$console_jobs_file")"
@@ -164,7 +164,8 @@ day_state() {
     set_console_jobs on
     services+=(console)
   fi
-  "$compose" up --detach --no-deps "${services[@]}"
+  # `up` naming no service would start every one: on the database server nothing here is the hours' to start.
+  if [ "${#services[@]}" -gt 0 ]; then "$compose" up --detach --no-deps "${services[@]}"; fi
 }
 
 # The night's state: the worker stops (its running jobs get the stop's grace, 2 minutes, to finish; one cut short runs
@@ -190,6 +191,7 @@ what_runs_here() {
   case "$(server_role)" in
     api) echo "the worker" ;;
     console) echo "the console with its jobs" ;;
+    database) echo "nothing (Postgres runs all the time)" ;;
     *) echo "the worker and the console with its jobs" ;;
   esac
 }
@@ -198,6 +200,7 @@ what_sleeps_here() {
   case "$(server_role)" in
     api) echo "the worker stops" ;;
     console) echo "the console serves its pages with its jobs off" ;;
+    database) echo "nothing changes" ;;
     *) echo "the worker stops; the console serves its pages with its jobs off" ;;
   esac
 }
@@ -437,7 +440,7 @@ status() {
     fi
   fi
   if runs_console; then state+=("console running, its jobs $(cat "$console_jobs_file" 2>/dev/null || echo on)"); fi
-  echo "This server ($(server_role)) now: ${state[0]}${state[1]:+; ${state[1]}}"
+  echo "This server ($(server_role)) now: ${state[0]:-Postgres alone}${state[1]:+; ${state[1]}}"
   if [ -f "$work_signal_file" ]; then
     echo "The api last signalled work at $(TZ="$zone" date -r "$work_signal_file" '+%Y-%m-%d %H:%M:%S') India time"
   fi

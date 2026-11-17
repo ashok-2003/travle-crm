@@ -11,7 +11,15 @@ export {
   reassignOpenTasks,
 } from "./record-tasks.js";
 export { listOpenRecordTasksOf, listTasksOnRecord, type OpenRecordTasksFilter } from "./record-task-reads.js";
-export { addStandaloneTask, completeTask, createTask, dueInstant, editTask, snoozeTask } from "./task-changes.js";
+export {
+  addStandaloneTask,
+  completeTask,
+  createTask,
+  dueInstant,
+  editTask,
+  retitleTask,
+  snoozeTask,
+} from "./task-changes.js";
 export {
   countOpenTasks,
   countOpenTasksQuery,

@@ -24,7 +24,7 @@ import { DestinationField } from "@/leads/form/destination-field";
 import { NoteField } from "@/leads/form/note-field";
 import { useWriteAccess } from "@/subscription/write-access";
 import { CalculateFromButton } from "./calculate-from-button";
-import { GroupFields, groupInputFields, groupInputOf, groupValuesOf } from "./group-fields";
+import { GroupFields, groupInputFields, groupInputOf, groupValuesOf, useOnlyPackageOnSale } from "./group-fields";
 import type { PackageFormValues as Values } from "./package-form-values";
 import { usePackageChanges } from "./use-packages";
 
@@ -56,6 +56,7 @@ const fields = [
 ] as const;
 const renamed: Partial<Record<string, keyof Values>> = {
   destinationId: "destination",
+  newDestinationName: "destination",
   fromPricePaise: "fromPrice",
   defaultTravellerLevel: "level",
   ...groupInputFields,
@@ -75,6 +76,7 @@ function toInput(packageId: string, detail: PackageDetail, typed: Values) {
     taxRateBasisPoints: detail.taxRateBasisPoints,
     slug: typed.slug.trim() === "" ? null : typed.slug.trim(),
     destinationId: typed.destination?.kind === "existing" ? typed.destination.destinationId : null,
+    ...(typed.destination?.kind === "new" && { newDestinationName: typed.destination.name }),
     nights,
     summary: typed.summary,
     highlights: typed.highlights
@@ -137,6 +139,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
     (problem) => t(`problems.${problem}`),
   );
   const days = useFieldArray({ control: form.control, name: "days" });
+  const onlyOnSale = useOnlyPackageOnSale(detail);
   const busy = update.isPending || !access.allowed;
   return (
     <form
@@ -146,7 +149,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
         update.mutate(input);
       })}
     >
-      <Card>
+      <Card id="package-details" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>
             <h2>{t("quoteTitle")}</h2>
@@ -160,6 +163,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
             name="destination"
             label={t("destination")}
             hint={t("destinationHint")}
+            allowNew
           />
           <TextField
             control={form.control}
@@ -194,7 +198,7 @@ export function PackageForm({ detail }: { detail: PackageDetail }) {
         </CardContent>
       </Card>
 
-      <GroupFields control={form.control} disabled={busy} />
+      <GroupFields control={form.control} disabled={busy} onlyOnSale={onlyOnSale} />
 
       <Card>
         <CardHeader>

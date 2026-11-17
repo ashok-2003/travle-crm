@@ -80,9 +80,15 @@ model WhatsappConversation {
   /// Out of the lists until then, when whoever snoozed it is reminded; a new message from the customer wakes it at once.
   snoozedUntil   DateTime?                    @map("snoozed_until") @db.Timestamptz(6)
   snoozedBy      String?                      @map("snoozed_by") @db.Uuid
+  /// The ad that brought this chat (click-to-WhatsApp), noted while its first message was processed.
+  adId           String?                      @map("ad_id") @db.Uuid
+  /// The ad on the chat's latest message that had one (adId stays the first); what the AI agent opens with.
+  lastAdId       String?                      @map("last_ad_id") @db.Uuid
   createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
   organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   connection     WhatsappConnection           @relation(fields: [organizationId, connectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  ad             WhatsappAd?                  @relation("firstAd", fields: [organizationId, adId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  lastAd         WhatsappAd?                  @relation("lastAd", fields: [organizationId, lastAdId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   person         Person?                      @relation(fields: [organizationId, personId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   messages       WhatsappMessage[]
   tags           ConversationTag[]
@@ -92,6 +98,8 @@ model WhatsappConversation {
   broadcasts     WhatsappBroadcastRecipient[]
   aiDrafts       AiDraft[]
   aiChats        AiChat[]
+  aiSuggestions  LeadAiSuggestion[]
+  aiTurnTraces   AiTurnTrace[]
   paymentProofs  PaymentProof[]
 
   @@unique([organizationId, id])
@@ -104,7 +112,31 @@ model WhatsappConversation {
   @@index([organizationId, personId], map: "whatsapp_conversation_person")
   /// The minute job's wake-ups: only the snoozed chats are in it.
   @@index([organizationId, snoozedUntil], map: "whatsapp_conversation_snoozed", where: raw("(snoozed_until IS NOT NULL)"))
+  /// The chats of one ad, for the ads list's counts.
+  @@index([organizationId, adId], map: "whatsapp_conversation_ad", where: raw("(ad_id IS NOT NULL)"))
   @@map("whatsapp_conversation")
+}
+
+/// A click-to-WhatsApp ad that brought chats, noted while the first message was processed (the raw webhook is blanked
+/// after 7 days). The headline is the agency's own ad copy. The package it promotes is what the AI agent opens with.
+model WhatsappAd {
+  organizationId    String                 @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                String                 @id @default(uuid(7)) @db.Uuid
+  /// Meta's source id, else "headline:" plus the headline lower-cased.
+  adKey             String                 @map("ad_key")
+  headline          String?
+  sourceUrl         String?                @map("source_url")
+  packageId         String?                @map("package_id") @db.Uuid
+  firstSeenAt       DateTime               @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt        DateTime               @map("last_seen_at") @db.Timestamptz(6)
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  package           QuoteTemplate?         @relation(fields: [organizationId, packageId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  conversations     WhatsappConversation[] @relation("firstAd")
+  lastConversations WhatsappConversation[] @relation("lastAd")
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, adKey], map: "whatsapp_ad_key")
+  @@map("whatsapp_ad")
 }
 
 /// One message in a chat, in or out. The unique wamid is the dedupe ledger.

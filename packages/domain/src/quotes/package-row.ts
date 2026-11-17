@@ -33,7 +33,6 @@ export const packageColumns = {
   roomTypes: true,
   pricesIncludeGst: true,
   advancePerPersonPaise: true,
-  paymentDetails: true,
   pickupPoints: true,
   startCity: true,
   weeklyDays: true,
