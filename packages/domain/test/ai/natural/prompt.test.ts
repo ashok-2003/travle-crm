@@ -22,7 +22,7 @@ const kept = (version: number, label: string, text: string) => ({ name: NATURAL_
 const liveText = "# {{agent_name}} of {{agency_name}}, in a {{ tone }} voice. {{agency_name}} again.";
 
 describe("the natural agent's prompt", () => {
-  it("holds prompt v4 as written", () => {
+  it("holds prompt v5 as written", () => {
     expect(NATURAL_PROMPT_TEXT.startsWith("# {{agent_name}}, {{agency_name}} on WhatsApp")).toBe(true);
     expect(NATURAL_PROMPT_TEXT).toContain("## Four things you never do");
     expect(NATURAL_PROMPT_TEXT.trimEnd().endsWith("</example>")).toBe(true);
@@ -55,8 +55,12 @@ describe("the natural agent's prompt", () => {
       "# Riya of Sharma Holidays, in a friendly voice. Sharma Holidays again.",
     );
   });
-  it("fits its budget of 6,000 tokens (prompt v4 is about 5,900)", () => {
+  it("fits its budget of 6,500 tokens (prompt v5 is about 5,900)", () => {
     expect(estimateTokens(NATURAL_PROMPT_TEXT)).toBeLessThanOrEqual(NATURAL_BUDGETS.prompt);
+  });
+  it("never says someone from the team will do it, except in its own 'Never' rule", () => {
+    const lines = NATURAL_PROMPT_TEXT.split("\n").filter((line) => /someone from the team will/i.test(line));
+    for (const line of lines) expect(line).toMatch(/Never "someone from the team will/);
   });
   it("names no bench fixture's trip or price", () => {
     for (const word of ["Kedarkantha", "Brahmatal", "9,499", "10,499", "Majnu ka Tilla"])

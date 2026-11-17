@@ -17,11 +17,11 @@ const bookingPhrases = paymentClaimPhrases.filter((one) => BOOKING_WORD.test(one
 const moneyPhrases = paymentClaimPhrases.filter((one) => !bookingPhrases.includes(one));
 
 const PAYMENT_RETRY =
-  "No payment is recorded on this chat yet: don't say it came; say the team checks it and confirms here.";
+  "No payment is recorded on this chat yet: don't say it came; say you'll check it and confirm here.";
 const BOOKING_RETRY =
-  "The booking isn't confirmed yet: don't say it is; say the team confirms it here once the payment is checked.";
+  "The booking isn't confirmed yet: don't say it is; say you'll confirm it here once the payment is checked.";
 const NO_TEAM_LINE =
-  "No Team line in this chat says that: don't credit the team with it; say you'll check with them instead.";
+  "No Team line in this chat says that: don't credit the team with it; say you'll check and come back instead.";
 
 /** G3: each payment or booking claim, checked against what the team recorded. */
 export function paymentClaimCheck(
