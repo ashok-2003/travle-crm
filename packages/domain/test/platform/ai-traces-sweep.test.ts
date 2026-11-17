@@ -135,6 +135,14 @@ describe("the hourly sweep of AI traces", () => {
     expect(await test.storage.head(traces[1]?.fileKey ?? "")).not.toBeNull();
   });
 
+  it("a one turn's row, which has no file, goes when due without a delete", async () => {
+    const { organizationId, traces } = await agency([15]);
+    const [old] = traces;
+    await platform.aiTurnTrace.update({ where: { id: old?.id ?? "" }, data: { fileKey: null, agent: "one" } });
+    await sweepAiTraces(test.services, NOW);
+    expect(await rowsOf(organizationId)).toEqual([]);
+  });
+
   it("an erased customer's traces go at the next sweep and another customer's stay", async () => {
     const { organizationId, traces } = await agency([1, 1]);
     const [erased, kept] = traces;

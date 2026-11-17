@@ -4,3 +4,6 @@ ALTER TABLE "ai_autopilot" DROP CONSTRAINT ai_autopilot_agent_value,
   ADD CONSTRAINT ai_autopilot_agent_value CHECK (agent IN ('lite', 'natural', 'one'));
 ALTER TABLE "ai_turn_trace" DROP CONSTRAINT ai_turn_trace_agent_value,
   ADD CONSTRAINT ai_turn_trace_agent_value CHECK (agent IN ('lite', 'natural', 'one'));
+
+-- A one turn keeps only its row (Langfuse holds the detail), so it has no trace file.
+ALTER TABLE "ai_turn_trace" ALTER COLUMN "file_key" DROP NOT NULL;

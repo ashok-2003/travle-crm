@@ -18,6 +18,7 @@ import { oneLiveIO, type OneTurnDependencies } from "./live-io.js";
 import { runOneLoop } from "./loop.js";
 import { onePromptOf } from "./prompt.js";
 import { finishOneTurn } from "./turn-note.js";
+import { keepToolTurn } from "./turn-row.js";
 
 async function followUp(
   deps: OneTurnDependencies,
@@ -68,7 +69,10 @@ export async function runOneNudge(deps: OneTurnDependencies, input: LiteTurnInpu
     const trace = startNaturalTrace(prompt, startedMs, "one");
     const done = await followUp(deps, turn, prompt, number, clock, trace);
     const ended = clock();
-    return finishOneTurn(deps, input, done, trace.finish(done.outcome, done.fallback, ended), ended - startedMs);
+    const finished = trace.finish(done.outcome, done.fallback, ended);
+    const outcome = finishOneTurn(deps, input, done, finished, ended - startedMs);
+    await keepToolTurn(deps.toolTurns, input, done, finished, prompt, startedMs);
+    return outcome;
   };
   return deps.tracing === undefined ? work() : deps.tracing.turn(naturalTurnStart(input, prompt, leadId, "one"), work);
 }
