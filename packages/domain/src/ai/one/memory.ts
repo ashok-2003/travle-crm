@@ -24,6 +24,9 @@ export async function chatMemoryOf(
 ): Promise<{ summary: string | null; lines: NaturalChatLine[] }> {
   const { organizationId } = input;
   const { timeZone, today } = prepared;
+  const lastTurnAt = prepared.facts.lastTurnAt === null ? null : new Date(prepared.facts.lastTurnAt);
+  const newLines = newLinesOf(prepared.lines, lastTurnAt);
+  const first = newLines[0];
   const step = await refreshChatSummary(
     {
       db: deps.db,
@@ -38,14 +41,14 @@ export async function chatMemoryOf(
       lead: prepared.lead,
       clock: { today, timeZone },
       now,
+      before: first === undefined ? null : { at: first.at, id: first.id },
     },
   );
   if (step.kind === "refreshed") trace.flag("summary:refreshed");
   if (step.kind === "failed") trace.flag(`summary:failed:${step.reason}`);
   const { summary } = step;
   if (summary.text === "") return { summary: null, lines: prepared.lines };
-  const lastTurnAt = prepared.facts.lastTurnAt === null ? null : new Date(prepared.facts.lastTurnAt);
-  const isNew = new Set(newLinesOf(prepared.lines, lastTurnAt));
+  const isNew = new Set(newLines);
   return {
     summary: summary.text,
     lines: prepared.lines.filter((line) => isNew.has(line) || isAfter(line, summary)),
