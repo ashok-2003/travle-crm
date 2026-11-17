@@ -25,29 +25,29 @@ describe("choosing an agency's agent from the console", () => {
     await test.close();
   });
 
-  it("reads lite for a new agency, moves it to natural and back, and a repeat logs nothing", async () => {
+  it("reads natural for a new agency, moves it to lite and back, and a repeat logs nothing", async () => {
     const plan = await createTestPlan(test);
     const { organizationId } = await onboardOrganization(test.services, support, onboardingInput(plan));
     const admin = { userId: randomUUID() };
     expect(await organizationAgentChoice(test.services, organizationId)).toEqual({
-      agent: "lite",
+      agent: "natural",
       lastReplay: null,
       replaying: false,
     });
-    expect(await chooseOrganizationAgent(test.services, admin, { organizationId, agent: "natural" })).toMatchObject({
-      agent: "natural",
+    expect(await chooseOrganizationAgent(test.services, admin, { organizationId, agent: "lite" })).toMatchObject({
+      agent: "lite",
     });
-    await chooseOrganizationAgent(test.services, admin, { organizationId, agent: "natural" });
-    expect((await organizationAgentChoice(test.services, organizationId)).agent).toBe("natural");
     await chooseOrganizationAgent(test.services, admin, { organizationId, agent: "lite" });
+    expect((await organizationAgentChoice(test.services, organizationId)).agent).toBe("lite");
+    await chooseOrganizationAgent(test.services, admin, { organizationId, agent: "natural" });
 
     const own = await platform.auditEntry.findMany({
       where: { organizationId, action: "ai-agent.agent-changed" },
       orderBy: { id: "asc" },
     });
     expect(own).toMatchObject([
-      { source: "platform", actorUserId: admin.userId, before: { agent: "lite" }, after: { agent: "natural" } },
       { source: "platform", actorUserId: admin.userId, before: { agent: "natural" }, after: { agent: "lite" } },
+      { source: "platform", actorUserId: admin.userId, before: { agent: "lite" }, after: { agent: "natural" } },
     ]);
     const page = await test.services.platformDb.transaction((tx) =>
       listPlatformLog(tx, { targetOrganizationId: organizationId, limit: 50 }),

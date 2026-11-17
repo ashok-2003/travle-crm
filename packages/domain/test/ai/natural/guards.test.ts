@@ -67,8 +67,6 @@ const brahmatal: TripSheet = {
     ...bySeason(1_049_900),
   })),
   fileIds: [],
-  brochures: [],
-  photoIds: [],
 };
 /** Kedarkantha at one price that excludes 5% GST. */
 const excludingGst = (price: number): TripSheet => ({

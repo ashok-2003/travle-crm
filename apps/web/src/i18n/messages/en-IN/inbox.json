@@ -288,6 +288,14 @@
       "progress": "How much has played",
       "speed": "Speed {speed}x. Change it"
     },
+    "aiText": {
+      "heard": "Heard: {text}",
+      "heardTerm": "Heard",
+      "heardHint": "The AI agent's transcript of this voice note. It may be wrong.",
+      "seen": "Seen: {text}",
+      "seenTerm": "Seen",
+      "seenHint": "The AI agent's description of this photo. It may be wrong."
+    },
     "place": {
       "title": "Location",
       "open": "Open in Maps"

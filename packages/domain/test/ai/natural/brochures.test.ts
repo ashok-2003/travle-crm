@@ -34,6 +34,11 @@ describe("the one agent's brochures", () => {
     expect(lines).toHaveLength(4);
   });
 
+  it("reads an empty description as none", () => {
+    const empty = [sheet("T1", "A", [{ attachmentId: "e1", name: "Plan", description: "" }])];
+    expect(brochuresBlock(empty)).toContain("Plan: no description yet");
+  });
+
   it("has no block with no brochures", () => {
     expect(brochuresBlock([sheet("T1", "A", [])])).toBeNull();
   });

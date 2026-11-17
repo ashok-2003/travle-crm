@@ -6,6 +6,7 @@
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode } from "react";
+import { InfoHint } from "@/components/info-hint";
 import { LocationCard } from "./media/location-card";
 import { MessageMedia } from "./media/message-media";
 
@@ -52,6 +53,18 @@ export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
           {message.caption !== null && (
             <p dir="auto" className="whitespace-pre-wrap break-words">
               <Linked text={message.caption} />
+            </p>
+          )}
+          {message.aiText !== null && (
+            <p dir="auto" className="flex items-center gap-1 text-caption text-muted-foreground">
+              <span className="break-words">
+                {t(message.aiText.kind === "transcript" ? "aiText.heard" : "aiText.seen", {
+                  text: message.aiText.text,
+                })}
+              </span>
+              <InfoHint term={t(message.aiText.kind === "transcript" ? "aiText.heardTerm" : "aiText.seenTerm")}>
+                {t(message.aiText.kind === "transcript" ? "aiText.heardHint" : "aiText.seenHint")}
+              </InfoHint>
             </p>
           )}
         </div>

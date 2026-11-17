@@ -152,6 +152,39 @@ describe("a voice note and a place", () => {
     pause.mockRestore();
   });
 
+  it("shows Heard under a voice note and Seen under a photo", async () => {
+    const api = answerApi({
+      "inbox.conversation": header,
+      "salesInbox.notes": notes,
+      "inbox.markRead": null,
+      "inbox.messages": {
+        items: [
+          aMessage({
+            id: id(2),
+            kind: "image",
+            mediaState: "expired",
+            aiText: { kind: "description", text: "A payment receipt for 25,000" },
+          }),
+          aMessage({
+            id: id(1),
+            kind: "audio",
+            mediaState: "expired",
+            aiText: { kind: "transcript", text: "Can we go in May?" },
+          }),
+        ],
+        nextCursor: null,
+        people: {},
+        unread: { count: 0, firstMessageId: null },
+      },
+    });
+    renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
+    expect(await screen.findByText("Heard: Can we go in May?")).toBeInTheDocument();
+    expect(screen.getByText("Seen: A payment receipt for 25,000")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What does Heard mean?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What does Seen mean?" })).toBeInTheDocument();
+    expect(api.calls.length).toBeGreaterThan(0);
+  });
+
   it("shows a place's coordinates with a link that opens Maps in another tab", () => {
     renderWithApi(<LocationCard latitude={19.076} longitude={72.8777} />, newQueryClient());
     const link = screen.getByRole("link", { name: "Open in Maps" });

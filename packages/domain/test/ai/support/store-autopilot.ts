@@ -3,6 +3,7 @@ import type { OrgTx } from "@travel-crm/db";
 
 interface Fields {
   autopilot?: boolean;
+  agent?: "lite" | "natural";
   agentName?: string;
   tone?: string;
   maxRepliesPerDay?: number;

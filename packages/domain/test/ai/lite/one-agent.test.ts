@@ -40,7 +40,7 @@ describe("one agent", () => {
     const on = await liteAgency(test);
     const dependencies: AgentDependencies & { logger: typeof on.logger } = dependenciesOf(on);
     const handler = aiReplyHandler(dependencies);
-    expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 6]);
+    expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 5]);
     on.model.answer(understood([["hello", "Hi"]]), written(greeting));
     // The handler reads the clock itself; only Date is faked, so the database and timers run as they do.
     vi.useFakeTimers({ now: liteTurnAt, toFake: ["Date"] });

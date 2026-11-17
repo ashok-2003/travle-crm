@@ -165,7 +165,7 @@ describe("what a lite turn costs the database", () => {
     );
     expect(test.queue.sent.slice(before).map((job) => job.queue)).toEqual(["ai.reply", "ai.reply"]);
     const handler = aiReplyHandler({ ...dependenciesOf(test, on), logger: on.logger });
-    expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 6]);
+    expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 5]);
   });
 
   it("a booking turn costs the same with ten packages as with one", async () => {

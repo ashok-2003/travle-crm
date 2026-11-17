@@ -1,5 +1,5 @@
 // The worker's side of the agent: a customer's message queues the AI's turn a few seconds later (so a burst of messages
-// reads as one, and only the newest is answered), six chats at a time; each minute, the follow-ups it planned that are
+// reads as one, and only the newest is answered), five chats at a time; each minute, the follow-ups it planned that are
 // due go out while the window is open. Every step asks first whether the agency has the AI on, its plan has it and its
 // subscription allows it.
 import { aiChatResumedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
@@ -26,9 +26,9 @@ export const AI_NUDGES_QUEUE = "ai.nudges";
 const SETTLE_MS = 3_000;
 /**
  * Turns at once. Each holds a pooled connection through its prepare and its act transactions, many round trips
- * each (turn-cost.test.ts counts them), out of the few the whole worker shares: six leave room for the rest.
+ * each (turn-cost.test.ts counts them), out of the few the whole worker shares: five leave room for the rest.
  */
-const AT_ONCE = 6;
+const AT_ONCE = 5;
 /**
  * When the natural agent's model fails, its turn runs again after the first wait, then after the second; a third
  * failure sends the fallback line and a task for the team (no silence). Index: the attempt that failed.
@@ -147,7 +147,7 @@ const isNatural = (dependencies: AgentDependencies, organizationId: string) =>
   dependencies.db.forOrg(organizationId, async (tx) => (await agentOf(tx)) === "natural");
 
 /**
- * The agent's turn for one message, six chats at a time: only the chat's newest customer message is answered; an
+ * The agent's turn for one message, five chats at a time: only the chat's newest customer message is answered; an
  * earlier one's job ends. A turn queued by the release before the move keeps this job's shape, so it runs as lite.
  */
 export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logger; queue?: JobQueue }): JobHandler {
