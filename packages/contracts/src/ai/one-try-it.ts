@@ -9,6 +9,8 @@ export const oneTestInput = z
     messages: testAiInput.shape.messages,
     /** The last turn's state, sent back as it came; null starts a new chat. */
     state: postedState.nullable(),
+    /** The last customer line is a tap on the state's live offer card (a dry run: nothing is booked). */
+    tap: z.enum(["book", "change"]).optional(),
     model: z.enum(testAiModels),
     temperature: z.enum(testAiTemperatures),
     /** The test chat's id, the same on each of its turns: its turns' trace session. */

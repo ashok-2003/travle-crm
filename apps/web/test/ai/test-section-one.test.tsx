@@ -93,4 +93,21 @@ describe("Try it on the one agent", () => {
     expect(api.last().path).toBe("ai.testOne");
     expect(api.last().input).toMatchObject({ state });
   });
+
+  it("shows the card's buttons and sends a tap", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, newQueryClient({ ...paidSubscription, modules: ["crm", "inbox", "ai"] as never }));
+    await userEvent.click(screen.getByRole("combobox", { name: choices.agent }));
+    await userEvent.click(await screen.findByRole("option", { name: choices.agents.one }));
+    await userEvent.type(screen.getByLabelText(words.message), "Kedarkantha 19 Dec, 2 log");
+    await userEvent.click(screen.getByRole("button", { name: words.send }));
+    const card = { body: "*Kedarkantha*\nTotal ₹18,998", buttons: ["Book these seats", "Change something"] };
+    api.last().answer({ ...answer, card });
+    expect(await screen.findByText(/Total ₹18,998/u)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Book these seats" }));
+    expect(api.last().input).toMatchObject({ tap: "book" });
+    expect(api.last().input).toMatchObject({
+      messages: expect.arrayContaining([{ from: "customer", text: "Tapped: Book these seats" }]) as unknown,
+    });
+  });
 });

@@ -13,7 +13,7 @@ import { oneDryTurn } from "./dry-turn.js";
 export function oneTryItTurn(
   deps: NaturalDryDependencies & { toolAgent: ToolAgent; tracing?: AiTracing },
   access: MemberAccess,
-  chat: NaturalTestChat & { chatId?: string },
+  chat: NaturalTestChat & { chatId?: string; tap?: "book" | "change" },
   now: Date,
 ): Promise<NaturalTestAnswer> {
   const { tracing } = deps;
@@ -24,6 +24,7 @@ export function oneTryItTurn(
       state: chat.state,
       now,
       prompt: chat.prompt,
+      ...(chat.tap === undefined ? {} : { tap: chat.tap }),
       choice: {
         ...(model === undefined ? {} : { model }),
         ...(temperature === undefined ? {} : { temperature }),
