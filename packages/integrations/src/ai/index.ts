@@ -2,7 +2,9 @@
 // the model with every call traced.
 export {
   aiFeatures,
+  audioFormatOf,
   NEXT_MODEL_MIN_LEFT_MS,
+  type AiAudioFormat,
   type AiEffort,
   type AiFailure,
   type AiFeature,
