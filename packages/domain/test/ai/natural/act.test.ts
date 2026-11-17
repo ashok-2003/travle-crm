@@ -26,8 +26,8 @@ import {
   type WorkingHours,
 } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
-import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
-import { actAgency, actNow, actToday, type ActAgency } from "./support/act-agency.js";
+import { createTestInbox, type TestInbox } from "../../inbox/support.js";
+import { FIRST_AT, FIRST_LINE, liveAgency, liveNow, liveToday, type LiveAgency } from "./support/live-agency.js";
 import { NATURAL_UPI } from "./support/natural-agency.js";
 
 const TIME_ZONE = "Asia/Kolkata";
@@ -69,14 +69,14 @@ describe("the natural agent's live act", () => {
     workingHours: WORKING,
     ...changes,
   });
-  const inputOf = (on: ActAgency, changes: Partial<NaturalActInput>): NaturalActInput => ({
+  const inputOf = (on: LiveAgency, changes: Partial<NaturalActInput>): NaturalActInput => ({
     organizationId: on.organizationId,
     conversationId: on.chat.id,
     token: on.message.id,
     kind: "reply",
-    now: actNow,
+    now: liveNow,
     timeZone: TIME_ZONE,
-    today: actToday,
+    today: liveToday,
     messages: [],
     staged: new Map(),
     quoted: [],
@@ -91,10 +91,10 @@ describe("the natural agent's live act", () => {
     ...changes,
   });
   /** Acts in one transaction, as the turn does. */
-  const act = (on: ActAgency, changes: Partial<NaturalActInput> = {}, actDeps = deps()) =>
+  const act = (on: LiveAgency, changes: Partial<NaturalActInput> = {}, actDeps = deps()) =>
     on.inOrg((tx) => actOnNaturalTurn(tx, actDeps, inputOf(on, changes)));
 
-  const outbound = (on: ActAgency) =>
+  const outbound = (on: LiveAgency) =>
     on.inOrg((tx) =>
       tx.whatsappMessage.findMany({
         where: { conversationId: on.chat.id, direction: "out" },
@@ -104,10 +104,10 @@ describe("the natural agent's live act", () => {
     );
   const tokensOf = (sent: readonly { clientToken: string | null }[]) => sent.map((message) => message.clientToken);
   const textOf = (message: { body: string | null } | undefined) => message?.body ?? null;
-  const chatState = (on: ActAgency) =>
+  const chatState = (on: LiveAgency) =>
     on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
   /** What a turn could have kept: seats, bookings, quotes, the AI's messages, tasks, notes, the chat's reply time. */
-  const kept = (on: ActAgency) =>
+  const kept = (on: LiveAgency) =>
     on.inOrg(async (tx) => ({
       holds: await tx.departureHold.count({ where: { leadId: on.leadId, status: "active" } }),
       bookings: await tx.aiBooking.count({ where: { conversationId: on.chat.id, status: "awaiting_payment" } }),
@@ -116,7 +116,7 @@ describe("the natural agent's live act", () => {
         where: { conversationId: on.chat.id, clientToken: { startsWith: "ai:" } },
       }),
       tasks: await tx.task.count({ where: { recordId: on.leadId } }),
-      notes: await tx.leadNote.count({ where: { leadId: on.leadId } }),
+      notes: await tx.leadNote.count({ where: { leadId: on.leadId, byAi: true } }),
       lastReplyAt:
         (await tx.aiChat.findFirst({ where: { conversationId: on.chat.id }, select: { lastReplyAt: true } }))
           ?.lastReplyAt ?? null,
@@ -124,7 +124,7 @@ describe("the natural agent's live act", () => {
   const nothingKept = { holds: 0, bookings: 0, quotes: 0, sent: 0, tasks: 0, notes: 0, lastReplyAt: null };
 
   /** Three adults in a triple tent on Kedarkantha's 19 Dec batch: ₹9,499 each, ₹3,000 each to book. */
-  const threeOn19Dec = (on: ActAgency): BookingTerms => ({
+  const threeOn19Dec = (on: LiveAgency): BookingTerms => ({
     packageId: on.kedarkantha,
     startsOn: parseCalendarDate("2026-12-19"),
     adults: 3,
@@ -140,7 +140,7 @@ describe("the natural agent's live act", () => {
     customerWords: "haan book karo",
     via: "offer",
   });
-  const offerOf = (figures: QuoteFigures, now = actNow): StagedAction => ({
+  const offerOf = (figures: QuoteFigures, now = liveNow): StagedAction => ({
     tool: "offer_booking",
     offer: {
       ...figures.terms,
@@ -152,12 +152,12 @@ describe("the natural agent's live act", () => {
     figures,
   });
   /** The customer's next line, `minutes` after the act, and the input of the turn that answers it then. */
-  async function nextTurn(on: ActAgency, text: string, minutes: number) {
-    const line = await on.say(text, new Date(actNow.getTime() + (minutes - 1) * MINUTE_MS));
-    return { token: line.id, now: new Date(actNow.getTime() + minutes * MINUTE_MS) };
+  async function nextTurn(on: LiveAgency, text: string, minutes: number) {
+    const line = await on.say(text, new Date(liveNow.getTime() + (minutes - 1) * MINUTE_MS));
+    return { token: line.id, now: new Date(liveNow.getTime() + minutes * MINUTE_MS) };
   }
   /** Seats held on the 19 Dec batch for another lead, as staff hold them. */
-  const holdSeats = (on: ActAgency, departureId: string, seats: number) =>
+  const holdSeats = (on: LiveAgency, departureId: string, seats: number) =>
     on.inOrg(async (tx) =>
       tx.departureHold.create({
         data: { departureId, leadId: (await aLead(tx)).id, seats, expiresAt: new Date("2027-01-01") },
@@ -165,7 +165,7 @@ describe("the natural agent's live act", () => {
     );
 
   /** Pauses the agent for this agency, from the platform's own connection, as platform staff do. */
-  async function pause(on: ActAgency) {
+  async function pause(on: LiveAgency) {
     const plan = await platform.plan.create({
       data: {
         key: `plan-${randomUUID().slice(0, 8)}`,
@@ -183,16 +183,16 @@ describe("the natural agent's live act", () => {
         planId: plan.id,
         billingCycle: "monthly",
         status: "trial",
-        statusChangedAt: testNow,
+        statusChangedAt: FIRST_AT,
         trialEndsOn: new Date("2099-01-01"),
-        aiAgentPausedAt: testNow,
+        aiAgentPausedAt: FIRST_AT,
         aiAgentPausedBy: randomUUID(),
       },
     });
   }
 
   it("sends the words as one or two messages with ai: tokens, and nothing twice for a repeated token", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const token = on.message.id;
     const messages = ["Hi Rahul! Yes, Kedarkantha runs every Saturday in December.", "How many of you are coming?"];
     const result = done(await act(on, { messages }));
@@ -200,18 +200,18 @@ describe("the natural agent's live act", () => {
     expect(tokensOf(sent)).toEqual([`ai:${token}`, `ai:${token}:m2`]);
     expect(sent.map(textOf)).toEqual(messages);
     expect(result.sentIds).toHaveLength(2);
-    expect(result.facts).toMatchObject({ agent: "natural", leadId: on.leadId, lastTurnAt: actNow.toISOString() });
+    expect(result.facts).toMatchObject({ agent: "natural", leadId: on.leadId, lastTurnAt: liveNow.toISOString() });
 
     expect(await act(on, { messages })).toBe("already");
     expect(await outbound(on)).toEqual(sent);
 
-    const one = await actAgency(test);
+    const one = await liveAgency(test);
     done(await act(one, { messages: ["Hi Rahul! Which month suits you?"] }));
     expect(tokensOf(await outbound(one))).toEqual([`ai:${one.message.id}`]);
   });
 
   it("holds the seats, then sends the agency's payment lines and QR after the words", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const token = on.message.id;
     const figures = await on.quote(threeOn19Dec(on));
     const result = done(
@@ -238,7 +238,7 @@ describe("the natural agent's live act", () => {
 
   it("keeps the full name the customer booked under, which the managers' notice names", async () => {
     // WhatsApp's profile says only "R"; they booked as Rohan Mehta (spec case 8).
-    const on = await actAgency(test, { customerName: "R" });
+    const on = await liveAgency(test, { customerName: "R" });
     const figures = await on.quote(threeOn19Dec(on));
     const result = done(
       await act(on, {
@@ -256,7 +256,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("sends a brochure's files captioned with the trip's title", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const token = on.message.id;
     const brochure: StagedAction = { tool: "send_brochure", packageId: on.kedarkantha, fileIds: [on.brochureId] };
     const result = done(await act(on, { messages: ["Here's the Kedarkantha brochure."], staged: stagedSet(brochure) }));
@@ -273,7 +273,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("saves update_lead's fields AI-marked, and a person's value stays with the other as a note", async () => {
-    const on = await actAgency(test, { adults: 2 });
+    const on = await liveAgency(test, { adults: 2 });
     const note = "Customer now says 3 adults; the lead says 2.";
     const update: StagedAction = {
       tool: "update_lead",
@@ -292,7 +292,10 @@ describe("the natural agent's live act", () => {
     const lead = await on.inOrg(async (tx) => ({
       values: await tripFieldValues(tx, on.leadId),
       marked: await tx.leadAiField.findMany({ where: { leadId: on.leadId }, select: { field: true, state: true } }),
-      notes: await tx.leadNote.findMany({ where: { leadId: on.leadId }, select: { body: true, byAi: true } }),
+      notes: await tx.leadNote.findMany({
+        where: { leadId: on.leadId, byAi: true },
+        select: { body: true, byAi: true },
+      }),
       person: await tx.person.findFirstOrThrow({ where: { id: on.chat.personId ?? "" }, select: { name: true } }),
     }));
     const sankri = on.sheets.find((sheet) => sheet.packageId === on.kedarkantha)?.destinationId;
@@ -326,7 +329,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("assigns a task to the lead's owner, due in 2 working hours, and joins a second question to the open one", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const question = (text: string): StagedAction => ({ tool: "create_task", kind: "question", text, callAt: null });
     const tasks = () =>
       on.inOrg((tx) =>
@@ -348,7 +351,7 @@ describe("the natural agent's live act", () => {
         kind: "task",
         title: "Is there a student discount?",
         assigneeUserId: on.owner.userId,
-        dueAt: addWorkingMinutes(actNow, 120, WORKING, TIME_ZONE),
+        dueAt: addWorkingMinutes(liveNow, 120, WORKING, TIME_ZONE),
         byAi: true,
         recordType: "lead",
       },
@@ -371,7 +374,7 @@ describe("the natural agent's live act", () => {
     // fallback's question joins the open one.
     await on.inOrg((tx) => tx.lead.update({ where: { id: on.leadId }, data: { ownerUserId: null } }));
     const third = await nextTurn(on, "Call me at 6?", 10);
-    const callAt = at("2026-10-23", "18:00");
+    const callAt = at("2026-11-20", "18:00");
     done(
       await act(on, {
         ...third,
@@ -392,7 +395,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("keeps a task's whole text in a lead note when its title can't hold it, and never loses a joined question", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const POINTER = " (details in the lead's note)";
     const titles = async () =>
       (
@@ -401,9 +404,11 @@ describe("the natural agent's live act", () => {
         )
       ).map((task) => task.title);
     const notes = async () =>
-      (await on.inOrg((tx) => tx.leadNote.findMany({ where: { leadId: on.leadId }, select: { body: true } }))).map(
-        (note) => note.body,
-      );
+      (
+        await on.inOrg((tx) =>
+          tx.leadNote.findMany({ where: { leadId: on.leadId, byAi: true }, select: { body: true } }),
+        )
+      ).map((note) => note.body);
     const question = (text: string): StagedAction => ({ tool: "create_task", kind: "question", text, callAt: null });
     done(await act(on, { messages: ["Let me check."], staged: stagedSet(question("Is there a student discount?")) }));
 
@@ -454,7 +459,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("moves the stage forward only", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const stage = () => on.inOrg(async (tx) => (await tx.lead.findUniqueOrThrow({ where: { id: on.leadId } })).stage);
     // A reply while the trip isn't known leaves the lead New (stages move when their details are complete).
     done(await act(on, { messages: ["Hi Rahul! Which trek are you looking at?"] }));
@@ -494,7 +499,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("hands over, tells the owner, and keeps the reason", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const result = done(
       await act(on, {
         messages: ["Let me check a group price for you and get back to you here."],
@@ -504,7 +509,7 @@ describe("the natural agent's live act", () => {
     const reason = "Asked for a discount or a better price: Wants 20% off for 6 people";
     expect(result).toMatchObject({ handedOver: true });
     expect(result.actions).toContain("handover:discount");
-    expect(await chatState(on)).toMatchObject({ handedOffAt: actNow, handoffReason: reason, followUpAt: null });
+    expect(await chatState(on)).toMatchObject({ handedOffAt: liveNow, handoffReason: reason, followUpAt: null });
     const notice = await on.inOrg((tx) =>
       tx.notification.findFirstOrThrow({
         where: { kind: "ai.handoff" },
@@ -526,36 +531,36 @@ describe("the natural agent's live act", () => {
 
   it("hands over at the day's cap, while the cap stops any other reply", async () => {
     /** The chat at the day's cap. */
-    const atTheCap = (on: ActAgency) =>
+    const atTheCap = (on: LiveAgency) =>
       on.inOrg(async (tx) => {
         const { maxRepliesPerDay } = await tx.aiAutopilot.findFirstOrThrow();
         await tx.aiChat.upsert({
           where: { organizationId_conversationId: { organizationId: on.organizationId, conversationId: on.chat.id } },
-          create: { conversationId: on.chat.id, repliesOn: replyDayOf(actNow), repliesCount: maxRepliesPerDay },
-          update: { repliesOn: replyDayOf(actNow), repliesCount: maxRepliesPerDay },
+          create: { conversationId: on.chat.id, repliesOn: replyDayOf(liveNow), repliesCount: maxRepliesPerDay },
+          update: { repliesOn: replyDayOf(liveNow), repliesCount: maxRepliesPerDay },
         });
       });
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     await atTheCap(on);
     expect(await act(on, { messages: ["Kedarkantha is lovely in December."] })).toEqual({ stopped: "day_limit" });
     expect(await kept(on)).toEqual(nothingKept);
 
-    const line = fallbackLine("Hi, is the Kedarkantha trek on in December?");
+    const line = fallbackLine(FIRST_LINE);
     const result = done(await act(on, { messages: [line], handOver: { reason: "day_cap", summary: "" } }));
     expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
     expect(result.handedOver).toBe(true);
     expect((await chatState(on)).handoffReason).toBe("Wrote more than the AI answers in a day");
 
     // The month's limit reached as well: its hand-over goes too, whichever of the two the turn names.
-    const both = await actAgency(test);
+    const both = await liveAgency(test);
     await atTheCap(both);
     done(await act(both, { messages: [line], handOver: { reason: "month_limit", summary: "" } }));
     expect((await chatState(both)).handoffReason).toBe("This month's AI replies are used up");
   });
 
   it("plans the follow-up the model chose, in waking hours", async () => {
-    const on = await actAgency(test);
-    const tomorrow = at("2026-10-24", "10:00");
+    const on = await liveAgency(test);
+    const tomorrow = at("2026-11-21", "10:00");
     done(
       await act(on, {
         messages: ["Take your time and tell me which date suits you."],
@@ -567,32 +572,32 @@ describe("the natural agent's live act", () => {
       followUpAt: tomorrow,
       followUpReason: "Ask which date suits them",
       followUpsSent: 0,
-      lastReplyAt: actNow,
+      lastReplyAt: liveNow,
     });
-    expect((await outbound(on)).map((message) => message.occurredAt)).toEqual([actNow]);
+    expect((await outbound(on)).map((message) => message.occurredAt)).toEqual([liveNow]);
 
     // A time at night goes at 9 the next morning instead.
-    const late = await actAgency(test);
+    const late = await liveAgency(test);
     done(
       await act(late, {
         messages: ["I'll check back later."],
-        staged: stagedSet({ tool: "plan_follow_up", at: at("2026-10-23", "23:30"), about: "Check back" }),
+        staged: stagedSet({ tool: "plan_follow_up", at: at("2026-11-20", "23:30"), about: "Check back" }),
       }),
     );
-    expect((await chatState(late)).followUpAt).toEqual(at("2026-10-24", "09:00"));
+    expect((await chatState(late)).followUpAt).toEqual(at("2026-11-21", "09:00"));
   });
 
   it("keeps a quiet turn's planned follow-up, and a quiet turn without one leaves the earlier plan", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     done(
       await act(on, {
         messages: ["We go on 5, 12, 19 and 26 Dec."],
-        staged: stagedSet({ tool: "plan_follow_up", at: at("2026-10-23", "19:00"), about: "Ask which date" }),
+        staged: stagedSet({ tool: "plan_follow_up", at: at("2026-11-20", "19:00"), about: "Ask which date" }),
       }),
     );
     // "ok" at 16:10: the model stays quiet and plans tomorrow morning instead (spec case 12).
     const ok = await nextTurn(on, "ok", 40);
-    const morning = at("2026-10-24", "10:00");
+    const morning = at("2026-11-21", "10:00");
     const quiet = done(
       await act(on, {
         ...ok,
@@ -605,7 +610,7 @@ describe("the natural agent's live act", () => {
     expect(quiet.sentIds).toEqual([]);
     const planned = { followUpAt: morning, followUpReason: "Ask which date suits them", followUpsSent: 0 };
     // Nothing went, so the last reply is still the dates'.
-    expect(await chatState(on)).toMatchObject({ ...planned, lastReplyAt: actNow });
+    expect(await chatState(on)).toMatchObject({ ...planned, lastReplyAt: liveNow });
 
     const thanks = await nextTurn(on, "Thanks!", 45);
     done(await act(on, { ...thanks, staged: stagedSet({ tool: "stay_quiet", reason: "They said thanks" }) }));
@@ -613,8 +618,8 @@ describe("the natural agent's live act", () => {
   });
 
   it("counts a follow-up it sends, and a reaction on our message stops the next", async () => {
-    const on = await actAgency(test);
-    const fourHours = at("2026-10-23", "19:31");
+    const on = await liveAgency(test);
+    const fourHours = at("2026-11-20", "19:30");
     done(
       await act(on, {
         messages: ["Which date suits you?"],
@@ -626,7 +631,7 @@ describe("the natural agent's live act", () => {
     const counted = await chatState(on);
     expect(counted).toMatchObject({ followUpsSent: 1, lastNudgeAt: fourHours, lastReplyAt: fourHours });
     // The second follow-up, about 20 hours after the customer's line, in waking hours.
-    expect(counted.followUpAt).toEqual(new Date(testNow.getTime() + 20 * 3_600_000));
+    expect(counted.followUpAt).toEqual(new Date(FIRST_AT.getTime() + 20 * 3_600_000));
 
     await on.inOrg((tx) =>
       tx.whatsappMessage.updateMany({
@@ -634,12 +639,12 @@ describe("the natural agent's live act", () => {
         data: { reaction: "👍" },
       }),
     );
-    const second = { kind: "nudge" as const, token: `nudge:${on.chat.id}:2`, now: counted.followUpAt ?? actNow };
+    const second = { kind: "nudge" as const, token: `nudge:${on.chat.id}:2`, now: counted.followUpAt ?? liveNow };
     expect(await act(on, { ...second, messages: ["Just checking in!"] })).toEqual({ stopped: "answered" });
   });
 
   it("sends nothing and keeps nothing when a person replied while the model worked", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const figures = await on.quote(threeOn19Dec(on));
     const turn = {
       messages: ["Done: 3 seats held."],
@@ -659,7 +664,7 @@ describe("the natural agent's live act", () => {
           kind: "text",
           body: "Hi Rahul, I'll call you in five minutes.",
           status: "sent",
-          occurredAt: new Date(testNow.getTime() + 20_000),
+          occurredAt: new Date(FIRST_AT.getTime() + 20_000),
         },
       }),
     );
@@ -668,7 +673,7 @@ describe("the natural agent's live act", () => {
 
     // A person takes the chat over while the act works (the booking asks whom to tell partway through). The chat's AI
     // row is there already, as the customer's line left it queued for this turn.
-    const taken = await actAgency(test);
+    const taken = await liveAgency(test);
     await taken.inOrg((tx) => tx.aiChat.create({ data: { conversationId: taken.chat.id, turnState: "thinking" } }));
     const takeOver = async () => {
       await platform.aiChat.upsert({
@@ -691,7 +696,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("rolls everything back and answers refused when the seats went", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const figures = await on.quote(threeOn19Dec(on));
     await holdSeats(on, figures.departureId, 18);
     const result = await act(on, {
@@ -706,16 +711,16 @@ describe("the natural agent's live act", () => {
     expect(person.name).toBe("Rahul");
 
     // A lapsed hold whose seats went meanwhile: the old booking is cancelled only with the new one, so it stays.
-    const lapsed = await actAgency(test);
+    const lapsed = await liveAgency(test);
     const terms = threeOn19Dec(lapsed);
     const told = await lapsed.quote(terms);
     done(await act(lapsed, { messages: ["Held."], staged: stagedSet(bookOf(told)), quoted: [told] }));
     await lapsed.inOrg((tx) =>
-      tx.departureHold.updateMany({ where: { leadId: lapsed.leadId }, data: { expiresAt: testNow } }),
+      tx.departureHold.updateMany({ where: { leadId: lapsed.leadId }, data: { expiresAt: FIRST_AT } }),
     );
     await holdSeats(lapsed, told.departureId, 18);
     const next = await nextTurn(lapsed, "Please send the QR again", 5);
-    const facts = { ...freshFacts(), told: [{ ...terms, totalPaise: told.totalPaise, at: actNow.toISOString() }] };
+    const facts = { ...freshFacts(), told: [{ ...terms, totalPaise: told.totalPaise, at: liveNow.toISOString() }] };
     const again = await act(lapsed, {
       ...next,
       messages: ["Here it is again."],
@@ -735,13 +740,15 @@ describe("the natural agent's live act", () => {
   });
 
   it("takes a lapsed hold again at the total booked before the payment details go again", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const figures = await on.quote(threeOn19Dec(on));
     // The offer said the date and the advance, never the total (G2 asks no more): the booking keeps its terms itself.
     const first = done(
       await act(on, { messages: ["Held: advance ₹9,000."], staged: stagedSet(bookOf(figures)), quoted: [figures] }),
     );
-    await on.inOrg((tx) => tx.departureHold.updateMany({ where: { leadId: on.leadId }, data: { expiresAt: testNow } }));
+    await on.inOrg((tx) =>
+      tx.departureHold.updateMany({ where: { leadId: on.leadId }, data: { expiresAt: FIRST_AT } }),
+    );
     const next = await nextTurn(on, "Please send the QR again", 5);
     const resend = { messages: ["Here it is again."], staged: stagedSet({ tool: "resend_payment" }) };
     const again = done(await act(on, { ...next, ...resend, facts: first.facts }));
@@ -765,7 +772,7 @@ describe("the natural agent's live act", () => {
   });
 
   it("rolls everything back when the agent was paused during the act", async () => {
-    const on = await actAgency(test);
+    const on = await liveAgency(test);
     const figures = await on.quote(threeOn19Dec(on));
     // The booking asks whom to tell partway through the act: the pause lands then, from another connection.
     const pausing = deps({ recipients: async () => (await pause(on), []) });
