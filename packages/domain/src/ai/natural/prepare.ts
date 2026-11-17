@@ -66,13 +66,23 @@ interface Read {
 const MOST_SENT_FILES = 150;
 const MOST_SENT_TRIPS = 50;
 
+/** A file this agent sent (an earlier assistant's line is `earlier`), which it captions with the trip's title. */
+const isOurFile = (line: NaturalChatLine) => line.from === "you" && line.kind !== "text" && line.kind !== "template";
+
 /**
- * The facts the turn starts from (spec 10). A natural row's are kept; when their lead is no longer the chat's open one,
- * the trip's facts start afresh as lite's `factsForLead` does, keeping when the last turn ran, which tells new lines
- * from old. Any other row (lite's, an older agent's, none) starts afresh with the files lite sent for this lead, and a
- * trip counts as sent when one of its files went (ruling 4), so no brochure goes twice.
+ * The facts the turn starts from (spec 10), with the chat's lines read (`lines`). A natural row's are kept; when their
+ * lead is no longer the chat's open one, the trip's facts start afresh as lite's `factsForLead` does, keeping when the
+ * last turn ran, which tells new lines from old. Any other row (lite's, an older agent's, none) starts afresh, and a
+ * trip counts as sent, so no brochure goes twice, when one of its files is among those lite sent for this lead (ruling
+ * 4), or when the chat shows a file of ours captioned with its title: a natural turn's brochure, sent before lite,
+ * switched on in between, saved its own facts over the natural ones.
  */
-export function naturalFactsFrom(stored: unknown, leadId: string | null, sheets: readonly TripSheet[]): NaturalFacts {
+export function naturalFactsFrom(
+  stored: unknown,
+  leadId: string | null,
+  sheets: readonly TripSheet[],
+  lines: readonly NaturalChatLine[],
+): NaturalFacts {
   const natural = naturalFacts.safeParse(stored);
   if (natural.success) {
     const facts = natural.data;
@@ -80,10 +90,13 @@ export function naturalFactsFrom(stored: unknown, leadId: string | null, sheets:
     return naturalFacts.parse({ agent: "natural", leadId, lastTurnAt: facts.lastTurnAt });
   }
   const lite = liteFacts.safeParse(stored);
+  // Lite's own rule: what went for another lead was a past trip's, and its next trip starts afresh.
+  const pastTrip = lite.success && lite.data.leadId !== null && lite.data.leadId !== leadId;
   const sentFileIds = lite.success ? factsForLead(lite.data, leadId).sentFileIds.slice(-MOST_SENT_FILES) : [];
   const sent = new Set(sentFileIds);
+  const captions = new Set(pastTrip ? [] : lines.filter(isOurFile).map((line) => line.text.trim()));
   const sentTripIds = sheets
-    .filter((sheet) => sheet.fileIds.some((id) => sent.has(id)))
+    .filter((sheet) => sheet.fileIds.some((id) => sent.has(id)) || captions.has(sheet.title.trim()))
     .map((sheet) => sheet.packageId);
   return naturalFacts.parse({
     agent: "natural",
@@ -119,7 +132,7 @@ async function readTurn(tx: OrgTx, input: LiteTurnInput, now: Date): Promise<Rea
     where: { conversationId: chat.id },
     select: { facts: true, summary: true },
   });
-  const facts = naturalFactsFrom(state?.facts, leadId, sheets);
+  const facts = naturalFactsFrom(state?.facts, leadId, sheets, read.lines);
   const lines = await withPaymentFlags(tx, read.lines, facts, { conversationId: chat.id, leadId, at: now });
   const lead = await leadReadOf(tx, chat, leadId, { sheets, facts, summary: state?.summary ?? "" });
   const ad = await adPackageOf(tx, chat.id);

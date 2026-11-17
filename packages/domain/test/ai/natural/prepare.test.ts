@@ -233,6 +233,23 @@ describe("the natural turn's live reads", () => {
       lastTurnAt: null,
     });
 
+    // Natural, then lite, then natural again: lite's facts never held the brochure the natural agent sent, but the chat
+    // shows it, captioned with the trip's title. Lite's files go uncaptioned; an earlier assistant's caption is no trip's.
+    const file = (at: Date, clientToken: string, caption?: string) =>
+      on.write({
+        direction: "out",
+        at,
+        kind: "document",
+        fileName: "brochure.pdf",
+        clientToken,
+        ...(caption === undefined ? {} : { caption }),
+      });
+    await file(beforeTheMove, "ai:old-turn:f1", "Brahmatal Trek");
+    await file(liveAt(-3600), "ai:turn-1:f1", "Kedarkantha Trek");
+    await file(liveAt(-1800), "ai:turn-2:f1");
+    await storeFacts(on, { agent: "lite", lastMove: "greet", sentFileIds: [], leadId: on.leadId });
+    expect((await preparedOf(on)).facts).toMatchObject({ sentTripIds: [kedarkantha], sentFileIds: [] });
+
     // Lite's files for another lead were a past trip's, by lite's own rule; an older agent's row reads as nothing.
     await storeFacts(on, { ...lite, leadId: randomUUID() });
     expect((await preparedOf(on)).facts).toMatchObject({ sentTripIds: [], sentFileIds: [] });
