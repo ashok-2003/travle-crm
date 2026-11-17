@@ -1,5 +1,6 @@
 // Our port's messages through LangChain's types and LangGraph's message list, whole: an answer's raw calls (broken JSON
-// included) and its reasoning details, which Gemini refuses a tool round without. And a tool as the model reads it.
+// included), its reasoning details (OpenRouter) and each call's own extra data (Vertex AI), which Gemini refuses a tool
+// round without. And a tool as the model reads it.
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { messagesStateReducer } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
@@ -8,6 +9,7 @@ import { aiToolOf, fromLangChain, toLangChain } from "../../src/tool-agent/messa
 import {
   assistant,
   assistantWithCalls,
+  assistantWithSignedCalls,
   getTrip,
   getTripParameters,
   system,
@@ -18,7 +20,15 @@ import {
 
 describe("messages between our port and LangChain", () => {
   it("keeps every message whole through LangChain and back, reasoning details and raw arguments included", () => {
-    for (const message of [system, user, userWithAttachment, assistant, assistantWithCalls, toolResult]) {
+    for (const message of [
+      system,
+      user,
+      userWithAttachment,
+      assistant,
+      assistantWithCalls,
+      assistantWithSignedCalls,
+      toolResult,
+    ]) {
       expect(fromLangChain(toLangChain(message))).toStrictEqual(message);
     }
     expect(fromLangChain(toLangChain(assistantWithCalls)).toolCalls?.[0]?.arguments).toBe('{"trip_id":"T1",}');
@@ -40,9 +50,15 @@ describe("messages between our port and LangChain", () => {
   it("keeps the messages whole through LangGraph's message list", () => {
     const list = messagesStateReducer(
       [toLangChain(system), toLangChain(userWithAttachment)],
-      [toLangChain(assistantWithCalls), toLangChain(toolResult)],
+      [toLangChain(assistantWithCalls), toLangChain(toolResult), toLangChain(assistantWithSignedCalls)],
     );
-    expect(list.map(fromLangChain)).toStrictEqual([system, userWithAttachment, assistantWithCalls, toolResult]);
+    expect(list.map(fromLangChain)).toStrictEqual([
+      system,
+      userWithAttachment,
+      assistantWithCalls,
+      toolResult,
+      assistantWithSignedCalls,
+    ]);
   });
 
   it("reads a message LangChain built itself: its parsed calls as JSON, its text blocks as words", () => {

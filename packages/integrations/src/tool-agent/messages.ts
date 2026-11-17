@@ -1,6 +1,7 @@
 // Our port's chat messages as LangChain's and back, and a tool as the model reads it. The conversion keeps all the next
-// request needs: an assistant's raw tool calls (the model's own argument text, broken JSON included) and its reasoning
-// details, sent back unchanged because Gemini refuses a tool round without its thought signatures (a 400).
+// request needs: an assistant's raw tool calls (the model's own argument text, broken JSON included, and each call's own
+// provider data) and its reasoning details, sent back unchanged because Gemini refuses a tool round without its thought
+// signatures (a 400): OpenRouter returns them as reasoning details, Vertex AI on the call itself.
 import type { BindToolsInput } from "@langchain/core/language_models/chat_models";
 import {
   AIMessage,
@@ -23,6 +24,8 @@ interface RawToolCall {
   id: string;
   type: "function";
   function: { name: string; arguments: string };
+  /** The port's `providerData` (Gemini's thought signature on Vertex AI), kept as it is for the next request. */
+  providerData?: Record<string, unknown>;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -33,7 +36,8 @@ const isRawToolCall = (value: unknown): value is RawToolCall =>
   typeof value.id === "string" &&
   isRecord(value.function) &&
   typeof value.function.name === "string" &&
-  typeof value.function.arguments === "string";
+  typeof value.function.arguments === "string" &&
+  (value.providerData === undefined || isRecord(value.providerData));
 
 /** The object an argument text holds, for LangGraph's routing; {} for anything else (the tool runner refuses the text). */
 function argumentsObject(text: string): Record<string, unknown> {
@@ -67,6 +71,7 @@ export function assistantFields(message: AiMessage): AIMessageFields {
               id: call.id,
               type: "function",
               function: { name: call.name, arguments: call.arguments },
+              ...(call.providerData === undefined ? {} : { providerData: call.providerData }),
             })),
           }),
       ...(message.reasoningDetails === undefined ? {} : { reasoning_details: message.reasoningDetails }),
@@ -100,7 +105,12 @@ function toolCallsOf(message: AIMessage): AiToolCall[] | undefined {
   const kept: Record<string, unknown> = message.additional_kwargs;
   const raw = kept.tool_calls;
   if (Array.isArray(raw) && raw.every(isRawToolCall)) {
-    return raw.map((call) => ({ id: call.id, name: call.function.name, arguments: call.function.arguments }));
+    return raw.map((call) => ({
+      id: call.id,
+      name: call.function.name,
+      arguments: call.function.arguments,
+      ...(call.providerData === undefined ? {} : { providerData: call.providerData }),
+    }));
   }
   const parsed = message.tool_calls ?? [];
   if (parsed.length === 0) return undefined;
