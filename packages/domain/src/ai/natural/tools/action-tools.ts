@@ -20,7 +20,14 @@ import {
 import { travelWhen, type TravelWhen } from "@travel-crm/contracts/crm";
 import { isCalendarDate, isTimeOfDay } from "@travel-crm/contracts/kernel";
 import { roomType } from "@travel-crm/contracts/quotes";
-import { formatRupees, formatShortDay, instantAt, parseCalendarDate, parseTimeOfDay } from "../../../kernel/index.js";
+import {
+  formatRupees,
+  formatShortDay,
+  instantAt,
+  newUuidV7,
+  parseCalendarDate,
+  parseTimeOfDay,
+} from "../../../kernel/index.js";
 import { fenced } from "../../fenced.js";
 import { travellerWords } from "../../lite/context/lead-card.js";
 import type { TripField } from "../../lite/lead-writes.js";
@@ -371,13 +378,22 @@ async function offerBooking(
   return stage(
     {
       tool: "offer_booking",
-      offer: { ...figures.terms, departureId: figures.departureId, totalPaise, advancePaise, at },
+      offer: {
+        // The one agent's card names its offer in its buttons.
+        ...(one ? { id: newUuidV7() } : {}),
+        ...figures.terms,
+        departureId: figures.departureId,
+        totalPaise,
+        advancePaise,
+        at,
+      },
       figures,
+      ...(one ? { card: true as const } : {}),
     },
     `offered: ${termsWords(figures.terms, context.sheets, context.today)}; ${money}. ` +
       (one
-        ? // No offer card goes yet (ruling P5), so the words carry what the card would.
-          `No offer card goes yet, so your words state ${inFull ? "the date and the total" : "the date, the total and the advance"}, and ask if they want to book`
+        ? // The card carries the figures, so the model's line stays short.
+          "The app sends the offer card with these figures and Book and Change buttons after your words: keep your line short and don't retype the figures"
         : `Your words state the date and the ${inFull ? "total" : "advance"}, and ask for their full name or a yes`),
   );
 }

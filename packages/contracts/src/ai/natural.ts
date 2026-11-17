@@ -43,6 +43,8 @@ export type BookingTerms = z.infer<typeof bookingTerms>;
 
 /** The offer our latest message made (spec 3.4): its terms, departure and money, and when it was made. */
 export const liveOffer = bookingTerms.extend({
+  /** The one agent's offer card names it in its buttons; absent on natural's and on offers stored before. */
+  id: recordId.optional(),
   departureId: recordId,
   totalPaise: z.int().min(0),
   advancePaise: z.int().min(0),

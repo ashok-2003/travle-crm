@@ -2,6 +2,7 @@
 // from the turn's, so a repeat of the turn sends none twice, and a refusal throws so the whole turn rolls back.
 import { WHATSAPP_RECORD_TYPE, type AttachmentRefInput } from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
+import type { WhatsAppButton } from "@travel-crm/integrations/whatsapp";
 import { recordAudit } from "../audit/index.js";
 import type { Files } from "../files/index.js";
 import { kindOf, queueSystemText } from "../inbox/index.js";
@@ -31,6 +32,7 @@ export async function sendAiText(
   body: string,
   kind: "reply" | "file" | "qr" | "payment",
   media?: { messageId: string; kind: "image" | "video" | "audio" | "document"; fileName: string },
+  buttons?: readonly WhatsAppButton[],
 ): Promise<string> {
   const sent = await queueSystemText(
     tx,
@@ -43,6 +45,7 @@ export async function sendAiText(
       // Answered by the AI: the chat no longer waits, unless it is handed to a person.
       answers: target.answers,
       ...(media === undefined ? {} : { media }),
+      ...(buttons === undefined ? {} : { buttons }),
     },
     target.now,
   );
