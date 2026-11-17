@@ -34,8 +34,11 @@ export interface AgentDependencies {
   logger?: Logger;
   /** Where the turn hands the whole of each turn it prepared (plan 3b keeps them); without one, none is kept. */
   traces?: TraceSink;
-  /** Who owns the agency's leads: the turn opens a returning customer's new lead with it. */
-  identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
+  /**
+   * Who owns the agency's leads (the turn opens a returning customer's new lead with it), the team's names and who holds
+   * a permission. Each call runs its own queries: never inside a transaction.
+   */
+  identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile" | "memberContacts" | "membersHolding">;
   /** The minute job's clock: a lite follow-up reads it again before it acts, so its checks hold when it sends. */
   clock?: () => Date;
   /** Where each turn is traced (Langfuse), its model calls inside it; without one, nothing is. */
