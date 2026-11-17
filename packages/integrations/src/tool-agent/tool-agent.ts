@@ -7,9 +7,12 @@ import type { AiFailure, AiMessage, AiRequest, AiResult } from "../ai/ai-model.j
 export interface AgentTool {
   name: string;
   description: string;
-  /** Describes the arguments to the model (JSON Schema, io "input") and checks them before `run` (ruling P3). */
+  /** Describes the arguments to the model (JSON Schema, io "input"). The adapter checks only that they are an object. */
   schema: z.ZodType<Record<string, unknown>>;
-  /** Runs on the checked arguments; `words` are the words of the answer that made the call. */
+  /**
+   * Runs on the model's arguments, which it checks itself, refusing in the domain's own words (the lead's ruling);
+   * `words` are the words of the answer that made the call.
+   */
   run(args: Record<string, unknown>, call: { words: string }): Promise<string>;
 }
 

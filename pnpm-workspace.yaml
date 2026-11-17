@@ -65,6 +65,13 @@ overrides:
   # GHSA-xjj6-f33q-929c: undici 8.0 to 8.12.1 (a dependency of jsdom, testcontainers and others) dies on a response with too many
   # content-encodings. Only our tests and tools reach it, but the fix is a patch release.
   "undici@>=8.0.0 <8.12.2": 8.12.2
+  # Not a fix: LangChain's core takes langsmith >=0.11.0 <1.0.0, and its newest, 0.12.0, was a week old when LangChain came
+  # in (2026-11-17). 0.11.7 is two weeks old, as every version we pin is. LangSmith never runs: the tool agent turns its
+  # tracing off.
+  "@langchain/core>langsmith": 0.11.7
+  # Not a fix: LangGraph's platform client (which we never use) takes react-dom as an optional peer, and the catalog's
+  # react-dom would otherwise be installed with it in the api's image (7.8 MB).
+  "@langchain/langgraph-sdk>react-dom": "-"
 auditConfig:
   ignoreGhsas:
     # braces has no fixed version. Only ESLint's Next.js plugin reaches it, globbing patterns from our own config.

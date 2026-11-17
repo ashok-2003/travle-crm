@@ -298,6 +298,19 @@ describe("environment", () => {
     expect(attempt).not.toThrow(/short-secret/);
   });
 
+  it("refuses every LangSmith and LangChain variable, which would send or print the chats, naming it and never its value", () => {
+    for (const NODE_ENV of ["development", "production"]) {
+      for (const name of ["LANGSMITH_TRACING", "LANGCHAIN_VERBOSE", "LANGSMITH_API_KEY", "LANGCHAIN_A_LATER_SWITCH"]) {
+        const attempt = () => loadEnvironment({ ...valid, NODE_ENV, [name]: "lsv2_pt_secret" });
+        expect(attempt).toThrow(EnvironmentError);
+        expect(attempt).toThrow(new RegExp(`${name}: must be unset`));
+        expect(attempt).not.toThrow(/lsv2_pt_secret/);
+      }
+    }
+    // Left blank, as a compose file passes it through, it is unset.
+    expect(() => loadEnvironment({ ...valid, NODE_ENV: "development", LANGSMITH_TRACING: "" })).not.toThrow();
+  });
+
   it("reads trusted origins as a comma-separated list of origins", () => {
     const settings = authSettingsFrom(
       loadEnvironment({
