@@ -127,6 +127,20 @@ export async function packageSellGaps(
 }
 
 /**
+ * Each package's own gaps, by id, for the list: the agency's payment QR is left out (it is one gap for every package,
+ * said on the AI agent's setup), so a package shows only what is missing on its own page.
+ */
+export async function ownSellGaps(
+  tx: OrgTx,
+  packageIds: readonly string[],
+  today: CalendarDate,
+): Promise<Map<string, SellGap[]>> {
+  if (packageIds.length === 0) return new Map();
+  const rows = await tx.quoteTemplate.findMany({ where: { id: { in: [...packageIds] } }, select: sellColumns });
+  return new Map((await gapsOfRows(tx, rows, today, true)).map(({ row, gaps }) => [row.id, gaps]));
+}
+
+/**
  * The packages the AI may sell today: switched on, and with nothing missing. The only way to ask (a package that has lost
  * its seasons or departures since the switch was turned on is not offered), so callers never read the switch alone.
  */

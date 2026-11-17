@@ -19,7 +19,15 @@ import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "../usage.js";
-import { linesAsText, linesHash, packageSources, partsOf, resolveTokens, type SourcePiece } from "./sources.js";
+import {
+  linesAsText,
+  linesHash,
+  packageSources,
+  partsOf,
+  resolveTokens,
+  type DraftScope,
+  type SourcePiece,
+} from "./sources.js";
 
 const RULES = `FIND_TRIPS. You work for a travel agency in India. Below are the agency's own documents as numbered lines, each "[P1.L3] text".
 List each distinct trip the agency sells: a place and a length. "Manali 5 Nights 6 Days" and "Manali 4 Nights 5 Days" are two trips. For each, give the tokens of the lines that describe it.
@@ -40,11 +48,11 @@ interface Checked {
   pieces: SourcePiece[];
 }
 
-async function check(tx: OrgTx, access: MemberAccess): Promise<Checked> {
+async function check(tx: OrgTx, access: MemberAccess, scope: DraftScope | undefined): Promise<Checked> {
   if (!(await aiEnabled(tx))) {
     throw refuse("AI_OFF", "The AI is off for this agency: an Owner or Admin turns it on in Settings, AI");
   }
-  return { timeZone: await organizationTimeZone(tx, access.organizationId), pieces: await packageSources(tx) };
+  return { timeZone: await organizationTimeZone(tx, access.organizationId), pieces: await packageSources(tx, scope) };
 }
 
 const nothing = () => refuse("PACKAGE_DRAFT_NOTHING", "The AI found no trips in your documents", "VALIDATION");
@@ -65,10 +73,12 @@ export async function findTrips(
   access: MemberAccess,
   input: FindTripsInput,
   now: Date,
+  /** One document alone (a PDF uploaded on New package); every document the agency has when absent. */
+  scope?: DraftScope,
 ): Promise<FoundTrips> {
   const { organizationId } = access;
   if (!model.configured) throw refuse("AI_NOT_READY", "The AI isn't set up on this server yet");
-  const checked = await db.forOrg(organizationId, (tx) => check(tx, access));
+  const checked = await db.forOrg(organizationId, (tx) => check(tx, access, scope));
   const parts = partsOf(checked.pieces);
   if (parts.length === 0) throw nothing();
   const offered = parts.map(({ ref, label }) => ({ ref, label }));
@@ -133,8 +143,9 @@ export async function findTrips(
     const row = await tx.aiFill.create({
       data: {
         target: "package_draft",
-        subjectType: "organization",
-        subjectId: organizationId,
+        // A fill about one document names it, so its drafts read that document alone, numbered as it was found.
+        subjectType: scope === undefined ? "organization" : "ai_knowledge",
+        subjectId: scope === undefined ? organizationId : scope.knowledgeId,
         requestedBy: access.userId,
         inputKind: "text",
         model: result.model,

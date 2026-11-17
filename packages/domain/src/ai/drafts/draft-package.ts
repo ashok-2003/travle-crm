@@ -26,7 +26,7 @@ import { recordTokens, releaseAiCall, reserveAiCall } from "../usage.js";
 import { destinationOf } from "./find-trips.js";
 import { redactPayment } from "./payment-details.js";
 import { seasonDates } from "./season-dates.js";
-import { linesAsText, linesHash, packageSources, resolveTokens, type SourcePiece } from "./sources.js";
+import { linesAsText, linesHash, packageSources, resolveTokens, scopeOfFill, type SourcePiece } from "./sources.js";
 
 const RULES = `DRAFT_PACKAGE. You work for a travel agency in India. Below are lines from the agency's own documents, each "[P1.L3] text", about ONE trip.
 Fill in a draft of that trip's group package. Every field is {"value": ..., "tokens": [...]}: the tokens are the lines that say it.
@@ -312,10 +312,11 @@ export async function draftPackage(
     // Row-level security makes it this agency's; the target says it is a package draft's.
     const fill = await tx.aiFill.findFirst({
       where: { id: input.fillId, target: "package_draft" },
-      select: { id: true, fieldHashes: true },
+      select: { id: true, fieldHashes: true, subjectType: true, subjectId: true },
     });
     if (fill === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
-    const pieces = await packageSources(tx);
+    // A fill found in one document drafts from that document alone, numbered as it was then.
+    const pieces = await packageSources(tx, scopeOfFill(fill));
     // The tokens name positions, which editing a document renumbers: draft only from the lines the trip was found with.
     const stored = storedHashes(fill.fieldHashes)[input.trip.ref];
     if (stored !== linesHash(resolveTokens(input.trip.tokens, pieces))) {

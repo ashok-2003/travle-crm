@@ -14,6 +14,7 @@ import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { calendarDateIn, DomainError, type CalendarDate } from "../kernel/index.js";
 import { nameTaken } from "./package-row.js";
+import { ownSellGaps } from "./package-sell-gaps.js";
 import { copyOf, daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
 import { createQuote, type QuoteContext } from "./quotes.js";
 import { quoteTaxRate } from "@travel-crm/contracts/quotes";
@@ -43,6 +44,11 @@ export async function listPackages(tx: OrgTx, today: CalendarDate): Promise<Quot
       },
     },
   });
+  const gaps = await ownSellGaps(
+    tx,
+    rows.map((row) => row.id),
+    today,
+  );
   return quotePackageList.parse(
     rows.map((row) => ({
       id: row.id,
@@ -59,6 +65,7 @@ export async function listPackages(tx: OrgTx, today: CalendarDate): Promise<Quot
       fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
       aiSellable: row.aiSellable,
       departuresAhead: row._count.departures,
+      sellGaps: gaps.get(row.id) ?? [],
     })),
   );
 }

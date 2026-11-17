@@ -26,6 +26,15 @@ export interface SourcePiece {
   lines: SourceLine[];
 }
 
+/** A draft read from one document alone (a PDF uploaded on New package), not every document the agency has. */
+export interface DraftScope {
+  knowledgeId: string;
+}
+
+/** The scope a draft's fill was found in: a fill about one document names it as its subject. */
+export const scopeOfFill = (fill: { subjectType: string | null; subjectId: string | null }): DraftScope | undefined =>
+  fill.subjectType === "ai_knowledge" && fill.subjectId !== null ? { knowledgeId: fill.subjectId } : undefined;
+
 interface RawPiece {
   key: string;
   label: string;
@@ -61,12 +70,16 @@ function linesOf(text: string): string[] {
 const byText = (first: string, second: string) => (first < second ? -1 : first > second ? 1 : 0);
 
 /** Enabled, ready knowledge documents and the trip kits, empty ones left out, in a stable order. The free text an agency stored before the move (instructions, strict rules) is read by no draft. */
-export async function packageSources(tx: OrgTx): Promise<SourcePiece[]> {
+export async function packageSources(tx: OrgTx, scope?: DraftScope): Promise<SourcePiece[]> {
   const knowledge = await tx.aiKnowledge.findMany({
-    where: { enabled: true, status: "ready" },
+    where: { enabled: true, status: "ready", ...(scope === undefined ? {} : { id: scope.knowledgeId }) },
     select: { id: true, title: true, body: true, kind: true, attachmentId: true },
   });
-  const kits = await tx.tripKit.findMany({ select: { id: true, name: true, message: true, keywords: true } });
+  // One uploaded PDF is read alone: no trip kit, no other document.
+  const kits =
+    scope === undefined
+      ? await tx.tripKit.findMany({ select: { id: true, name: true, message: true, keywords: true } })
+      : [];
   const raws: RawPiece[] = [
     ...[...knowledge]
       .sort((first, second) => byText(first.title, second.title) || byText(first.id, second.id))
