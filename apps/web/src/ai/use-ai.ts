@@ -119,6 +119,12 @@ export function useTestNatural() {
   return useMutation(trpc.ai.testNatural.mutationOptions());
 }
 
+/** Try it on the one agent: its own procedure, with natural's state and no prompt choice (it reads the latest). */
+export function useTestOne() {
+  const trpc = useTRPC();
+  return useMutation(trpc.ai.testOne.mutationOptions());
+}
+
 /** A chat's autopilot state, read again while the AI is working on it. */
 export function useChatAi(conversationId: string) {
   const trpc = useTRPC();
