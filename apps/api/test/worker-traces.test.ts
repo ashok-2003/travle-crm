@@ -91,4 +91,22 @@ describe("the worker's turn traces", () => {
     expect(autopilotDependencies({ ...base, prompts }, model)).toMatchObject({ prompts });
     expect(autopilotDependencies(base, model)).not.toHaveProperty("prompts");
   });
+
+  it("gives the agent's turns the LangGraph tool agent and the turn rows", () => {
+    const storage = createMemoryStorage();
+    const dependencies = autopilotDependencies(
+      {
+        db: server.db,
+        identity: server.identity,
+        files: server.files,
+        subscriptions: server.subscriptions,
+        storage,
+        logger: server.logger,
+        managers: () => Promise.resolve([]),
+      },
+      { configured: true, complete: () => Promise.reject(new Error("not called")) },
+    );
+    expect(typeof dependencies.toolAgent.run).toBe("function");
+    expect(dependencies.toolTurns).toBe(dependencies.traces);
+  });
 });

@@ -1,7 +1,10 @@
 // No silence (plan 2, Task 8): a natural turn whose model fails is sent again after a minute, then after five; the third
 // failure sends the fallback line with a team task, and the AI stays on. An old attempt ends quietly when the customer
 // wrote since, and five chats run at once.
+import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { setAgent } from "../../src/ai/agent-choice.js";
+import { systemActor } from "../../src/kernel/index.js";
 import { aiReplyHandler, type AgentDependencies } from "../../src/ai/index.js";
 import { replyDayOf } from "../../src/ai/may-write.js";
 import { fallbackLine } from "../../src/ai/natural/fallback-line.js";
@@ -24,6 +27,7 @@ describe("a failed natural turn is tried again, never left silent", () => {
       ...on.dependencies(),
       logger: test.logger,
       queue: test.queue,
+      toolAgent: createMemoryToolAgent(),
     };
     return aiReplyHandler(dependencies);
   };
@@ -84,6 +88,33 @@ describe("a failed natural turn is tried again, never left silent", () => {
     expect(state).toMatchObject({ mode: "default", handedOffAt: null });
     expect(state.lastReplyAt?.getTime()).toBe(liveNow.getTime());
     // The model was never asked: the fallback is code's.
+    expect(on.model.requests).toHaveLength(0);
+  });
+
+  it("retries one's failed model after 1 and 5 minutes", async () => {
+    const on = await liveAgency(test);
+    await on.inOrg((tx) => setAgent(tx, systemActor(on.organizationId), "one"));
+    const handler = handlerOf(on);
+    const from = test.queue.sent.length;
+    clockAt(liveNow);
+    on.model.answer(FAILED);
+    await handler.handle(jobOf(on, on.message.id));
+    on.model.answer(FAILED);
+    await handler.handle(retries(from)[0]?.data ?? {});
+    expect(retries(from).map((job) => job.options.startAfter?.getTime())).toEqual([
+      liveNow.getTime() + 60_000,
+      liveNow.getTime() + 300_000,
+    ]);
+    expect(await outbound(on)).toEqual([]);
+  });
+
+  it("sends one's last try as the fallback line and a task, with no model call", async () => {
+    const on = await liveAgency(test);
+    await on.inOrg((tx) => setAgent(tx, systemActor(on.organizationId), "one"));
+    clockAt(liveNow);
+    await handlerOf(on).handle(jobOf(on, on.message.id, 2));
+    expect((await outbound(on)).map((line) => line.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await on.inOrg((tx) => tx.task.count({ where: { byAi: true } }))).toBe(1);
     expect(on.model.requests).toHaveLength(0);
   });
 
