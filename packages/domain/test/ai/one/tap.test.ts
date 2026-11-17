@@ -116,6 +116,18 @@ describe("a tap on the offer card", () => {
     });
   }
 
+  it("spends no summary call on a Book tap, even in a long chat", async () => {
+    const on = await world();
+    const offerId = await on.offered();
+    for (let n = 0; n < 31; n += 1) await on.writes(`older line ${String(n)}`, -3_000 + n);
+    const calls = on.model.requests.length;
+    const tap = await on.taps(`book:${offerId}`, 240);
+    expect(await on.turn(tap, liveAt(300))).toBe("replied");
+    expect(on.model.requests).toHaveLength(calls);
+    const stored = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
+    expect(stored.chatSummaryThroughId).toBeNull();
+  });
+
   it("holds the seats on a Book tap and sends the line, the payment message and the QR, with no model call", async () => {
     const on = await world();
     const offerId = await on.offered();
