@@ -21,7 +21,7 @@ export const AI_BOOKING_KIND = "ai.booking";
 export const AI_PAYMENT_PROOF_KIND = "ai.payment-proof";
 const OPEN_STATUSES = ["awaiting_payment", "proof_received"];
 /** What a customer sends as payment proof: a screenshot or a PDF receipt. */
-const PROOF_KINDS = ["image", "document"];
+export const PROOF_KINDS: readonly string[] = ["image", "document"];
 
 /** Who hears about a booking: the lead's owner and the agency's managers. */
 export type BookingRecipients = (organizationId: string) => Promise<string[]>;

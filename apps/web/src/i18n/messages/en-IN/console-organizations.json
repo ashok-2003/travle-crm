@@ -326,5 +326,32 @@
       "seatsInvalid": "Use a whole number from 0 to 10,000.",
       "tooLong": "This is too long."
     }
+  },
+  "agentChoice": {
+    "title": "Agent",
+    "current": "Current agent",
+    "agents": {
+      "lite": "Lite agent",
+      "natural": "New agent"
+    },
+    "lastReplay": "Last replay",
+    "replayResult": "{passed} of {chats} chats passed, {time}",
+    "change": "Change agent",
+    "loading": "Loading the agent",
+    "loadFailed": "The agent's choice didn't load.",
+    "retry": "Try again",
+    "dialog": {
+      "title": "Move {name} to the {agent}?",
+      "description": {
+        "natural": "{name}'s WhatsApp chats will be answered by the new agent from the next message.",
+        "lite": "{name}'s WhatsApp chats will go back to the lite agent from the next message."
+      },
+      "gate": "Before moving to the new agent, check that:",
+      "steps": {
+        "setup": "its AI agent's setup is ready (Setup shows every step done)",
+        "tryIt": "you tried the new agent in its Try it, writing as its customers do"
+      },
+      "confirm": "Change agent"
+    }
   }
 }

@@ -30,9 +30,9 @@ export function groundedSetOf(amounts: Iterable<number>): GroundedSet {
       .add(paise)
       .add(Math.floor(paise / 100) * 100)
       .add(Math.ceil(paise / 100) * 100);
+  const all = [...exact];
   return {
-    has: (paise, shorthand) =>
-      exact.has(paise) || (shorthand && [...exact].some((one) => Math.abs(one - paise) * 100 <= one)),
+    has: (paise, shorthand) => exact.has(paise) || (shorthand && all.some((one) => Math.abs(one - paise) * 100 <= one)),
   };
 }
 

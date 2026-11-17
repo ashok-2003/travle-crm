@@ -22,15 +22,15 @@ const CALL_MS = 2_000;
 const ORGANIZATION = "organization-1";
 const LITE = "google/gemini-3.5-flash-lite";
 // The customer wrote "Kedarkantha ka rate?": the Hinglish fallback line.
-const FALLBACK_LINE = "Ye team se check karke yahin batate hain.";
+const FALLBACK_LINE = "Ek minute, check karke yahin batate hain.";
 const NO_WORDS = "[app check, not from the customer] Your reply had no words. Write the reply, or call stay_quiet.";
 const HAND_OVER_LINE =
-  "[app check, not from the customer] Your hand-over had no words. Write one short line saying you've told the team " +
-  "and they'll reply here.";
+  "[app check, not from the customer] Your hand-over had no words. Write one short line, as the person they're " +
+  "talking to, saying you'll check and get back to them here.";
 const READ_FAILED =
-  "refused: that couldn't be read just now; answer from what you have, or say you'll check with the team and call " +
+  "refused: that couldn't be read just now; answer from what you have, or say you'll check and come back, and call " +
   "create_task";
-const STAGE_FAILED = "refused: that couldn't be checked just now; say you'll check with the team and call create_task";
+const STAGE_FAILED = "refused: that couldn't be checked just now; say you'll check and come back, and call create_task";
 
 const quoted: QuoteFigures = {
   terms: {
@@ -75,6 +75,9 @@ const staging: Partial<Record<NaturalToolName, StagedAction>> = {
 };
 
 function contextWith(options: { tools?: boolean } = {}): NaturalContext {
+  const newLines: NaturalContext["newLines"] = [
+    { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
+  ];
   return {
     messages: [
       { role: "system", content: "You are Riya, of Case Trips, on WhatsApp." },
@@ -89,9 +92,8 @@ function contextWith(options: { tools?: boolean } = {}): NaturalContext {
       ["T2", "package-2"],
     ]),
     indexed: true,
-    newLines: [
-      { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
-    ],
+    newLines,
+    shown: newLines,
     sizes: { prompt: 0, agency: 0, trips: 0, chat: 0, turn: 0 },
   };
 }

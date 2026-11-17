@@ -15,9 +15,9 @@ const HINGLISH = new Set(
 const PARTICLES = new Set(["ka", "ki", "ke", "ko", "se"]);
 
 const LINES = {
-  hindi: "यह टीम से पूछकर यहीं बताते हैं।",
-  hinglish: "Ye team se check karke yahin batate hain.",
-  english: "Let me check this with the team; they'll reply here.",
+  hindi: "एक मिनट, चेक करके यहीं बताते हैं।",
+  hinglish: "Ek minute, check karke yahin batate hain.",
+  english: "Let me check this and get back to you here.",
 };
 
 /** The line for the customer's new lines. */

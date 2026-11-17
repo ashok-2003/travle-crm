@@ -91,12 +91,15 @@ function windowOf(lines: readonly NaturalChatLine[], now: Date): readonly Natura
   return recent.length >= CHAT_MIN_LINES ? recent : last.slice(-CHAT_MIN_LINES);
 }
 
-/** The chat before the new lines as user and assistant messages; lines of one role in a row join, one per line. */
-export function chatTurns(lines: readonly NaturalChatLine[], clock: ChatClock): AiMessage[] {
-  const written = windowOf(lines, clock.now).map((line) => ({
-    role: line.from === "customer" ? ("user" as const) : ("assistant" as const),
-    text: writtenLine(line, clock),
-  }));
+/**
+ * The chat before the new lines as user and assistant messages (lines of one role in a row join, one per line), and
+ * the lines it shows, which are all the model reads of the chat before them.
+ */
+export function chatTurns(
+  lines: readonly NaturalChatLine[],
+  clock: ChatClock,
+): { messages: AiMessage[]; shown: NaturalChatLine[] } {
+  const written = windowOf(lines, clock.now).map((line) => ({ line, text: writtenLine(line, clock) }));
   // The budget in characters, at estimateTokens' four a token.
   const fit = newestThatFit(
     written.map((one) => one.text),
@@ -104,10 +107,11 @@ export function chatTurns(lines: readonly NaturalChatLine[], clock: ChatClock): 
   );
   const kept = written.slice(written.length - fit);
   const messages: AiMessage[] = [];
-  for (const { role, text } of kept) {
+  for (const { line, text } of kept) {
+    const role = line.from === "customer" ? "user" : "assistant";
     const last = messages.at(-1);
     if (last?.role === role) last.content = `${last.content}\n${text}`;
     else messages.push({ role, content: text });
   }
-  return messages;
+  return { messages, shown: kept.map((one) => one.line) };
 }

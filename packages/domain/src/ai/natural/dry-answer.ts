@@ -23,6 +23,7 @@ import { cutText } from "./context/tokens.js";
 import { fallbackLine } from "./fallback-line.js";
 import { amountsIn } from "./guards/amounts.js";
 import { groundedSetOf } from "./guards/grounded.js";
+import { stagedOf } from "./act-types.js";
 import type { LoopEnd } from "./loop.js";
 import type { NaturalTraceBuilder } from "./trace.js";
 import { isText, roomNames } from "./trips/trip-text.js";
@@ -42,6 +43,7 @@ export interface DryTurnRead {
 interface Ended {
   messages: string[];
   staged: StagedSet;
+  /** This turn's quotes, and its offer's and booking's figures, which the loop adds as they are staged. */
   quoted: readonly QuoteFigures[];
   /** The task a fallback leaves the team. */
   task: string | null;
@@ -61,12 +63,6 @@ const FIELDS: Record<string, DryLeadField> = {
   name: "name",
 };
 
-type Of<T extends StagedAction["tool"]> = Extract<StagedAction, { tool: T }>;
-const isOf = <T extends StagedAction["tool"]>(action: StagedAction, tool: T): action is Of<T> => action.tool === tool;
-function stagedOf<T extends StagedAction["tool"]>(set: StagedSet, tool: T): Of<T> | null {
-  for (const action of set.values()) if (isOf(action, tool)) return action;
-  return null;
-}
 const peopleOf = (terms: { adults: number; childrenAges: readonly number[] }) =>
   terms.adults + terms.childrenAges.length;
 
@@ -74,7 +70,7 @@ const peopleOf = (terms: { adults: number; childrenAges: readonly number[] }) =>
  * The live turn re-queues a model that didn't answer after 1 minute and 5, then sends the fallback line with a task
  * (spec 3.6); with no calls left this month, or no model for the agent on this server, Try it refuses as lite's does.
  */
-function modelFailed(reason: AiFailure | "limit", newText: string): Ended {
+function modelFailed(reason: AiFailure | "limit" | "superseded", newText: string): Ended {
   if (reason === "limit") throw refuse("AI_LIMIT_REACHED", "This month's AI calls are used up", "LIMIT_REACHED");
   if (reason === "not_configured") throw modelRefusal(reason);
   const line = fallbackLine(newText);
@@ -115,7 +111,8 @@ function endedOf(end: LoopEnd, newText: string): Ended {
     case "model_failed":
       return modelFailed(end.reason, newText);
     case "superseded":
-      throw new Error("A dry turn has no newer line to give way to");
+      // A dry turn has no newer line to give way to; were it to end so, it still answers, as a model that didn't.
+      return modelFailed("superseded", newText);
   }
 }
 
@@ -157,12 +154,20 @@ function described(action: StagedAction, titleOf: (packageId: string) => string)
   }
 }
 
-/** Ruling 17: a quote or offer whose total the words state was told, for book's told shortcut. */
-function toldIn(ended: Ended, now: Date): ToldTotal[] {
+/** Ruling 17: a quote or offer whose total the words state was told, for book's told shortcut (the live act's too). */
+export function toldIn(
+  ended: { messages: readonly string[]; quoted: readonly QuoteFigures[] },
+  now: Date,
+): ToldTotal[] {
   const amounts = amountsIn(ended.messages.join("\n\n"));
   return ended.quoted
     .filter((quote) => amounts.some((one) => groundedSetOf([quote.totalPaise]).has(one.paise, one.shorthand)))
     .map((quote) => toldTotal.parse({ ...quote.terms, totalPaise: quote.totalPaise, at: now.toISOString() }));
+}
+
+/** The totals told a chat keeps after a turn: the last 30 days' and the turn's, the newest 20 (the live act's too). */
+export function toldAfter(earlier: readonly ToldTotal[], told: readonly ToldTotal[], now: Date): ToldTotal[] {
+  return [...earlier.filter((one) => now.getTime() - Date.parse(one.at) <= MONTH_MS), ...told].slice(-20);
 }
 
 /** The lead after the turn: what update_lead saved (a day or a month replaces the other), notes, tasks, a booking. */
@@ -234,7 +239,7 @@ function stateAfter(ended: Ended, read: DryTurnRead): NaturalTestState {
       sentFileIds: sent === null ? facts.sentFileIds : [...facts.sentFileIds, ...sent.fileIds].slice(-150),
       // The offer made in the last turn that ran (ruling 1): a turn that made none, quiet or not, ends it.
       offer: offered?.offer ?? null,
-      told: [...facts.told.filter((one) => now.getTime() - Date.parse(one.at) <= MONTH_MS), ...told].slice(-20),
+      told: toldAfter(facts.told, told, now),
       lastTurnAt: now.toISOString(),
     },
     lead: { ...lead, stage: stageAfter(read.state.lead.stage, ended, lead, told) },

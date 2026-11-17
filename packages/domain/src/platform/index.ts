@@ -49,6 +49,7 @@ export {
   setEveryoneAgentPause,
 } from "./ai-agent-pause.js";
 export { organizationAgentState } from "./agent-state.js";
+export { chooseOrganizationAgent, organizationAgentChoice } from "./agent-choice.js";
 export { organizationsOverview } from "./dashboard.js";
 export { createCaseOrganization, removeCaseOrganization } from "./agent-cases.js";
 export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";

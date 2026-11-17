@@ -27,6 +27,8 @@ export interface TripSheet {
   packageId: string;
   title: string;
   place: string | null;
+  /** The place's id, which a person's place on the lead is told apart by. */
+  destinationId: string | null;
   nights: number | null;
   startCity: string;
   summary: string;

@@ -1,32 +1,25 @@
 // One natural turn as a dry run (Try it, the bench; spec 9.5): the live loop on a chat and the state the last turn handed
 // back, against the agency's real data. Reads and checks run on the data, each in a transaction of its own; actions are
 // staged and described, never done: nothing is sent, held, booked or stored, and only the month's AI calls count, as each
-// live call does. The guards read what a live turn's would: this turn's offer and the live one, Team lines of the last
-// 30 days, the answers and each trip's text, whole for a trip get_trip read.
-import {
-  naturalFacts,
-  type DryLead,
-  type NaturalFacts,
-  type NaturalTestAnswer,
-  type NaturalTestState,
-} from "@travel-crm/contracts/ai";
+// live call does. The guards read what a live turn's would: this turn's offer and the live one, the chat lines the model
+// read (Team lines of the last 30 days), the answers and each trip's text, whole for a trip get_trip read.
+import { naturalFacts, type DryLead, type NaturalTestAnswer, type NaturalTestState } from "@travel-crm/contracts/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import { parseCalendarDate } from "../../kernel/index.js";
 import { buildNaturalContext } from "./context/build.js";
 import { newLinesOf } from "./context/chat-turns.js";
 import { countedModel } from "./counted-model.js";
-import { dryAgency, type DryAgency } from "./dry-agency.js";
+import { dryAgency } from "./dry-agency.js";
 import { dryAnswerOf } from "./dry-answer.js";
-import { checkWords, type GuardContext, type traceFlags } from "./guards/check-words.js";
-import { groundedAmounts, tripTextOf } from "./guards/grounded.js";
+import { checkWords, type GuardContext } from "./guards/check-words.js";
 import { runNaturalLoop, type LoopIO } from "./loop.js";
 import type { NaturalPrompt } from "./prompt.js";
 import { stageAction, type ActionContext } from "./tools/action-tools.js";
-import { quoteFor, runReadTool, type ReadContext } from "./tools/read-tools.js";
+import { quoteFor, type ReadContext } from "./tools/read-tools.js";
 import { startNaturalTrace } from "./trace.js";
-import { tripSheetsOf } from "./trips/trip-sheets.js";
-import type { NaturalChatLine, NaturalLeadView, QuoteFigures, StagedAction, StagedSet, TripSheet } from "./types.js";
+import { beforeTheModel, guardReads, readTools, type FlagContext } from "./turn-reads.js";
+import type { NaturalChatLine, NaturalLeadView } from "./types.js";
 
 export interface NaturalDryTurn {
   /** The whole chat, oldest first. */
@@ -47,7 +40,7 @@ export interface NaturalDryDependencies {
   clock?: () => number;
 }
 
-export type FlagContext = Parameters<typeof traceFlags>[1];
+export type { FlagContext };
 
 /** The answer, with what the guards read at the turn's last check and what its flags read (pre-flight #13, the bench). */
 export interface NaturalDryRecord {
@@ -56,16 +49,7 @@ export interface NaturalDryRecord {
   flagContext: FlagContext;
 }
 
-const DAY_MS = 86_400_000;
-const TEAM_DAYS = 30;
 const DRY_CHAT = "dry-run";
-const PAYMENT_NOTICE = "Their screenshot went to the team to check; this chat goes to the team after your reply.";
-const VOICE_NOTICE = "Their voice note couldn't be played; ask them to type what they said.";
-const PAYMENT_CHECK: StagedAction = {
-  tool: "hand_over",
-  reason: "payment_check",
-  summary: "A payment screenshot came in this chat: check it in Payments.",
-};
 
 const EMPTY_LEAD: DryLead = {
   packageId: null,
@@ -101,72 +85,6 @@ function leadViewOf(lead: DryLead): NaturalLeadView {
   };
 }
 
-/**
- * Ruling 6, before the model: a payment screenshot, or a voice note nobody could play, gets one call with no tools and
- * the notice of what the app did; code hands the screenshot to the team itself. Try it posts no media; the bench does.
- */
-function beforeTheModel(newLines: readonly NaturalChatLine[]) {
-  if (newLines.some((line) => line.mayBePayment === true)) {
-    return { notice: PAYMENT_NOTICE, withTools: false, forced: [PAYMENT_CHECK] };
-  }
-  if (newLines.some((line) => line.untranscribed === true))
-    return { notice: VOICE_NOTICE, withTools: false, forced: [] };
-  return { notice: null, withTools: true, forced: [] };
-}
-
-/**
- * What the guards and the trace's flags read; a trip get_trip read counts whole from then on (G1 grounds its text), and
- * G1 grounds the totals told and the live offer the turn block shows.
- */
-function guardReads(agency: DryAgency, lines: readonly NaturalChatLine[], facts: NaturalFacts, now: Date) {
-  const { today, answers } = agency;
-  const whole = new Map<string, TripSheet>();
-  const sheets = () => agency.sheets.map((sheet) => whole.get(sheet.packageId) ?? sheet);
-  const ownerText = () => [...Object.values(answers), ...sheets().map(tripTextOf)].join("\n");
-  const since = now.getTime() - TEAM_DAYS * DAY_MS;
-  const teamLines = lines.filter((line) => line.from === "team" && line.at.getTime() >= since).map((line) => line.text);
-  const customerText = lines
-    .filter((line) => line.from === "customer")
-    .map((line) => line.text)
-    .join("\n");
-  // The loop's final words read it at the end of the turn, so a trip read whole updates it in place.
-  const flagContext: FlagContext = { sheets: sheets(), ownerText: ownerText(), customerText, today };
-  return {
-    flagContext,
-    async readWhole(tx: OrgTx, label: string) {
-      const cut = agency.sheets.find((sheet) => sheet.label === label);
-      if (cut === undefined) return;
-      const [sheet] = await tripSheetsOf(tx, [{ id: cut.packageId, kind: "group" }], today, now, { whole: true });
-      if (sheet === undefined) return;
-      whole.set(cut.packageId, { ...sheet, label });
-      flagContext.sheets = sheets();
-      flagContext.ownerText = ownerText();
-    },
-    context(staged: StagedSet, quoted: readonly QuoteFigures[]): GuardContext {
-      const offer = staged.get("offer_booking");
-      return {
-        grounded: groundedAmounts({
-          sheets: sheets(),
-          today,
-          answers,
-          teamLines,
-          told: facts.told,
-          quoted,
-          liveOffer: facts.offer,
-          now,
-        }),
-        customerText,
-        offer: offer?.tool === "offer_booking" ? offer.offer : null,
-        paymentConfirmed: false,
-        bookingConfirmed: false,
-        teamText: teamLines.join("\n"),
-        ownerText: ownerText(),
-        today,
-      };
-    },
-  };
-}
-
 /** The dry turn with what its guards and flags read: the bench's entry. */
 export async function naturalDryTurnInFull(
   deps: NaturalDryDependencies,
@@ -198,7 +116,7 @@ export async function naturalDryTurnInFull(
     notice: before.notice,
     withTools: before.withTools,
   });
-  const reads = guardReads(agency, lines, facts, now);
+  const reads = guardReads(agency, context.shown, facts, now);
   const readContext = (tx: OrgTx): ReadContext => ({ tx, sheets, labels: context.labels, today, now });
   const actions: Omit<ActionContext, "quotedThisTurn"> = {
     sheets,
@@ -224,15 +142,7 @@ export async function naturalDryTurnInFull(
   let guardContext = reads.context(new Map(), []);
   const io: LoopIO = {
     call: countedModel(deps.ai, { db, organizationId, now, timeZone }),
-    read: (name, args) =>
-      db.forOrg(organizationId, async (tx) => {
-        const answer = await runReadTool(readContext(tx), name, args);
-        const label = args.trip_id;
-        if (name === "get_trip" && typeof label === "string" && !answer.result.startsWith("refused:")) {
-          await reads.readWhole(tx, label);
-        }
-        return answer;
-      }),
+    read: readTools(db, organizationId, readContext, reads),
     stage: (name, args, words, quoted) => stageAction({ ...actions, quotedThisTurn: quoted }, name, args, words),
     check: (words, staged, quoted) => {
       guardContext = reads.context(staged, quoted);

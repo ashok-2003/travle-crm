@@ -288,7 +288,8 @@
         "paused": "Paused the AI agent on WhatsApp",
         "resumed": "Resumed the AI agent on WhatsApp",
         "paused-everyone": "Paused the AI agent on WhatsApp for every agency",
-        "resumed-everyone": "Resumed the AI agent on WhatsApp for every agency"
+        "resumed-everyone": "Resumed the AI agent on WhatsApp for every agency",
+        "agent-chosen": "Changed which AI agent answers an agency's WhatsApp"
       },
       "ai-trace": {
         "opened": "Opened an AI turn's trace"

@@ -9,9 +9,9 @@ import type { NaturalTraceBuilder } from "../trace.js";
 import type { LoopIO, ReadToolName, TurnRun } from "./types.js";
 
 const READ_FAILED =
-  "refused: that couldn't be read just now; answer from what you have, or say you'll check with the team and call " +
-  "create_task";
-const STAGE_FAILED = "refused: that couldn't be checked just now; say you'll check with the team and call create_task";
+  "refused: that couldn't be read just now; answer from what you have, or say you'll check and come back, and " +
+  "call create_task";
+const STAGE_FAILED = "refused: that couldn't be checked just now; say you'll check and come back, and call create_task";
 
 const isReadTool = (name: NaturalToolName): name is ReadToolName => naturalReadTools.includes(name);
 

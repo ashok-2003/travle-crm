@@ -48,7 +48,7 @@ export const appCheck = (note: string): AiMessage => ({
 export const NO_WORDS = "Your reply had no words. Write the reply, or call stay_quiet.";
 /** A hand-over owes the customer a line (spec 3.5): the prompt's own words for it. */
 export const HAND_OVER_WORDS =
-  "Your hand-over had no words. Write one short line saying you've told the team and they'll reply here.";
+  "Your hand-over had no words. Write one short line, as the person they're talking to, saying you'll check and get back to them here.";
 
 const WHY: Record<FallbackReason, string> = {
   cap: `The AI used its ${String(NATURAL_LIMITS.calls)} calls without a reply it could send`,

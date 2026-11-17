@@ -26,6 +26,7 @@ function sheet(number: number, title: string, place: string, fileIds: string[]):
     packageId: `package-${String(number)}`,
     title,
     place,
+    destinationId: `destination-${String(number)}`,
     nights: 5,
     startCity: "Dehradun",
     summary: `${title}: a winter trek.`,
@@ -256,6 +257,41 @@ describe("stageAction", () => {
         "",
       ),
     ).toMatchObject({ staged: { fields: {}, notes: ["Customer now says January 2027; the lead says Sat 19 Dec."] } });
+  });
+
+  it("keeps a trip and a name a person set: another one becomes a note", async () => {
+    // A person set the lead's place (Kedarkantha's, Sankri) and the customer's name.
+    const typed = { destination: { kind: "existing", destinationId: "destination-1" }, name: "Rohan Mehta" };
+    const trip = "Customer now says Brahmatal Trek; the lead says Sankri, Uttarakhand.";
+    const name = "Customer now says name Ravi Kumar; the lead says Rohan Mehta.";
+    expect(await stageAction(ctx({ typed }), "update_lead", { trip_id: "T2", name: "Ravi Kumar" }, "")).toEqual({
+      staged: { tool: "update_lead", fields: {}, notes: [trip, name] },
+      result: `nothing saved; a person's value stands, noted for the team: ${trip} ${name}`,
+    });
+    // A trip at their place fills the trip they left empty; their name again changes nothing.
+    expect(await stageAction(ctx({ typed }), "update_lead", { trip_id: "T1", name: "rohan mehta" }, "")).toEqual({
+      staged: { tool: "update_lead", fields: { packageId: "package-1" }, notes: [] },
+      result: "saved: trip T1",
+    });
+    // The lead's trip again changes nothing; another trip there is theirs to choose, so it is a note.
+    const tripOne = { ...lead, packageId: "package-1" };
+    expect(await stageAction(ctx({ typed, lead: tripOne }), "update_lead", { trip_id: "T1" }, "")).toEqual({
+      staged: { tool: "update_lead", fields: {}, notes: [] },
+      result: "the lead says that already",
+    });
+    const twoThere = ctx({
+      typed,
+      lead: tripOne,
+      sheets: [kedarkantha, { ...brahmatal, destinationId: "destination-1" }],
+    });
+    expect(await stageAction(twoThere, "update_lead", { trip_id: "T2" }, "")).toMatchObject({
+      staged: { fields: {}, notes: ["Customer now says Brahmatal Trek; the lead says Kedarkantha Trek."] },
+    });
+    // A place no trip on sale goes to is still theirs.
+    const elsewhere = { destination: { kind: "existing", destinationId: "destination-9" } };
+    expect(await stageAction(ctx({ typed: elsewhere }), "update_lead", { trip_id: "T1" }, "")).toMatchObject({
+      staged: { fields: {}, notes: ["Customer now says Kedarkantha Trek; the lead says another place."] },
+    });
   });
 
   it("refuses a brochure for a trip the chat hasn't named (G6)", async () => {
@@ -619,7 +655,8 @@ describe("stageAction", () => {
     const busy = ctx({ paymentReady: false, booking: { id: "booking-1", awaitingPayment: true } });
     expect(await stageAction(busy, "hand_over", { reason: "big_group", summary: "14 people, 26 Dec" }, "")).toEqual({
       staged: { tool: "hand_over", reason: "big_group", summary: "14 people, 26 Dec" },
-      result: "handed to a person after your reply; tell them someone will reply here, with no promised time",
+      result:
+        "handed to a person after your reply; as one of the team, say you'll check and get back to them here, with no promised time",
     });
     expect(await stageAction(busy, "suggest_close", { kind: "not_a_lead", reason: "A supplier" }, "")).toEqual({
       staged: { tool: "suggest_close", kind: "not_a_lead", reason: "A supplier" },

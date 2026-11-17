@@ -177,3 +177,10 @@ export async function editTask(tx: OrgTx, access: MemberAccess, input: EditTaskI
   await auditTask(tx, access, "task.edited", edited, { dueAt: task.dueAt.toISOString() });
   return edited;
 }
+
+/** A new title for an open task, as whoever acts (the AI adds a second question to its open one), audited as edited. */
+export async function retitleTask(tx: OrgTx, actor: Actor, taskId: string, title: string): Promise<Task> {
+  const edited = await updateOpenTask(tx, taskId, { title });
+  await auditTask(tx, actor, "task.edited", edited);
+  return edited;
+}

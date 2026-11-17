@@ -58,7 +58,10 @@ export async function sendAiText(
   return sent.messageId;
 }
 
-/** A stored file copied onto the message that sends it, the copy named by the message's token so a retry finds it. */
+/**
+ * A stored file copied onto the message that sends it, the copy named by the message's token so a retry finds it;
+ * `caption` under it (none unless given: the natural agent names a brochure's trip).
+ */
 export async function sendAiFile(
   tx: OrgTx,
   store: { files: Files; storageLimitBytes: number | null },
@@ -66,6 +69,7 @@ export async function sendAiFile(
   clientToken: string,
   from: AttachmentRefInput,
   kind: "file" | "qr",
+  caption = "",
 ): Promise<string> {
   const messageId = uuidFromKey(clientToken);
   const copy = await store.files.copyFileIn(
@@ -75,7 +79,7 @@ export async function sendAiFile(
     { recordType: WHATSAPP_RECORD_TYPE, recordId: messageId },
     store.storageLimitBytes,
   );
-  return sendAiText(tx, target, clientToken, "", kind, {
+  return sendAiText(tx, target, clientToken, caption, kind, {
     messageId,
     kind: kindOf(copy.contentType),
     fileName: copy.fileName,
