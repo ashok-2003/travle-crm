@@ -122,6 +122,7 @@ import { renderPdf } from "@travel-crm/integrations/pdf";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { documentText, type AiModel } from "@travel-crm/integrations/ai";
+import { createLangGraphToolAgent } from "@travel-crm/integrations/tool-agent";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { JobQueue, JobRunner } from "@travel-crm/integrations/jobs";
@@ -220,6 +221,8 @@ export function autopilotDependencies(
   model: AiModel,
 ) {
   const { db, identity, files, subscriptions, storage, logger, managers, tracing, prompts } = dependencies;
+  // One sink keeps the lite and natural traces and the one agent's turn rows.
+  const traces = createTraceSink({ db, storage, logger });
   return {
     db,
     ai: model,
@@ -230,7 +233,10 @@ export function autopilotDependencies(
     managers,
     // A returning customer's new lead, opened by the lite turn, is owned as a new number's is.
     identity,
-    traces: createTraceSink({ db, storage, logger }),
+    traces,
+    toolTurns: traces,
+    // The one agent's model and tools run in LangGraph.
+    toolAgent: createLangGraphToolAgent(),
     // Each turn one trace of its chat, its model calls inside.
     ...(tracing === undefined ? {} : { tracing }),
     // The natural agent runs on Langfuse's live prompt.

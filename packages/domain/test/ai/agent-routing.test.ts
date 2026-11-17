@@ -2,6 +2,7 @@
 // in the pause's transaction, so a change applies to the next message; lite where nothing chose natural. A chat the
 // natural agent answered gives lite fresh facts when the agency is moved back, and back again no brochure goes twice.
 import { liteFacts } from "@travel-crm/contracts/ai";
+import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runAgentTurn, type AgentDependencies } from "../../src/ai/agent.js";
 import { setAgent } from "../../src/ai/agent-choice.js";
@@ -11,6 +12,7 @@ import { liteAgency } from "./lite/support/lite-agency.js";
 import { greeting, understood, written } from "./lite/support/turn-script.js";
 import { liveAgency, liveAt, liveNow, type LiveAgency } from "./natural/support/live-agency.js";
 
+const oneWords = "Haan! Kedarkantha har Saturday December mein, ₹9,499 per person.";
 const priceWords = "Yes! Kedarkantha runs every Saturday in December, ₹9,499 per person in a triple tent.";
 /** Lite's two calls for a hello: Understand, then Write. */
 const liteHello = [understood([["hello", "Hi"]]), written(greeting)];
@@ -26,7 +28,7 @@ describe("routing a turn by the agency's agent", () => {
     const dependencies: AgentDependencies = on.dependencies();
     return runAgentTurn(dependencies, on.turnInput(token), at);
   };
-  const choose = (on: LiveAgency, agent: "lite" | "natural") =>
+  const choose = (on: LiveAgency, agent: "lite" | "natural" | "one") =>
     on.inOrg((tx) => setAgent(tx, systemActor(on.organizationId), agent));
   /** Lite's first call asks for its Understand form; the natural agent's offers tools. */
   const agentOf = (request: { schema?: { name: string }; tools?: readonly unknown[] } | undefined) =>
@@ -88,5 +90,28 @@ describe("routing a turn by the agency's agent", () => {
     );
     expect(files).toBe(1);
     expect(await factsOf(on)).toMatchObject({ agent: "natural", sentTripIds: [on.kedarkantha] });
+  });
+  it("routes an agency on one to the one turn, and its follow-ups", async () => {
+    const on = await liveAgency(test);
+    await choose(on, "one");
+    const dependencies: AgentDependencies = { ...on.dependencies(), toolAgent: createMemoryToolAgent() };
+    on.model.answer(
+      { text: oneWords, toolCalls: [{ name: "plan_follow_up", arguments: { when: "in_a_few_hours", about: "Date" } }] },
+      "",
+    );
+    expect(await runAgentTurn(dependencies, on.turnInput(), liveNow)).toBe("replied");
+    const due = (await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } })))
+      .followUpAt;
+    on.model.answer("Rahul, kaunsi date theek rahegi?");
+    const nudge = { ...on.turnInput(`nudge:${on.chat.id}:1`), kind: "nudge" as const };
+    expect(await runAgentTurn(dependencies, nudge, due ?? liveAt(3 * 3600))).toBe("replied");
+    expect(on.model.requests.at(-1)?.tools?.map((tool) => tool.name)).toEqual(["stay_quiet"]);
+  });
+
+  it("answers not_configured for one on a server with no tool agent", async () => {
+    const on = await liveAgency(test);
+    await choose(on, "one");
+    expect(await agentTurn(on, on.message.id, liveNow)).toBe("not_configured");
+    expect(on.model.requests).toHaveLength(0);
   });
 });

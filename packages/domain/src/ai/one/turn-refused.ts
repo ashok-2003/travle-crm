@@ -12,6 +12,7 @@ import { actAndSettle, actOfEnd, doneOf, endedOf, type TurnDone } from "../natur
 import { refusalNote, refusedAct, type Refused } from "../natural/turn-refused.js";
 import type { StagedSet } from "../natural/types.js";
 import type { OneContext } from "./context.js";
+import { withPaymentTask, type PaymentTask } from "./before-the-model.js";
 import { runOneLoop, type OneLoopIO, type OneSettings } from "./loop.js";
 
 /** The fallback line and the team's task, with the turn's actions kept but what reaches the customer. */
@@ -21,20 +22,27 @@ function refusedFallback(
   staged: StagedSet,
   refused: Refused,
   customerText: string,
+  paymentTask: PaymentTask,
 ): Promise<TurnDone> {
-  const act = refusedAct(turn, staged, refused, customerText);
+  const act = withPaymentTask(refusedAct(turn, staged, refused, customerText), paymentTask);
   trace.staged(act.staged);
   return actAndSettle(turn, act);
 }
 
 export async function afterOneRefusal(
   turn: LiveTurn,
-  loop: { context: OneContext; io: OneLoopIO; settings: OneSettings; trace: NaturalTraceBuilder },
+  loop: {
+    context: OneContext;
+    io: OneLoopIO;
+    settings: OneSettings;
+    trace: NaturalTraceBuilder;
+    paymentTask: PaymentTask;
+  },
   end: Extract<LoopEnd, { end: "final" }>,
   refused: Refused,
   customerText: string,
 ): Promise<TurnDone> {
-  const { context, io, settings, trace } = loop;
+  const { context, io, settings, trace, paymentTask } = loop;
   const note = await refusalNote(turn, end.staged, refused);
   const again = await runOneLoop(
     { ...context, messages: [...end.transcript, appCheck(note)] },
@@ -54,13 +62,14 @@ export async function afterOneRefusal(
     // The team's task names the booking not done, whatever ended the run.
     case "model_failed":
     case "fallback":
-      return refusedFallback(turn, trace, end.staged, refused, customerText);
+      return refusedFallback(turn, trace, end.staged, refused, customerText, paymentTask);
     case "final": {
       // The customer said yes and nothing went: a reply is owed, so a silent end (stay_quiet alone) falls back.
-      if (again.messages.length === 0) return refusedFallback(turn, trace, end.staged, refused, customerText);
-      const act = actOfEnd(again);
+      if (again.messages.length === 0)
+        return refusedFallback(turn, trace, end.staged, refused, customerText, paymentTask);
+      const act = withPaymentTask(actOfEnd(again), paymentTask);
       const result = await actOnTurn(turn, act);
-      if ("refused" in result) return refusedFallback(turn, trace, again.staged, result, customerText);
+      if ("refused" in result) return refusedFallback(turn, trace, again.staged, result, customerText, paymentTask);
       return doneOf(turn, act, result);
     }
   }

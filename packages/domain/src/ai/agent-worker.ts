@@ -30,7 +30,7 @@ const SETTLE_MS = 3_000;
  */
 const AT_ONCE = 5;
 /**
- * When the natural agent's model fails, its turn runs again after the first wait, then after the second; a third
+ * When the natural or one agent's model fails, its turn runs again after the first wait, then after the second; a third
  * failure sends the fallback line and a task for the team (no silence). Index: the attempt that failed.
  */
 export const RETRY_AFTER_MS = [60_000, 300_000] as const;
@@ -142,9 +142,9 @@ export function aiChatResumedListener(dependencies: {
   });
 }
 
-/** Only the natural agent's failed turns are tried again: lite's turn ends as it always did. */
-const isNatural = (dependencies: AgentDependencies, organizationId: string) =>
-  dependencies.db.forOrg(organizationId, async (tx) => (await agentOf(tx)) === "natural");
+/** Only the natural and one agents' failed turns are tried again: lite's turn ends as it always did. */
+const retriesModelFailures = (dependencies: AgentDependencies, organizationId: string) =>
+  dependencies.db.forOrg(organizationId, async (tx) => (await agentOf(tx)) !== "lite");
 
 /**
  * The agent's turn for one message, five chats at a time: only the chat's newest customer message is answered; an
@@ -190,7 +190,7 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
           outcome === "model_failed" &&
           !last &&
           dependencies.queue !== undefined &&
-          (await isNatural(dependencies, job.organizationId))
+          (await retriesModelFailures(dependencies, job.organizationId))
         ) {
           const attempt = job.attempt + 1;
           await dependencies.queue.send(
