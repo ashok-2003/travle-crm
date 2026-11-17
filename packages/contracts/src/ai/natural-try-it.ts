@@ -7,8 +7,9 @@ import { calendarMonth } from "../crm/trip.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
 import { roomType } from "../quotes/room-prices.js";
-import { liveOffer, naturalFacts, naturalHandOverReasons, naturalTaskKinds, toldTotal } from "./natural.js";
+import { liveOffer, naturalFacts, naturalTaskKinds, toldTotal } from "./natural.js";
 import { naturalTrace } from "./natural-trace.js";
+import { oneHandOverReasons } from "./one-tools.js";
 import { testAiInput, testAiLine, testAiModels, testAiTemperatures } from "./try-it.js";
 
 /** How far a dry lead goes: Won is the team's, and Lost or Not a lead only ever suggested. */
@@ -41,7 +42,7 @@ export const naturalTestState = z.object({ facts: naturalFacts, lead: dryLead })
 export type NaturalTestState = z.infer<typeof naturalTestState>;
 
 /** The state as a turn posts it back: every object strict, so a key no turn handed out is refused. */
-const postedState = z.strictObject({
+export const postedState = z.strictObject({
   facts: z.strictObject({
     ...naturalFacts.shape,
     offer: z.strictObject(liveOffer.shape).nullable().default(null),
@@ -110,7 +111,7 @@ export const naturalDryAction = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("plan_follow_up"), at: z.iso.datetime().nullable(), about: z.string() }),
   z.object({ tool: z.literal("create_task"), kind: z.enum(naturalTaskKinds), text: z.string() }),
   z.object({ tool: z.literal("add_note"), text: z.string() }),
-  z.object({ tool: z.literal("hand_over"), reason: z.enum(naturalHandOverReasons), summary: z.string() }),
+  z.object({ tool: z.literal("hand_over"), reason: z.enum(oneHandOverReasons), summary: z.string() }),
   z.object({ tool: z.literal("suggest_close"), kind: z.enum(["lost", "not_a_lead"]), reason: z.string() }),
   z.object({ tool: z.literal("stay_quiet"), reason: z.string() }),
 ]);
