@@ -4,6 +4,13 @@ import { describe, expect, it } from "vitest";
 import { audioFormatOf, createMemoryAiModel, createOpenRouterModel, withTracing } from "../../src/ai/index.js";
 import { createMemoryTracing } from "../../src/tracing/index.js";
 
+/** A WhatsApp voice note's part, its format found the way the media reader finds it (so these tests need audioFormatOf). */
+function voiceNote(bytes: Uint8Array) {
+  const format = audioFormatOf("audio/ogg; codecs=opus");
+  if (format === null) throw new Error("an OGG voice note has no format");
+  return { type: "audio" as const, format, bytes };
+}
+
 describe("voice notes in the AI port", () => {
   it("sends an OGG voice note as input_audio with its format", async () => {
     const bodies: Record<string, unknown>[] = [];
@@ -24,7 +31,7 @@ describe("voice notes in the AI port", () => {
         {
           role: "user",
           content: "Transcribe",
-          attachments: [{ type: "audio", format: "ogg", bytes: new Uint8Array([1, 2, 3]) }],
+          attachments: [voiceNote(new Uint8Array([1, 2, 3]))],
         },
       ],
     });
@@ -43,6 +50,11 @@ describe("voice notes in the AI port", () => {
     expect(audioFormatOf("audio/mp4")).toBe("m4a");
     expect(audioFormatOf("audio/wav")).toBe("wav");
     expect(audioFormatOf("AUDIO/OGG")).toBe("ogg");
+    expect(audioFormatOf("audio/mp3")).toBe("mp3");
+    expect(audioFormatOf("audio/x-wav")).toBe("wav");
+    expect(audioFormatOf("audio/wave")).toBe("wav");
+    expect(audioFormatOf("audio/x-m4a")).toBe("m4a");
+    expect(audioFormatOf("audio/opus")).toBe("ogg");
     expect(audioFormatOf("audio/amr")).toBeNull();
     expect(audioFormatOf("video/mp4")).toBeNull();
     expect(audioFormatOf("")).toBeNull();
@@ -58,7 +70,7 @@ describe("voice notes in the AI port", () => {
         {
           role: "user",
           content: "Transcribe",
-          attachments: [{ type: "audio", format: "ogg", bytes: new Uint8Array(4096) }],
+          attachments: [voiceNote(new Uint8Array(4096))],
         },
       ],
     });

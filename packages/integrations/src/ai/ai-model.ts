@@ -24,10 +24,15 @@ export type AiAudioFormat = "wav" | "mp3" | "ogg" | "aac" | "m4a";
 
 const audioFormats: Record<string, AiAudioFormat> = {
   "audio/ogg": "ogg",
+  "audio/opus": "ogg",
   "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
   "audio/aac": "aac",
   "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
   "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/wave": "wav",
 };
 
 /** The format for a content type (parameters like `; codecs=opus` ignored), or null when the model can't take it. */
