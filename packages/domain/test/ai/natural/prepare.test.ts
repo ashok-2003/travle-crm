@@ -10,6 +10,7 @@ import { prepareLiteTurn } from "../../../src/ai/lite/prepare.js";
 import { replyDayOf } from "../../../src/ai/may-write.js";
 import { EARLIER_AGENTS_UNTIL } from "../../../src/ai/natural/chat-lines.js";
 import type { NaturalPrepared } from "../../../src/ai/natural/prepare.js";
+import { bookingAheadOf } from "../../../src/ai/natural/prepare-chat.js";
 import { monthStartOf } from "../../../src/inbox/index.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
@@ -460,5 +461,65 @@ describe("the natural turn's live reads", () => {
     // Meta's shortlink serves Instagram and Facebook ads alike: the turn names neither.
     await on.inOrg((tx) => tx.whatsappAd.updateMany({ data: { sourceUrl: "https://fb.me/2xYz" } }));
     expect((await preparedOf(on)).cameFrom).toEqual({ source: "an ad", packageId: kedarkantha });
+  });
+
+  it("reads a booking ahead on any of the customer's leads, the chat's own open one first", async () => {
+    const on = await liveAgency(test);
+    const [kedarkantha = ""] = on.packageIds;
+    const ahead = () => on.inOrg((tx) => bookingAheadOf(tx, on.chat, parseCalendarDate("2026-11-20")));
+    const { quoteId, bookingId } = await on.inOrg(async (tx) => {
+      const departure = await tx.departure.findFirstOrThrow({
+        where: { templateId: kedarkantha },
+        select: { id: true },
+      });
+      const quote = await tx.quote.create({
+        data: {
+          leadId: on.leadId,
+          title: "Kedarkantha Trek for 2",
+          status: "accepted",
+          subtotalPaise: 1_899_800n,
+          totalPaise: 1_899_800n,
+          departureId: departure.id,
+        },
+        select: { id: true },
+      });
+      const booking = await tx.booking.create({
+        data: { quoteId: quote.id, leadId: on.leadId, number: "BK-2026-0001", status: "requested" },
+        select: { id: true },
+      });
+      return { quoteId: quote.id, bookingId: booking.id };
+    });
+    const theirs = { id: bookingId, awaitingPayment: false };
+    expect(await ahead()).toEqual({ ...theirs, paymentConfirmed: false, confirmed: false });
+
+    // A person recorded the advance, then confirmed the booking.
+    await on.inOrg((tx) =>
+      tx.quotePayment.create({
+        data: { quoteId, amountPaise: 600_000n, receivedOn: new Date("2026-11-19T00:00:00Z"), method: "upi" },
+      }),
+    );
+    expect(await ahead()).toEqual({ ...theirs, paymentConfirmed: true, confirmed: false });
+    await on.inOrg((tx) => tx.booking.update({ where: { id: bookingId }, data: { status: "confirmed" } }));
+    expect(await ahead()).toEqual({ ...theirs, paymentConfirmed: true, confirmed: true });
+
+    // An AI booking a person confirmed, departing on 5 Dec: paid and confirmed.
+    const aiBooking = (data: { status: string; quoteId?: string; expectedPaise?: bigint }) =>
+      on.inOrg((tx) =>
+        tx.aiBooking.create({
+          data: { leadId: on.leadId, conversationId: on.chat.id, summary: "Kedarkantha Trek for 2", ...data },
+          select: { id: true },
+        }),
+      );
+    const paid = await aiBooking({ status: "confirmed", quoteId });
+    expect(await ahead()).toEqual({ id: paid.id, awaitingPayment: false, paymentConfirmed: true, confirmed: true });
+
+    // The chat's own open AI booking comes first; an earlier agent's kept no amount, so it can't be asked for again.
+    const earlier = await aiBooking({ status: "awaiting_payment" });
+    expect(await ahead()).toEqual({
+      id: earlier.id,
+      awaitingPayment: false,
+      paymentConfirmed: false,
+      confirmed: false,
+    });
   });
 });
