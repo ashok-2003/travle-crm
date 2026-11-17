@@ -41,7 +41,17 @@ export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
   switch (message.kind) {
     case "text":
     case "template":
-      return message.body === null ? null : <Linked text={message.body} />;
+      if (message.tapped) return message.body === null ? t("tappedNoWords") : t("tapped", { text: message.body });
+      if (message.body === null) return null;
+      if (message.buttons === null) return <Linked text={message.body} />;
+      return (
+        <div className="flex flex-col gap-2">
+          <Linked text={message.body} />
+          <span className="text-caption text-muted-foreground">
+            {t("cardButtons", { titles: message.buttons.map((button) => button.title).join(" · ") })}
+          </span>
+        </div>
+      );
     case "image":
     case "video":
     case "audio":
@@ -56,8 +66,8 @@ export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
             </p>
           )}
           {message.aiText !== null && (
-            <p dir="auto" className="flex items-center gap-1 text-caption text-muted-foreground">
-              <span className="break-words">
+            <p dir="auto" className="flex items-start gap-1 text-caption text-muted-foreground">
+              <span className="min-w-0 break-words">
                 {t(message.aiText.kind === "transcript" ? "aiText.heard" : "aiText.seen", {
                   text: message.aiText.text,
                 })}

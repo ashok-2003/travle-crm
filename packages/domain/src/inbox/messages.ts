@@ -55,5 +55,7 @@ export function messageColumns(message: ParsedMessage, now: Date) {
     occurredAt: message.occurredAt === null || message.occurredAt.getTime() > now.getTime() ? now : message.occurredAt,
     mediaState: media ? "pending" : "none",
     mediaUrl: media ? message.mediaUrl : null,
+    // Only a reply button's tap is a booking tap; a template's quick reply stays words.
+    buttonReplyId: message.replyKind === "button" ? message.buttonReplyId : null,
   } as const;
 }
