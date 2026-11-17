@@ -8,6 +8,7 @@ import { DomainError, formatRupees, systemActor } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, type AgencyPaymentDetails } from "../../profile/index.js";
 import { sellablePackage } from "../../quotes/index.js";
 import { takeAgentBooking } from "../agent-booking.js";
+import type { ActGateInput } from "./act-gates.js";
 import type { LiteActDeps, LiteActInput } from "./act-types.js";
 import { bookingPartsOf, bookingPart, type BookingRefusal } from "./booking-words.js";
 import { fixedText } from "./fixed-texts.js";
@@ -102,12 +103,38 @@ async function book(
   return { bookingId: booked.bookingId, ...words, payment };
 }
 
+/** A booking waiting for its payment whose hold lapsed: what the agent's own booking takes again. */
+export interface LapsedBooking {
+  packageId: string;
+  departureId: string;
+  /** The party its quote held seats for. */
+  adults: number;
+  children: number;
+  /** The total the customer was told, and the amount the booking asked. */
+  totalPaise: number;
+  expectedPaise: number;
+}
+
+/** The payment details to send again: the booking's amount, its quote's total and where to pay. */
+export interface PaidAgain {
+  /** Null: the booking still waiting is the one; its seats are still held. */
+  bookingId: string | null;
+  expectedPaise: number;
+  totalPaise: number;
+  payment: AgencyPaymentDetails;
+}
+
 /**
  * The chat's booking still waiting for its payment: the amount it asks and its quote's total, as booked, while the
- * lead's hold of the party's seats is live. Once it has lapsed the seats are taken again at the total that booking was
- * told, in a booking of this turn's, and the old one is cancelled; seats gone or a changed total throw, as a booking does.
+ * lead's hold of the party's seats is live. Once it has lapsed the old one is cancelled and `rebook`, the agent's own
+ * booking (its rooms are the agent's to say: the booking keeps none), takes the seats again at the total that booking
+ * was told, in a booking of this turn's; seats gone or a changed total throw, as a booking does.
  */
-async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId: string | null): Promise<MoneyMove> {
+export async function payAgainBooking<Taken>(
+  tx: OrgTx,
+  input: Pick<ActGateInput, "organizationId" | "conversationId" | "now">,
+  rebook: (lapsed: LapsedBooking) => Promise<Taken>,
+): Promise<PaidAgain | Taken> {
   const { conversationId, now } = input;
   const open = await tx.aiBooking.findFirst({
     where: { conversationId, status: "awaiting_payment" },
@@ -135,6 +162,7 @@ async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId:
     },
     select: { id: true },
   });
+  const amounts = { expectedPaise: Number(open.expectedPaise), totalPaise: Number(quote.totalPaise) };
   if (held === null) {
     // One booking waits for payment at a time: the lapsed one goes. If the new one is refused, this rolls back with it.
     const actor = systemActor(input.organizationId);
@@ -145,19 +173,28 @@ async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId:
       entityId: open.id,
       after: { status: "cancelled" },
     });
-    const told = {
-      departureId: quote.departureId,
-      totalPaise: Number(quote.totalPaise),
-      advancePaise: Number(open.expectedPaise),
-    };
-    return book(tx, deps, input, { packageId: quote.templateId, departureId: quote.departureId }, leadId, told);
+    const { templateId: packageId, departureId, adults, children } = quote;
+    return rebook({ packageId, departureId, adults, children, ...amounts });
   }
-  const payment = await paymentDetails(tx, input.organizationId);
+  return { bookingId: null, ...amounts, payment: await paymentDetails(tx, input.organizationId) };
+}
+
+/** The payment details again, or, once the hold lapsed, lite's own booking at the total that booking was told. */
+async function payAgain(tx: OrgTx, deps: LiteActDeps, input: MoneyInput, leadId: string | null): Promise<MoneyMove> {
+  const again = await payAgainBooking(tx, input, (lapsed) =>
+    book(tx, deps, input, { packageId: lapsed.packageId, departureId: lapsed.departureId }, leadId, {
+      departureId: lapsed.departureId,
+      totalPaise: lapsed.totalPaise,
+      advancePaise: lapsed.expectedPaise,
+    }),
+  );
+  // A booking taken again comes back with its own words.
+  if ("text" in again) return again;
   const words = fixedText("payment_again", input.language, {
-    amount: formatRupees(Number(open.expectedPaise)),
-    total: formatRupees(Number(quote.totalPaise)),
+    amount: formatRupees(again.expectedPaise),
+    total: formatRupees(again.totalPaise),
   });
-  return { bookingId: null, ...words, payment };
+  return { bookingId: null, ...words, payment: again.payment };
 }
 
 /** A booking or the payment details again; null for every other move. */

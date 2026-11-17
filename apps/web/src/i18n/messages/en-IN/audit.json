@@ -281,7 +281,8 @@
       "instruction-changed": "Changed an instruction for the AI agent",
       "instruction-removed": "Removed an instruction for the AI agent",
       "turned-on": "Turned the AI agent on",
-      "turned-off": "Turned the AI agent off"
+      "turned-off": "Turned the AI agent off",
+      "agent-changed": "Changed which AI agent answers on WhatsApp"
     },
     "whatsapp-ad": {
       "linked": "Linked an ad to a package"
@@ -297,6 +298,7 @@
       "message-sent": "The AI sent a reply by itself",
       "chat-mode-changed": "Turned the AI on or off in a chat",
       "chat-resumed": "Gave a chat back to the AI",
+      "chat-handed-off": "The AI handed a chat to the team",
       "booking-decided": "Confirmed or cancelled a booking the AI took",
       "payment-refused": "Could not match the payment for a booking the AI took",
       "fill-applied": "Saved a form the AI filled in",

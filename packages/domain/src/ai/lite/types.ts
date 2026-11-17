@@ -29,8 +29,12 @@ export interface LiteDependencies {
   files: Files;
   managers: BookingRecipients;
   subscriptions?: Pick<SubscriptionAccess, "entitlementsOf">;
-  /** Who owns the agency's leads, for the lead a returning customer's turn opens; without it, a person takes the chat. */
-  identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile">;
+  /**
+   * Who owns the agency's leads, for the lead a returning customer's turn opens (without it, a person takes the chat); the
+   * team's names and who holds a permission, for the natural agent. Each call runs its own queries: never inside a
+   * transaction.
+   */
+  identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile" | "memberContacts" | "membersHolding">;
   logger?: Logger;
   traces?: TraceSink;
   /** The minute job's clock: a follow-up reads it again before it acts, so its checks hold when it sends. */

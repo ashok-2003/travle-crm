@@ -49,6 +49,7 @@ export {
   setEveryoneAgentPause,
 } from "./ai-agent-pause.js";
 export { organizationAgentState } from "./agent-state.js";
+export { chooseOrganizationAgent, organizationAgentChoice } from "./agent-choice.js";
 export { organizationsOverview } from "./dashboard.js";
 export { listAiCalls } from "./ai-calls.js";
 export { aiOverviewOf } from "./ai-overview.js";

@@ -123,6 +123,7 @@ import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
 import { documentText, type AiModel } from "@travel-crm/integrations/ai";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { JobQueue, JobRunner } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import type { PushSender } from "@travel-crm/integrations/push";
@@ -187,6 +188,8 @@ export interface WorkerJobDependencies {
   ai?: AiModel | null;
   /** Where the agent's turns are traced (Langfuse); left out, nowhere. */
   tracing?: AiTracing;
+  /** Langfuse's prompts: the natural agent's live prompt; left out, its built-in text. */
+  prompts?: AiPrompts;
   /** Where listeners queue delayed jobs (a new lead's first-reply check): the same pg-boss. Without it, no checks. */
   jobs?: JobQueue;
 }
@@ -210,13 +213,13 @@ export async function retireSchedules(runner: Pick<JobRunner, "unschedule">): Pr
 export function autopilotDependencies(
   dependencies: Pick<
     WorkerJobDependencies,
-    "db" | "identity" | "files" | "subscriptions" | "storage" | "logger" | "tracing"
+    "db" | "identity" | "files" | "subscriptions" | "storage" | "logger" | "tracing" | "prompts"
   > & {
     managers: BookingRecipients;
   },
   model: AiModel,
 ) {
-  const { db, identity, files, subscriptions, storage, logger, managers, tracing } = dependencies;
+  const { db, identity, files, subscriptions, storage, logger, managers, tracing, prompts } = dependencies;
   return {
     db,
     ai: model,
@@ -230,6 +233,8 @@ export function autopilotDependencies(
     traces: createTraceSink({ db, storage, logger }),
     // Each turn one trace of its chat, its model calls inside.
     ...(tracing === undefined ? {} : { tracing }),
+    // The natural agent runs on Langfuse's live prompt.
+    ...(prompts === undefined ? {} : { prompts }),
   };
 }
 
@@ -446,7 +451,15 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
             }),
           ]),
-      ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
+      ...(ai === null
+        ? []
+        : [
+            aiReplyHandler({
+              ...autopilotJobs(ai),
+              logger,
+              ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
+            }),
+          ]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         // A few at once: each takes seconds against a distant database, and a customer's burst of messages would wait in

@@ -123,6 +123,9 @@ model AiAutopilot {
   /// The autopilot runs the lite agent's turn (understand, look up, decide, write, act); wins over grounded. Set only by
   /// platform staff from the console, never by the agency's own saves.
   lite             Boolean      @default(false)
+  /// Which agent answers: lite or natural (CHECK ai_autopilot_agent_value). Set only by platform staff from the
+  /// console, never by the agency's own saves.
+  agent            String       @default("lite")
   /// The name it signs as, e.g. "Riya from Sharma Holidays"; empty for the agency's name.
   agentName        String       @default("") @map("agent_name")
   /// Hours of a customer's silence, inside the 24-hour window, before it nudges once; 0 for never.
@@ -496,8 +499,10 @@ model AiTurnTrace {
   conversationId String               @map("conversation_id") @db.Uuid
   leadId         String?              @map("lead_id") @db.Uuid
   startedAt      DateTime             @map("started_at") @db.Timestamptz(6)
-  /// reply or nudge (CHECK ai_turn_trace_kind_value).
+  /// reply, nudge or replay (CHECK ai_turn_trace_kind_value).
   kind           String
+  /// The agent that took the turn: lite or natural (CHECK ai_turn_trace_agent_value).
+  agent          String               @default("lite")
   outcome        String
   reason         String?
   /// The kind of move the turn made.
@@ -507,7 +512,11 @@ model AiTurnTrace {
   model          String?
   inputTokens    Int                  @map("input_tokens")
   outputTokens   Int                  @map("output_tokens")
+  /// The prompt tokens the provider served from its cache.
+  cachedTokens   Int                  @default(0) @map("cached_tokens")
   durationMs     Int                  @map("duration_ms")
+  /// How many of the turn's live hard checks failed.
+  failedChecks   Int                  @default(0) @map("failed_checks") @db.SmallInt
   /// { piece: version } of every prompt piece the turn used.
   promptVersions Json                 @map("prompt_versions")
   /// organizations/<org>/ai-traces/<yyyy-mm-dd>/<id>.json.gz

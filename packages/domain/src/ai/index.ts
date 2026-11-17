@@ -23,6 +23,7 @@ export {
   updateKnowledge,
 } from "./knowledge.js";
 export { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "./agency-answers.js";
+export { agentOf, setAgent } from "./agent-choice.js";
 export { agentSetupOf, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
 export {
   addAgentInstruction,

@@ -23,7 +23,7 @@ export interface TurnEnds {
  * lines or QR, no brochure, no offer they didn't read, and no silence, since the line goes. The agency's own actions stay:
  * a task, a hand-over, the lead's fields, a note, a follow-up, a suggested close.
  */
-const CUSTOMER_FACING = ["book", "resend_payment", "send_brochure", "offer_booking", "stay_quiet"] as const;
+export const CUSTOMER_FACING = ["book", "resend_payment", "send_brochure", "offer_booking", "stay_quiet"] as const;
 
 export function without(set: StagedSet, tools: readonly StagedAction["tool"][]): StagedSet {
   return new Map([...set].filter(([tool]) => !tools.includes(tool)));

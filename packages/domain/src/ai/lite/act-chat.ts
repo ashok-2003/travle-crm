@@ -2,7 +2,7 @@
 // the reply count, the follow-ups (the next one's time, how many went, whether the customer stopped them), and on a
 // hand-over the reason for the team, the owner told.
 import type { OrgTx } from "@travel-crm/db";
-import type { ChatRow } from "../may-write.js";
+import { repliesToday, replyDayOf, type ChatRow } from "../may-write.js";
 import { tellOwner } from "../tell-owner.js";
 import type { LiteActInput } from "./act-types.js";
 import { handOverSentences } from "./act-words.js";
@@ -29,7 +29,6 @@ export async function settleChat(
     leadId: done.leadId,
   });
   if (input.checked !== null) await saveChatSummary(tx, conversationId, input.checked.form.summary);
-  const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
   const state = await tx.aiChat.findFirstOrThrow({
     where: { conversationId },
     select: { id: true, repliesOn: true, repliesCount: true },
@@ -39,8 +38,8 @@ export async function settleChat(
   const counted = done.sent
     ? {
         lastReplyAt: now,
-        repliesOn: today,
-        repliesCount: state.repliesOn?.getTime() === today.getTime() ? state.repliesCount + 1 : 1,
+        repliesOn: replyDayOf(now),
+        repliesCount: repliesToday(state, now) + 1,
         ...(input.kind === "reply" ? {} : { lastNudgeAt: now }),
       }
     : {};
