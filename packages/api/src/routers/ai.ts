@@ -4,8 +4,13 @@
 // bookings the AI took show on the lead for anyone who sees it, and whoever may work the lead confirms or cancels one.
 // The plan's AI module is checked on every call.
 import {
+  addAgentInstructionInput,
   agencyAnswers,
   agentBasics,
+  agentInstruction,
+  agentInstructionList,
+  removeAgentInstructionInput,
+  updateAgentInstructionInput,
   agentSetup,
   handedOverChatList,
   setAgentOnInput,
@@ -49,6 +54,10 @@ import {
   writeUpInput,
 } from "@travel-crm/contracts/ai";
 import {
+  addAgentInstruction,
+  agentInstructionsOf,
+  removeAgentInstruction,
+  updateAgentInstruction,
   agencyAnswersOf,
   agentBasicsOf,
   agentSetupOf,
@@ -346,6 +355,35 @@ export const aiRouter = router({
     .output(agentBasics)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => saveAgentBasics(tx, ctx.member, input)),
+    ),
+
+  /** The owner's own instructions on how the agent talks, oldest first. */
+  agentInstructions: freshProcedure
+    .requires("ai:manage")
+    .output(agentInstructionList)
+    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => agentInstructionsOf(tx))),
+
+  addAgentInstruction: freshProcedure
+    .requires("ai:manage")
+    .input(addAgentInstructionInput)
+    .output(agentInstruction)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => addAgentInstruction(tx, ctx.member, input)),
+    ),
+
+  updateAgentInstruction: freshProcedure
+    .requires("ai:manage")
+    .input(updateAgentInstructionInput)
+    .output(agentInstruction)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => updateAgentInstruction(tx, ctx.member, input)),
+    ),
+
+  removeAgentInstruction: freshProcedure
+    .requires("ai:manage")
+    .input(removeAgentInstructionInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => removeAgentInstruction(tx, ctx.member, input)),
     ),
 
   /** The setup checklist and whether the agent is on. */
