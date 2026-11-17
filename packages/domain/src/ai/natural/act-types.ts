@@ -12,10 +12,10 @@ export type StagedOf<T extends StagedAction["tool"]> = Extract<StagedAction, { t
 const isOf = <T extends StagedAction["tool"]>(action: StagedAction, tool: T): action is StagedOf<T> =>
   action.tool === tool;
 
-/** The turn's staged call of `tool`, or null when it made none. */
+/** The turn's staged call of `tool`, or null when it made none (the dry turn's answer reads them so too). */
 export function stagedOf<T extends StagedAction["tool"]>(set: StagedSet, tool: T): StagedOf<T> | null {
-  const action = set.get(tool);
-  return action !== undefined && isOf(action, tool) ? action : null;
+  for (const action of set.values()) if (isOf(action, tool)) return action;
+  return null;
 }
 
 export interface NaturalActInput extends ActGateInput {
