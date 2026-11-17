@@ -72,6 +72,7 @@ export async function written(
     agentName: basics.agentName,
     agencyName,
     tone: basics.tone,
+    instructions: basics.instructions ?? [],
     summary: step.summary,
     messages: prepared.messages,
     language: decision.facts.language,

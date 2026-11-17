@@ -8,6 +8,7 @@ import { calendarDateIn } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, paymentLinesOf } from "../../profile/index.js";
 import { sellablePackages } from "../../quotes/index.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
+import { agentInstructionTextsOf } from "../agent-instructions.js";
 import { RECENT_SENT } from "../repeats.js";
 import { packageIndexOf } from "./prepare-lead.js";
 import { burstOf, LAST_MESSAGES, placesOf } from "./prepare.js";
@@ -28,6 +29,7 @@ export async function dryRunAgency(db: Database, organizationId: string, now: Da
       basics: {
         agentName: basics.agentName,
         tone: basics.tone === "professional" ? ("professional" as const) : ("friendly" as const),
+        instructions: await agentInstructionTextsOf(tx),
       },
       answers: await agencyAnswersOf(tx),
       holdHours: (await departureSettingsOf(tx)).holdHours,

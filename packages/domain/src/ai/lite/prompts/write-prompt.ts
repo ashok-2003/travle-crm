@@ -25,6 +25,8 @@ export interface WritePromptInput {
   agentName: string;
   agencyName: string;
   tone: "friendly" | "professional";
+  /** The owner's own instructions on how to write, in the order they were added; absent reads as none. */
+  instructions?: readonly string[];
   instruction: string;
   facts: string[];
   looked: string[];
@@ -56,6 +58,11 @@ export function writeRequest(input: WritePromptInput): {
     {
       ...writeBlockHeads.you,
       lines: [`Name: ${oneLine(input.agentName)}. Agency: ${oneLine(input.agencyName)}. Tone: ${tones[input.tone]}`],
+    },
+    {
+      ...writeBlockHeads.ownerInstructions,
+      // Owner text on one line each, fenced as the agency's answers are: no line of it opens a block of its own.
+      lines: (input.instructions ?? []).map((text) => `- ${oneLine(text)}`),
     },
     {
       ...writeBlockHeads.move,

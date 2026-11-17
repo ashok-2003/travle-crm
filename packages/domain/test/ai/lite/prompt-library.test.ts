@@ -14,6 +14,7 @@ const pinned: Record<string, string> = {
   "understand.intents@1": "16b33b347d1cabb2764213d0728d7a0834839fac9249f2cb2dc6abdee43fd9e1",
   "understand.form@1": "557e2d86bca7a67d9f53ae1bd582c1325a9797dd56ec041a566562d34a6d62e1",
   "write.instructions@1": "1d2cdc252e23a064a4c03228d4e588f13b67e7efd74019293cca5c10af88e12f",
+  "write.instructions@2": "617e01c75cbbb7bc8bc7fb1d5ee52c180a43ce31b716310fef271e4132227229",
   "write.voice@1": "ffdda3206124bddd2ad60863ff43e90ffc54a136a1f1eb7ac00a2a1c7f7bf7a4",
   "write.moves@1": "7c32780df25dba134edc8d5e9dc6ecf9921fccdc650d5cd041f2f509b4140083",
   "write.moves@2": "65ae1cbb2c5b07815f85b8ad2660e332c73ac0db597887050fddad9b526cc1ae",
@@ -61,14 +62,14 @@ describe("the prompt library", () => {
     const changed = new Set(["fixed.texts", "write.moves"]);
     for (const piece of promptLibrary()) {
       const expected =
-        piece.name === "fixed.texts"
-          ? [3, "2026-11-17"]
+        piece.name === "fixed.texts" || piece.name === "write.instructions"
+          ? [piece.name === "fixed.texts" ? 3 : 2, "2026-11-17"]
           : changed.has(piece.name)
             ? [2, "2026-11-13"]
             : [1, "2026-11-12"];
       expect([piece.version, piece.changedOn]).toEqual(expected);
     }
-    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 1, 1, 2, 3]);
+    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 2, 1, 2, 3]);
   });
 
   it("write.moves 2 adds the follow-ups' lines", () => {

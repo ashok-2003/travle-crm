@@ -8,6 +8,7 @@ import { calendarDateIn, type CalendarDate } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, paymentLinesOf } from "../../profile/index.js";
 import { sellablePackages } from "../../quotes/index.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
+import { agentInstructionTextsOf } from "../agent-instructions.js";
 import type { AgentVoice } from "./prompt.js";
 import { tripSheetsOf } from "./trips/trip-sheets.js";
 import type { TripSheet } from "./types.js";
@@ -40,6 +41,7 @@ export function dryAgency(db: Database, organizationId: string, agencyName: stri
         agentName: basics.agentName,
         agencyName,
         tone: basics.tone === "professional" ? "professional" : "friendly",
+        instructions: await agentInstructionTextsOf(tx),
       },
       paymentLines: paymentDetailsReady(payment) ? paymentLinesOf(payment) : null,
     };

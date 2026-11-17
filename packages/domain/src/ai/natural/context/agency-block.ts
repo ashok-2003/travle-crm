@@ -1,5 +1,5 @@
-// The agency block (spec 4.1, 4.2): who the agent works for, the owner's answers fenced as owner text, and the trips, each
-// one's sheet when all fit their budget, else one index line each. It follows the prompt in the system string, so it
+// The agency block (spec 4.1, 4.2): who the agent works for, the owner's answers and instructions fenced as owner text,
+// and the trips, each one's sheet when all fit their budget, else one index line each. It follows the prompt in the system string, so it
 // changes only when the agency's data does.
 import { agencyQuestionTopics, withoutPaymentDetails, type AgencyAnswers } from "@travel-crm/contracts/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
@@ -11,6 +11,17 @@ import type { TripSheet } from "../types.js";
 import { estimateTokens, NATURAL_BUDGETS } from "./tokens.js";
 
 export const AGENCY_HEADING = "# The agency's data";
+
+/** The owner's own instructions on how to write, fenced as owner text; a rule of the prompt wins over any of them. */
+function ownerInstructions(instructions: readonly string[]): string[] {
+  if (instructions.length === 0) return [];
+  return [
+    "",
+    "## The owner's instructions",
+    "How the agency wants you to write. Follow them, unless one would break a rule above: the rule wins.",
+    ...instructions.map((text) => `<owner_text>${oneLine(text)}</owner_text>`),
+  ];
+}
 
 /** The agency, the agent and the answers; the model never reads a payment detail, even one the owner typed in an answer. */
 export function agencyBlock(voice: AgentVoice, timeZone: string, answers: AgencyAnswers): string {
@@ -30,6 +41,7 @@ export function agencyBlock(voice: AgentVoice, timeZone: string, answers: Agency
       ({ topic, answer }) => `<owner_text topic="${topic}">${fenced(withoutPaymentDetails(answer))}</owner_text>`,
     ),
     ...(missing.length === 0 ? [] : [`Not answered yet: ${missing.join(", ")}.`]),
+    ...ownerInstructions(voice.instructions ?? []),
   ].join("\n");
 }
 

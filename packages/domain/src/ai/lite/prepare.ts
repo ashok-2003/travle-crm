@@ -13,6 +13,7 @@ import { getOrganizationProfile } from "../../profile/index.js";
 import { sellablePackages } from "../../quotes/index.js";
 import type { ChatRow } from "../may-write.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
+import { agentInstructionTextsOf } from "../agent-instructions.js";
 import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
 import { mayWrite } from "../may-write.js";
@@ -62,8 +63,11 @@ export interface LitePrepared {
   sent: string[];
   index: PackageIndexEntry[];
   places: DecideInput["places"];
-  /** A stored "enthusiastic" tone reads as friendly: the lite agent has two. */
-  basics: AgentBasics & { tone: "friendly" | "professional" };
+  /**
+   * A stored "enthusiastic" tone reads as friendly: the lite agent has two. `instructions` are the owner's own, on how
+   * to talk; Write reads them (absent reads as none).
+   */
+  basics: AgentBasics & { tone: "friendly" | "professional"; instructions?: readonly string[] };
   answers: AgencyAnswers;
   adPackageId: string | null;
   openBooking: DecideInput["openBooking"];
@@ -192,7 +196,11 @@ export async function prepareLiteTurn(
         (await tx.aiChat.findFirst({ where: { conversationId: chat.id }, select: { summary: true } }))?.summary ?? "",
       index,
       places: await placesOf(tx, index),
-      basics: { agentName: basics.agentName, tone: basics.tone === "professional" ? "professional" : "friendly" },
+      basics: {
+        agentName: basics.agentName,
+        tone: basics.tone === "professional" ? "professional" : "friendly",
+        instructions: await agentInstructionTextsOf(tx),
+      },
       answers: await agencyAnswersOf(tx),
       adPackageId: index.some((entry) => entry.id === adPackageId) ? adPackageId : null,
       ...(await bookingPartOf(tx, chat, leadPart.leadId, { now, today })),

@@ -9,6 +9,7 @@ import { calendarDateIn } from "../../kernel/index.js";
 import { sellablePackages } from "../../quotes/index.js";
 import type { ChatRow } from "../may-write.js";
 import { agentBasicsOf } from "../agency-answers.js";
+import { agentInstructionTextsOf } from "../agent-instructions.js";
 import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf } from "../autopilot.js";
 import { mayWrite } from "../may-write.js";
@@ -131,7 +132,11 @@ export async function prepareNudge(
       sent: lines.sent,
       index,
       places,
-      basics: { agentName: basics.agentName, tone: basics.tone === "professional" ? "professional" : "friendly" },
+      basics: {
+        agentName: basics.agentName,
+        tone: basics.tone === "professional" ? "professional" : "friendly",
+        instructions: await agentInstructionTextsOf(tx),
+      },
       // A follow-up quotes none of the agency's answers.
       answers: {},
       decision,

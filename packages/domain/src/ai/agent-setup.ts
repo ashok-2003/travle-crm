@@ -34,6 +34,7 @@ export async function agentSetupOf(
   const payment = await agencyPaymentDetailsOf(tx, organizationId);
   const answers = await agencyAnswersOf(tx);
   const basics = await agentBasicsOf(tx);
+  const instructions = await tx.aiAgentInstruction.count();
   const ads = await adsOf(tx);
   const settings = await autopilotOf(tx);
   // The agent answers nothing while the agency's AI is off, whatever its own switch says (the turn reads it first).
@@ -55,6 +56,7 @@ export async function agentSetupOf(
       total: agencyQuestionTopics.length,
     },
     { key: "basics", done: basics.agentName.trim() !== "", optional: false, count: null, total: null },
+    { key: "instructions", done: instructions > 0, optional: true, count: instructions, total: null },
     { key: "ads", done: linked === ads.length, optional: true, count: linked, total: ads.length },
   ];
   return agentSetup.parse({

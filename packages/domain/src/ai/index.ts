@@ -24,6 +24,12 @@ export {
 } from "./knowledge.js";
 export { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "./agency-answers.js";
 export { agentSetupOf, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
+export {
+  addAgentInstruction,
+  agentInstructionsOf,
+  removeAgentInstruction,
+  updateAgentInstruction,
+} from "./agent-instructions.js";
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
 export { aiFilledLeadIds, decideSuggestions, suggestedFieldsOf } from "./fill/lead-fields.js";
 export { suggestReply } from "./suggest.js";

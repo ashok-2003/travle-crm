@@ -13,6 +13,8 @@ export interface AgentVoice {
   agentName: string;
   agencyName: string;
   tone: "friendly" | "professional";
+  /** The owner's own instructions on how to write, in the order they were added; absent reads as none. */
+  instructions?: readonly string[];
 }
 
 export const BUILT_IN_NATURAL_PROMPT: NaturalPrompt = { version: "built-in-1", text: NATURAL_PROMPT_TEXT };

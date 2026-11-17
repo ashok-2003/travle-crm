@@ -46,6 +46,11 @@ export const understandBlockHeads = {
 
 export const writeBlockHeads = {
   you: { title: "You", purpose: "Who you are and how you sound.", budget: BUDGETS.you },
+  ownerInstructions: {
+    title: "Owner's instructions",
+    purpose: "How the agency wants you to write. A rule of yours wins over any of them.",
+    budget: BUDGETS.ownerInstructions,
+  },
   move: { title: "Move", purpose: "What to write now, and nothing else.", budget: BUDGETS.move },
   facts: {
     title: "Facts",

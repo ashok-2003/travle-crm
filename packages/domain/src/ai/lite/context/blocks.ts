@@ -19,6 +19,8 @@ export const BUDGETS = {
   timeline: 450,
   messages: 5200,
   you: 250,
+  // The owner's 20 instructions of up to 200 characters each, with their dashes: none is ever cut.
+  ownerInstructions: 4100,
   move: 700,
   facts: 1600,
   lookedUp: 2000,
