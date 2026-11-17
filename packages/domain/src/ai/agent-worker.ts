@@ -1,5 +1,5 @@
 // The worker's side of the agent: a customer's message queues the AI's turn a few seconds later (so a burst of messages
-// reads as one, and only the newest is answered), three chats at a time; each minute, the follow-ups it planned that are
+// reads as one, and only the newest is answered), six chats at a time; each minute, the follow-ups it planned that are
 // due go out while the window is open. Every step asks first whether the agency has the AI on, its plan has it and its
 // subscription allows it.
 import { aiChatResumedEvent, aiReplyJob } from "@travel-crm/contracts/ai";
@@ -8,11 +8,12 @@ import type { OrgTx } from "@travel-crm/db";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
-import { defineListener, type EventListener, type JobHandler } from "../jobs/index.js";
+import { defineListener, uuidFromKey, type EventListener, type JobHandler } from "../jobs/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { agentReachOf, answersInChat, chatOpenToAgent } from "./agent-reach.js";
-import { runAgentTurn, type AgentDependencies } from "./agent.js";
+import { agentOf } from "./agent-choice.js";
+import { runAgentFallback, runAgentTurn, type AgentDependencies } from "./agent.js";
 import { WINDOW_MARGIN_MS } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
 import { AI_CHAT_RESUMED_EVENT } from "./chat-state.js";
@@ -25,9 +26,14 @@ export const AI_NUDGES_QUEUE = "ai.nudges";
 const SETTLE_MS = 3_000;
 /**
  * Turns at once. Each holds a pooled connection through its prepare and its act transactions, many round trips
- * each (turn-cost.test.ts counts them), out of the few the whole worker shares: three leave room for the rest.
+ * each (turn-cost.test.ts counts them), out of the few the whole worker shares: six leave room for the rest.
  */
-const AT_ONCE = 3;
+const AT_ONCE = 6;
+/**
+ * When the natural agent's model fails, its turn runs again after the first wait, then after the second; a third
+ * failure sends the fallback line and a task for the team (no silence). Index: the attempt that failed.
+ */
+export const RETRY_AFTER_MS = [60_000, 300_000] as const;
 /**
  * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
  * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.
@@ -136,11 +142,15 @@ export function aiChatResumedListener(dependencies: {
   });
 }
 
+/** Only the natural agent's failed turns are tried again: lite's turn ends as it always did. */
+const isNatural = (dependencies: AgentDependencies, organizationId: string) =>
+  dependencies.db.forOrg(organizationId, async (tx) => (await agentOf(tx)) === "natural");
+
 /**
- * The agent's turn for one message, three chats at a time: only the chat's newest customer message is answered; an
+ * The agent's turn for one message, six chats at a time: only the chat's newest customer message is answered; an
  * earlier one's job ends. A turn queued by the release before the move keeps this job's shape, so it runs as lite.
  */
-export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logger }): JobHandler {
+export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logger; queue?: JobQueue }): JobHandler {
   const queue = AI_REPLY_QUEUE;
   return {
     queue,
@@ -164,17 +174,39 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
         );
       await turn("thinking");
       try {
-        const outcome = await runAgentTurn(
-          dependencies,
-          {
-            organizationId: job.organizationId,
-            conversationId: job.conversationId,
-            kind: "reply",
-            token: job.messageId,
-          },
-          new Date(),
-        );
-        dependencies.logger.info({ queue, outcome }, "The AI agent's turn");
+        const input = {
+          organizationId: job.organizationId,
+          conversationId: job.conversationId,
+          kind: "reply" as const,
+          token: job.messageId,
+        };
+        // The last try sends the fallback line with no model call; the earlier ones may fail and be tried again.
+        const last = job.attempt >= RETRY_AFTER_MS.length;
+        const outcome = last
+          ? await runAgentFallback(dependencies, input, new Date())
+          : await runAgentTurn(dependencies, input, new Date());
+        dependencies.logger.info({ queue, outcome, attempt: job.attempt }, "The AI agent's turn");
+        if (
+          outcome === "model_failed" &&
+          !last &&
+          dependencies.queue !== undefined &&
+          (await isNatural(dependencies, job.organizationId))
+        ) {
+          const attempt = job.attempt + 1;
+          await dependencies.queue.send(
+            queue,
+            {
+              organizationId: job.organizationId,
+              conversationId: job.conversationId,
+              messageId: job.messageId,
+              attempt,
+            },
+            {
+              startAfter: new Date(Date.now() + (RETRY_AFTER_MS[job.attempt] ?? 0)),
+              id: uuidFromKey(`${job.messageId}:${String(attempt)}`),
+            },
+          );
+        }
       } finally {
         // Done; a newer message queued meanwhile keeps its mark.
         await turn(null, "thinking");

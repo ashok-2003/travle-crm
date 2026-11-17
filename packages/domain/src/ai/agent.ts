@@ -18,6 +18,7 @@ import { runLiteTurn } from "./lite/turn.js";
 import { notingSink, outcomeNote, turnStart } from "./lite/turn-notes.js";
 import type { LiteTurnInput, TraceSink } from "./lite/types.js";
 import { AI_TOKEN_PREFIX, agentAnswers, mayWrite } from "./may-write.js";
+import { runNaturalFallback } from "./natural/turn-fallback.js";
 import { runNaturalTurn } from "./natural/turn.js";
 import { tellAgentNotReady } from "./not-ready-notice.js";
 
@@ -66,6 +67,19 @@ export async function runAgentTurn(dependencies: AgentDependencies, input: LiteT
   // Switched on, but its setup came undone: the customer got nothing, so the managers hear of it, once a day.
   if (outcome === "not_ready") await tellAgentNotReady(dependencies, input.organizationId, now);
   return outcome;
+}
+
+/**
+ * The last try of a natural turn whose model failed twice: the fallback line and a task for the team, with no model call,
+ * through the same checks as a turn. Lite has no such try.
+ */
+export async function runAgentFallback(
+  dependencies: AgentDependencies,
+  input: LiteTurnInput,
+  now: Date,
+): Promise<string> {
+  const checked = await agentChecked(dependencies, input);
+  return checked === "natural" ? runNaturalFallback(dependencies, input, now) : runAgentTurn(dependencies, input, now);
 }
 
 /** The agent that answers, or why none does: no model on this server, no AI on the plan, or paused by platform staff. */

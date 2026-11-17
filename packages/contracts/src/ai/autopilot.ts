@@ -42,8 +42,16 @@ export type ChatAi = z.infer<typeof chatAi>;
 
 /** ai.chat-resumed: someone gave a chat back to the AI; it answers the customer's last message now. */
 export const aiChatResumedEvent = z.strictObject({ conversationId: recordId });
-/** The ai.reply job: the AI's turn after a customer's message, a few seconds later so a burst reads as one. */
-export const aiReplyJob = z.strictObject({ organizationId: recordId, conversationId: recordId, messageId: recordId });
+/**
+ * The ai.reply job: the AI's turn after a customer's message, a few seconds later so a burst reads as one. `attempt` counts
+ * the natural agent's tries again after its model failed: 0 the first, 2 the last, which sends the fallback line.
+ */
+export const aiReplyJob = z.strictObject({
+  organizationId: recordId,
+  conversationId: recordId,
+  messageId: recordId,
+  attempt: z.int().min(0).max(2).default(0),
+});
 
 /** The AI's last day at a glance, for the AI screen's head. */
 export const aiOverview = z.object({

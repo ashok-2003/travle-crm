@@ -451,7 +451,15 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
             }),
           ]),
-      ...(ai === null ? [] : [aiReplyHandler({ ...autopilotJobs(ai), logger })]),
+      ...(ai === null
+        ? []
+        : [
+            aiReplyHandler({
+              ...autopilotJobs(ai),
+              logger,
+              ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
+            }),
+          ]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
         // A few at once: each takes seconds against a distant database, and a customer's burst of messages would wait in

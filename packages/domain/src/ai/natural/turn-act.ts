@@ -73,10 +73,10 @@ const UNREAD_HOURS: WorkingHours = {
 
 const has = (staged: StagedSet, tools: readonly StagedAction["tool"][]) => tools.some((tool) => staged.has(tool));
 
-/** A returning customer's new lead, opened before anything is sent; or why the turn ends instead. */
+/** A returning customer's new lead, opened before anything is sent; or why the turn ends instead. A task needs one too (F1). */
 async function leadFor(turn: LiveTurn, act: TurnAct): Promise<ActEnd | null> {
   const { deps, input, prepared } = turn;
-  if (prepared.leadId !== null || !has(act.staged, LEAD_ACTIONS)) return null;
+  if (prepared.leadId !== null || (act.task === null && !has(act.staged, LEAD_ACTIONS))) return null;
   const { id, personId, phoneE164 } = prepared.chat;
   const opening = await openLeadForChat(deps, input.organizationId, { id, personId, phoneE164 }, turn.now);
   // No automation answers a blocked contact; a customer a person marked Not a lead gets no new lead, and no answer.
