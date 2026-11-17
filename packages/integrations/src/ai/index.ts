@@ -1,5 +1,5 @@
-// Public API of @travel-crm/integrations/ai: the AI port, its OpenRouter and in-memory adapters, a backup (ADR 0029), and
-// the model with every call traced.
+// Public API of @travel-crm/integrations/ai: the AI port, its OpenRouter and in-memory adapters, a service account's token
+// for Vertex AI, a backup (ADR 0029), and the model with every call traced.
 export {
   aiFeatures,
   audioFormatOf,
@@ -25,6 +25,7 @@ export {
   OPENROUTER_BASE_URL,
   type OpenRouterOptions,
 } from "./openrouter.js";
+export { serviceAccountToken } from "./vertex-token.js";
 export { createMemoryAiModel, type MemoryAiModel, type MemoryAnswer } from "./memory-ai.js";
 export { withBackupModel } from "./fallback.js";
 export { withTracing } from "./traced-model.js";

@@ -5,7 +5,7 @@
 // OpenRouter's own fields (`provider.zdr`, zero data retention on every request) are sent ONLY to OpenRouter: other
 // endpoints reject fields they don't know, and keep what their own terms say. Tools go as OpenAI-style functions; reasoning
 // is `reasoning` and `reasoning_details` on OpenRouter, `reasoning_effort` elsewhere (Gemini), and a tool call's extra data
-// (Gemini's thought signature) goes back unchanged. The key is sent as a
+// (Gemini's thought signature) goes back unchanged. The key, or on Vertex AI a service account's token, is sent as a
 // header and appears nowhere else: not in a message, a log or an error.
 import {
   NEXT_MODEL_MIN_LEFT_MS,
@@ -20,7 +20,8 @@ import {
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 export interface OpenRouterOptions {
-  apiKey: string;
+  /** The endpoint's key, or what gives a current OAuth token for each request (a service account's, on Vertex AI). */
+  apiKey: string | (() => Promise<string>);
   /** Each feature's models, the preferred one first, then its fallbacks. */
   models: Readonly<Partial<Record<AiFeature, readonly string[]>>>;
   /** The endpoint's address (OpenRouter's by default); any OpenAI-compatible one is accepted. */
@@ -259,11 +260,12 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           controller.abort();
         }, limit);
         try {
+          const bearer = typeof options.apiKey === "string" ? options.apiKey : await options.apiKey();
           const post = (asJson: boolean) =>
             send(`${base}/chat/completions`, {
               method: "POST",
               signal: controller.signal,
-              headers: { "content-type": "application/json", authorization: `Bearer ${options.apiKey}` },
+              headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
               body: JSON.stringify({
                 model,
                 messages: (asJson ? withSchemaInSystem(request) : request.messages).map(wireMessage),
