@@ -10,7 +10,7 @@ import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SheetsDependencies } from "@travel-crm/domain/sheets";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { TemplateDependencies } from "@travel-crm/domain/inbox";
-import type { AiModel, AiPrompts, AiTracing, Spreadsheets } from "@travel-crm/domain/ai";
+import type { AiModel, AiPrompts, AiTracing, Spreadsheets, ToolAgent } from "@travel-crm/domain/ai";
 import { noAccessCache, type AccessCache } from "./access-cache.js";
 
 export interface ApiDependencies {
@@ -56,6 +56,8 @@ export interface ApiDependencies {
   tracing?: AiTracing;
   /** The natural agent's prompt as Langfuse keeps it; absent, the agent runs on its built-in text. */
   prompts?: AiPrompts;
+  /** Runs the one agent's model and tools (LangGraph); absent, Try it on the one agent is not ready. */
+  toolAgent?: ToolAgent;
   /** Reads an Excel rate sheet for the AI (release ai3b); null or absent: an Excel file is refused as unreadable. */
   spreadsheets?: Spreadsheets | null;
   /** The web app's address, which the form's links are made under (APP_URL). Required: no default can be right in production. */
@@ -85,6 +87,7 @@ export async function createContext(
     ai = null,
     tracing,
     prompts,
+    toolAgent,
     spreadsheets = null,
     appUrl,
   }: ApiDependencies,
@@ -114,6 +117,7 @@ export async function createContext(
     ai,
     tracing,
     prompts,
+    toolAgent,
     spreadsheets,
     appUrl,
     headers: request.headers,
