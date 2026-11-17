@@ -30,6 +30,7 @@ import {
   conversationAiInput,
   naturalTestAnswer,
   naturalTestInput,
+  oneTestInput,
   testAiAnswer,
   testAiInput,
   setChatAiInput,
@@ -68,6 +69,8 @@ import {
   chatAiOf,
   naturalTryItPrompt,
   naturalTryItTurn,
+  oneTryItPrompt,
+  oneTryItTurn,
   tryItTurn,
   resumeChat,
   setChatMode,
@@ -462,5 +465,31 @@ export const aiRouter = router({
       };
       const tracing = ctx.tracing === undefined ? {} : { tracing: ctx.tracing };
       return naturalTryItTurn({ db: ctx.db, ai: ctx.ai, agencyName, ...tracing }, ctx.member, chat, new Date());
+    }),
+
+  /**
+   * Try it on the one agent, beside testNatural: the same permission and Flash and 0.4 choice, and no prompt choice: it
+   * always runs on Langfuse's latest. AI_NOT_READY without a model or a tool agent. Nothing is sent or kept.
+   */
+  testOne: freshProcedure
+    .requires("ai:manage")
+    .input(oneTestInput)
+    .output(naturalTestAnswer)
+    .mutation(async ({ ctx, input }) => {
+      const { ai, toolAgent } = ctx;
+      if (!ai?.configured || toolAgent === undefined)
+        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
+      const agencyName = async (organizationId: string) =>
+        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
+      const chat = {
+        messages: input.messages,
+        state: input.state,
+        prompt: await oneTryItPrompt(ctx.prompts),
+        ...(input.model === "flash" ? { model: TEST_CHAT_FLASH_MODEL } : {}),
+        ...(input.temperature === "0.4" ? { temperature: 0.4 } : {}),
+        ...(input.chatId === undefined ? {} : { chatId: input.chatId }),
+      };
+      const tracing = ctx.tracing === undefined ? {} : { tracing: ctx.tracing };
+      return oneTryItTurn({ db: ctx.db, ai, toolAgent, agencyName, ...tracing }, ctx.member, chat, new Date());
     }),
 });

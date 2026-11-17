@@ -1,6 +1,6 @@
 "use client";
 
-// Try it's agent, model, temperature and prompt, for the test chat alone: the current agent or the new one (ruling 7:
+// Try it's agent, model, temperature and prompt, for the test chat alone: the current agent, the new one or the one agent (ruling 7:
 // each has its own procedure, and choosing the other empties the chat), the live turn's model or Gemini Flash, the
 // model's own temperature or 0.4, which only Gemini Flash takes (its private routes alone accept one), and, for the new
 // agent alone, its live prompt or the draft being edited. Choosing another model takes the temperature back to its
@@ -18,8 +18,8 @@ import { FormField } from "@/components/form-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-/** The agent a test chat talks to: the current (lite) one, or the new natural one. */
-export const testAgents = ["current", "natural"] as const;
+/** The agent a test chat talks to: the current (lite) one, the natural one, or the one agent (LangGraph). */
+export const testAgents = ["current", "natural", "one"] as const;
 export type TestAgent = (typeof testAgents)[number];
 
 export interface TestChoice {

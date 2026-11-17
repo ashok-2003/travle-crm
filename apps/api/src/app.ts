@@ -22,6 +22,7 @@ import { WHATSAPP_PROVIDER } from "@travel-crm/domain/inbox";
 import { receiveWebhook, type WebhookProvider, type WebhookRequest } from "@travel-crm/domain/webhooks";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { AiPrompts } from "@travel-crm/integrations/prompts";
+import { createLangGraphToolAgent } from "@travel-crm/integrations/tool-agent";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { GoogleSheets } from "@travel-crm/integrations/google-sheets";
@@ -123,6 +124,7 @@ const publicLimits = {
 const BODY_LIMIT = 64 * 1024;
 
 export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv> {
+  const toolAgent = createLangGraphToolAgent();
   // One per process (createApp runs once): cleared after any change made through tRPC.
   const accessCache =
     dependencies.accessCache ?? createAccessCache({ ttlMs: ACCESS_CACHE_TTL_MS, maxEntries: ACCESS_CACHE_MAX_ENTRIES });
@@ -202,6 +204,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
             ai,
             ...(tracing === undefined ? {} : { tracing }),
             ...(prompts === undefined ? {} : { prompts }),
+            toolAgent,
             spreadsheets,
             // An import's Add waits while a sheet's check is saving rows (S26).
             addGuards: [assertNoSheetCheckSaving],
