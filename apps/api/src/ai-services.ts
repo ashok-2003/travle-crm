@@ -1,11 +1,13 @@
 // The AI model the features call (ADR 0029), built once per process: from AI_API_KEY with AI_BASE_URL and the models when
-// those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), with AI_BACKUP_API_KEY's AI behind it
+// those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), or from AI_VERTEX_SERVICE_ACCOUNT's
+// token in the key's place (Gemini on Vertex AI, ruling R14), with AI_BACKUP_API_KEY's AI behind it
 // when that is set, else OpenRouter with its zero-data-retention routing from OPENROUTER_API_KEY. Null when no key is set:
 // the features then say the AI isn't set up. The journeys' fake (AI_TEST_SERVER_URL, never in production) receives
 // OpenRouter's calls in its place. Every call goes through the process's tracing (Langfuse, or none).
 import {
   createOpenRouterModel,
   OPENROUTER_BASE_URL,
+  serviceAccountToken,
   withBackupModel,
   withTracing,
   type AiModel,
@@ -17,6 +19,7 @@ import type { Environment } from "./environment.js";
 export type AiSettings = Pick<
   Environment,
   | "AI_API_KEY"
+  | "AI_VERTEX_SERVICE_ACCOUNT"
   | "AI_BASE_URL"
   | "AI_CHAT_MODELS"
   | "AI_FAST_MODELS"
@@ -43,13 +46,16 @@ export function createAiModel(environment: AiSettings, tracing: AiTracing = noTr
 // The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
 // revisited before scale.
 function modelOf(environment: AiSettings): AiModel | null {
-  if (environment.AI_API_KEY !== undefined) {
+  // One credential for every feature: the service account (its token kept and renewed for the process's life), or the key.
+  const vertex = environment.AI_VERTEX_SERVICE_ACCOUNT;
+  const credential = vertex === undefined ? environment.AI_API_KEY : serviceAccountToken(vertex);
+  if (credential !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];
     const fast = environment.AI_FAST_MODELS ?? chat;
     const zeroRetention =
       environment.AI_ZERO_RETENTION === undefined ? {} : { zeroRetention: environment.AI_ZERO_RETENTION };
     const first = createOpenRouterModel({
-      apiKey: environment.AI_API_KEY,
+      apiKey: credential,
       // The chat models write for customers and read chats; the fast ones only score leads.
       // Fill it for me reads recordings and screenshots, so it needs a multimodal model: Gemini's chat models are.
       models: {

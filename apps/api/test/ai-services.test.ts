@@ -1,12 +1,24 @@
 // Which models each AI feature gets from the settings: the new sales agent's own list (AI_AGENT_MODELS), the chat models
-// when it is unset, and the same on Gemini direct (allowed for the proof of concept, 2026-11-17: no gate). Every call is
-// traced.
+// when it is unset, and the same on Gemini direct (allowed for the proof of concept, 2026-11-17: no gate) and on Vertex AI
+// with a service account's token (ruling R14). Every call is traced.
+import type * as ai from "@travel-crm/integrations/ai";
 import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAiModel, type AiSettings } from "../src/ai-services.js";
 
+/** The service account's token as Google would mint it, and the keys it was asked for (the real one is tested live). */
+const tokenKeys = vi.hoisted((): unknown[] => []);
+vi.mock("@travel-crm/integrations/ai", async (original) => ({
+  ...(await original<typeof ai>()),
+  serviceAccountToken: (key: unknown) => {
+    tokenKeys.push(key);
+    return () => Promise.resolve("ya29.vertex-token");
+  },
+}));
+
 const OPENROUTER = "https://openrouter.ai/api/v1";
 const GOOGLE = "https://generativelanguage.googleapis.com/v1beta/openai";
+const VERTEX = "https://aiplatform.googleapis.com/v1/projects/p/locations/global/endpoints/openapi";
 const messages = [{ role: "user" as const, content: "Hello" }];
 
 /** Answers every call, and notes the address and model of each, and the fields each body sent. */
@@ -98,5 +110,26 @@ describe("the sales agent's models", () => {
     expect(tracing.generations.map((call) => [call.start.name, call.end])).toEqual([
       ["ai.sales_agent", { output: "Hi", model: "google/chat-one", usage: { input: 0, output: 0 } }],
     ]);
+  });
+});
+
+describe("Vertex AI", () => {
+  it("sends every feature to the Vertex endpoint with the service account's token as the bearer", async () => {
+    const headers: string[] = [];
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
+      urls.push(url);
+      headers.push((init.headers as Record<string, string>).authorization ?? "");
+      return Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "Hi" } }] })));
+    });
+    const key = { client_email: "agent@veeper-ai.iam.gserviceaccount.com", private_key: "pem" };
+    const vertex = createAiModel(
+      settings({ AI_API_KEY: undefined, AI_VERTEX_SERVICE_ACCOUNT: key, AI_BASE_URL: VERTEX }),
+    );
+    await vertex?.complete({ feature: "sales_agent", messages, user: "org" });
+    await vertex?.complete({ feature: "suggest_reply", messages, user: "org" });
+    expect(tokenKeys).toEqual([key]);
+    expect(urls).toEqual([`${VERTEX}/chat/completions`, `${VERTEX}/chat/completions`]);
+    expect(headers).toEqual(["Bearer ya29.vertex-token", "Bearer ya29.vertex-token"]);
   });
 });

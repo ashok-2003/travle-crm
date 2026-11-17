@@ -1,4 +1,5 @@
 // The api refuses to start with settings that are missing, malformed or unsafe in production, and says which.
+import { generateKeyPairSync } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { brand } from "@travel-crm/brand";
@@ -122,6 +123,49 @@ describe("environment", () => {
       loadEnvironment({ ...valid, ...gemini, NODE_ENV: "development", AI_BASE_URL: "http://127.0.0.1:4010" })
         .AI_BASE_URL,
     ).toBe("http://127.0.0.1:4010");
+  });
+
+  it("takes a Vertex AI service account in place of AI_API_KEY, with the endpoint and the models, never echoing it", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    const privateKey = generateKeyPairSync("ec", { namedCurve: "P-256" })
+      .privateKey.export({ type: "pkcs8", format: "pem" })
+      .toString();
+    const key = {
+      type: "service_account",
+      client_email: "agent@veeper-ai.iam.gserviceaccount.com",
+      private_key: privateKey,
+    };
+    const base64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64");
+    const vertex = {
+      AI_BASE_URL: "https://aiplatform.googleapis.com/v1/projects/p/locations/global/endpoints/openapi",
+      AI_VERTEX_SERVICE_ACCOUNT: base64(key),
+      AI_CHAT_MODELS: "google/gemini-3.8-flash",
+    };
+    expect(loadEnvironment({ ...production, ...vertex })).toMatchObject({
+      AI_VERTEX_SERVICE_ACCOUNT: { client_email: key.client_email, private_key: privateKey },
+      AI_CHAT_MODELS: ["google/gemini-3.8-flash"],
+    });
+    // A backup stands behind it as behind a key; a compose file's blank is unset.
+    expect(
+      loadEnvironment({ ...production, ...vertex, AI_BACKUP_API_KEY: "sk-backup-0123456789" }).AI_BACKUP_API_KEY,
+    ).toBe("sk-backup-0123456789");
+    expect(loadEnvironment({ ...production, AI_VERTEX_SERVICE_ACCOUNT: "" }).AI_VERTEX_SERVICE_ACCOUNT).toBeUndefined();
+    // One credential: not both, and it needs the endpoint and the models.
+    expect(() => loadEnvironment({ ...production, ...vertex, AI_API_KEY: "AIza-test-key-0123456789" })).toThrow(
+      /AI_VERTEX_SERVICE_ACCOUNT/,
+    );
+    expect(() => loadEnvironment({ ...production, ...vertex, AI_BASE_URL: "" })).toThrow(/AI_BASE_URL/);
+    expect(() => loadEnvironment({ ...production, ...vertex, AI_CHAT_MODELS: "" })).toThrow(/AI_CHAT_MODELS/);
+    // One key, whole, or the process stops, saying nothing of the value.
+    for (const wrong of [base64([key, key]), base64({ ...key, private_key: "not a key" }), "secret-key-text"]) {
+      try {
+        loadEnvironment({ ...production, ...vertex, AI_VERTEX_SERVICE_ACCOUNT: wrong });
+        expect.unreachable();
+      } catch (error) {
+        expect(String(error)).toMatch(/AI_VERTEX_SERVICE_ACCOUNT/);
+        expect(String(error)).not.toMatch(/secret-key-text|PRIVATE KEY|agent@/);
+      }
+    }
   });
 
   it("takes Axiom's token and dataset together or not at all, over https outside development", () => {

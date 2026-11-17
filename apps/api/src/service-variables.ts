@@ -205,12 +205,30 @@ export const serviceVariables = {
    */
   AI_BASE_URL: emptyAsUnset(httpUrl.optional()),
   AI_API_KEY: emptyAsUnset(z.string().min(8, "must be the AI provider's API key").optional()),
+  /**
+   * Gemini on Vertex AI (ruling R14): a service account's key file, base64 of its JSON (or the JSON on one line), in
+   * place of AI_API_KEY. Each request then carries an OAuth token minted from it and renewed before its hour is up;
+   * AI_BASE_URL is the Vertex endpoint and AI_CHAT_MODELS its models (google/gemini-...). A secret: never printed or logged.
+   */
+  AI_VERTEX_SERVICE_ACCOUNT: emptyAsUnset(
+    z
+      .string()
+      .transform((text, context) => {
+        const [key, ...others] = decodeServiceAccounts(text) ?? [];
+        if (key === undefined || others.length > 0) {
+          context.addIssue({
+            code: "custom",
+            message: "must be one service account's key file as base64 or JSON, with a private_key that parses",
+          });
+          return z.NEVER;
+        }
+        return key;
+      })
+      .optional(),
+  ),
   AI_CHAT_MODELS: emptyAsUnset(modelList.optional()),
   AI_FAST_MODELS: emptyAsUnset(modelList.optional()),
-  /**
-   * The natural sales agent's own models (the chat models, or on OpenRouter's key the suggest ones, when unset). The agent
-   * runs only on OpenRouter, whose reasoning fields it sends: on another AI_BASE_URL it has no models and says so.
-   */
+  /** The sales agents' own models (the chat models, or on OpenRouter's key the suggest ones, when unset). */
   AI_AGENT_MODELS: emptyAsUnset(modelList.optional()),
   AI_ZERO_RETENTION: emptyAsUnset(z.stringbool().optional()),
   /**

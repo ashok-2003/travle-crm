@@ -196,18 +196,26 @@ const environmentSchema = z
     if (environment.BREVO_WEBHOOK_KEY !== undefined && environment.BREVO_WEBHOOK_TOKEN === undefined) {
       problem("BREVO_WEBHOOK_TOKEN", "is needed with BREVO_WEBHOOK_KEY");
     }
-    // The AI's endpoint, key and models come together: a key needs its chat models, and the others need the key.
-    if (environment.AI_API_KEY !== undefined && environment.AI_CHAT_MODELS === undefined) {
-      problem("AI_CHAT_MODELS", "is needed with AI_API_KEY");
+    // The AI's endpoint, credential and models come together: a key (or Vertex AI's service account, one or the other)
+    // needs its chat models, the service account its endpoint, and the others need one of them.
+    const credential = environment.AI_API_KEY !== undefined || environment.AI_VERTEX_SERVICE_ACCOUNT !== undefined;
+    if (environment.AI_API_KEY !== undefined && environment.AI_VERTEX_SERVICE_ACCOUNT !== undefined) {
+      problem("AI_VERTEX_SERVICE_ACCOUNT", "is instead of AI_API_KEY: set one of them");
+    }
+    if (credential && environment.AI_CHAT_MODELS === undefined) {
+      problem("AI_CHAT_MODELS", "is needed with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT");
+    }
+    if (environment.AI_VERTEX_SERVICE_ACCOUNT !== undefined && environment.AI_BASE_URL === undefined) {
+      problem("AI_BASE_URL", "is needed with AI_VERTEX_SERVICE_ACCOUNT: the Vertex endpoint's address");
     }
     for (const name of ["AI_BASE_URL", "AI_CHAT_MODELS", "AI_FAST_MODELS"] as const) {
-      if (environment[name] !== undefined && environment.AI_API_KEY === undefined) {
-        problem(name, "is only for use with AI_API_KEY");
+      if (environment[name] !== undefined && !credential) {
+        problem(name, "is only for use with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT");
       }
     }
-    // The backup stands behind AI_API_KEY's AI, and its own settings need its key.
-    if (environment.AI_BACKUP_API_KEY !== undefined && environment.AI_API_KEY === undefined) {
-      problem("AI_BACKUP_API_KEY", "is only for use with AI_API_KEY");
+    // The backup stands behind that AI, and its own settings need its key.
+    if (environment.AI_BACKUP_API_KEY !== undefined && !credential) {
+      problem("AI_BACKUP_API_KEY", "is only for use with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT");
     }
     for (const name of ["AI_BACKUP_BASE_URL", "AI_BACKUP_CHAT_MODELS", "AI_BACKUP_FAST_MODELS"] as const) {
       if (environment[name] !== undefined && environment.AI_BACKUP_API_KEY === undefined) {
