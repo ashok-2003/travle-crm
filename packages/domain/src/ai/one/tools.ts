@@ -97,14 +97,17 @@ export function oneAgentTools(
     return outcome.result;
   }
 
+  const refs = (kind: "audio" | "image") => [...media].filter(([, one]) => one.kind === kind).map(([ref]) => ref);
+  const voiceNotes = refs("audio");
+  const photos = refs("image");
+
   return tools.map(({ name, description, schema }) => ({
     name,
     description,
     schema,
     async run(raw, { words }) {
       // The port only checks for an object, so each tool refuses its own bad arguments, in the domain's words.
-      const refs = (kind: "audio" | "image") => [...media].filter(([, one]) => one.kind === kind).map(([ref]) => ref);
-      const parsed = parseOneToolArguments(name, raw, tripLabels, { voiceNotes: refs("audio"), photos: refs("image") });
+      const parsed = parseOneToolArguments(name, raw, tripLabels, { voiceNotes, photos });
       if (!parsed.ok) return `refused: ${parsed.problem}`;
       if (isMedia(parsed.name)) return readMedia(parsed.name, parsed.args);
       if (isRead(parsed.name)) return read(parsed.name, parsed.args);

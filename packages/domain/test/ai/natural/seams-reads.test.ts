@@ -87,6 +87,10 @@ describe("natural's seams for reads and refusal", () => {
     const { lines } = await on.inOrg((tx) => naturalChatLines(tx, on.chat.id));
     expect(lines.find((one) => one.id === id)?.aiText).toEqual({ kind: "transcript", text: "do log hain" });
     expect(lines.find((one) => one.from === "customer" && one.id !== id)?.aiText).toBeUndefined();
+    // Through natural's path (no reference), the stored words don't reach the model's text.
+    const stored = lines.find((one) => one.id === id);
+    if (stored === undefined) throw new Error("the stored line is read");
+    expect(lineWords(stored, 1_000)).toBe("[voice note]");
   });
 
   it("builds the refused booking's act: the fallback line, the agency's actions kept, the task naming the booking", async () => {

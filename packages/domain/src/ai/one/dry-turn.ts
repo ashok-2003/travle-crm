@@ -14,10 +14,11 @@ import {
   type NaturalDryDependencies,
   type NaturalDryTurn,
 } from "../natural/dry-turn.js";
-import { guardReads, beforeTheModel, readTools } from "../natural/turn-reads.js";
+import { guardReads, readTools } from "../natural/turn-reads.js";
 import { stageAction } from "../natural/tools/action-tools.js";
 import type { ReadContext } from "../natural/tools/read-tools.js";
 import { startNaturalTrace } from "../natural/trace.js";
+import { oneBeforeTheModel } from "./before-the-model.js";
 import { buildOneContext } from "./context.js";
 import { runOneLoop } from "./loop.js";
 
@@ -34,7 +35,7 @@ export async function oneDryTurn(
   const { timeZone, today, sheets } = agency;
   const state = turn.state ?? { facts: naturalFacts.parse({ agent: "natural" }), lead: EMPTY_DRY_LEAD };
   const { facts } = state;
-  const before = beforeTheModel(newLinesOf(lines, facts.lastTurnAt === null ? null : new Date(facts.lastTurnAt)));
+  const before = oneBeforeTheModel(newLinesOf(lines, facts.lastTurnAt === null ? null : new Date(facts.lastTurnAt)));
   const context = buildOneContext({
     prompt: turn.prompt,
     voice: agency.voice,
@@ -48,7 +49,7 @@ export async function oneDryTurn(
     lines,
     cameFrom: null,
     notice: before.notice,
-    tools: before.withTools ? "all" : "none",
+    tools: "all",
     summary: null,
   });
   // The read tools keep a trip read whole in these reads; one has no word guards to use them.
