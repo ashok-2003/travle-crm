@@ -4,9 +4,7 @@
 // the features then say the AI isn't set up. The journeys' fake (AI_TEST_SERVER_URL, never in production) receives
 // OpenRouter's calls in its place. Every call goes through the process's tracing (Langfuse, or none).
 import {
-  aiBaseUrl,
   createOpenRouterModel,
-  isOpenRouterUrl,
   OPENROUTER_BASE_URL,
   withBackupModel,
   withTracing,
@@ -35,31 +33,15 @@ export type AiSettings = Pick<
 >;
 
 /**
- * The model on one endpoint, with the natural sales agent kept to OpenRouter: the agent sends OpenRouter's reasoning field
- * and reads its reasoning details, which another endpoint would refuse or ignore. Off OpenRouter, every `sales_agent`
- * request answers not_configured, whatever model it names (a call pinned to the model that answered, Try it's Flash), so
- * a backup on OpenRouter serves it, and with none the agent isn't set up.
- */
-function salesAgentOnOpenRouter(baseUrl: string | undefined, model: AiModel): AiModel {
-  if (isOpenRouterUrl(aiBaseUrl(baseUrl))) return model;
-  return {
-    configured: model.configured,
-    complete: (request) =>
-      request.feature === "sales_agent"
-        ? Promise.resolve({ ok: false, reason: "not_configured" })
-        : model.complete(request),
-  };
-}
-
-/**
- * The process's model, each call traced as one generation (under the agent's turn when one is running). The tracing wraps
- * the sales agent's gate, so a sales_agent call off OpenRouter is traced too, as the not_configured it answers.
+ * The process's model, each call traced as one generation (under the agent's turn when one is running).
  */
 export function createAiModel(environment: AiSettings, tracing: AiTracing = noTracing): AiModel | null {
   const model = modelOf(environment);
   return model === null ? null : withTracing(model, tracing);
 }
 
+// The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
+// revisited before scale.
 function modelOf(environment: AiSettings): AiModel | null {
   if (environment.AI_API_KEY !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];
@@ -90,7 +72,7 @@ function modelOf(environment: AiSettings): AiModel | null {
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
     });
-    if (environment.AI_BACKUP_API_KEY === undefined) return salesAgentOnOpenRouter(environment.AI_BASE_URL, first);
+    if (environment.AI_BACKUP_API_KEY === undefined) return first;
     // The backup keeps the first's endpoint and models unless it names its own.
     const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
     const backupFast = environment.AI_BACKUP_FAST_MODELS ?? environment.AI_BACKUP_CHAT_MODELS ?? fast;
@@ -111,10 +93,7 @@ function modelOf(environment: AiSettings): AiModel | null {
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
     });
-    return withBackupModel(
-      salesAgentOnOpenRouter(environment.AI_BASE_URL, first),
-      salesAgentOnOpenRouter(backupBaseUrl, backup),
-    );
+    return withBackupModel(first, backup);
   }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;
