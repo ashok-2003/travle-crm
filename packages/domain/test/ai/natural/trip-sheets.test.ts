@@ -96,6 +96,46 @@ describe("the natural agent's trip sheets", () => {
     expect(onTheDay?.departures.map((one) => one.startsOn)).toEqual(["2026-12-12", "2026-12-19", "2026-12-26"]);
   });
 
+  it("carries each trip's brochures with their words, and its photos, and keeps fileIds as natural reads them", async () => {
+    const { inOrg, sheets, kedarkantha } = await world();
+    await inOrg(async (tx) => {
+      await tx.attachment.create({
+        data: {
+          recordType: PACKAGE_PHOTO_RECORD_TYPE,
+          recordId: kedarkantha,
+          fileName: "camp.jpg",
+          contentType: "image/jpeg",
+          sizeBytes: 3,
+          status: "ready",
+          confirmedAt: new Date("2026-01-01T00:00:00Z"),
+        },
+      });
+      const brochure = await tx.attachment.findFirstOrThrow({
+        where: { recordId: kedarkantha, recordType: PACKAGE_BROCHURE_RECORD_TYPE },
+        select: { id: true },
+      });
+      await tx.packageBrochure.create({
+        data: {
+          packageId: kedarkantha,
+          attachmentId: brochure.id,
+          name: "Kedarkantha plan",
+          description: "Day by day",
+        },
+      });
+    });
+    const [sheet] = await sheets();
+    const photo = await inOrg((tx) =>
+      tx.attachment.findFirstOrThrow({
+        where: { recordId: kedarkantha, recordType: PACKAGE_PHOTO_RECORD_TYPE },
+        select: { id: true },
+      }),
+    );
+    expect(sheet?.brochures).toHaveLength(1);
+    expect(sheet?.brochures[0]).toMatchObject({ name: "Kedarkantha plan", description: "Day by day" });
+    expect(sheet?.photoIds).toEqual([photo.id]);
+    expect(sheet?.fileIds).toEqual([sheet?.brochures[0]?.attachmentId, photo.id]);
+  });
+
   describe("each departure has the price the quote uses for its date (priceOn)", () => {
     /** A batch of T1 on `startsOn` with these own prices, and T1's sheet and text after it. */
     async function withBatch(startsOn: string, prices: { priceTriplePaise?: bigint; priceQuadPaise?: bigint } = {}) {

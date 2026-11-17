@@ -45,6 +45,8 @@ function sheet(number: number, title: string, place: string, fileIds: string[]):
     advancePerPersonPaise: 300_000,
     departures: [],
     fileIds,
+    brochures: [],
+    photoIds: [],
   };
 }
 const kedarkantha = sheet(1, "Kedarkantha Trek", "Sankri, Uttarakhand", [

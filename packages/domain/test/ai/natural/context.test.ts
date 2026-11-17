@@ -58,6 +58,8 @@ function sheet(number: number, title: string, place: string): TripSheet {
       ...bySeason,
     })),
     fileIds: ["brochure"],
+    brochures: [],
+    photoIds: [],
   };
 }
 
