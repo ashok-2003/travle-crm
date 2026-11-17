@@ -74,22 +74,19 @@ export function usePdfImport() {
   };
 
   const start = async (files: readonly File[]) => {
-    const chosen = files.slice(0, MAX_PDF_IMPORTS).map((file, index) => ({
-      file,
-      row: {
+    const chosen = files.slice(0, MAX_PDF_IMPORTS).map((file, index) => {
+      const problem: PdfImport["problem"] =
+        file.type !== PDF ? "wrongType" : file.size > MAX_AI_KNOWLEDGE_BYTES ? "tooLarge" : null;
+      const row: PdfImport = {
         key: `${String(Date.now())}-${String(index)}`,
         fileName: file.name,
         step: "waiting",
-        problem:
-          file.type !== PDF
-            ? ("wrongType" as const)
-            : file.size > MAX_AI_KNOWLEDGE_BYTES
-              ? ("tooLarge" as const)
-              : null,
+        problem,
         result: null,
         error: null,
-      },
-    }));
+      };
+      return { file, row };
+    });
     setImports(chosen.map(({ row }) => (row.problem === null ? row : { ...row, step: "failed" })));
     setRunning(true);
     try {
@@ -108,5 +105,12 @@ export function usePdfImport() {
     }
   };
 
-  return { imports, running, start, clear: () => { setImports([]); } };
+  return {
+    imports,
+    running,
+    start,
+    clear: () => {
+      setImports([]);
+    },
+  };
 }
