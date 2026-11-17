@@ -737,12 +737,32 @@ describe("the natural agent's live act", () => {
   it("takes a lapsed hold again at the total booked before the payment details go again", async () => {
     const on = await actAgency(test);
     const figures = await on.quote(threeOn19Dec(on));
-    // The offer said the date and the advance, never the total (G2 asks no more): the booking keeps its terms itself.
-    const first = done(
-      await act(on, { messages: ["Held: advance ₹9,000."], staged: stagedSet(bookOf(figures)), quoted: [figures] }),
+    // The offer's words state its date and advance, never its total (G2 asks no more), so no total counts as told.
+    const offered = done(
+      await act(on, {
+        messages: ["3 seats on Sat 19 Dec: advance ₹9,000 to book. Shall I hold them?"],
+        staged: stagedSet(offerOf(figures)),
+        quoted: [figures],
+      }),
     );
+    expect(offered.facts.told).toEqual([]);
+    // The yes, then the hold: the booking keeps its own terms and total for when its hold lapses.
+    const yes = await nextTurn(on, "haan book karo, Rahul Verma", 5);
+    const first = done(
+      await act(on, {
+        ...yes,
+        messages: ["Done: 3 seats held."],
+        staged: stagedSet(bookOf(figures)),
+        quoted: [figures],
+        facts: offered.facts,
+      }),
+    );
+    expect(first.facts.offer).toBeNull();
+    expect(first.facts.told).toEqual([
+      expect.objectContaining({ startsOn: "2026-12-19", adults: 3, totalPaise: figures.totalPaise }),
+    ]);
     await on.inOrg((tx) => tx.departureHold.updateMany({ where: { leadId: on.leadId }, data: { expiresAt: testNow } }));
-    const next = await nextTurn(on, "Please send the QR again", 5);
+    const next = await nextTurn(on, "Please send the QR again", 10);
     const resend = { messages: ["Here it is again."], staged: stagedSet({ tool: "resend_payment" }) };
     const again = done(await act(on, { ...next, ...resend, facts: first.facts }));
     expect(again.bookingId).not.toBeNull();
@@ -756,7 +776,7 @@ describe("the natural agent's live act", () => {
         { id: again.bookingId, status: "awaiting_payment" },
       ]),
     );
-    expect(tokensOf(await outbound(on)).slice(3)).toEqual([
+    expect(tokensOf(await outbound(on)).slice(4)).toEqual([
       `ai:${next.token}`,
       `ai:${next.token}:pay`,
       `ai:${next.token}:qr`,
