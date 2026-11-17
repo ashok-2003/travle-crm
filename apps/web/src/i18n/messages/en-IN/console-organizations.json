@@ -326,5 +326,33 @@
       "seatsInvalid": "Use a whole number from 0 to 10,000.",
       "tooLong": "This is too long."
     }
+  },
+  "agentChoice": {
+    "title": "Agent",
+    "current": "Current agent",
+    "agents": {
+      "lite": "Current agent (lite)",
+      "natural": "New agent"
+    },
+    "lastReplay": "Last replay",
+    "replayResult": "{passed} of {chats} chats passed, {time}",
+    "change": "Change agent",
+    "loading": "Loading the agent",
+    "loadFailed": "The agent's choice didn't load.",
+    "retry": "Try again",
+    "dialog": {
+      "title": "Move {name} to the {agent}?",
+      "description": {
+        "natural": "{name}'s WhatsApp chats will be answered by the new agent from the next message.",
+        "lite": "{name}'s WhatsApp chats will go back to the current agent (lite) from the next message."
+      },
+      "gate": "Before moving to the new agent, check that:",
+      "steps": {
+        "bench": "the bench gate passed on this release",
+        "replay": "the replay of this agency's recent chats passed",
+        "tryIt": "the owner tried it in Try it"
+      },
+      "confirm": "Change agent"
+    }
   }
 }
