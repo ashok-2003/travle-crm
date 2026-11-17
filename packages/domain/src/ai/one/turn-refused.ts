@@ -39,8 +39,13 @@ export async function afterOneRefusal(
   const again = await runOneLoop(
     { ...context, messages: [...end.transcript, appCheck(note)] },
     io,
-    // The model re-decides the money: the turn's other actions stay forced; book and resend_payment are left out.
-    { ...settings, forced: [...without(end.staged, MONEY_ACTIONS).values()] },
+    {
+      ...settings,
+      // The model that wrote the transcript goes on with it (P7), unless Try it named its own.
+      model: settings.model ?? end.model,
+      // The model re-decides the money: the turn's other actions stay forced; book and resend_payment are left out.
+      forced: [...without(end.staged, MONEY_ACTIONS).values()],
+    },
     trace,
   );
   switch (again.end) {

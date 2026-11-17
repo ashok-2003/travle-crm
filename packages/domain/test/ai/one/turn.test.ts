@@ -257,6 +257,8 @@ describe("the one agent's live turn", () => {
     expect(on.model.requests).toHaveLength(turnStarts + 3);
     const again = on.model.requests.at(-1);
     expect(again?.messages.at(-1)?.content).toContain("The seats couldn't be held");
+    // The model that wrote the transcript, and its signatures, answers it.
+    expect(again?.model).toBe("memory-model");
     // Every answer of this turn goes back with its thought signature.
     const thisTurn = again?.messages.slice(on.model.requests[turnStarts]?.messages.length) ?? [];
     expect(thisTurn.filter((message) => message.role === "assistant")).toHaveLength(2);
