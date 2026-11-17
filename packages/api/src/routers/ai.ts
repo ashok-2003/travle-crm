@@ -485,6 +485,7 @@ export const aiRouter = router({
         messages: input.messages,
         state: input.state,
         prompt: await oneTryItPrompt(ctx.prompts),
+        ...(input.tap === undefined ? {} : { tap: input.tap }),
         ...(input.model === "flash" ? { model: TEST_CHAT_FLASH_MODEL } : {}),
         ...(input.temperature === "0.4" ? { temperature: 0.4 } : {}),
         ...(input.chatId === undefined ? {} : { chatId: input.chatId }),

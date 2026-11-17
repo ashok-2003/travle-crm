@@ -6,6 +6,8 @@ import type { ToolAgent } from "@travel-crm/integrations/tool-agent";
 import { newLinesOf } from "../natural/context/chat-turns.js";
 import { countedModel } from "../natural/counted-model.js";
 import { dryAgency } from "../natural/dry-agency.js";
+import { isText } from "../natural/trips/trip-text.js";
+import { dryTap } from "./dry-tap.js";
 import { dryAnswerOf } from "../natural/dry-answer.js";
 import {
   dryActionContext,
@@ -25,7 +27,7 @@ import { runOneLoop } from "./loop.js";
 export async function oneDryTurn(
   deps: NaturalDryDependencies & { toolAgent: ToolAgent },
   organizationId: string,
-  turn: NaturalDryTurn,
+  turn: NaturalDryTurn & { tap?: "book" | "change" },
 ): Promise<NaturalTestAnswer> {
   const { db } = deps;
   const clock = deps.clock ?? Date.now;
@@ -36,22 +38,24 @@ export async function oneDryTurn(
   const state = turn.state ?? { facts: naturalFacts.parse({ agent: "natural" }), lead: EMPTY_DRY_LEAD };
   const { facts } = state;
   const before = oneBeforeTheModel(newLinesOf(lines, facts.lastTurnAt === null ? null : new Date(facts.lastTurnAt)));
-  const context = buildOneContext({
-    prompt: turn.prompt,
-    voice: agency.voice,
-    timeZone,
-    today,
-    now,
-    answers: agency.answers,
-    sheets,
-    lead: dryLeadView(state.lead),
-    facts,
-    lines,
-    cameFrom: null,
-    notice: before.notice,
-    tools: "all",
-    summary: null,
-  });
+  const contextWith = (notice: string | null) =>
+    buildOneContext({
+      prompt: turn.prompt,
+      voice: agency.voice,
+      timeZone,
+      today,
+      now,
+      answers: agency.answers,
+      sheets,
+      lead: dryLeadView(state.lead),
+      facts,
+      lines,
+      cameFrom: null,
+      notice,
+      tools: "all",
+      summary: null,
+    });
+  let context = contextWith(before.notice);
   // The read tools keep a trip read whole in these reads; one has no word guards to use them.
   const reads = guardReads(agency, lines, facts, now);
   const readContext = (tx: OrgTx): ReadContext => ({ tx, sheets, labels: context.labels, today, now });
@@ -67,20 +71,27 @@ export async function oneDryTurn(
     readContext,
   });
   const trace = startNaturalTrace(turn.prompt, startedMs, "one");
-  const end = await runOneLoop(
-    context,
-    {
-      agent: deps.toolAgent,
-      call: countedModel(deps.ai, { db, organizationId, now, timeZone }),
-      read: readTools(db, organizationId, readContext, reads),
-      stage: (name, args, words, quoted) =>
-        stageAction({ ...actions, quotedThisTurn: quoted }, name, args, words, { agent: "one" }),
-      newerLine: () => Promise.resolve(false),
-      clock,
-    },
-    { organizationId, ...turn.choice, forced: before.forced, today },
-    trace,
-  );
+  const tapped = turn.tap === undefined ? null : await dryTap(turn.tap, state, actions, lines);
+  if (tapped !== null && "notice" in tapped) {
+    context = contextWith([before.notice, tapped.notice].filter(isText).join("\n"));
+  }
+  const end =
+    tapped !== null && "end" in tapped
+      ? tapped.end
+      : await runOneLoop(
+          context,
+          {
+            agent: deps.toolAgent,
+            call: countedModel(deps.ai, { db, organizationId, now, timeZone }),
+            read: readTools(db, organizationId, readContext, reads),
+            stage: (name, args, words, quoted) =>
+              stageAction({ ...actions, quotedThisTurn: quoted }, name, args, words, { agent: "one" }),
+            newerLine: () => Promise.resolve(false),
+            clock,
+          },
+          { organizationId, ...turn.choice, forced: before.forced, today },
+          trace,
+        );
   const newText = context.newLines.map((line) => line.text).join("\n");
   return dryAnswerOf(end, { now, today, sheets, paymentLines: agency.paymentLines, state, newText }, trace, clock());
 }

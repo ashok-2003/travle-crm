@@ -140,4 +140,10 @@ describe("the one agent's trace, dry actions and test input", () => {
     expect(oneTestInput.safeParse({ ...input, temperature: "0.4" }).success).toBe(false);
     expect(oneTestInput.safeParse({ ...input, model: "flash", temperature: "0.4" }).success).toBe(true);
   });
+
+  it("takes a tap only as book or change", () => {
+    expect(oneTestInput.safeParse({ ...input, tap: "book" }).success).toBe(true);
+    expect(oneTestInput.safeParse({ ...input, tap: "change" }).success).toBe(true);
+    expect(oneTestInput.safeParse({ ...input, tap: "cancel" }).success).toBe(false);
+  });
 });

@@ -126,6 +126,8 @@ export const naturalTestAnswer = z.object({
   messages: z.array(z.string()).max(2),
   /** The agency's payment lines code would send after them, with the QR; null when none would go. */
   payment: z.array(z.string()).nullable(),
+  /** The offer card the one agent would send after its words: its body and its button titles. */
+  card: z.object({ body: z.string(), buttons: z.array(z.string()) }).optional(),
   actions: z.array(naturalDryAction),
   outcome: z.enum(naturalTestOutcomes),
   state: naturalTestState,

@@ -37,7 +37,8 @@ describe("Try it on the one agent", () => {
       messages: readonly TestAiLine[],
       state: Parameters<typeof oneTryItTurn>[2]["state"] = null,
       prompt: NaturalPrompt = BUILT_IN_NATURAL_PROMPT,
-    ) => oneTryItTurn(deps, member, { messages, state, prompt, chatId: CHAT_ID }, NOW);
+      tap?: "book" | "change",
+    ) => oneTryItTurn(deps, member, { messages, state, prompt, chatId: CHAT_ID, ...(tap ? { tap } : {}) }, NOW);
     const rows = () =>
       test.db.forOrg(agency.organizationId, async (tx) => ({
         messages: await tx.whatsappMessage.count(),
@@ -100,6 +101,49 @@ describe("Try it on the one agent", () => {
     );
     expect(second.actions).toEqual([expect.objectContaining({ tool: "book", seats: 2 })]);
     expect(await held.rows()).toMatchObject({ holds: 0, bookings: 0 });
+  });
+
+  // An offer made in the first turn, and the chat so far, for the tap tests.
+  async function offered() {
+    const on = await world();
+    const words = "Sat 19 Dec, 2 log, triple sharing: total ₹18,998. Advance ₹6,000 abhi. Hold kar dun?";
+    on.model.answer({ text: words, toolCalls: [{ name: "offer_booking", arguments: terms }] }, { text: "" });
+    const first = await on.tryIt([{ from: "customer", text: "Kedarkantha 19 Dec, 2 log" }]);
+    const chat = [{ from: "customer", text: "Kedarkantha 19 Dec, 2 log" }, ...first.history] as const;
+    return { on, first, chat };
+  }
+  const tap = (
+    on: Awaited<ReturnType<typeof world>>,
+    chat: readonly TestAiLine[],
+    state: Parameters<typeof oneTryItTurn>[2]["state"],
+    which: "book" | "change",
+  ) => on.tryIt([...chat, { from: "customer", text: "Tapped: Book these seats" }], state, undefined, which);
+
+  it("shows the card a test offer would send", async () => {
+    const { first } = await offered();
+    expect(first.card).toMatchObject({
+      body: expect.stringContaining("Total ₹18,998") as unknown,
+      buttons: ["Book these seats", "Change something"],
+    });
+  });
+
+  it("holds the seats on a test tap with no model call", async () => {
+    const { on, first, chat } = await offered();
+    const calls = on.model.requests.length;
+    const answer = await tap(on, chat, first.state, "book");
+    expect(on.model.requests).toHaveLength(calls);
+    expect(answer.actions).toEqual([expect.objectContaining({ tool: "book", seats: 2 })]);
+    expect(answer.messages).toEqual(["Your seats are held. The payment details are below."]);
+    expect(answer.payment).not.toBeNull();
+    expect(await on.rows()).toMatchObject({ holds: 0, bookings: 0 });
+  });
+
+  it("runs the agent with a notice on a test Change", async () => {
+    const { on, first, chat } = await offered();
+    on.model.answer({ text: "Zaroor, kya badalna hai?" });
+    const answer = await tap(on, chat, first.state, "change");
+    expect(answer.messages).toEqual(["Zaroor, kya badalna hai?"]);
+    expect(JSON.stringify(on.model.requests.at(-1))).toContain("Change something");
   });
 
   it("traces it as the one agent's Try it, on the latest prompt", async () => {

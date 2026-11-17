@@ -72,8 +72,9 @@ export function TestSection() {
   const [draft, setDraft] = useState("");
   const [choice, setChoice] = useState(liveChoice);
 
-  const send = () => {
-    const text = draft.trim();
+  // A tapped card button is the customer's line "Tapped: <title>" with `tap`, as any turn (a dry run: nothing is booked).
+  const send = (line = draft, tap?: "book" | "change") => {
+    const text = line.trim();
     if (text === "" || pending) return;
     const next: Entry[] = [...entries, { from: "customer", text }];
     setEntries(next);
@@ -82,7 +83,7 @@ export function TestSection() {
     if (choice.agent === "one") {
       // The one agent always reads Langfuse's latest prompt, so there is none to send; its answer shows as natural's.
       one.mutate(
-        { ...turn, state: state.natural, chatId },
+        { ...turn, state: state.natural, chatId, ...(tap === undefined ? {} : { tap }) },
         {
           onSuccess: (answer) => {
             setEntries((shown) => [...shown, { from: "natural", answer, prompt: "live" }]);
@@ -145,7 +146,21 @@ export function TestSection() {
               // The chat only grows, and Start again empties it: a line's place is its identity.
               if (entry.from === "agent") return <TestTurn key={index} answer={entry.answer} />;
               if (entry.from === "natural") {
-                return <TestNaturalTurn key={index} answer={entry.answer} prompt={entry.prompt} />;
+                const latest = index === entries.length - 1 && !pending && choice.agent === "one";
+                return (
+                  <TestNaturalTurn
+                    key={index}
+                    answer={entry.answer}
+                    prompt={entry.prompt}
+                    {...(latest
+                      ? {
+                          onTap: (button: "book" | "change", title: string) => {
+                            send(t("card.tapped", { title }), button);
+                          },
+                        }
+                      : {})}
+                  />
+                );
               }
               return (
                 <li

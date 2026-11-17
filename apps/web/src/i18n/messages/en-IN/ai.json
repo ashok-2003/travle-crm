@@ -167,6 +167,10 @@
       "draftHint": "Draft tries the prompt being edited, or the live one when there is no draft.",
       "thisChatOnly": "These choices apply only to this test chat, never to your customers' chats. Choosing another agent starts the chat again."
     },
+    "card": {
+      "caption": "Then it would send this card:",
+      "tapped": "Tapped: {title}"
+    },
     "natural": {
       "payment": "Then code sends:",
       "quiet": "It would stay quiet: {reason}",

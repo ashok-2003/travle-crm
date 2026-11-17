@@ -5,6 +5,7 @@
 // when it would hand the chat over, stay quiet or send the fallback line; and "Why", closed until opened.
 import type { NaturalTestAnswer, NaturalTestPrompt } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 import { actionOf } from "./test-natural-actions";
 import { TestNaturalWhy } from "./test-natural-why";
 import { OutBubble, WhyToggle } from "./test-turn";
@@ -37,8 +38,50 @@ function NaturalStatus({ answer }: { answer: NaturalTestAnswer }) {
   return null;
 }
 
+/** The offer card the turn would send; the latest answer's buttons can be tapped (`onTap`), an earlier one's are not. */
+function TestCard({
+  card,
+  onTap,
+}: {
+  card: NonNullable<NaturalTestAnswer["card"]>;
+  onTap: ((button: "book" | "change", title: string) => void) | undefined;
+}) {
+  const t = useTranslations("ai.test.card");
+  return (
+    <>
+      <p className="text-caption text-muted-foreground">{t("caption")}</p>
+      <OutBubble>
+        <span className="block whitespace-pre-line">{card.body}</span>
+      </OutBubble>
+      <div className="flex flex-wrap justify-end gap-2">
+        {card.buttons.map((title, index) => (
+          <Button
+            key={title}
+            type="button"
+            variant="outline"
+            disabled={onTap === undefined}
+            onClick={() => {
+              onTap?.(index === 0 ? "book" : "change", title);
+            }}
+          >
+            {title}
+          </Button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /** `prompt` is the prompt the turn was asked to run, which "Why" holds against the one it ran. */
-export function TestNaturalTurn({ answer, prompt }: { answer: NaturalTestAnswer; prompt: NaturalTestPrompt }) {
+export function TestNaturalTurn({
+  answer,
+  prompt,
+  onTap,
+}: {
+  answer: NaturalTestAnswer;
+  prompt: NaturalTestPrompt;
+  onTap?: (button: "book" | "change", title: string) => void;
+}) {
   const t = useTranslations("ai.test");
   const payment = answer.payment ?? [];
   return (
@@ -63,6 +106,7 @@ export function TestNaturalTurn({ answer, prompt }: { answer: NaturalTestAnswer;
           </OutBubble>
         </>
       )}
+      {answer.card && <TestCard card={answer.card} onTap={onTap} />}
       <NaturalStatus answer={answer} />
       <WhyToggle>
         <TestNaturalWhy answer={answer} prompt={prompt} />

@@ -10,6 +10,7 @@ import { fenced } from "../fenced.js";
 import { languageOf } from "../natural/fallback-line.js";
 import { stageAction, type ActionContext } from "../natural/tools/action-tools.js";
 import { awaitsPayment, liveOfferOf } from "../natural/tools/booking-checks.js";
+import type { NaturalChatLine, StagedAction } from "../natural/types.js";
 import { termsWords } from "../natural/tools/terms.js";
 import { actOnTurn, type LiveTurn, type TurnAct } from "../natural/turn-act.js";
 import { doneOf, type TurnDone } from "../natural/turn-done.js";
@@ -63,15 +64,18 @@ const offerWords = (offer: LiveOffer, actions: Actions) =>
 const LATEST_LINES = 3;
 
 /** The language of the customer's latest lines before the tap: the tap's own words are the button's. */
-function languageBefore({ input, prepared }: LiveTurn) {
-  const at = prepared.lines.findIndex((line) => line.id === input.token);
-  const before = at === -1 ? prepared.lines : prepared.lines.slice(0, at);
+export function languageBefore(lines: readonly NaturalChatLine[], tapLineId: string) {
+  const at = lines.findIndex((line) => line.id === tapLineId);
+  const before = at === -1 ? lines : lines.slice(0, at);
   const theirs = before.filter((line) => line.from === "customer").slice(-LATEST_LINES);
   return languageOf(theirs.map((line) => line.text).join("\n"));
 }
 
-/** Book on the live offer: `book`'s checks and the card's advance, then the act with the fixed line, or a notice. */
-async function bookOffer(turn: LiveTurn, actions: Actions, offer: LiveOffer): Promise<TapStep> {
+/** The tap's `book` staged on the live offer's own terms, with its checks and the card's advance; or a notice. */
+export async function stageTapBook(
+  actions: Actions,
+  offer: LiveOffer,
+): Promise<{ staged: StagedAction } | { notice: string }> {
   const label = [...actions.labels].find(([, packageId]) => packageId === offer.packageId)?.[0];
   const terms = {
     trip_id: label ?? "",
@@ -97,8 +101,16 @@ async function bookOffer(turn: LiveTurn, actions: Actions, offer: LiveOffer): Pr
       `the advance changed since the offer: it is now ${formatRupees(advance)}; make the offer again with offer_booking`,
     );
   }
+  return { staged };
+}
+
+/** Book on the live offer: the stage, then the act with the fixed line, or a notice. */
+async function bookOffer(turn: LiveTurn, actions: Actions, offer: LiveOffer): Promise<TapStep> {
+  const stage = await stageTapBook(actions, offer);
+  if ("notice" in stage) return stage;
+  const { staged } = stage;
   const act: TurnAct = {
-    messages: [tapBookedLine(languageBefore(turn))],
+    messages: [tapBookedLine(languageBefore(turn.prepared.lines, turn.input.token))],
     staged: new Map([[staged.tool, staged]]),
     quoted: [],
     handOver: null,
@@ -107,14 +119,19 @@ async function bookOffer(turn: LiveTurn, actions: Actions, offer: LiveOffer): Pr
     fallback: null,
   };
   const result = await actOnTurn(turn, act);
+  const tapped = `They tapped "${BOOK_TITLE}" on the offer (${offerWords(offer, actions)}).`;
   if ("refused" in result) return { notice: `${tapped} ${await refusalNote(turn, act.staged, result)}` };
   return { done: doneOf(turn, act, result) };
 }
 
-/** Reads the answered message's tap (input.token's button_reply_id) and books, or says what the model must know. */
-export async function tapStep(turn: LiveTurn, actions: Actions): Promise<TapStep> {
-  const tap = await tapRead(turn);
-  if (tap === null) return null;
+/**
+ * What a tap means before anything is booked: a notice for the model (Change, an offer no longer live, more lines with
+ * the tap), or the live offer to book. `card` is the tapped card's words when the offer is no longer known.
+ */
+export function readTap(
+  tap: { button: "book" | "change"; offerId: string; card: string | null },
+  actions: Actions,
+): { notice: string } | { book: LiveOffer } {
   const live = liveOfferOf(actions);
   // An offer stored with no id is never the one tapped.
   const tappedLive = live !== null && live.id === tap.offerId ? live : null;
@@ -141,5 +158,13 @@ export async function tapStep(turn: LiveTurn, actions: Actions): Promise<TapStep
         "wrote, and book on these terms if they still want them.",
     };
   }
-  return bookOffer(turn, actions, tappedLive);
+  return { book: tappedLive };
+}
+
+/** Reads the answered message's tap (input.token's button_reply_id) and books, or says what the model must know. */
+export async function tapStep(turn: LiveTurn, actions: Actions): Promise<TapStep> {
+  const tap = await tapRead(turn);
+  if (tap === null) return null;
+  const read = readTap(tap, actions);
+  return "notice" in read ? read : bookOffer(turn, actions, read.book);
 }
