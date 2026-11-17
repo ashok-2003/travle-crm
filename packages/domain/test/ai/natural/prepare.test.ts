@@ -64,6 +64,15 @@ describe("the natural turn's live reads", () => {
       body: "The 12 Dec batch has seats.",
     });
     await on.write({ direction: "out", at: liveAt(-1500), origin: "staff_phone", body: "Call me on this number." });
+    // A cancelled broadcast's send, recalled before it went: the customer never saw it.
+    await on.write({
+      direction: "out",
+      at: liveAt(-1200),
+      origin: "staff_crm",
+      sentBy: on.owner.userId,
+      body: "Flat 20% off this weekend!",
+      status: "superseded",
+    });
     await on.write({
       direction: "out",
       at: liveAt(-100),

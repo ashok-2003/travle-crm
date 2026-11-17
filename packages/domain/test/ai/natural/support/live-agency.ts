@@ -28,6 +28,8 @@ export interface WrittenLine {
   origin?: string;
   clientToken?: string;
   sentBy?: string;
+  /** Unset: received for a line in, sent for a line out. */
+  status?: string;
 }
 
 /** `trips` and `paymentDetails` as Plan 1's agency takes them. */
@@ -72,7 +74,7 @@ export async function liveAgency(test: TestInbox, options: { trips?: number; pay
           clientToken: line.clientToken ?? null,
           sentBy: line.sentBy ?? null,
           wamid: incoming ? `wamid.${randomUUID()}` : null,
-          status: incoming ? "received" : "sent",
+          status: line.status ?? (incoming ? "received" : "sent"),
           occurredAt: line.at,
         },
         select: { id: true },

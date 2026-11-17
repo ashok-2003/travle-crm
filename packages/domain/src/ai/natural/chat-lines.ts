@@ -83,15 +83,17 @@ function lineOf(row: StoredLine): NaturalChatLine {
 }
 
 /**
- * The chat's newest 60 lines, oldest first, reactions left out (a reaction on our message is no line of its own), and
- * for each team line a member wrote, that member's user id: identity names them after the transaction.
+ * The chat's newest 60 lines the customer could see, oldest first, reactions left out (a reaction on our message is no
+ * line of its own), and for each team line a member wrote, that member's user id: identity names them after the
+ * transaction.
  */
 export async function naturalChatLines(
   tx: OrgTx,
   conversationId: string,
 ): Promise<{ lines: NaturalChatLine[]; senders: ReadonlyMap<string, string> }> {
   const rows = await tx.whatsappMessage.findMany({
-    where: { conversationId, kind: { not: "reaction" } },
+    // A discarded message or a cancelled broadcast's recalled send never reached the customer.
+    where: { conversationId, kind: { not: "reaction" }, status: { not: "superseded" } },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: CHAT_READ,
     select: fields,
