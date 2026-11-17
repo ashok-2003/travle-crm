@@ -10,6 +10,7 @@ import { adPackageOf } from "../../inbox/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, getOrganizationProfile, paymentDetailsReady } from "../../profile/index.js";
 import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
+import { PROOF_KINDS } from "../booking.js";
 import { factsForLead } from "../lite/merge.js";
 import { turnGates } from "../lite/turn-gates.js";
 import type { TypedFields } from "../lite/typed-lock.js";
@@ -62,8 +63,6 @@ interface Read {
   notes: TeamNoteRead[];
 }
 
-/** A photo or a PDF: what the payment proof listener keeps (booking.ts). */
-const PROOF_KINDS = new Set(["image", "document"]);
 const MOST_SENT_FILES = 150;
 const MOST_SENT_TRIPS = 50;
 
@@ -102,7 +101,7 @@ async function withPaymentFlags(
   input: { conversationId: string; leadId: string | null; at: Date },
 ): Promise<NaturalChatLine[]> {
   const lastTurnAt = facts.lastTurnAt === null ? null : new Date(facts.lastTurnAt);
-  const media = new Set(newLinesOf(lines, lastTurnAt).filter((line) => PROOF_KINDS.has(line.kind)));
+  const media = new Set(newLinesOf(lines, lastTurnAt).filter((line) => PROOF_KINDS.includes(line.kind)));
   if (media.size === 0 || !(await mayBePayment(tx, input))) return lines;
   return lines.map((line) => (media.has(line) ? { ...line, mayBePayment: true } : line));
 }
