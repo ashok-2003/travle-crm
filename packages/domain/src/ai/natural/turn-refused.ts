@@ -126,6 +126,7 @@ export async function afterRefusal(
   const again = await runNaturalLoop(
     { ...context, messages: [...end.transcript, appCheck(note)] },
     io,
+    // The model re-decides the money: the other staged actions stay forced; `book` and `resend_payment` are left out.
     { ...settings, forced: [...without(end.staged, MONEY_ACTIONS).values()], callsUsed: end.callsUsed },
     trace,
   );
