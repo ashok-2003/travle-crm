@@ -153,22 +153,27 @@ export function followUpPlan(turn: {
  * not written (a reaction counts: a 👍 is an "ok"), nobody on the team has, no other automation has (a sales message,
  * a greeting), and the customer's last words did not stop them. A reaction on a message of ours is no line of its own
  * (inbound sets its emoji on that message): with `reactions`, one on a message our last reply or follow-up sent counts
- * too (the natural agent's rule; lite's leaves it out).
+ * too (the natural agent's rule; lite's leaves it out). `since` (also natural's) counts the silence from a later turn
+ * than the last message sent: a quiet turn answered nobody, but it read what the customer wrote before it.
  */
 export async function stillQuiet(
   tx: OrgTx,
   conversationId: string,
-  options: { reactions?: boolean } = {},
+  options: { reactions?: boolean; since?: Date | null } = {},
 ): Promise<boolean> {
   const state = await tx.aiChat.findFirst({
     where: { conversationId },
     select: { lastReplyAt: true, followUpsStopped: true },
   });
-  if (state?.lastReplyAt == null || state.followUpsStopped) return false;
-  const since = await tx.whatsappMessage.findFirst({
+  const from = [state?.lastReplyAt, options.since].reduce<Date | null>(
+    (latest, at) => (at == null || (latest !== null && latest >= at) ? latest : at),
+    null,
+  );
+  if (state === null || from === null || state.followUpsStopped) return false;
+  const written = await tx.whatsappMessage.findFirst({
     where: {
       conversationId,
-      occurredAt: { gt: state.lastReplyAt },
+      occurredAt: { gt: from },
       OR: [
         { direction: "in" },
         { origin: { in: ["staff_crm", "staff_phone"] } },
@@ -180,7 +185,8 @@ export async function stillQuiet(
     },
     select: { id: true },
   });
-  if (since !== null || options.reactions !== true) return since === null;
+  if (written !== null) return false;
+  if (options.reactions !== true || state.lastReplyAt === null) return true;
   // Our messages carry the turn's clock as their time, the same as `lastReplyAt`; WhatsApp clears a reaction with "".
   const reacted = await tx.whatsappMessage.findFirst({
     where: {

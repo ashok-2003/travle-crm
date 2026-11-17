@@ -41,14 +41,14 @@ async function agentOn(tx: OrgTx): Promise<AutopilotRow | null> {
  * Why the AI may no longer write in this chat, read again under the chat's lock: since the turn's first checks a person
  * may have replied or taken the chat over, or the owner switched the agent off; a follow-up goes only in the agency's
  * waking hours, and not once the customer, a person or other automation has written since our last message
- * (`reactions`: a reaction on ours counts too, as `stillQuiet` reads it). `dayCap: false` leaves the day's count to
+ * (`reactions`, `since`: as `stillQuiet` reads them). `dayCap: false` leaves the day's count to
  * the caller, as `mayWrite` does. Null while it still may.
  */
 export async function stoppedSince(
   tx: OrgTx,
   input: ActGateInput,
   chat: ChatRow,
-  options: { reactions?: boolean; dayCap?: boolean } = {},
+  options: { reactions?: boolean; dayCap?: boolean; since?: Date | null } = {},
 ): Promise<string | null> {
   const settings = await agentOn(tx);
   if (settings === null) return "off";
