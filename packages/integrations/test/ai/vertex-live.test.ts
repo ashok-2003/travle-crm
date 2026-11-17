@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createOpenRouterModel, serviceAccountToken, type AiRequest } from "../../src/ai/index.js";
+import { createMemoryLogger } from "../../src/logging/index.js";
 import { createLangGraphToolAgent, type AgentToolEntry } from "../../src/tool-agent/index.js";
 import { request } from "../tool-agent/fixtures.js";
 
@@ -20,6 +21,7 @@ describe.skipIf(file === "")("Gemini on Vertex AI (live)", () => {
     createOpenRouterModel({
       apiKey: serviceAccountToken(
         JSON.parse(readFileSync(file, "utf8")) as { client_email: string; private_key: string },
+        createMemoryLogger(),
       ),
       models: { sales_agent: [model] },
       baseUrl,
@@ -70,9 +72,8 @@ describe.skipIf(file === "")("Gemini on Vertex AI (live)", () => {
     ]);
   });
 
-  // Known refusal (2026-11-17): Vertex reads input_audio's format as a MIME type, so our "ogg" is a 400 ("mimeType ... ogg,
-  // which is not supported"), while "audio/ogg", "wav" and "mp3" transcribe. Make this `it` when the adapter sends one.
-  it.fails("transcribes an OGG/Opus voice note sent as input_audio", { timeout: 60_000 }, async () => {
+  // Vertex reads input_audio's format as a MIME type: a short "ogg" was a 400 (2026-11-17), "audio/ogg" transcribes.
+  it("transcribes an OGG/Opus voice note sent as input_audio", { timeout: 60_000 }, async () => {
     const result = await vertex().complete({
       feature: "sales_agent",
       messages: [

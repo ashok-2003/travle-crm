@@ -12,6 +12,7 @@ import {
   withTracing,
   type AiModel,
 } from "@travel-crm/integrations/ai";
+import type { Logger } from "@travel-crm/integrations/logging";
 import { noTracing, type AiTracing } from "@travel-crm/integrations/tracing";
 import type { Environment } from "./environment.js";
 
@@ -36,19 +37,20 @@ export type AiSettings = Pick<
 >;
 
 /**
- * The process's model, each call traced as one generation (under the agent's turn when one is running).
+ * The process's model, each call traced as one generation (under the agent's turn when one is running). The logger hears
+ * only why a service account's token failed, by name and code.
  */
-export function createAiModel(environment: AiSettings, tracing: AiTracing = noTracing): AiModel | null {
-  const model = modelOf(environment);
+export function createAiModel(environment: AiSettings, logger: Logger, tracing: AiTracing = noTracing): AiModel | null {
+  const model = modelOf(environment, logger);
   return model === null ? null : withTracing(model, tracing);
 }
 
 // The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
 // revisited before scale.
-function modelOf(environment: AiSettings): AiModel | null {
+function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
   // One credential for every feature: the service account (its token kept and renewed for the process's life), or the key.
   const vertex = environment.AI_VERTEX_SERVICE_ACCOUNT;
-  const credential = vertex === undefined ? environment.AI_API_KEY : serviceAccountToken(vertex);
+  const credential = vertex === undefined ? environment.AI_API_KEY : serviceAccountToken(vertex, logger);
   if (credential !== undefined) {
     const chat = environment.AI_CHAT_MODELS ?? [];
     const fast = environment.AI_FAST_MODELS ?? chat;

@@ -5,10 +5,12 @@
 // OpenRouter's own fields (`provider.zdr`, zero data retention on every request) are sent ONLY to OpenRouter: other
 // endpoints reject fields they don't know, and keep what their own terms say. Tools go as OpenAI-style functions; reasoning
 // is `reasoning` and `reasoning_details` on OpenRouter, `reasoning_effort` elsewhere (Gemini), and a tool call's extra data
-// (Gemini's thought signature) goes back unchanged. The key, or on Vertex AI a service account's token, is sent as a
-// header and appears nowhere else: not in a message, a log or an error.
+// (Gemini's thought signature) goes back unchanged. On Vertex AI, a service account's token takes the key's place and a
+// recording's format goes as its MIME type. The key or token is sent as a header and appears nowhere else: not in a
+// message, a log or an error.
 import {
   NEXT_MODEL_MIN_LEFT_MS,
+  type AiAudioFormat,
   type AiFeature,
   type AiFinishReason,
   type AiMessage,
@@ -70,8 +72,20 @@ function restOf(response: Response): number {
   return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, REST_MAX_MS) : REST_DEFAULT_MS;
 }
 
-/** The parts of a message's content: words alone stay a string; with an image or a recording they become parts. */
-function contentOf(message: AiMessage): unknown {
+/** Each audio format's MIME type, as Vertex AI takes it in `input_audio.format` (a short "ogg" is a 400 there). */
+const audioMimeTypes: Record<AiAudioFormat, string> = {
+  ogg: "audio/ogg",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  aac: "audio/aac",
+  m4a: "audio/mp4",
+};
+
+/**
+ * The parts of a message's content: words alone stay a string; with an image or a recording they become parts. A
+ * recording's format is the short form ("ogg"), or its MIME type where the endpoint reads it as one (Vertex AI).
+ */
+function contentOf(message: AiMessage, audioAsMimeType: boolean): unknown {
   if (message.attachments === undefined || message.attachments.length === 0) return message.content;
   const base64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
   return [
@@ -79,7 +93,13 @@ function contentOf(message: AiMessage): unknown {
     ...message.attachments.map((part) =>
       part.type === "image"
         ? { type: "image_url", image_url: { url: `data:${part.mimeType};base64,${base64(part.bytes)}` } }
-        : { type: "input_audio", input_audio: { data: base64(part.bytes), format: part.format } },
+        : {
+            type: "input_audio",
+            input_audio: {
+              data: base64(part.bytes),
+              format: audioAsMimeType ? audioMimeTypes[part.format] : part.format,
+            },
+          },
     ),
   ];
 }
@@ -100,11 +120,11 @@ interface WireMessage {
  * A message as the endpoint takes it: its content, an assistant's tool calls and reasoning sent back as the model gave
  * them, and a tool result named by its call's id.
  */
-export function wireMessage(message: AiMessage): WireMessage {
+export function wireMessage(message: AiMessage, audioAsMimeType = false): WireMessage {
   const toolCalls = message.toolCalls ?? [];
   return {
     role: message.role,
-    content: contentOf(message),
+    content: contentOf(message, audioAsMimeType),
     ...(toolCalls.length === 0
       ? {}
       : {
@@ -234,6 +254,8 @@ function answerOf(body: ChatCompletion, model: string, ms: number): Extract<AiRe
 export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   const base = aiBaseUrl(options.baseUrl);
   const openRouter = isOpenRouterUrl(base);
+  // A token in place of a key is Vertex AI's service account, and Vertex reads input_audio's format as a MIME type.
+  const audioAsMimeType = typeof options.apiKey !== "string";
   const send = options.fetch ?? fetch;
   /** Each rate-limited model, with the time it may be asked again. Per process, so it is forgotten on a restart. */
   const restingUntil = new Map<string, number>();
@@ -242,6 +264,13 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
     async complete(request: AiRequest): Promise<AiResult> {
       const list = request.model === undefined ? (options.models[request.feature] ?? []) : [request.model];
       if (options.apiKey === "" || list.length === 0) return { ok: false, reason: "not_configured" };
+      // A service account's token, asked for once per call: none to be had fails every model alike (its module logs why).
+      let bearer: string;
+      try {
+        bearer = typeof options.apiKey === "string" ? options.apiKey : await options.apiKey();
+      } catch {
+        return { ok: false, reason: "unavailable" };
+      }
       let limited = false;
       let tried = false;
       for (const model of list) {
@@ -260,7 +289,6 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           controller.abort();
         }, limit);
         try {
-          const bearer = typeof options.apiKey === "string" ? options.apiKey : await options.apiKey();
           const post = (asJson: boolean) =>
             send(`${base}/chat/completions`, {
               method: "POST",
@@ -268,7 +296,9 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
               headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
               body: JSON.stringify({
                 model,
-                messages: (asJson ? withSchemaInSystem(request) : request.messages).map(wireMessage),
+                messages: (asJson ? withSchemaInSystem(request) : request.messages).map((message) =>
+                  wireMessage(message, audioAsMimeType),
+                ),
                 max_tokens: request.maxTokens ?? 500,
                 ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
                 ...responseFormat(request, asJson),

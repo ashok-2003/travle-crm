@@ -2,19 +2,21 @@
 // when it is unset, and the same on Gemini direct (allowed for the proof of concept, 2026-11-17: no gate) and on Vertex AI
 // with a service account's token (ruling R14). Every call is traced.
 import type * as ai from "@travel-crm/integrations/ai";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAiModel, type AiSettings } from "../src/ai-services.js";
 
-/** The service account's token as Google would mint it, and the keys it was asked for (the real one is tested live). */
-const tokenKeys = vi.hoisted((): unknown[] => []);
+/** The service account's token as Google would mint it, and what it was made with (the real one is tested live). */
+const tokenMade = vi.hoisted((): unknown[][] => []);
 vi.mock("@travel-crm/integrations/ai", async (original) => ({
   ...(await original<typeof ai>()),
-  serviceAccountToken: (key: unknown) => {
-    tokenKeys.push(key);
+  serviceAccountToken: (...made: unknown[]) => {
+    tokenMade.push(made);
     return () => Promise.resolve("ya29.vertex-token");
   },
 }));
+const logger = createMemoryLogger();
 
 const OPENROUTER = "https://openrouter.ai/api/v1";
 const GOOGLE = "https://generativelanguage.googleapis.com/v1beta/openai";
@@ -54,34 +56,40 @@ afterEach(() => {
 describe("the sales agent's models", () => {
   it("gives sales_agent AI_AGENT_MODELS, and the chat models when it is unset", async () => {
     const { asked } = stubFetch();
-    const own = createAiModel(settings({ AI_AGENT_MODELS: ["google/agent-one"] }));
+    const own = createAiModel(settings({ AI_AGENT_MODELS: ["google/agent-one"] }), logger);
     await own?.complete({ feature: "sales_agent", messages, user: "org" });
     // Lite's autopilot keeps the chat models.
     await own?.complete({ feature: "autopilot", messages, user: "org" });
-    const plain = createAiModel(settings({}));
+    const plain = createAiModel(settings({}), logger);
     await plain?.complete({ feature: "sales_agent", messages, user: "org" });
     expect(asked.map((call) => call.model)).toEqual(["google/agent-one", "google/chat-one", "google/chat-one"]);
 
     // On OpenRouter's own key, the suggest models stand in for the chat ones.
-    const keyed = createAiModel({
-      OPENROUTER_API_KEY: "sk-or-0123456789abcdef",
-      AI_SUGGEST_MODELS: ["a/suggest"],
-      AI_SCORE_MODELS: ["a/score"],
-    });
+    const keyed = createAiModel(
+      {
+        OPENROUTER_API_KEY: "sk-or-0123456789abcdef",
+        AI_SUGGEST_MODELS: ["a/suggest"],
+        AI_SCORE_MODELS: ["a/score"],
+      },
+      logger,
+    );
     await keyed?.complete({ feature: "sales_agent", messages, user: "org" });
-    const keyedOwn = createAiModel({
-      OPENROUTER_API_KEY: "sk-or-0123456789abcdef",
-      AI_SUGGEST_MODELS: ["a/suggest"],
-      AI_SCORE_MODELS: ["a/score"],
-      AI_AGENT_MODELS: ["a/agent"],
-    });
+    const keyedOwn = createAiModel(
+      {
+        OPENROUTER_API_KEY: "sk-or-0123456789abcdef",
+        AI_SUGGEST_MODELS: ["a/suggest"],
+        AI_SCORE_MODELS: ["a/score"],
+        AI_AGENT_MODELS: ["a/agent"],
+      },
+      logger,
+    );
     await keyedOwn?.complete({ feature: "sales_agent", messages, user: "org" });
     expect(asked.slice(3).map((call) => call.model)).toEqual(["a/suggest", "a/agent"]);
   });
 
   it("sends sales_agent to Gemini direct like any other feature, whatever model a request names", async () => {
     const { asked, fields } = stubFetch();
-    const google = createAiModel(settings({ AI_BASE_URL: GOOGLE, AI_AGENT_MODELS: ["gemini-3.5-flash"] }));
+    const google = createAiModel(settings({ AI_BASE_URL: GOOGLE, AI_AGENT_MODELS: ["gemini-3.5-flash"] }), logger);
     const agent = {
       feature: "sales_agent" as const,
       messages,
@@ -105,7 +113,7 @@ describe("the sales agent's models", () => {
   it("traces a sales_agent call on Gemini direct as a generation", async () => {
     stubFetch();
     const tracing = createMemoryTracing();
-    const google = createAiModel(settings({ AI_BASE_URL: GOOGLE }), tracing);
+    const google = createAiModel(settings({ AI_BASE_URL: GOOGLE }), logger, tracing);
     await google?.complete({ feature: "sales_agent", messages, user: "org" });
     expect(tracing.generations.map((call) => [call.start.name, call.end])).toEqual([
       ["ai.sales_agent", { output: "Hi", model: "google/chat-one", usage: { input: 0, output: 0 } }],
@@ -125,10 +133,12 @@ describe("Vertex AI", () => {
     const key = { client_email: "agent@veeper-ai.iam.gserviceaccount.com", private_key: "pem" };
     const vertex = createAiModel(
       settings({ AI_API_KEY: undefined, AI_VERTEX_SERVICE_ACCOUNT: key, AI_BASE_URL: VERTEX }),
+      logger,
     );
     await vertex?.complete({ feature: "sales_agent", messages, user: "org" });
     await vertex?.complete({ feature: "suggest_reply", messages, user: "org" });
-    expect(tokenKeys).toEqual([key]);
+    // Made once, with the process's logger for a failure to mint.
+    expect(tokenMade).toEqual([[key, logger]]);
     expect(urls).toEqual([`${VERTEX}/chat/completions`, `${VERTEX}/chat/completions`]);
     expect(headers).toEqual(["Bearer ya29.vertex-token", "Bearer ya29.vertex-token"]);
   });

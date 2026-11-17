@@ -121,7 +121,12 @@ export async function startBenchServices(settings: BenchSettings): Promise<Bench
     await close().catch(() => undefined);
     throw error;
   }
-  return { platform, ai: createAiModel({ ...settings, AI_TEST_SERVER_URL: undefined }, tracing), tracing, close };
+  return {
+    platform,
+    ai: createAiModel({ ...settings, AI_TEST_SERVER_URL: undefined }, logger, tracing),
+    tracing,
+    close,
+  };
 }
 
 export interface AgentBenchProcessOptions {
