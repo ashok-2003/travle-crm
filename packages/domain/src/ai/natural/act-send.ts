@@ -70,7 +70,9 @@ export async function sendTurn(
   if (rest.length > 0) sent.sentIds.push(await sendAiText(tx, target, `ai:${token}:m2`, rest.join("\n\n"), "reply"));
   // The one agent's offer goes as a card: code's words from the offer record, with its two buttons.
   const offered = stagedOf(input.staged, "offer_booking");
-  if (offered?.card === true && offered.offer.id !== undefined) {
+  // Never beside held seats or a hand-over: a Book button there would offer what is already settled.
+  const settled = after.handedOver || stagedOf(input.staged, "book") !== null;
+  if (offered?.card === true && offered.offer.id !== undefined && !settled) {
     const body = offerCardBody(offered.offer, input.sheets, input.today);
     sent.sentIds.push(
       await sendAiText(tx, target, `ai:${token}:card`, body, "reply", undefined, offerButtons(offered.offer.id)),
