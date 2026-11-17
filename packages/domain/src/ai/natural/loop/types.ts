@@ -62,7 +62,7 @@ export interface LoopSettings {
   flagContext: Parameters<typeof traceFlags>[1];
 }
 
-export type FallbackReason = "cap" | "deadline" | `guard:${GuardName}` | "model";
+export type FallbackReason = "cap" | "steps" | "deadline" | `guard:${GuardName}` | "model";
 
 export type LoopEnd =
   | {

@@ -14,18 +14,23 @@ import type { NaturalChatLine } from "./types.js";
 const KIND_NAMES = { reply: "reply", nudge: "follow-up" } as const;
 const WARNINGS = new Set(["fallback", "blocked", "not_ready", "nothing"]);
 
-export function naturalTurnStart(input: LiteTurnInput, prompt: NaturalPrompt, leadId: string | null): TurnStart {
+export function naturalTurnStart(
+  input: LiteTurnInput,
+  prompt: NaturalPrompt,
+  leadId: string | null,
+  agent: "natural" | "one" = "natural",
+): TurnStart {
   const { source } = prompt;
   const kind = KIND_NAMES[input.kind];
   return {
-    name: `whatsapp-agent.natural.${kind}`,
+    name: `whatsapp-agent.${agent}.${kind}`,
     sessionId: `whatsapp:${input.conversationId}`,
     organizationId: input.organizationId,
-    tags: ["whatsapp-agent", "natural", kind],
+    tags: ["whatsapp-agent", agent, kind],
     // A prompt from Langfuse is linked to each model call; the built-in text is none of Langfuse's.
     ...(source === undefined ? {} : { prompt: { name: source.name, version: source.version } }),
     metadata: {
-      agent: "natural",
+      agent,
       organizationId: input.organizationId,
       chatId: input.conversationId,
       leadId,
@@ -84,17 +89,18 @@ export function logNaturalTurn(
   done: TurnDone,
   calls: number,
   ms: number,
+  agent: "natural" | "one" = "natural",
 ) {
   logger?.info(
     {
       event: "ai.turn",
-      agent: "natural",
+      agent,
       outcome: done.outcome,
       ...(done.reason === null ? {} : { reason: done.reason }),
       kind: input.kind,
       calls,
       ms,
     },
-    "The natural AI turn ended",
+    `The ${agent} AI turn ended`,
   );
 }
