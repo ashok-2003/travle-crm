@@ -79,6 +79,8 @@ function followUpsAfter(
     const plan = stagedOf(input.staged, "plan_follow_up");
     if (plan === null && !turn.sent && !turn.handedOver) return {};
     const at = plan?.at != null && !turn.handedOver ? wakingTime(plan.at, chat, input.timeZone) : null;
+    // A quiet reply whose plan has no usable time keeps the earlier plan too: it only plans, it never cancels.
+    if (at === null && !turn.sent && !turn.handedOver) return {};
     // The model plans them now: a stop lite's words left on the chat is lite's.
     return {
       followUpsSent: 0,

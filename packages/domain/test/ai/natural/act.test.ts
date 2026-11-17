@@ -672,6 +672,28 @@ describe("the natural agent's live act", () => {
     expect(await chatState(on)).toMatchObject(planned);
   });
 
+  it("leaves the earlier plan standing when a quiet turn plans a follow-up with no usable time", async () => {
+    const on = await liveAgency(test);
+    done(
+      await act(on, {
+        messages: ["We go on 5, 12, 19 and 26 Dec."],
+        staged: stagedSet({ tool: "plan_follow_up", at: at("2026-11-20", "19:00"), about: "Ask which date" }),
+      }),
+    );
+    const planned = { followUpAt: at("2026-11-20", "19:00"), followUpReason: "Ask which date" };
+    const ok = await nextTurn(on, "ok", 40);
+    done(
+      await act(on, {
+        ...ok,
+        staged: stagedSet(
+          { tool: "stay_quiet", reason: "They said ok" },
+          { tool: "plan_follow_up", at: null, about: "Check back" },
+        ),
+      }),
+    );
+    expect(await chatState(on)).toMatchObject(planned);
+  });
+
   it("counts a follow-up it sends, and a reaction on our message stops the next", async () => {
     const on = await liveAgency(test);
     const fourHours = at("2026-11-20", "19:30");
