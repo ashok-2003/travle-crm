@@ -68,10 +68,12 @@ async function joinQuestion(tx: OrgTx, actor: Actor, leadId: string, text: strin
   if (open.title.includes(text)) return true;
   const joined = `${open.title}\n— ${text}`;
   if (joined.length <= TITLE_MAX) return retitled(tx, actor, open.id, joined);
+  // The first time the title points to the note, the note holds what the title held whole: its cut drops the end.
+  const noted = open.title.endsWith(POINTER);
   const pointer = `${cutText(open.title, TITLE_MAX - POINTER.length)}${POINTER}`;
-  const pointing = open.title.endsWith(POINTER) || (await retitled(tx, actor, open.id, pointer));
-  if (pointing) await addAiLeadNote(tx, actor, leadId, `${noteHeads.question}: ${text}`);
-  return pointing;
+  if (!noted && !(await retitled(tx, actor, open.id, pointer))) return false;
+  await addAiLeadNote(tx, actor, leadId, `${noteHeads.question}: ${noted ? text : joined}`);
+  return true;
 }
 
 /** Adds the turn's `index`th task, or joins a question to the AI's open one. Returns its code. */
