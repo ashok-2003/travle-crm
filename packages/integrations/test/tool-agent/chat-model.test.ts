@@ -6,13 +6,9 @@ import { AIMessage, ToolMessage, type BaseMessage } from "@langchain/core/messag
 import { messagesStateReducer } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { createMemoryAiModel, createOpenRouterModel, type AiResult } from "../../src/ai/index.js";
-import {
-  aiToolOf,
-  fromLangChain,
-  PortChatModel,
-  toLangChain,
-  type AgentModelCall,
-} from "../../src/tool-agent/index.js";
+import { PortChatModel } from "../../src/tool-agent/chat-model.js";
+import type { AgentModelCall } from "../../src/tool-agent/index.js";
+import { aiToolOf, fromLangChain, toLangChain } from "../../src/tool-agent/messages.js";
 import { assistant, getTrip, getTripParameters, request, signature, system, user } from "./fixtures.js";
 
 const start = [toLangChain(system), toLangChain(user)];

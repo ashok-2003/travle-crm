@@ -1,5 +1,5 @@
-// Public API of @travel-crm/integrations/tool-agent: the tool-agent port (domain code imports its types only), the
-// conversion between our messages and LangChain's, and the LangChain chat model over the AI port.
+// Public API of @travel-crm/integrations/tool-agent: the tool-agent port (domain code imports its types only) and its two
+// adapters, LangGraph's and the in-memory one the domain's tests run. LangChain's own types stay inside this package.
 export type {
   AgentModelCall,
   AgentTool,
@@ -8,5 +8,5 @@ export type {
   ToolAgentEnd,
   ToolAgentInput,
 } from "./tool-agent.js";
-export { aiToolOf, fromLangChain, toLangChain } from "./messages.js";
-export { AgentModelFailure, PortChatModel } from "./chat-model.js";
+export { createLangGraphToolAgent } from "./langgraph-agent.js";
+export { createMemoryToolAgent } from "./memory-agent.js";

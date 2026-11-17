@@ -4,7 +4,7 @@ import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { messagesStateReducer } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { aiToolOf, fromLangChain, toLangChain } from "../../src/tool-agent/index.js";
+import { aiToolOf, fromLangChain, toLangChain } from "../../src/tool-agent/messages.js";
 import {
   assistant,
   assistantWithCalls,
