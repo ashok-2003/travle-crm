@@ -17,6 +17,7 @@ import {
   decideStageSuggestionInput,
   leadStageSuggestion,
   leadStageSuggestionInput,
+  needsMeInput,
   stageSuggestionList,
   leadAiFields,
   leadAiFieldsInput,
@@ -261,10 +262,11 @@ export const aiRouter = router({
   /** The AI's open suggestions to mark a lead Lost or Not a lead, in the member's leads scope: the "Needs you" list. */
   stageSuggestions: orgProcedure
     .requires("leads:view")
+    .input(needsMeInput)
     .output(stageSuggestionList)
-    .query(({ ctx }) =>
+    .query(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
-        suggestions: await stageSuggestionsOf(tx, ctx.member),
+        suggestions: await stageSuggestionsOf(tx, ctx.member, input),
       })),
     ),
 
@@ -376,11 +378,17 @@ export const aiRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => setAgentOn(tx, ctx.member, input.on, today));
     }),
 
-  /** Chats the agent handed over to a person, among those this member's inbox shows. */
+  /** Chats the agent handed over to a person: the member's own (`mine`), or all their inbox shows (AI managers only). */
   handedOver: freshProcedure
-    .requires("ai:manage", "inbox:view")
+    .requires("inbox:view")
+    .input(needsMeInput)
     .output(handedOverChatList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => handedOverChatsOf(tx, ctx.member))),
+    .query(({ ctx, input }) => {
+      if (!input.mine && !ctx.member.permissions.has("ai:manage")) {
+        throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires ai:manage");
+      }
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => handedOverChatsOf(tx, ctx.member, input));
+    }),
 
   /** The autopilot's last day at a glance. */
   overview: freshProcedure

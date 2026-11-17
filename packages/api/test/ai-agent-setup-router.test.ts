@@ -3,7 +3,7 @@
 import { TRPCError } from "@trpc/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { errorDetails } from "../src/errors.js";
-import { anAgency, callerOf, createHarness, type Harness } from "./forms-support.js";
+import { anAgency, callerOf, createHarness, refusal, type Harness } from "./forms-support.js";
 
 describe("ai.setAgentOn while the agency's AI is off", () => {
   let harness: Harness;
@@ -26,5 +26,20 @@ describe("ai.setAgentOn while the agency's AI is off", () => {
     const setup = await caller.ai.agentSetup();
     expect(setup).toMatchObject({ on: false, ready: false });
     expect(setup.steps[0]).toMatchObject({ key: "ai", done: false, optional: false });
+  });
+});
+
+describe("ai.handedOver for a member without ai:manage", () => {
+  let harness: Harness;
+  beforeAll(() => {
+    harness = createHarness();
+  });
+  afterAll(() => harness.close());
+
+  it("refuses the whole agency's list, and answers their own", async () => {
+    const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
+    const { caller } = callerOf(harness, { organizationId, granted: ["inbox:view", "leads:view"] });
+    expect(await refusal(caller.ai.handedOver({ mine: false }))).toBe("MISSING_PERMISSION");
+    expect(await caller.ai.handedOver({ mine: true })).toEqual([]);
   });
 });

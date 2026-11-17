@@ -19,3 +19,7 @@ export const leadStageSuggestionInput = z.strictObject({ leadId: recordId });
 export const leadStageSuggestion = z.object({ suggestion: stageSuggestion.nullable() });
 export const decideStageSuggestionInput = z.strictObject({ suggestionId: recordId, accept: z.boolean() });
 export type DecideStageSuggestionInput = z.infer<typeof decideStageSuggestionInput>;
+
+/** "AI needs you" for the signed-in member: `mine` narrows to the leads they own (and, for the AI's managers, nobody's). */
+export const needsMeInput = z.strictObject({ mine: z.boolean() });
+export type NeedsMeInput = z.infer<typeof needsMeInput>;
