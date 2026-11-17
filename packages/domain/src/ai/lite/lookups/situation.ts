@@ -55,6 +55,24 @@ async function lookup(tx: OrgTx, context: LookupContext, request: LookupRequest)
   return price === null ? { tool, error: "unknown_package" } : { tool, price };
 }
 
+/**
+ * The model's lookups, with the chosen trip's details added when the customer asked something about it (a question
+ * Understand couldn't place, or one about the package) and nothing read them: they are what the answer comes from.
+ */
+export function withTripDetails(
+  requests: readonly LookupRequest[],
+  facts: LiteFacts,
+  index: readonly PackageIndexEntry[],
+  intents: readonly string[],
+): LookupRequest[] {
+  const entry = index.find((one) => one.id === facts.packageId);
+  const asked = intents.includes("other") || intents.includes("package_question");
+  if (entry === undefined || !asked || requests.some((request) => request.tool === "package_details")) {
+    return [...requests];
+  }
+  return [...requests, { tool: "package_details", words: null, package: entry.title, month: null, topic: null }];
+}
+
 export async function runLookups(
   tx: OrgTx,
   context: LookupContext,

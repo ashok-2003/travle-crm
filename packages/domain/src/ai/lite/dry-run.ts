@@ -24,6 +24,7 @@ import { decideStep } from "./turn-notes.js";
 import { writeTries } from "./turn-trace.js";
 import type { Decision } from "./types.js";
 import { understandChat } from "./understand.js";
+import { withTripDetails } from "./lookups/situation.js";
 
 /** The test chat's own model and temperature, on every model call; unset, the call is the live turn's. */
 export type DryRunChoice = Pick<AiRequest, "model" | "temperature">;
@@ -129,14 +130,14 @@ export async function liteDryRun(
     checked,
     merged,
   );
-  const { situation, decision } = await decideStep(deps.tracing, checked.form.lookups, () =>
-    decided(
-      db,
-      organizationId,
-      base,
-      { index, answers: agency.answers, facts: merged, today, now },
-      checked.form.lookups,
-    ),
+  const requests = withTripDetails(
+    checked.form.lookups,
+    merged,
+    index,
+    checked.form.intents.map((intent) => intent.name),
+  );
+  const { situation, decision } = await decideStep(deps.tracing, requests, () =>
+    decided(db, organizationId, base, { index, answers: agency.answers, facts: merged, today, now }, requests),
   );
   trace.lookups = situation.looked;
   Object.assign(trace, decisionTrace(decision));

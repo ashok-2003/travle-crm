@@ -133,6 +133,8 @@ function run({ intents = ["hello"], open = "unknown", ...over }: Case = {}) {
 const handOver = (reason: string) => ({ kind: "hand_over", reason });
 const fixed = (text: string) => ({ kind: "fixed", text });
 const ask = (item: string, choices: string[] = []) => ({ kind: "ask_detail", item, choices });
+/** Asking which trip shows the first trips with their From prices (the owner, 2026-11-17). */
+const trips = (packageIds: string[] = [P1, P2]) => ({ kind: "show_other_trips", packageIds });
 
 describe("decide: the move table, in its order", () => {
   it("1. a hand-over trigger hands the chat over; a call asked for also leaves a task", () => {
@@ -144,7 +146,10 @@ describe("decide: the move table, in its order", () => {
       note: "handed_over",
       stageTo: "contacted",
     });
-    expect(run({ hasBooking: true }).move).toEqual(handOver("has_booking"));
+    // A customer with a booking: what is about it goes to a person, a new trip's hello is answered (the owner, 2026-11-17).
+    expect(run({ hasBooking: true, intents: ["payment_sent"] }).move).toEqual(handOver("has_booking"));
+    expect(run({ hasBooking: true, intents: [] }).move).toEqual(handOver("has_booking"));
+    expect(run({ hasBooking: true }).move).toEqual({ kind: "greet", packageIds: [P1, P2] });
     // A detail contradicting what a person typed goes back to that person, above any answer but theirs.
     expect(run({ intents: ["price_question"], detailsChanged: true }).move).toEqual(handOver("details_changed"));
     expect(run({ intents: ["discount"], detailsChanged: true }).move).toEqual(handOver("discount"));
@@ -174,11 +179,11 @@ describe("decide: the move table, in its order", () => {
     });
   });
 
-  it("5. a new place: two trips ask which; any place with no trip near its name is one we don't run (D2)", () => {
+  it("5. a new place: the trips that go there are shown; any place with no trip near its name is one we don't run (D2)", () => {
     const twin = entry(P3, "Kedarnath Badrinath 6N", "Kedarnath");
     const named = (words: string, list = index) =>
       run({ intents: ["package_question"], index: list, before: facts(), facts: facts({ placeWords: words }) });
-    expect(named("kedarnath", [kedarnath, twin, spiti]).move).toEqual({ kind: "confirm_place", packageIds: [P1, P3] });
+    expect(named("kedarnath", [kedarnath, twin, spiti]).move).toEqual(trips([P1, P3]));
     const goa = named("Goa");
     expect(goa.move).toEqual(fixed("not_run"));
     expect(goa.why).toBe("place:not_run");
@@ -230,7 +235,7 @@ describe("decide: the move table, in its order", () => {
   });
 
   it("9. a price question: which trip first, then the price and the next question", () => {
-    expect(run({ intents: ["price_question"] }).move).toEqual(ask("where"));
+    expect(run({ intents: ["price_question"] }).move).toEqual(trips());
     const price = run({ intents: ["price_question"], facts: facts({ packageId: P1 }), situation: withPackage() });
     expect(price.move).toEqual({ kind: "give_price", packageId: P1, price: "from", ask: "when" });
     expect(price).toMatchObject({ why: "intent:price_question", note: null, stageTo: "contacted" });
@@ -238,7 +243,7 @@ describe("decide: the move table, in its order", () => {
   });
 
   it("10. a dates question: the month's dates with seats for the party, else the next ones", () => {
-    expect(run({ intents: ["dates_question"] }).move).toEqual(ask("where"));
+    expect(run({ intents: ["dates_question"] }).move).toEqual(trips());
     const party = facts({ packageId: P1, month: "2026-11", adults: 5 });
     const november = run({ intents: ["dates_question"], facts: party, situation: withPackage() });
     expect(november.move).toEqual({ kind: "give_dates", packageId: P1, departureIds: [D1], ask: "when" });
@@ -247,7 +252,7 @@ describe("decide: the move table, in its order", () => {
   });
 
   it("11. a package question: which trip first, then the answer and the next question", () => {
-    expect(run({ intents: ["package_question"] }).move).toEqual(ask("where"));
+    expect(run({ intents: ["package_question"] }).move).toEqual(trips());
     const about = run({ intents: ["package_question"], facts: facts({ packageId: P1 }), situation: withPackage() });
     expect(about.move).toEqual({ kind: "answer_package", packageId: P1, ask: "when" });
   });
@@ -294,12 +299,12 @@ describe("decide: the move table, in its order", () => {
     expect(all.facts.quoted).toEqual({ departureId: D1, totalPaise: 1_399_800, advancePaise: 400_000 });
   });
 
-  it("16. hello: the package in the facts, else up to 3 packages, else where they'd like to go", () => {
+  it("16. hello: the package in the facts, else the first 3 packages", () => {
     const hi = run();
     expect(hi.move).toEqual({ kind: "greet", packageIds: [P1, P2] });
     expect(hi.facts.asked).toEqual([{ item: "where", times: 1 }]);
     const four = [...index, entry(P3, "Goa Beaches 3N", "Goa"), entry(P4, "Manali Snow 3N", "Manali")];
-    expect(run({ index: four }).move).toEqual({ kind: "greet", packageIds: [] });
+    expect(run({ index: four }).move).toEqual({ kind: "greet", packageIds: [P1, P2, P3] });
     const picked = run({ index: four, facts: facts({ packageId: P1 }), situation: withPackage() });
     expect(picked.move).toEqual({ kind: "greet", packageIds: [P1] });
     expect(picked.facts.asked).toEqual([{ item: "when", times: 1 }]);
@@ -340,7 +345,7 @@ describe("decide: across the table", () => {
     expect(ad.move).toEqual({ kind: "give_price", packageId: P1, price: "from", ask: "when" });
     expect(ad.note).toBe("package_picked");
     expect(ad.facts.packageId).toBe(P1);
-    expect(run({ intents: ["price_question"], adPackageId: P1 }).move).toEqual(ask("where"));
+    expect(run({ intents: ["price_question"], adPackageId: P1 }).move).toEqual(trips());
     const goa = run({
       intents: ["package_question"],
       before: first,
@@ -413,9 +418,9 @@ describe("decide: across the table", () => {
   it("name skipped twice is not asked again", () => {
     const twice = facts({ asked: [{ item: "name", times: 2 }] });
     const skipped = run({ intents: ["gives_details"], facts: twice, nameUsable: false });
-    expect(skipped.move).toEqual(ask("where"));
+    expect(skipped.move).toEqual(trips());
     expect(skipped.facts.nameSkipped).toBe(true);
-    expect(run({ intents: ["gives_details"], facts: skipped.facts, nameUsable: false }).move).toEqual(ask("where"));
+    expect(run({ intents: ["gives_details"], facts: skipped.facts, nameUsable: false }).move).toEqual(trips());
   });
 
   it("ok after our closing line is silent and stops follow-ups", () => {
@@ -489,7 +494,7 @@ describe("decide: across the table", () => {
 describe("decide: never silent on a question, never trips unasked", () => {
   const question = { kinds: ["text"], question: true };
 
-  it("a question it can't place goes to a person, whatever comes with it", () => {
+  it("a question it can't place goes to a person, unless the chosen trip's details may answer it", () => {
     expect(run({ intents: ["ok_thanks", "other"], burst: question }).move).toEqual(handOver("unanswered"));
     expect(run({ intents: ["hello", "other"], burst: question }).move).toEqual(handOver("unanswered"));
     const picked = facts({ packageId: P1 });
@@ -499,16 +504,17 @@ describe("decide: never silent on a question, never trips unasked", () => {
       facts: picked,
       situation: withPackage(),
     });
-    expect(details.move).toEqual(handOver("unanswered"));
-    expect(details.why).toBe("intent:other");
+    // About the trip they are on: answered from its details first (Write says cannot_answer when they don't).
+    expect(details.move).toEqual({ kind: "answer_package", packageId: P1, ask: null });
+    expect(details.why).toBe("intent:other:details");
   });
 
   it("a greeting asks which trip, so ok after it asks again instead of going quiet", () => {
     const ok = run({ intents: ["ok_thanks"], facts: run().facts });
-    expect(ok.move).toEqual(ask("where"));
+    expect(ok.move).toEqual(trips());
     expect(ok.stopFollowUps).toBe(false);
     const meant = run({ intents: ["package_question"], before: facts(), facts: facts({ placeWords: "Kedarkantha" }) });
-    expect(run({ intents: ["ok_thanks"], facts: meant.facts }).move).toEqual(ask("where"));
+    expect(run({ intents: ["ok_thanks"], facts: meant.facts }).move).toEqual(trips());
   });
 
   it("ok asks again only what is still missing", () => {
@@ -576,7 +582,7 @@ describe("decide: never silent on a question, never trips unasked", () => {
     const hi = run({ facts: unsold });
     expect(hi.move).toEqual({ kind: "greet", packageIds: [P1, P2] });
     expect(hi.facts).toMatchObject({ packageId: null, departureId: null, quoted: null });
-    expect(run({ intents: ["price_question"], facts: unsold }).move).toEqual(ask("where"));
+    expect(run({ intents: ["price_question"], facts: unsold }).move).toEqual(trips());
     const named = run({
       intents: ["price_question"],
       index: [spiti],

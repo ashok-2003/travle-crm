@@ -27,7 +27,7 @@ export const moveLines = {
   give_price: "The price goes in code's own words above yours: write only the question below.",
   ask_detail: "Ask for {item}.",
   ask_detail_choices: "Ask for {item}, offering the choices in the Facts as a short list.",
-  confirm_place: "Say we have no trip by exactly that name, and ask whether they meant one of the trips in the Facts.",
+  confirm_place: "Ask whether they meant the trips in the Facts, naming each. Never say we don't have it.",
   show_other_trips: "Name the trips in the Facts with their starting price, and ask which interests them.",
   then_ask: "Then ask for {item}.",
   follow_up: "Pick the chat up again in one short, friendly line, then ask for {item}.",

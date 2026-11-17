@@ -18,6 +18,7 @@ const pinned: Record<string, string> = {
   "write.voice@1": "ffdda3206124bddd2ad60863ff43e90ffc54a136a1f1eb7ac00a2a1c7f7bf7a4",
   "write.moves@1": "7c32780df25dba134edc8d5e9dc6ecf9921fccdc650d5cd041f2f509b4140083",
   "write.moves@2": "65ae1cbb2c5b07815f85b8ad2660e332c73ac0db597887050fddad9b526cc1ae",
+  "write.moves@3": "8f3001967f27bb5aa1db330a4e2fbcdbdcb3075f04da2dde4863568d08149ac4",
   "fixed.texts@1": "8532a9dc282ff94810e2b0ac3bd413727868c6d521277932e18e5f22fb180dba",
   "fixed.texts@2": "f2431679715e339fb74c41e7370c71d15b6c1a0b6f561690b6aa54eebad3c1cb",
   "fixed.texts@3": "cee25ea5adc0642334537cd8ace5134060c1f0a7aec670f169a243549c61d613",
@@ -59,17 +60,14 @@ describe("the prompt library", () => {
   });
 
   it("starts every piece at version 1, changed on the day it was added, but those changed since", () => {
-    const changed = new Set(["fixed.texts", "write.moves"]);
+    // The pieces changed since, at their latest version, all on 2026-11-17.
+    const latest: Record<string, number> = { "fixed.texts": 3, "write.instructions": 2, "write.moves": 3 };
     for (const piece of promptLibrary()) {
-      const expected =
-        piece.name === "fixed.texts" || piece.name === "write.instructions"
-          ? [piece.name === "fixed.texts" ? 3 : 2, "2026-11-17"]
-          : changed.has(piece.name)
-            ? [2, "2026-11-13"]
-            : [1, "2026-11-12"];
+      const version = latest[piece.name];
+      const expected = version === undefined ? [1, "2026-11-12"] : [version, "2026-11-17"];
       expect([piece.version, piece.changedOn]).toEqual(expected);
     }
-    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 2, 1, 2, 3]);
+    expect(Object.values(promptVersions())).toEqual([1, 1, 1, 2, 1, 3, 3]);
   });
 
   it("write.moves 2 adds the follow-ups' lines", () => {

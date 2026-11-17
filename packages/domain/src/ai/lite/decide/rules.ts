@@ -59,8 +59,15 @@ const notInterested: Rule = ({ intents }) => {
  * Spec D: a question the agent can't place goes to a person at once, whatever else came with it. Ranked here, above
  * every answer, so "ok, can I bring my dog?" is neither silence nor a greeting that drops the question.
  */
-const otherQuestion: Rule = ({ intents, input }) =>
-  intents.has("other") && input.burst.question ? handOver("unanswered", "intent:other") : null;
+const otherQuestion: Rule = ({ intents, input, pkg, facts }) => {
+  if (!intents.has("other") || !input.burst.question) return null;
+  // A question about the trip they are on is answered from its details first ("is food included?"); Write says
+  // cannot_answer when the details don't say, and only then does a person take it.
+  if (pkg !== null && facts.packageId === pkg.id) {
+    return { move: { kind: "answer_package", packageId: pkg.id, ask: null }, why: "intent:other:details" };
+  }
+  return handOver("unanswered", "intent:other");
+};
 
 const newPlace: Rule = (context) => {
   const { facts, input } = context;
@@ -71,7 +78,14 @@ const newPlace: Rule = (context) => {
     why: "place:confirm",
   });
   const found = findPackages(input.index, words);
-  if (found.exact.length > 0) return confirm(found.exact.map((entry) => entry.id));
+  // "Manali" names "Manali, Kasol & Sissu": the trips that go there are shown with their prices, never "we have no trip
+  // by that name" (the owner, 2026-11-17).
+  if (found.exact.length > 0) {
+    return {
+      move: { kind: "show_other_trips", packageIds: found.exact.map((entry) => entry.id) },
+      why: "place:matches",
+    };
+  }
   // A near spelling of a trip we run ("Kedarkantha") is asked about, never called a place we don't run.
   if (found.closest.length > 0) return confirm(found.closest.map((entry) => entry.id));
   // D2: any other place, in any script, is one we don't run; the trips are shown only after they say yes.
@@ -175,12 +189,13 @@ const givesDetails: Rule = (context) => {
     : priceMove(context, null, "intent:gives_details");
 };
 
-const hello: Rule = ({ intents, facts, pkg, input }) => {
+const hello: Rule = (context) => {
+  const { intents, facts, pkg } = context;
   if (!intents.has("hello")) return null;
-  // Only a package the situation read from the index is named. After "we don't run that", trips wait for a yes (D2).
-  const few = input.index.length <= MOST_SHOWN && !facts.notRunAsked;
-  const all = few ? input.index.map((entry) => entry.id) : [];
-  return { move: { kind: "greet", packageIds: pkg === null ? all : [pkg.id] }, why: "intent:hello" };
+  // Only a package the situation read from the index is named; with none chosen yet, the first trips with their From
+  // prices, however many the agency has. After "we don't run that", trips wait for a yes (D2).
+  const first = facts.notRunAsked ? [] : firstTrips(context);
+  return { move: { kind: "greet", packageIds: pkg === null ? first : [pkg.id] }, why: "intent:hello" };
 };
 
 const okThanks: Rule = (context) => {

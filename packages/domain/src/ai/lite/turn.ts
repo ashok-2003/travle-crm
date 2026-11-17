@@ -22,6 +22,7 @@ import { chatInput, decideStep } from "./turn-notes.js";
 import type { DecideInput } from "./decide/decide.js";
 import type { CheckedForm, LiteDependencies, LiteOutcome, LiteTurnInput } from "./types.js";
 import { understandChat } from "./understand.js";
+import { withTripDetails } from "./lookups/situation.js";
 
 export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
   const startedMs = Date.now();
@@ -49,13 +50,14 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   };
   const agencyName = await deps.agencyName(organizationId);
 
-  // UNDERSTAND, unless the turn goes to a person whatever was said.
+  // UNDERSTAND, unless the turn goes to a person whatever was said (a voice note). A customer with a booking is read too:
+  // what they ask about it goes to a person, a new trip's question is answered (the owner, 2026-11-17).
   let checked: CheckedForm | null = null;
   let facts = prepared.facts;
   /** The person-typed lead fields the customer now contradicts: a person reconciles them. */
   let changed: string[] = [];
   const kinds = prepared.burst.map((one) => one.kind);
-  if (!kinds.includes("audio") && !prepared.hasBooking) {
+  if (!kinds.includes("audio")) {
     const asking = understandRequest({
       agencyName,
       packages: prepared.index,
@@ -81,7 +83,15 @@ export async function runLiteTurn(deps: LiteDependencies, input: LiteTurnInput, 
   }
 
   // LOOK UP and DECIDE.
-  const requests = checked?.form.lookups ?? [];
+  const requests =
+    checked === null
+      ? []
+      : withTripDetails(
+          checked.form.lookups,
+          facts,
+          prepared.index,
+          checked.form.intents.map((intent) => intent.name),
+        );
   const looked = await decideStep(deps.tracing, requests, () =>
     decided(
       deps.db,

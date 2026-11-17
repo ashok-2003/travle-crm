@@ -50,10 +50,19 @@ export function datesMove(
   return { move: { kind: "give_dates", packageId: pkg.id, departureIds: dates.map((one) => one.id), ask }, why, facts };
 }
 
-/** Asks one item. "When" from someone who gave a month, or a day with no departure, offers that time's dates instead. */
+/**
+ * Asks one item. "When" from someone who gave a month, or a day with no departure, offers that time's dates instead.
+ * "Where" shows the first trips with their From prices and asks which, as a person at the agency would: a bare "which
+ * trip?" to someone who asked what trips there are sent them away (the owner, 2026-11-17). Not while "would you like to
+ * see the other trips?" waits for its yes (D2).
+ */
 export function askMove(context: DecideContext, item: ChecklistItem): Picked {
   const { facts, pkg } = context;
   const why = `checklist:${item}`;
+  const trips = context.input.index.slice(0, MOST_SHOWN).map((entry) => entry.id);
+  if (item === "where" && !facts.notRunAsked && trips.length > 0) {
+    return { move: { kind: "show_other_trips", packageIds: trips }, why };
+  }
   if (item === "when" && pkg !== null && (facts.month !== null || facts.day !== null)) {
     return datesMove(context, { day: facts.day, month: facts.month }, "when", why);
   }
