@@ -7,6 +7,7 @@
 //   today;
 // - a new lead marked contacted leaves its section; one task snoozed for an hour and another to a chosen day.
 // axe checks both screens and each dialog.
+import type { Locator } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "./support/leads";
@@ -87,6 +88,13 @@ test("a follow-up snoozed to tomorrow 9:00 leaves Due and shows under Later", as
   await expect(page.getByRole("main").getByText("Follow up tomorrow, 9:00 am").first()).toBeVisible();
 });
 
+/** On a phone a section is a collapsible and only the first starts open: open this one if it is closed. */
+async function opened(section: Locator, name: string): Promise<void> {
+  await expect(section).toBeVisible();
+  const trigger = section.getByRole("button", { name, exact: true, expanded: false });
+  if ((await trigger.count()) > 0) await trigger.click();
+}
+
 test("Add a task puts one on a lead found by search, and one standing alone, under Due today", async ({
   page,
   agency,
@@ -113,7 +121,8 @@ test("Add a task puts one on a lead found by search, and one standing alone, und
   await expect(adding).toBeHidden();
   const dueToday = page.getByRole("region", { name: "Due today" });
   await expect(dueToday.getByRole("link", { name: "Rahul Sharma", exact: true })).toBeVisible();
-  await expect(dueToday.getByText("Send the Kashmir quote · Kashmir")).toBeVisible();
+  await expect(dueToday.getByText("Send the Kashmir quote", { exact: true })).toBeVisible();
+  await expect(dueToday.getByText("Kashmir", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Add a task" }).click();
   await adding.getByLabel("What to do").fill("Renew the IATA licence");
@@ -138,6 +147,7 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
 
   await page.goto("/today");
   const newLeads = page.getByRole("region", { name: "New leads to contact" });
+  await opened(newLeads, "New leads to contact");
   await newLeads.getByRole("button", { name: "Mark Arjun Mehta contacted" }).click();
   // As the lead's own stage bar says it: Mark contacted is that same move.
   await expect(page.getByText("Moved to Contacted")).toBeVisible();
