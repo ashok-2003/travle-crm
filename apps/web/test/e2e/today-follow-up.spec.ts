@@ -1,16 +1,17 @@
-// Today's writes against the real api (spec 3.5, 7):
-// - a follow-up added on the lead's page shows in Due today; done there, it leaves Today and the lead's timeline says
-//   "Follow-up done";
-// - one snoozed to tomorrow morning at 9:00 on the agency's clock leaves Today, and the lead says when it comes back;
+// My tasks' and Follow-ups' writes against the real api (spec 3.5, 7; web revamp):
+// - a follow-up added on the lead's page shows on Follow-ups under Due today (never on My tasks, which only counts it
+//   in its follow-ups line); done there, the next-follow-up dialog asks, and with "No more follow-ups" the lead's
+//   timeline says "Follow-up done";
+// - one snoozed to tomorrow morning at 9:00 on the agency's clock leaves Due, and the lead says when it comes back;
 // - Add a task puts a task on a lead (found with the lead picker, over leads.list) and one standing alone under Due
 //   today;
-// - a new lead marked contacted leaves its section; one thing snoozed for an hour and another to a chosen day.
-// axe checks Today and each dialog.
+// - a new lead marked contacted leaves its section; one task snoozed for an hour and another to a chosen day.
+// axe checks both screens and each dialog.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "./support/leads";
 import { animationsSettled } from "./support/settled";
-import { fillDue, laterToday, timeInIndia, typedDay } from "./support/work";
+import { addTaskThroughApi, fillDue, laterToday, timeInIndia, typedDay } from "./support/work";
 
 /** "9:15 am", as the screens show a time of day ("HH:MM" on the agency's clock). */
 const shownTime = (time: string) => {
@@ -18,7 +19,10 @@ const shownTime = (time: string) => {
   return `${String(hours % 12 === 0 ? 12 : hours % 12)}:${String(minutes).padStart(2, "0")} ${hours < 12 ? "am" : "pm"}`;
 };
 
-test("a follow-up added on a lead shows in Today and, done there, on the lead's timeline", async ({ page, agency }) => {
+test("a follow-up added on a lead shows in Follow-ups and, done there, on the lead's timeline", async ({
+  page,
+  agency,
+}) => {
   await signInByEmail(page, agency.owner);
   const leadId = await addLeadThroughApi(page, leadInput({ trip: { destination: { kind: "new", name: "Kashmir" } } }));
 
@@ -30,33 +34,40 @@ test("a follow-up added on a lead shows in Today and, done there, on the lead's 
   await adding.getByRole("button", { name: "Add follow-up" }).click();
   await expect(adding).toBeHidden();
 
+  // My tasks never lists it: a line says it is due. The new lead waits for a reply too.
   await page.goto("/today");
+  await expect(page.getByRole("link", { name: "Follow-ups", exact: true }).first()).toBeVisible();
+  await expect(page.getByText("1 follow-up due")).toBeVisible();
+  await expect(page.getByText("Send the Kashmir options")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "New leads to contact" })).toBeVisible();
+
+  await page.goto("/leads/follow-ups");
   const dueToday = page.getByRole("region", { name: "Due today" });
   await expect(dueToday.getByRole("link", { name: "Rahul Sharma", exact: true })).toBeVisible();
-  await expect(dueToday.getByText("Send the Kashmir options · Kashmir")).toBeVisible();
-  // The new lead waits for a reply too.
-  await expect(page.getByRole("region", { name: "New leads not contacted yet" })).toBeVisible();
+  await expect(dueToday.getByText("Send the Kashmir options")).toBeVisible();
   await animationsSettled(page);
   await expectAccessible(page);
 
   await dueToday.getByRole("button", { name: "Done: Send the Kashmir options" }).click();
+  const next = page.getByRole("dialog", { name: "When's the next follow-up?" });
+  await animationsSettled(page);
+  await expectAccessible(page);
+  await next.getByRole("button", { name: "No more follow-ups" }).click();
+  await expect(next).toBeHidden();
   await expect(page.getByText("Marked done")).toBeVisible();
   await expect(page.getByRole("region", { name: "Due today" })).toBeHidden();
 
-  await page
-    .getByRole("region", { name: "New leads not contacted yet" })
-    .getByRole("link", { name: "Rahul Sharma", exact: true })
-    .click();
+  await page.goto(`/leads/${leadId}`);
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Timeline" }).getByText("Follow-up done")).toBeVisible();
 });
 
-test("a follow-up snoozed to tomorrow 9:00 leaves Today", async ({ page, agency }) => {
+test("a follow-up snoozed to tomorrow 9:00 leaves Due and shows under Later", async ({ page, agency }) => {
   await signInByEmail(page, agency.owner);
   const leadId = await addLeadThroughApi(page, leadInput());
   await addFollowUpThroughApi(page, leadId, { title: "Call about the Goa dates", ...(await laterToday(page, 60)) });
 
-  await page.goto("/today");
+  await page.goto("/leads/follow-ups");
   const dueToday = page.getByRole("region", { name: "Due today" });
   await dueToday.getByRole("button", { name: "Snooze: Call about the Goa dates" }).click();
   const snoozing = page.getByRole("dialog", { name: "Snooze" });
@@ -67,6 +78,8 @@ test("a follow-up snoozed to tomorrow 9:00 leaves Today", async ({ page, agency 
   await expect(snoozing).toBeHidden();
   await expect(page.getByText("Snoozed")).toBeVisible();
   await expect(page.getByRole("region", { name: "Due today" })).toBeHidden();
+  await page.getByRole("tab", { name: "Later" }).click();
+  await expect(page.getByRole("region", { name: "Tomorrow" }).getByText("Call about the Goa dates")).toBeVisible();
 
   await page.goto(`/leads/${leadId}`);
   await expect(page.getByRole("main").getByText("Follow up tomorrow, 9:00 am").first()).toBeVisible();
@@ -118,11 +131,11 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
   await addLeadThroughApi(page, leadInput({ person: { name: "Arjun Mehta", phone: "+919769023418" } }));
   const priya = await addLeadThroughApi(page, leadInput({ person: { name: "Priya Nair", phone: "+919847031905" } }));
   await moveStageThroughApi(page, priya, "contacted");
-  await addFollowUpThroughApi(page, priya, { title: "Call about the hotel", ...(await laterToday(page, 30)) });
-  await addFollowUpThroughApi(page, priya, { title: "Send the itinerary", ...(await laterToday(page, 45)) });
+  await addTaskThroughApi(page, priya, { title: "Call about the hotel", ...(await laterToday(page, 30)) });
+  await addTaskThroughApi(page, priya, { title: "Send the itinerary", ...(await laterToday(page, 45)) });
 
   await page.goto("/today");
-  const newLeads = page.getByRole("region", { name: "New leads not contacted yet" });
+  const newLeads = page.getByRole("region", { name: "New leads to contact" });
   await newLeads.getByRole("button", { name: "Mark Arjun Mehta contacted" }).click();
   // As the lead's own stage bar says it: Mark contacted is that same move.
   await expect(page.getByText("Moved to Contacted")).toBeVisible();
@@ -154,9 +167,9 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
 
   await page.goto(`/leads/${priya}`);
   const work = page.getByRole("list", { name: "Next follow-up" });
-  await expect(work.getByText(new RegExp(`^Follow up (today|tomorrow), (${anHourOn.join("|")})$`))).toBeVisible();
+  await expect(work.getByText(new RegExp(`^Task due (today|tomorrow), (${anHourOn.join("|")})$`))).toBeVisible();
   const dayShown = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }).format(
     new Date(`${chosenDay}T00:00:00Z`),
   );
-  await expect(work.getByText(new RegExp(`^Follow up ${dayShown}`))).toBeVisible();
+  await expect(work.getByText(new RegExp(`^Task due ${dayShown}`))).toBeVisible();
 });

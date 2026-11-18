@@ -5,7 +5,7 @@
 // a journey sets with fillDue.
 import { test, type Locator, type Page } from "@playwright/test";
 import { laterTodayAt, timeInIndiaAt } from "./agency-clock";
-import { addFollowUpThroughApi, dayInIndia } from "./leads";
+import { addFollowUpThroughApi, callApi, dayInIndia } from "./leads";
 
 /** The agency's time of day `minutes` from now, as the api takes one: "HH:MM". */
 export function timeInIndia(minutes = 0): string {
@@ -32,6 +32,15 @@ export async function addOverdueFollowUp(page: Page, leadId: string, title: stri
   // Close to the minute's end, the api's clock may already be in the next one, which it would refuse as past.
   if (new Date().getSeconds() >= 55) await page.waitForTimeout(6_000);
   await addFollowUpThroughApi(page, leadId, { title, on: dayInIndia(), at: timeInIndia() });
+}
+
+/** A plain task on the lead (not a follow-up: those show on Follow-ups, tasks on My tasks), due as the api takes one. */
+export async function addTaskThroughApi(
+  page: Page,
+  leadId: string,
+  { title, on, at }: { title: string; on: string; at: string },
+): Promise<void> {
+  await callApi(page, "leads.addWork", { leadId, kind: "task", title, due: { on, at } });
 }
 
 /** A day as a person types it in a date field: "2026-10-18" as "18/10/2026". */
