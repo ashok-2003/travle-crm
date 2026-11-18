@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { LoadingRows } from "@/components/loading-rows";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ShowMoreButton } from "@/components/show-more-button";
-import { BackLink, TextLink } from "@/components/text-link";
+import { BackLink, ForwardLink, TextLink } from "@/components/text-link";
 import { locale, messages } from "@/i18n/messages";
 import { refusal, unanswered } from "../support/api-errors";
 
@@ -94,6 +94,13 @@ describe("ShowMoreButton", () => {
 });
 
 describe("TextLink and BackLink", () => {
+  it("ForwardLink names where it goes and ends with an arrow, as a card's View all does", () => {
+    render(<ForwardLink href="/today" label="View all" />);
+    const link = screen.getByRole("link", { name: "View all" });
+    expect(link).toHaveAttribute("href", "/today");
+    expect(link.lastElementChild?.tagName.toLowerCase()).toBe("svg");
+  });
+
   it("wraps a long name rather than running past its row, keeping the 44px floor; inline, it has none", () => {
     render(
       <>
