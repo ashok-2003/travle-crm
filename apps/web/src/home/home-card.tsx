@@ -3,7 +3,7 @@
 // A card of Home's day (spec 5): its title, and View all in the corner when there is more to open.
 import { useTranslations } from "next-intl";
 import { useId, type ReactNode } from "react";
-import { TextLink } from "@/components/text-link";
+import { ForwardLink } from "@/components/text-link";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /** A row of Home's lists (spec 5), one compact line from tablets up: name, then what to do in muted text. At least 44px. */
@@ -24,7 +24,7 @@ export function HomeCard({ title, viewAll, children }: { title: string; viewAll?
         </CardTitle>
         {viewAll !== undefined && (
           <CardAction>
-            <TextLink href={viewAll}>{t("viewAll")}</TextLink>
+            <ForwardLink href={viewAll} label={t("viewAll")} />
           </CardAction>
         )}
       </CardHeader>

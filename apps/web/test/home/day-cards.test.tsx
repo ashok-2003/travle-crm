@@ -146,6 +146,14 @@ describe("Home's day", () => {
       expect(within(tasks).getByText("Sneha Iyer")).toBeVisible();
     });
 
+    it("keeps each row to one compact line from tablets up", async () => {
+      renderHome();
+      const tasks = await card(h.tasks.title);
+      const row = await within(tasks).findByRole("link", { name: /Sneha Iyer/ });
+      expect(row.className).toContain("py-1.5");
+      expect(row.querySelector("[data-slot=item-content]")?.className).toContain("md:flex-row");
+    });
+
     it("shows the follow-ups line, which opens Follow-ups, under the rows", async () => {
       const row = (replied: boolean) => ({
         taskId: `0199e7a0-0000-7000-8000-00000000095${replied ? "1" : "0"}`,
