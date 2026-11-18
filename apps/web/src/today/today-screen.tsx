@@ -23,7 +23,10 @@ import { AiNeedsYouSection } from "./ai-needs-you-section";
 import { TodaySection, type MyTasksSection } from "./today-section";
 import { useTodaySummary } from "./use-today";
 
-interface Counted { name: MyTasksSection; count: "overdue" | "dueToday" | "newLeads" | "paymentsDue" | "tripDetails" }
+interface Counted {
+  name: MyTasksSection;
+  count: "overdue" | "dueToday" | "newLeads" | "paymentsDue" | "tripDetails";
+}
 
 const sections: readonly Counted[] = [
   { name: "overdue", count: "overdue" },
