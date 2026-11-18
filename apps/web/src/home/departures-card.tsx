@@ -11,13 +11,18 @@ import { departureRoute, routes } from "@/lib/routes";
 import { useTodaySection } from "@/today/use-today";
 import { HomeCard, rowClasses } from "./home-card";
 
+/** Home shows the next five; Departures lists the rest. */
+const ROWS_SHOWN = 5;
+
 export function DeparturesCard() {
   const t = useTranslations("home.departures");
   const section = useTodaySection("departures");
   if (section.isError) {
     return <LoadFailedAlert message={t("loadFailed")} error={section.error} onRetry={() => void section.refetch()} />;
   }
-  const departures = (section.items ?? []).flatMap((item) => (item.kind === "departure" ? [item] : []));
+  const departures = (section.items ?? [])
+    .flatMap((item) => (item.kind === "departure" ? [item] : []))
+    .slice(0, ROWS_SHOWN);
   if (departures.length === 0) return null;
   return (
     <HomeCard title={t("title")} viewAll={routes.departures}>

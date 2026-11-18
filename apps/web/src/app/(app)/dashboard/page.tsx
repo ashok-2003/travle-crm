@@ -1,8 +1,8 @@
 "use client";
 
 // The home screen (/dashboard), made to be read at a glance (spec 5): a greeting with the day and the period filter,
-// the setup card until the checklist is done, then the leads by stage, and the day under it: your tasks, the hot leads
-// to call, the departures leaving soon, the AI's insights and what needs you. A card the role or the plan can't show
+// the setup line until the checklist is done, then the leads by stage, and the day under it: your tasks and what needs
+// you, the hot leads to call and the departures leaving soon, then the AI's insights. A card the role or the plan can't show
 // is left out.
 import type { Period } from "@travel-crm/contracts/kernel";
 import { useTranslations } from "next-intl";
@@ -31,10 +31,10 @@ export default function HomePage() {
   const managesSettings = holds(me, "settings:manage");
   const day = [
     has("today") && <TasksCard key="tasks" />,
+    (has("leads") || has("inbox")) && <AttentionCard key="attention" />,
     has("leads") && <HotLeadsCard key="hot" />,
     has("departures") && <DeparturesCard key="departures" />,
     has("aiAgent") && <AiInsightsCard key="ai" period={period} />,
-    (has("leads") || has("inbox")) && <AttentionCard key="attention" />,
   ].filter((card) => card !== false);
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { timeZone: me.organization.timeZone, hour: "2-digit", hourCycle: "h23" }).format(
@@ -57,7 +57,7 @@ export default function HomePage() {
       />
       {managesSettings && <SetupCard />}
       {has("leads") && <LeadsCard period={period} />}
-      {day.length > 0 && <div className="grid gap-6 lg:grid-cols-2 lg:items-start">{day}</div>}
+      {day.length > 0 && <div className="grid gap-6 lg:grid-cols-2">{day}</div>}
       {!managesSettings && !has("leads") && day.length === 0 && (
         <p className="text-muted-foreground">{t("nothingToSetUp")}</p>
       )}

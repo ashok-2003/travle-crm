@@ -105,20 +105,15 @@ describe("Home's setup card", () => {
     vi.unstubAllGlobals();
   });
 
-  it("comes first on the Owner's Home, under the greeting, with the next two steps to do and the way to all", async () => {
+  it("is one slim line under the greeting: how far, the next step, and the way to finish", async () => {
     stubApi({ "organization.setup.get": { data: halfway } });
     renderWithApi(<HomePage />, newQueryClient(), member({ isOwner: true }));
     const card = await screen.findByRole("region", { name: cardName });
-    expect(within(card).getByRole("heading", { level: 2, name: cardName })).toBeVisible();
-    expect(within(card).getByRole("progressbar", { name: "4 of 7 done" })).toBeVisible();
-    // Only the next two of the three left, so no row needs a status; the third is on the setup screen.
-    expect(stepsIn(card)).toEqual([
-      [words.steps.logo.title, routes.branding, ""],
-      [words.steps["invoice-prefix"].title, profileSection("invoice-prefix"), ""],
-    ]);
-    expect(within(card).getByText(words.steps.logo.hint)).toBeVisible();
-    expect(within(card).getByRole("link", { name: words.everyStep })).toHaveAttribute("href", routes.setup);
-    // Right under the greeting, above everything else on Home.
+    expect(within(card).getByText("Setup 4 of 7 · Next: Logo")).toBeVisible();
+    expect(within(card).getByRole("link", { name: words.finishSetup })).toHaveAttribute("href", routes.setup);
+    // No heading, bar or list of steps: the steps are on the setup screen.
+    expect(within(card).queryByRole("progressbar")).toBeNull();
+    expect(within(card).queryByRole("list")).toBeNull();
     const greeting = screen.getByRole("heading", { level: 1 });
     expect(greeting.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -127,18 +122,14 @@ describe("Home's setup card", () => {
     stubApi({ "organization.setup.get": { data: halfway } });
     renderWithApi(<HomePage />, newQueryClient(), ofStarterRole("org-admin"));
     const card = await screen.findByRole("region", { name: cardName });
-    expect(within(card).getByText("4 of 7 done")).toBeVisible();
+    expect(within(card).getByText(/^Setup 4 of 7/)).toBeVisible();
   });
 
   it("leaves out the Staff step for a role that can't open the staff screen, and counts the rest", async () => {
     stubApi({ "organization.setup.get": { data: halfway } });
     renderWithApi(<HomePage />, newQueryClient(), member({ permissions: ["settings:manage"] }));
     const card = await screen.findByRole("region", { name: cardName });
-    expect(within(card).getByRole("progressbar", { name: "4 of 6 done" })).toBeVisible();
-    expect(stepsIn(card)).toEqual([
-      [words.steps.logo.title, routes.branding, ""],
-      [words.steps["invoice-prefix"].title, profileSection("invoice-prefix"), ""],
-    ]);
+    expect(within(card).getByText("Setup 4 of 6 · Next: Logo")).toBeVisible();
   });
 
   it("goes for that role once the steps it may finish are done, whatever the Staff step says", async () => {
@@ -161,8 +152,7 @@ describe("Home's setup card", () => {
     stubApi({ "organization.setup.get": { data: allButTheLogo } });
     renderWithApi(<HomePage />, newQueryClient(), member({ isOwner: true }));
     const card = await screen.findByRole("region", { name: cardName });
-    expect(within(card).getByText("6 of 7 done")).toBeVisible();
-    expect(stepsIn(card)).toEqual([[words.steps.logo.title, routes.branding, ""]]);
+    expect(within(card).getByText("Setup 6 of 7 · Next: Logo")).toBeVisible();
   });
 
   it("goes once the last step is done, leaving the usual Home", async () => {

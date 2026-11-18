@@ -108,22 +108,30 @@ afterEach(() => {
 });
 
 describe("Home's day", () => {
-  it("lists the cards in order: setup, leads, tasks, hot leads, departures, AI insights, needs your attention", async () => {
+  it("lists the cards in order: setup, leads, tasks, needs your attention, hot leads, departures, AI insights", async () => {
     renderHome({ hot: [hotLead(1)], departures: [departure] });
     const names = [
       messages.business.setup.homeHeading.replace("{organization}", "Sharma Travels"),
       h.leads.title,
       h.tasks.title,
+      h.attention.title,
       h.hot.title,
       h.departures.title,
       h.ai.title,
-      h.attention.title,
     ];
     const cards: HTMLElement[] = [];
     for (const name of names) cards.push(await card(name));
     cards.slice(1).forEach((next, index) => {
-      expect(cards[index]?.compareDocumentPosition(next) ?? 0 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect((cards[index]?.compareDocumentPosition(next) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
+  });
+
+  it("puts the cards of a row in one grid that stretches them to the same height", async () => {
+    renderHome({ hot: [hotLead(1)], departures: [departure] });
+    const tasks = await card(h.tasks.title);
+    const grid = tasks.parentElement;
+    expect(grid?.className).toContain("lg:grid-cols-2");
+    expect(grid?.className).not.toContain("items-start");
   });
 
   it("leaves out the tiles, the nudge, the month so far, the money tile and the screens list", async () => {
@@ -229,6 +237,20 @@ describe("Home's day", () => {
       expect(within(departures).getByRole("link", { name: h.viewAll })).toHaveAttribute("href", "/departures");
     });
 
+    it("shows the first five of eight, in the order Today gives them", async () => {
+      const eight = Array.from({ length: 8 }, (_, index) => ({
+        ...departure,
+        departureId: `0199e7a0-0000-7000-8000-0000000000e${String(index)}`,
+        title: `Batch ${String(index + 1)}`,
+      }));
+      renderHome({ departures: eight });
+      const departures = await card(h.departures.title);
+      const titles = within(departures)
+        .getAllByRole("listitem")
+        .map((row) => /Batch \d/.exec(row.textContent)?.[0]);
+      expect(titles).toEqual(["Batch 1", "Batch 2", "Batch 3", "Batch 4", "Batch 5"]);
+    });
+
     it("is left out when none leave soon", async () => {
       renderHome({ departures: [] });
       await card(h.tasks.title);
@@ -268,6 +290,18 @@ describe("Home's day", () => {
   });
 
   describe("Needs your attention", () => {
+    it("shows at most five rows", async () => {
+      const chats = Array.from({ length: 7 }, (_, index) => ({
+        ...handedOver,
+        conversationId: `0199e7a0-0000-7000-8000-0000000002b${String(index)}`,
+        name: `Chat person ${String(index)}`,
+      }));
+      renderHome({ answers: { "ai.handedOver": { data: chats } } });
+      const needs = await card(h.attention.title);
+      await within(needs).findByText("Chat person 0");
+      expect(within(needs).getAllByRole("listitem")).toHaveLength(5);
+    });
+
     it("lists what the AI needs, and View all opens the AI agent page for a member who manages the AI", async () => {
       renderHome();
       const needs = await card(h.attention.title);

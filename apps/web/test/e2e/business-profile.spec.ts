@@ -12,16 +12,14 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   await page.goto("/dashboard");
   const checklist = page.getByRole("region", { name: "Finish setting up Sharma Travels" });
   // Onboarding saved the contact phone, but no address.
-  await expect(checklist.getByText("1 of 7 done")).toBeVisible();
-  await expect(checklist.getByRole("progressbar", { name: "1 of 7 done" })).toBeVisible();
-  // The next two of the six left; the setup screen has them all.
-  await expect(checklist.getByRole("listitem")).toHaveText([/^Business details/, /^Logo/]);
-  await expect(checklist.getByRole("link", { name: "See every step" })).toHaveAttribute("href", "/setup");
+  await expect(checklist.getByText("Setup 1 of 7 · Next: Business details")).toBeVisible();
+  await expect(checklist.getByRole("link", { name: "Finish setup" })).toHaveAttribute("href", "/setup");
   // Above the rest of Home, never instead of it.
   await expect(page.getByRole("radiogroup", { name: "Period" })).toBeVisible();
   await expectAccessible(page);
 
-  await checklist.getByRole("link", { name: /^Business details/ }).click();
+  await checklist.getByRole("link", { name: "Finish setup" }).click();
+  await page.getByRole("link", { name: /^Business details/ }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Business profile" })).toBeVisible();
   // The step's own section, scrolled to and focused.
   await expect(page).toHaveURL(/\/settings\/profile#business-details$/);
