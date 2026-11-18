@@ -4,24 +4,24 @@
 // that sees leads on a plan with them, the day at a glance (each figure a way to its work), the hot leads to call and the
 // day's nudge (spec 3.1: a count, three things, Open Today) beside the month so far (the full figures are on Reports);
 // then the setup card until the checklist is done (spec 7.1) and the screens the role may use to set the agency up.
-import { ChevronRightIcon, KanbanIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Fragment } from "react";
+import type { Period } from "@travel-crm/contracts/kernel";
+import { Fragment, useState } from "react";
 import { SetupCard } from "@/business/setup/setup-card";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from "@/components/ui/item";
-import { NewLeadButton } from "@/leads/new-lead-button";
-import { routes } from "@/lib/routes";
 import { holds, useMe } from "@/session/me-context";
 import type { NavigationItem } from "@/shell/navigation";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 import { TodayNudge } from "@/today/today-nudge";
 import { AtAGlance } from "@/home/at-a-glance";
 import { greetingName } from "@/home/greeting-name";
+import { LeadsCard } from "@/home/leads-card";
 import { MonthCard } from "@/home/month-card";
+import { PeriodFilter } from "@/home/period-filter";
 import { HotLeadsCard } from "@/sales/hot-leads-card";
 
 /** The destinations that set the organization up: not home, Today, Leads, Follow-ups, the Inbox, the AI agent, Quotes, Bookings, Departures, Suppliers or Finance (daily work), nor the audit log. */
@@ -65,10 +65,11 @@ const notSetUp: readonly NavigationItem["key"][] = [
 export default function HomePage() {
   const t = useTranslations("shell.home");
   const me = useMe();
+  // The period of the leads card (and, soon, the chats the AI answered): this month until the member chooses another.
+  const [period, setPeriod] = useState<Period>("month");
   const items = useNavigationItems();
   // Today and Leads show where the role sees leads, on a plan with them, and the subscription keeps them open.
   const showsToday = items.some((item) => item.key === "today");
-  const addsLeads = items.some((item) => item.key === "leads") && holds(me, "leads:create");
   const setUp = items.filter((item): item is SetUpItem => !notSetUp.includes(item.key));
   const screens =
     setUp.length > 0 ? (
@@ -102,17 +103,6 @@ export default function HomePage() {
       </Card>
     ) : null;
   const managesSettings = holds(me, "settings:manage");
-  const actions = addsLeads && (
-    <div className="flex flex-wrap gap-2">
-      <NewLeadButton />
-      <Button asChild variant="outline">
-        <Link href={routes.leadsPipeline}>
-          <KanbanIcon aria-hidden="true" />
-          {t("pipeline")}
-        </Link>
-      </Button>
-    </div>
-  );
   const has = (key: NavigationItem["key"]) => items.some((item) => item.key === key);
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { timeZone: me.organization.timeZone, hour: "2-digit", hourCycle: "h23" }).format(
@@ -131,8 +121,10 @@ export default function HomePage() {
       <PageHeader
         title={t("greeting", { part: partOfDay, name: greetingName(me.user.name) })}
         intro={t("todayIs", { day: today })}
-        action={actions}
+        action={<PeriodFilter value={period} onChange={setPeriod} />}
       />
+      {managesSettings && <SetupCard />}
+      {has("leads") && <LeadsCard period={period} />}
       {/* Where the role sees leads on a plan with them: the day at a glance, what to do now, and the month so far. */}
       {showsToday && <AtAGlance inbox={has("inbox")} money={has("quotes") && holds(me, "money:view_reports")} />}
       {showsToday && (
@@ -144,7 +136,6 @@ export default function HomePage() {
           {has("reports") && <MonthCard />}
         </div>
       )}
-      {managesSettings && <SetupCard />}
       {screens}
       {screens === null && !showsToday && <p className="text-muted-foreground">{t("nothingToSetUp")}</p>}
     </div>

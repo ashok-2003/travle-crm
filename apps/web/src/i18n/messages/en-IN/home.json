@@ -1,4 +1,20 @@
 {
+  "period": {
+    "label": "Period",
+    "today": "Today",
+    "week": "This week",
+    "month": "This month",
+    "all": "All time"
+  },
+  "leads": {
+    "title": "Leads",
+    "hint": "Leads that came in during the period you chose, each counted in the stage it is in now.",
+    "total": "Total leads",
+    "reports": "Open reports",
+    "loadFailed": "The leads didn't load.",
+    "chart": "Leads by stage",
+    "table": "Leads by stage, as a table"
+  },
   "glance": {
     "title": "Today at a glance",
     "newLeads": "New leads",
