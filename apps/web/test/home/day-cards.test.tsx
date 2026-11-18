@@ -229,7 +229,11 @@ describe("Home's day", () => {
     it("shows the calls used against the monthly limit and the chats answered, to whoever manages the AI", async () => {
       renderHome();
       const ai = await card(h.ai.title);
-      expect(await within(ai).findByText(/412 of 1,000/)).toBeVisible();
+      expect(
+        await within(ai).findByText(
+          (_, el) => el?.tagName === "P" && el.textContent === "412 of 1,000 AI calls used this month",
+        ),
+      ).toBeVisible();
       expect((await within(ai).findAllByText("37")).length).toBeGreaterThan(0);
       expect(within(ai).getByText(new RegExp(h.ai.chats))).toBeVisible();
     });
