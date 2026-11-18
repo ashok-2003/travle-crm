@@ -217,15 +217,28 @@ describe("the one agent's loop", () => {
 
   it("asks a hand-over with no words for its line, and lets one for abuse end silent", async () => {
     const line = "Maine team ko bata diya hai, woh yahin reply karenge.";
-    model.answer({ toolCalls: [handOverCall("discount")] }, "", line);
+    model.answer({ toolCalls: [handOverCall("discount")] }, line);
     const end = await loop();
-    expect(end).toMatchObject({ end: "final", messages: [line], callsUsed: 3 });
+    expect(end).toMatchObject({ end: "final", messages: [line], callsUsed: 2 });
     expect(end.end === "final" && end.staged.get("hand_over")).toMatchObject({ reason: "discount" });
-    expect(model.requests[2]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${HAND_OVER_WORDS}`);
+    expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${HAND_OVER_WORDS}`);
 
-    model.answer({ toolCalls: [handOverCall("abuse")] }, "");
-    expect(await loop()).toMatchObject({ end: "final", messages: [], callsUsed: 2 });
-    expect(model.requests).toHaveLength(5);
+    model.answer({ toolCalls: [handOverCall("abuse")] });
+    expect(await loop()).toMatchObject({ end: "final", messages: [], callsUsed: 1 });
+    expect(model.requests).toHaveLength(3);
+  });
+
+  it("ends a hand-over that came with words after one call", async () => {
+    const words = "Team ko bata diya hai, woh yahin reply karenge.";
+    model.answer({ text: words, toolCalls: [handOverCall("discount")] });
+    expect(await loop()).toMatchObject({ end: "final", messages: [words], callsUsed: 1 });
+    expect(model.requests).toHaveLength(1);
+  });
+
+  it("ends quiet after stay_quiet without asking the model again", async () => {
+    model.answer({ toolCalls: [quietCall] });
+    expect(await loop()).toMatchObject({ end: "final", messages: [], callsUsed: 1 });
+    expect(model.requests).toHaveLength(1);
   });
 
   it("sends the words written beside a brochure call when the last answer has none", async () => {
@@ -313,7 +326,7 @@ describe("the one agent's loop", () => {
 
   it("sends words beside stay_quiet and drops it", async () => {
     const words = "Great! Let me know if you need anything.";
-    model.answer({ text: words, toolCalls: [quietCall] }, "");
+    model.answer({ text: words, toolCalls: [quietCall] });
     const end = await loop();
     expect(end).toMatchObject({ end: "final", messages: [words] });
     expect(stagedOf(end)).toEqual([]);
@@ -321,7 +334,7 @@ describe("the one agent's loop", () => {
     expect(finished().staged).toEqual([]);
 
     // Without words, it ends the turn in silence.
-    model.answer({ toolCalls: [quietCall] }, "");
+    model.answer({ toolCalls: [quietCall] });
     const quiet = await loop();
     expect(quiet).toMatchObject({ end: "final", messages: [] });
     expect(stagedOf(quiet)).toEqual(["stay_quiet"]);

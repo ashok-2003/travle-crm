@@ -3,7 +3,7 @@
 // test holds the two to the same ends.
 import type { BaseMessage } from "@langchain/core/messages";
 import { toLangChain } from "./messages.js";
-import { answered, callsOf, failed, modelForRun, nextAnswer, toolMessages } from "./tool-calls.js";
+import { answered, callsOf, endsRun, failed, modelForRun, nextAnswer, toolMessages } from "./tool-calls.js";
 import type { ToolAgent, ToolAgentEnd, ToolAgentInput } from "./tool-agent.js";
 
 /** LangGraph's default recursion limit. */
@@ -22,6 +22,7 @@ async function run(input: ToolAgentInput): Promise<ToolAgentEnd> {
       if (step === limit) break;
       if (callsOf(answer).length === 0) return answered(messages, model.calls);
       messages.push(...(await toolMessages(input, answer)));
+      if (endsRun(input, messages)) return answered(messages, model.calls);
     }
     return { end: "steps", calls: model.calls };
   } catch (error) {
