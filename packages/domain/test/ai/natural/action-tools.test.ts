@@ -55,13 +55,13 @@ describe("stageAction", () => {
     // Sat 14 Nov is still today at 11:43 pm in Kolkata; Fri 13 Nov is past.
     expect(await stageAction(ctx(), "update_lead", { date: "2026-11-13" }, "")).toEqual({
       refused:
-        "refused: 2026-11-13 is past (today is Sat 14 Nov 2026); the next 13 Nov is Sat 13 Nov 2027 (2027-11-13): " +
+        "refused: 2026-11-13 is past (today is Sat 14 Nov); the next is Sat 13 Nov 2027 (2027-11-13): " +
         "use it if that's the one they mean",
     });
     // A wrong year names this year's day when it hasn't passed.
     expect(await stageAction(ctx(), "update_lead", { date: "2020-12-19" }, "")).toEqual({
       refused:
-        "refused: 2020-12-19 is past (today is Sat 14 Nov 2026); the next 19 Dec is Sat 19 Dec 2026 (2026-12-19): " +
+        "refused: 2020-12-19 is past (today is Sat 14 Nov); the next is Sat 19 Dec (2026-12-19): " +
         "use it if that's the one they mean",
     });
     // A 29 Feb with no leap year ahead keeps the plain refusal.
@@ -73,12 +73,12 @@ describe("stageAction", () => {
     });
     expect(await stageAction(ctx(), "update_lead", { month: "2026-10" }, "")).toEqual({
       refused:
-        "refused: 2026-10 is past (today is Sat 14 Nov 2026); the next October is October 2027 (2027-10): " +
+        "refused: 2026-10 is past (today is Sat 14 Nov); the next is October 2027 (2027-10): " +
         "use it if that's the one they mean",
     });
     expect(await stageAction(ctx(), "update_lead", { month: "2025-12" }, "")).toEqual({
       refused:
-        "refused: 2025-12 is past (today is Sat 14 Nov 2026); the next December is December 2026 (2026-12): " +
+        "refused: 2025-12 is past (today is Sat 14 Nov); the next is December (2026-12): " +
         "use it if that's the one they mean",
     });
     expect(await stageAction(ctx(), "update_lead", { month: "2026-11" }, "")).toMatchObject({
@@ -365,12 +365,11 @@ describe("stageAction", () => {
     expect(await stageAction(ctx(), "book", { ...yes, ...terms({ adults: 11 }) }, "")).toMatchObject(handed);
   });
 
-  it("keeps a hand-over already staged this turn over the one the checks stage", async () => {
+  it("lets a later hand-over replace the one the checks staged, like any later call of a tool", async () => {
     const outcome = await stageAction(ctx(), "offer_booking", terms({ adults: 11 }), "");
-    const mine = { tool: "hand_over", reason: "discount", summary: "Wants 20% off" } as const;
+    const later = { tool: "hand_over", reason: "discount", summary: "Wants 20% off" } as const;
     if (!("staged" in outcome)) return expect.unreachable();
-    expect(withStaged(withStaged(new Map(), mine), outcome.staged).get("hand_over")).toBe(mine);
-    expect(withStaged(new Map(), outcome.staged).get("hand_over")).toBe(outcome.staged);
+    expect(withStaged(withStaged(new Map(), outcome.staged), later).get("hand_over")).toBe(later);
   });
 
   it("refuses an offer without payment details, or with a booking ahead or awaiting payment", async () => {

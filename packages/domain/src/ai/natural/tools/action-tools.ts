@@ -41,7 +41,7 @@ import type { QuoteFigures, StagedAction, StagedSet, TripSheet } from "../types.
 import { awaitsPayment, bookChecks, offerChecks, type BookingContext, type RefusedToTeam } from "./booking-checks.js";
 import { monthWords } from "./find-trips.js";
 import { placeFollowUp } from "./follow-up-time.js";
-import { dayAndMonth, dayWithYear, monthWithYear, nextDay, nextMonth } from "./next-date.js";
+import { nextDay, nextMonth } from "./next-date.js";
 import type { Refused } from "./quote.js";
 import { termsOf, termsWords } from "./terms.js";
 
@@ -88,12 +88,8 @@ function withArgs<T, R>(
   return parsed.success ? then(parsed.data) : UNPARSED;
 }
 
-/** Hand-overs a booking check staged on its own: they never replace one already staged this turn. */
-const byChecks = new WeakSet<StagedAction>();
-
 /** A later call of one tool replaces the earlier (spec 3.2). */
 export function withStaged(set: StagedSet, action: StagedAction): StagedSet {
-  if (byChecks.has(action) && set.has("hand_over")) return set;
   return new Map(set).set(action.tool, action);
 }
 
@@ -102,7 +98,6 @@ function handedOver(refusal: Refused | RefusedToTeam): StageOutcome {
   if (!("handOver" in refusal)) return refusal;
   const { reason, summary } = refusal.handOver;
   const staged: StagedAction = { tool: "hand_over", reason, summary };
-  byChecks.add(staged);
   const what = reason === "big_group" ? "big group" : "existing booking";
   return stage(staged, `handed to the team (${what}): tell them a person will help with it`);
 }
@@ -231,15 +226,15 @@ function saidOf(context: ActionContext, asked: Asked<typeof updateLeadArguments>
     return refused(
       next === null
         ? `${day(date)} is past (today is ${day(today)}); ask which date they mean`
-        : `${date} is past (today is ${dayWithYear(today)}); the next ${dayAndMonth(next)} is ${dayWithYear(next)} ` +
-            `(${next}): use it if that's the one they mean`,
+        : `${date} is past (today is ${day(today)}); the next is ${day(next)} (${next}): ` +
+            "use it if that's the one they mean",
     );
   }
   if (month !== undefined && month < today.slice(0, 7)) {
     const next = nextMonth(month, today);
     return refused(
-      `${month} is past (today is ${dayWithYear(today)}); the next ${monthWithYear(next).split(" ")[0] ?? ""} is ${monthWithYear(next)} ` +
-        `(${next}): use it if that's the one they mean`,
+      `${month} is past (today is ${day(today)}); the next is ${monthName(next)} (${next}): ` +
+        "use it if that's the one they mean",
     );
   }
   if (date !== undefined || month !== undefined) {

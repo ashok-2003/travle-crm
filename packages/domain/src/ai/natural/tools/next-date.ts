@@ -1,28 +1,6 @@
 // The refusal's way on for a past day or month: the next one with the same day and month, so the model resends it
 // instead of retrying a wrong year or asking the customer which year (live, 2026-11-18).
-import { formatShortDay, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
-
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-] as const;
-const MONTH_NAMES = [...MONTHS, "November", "December"];
-/** A day that is never in the year shown, so formatShortDay always writes the year. */
-const NEVER = parseCalendarDate("1000-01-01");
-
-/** "Wed 18 Nov 2026": the weekday, day, month and year. */
-export const dayWithYear = (day: CalendarDate): string => formatShortDay(day, NEVER);
-
-/** "19 Dec": a day and month without a year. */
-export const dayAndMonth = (day: CalendarDate): string => formatShortDay(day, day).split(" ").slice(1).join(" ");
+import { parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
 
 const real = (year: number, month: string, date: string): CalendarDate | null => {
   const candidate = `${String(year)}-${month}-${date}`;
@@ -45,7 +23,3 @@ export function nextMonth(past: string, today: CalendarDate): string {
   const year = Number(today.slice(0, 4));
   return `${String(`${String(year)}-${month}` >= today.slice(0, 7) ? year : year + 1)}-${month}`;
 }
-
-/** "December 2026". */
-export const monthWithYear = (month: string): string =>
-  `${MONTH_NAMES[Number(month.slice(5, 7)) - 1] ?? ""} ${month.slice(0, 4)}`;
