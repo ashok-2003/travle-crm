@@ -151,6 +151,9 @@ describe("Home's day", () => {
       const tasks = await card(h.tasks.title);
       const row = await within(tasks).findByRole("link", { name: /Sneha Iyer/ });
       expect(row.className).toContain("py-1.5");
+      // No group gap or separator margin around a line: they added 36px to every row.
+      expect(within(tasks).getAllByRole("list")[0]?.className).toContain("gap-0");
+      expect(tasks.querySelector("[data-slot=item-separator]")?.className).toContain("my-0");
       expect(row.querySelector("[data-slot=item-content]")?.className).toContain("md:flex-row");
     });
 

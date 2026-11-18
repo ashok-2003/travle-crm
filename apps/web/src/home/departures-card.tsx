@@ -21,10 +21,10 @@ export function DeparturesCard() {
   if (departures.length === 0) return null;
   return (
     <HomeCard title={t("title")} viewAll={routes.departures}>
-      <ItemGroup>
+      <ItemGroup className={rowClasses.group}>
         {departures.map((departure, index) => (
           <Fragment key={departure.departureId}>
-            {index > 0 && <ItemSeparator />}
+            {index > 0 && <ItemSeparator className={rowClasses.separator} />}
             <div role="listitem">
               <Item size="sm" asChild className={rowClasses.item}>
                 <Link href={departureRoute(departure.departureId)}>

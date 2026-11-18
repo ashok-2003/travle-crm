@@ -43,10 +43,10 @@ export function AttentionCard() {
       ) : rows.length === 0 ? (
         !needs.isError && <p className="text-muted-foreground">{t("nothing")}</p>
       ) : (
-        <ItemGroup>
+        <ItemGroup className={rowClasses.group}>
           {rows.map((row, index) => (
             <Fragment key={row.id}>
-              {index > 0 && <ItemSeparator />}
+              {index > 0 && <ItemSeparator className={rowClasses.separator} />}
               <div role="listitem">
                 <Item size="sm" asChild className={rowClasses.item}>
                   <Link href={row.href}>
