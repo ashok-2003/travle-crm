@@ -154,7 +154,7 @@ test("the rooms are drafted for a hotel, a traveller is moved by hand, and the l
   await expect(stay).toContainText("Up to date");
 });
 
-test("a cost of the whole batch is in its profit, and the batch is on Today with what needs a look", async ({
+test("a cost of the whole batch is in its profit, and the batch is on Home with its seats sold", async ({
   page,
   browser,
   agency,
@@ -165,11 +165,10 @@ test("a cost of the whole batch is in its profit, and the batch is on Today with
   const departureId = await aDeparture(page, { title: "Leh batch", seats: 6, startInDays: 4 });
   await bookedOn(page, browser, departureId, { name: "Nisha Bose", phone: "+919876500106", adults: 2 });
 
-  await page.goto("/today");
+  await page.goto("/dashboard");
   const section = page.getByRole("region", { name: "Departures leaving soon" });
   await expect(section).toContainText("Leh batch");
   await expect(section).toContainText("2 of 6 seats sold");
-  await expect(section).toContainText("Details missing");
 
   await page.goto(`/departures/${departureId}`);
   await page.getByRole("tab", { name: "Costs" }).click();

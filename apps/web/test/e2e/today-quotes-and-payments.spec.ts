@@ -1,12 +1,13 @@
-// Today's two sections of release 5 (scope 3.3, 4.4), against the real api: a quote the customer opened over a day
-// ago and then went quiet on, with Done, and a payment of an accepted quote that is missed.
+// Release 5's two things (scope 3.3, 4.4), against the real api: a quote the customer opened over a day ago and then
+// went quiet on, which Home's hot leads now carry as a reason (it is no longer a My tasks section), and a payment of an
+// accepted quote that is missed, which stays on My tasks.
 import { expect, test } from "./support/notifications";
 import { signInByEmail } from "./support/fixtures";
 import { addLeadThroughApi, dayInIndia, leadInput } from "./support/leads";
 
 const DAY = 24 * 3_600_000;
 
-test("Today shows a quote opened with no reply, and a payment missed; Done sends the quote away", async ({
+test("Home shows a quote opened with no reply as a hot lead, and My tasks a payment missed", async ({
   page,
   agency,
   organizationData,
@@ -61,13 +62,10 @@ test("Today shows a quote opened with no reply, and a payment missed; Done sends
   const payments = page.getByRole("region", { name: "Payments due" });
   await expect(payments.getByRole("link", { name: "Kiran Joshi", exact: true })).toBeVisible();
   await expect(payments.getByText(/^₹25,000 was due \d+ \w+/)).toBeVisible();
-  const opened = page.getByRole("region", { name: "Quote opened, no reply" });
-  await expect(opened.getByRole("link", { name: "Sunita Rao", exact: true })).toBeVisible();
-  await expect(opened.getByText("Opened 2 days ago")).toBeVisible();
-  await expect(opened.getByText(/Goa 5 days · opened 2 times/)).toBeVisible();
-
-  await opened.getByRole("button", { name: "Done with Sunita Rao's quote" }).click();
-  await expect(page.getByText(/Marked as seen/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Quote opened, no reply" })).toBeHidden();
-  await expect(payments.getByRole("link", { name: "Kiran Joshi", exact: true })).toBeVisible();
+
+  await page.goto("/dashboard");
+  const hot = page.getByRole("region", { name: "Hot leads to call" });
+  await expect(hot.getByText("Sunita Rao")).toBeVisible();
+  await expect(hot.getByText("Opened the quote")).toBeVisible();
 });
