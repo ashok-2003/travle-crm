@@ -50,6 +50,8 @@ test("a follow-up added on a lead shows in Follow-ups and, done there, on the le
 
   await dueToday.getByRole("button", { name: "Done: Send the Kashmir options" }).click();
   const next = page.getByRole("dialog", { name: "When's the next follow-up?" });
+  // It opens once the task is done on the server: wait for it, or the settle check passes before it starts sliding in.
+  await expect(next).toBeVisible();
   await animationsSettled(page);
   await expectAccessible(page);
   await next.getByRole("button", { name: "No more follow-ups" }).click();
