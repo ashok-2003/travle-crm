@@ -57,6 +57,8 @@ test("pointing at a destination loads its data before it opens", async ({ page, 
   test.skip(isPhone(testInfo), "phones have no pointer; touching the link does the same");
   await signInByEmail(page, agency.owner);
   await page.goto("/dashboard");
+  // Point only once Home is on screen: a hover before the page has hydrated reaches no prefetch handler.
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   const staffList = page.waitForRequest((request) => request.url().includes("/api/trpc/staff.list"));
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Staff" }).hover();
   await staffList;
