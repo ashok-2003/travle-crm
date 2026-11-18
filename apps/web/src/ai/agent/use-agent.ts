@@ -15,7 +15,10 @@ export function useAgentSetup(enabled = true) {
 export function useHandedOver() {
   const trpc = useTRPC();
   const may = useHolds("inbox:view");
-  return { may, query: useQuery({ ...trpc.ai.handedOver.queryOptions(), enabled: may, staleTime: 30_000 }) };
+  return {
+    may,
+    query: useQuery({ ...trpc.ai.handedOver.queryOptions({ mine: false }), enabled: may, staleTime: 30_000 }),
+  };
 }
 
 /** Payments to check; the api needs bookings:view and quotes:record_payments. */
@@ -31,5 +34,8 @@ export function usePaymentsToCheckCount() {
 export function useStageSuggestions() {
   const trpc = useTRPC();
   const may = useHolds("leads:view");
-  return { may, query: useQuery({ ...trpc.ai.stageSuggestions.queryOptions(), enabled: may, staleTime: 30_000 }) };
+  return {
+    may,
+    query: useQuery({ ...trpc.ai.stageSuggestions.queryOptions({ mine: false }), enabled: may, staleTime: 30_000 }),
+  };
 }

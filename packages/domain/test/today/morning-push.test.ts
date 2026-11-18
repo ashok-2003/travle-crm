@@ -40,7 +40,7 @@ describe("the morning push", () => {
   const pushes = (member: MemberAccess) =>
     inOrg((tx) => tx.notification.findMany({ where: { recipientUserId: member.userId, kind: "today.morning" } }));
 
-  /** A salesperson with a phone for push, two follow-ups overdue and one due later today. */
+  /** A salesperson with a phone for push, three follow-ups due today (two already past) and one overdue task. */
   const aBusyPerson = async (options: { phone?: boolean } = {}) => {
     const member = memberWithStarterRole("sales", { organizationId, userId: randomUUID() });
     people.set(member.userId, member);
@@ -56,6 +56,7 @@ describe("the morning push", () => {
       await aTask(tx, { ...mine, dueAt: new Date("2026-10-16T05:00:00Z") });
       await aTask(tx, { ...mine, dueAt: new Date("2026-10-17T02:00:00Z") });
       await aTask(tx, { ...mine, dueAt: new Date("2026-10-17T10:00:00Z") });
+      await aTask(tx, { assigneeUserId: member.userId, dueAt: new Date("2026-10-16T05:00:00Z") });
     });
     return member;
   };
@@ -72,18 +73,26 @@ describe("the morning push", () => {
     await platform.$disconnect();
   });
 
-  it("words the count", () => {
-    expect(morningWords({ total: 8, overdue: 2 })).toBe("8 things today, 2 overdue");
-    expect(morningWords({ total: 3, overdue: 0 })).toBe("3 things today");
-    expect(morningWords({ total: 1, overdue: 1 })).toBe("1 thing today, 1 overdue");
-    expect(morningWords({ total: 0, overdue: 0 })).toBeNull();
+  it("names tasks and follow-ups", () => {
+    expect(morningWords({ tasks: 5, followUps: 6, overdue: 2 })).toBe("5 tasks and 6 follow-ups today, 2 overdue");
+    expect(morningWords({ tasks: 1, followUps: 1, overdue: 0 })).toBe("1 task and 1 follow-up today");
+  });
+
+  it("leaves out a part that is zero", () => {
+    expect(morningWords({ tasks: 0, followUps: 6, overdue: 0 })).toBe("6 follow-ups today");
+    expect(morningWords({ tasks: 3, followUps: 0, overdue: 1 })).toBe("3 tasks today, 1 overdue");
+    expect(morningWords({ tasks: 0, followUps: 0, overdue: 0 })).toBeNull();
   });
 
   it("pushes the count at 09:00 to a person with a phone, with no names in it, and only once that day", async () => {
     const me = await aBusyPerson();
     expect(await run()).toBeGreaterThanOrEqual(1);
     const [first] = await pushes(me);
-    expect(first).toMatchObject({ title: "3 things today, 2 overdue", link: "/today" });
+    expect(first).toMatchObject({
+      title: "1 task and 3 follow-ups today, 1 overdue",
+      body: "Open My tasks to see them.",
+      link: "/today",
+    });
     expect(JSON.stringify(first)).not.toMatch(/Rahul|\+91/);
     expect(await run(new Date(nineOhFive.getTime() + 30 * 60_000))).toBe(0);
     expect(await pushes(me)).toHaveLength(1);

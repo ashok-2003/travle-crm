@@ -290,7 +290,7 @@ describe("the AI agent's setup", () => {
       const newer = await aChat(on, connectionId, new Date("2026-11-02T10:00:00Z"));
       await aChat(on, connectionId, null);
       await aChat(on, connectionId, new Date("2026-11-03T10:00:00Z"), { state: "erased" });
-      const list = await on.inOrg((tx) => handedOverChatsOf(tx, on.owner));
+      const list = await on.inOrg((tx) => handedOverChatsOf(tx, on.owner, { mine: false }));
       expect(list.map((chat) => chat.conversationId)).toEqual([newer, older]);
       expect(list.map((chat) => chat.name)).toEqual(["Profile name", "Rahul Sharma"]);
       expect(list[0]).toMatchObject({ reason: "Wants a discount", since: "2026-11-02T10:00:00.000Z" });
@@ -301,7 +301,7 @@ describe("the AI agent's setup", () => {
       const connectionId = await on.inOrg(async (tx) => (await tx.whatsappConnection.findFirstOrThrow()).id);
       const waiting = await aChat(on, connectionId, new Date("2026-11-01T10:00:00Z"));
       await aChat(on, connectionId, new Date("2026-11-02T10:00:00Z"), { needsReply: false });
-      const list = await on.inOrg((tx) => handedOverChatsOf(tx, on.owner));
+      const list = await on.inOrg((tx) => handedOverChatsOf(tx, on.owner, { mine: false }));
       expect(list.map((chat) => chat.conversationId)).toEqual([waiting]);
     });
 
@@ -315,10 +315,10 @@ describe("the AI agent's setup", () => {
       await on.inOrg((tx) => aLead(tx, { personId: theirs.id, ownerUserId: randomUUID() }));
       const ownChat = await aChat(on, connectionId, new Date("2026-11-01T10:00:00Z"), { personId: mine.id });
       await aChat(on, connectionId, new Date("2026-11-02T10:00:00Z"), { personId: theirs.id });
-      expect((await on.inOrg((tx) => handedOverChatsOf(tx, seller))).map((chat) => chat.conversationId)).toEqual([
-        ownChat,
-      ]);
-      expect(await on.inOrg((tx) => handedOverChatsOf(tx, on.owner))).toHaveLength(2);
+      expect(
+        (await on.inOrg((tx) => handedOverChatsOf(tx, seller, { mine: false }))).map((chat) => chat.conversationId),
+      ).toEqual([ownChat]);
+      expect(await on.inOrg((tx) => handedOverChatsOf(tx, on.owner, { mine: false }))).toHaveLength(2);
     });
   });
 });

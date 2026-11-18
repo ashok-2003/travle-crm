@@ -3,7 +3,7 @@
 // Today (spec 3.5): the signed-in person's own day, whatever their scope (R35). The header says the agency's day and
 // how many things it holds, red when some are overdue, with Add a task as the screen's action; then Overdue, New leads
 // not contacted yet and Due today, each shown while it holds something. A quiet line says what later releases add.
-import { todayTotal, type TodaySectionName, type TodaySummary } from "@travel-crm/contracts/today";
+import { myTasksTotal, type TodaySectionName, type TodaySummary } from "@travel-crm/contracts/today";
 import { parseCalendarDate, startOfDayIn } from "@travel-crm/domain/kernel";
 import { CalendarCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -46,7 +46,7 @@ function DayLine({ summary }: { summary: TodaySummary }) {
         {t("intro", {
           weekday: formatWeekday(start, { timeZone }),
           day: formatDay(start, { timeZone }),
-          count: todayTotal(summary.counts),
+          count: myTasksTotal(summary.counts),
         })}
       </span>
       {overdue > 0 && <StatusBadge tone="bad">{t("overdueCount", { count: overdue })}</StatusBadge>}
