@@ -47,7 +47,7 @@
         "required": "Say what to do, and choose a day and a time."
       }
     },
-    "line": "{due, plural, one {# follow-up due} other {# follow-ups due}}{replied, plural, =0 {} other { · # replied}} → Follow-ups",
+    "line": "{due, plural, one {# follow-up due} other {# follow-ups due}}{replied, plural, =0 {} other { · # replied}}",
     "groups": {
       "overdue": "Overdue",
       "dueToday": "Due today",
@@ -69,7 +69,8 @@
       "nextWeek": "Next week",
       "none": "No more follow-ups",
       "added": "Next follow-up added"
-    }
+    },
+    "openFollowUps": "Follow-ups"
   },
   "snooze": {
     "title": "Snooze",

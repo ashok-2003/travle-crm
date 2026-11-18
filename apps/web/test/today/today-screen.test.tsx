@@ -341,16 +341,14 @@ describe("TodayScreen", () => {
   it("shows the follow-ups line when some are due, and never lists a follow-up", async () => {
     followUps = [dueFollowUp(false), dueFollowUp(true)];
     renderToday();
-    expect(await screen.findByRole("link", { name: /2 follow-ups due · 1 replied/ })).toHaveAttribute(
-      "href",
-      "/leads/follow-ups",
-    );
+    expect(await screen.findByText("2 follow-ups due · 1 replied")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Follow-ups" })).toHaveAttribute("href", "/leads/follow-ups");
   });
 
   it("shows no follow-ups line when none are due", async () => {
     renderToday();
     await region(words.sections.overdue);
-    expect(screen.queryByRole("link", { name: /follow-ups? due/ })).toBeNull();
+    expect(screen.queryByText(/follow-ups? due/)).toBeNull();
   });
 
   it("says 'Nothing to do right now.' when everything is empty", async () => {

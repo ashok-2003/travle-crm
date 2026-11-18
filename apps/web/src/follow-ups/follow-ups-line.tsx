@@ -12,8 +12,11 @@ export function FollowUpsLine() {
   const counts = useFollowUpsDue();
   if (counts === undefined || counts.due === 0) return null;
   return (
-    <TextLink href={routes.followUps}>
-      <span className="numbers">{t("line", counts)}</span>
-    </TextLink>
+    <p className="flex flex-wrap items-center gap-x-2">
+      <span>{t("line", counts)}</span>
+      <TextLink inline href={routes.followUps}>
+        {t("openFollowUps")}
+      </TextLink>
+    </p>
   );
 }

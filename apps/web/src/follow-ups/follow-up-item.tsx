@@ -91,7 +91,7 @@ export function FollowUpItem({
           />
           <Button
             ref={editButton}
-            variant="ghost"
+            variant="outline"
             aria-label={t("editTask", { title: row.title })}
             disabled={!write.allowed}
             onClick={() => {
