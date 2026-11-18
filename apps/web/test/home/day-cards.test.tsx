@@ -167,7 +167,8 @@ describe("Home's day", () => {
       });
       renderHome({ answers: { "tasks.followUps": { data: { rows: [row(false), row(true)], people: {} } } } });
       const tasks = await card(h.tasks.title);
-      expect(await within(tasks).findByRole("link", { name: /2 follow-ups due/ })).toHaveAttribute(
+      expect(await within(tasks).findByText(/2 follow-ups due · 1 replied/)).toBeVisible();
+      expect(within(tasks).getByRole("link", { name: messages.tasks.followUps.openFollowUps })).toHaveAttribute(
         "href",
         "/leads/follow-ups",
       );
