@@ -28,7 +28,7 @@ afterEach(() => {
 const listItem = () => screen.getByRole("listitem");
 
 describe("TodayItem", () => {
-  it("puts Call and WhatsApp (outline) on one row and Done and Snooze (outline) on the next, all 44px", () => {
+  it("puts the compact Call and WhatsApp, then Done and Snooze (outline), on one row, all 44px", () => {
     renderAs(<TodayItem item={snehaOverdue} />);
     const call = screen.getByRole("link", { name: "Call Sneha Iyer" });
     const whatsApp = screen.getByRole("link", { name: "WhatsApp Sneha Iyer" });
@@ -36,10 +36,12 @@ describe("TodayItem", () => {
     const snooze = screen.getByRole("button", { name: "Snooze: Send Goa options" });
     expect(call.parentElement).toBe(whatsApp.parentElement);
     expect(done.parentElement).toBe(snooze.parentElement);
-    expect(call.parentElement).not.toBe(done.parentElement);
+    expect(call.parentElement?.parentElement).toBe(done.parentElement?.parentElement?.parentElement);
     // Reaching them comes first, then closing it.
     expect(call.compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect([call, whatsApp].map((button) => button.dataset.variant)).toEqual(["outline", "outline"]);
+    // Round and icon-only: named for a screen reader, no words beside the glyph.
+    expect([call, whatsApp].map((button) => button.textContent)).toEqual(["", ""]);
+    expect([call, whatsApp].map((button) => button.dataset.size)).toEqual(["icon", "icon"]);
     expect([done, snooze].map((button) => button.dataset.variant)).toEqual(["outline", "outline"]);
     for (const target of [call, whatsApp, done, snooze]) {
       expect(targetSize(target).height, target.textContent).toBeGreaterThanOrEqual(44);
@@ -75,7 +77,7 @@ describe("TodayItem", () => {
     const { unmount } = renderAs(<TodayItem item={rahulNew} />);
     const mark = screen.getByRole("button", { name: "Mark Rahul Sharma contacted" });
     expect(mark).toHaveTextContent(messages.today.item.markContacted);
-    expect(mark.dataset.variant).toBe("ghost");
+    expect(mark.dataset.variant).toBe("outline");
     expect(targetSize(mark).height).toBeGreaterThanOrEqual(44);
     expect(screen.queryByRole("button", { name: /^Done/ })).toBeNull();
     unmount();

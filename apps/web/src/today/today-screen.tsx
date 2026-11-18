@@ -1,41 +1,39 @@
 "use client";
 
-// Today (spec 3.5): the signed-in person's own day, whatever their scope (R35). The header says the agency's day and
-// how many things it holds, red when some are overdue, with Add a task as the screen's action; then Overdue, New leads
-// not contacted yet and Due today, each shown while it holds something. A quiet line says what later releases add.
-import { myTasksTotal, type TodaySectionName, type TodaySummary } from "@travel-crm/contracts/today";
+// My tasks (web revamp, spec 6; the address stays /today): the signed-in person's own work, whatever their scope. The
+// header says the agency's day and how many things there are, red when some are overdue, with Add a task as the screen's
+// action; under it the follow-ups line (follow-ups live on their own screen); then Overdue, Due today, New leads to
+// contact and AI needs you, each shown while it holds something.
+import { myTasksTotal, type TodaySummary } from "@travel-crm/contracts/today";
 import { parseCalendarDate, startOfDayIn } from "@travel-crm/domain/kernel";
 import { CalendarCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useNeedsMe } from "@/ai/use-needs-me";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { FollowUpsLine } from "@/follow-ups/follow-ups-line";
 import { AwaySwitch } from "@/leads/away-switch";
 import { formatDay, formatWeekday } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
-import { PaymentsToCheckSection } from "./payments-to-check-section";
-import { TodaySection } from "./today-section";
+import { AiNeedsYouSection } from "./ai-needs-you-section";
+import { TodaySection, type MyTasksSection } from "./today-section";
 import { useTodaySummary } from "./use-today";
-import { HotLeadsCard } from "@/sales/hot-leads-card";
 
-const sections: readonly { name: TodaySectionName; count: keyof TodaySummary["counts"] }[] = [
+const sections: readonly { name: MyTasksSection; count: "overdue" | "dueToday" | "newLeads" }[] = [
   { name: "overdue", count: "overdue" },
-  { name: "payments-due", count: "paymentsDue" },
-  { name: "trip-details", count: "tripDetails" },
-  { name: "departures", count: "departures" },
-  { name: "new-leads", count: "newLeads" },
-  { name: "quote-opened", count: "quoteOpened" },
   { name: "due-today", count: "dueToday" },
+  { name: "new-leads", count: "newLeads" },
 ];
 
 /**
- * "Fri 16 Oct · 8 things", and "2 overdue" in red when some are. The day is the agency's (the api's), shown by the
+ * "Fri 16 Oct · 8 to do", and "2 overdue" in red when some are. The day is the agency's (the api's), shown by the
  * shared formatWeekday and formatDay from its first moment in the agency's zone.
  */
-function DayLine({ summary }: { summary: TodaySummary }) {
+function DayLine({ summary, extra }: { summary: TodaySummary; extra: number }) {
   const t = useTranslations("today");
   const { timeZone } = useMe().organization;
   const start = startOfDayIn(parseCalendarDate(summary.day), timeZone);
@@ -46,7 +44,7 @@ function DayLine({ summary }: { summary: TodaySummary }) {
         {t("intro", {
           weekday: formatWeekday(start, { timeZone }),
           day: formatDay(start, { timeZone }),
-          count: myTasksTotal(summary.counts),
+          count: myTasksTotal(summary.counts) + extra,
         })}
       </span>
       {overdue > 0 && <StatusBadge tone="bad">{t("overdueCount", { count: overdue })}</StatusBadge>}
@@ -58,24 +56,25 @@ export function TodayScreen() {
   const t = useTranslations("today");
   const tCommon = useTranslations("common");
   const summary = useTodaySummary();
+  const needs = useNeedsMe();
 
   const body = () => {
     if (summary.data) {
       const { counts } = summary.data;
       const shown = sections.filter((section) => counts[section.count] > 0);
+      const aiThings = needs.count + counts.paymentsToCheck;
+      const nothing = shown.length === 0 && aiThings === 0 && !needs.isPending && !needs.isError;
       // Sections stand further apart than the things inside them, so a section's title never reads as one more row.
       return (
         <div className="flex flex-col gap-10">
-          <HotLeadsCard />
-          {counts.paymentsToCheck > 0 && <PaymentsToCheckSection count={counts.paymentsToCheck} />}
-          {shown.length === 0 && counts.paymentsToCheck === 0 ? (
-            <EmptyState icon={CalendarCheckIcon} message={t("nothing")} />
-          ) : (
-            shown.map((section) => (
-              <TodaySection key={section.name} section={section.name} count={counts[section.count]} />
-            ))
+          <FollowUpsLine />
+          {nothing && <EmptyState icon={CalendarCheckIcon} message={t("nothing")} />}
+          {shown.map((section) => (
+            <TodaySection key={section.name} section={section.name} count={counts[section.count]} />
+          ))}
+          {(aiThings > 0 || needs.isError) && (
+            <AiNeedsYouSection needs={needs} paymentsToCheck={counts.paymentsToCheck} />
           )}
-          <p className="text-label text-muted-foreground">{t("later")}</p>
         </div>
       );
     }
@@ -96,7 +95,7 @@ export function TodayScreen() {
     <div className="flex max-w-[720px] flex-col gap-6">
       <PageHeader
         title={t("title")}
-        intro={summary.data && <DayLine summary={summary.data} />}
+        intro={summary.data && <DayLine summary={summary.data} extra={needs.count} />}
         action={<AddTaskDialog />}
       />
       {/* For someone who takes new leads in turn: away for a while, back at once. Nothing for anyone else. */}

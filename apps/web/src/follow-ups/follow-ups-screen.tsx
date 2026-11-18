@@ -1,9 +1,9 @@
 "use client";
 
-// The Follow-ups screen (the owner, 2026-10-30): every open follow-up on a lead, due now (overdue and today) or later,
-// the member's own or, for a manager, everyone's. Each row shows its lead, the lead's last WhatsApp message and whether
-// the 24-hour window is open, and what the AI wrote when the follow-up came due; Done, Snooze and Edit close or move it.
-import type { FollowUpsInput } from "@travel-crm/contracts/ai";
+// The Follow-ups screen: the customers the member promised to get back to (a manager may see everyone's). Tabs Due
+// (Overdue, Due today) and Later (Tomorrow, This week, Later); the header counts what is due and how many replied. Each
+// row says its next move; Done asks when the next follow-up is, a dialog kept here because the row goes when it is done.
+import type { FollowUpRow } from "@travel-crm/contracts/ai";
 import { useQuery } from "@tanstack/react-query";
 import { AlarmClockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -15,20 +15,37 @@ import { PageHeader } from "@/components/page-header";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTRPC } from "@/data/trpc";
+import { formatCount } from "@/lib/format";
+import { useNow } from "@/lib/use-now";
 import { useMe, viewScope } from "@/session/me-context";
 import { FollowUpItem } from "./follow-up-item";
+import { NextFollowUpDialog, type NextFollowUpTarget } from "./next-follow-up-dialog";
+import { replied } from "./next-move";
+import { followUpSections } from "./sections";
 
-const views = ["due", "upcoming", "all"] as const;
+const views = ["due", "upcoming"] as const;
+type View = (typeof views)[number];
 
 export function FollowUpsScreen() {
   const t = useTranslations("tasks.followUps");
   const tLeads = useTranslations("leads.list");
   const tCommon = useTranslations("common");
   const trpc = useTRPC();
+  const now = useNow();
+  const { timeZone } = useMe().organization;
   const ownOnly = viewScope(useMe(), "leads:view") !== "all";
-  const [view, setView] = useState<FollowUpsInput["view"]>("due");
+  const [view, setView] = useState<View>("due");
   const [whose, setWhose] = useState<"mine" | "everyone">("mine");
-  const board = useQuery(trpc.tasks.followUps.queryOptions({ view, mine: ownOnly || whose === "mine" }));
+  const [next, setNext] = useState<NextFollowUpTarget | null>(null);
+  const mine = ownOnly || whose === "mine";
+  // Both tabs' lists load, so the header can count what is due while the Later tab is open.
+  const due = useQuery(trpc.tasks.followUps.queryOptions({ view: "due", mine }));
+  const later = useQuery(trpc.tasks.followUps.queryOptions({ view: "upcoming", mine }));
+  const board = view === "due" ? due : later;
+
+  const askNext = (row: FollowUpRow) => {
+    setNext({ leadId: row.lead.id, title: row.title, dueAt: row.dueAt });
+  };
 
   const body = () => {
     if (board.data) {
@@ -37,14 +54,29 @@ export function FollowUpsScreen() {
       }
       const { people } = board.data;
       return (
-        <ItemGroup role="list" aria-label={t("title")}>
-          {board.data.rows.map((row, index) => (
-            <Fragment key={row.taskId}>
-              {index > 0 && <ItemSeparator />}
-              <FollowUpItem row={row} people={people} showOwner={!ownOnly && whose === "everyone"} />
-            </Fragment>
+        <div className="flex flex-col gap-10">
+          {followUpSections(view, board.data.rows, now, timeZone).map((section) => (
+            <section key={section.group} aria-label={t(`groups.${section.group}`)} className="flex flex-col gap-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-section font-semibold">{t(`groups.${section.group}`)}</h2>
+                <span className="numbers text-label text-muted-foreground">{formatCount(section.rows.length)}</span>
+              </div>
+              <ItemGroup role="list">
+                {section.rows.map((row, index) => (
+                  <Fragment key={row.taskId}>
+                    {index > 0 && <ItemSeparator />}
+                    <FollowUpItem
+                      row={row}
+                      people={people}
+                      showOwner={!ownOnly && whose === "everyone"}
+                      onDone={askNext}
+                    />
+                  </Fragment>
+                ))}
+              </ItemGroup>
+            </section>
           ))}
-        </ItemGroup>
+        </div>
       );
     }
     if (board.isError) {
@@ -62,7 +94,10 @@ export function FollowUpsScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("title")} intro={t("intro")} />
+      <PageHeader
+        title={t("title")}
+        intro={due.data && t("intro", { due: due.data.rows.length, replied: due.data.rows.filter(replied).length })}
+      />
       <div className="flex flex-wrap gap-3">
         <Tabs
           value={view}
@@ -93,6 +128,12 @@ export function FollowUpsScreen() {
         )}
       </div>
       {body()}
+      <NextFollowUpDialog
+        target={next}
+        onClose={() => {
+          setNext(null);
+        }}
+      />
     </div>
   );
 }
