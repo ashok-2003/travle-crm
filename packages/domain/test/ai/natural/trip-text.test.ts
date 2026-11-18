@@ -126,8 +126,19 @@ describe("a trip as the natural agent reads it", () => {
 
   it("writes one index line with the from-price, the next 3 dates and the main stops", () => {
     expect(tripIndexLine(kedarkantha, today)).toBe(
-      "T1 Kedarkantha Trek · Sankri, Uttarakhand · 5 nights · from Dehradun · from ₹9,499 · Sat 12 Dec, Sat 19 Dec, Sat 26 Dec · stops: Sankri, Juda ka Talab, Kedarkantha summit",
+      "T1 Kedarkantha Trek · Sankri, Uttarakhand · 5 nights · from Dehradun · from ₹9,499 (the lowest room; quote or get_trip gives each room's) · Sat 12 Dec, Sat 19 Dec, Sat 26 Dec · stops: Sankri, Juda ka Talab, Kedarkantha summit",
     );
+  });
+
+  it("says how many more departures are open beyond the 3 shown", () => {
+    const weekly: TripSheet = {
+      ...kedarkantha,
+      departures: ["2026-12-12", "2026-12-19", "2026-12-26", "2027-01-02", "2027-01-09"].map((startsOn) => ({
+        ...(kedarkantha.departures[0] ?? expect.unreachable()),
+        startsOn: parseCalendarDate(startsOn),
+      })),
+    };
+    expect(tripIndexLine(weekly, today)).toContain("Sat 12 Dec, Sat 19 Dec, Sat 26 Dec and 2 more · stops");
   });
 
   it("names at most 4 stops, each a day title's first place, and says when no date is open", () => {
