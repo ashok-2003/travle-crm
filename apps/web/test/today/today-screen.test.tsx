@@ -1,5 +1,5 @@
 // My tasks (web revamp, spec 6): the day and how many things there are, the follow-ups line, then Overdue, Due today,
-// New leads to contact and AI needs you, each hidden when empty, with its count and five rows, View all for the rest;
+// New leads to contact and AI needs you, each hidden when empty, with its count and every item in its own card;
 // Add a task as the screen's action; and the skeleton, the error with Try again, and a refusal's own sentence.
 import type { TodayItem, TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
 import { screen, waitFor, within } from "@testing-library/react";
@@ -199,7 +199,7 @@ const region = (name: string) => screen.findByRole("region", { name });
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(now);
-  screenIs("phone");
+  screenIs("wide");
   day = busy();
   needsMe = { handedOver: [], suggestions: [] };
   followUps = [];
@@ -272,29 +272,44 @@ describe("TodayScreen", () => {
     expect(await screen.findByText("Fri 16 Oct · 11 to do")).toBeVisible();
   });
 
-  it("shows five rows of a section, and View all shows the rest of Overdue in place", async () => {
+  it("holds every item of a section in its card, with no View all, and loads the next page inside the card", async () => {
     const many = Array.from({ length: 7 }, (_, index) =>
       taskNamed(`Customer ${String(index + 1)}`, `0199e7a0-0000-7000-8000-0000000001${String(index).padStart(2, "0")}`),
     );
-    day = busy({ ...busyDay, counts: { ...busyDay.counts, overdue: 7 } });
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, overdue: 8, newLeads: 8 } });
     day.sections.overdue = many;
+    day.nextPages.overdue = [taskNamed("Customer 8", "0199e7a0-0000-7000-8000-000000000199")];
     renderToday();
     const overdue = await region(words.sections.overdue);
-    expect(await within(overdue).findByRole("link", { name: "Customer 5" })).toBeVisible();
-    expect(within(overdue).queryByRole("link", { name: "Customer 6" })).toBeNull();
-    await userEvent.click(within(overdue).getByRole("button", { name: words.viewAll }));
     expect(await within(overdue).findByRole("link", { name: "Customer 7" })).toBeVisible();
-    expect(within(overdue).queryByRole("button", { name: words.viewAll })).toBeNull();
+    expect(screen.queryByRole("button", { name: "View all" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "View all" })).toBeNull();
+    await userEvent.click(within(overdue).getByRole("button", { name: words.more.overdue }));
+    expect(await within(overdue).findByRole("link", { name: "Customer 8" })).toBeVisible();
   });
 
-  it("sends New leads' View all to the Leads list filtered to New", async () => {
-    day = busy({ ...busyDay, counts: { ...busyDay.counts, newLeads: 8 } });
+  it("clamps a row's second line to one line, with the full text in its title", async () => {
     renderToday();
     const newLeads = await region(words.sections["new-leads"]);
-    const viewAll = await within(newLeads).findByRole("link", { name: words.viewAll });
-    expect(viewAll).toHaveAttribute("href", "/leads?stage=new");
-    // ForwardLink: the arrow after the words.
-    expect(viewAll.querySelector("svg")).not.toBeNull();
+    const line = await within(newLeads).findByText(`Kashmir · Dec · ${messages.leads.sources.phone_call}`);
+    expect(line).toHaveClass("line-clamp-1");
+    expect(line).toHaveAttribute("title", line.textContent);
+  });
+
+  it("on a phone opens only the first section with something in it", async () => {
+    screenIs("phone");
+    renderToday();
+    const overdue = await region(words.sections.overdue);
+    expect(within(overdue).getByRole("button", { name: words.sections.overdue })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(await within(overdue).findByRole("link", { name: "Sneha Iyer" })).toBeVisible();
+    for (const name of [words.sections["due-today"], words.sections["new-leads"]]) {
+      const closed = await region(name);
+      expect(within(closed).getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
+      expect(within(closed).queryByRole("link")).toBeNull();
+    }
   });
 
   it("marks a new lead contacted, and it leaves the section and the chips' counts load again", async () => {
@@ -333,24 +348,6 @@ describe("TodayScreen", () => {
       const lost = within(ai).getByRole("button", { name: "Yes, mark it Lost" });
       expect(lost).toHaveAttribute("data-variant", "destructive");
       expect(within(ai).getByRole("button", { name: "No" })).toBeVisible();
-    });
-
-    it("leads to the AI agent page only for someone who manages the AI", async () => {
-      needsMe = {
-        handedOver: Array.from({ length: 6 }, (_, index) => ({
-          ...handedOver,
-          conversationId: `0199e7a0-0000-7000-8000-00000000090${String(index)}`,
-        })),
-        suggestions: [],
-      };
-      const { unmount } = renderToday(null, member({ permissions: ["leads:view", "inbox:view", "leads:edit"] }));
-      const ai = await region(words.sections.aiNeedsYou);
-      await within(ai).findAllByText("Meera Das");
-      expect(within(ai).queryByRole("link", { name: words.viewAll })).toBeNull();
-      unmount();
-      renderToday(null, member({ permissions: ["leads:view", "inbox:view", "leads:edit", "ai:manage"] }));
-      const managed = await region(words.sections.aiNeedsYou);
-      expect(within(managed).getByRole("link", { name: words.viewAll })).toHaveAttribute("href", "/ai-agent");
     });
 
     it("keeps the payments to check as a line inside it, leading to Payments", async () => {

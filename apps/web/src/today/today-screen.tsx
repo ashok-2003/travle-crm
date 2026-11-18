@@ -77,20 +77,35 @@ export function TodayScreen() {
       const aiThings = needs.count + counts.paymentsToCheck;
       const nothing =
         shown.length === 0 && shownLast.length === 0 && aiThings === 0 && !needs.isPending && !needs.isError;
-      // Sections stand further apart than the things inside them, so a section's title never reads as one more row.
+      const hasAi = aiThings > 0 || needs.isError;
+      // On a phone only the first section with something in it starts open.
+      const first = shown[0]?.name ?? (hasAi ? "ai" : shownLast[0]?.name);
       return (
-        <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-6">
           <FollowUpsLine />
           {nothing && <EmptyState icon={CalendarCheckIcon} message={t("nothing")} />}
-          {shown.map((section) => (
-            <TodaySection key={section.name} section={section.name} count={counts[section.count]} />
-          ))}
-          {(aiThings > 0 || needs.isError) && (
-            <AiNeedsYouSection needs={needs} paymentsToCheck={counts.paymentsToCheck} />
-          )}
-          {shownLast.map((section) => (
-            <TodaySection key={section.name} section={section.name} count={counts[section.count]} />
-          ))}
+          {/* Two cards a row on a wide screen, in this order; one column below. */}
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+            {shown.map((section) => (
+              <TodaySection
+                key={section.name}
+                section={section.name}
+                count={counts[section.count]}
+                defaultOpen={first === section.name}
+              />
+            ))}
+            {hasAi && (
+              <AiNeedsYouSection needs={needs} paymentsToCheck={counts.paymentsToCheck} defaultOpen={first === "ai"} />
+            )}
+            {shownLast.map((section) => (
+              <TodaySection
+                key={section.name}
+                section={section.name}
+                count={counts[section.count]}
+                defaultOpen={first === section.name}
+              />
+            ))}
+          </div>
         </div>
       );
     }
@@ -108,7 +123,7 @@ export function TodayScreen() {
   };
 
   return (
-    <div className="flex max-w-[960px] flex-col gap-6">
+    <div className="flex max-w-[1200px] flex-col gap-6">
       <PageHeader
         title={t("title")}
         intro={summary.data && <DayLine summary={summary.data} extra={needs.count} />}

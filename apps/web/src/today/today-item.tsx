@@ -125,29 +125,34 @@ function LeadItem({ item }: { item: LeadItemData }) {
   const phone = lead?.phone ?? null;
   const trip = lead && tripKnown(lead.trip) ? tripLine(lead.trip) : null;
   const tItem = useTranslations("today.item");
-  // A task on no lead already shows its title as the item's title.
-  const about =
-    item.kind === "new-lead"
-      ? [trip, tSources(item.lead.source)]
-      : item.kind === "quote-opened"
-        ? [tItem("quoteOpened", { title: item.quote.title, count: item.opens }), trip]
-        : item.kind === "payment-due"
-          ? [trip]
-          : item.kind === "trip-details"
-            ? [tItem("tripDetails", { missing: item.missing, total: item.total }), trip]
-            : lead
-              ? [title, trip]
-              : [];
-  const description = about.filter((part): part is string => part !== null && part !== "").join(" · ");
+  // Line 1 says what to do; line 2 (muted, one line) the trip. A task on no lead already shows its title as the title.
+  const doing =
+    item.kind === "quote-opened"
+      ? tItem("quoteOpened", { title: item.quote.title, count: item.opens })
+      : item.kind === "trip-details"
+        ? tItem("tripDetails", { missing: item.missing, total: item.total })
+        : lead
+          ? title
+          : null;
+  const detail = [trip, item.kind === "new-lead" ? tSources(item.lead.source) : null]
+    .filter((part): part is string => part !== null && part !== "")
+    .join(" · ");
   return (
     <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
       <ItemContent className="min-w-0 basis-48 gap-0">
-        {lead ? (
-          <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>
-        ) : (
-          <ItemTitle className="min-h-11 script-leading">{title}</ItemTitle>
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          {lead ? (
+            <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>
+          ) : (
+            <ItemTitle className="script-leading">{title}</ItemTitle>
+          )}
+          {doing !== null && doing !== "" && <span className="min-w-0 text-sm script-leading">{doing}</span>}
+        </div>
+        {detail !== "" && (
+          <ItemDescription title={detail} className="line-clamp-1 script-leading">
+            {detail}
+          </ItemDescription>
         )}
-        {description !== "" && <ItemDescription className="break-words script-leading">{description}</ItemDescription>}
       </ItemContent>
       <WhenMark urgency={when.urgency}>{when.text}</WhenMark>
       <ItemActions className="basis-full flex-wrap md:basis-auto">

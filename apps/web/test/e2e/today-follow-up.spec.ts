@@ -10,6 +10,7 @@
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "./support/leads";
+import { opened } from "./support/sections";
 import { animationsSettled } from "./support/settled";
 import { addTaskThroughApi, fillDue, laterToday, timeInIndia, typedDay } from "./support/work";
 
@@ -113,7 +114,8 @@ test("Add a task puts one on a lead found by search, and one standing alone, und
   await expect(adding).toBeHidden();
   const dueToday = page.getByRole("region", { name: "Due today" });
   await expect(dueToday.getByRole("link", { name: "Rahul Sharma", exact: true })).toBeVisible();
-  await expect(dueToday.getByText("Send the Kashmir quote · Kashmir")).toBeVisible();
+  await expect(dueToday.getByText("Send the Kashmir quote", { exact: true })).toBeVisible();
+  await expect(dueToday.getByText("Kashmir", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Add a task" }).click();
   await adding.getByLabel("What to do").fill("Renew the IATA licence");
@@ -138,6 +140,7 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
 
   await page.goto("/today");
   const newLeads = page.getByRole("region", { name: "New leads to contact" });
+  await opened(newLeads, "New leads to contact");
   await newLeads.getByRole("button", { name: "Mark Arjun Mehta contacted" }).click();
   // As the lead's own stage bar says it: Mark contacted is that same move.
   await expect(page.getByText("Moved to Contacted")).toBeVisible();

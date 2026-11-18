@@ -92,7 +92,6 @@
     "count": "{count, plural, one {# payment is waiting for your word} other {# payments are waiting for your word}}",
     "open": "Open payments to check"
   },
-  "viewAll": "View all",
   "aiNeedsYou": {
     "handedOver": "The AI handed this chat over to you",
     "handedOverWhy": "The AI handed this chat over: {reason}",
