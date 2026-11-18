@@ -21,12 +21,12 @@ export function ScrollingSection({
 }: {
   title: string;
   /** Left off when the section has no number of its own to show. */
-  count?: number;
+  count?: number | undefined;
   /** On a phone: whether it starts open (the page opens only its first section with something in it). */
   defaultOpen: boolean;
   children: ReactNode;
   /** Under the rows, outside the scroll on a wide screen. */
-  footer?: ReactNode;
+  footer?: ReactNode | undefined;
 }) {
   const wide = useWideScreen();
   const countId = useId();
