@@ -8,13 +8,17 @@
     "overdue": "Overdue",
     "due-today": "Due today",
     "new-leads": "New leads to contact",
-    "aiNeedsYou": "AI needs you"
+    "aiNeedsYou": "AI needs you",
+    "payments-due": "Payments due",
+    "trip-details": "Trips leaving soon, details missing"
   },
   "sectionLoadFailed": "This part of My tasks didn't load.",
   "more": {
     "overdue": "Show more overdue",
     "due-today": "Show more due today",
-    "new-leads": "Show more new leads"
+    "new-leads": "Show more new leads",
+    "payments-due": "Show more payments",
+    "trip-details": "Show more trips"
   },
   "item": {
     "yesterday": "Yesterday, {time}",

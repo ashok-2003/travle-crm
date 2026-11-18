@@ -34,6 +34,26 @@ const arjunNew: TodayItem = {
   waitingSince: "2026-10-16T03:30:00.000Z",
 };
 
+const kiranPayment: TodayItem = {
+  kind: "payment-due",
+  lead: aLead({ id: "0199e7a0-0000-7000-8000-0000000000a8", personName: "Kiran Joshi" }),
+  installmentId: "0199e7a0-0000-7000-8000-0000000000c1",
+  quoteId: "0199e7a0-0000-7000-8000-0000000000b2",
+  amountPaise: 2_500_000,
+  dueOn: "2026-10-15",
+  missed: true,
+};
+
+const goaTrip: TodayItem = {
+  kind: "trip-details",
+  lead: aLead({ id: "0199e7a0-0000-7000-8000-0000000000a9", personName: "Leela Menon" }),
+  bookingId: "0199e7a0-0000-7000-8000-0000000000d1",
+  number: "BK-0007",
+  startDate: "2026-10-22",
+  missing: 2,
+  total: 4,
+};
+
 /** A follow-up-free task of the member's own, due earlier today, for a section with more rows than it shows. */
 const taskNamed = (name: string, id: string): TodayItem => ({
   kind: "task",
@@ -222,21 +242,34 @@ describe("TodayScreen", () => {
     expect(await within(dueToday).findByRole("link", { name: "Priya Nair" })).toBeVisible();
   });
 
-  it("shows no hot leads, departures, payments due, trip details or opened quotes, and no later-releases line", async () => {
-    day = busy({
-      ...busyDay,
-      counts: { ...busyDay.counts, quoteOpened: 1, paymentsDue: 1, tripDetails: 1, departures: 1 },
-    });
+  it("shows no hot leads, departures or opened quotes, and no later-releases line", async () => {
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, quoteOpened: 1, departures: 1 } });
     const api = renderToday();
     await region(words.sections.overdue);
     expect(screen.queryByText(/Hot leads/i)).toBeNull();
-    const asked = api.calls.filter((call) => call.path === "today.section").map((call) => call.input);
-    expect(asked).not.toContainEqual({ section: "payments-due" });
-    for (const name of ["payments-due", "trip-details", "departures", "quote-opened"]) {
-      expect(JSON.stringify(asked)).not.toContain(name);
-    }
+    const asked = JSON.stringify(api.calls.filter((call) => call.path === "today.section").map((call) => call.input));
+    expect(asked).not.toContain("departures");
+    expect(asked).not.toContain("quote-opened");
     expect(api.calls.some((call) => call.path === "sales.hotLeads")).toBe(false);
     expect(screen.queryByText(/Departures and pickups/)).toBeNull();
+  });
+
+  it("keeps Payments due and Trips leaving soon as the last two sections, after AI needs you, and counts them", async () => {
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsDue: 1, tripDetails: 1 } });
+    day.sections["payments-due"] = [kiranPayment];
+    day.sections["trip-details"] = [goaTrip];
+    needsMe = { handedOver: [handedOver], suggestions: [] };
+    renderToday();
+    const ai = await region(words.sections.aiNeedsYou);
+    const payments = await region(words.sections["payments-due"]);
+    const trips = await region(words.sections["trip-details"]);
+    expect(ai.compareDocumentPosition(payments) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(payments.compareDocumentPosition(trips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(await within(payments).findByRole("link", { name: "Kiran Joshi" })).toBeVisible();
+    expect(within(payments).getByText("₹25,000 was due 15 Oct")).toBeVisible();
+    expect(await within(trips).findByRole("link", { name: "Leela Menon" })).toBeVisible();
+    // 8 things, 1 payment due and 1 trip, and the AI's 1 chat.
+    expect(await screen.findByText("Fri 16 Oct · 11 to do")).toBeVisible();
   });
 
   it("shows five rows of a section, and View all shows the rest of Overdue in place", async () => {

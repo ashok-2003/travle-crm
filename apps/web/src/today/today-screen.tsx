@@ -3,7 +3,7 @@
 // My tasks (web revamp, spec 6; the address stays /today): the signed-in person's own work, whatever their scope. The
 // header says the agency's day and how many things there are, red when some are overdue, with Add a task as the screen's
 // action; under it the follow-ups line (follow-ups live on their own screen); then Overdue, Due today, New leads to
-// contact and AI needs you, each shown while it holds something.
+// contact, AI needs you, Payments due and Trips leaving soon, each shown while it holds something.
 import { myTasksTotal, type TodaySummary } from "@travel-crm/contracts/today";
 import { parseCalendarDate, startOfDayIn } from "@travel-crm/domain/kernel";
 import { CalendarCheckIcon } from "lucide-react";
@@ -23,10 +23,18 @@ import { AiNeedsYouSection } from "./ai-needs-you-section";
 import { TodaySection, type MyTasksSection } from "./today-section";
 import { useTodaySummary } from "./use-today";
 
-const sections: readonly { name: MyTasksSection; count: "overdue" | "dueToday" | "newLeads" }[] = [
+interface Counted { name: MyTasksSection; count: "overdue" | "dueToday" | "newLeads" | "paymentsDue" | "tripDetails" }
+
+const sections: readonly Counted[] = [
   { name: "overdue", count: "overdue" },
   { name: "due-today", count: "dueToday" },
   { name: "new-leads", count: "newLeads" },
+];
+
+// Still here, after AI needs you, until the Bookings redesign gives them a new home.
+const lastSections: readonly Counted[] = [
+  { name: "payments-due", count: "paymentsDue" },
+  { name: "trip-details", count: "tripDetails" },
 ];
 
 /**
@@ -62,8 +70,10 @@ export function TodayScreen() {
     if (summary.data) {
       const { counts } = summary.data;
       const shown = sections.filter((section) => counts[section.count] > 0);
+      const shownLast = lastSections.filter((section) => counts[section.count] > 0);
       const aiThings = needs.count + counts.paymentsToCheck;
-      const nothing = shown.length === 0 && aiThings === 0 && !needs.isPending && !needs.isError;
+      const nothing =
+        shown.length === 0 && shownLast.length === 0 && aiThings === 0 && !needs.isPending && !needs.isError;
       // Sections stand further apart than the things inside them, so a section's title never reads as one more row.
       return (
         <div className="flex flex-col gap-10">
@@ -75,6 +85,9 @@ export function TodayScreen() {
           {(aiThings > 0 || needs.isError) && (
             <AiNeedsYouSection needs={needs} paymentsToCheck={counts.paymentsToCheck} />
           )}
+          {shownLast.map((section) => (
+            <TodaySection key={section.name} section={section.name} count={counts[section.count]} />
+          ))}
         </div>
       );
     }

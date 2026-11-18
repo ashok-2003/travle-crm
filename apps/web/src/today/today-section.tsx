@@ -19,7 +19,7 @@ import { useTodaySection } from "./use-today";
 
 export const ROWS_SHOWN = 5;
 
-export type MyTasksSection = "overdue" | "due-today" | "new-leads";
+export type MyTasksSection = "overdue" | "due-today" | "new-leads" | "payments-due" | "trip-details";
 
 export function TodaySection({ section, count }: { section: MyTasksSection; count: number }) {
   const t = useTranslations("today");
