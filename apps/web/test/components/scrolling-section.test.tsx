@@ -11,7 +11,13 @@ afterEach(() => {
 });
 
 const section = (defaultOpen: boolean) => (
-  <ScrollingSection title="Overdue" count={7} defaultOpen={defaultOpen} footer={<p>Footer line</p>}>
+  <ScrollingSection
+    title="Overdue"
+    count={7}
+    defaultOpen={defaultOpen}
+    footer={<p>Footer line</p>}
+    action={<a href="/all">All of them</a>}
+  >
     <p>First row</p>
   </ScrollingSection>
 );
@@ -25,7 +31,11 @@ describe("ScrollingSection", () => {
     expect(screen.getByText("7")).toBeVisible();
     expect(screen.getByText("First row")).toBeVisible();
     expect(screen.getByText("Footer line")).toBeVisible();
-    expect(container.querySelector("[data-slot=scroll-area]")).not.toBeNull();
+    const area = container.querySelector("[data-slot=scroll-area]");
+    // Its height follows its rows up to about five, then it scrolls: a maximum, never a fixed height.
+    expect(area).toHaveClass("max-h-90");
+    expect(area).not.toHaveClass("h-90");
+    expect(screen.getByRole("link", { name: "All of them" })).toBeVisible();
     expect(screen.queryByRole("button")).toBeNull();
   });
 
@@ -36,10 +46,14 @@ describe("ScrollingSection", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveAccessibleDescription("7");
     expect(screen.queryByText("First row")).toBeNull();
+    // The heading is ink, not link blue; the link back waits inside the open section.
+    expect(trigger).toHaveClass("text-foreground");
+    expect(screen.queryByRole("link", { name: "All of them" })).toBeNull();
     expect(container.querySelector("[data-slot=scroll-area]")).toBeNull();
     await userEvent.click(trigger);
     expect(screen.getByText("First row")).toBeVisible();
     expect(screen.getByText("Footer line")).toBeVisible();
+    expect(screen.getByRole("link", { name: "All of them" })).toBeVisible();
     unmount();
     render(section(true));
     expect(screen.getByRole("button", { name: "Overdue" })).toHaveAttribute("aria-expanded", "true");

@@ -288,6 +288,30 @@ describe("TodayScreen", () => {
     expect(await within(overdue).findByRole("link", { name: "Customer 8" })).toBeVisible();
   });
 
+  it("leads back to the Leads list on New and to the AI agent page for whoever manages the AI", async () => {
+    needsMe = { handedOver: [handedOver], suggestions: [] };
+    const { unmount } = renderToday(null, member({ permissions: ["leads:view", "inbox:view", "leads:edit"] }));
+    const newLeads = await region(words.sections["new-leads"]);
+    const all = within(newLeads).getByRole("link", { name: "All new leads" });
+    expect(all).toHaveAttribute("href", "/leads?stage=new");
+    expect(all.querySelector("svg")).not.toBeNull();
+    const ai = await region(words.sections.aiNeedsYou);
+    expect(within(ai).queryByRole("link", { name: "AI agent" })).toBeNull();
+    unmount();
+    renderToday(null, member({ permissions: ["leads:view", "inbox:view", "leads:edit", "ai:manage"] }));
+    const managed = await region(words.sections.aiNeedsYou);
+    expect(within(managed).getByRole("link", { name: "AI agent" })).toHaveAttribute("href", "/ai-agent");
+  });
+
+  it("draws Snooze as an icon button named for its task, Done keeping its word", async () => {
+    renderToday();
+    const overdue = await region(words.sections.overdue);
+    const snooze = await within(overdue).findByRole("button", { name: "Snooze: Send Goa options" });
+    expect(snooze).toHaveTextContent("");
+    expect(snooze).toHaveAttribute("data-size", "icon");
+    expect(within(overdue).getAllByRole("button", { name: /^Done: / })[0]).toHaveTextContent("Done");
+  });
+
   it("clamps a row's second line to one line, with the full text in its title", async () => {
     renderToday();
     const newLeads = await region(words.sections["new-leads"]);

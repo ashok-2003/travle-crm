@@ -12,6 +12,8 @@
     "payments-due": "Payments due",
     "trip-details": "Trips leaving soon, details missing"
   },
+  "allNewLeads": "All new leads",
+  "aiAgentLink": "AI agent",
   "sectionLoadFailed": "This part of My tasks didn't load.",
   "more": {
     "overdue": "Show more overdue",

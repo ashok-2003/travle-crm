@@ -31,7 +31,7 @@ export function whatsAppLink(e164: string): string {
 }
 
 /** A compact button's name as a tooltip too, for a mouse; the button already carries it for a screen reader. */
-function Tipped({ compact, label, children }: { compact: boolean; label: string; children: ReactNode }) {
+export function Tipped({ compact, label, children }: { compact: boolean; label: string; children: ReactNode }) {
   if (!compact) return children;
   return (
     <TooltipProvider>

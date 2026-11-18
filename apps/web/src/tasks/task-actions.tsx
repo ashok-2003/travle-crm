@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/data/trpc";
+import { Tipped } from "@/leads/contact-buttons";
 import { useErrorMessage } from "@/lib/error-message";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
@@ -22,10 +23,13 @@ import { useRefreshWork } from "@/data/use-refresh-work";
 export function TaskActions({
   task,
   onDone,
+  compact = false,
 }: {
   task: { id: string; title: string };
   /** Called once the task is done, from the mutation's own options, so it still runs after the row has gone. */
   onDone?: () => void;
+  /** Snooze as a round icon with a tooltip, for a dense row; Done keeps its word. */
+  compact?: boolean;
 }) {
   const t = useTranslations("tasks.actions");
   const trpc = useTRPC();
@@ -63,19 +67,22 @@ export function TaskActions({
           {complete.isPending ? <Spinner /> : <CheckIcon aria-hidden="true" />}
           {t("done")}
         </Button>
-        <Button
-          ref={snoozeButton}
-          variant="outline"
-          aria-label={t("snoozeTask", { title: task.title })}
-          aria-describedby={described}
-          disabled={!write.allowed}
-          onClick={() => {
-            setSnoozing(true);
-          }}
-        >
-          <AlarmClockIcon aria-hidden="true" />
-          {t("snooze")}
-        </Button>
+        <Tipped compact={compact} label={t("snoozeTask", { title: task.title })}>
+          <Button
+            ref={snoozeButton}
+            variant="outline"
+            size={compact ? "icon" : "default"}
+            aria-label={t("snoozeTask", { title: task.title })}
+            aria-describedby={described}
+            disabled={!write.allowed}
+            onClick={() => {
+              setSnoozing(true);
+            }}
+          >
+            <AlarmClockIcon aria-hidden="true" />
+            {!compact && t("snooze")}
+          </Button>
+        </Tipped>
       </div>
       <WriteHint id={hintId} hint={write.hint} />
       <SnoozeDialog taskId={task.id} open={snoozing} onOpenChange={setSnoozing} returnFocusTo={snoozeButton} />

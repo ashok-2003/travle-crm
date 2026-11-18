@@ -12,8 +12,8 @@ import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
-import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
+import { DenseRow } from "@/components/dense-row";
+import { CallButton, Tipped, WhatsAppButton } from "@/leads/contact-buttons";
 import { StageBadge } from "@/leads/stage-badge";
 import { formatDayTime } from "@/lib/format";
 import { elapsed } from "@/lib/relative-time";
@@ -63,49 +63,56 @@ export function FollowUpItem({
     .filter((part): part is string => part !== null)
     .join(" · ");
   return (
-    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
-      <ItemContent className="min-w-0 basis-48 gap-0">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2">
-          <TextLink href={leadRoute(lead.id)}>{lead.name}</TextLink>
-          <StageBadge stage={lead.stage} />
-          <span className="min-w-0 text-sm script-leading">{row.title}</span>
-        </div>
-        {detail !== "" && (
-          <ItemDescription title={detail} className="line-clamp-1 script-leading">
-            {detail}
-          </ItemDescription>
-        )}
-      </ItemContent>
-      <WhenMark urgency={due < now ? "overdue" : "today"}>{formatDayTime(due, { timeZone, now })}</WhenMark>
-      <ItemActions className="basis-full flex-wrap md:basis-auto">
-        {lead.phone !== null && (
-          <div className="flex flex-wrap gap-2">
-            <CallButton phone={lead.phone} name={lead.name} leadId={lead.id} variant="outline" compact />
-            <WhatsAppButton phone={lead.phone} name={lead.name} leadId={lead.id} compact />
-          </div>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <TaskActions
-            task={{ id: row.taskId, title: row.title }}
-            onDone={() => {
-              onDone(row);
-            }}
-          />
-          <Button
-            ref={editButton}
-            variant="outline"
-            aria-label={t("editTask", { title: row.title })}
-            disabled={!write.allowed}
-            onClick={() => {
-              setEditing(true);
-            }}
-          >
-            <PencilIcon aria-hidden="true" />
-            {t("edit")}
-          </Button>
-        </div>
-        <EditFollowUpDialog row={row} open={editing} onOpenChange={setEditing} returnFocusTo={editButton} />
-      </ItemActions>
-    </Item>
+    <>
+      <DenseRow
+        line={
+          <>
+            <span className="shrink-0">
+              <TextLink href={leadRoute(lead.id)}>{lead.name}</TextLink>
+            </span>
+            <StageBadge stage={lead.stage} />
+            <span title={row.title} className="min-w-0 text-sm script-leading md:truncate">
+              {row.title}
+            </span>
+          </>
+        }
+        when={<WhenMark urgency={due < now ? "overdue" : "today"}>{formatDayTime(due, { timeZone, now })}</WhenMark>}
+        detail={detail}
+        actions={
+          <>
+            {lead.phone !== null && (
+              <div className="flex flex-wrap gap-2">
+                <CallButton phone={lead.phone} name={lead.name} leadId={lead.id} variant="outline" compact />
+                <WhatsAppButton phone={lead.phone} name={lead.name} leadId={lead.id} compact />
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <TaskActions
+                task={{ id: row.taskId, title: row.title }}
+                compact
+                onDone={() => {
+                  onDone(row);
+                }}
+              />
+              <Tipped compact label={t("editTask", { title: row.title })}>
+                <Button
+                  ref={editButton}
+                  variant="outline"
+                  size="icon"
+                  aria-label={t("editTask", { title: row.title })}
+                  disabled={!write.allowed}
+                  onClick={() => {
+                    setEditing(true);
+                  }}
+                >
+                  <PencilIcon aria-hidden="true" />
+                </Button>
+              </Tipped>
+            </div>
+          </>
+        }
+      />
+      <EditFollowUpDialog row={row} open={editing} onOpenChange={setEditing} returnFocusTo={editButton} />
+    </>
   );
 }
