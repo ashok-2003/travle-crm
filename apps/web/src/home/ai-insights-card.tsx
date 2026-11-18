@@ -63,10 +63,11 @@ export function AiInsightsCard({ period }: { period: Period }) {
           {settings.data === undefined ? (
             <Skeleton className="h-5 w-40" />
           ) : (
-            <p className="numbers max-w-48 text-label">
-              {t("calls", {
+            <p className="max-w-48 text-label">
+              {t.rich("calls", {
                 used: formatCount(settings.data.usedThisMonth),
                 limit: formatCount(settings.data.monthlyLimit),
+                n: (figure) => <span className="numbers">{figure}</span>,
               })}
             </p>
           )}

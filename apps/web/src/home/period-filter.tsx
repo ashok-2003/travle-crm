@@ -16,6 +16,8 @@ export function PeriodFilter({ value, onChange }: { value: Period; onChange: (pe
     <ToggleGroup
       type="single"
       variant="outline"
+      // Wraps on a phone, where the four chips are wider than the screen; one row from tablets up.
+      className="w-full flex-wrap md:w-auto md:flex-nowrap"
       aria-label={t("label")}
       value={value}
       onValueChange={(chosen) => {
@@ -23,7 +25,7 @@ export function PeriodFilter({ value, onChange }: { value: Period; onChange: (pe
       }}
     >
       {periods.map((period) => (
-        <ToggleGroupItem key={period} value={period}>
+        <ToggleGroupItem key={period} value={period} className="grow md:grow-0">
           {t(period)}
         </ToggleGroupItem>
       ))}
