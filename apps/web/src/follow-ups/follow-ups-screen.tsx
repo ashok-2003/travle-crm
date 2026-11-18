@@ -96,13 +96,7 @@ export function FollowUpsScreen() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={t("title")}
-        intro={
-          due.data && (
-            <span className="numbers">
-              {t("intro", { due: due.data.rows.length, replied: due.data.rows.filter(replied).length })}
-            </span>
-          )
-        }
+        intro={due.data && t("intro", { due: due.data.rows.length, replied: due.data.rows.filter(replied).length })}
       />
       <div className="flex flex-wrap gap-3">
         <Tabs

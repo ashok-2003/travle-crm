@@ -166,6 +166,14 @@ describe("FollowUpsScreen", () => {
     expect(calls.some((call) => call.path === "leads.addWork")).toBe(false);
   });
 
+  it("draws Edit, Done and Snooze alike, as plain outline buttons", async () => {
+    renderScreen();
+    const today = await region("Due today");
+    for (const name of ["Edit: Send options to Bina", "Done: Send options to Bina", "Snooze: Send options to Bina"]) {
+      expect(within(today).getByRole("button", { name })).toHaveAttribute("data-variant", "outline");
+    }
+  });
+
   it("keeps Mine and Everyone for members who see every lead", async () => {
     renderScreen();
     expect(await screen.findByRole("tab", { name: messages.leads.list.everyone })).toBeVisible();
