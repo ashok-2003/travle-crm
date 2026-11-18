@@ -219,10 +219,19 @@ const refusesSchema = (response: Response): boolean => response.status === 400 |
 const finishReasonOf = (reason: string | undefined): AiFinishReason =>
   reason === "stop" || reason === "tool_calls" || reason === "length" || reason === "content_filter" ? reason : "other";
 
-/** The completion's answer, or null when it holds neither words nor tool calls (the next model is asked). */
-function answerOf(body: ChatCompletion, model: string, ms: number): Extract<AiResult, { ok: true }> | null {
+/**
+ * The completion's answer, or null when it holds neither words nor tool calls (the next model is asked). To a request with
+ * tools, nothing said, with a stop or no reason, is an empty answer: the agent's loop nudges once or ends quiet, where
+ * asking another model would fail the turn and drop what its tool rounds staged.
+ */
+function answerOf(
+  body: ChatCompletion,
+  model: string,
+  ms: number,
+  withTools: boolean,
+): Extract<AiResult, { ok: true }> | null {
   const choice = body.choices?.[0];
-  const text = choice?.message?.content ?? "";
+  const said = choice?.message?.content ?? "";
   const toolCalls = (choice?.message?.tool_calls ?? []).map((call) => {
     // Everything but the id, the type and the function is the provider's own (Gemini's thought signature).
     const { id, function: fn, ...rest } = call;
@@ -234,7 +243,10 @@ function answerOf(body: ChatCompletion, model: string, ms: number): Extract<AiRe
       ...(Object.keys(providerData).length === 0 ? {} : { providerData }),
     };
   });
-  if (text.trim() === "" && toolCalls.length === 0) return null;
+  const silent = said.trim() === "" && toolCalls.length === 0;
+  const stopped = choice?.finish_reason === undefined || choice.finish_reason === "stop";
+  if (silent && !(withTools && stopped)) return null;
+  const text = silent ? "" : said;
   const reasoningDetails = choice?.message?.reasoning_details;
   return {
     ok: true,
@@ -326,7 +338,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           }
           const body = (await response.json()) as ChatCompletion;
           if (body.choices?.[0]?.finish_reason === "content_filter") return { ok: false, reason: "refused" };
-          const answer = answerOf(body, model, Date.now() - started);
+          const answer = answerOf(body, model, Date.now() - started, hasTools(request));
           if (answer === null) continue;
           restingUntil.delete(model);
           return answer;
