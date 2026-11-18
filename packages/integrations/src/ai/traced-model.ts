@@ -1,8 +1,8 @@
 // The AI model with every call traced: one model-call observation per call, named for its feature (and its answer's schema,
-// so the agent's two calls tell apart), with the messages sent, the answer, the model that gave it and its tokens, or ERROR
-// and the reason; a tool round shows its calls in OpenAI's shape, which Langfuse reads. The call is untouched: the request
-// reaches the model as it came and the result comes back as it was given, extra fields included, whatever happens to the
-// tracing.
+// so the agent's two calls tell apart), with the messages sent, the answer, the model that gave it and its tokens (cached
+// input apart, as Langfuse prices it), or ERROR and the reason; a tool round shows its calls in OpenAI's shape, which
+// Langfuse reads. The call is untouched: the request reaches the model as it came and the result comes back as it was
+// given, extra fields included, whatever happens to the tracing.
 import { failureOf, type AiTracing, type GenerationEnd, type TracedGeneration } from "../tracing/ai-tracing.js";
 import type { AiMessage, AiModel, AiPart, AiRequest, AiToolCall } from "./ai-model.js";
 
@@ -98,7 +98,12 @@ export function withTracing(model: AiModel, tracing: AiTracing): AiModel {
             ? {
                 output: tracedAnswer(result.text, result.toolCalls),
                 model: result.model,
-                usage: { input: result.inputTokens, output: result.outputTokens },
+                // Cached input apart, under the key Langfuse prices at a tenth: the rest is input at its full price.
+                usage: {
+                  input: result.inputTokens - (result.cachedTokens ?? 0),
+                  output: result.outputTokens,
+                  ...((result.cachedTokens ?? 0) > 0 ? { input_cached_tokens: result.cachedTokens } : {}),
+                },
               }
             : { level: "ERROR", statusMessage: result.reason },
         );

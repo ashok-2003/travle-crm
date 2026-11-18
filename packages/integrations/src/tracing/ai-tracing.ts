@@ -66,7 +66,8 @@ export interface GenerationStart {
 export interface GenerationEnd {
   output?: unknown;
   model?: string;
-  usage?: { input: number; output: number };
+  /** `input` is the uncached part; cached input goes apart under the key Langfuse prices at a tenth. */
+  usage?: { input: number; output: number; input_cached_tokens?: number };
   level?: TraceLevel;
   statusMessage?: string;
 }

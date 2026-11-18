@@ -98,7 +98,6 @@ describe("the one agent's tool schemas", () => {
     expect(names({ voiceNotes: ["m3"] })).not.toContain("look_at_image");
     const look = oneToolSchemas({ tripLabels: labels, photos: ["m7"] }).find((tool) => tool.name === "look_at_image");
     expect(look?.schema.safeParse({ message: "m7", question: "the amount?" }).success).toBe(true);
-    expect(look?.schema.safeParse({ message: "m3" }).success).toBe(false);
     expect(look?.schema.safeParse({ message: "m7", question: "" }).success).toBe(false);
     expect(oneReadTools).toEqual(expect.arrayContaining(["quote", "transcribe_voice_note", "look_at_image"]));
     const more = { voiceNotes: ["m3"], photos: ["m7"] };
@@ -106,6 +105,21 @@ describe("the one agent's tool schemas", () => {
     expect(parseOneToolArguments("look_at_image", { message: "m3" }, labels, more).ok).toBe(false);
     expect(parseOneToolArguments("transcribe_voice_note", '{"message":"m3"}', labels, more).ok).toBe(true);
     expect(parseOneToolArguments("transcribe_voice_note", { message: "m3", extra: 1 }, labels, more).ok).toBe(false);
+    expect(parseOneToolArguments("transcribe_voice_note", { message: "m9" }, labels, more)).toEqual({
+      ok: false,
+      problem: "m9 isn't one of this chat's voice notes; m3",
+    });
+  });
+
+  it("offers the same media tools in every chat, whatever its references, so an agency's chats share one cache", () => {
+    const schemas = (more: { voiceNotes: string[]; photos: string[] }) =>
+      JSON.stringify(
+        oneToolSchemas({ tripLabels: labels, ...more }).map((tool) => z.toJSONSchema(tool.schema, { io: "input" })),
+      );
+    const one = schemas({ voiceNotes: ["m3"], photos: ["m7"] });
+    expect(one).toBe(schemas({ voiceNotes: ["m1", "m2"], photos: ["m9"] }));
+    expect(one).toContain("The message's reference, like m1.");
+    expect(one).not.toContain('"enum":["m3"]');
   });
 
   it("describes book with no customer words in its JSON Schema", () => {

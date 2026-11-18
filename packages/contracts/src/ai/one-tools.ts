@@ -63,15 +63,19 @@ const mediaToolNames: readonly OneMediaToolName[] = ["transcribe_voice_note", "l
 /** The tools that only read: the model is called again with their results. */
 export const oneReadTools: readonly OneToolName[] = [...naturalReadTools, ...mediaToolNames];
 
-/** `message` is a reference the chat shows (m3); the turn's own are the only ones offered. */
+/**
+ * `message` is a reference the chat shows (m3), any string to the model: an enum of the turn's own would make the tools
+ * differ from chat to chat, and each chat would need its own Vertex cache. The parse refuses a reference not the turn's.
+ */
+const mediaReference = z.string().describe("The message's reference, like m1.");
 const mediaTable: Record<OneMediaToolName, ToolEntry> = {
   transcribe_voice_note: tool(
     "Hears what a customer's voice note says. Pass its reference, as [voice note m3] shows it, then answer it like a typed message.",
-    z.strictObject({ message: z.string() }),
+    z.strictObject({ message: mediaReference }),
   ),
   look_at_image: tool(
     "Looks at a customer's photo, as [photo m7] shows it. You can pass a question about what to look for. Not for a sticker or a forward that needs no reply.",
-    z.strictObject({ message: z.string(), question: z.string().min(1).max(200).optional() }),
+    z.strictObject({ message: mediaReference, question: z.string().min(1).max(200).optional() }),
   ),
 };
 
@@ -85,17 +89,17 @@ export interface OneToolSchema {
 export function oneToolSchemas(input: {
   tripLabels: readonly string[];
   brochureLabels?: readonly string[];
-  /** References of the turn's voice notes and photos; each tool is offered with one at least. */
+  /** References of the turn's voice notes and photos; each tool is offered when the turn has one of its kind. */
   voiceNotes?: readonly string[];
   photos?: readonly string[];
 }): OneToolSchema[] {
   const brochureLabels = input.brochureLabels ?? [];
   const { voiceNotes = [], photos = [] } = input;
-  // A media tool is offered with the references of its own kind, and only when the turn has one.
+  // A media tool is offered only when the turn has a reference of its kind.
   const media = mediaToolNames.flatMap((name): OneToolSchema[] => {
     const refs = name === "look_at_image" ? photos : voiceNotes;
     const { description, fields } = mediaTable[name];
-    return refs.length === 0 ? [] : [{ name, description, schema: fields.extend({ message: z.enum(refs) }) }];
+    return refs.length === 0 ? [] : [{ name, description, schema: fields }];
   });
   const natural: OneToolSchema[] = naturalToolNames
     .filter(
