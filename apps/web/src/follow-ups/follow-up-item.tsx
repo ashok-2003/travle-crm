@@ -67,7 +67,7 @@ export function FollowUpItem({
       <DenseRow
         line={
           <>
-            <span className="shrink-0">
+            <span className="shrink-0 lg:[&>a]:min-h-0">
               <TextLink href={leadRoute(lead.id)}>{lead.name}</TextLink>
             </span>
             <StageBadge stage={lead.stage} />

@@ -22,7 +22,7 @@ function HandedOverRow({ chat }: { chat: HandedOverChat }) {
   const t = useTranslations("today.aiNeedsYou");
   return (
     <DenseRow
-      line={<ItemTitle className="script-leading">{chat.name}</ItemTitle>}
+      line={<ItemTitle className="script-leading lg:min-h-0">{chat.name}</ItemTitle>}
       detail={chat.reason === null ? t("handedOver") : t("handedOverWhy", { reason: chat.reason })}
       actions={
         <Button variant="outline" asChild>
@@ -39,7 +39,11 @@ function SuggestionRow({ suggestion }: { suggestion: StageSuggestion }) {
   const t = useTranslations("today.aiNeedsYou");
   return (
     <DenseRow
-      line={<TextLink href={leadRoute(suggestion.leadId)}>{suggestion.name}</TextLink>}
+      line={
+        <span className="shrink-0 lg:[&>a]:min-h-0">
+          <TextLink href={leadRoute(suggestion.leadId)}>{suggestion.name}</TextLink>
+        </span>
+      }
       detail={t("suggestion", { reason: suggestion.reason })}
       actions={<SuggestionButtons suggestion={suggestion} />}
     />
