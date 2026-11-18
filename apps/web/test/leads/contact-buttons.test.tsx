@@ -3,16 +3,26 @@
 // number with Copy, Send to my phone, a QR code that dials, and Log the call. Call is the main button, WhatsApp outline.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type * as Navigation from "next/navigation";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CallButton, WhatsAppButton, whatsAppLink } from "@/leads/contact-buttons";
 import { takePendingCall } from "@/leads/call/pending-call";
-import { newQueryClient, renderWithApi } from "../organization/api";
+import { inboxRoute, leadChatRoute } from "@/lib/routes";
+import { member } from "../support/members";
+import { newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { sentInputs } from "../notifications/sent-inputs";
 import { stubApi } from "../support/api-stub";
 
 const phone = "+919876543210";
 const leadId = "0199e7a0-0000-7000-8000-000000000001";
+const conversationId = "0199e7a0-0000-7000-8000-0000000000c1";
+
+const push = vi.fn();
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof Navigation>()),
+  useRouter: () => ({ push }),
+}));
 
 beforeEach(() => {
   window.sessionStorage.clear();
@@ -30,7 +40,7 @@ describe("the contact buttons", () => {
     renderWithApi(
       <>
         <CallButton phone={phone} name="Rahul Sharma" leadId={leadId} />
-        <WhatsAppButton phone={phone} name="Rahul Sharma" />
+        <WhatsAppButton phone={phone} name="Rahul Sharma" leadId={leadId} />
       </>,
       newQueryClient(),
     );
@@ -116,5 +126,80 @@ describe("the contact buttons", () => {
     await waitFor(() => {
       expect(api.calls.filter((call) => call === "leads.get")).toHaveLength(1);
     });
+  });
+});
+
+describe("WhatsApp through the agency's inbox", () => {
+  const connected = {
+    configured: true,
+    connected: true,
+    connectionStatus: "connected",
+    demo: false,
+    number: "+919000000000",
+  };
+  const onInboxPlan = () => newQueryClient({ ...paidSubscription, modules: ["inbox"] });
+  const inboxReader = member({ permissions: ["leads:view", "inbox:view"] });
+
+  beforeEach(() => {
+    push.mockReset();
+  });
+
+  it("opens the customer's chat in our inbox when WhatsApp is connected", async () => {
+    stubApi({ "inbox.status": { data: connected }, "inbox.leadChat": { data: { conversationId } } });
+    renderWithApi(<WhatsAppButton phone={phone} name="Priya Nair" leadId={leadId} />, onInboxPlan(), inboxReader);
+    await userEvent.click(await screen.findByRole("button", { name: "WhatsApp Priya Nair" }));
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(inboxRoute(conversationId));
+    });
+  });
+
+  it("opens the lead's WhatsApp section to start a chat when there is none yet", async () => {
+    stubApi({ "inbox.status": { data: connected }, "inbox.leadChat": { data: { conversationId: null } } });
+    renderWithApi(<WhatsAppButton phone={phone} name="Priya Nair" leadId={leadId} />, onInboxPlan(), inboxReader);
+    await userEvent.click(await screen.findByRole("button", { name: "WhatsApp Priya Nair" }));
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(leadChatRoute(leadId));
+    });
+  });
+
+  it("falls back to wa.me when the agency has no WhatsApp connected", async () => {
+    stubApi({ "inbox.status": { data: { ...connected, connected: false, connectionStatus: null } } });
+    renderWithApi(<WhatsAppButton phone={phone} name="Priya Nair" leadId={leadId} />, onInboxPlan(), inboxReader);
+    const link = await screen.findByRole("link", { name: "WhatsApp Priya Nair" });
+    expect(link).toHaveAttribute("href", "https://wa.me/919876543210");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("falls back to wa.me for a member without the inbox, and never asks for its status", () => {
+    const api = stubApi({ "inbox.status": { data: connected } });
+    renderWithApi(
+      <WhatsAppButton phone={phone} name="Priya Nair" leadId={leadId} />,
+      onInboxPlan(),
+      member({ permissions: ["leads:view"] }),
+    );
+    expect(screen.getByRole("link", { name: "WhatsApp Priya Nair" })).toHaveAttribute(
+      "href",
+      "https://wa.me/919876543210",
+    );
+    expect(api.calls).not.toContain("inbox.status");
+  });
+
+  it("shows compact buttons as named icons, with no words", () => {
+    screenIs("phone");
+    stubApi({});
+    renderWithApi(
+      <>
+        <CallButton phone={phone} name="Priya Nair" leadId={leadId} compact />
+        <WhatsAppButton phone={phone} name="Priya Nair" leadId={leadId} compact />
+      </>,
+      newQueryClient(),
+    );
+    const call = screen.getByRole("link", { name: "Call Priya Nair" });
+    const whatsApp = screen.getByRole("link", { name: "WhatsApp Priya Nair" });
+    for (const button of [call, whatsApp]) {
+      expect(button).toHaveTextContent(/^$/);
+      expect(button).toHaveAttribute("data-size", "icon");
+      expect(button.querySelector("svg")).not.toBeNull();
+    }
   });
 });

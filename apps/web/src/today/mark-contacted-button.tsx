@@ -25,8 +25,7 @@ export function MarkContactedButton({ lead }: { lead: Pick<LeadBrief, "id" | "pe
   return (
     <div className="flex flex-col gap-1">
       <Button
-        variant="ghost"
-        className="self-start"
+        variant="outline"
         aria-label={t("markContactedPerson", { name: lead.personName })}
         aria-describedby={write.hint === null ? undefined : hintId}
         disabled={!write.allowed || move.isPending}

@@ -1,28 +1,24 @@
 {
-  "title": "Today",
-  "intro": "{count, plural, =0 {{weekday} {day}} one {{weekday} {day} · # thing} other {{weekday} {day} · # things}}",
+  "title": "My tasks",
+  "intro": "{count, plural, =0 {{weekday} {day}} other {{weekday} {day} · # to do}}",
   "overdueCount": "{count} overdue",
-  "loadFailed": "Today didn't load.",
-  "nothing": "Nothing for today",
-  "later": "Later, Today also shows departures and pickups.",
+  "loadFailed": "My tasks didn't load.",
+  "nothing": "Nothing to do right now.",
   "sections": {
     "overdue": "Overdue",
-    "payments-due": "Payments due",
-    "trip-details": "Trips leaving soon, details missing",
-    "new-leads": "New leads not contacted yet",
-    "quote-opened": "Quote opened, no reply",
     "due-today": "Due today",
-    "departures": "Departures leaving soon"
+    "new-leads": "New leads to contact",
+    "aiNeedsYou": "AI needs you",
+    "payments-due": "Payments due",
+    "trip-details": "Trips leaving soon, details missing"
   },
-  "sectionLoadFailed": "This part of Today didn't load.",
+  "sectionLoadFailed": "This part of My tasks didn't load.",
   "more": {
     "overdue": "Show more overdue",
-    "payments-due": "Show more payments",
-    "trip-details": "Show more trips",
-    "new-leads": "Show more new leads",
-    "quote-opened": "Show more opened quotes",
     "due-today": "Show more due today",
-    "departures": "Show more departures"
+    "new-leads": "Show more new leads",
+    "payments-due": "Show more payments",
+    "trip-details": "Show more trips"
   },
   "item": {
     "yesterday": "Yesterday, {time}",
@@ -68,7 +64,7 @@
   "addTask": {
     "action": "Add a task",
     "title": "Add a task",
-    "description": "Something to do by a time. It shows in Today for whoever it's for.",
+    "description": "Something to do by a time. It shows in My tasks for whoever it's for.",
     "what": "What to do",
     "due": "Due",
     "assignee": "For",
@@ -93,8 +89,16 @@
     }
   },
   "paymentsToCheck": {
-    "title": "Payments to check",
     "count": "{count, plural, one {# payment is waiting for your word} other {# payments are waiting for your word}}",
     "open": "Open payments to check"
+  },
+  "viewAll": "View all",
+  "aiNeedsYou": {
+    "handedOver": "The AI handed this chat over to you",
+    "handedOverWhy": "The AI handed this chat over: {reason}",
+    "openChat": "Open chat",
+    "openChatPerson": "Open chat: {name}",
+    "suggestion": "The AI suggests: {reason}",
+    "loadFailed": "What the AI needs from you didn't load."
   }
 }

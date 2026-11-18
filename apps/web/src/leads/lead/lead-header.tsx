@@ -59,7 +59,7 @@ export function LeadHeader({ lead }: { lead: LeadDetail }) {
       action={
         <div className="flex flex-wrap items-center gap-2">
           {phone && callable && <CallButton phone={phone} name={name} leadId={lead.id} />}
-          {phone && <WhatsAppButton phone={phone} name={name} />}
+          {phone && <WhatsAppButton phone={phone} name={name} leadId={lead.id} />}
           <MessagesButton leadId={lead.id} name={name} phone={phone} />
           <LeadMenu lead={lead} />
         </div>

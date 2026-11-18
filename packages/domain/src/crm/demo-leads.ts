@@ -5,7 +5,7 @@
 import type { OrgTx } from "@travel-crm/db";
 import { findOrAddDestination } from "../catalog/index.js";
 import { organizationTimeZone } from "../identity/index.js";
-import { addDays, calendarDateIn, instantAt, parseTimeOfDay, type Actor } from "../kernel/index.js";
+import { addDays, calendarDateIn, instantAt, parseTimeOfDay, startOfDayIn, type Actor } from "../kernel/index.js";
 import { createTask } from "../tasks/index.js";
 import { addBlockedContact } from "./blocking.js";
 import { addLeadInTransaction } from "./add-lead.js";
@@ -109,4 +109,15 @@ export async function addDemoLeads(
     });
   await own("Renew the Goa hotel contracts", 2, "11:00", staff.ownerUserId);
   await own("Update the Kashmir price sheet", 1, "16:00", staff.salesUserId);
+  // My tasks holds plain tasks, follow-ups live on Follow-ups (web revamp): Ravi's day has one overdue and one due later
+  // today, between now and the agency's midnight whatever hour the demo is built.
+  await own("Send the Bali visa checklist", -1, "15:00", staff.salesUserId);
+  const endsAt = startOfDayIn(addDays(today, 1), timeZone).getTime();
+  await createTask(tx, actor, {
+    kind: "task",
+    title: "Hold the Kerala houseboat dates",
+    dueAt: new Date(now.getTime() + (endsAt - now.getTime()) * 0.6),
+    assigneeUserId: staff.salesUserId,
+    record: null,
+  });
 }

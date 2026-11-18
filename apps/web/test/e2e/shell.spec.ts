@@ -1,5 +1,5 @@
-// The app shell: a signed-in member lands in their organization with the navigation their role allows (Home, Today and
-// Leads for Sales, without the setup card; an Owner's phone bar is Home, Today, Leads, Staff and More), every page
+// The app shell: a signed-in member lands in their organization with the navigation their role allows (Home, My tasks and
+// Leads for Sales, without the setup card; an Owner's phone bar is Home, My tasks, Follow-ups, Leads and More), every page
 // carries the security headers, and signing out leaves no organization data on the device, offline too. Each journey's
 // last screen also gets the automatic accessibility check (support/accessible-after-each.ts).
 import type { Page, TestInfo } from "@playwright/test";
@@ -13,8 +13,8 @@ test("an Owner sees their organization and every destination", async ({ page, ag
   await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
   for (const destination of isPhone(testInfo)
-    ? ["Home", "Today", "Leads", "Follow-ups", "More"]
-    : ["Home", "Today", "Leads", "Staff", "Roles", "Settings", "Audit log"]) {
+    ? ["Home", "My tasks", "Follow-ups", "Leads", "More"]
+    : ["Home", "My tasks", "Follow-ups", "Leads", "Staff", "Roles", "Settings", "Audit log"]) {
     await expect(
       navigation.getByRole(isPhone(testInfo) && destination === "More" ? "button" : "link", { name: destination }),
     ).toBeVisible();
@@ -31,11 +31,11 @@ test("a salesperson sees only what their role allows", async ({ page, addStaff, 
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { level: 1, name: homeGreeting("Ravi Kumar") })).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main" }).filter({ visible: true });
-  for (const destination of ["Home", "Today", "Leads"]) {
+  for (const destination of ["Home", "My tasks", "Follow-ups", "Leads"]) {
     await expect(navigation.getByRole("link", { name: destination })).toBeVisible();
   }
   await expect(navigation.getByRole("link", { name: "Staff" })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Today at a glance" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Your tasks today" })).toBeVisible();
   // The setup card is for those who may change the settings: Sales never even asks for it.
   await page.waitForLoadState("networkidle");
   expect(setupAsked).toEqual([]);
@@ -57,6 +57,8 @@ test("pointing at a destination loads its data before it opens", async ({ page, 
   test.skip(isPhone(testInfo), "phones have no pointer; touching the link does the same");
   await signInByEmail(page, agency.owner);
   await page.goto("/dashboard");
+  // Point only once Home is on screen: a hover before the page has hydrated reaches no prefetch handler.
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
   const staffList = page.waitForRequest((request) => request.url().includes("/api/trpc/staff.list"));
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Staff" }).hover();
   await staffList;

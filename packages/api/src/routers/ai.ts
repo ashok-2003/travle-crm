@@ -7,6 +7,8 @@ import {
   agencyAnswers,
   agentBasics,
   agentSetup,
+  chatsAnswered,
+  chatsAnsweredInput,
   handedOverChatList,
   setAgentOnInput,
   linkAdInput,
@@ -17,6 +19,7 @@ import {
   decideStageSuggestionInput,
   leadStageSuggestion,
   leadStageSuggestionInput,
+  needsMeInput,
   stageSuggestionList,
   leadAiFields,
   leadAiFieldsInput,
@@ -68,6 +71,7 @@ import {
   setBookingStatus,
   aiEnabled,
   aiOverviewOf,
+  chatsAnsweredSince,
   aiSettingsOf,
   chatAiOf,
   naturalPromptOf,
@@ -93,7 +97,8 @@ import {
 import { adPackageChoicesOf, adsOf, linkAd } from "@travel-crm/domain/inbox";
 import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
-import { DomainError } from "@travel-crm/domain/kernel";
+import { organizationTimeZone } from "@travel-crm/domain/identity";
+import { DomainError, periodStart } from "@travel-crm/domain/kernel";
 import type { Database } from "@travel-crm/db";
 import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
@@ -261,10 +266,11 @@ export const aiRouter = router({
   /** The AI's open suggestions to mark a lead Lost or Not a lead, in the member's leads scope: the "Needs you" list. */
   stageSuggestions: orgProcedure
     .requires("leads:view")
+    .input(needsMeInput)
     .output(stageSuggestionList)
-    .query(({ ctx }) =>
+    .query(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
-        suggestions: await stageSuggestionsOf(tx, ctx.member),
+        suggestions: await stageSuggestionsOf(tx, ctx.member, input),
       })),
     ),
 
@@ -376,17 +382,35 @@ export const aiRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => setAgentOn(tx, ctx.member, input.on, today));
     }),
 
-  /** Chats the agent handed over to a person, among those this member's inbox shows. */
+  /** Chats the agent handed over to a person: the member's own (`mine`), or all their inbox shows (AI managers only). */
   handedOver: freshProcedure
-    .requires("ai:manage", "inbox:view")
+    .requires("inbox:view")
+    .input(needsMeInput)
     .output(handedOverChatList)
-    .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => handedOverChatsOf(tx, ctx.member))),
+    .query(({ ctx, input }) => {
+      if (!input.mine && !ctx.member.permissions.has("ai:manage")) {
+        throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires ai:manage");
+      }
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => handedOverChatsOf(tx, ctx.member, input));
+    }),
 
   /** The autopilot's last day at a glance. */
   overview: freshProcedure
     .requires("ai:manage")
     .output(aiOverview)
     .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => aiOverviewOf(tx, new Date()))),
+
+  /** How many chats the AI answered in a period, in the agency's time zone. */
+  chatsAnswered: freshProcedure
+    .requires("ai:manage")
+    .input(chatsAnsweredInput)
+    .output(chatsAnswered)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const timeZone = await organizationTimeZone(tx, ctx.member.organizationId);
+        return { chats: await chatsAnsweredSince(tx, periodStart(input.period, new Date(), timeZone)) };
+      }),
+    ),
 
   /** A chat's autopilot state, for the inbox. */
   chatAi: orgProcedure

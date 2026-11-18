@@ -92,6 +92,8 @@ export const todaySummary = z.object({
     overdue: z.int(),
     newLeads: z.int(),
     dueToday: z.int(),
+    /** Open follow-ups assigned to the member and due before the day's end: shown on Follow-ups, not in My tasks. */
+    followUpsDue: z.int(),
     quoteOpened: z.int(),
     paymentsDue: z.int(),
     tripDetails: z.int(),
@@ -109,18 +111,19 @@ export const todaySummary = z.object({
 });
 export type TodaySummary = z.infer<typeof todaySummary>;
 
-/** How many things the day holds, each once: a pending claim and its "Check payment" task are one. */
-export function todayTotal(counts: TodaySummary["counts"]): number {
+/**
+ * How many things My tasks holds, each once: a pending claim and its "Check payment" task are one. Payments due and
+ * trips missing details stay on it until the Bookings redesign gives them a new home.
+ */
+export function myTasksTotal(counts: TodaySummary["counts"]): number {
   return (
     counts.overdue +
-    counts.newLeads +
     counts.dueToday +
-    counts.quoteOpened +
-    counts.paymentsDue +
-    counts.tripDetails +
-    counts.departures +
+    counts.newLeads +
     counts.paymentsToCheck -
-    counts.checkTasks
+    counts.checkTasks +
+    counts.paymentsDue +
+    counts.tripDetails
   );
 }
 

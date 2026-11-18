@@ -8,7 +8,8 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { countLeads, listLeads } from "../../src/crm/index.js";
-import type { MemberAccess } from "../../src/identity/index.js";
+import { organizationTimeZone, type MemberAccess } from "../../src/identity/index.js";
+import { periodStart } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { aLead, aPerson, aTask, type LeadSeed } from "./support/records.js";
 
@@ -282,5 +283,37 @@ describe("the lead list", () => {
     } while (before !== null);
     expect(seen).toEqual(wanted);
     expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it("created=week lists and counts only leads that came in since Monday", async () => {
+    const owner = randomUUID();
+    // A fixed "now" (a Wednesday), so the test does not depend on the day it runs.
+    const now = new Date("2026-11-18T06:00:00Z");
+    const monday = periodStart("week", now, await inOrg((tx) => organizationTimeZone(tx, organizationId)));
+    if (monday === null) throw new Error("a week has a start");
+    const hour = 60 * 60 * 1000;
+    const [lastSunday, thisMonday] = await leadsOf(owner, [
+      { createdAt: new Date(monday.getTime() - hour) },
+      { createdAt: new Date(monday.getTime() + hour) },
+    ]);
+    const filter = listLeadsInput.parse({ view: "everyone", ownerUserId: owner, created: "week" });
+    const everything = listLeadsInput.parse({ view: "everyone", ownerUserId: owner });
+    const idsAt = async (input: typeof filter) =>
+      (await inOrg((tx) => listLeads(tx, manager, input, now))).items.map((item) => item.id);
+    expect(await idsAt(filter)).toEqual([thisMonday]);
+    expect(
+      (
+        await inOrg((tx) =>
+          countLeads(
+            tx,
+            manager,
+            leadCountsInput.parse({ view: "everyone", ownerUserId: owner, created: "week" }),
+            now,
+          ),
+        )
+      ).open,
+    ).toBe(1);
+    expect(await idsAt(everything)).toEqual(await ids(manager, { view: "everyone", ownerUserId: owner }));
+    expect(await idsAt(everything)).toContain(lastSunday);
   });
 });

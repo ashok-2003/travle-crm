@@ -46,7 +46,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - `progress.tsx`: its bar moves only behind `motion-safe:`.
 - `badge.tsx`: 4px radius.
 - `tabs.tsx`: an unselected trigger is the muted ink (4.84:1 on the surface list) instead of ink at 60%, which fails
-  contrast. The list is 52px around its 44px triggers; don't shrink it.
+  contrast. The list is 52px around its 44px triggers; don't shrink it. A `solid` list variant (owner's request,
+  2026-11-18, for Follow-ups): the selected trigger is `bg-foreground text-background` (black on light, white on dark,
+  theme tokens only) and its triggers are wider (`min-w-28`, more padding), so the choice reads at a glance.
 - `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx`: the overlay is the `scrim` token, without blur. The dialog's and the
   sheet's Close words are the `common.close` message.
 - `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own
@@ -81,6 +83,10 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   dark blue (`accent`), the `outline` variant a hairline border; no focus ring (the global outline instead), and the
   items' numeric `z-10` gone; `??` for the group's variant and size, as the lint rules ask. The CLI also wanted to overwrite `button`, `input`, `textarea`, `dialog` and
   `input-group` with the registry's own: ours were put back as they were.
+- `rolling-number.tsx` (Cult UI's, from `https://cult-ui.com/r/rolling-number.json`; "animated-number" is its deprecated
+  alias): Home's chats-answered figure counts up with it. It brings `motion`, pinned. Its spring starts at the first value
+  it gets, so Home starts it at 0 and then sets the real value; under `prefers-reduced-motion` Home shows the value
+  without it. Prettier's formatting only.
 - `command.tsx` (`cmdk`, pinned; the destination and lead pickers, R45, as a Command in a Popover): its search is the
   app's 44px input group with 16px text, the input marked as the group's control so the global outline goes round the
   group; items at least 44px; its icons decoration. `CommandDialog` isn't used and isn't yet DESIGN.md's: its title and

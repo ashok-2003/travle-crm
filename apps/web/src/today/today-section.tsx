@@ -1,38 +1,48 @@
 "use client";
 
-// One of Today's sections (spec 3.5): its heading with the day's count, then its things a page at a time (20, R35)
-// with Show more, as a divided list; its own skeleton and its own error with Try again, so one section failing leaves
-// the others working.
-import type { TodaySectionName } from "@travel-crm/contracts/today";
+// One of My tasks' sections: its heading with the day's count, then its first five things; View all shows the rest in
+// place, or, for new leads, opens the Leads list on New. Each has its own skeleton and its own error with Try again, so
+// one section failing leaves the others working.
+import { ArrowRightIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useId } from "react";
+import { Fragment, useId, useState } from "react";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
+import { ForwardLink } from "@/components/text-link";
+import { Button } from "@/components/ui/button";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
+import { listFiltersHref } from "@/leads/list/list-filters";
 import { formatCount } from "@/lib/format";
 import { TodayItem, todayItemId } from "./today-item";
 import { useTodaySection } from "./use-today";
 
-export function TodaySection({ section, count }: { section: TodaySectionName; count: number }) {
+export const ROWS_SHOWN = 5;
+
+export type MyTasksSection = "overdue" | "due-today" | "new-leads" | "payments-due" | "trip-details";
+
+export function TodaySection({ section, count }: { section: MyTasksSection; count: number }) {
   const t = useTranslations("today");
   const tCommon = useTranslations("common");
   const headingId = useId();
   const pages = useTodaySection(section);
+  const [showingAll, setShowingAll] = useState(false);
+  const more = count > ROWS_SHOWN;
 
   const body = () => {
     if (pages.items) {
+      const items = showingAll ? pages.items : pages.items.slice(0, ROWS_SHOWN);
       return (
         <>
-          <ItemGroup>
-            {pages.items.map((item, index) => (
+          <ItemGroup className="gap-0">
+            {items.map((item, index) => (
               <Fragment key={todayItemId(item)}>
-                {index > 0 && <ItemSeparator />}
+                {index > 0 && <ItemSeparator className="my-0" />}
                 <TodayItem item={item} />
               </Fragment>
             ))}
           </ItemGroup>
-          <ShowMoreButton pages={pages} label={t(`more.${section}`)} />
+          {showingAll && <ShowMoreButton pages={pages} label={t(`more.${section}`)} />}
         </>
       );
     }
@@ -58,6 +68,23 @@ export function TodaySection({ section, count }: { section: TodaySectionName; co
         <span className="numbers text-label text-muted-foreground">{formatCount(count)}</span>
       </div>
       {body()}
+      {more &&
+        (section === "new-leads" ? (
+          <ForwardLink href={listFiltersHref({ stage: "new" })} label={t("viewAll")} />
+        ) : (
+          !showingAll && (
+            <Button
+              variant="link"
+              className="min-h-11 self-start px-0"
+              onClick={() => {
+                setShowingAll(true);
+              }}
+            >
+              {t("viewAll")}
+              <ArrowRightIcon aria-hidden="true" />
+            </Button>
+          )
+        ))}
     </section>
   );
 }

@@ -241,10 +241,10 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
     await suggest(on);
     const [row] = await rows(on);
     const stranger = memberOf(on.organizationId, "sales");
-    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on)))).toMatchObject([
+    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on), { mine: false }))).toMatchObject([
       { id: row?.id, leadId: on.leadId, kind: "lost" },
     ]);
-    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, stranger))).toEqual([]);
+    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, stranger, { mine: false }))).toEqual([]);
     expect(await on.inOrg((tx) => stageSuggestionOfLead(tx, stranger, on.leadId))).toBeNull();
     expect(
       await on
@@ -257,9 +257,9 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
   it("a soft-deleted lead's suggestion is out of the list and the alert", async () => {
     const on = await liteAgency(test);
     await suggest(on);
-    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on)))).toHaveLength(1);
+    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on), { mine: false }))).toHaveLength(1);
     await on.inOrg((tx) => tx.lead.update({ where: { id: on.leadId }, data: softDeleted(owner(on).userId) }));
-    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on)))).toEqual([]);
+    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, owner(on), { mine: false }))).toEqual([]);
     expect(await on.inOrg((tx) => stageSuggestionOfLead(tx, owner(on), on.leadId))).toBeNull();
   });
 

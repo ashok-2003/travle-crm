@@ -16,12 +16,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderActions() {
+function renderActions(onDone?: () => void) {
   screenIs("phone");
   const api = fakeApi();
   renderWithApi(
     <>
-      <TaskActions task={task} />
+      <TaskActions task={task} {...(onDone !== undefined && { onDone })} />
       <Toaster />
     </>,
     newQueryClient(),
@@ -62,5 +62,39 @@ describe("TaskActions", () => {
     renderActions();
     await userEvent.click(screen.getByRole("button", { name: "Snooze: Send the Goa options" }));
     expect(await screen.findByRole("dialog", { name: messages.tasks.snooze.title })).toBeVisible();
+  });
+  it("shows Done and Snooze as plain outline buttons, never link-blue text", () => {
+    renderActions();
+    expect(screen.getByRole("button", { name: "Done: Send the Goa options" })).toHaveAttribute(
+      "data-variant",
+      "outline",
+    );
+    expect(screen.getByRole("button", { name: "Snooze: Send the Goa options" })).toHaveAttribute(
+      "data-variant",
+      "outline",
+    );
+  });
+
+  it("calls onDone once the task is done, and not when Done is refused", async () => {
+    const onDone = vi.fn();
+    const api = renderActions(onDone);
+    const done = screen.getByRole("button", { name: "Done: Send the Goa options" });
+    await userEvent.click(done);
+    await waitFor(() => {
+      expect(api.last().path).toBe("tasks.complete");
+    });
+    api.last().refuse(409, "TASK_CLOSED");
+    await waitFor(() => {
+      expect(done).toBeEnabled();
+    });
+    expect(onDone).not.toHaveBeenCalled();
+    await userEvent.click(done);
+    await waitFor(() => {
+      expect(api.calls.filter((call) => call.path === "tasks.complete")).toHaveLength(2);
+    });
+    api.last().answer({ ...task, kind: "task", dueAt: "2026-10-16T10:30:00.000Z" });
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledTimes(1);
+    });
   });
 });

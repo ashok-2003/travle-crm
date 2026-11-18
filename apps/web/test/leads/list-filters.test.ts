@@ -48,6 +48,17 @@ describe("listFiltersOf", () => {
     expect(listFiltersOf(address("view=unassigned"), "own")).toEqual({ view: "mine", stage: "open", limit: 25 });
   });
 
+  it("reads ?created=week, and leaves out a period the api would refuse", () => {
+    expect(listFiltersOf(address("created=week"), "all")).toEqual({
+      view: "mine",
+      stage: "open",
+      created: "week",
+      limit: 25,
+    });
+    expect(listFiltersOf(address("created=all"), "all")).toEqual({ view: "mine", stage: "open", limit: 25 });
+    expect(listFiltersOf(address("created=year"), "all")).toEqual({ view: "mine", stage: "open", limit: 25 });
+  });
+
   it("never reads a search from the address, even an old link's ?q=", () => {
     expect(listFiltersOf(address("q=rahul&stage=new"), "all")).toEqual({ view: "mine", stage: "new", limit: 25 });
   });
@@ -59,6 +70,10 @@ describe("listFiltersHref", () => {
     expect(listFiltersHref({ view: "everyone", stage: "won", ownerUserId: ravi })).toBe(
       `/leads?view=everyone&stage=won&owner=${ravi}`,
     );
+  });
+
+  it("writes the came-in period after the other filters", () => {
+    expect(listFiltersHref({ created: "month", stage: "won" })).toBe("/leads?stage=won&created=month");
   });
 
   it("reads back what it wrote", () => {
@@ -92,5 +107,6 @@ describe("isFiltered", () => {
     expect(isFiltered({ view: "mine", stage: "new" })).toBe(true);
     expect(isFiltered({ view: "mine", stage: "open", search: "rahul" })).toBe(true);
     expect(isFiltered({ view: "mine", stage: "open", tripType: "solo" })).toBe(true);
+    expect(isFiltered({ view: "mine", stage: "open", created: "today" })).toBe(true);
   });
 });

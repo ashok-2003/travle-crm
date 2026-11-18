@@ -1,7 +1,7 @@
 "use client";
 
 // The Filters dialog's form (spec 3.3): stage (Won, Lost and Not a lead live here; each stage with its dot), owner for
-// managers, source, destination and trip type, started from the list's filters. Choosing an owner shows everyone's
+// managers, source, destination, trip type and when it came in, started from the list's filters. Choosing an owner shows everyone's
 // leads, since an owner is a filter on them; the list's search, which isn't one of these, stays as it is. Owners that
 // didn't load say so with Try again, and Anyone still filters.
 import {
@@ -12,6 +12,7 @@ import {
   type LeadStage,
   type TripType,
 } from "@travel-crm/contracts/crm";
+import { createdWithin, type CreatedWithin } from "@travel-crm/contracts/kernel";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
@@ -32,6 +33,7 @@ interface FilterValues {
   source: LeadSource | typeof ANY;
   destination: DestinationValue | null;
   tripType: TripType | typeof ANY;
+  created: CreatedWithin | typeof ANY;
 }
 
 export function FiltersForm({
@@ -64,6 +66,7 @@ export function FiltersForm({
         ? { kind: "existing", destinationId: filters.destinationId, name: destinationName }
         : null,
       tripType: filters.tripType ?? ANY,
+      created: filters.created ?? ANY,
     },
   });
   const { control } = form;
@@ -88,6 +91,7 @@ export function FiltersForm({
             ...(values.source !== ANY && { source: values.source }),
             ...(values.destination?.kind === "existing" && { destinationId: values.destination.destinationId }),
             ...(values.tripType !== ANY && { tripType: values.tripType }),
+            ...(values.created !== ANY && { created: values.created }),
           });
         })(event);
       }}
@@ -140,6 +144,15 @@ export function FiltersForm({
         options={[
           { value: ANY, label: words("anyTripType") },
           ...tripTypes.map((kind) => ({ value: kind, label: t(`tripTypes.${kind}`) })),
+        ]}
+      />
+      <SelectField
+        control={control}
+        name="created"
+        label={words("cameIn")}
+        options={[
+          { value: ANY, label: words("anyTime") },
+          ...createdWithin.options.map((within) => ({ value: within, label: words(`createdPeriods.${within}`) })),
         ]}
       />
     </form>

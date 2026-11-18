@@ -13,8 +13,8 @@ import type { ListFilters } from "./list-filters";
 
 /** How many filters narrow the list beyond its view and search: a closed stage counts, as no chip shows it. */
 function chosenCount(filters: ListFilters, chipShown: boolean): number {
-  const { ownerUserId, source, destinationId, tripType } = filters;
-  return [ownerUserId, source, destinationId, tripType].filter(Boolean).length + (chipShown ? 0 : 1);
+  const { ownerUserId, source, destinationId, tripType, created } = filters;
+  return [ownerUserId, source, destinationId, tripType, created].filter(Boolean).length + (chipShown ? 0 : 1);
 }
 
 export function FiltersDialog({

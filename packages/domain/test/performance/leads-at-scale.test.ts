@@ -160,17 +160,18 @@ describe("a large agency", () => {
 
   it("builds Today within 150 ms, on task_open_by_assignee and lead_new_by_owner", async () => {
     const now = new Date();
-    const overdue = openTasksQuery({ assigneeUserId: salesperson.userId, dueBefore: now, limit: 21 });
+    const overdue = openTasksQuery({ assigneeUserId: salesperson.userId, kind: "task", dueBefore: now, limit: 21 });
     expect((await plan("today-overdue", overdue)).indexes).toContain("task_open_by_assignee");
     const newLeads = newLeadsWaitingQuery({ ownerUserId: salesperson.userId, limit: 21 });
     expect((await plan("today-new-leads", newLeads)).indexes).toContain("lead_new_by_owner");
     const endsAt = startOfDayIn(addDays(calendarDateIn(now, "Asia/Kolkata"), 1), "Asia/Kolkata");
     const assigneeUserId = salesperson.userId;
-    const dueToday = openTasksQuery({ assigneeUserId, dueFrom: now, dueBefore: endsAt, limit: 21 });
+    const dueToday = openTasksQuery({ assigneeUserId, kind: "task", dueFrom: now, dueBefore: endsAt, limit: 21 });
     expect((await plan("today-due-today", dueToday)).indexes).toContain("task_open_by_assignee");
     const counted = {
-      "today-overdue-count": countOpenTasksQuery({ assigneeUserId, dueBefore: now }),
-      "today-due-today-count": countOpenTasksQuery({ assigneeUserId, dueFrom: now, dueBefore: endsAt }),
+      "today-overdue-count": countOpenTasksQuery({ assigneeUserId, kind: "task", dueBefore: now }),
+      "today-due-today-count": countOpenTasksQuery({ assigneeUserId, kind: "task", dueFrom: now, dueBefore: endsAt }),
+      "today-follow-ups-count": countOpenTasksQuery({ assigneeUserId, kind: "follow-up", dueBefore: endsAt }),
     };
     for (const [name, query] of Object.entries(counted)) {
       expect((await plan(name, query)).indexes, name).toContain("task_open_by_assignee");
@@ -199,6 +200,7 @@ describe("a large agency", () => {
         "mine-open",
         "today-due-today",
         "today-due-today-count",
+        "today-follow-ups-count",
         "today-new-leads",
         "today-new-leads-count",
         "today-overdue",

@@ -1,7 +1,13 @@
 // The AI agent's setup checklist, the switch that turns it on (only once every required step is done) and the chats it
 // handed over to a person. The steps read what other modules own (the agency's "Use the AI" switch among them); only the
 // autopilot column is written here.
-import { agencyQuestionTopics, agentSetup, type AgentSetup, type HandedOverChat } from "@travel-crm/contracts/ai";
+import {
+  agencyQuestionTopics,
+  agentSetup,
+  type AgentSetup,
+  type HandedOverChat,
+  type NeedsMeInput,
+} from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
@@ -103,13 +109,31 @@ export async function setAgentOn(
   return agentSetupOf(tx, access.organizationId, today);
 }
 
-/** Open chats the agent handed over, newest first, among those the member's inbox may show. */
-export async function handedOverChatsOf(tx: OrgTx, access: MemberAccess): Promise<HandedOverChat[]> {
+/**
+ * Open chats the agent handed over, newest first, among those the member's inbox may show. `mine` keeps the chats of
+ * people with a live lead the member owns and, for someone who manages the AI, those whose leads nobody owns.
+ */
+export async function handedOverChatsOf(
+  tx: OrgTx,
+  access: MemberAccess,
+  { mine }: NeedsMeInput,
+): Promise<HandedOverChat[]> {
+  const ownedLead = { deletedAt: null, ownerUserId: access.userId };
+  const nobodys = { NOT: { person: { is: { leads: { some: { deletedAt: null, ownerUserId: { not: null } } } } } } };
+  const ownership = mine
+    ? [
+        access.permissions.has("ai:manage")
+          ? { OR: [{ person: { is: { leads: { some: ownedLead } } } }, nobodys] }
+          : { person: { is: { leads: { some: ownedLead } } } },
+      ]
+    : [];
   const rows = await tx.aiChat.findMany({
     where: {
       handedOffAt: { not: null },
       // A hand-over the team has since answered is no longer waiting on anyone (replying clears needsReply).
-      conversation: { AND: [{ state: "open", hidden: false, needsReply: true }, visibleConversations(access)] },
+      conversation: {
+        AND: [{ state: "open", hidden: false, needsReply: true }, visibleConversations(access), ...ownership],
+      },
     },
     orderBy: [{ handedOffAt: "desc" }, { id: "desc" }],
     take: HANDED_OVER_SHOWN,

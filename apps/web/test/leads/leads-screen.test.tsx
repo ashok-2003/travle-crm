@@ -107,6 +107,32 @@ describe("LeadsScreen", () => {
     });
   });
 
+  it("offers Came in: Any time, Today, This week, This month, and writes the choice to the address", async () => {
+    renderLeads();
+    await userEvent.click(await screen.findByRole("button", { name: list.filters }));
+    const filters = await screen.findByRole("dialog", { name: list.filtersDialog.title });
+    await userEvent.click(within(filters).getByRole("combobox", { name: list.filtersDialog.cameIn }));
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      list.filtersDialog.anyTime,
+      list.filtersDialog.createdPeriods.today,
+      list.filtersDialog.createdPeriods.week,
+      list.filtersDialog.createdPeriods.month,
+    ]);
+    await userEvent.click(screen.getByRole("option", { name: list.filtersDialog.createdPeriods.week }));
+    await userEvent.click(within(filters).getByRole("button", { name: list.filtersDialog.apply }));
+    expect(address.href).toBe("/leads?created=week");
+  });
+
+  it("counts the stage chips for the same 'came in' period as the list", async () => {
+    address.set("/leads?created=week");
+    renderLeads();
+    // The Unassigned tab's own count is asked too, without the period.
+    await waitFor(() => {
+      expect(inputsTo("leads.counts")).toContainEqual({ view: "mine", created: "week" });
+    });
+    expect(lastInputTo("leads.list")).toEqual({ view: "mine", stage: "open", created: "week", limit: 25 });
+  });
+
   it("says in Filters when the owners didn't load, with Try again", async () => {
     const api = renderLeads({ "leads.owners": { status: 500 } });
     await userEvent.click(await screen.findByRole("button", { name: list.filters }));

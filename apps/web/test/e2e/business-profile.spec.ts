@@ -1,5 +1,5 @@
 // The business profile and the setup checklist (spec 7.1): a newly onboarded Owner finds the setup card first on Home,
-// above the usual Home, with the next two steps onboarding left to do; follows a step to its section of the business
+// above the rest of Home, with the next two steps onboarding left to do; follows a step to its section of the business
 // profile, completes it (a GSTIN of another state is refused before it is sent) and watches the steps tick, on the
 // card and on the setup screen, which lists every step.
 import { expectAccessible } from "./support/accessibility";
@@ -17,8 +17,8 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   // The next two of the six left; the setup screen has them all.
   await expect(checklist.getByRole("listitem")).toHaveText([/^Business details/, /^Logo/]);
   await expect(checklist.getByRole("link", { name: "See every step" })).toHaveAttribute("href", "/setup");
-  // Above the usual Home, never instead of it.
-  await expect(page.getByText("Your screens:")).toBeVisible();
+  // Above the rest of Home, never instead of it.
+  await expect(page.getByRole("radiogroup", { name: "Period" })).toBeVisible();
   await expectAccessible(page);
 
   await checklist.getByRole("link", { name: /^Business details/ }).click();

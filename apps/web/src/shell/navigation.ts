@@ -64,7 +64,6 @@ export interface NavigationItem {
 export const navigationItems: readonly NavigationItem[] = [
   { key: "home", group: "work", href: routes.home, icon: HouseIcon, requires: null, module: null },
   { key: "today", group: "work", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
-  { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
   {
     key: "followUps",
     group: "work",
@@ -73,6 +72,7 @@ export const navigationItems: readonly NavigationItem[] = [
     requires: "leads:view",
     module: "crm",
   },
+  { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
   { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
   { key: "aiAgent", group: "work", href: routes.aiAgent, icon: BotIcon, requires: "ai:manage", module: "ai" },
   { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },

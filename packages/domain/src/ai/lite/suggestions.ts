@@ -2,7 +2,7 @@
 // lead itself: act writes the suggestion, the lead's page (or the AI page's "Needs you" list) shows it, and only a
 // person's yes calls moveLeadStage, as that person.
 import { lostReason as lostReasonSchema, type LeadStage, type LostReason } from "@travel-crm/contracts/crm";
-import type { DecideStageSuggestionInput, StageSuggestion } from "@travel-crm/contracts/ai";
+import type { DecideStageSuggestionInput, NeedsMeInput, StageSuggestion } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
 import { isLeadInScope, lockLead, moveLeadStage } from "../../crm/index.js";
@@ -131,12 +131,26 @@ function viewOf(row: Row): StageSuggestion {
   };
 }
 
-/** The open suggestions on open leads in the member's leads scope, newest first, 20 at most. */
-export async function stageSuggestionsOf(tx: OrgTx, access: MemberAccess): Promise<StageSuggestion[]> {
+/**
+ * The open suggestions on open leads in the member's leads scope, newest first, 20 at most. `mine` keeps the leads the
+ * member owns and, for someone who manages the AI, the ones nobody owns.
+ */
+export async function stageSuggestionsOf(
+  tx: OrgTx,
+  access: MemberAccess,
+  { mine }: NeedsMeInput,
+): Promise<StageSuggestion[]> {
+  const owners = access.permissions.has("ai:manage") ? [access.userId, null] : [access.userId];
+  const ownership = mine ? { OR: owners.map((ownerUserId) => ({ ownerUserId })) } : {};
   const rows = await tx.leadAiSuggestion.findMany({
     where: {
       state: "open",
-      lead: { deletedAt: null, stage: { in: [...suggestable] }, ...scopeFilter(access, "leads:view", "ownerUserId") },
+      lead: {
+        deletedAt: null,
+        stage: { in: [...suggestable] },
+        ...scopeFilter(access, "leads:view", "ownerUserId"),
+        ...ownership,
+      },
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: LIST_MAX,

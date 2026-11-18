@@ -62,6 +62,14 @@ function StartChat({ leadId }: { leadId: string }) {
   );
 }
 
+/**
+ * The WhatsApp button's way here when the customer has no chat yet (leadChatRoute: the lead's page at #whatsapp). The
+ * section appears only once its chat has loaded, after the browser's own jump to the anchor, so it comes into view itself.
+ */
+function cameForChat(card: HTMLDivElement | null) {
+  if (card !== null && window.location.hash === `#${card.id}`) card.scrollIntoView({ block: "start" });
+}
+
 export function LeadChat({ leadId }: { leadId: string }) {
   const t = useTranslations("inbox.leadSection");
   const mayRead = useHolds("inbox:view");
@@ -72,7 +80,7 @@ export function LeadChat({ leadId }: { leadId: string }) {
   if (!mayRead || !onPlan || chat.data === undefined) return null;
   const conversationId = chat.data.conversationId;
   return (
-    <Card>
+    <Card id="whatsapp" ref={cameForChat}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageCircleIcon aria-hidden="true" className="size-5" />

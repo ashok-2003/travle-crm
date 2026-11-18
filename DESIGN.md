@@ -39,6 +39,7 @@ colors:
   role-mint: { bg: "#d3fff2", ink: "#035e4d" }
   sidebar: { fill: "#075e54", ink: "#ffffff", active: "#0f8073" }
   send: { fill: "#00785f", pressed: "#005f4d", ink: "#ffffff" }
+  whatsapp-logo: "#25d366"
   chat: { wallpaper: "#efeae2", out: "#d9fdd3", in: "#ffffff", date: "#fdf5e6", tick: "#0369a1" }
 typography:
   page-title: { family: "EB Garamond", size: 30px, weight: 500, lineHeight: 36px, tracking: "-0.01em" }
@@ -102,6 +103,7 @@ Named rules:
 
 - **One Action Colour.** Blue is the only interactive colour. A forest element is never a button; a violet one is a button only for an AI action (the `ai` button variant, owner 2026-11-02), otherwise it is information. If it is clickable, it gets blue treatment (underline or hover) on top.
 - **Status Is Only Status.** Red, amber and green never decorate, never colour a chart series for variety, never tint a card for emphasis.
+- **The WhatsApp Logo.** The buttons that open a WhatsApp chat wear WhatsApp's own logo in WhatsApp's green (`whatsapp-logo`), the one place that green appears: a brand mark people know from their phones, never a status, a fill or text. The button around it stays outline, and Call beside it wears a solid handset in ink.
 - **Dot Plus Word.** Status is always a dot and a word, never colour alone.
 - **Forest Is Not Green.** Status green is a bright, light-bodied green (`#168f43` dot, `#e3f4e7` bg); forest is a deep blue-green used for money text and Accounts chrome. Never use forest for a status badge or green for a money total.
 - **Tint Surfaces Carry Dark Ink.** Text on a role tint uses the role's dark ink (`#4c2f97`, `#034f46`, `#1d4ed8`), never muted grey.
@@ -181,6 +183,8 @@ Build on shadcn/ui; restyle with the tokens. Define colours as CSS variables on 
 **Info hints.** "What does this mean?" beside a term a first-time user may not know (Returning, Not a lead, Owner, Source, a blocked contact): `InfoHint`, a small ⓘ ghost button, 20px to see with a 44px hit area, named "What does <term> mean?". With a mouse it is the registry Tooltip, on hover and on keyboard focus (a click keeps it open); on a touch screen, which can't hover, a tap opens the registry Popover. The words are a sentence or two of plain Indian English, announced with the button; Escape closes them. Hints are for the terms that truly need one: fewer than ten in the whole product, never one on every label.
 
 **KPI / stat.** A label, a mono value, and an **info hint** (an "i" button, 44px hit area, opens a tooltip or popover explaining how the figure is computed and its period). Every KPI has one, no exceptions. Value uses `number-lg`; money KPIs in forest. Optional delta line in muted ink with sign. No hero-metric template: no oversized number with gradient or accent decoration; KPIs sit in a hairline-divided strip, not a row of identical boxes.
+
+**Stage breakdown (Home).** The one exception to "not a row of identical boxes" (owner, 2026-11-18): Home's leads card shows a figure per stage, each on its stage's tint with its dot and word, beside a donut in the stages' dot colours. The tint is the stage's meaning, never emphasis, and each figure is a way into the Leads list at that stage. One info hint on the card's title says how the figures are counted.
 
 **Toasts and dialogs.** Toasts bottom-center on mobile, bottom-right on desktop, overlay shadow, 4s (errors persist with a dismiss button), `role="status"` (errors `role="alert"`), include Undo where possible. Dialogs: 14px radius, scrim, focus trapped, Escape closes, Figtree title, primary action on the right (desktop) or stacked full-width (mobile). On mobile, prefer bottom sheets for forms and pickers.
 

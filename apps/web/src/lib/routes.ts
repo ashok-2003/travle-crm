@@ -135,6 +135,11 @@ export function leadRoute(leadId: string): string {
   return `${routes.leads}/${encodeURIComponent(leadId)}`;
 }
 
+/** The WhatsApp section of a lead's page: its chat, or the way to start one. */
+export function leadChatRoute(leadId: string): string {
+  return `${leadRoute(leadId)}#whatsapp`;
+}
+
 /** A lead import's page, at whichever step it is. */
 export function leadImportRoute(importId: string): string {
   return `${routes.leadImport}/${encodeURIComponent(importId)}`;

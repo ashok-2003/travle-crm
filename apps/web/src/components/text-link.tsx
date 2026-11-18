@@ -4,8 +4,8 @@
 // sitting on the text's baseline, as wide as its words (a column of them keeps them at its start).
 //
 // BackLink is the way back to the screen a page was opened from, with an arrow, top left as on every screen a list
-// leads to.
-import { ArrowLeftIcon } from "lucide-react";
+// leads to. ForwardLink is its mirror, the arrow after the words: a card's "View all →" to the page that holds the rest.
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,15 @@ export function BackLink({ href, label }: { href: string; label: string }) {
     <TextLink href={href}>
       <ArrowLeftIcon aria-hidden="true" />
       {label}
+    </TextLink>
+  );
+}
+
+export function ForwardLink({ href, label }: { href: string; label: string }) {
+  return (
+    <TextLink href={href}>
+      {label}
+      <ArrowRightIcon aria-hidden="true" />
     </TextLink>
   );
 }

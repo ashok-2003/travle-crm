@@ -2,7 +2,7 @@
   "navigation": {
     "label": "Main",
     "home": "Home",
-    "today": "Today",
+    "today": "My tasks",
     "leads": "Leads",
     "followUps": "Follow-ups",
     "staff": "Staff",
@@ -35,15 +35,8 @@
   },
   "home": {
     "title": "Welcome, {name}",
-    "intro": "Your screens:",
-    "packages": "Add your trips, with their prices and dates",
-    "staff": "Add your staff and give each a role",
-    "roles": "Decide what each role may see and do",
-    "settings": "Choose how your staff sign in",
     "nothingToSetUp": "Your work will show here.",
-    "setUpTitle": "Set up your agency",
     "intro2": "Here's how your agency is doing, and what needs you today.",
-    "pipeline": "Pipeline",
     "greeting": "{part, select, morning {Good morning} afternoon {Good afternoon} other {Good evening}}, {name}",
     "todayIs": "{day}. Here's what needs you today."
   },
