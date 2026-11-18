@@ -34,10 +34,10 @@ export function TodaySection({ section, count }: { section: MyTasksSection; coun
       const items = showingAll ? pages.items : pages.items.slice(0, ROWS_SHOWN);
       return (
         <>
-          <ItemGroup>
+          <ItemGroup className="gap-0">
             {items.map((item, index) => (
               <Fragment key={todayItemId(item)}>
-                {index > 0 && <ItemSeparator />}
+                {index > 0 && <ItemSeparator className="my-0" />}
                 <TodayItem item={item} />
               </Fragment>
             ))}

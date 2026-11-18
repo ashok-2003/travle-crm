@@ -140,7 +140,7 @@ function LeadItem({ item }: { item: LeadItemData }) {
               : [];
   const description = about.filter((part): part is string => part !== null && part !== "").join(" · ");
   return (
-    <Item size="sm" role="listitem" className="gap-y-1 py-1">
+    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
       <ItemContent className="min-w-0 basis-48 gap-0">
         {lead ? (
           <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>

@@ -61,10 +61,10 @@ export function FollowUpsScreen() {
                 <h2 className="text-section font-semibold">{t(`groups.${section.group}`)}</h2>
                 <span className="numbers text-label text-muted-foreground">{formatCount(section.rows.length)}</span>
               </div>
-              <ItemGroup role="list">
+              <ItemGroup role="list" className="gap-0">
                 {section.rows.map((row, index) => (
                   <Fragment key={row.taskId}>
-                    {index > 0 && <ItemSeparator />}
+                    {index > 0 && <ItemSeparator className="my-0" />}
                     <FollowUpItem
                       row={row}
                       people={people}

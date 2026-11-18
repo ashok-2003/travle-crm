@@ -97,10 +97,10 @@ export function AiNeedsYouSection({
         <LoadFailedAlert message={t("aiNeedsYou.loadFailed")} error={needs.error} onRetry={needs.refetch} />
       )}
       {rows.length > 0 && (
-        <ItemGroup>
+        <ItemGroup className="gap-0">
           {rows.slice(0, ROWS_SHOWN).map(({ id, row }, index) => (
             <Fragment key={id}>
-              {index > 0 && <ItemSeparator />}
+              {index > 0 && <ItemSeparator className="my-0" />}
               {row}
             </Fragment>
           ))}
