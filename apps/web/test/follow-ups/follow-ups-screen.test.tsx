@@ -174,6 +174,12 @@ describe("FollowUpsScreen", () => {
     }
   });
 
+  it("draws its tabs as solid lists, the chosen one dark", async () => {
+    renderScreen();
+    const due = await screen.findByRole("tab", { name: "Due" });
+    expect(due.closest("[data-slot=tabs-list]")).toHaveAttribute("data-variant", "solid");
+  });
+
   it("keeps Mine and Everyone for members who see every lead", async () => {
     renderScreen();
     expect(await screen.findByRole("tab", { name: messages.leads.list.everyone })).toBeVisible();

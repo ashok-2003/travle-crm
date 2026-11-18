@@ -33,7 +33,7 @@ export function AddTaskDialog() {
     <div className="flex flex-col items-start gap-2">
       <Button
         ref={opener}
-        variant="outline"
+        variant="default"
         disabled={!write.allowed}
         aria-describedby={write.hint === null ? undefined : hintId}
         onClick={() => {

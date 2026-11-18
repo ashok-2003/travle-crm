@@ -3,12 +3,13 @@
 // One of My tasks' sections: its heading with the day's count, then its first five things; View all shows the rest in
 // place, or, for new leads, opens the Leads list on New. Each has its own skeleton and its own error with Try again, so
 // one section failing leaves the others working.
+import { ArrowRightIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, useId, useState } from "react";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
-import { TextLink } from "@/components/text-link";
+import { ForwardLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { listFiltersHref } from "@/leads/list/list-filters";
@@ -69,7 +70,7 @@ export function TodaySection({ section, count }: { section: MyTasksSection; coun
       {body()}
       {more &&
         (section === "new-leads" ? (
-          <TextLink href={listFiltersHref({ stage: "new" })}>{t("viewAll")}</TextLink>
+          <ForwardLink href={listFiltersHref({ stage: "new" })} label={t("viewAll")} />
         ) : (
           !showingAll && (
             <Button
@@ -80,6 +81,7 @@ export function TodaySection({ section, count }: { section: MyTasksSection; coun
               }}
             >
               {t("viewAll")}
+              <ArrowRightIcon aria-hidden="true" />
             </Button>
           )
         ))}

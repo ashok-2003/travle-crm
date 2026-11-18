@@ -3,7 +3,8 @@
 // One thing on Today (spec 3.5, the mockup): the person it is about, leading to their lead (a task on no lead shows its
 // title), when it is due in its urgency's colour, what to do and the trip in a line, then its buttons: how to reach
 // them (the compact Call and WhatsApp, when they have a phone), then how to close it (Done and Snooze), or Mark
-// contacted for a new lead, on one row that wraps on a narrow phone. Times are the agency's.
+// contacted for a new lead. On a desktop the whole thing is one compact row: the name and its line at the left, then the
+// when and the buttons; on a phone the buttons wrap under the text. Times are the agency's.
 import type { TripSummary } from "@travel-crm/contracts/crm";
 import { money } from "@travel-crm/domain/kernel";
 import type { TodayItem as TodayItemData } from "@travel-crm/contracts/today";
@@ -139,19 +140,17 @@ function LeadItem({ item }: { item: LeadItemData }) {
               : [];
   const description = about.filter((part): part is string => part !== null && part !== "").join(" · ");
   return (
-    <Item size="sm" role="listitem" className="items-start">
-      <ItemContent className="min-w-0">
-        <div className="flex flex-wrap items-center justify-between gap-x-3">
-          {lead ? (
-            <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>
-          ) : (
-            <ItemTitle className="min-h-11 script-leading">{title}</ItemTitle>
-          )}
-          <WhenMark urgency={when.urgency}>{when.text}</WhenMark>
-        </div>
+    <Item size="sm" role="listitem" className="gap-y-1 py-1">
+      <ItemContent className="min-w-0 basis-48 gap-0">
+        {lead ? (
+          <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>
+        ) : (
+          <ItemTitle className="min-h-11 script-leading">{title}</ItemTitle>
+        )}
         {description !== "" && <ItemDescription className="break-words script-leading">{description}</ItemDescription>}
       </ItemContent>
-      <ItemActions className="basis-full flex-wrap items-start">
+      <WhenMark urgency={when.urgency}>{when.text}</WhenMark>
+      <ItemActions className="basis-full flex-wrap md:basis-auto">
         {lead !== null && phone !== null && (
           <div className="flex flex-wrap gap-2">
             <CallButton phone={phone} name={lead.personName} leadId={lead.id} variant="outline" compact />

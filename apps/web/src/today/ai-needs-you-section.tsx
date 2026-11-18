@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment, useId } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
-import { TextLink } from "@/components/text-link";
+import { ForwardLink, TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import {
   Item,
@@ -106,7 +106,7 @@ export function AiNeedsYouSection({
           ))}
         </ItemGroup>
       )}
-      {rows.length > ROWS_SHOWN && managesAi && <TextLink href={routes.aiAgent}>{t("viewAll")}</TextLink>}
+      {rows.length > ROWS_SHOWN && managesAi && <ForwardLink href={routes.aiAgent} label={t("viewAll")} />}
       {paymentsToCheck > 0 && <PaymentsToCheckLine count={paymentsToCheck} />}
     </section>
   );
