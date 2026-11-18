@@ -6,6 +6,13 @@ import { useId, type ReactNode } from "react";
 import { TextLink } from "@/components/text-link";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+/** A row of Home's lists (spec 5), one compact line from tablets up: name, then what to do in muted text. At least 44px. */
+export const rowClasses = {
+  item: "py-1.5",
+  content: "min-w-0 gap-0 md:flex-row md:items-center md:gap-3",
+  about: "min-w-0 break-words md:truncate",
+};
+
 export function HomeCard({ title, viewAll, children }: { title: string; viewAll?: string; children: ReactNode }) {
   const t = useTranslations("home");
   const headingId = useId();

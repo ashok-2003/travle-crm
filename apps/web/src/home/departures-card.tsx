@@ -9,7 +9,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle
 import { formatCalendarDay } from "@/lib/format";
 import { departureRoute, routes } from "@/lib/routes";
 import { useTodaySection } from "@/today/use-today";
-import { HomeCard } from "./home-card";
+import { HomeCard, rowClasses } from "./home-card";
 
 export function DeparturesCard() {
   const t = useTranslations("home.departures");
@@ -26,11 +26,11 @@ export function DeparturesCard() {
           <Fragment key={departure.departureId}>
             {index > 0 && <ItemSeparator />}
             <div role="listitem">
-              <Item size="sm" asChild>
+              <Item size="sm" asChild className={rowClasses.item}>
                 <Link href={departureRoute(departure.departureId)}>
-                  <ItemContent className="min-w-0">
-                    <ItemTitle className="script-leading">{departure.title}</ItemTitle>
-                    <ItemDescription>
+                  <ItemContent className={rowClasses.content}>
+                    <ItemTitle className="script-leading shrink-0">{departure.title}</ItemTitle>
+                    <ItemDescription className={rowClasses.about}>
                       {formatCalendarDay(departure.startDate)}
                       {" · "}
                       {t("seats", { sold: departure.sold, total: departure.seatsTotal })}

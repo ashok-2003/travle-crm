@@ -12,7 +12,8 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle
 import { useNeedsMe } from "@/ai/use-needs-me";
 import { inboxRoute, leadRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
-import { HomeCard } from "./home-card";
+import { cn } from "@/lib/utils";
+import { HomeCard, rowClasses } from "./home-card";
 
 const ROWS_SHOWN = 5;
 
@@ -47,11 +48,11 @@ export function AttentionCard() {
             <Fragment key={row.id}>
               {index > 0 && <ItemSeparator />}
               <div role="listitem">
-                <Item size="sm" asChild>
+                <Item size="sm" asChild className={rowClasses.item}>
                   <Link href={row.href}>
-                    <ItemContent className="min-w-0">
-                      <ItemTitle className="script-leading">{row.name}</ItemTitle>
-                      <ItemDescription className="break-words script-leading">{row.about}</ItemDescription>
+                    <ItemContent className={rowClasses.content}>
+                      <ItemTitle className="script-leading shrink-0">{row.name}</ItemTitle>
+                      <ItemDescription className={cn(rowClasses.about, "script-leading")}>{row.about}</ItemDescription>
                     </ItemContent>
                   </Link>
                 </Item>

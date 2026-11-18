@@ -12,6 +12,8 @@ import { elapsed } from "@/lib/relative-time";
 import { departureRoute, leadRoute, routes } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
 import { useMe } from "@/session/me-context";
+import { cn } from "@/lib/utils";
+import { rowClasses } from "./home-card";
 import { WhenMark, type Urgency } from "@/today/when-mark";
 
 export function TaskLine({ item }: { item: TodayItem }) {
@@ -56,11 +58,13 @@ export function TaskLine({ item }: { item: TodayItem }) {
         ? routes.today
         : leadRoute(item.lead.id);
   return (
-    <Item size="sm" asChild>
+    <Item size="sm" asChild className={rowClasses.item}>
       <Link href={href}>
-        <ItemContent className="min-w-0">
-          <ItemTitle className="script-leading">{title}</ItemTitle>
-          {about !== null && <ItemDescription className="break-words script-leading">{about}</ItemDescription>}
+        <ItemContent className={rowClasses.content}>
+          <ItemTitle className="script-leading shrink-0">{title}</ItemTitle>
+          {about !== null && (
+            <ItemDescription className={cn(rowClasses.about, "script-leading")}>{about}</ItemDescription>
+          )}
         </ItemContent>
         <WhenMark urgency={when.urgency}>{when.text}</WhenMark>
       </Link>
