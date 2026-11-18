@@ -5,9 +5,10 @@
 // OpenRouter's own fields (`provider.zdr`, zero data retention on every request) are sent ONLY to OpenRouter: other
 // endpoints reject fields they don't know, and keep what their own terms say. Tools go as OpenAI-style functions; reasoning
 // is `reasoning` and `reasoning_details` on OpenRouter, `reasoning_effort` elsewhere (Gemini), and a tool call's extra data
-// (Gemini's thought signature) goes back unchanged. On Vertex AI, a service account's token takes the key's place and a
-// recording's format goes as its MIME type. The key or token is sent as a header and appears nowhere else: not in a
-// message, a log or an error.
+// (Gemini's thought signature) goes back unchanged. On Vertex AI, a service account's token takes the key's place, a
+// recording's format goes as its MIME type, and a big system message and its tools go once, as a context cache the
+// requests name (vertex-cache.ts). The key or token is sent as a header and appears nowhere else: not in a message, a log
+// or an error.
 import {
   NEXT_MODEL_MIN_LEFT_MS,
   type AiAudioFormat,
@@ -18,6 +19,7 @@ import {
   type AiRequest,
   type AiResult,
 } from "./ai-model.js";
+import { createVertexCache } from "./vertex-cache.js";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -266,9 +268,10 @@ function answerOf(
 export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   const base = aiBaseUrl(options.baseUrl);
   const openRouter = isOpenRouterUrl(base);
-  // A token in place of a key is Vertex AI's service account, and Vertex reads input_audio's format as a MIME type.
-  const audioAsMimeType = typeof options.apiKey !== "string";
+  // A token in place of a key is Vertex AI's service account: Vertex reads input_audio's format as a MIME type, and caches.
+  const vertex = typeof options.apiKey !== "string";
   const send = options.fetch ?? fetch;
+  const cacheOf = vertex ? createVertexCache(base, send) : null;
   /** Each rate-limited model, with the time it may be asked again. Per process, so it is forgotten on a restart. */
   const restingUntil = new Map<string, number>();
   return {
@@ -301,20 +304,21 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           controller.abort();
         }, limit);
         try {
-          const post = (asJson: boolean) =>
+          // A request naming a cache sends neither the system message nor the tools: Vertex refuses them beside one.
+          const post = (asJson: boolean, cache: string | null) =>
             send(`${base}/chat/completions`, {
               method: "POST",
               signal: controller.signal,
               headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
               body: JSON.stringify({
                 model,
-                messages: (asJson ? withSchemaInSystem(request) : request.messages).map((message) =>
-                  wireMessage(message, audioAsMimeType),
-                ),
+                messages: (asJson ? withSchemaInSystem(request) : request.messages)
+                  .slice(cache === null ? 0 : 1)
+                  .map((message) => wireMessage(message, vertex)),
                 max_tokens: request.maxTokens ?? 500,
                 ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
                 ...responseFormat(request, asJson),
-                ...toolSettings(request),
+                ...(cache === null ? toolSettings(request) : { extra_body: { google: { cached_content: cache } } }),
                 ...reasoningSetting(request, openRouter),
                 ...(request.user === undefined ? {} : { user: request.user }),
                 // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
@@ -323,9 +327,15 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
                   : {}),
               }),
             });
-          let response = await post(false);
+          const cached = cacheOf === null ? null : await cacheOf(request, model, bearer, controller.signal);
+          let response = await post(false, cached?.name ?? null);
+          // Vertex refused the cache (it ended early, say): forgotten, and the same model asked once more without it.
+          if (cached !== null && (response.status === 400 || response.status === 404)) {
+            cached.forget();
+            response = await post(false, null);
+          }
           // The endpoint refused json_schema: the same model once more in json mode, the schema said in words.
-          if (request.schema !== undefined && refusesSchema(response)) response = await post(true);
+          if (request.schema !== undefined && refusesSchema(response)) response = await post(true, null);
           if (!response.ok) {
             if (response.status === 429) {
               limited = true;
