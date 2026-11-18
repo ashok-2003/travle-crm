@@ -71,6 +71,5 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
     ).toBeVisible();
   }
   await page.goto("/dashboard");
-  await expect(checklist.getByText("4 of 7 done")).toBeVisible();
-  await expect(checklist.getByRole("listitem")).toHaveText([/^Logo/, /^Branding/]);
+  await expect(checklist.getByText("Setup 4 of 7 · Next: Logo")).toBeVisible();
 });
