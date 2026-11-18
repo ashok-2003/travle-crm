@@ -92,7 +92,7 @@ export function TodayScreen() {
   };
 
   return (
-    <div className="flex max-w-[720px] flex-col gap-6">
+    <div className="flex max-w-[960px] flex-col gap-6">
       <PageHeader
         title={t("title")}
         intro={summary.data && <DayLine summary={summary.data} extra={needs.count} />}

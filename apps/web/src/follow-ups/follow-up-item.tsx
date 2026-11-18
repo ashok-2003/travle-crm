@@ -53,14 +53,11 @@ export function FollowUpItem({
   const move = nextMove(row);
   const owner = row.assigneeUserId === null ? t("unassigned") : (people[row.assigneeUserId] ?? t("formerMember"));
   return (
-    <Item size="sm" role="listitem" className="items-start">
-      <ItemContent className="min-w-0 gap-1.5">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <TextLink href={leadRoute(lead.id)}>{lead.name}</TextLink>
-            <StageBadge stage={lead.stage} />
-          </div>
-          <WhenMark urgency={due < now ? "overdue" : "today"}>{formatDayTime(due, { timeZone, now })}</WhenMark>
+    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
+      <ItemContent className="min-w-0 basis-48 gap-0">
+        <div className="flex flex-wrap items-center gap-x-2">
+          <TextLink href={leadRoute(lead.id)}>{lead.name}</TextLink>
+          <StageBadge stage={lead.stage} />
         </div>
         <ItemDescription className="break-words script-leading text-foreground">{row.title}</ItemDescription>
         {showOwner && <ItemDescription>{t("owner", { name: owner })}</ItemDescription>}
@@ -74,7 +71,8 @@ export function FollowUpItem({
           <ItemDescription className="font-medium text-foreground">{t(`nextMove.${move}`)}</ItemDescription>
         )}
       </ItemContent>
-      <ItemActions className="basis-full flex-wrap items-start">
+      <WhenMark urgency={due < now ? "overdue" : "today"}>{formatDayTime(due, { timeZone, now })}</WhenMark>
+      <ItemActions className="basis-full flex-wrap md:basis-auto">
         {lead.phone !== null && (
           <div className="flex flex-wrap gap-2">
             <CallButton phone={lead.phone} name={lead.name} leadId={lead.id} variant="outline" compact />
