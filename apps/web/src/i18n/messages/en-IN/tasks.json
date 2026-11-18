@@ -29,7 +29,6 @@
       "ai": "the AI",
       "automation": "an automatic message"
     },
-    "openChat": "Open chat",
     "edit": "Edit",
     "editTask": "Edit: {title}",
     "editDialog": {

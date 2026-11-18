@@ -2,7 +2,8 @@
 
 // One row of the Follow-ups screen: the lead (to its page) and its stage, when the follow-up is due in its urgency's
 // colour, what to do, whose it is when everyone's show, the customer's last WhatsApp message, and one next move worked out
-// from the chat and what the AI did (next-move.ts). Then how to reach them, Open chat, and Done, Snooze and Edit.
+// from the chat and what the AI did (next-move.ts). Then how to reach them, and Done, Snooze and Edit. Line 2 is muted and
+// one line; the WhatsApp button opens the chat.
 // Times are the agency's.
 import type { FollowUpRow } from "@travel-crm/contracts/ai";
 import type { PeopleNames } from "@travel-crm/contracts/crm";
@@ -16,7 +17,7 @@ import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
 import { StageBadge } from "@/leads/stage-badge";
 import { formatDayTime } from "@/lib/format";
 import { elapsed } from "@/lib/relative-time";
-import { inboxRoute, leadRoute } from "@/lib/routes";
+import { leadRoute } from "@/lib/routes";
 import { useNow } from "@/lib/use-now";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -52,23 +53,27 @@ export function FollowUpItem({
   const { whatsapp, lead } = row;
   const move = nextMove(row);
   const owner = row.assigneeUserId === null ? t("unassigned") : (people[row.assigneeUserId] ?? t("formerMember"));
+  // Line 2, muted and on one line: the next move when there is one, else the customer's last message.
+  const lastMessage =
+    whatsapp?.lastAt != null && whatsapp.lastFrom !== null
+      ? t("lastMessage", { from: t(`from.${whatsapp.lastFrom}`), ago: ago(whatsapp.lastAt) }) +
+        (whatsapp.lastText !== null ? ` “${whatsapp.lastText}”` : "")
+      : null;
+  const detail = [showOwner ? t("owner", { name: owner }) : null, move !== null ? t(`nextMove.${move}`) : lastMessage]
+    .filter((part): part is string => part !== null)
+    .join(" · ");
   return (
     <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
       <ItemContent className="min-w-0 basis-48 gap-0">
-        <div className="flex flex-wrap items-center gap-x-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2">
           <TextLink href={leadRoute(lead.id)}>{lead.name}</TextLink>
           <StageBadge stage={lead.stage} />
+          <span className="min-w-0 text-sm script-leading">{row.title}</span>
         </div>
-        <ItemDescription className="break-words script-leading text-foreground">{row.title}</ItemDescription>
-        {showOwner && <ItemDescription>{t("owner", { name: owner })}</ItemDescription>}
-        {whatsapp?.lastAt != null && whatsapp.lastFrom !== null && (
-          <ItemDescription className="break-words script-leading">
-            {t("lastMessage", { from: t(`from.${whatsapp.lastFrom}`), ago: ago(whatsapp.lastAt) })}
-            {whatsapp.lastText !== null && ` “${whatsapp.lastText}”`}
+        {detail !== "" && (
+          <ItemDescription title={detail} className="line-clamp-1 script-leading">
+            {detail}
           </ItemDescription>
-        )}
-        {move !== null && (
-          <ItemDescription className="font-medium text-foreground">{t(`nextMove.${move}`)}</ItemDescription>
         )}
       </ItemContent>
       <WhenMark urgency={due < now ? "overdue" : "today"}>{formatDayTime(due, { timeZone, now })}</WhenMark>
@@ -79,7 +84,6 @@ export function FollowUpItem({
             <WhatsAppButton phone={lead.phone} name={lead.name} leadId={lead.id} compact />
           </div>
         )}
-        {whatsapp !== null && <TextLink href={inboxRoute(whatsapp.conversationId)}>{t("openChat")}</TextLink>}
         <div className="flex flex-wrap gap-2">
           <TaskActions
             task={{ id: row.taskId, title: row.title }}

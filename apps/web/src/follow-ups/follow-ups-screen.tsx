@@ -12,10 +12,10 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
+import { ScrollingSection } from "@/components/scrolling-section";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTRPC } from "@/data/trpc";
-import { formatCount } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
 import { useMe, viewScope } from "@/session/me-context";
 import { FollowUpItem } from "./follow-up-item";
@@ -56,13 +56,15 @@ export function FollowUpsScreen() {
       }
       const { people } = board.data;
       return (
-        <div className="flex flex-col gap-10">
-          {followUpSections(view, board.data.rows, now, timeZone).map((section) => (
-            <section key={section.group} aria-label={t(`groups.${section.group}`)} className="flex flex-col gap-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-section font-semibold">{t(`groups.${section.group}`)}</h2>
-                <span className="numbers text-label text-muted-foreground">{formatCount(section.rows.length)}</span>
-              </div>
+        // Two cards a row on a wide screen, one column below; on a phone only the first card starts open.
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+          {followUpSections(view, board.data.rows, now, timeZone).map((section, sectionIndex) => (
+            <ScrollingSection
+              key={section.group}
+              title={t(`groups.${section.group}`)}
+              count={section.rows.length}
+              defaultOpen={sectionIndex === 0}
+            >
               <ItemGroup role="list" className="gap-0">
                 {section.rows.map((row, index) => (
                   <Fragment key={row.taskId}>
@@ -76,7 +78,7 @@ export function FollowUpsScreen() {
                   </Fragment>
                 ))}
               </ItemGroup>
-            </section>
+            </ScrollingSection>
           ))}
         </div>
       );

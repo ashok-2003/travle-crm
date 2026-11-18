@@ -64,7 +64,7 @@ function renderScreen() {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(now);
-  screenIs("phone");
+  screenIs("wide");
   board = { due: [asha, bina, chitra], upcoming: [divya, esha, farah] };
 });
 
@@ -164,6 +164,36 @@ describe("FollowUpsScreen", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
     expect(calls.some((call) => call.path === "leads.addWork")).toBe(false);
+  });
+
+  it("has no Open chat link: the WhatsApp button opens the chat", async () => {
+    board.due = [chitra];
+    renderScreen();
+    const today = await region("Due today");
+    expect(within(today).queryByRole("link", { name: /Open chat/ })).toBeNull();
+    expect(within(today).getByRole("link", { name: /WhatsApp/ })).toBeVisible();
+    expect(within(today).getByRole("button", { name: "Done: Send options to Chitra" })).toBeVisible();
+  });
+
+  it("puts what to do on the first line and the last message on one clamped line", async () => {
+    board.due = [aRow("21", "Team", "2026-10-16T08:30:00.000Z", { whatsapp: chat("team", true) })];
+    renderScreen();
+    const today = await region("Due today");
+    expect(within(today).getByText("Send options to Team")).toBeVisible();
+    const message = within(today).getByText(/Last message from your team/);
+    expect(message).toHaveClass("line-clamp-1");
+    expect(message).toHaveAttribute("title", message.textContent);
+  });
+
+  it("on a phone opens only the first section", async () => {
+    screenIs("phone");
+    renderScreen();
+    const overdue = await region("Overdue");
+    expect(within(overdue).getByRole("button", { name: "Overdue" })).toHaveAttribute("aria-expanded", "true");
+    expect(await within(overdue).findByRole("link", { name: "Asha" })).toBeVisible();
+    const today = await region("Due today");
+    expect(within(today).getByRole("button", { name: "Due today" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(today).queryByRole("link", { name: "Bina" })).toBeNull();
   });
 
   it("draws Edit, Done and Snooze alike, as plain outline buttons", async () => {
