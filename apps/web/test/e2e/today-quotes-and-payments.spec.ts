@@ -4,6 +4,7 @@
 import { expect, test } from "./support/notifications";
 import { signInByEmail } from "./support/fixtures";
 import { addLeadThroughApi, dayInIndia, leadInput } from "./support/leads";
+import { opened } from "./support/sections";
 
 const DAY = 24 * 3_600_000;
 
@@ -60,6 +61,7 @@ test("Home shows a quote opened with no reply as a hot lead, and My tasks a paym
 
   await page.goto("/today");
   const payments = page.getByRole("region", { name: "Payments due" });
+  await opened(payments, "Payments due");
   await expect(payments.getByRole("link", { name: "Kiran Joshi", exact: true })).toBeVisible();
   await expect(payments.getByText(/^₹25,000 was due \d+ \w+/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Quote opened, no reply" })).toBeHidden();

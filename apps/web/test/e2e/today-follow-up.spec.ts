@@ -7,10 +7,10 @@
 //   today;
 // - a new lead marked contacted leaves its section; one task snoozed for an hour and another to a chosen day.
 // axe checks both screens and each dialog.
-import type { Locator } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "./support/leads";
+import { opened } from "./support/sections";
 import { animationsSettled } from "./support/settled";
 import { addTaskThroughApi, fillDue, laterToday, timeInIndia, typedDay } from "./support/work";
 
@@ -87,13 +87,6 @@ test("a follow-up snoozed to tomorrow 9:00 leaves Due and shows under Later", as
   await page.goto(`/leads/${leadId}`);
   await expect(page.getByRole("main").getByText("Follow up tomorrow, 9:00 am").first()).toBeVisible();
 });
-
-/** On a phone a section is a collapsible and only the first starts open: open this one if it is closed. */
-async function opened(section: Locator, name: string): Promise<void> {
-  await expect(section).toBeVisible();
-  const trigger = section.getByRole("button", { name, exact: true, expanded: false });
-  if ((await trigger.count()) > 0) await trigger.click();
-}
 
 test("Add a task puts one on a lead found by search, and one standing alone, under Due today", async ({
   page,
