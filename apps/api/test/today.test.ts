@@ -29,13 +29,14 @@ describe("today over HTTP", () => {
   });
 
   it("answers the salesperson's own day, and only the manager's own to the manager", async () => {
-    const { leadId, followUpId } = await server.db.forOrg(agency.organizationId, async (tx) => {
+    const { leadId, taskId } = await server.db.forOrg(agency.organizationId, async (tx) => {
       const person = await tx.person.create({ data: { name: "Rahul Sharma", phoneE164: "+919876500077" } });
       const lead = await tx.lead.create({ data: { personId: person.id, source: "walk_in", ownerUserId: zara.userId } });
       const dueAt = new Date(Date.now() - HOUR_MS);
-      const followUp = await tx.task.create({
+      // A plain task: follow-ups live on the Follow-ups page, never in My tasks' Overdue (web revamp).
+      const task = await tx.task.create({
         data: {
-          kind: "follow-up",
+          kind: "task",
           title: "Call back about Kashmir",
           dueAt,
           firstDueAt: dueAt,
@@ -44,7 +45,7 @@ describe("today over HTTP", () => {
           recordId: lead.id,
         },
       });
-      return { leadId: lead.id, followUpId: followUp.id };
+      return { leadId: lead.id, taskId: task.id };
     });
 
     const summary = await dataOf<TodaySummary>(await query(server, "today.summary", salesperson));
@@ -58,11 +59,12 @@ describe("today over HTTP", () => {
       departures: 0,
       paymentsToCheck: 0,
       checkTasks: 0,
+      followUpsDue: 0,
     });
     expect(summary.top).toMatchObject([
       {
         kind: "task",
-        task: { id: followUpId, title: "Call back about Kashmir" },
+        task: { id: taskId, title: "Call back about Kashmir" },
         lead: { id: leadId, personName: "Rahul Sharma", phone: "+919876500077", source: "walk_in" },
       },
       { kind: "new-lead", lead: { id: leadId } },
