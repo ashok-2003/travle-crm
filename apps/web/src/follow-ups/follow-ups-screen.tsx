@@ -26,6 +26,8 @@ import { followUpSections } from "./sections";
 const views = ["due", "upcoming"] as const;
 type View = (typeof views)[number];
 
+// The tabs filter the one list below them and have no panels of their own, so their aria-controls (which Radix points at
+// a panel that is never there) is left off: axe rejects it.
 export function FollowUpsScreen() {
   const t = useTranslations("tasks.followUps");
   const tLeads = useTranslations("leads.list");
@@ -107,7 +109,7 @@ export function FollowUpsScreen() {
         >
           <TabsList variant="solid" aria-label={t("when")}>
             {views.map((one) => (
-              <TabsTrigger key={one} value={one}>
+              <TabsTrigger key={one} value={one} aria-controls={undefined}>
                 {t(`views.${one}`)}
               </TabsTrigger>
             ))}
@@ -121,8 +123,12 @@ export function FollowUpsScreen() {
             }}
           >
             <TabsList variant="solid" aria-label={tLeads("whose")}>
-              <TabsTrigger value="mine">{tLeads("mine")}</TabsTrigger>
-              <TabsTrigger value="everyone">{tLeads("everyone")}</TabsTrigger>
+              <TabsTrigger value="mine" aria-controls={undefined}>
+                {tLeads("mine")}
+              </TabsTrigger>
+              <TabsTrigger value="everyone" aria-controls={undefined}>
+                {tLeads("everyone")}
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         )}
