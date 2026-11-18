@@ -6,6 +6,7 @@ import { Fragment } from "react";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
+import { FollowUpsLine } from "@/follow-ups/follow-ups-line";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { routes } from "@/lib/routes";
 import { todayItemId } from "@/today/today-item";
@@ -37,6 +38,7 @@ export function TasksCard() {
           ))}
         </ItemGroup>
       )}
+      <FollowUpsLine />
     </HomeCard>
   );
 }

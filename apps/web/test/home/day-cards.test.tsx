@@ -146,6 +146,33 @@ describe("Home's day", () => {
       expect(within(tasks).getByText("Sneha Iyer")).toBeVisible();
     });
 
+    it("shows the follow-ups line, which opens Follow-ups, under the rows", async () => {
+      const row = (replied: boolean) => ({
+        taskId: `0199e7a0-0000-7000-8000-00000000095${replied ? "1" : "0"}`,
+        title: "Send options",
+        dueAt: "2026-10-15T11:30:00.000Z",
+        assigneeUserId: null,
+        byAi: false,
+        lead: { id: "0199e7a0-0000-7000-8000-000000000960", name: "Isha", stage: "contacted", phone: null },
+        whatsapp: replied
+          ? {
+              conversationId: "0199e7a0-0000-7000-8000-000000000961",
+              lastAt: null,
+              lastFrom: "customer",
+              lastText: null,
+              windowOpen: true,
+            }
+          : null,
+        ai: null,
+      });
+      renderHome({ answers: { "tasks.followUps": { data: { rows: [row(false), row(true)], people: {} } } } });
+      const tasks = await card(h.tasks.title);
+      expect(await within(tasks).findByRole("link", { name: /2 follow-ups due/ })).toHaveAttribute(
+        "href",
+        "/leads/follow-ups",
+      );
+    });
+
     it("says so in one quiet line when nothing is due", async () => {
       renderHome({ overdue: [], dueToday: [], newLeads: [] });
       expect(await within(await card(h.tasks.title)).findByText(h.tasks.nothing)).toBeVisible();
