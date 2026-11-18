@@ -52,7 +52,7 @@ export { decideStageSuggestion, stageSuggestionOfLead, stageSuggestionsOf } from
 export { autopilotDefaults, autopilotOf } from "./autopilot.js";
 export { followUpBoardOf } from "./follow-up-board.js";
 export { AI_CHAT_RESUMED_EVENT, chatAiOf, resumeChat, setChatMode } from "./chat-state.js";
-export { aiOverviewOf } from "./overview.js";
+export { aiOverviewOf, chatsAnsweredSince } from "./overview.js";
 export { fillForm } from "./fill/engine.js";
 export { recordFillApplied } from "./fill/applied.js";
 export { confirmAiInput, requestAiInput } from "./fill/input.js";

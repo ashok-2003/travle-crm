@@ -5,6 +5,8 @@
 // The plan's AI module is checked on every call.
 import {
   agencyAnswers,
+  chatsAnswered,
+  chatsAnsweredInput,
   agentBasics,
   agentSetup,
   handedOverChatList,
@@ -68,6 +70,7 @@ import {
   setBookingStatus,
   aiEnabled,
   aiOverviewOf,
+  chatsAnsweredSince,
   aiSettingsOf,
   chatAiOf,
   naturalPromptOf,
@@ -93,7 +96,8 @@ import {
 import { adPackageChoicesOf, adsOf, linkAd } from "@travel-crm/domain/inbox";
 import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
-import { DomainError } from "@travel-crm/domain/kernel";
+import { organizationTimeZone } from "@travel-crm/domain/identity";
+import { DomainError, periodStart } from "@travel-crm/domain/kernel";
 import type { Database } from "@travel-crm/db";
 import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
@@ -387,6 +391,18 @@ export const aiRouter = router({
     .requires("ai:manage")
     .output(aiOverview)
     .query(({ ctx }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => aiOverviewOf(tx, new Date()))),
+
+  /** How many chats the AI answered in a period, in the agency's time zone. */
+  chatsAnswered: freshProcedure
+    .requires("ai:manage")
+    .input(chatsAnsweredInput)
+    .output(chatsAnswered)
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const timeZone = await organizationTimeZone(tx, ctx.member.organizationId);
+        return { chats: await chatsAnsweredSince(tx, periodStart(input.period, new Date(), timeZone)) };
+      }),
+    ),
 
   /** A chat's autopilot state, for the inbox. */
   chatAi: orgProcedure

@@ -1,9 +1,10 @@
-// The lead list's filters, kept in the address (R41: ?view=&stage=&owner=&source=&destination=&tripType=) so Back
+// The lead list's filters, kept in the address (R41: ?view=&stage=&owner=&source=&destination=&tripType=&created=) so Back
 // from a lead and a shared link keep them. They are read with the api's own rules: a value it would refuse is left
 // out, and a salesperson, who only ever sees their own leads, has no view or owner to choose. Only ids and fixed values
 // go there: the search, a name or a phone, never does (use-list-search.ts keeps it in the tab).
 import { leadSource, leadStage, tripType, type ListLeadsInput } from "@travel-crm/contracts/crm";
 import { recordId } from "@travel-crm/contracts/identity";
+import { createdWithin } from "@travel-crm/contracts/kernel";
 import type { z } from "zod";
 import { leadRoute, routes } from "@/lib/routes";
 
@@ -23,6 +24,7 @@ const names = {
   source: "source",
   destinationId: "destination",
   tripType: "tripType",
+  created: "created",
 } as const satisfies Record<keyof ListFilters, string>;
 
 /** The list's first page as the address asks for it. */
@@ -41,6 +43,7 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
   const source = read(leadSource, "source");
   const destinationId = read(recordId, "destinationId");
   const kind = read(tripType, "tripType");
+  const created = read(createdWithin, "created");
   return {
     view,
     stage: search.get(names.stage) === "open" ? "open" : (read(leadStage, "stage") ?? "open"),
@@ -48,6 +51,7 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
     ...(source && { source }),
     ...(destinationId && { destinationId }),
     ...(kind && { tripType: kind }),
+    ...(created && { created }),
     limit: LEADS_PER_PAGE,
   };
 }
@@ -77,6 +81,6 @@ export function leadHref(leadId: string, filters: FiltersToShow): string {
 
 /** Whether the list shows less than all of the view's open leads. */
 export function isFiltered(filters: ListFilters & { search?: string }): boolean {
-  const { ownerUserId, source, destinationId, tripType: kind, search } = filters;
-  return filters.stage !== "open" || [ownerUserId, source, destinationId, kind, search].some(Boolean);
+  const { ownerUserId, source, destinationId, tripType: kind, created, search } = filters;
+  return filters.stage !== "open" || [ownerUserId, source, destinationId, kind, created, search].some(Boolean);
 }

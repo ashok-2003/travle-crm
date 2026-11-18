@@ -39,6 +39,7 @@ const required: Record<string, Permission> = {
   "leads.removeAll": "leads:delete",
   "leads.list": "leads:view",
   "leads.counts": "leads:view",
+  "leads.stageBreakdown": "leads:view",
   "leads.owners": "leads:view",
   "leads.messageLibrary": "leads:view",
   "leads.messagePreview": "leads:view",

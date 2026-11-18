@@ -15,6 +15,8 @@ export interface LeadListFilter {
   source?: LeadSource;
   destinationId?: string;
   tripType?: TripType;
+  /** Only leads created at or after this instant: a "came in" period's start. */
+  createdFrom?: Date;
   /** A name (forgiving of typos) or four or more digits of a phone (R5). */
   search?: { kind: "name"; text: string } | { kind: "digits"; digits: string };
   /** The last lead id of the previous page. */
@@ -57,6 +59,7 @@ function filterConditions(filter: LeadCountsFilter): Sql {
     ${filter.source === undefined ? emptySql : sql`AND lead.source = ${filter.source}`}
     ${filter.destinationId === undefined ? emptySql : sql`AND lead.destination_id = ${filter.destinationId}::uuid`}
     ${filter.tripType === undefined ? emptySql : sql`AND lead.trip_type = ${filter.tripType}`}
+    ${filter.createdFrom === undefined ? emptySql : sql`AND lead.created_at >= ${filter.createdFrom}::timestamptz`}
     ${searchCondition(filter.search)}`;
 }
 
@@ -85,6 +88,15 @@ export function leadCountsQuery(filter: LeadCountsFilter): Sql {
     SELECT lead.stage, count(*)::int AS n
     FROM lead ${filter.search === undefined ? emptySql : PERSON}
     WHERE ${filterConditions(filter)} AND ${OPEN_STAGES}
+    GROUP BY lead.stage`;
+}
+
+/** Live leads of any stage counted by stage, for the same conditions as the list (a "came in" period, the scope). */
+export function leadStageCountsQuery(filter: LeadCountsFilter): Sql {
+  return sql`
+    SELECT lead.stage, count(*)::int AS n
+    FROM lead
+    WHERE ${filterConditions(filter)}
     GROUP BY lead.stage`;
 }
 
