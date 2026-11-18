@@ -11,7 +11,7 @@ import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { routes } from "@/lib/routes";
 import { todayItemId } from "@/today/today-item";
 import { useMyTasksPreview } from "@/today/use-today";
-import { HomeCard } from "./home-card";
+import { HomeCard, rowClasses } from "./home-card";
 import { TaskLine } from "./task-line";
 
 export function TasksCard() {
@@ -26,11 +26,11 @@ export function TasksCard() {
       ) : tasks.items.length === 0 ? (
         <p className="text-muted-foreground">{t("nothing")}</p>
       ) : (
-        <ItemGroup>
+        <ItemGroup className={rowClasses.group}>
           {tasks.items.map((item, index) => (
             // The index too: a thing can sit in two of the sections for a moment, as a refresh lands.
             <Fragment key={`${todayItemId(item)}-${String(index)}`}>
-              {index > 0 && <ItemSeparator />}
+              {index > 0 && <ItemSeparator className={rowClasses.separator} />}
               <div role="listitem">
                 <TaskLine item={item} />
               </div>

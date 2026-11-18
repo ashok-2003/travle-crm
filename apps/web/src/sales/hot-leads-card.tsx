@@ -69,7 +69,7 @@ export function HotLeadsCard() {
   if (hot.data === undefined || hot.data.length === 0) return null;
   return (
     <HomeCard title={th("title")} viewAll={routes.leads}>
-      <ItemGroup>
+      <ItemGroup className={rowClasses.group}>
         {hot.data.slice(0, SHOWN).map((lead) => (
           <HotRow key={lead.leadId} lead={lead} />
         ))}

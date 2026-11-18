@@ -8,6 +8,9 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 
 /** A row of Home's lists (spec 5), one compact line from tablets up: name, then what to do in muted text. At least 44px. */
 export const rowClasses = {
+  // The group's own gap and the separator's margin added up to 36px around every line; rows touch their hairline.
+  group: "gap-0 has-data-[size=sm]:gap-0",
+  separator: "my-0",
   item: "py-1.5",
   content: "min-w-0 gap-0 md:flex-row md:items-center md:gap-3",
   about: "min-w-0 break-words md:truncate",
