@@ -2,7 +2,7 @@
 
 // "Needs your attention" (spec 5): what the AI needs from this member, the same items as My tasks' "AI needs you": the
 // chats it handed over and its Lost / Not a lead suggestions on their leads. View all opens the AI agent page for
-// whoever manages the AI, My tasks for anyone else.
+// whoever manages the AI, My tasks for anyone else. A phone shows three, so the card stays a glance.
 import { Fragment } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -12,14 +12,14 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle
 import { useNeedsMe } from "@/ai/use-needs-me";
 import { inboxRoute, leadRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
+import { useWideScreen } from "@/lib/use-wide-screen";
 import { cn } from "@/lib/utils";
 import { HomeCard, rowClasses } from "./home-card";
-
-const ROWS_SHOWN = 5;
 
 export function AttentionCard() {
   const t = useTranslations("home.attention");
   const needs = useNeedsMe();
+  const wide = useWideScreen();
   const managesAi = useHolds("ai:manage");
   const rows = [
     ...needs.handedOver.map((chat) => ({
@@ -34,7 +34,7 @@ export function AttentionCard() {
       name: suggestion.name,
       about: t("suggestion", { reason: suggestion.reason }),
     })),
-  ].slice(0, ROWS_SHOWN);
+  ].slice(0, wide ? 5 : 3);
   return (
     <HomeCard title={t("title")} viewAll={managesAi ? routes.aiAgent : routes.today}>
       {needs.isError && <LoadFailedAlert message={t("loadFailed")} error={needs.error} onRetry={needs.refetch} />}
@@ -52,7 +52,9 @@ export function AttentionCard() {
                   <Link href={row.href}>
                     <ItemContent className={rowClasses.content}>
                       <ItemTitle className="script-leading shrink-0">{row.name}</ItemTitle>
-                      <ItemDescription className={cn(rowClasses.about, "script-leading")}>{row.about}</ItemDescription>
+                      <ItemDescription title={row.about} className={cn(rowClasses.about, "script-leading")}>
+                        {row.about}
+                      </ItemDescription>
                     </ItemContent>
                   </Link>
                 </Item>

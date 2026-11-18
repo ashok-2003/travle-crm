@@ -47,7 +47,7 @@
     "title": "Needs your attention",
     "nothing": "Nothing needs you right now.",
     "handedOver": "The AI handed this chat over to you.",
-    "handedOverWhy": "The AI handed this chat over: {reason}",
+    "handedOverWhy": "Handed over: {reason}",
     "suggestion": "The AI suggests closing this lead: {reason}",
     "loadFailed": "This part didn't load."
   }

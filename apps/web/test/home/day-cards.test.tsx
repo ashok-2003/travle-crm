@@ -290,16 +290,26 @@ describe("Home's day", () => {
   });
 
   describe("Needs your attention", () => {
-    it("shows at most five rows", async () => {
-      const chats = Array.from({ length: 7 }, (_, index) => ({
-        ...handedOver,
-        conversationId: `0199e7a0-0000-7000-8000-0000000002b${String(index)}`,
-        name: `Chat person ${String(index)}`,
-      }));
+    const chats = Array.from({ length: 7 }, (_, index) => ({
+      ...handedOver,
+      conversationId: `0199e7a0-0000-7000-8000-0000000002b${String(index)}`,
+      name: `Chat person ${String(index)}`,
+    }));
+
+    it("shows at most five rows on a wide screen", async () => {
+      screenIs("wide");
       renderHome({ answers: { "ai.handedOver": { data: chats } } });
       const needs = await card(h.attention.title);
       await within(needs).findByText("Chat person 0");
       expect(within(needs).getAllByRole("listitem")).toHaveLength(5);
+    });
+
+    it("shows three on a phone, each reason without the repeated words", async () => {
+      renderHome({ answers: { "ai.handedOver": { data: chats } } });
+      const needs = await card(h.attention.title);
+      await within(needs).findByText("Chat person 0");
+      expect(within(needs).getAllByRole("listitem")).toHaveLength(3);
+      expect(within(needs).getAllByText("Handed over: Asked for a discount")).toHaveLength(3);
     });
 
     it("lists what the AI needs, and View all opens the AI agent page for a member who manages the AI", async () => {

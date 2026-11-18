@@ -14,9 +14,7 @@ export function FollowUpsLine() {
   return (
     <p className="flex flex-wrap items-center gap-x-2">
       <span>{t("line", counts)}</span>
-      <TextLink inline href={routes.followUps}>
-        {t("openFollowUps")}
-      </TextLink>
+      <TextLink href={routes.followUps}>{t("openFollowUps")}</TextLink>
     </p>
   );
 }
