@@ -133,7 +133,8 @@ describe("the demo reset", () => {
     expect([...blocked]).toEqual([expect.stringMatching(/^email:.+@example\.com$/) as unknown]);
     expect(data.notedLeads).toBe(4);
     expect(data.tasks.filter((task) => task.kind === "follow-up" && task.recordType === "lead")).toHaveLength(7);
-    expect(data.tasks.filter((task) => task.recordType === null)).toHaveLength(2);
+    // Four standalone tasks: two for later, and Ravi's overdue one and one due later today, for My tasks.
+    expect(data.tasks.filter((task) => task.recordType === null)).toHaveLength(4);
     expect(data.tasks.every((task) => task.assigneeUserId === asha || task.assigneeUserId === ravi)).toBe(true);
   });
 
@@ -246,7 +247,7 @@ describe("the demo reset", () => {
     });
   });
 
-  it("gives Ravi's Today an overdue follow-up, a new lead and one due today", async () => {
+  it("gives Ravi's My tasks an overdue task, a new lead and one due today, and follow-ups due apart", async () => {
     // 02:00 in India, when the console's nightly job runs, and an afternoon reset run by hand.
     for (const now of [new Date("2026-10-17T20:30:00Z"), new Date("2026-10-18T09:30:00Z")]) {
       const { organizationId } = await resetDemoOrganization(test.services, demoSettings(), now);
@@ -258,6 +259,7 @@ describe("the demo reset", () => {
       expect(today.counts.overdue).toBeGreaterThanOrEqual(1);
       expect(today.counts.newLeads).toBeGreaterThanOrEqual(1);
       expect(today.counts.dueToday).toBeGreaterThanOrEqual(1);
+      expect(today.counts.followUpsDue).toBeGreaterThanOrEqual(1);
       expect(today.top.map((item) => item.kind)).toEqual(["task", "new-lead", "task"]);
     }
   });
