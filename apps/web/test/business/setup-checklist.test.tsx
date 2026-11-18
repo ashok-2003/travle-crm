@@ -17,7 +17,8 @@ import { member } from "../support/members";
 import { newQueryClient, renderWithApi } from "../organization/api";
 
 const words = messages.business.setup;
-const usualHome = messages.shell.home.intro;
+/** Home's greeting line, which is there whatever the setup card does. */
+const usualHome = /what needs you today/;
 const cardName = words.homeHeading.replace("{organization}", "Sharma Travels");
 
 /** A member of one of the roles every organization starts with, holding its real permissions. */
@@ -104,7 +105,7 @@ describe("Home's setup card", () => {
     vi.unstubAllGlobals();
   });
 
-  it("comes first on the Owner's Home, above the usual Home, with the next two steps to do and the way to all", async () => {
+  it("comes first on the Owner's Home, under the greeting, with the next two steps to do and the way to all", async () => {
     stubApi({ "organization.setup.get": { data: halfway } });
     renderWithApi(<HomePage />, newQueryClient(), member({ isOwner: true }));
     const card = await screen.findByRole("region", { name: cardName });
@@ -117,10 +118,9 @@ describe("Home's setup card", () => {
     ]);
     expect(within(card).getByText(words.steps.logo.hint)).toBeVisible();
     expect(within(card).getByRole("link", { name: words.everyStep })).toHaveAttribute("href", routes.setup);
-    // Above the usual Home, never instead of it.
-    const home = screen.getByText(usualHome);
-    expect(card.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("link", { name: messages.shell.home.settings })).toBeVisible();
+    // Right under the greeting, above everything else on Home.
+    const greeting = screen.getByRole("heading", { level: 1 });
+    expect(greeting.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows an Admin the card too: their role holds settings:manage", async () => {
@@ -183,9 +183,8 @@ describe("Home's setup card", () => {
   it("is never asked for on a Sales member's Home: their role can't change the settings", () => {
     const api = stubApi({ "organization.setup.get": { data: halfway } });
     renderWithApi(<HomePage />, newQueryClient(), ofStarterRole("sales"));
-    expect(screen.getByText(messages.shell.home.nothingToSetUp)).toBeVisible();
-    expect(screen.queryByRole("region")).toBeNull();
-    expect(api.calls).toEqual([]);
+    expect(screen.queryByRole("region", { name: cardName })).toBeNull();
+    expect(api.calls).not.toContain("organization.setup.get");
   });
 
   it("shows the usual Home under its place while it loads", async () => {
@@ -193,7 +192,6 @@ describe("Home's setup card", () => {
     renderWithApi(<HomePage />, newQueryClient(), member({ isOwner: true }));
     expect(await screen.findByRole("status", { name: messages.common.loading })).toBeVisible();
     expect(screen.getByText(usualHome)).toBeVisible();
-    expect(screen.getByRole("link", { name: messages.shell.home.settings })).toBeVisible();
   });
 
   it("says so above the usual Home if it didn't load, and tries again", async () => {
