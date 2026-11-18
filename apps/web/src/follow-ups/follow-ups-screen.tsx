@@ -105,7 +105,7 @@ export function FollowUpsScreen() {
             setView(views.find((one) => one === chosen) ?? "due");
           }}
         >
-          <TabsList aria-label={t("when")}>
+          <TabsList variant="solid" aria-label={t("when")}>
             {views.map((one) => (
               <TabsTrigger key={one} value={one}>
                 {t(`views.${one}`)}
@@ -120,7 +120,7 @@ export function FollowUpsScreen() {
               setWhose(chosen === "everyone" ? "everyone" : "mine");
             }}
           >
-            <TabsList aria-label={tLeads("whose")}>
+            <TabsList variant="solid" aria-label={tLeads("whose")}>
               <TabsTrigger value="mine">{tLeads("mine")}</TabsTrigger>
               <TabsTrigger value="everyone">{tLeads("everyone")}</TabsTrigger>
             </TabsList>

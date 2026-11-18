@@ -12,12 +12,12 @@ import { member } from "../support/members";
 const keys = (items: { key: string }[]) => items.map((item) => item.key);
 
 describe("visibleNavigationItems", () => {
-  it("orders an Owner's items Home, Today, Leads, Staff, Roles, Settings, Audit log, and a salesperson's Home, Today, Leads", () => {
+  it("orders an Owner's items Home, Today, Follow-ups, Leads, Staff, Roles, Settings, Audit log, and a salesperson's Home, Today, Follow-ups, Leads", () => {
     expect(keys(visibleNavigationItems(member({ isOwner: true })))).toEqual([
       "home",
       "today",
-      "leads",
       "followUps",
+      "leads",
       "inbox",
       "aiAgent",
       "quotes",
@@ -34,15 +34,15 @@ describe("visibleNavigationItems", () => {
       "audit",
     ]);
     const sales = member({ permissions: ["leads:view", "leads:create", "leads:edit"] });
-    expect(keys(visibleNavigationItems(sales, ["crm"]))).toEqual(["home", "today", "leads", "followUps"]);
+    expect(keys(visibleNavigationItems(sales, ["crm"]))).toEqual(["home", "today", "followUps", "leads"]);
   });
 
   it("shows each item only to roles holding its permission", () => {
     expect(keys(visibleNavigationItems(member({ permissions: ["leads:view"] })))).toEqual([
       "home",
       "today",
-      "leads",
       "followUps",
+      "leads",
     ]);
     expect(keys(visibleNavigationItems(member({ permissions: ["staff:manage", "settings:manage"] })))).toEqual([
       "home",

@@ -46,7 +46,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - `progress.tsx`: its bar moves only behind `motion-safe:`.
 - `badge.tsx`: 4px radius.
 - `tabs.tsx`: an unselected trigger is the muted ink (4.84:1 on the surface list) instead of ink at 60%, which fails
-  contrast. The list is 52px around its 44px triggers; don't shrink it.
+  contrast. The list is 52px around its 44px triggers; don't shrink it. A `solid` list variant (owner's request,
+  2026-11-18, for Follow-ups): the selected trigger is `bg-foreground text-background` (black on light, white on dark,
+  theme tokens only) and its triggers are wider (`min-w-28`, more padding), so the choice reads at a glance.
 - `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx`: the overlay is the `scrim` token, without blur. The dialog's and the
   sheet's Close words are the `common.close` message.
 - `spinner.tsx`: decoration (`aria-hidden`), without `role="status"` or a label: it sits in busy buttons, whose own

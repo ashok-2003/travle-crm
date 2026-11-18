@@ -196,7 +196,8 @@ describe("TodayScreen", () => {
     expect(screen.getByRole("heading", { level: 1, name: "My tasks" })).toBeVisible();
     expect(await screen.findByText("Fri 16 Oct · 8 to do")).toBeVisible();
     expect(screen.getByText("2 overdue")).toHaveClass("text-status-bad-ink");
-    expect(screen.getByRole("button", { name: words.addTask.action })).toBeVisible();
+    // The screen's one main action: the blue primary button.
+    expect(screen.getByRole("button", { name: words.addTask.action })).toHaveAttribute("data-variant", "default");
   });
 
   it("counts what the AI needs and the payments to check in the day, each thing once", async () => {
@@ -257,10 +258,10 @@ describe("TodayScreen", () => {
     day = busy({ ...busyDay, counts: { ...busyDay.counts, newLeads: 8 } });
     renderToday();
     const newLeads = await region(words.sections["new-leads"]);
-    expect(await within(newLeads).findByRole("link", { name: words.viewAll })).toHaveAttribute(
-      "href",
-      "/leads?stage=new",
-    );
+    const viewAll = await within(newLeads).findByRole("link", { name: words.viewAll });
+    expect(viewAll).toHaveAttribute("href", "/leads?stage=new");
+    // ForwardLink: the arrow after the words.
+    expect(viewAll.querySelector("svg")).not.toBeNull();
   });
 
   it("marks a new lead contacted, and it leaves the section and the chips' counts load again", async () => {
