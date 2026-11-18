@@ -1,0 +1,47 @@
+"use client";
+
+// "Departures leaving soon" (spec 5): the departures Today shows, with their seats sold. Left out when none leave soon.
+import { Fragment } from "react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { LoadFailedAlert } from "@/components/load-failed-alert";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
+import { formatCalendarDay } from "@/lib/format";
+import { departureRoute, routes } from "@/lib/routes";
+import { useTodaySection } from "@/today/use-today";
+import { HomeCard } from "./home-card";
+
+export function DeparturesCard() {
+  const t = useTranslations("home.departures");
+  const section = useTodaySection("departures");
+  if (section.isError) {
+    return <LoadFailedAlert message={t("loadFailed")} error={section.error} onRetry={() => void section.refetch()} />;
+  }
+  const departures = (section.items ?? []).flatMap((item) => (item.kind === "departure" ? [item] : []));
+  if (departures.length === 0) return null;
+  return (
+    <HomeCard title={t("title")} viewAll={routes.departures}>
+      <ItemGroup>
+        {departures.map((departure, index) => (
+          <Fragment key={departure.departureId}>
+            {index > 0 && <ItemSeparator />}
+            <div role="listitem">
+              <Item size="sm" asChild>
+                <Link href={departureRoute(departure.departureId)}>
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="script-leading">{departure.title}</ItemTitle>
+                    <ItemDescription>
+                      {formatCalendarDay(departure.startDate)}
+                      {" · "}
+                      {t("seats", { sold: departure.sold, total: departure.seatsTotal })}
+                    </ItemDescription>
+                  </ItemContent>
+                </Link>
+              </Item>
+            </div>
+          </Fragment>
+        ))}
+      </ItemGroup>
+    </HomeCard>
+  );
+}
