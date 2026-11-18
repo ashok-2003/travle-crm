@@ -74,7 +74,33 @@ export function LeadsCard({ period }: { period: Period }) {
           <LoadFailedAlert message={t("loadFailed")} error={breakdown.error} onRetry={() => void breakdown.refetch()} />
         ) : (
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
-            <div className="flex items-center gap-6">
+            <ul className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3">
+              {shown.map((stage) => (
+                <li key={stage}>
+                  {data === undefined ? (
+                    <Skeleton className="h-16 w-full" />
+                  ) : (
+                    <Link
+                      href={hrefOf(stage)}
+                      className={cn(
+                        "flex min-h-16 flex-col justify-between gap-1 rounded-lg p-3",
+                        stageTones[stage].badge,
+                      )}
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-label font-medium">
+                        <span
+                          aria-hidden="true"
+                          className={cn("size-1.5 shrink-0 rounded-full", stageTones[stage].dot)}
+                        />
+                        {tStages(stage)}
+                      </span>
+                      <span className="numbers text-number-lg font-medium">{formatCount(data.stages[stage])}</span>
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center gap-6 lg:shrink-0">
               <ChartContainer
                 config={config}
                 className="aspect-square size-36 shrink-0"
@@ -119,32 +145,6 @@ export function LeadsCard({ period }: { period: Period }) {
                 )}
               </div>
             </div>
-            <ul className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3">
-              {shown.map((stage) => (
-                <li key={stage}>
-                  {data === undefined ? (
-                    <Skeleton className="h-16 w-full" />
-                  ) : (
-                    <Link
-                      href={hrefOf(stage)}
-                      className={cn(
-                        "flex min-h-16 flex-col justify-between gap-1 rounded-lg p-3",
-                        stageTones[stage].badge,
-                      )}
-                    >
-                      <span className="inline-flex items-center gap-1.5 text-label font-medium">
-                        <span
-                          aria-hidden="true"
-                          className={cn("size-1.5 shrink-0 rounded-full", stageTones[stage].dot)}
-                        />
-                        {tStages(stage)}
-                      </span>
-                      <span className="numbers text-number-lg font-medium">{formatCount(data.stages[stage])}</span>
-                    </Link>
-                  )}
-                </li>
-              ))}
-            </ul>
             {data !== undefined && (
               <table className="sr-only">
                 <caption>{t("table")}</caption>
