@@ -24,7 +24,9 @@ export function followUpSections(
   now: Date,
   timeZone: string,
 ): { group: FollowUpGroup; rows: FollowUpRow[] }[] {
-  const ordered = [...rows].sort((a, b) => Number(replied(b)) - Number(replied(a)) || a.dueAt.localeCompare(b.dueAt));
+  const ordered = [...rows].sort(
+    (a, b) => Number(replied(b)) - Number(replied(a)) || new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime(),
+  );
   return groupsOf[view]
     .map((group) => ({ group, rows: ordered.filter((row) => groupOf(row, now, timeZone) === group) }))
     .filter((section) => section.rows.length > 0);

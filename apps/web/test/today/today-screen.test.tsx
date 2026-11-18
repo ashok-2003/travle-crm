@@ -324,6 +324,17 @@ describe("TodayScreen", () => {
       renderToday();
       const ai = await region(words.sections.aiNeedsYou);
       expect(within(ai).getByRole("link", { name: /2 payments are waiting/ })).toHaveAttribute("href", "/payments");
+      // Only payments: no AI count over the line, and not 2 over one chat's row either.
+      expect(within(ai).queryByText("2")).toBeNull();
+    });
+
+    it("counts only the AI's rows in its heading, not the payments", async () => {
+      day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 4 } });
+      needsMe = { handedOver: [handedOver], suggestions: [] };
+      renderToday();
+      const ai = await region(words.sections.aiNeedsYou);
+      expect(within(ai).getByText("1")).toBeVisible();
+      expect(within(ai).queryByText("5")).toBeNull();
     });
   });
 

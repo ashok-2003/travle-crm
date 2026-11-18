@@ -88,7 +88,10 @@ export function AiNeedsYouSection({
         <h2 id={headingId} className="text-section font-semibold">
           {t("sections.aiNeedsYou")}
         </h2>
-        <span className="numbers text-label text-muted-foreground">{formatCount(needs.count + paymentsToCheck)}</span>
+        {/* Counts the AI's rows only; the payments line says its own number. */}
+        {needs.count > 0 && (
+          <span className="numbers text-label text-muted-foreground">{formatCount(needs.count)}</span>
+        )}
       </div>
       {needs.isError && (
         <LoadFailedAlert message={t("aiNeedsYou.loadFailed")} error={needs.error} onRetry={needs.refetch} />
