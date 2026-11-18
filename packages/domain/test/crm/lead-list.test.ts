@@ -287,17 +287,33 @@ describe("the lead list", () => {
 
   it("created=week lists and counts only leads that came in since Monday", async () => {
     const owner = randomUUID();
-    const monday = periodStart("week", new Date(), await inOrg((tx) => organizationTimeZone(tx, organizationId)));
+    // A fixed "now" (a Wednesday), so the test does not depend on the day it runs.
+    const now = new Date("2026-11-18T06:00:00Z");
+    const monday = periodStart("week", now, await inOrg((tx) => organizationTimeZone(tx, organizationId)));
     if (monday === null) throw new Error("a week has a start");
     const hour = 60 * 60 * 1000;
     const [lastSunday, thisMonday] = await leadsOf(owner, [
       { createdAt: new Date(monday.getTime() - hour) },
       { createdAt: new Date(monday.getTime() + hour) },
     ]);
-    const filter = { view: "everyone", ownerUserId: owner, created: "week" };
-    expect(await ids(manager, filter)).toEqual([thisMonday]);
-    expect((await counts(manager, filter)).open).toBe(1);
-    expect(await ids(manager, { view: "everyone", ownerUserId: owner })).toEqual([thisMonday, lastSunday]);
-    expect((await counts(manager, { view: "everyone", ownerUserId: owner })).open).toBe(2);
+    const filter = listLeadsInput.parse({ view: "everyone", ownerUserId: owner, created: "week" });
+    const everything = listLeadsInput.parse({ view: "everyone", ownerUserId: owner });
+    const idsAt = async (input: typeof filter) =>
+      (await inOrg((tx) => listLeads(tx, manager, input, now))).items.map((item) => item.id);
+    expect(await idsAt(filter)).toEqual([thisMonday]);
+    expect(
+      (
+        await inOrg((tx) =>
+          countLeads(
+            tx,
+            manager,
+            leadCountsInput.parse({ view: "everyone", ownerUserId: owner, created: "week" }),
+            now,
+          ),
+        )
+      ).open,
+    ).toBe(1);
+    expect(await idsAt(everything)).toEqual(await ids(manager, { view: "everyone", ownerUserId: owner }));
+    expect(await idsAt(everything)).toContain(lastSunday);
   });
 });

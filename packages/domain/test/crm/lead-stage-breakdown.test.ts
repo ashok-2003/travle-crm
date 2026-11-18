@@ -5,7 +5,7 @@ import { stageBreakdown } from "@travel-crm/contracts/crm";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from "vitest";
 import { stageBreakdownOf } from "../../src/crm/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
@@ -26,10 +26,14 @@ describe("leads by stage for a period", () => {
       for (const one of seeds) await aLead(tx, one);
     });
 
-  beforeAll(async () => {
+  beforeAll(() => {
     const urls = inject("dbUrls");
     platform = createPlatformClient(urls.platform);
     db = createDatabase(urls.runtime, { maxConnections: 2 });
+  });
+
+  // Each test gets an organization of its own, so the counts never depend on the order the tests run in.
+  beforeEach(async () => {
     organizationId = await createTestOrganization(platform, "Stage breakdown");
     manager = memberWithStarterRole("org-admin", { organizationId, userId: randomUUID() });
     salesperson = memberWithStarterRole("sales", { organizationId, userId: randomUUID() });

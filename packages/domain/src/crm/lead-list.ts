@@ -83,10 +83,15 @@ export function filterFor(access: MemberAccess, input: LeadCountsInput, createdF
 }
 
 /** Where the "came in" filter starts, read in the agency's zone only when one is asked for. */
-async function createdFromOf(tx: OrgTx, access: MemberAccess, input: LeadCountsInput): Promise<Date | undefined> {
+async function createdFromOf(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: LeadCountsInput,
+  now: Date,
+): Promise<Date | undefined> {
   if (input.created === undefined) return undefined;
   const timeZone = await organizationTimeZone(tx, access.organizationId);
-  return periodStart(input.created, new Date(), timeZone) ?? undefined;
+  return periodStart(input.created, now, timeZone) ?? undefined;
 }
 
 function itemOf(
@@ -117,12 +122,13 @@ export async function listLeads(
   tx: OrgTx,
   access: MemberAccess,
   input: ListLeadsInput,
+  now = new Date(),
 ): Promise<Omit<LeadListPage, "people" | "items"> & { items: Omit<LeadListItem, "aiFilled">[] }> {
   const stages = input.stage === "open" ? openLeadStages : [input.stage];
   // One more than a page tells whether another page follows.
   const rows = await tx.$queryRaw<LeadListRow[]>(
     leadListQuery({
-      ...filterFor(access, input, await createdFromOf(tx, access, input)),
+      ...filterFor(access, input, await createdFromOf(tx, access, input, now)),
       stages,
       ...(input.before === undefined ? {} : { before: input.before }),
       limit: input.limit + 1,
@@ -143,9 +149,14 @@ export async function listLeads(
 }
 
 /** Open leads by stage, for the same view and filters. */
-export async function countLeads(tx: OrgTx, access: MemberAccess, input: LeadCountsInput): Promise<LeadCounts> {
+export async function countLeads(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: LeadCountsInput,
+  now = new Date(),
+): Promise<LeadCounts> {
   const rows = await tx.$queryRaw<{ stage: string; n: number }[]>(
-    leadCountsQuery(filterFor(access, input, await createdFromOf(tx, access, input))),
+    leadCountsQuery(filterFor(access, input, await createdFromOf(tx, access, input, now))),
   );
   const counts: LeadCounts = { open: 0, new: 0, contacted: 0, quote_sent: 0, booking_requested: 0 };
   for (const { stage, n } of rows) {
