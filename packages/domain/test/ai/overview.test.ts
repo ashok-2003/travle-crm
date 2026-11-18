@@ -2,7 +2,7 @@
 // suggested Lost or Not a lead), only the last 24 hours counted, and the bookings the AI took in that day.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { aiOverviewOf } from "../../src/ai/overview.js";
+import { aiOverviewOf, chatsAnsweredSince } from "../../src/ai/overview.js";
 import { aLead } from "../crm/support/records.js";
 import { createTestInbox, type TestInbox } from "../inbox/support.js";
 import { liteAgency, liteTurnAt } from "./lite/support/lite-agency.js";
@@ -89,5 +89,43 @@ describe("the AI agent's overview", () => {
     await book(hoursAgo(23));
     await book(hoursAgo(30));
     expect((await on.inOrg((tx) => aiOverviewOf(tx, liteTurnAt))).bookingsRequested).toBe(2);
+  });
+
+  it("counts each chat the AI wrote in once, since the period's start", async () => {
+    const on = await liteAgency(test);
+    const connection = await on.inOrg((tx) => tx.whatsappConnection.findFirstOrThrow());
+    const aiMessage = (conversationId: string, at: Date) =>
+      on.inOrg((tx) =>
+        tx.whatsappMessage.create({
+          data: {
+            conversationId,
+            direction: "out",
+            origin: "staff_crm",
+            kind: "text",
+            body: "Hello",
+            clientToken: `ai:${randomUUID()}`,
+            status: "sent",
+            occurredAt: at,
+          },
+        }),
+      );
+    const chat = () =>
+      on.inOrg((tx) =>
+        tx.whatsappConversation
+          .create({
+            data: {
+              connectionId: connection.id,
+              phoneE164: `+91${String(Math.floor(Math.random() * 9e9) + 1e9)}`,
+            },
+          })
+          .then((conversation) => conversation.id),
+      );
+    const [twice, once, before] = [await chat(), await chat(), await chat()];
+    await aiMessage(twice, hoursAgo(2));
+    await aiMessage(twice, hoursAgo(1));
+    await aiMessage(once, hoursAgo(3));
+    await aiMessage(before, hoursAgo(30));
+    expect(await on.inOrg((tx) => chatsAnsweredSince(tx, hoursAgo(24)))).toBe(2);
+    expect(await on.inOrg((tx) => chatsAnsweredSince(tx, null))).toBe(3);
   });
 });

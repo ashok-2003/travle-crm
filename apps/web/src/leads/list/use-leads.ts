@@ -24,7 +24,7 @@ export function useLeads(input: ListLeadsInput) {
 /** Open leads by stage for the list's view and filters, whatever its stage. */
 export function useLeadCounts(input: ListLeadsInput) {
   const trpc = useTRPC();
-  const { view, ownerUserId, source, destinationId, tripType, search } = input;
+  const { view, ownerUserId, source, destinationId, tripType, created, search } = input;
   return useQuery(
     trpc.leads.counts.queryOptions({
       view,
@@ -32,6 +32,7 @@ export function useLeadCounts(input: ListLeadsInput) {
       ...(source && { source }),
       ...(destinationId && { destinationId }),
       ...(tripType && { tripType }),
+      ...(created && { created }),
       ...(search && { search }),
     }),
   );
