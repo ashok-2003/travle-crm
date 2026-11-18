@@ -53,7 +53,10 @@ describe("TodayItem", () => {
     const name = within(listItem()).getByRole("link", { name: "Sneha Iyer" });
     expect(name).toHaveAttribute("href", leadRoute(aLead().id));
     expect(targetSize(name).height).toBeGreaterThanOrEqual(44);
-    expect(within(listItem()).getByText("Send Goa options · Goa · Jan 2027 · 6 adults")).toBeVisible();
+    expect(within(listItem()).getByText("Send Goa options")).toBeVisible();
+    const trip = within(listItem()).getByText("Goa · Jan 2027 · 6 adults");
+    expect(trip).toHaveClass("line-clamp-1");
+    expect(trip).toHaveAttribute("title", "Goa · Jan 2027 · 6 adults");
   });
 
   it("says when in the colour of its urgency: overdue red, a new lead's wait amber, due today violet", () => {

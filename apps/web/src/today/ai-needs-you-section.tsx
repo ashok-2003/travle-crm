@@ -1,14 +1,14 @@
 "use client";
 
 // "AI needs you" on My tasks: the chats the AI handed over and its Lost / Not a lead suggestions on the member's own
-// leads, then the payments waiting for their word as one line. Five rows at most; View all opens the AI agent page, for
-// whoever manages the AI.
+// leads, then the payments waiting for their word as one line; the section scrolls inside itself like the others.
 import type { HandedOverChat, StageSuggestion } from "@travel-crm/contracts/ai";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Fragment, useId } from "react";
+import { Fragment } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
-import { ForwardLink, TextLink } from "@/components/text-link";
+import { ScrollingSection } from "@/components/scrolling-section";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import {
   Item,
@@ -21,23 +21,21 @@ import {
 } from "@/components/ui/item";
 import { SuggestionButtons } from "@/ai/stage-suggestion";
 import type { useNeedsMe } from "@/ai/use-needs-me";
-import { formatCount } from "@/lib/format";
-import { inboxRoute, leadRoute, routes } from "@/lib/routes";
-import { useHolds } from "@/session/me-context";
+import { inboxRoute, leadRoute } from "@/lib/routes";
 import { PaymentsToCheckLine } from "./payments-to-check-line";
-import { ROWS_SHOWN } from "./today-section";
 
 function HandedOverRow({ chat }: { chat: HandedOverChat }) {
   const t = useTranslations("today.aiNeedsYou");
+  const reason = chat.reason === null ? t("handedOver") : t("handedOverWhy", { reason: chat.reason });
   return (
-    <Item size="sm" role="listitem" className="items-start">
-      <ItemContent className="min-w-0">
-        <ItemTitle className="min-h-11 script-leading">{chat.name}</ItemTitle>
-        <ItemDescription className="break-words script-leading">
-          {chat.reason === null ? t("handedOver") : t("handedOverWhy", { reason: chat.reason })}
+    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
+      <ItemContent className="min-w-0 basis-48 gap-0">
+        <ItemTitle className="script-leading">{chat.name}</ItemTitle>
+        <ItemDescription title={reason} className="line-clamp-1 break-all script-leading">
+          {reason}
         </ItemDescription>
       </ItemContent>
-      <ItemActions className="basis-full">
+      <ItemActions className="basis-full flex-wrap md:basis-auto">
         <Button variant="outline" asChild>
           <Link href={inboxRoute(chat.conversationId)} aria-label={t("openChatPerson", { name: chat.name })}>
             {t("openChat")}
@@ -50,15 +48,16 @@ function HandedOverRow({ chat }: { chat: HandedOverChat }) {
 
 function SuggestionRow({ suggestion }: { suggestion: StageSuggestion }) {
   const t = useTranslations("today.aiNeedsYou");
+  const reason = t("suggestion", { reason: suggestion.reason });
   return (
-    <Item size="sm" role="listitem" className="items-start">
-      <ItemContent className="min-w-0">
+    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
+      <ItemContent className="min-w-0 basis-48 gap-0">
         <TextLink href={leadRoute(suggestion.leadId)}>{suggestion.name}</TextLink>
-        <ItemDescription className="break-words script-leading">
-          {t("suggestion", { reason: suggestion.reason })}
+        <ItemDescription title={reason} className="line-clamp-1 break-all script-leading">
+          {reason}
         </ItemDescription>
       </ItemContent>
-      <ItemActions className="basis-full">
+      <ItemActions className="basis-full flex-wrap md:basis-auto">
         <SuggestionButtons suggestion={suggestion} />
       </ItemActions>
     </Item>
@@ -68,13 +67,14 @@ function SuggestionRow({ suggestion }: { suggestion: StageSuggestion }) {
 export function AiNeedsYouSection({
   needs,
   paymentsToCheck,
+  defaultOpen,
 }: {
   needs: ReturnType<typeof useNeedsMe>;
   paymentsToCheck: number;
+  /** On a phone: whether the section starts open. */
+  defaultOpen: boolean;
 }) {
   const t = useTranslations("today");
-  const headingId = useId();
-  const managesAi = useHolds("ai:manage");
   const rows = [
     ...needs.handedOver.map((chat) => ({ id: chat.conversationId, row: <HandedOverRow chat={chat} /> })),
     ...needs.suggestions.map((suggestion) => ({
@@ -83,22 +83,19 @@ export function AiNeedsYouSection({
     })),
   ];
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 id={headingId} className="text-section font-semibold">
-          {t("sections.aiNeedsYou")}
-        </h2>
-        {/* Counts the AI's rows only; the payments line says its own number. */}
-        {needs.count > 0 && (
-          <span className="numbers text-label text-muted-foreground">{formatCount(needs.count)}</span>
-        )}
-      </div>
+    // Counts the AI's rows only; the payments line says its own number.
+    <ScrollingSection
+      title={t("sections.aiNeedsYou")}
+      count={needs.count > 0 ? needs.count : undefined}
+      defaultOpen={defaultOpen}
+      footer={paymentsToCheck > 0 ? <PaymentsToCheckLine count={paymentsToCheck} /> : undefined}
+    >
       {needs.isError && (
         <LoadFailedAlert message={t("aiNeedsYou.loadFailed")} error={needs.error} onRetry={needs.refetch} />
       )}
       {rows.length > 0 && (
         <ItemGroup className="gap-0">
-          {rows.slice(0, ROWS_SHOWN).map(({ id, row }, index) => (
+          {rows.map(({ id, row }, index) => (
             <Fragment key={id}>
               {index > 0 && <ItemSeparator className="my-0" />}
               {row}
@@ -106,8 +103,6 @@ export function AiNeedsYouSection({
           ))}
         </ItemGroup>
       )}
-      {rows.length > ROWS_SHOWN && managesAi && <ForwardLink href={routes.aiAgent} label={t("viewAll")} />}
-      {paymentsToCheck > 0 && <PaymentsToCheckLine count={paymentsToCheck} />}
-    </section>
+    </ScrollingSection>
   );
 }
