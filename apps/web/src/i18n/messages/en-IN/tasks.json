@@ -8,40 +8,26 @@
   },
   "followUps": {
     "title": "Follow-ups",
-    "intro": "Every open follow-up on a lead, with the customer's last WhatsApp message. What the AI wrote about one before shows with it.",
+    "intro": "{due, plural, =0 {Nothing due} other {# due}}{replied, plural, =0 {} other { · # replied}}",
     "when": "When",
     "views": {
-      "due": "Due now",
-      "upcoming": "Later",
-      "all": "All"
+      "due": "Due",
+      "upcoming": "Later"
     },
     "empty": {
       "due": "Nothing due. Follow-ups due today and overdue show here.",
-      "upcoming": "No follow-ups for later days.",
-      "all": "No open follow-ups."
+      "upcoming": "No follow-ups for later days."
     },
     "loadFailed": "The follow-ups didn't load.",
-    "byAi": "Added by AI",
     "owner": "Owner: {name}",
     "unassigned": "Unassigned",
     "formerMember": "Former member",
-    "noChat": "No WhatsApp chat yet",
-    "windowOpen": "Window open",
-    "windowClosed": "Window closed",
     "lastMessage": "Last message from {from}, {ago} ago:",
     "from": {
       "customer": "the customer",
       "team": "your team",
       "ai": "the AI",
       "automation": "an automatic message"
-    },
-    "ai": {
-      "sent": "AI wrote {ago} ago:",
-      "window_closed": "AI didn't write ({ago} ago): the 24-hour window was closed. Send a template or call.",
-      "no_chat": "AI didn't write ({ago} ago): this customer has no WhatsApp chat.",
-      "opted_out": "AI didn't write ({ago} ago): the customer asked us to stop.",
-      "off": "AI didn't write ({ago} ago): the AI isn't answering this chat.",
-      "failed": "AI couldn't write ({ago} ago). Follow up yourself."
     },
     "openChat": "Open chat",
     "edit": "Edit",
@@ -61,7 +47,29 @@
         "required": "Say what to do, and choose a day and a time."
       }
     },
-    "line": "{due, plural, one {# follow-up due} other {# follow-ups due}}{replied, plural, =0 {} other { · # replied}} → Follow-ups"
+    "line": "{due, plural, one {# follow-up due} other {# follow-ups due}}{replied, plural, =0 {} other { · # replied}} → Follow-ups",
+    "groups": {
+      "overdue": "Overdue",
+      "dueToday": "Due today",
+      "tomorrow": "Tomorrow",
+      "thisWeek": "This week",
+      "later": "Later"
+    },
+    "nextMove": {
+      "answer-whatsapp": "They replied. Answer on WhatsApp.",
+      "replied-window-closed": "They replied. Call, or send a template.",
+      "call": "No reply yet. Call them.",
+      "call-or-template": "Call, or send a template."
+    },
+    "nextDialog": {
+      "title": "When's the next follow-up?",
+      "description": "It's added for the same person, with the same words. You can edit it later.",
+      "tomorrow": "Tomorrow",
+      "inThreeDays": "In 3 days",
+      "nextWeek": "Next week",
+      "none": "No more follow-ups",
+      "added": "Next follow-up added"
+    }
   },
   "snooze": {
     "title": "Snooze",
