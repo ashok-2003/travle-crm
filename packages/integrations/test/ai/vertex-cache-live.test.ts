@@ -1,15 +1,19 @@
 // Vertex AI's context cache, live (brief C), with the service account whose key file VERTEX_SA_FILE names (its path only:
-// the key is read here and never printed). A 20k-character system message and the one agent's real tools, converted as
-// the tool agent converts them: the cached calls make the same tool call as an uncached one, the second reads the cache,
-// and a tool round with its thought signature goes through it. Every cache made is deleted at the end. Four model calls,
-// a little of the owner's Vertex credit. Skipped without it.
+// the key is read here and never printed). A 20k-character system message and the one agent's real tools, as
+// fixtures/one-tools.json holds them (contracts' oneToolSchemas through the tool agent's aiToolOf; its "_note" says how
+// it was made, since integrations imports nothing of ours but the brand): the cached calls make the same tool call as an
+// uncached one, the second reads the cache, and a tool round with its thought signature goes through it. Every cache
+// made is deleted at the end. Four model calls, a little of the owner's Vertex credit. Skipped without it.
 import { readFileSync } from "node:fs";
-// The one agent's real tools: integrations doesn't depend on contracts, so this test alone reads contracts' source.
-import { oneToolSchemas } from "../../../contracts/src/ai/index.js";
 import { afterAll, describe, expect, it } from "vitest";
-import { createOpenRouterModel, serviceAccountToken, type AiRequest, type AiResult } from "../../src/ai/index.js";
+import {
+  createOpenRouterModel,
+  serviceAccountToken,
+  type AiRequest,
+  type AiResult,
+  type AiTool,
+} from "../../src/ai/index.js";
 import { createMemoryLogger } from "../../src/logging/index.js";
-import { aiToolOf } from "../../src/tool-agent/messages.js";
 
 const file = process.env.VERTEX_SA_FILE ?? "";
 // The project comes from the key file itself, so no project name is typed here.
@@ -30,7 +34,7 @@ const model = process.env.VERTEX_MODEL ?? "google/gemini-3.5-flash-lite";
 /** An agency's prompt as long as a real one: its trips, then house rules enough to pass the cache's 20k characters. */
 const system = [
   "You are the WhatsApp sales agent of Himalaya Treks. Answer briefly, in the customer's own language.",
-  "Trips: T1 Kedarkantha Trek (Uttarakhand, 6 days, from Dehradun, every Friday). T2 Hampta Pass Trek (Himachal, 5 days, from Manali, every Saturday).",
+  "Trips: T1 Kedarkantha Trek (Uttarakhand, 6 days, from Dehradun, every Friday). T2 Hampta Pass Trek (Himachal, 5 days, from Manali, every Saturday). T3 Valley of Flowers Trek (Uttarakhand, 6 days, from Rishikesh, July to September).",
   "Never say a price you haven't been given: when a customer names a trip, a date and how many travel, call quote first.",
   ...Array.from(
     { length: 200 },
@@ -38,7 +42,9 @@ const system = [
       `House rule ${String(n + 1)}: be warm and exact, and promise nothing the tools or the trips above don't say.`,
   ),
 ].join("\n");
-const tools = oneToolSchemas({ tripLabels: ["T1", "T2"], brochureLabels: ["B1"], voiceNotes: ["m1"] }).map(aiToolOf);
+const { tools } = JSON.parse(readFileSync(new URL("fixtures/one-tools.json", import.meta.url), "utf8")) as {
+  tools: AiTool[];
+};
 const ask: AiRequest = {
   feature: "sales_agent",
   messages: [
