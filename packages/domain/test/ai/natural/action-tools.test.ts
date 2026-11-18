@@ -54,13 +54,32 @@ describe("stageAction", () => {
   it("refuses a date already past in the agency's day, at 11:43 pm in Kolkata", async () => {
     // Sat 14 Nov is still today at 11:43 pm in Kolkata; Fri 13 Nov is past.
     expect(await stageAction(ctx(), "update_lead", { date: "2026-11-13" }, "")).toEqual({
-      refused: "refused: Fri 13 Nov is past (today is Sat 14 Nov); ask which date they mean",
+      refused:
+        "refused: 2026-11-13 is past (today is Sat 14 Nov); the next is Sat 13 Nov 2027 (2027-11-13): " +
+        "use it if that's the one they mean",
+    });
+    // A wrong year names this year's day when it hasn't passed.
+    expect(await stageAction(ctx(), "update_lead", { date: "2020-12-19" }, "")).toEqual({
+      refused:
+        "refused: 2020-12-19 is past (today is Sat 14 Nov); the next is Sat 19 Dec (2026-12-19): " +
+        "use it if that's the one they mean",
+    });
+    // A 29 Feb with no leap year ahead keeps the plain refusal.
+    expect(await stageAction(ctx(), "update_lead", { date: "2024-02-29" }, "")).toEqual({
+      refused: "refused: Thu 29 Feb 2024 is past (today is Sat 14 Nov); ask which date they mean",
     });
     expect(await stageAction(ctx(), "update_lead", { date: "2026-11-14" }, "")).toMatchObject({
       staged: { tool: "update_lead", fields: { day: "2026-11-14" }, notes: [] },
     });
     expect(await stageAction(ctx(), "update_lead", { month: "2026-10" }, "")).toEqual({
-      refused: "refused: October is past (today is Sat 14 Nov); ask which month they mean",
+      refused:
+        "refused: 2026-10 is past (today is Sat 14 Nov); the next is October 2027 (2027-10): " +
+        "use it if that's the one they mean",
+    });
+    expect(await stageAction(ctx(), "update_lead", { month: "2025-12" }, "")).toEqual({
+      refused:
+        "refused: 2025-12 is past (today is Sat 14 Nov); the next is December (2026-12): " +
+        "use it if that's the one they mean",
     });
     expect(await stageAction(ctx(), "update_lead", { month: "2026-11" }, "")).toMatchObject({
       staged: { fields: { month: "2026-11" } },
@@ -334,13 +353,23 @@ describe("stageAction", () => {
     });
   });
 
-  it("refuses an offer for more than 10 people, naming the hand-over", async () => {
-    expect(await stageAction(ctx(), "offer_booking", terms({ adults: 11 }), "")).toEqual({
-      refused: "refused: 11 people is more than 10; hand_over(big_group) with the group's details",
-    });
-    expect(await stageAction(ctx(), "offer_booking", terms({ adults: 8, children_ages: [10, 12, 14] }), "")).toEqual({
-      refused: "refused: 11 people is more than 10; hand_over(big_group) with the group's details",
-    });
+  it("hands an offer for more than 10 people to the team by itself", async () => {
+    const handed = {
+      staged: { tool: "hand_over", reason: "big_group", summary: expect.stringContaining("11 people") as unknown },
+      result: "handed to the team (big group): tell them a person will help with it",
+    };
+    expect(await stageAction(ctx(), "offer_booking", terms({ adults: 11 }), "")).toMatchObject(handed);
+    expect(
+      await stageAction(ctx(), "offer_booking", terms({ adults: 8, children_ages: [10, 12, 14] }), ""),
+    ).toMatchObject(handed);
+    expect(await stageAction(ctx(), "book", { ...yes, ...terms({ adults: 11 }) }, "")).toMatchObject(handed);
+  });
+
+  it("lets a later hand-over replace the one the checks staged, like any later call of a tool", async () => {
+    const outcome = await stageAction(ctx(), "offer_booking", terms({ adults: 11 }), "");
+    const later = { tool: "hand_over", reason: "discount", summary: "Wants 20% off" } as const;
+    if (!("staged" in outcome)) return expect.unreachable();
+    expect(withStaged(withStaged(new Map(), outcome.staged), later).get("hand_over")).toBe(later);
   });
 
   it("refuses an offer without payment details, or with a booking ahead or awaiting payment", async () => {
@@ -351,9 +380,13 @@ describe("stageAction", () => {
     });
     expect(
       await stageAction(ctx({ booking: { id: null, awaitingPayment: false } }), "offer_booking", terms(), ""),
-    ).toEqual({
-      refused:
-        "refused: they have a booking ahead; changing it or a second one is the team's: hand_over(existing_booking)",
+    ).toMatchObject({
+      staged: {
+        tool: "hand_over",
+        reason: "existing_booking",
+        summary: expect.stringMatching(/^Wants .*; they have a booking ahead$/u) as unknown,
+      },
+      result: "handed to the team (existing booking): tell them a person will help with it",
     });
     expect(
       await stageAction(ctx({ booking: { id: "booking-1", awaitingPayment: true } }), "offer_booking", terms(), ""),
