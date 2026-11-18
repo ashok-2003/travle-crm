@@ -60,7 +60,8 @@
         "time": "Choose a time.",
         "required": "Say what to do, and choose a day and a time."
       }
-    }
+    },
+    "line": "{due, plural, one {# follow-up due} other {# follow-ups due}}{replied, plural, =0 {} other { · # replied}} → Follow-ups"
   },
   "snooze": {
     "title": "Snooze",
