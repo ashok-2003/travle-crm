@@ -1,18 +1,19 @@
 "use client";
 
-// The hot leads to call now (sales execution), on Home and Today: hottest first, each with why (opened the quote, asked
-// to book, travels soon, a big budget), a call button and its page. Shown to whoever sees leads; nothing when none is hot.
+// The hot leads to call now (sales execution), on Home: the five hottest first, each with why (opened the quote, asked
+// to book, travels soon, a big budget), a call button and its page; View all opens Leads. Shown to whoever sees leads;
+// nothing when none is hot.
 import type { HotLead } from "@travel-crm/contracts/sales";
-import { FlameIcon, PhoneIcon } from "lucide-react";
+import { PhoneIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { StatusBadge } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { HomeCard } from "@/home/home-card";
 import { formatCalendarDay } from "@/lib/format";
-import { leadRoute } from "@/lib/routes";
+import { leadRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useHotLeads } from "./use-sales";
 
@@ -53,8 +54,12 @@ function HotRow({ lead }: { lead: HotLead }) {
   );
 }
 
+/** Home shows five at most. */
+const SHOWN = 5;
+
 export function HotLeadsCard() {
   const t = useTranslations("sales.hot");
+  const th = useTranslations("home.hot");
   const sees = useHolds("leads:view");
   const hot = useHotLeads();
   if (!sees) return null;
@@ -63,21 +68,12 @@ export function HotLeadsCard() {
   }
   if (hot.data === undefined || hot.data.length === 0) return null;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FlameIcon aria-hidden="true" className="size-5 text-status-bad-ink" />
-          <h2>{t("title", { count: hot.data.length })}</h2>
-        </CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ItemGroup>
-          {hot.data.slice(0, 8).map((lead) => (
-            <HotRow key={lead.leadId} lead={lead} />
-          ))}
-        </ItemGroup>
-      </CardContent>
-    </Card>
+    <HomeCard title={th("title")} viewAll={routes.leads}>
+      <ItemGroup>
+        {hot.data.slice(0, SHOWN).map((lead) => (
+          <HotRow key={lead.leadId} lead={lead} />
+        ))}
+      </ItemGroup>
+    </HomeCard>
   );
 }
