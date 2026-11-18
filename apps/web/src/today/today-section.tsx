@@ -9,7 +9,9 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ScrollingSection } from "@/components/scrolling-section";
 import { ShowMoreButton } from "@/components/show-more-button";
+import { ForwardLink } from "@/components/text-link";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
+import { listFiltersHref } from "@/leads/list/list-filters";
 import { TodayItem, todayItemId } from "./today-item";
 import { useTodaySection } from "./use-today";
 
@@ -59,7 +61,16 @@ export function TodaySection({
   };
 
   return (
-    <ScrollingSection title={t(`sections.${section}`)} count={count} defaultOpen={defaultOpen}>
+    <ScrollingSection
+      title={t(`sections.${section}`)}
+      count={count}
+      defaultOpen={defaultOpen}
+      action={
+        section === "new-leads" ? (
+          <ForwardLink href={listFiltersHref({ stage: "new" })} label={t("allNewLeads")} />
+        ) : undefined
+      }
+    >
       {body()}
     </ScrollingSection>
   );

@@ -7,60 +7,46 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
+import { DenseRow } from "@/components/dense-row";
 import { ScrollingSection } from "@/components/scrolling-section";
-import { TextLink } from "@/components/text-link";
+import { ForwardLink, TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemSeparator,
-  ItemTitle,
-} from "@/components/ui/item";
+import { ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
 import { SuggestionButtons } from "@/ai/stage-suggestion";
 import type { useNeedsMe } from "@/ai/use-needs-me";
-import { inboxRoute, leadRoute } from "@/lib/routes";
+import { inboxRoute, leadRoute, routes } from "@/lib/routes";
+import { useHolds } from "@/session/me-context";
 import { PaymentsToCheckLine } from "./payments-to-check-line";
 
 function HandedOverRow({ chat }: { chat: HandedOverChat }) {
   const t = useTranslations("today.aiNeedsYou");
-  const reason = chat.reason === null ? t("handedOver") : t("handedOverWhy", { reason: chat.reason });
   return (
-    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
-      <ItemContent className="min-w-0 basis-48 gap-0">
-        <ItemTitle className="script-leading">{chat.name}</ItemTitle>
-        <ItemDescription title={reason} className="line-clamp-1 break-all script-leading">
-          {reason}
-        </ItemDescription>
-      </ItemContent>
-      <ItemActions className="basis-full flex-wrap md:basis-auto">
+    <DenseRow
+      line={<ItemTitle className="script-leading lg:min-h-0">{chat.name}</ItemTitle>}
+      detail={chat.reason === null ? t("handedOver") : t("handedOverWhy", { reason: chat.reason })}
+      actions={
         <Button variant="outline" asChild>
           <Link href={inboxRoute(chat.conversationId)} aria-label={t("openChatPerson", { name: chat.name })}>
             {t("openChat")}
           </Link>
         </Button>
-      </ItemActions>
-    </Item>
+      }
+    />
   );
 }
 
 function SuggestionRow({ suggestion }: { suggestion: StageSuggestion }) {
   const t = useTranslations("today.aiNeedsYou");
-  const reason = t("suggestion", { reason: suggestion.reason });
   return (
-    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
-      <ItemContent className="min-w-0 basis-48 gap-0">
-        <TextLink href={leadRoute(suggestion.leadId)}>{suggestion.name}</TextLink>
-        <ItemDescription title={reason} className="line-clamp-1 break-all script-leading">
-          {reason}
-        </ItemDescription>
-      </ItemContent>
-      <ItemActions className="basis-full flex-wrap md:basis-auto">
-        <SuggestionButtons suggestion={suggestion} />
-      </ItemActions>
-    </Item>
+    <DenseRow
+      line={
+        <span className="shrink-0 lg:[&>a]:min-h-0">
+          <TextLink href={leadRoute(suggestion.leadId)}>{suggestion.name}</TextLink>
+        </span>
+      }
+      detail={t("suggestion", { reason: suggestion.reason })}
+      actions={<SuggestionButtons suggestion={suggestion} />}
+    />
   );
 }
 
@@ -75,6 +61,7 @@ export function AiNeedsYouSection({
   defaultOpen: boolean;
 }) {
   const t = useTranslations("today");
+  const managesAi = useHolds("ai:manage");
   const rows = [
     ...needs.handedOver.map((chat) => ({ id: chat.conversationId, row: <HandedOverRow chat={chat} /> })),
     ...needs.suggestions.map((suggestion) => ({
@@ -88,6 +75,7 @@ export function AiNeedsYouSection({
       title={t("sections.aiNeedsYou")}
       count={needs.count > 0 ? needs.count : undefined}
       defaultOpen={defaultOpen}
+      action={managesAi ? <ForwardLink href={routes.aiAgent} label={t("aiAgentLink")} /> : undefined}
       footer={paymentsToCheck > 0 ? <PaymentsToCheckLine count={paymentsToCheck} /> : undefined}
     >
       {needs.isError && (

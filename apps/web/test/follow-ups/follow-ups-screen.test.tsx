@@ -196,6 +196,17 @@ describe("FollowUpsScreen", () => {
     expect(within(today).queryByRole("link", { name: "Bina" })).toBeNull();
   });
 
+  it("draws Snooze and Edit as icon buttons with their names, Done keeping its word", async () => {
+    renderScreen();
+    const today = await region("Due today");
+    for (const name of ["Edit: Send options to Bina", "Snooze: Send options to Bina"]) {
+      const button = within(today).getByRole("button", { name });
+      expect(button).toHaveAttribute("data-size", "icon");
+      expect(button).toHaveTextContent("");
+    }
+    expect(within(today).getByRole("button", { name: "Done: Send options to Bina" })).toHaveTextContent("Done");
+  });
+
   it("draws Edit, Done and Snooze alike, as plain outline buttons", async () => {
     renderScreen();
     const today = await region("Due today");

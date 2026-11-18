@@ -18,6 +18,7 @@ export function ScrollingSection({
   defaultOpen,
   children,
   footer,
+  action,
 }: {
   title: string;
   /** Left off when the section has no number of its own to show. */
@@ -27,6 +28,8 @@ export function ScrollingSection({
   children: ReactNode;
   /** Under the rows, outside the scroll on a wide screen. */
   footer?: ReactNode | undefined;
+  /** A link back to the full list (All new leads): in the header beside the count, or at the top of an open section. */
+  action?: ReactNode | undefined;
 }) {
   const wide = useWideScreen();
   const countId = useId();
@@ -42,9 +45,13 @@ export function ScrollingSection({
       <Card role="region" aria-label={title} className="gap-2">
         <div className="flex items-baseline justify-between gap-3 px-4">
           <h2 className="text-section font-semibold">{title}</h2>
-          {shownCount}
+          <span className="flex items-center gap-3">
+            {action}
+            {shownCount}
+          </span>
         </div>
-        <ScrollArea className="h-90">
+        {/* A maximum, so a short section is only as tall as its rows: the viewport takes the same cap. */}
+        <ScrollArea className="max-h-90 [&>[data-slot=scroll-area-viewport]]:max-h-90">
           <div className="flex flex-col gap-2 px-2">{children}</div>
         </ScrollArea>
         {footer !== undefined && <div className="px-4">{footer}</div>}
@@ -60,17 +67,18 @@ export function ScrollingSection({
               variant="ghost"
               aria-label={title}
               aria-describedby={shownCount === null ? undefined : countId}
-              className="min-h-11 w-full justify-between px-4 text-section font-semibold"
+              className="min-h-11 w-full justify-between px-4 text-section font-semibold text-foreground"
             >
               {title}
               <span className="flex items-center gap-2">
                 {shownCount}
-                <ChevronDownIcon aria-hidden="true" />
+                <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
               </span>
             </Button>
           </CollapsibleTrigger>
         </h2>
         <CollapsibleContent className="flex flex-col gap-2 px-2 pb-3">
+          {action !== undefined && <div className="px-2">{action}</div>}
           {children}
           {footer !== undefined && <div className="px-2">{footer}</div>}
         </CollapsibleContent>

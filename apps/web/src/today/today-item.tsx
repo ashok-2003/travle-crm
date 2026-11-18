@@ -11,7 +11,8 @@ import type { TodayItem as TodayItemData } from "@travel-crm/contracts/today";
 import { useTranslations } from "next-intl";
 import { StatusBadge } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { DenseRow } from "@/components/dense-row";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
 import { useTripLine } from "@/leads/trip-line";
 import { formatCalendarDay, formatDayTime, formatRupees, formatTime } from "@/lib/format";
@@ -138,44 +139,48 @@ function LeadItem({ item }: { item: LeadItemData }) {
     .filter((part): part is string => part !== null && part !== "")
     .join(" · ");
   return (
-    <Item size="sm" role="listitem" className="gap-y-1 py-0.5">
-      <ItemContent className="min-w-0 basis-48 gap-0">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+    <DenseRow
+      line={
+        <>
           {lead ? (
-            <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>
+            <span className="shrink-0 lg:[&>a]:min-h-0">
+              <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>
+            </span>
           ) : (
             <ItemTitle className="script-leading">{title}</ItemTitle>
           )}
-          {doing !== null && doing !== "" && <span className="min-w-0 text-sm script-leading">{doing}</span>}
-        </div>
-        {detail !== "" && (
-          <ItemDescription title={detail} className="line-clamp-1 script-leading">
-            {detail}
-          </ItemDescription>
-        )}
-      </ItemContent>
-      <WhenMark urgency={when.urgency}>{when.text}</WhenMark>
-      <ItemActions className="basis-full flex-wrap md:basis-auto">
-        {lead !== null && phone !== null && (
-          <div className="flex flex-wrap gap-2">
-            <CallButton phone={phone} name={lead.personName} leadId={lead.id} variant="outline" compact />
-            <WhatsAppButton phone={phone} name={lead.personName} leadId={lead.id} compact />
-          </div>
-        )}
-        {item.kind === "task" && item.booking !== null && (
-          <TextLink inline href={bookingRoute(item.booking.id)}>
-            {tItem("openBooking", { number: item.booking.number })}
-          </TextLink>
-        )}
-        {item.kind === "trip-details" && (
-          <TextLink inline href={bookingRoute(item.bookingId)}>
-            {tItem("openBooking", { number: item.number })}
-          </TextLink>
-        )}
-        {item.kind === "task" && <TaskActions task={item.task} />}
-        {item.kind === "new-lead" && mayEdit && <MarkContactedButton lead={item.lead} />}
-        {item.kind === "quote-opened" && mayEdit && <QuoteDoneButton lead={item.lead} />}
-      </ItemActions>
-    </Item>
+          {doing !== null && doing !== "" && (
+            <span title={doing} className="min-w-0 text-sm script-leading md:truncate">
+              {doing}
+            </span>
+          )}
+        </>
+      }
+      when={<WhenMark urgency={when.urgency}>{when.text}</WhenMark>}
+      detail={detail}
+      actions={
+        <>
+          {lead !== null && phone !== null && (
+            <div className="flex flex-wrap gap-2">
+              <CallButton phone={phone} name={lead.personName} leadId={lead.id} variant="outline" compact />
+              <WhatsAppButton phone={phone} name={lead.personName} leadId={lead.id} compact />
+            </div>
+          )}
+          {item.kind === "task" && item.booking !== null && (
+            <TextLink inline href={bookingRoute(item.booking.id)}>
+              {tItem("openBooking", { number: item.booking.number })}
+            </TextLink>
+          )}
+          {item.kind === "trip-details" && (
+            <TextLink inline href={bookingRoute(item.bookingId)}>
+              {tItem("openBooking", { number: item.number })}
+            </TextLink>
+          )}
+          {item.kind === "task" && <TaskActions task={item.task} compact />}
+          {item.kind === "new-lead" && mayEdit && <MarkContactedButton lead={item.lead} />}
+          {item.kind === "quote-opened" && mayEdit && <QuoteDoneButton lead={item.lead} />}
+        </>
+      }
+    />
   );
 }
