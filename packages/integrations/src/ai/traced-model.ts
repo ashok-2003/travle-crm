@@ -100,7 +100,7 @@ export function withTracing(model: AiModel, tracing: AiTracing): AiModel {
                 model: result.model,
                 // Cached input apart, under the key Langfuse prices at a tenth: the rest is input at its full price.
                 usage: {
-                  input: result.inputTokens - (result.cachedTokens ?? 0),
+                  input: Math.max(0, result.inputTokens - (result.cachedTokens ?? 0)),
                   output: result.outputTokens,
                   ...((result.cachedTokens ?? 0) > 0 ? { input_cached_tokens: result.cachedTokens } : {}),
                 },
