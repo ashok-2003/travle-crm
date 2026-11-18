@@ -63,9 +63,16 @@ describe("the traced AI model", () => {
       outputTokens: 40,
       cachedTokens: 11_657,
     };
-    const inner: AiModel = { configured: true, complete: () => Promise.resolve(cached) };
+    const odd = { ...cached, inputTokens: 0 };
+    const answers = [cached, odd];
+    const inner: AiModel = { configured: true, complete: () => Promise.resolve(answers.shift() ?? cached) };
     await withTracing(inner, tracing).complete(request);
-    expect(tracing.generations[0]?.end?.usage).toEqual({ input: 3, input_cached_tokens: 11_657, output: 40 });
+    // A provider counting more cached tokens than input never makes the uncached part negative.
+    await withTracing(inner, tracing).complete(request);
+    expect(tracing.generations.map((call) => call.end?.usage)).toEqual([
+      { input: 3, input_cached_tokens: 11_657, output: 40 },
+      { input: 0, input_cached_tokens: 11_657, output: 40 },
+    ]);
   });
 
   it("names a call by its answer's schema too", async () => {
