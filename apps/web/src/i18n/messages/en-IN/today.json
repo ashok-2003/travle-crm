@@ -96,7 +96,8 @@
   },
   "aiNeedsYou": {
     "handedOver": "The AI handed this chat over to you",
-    "handedOverWhy": "The AI handed this chat over: {reason}",
+    "showMore": "Show more AI items",
+    "handedOverWhy": "Handed over: {reason}",
     "openChat": "Open chat",
     "openChatPerson": "Open chat: {name}",
     "suggestion": "The AI suggests: {reason}",

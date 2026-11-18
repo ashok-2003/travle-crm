@@ -365,6 +365,7 @@ describe("TodayScreen", () => {
       expect(newLeads.compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(within(ai).getByText("2")).toBeVisible();
       expect(await within(ai).findByText("Meera Das")).toBeVisible();
+      expect(within(ai).getByText("Handed over: Asked for a discount")).toBeVisible();
       expect(within(ai).getByRole("link", { name: "Open chat: Meera Das" })).toHaveAttribute(
         "href",
         `/inbox/${handedOver.conversationId}`,

@@ -26,16 +26,16 @@ export function DenseRow({
           <div className="flex min-w-0 flex-1 basis-48 flex-wrap items-baseline gap-x-2 md:flex-nowrap">{line}</div>
           {when}
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-x-3 md:flex-nowrap">
+        <div className="flex flex-wrap items-center justify-between gap-x-3">
           {detail !== "" && (
             <ItemDescription
               title={detail}
-              className="line-clamp-1 min-w-0 basis-full script-leading md:flex-1 md:basis-0"
+              className="line-clamp-1 min-w-0 basis-full script-leading md:flex-1 md:basis-40"
             >
               {detail}
             </ItemDescription>
           )}
-          <ItemActions className="flex-wrap md:ml-auto md:shrink-0">{actions}</ItemActions>
+          <ItemActions className="max-w-full shrink-0 flex-wrap md:ml-auto">{actions}</ItemActions>
         </div>
       </div>
     </Item>

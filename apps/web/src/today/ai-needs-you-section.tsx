@@ -5,13 +5,13 @@
 import type { HandedOverChat, StageSuggestion } from "@travel-crm/contracts/ai";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Fragment } from "react";
+import { CappedRows } from "@/components/capped-rows";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { DenseRow } from "@/components/dense-row";
 import { ScrollingSection } from "@/components/scrolling-section";
 import { ForwardLink, TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { ItemGroup, ItemSeparator, ItemTitle } from "@/components/ui/item";
+import { ItemTitle } from "@/components/ui/item";
 import { SuggestionButtons } from "@/ai/stage-suggestion";
 import type { useNeedsMe } from "@/ai/use-needs-me";
 import { inboxRoute, leadRoute, routes } from "@/lib/routes";
@@ -22,7 +22,7 @@ function HandedOverRow({ chat }: { chat: HandedOverChat }) {
   const t = useTranslations("today.aiNeedsYou");
   return (
     <DenseRow
-      line={<ItemTitle className="script-leading lg:min-h-0">{chat.name}</ItemTitle>}
+      line={<ItemTitle className="script-leading xl:min-h-0">{chat.name}</ItemTitle>}
       detail={chat.reason === null ? t("handedOver") : t("handedOverWhy", { reason: chat.reason })}
       actions={
         <Button variant="outline" asChild>
@@ -40,7 +40,7 @@ function SuggestionRow({ suggestion }: { suggestion: StageSuggestion }) {
   return (
     <DenseRow
       line={
-        <span className="shrink-0 lg:[&>a]:min-h-0">
+        <span className="shrink-0 xl:[&>a]:min-h-0">
           <TextLink href={leadRoute(suggestion.leadId)}>{suggestion.name}</TextLink>
         </span>
       }
@@ -81,16 +81,7 @@ export function AiNeedsYouSection({
       {needs.isError && (
         <LoadFailedAlert message={t("aiNeedsYou.loadFailed")} error={needs.error} onRetry={needs.refetch} />
       )}
-      {rows.length > 0 && (
-        <ItemGroup className="gap-0">
-          {rows.map(({ id, row }, index) => (
-            <Fragment key={id}>
-              {index > 0 && <ItemSeparator className="my-0" />}
-              {row}
-            </Fragment>
-          ))}
-        </ItemGroup>
-      )}
+      {rows.length > 0 && <CappedRows rows={rows} label={t("aiNeedsYou.showMore")} />}
     </ScrollingSection>
   );
 }

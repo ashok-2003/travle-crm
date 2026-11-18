@@ -51,7 +51,8 @@ export function ScrollingSection({
           </span>
         </div>
         {/* A maximum, so a short section is only as tall as its rows: the viewport takes the same cap. */}
-        <ScrollArea className="max-h-90 [&>[data-slot=scroll-area-viewport]]:max-h-90">
+        {/* Radix wraps the viewport's content in a `display:table` div that grows to the widest line; block makes rows take the card's width. */}
+        <ScrollArea className="max-h-90 [&>[data-slot=scroll-area-viewport]]:max-h-90 [&>[data-slot=scroll-area-viewport]>div]:!block">
           <div className="flex flex-col gap-2 px-2">{children}</div>
         </ScrollArea>
         {footer !== undefined && <div className="px-4">{footer}</div>}

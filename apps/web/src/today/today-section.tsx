@@ -4,13 +4,12 @@
 // things, the next page loading from a button at the foot of the scroll. Each has its own skeleton and its own error
 // with Try again, so one section failing leaves the others working.
 import { useTranslations } from "next-intl";
-import { Fragment } from "react";
+import { CappedRows } from "@/components/capped-rows";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ScrollingSection } from "@/components/scrolling-section";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { ForwardLink } from "@/components/text-link";
-import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { listFiltersHref } from "@/leads/list/list-filters";
 import { TodayItem, todayItemId } from "./today-item";
 import { useTodaySection } from "./use-today";
@@ -35,15 +34,11 @@ export function TodaySection({
     if (pages.items) {
       return (
         <>
-          <ItemGroup className="gap-0">
-            {pages.items.map((item, index) => (
-              <Fragment key={todayItemId(item)}>
-                {index > 0 && <ItemSeparator className="my-0" />}
-                <TodayItem item={item} />
-              </Fragment>
-            ))}
-          </ItemGroup>
-          <ShowMoreButton pages={pages} label={t(`more.${section}`)} />
+          <CappedRows
+            rows={pages.items.map((item) => ({ id: todayItemId(item), row: <TodayItem item={item} /> }))}
+            label={t(`more.${section}`)}
+            after={<ShowMoreButton pages={pages} label={t(`more.${section}`)} />}
+          />
         </>
       );
     }

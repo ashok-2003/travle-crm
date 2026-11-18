@@ -84,8 +84,8 @@ export function TodayScreen() {
         <div className="flex flex-col gap-6">
           <FollowUpsLine />
           {nothing && <EmptyState icon={CalendarCheckIcon} message={t("nothing")} />}
-          {/* Two cards a row on a wide screen, in this order; one column below. */}
-          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+          {/* Two cards a row from 1280px (a lone last card spans the row), in this order; one column below. */}
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 xl:*:last:odd:col-span-2">
             {shown.map((section) => (
               <TodaySection
                 key={section.name}

@@ -7,13 +7,13 @@ import type { FollowUpRow } from "@travel-crm/contracts/ai";
 import { useQuery } from "@tanstack/react-query";
 import { AlarmClockIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useState } from "react";
+import { useState } from "react";
+import { CappedRows } from "@/components/capped-rows";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { ScrollingSection } from "@/components/scrolling-section";
-import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTRPC } from "@/data/trpc";
 import { useNow } from "@/lib/use-now";
@@ -56,8 +56,8 @@ export function FollowUpsScreen() {
       }
       const { people } = board.data;
       return (
-        // Two cards a row on a wide screen, one column below; on a phone only the first card starts open.
-        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+        // Two cards a row from 1280px (a lone last card spans the row), one column below; on a phone only the first card starts open.
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 xl:*:last:odd:col-span-2">
           {followUpSections(view, board.data.rows, now, timeZone).map((section, sectionIndex) => (
             <ScrollingSection
               key={section.group}
@@ -65,19 +65,21 @@ export function FollowUpsScreen() {
               count={section.rows.length}
               defaultOpen={sectionIndex === 0}
             >
-              <ItemGroup role="list" className="gap-0">
-                {section.rows.map((row, index) => (
-                  <Fragment key={row.taskId}>
-                    {index > 0 && <ItemSeparator className="my-0" />}
+              <CappedRows
+                role="list"
+                label={t("showMore")}
+                rows={section.rows.map((row) => ({
+                  id: row.taskId,
+                  row: (
                     <FollowUpItem
                       row={row}
                       people={people}
                       showOwner={!ownOnly && whose === "everyone"}
                       onDone={askNext}
                     />
-                  </Fragment>
-                ))}
-              </ItemGroup>
+                  ),
+                }))}
+              />
             </ScrollingSection>
           ))}
         </div>

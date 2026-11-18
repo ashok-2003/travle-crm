@@ -143,7 +143,7 @@ function LeadItem({ item }: { item: LeadItemData }) {
       line={
         <>
           {lead ? (
-            <span className="shrink-0 lg:[&>a]:min-h-0">
+            <span className="shrink-0 xl:[&>a]:min-h-0">
               <TextLink href={leadRoute(lead.id)}>{lead.personName}</TextLink>
             </span>
           ) : (

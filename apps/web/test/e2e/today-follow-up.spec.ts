@@ -178,3 +178,28 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
   );
   await expect(work.getByText(new RegExp(`^Task due ${dayShown}`))).toBeVisible();
 });
+
+test("a follow-up with a very long title keeps Done and Edit inside its card and cuts the title short", async ({
+  page,
+  agency,
+}) => {
+  await signInByEmail(page, agency.owner);
+  const leadId = await addLeadThroughApi(page, leadInput());
+  const title =
+    `Send the full Kashmir itinerary with every hotel, transfer and houseboat option ${"and then wait ".repeat(4)}`
+      .trim()
+      .slice(0, 130);
+  await addFollowUpThroughApi(page, leadId, { title, ...(await laterToday(page, 60)) });
+
+  await page.goto("/leads/follow-ups");
+  const dueToday = page.getByRole("region", { name: "Due today" });
+  const card = await dueToday.boundingBox();
+  for (const name of [`Done: ${title}`, `Edit: ${title}`]) {
+    const box = await dueToday.getByRole("button", { name }).boundingBox();
+    expect(box).not.toBeNull();
+    expect(box?.x).toBeGreaterThanOrEqual(card?.x ?? 0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((card?.x ?? 0) + (card?.width ?? 0));
+  }
+  const shown = await dueToday.getByText(title).evaluate((element) => element.scrollWidth > element.clientWidth);
+  expect(shown).toBe(true);
+});

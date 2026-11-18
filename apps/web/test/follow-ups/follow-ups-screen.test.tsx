@@ -225,4 +225,30 @@ describe("FollowUpsScreen", () => {
     renderScreen();
     expect(await screen.findByRole("tab", { name: messages.leads.list.everyone })).toBeVisible();
   });
+
+  it("shows five rows of a section on a phone, then Show more for the rest", async () => {
+    screenIs("phone");
+    const names = ["Gita", "Hari", "Indu", "Jaya", "Kiran", "Lata", "Mani"];
+    board = {
+      due: names.map((name, index) => aRow(`1${String(index)}`, name, "2026-10-15T11:30:00.000Z")),
+      upcoming: [],
+    };
+    renderScreen();
+    const overdue = await region("Overdue");
+    expect(within(overdue).getAllByRole("listitem")).toHaveLength(5);
+    await userEvent.click(within(overdue).getByRole("button", { name: words.showMore }));
+    expect(within(overdue).getAllByRole("listitem")).toHaveLength(7);
+    expect(within(overdue).queryByRole("button", { name: words.showMore })).toBeNull();
+  });
+
+  it("shows every row on a wide screen", async () => {
+    board = {
+      due: ["Gita", "Hari", "Indu", "Jaya", "Kiran", "Lata"].map((name, index) =>
+        aRow(`1${String(index)}`, name, "2026-10-15T11:30:00.000Z"),
+      ),
+      upcoming: [],
+    };
+    renderScreen();
+    expect(within(await region("Overdue")).getAllByRole("listitem")).toHaveLength(6);
+  });
 });
