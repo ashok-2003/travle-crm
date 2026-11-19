@@ -6,7 +6,7 @@
 // asks when the next one is). Done goes once; a refusal (a second tab closed it first) shows its own sentence and the
 // task stays where it is (Review Focus 5). Both are changes the subscription may refuse (useWriteAccess).
 import { useMutation } from "@tanstack/react-query";
-import { AlarmClockIcon, CheckIcon } from "lucide-react";
+import { AlarmClockIcon, CheckIcon, SquareCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -66,7 +66,14 @@ export function TaskActions({
             complete.mutate({ taskId: task.id });
           }}
         >
-          {complete.isPending ? <Spinner /> : <CheckIcon aria-hidden="true" />}
+          {/* In a row, the tick sits in a box (owner): the one move that finishes the row. */}
+          {complete.isPending ? (
+            <Spinner />
+          ) : compact ? (
+            <SquareCheckIcon aria-hidden="true" className="size-5" />
+          ) : (
+            <CheckIcon aria-hidden="true" />
+          )}
           {!compact && t("done")}
         </Shape>
         <Shape

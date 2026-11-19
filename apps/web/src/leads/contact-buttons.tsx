@@ -5,13 +5,13 @@
 // phone and a QR code that dials (release 5). WhatsApp opens the customer's chat in the agency's inbox when its WhatsApp
 // is connected (web revamp, 2026-11-18), else the chat with the number in WhatsApp itself (wa.me, digits only). Both
 // wear the glyphs people know from their phones (WhatsApp's logo in its own green), and in a table's rows come compact:
-// the glyph alone, as an IconButton (quiet, named, with a tooltip). Show them only when the person has a phone.
+// the glyph alone, as a GlyphButton (quiet, named, no tooltip). Show them only when the person has a phone.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
 import { CallGlyph, WhatsAppLogo } from "@/components/contact-icons";
-import { IconButton } from "@/components/icon-button";
+import { GlyphButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useTRPC } from "@/data/trpc";
@@ -41,7 +41,7 @@ export function CallButton({
   name: string;
   leadId: string;
   variant?: Variant;
-  /** The glyph alone (IconButton), for a table's rows. */
+  /** The glyph alone (GlyphButton), for a table's rows. */
   compact?: boolean;
 }) {
   const t = useTranslations("leads.contact");
@@ -50,7 +50,7 @@ export function CallButton({
   const [logging, setLogging] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const label = t("callPerson", { name });
-  const Shape = compact ? IconButton : Button;
+  const Shape = compact ? GlyphButton : Button;
   const shown = compact ? "quiet" : variant;
   const content = (
     <>
@@ -121,7 +121,7 @@ function InboxWhatsAppButton({
   const queryClient = useQueryClient();
   const router = useRouter();
   const [opening, setOpening] = useState(false);
-  const Shape = compact ? IconButton : Button;
+  const Shape = compact ? GlyphButton : Button;
   const open = async () => {
     setOpening(true);
     try {
@@ -153,7 +153,7 @@ export function WhatsAppButton({
   name: string;
   leadId: string;
   variant?: Variant;
-  /** The glyph alone (IconButton), for a table's rows. */
+  /** The glyph alone (GlyphButton), for a table's rows. */
   compact?: boolean;
 }) {
   const t = useTranslations("leads.contact");
@@ -178,7 +178,7 @@ export function WhatsAppButton({
       </InboxWhatsAppButton>
     );
   }
-  const Shape = compact ? IconButton : Button;
+  const Shape = compact ? GlyphButton : Button;
   return (
     <Shape asChild variant={compact ? "quiet" : variant} aria-label={label}>
       <a href={whatsAppLink(phone)} target="_blank" rel="noopener noreferrer">

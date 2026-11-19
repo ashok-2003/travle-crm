@@ -19,7 +19,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FollowUpsLine } from "@/follow-ups/follow-ups-line";
 import { AwaySwitch } from "@/leads/away-switch";
-import { formatCount, formatDay, formatWeekday } from "@/lib/format";
+import { TabCount } from "@/components/tab-count";
+import { formatDay, formatWeekday } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
 import { AiNeedsYouSection } from "./ai-needs-you-section";
@@ -95,8 +96,7 @@ export function TodayScreen() {
               >
                 {shown.map((tab) => (
                   <TabsTrigger key={tab} value={tab}>
-                    {t(`sections.${tab === "ai" ? "aiNeedsYou" : tab}`)}{" "}
-                    {countIn(tab) > 0 && <span className="numbers">{formatCount(countIn(tab))}</span>}
+                    {t(`sections.${tab === "ai" ? "aiNeedsYou" : tab}`)} <TabCount count={countIn(tab)} />
                   </TabsTrigger>
                 ))}
               </TabsList>

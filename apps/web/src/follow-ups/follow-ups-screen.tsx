@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkTable } from "@/components/work-table";
 import { useTRPC } from "@/data/trpc";
-import { formatCount } from "@/lib/format";
+import { TabCount } from "@/components/tab-count";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe, viewScope } from "@/session/me-context";
 import { useFollowUpColumns } from "./follow-up-columns";
@@ -101,7 +101,7 @@ export function FollowUpsScreen() {
               const count = lists[one].data?.rows.length;
               return (
                 <TabsTrigger key={one} value={one}>
-                  {t(`views.${one}`)} {count !== undefined && <span className="numbers">{formatCount(count)}</span>}
+                  {t(`views.${one}`)} {count !== undefined && <TabCount count={count} />}
                 </TabsTrigger>
               );
             })}

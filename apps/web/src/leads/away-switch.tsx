@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { useTRPC } from "@/data/trpc";
 import { formatDayTime } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
@@ -33,41 +33,47 @@ function AwaySwitchCard() {
   const until = place.data.awayUntil === null ? null : new Date(place.data.awayUntil);
   const away = until !== null && until > new Date();
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
-        <CardDescription>
-          {away ? t("awayUntil", { when: formatDayTime(until, { timeZone }) }) : t("taking")}
-        </CardDescription>
-      </CardHeader>
+    // Small and in the action tint (owner, 2026-11-19): a setting beside the day's work, not a section of it. From
+    // tablets up the buttons sit beside the words.
+    <Card size="sm" className="bg-accent">
       <CardContent className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-          {away ? (
-            <Button
-              variant="outline"
-              disabled={setAway.isPending || !write.allowed}
-              aria-describedby={write.hint === null ? undefined : "away-write-hint"}
-              onClick={() => {
-                setAway.mutate({ awayUntil: null });
-              }}
-            >
-              {t("back")}
-            </Button>
-          ) : (
-            awayFor.map((days) => (
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-1">
+            <CardTitle>{t("title")}</CardTitle>
+            <CardDescription>
+              {away ? t("awayUntil", { when: formatDayTime(until, { timeZone }) }) : t("taking")}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {away ? (
               <Button
-                key={days}
                 variant="outline"
+                size="sm"
                 disabled={setAway.isPending || !write.allowed}
                 aria-describedby={write.hint === null ? undefined : "away-write-hint"}
                 onClick={() => {
-                  setAway.mutate({ awayUntil: new Date(Date.now() + days * DAY_MS).toISOString() });
+                  setAway.mutate({ awayUntil: null });
                 }}
               >
-                {t("for", { days })}
+                {t("back")}
               </Button>
-            ))
-          )}
+            ) : (
+              awayFor.map((days) => (
+                <Button
+                  key={days}
+                  variant="outline"
+                  size="sm"
+                  disabled={setAway.isPending || !write.allowed}
+                  aria-describedby={write.hint === null ? undefined : "away-write-hint"}
+                  onClick={() => {
+                    setAway.mutate({ awayUntil: new Date(Date.now() + days * DAY_MS).toISOString() });
+                  }}
+                >
+                  {t("for", { days })}
+                </Button>
+              ))
+            )}
+          </div>
         </div>
         <WriteHint id="away-write-hint" hint={write.hint} />
         {setAway.isError && <RefusalAlert error={setAway.error} />}

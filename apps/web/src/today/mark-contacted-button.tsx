@@ -5,7 +5,7 @@
 // main move, so an icon in blue (web revamp part 2). It goes once; a refusal (a second tab moved it first) shows its
 // own sentence. A change the subscription may refuse (useWriteAccess).
 import type { LeadBrief } from "@travel-crm/contracts/today";
-import { CheckIcon } from "lucide-react";
+import { SquareCheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { toast } from "sonner";
@@ -41,7 +41,7 @@ export function MarkContactedButton({ lead }: { lead: Pick<LeadBrief, "id" | "pe
           );
         }}
       >
-        {move.isPending ? <Spinner /> : <CheckIcon aria-hidden="true" />}
+        {move.isPending ? <Spinner /> : <SquareCheckIcon aria-hidden="true" className="size-5" />}
       </IconButton>
       <WriteHint id={hintId} hint={write.hint} />
     </div>
