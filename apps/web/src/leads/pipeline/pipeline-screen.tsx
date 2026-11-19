@@ -83,7 +83,7 @@ export function PipelineScreen() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={t("pipeline.title")}
-        intro={t("pipeline.intro")}
+        intro={wide ? t("pipeline.intro") : t("pipeline.introPhone")}
         action={
           <Button asChild variant="outline">
             <Link href={routes.leads}>

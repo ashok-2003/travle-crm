@@ -146,6 +146,8 @@ afterEach(() => {
 describe("the pipeline board", () => {
   it("lists a column for each open stage and Won, each with its leads and its count", async () => {
     renderBoard();
+    // A computer's words say a card can be dragged.
+    expect(screen.getByText(pipeline.intro)).toBeVisible();
     for (const stage of ["new", "contacted", "quote_sent", "booking_requested", "won"] as const) {
       expect(await screen.findByRole("group", { name: stages[stage] })).toBeVisible();
     }
@@ -362,6 +364,9 @@ describe("the pipeline board", () => {
 describe("the pipeline on a phone", () => {
   it("shows the stages as chips with their counts, and one stage's cards at a time", async () => {
     renderBoard({ width: "phone" });
+    // A phone's words say how a card moves there: no dragging.
+    expect(screen.getByText(pipeline.introPhone)).toBeVisible();
+    expect(screen.queryByText(pipeline.intro)).not.toBeInTheDocument();
     const chips = await screen.findByRole("radiogroup", { name: pipeline.stages });
     await waitFor(() => {
       expect(

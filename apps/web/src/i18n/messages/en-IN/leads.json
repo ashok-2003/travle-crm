@@ -679,6 +679,7 @@
   "pipeline": {
     "title": "Pipeline",
     "intro": "Every open lead by its stage. Drag a card to another stage, or use Move to.",
+    "introPhone": "Every open lead by its stage. To change a lead's stage, use Move to on its card.",
     "board": "Leads by stage",
     "toList": "List",
     "toPipeline": "Pipeline",
