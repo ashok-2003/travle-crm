@@ -272,6 +272,7 @@ describe("Home's day", () => {
     });
 
     it("asks for the chats of the chosen period, and for the calls of the month alone", async () => {
+      screenIs("wide");
       renderHome();
       await card(h.ai.title);
       await userEvent.setup().click(screen.getByRole("radio", { name: h.period.week }));

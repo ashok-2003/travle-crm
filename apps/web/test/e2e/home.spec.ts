@@ -10,7 +10,7 @@ import { addOverdueFollowUp, laterToday } from "./support/work";
 test("Home's tasks lead to their leads and My tasks, and a stage card opens Leads at that stage", async ({
   page,
   agency,
-}) => {
+}, testInfo) => {
   await signInByEmail(page, agency.owner);
   const sneha = await addLeadThroughApi(page, leadInput({ person: { name: "Sneha Iyer", phone: "+919845011234" } }));
   await moveStageThroughApi(page, sneha, "contacted");
@@ -27,10 +27,15 @@ test("Home's tasks lead to their leads and My tasks, and a stage card opens Lead
   const rahul = await addLeadThroughApi(page, leadInput());
 
   await page.goto("/dashboard");
-  // The period filter is the header's action, This month chosen; the old nudge, tiles and screens list are gone.
-  await expect(
-    page.getByRole("radiogroup", { name: "Period" }).getByRole("radio", { name: "This month" }),
-  ).toBeChecked();
+  // The period filter is the header's action, This month chosen (chips from tablets up, a dropdown on a phone); the old
+  // nudge, tiles and screens list are gone.
+  if (testInfo.project.name === "phone") {
+    await expect(page.getByRole("combobox", { name: "Period" })).toHaveText("This month");
+  } else {
+    await expect(
+      page.getByRole("radiogroup", { name: "Period" }).getByRole("radio", { name: "This month" }),
+    ).toBeChecked();
+  }
   await expect(page.getByRole("link", { name: "New lead", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: /things today/ })).toHaveCount(0);
   await expect(page.getByText("Your screens:")).toHaveCount(0);
