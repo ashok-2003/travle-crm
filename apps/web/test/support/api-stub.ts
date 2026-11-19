@@ -8,10 +8,12 @@ import { wantsStream, wireResponse, type WireItem } from "./trpc-wire";
 type Sent = { data: unknown } | { status: number; reason?: string | null };
 
 /**
- * An answer to one procedure: what is sent, no answer at all (offline), one that never comes (a stalled request), or
- * one sent only once `until` settles (a slow connection the test controls).
+ * An answer to one procedure: what is sent, no answer at all (offline), one that never comes (a stalled request), one
+ * sent only once `until` settles (a slow connection the test controls), or one that depends on the call's input (a
+ * board's column by its stage).
  */
-export type Answer = Sent | "offline" | "never" | { until: Promise<unknown>; then: Sent };
+export type Answer =
+  Sent | "offline" | "never" | { until: Promise<unknown>; then: Sent } | ((input: unknown) => Answer);
 
 /** An answer the test releases: `release()` sends `then`. */
 export function heldAnswer(then: Sent): { answer: Answer; release: () => void } {
@@ -48,7 +50,8 @@ export function stubApi(answers: Record<string, Answer>): ApiStub {
   const current = new Map(Object.entries(answers));
   const answerFor = (path: string): Answer => current.get(path) ?? { status: 404 };
   /** What to send, once any wait is over; null for no answer at all. */
-  const settle = async (answer: Answer): Promise<Sent | null> => {
+  const settle = async (answer: Answer, input?: unknown): Promise<Sent | null> => {
+    if (typeof answer === "function") return settle(answer(input));
     if (answer === "offline") return null;
     if (answer === "never") return new Promise<never>(() => undefined);
     if ("until" in answer) {
@@ -74,7 +77,10 @@ export function stubApi(answers: Record<string, Answer>): ApiStub {
         .split(",")
         .map((path) => (toConsole ? `platform.${path}` : path));
       calls.push(...paths);
-      const found = await Promise.all(paths.map((path) => settle(answerFor(path))));
+      // A batch's inputs by their place in it: in its body (a POST, as every call is) or its URL (a GET).
+      const body = typeof init?.body === "string" ? init.body : url.searchParams.get("input");
+      const inputs = (body ? JSON.parse(body) : {}) as Record<string, unknown>;
+      const found = await Promise.all(paths.map((path, index) => settle(answerFor(path), inputs[String(index)])));
       const sent = found.filter((answer): answer is Sent => answer !== null);
       if (sent.length < found.length) throw new TypeError("Failed to fetch");
       const items = sent.map(itemFor);

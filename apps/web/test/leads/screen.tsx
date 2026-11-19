@@ -1,6 +1,6 @@
 // Renders a lead screen as a signed-in member sees it, over the stubbed api (test/support/api-stub.ts): the app's data
 // layer and words, a paid subscription, toasts, a phone-sized or wide screen, and the few browser methods Radix's
-// selects, popovers and dialogs call. inputsTo reads back what the screen sent to a procedure.
+// selects, popovers and dialogs and a toast's buttons call. inputsTo reads back what the screen sent to a procedure.
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
@@ -29,6 +29,7 @@ export function renderScreen(
 ) {
   screenIs(width);
   Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.setPointerCapture = () => undefined;
   Element.prototype.releasePointerCapture = () => undefined;
   Element.prototype.scrollIntoView = () => undefined;
   const queryClient = newQueryClient(subscription);
