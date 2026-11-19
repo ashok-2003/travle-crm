@@ -10,7 +10,8 @@ import { noteAdOf } from "./ads.js";
 import { automationCouldAct, CUSTOMER_WROTE_EVENT, TEXT_RECEIVED_EVENT } from "./automation.js";
 import { systemActor } from "../kernel/index.js";
 import type { ConnectionRow } from "./connection-row.js";
-import { COPY_MEDIA_QUEUE, type InboxDependencies } from "./dependencies.js";
+import type { InboxDependencies } from "./dependencies.js";
+import { queueMediaCopy } from "./media.js";
 import { firstTextOf, messageColumns } from "./messages.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
 import { isOptOutText, recordWhatsappOptOut } from "./whatsapp-consent.js";
@@ -180,14 +181,8 @@ export async function receiveInbound(
     return { repeat: false, copy: columns.mediaState === "pending" ? row.id : null };
   });
   if (repeat) return "repeat";
-  if (copy !== null) {
-    // Queued after the commit; the health job queues what a crash here left pending. The id makes a repeat queue nothing.
-    await dependencies.queue.send(
-      COPY_MEDIA_QUEUE,
-      { organizationId, messageId: copy },
-      { id: copy, retryLimit: 10, retryDelaySeconds: 60 },
-    );
-  }
+  // The health job queues what a crash here left pending.
+  if (copy !== null) await queueMediaCopy(dependencies, organizationId, copy);
   return "stored";
 }
 

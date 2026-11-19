@@ -1,8 +1,10 @@
 // Delivery statuses (spec 4.5): a status event moves the message with that wamid forward, never back, and is the proof that
-// reports still arrive. A status for a message we don't have yet is tried again by the intake (MSG91 can be faster than our
-// own save of the send's answer); one for a message older than two minutes with no row is dropped and counted. The worker
-// handles several webhooks at once, so each update also names the statuses it may not overwrite: two reports that both
-// read the message before either was saved still leave it at the further one.
+// reports still arrive. Our send that MSG91 answered with a request id alone is found by that id, and takes the wamid. A
+// status for a message we don't have yet is tried again by the intake (MSG91 can be faster than our own save of the send's
+// answer); one for a message older than two minutes with no row is dropped and counted. The worker handles several webhooks
+// at once, so each update also names the statuses it may not overwrite: two reports that both read the message before
+// either was saved still leave it at the further one.
+import { toE164 } from "@travel-crm/contracts/kernel";
 import type { OrgTx } from "@travel-crm/db";
 import { ownMessage } from "@travel-crm/integrations/jobs";
 import type { ParsedEvent } from "@travel-crm/integrations/whatsapp";
@@ -17,6 +19,25 @@ const GIVE_UP_MS = 2 * 60_000;
 
 export type StatusResult = "applied" | "ignored" | "dropped";
 
+const reported = { id: true, status: true, deliveredAt: true } as const;
+
+/**
+ * Our send that MSG91 answered with a request id and no wamid, in the chat of the report's customer (one bulk request covers
+ * many), which then takes the report's wamid. Null when the report names no request or no such send is there yet.
+ */
+async function ourSendOf(tx: OrgTx, connectionId: string, event: StatusEvent) {
+  const phoneE164 = event.customerNumber === null ? null : toE164(event.customerNumber);
+  if (event.requestId === null || phoneE164 === null) return null;
+  const message = await tx.whatsappMessage.findFirst({
+    where: { requestId: event.requestId, wamid: null, conversation: { connectionId, phoneE164 } },
+    select: reported,
+  });
+  if (message !== null) {
+    await tx.whatsappMessage.updateMany({ where: { id: message.id, wamid: null }, data: { wamid: event.wamid } });
+  }
+  return message;
+}
+
 /** Applies one status in the connection's organization. Throws a retryable error for a message that may still be coming. */
 export async function applyStatus(
   tx: OrgTx,
@@ -26,10 +47,9 @@ export async function applyStatus(
   timeZone = "Asia/Kolkata",
 ): Promise<StatusResult> {
   const reportStamp = { lastEventAt: now, lastReportAt: now };
-  const message = await tx.whatsappMessage.findFirst({
-    where: { wamid: event.wamid },
-    select: { id: true, status: true, direction: true, deliveredAt: true },
-  });
+  const message =
+    (await tx.whatsappMessage.findFirst({ where: { wamid: event.wamid }, select: reported })) ??
+    (await ourSendOf(tx, scope.connectionId, event));
   if (message === null) {
     const at = event.occurredAt ?? now;
     if (now.getTime() - at.getTime() > GIVE_UP_MS) {
