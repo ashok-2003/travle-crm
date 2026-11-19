@@ -326,6 +326,58 @@ describe("the pipeline board", () => {
     expect(next.parentElement).not.toHaveClass("truncate");
   });
 
+  it("keeps the focus on the moved card's Move to, in its new column, after a move from the keyboard", async () => {
+    renderBoard({ move: heldMove({}).answer });
+    (await (await column("new")).findByRole("button", { name: moveTo("Rahul Sharma") })).focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: stages.contacted })).toHaveFocus();
+    });
+    await userEvent.keyboard("{Enter}");
+    await waitFor(async () => {
+      expect((await column("contacted")).getByRole("button", { name: moveTo("Rahul Sharma") })).toHaveFocus();
+    });
+  });
+
+  it("puts the focus back on the card's Move to when a refusal puts back a card moved from the keyboard", async () => {
+    const refusal = heldAnswer({ status: 409, reason: "LEAD_HAS_SALES" });
+    renderBoard({ move: refusal.answer });
+    (await (await column("new")).findByRole("button", { name: moveTo("Rahul Sharma") })).focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: stages.contacted })).toHaveFocus();
+    });
+    await userEvent.keyboard("{Enter}");
+    await waitFor(async () => {
+      expect((await column("contacted")).getByRole("button", { name: moveTo("Rahul Sharma") })).toHaveFocus();
+    });
+    refusal.release();
+    expect(await screen.findByText(messages.errors.reasons.LEAD_HAS_SALES)).toBeVisible();
+    await waitFor(async () => {
+      expect((await column("new")).getByRole("button", { name: moveTo("Rahul Sharma") })).toHaveFocus();
+    });
+  });
+
+  it("puts the focus on the column a card left when a keyboard move takes it off the board", async () => {
+    renderBoard({ move: heldMove({}).answer });
+    (await (await column("new")).findByRole("button", { name: moveTo("Rahul Sharma") })).focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: stages.contacted })).toHaveFocus();
+    });
+    // Contacted, Quote sent, Booking requested, Won, then Lost.
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: stages.lost })).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(screen.getByRole("group", { name: stages.new })).toHaveFocus();
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Rahul Sharma" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("group", { name: stages.new })).toHaveFocus();
+  });
+
   it("shows each card's owner, as their initials, in Everyone's view only", async () => {
     renderBoard();
     const ownedBy = pipeline.ownedBy.replace("{name}", "Asha Sharma");
@@ -402,5 +454,21 @@ describe("the pipeline on a phone", () => {
     expect(within(chips).getByRole("radio", { name: /^New/ })).toHaveTextContent("New0");
     expect(within(chips).getByRole("radio", { name: /^Quote sent/ })).toHaveTextContent("Quote sent1");
     expect(inputsTo("leads.moveStage")).toEqual([{ leadId: ids.rahul, stage: "quote_sent" }]);
+  });
+
+  it("puts the focus on the column a card left after a move from the sheet with the keyboard", async () => {
+    renderBoard({ width: "phone", move: heldMove({}).answer });
+    (await (await column("new")).findByRole("button", { name: moveTo("Rahul Sharma") })).focus();
+    await userEvent.keyboard("{Enter}");
+    const sheet = await screen.findByRole("dialog", { name: moveTo("Rahul Sharma") });
+    within(sheet).getByRole("button", { name: stages.quote_sent }).focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Rahul Sharma" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("group", { name: stages.new })).toHaveFocus();
   });
 });

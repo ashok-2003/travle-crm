@@ -4,7 +4,7 @@
 // trip when it has details; what's next in its urgency's colour, on two lines at most; its owner's initials in
 // Everyone's view; and Move to in the same top-right corner on every card. On a computer it can also be dragged to
 // another column, and lifts while it is (DESIGN.md Elevation: a shadow on what floats).
-import type { LeadListItem, LeadStage } from "@travel-crm/contracts/crm";
+import type { LeadListItem } from "@travel-crm/contracts/crm";
 import Link from "next/link";
 import { memo, useState } from "react";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -15,14 +15,15 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { NextStep } from "../next-step";
 import { OwnerInitials } from "../owner-initials";
 import { useTripDetails } from "../trip-line";
-import { DRAGGED_LEAD, type DraggedLead } from "./dragged-lead";
-import { MoveTo } from "./move-to";
+import { DRAGGED_LEAD } from "./dragged-lead";
+import { MoveTo, type OnMove } from "./move-to";
 
 /** Drawn again only when its own lead changes, not for a move elsewhere on the board. */
 export const PipelineCard = memo(function PipelineCard({
   lead,
   owner,
   wide,
+  focus,
   onMove,
 }: {
   lead: LeadListItem;
@@ -30,7 +31,9 @@ export const PipelineCard = memo(function PipelineCard({
   owner: string | null | undefined;
   /** Tablet-wide or more, where cards are dragged; a phone moves them with Move to alone. */
   wide: boolean;
-  onMove: (lead: DraggedLead, stage: LeadStage) => void;
+  /** Set when its Move to should take the focus (pipeline-screen.tsx). */
+  focus: (() => void) | null;
+  onMove: OnMove;
 }) {
   const tripDetails = useTripDetails();
   const { timeZone } = useMe().organization;
@@ -81,7 +84,7 @@ export const PipelineCard = memo(function PipelineCard({
       </ItemContent>
       {edits && (
         <ItemActions className="absolute top-1 right-1">
-          <MoveTo lead={lead} wide={wide} onMove={onMove} />
+          <MoveTo lead={lead} wide={wide} focus={focus} onMove={onMove} />
         </ItemActions>
       )}
     </Item>

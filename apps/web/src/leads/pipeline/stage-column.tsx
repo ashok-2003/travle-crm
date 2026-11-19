@@ -4,9 +4,8 @@
 // screen; on a phone the stage's chip says them), then its leads newest first, a page at a time, each a card that can
 // be dragged to another column (a computer) or moved with its Move to (anywhere, and from the keyboard). A column takes
 // a dropped card and moves that lead here.
-import type { LeadStage } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
@@ -16,7 +15,8 @@ import { cn } from "@/lib/utils";
 import { useLeads } from "../list/use-leads";
 import { StageDot } from "../stage-badge";
 import { columnInput, type BoardStage, type BoardView } from "./board-cache";
-import { DRAGGED_LEAD, draggedLeadOf, type DraggedLead } from "./dragged-lead";
+import { DRAGGED_LEAD, draggedLeadOf } from "./dragged-lead";
+import { useTakeFocus, type FocusAfterMove, type OnMove } from "./move-to";
 import { PipelineCard } from "./pipeline-card";
 
 /**
@@ -42,6 +42,8 @@ export const StageColumn = memo(function StageColumn({
   view,
   wide,
   count,
+  focus,
+  onFocused,
   onMove,
 }: {
   stage: BoardStage;
@@ -50,14 +52,21 @@ export const StageColumn = memo(function StageColumn({
   wide: boolean;
   /** The stage's open leads, from leads.counts; undefined for Won or while they load. */
   count: number | undefined;
-  onMove: (lead: DraggedLead, stage: LeadStage) => void;
+  /** Where the focus goes after a keyboard move, when it is in this column: a card's Move to, or the column itself. */
+  focus: FocusAfterMove | null;
+  onFocused: () => void;
+  onMove: OnMove;
 }) {
   const t = useTranslations("leads");
   const leads = useLeads(columnInput(view, stage));
   const [dropping, setDropping] = useState(false);
+  const self = useRef<HTMLDivElement>(null);
+  useTakeFocus(focus?.on === "column" ? onFocused : null, self);
   const shown = leads.items ?? [];
   return (
     <Card
+      ref={self}
+      tabIndex={-1}
       role="group"
       aria-label={t(`stages.${stage}`)}
       className={cn(tints[stage], wide && "snap-start")}
@@ -116,6 +125,7 @@ export const StageColumn = memo(function StageColumn({
                 view === "everyone" && lead.ownerUserId !== null ? (leads.people[lead.ownerUserId] ?? null) : undefined
               }
               wide={wide}
+              focus={focus?.on === "card" && focus.leadId === lead.id ? onFocused : null}
               onMove={onMove}
             />
           ))

@@ -18,17 +18,18 @@ import { useErrorMessage } from "@/lib/error-message";
 import { boardCache, type BoardView } from "./board-cache";
 import type { DraggedLead } from "./dragged-lead";
 
-/** A move: the lead, the stage it goes to, and for an Undo, the place it had there. */
+/** A move: the lead, the stage it goes to, for an Undo the place it had there, and what to do if it is put back. */
 interface Move {
   lead: DraggedLead;
   to: LeadStage;
   place?: number;
+  onPutBack?: (() => void) | undefined;
 }
 
 const toastId = (leadId: string) => `pipeline-move-${leadId}`;
 
 /** Moves a lead at once; the same function on every render of a view, so the board's cards needn't draw again. */
-export function useMoveLead(view: BoardView): (lead: DraggedLead, to: LeadStage) => void {
+export function useMoveLead(view: BoardView): (lead: DraggedLead, to: LeadStage, onPutBack?: () => void) => void {
   const t = useTranslations("leads");
   const { apiError } = useErrorMessage();
   const trpc = useTRPC();
@@ -70,7 +71,10 @@ export function useMoveLead(view: BoardView): (lead: DraggedLead, to: LeadStage)
       return found;
     },
     onError: (error, move, found) => {
-      if (found && latest.current.get(move.lead.id) === move) board.put(found, move.to, found.from, found.place);
+      if (found && latest.current.get(move.lead.id) === move) {
+        board.put(found, move.to, found.from, found.place);
+        move.onPutBack?.();
+      }
       toast.error(apiError(error), { id: toastId(move.lead.id), action: null, duration: Infinity });
     },
     onSettled: () => {
@@ -80,8 +84,8 @@ export function useMoveLead(view: BoardView): (lead: DraggedLead, to: LeadStage)
   });
 
   return useCallback(
-    (lead: DraggedLead, to: LeadStage) => {
-      if (boardCache(queryClient, trpc, view).find(lead.id)?.from !== to) mutate({ lead, to });
+    (lead: DraggedLead, to: LeadStage, onPutBack?: () => void) => {
+      if (boardCache(queryClient, trpc, view).find(lead.id)?.from !== to) mutate({ lead, to, onPutBack });
     },
     [queryClient, trpc, view, mutate],
   );

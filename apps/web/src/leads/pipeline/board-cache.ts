@@ -18,6 +18,9 @@ import { leadsKey } from "../list/use-leads";
 export const boardStages = [...openLeadStages, "won"] as const;
 export type BoardStage = (typeof boardStages)[number];
 
+export const isBoardStage = (stage: LeadStage): stage is BoardStage =>
+  (boardStages as readonly LeadStage[]).includes(stage);
+
 export type BoardView = "mine" | "everyone";
 
 /** A column's leads.list input: its view and stage, 20 leads a page. */

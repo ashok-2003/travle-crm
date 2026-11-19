@@ -6,7 +6,7 @@
 // timeline, audit and notices are the same. The five columns share the page's width, at least 260px each, and scroll
 // sideways in their own box when the page is narrower. A phone (below 768px) shows the stages as chips with their
 // counts, scrolling in their strip, and the chosen stage's cards under them, full width.
-import { isOpenStage, type LeadStage } from "@travel-crm/contracts/crm";
+import { isOpenStage } from "@travel-crm/contracts/crm";
 import { ListIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -21,9 +21,8 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { StageChipGroup } from "../list/stage-chips";
 import { useLeadCounts } from "../list/use-leads";
-import { boardStages, type BoardStage, type BoardView } from "./board-cache";
-import type { DraggedLead } from "./dragged-lead";
-import { WRITE_HINT_ID } from "./move-to";
+import { boardStages, isBoardStage, type BoardStage, type BoardView } from "./board-cache";
+import { WRITE_HINT_ID, type FocusAfterMove, type OnMove } from "./move-to";
 import { StageColumn } from "./stage-column";
 import { useMoveLead } from "./use-move-lead";
 
@@ -37,12 +36,28 @@ export function PipelineScreen() {
   const counts = useLeadCounts({ view, stage: "open", limit: 25 });
   const write = useWriteAccess("change");
   const move = useMoveLead(view);
-  const onMove = useCallback(
-    (lead: DraggedLead, stage: LeadStage) => {
+  const [focusAfterMove, setFocusAfterMove] = useState<FocusAfterMove | null>(null);
+  const focused = useCallback(() => {
+    setFocusAfterMove(null);
+  }, []);
+  const onMove = useCallback<OnMove>(
+    (lead, stage, fromKeyboard) => {
       // A dropped card is refused here too: the api would refuse the move in a read-only agency.
-      if (write.allowed) move(lead, stage);
+      if (!write.allowed) return;
+      if (!fromKeyboard) {
+        move(lead, stage);
+        return;
+      }
+      // A move from the keyboard keeps the focus on the board, never the page: on the card's Move to in its new
+      // column, or on the column it left when it is no longer shown (Lost, Not a lead, another stage on a phone);
+      // and when a refusal puts the card back, on its Move to there.
+      const shown = wide && isBoardStage(stage);
+      setFocusAfterMove({ leadId: lead.id, column: shown ? stage : fromKeyboard.left, on: shown ? "card" : "column" });
+      move(lead, stage, () => {
+        setFocusAfterMove({ leadId: lead.id, column: fromKeyboard.left, on: "card" });
+      });
     },
-    [write.allowed, move],
+    [write.allowed, move, wide],
   );
   const countOf = (stage: BoardStage) => (isOpenStage(stage) ? counts.data?.[stage] : undefined);
   const column = (stage: BoardStage) => (
@@ -52,6 +67,8 @@ export function PipelineScreen() {
       view={view}
       wide={wide}
       count={countOf(stage)}
+      focus={focusAfterMove?.column === stage ? focusAfterMove : null}
+      onFocused={focused}
       onMove={onMove}
     />
   );
