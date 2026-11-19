@@ -7,7 +7,7 @@
 // under the procedure's path, so a change made anywhere (a stage moved, a task done) reaches them. The open leads'
 // counts by stage are for the same view and filters.
 import type { ListLeadsInput, PeopleNames } from "@travel-crm/contracts/crm";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, type QueryKey } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 
@@ -17,12 +17,17 @@ export function useLeadPage(input: ListLeadsInput & { page: number }) {
   return useQuery({ ...trpc.leads.list.queryOptions(input), placeholderData: keepPreviousData });
 }
 
+/** Where useLeads keeps a list in the cache, for a screen that changes it in place (the pipeline's instant moves). */
+export function leadsKey(trpc: ReturnType<typeof useTRPC>, input: Omit<ListLeadsInput, "page">): QueryKey {
+  return [...trpc.leads.list.pathKey(), input];
+}
+
 /** The list a page at a time after a cursor, for Show more. */
 export function useLeads(input: Omit<ListLeadsInput, "page">) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   const pages = useCursorPages({
-    queryKey: [...trpc.leads.list.pathKey(), input],
+    queryKey: leadsKey(trpc, input),
     page: (cursor) => client.leads.list.query({ ...input, ...(cursor !== null && { before: cursor }) }),
     items: (page) => page.items,
   });
