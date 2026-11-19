@@ -194,13 +194,13 @@
 }
 
 /* The agency's sidebar (DESIGN.md section 6, components/ui/aceternity-sidebar.tsx): light, in the warm surface tone,
-   hairlines between its parts, the current page in the action tint with its ink. Without this rule it wears the deep
-   green above. */
+   hairlines between its parts, the current page solid action blue with white words (5.17:1) and its soft glow. Without
+   this rule it wears the deep green above. */
 [data-slot="aceternity-sidebar"] {
   --sidebar: var(--brand-surface);
   --sidebar-foreground: var(--brand-ink);
-  --sidebar-accent: var(--brand-action-tint);
-  --sidebar-accent-foreground: var(--brand-action-pressed);
+  --sidebar-accent: var(--brand-action);
+  --sidebar-accent-foreground: var(--brand-on-action);
   --sidebar-border: var(--brand-hairline);
 }
 

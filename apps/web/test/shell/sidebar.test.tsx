@@ -3,6 +3,8 @@
 // shuts it with a tap outside or on a destination. The agency's mark and name and the bell at its top, the
 // destinations in three groups, the current page marked, the counts of waiting work, and the person's menu.
 import "fake-indexeddb/auto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { PointerEventsCheckLevel } from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
@@ -22,6 +24,7 @@ vi.mock("@/lib/navigate", () => ({ loadPage: vi.fn(), replacePage: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
 
 const { navigation } = messages.shell;
+const globalsCss = readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
 
 const unreadChats = {
   waiting: 0,
@@ -130,10 +133,25 @@ describe("the agency's sidebar", () => {
     for (const heading of ["Work", "Team", "Manage"]) expect(sidebar.queryByText(heading)).toBeNull();
   });
 
-  it("marks the current page", () => {
+  it("marks the current page in a matte neon: solid action blue, white words, a soft blue glow", () => {
     const { sidebar } = renderSidebar();
-    expect(sidebar.getByRole("link", { name: navigation.home })).toHaveAttribute("aria-current", "page");
-    expect(sidebar.getByRole("link", { name: navigation.leads })).not.toHaveAttribute("aria-current");
+    const home = sidebar.getByRole("link", { name: navigation.home });
+    expect(home).toHaveAttribute("aria-current", "page");
+    expect(home).toHaveAttribute("data-current", "true");
+    // jsdom draws no CSS: the classes the current item wears, and what the agency's sidebar sets their tokens to.
+    for (const style of [
+      "data-[current=true]:bg-sidebar-accent",
+      "data-[current=true]:text-sidebar-accent-foreground",
+      "data-[current=true]:shadow-[0_4px_14px_-2px_color-mix(in_srgb,var(--sidebar-accent)_40%,transparent)]",
+    ]) {
+      expect(home.className).toContain(style);
+    }
+    const agencyTokens = /\[data-slot="aceternity-sidebar"\] \{([^}]*)\}/.exec(globalsCss)?.[1] ?? "";
+    expect(agencyTokens).toContain("--sidebar-accent: var(--brand-action);");
+    expect(agencyTokens).toContain("--sidebar-accent-foreground: var(--brand-on-action);");
+    const leads = sidebar.getByRole("link", { name: navigation.leads });
+    expect(leads).not.toHaveAttribute("aria-current");
+    expect(leads).toHaveAttribute("data-current", "false");
   });
 
   it("counts the work waiting: the Inbox's unread chats in violet, My tasks' in red, said after their names", async () => {

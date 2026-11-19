@@ -84,8 +84,10 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   menu or popover from it is (`hold`). The registry's phone overlay (`MobileSidebar`) and its `animate`, `open` and `setOpen` props are
   gone: phones keep the bottom bar, and nothing is remembered. Rows are 44px at least, links are Next's `Link`, icons are
   decoration, a shut row is named in a tooltip, and a count shows as a dot at rest. Its colours are the
-  `--sidebar-*` tokens, which `globals.css` sets light (surface, hairline, the action tint) for it alone; without that
-  rule it wears the console's deep green. Its `z-(--z-dropdown)` puts the open panel above the page's sticky parts and
+  `--sidebar-*` tokens, which `globals.css` sets light (surface, hairline) for it alone; without that rule it wears the
+  console's deep green. The current page is a matte neon (owner, 2026-11-20): a flat fill of `--sidebar-accent` (the
+  action blue) with its ink (white, 5.17:1) and a soft glow of the accent at 40%, 14px, a little below
+  (`data-[current=true]:shadow-[...]`, the one shadow on a resting surface; at rest the icon square wears it). Its `z-(--z-dropdown)` puts the open panel above the page's sticky parts and
   under scrims, dialogs and menus.
 - `avatar.tsx` (added for the folded sidebar's agency mark): `cn` from `lib/utils.ts` (the registry's import named a
   package that doesn't exist); `AvatarBadge`, `AvatarGroup` and `AvatarGroupCount` are gone (unused; the badge held a

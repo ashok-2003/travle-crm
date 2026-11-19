@@ -208,10 +208,13 @@ export function SidebarSeparator({ className }: { className?: string }) {
 // the panel widens; the panel's edge hides them at rest.
 const row =
   "relative flex min-h-11 w-full shrink-0 items-center gap-3 overflow-hidden rounded-lg py-2 pr-2 pl-3 text-left text-sm font-medium text-sidebar-foreground";
-/** A row you press: hover in the hairline tone, the current page in the action tint with its ink. */
+/**
+ * A row you press: hover in the quiet hairline tone; the current page in a matte neon (owner, 2026-11-20): a flat fill of
+ * the accent with its own ink, and a soft glow of the accent a little below it. At rest only its icon square shows.
+ */
 const pressable = cn(
   row,
-  "group/row hover:bg-sidebar-border data-[current=true]:bg-sidebar-accent data-[current=true]:text-sidebar-accent-foreground",
+  "group/row hover:bg-sidebar-border data-[current=true]:bg-sidebar-accent data-[current=true]:text-sidebar-accent-foreground data-[current=true]:shadow-[0_4px_14px_-2px_color-mix(in_srgb,var(--sidebar-accent)_40%,transparent)]",
 );
 
 /** The icon's 20px box (a 32px avatar centres on it); `dot`, a colour class, marks waiting work on its corner at rest. */
