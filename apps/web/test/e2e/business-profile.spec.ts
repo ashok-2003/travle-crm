@@ -6,7 +6,11 @@ import { expectAccessible } from "./support/accessibility";
 import { KARNATAKA_GSTIN, ONBOARDED_GSTIN, saveOnboardingProfile } from "./support/business";
 import { expect, signInByEmail, test } from "./support/fixtures";
 
-test("a newly onboarded Owner fills the profile and watches the checklist tick", async ({ page, agency, database }) => {
+test("a newly onboarded Owner fills the profile and watches the checklist tick", async ({
+  page,
+  agency,
+  database,
+}, testInfo) => {
   await saveOnboardingProfile(database.platform, agency.organizationId, "Sharma Travels Private Limited");
   await signInByEmail(page, agency.owner);
   await page.goto("/dashboard");
@@ -14,8 +18,10 @@ test("a newly onboarded Owner fills the profile and watches the checklist tick",
   // Onboarding saved the contact phone, but no address.
   await expect(checklist.getByText("Setup 1 of 7 · Next: Business details")).toBeVisible();
   await expect(checklist.getByRole("link", { name: "Finish setup" })).toHaveAttribute("href", "/setup");
-  // Above the rest of Home, never instead of it.
-  await expect(page.getByRole("radiogroup", { name: "Period" })).toBeVisible();
+  // Above the rest of Home, never instead of it: Home's period is there too (chips from tablets up, a dropdown on a phone).
+  await expect(
+    page.getByRole(testInfo.project.name === "phone" ? "combobox" : "radiogroup", { name: "Period" }),
+  ).toBeVisible();
   await expectAccessible(page);
 
   await checklist.getByRole("link", { name: "Finish setup" }).click();
