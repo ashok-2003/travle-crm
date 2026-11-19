@@ -89,6 +89,7 @@ export function useSectionColumns(section: MyTasksSection): SectionColumns {
       return {
         columns: [
           customer(true),
+          whenColumn(t("columns.due"), 168),
           { header: t("columns.task"), cell: (item) => item.kind === "task" && <ClampedText text={item.task.title} /> },
           {
             header: t("columns.details"),
@@ -99,7 +100,6 @@ export function useSectionColumns(section: MyTasksSection): SectionColumns {
               </div>
             ),
           },
-          whenColumn(t("columns.due"), 184),
         ],
         actions: {
           header: t("columns.actions"),
@@ -116,13 +116,13 @@ export function useSectionColumns(section: MyTasksSection): SectionColumns {
       return {
         columns: [
           customer(true),
+          whenColumn(t("columns.waiting"), 120),
           {
             header: t("columns.source"),
             width: 150,
             cell: (item) => item.kind === "new-lead" && muted(tSources(item.lead.source)),
           },
           { header: t("columns.trip"), cell: trip },
-          whenColumn(t("columns.waiting"), 120),
         ],
         actions: {
           header: t("columns.actions"),
@@ -154,8 +154,8 @@ export function useSectionColumns(section: MyTasksSection): SectionColumns {
       return {
         columns: [
           customer(false),
-          { header: t("columns.trip"), cell: trip },
           whenColumn(t("columns.leaves"), 120),
+          { header: t("columns.trip"), cell: trip },
           {
             header: t("columns.missing"),
             cell: (item) =>

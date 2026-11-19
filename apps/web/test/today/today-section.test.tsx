@@ -66,11 +66,11 @@ afterEach(() => {
 
 describe("TodaySection", () => {
   it.each([
-    ["overdue", [columns.customer, columns.task, columns.details, columns.due, columns.actions]],
-    ["due-today", [columns.customer, columns.task, columns.details, columns.due, columns.actions]],
-    ["new-leads", [columns.customer, columns.source, columns.trip, columns.waiting, columns.actions]],
+    ["overdue", [columns.customer, columns.due, columns.task, columns.details, columns.actions]],
+    ["due-today", [columns.customer, columns.due, columns.task, columns.details, columns.actions]],
+    ["new-leads", [columns.customer, columns.waiting, columns.source, columns.trip, columns.actions]],
     ["payments-due", [columns.customer, columns.amount, columns.due, columns.actions]],
-    ["trip-details", [columns.customer, columns.trip, columns.leaves, columns.missing, columns.actions]],
+    ["trip-details", [columns.customer, columns.leaves, columns.trip, columns.missing, columns.actions]],
   ] as const)("heads the %s table with its columns", async (section, headers) => {
     renderSection(section, [snehaOverdue]);
     const table = await screen.findByRole("table", { name: messages.today.sections[section] });
@@ -81,10 +81,10 @@ describe("TodaySection", () => {
     ).toEqual(headers);
   });
 
-  it("names the customer as a link to their lead, the stage under the name, then the task, trip and due", async () => {
+  it("names the customer as a link to their lead, the stage under the name, then the due, task and trip", async () => {
     renderSection("overdue", [snehaOverdue]);
     const row = await rowOf("Sneha Iyer");
-    const [customer, task, details, due] = within(row).getAllByRole("cell");
+    const [customer, due, task, details] = within(row).getAllByRole("cell");
     const name = within(row).getByRole("link", { name: "Sneha Iyer" });
     expect(name).toHaveAttribute("href", leadRoute(aLead().id));
     expect(customer).toContainElement(name);

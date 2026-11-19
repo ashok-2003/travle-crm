@@ -60,6 +60,18 @@ export function AiNeedsYouSection({
                 ),
             },
             {
+              header: t("columns.since"),
+              width: 176,
+              cell: (row) => (
+                <span className="text-label text-muted-foreground">
+                  {formatDayTime(new Date(row.kind === "chat" ? row.chat.since : row.suggestion.createdAt), {
+                    timeZone,
+                    now,
+                  })}
+                </span>
+              ),
+            },
+            {
               header: t("columns.why"),
               min: 240,
               cell: (row) => (
@@ -72,18 +84,6 @@ export function AiNeedsYouSection({
                         : t("aiNeedsYou.handedOverWhy", { reason: row.chat.reason })
                   }
                 />
-              ),
-            },
-            {
-              header: t("columns.since"),
-              width: 176,
-              cell: (row) => (
-                <span className="text-label text-muted-foreground">
-                  {formatDayTime(new Date(row.kind === "chat" ? row.chat.since : row.suggestion.createdAt), {
-                    timeZone,
-                    now,
-                  })}
-                </span>
               ),
             },
           ]}

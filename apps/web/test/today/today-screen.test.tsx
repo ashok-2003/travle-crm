@@ -381,7 +381,7 @@ describe("TodayScreen", () => {
         within(table)
           .getAllByRole("columnheader")
           .map((header) => header.textContent),
-      ).toEqual([words.columns.customer, words.columns.why, words.columns.since, words.columns.actions]);
+      ).toEqual([words.columns.customer, words.columns.since, words.columns.why, words.columns.actions]);
       expect(within(table).getByText("Meera Das")).toBeVisible();
       expect(within(table).getByText("Handed over: Asked for a discount")).toBeVisible();
       expect(within(table).getByRole("link", { name: "Open chat: Meera Das" })).toHaveAttribute(

@@ -8,9 +8,8 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { ForwardLink } from "@/components/text-link";
-import { WorkTable } from "@/components/work-table";
+import { useTableFits, WorkTable } from "@/components/work-table";
 import { listFiltersHref } from "@/leads/list/list-filters";
-import { useWideScreen } from "@/lib/use-wide-screen";
 import { useSectionColumns } from "./section-columns";
 import { todayItemId, useTodaySection } from "./use-today";
 
@@ -19,7 +18,7 @@ export type MyTasksSection = "overdue" | "due-today" | "new-leads" | "payments-d
 export function TodaySection({ section }: { section: MyTasksSection }) {
   const t = useTranslations("today");
   const tCommon = useTranslations("common");
-  const wide = useWideScreen();
+  const wide = useTableFits();
   const pages = useTodaySection(section);
   const table = useSectionColumns(section);
 

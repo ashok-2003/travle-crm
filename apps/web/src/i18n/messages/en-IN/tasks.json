@@ -8,7 +8,7 @@
   },
   "followUps": {
     "title": "Follow-ups",
-    "intro": "{due, plural, =0 {Nothing due} other {# due}}{replied, plural, =0 {} other { · # replied}}",
+    "intro": "{due, plural, =0 {Nothing due} other {<badge># due</badge>}}{replied, plural, =0 {} other { · # replied}}",
     "when": "When",
     "views": {
       "due": "Due",

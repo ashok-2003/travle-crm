@@ -1,8 +1,7 @@
 "use client";
 
 // A card of Home's day (spec 5): its title, and View all in the corner when there is more to open. Each of the four
-// day cards wears a subtle tint of its own (owner, 2026-11-19), from the brand's decorative tints, which say no status:
-// your tasks sky, needs your attention amber, departures sage, AI insights violet.
+// day cards wears a subtle tint of the colour that says what it holds (owner, 2026-11-19).
 import { useTranslations } from "next-intl";
 import { useId, type ReactNode } from "react";
 import { ForwardLink } from "@/components/text-link";
@@ -20,18 +19,19 @@ export const rowClasses = {
 };
 
 /**
- * A tint: its fill mixed into the card in oklab (no hue drift), each at the share that gives the four the same faint
- * colour (amber is the strongest fill, so the least of it); the card's edge, its rows' hairlines and its muted text take
- * the tint's ink, and its title the ink itself (DESIGN.md: tint surfaces carry dark ink). Written out in full so Tailwind
- * finds every class.
+ * A card's tint says what it holds (owner, 2026-11-19): your tasks the primary blue, what needs you the attention
+ * amber, departures the good green, the AI its violet. Each is the colour's own tint mixed into the card in oklab (no
+ * hue drift), at the share that makes the four equally faint (amber is the strongest, so the least of it); the card's
+ * edge, its rows' hairlines and its muted text take the colour's dark ink, and its title the ink itself (DESIGN.md: tint
+ * surfaces carry dark ink). Written out in full so Tailwind finds every class.
  */
 const tints = {
-  sky: "bg-[color-mix(in_oklab,var(--brand-avatar-sky-fill)_50%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-avatar-sky-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-avatar-sky-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-avatar-sky-ink)",
-  amber:
-    "bg-[color-mix(in_oklab,var(--brand-avatar-amber-fill)_30%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-avatar-amber-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-avatar-amber-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-avatar-amber-ink)",
-  sage: "bg-[color-mix(in_oklab,var(--brand-avatar-sage-fill)_35%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-avatar-sage-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-avatar-sage-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-avatar-sage-ink)",
-  violet:
-    "bg-[color-mix(in_oklab,var(--brand-avatar-violet-fill)_45%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-avatar-violet-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-avatar-violet-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-avatar-violet-ink)",
+  primary:
+    "bg-[color-mix(in_oklab,var(--brand-action-tint)_80%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-action-pressed)_10%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-action-pressed)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-action-pressed)",
+  attention:
+    "bg-[color-mix(in_oklab,var(--brand-status-attention-fill)_30%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-status-attention-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-status-attention-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-status-attention-ink)",
+  good: "bg-[color-mix(in_oklab,var(--brand-status-good-fill)_50%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-status-good-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-status-good-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-status-good-ink)",
+  ai: "bg-[color-mix(in_oklab,var(--brand-people-tint)_50%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-people-tint-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-people-tint-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-people-tint-ink)",
 } as const;
 
 export function HomeCard({

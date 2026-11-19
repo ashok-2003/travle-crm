@@ -27,7 +27,7 @@ export function AiInsightsCard({ period }: { period: Period }) {
       ? 0
       : Math.min(Math.round((calls.usedThisMonth / calls.monthlyLimit) * 100), 100);
   return (
-    <HomeCard title={t("title")} tint="violet">
+    <HomeCard title={t("title")} tint="ai">
       {failed !== null && (
         <LoadFailedAlert
           message={t("loadFailed")}

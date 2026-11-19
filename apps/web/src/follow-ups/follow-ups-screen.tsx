@@ -14,10 +14,10 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { WorkTable } from "@/components/work-table";
+import { useTableFits, WorkTable } from "@/components/work-table";
 import { useTRPC } from "@/data/trpc";
+import { StatusBadge } from "@/components/status-badge";
 import { TabCount } from "@/components/tab-count";
-import { useWideScreen } from "@/lib/use-wide-screen";
 import { useMe, viewScope } from "@/session/me-context";
 import { useFollowUpColumns } from "./follow-up-columns";
 import { NextFollowUpDialog, type NextFollowUpTarget } from "./next-follow-up-dialog";
@@ -36,7 +36,7 @@ export function FollowUpsScreen() {
   const tLeads = useTranslations("leads.list");
   const tCommon = useTranslations("common");
   const trpc = useTRPC();
-  const wide = useWideScreen();
+  const wide = useTableFits();
   const ownOnly = viewScope(useMe(), "leads:view") !== "all";
   const [view, setView] = useState<View>("due");
   const [whose, setWhose] = useState<"mine" | "everyone">("mine");
@@ -87,7 +87,15 @@ export function FollowUpsScreen() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={t("title")}
-        intro={due && t("intro", { due: due.length, replied: due.filter(replied).length })}
+        intro={
+          due &&
+          // What is due is in red, as My tasks' overdue count is (owner, 2026-11-19).
+          t.rich("intro", {
+            due: due.length,
+            replied: due.filter(replied).length,
+            badge: (words) => <StatusBadge tone="bad">{words}</StatusBadge>,
+          })
+        }
       />
       <Tabs
         value={view}

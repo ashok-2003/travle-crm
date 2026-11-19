@@ -5,13 +5,13 @@
 // screen is narrower than the columns, the table scrolls sideways inside its own box with the Customer column pinned
 // at the left and the buttons at the right; the box reaches at most the bottom of the window and scrolls down inside
 // itself under its pinned header row, the next page's button after the rows. Pinned cells take the page's background
-// and nothing else (UI rule 2). On a phone (below 768px) a table can't fit, so the rows stack: each one's cells, then
-// its buttons, five rows and Show more (CappedRows).
+// and nothing else (UI rule 2). Below 1024px (a phone, a tablet beside the sidebar) the columns can't all show, so the
+// rows stack: each one's cells, then its buttons, five rows and Show more (CappedRows).
 import { useEffect, useState, type ReactNode } from "react";
 import { CappedRows } from "@/components/capped-rows";
 import { Item, ItemActions, ItemContent } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useWideScreen } from "@/lib/use-wide-screen";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
 export interface WorkColumn<Row> {
@@ -66,6 +66,11 @@ function useRestOfWindow() {
   return [setBox, maxHeight === undefined ? undefined : { maxHeight }] as const;
 }
 
+/** Whether the screen is wide enough for a work table (1024px, owner 2026-11-19); below it the rows stack. */
+export function useTableFits(): boolean {
+  return useMediaQuery("(min-width: 1024px)");
+}
+
 export function WorkTable<Row>({
   label,
   rows,
@@ -88,7 +93,7 @@ export function WorkTable<Row>({
   /** The next page's button, after the rows. */
   after?: ReactNode;
 }) {
-  const wide = useWideScreen();
+  const wide = useTableFits();
   const [attachBox, boxHeight] = useRestOfWindow();
   if (!wide) {
     return (

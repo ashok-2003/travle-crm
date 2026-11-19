@@ -126,18 +126,18 @@ describe("Home's day", () => {
     });
   });
 
-  it("gives each day card a subtle tint of its own: tasks sky, attention amber, departures sage, AI violet", async () => {
+  it("tints each day card by what it holds: tasks primary, attention amber, departures good green, AI violet", async () => {
     renderHome({ departures: [departure] });
     const tints = [
-      [h.tasks.title, "sky"],
-      [h.attention.title, "amber"],
-      [h.departures.title, "sage"],
-      [h.ai.title, "violet"],
+      [h.tasks.title, "action-tint", "action-pressed"],
+      [h.attention.title, "status-attention-fill", "status-attention-ink"],
+      [h.departures.title, "status-good-fill", "status-good-ink"],
+      [h.ai.title, "people-tint", "people-tint-ink"],
     ] as const;
-    for (const [title, tint] of tints) {
+    for (const [title, fill, ink] of tints) {
       const tinted = await card(title);
-      expect(tinted.className).toContain(`var(--brand-avatar-${tint}-fill)`);
-      expect(tinted.className).toContain(`[--color-border:color-mix(in_oklab,var(--brand-avatar-${tint}-ink)`);
+      expect(tinted.className).toContain(`var(--brand-${fill})`);
+      expect(tinted.className).toContain(`[--color-border:color-mix(in_oklab,var(--brand-${ink})`);
     }
   });
 

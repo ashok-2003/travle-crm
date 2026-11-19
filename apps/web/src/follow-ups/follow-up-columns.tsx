@@ -85,16 +85,16 @@ export function useFollowUpColumns({
         width: 200,
         cell: (row) => <CustomerCell name={row.lead.name} href={leadRoute(row.lead.id)} stage={row.lead.stage} />,
       },
-      { header: t("columns.remarks"), cell: (row) => <ClampedText text={row.title} /> },
-      { header: t("columns.nextStep"), cell: nextStep },
       {
         header: t("columns.due"),
-        width: 184,
+        width: 168,
         cell: (row) => {
           const due = new Date(row.dueAt);
           return <WhenMark urgency={due < now ? "overdue" : "today"}>{formatDayTime(due, { timeZone, now })}</WhenMark>;
         },
       },
+      { header: t("columns.remarks"), cell: (row) => <ClampedText text={row.title} /> },
+      { header: t("columns.nextStep"), cell: nextStep },
       ...(showOwner
         ? [
             {

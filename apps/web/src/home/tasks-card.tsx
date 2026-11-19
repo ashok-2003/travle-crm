@@ -17,7 +17,7 @@ export function TasksCard() {
   const t = useTranslations("home.tasks");
   const tasks = useMyTasksPreview(5);
   return (
-    <HomeCard title={t("title")} tint="sky" viewAll={routes.today}>
+    <HomeCard title={t("title")} tint="primary" viewAll={routes.today}>
       {tasks.isError ? (
         <LoadFailedAlert message={t("loadFailed")} error={tasks.error} onRetry={tasks.refetch} />
       ) : tasks.items === undefined ? (

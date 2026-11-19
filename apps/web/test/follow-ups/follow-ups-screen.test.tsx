@@ -88,11 +88,13 @@ describe("FollowUpsScreen", () => {
     expect(screen.queryByRole("tab", { name: /^All/ })).toBeNull();
   });
 
-  it("reads '3 due · 1 replied' under the title, whichever tab is open", async () => {
+  it("reads '3 due · 1 replied' under the title, what is due in red, whichever tab is open", async () => {
     renderScreen();
-    expect(await screen.findByText("3 due · 1 replied")).toBeVisible();
+    const intro = (_: string, el: Element | null) => el?.tagName === "P" && el.textContent === "3 due · 1 replied";
+    expect(await screen.findByText(intro)).toBeVisible();
+    expect(screen.getByText("3 due")).toHaveClass("bg-status-bad-fill", "text-status-bad-ink");
     await userEvent.click(await screen.findByRole("tab", { name: "Later 3" }));
-    expect(screen.getByText("3 due · 1 replied")).toBeVisible();
+    expect(screen.getByText(intro)).toBeVisible();
   });
 
   it("holds Due as one table in due order, with no groups, the due time red when overdue", async () => {
@@ -105,9 +107,9 @@ describe("FollowUpsScreen", () => {
         .map((header) => header.textContent),
     ).toEqual([
       words.columns.customer,
+      words.columns.due,
       words.columns.remarks,
       words.columns.nextStep,
-      words.columns.due,
       words.columns.actions,
     ]);
     expect(names(table)).toEqual(["Asha", "Chitra", "Bina"]);
@@ -120,7 +122,7 @@ describe("FollowUpsScreen", () => {
     renderScreen();
     const row = (await within(await panel("Due 3")).findByRole("link", { name: "Bina" })).closest("tr");
     if (row === null) throw new Error("Bina has no row");
-    const [customer, remarks] = within(row).getAllByRole("cell");
+    const [customer, , remarks] = within(row).getAllByRole("cell");
     expect(customer).toContainElement(within(row).getByText(messages.leads.stages.contacted));
     const title = within(row).getByText("Send options to Bina");
     expect(remarks).toContainElement(title);
