@@ -66,7 +66,6 @@ export function FollowUpsScreen() {
               defaultOpen={sectionIndex === 0}
             >
               <CappedRows
-                role="list"
                 label={t("showMore")}
                 rows={section.rows.map((row) => ({
                   id: row.taskId,

@@ -182,7 +182,9 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
 test("a follow-up with a very long title keeps Done and Edit inside its card and cuts the title short", async ({
   page,
   agency,
-}) => {
+}, testInfo) => {
+  // A phone wraps the title instead of cutting it (and has its own five-row cap).
+  test.skip(testInfo.project.name === "phone", "Titles are cut short from 768px up.");
   await signInByEmail(page, agency.owner);
   const leadId = await addLeadThroughApi(page, leadInput());
   const title =

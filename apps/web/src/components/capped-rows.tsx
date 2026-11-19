@@ -13,21 +13,19 @@ export function CappedRows({
   rows,
   label,
   after,
-  role,
 }: {
   /** Each row with its own stable key. */
   rows: { id: string; row: ReactNode }[];
   /** The button's words: "Show more overdue". */
   label: string;
   after?: ReactNode | undefined;
-  role?: "list" | undefined;
 }) {
   const wide = useWideScreen();
   const [all, setAll] = useState(false);
   const capped = !wide && !all && rows.length > phoneRowLimit;
   return (
     <>
-      <ItemGroup role={role} className="gap-0">
+      <ItemGroup className="gap-0">
         {(capped ? rows.slice(0, phoneRowLimit) : rows).map(({ id, row }, index) => (
           <Fragment key={id}>
             {index > 0 && <ItemSeparator className="my-0" />}
