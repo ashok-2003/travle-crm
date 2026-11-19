@@ -128,10 +128,17 @@ describe("Home's day", () => {
 
   it("gives each day card a subtle tint of its own: tasks sky, attention amber, departures sage, AI violet", async () => {
     renderHome({ departures: [departure] });
-    expect(await card(h.tasks.title)).toHaveClass("bg-avatar-sky-fill/50");
-    expect(await card(h.attention.title)).toHaveClass("bg-avatar-amber-fill/50");
-    expect(await card(h.departures.title)).toHaveClass("bg-avatar-sage-fill/50");
-    expect(await card(h.ai.title)).toHaveClass("bg-avatar-violet-fill/50");
+    const tints = [
+      [h.tasks.title, "sky"],
+      [h.attention.title, "amber"],
+      [h.departures.title, "sage"],
+      [h.ai.title, "violet"],
+    ] as const;
+    for (const [title, tint] of tints) {
+      const tinted = await card(title);
+      expect(tinted.className).toContain(`var(--brand-avatar-${tint}-fill)`);
+      expect(tinted.className).toContain(`[--color-border:color-mix(in_oklab,var(--brand-avatar-${tint}-ink)`);
+    }
   });
 
   it("puts the cards of a row in one grid that stretches them to the same height", async () => {
@@ -267,14 +274,15 @@ describe("Home's day", () => {
   });
 
   describe("AI insights", () => {
-    it("shows the calls used against the monthly limit and the chats answered, to whoever manages the AI", async () => {
+    it("shows the calls used against the monthly limit, as a figure and a bar, and the chats answered", async () => {
       renderHome();
       const ai = await card(h.ai.title);
+      expect(within(ai).getByText(h.ai.calls)).toBeVisible();
       expect(
-        await within(ai).findByText(
-          (_, el) => el?.tagName === "P" && el.textContent === "412 of 1,000 AI calls used this month",
-        ),
+        await within(ai).findByText((_, el) => el?.tagName === "SPAN" && el.textContent === "412 of 1,000"),
       ).toBeVisible();
+      expect(within(ai).getByRole("progressbar", { name: h.ai.chart })).toHaveAttribute("aria-valuenow", "41");
+      expect(within(ai).queryByRole("img")).toBeNull();
       expect((await within(ai).findAllByText("37")).length).toBeGreaterThan(0);
       expect(within(ai).getByText(new RegExp(h.ai.chats))).toBeVisible();
     });

@@ -38,7 +38,8 @@
   },
   "ai": {
     "title": "AI insights",
-    "calls": "<n>{used}</n> of <n>{limit}</n> AI calls used this month",
+    "calls": "AI calls used this month",
+    "callsUsed": "<value>{used}</value> of <n>{limit}</n>",
     "chart": "AI calls used this month, against the monthly limit",
     "chats": "Chats the AI answered",
     "loadFailed": "The AI's figures didn't load."

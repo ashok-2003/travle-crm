@@ -45,7 +45,8 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   on screens under 360px wide, so the calendar (seven days and its padding) fits a 320px phone; its screen-reader
   words are the `calendar` messages. The focused day shows the global outline (the registry's ring is gone), and the
   range styles lost their numeric z-index: a range would need its layering back first. The app picks single days only.
-- `progress.tsx`: its bar moves only behind `motion-safe:`.
+- `progress.tsx`: its bar moves only behind `motion-safe:`, and it hands its `value` to Radix, which the registry copy
+  drops, so screen readers hear how far it is (`aria-valuenow`).
 - `badge.tsx`: 4px radius.
 - `tabs.tsx`: an unselected trigger is the muted ink (4.84:1 on the surface list) instead of ink at 60%, which fails
   contrast. The list is 52px around its 44px triggers; don't shrink it. A `solid` list variant (owner's request,

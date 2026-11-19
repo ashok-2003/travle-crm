@@ -7,7 +7,7 @@ import type { SetupChecklist, SetupStep } from "@travel-crm/contracts/profile";
 import { starterRoles } from "@travel-crm/domain/identity";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import HomePage from "@/app/(app)/dashboard/page";
 import { SetupScreen } from "@/business/setup/setup-screen";
 import { messages } from "@/i18n/messages";
@@ -15,6 +15,7 @@ import { routes } from "@/lib/routes";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { newQueryClient, renderWithApi } from "../organization/api";
+import { screenIs } from "../organization/render";
 
 const words = messages.business.setup;
 /** Home's greeting line, which is there whatever the setup card does. */
@@ -101,6 +102,10 @@ describe("SetupScreen", () => {
 });
 
 describe("Home's setup card", () => {
+  // Home's period filter asks how wide the screen is.
+  beforeEach(() => {
+    screenIs("wide");
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });
