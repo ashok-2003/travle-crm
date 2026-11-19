@@ -1,6 +1,6 @@
-// Choosing leads on the list and changing them together (release C): a computer ticks leads, a bar says how many are
-// chosen, Move to sends them to a stage in one call and then clears the choice; Assign to is for whoever holds
-// leads:assign; a phone has no ticks.
+// Choosing leads on the list and changing them together (release C): a computer ticks leads, which stay chosen on the
+// list's other pages, and a bar says how many are chosen; Move to sends them to a stage in one call and then clears
+// the choice; Assign to is for whoever holds leads:assign; a phone has no ticks.
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ import { inputsTo, owner, renderScreen, salesperson } from "./screen";
 vi.mock("next/navigation", () => import("./navigation"));
 
 const { bulk, stages } = messages.leads;
+const { pagination } = messages.common;
 const sneha = aListItem({ id: ids.sneha, person: { name: "Sneha Iyer", phone: null }, stage: "contacted" });
 
 function renderList(
@@ -62,6 +63,32 @@ describe("changing chosen leads on the list", () => {
     renderList();
     await userEvent.click(await screen.findByRole("checkbox", { name: bulk.chooseAll }));
     expect(await screen.findByText("2 leads chosen")).toBeVisible();
+  });
+
+  it("keeps the chosen leads chosen on other pages, the header's tick choosing the page's; a new filter clears them", async () => {
+    const api = renderList({ width: "wide" }, { "leads.list": aPage([aListItem(), sneha], 30) });
+    await choose("Rahul Sharma");
+    const priya = aListItem({ id: ids.priya, person: { name: "Priya Nair", phone: null } });
+    api.answer("leads.list", aPage([priya], 30));
+    await userEvent.click(screen.getByRole("button", { name: pagination.next }));
+    expect(await screen.findByRole("link", { name: "Priya Nair" })).toBeVisible();
+    const bar = screen.getByRole("region", { name: bulk.label });
+    expect(within(bar).getByText("1 lead chosen")).toBeVisible();
+    await userEvent.click(screen.getByRole("checkbox", { name: bulk.chooseAll }));
+    expect(within(bar).getByText("2 leads chosen")).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: bulk.choose.replace("{name}", "Priya Nair") })).toBeChecked();
+
+    api.answer("leads.list", aPage([aListItem(), sneha], 30));
+    await userEvent.click(screen.getByRole("button", { name: pagination.previous }));
+    expect(await screen.findByRole("checkbox", { name: bulk.choose.replace("{name}", "Rahul Sharma") })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: bulk.choose.replace("{name}", "Sneha Iyer") })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: bulk.chooseAll })).not.toBeChecked();
+    // Other rows per page show the same list: the choice stays. Another stage is another list.
+    await userEvent.click(screen.getByRole("combobox", { name: pagination.rowsPerPage }));
+    await userEvent.click(await screen.findByRole("option", { name: "50" }));
+    expect(within(bar).getByText("2 leads chosen")).toBeVisible();
+    await userEvent.click(screen.getByRole("radio", { name: /^Contacted/ }));
+    expect(screen.queryByRole("region", { name: bulk.label })).not.toBeInTheDocument();
   });
 
   it("moves the chosen leads to a stage in one call, says how many changed, and clears the choice", async () => {

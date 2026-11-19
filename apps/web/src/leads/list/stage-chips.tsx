@@ -3,7 +3,7 @@
 // The list's quick filters (R42): the registry ToggleGroup as filter chips, Open (a salesperson's reads "Mine · open")
 // and each open stage, each with its count; a stage's chip carries its stage's dot (DESIGN.md "Stage Colours"); the
 // chosen one is in the action tint with a check in the dot's place. Won, Lost and Not a lead are under Filters' Stage,
-// when no chip is chosen.
+// when no chip is chosen. In one row that scrolls on a phone, and wraps from tablets up.
 import { openLeadStages, type LeadCounts } from "@travel-crm/contracts/crm";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -41,6 +41,7 @@ export function StageChips({
       type="single"
       variant="outline"
       aria-label={t("list.chips")}
+      className="md:flex-wrap"
       value={isChipStage(stage) ? stage : ""}
       onValueChange={(chosen) => {
         // Pressing the chosen chip again keeps it: one is always shown, or a stage from Filters.

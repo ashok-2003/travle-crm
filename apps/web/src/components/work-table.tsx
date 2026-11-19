@@ -30,9 +30,10 @@ const frameFoot = 32;
 /** The box never gets shorter than about six rows, however short the window. */
 const shortest = 320;
 
-// A pinned cell covers what scrolls under it, so it is opaque: the page's background, and the registry row's hover
-// tint (muted at half) mixed into it while the row is hovered.
-const pinned = "bg-background in-[tr:hover]:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))]";
+// A pinned cell covers what scrolls under it, so it is opaque: the page's background, the registry row's hover tint
+// (muted at half) mixed into it while the row is hovered, and a chosen row's muted tint (the Leads table's).
+export const pinnedCell =
+  "bg-background in-[tr:hover]:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] in-[tr[data-state=selected]]:bg-muted";
 
 /** Long text in a column: three lines at most, then "…", and the whole of it in its title. */
 export function ClampedText({ text }: { text: string }) {
@@ -161,14 +162,14 @@ export function WorkTable<Row>({
                   key={column.header}
                   className={cn(
                     "align-top wrap-anywhere",
-                    index === 0 && cn("sticky left-0", pinned),
+                    index === 0 && cn("sticky left-0", pinnedCell),
                     column.end === true && "text-right",
                   )}
                 >
                   {column.cell(row)}
                 </TableCell>
               ))}
-              <TableCell className={cn("sticky right-0 align-top", pinned)}>
+              <TableCell className={cn("sticky right-0 align-top", pinnedCell)}>
                 <div className="flex flex-wrap justify-end gap-3">{actions.cell(row)}</div>
               </TableCell>
             </TableRow>

@@ -42,8 +42,9 @@ export function aListItem(overrides: Partial<LeadListItem> = {}): LeadListItem {
   };
 }
 
-export function aPage(items: LeadListItem[], nextCursor: string | null = null): { data: LeadListPage } {
-  return { data: { items, nextCursor, people } };
+/** A numbered page of the list: these leads, of `total` on every page (these alone unless a test says more). */
+export function aPage(items: LeadListItem[], total = items.length): { data: LeadListPage } {
+  return { data: { items, nextCursor: null, total, people } };
 }
 
 export const counts: LeadCounts = { open: 16, new: 3, contacted: 5, quote_sent: 2, booking_requested: 6 };
