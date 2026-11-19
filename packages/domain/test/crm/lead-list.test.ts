@@ -64,7 +64,31 @@ describe("the lead list", () => {
     expect(first.items.map((item) => item.id)).toEqual(newestFirst(open).slice(0, 25));
     expect(first.nextCursor).toBe(first.items.at(-1)?.id);
     const second = await list(salesperson, { before: first.nextCursor });
-    expect(second).toEqual({ items: [expect.objectContaining({ id: open[0] })], nextCursor: null });
+    expect(second).toEqual({ items: [expect.objectContaining({ id: open[0] })], nextCursor: null, total: null });
+  });
+
+  it("numbers the pages: the same newest-first order from (page - 1) × limit, with the total of every page", async () => {
+    const owner = randomUUID();
+    const made = await leadsOf(
+      owner,
+      Array.from({ length: 7 }, (_, index) => ({
+        name: `Kavya ${String(index)}`,
+        source: index === 3 ? ("walk_in" as const) : ("referral" as const),
+      })),
+    );
+    await leadsOf(owner, [{ stage: "won", source: "referral", name: "Kavya Won" }]);
+    const wanted = newestFirst(made.filter((_, index) => index !== 3));
+    const filter = { view: "everyone", ownerUserId: owner, source: "referral", search: "Kavya", limit: 4 };
+    const first = await list(manager, { ...filter, page: 1 });
+    expect(first.items.map((item) => item.id)).toEqual(wanted.slice(0, 4));
+    expect(first.total).toBe(6);
+    const second = await list(manager, { ...filter, page: 2 });
+    expect(second.items.map((item) => item.id)).toEqual(wanted.slice(4));
+    expect(second).toMatchObject({ nextCursor: null, total: 6 });
+    // Past the last page: no leads, and the total, so the list can go back to the last one.
+    expect(await list(manager, { ...filter, page: 3 })).toEqual({ items: [], nextCursor: null, total: 6 });
+    // A salesperson's total counts only their own, whatever owner they ask for.
+    expect((await list(salesperson, { ...filter, page: 1 })).total).toBe(0);
   });
 
   it("shows a salesperson only their own leads, whatever view or owner they send", async () => {

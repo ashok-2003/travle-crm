@@ -68,7 +68,10 @@ const assigner = orgProcedure.requires("leads:assign");
 const remover = orgProcedure.requires("leads:delete");
 
 export const leadsRouter = router({
-  /** A page of leads, newest first: Mine · open unless asked otherwise; a salesperson only ever sees their own. */
+  /**
+   * A page of leads, newest first, by number (with the total) or after a cursor: Mine · open unless asked otherwise; a
+   * salesperson only ever sees their own.
+   */
   list: viewer
     .input(listLeadsInput)
     .output(leadListPage)

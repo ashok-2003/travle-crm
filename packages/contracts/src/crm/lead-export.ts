@@ -11,7 +11,7 @@ import { peopleNames } from "./fields.js";
 export const MAX_LEAD_EXPORT_ROWS = 100_000;
 
 /** The list as the person sees it, without its paging: the export reads every page. */
-export const leadExportFilter = listLeadsInput.omit({ before: true, limit: true });
+export const leadExportFilter = listLeadsInput.omit({ before: true, page: true, limit: true });
 export type LeadExportFilter = z.infer<typeof leadExportFilter>;
 
 export const startLeadExportInput = z.strictObject({ filter: leadExportFilter, format: exportFormat });

@@ -17,7 +17,7 @@ import { destinationNames } from "../catalog/index.js";
 import { organizationTimeZone, scopeFilter, type MemberAccess } from "../identity/index.js";
 import { periodStart } from "../kernel/index.js";
 import { nextOpenTasks } from "../tasks/index.js";
-import { leadCountsQuery, leadListQuery, type LeadCountsFilter } from "./lead-list-query.js";
+import { leadCountsQuery, leadListQuery, leadTotalQuery, type LeadCountsFilter } from "./lead-list-query.js";
 import { budgetOf, tripSummaryOf, type TripColumns } from "./trip-columns.js";
 
 /** A row of leadListQuery. */
@@ -117,23 +117,32 @@ function itemOf(
   };
 }
 
-/** One page of leads, newest first; the router adds the owners' names. */
+/**
+ * One page of leads, newest first; the router adds the owners' names. A numbered page starts (page - 1) × limit leads
+ * in (after the cursor, when one is given too) and says how many leads match on every page; a page after a cursor
+ * doesn't count them.
+ */
 export async function listLeads(
   tx: OrgTx,
   access: MemberAccess,
   input: ListLeadsInput,
   now = new Date(),
 ): Promise<Omit<LeadListPage, "people" | "items"> & { items: Omit<LeadListItem, "aiFilled">[] }> {
-  const stages = input.stage === "open" ? openLeadStages : [input.stage];
+  const filter = {
+    ...filterFor(access, input, await createdFromOf(tx, access, input, now)),
+    stages: input.stage === "open" ? openLeadStages : [input.stage],
+    ...(input.before === undefined ? {} : { before: input.before }),
+  };
   // One more than a page tells whether another page follows.
   const rows = await tx.$queryRaw<LeadListRow[]>(
     leadListQuery({
-      ...filterFor(access, input, await createdFromOf(tx, access, input, now)),
-      stages,
-      ...(input.before === undefined ? {} : { before: input.before }),
+      ...filter,
+      ...(input.page === undefined ? {} : { offset: (input.page - 1) * input.limit }),
       limit: input.limit + 1,
     }),
   );
+  const total =
+    input.page === undefined ? null : ((await tx.$queryRaw<{ n: number }[]>(leadTotalQuery(filter)))[0]?.n ?? 0);
   const page = rows.slice(0, input.limit);
   const destinationIds = [...new Set(page.flatMap((row) => (row.destinationId === null ? [] : [row.destinationId])))];
   const names = await destinationNames(tx, destinationIds);
@@ -145,6 +154,7 @@ export async function listLeads(
   return {
     items: page.map((row) => itemOf(row, names, next.get(row.id))),
     nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,
+    total,
   };
 }
 

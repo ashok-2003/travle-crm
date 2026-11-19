@@ -1,7 +1,14 @@
 // The lead list's and the known contact's contracts (spec 3.2, 3.3): Mine · open by default, 25 a page, a search of
 // two characters or more; a known contact names an open lead by its destination and owner, its id only when visible.
 import { describe, expect, it } from "vitest";
-import { knownContactResult, leadCountsInput, leadListItem, listLeadsInput } from "../../src/crm/index.js";
+import {
+  knownContactResult,
+  leadCountsInput,
+  leadExportFilter,
+  leadListItem,
+  leadListPage,
+  listLeadsInput,
+} from "../../src/crm/index.js";
 
 const id = "0199e7a0-0000-7000-8000-0000000000e1";
 
@@ -13,10 +20,24 @@ describe("the lead list", () => {
       stage: "lost",
       search: "shrma",
     });
-    for (const bad of [{ search: "r" }, { search: "x".repeat(81) }, { limit: 51 }, { stage: "closed" }]) {
+    for (const bad of [{ search: "r" }, { search: "x".repeat(81) }, { limit: 101 }, { stage: "closed" }]) {
       expect(listLeadsInput.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
     }
     expect(leadCountsInput.safeParse({ view: "mine", stage: "open" }).success).toBe(false);
+  });
+
+  it("takes a page number from 1, up to 100 a page, and keeps paging out of the counts and the export", () => {
+    expect(listLeadsInput.parse({ page: 2, limit: 100 })).toEqual({ view: "mine", stage: "open", page: 2, limit: 100 });
+    for (const bad of [{ page: 0 }, { page: 1.5 }, { page: "2" }, { page: 10_001 }, { limit: 0 }]) {
+      expect(listLeadsInput.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+    expect(leadCountsInput.safeParse({ view: "mine", page: 1 }).success).toBe(false);
+    expect(leadExportFilter.safeParse({ view: "mine", stage: "open", page: 1 }).success).toBe(false);
+  });
+
+  it("says a numbered page's total, and none for a page after a cursor", () => {
+    expect(leadListPage.parse({ items: [], nextCursor: null, total: 349, people: {} }).total).toBe(349);
+    expect(leadListPage.parse({ items: [], nextCursor: null, total: null, people: {} }).total).toBeNull();
   });
 
   it("shows a row's budget as Money and its next step", () => {

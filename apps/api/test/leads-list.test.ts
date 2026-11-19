@@ -1,5 +1,6 @@
 // The lead list over HTTP (spec 3.3; R13): a salesperson gets only their own leads whatever view or owner the address
-// asks for, a manager gets everyone's with the owners named from the members, and the counts follow the same view.
+// asks for, a manager gets everyone's with the owners named from the members, and the counts follow the same view. A
+// numbered page says the total.
 import { createHash } from "node:crypto";
 import type { LeadCounts, LeadListPage } from "@travel-crm/contracts/crm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -86,5 +87,22 @@ describe("the lead list", () => {
       quote_sent: 0,
       booking_requested: 0,
     });
+  });
+
+  it("numbers the pages for the Leads list: page 2 of a page of one, and the total of every page", async () => {
+    const second = await dataOf<LeadListPage>(
+      await query(server, "leads.list", owner, { view: "everyone", page: 2, limit: 1 }),
+    );
+    expect(second).toMatchObject({ items: [{ id: zaraLead }], total: 2, people: { [zara.userId]: "zara" } });
+    // A salesperson's total is their own leads'.
+    expect(await dataOf<LeadListPage>(await query(server, "leads.list", salesperson, { page: 1 }))).toMatchObject({
+      items: [{ id: zaraLead }],
+      total: 1,
+    });
+    // A page after a cursor doesn't count, and a page past the furthest is refused.
+    expect(await dataOf<LeadListPage>(await query(server, "leads.list", owner, { view: "everyone" }))).toMatchObject({
+      total: null,
+    });
+    expect((await query(server, "leads.list", owner, { page: 10_001 })).status).toBe(400);
   });
 });

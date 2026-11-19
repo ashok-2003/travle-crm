@@ -1,7 +1,9 @@
 // The lead list and its counts as composable SQL (R11), so the performance tests EXPLAIN exactly what runs: newest
-// first, keyset on the id, never OFFSET. The open stages are written out as the partial indexes' predicate is, so the
-// planner can use lead_open, lead_open_by_owner and lead_open_stage_counts whatever the parameters; a search reads
-// person through its trigram indexes (R5).
+// first, keyset on the id after a cursor (a picker, an export). The Leads list's numbered pages (web revamp part 3,
+// 2026-11-19) skip (page - 1) × limit rows with OFFSET instead: the rows skipped grow with the page, and an agency's
+// list runs to thousands of leads, not millions. The open stages are written out as the partial indexes' predicate
+// is, so the planner can use lead_open, lead_open_by_owner and lead_open_stage_counts whatever the parameters; a
+// search reads person through its trigram indexes (R5).
 import { isOpenStage, openLeadStages, type LeadSource, type LeadStage, type TripType } from "@travel-crm/contracts/crm";
 import { emptySql, joinSql, sql, type Sql } from "@travel-crm/db";
 
@@ -21,13 +23,15 @@ export interface LeadListFilter {
   search?: { kind: "name"; text: string } | { kind: "digits"; digits: string };
   /** The last lead id of the previous page. */
   before?: string;
+  /** How many of the matching leads to skip before the page: a numbered page's (page - 1) × limit. */
+  offset?: number;
   /** The newest lead id the list may hold: an export's bound, so leads added while it runs stay out of it. */
   through?: string;
   limit: number;
 }
 
 /** The counts' filter: the list's, without the stage and the page. */
-export type LeadCountsFilter = Omit<LeadListFilter, "stages" | "before" | "limit">;
+export type LeadCountsFilter = Omit<LeadListFilter, "stages" | "before" | "offset" | "limit">;
 
 /** The open stages exactly as the partial indexes' predicate holds them. */
 const OPEN_STAGES = sql`lead.stage = ANY (ARRAY['new', 'contacted', 'quote_sent', 'booking_requested'])`;
@@ -79,7 +83,7 @@ export function leadListQuery(filter: LeadListFilter): Sql {
       ${filter.before === undefined ? emptySql : sql`AND lead.id < ${filter.before}::uuid`}
       ${filter.through === undefined ? emptySql : sql`AND lead.id <= ${filter.through}::uuid`}
     ORDER BY lead.id DESC
-    LIMIT ${filter.limit}`;
+    LIMIT ${filter.limit}${filter.offset === undefined ? emptySql : sql` OFFSET ${filter.offset}`}`;
 }
 
 /** Open leads counted by stage; a stage with none is left out. */
@@ -100,8 +104,11 @@ export function leadStageCountsQuery(filter: LeadCountsFilter): Sql {
     GROUP BY lead.stage`;
 }
 
-/** The leads a list holds across all its pages (B41's count): the same conditions as leadListQuery, on live people. */
-export function exportCountQuery(filter: LeadCountsFilter & { stages: readonly LeadStage[]; through?: string }): Sql {
+/**
+ * The leads a list holds across all its pages: a numbered page's total, and an export's count (B41). The same conditions
+ * as leadListQuery, on live people.
+ */
+export function leadTotalQuery(filter: LeadCountsFilter & { stages: readonly LeadStage[]; through?: string }): Sql {
   return sql`
     SELECT count(*)::int AS n
     FROM lead ${PERSON}

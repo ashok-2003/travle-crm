@@ -98,6 +98,15 @@ describe("a large agency", () => {
     expect(await time("everyone-open", (tx) => listLeads(tx, manager, input))).toBeLessThan(150);
   });
 
+  it("pages Everyone · open by number within 250 ms, the last page and the total included", async () => {
+    const first = listLeadsInput.parse({ view: "everyone", page: 1 });
+    expect((await inOrg((tx) => listLeads(tx, manager, first))).total).toBe(SIZE.leads / 2 + 1);
+    expect(await time("everyone-page-1", (tx) => listLeads(tx, manager, first))).toBeLessThan(250);
+    const last = listLeadsInput.parse({ view: "everyone", page: Math.ceil((SIZE.leads / 2 + 1) / 25) });
+    expect((await inOrg((tx) => listLeads(tx, manager, last))).items).toHaveLength(1);
+    expect(await time("everyone-page-last", (tx) => listLeads(tx, manager, last))).toBeLessThan(250);
+  });
+
   it("counts open leads by stage within 150 ms, on lead_open_stage_counts", async () => {
     expect((await plan("counts", leadCountsQuery({ ownerUserId: null }))).indexes).toContain("lead_open_stage_counts");
     const input = leadCountsInput.parse({ view: "everyone" });
