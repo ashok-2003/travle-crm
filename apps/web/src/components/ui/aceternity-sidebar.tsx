@@ -254,9 +254,16 @@ export function SidebarLabel({ aside, children }: { aside?: React.ReactNode; chi
 /** The row's name in a tooltip beside the rail while the panel is shut (after Escape or a choice). */
 function RailTooltip({ label, children }: { label: string; children: React.ReactElement }) {
   const { open } = useSidebar();
+  // Never wanted while the panel is open, nor kept from then: it would show the moment the panel shut.
   const [shown, setShown] = React.useState(false);
+  if (open && shown) setShown(false);
   return (
-    <Tooltip open={!open && shown} onOpenChange={setShown}>
+    <Tooltip
+      open={shown}
+      onOpenChange={(next) => {
+        setShown(next && !open);
+      }}
+    >
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent side="right" sideOffset={8}>
         {label}

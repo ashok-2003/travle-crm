@@ -162,6 +162,17 @@ describe("the agency's sidebar", () => {
     expect(panel).toHaveAttribute("data-state", "closed");
   });
 
+  it("shows no tooltip once a peek ends: the names were in the open panel", async () => {
+    const { panel, sidebar } = renderSidebar();
+    const leads = sidebar.getByRole("link", { name: navigation.leads });
+    await userEvent.hover(leads);
+    expect(panel).toHaveAttribute("data-state", "open");
+    await userEvent.unhover(leads);
+    await userEvent.unhover(panel);
+    expect(panel).toHaveAttribute("data-state", "closed");
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
   it("shuts when a destination is chosen, so the page it opens is clear, and opens again when the pointer comes back", async () => {
     const { panel, sidebar } = renderSidebar();
     await userEvent.hover(panel);
