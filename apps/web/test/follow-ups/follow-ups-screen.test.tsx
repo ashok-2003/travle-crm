@@ -1,6 +1,6 @@
-// Follow-ups (web revamp, spec 7): tabs Due and Later; Due holds Overdue and Due today, Later groups Tomorrow, This week
-// and Later; the header counts what is due and how many replied; replied customers come first; each row says one next
-// move; Done asks when the next follow-up is.
+// Follow-ups (web revamp, spec 7; part 2): tabs Due and Later with their counts, beside Mine / Everyone; each tab one
+// table in due order, the due time in its urgency's colour, the owner only for everyone's; the header counts what is
+// due and how many replied; each row says one next move; Done asks when the next follow-up is.
 import type { FollowUpRow } from "@travel-crm/contracts/ai";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -73,47 +73,68 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const region = (name: string) => screen.findByRole("region", { name });
+const panel = (name: string) => screen.findByRole("tabpanel", { name });
+const names = (table: HTMLElement) =>
+  within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("link")[0]?.textContent);
 
 describe("FollowUpsScreen", () => {
-  it("has the tabs Due and Later, and no All", async () => {
+  it("has the tabs Due and Later with their counts, and no All", async () => {
     renderScreen();
-    expect(await screen.findByRole("tab", { name: "Due" })).toBeVisible();
-    expect(screen.getByRole("tab", { name: "Later" })).toBeVisible();
-    expect(screen.queryByRole("tab", { name: "All" })).toBeNull();
+    expect(await screen.findByRole("tab", { name: "Due 3" })).toBeVisible();
+    expect(await screen.findByRole("tab", { name: "Later 3" })).toBeVisible();
+    expect(screen.queryByRole("tab", { name: /^All/ })).toBeNull();
   });
 
   it("reads '3 due · 1 replied' under the title, whichever tab is open", async () => {
     renderScreen();
     expect(await screen.findByText("3 due · 1 replied")).toBeVisible();
-    await userEvent.click(screen.getByRole("tab", { name: "Later" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Later 3" }));
     expect(screen.getByText("3 due · 1 replied")).toBeVisible();
   });
 
-  it("holds Overdue and Due today under Due, replied customers first within a section", async () => {
-    board.due = [
-      asha,
-      bina,
-      chitra,
-      aRow("07", "Gita", "2026-10-16T09:30:00.000Z", { whatsapp: chat("customer", true) }),
-    ];
+  it("holds Due as one table in due order, with no groups, the due time red when overdue", async () => {
     renderScreen();
-    const overdue = await region("Overdue");
-    const today = await region("Due today");
-    expect(within(overdue).getByRole("link", { name: "Asha" })).toBeVisible();
-    // Gita and Chitra replied (Chitra is due sooner); Bina follows.
-    const names = within(today)
-      .getAllByRole("link", { name: /^(Bina|Chitra|Gita)$/ })
-      .map((link) => link.textContent);
-    expect(names).toEqual(["Chitra", "Gita", "Bina"]);
+    const due = await panel("Due 3");
+    const table = within(due).getByRole("table", { name: "Due" });
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual([
+      words.columns.customer,
+      words.columns.remarks,
+      words.columns.nextStep,
+      words.columns.due,
+      words.columns.actions,
+    ]);
+    expect(names(table)).toEqual(["Asha", "Chitra", "Bina"]);
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(within(table).getByText("15 Oct, 5:00 pm")).toHaveClass("text-status-bad-ink");
+    expect(within(table).getByText("16 Oct, 4:00 pm")).toHaveClass("text-people-tint-ink");
   });
 
-  it("groups Later into Tomorrow, This week and Later", async () => {
+  it("puts the stage under the customer's name and the remarks in their own column", async () => {
     renderScreen();
-    await userEvent.click(await screen.findByRole("tab", { name: "Later" }));
-    expect(within(await region("Tomorrow")).getByRole("link", { name: "Divya" })).toBeVisible();
-    expect(within(await region("This week")).getByRole("link", { name: "Esha" })).toBeVisible();
-    expect(within(await region("Later")).getByRole("link", { name: "Farah" })).toBeVisible();
+    const row = (await within(await panel("Due 3")).findByRole("link", { name: "Bina" })).closest("tr");
+    if (row === null) throw new Error("Bina has no row");
+    const [customer, remarks] = within(row).getAllByRole("cell");
+    expect(customer).toContainElement(within(row).getByText(messages.leads.stages.contacted));
+    const title = within(row).getByText("Send options to Bina");
+    expect(remarks).toContainElement(title);
+    expect(title).toHaveClass("line-clamp-3");
+  });
+
+  it("holds Later as one table in due order", async () => {
+    renderScreen();
+    await userEvent.click(await screen.findByRole("tab", { name: "Later 3" }));
+    expect(names(within(await panel("Later 3")).getByRole("table", { name: "Later" }))).toEqual([
+      "Divya",
+      "Esha",
+      "Farah",
+    ]);
   });
 
   it("says one next move per row, and none of the old window and AI lines", async () => {
@@ -127,7 +148,7 @@ describe("FollowUpsScreen", () => {
       aRow("15", "Nothing", "2026-10-16T10:30:00.000Z", { byAi: true }),
     ];
     renderScreen();
-    await region("Due today");
+    await panel("Due 5");
     expect(screen.getAllByText(words.nextMove["answer-whatsapp"])).toHaveLength(1);
     expect(screen.getAllByText(words.nextMove["replied-window-closed"])).toHaveLength(1);
     expect(screen.getAllByText(words.nextMove.call)).toHaveLength(1);
@@ -137,8 +158,8 @@ describe("FollowUpsScreen", () => {
 
   it("asks 'When's the next follow-up?' on Done, and Tomorrow adds it for the same person, words and time", async () => {
     renderScreen();
-    const today = await region("Due today");
-    await userEvent.click(within(today).getByRole("button", { name: "Done: Send options to Bina" }));
+    const due = await panel("Due 3");
+    await userEvent.click(within(due).getByRole("button", { name: "Done: Send options to Bina" }));
     const dialog = await screen.findByRole("dialog", { name: "When's the next follow-up?" });
     for (const label of ["Tomorrow", "In 3 days", "Next week", "No more follow-ups"]) {
       expect(within(dialog).getByRole("button", { name: label })).toBeVisible();
@@ -156,8 +177,8 @@ describe("FollowUpsScreen", () => {
 
   it("closes with no new follow-up on 'No more follow-ups'", async () => {
     renderScreen();
-    const today = await region("Due today");
-    await userEvent.click(within(today).getByRole("button", { name: "Done: Send options to Bina" }));
+    const due = await panel("Due 3");
+    await userEvent.click(within(due).getByRole("button", { name: "Done: Send options to Bina" }));
     const dialog = await screen.findByRole("dialog", { name: "When's the next follow-up?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "No more follow-ups" }));
     await waitFor(() => {
@@ -169,76 +190,73 @@ describe("FollowUpsScreen", () => {
   it("has no Open chat link: the WhatsApp button opens the chat", async () => {
     board.due = [chitra];
     renderScreen();
-    const today = await region("Due today");
-    expect(within(today).queryByRole("link", { name: /Open chat/ })).toBeNull();
-    expect(within(today).getByRole("link", { name: /WhatsApp/ })).toBeVisible();
-    expect(within(today).getByRole("button", { name: "Done: Send options to Chitra" })).toBeVisible();
+    const due = await panel("Due 1");
+    expect(within(due).queryByRole("link", { name: /Open chat/ })).toBeNull();
+    expect(within(due).getByRole("link", { name: /WhatsApp/ })).toBeVisible();
+    expect(within(due).getByRole("button", { name: "Done: Send options to Chitra" })).toBeVisible();
   });
 
-  it("puts what to do on the first line and the last message on one clamped line", async () => {
+  it("shows the last message muted as the next step, at most three lines, with the whole of it in its title", async () => {
     board.due = [aRow("21", "Team", "2026-10-16T08:30:00.000Z", { whatsapp: chat("team", true) })];
     renderScreen();
-    const today = await region("Due today");
-    expect(within(today).getByText("Send options to Team")).toBeVisible();
-    const message = within(today).getByText(/Last message from your team/);
-    expect(message).toHaveClass("line-clamp-1");
+    const due = await panel("Due 1");
+    expect(within(due).getByText("Send options to Team")).toBeVisible();
+    const message = within(due).getByText(/Last message from your team/);
+    expect(message).toHaveClass("line-clamp-3");
     expect(message).toHaveAttribute("title", message.textContent);
   });
 
-  it("on a phone opens only the first section", async () => {
-    screenIs("phone");
+  it("draws Call, WhatsApp, Done, Snooze and Edit as named icons, Done in blue", async () => {
     renderScreen();
-    const overdue = await region("Overdue");
-    expect(within(overdue).getByRole("button", { name: "Overdue" })).toHaveAttribute("aria-expanded", "true");
-    expect(await within(overdue).findByRole("link", { name: "Asha" })).toBeVisible();
-    const today = await region("Due today");
-    expect(within(today).getByRole("button", { name: "Due today" })).toHaveAttribute("aria-expanded", "false");
-    expect(within(today).queryByRole("link", { name: "Bina" })).toBeNull();
-  });
-
-  it("draws Snooze and Edit as icon buttons with their names, Done keeping its word", async () => {
-    renderScreen();
-    const today = await region("Due today");
-    for (const name of ["Edit: Send options to Bina", "Snooze: Send options to Bina"]) {
-      const button = within(today).getByRole("button", { name });
-      expect(button).toHaveAttribute("data-size", "icon");
-      expect(button).toHaveTextContent("");
+    const row = (await within(await panel("Due 3")).findByRole("link", { name: "Bina" })).closest("tr");
+    if (row === null) throw new Error("Bina has no row");
+    const buttons = [
+      within(row).getByRole("button", { name: "Call Bina" }),
+      within(row).getByRole("link", { name: "WhatsApp Bina" }),
+      within(row).getByRole("button", { name: "Done: Send options to Bina" }),
+      within(row).getByRole("button", { name: "Snooze: Send options to Bina" }),
+      within(row).getByRole("button", { name: "Edit: Send options to Bina" }),
+    ];
+    for (const button of buttons) {
+      expect(button).toHaveAttribute("data-size", "icon-sm");
+      expect(button).toHaveTextContent(/^$/);
     }
-    expect(within(today).getByRole("button", { name: "Done: Send options to Bina" })).toHaveTextContent("Done");
-  });
-
-  it("draws Edit, Done and Snooze alike, as plain outline buttons", async () => {
-    renderScreen();
-    const today = await region("Due today");
-    for (const name of ["Edit: Send options to Bina", "Done: Send options to Bina", "Snooze: Send options to Bina"]) {
-      expect(within(today).getByRole("button", { name })).toHaveAttribute("data-variant", "outline");
-    }
+    expect(buttons.map((button) => button.dataset.variant)).toEqual(["quiet", "quiet", "ghost", "quiet", "quiet"]);
   });
 
   it("draws its tabs as solid lists, the chosen one dark", async () => {
     renderScreen();
-    const due = await screen.findByRole("tab", { name: "Due" });
+    const due = await screen.findByRole("tab", { name: "Due 3" });
     expect(due.closest("[data-slot=tabs-list]")).toHaveAttribute("data-variant", "solid");
   });
 
-  it("keeps Mine and Everyone for members who see every lead", async () => {
+  it("keeps Mine and Everyone for members who see every lead, the owner shown for everyone's", async () => {
     renderScreen();
-    expect(await screen.findByRole("tab", { name: messages.leads.list.everyone })).toBeVisible();
+    await userEvent.click(await screen.findByRole("tab", { name: messages.leads.list.everyone }));
+    const table = within(await panel("Due 3")).getByRole("table", { name: "Due" });
+    await waitFor(() => {
+      expect(
+        within(table)
+          .getAllByRole("columnheader")
+          .map((header) => header.textContent),
+      ).toContain(words.columns.owner);
+    });
+    expect(within(table).getAllByText(words.unassigned)).toHaveLength(3);
   });
 
-  it("shows five rows of a section on a phone, then Show more for the rest", async () => {
+  it("shows five rows on a phone, then Show more for the rest", async () => {
     screenIs("phone");
-    const names = ["Gita", "Hari", "Indu", "Jaya", "Kiran", "Lata", "Mani"];
+    const seven = ["Gita", "Hari", "Indu", "Jaya", "Kiran", "Lata", "Mani"];
     board = {
-      due: names.map((name, index) => aRow(`1${String(index)}`, name, "2026-10-15T11:30:00.000Z")),
+      due: seven.map((name, index) => aRow(`1${String(index)}`, name, "2026-10-15T11:30:00.000Z")),
       upcoming: [],
     };
     renderScreen();
-    const overdue = await region("Overdue");
-    expect(within(overdue).getAllByRole("listitem")).toHaveLength(5);
-    await userEvent.click(within(overdue).getByRole("button", { name: words.showMore }));
-    expect(within(overdue).getAllByRole("listitem")).toHaveLength(7);
-    expect(within(overdue).queryByRole("button", { name: words.showMore })).toBeNull();
+    const due = await panel("Due 7");
+    expect(within(due).getAllByRole("listitem")).toHaveLength(5);
+    await userEvent.click(within(due).getByRole("button", { name: words.showMore }));
+    expect(within(due).getAllByRole("listitem")).toHaveLength(7);
+    expect(within(due).queryByRole("button", { name: words.showMore })).toBeNull();
   });
 
   it("shows every row on a wide screen", async () => {
@@ -249,6 +267,6 @@ describe("FollowUpsScreen", () => {
       upcoming: [],
     };
     renderScreen();
-    expect(within(await region("Overdue")).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(await panel("Due 6")).getAllByRole("row")).toHaveLength(7);
   });
 });

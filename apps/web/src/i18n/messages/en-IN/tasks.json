@@ -19,7 +19,14 @@
       "upcoming": "No follow-ups for later days."
     },
     "loadFailed": "The follow-ups didn't load.",
-    "owner": "Owner: {name}",
+    "columns": {
+      "customer": "Customer",
+      "remarks": "Remarks",
+      "nextStep": "Next step",
+      "due": "Due",
+      "owner": "Owner",
+      "actions": "Actions"
+    },
     "unassigned": "Unassigned",
     "formerMember": "Former member",
     "lastMessage": "Last message from {from}, {ago} ago:",
@@ -29,7 +36,6 @@
       "ai": "the AI",
       "automation": "an automatic message"
     },
-    "edit": "Edit",
     "editTask": "Edit: {title}",
     "editDialog": {
       "title": "Edit follow-up",
@@ -48,13 +54,6 @@
     },
     "showMore": "Show more",
     "line": "{due, plural, one {# follow-up due} other {# follow-ups due}}{replied, plural, =0 {} other { · # replied}}",
-    "groups": {
-      "overdue": "Overdue",
-      "dueToday": "Due today",
-      "tomorrow": "Tomorrow",
-      "thisWeek": "This week",
-      "later": "Later"
-    },
     "nextMove": {
       "answer-whatsapp": "They replied. Answer on WhatsApp.",
       "replied-window-closed": "They replied. Call, or send a template.",
