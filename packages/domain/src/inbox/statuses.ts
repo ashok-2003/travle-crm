@@ -14,8 +14,8 @@ type StatusEvent = Extract<ParsedEvent, { type: "status" }>;
 
 const rank: Readonly<Record<string, number>> = { queued: 0, sending: 1, sent: 2, delivered: 3, read: 4 };
 
-/** How long a status may wait for its message before it is given up (D2). */
-const GIVE_UP_MS = 2 * 60_000;
+/** How long a status, or an echo of our send, may wait for its message before it is given up (D2). */
+export const GIVE_UP_MS = 2 * 60_000;
 
 export type StatusResult = "applied" | "ignored" | "dropped";
 

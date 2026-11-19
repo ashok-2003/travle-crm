@@ -26,8 +26,8 @@ describe("echoes and reports of our own sends", () => {
   });
   afterAll(() => test.close());
 
-  /** A chat the customer opened, and our send in it that MSG91 answered with a request id and no wamid. */
-  async function ourSend(connection: TestConnection, requestId: string) {
+  /** A chat the customer opened, and our send in it that MSG91 answered with a request id and no wamid (or not yet). */
+  async function ourSend(connection: TestConnection, requestId: string | null, status = "sent") {
     const customerNumber = digits(freshPhone());
     await deliver(test, fromCustomer(connection, { customerNumber, text: "Goa?", ts: at(0) }));
     const sent = await test.db.forOrg(connection.organizationId, async (tx) => {
@@ -40,7 +40,7 @@ describe("echoes and reports of our own sends", () => {
           kind: "text",
           body: "Here is your Goa quote",
           requestId,
-          status: "sent",
+          status,
           occurredAt: new Date(testNow.getTime() + 30_000),
           sentAt: new Date(testNow.getTime() + 30_000),
         },
@@ -79,6 +79,39 @@ describe("echoes and reports of our own sends", () => {
     // Its reports now find it by the wamid the echo gave it.
     await deliver(test, statusFor(connection, { customerNumber, wamid, eventName: "read", ts: at(50) }));
     expect((await rows(connection))[0]).toMatchObject({ status: "read" });
+  });
+
+  it("holds an echo while our send waits for MSG91's answer, then takes it as ours; past two minutes it is stored", async () => {
+    const connection = await aConnectedAgency(test);
+    const { customerNumber, sent } = await ourSend(connection, null, "sending");
+    const wamid = "wamid.ECHO-EARLY";
+    const echo = {
+      ...fromCustomer(connection, { customerNumber, wamid, direction: "1", ts: at(40) }),
+      requestId: "req-late",
+    };
+    await expect(deliver(test, echo)).rejects.toThrow();
+    // A phone message that waited past two minutes stops waiting, so a person's own message is never lost.
+    await deliver(
+      test,
+      {
+        ...fromCustomer(connection, { customerNumber, direction: "1", text: "On my way", ts: at(0) }),
+        requestId: "req-x",
+      },
+      new Date(testNow.getTime() + 3 * 60_000),
+    );
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappMessage.update({ where: { id: sent.id }, data: { status: "sent", requestId: "req-late" } }),
+    );
+    await deliver(test, echo);
+    const out = await rows(connection);
+    expect(out.map((row) => [row.origin, row.wamid])).toEqual(
+      expect.arrayContaining([
+        ["automation", wamid],
+        ["staff_phone", expect.any(String)],
+      ]),
+    );
+    expect(out).toHaveLength(2);
+    expect(out.find((row) => row.origin === "staff_phone")).toMatchObject({ body: "On my way" });
   });
 
   it("still stores a phone message whose request id is not one of our sends", async () => {

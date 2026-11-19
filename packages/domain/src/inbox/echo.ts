@@ -4,6 +4,7 @@
 // lead. MSG91 also echoes some of our own sends: one whose request id is a send of ours in the chat only gives that send its
 // wamid, since a phone message would tell the AI a person is answering.
 import { toE164 } from "@travel-crm/contracts/kernel";
+import { ownMessage } from "@travel-crm/integrations/jobs";
 import type { ParsedMessage } from "@travel-crm/integrations/whatsapp";
 import { recordWhatsAppFirstReply } from "../crm/index.js";
 import type { ConnectionRow } from "./connection-row.js";
@@ -11,6 +12,7 @@ import type { InboxDependencies } from "./dependencies.js";
 import { lockConversation } from "./inbound.js";
 import { queueMediaCopy } from "./media.js";
 import { messageColumns } from "./messages.js";
+import { GIVE_UP_MS } from "./statuses.js";
 
 export async function receiveEcho(
   dependencies: InboxDependencies,
@@ -23,17 +25,25 @@ export async function receiveEcho(
   if (phoneE164 === null) return;
   const copy = await dependencies.db.forOrg(organizationId, async (tx) => {
     const conversation = await lockConversation(tx, connection.id, phoneE164);
-    // Only our own sends keep a request id.
-    const own =
-      message.requestId === null
-        ? null
-        : await tx.whatsappMessage.findFirst({
-            where: { conversationId: conversation.id, requestId: message.requestId },
-            select: { id: true },
-          });
-    if (own !== null) {
-      await tx.whatsappMessage.updateMany({ where: { id: own.id, wamid: null }, data: { wamid: message.wamid } });
-      return null;
+    if (message.requestId !== null) {
+      // Only our own sends keep a request id.
+      const own = await tx.whatsappMessage.findFirst({
+        where: { conversationId: conversation.id, requestId: message.requestId },
+        select: { id: true },
+      });
+      if (own !== null) {
+        await tx.whatsappMessage.updateMany({ where: { id: own.id, wamid: null }, data: { wamid: message.wamid } });
+        return null;
+      }
+      // A send of ours still waiting for MSG91's answer gets its request id with it: the echo is tried again, as an early
+      // report is. After two minutes it is stored, so a person's own message is never lost.
+      const waiting = await tx.whatsappMessage.findFirst({
+        where: { conversationId: conversation.id, status: "sending" },
+        select: { id: true },
+      });
+      if (waiting !== null && now.getTime() - (message.occurredAt ?? now).getTime() <= GIVE_UP_MS) {
+        throw ownMessage(new Error("A WhatsApp echo arrived before its send was saved"));
+      }
     }
     const columns = messageColumns(message, now);
     const stored = await tx.whatsappMessage.createManyAndReturn({
