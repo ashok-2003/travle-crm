@@ -1,13 +1,17 @@
 // The frame around every signed-in screen, the app's and the console's (DESIGN.md sections 4 and 6): a skip link to the
 // page, the desktop sidebar (the registry's, which stays put while the page scrolls), whatever sits above the page
-// (the phone's top bar, the banners), the page with a 16px gutter on phones, 24px on tablets and 32px wide, and on
-// phones the bottom bar. A `foldable` sidebar (the agency's) opens as the person last left it.
+// (the phone's top bar, the banners), the page, at most 1440px wide and centred, with a 16px gutter on phones, 24px on
+// tablets and 32px wide, and on phones the bottom bar. A `foldable` sidebar (the agency's) opens as the person last left it.
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 /** The page's part of the frame, where the skip link takes the focus. */
 const MAIN_CONTENT_ID = "main-content";
+
+/** How wide a page grows (DESIGN.md section 4: 1440px, owner 2026-11-20), centred; a banner above it lines up with it. */
+export const pageWidth = "mx-auto w-full max-w-[1440px]";
 
 export function AppFrame({
   sidebar,
@@ -39,7 +43,10 @@ export function AppFrame({
         <div
           id={MAIN_CONTENT_ID}
           tabIndex={-1}
-          className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 md:pb-8 lg:px-8 has-data-[bleed]:max-w-none has-data-[bleed]:p-0"
+          className={cn(
+            pageWidth,
+            "px-4 pt-6 pb-24 sm:px-6 md:pb-8 lg:px-8 has-data-[bleed]:max-w-none has-data-[bleed]:p-0",
+          )}
         >
           {children}
         </div>

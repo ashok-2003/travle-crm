@@ -6,7 +6,9 @@
 // to choose.
 import { HeadsetIcon, WifiOffIcon } from "lucide-react";
 import { OwnPasswordBanner } from "@/account/own-password-banner";
+import { pageWidth } from "@/components/app-frame";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { useMe } from "@/session/me-context";
 import { SubscriptionBanner } from "@/subscription/subscription-banner";
@@ -21,10 +23,11 @@ export function Banners() {
     <>
       {me.impersonatedBy !== null && (
         // To the person reading it, who is support: whose app this is, and that it is all recorded.
-        <div className="px-4 pt-3 sm:px-6 lg:px-8">
+        // As wide as the page under it, its edges in line with the page's; its words and Stop on one line when they fit.
+        <div className={cn(pageWidth, "px-4 pt-3 sm:px-6 lg:px-8")}>
           <Alert>
             <HeadsetIcon aria-hidden="true" />
-            <AlertDescription className="flex flex-col items-start gap-2">
+            <AlertDescription className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
               {t("impersonated", { name: me.user.name, organization: me.organization.name })}
               <StopImpersonatingButton />
             </AlertDescription>

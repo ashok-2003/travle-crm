@@ -71,7 +71,7 @@ export function StaffReportScreen({ userId }: { userId: string }) {
   const average = data.teamAverage;
   const conversion = person.leads === 0 ? null : (person.won * 100) / person.leads;
   return (
-    <div className="flex max-w-[1400px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <BackLink href={routes.reports} label={t("back")} />
       <PageHeader
         title={person.name ?? t("formerStaff")}

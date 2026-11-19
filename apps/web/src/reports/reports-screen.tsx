@@ -36,7 +36,7 @@ export function ReportsScreen() {
   usePrefetchQuery(useTRPC().insights.dashboard.queryOptions({ range }));
   const data = report.data;
   return (
-    <div className="flex max-w-[1400px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} intro={data?.scope === "own" ? t("introOwn") : t("intro")} />
       <AskReports />
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

@@ -23,7 +23,7 @@ export function FinanceScreen() {
   const [chosen, setChosen] = useState<FinancePeriod>("thisMonth");
   const period = periodOf(chosen, today);
   return (
-    <div className="flex max-w-[1200px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} intro={t("intro")} />
       <div className="flex flex-col gap-2">
         <ToggleGroup

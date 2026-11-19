@@ -153,7 +153,7 @@ Rules:
 ## 4. Spacing and shape
 
 - Spacing scale (4px base): 4, 8, 12, 16, 20, 24, 32, 48. Vary it: tight inside a row (8-12), looser between groups (24-32). Equal padding everywhere is a smell.
-- Page gutter 16px on mobile, 24px tablet, 32px desktop. Content max width 1200px; reading/detail panels 720px.
+- Page gutter 16px on mobile, 24px tablet, 32px desktop. Content max width 1440px, centred (owner, 2026-11-20: 1200px left wide screens half empty), and the banners above a page line up with it; reading/detail panels 720px.
 - **Touch targets are at least 44x44px** on every interactive element (extend the hit area with padding if the visual is smaller). Spacing between adjacent targets at least 8px.
 - Radii: buttons are **pills** (`9999px`); inputs 6px; status badges 4px; cards and panels 10px; dialogs 14px. Chips (filters) are pills.
 - Borders are 1px hairline. No side-stripe borders (a coloured `border-left` over 1px) on cards, rows or alerts.

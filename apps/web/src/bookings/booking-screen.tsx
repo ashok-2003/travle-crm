@@ -134,7 +134,7 @@ export function BookingScreen({ bookingId }: { bookingId: string }) {
     return <LoadingRows shape="twoLines" label={t("loading")} />;
   };
   return (
-    <div className="flex max-w-[1200px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {booking.data === undefined && <BackLink href={routes.bookings} label={t("backToBookings")} />}
       {body()}
     </div>

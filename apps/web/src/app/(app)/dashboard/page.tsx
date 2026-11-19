@@ -52,7 +52,7 @@ export default function HomePage() {
     month: "long",
   }).format(new Date());
   return (
-    <div className="flex max-w-[1400px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("greeting", { part: partOfDay, name: greetingName(me.user.name) })}
         intro={t("todayIs", { day: today })}

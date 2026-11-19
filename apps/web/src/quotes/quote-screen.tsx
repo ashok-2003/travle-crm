@@ -373,7 +373,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
     return <LoadingRows shape="twoLines" label={t("loading")} />;
   };
   return (
-    <div className="flex max-w-[1200px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {quote.data === undefined && <BackLink href={routes.quotes} label={t("backToQuotes")} />}
       {body()}
     </div>
