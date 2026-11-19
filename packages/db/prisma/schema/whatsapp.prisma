@@ -157,8 +157,11 @@ model WhatsappMessage {
   fileName        String?                      @map("file_name")
   latitude        Decimal?                     @db.Decimal(9, 6)
   longitude       Decimal?                     @db.Decimal(9, 6)
-  /// WhatsApp's message id; null until a send is answered.
+  /// WhatsApp's message id. Our send's comes from MSG91's answer or, when that gives none, from its echo or first report.
   wamid           String?
+  /// MSG91's id of the send request: its send answer gives only this, so our send's echo and reports find it by it. Not
+  /// unique: one bulk request covers many recipients.
+  requestId       String?                      @map("request_id")
   quotedWamid     String?                      @map("quoted_wamid")
   /// Our reply's quote: the message it answers, in the same chat (a member chose it). An inbound quote is `quotedWamid` alone.
   quotedMessageId String?                      @map("quoted_message_id") @db.Uuid
@@ -219,6 +222,8 @@ model WhatsappMessage {
   @@index([organizationId, id], map: "whatsapp_message_media_pending", where: raw("(media_state = 'pending'::text)"))
   /// A broadcast's messages, for its failure rate.
   @@index([organizationId, broadcastId], map: "whatsapp_message_broadcast", where: raw("(broadcast_id IS NOT NULL)"))
+  /// An echo or a report of our send, found by its request.
+  @@index([organizationId, requestId], map: "whatsapp_message_request", where: raw("(request_id IS NOT NULL)"))
   @@map("whatsapp_message")
 }
 
