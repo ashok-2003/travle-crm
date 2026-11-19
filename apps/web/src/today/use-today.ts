@@ -9,6 +9,24 @@ import { useCursorPages } from "@/data/use-cursor-pages";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useHolds } from "@/session/me-context";
 
+/** The id a section's page names an item by: its task's, a new lead's, an opened quote's or an instalment's. */
+export function todayItemId(item: TodayItem): string {
+  switch (item.kind) {
+    case "task":
+      return item.task.id;
+    case "new-lead":
+      return item.lead.id;
+    case "quote-opened":
+      return item.quote.id;
+    case "payment-due":
+      return item.installmentId;
+    case "trip-details":
+      return item.bookingId;
+    case "departure":
+      return item.departureId;
+  }
+}
+
 export function useTodaySummary() {
   const trpc = useTRPC();
   return useQuery(trpc.today.summary.queryOptions());

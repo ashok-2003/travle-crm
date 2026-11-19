@@ -7,11 +7,28 @@
   "sections": {
     "overdue": "Overdue",
     "due-today": "Due today",
-    "new-leads": "New leads to contact",
+    "new-leads": "New leads",
     "aiNeedsYou": "AI needs you",
     "payments-due": "Payments due",
-    "trip-details": "Trips leaving soon, details missing"
+    "trip-details": "Trips leaving soon"
   },
+  "sectionsLabel": "Lists",
+  "columns": {
+    "customer": "Customer",
+    "task": "Task",
+    "details": "Details",
+    "due": "Due",
+    "source": "Source",
+    "trip": "Trip",
+    "waiting": "Waiting",
+    "why": "Why",
+    "since": "Since",
+    "amount": "Amount",
+    "leaves": "Leaves",
+    "missing": "What's missing",
+    "actions": "Actions"
+  },
+  "noLead": "No lead",
   "allNewLeads": "All new leads",
   "aiAgentLink": "AI agent",
   "sectionLoadFailed": "This part of My tasks didn't load.",
@@ -25,30 +42,9 @@
   "item": {
     "yesterday": "Yesterday, {time}",
     "today": "Today, {time}",
-    "markContacted": "Mark contacted",
     "markContactedPerson": "Mark {name} contacted",
-    "quoteOpened": "{title} · opened {count, plural, one {once} other {# times}}",
-    "openedAgo": "Opened {elapsed} ago",
-    "paymentDue": "{amount} due {day}",
-    "paymentMissed": "{amount} was due {day}",
-    "paymentOn": "{amount} due {day}, {title}",
-    "quoteDone": "Done",
-    "quoteDonePerson": "Done with {name}'s quote",
-    "quoteDoneToast": "Marked as seen. It comes back only if they open the quote again.",
-    "missed": "Missed",
-    "dueLabel": "Due {day}",
     "tripDetails": "{missing} of {total} travellers' details missing",
-    "tripLeaves": "Leaves {day}",
-    "openBooking": "Open booking {number}",
-    "departureSeats": "{sold} of {total} seats sold",
-    "departureReasons": {
-      "holds-ending": "A hold ends soon",
-      "details-incomplete": "Details missing",
-      "rooming-not-drafted": "Rooms not drafted",
-      "overbooked": "Overbooked"
-    },
-    "openDeparture": "Open {title}",
-    "departureLeaves": "Leaves {day}"
+    "openBooking": "Open booking {number}"
   },
   "nudge": {
     "count": "{count, plural, one {# thing today} other {# things today}}",

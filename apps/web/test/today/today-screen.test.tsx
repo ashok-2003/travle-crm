@@ -1,6 +1,7 @@
-// My tasks (web revamp, spec 6): the day and how many things there are, the follow-ups line, then Overdue, Due today,
-// New leads to contact and AI needs you, each hidden when empty, with its count and every item in its own card;
-// Add a task as the screen's action; and the skeleton, the error with Try again, and a refusal's own sentence.
+// My tasks (web revamp, spec 6; part 2): the day and how many things there are, the follow-ups line, then tabs with
+// their counts (Overdue, Due today, New leads, AI needs you, Payments due, Trips leaving soon), each hidden when empty and
+// the first with something open, each tab a table of its own; Add a task as the screen's action; and the skeleton, the
+// error with Try again, and a refusal's own sentence.
 import type { TodayItem, TodaySectionName, TodaySummary } from "@travel-crm/contracts/today";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -194,7 +195,8 @@ function renderToday(alongside: ReactNode = null, me = member({ isOwner: true })
   return { ...api, unmount };
 }
 
-const region = (name: string) => screen.findByRole("region", { name });
+const tab = (name: string) => screen.findByRole("tab", { name });
+const panel = (name: string) => screen.findByRole("tabpanel", { name });
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -227,25 +229,44 @@ describe("TodayScreen", () => {
     expect(await screen.findByText("Fri 16 Oct · 11 to do")).toBeVisible();
   });
 
-  it("shows Overdue, Due today and New leads to contact in that order, each with its count", async () => {
+  it("shows a tab for each list with something in it, in order with its count, the first one open", async () => {
     renderToday();
-    const overdue = await region(words.sections.overdue);
-    const dueToday = await region(words.sections["due-today"]);
-    const newLeads = await region(words.sections["new-leads"]);
-    expect(overdue.compareDocumentPosition(dueToday) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(dueToday.compareDocumentPosition(newLeads) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(overdue).getByText("2")).toBeVisible();
-    expect(within(dueToday).getByText("3")).toBeVisible();
-    expect(within(newLeads).getByText("3")).toBeVisible();
+    await tab("Overdue 2");
+    expect(screen.getAllByRole("tab").map((each) => each.textContent)).toEqual([
+      "Overdue 2",
+      "Due today 3",
+      "New leads 3",
+    ]);
+    expect(screen.getByRole("tablist", { name: words.sectionsLabel })).toHaveAttribute("data-variant", "solid");
+    expect(screen.getByRole("tab", { name: "Overdue 2" })).toHaveAttribute("aria-selected", "true");
+    const overdue = await panel("Overdue 2");
     expect(await within(overdue).findByRole("link", { name: "Sneha Iyer" })).toBeVisible();
+    expect(within(overdue).getByRole("table", { name: words.sections.overdue })).toBeVisible();
+    // The other tabs' tables wait out of sight.
+    expect(screen.queryByRole("link", { name: "Rahul Sharma" })).toBeNull();
+  });
+
+  it("opens the first tab with something in it when Overdue is empty", async () => {
+    day = busy({ ...busyDay, counts: { ...busyDay.counts, overdue: 0 } });
+    renderToday();
+    expect(await tab("Due today 3")).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: /^Overdue/ })).toBeNull();
+    expect(await within(await panel("Due today 3")).findByRole("link", { name: "Priya Nair" })).toBeVisible();
+  });
+
+  it("switches to another tab's table", async () => {
+    renderToday();
+    await userEvent.click(await tab("New leads 3"));
+    const newLeads = await panel("New leads 3");
     expect(await within(newLeads).findByRole("link", { name: "Rahul Sharma" })).toBeVisible();
-    expect(await within(dueToday).findByRole("link", { name: "Priya Nair" })).toBeVisible();
+    expect(within(newLeads).getByRole("table", { name: words.sections["new-leads"] })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Sneha Iyer" })).toBeNull();
   });
 
   it("shows no hot leads, departures or opened quotes, and no later-releases line", async () => {
     day = busy({ ...busyDay, counts: { ...busyDay.counts, quoteOpened: 1, departures: 1 } });
     const api = renderToday();
-    await region(words.sections.overdue);
+    await panel("Overdue 2");
     expect(screen.queryByText(/Hot leads/i)).toBeNull();
     const asked = JSON.stringify(api.calls.filter((call) => call.path === "today.section").map((call) => call.input));
     expect(asked).not.toContain("departures");
@@ -254,25 +275,32 @@ describe("TodayScreen", () => {
     expect(screen.queryByText(/Departures and pickups/)).toBeNull();
   });
 
-  it("keeps Payments due and Trips leaving soon as the last two sections, after AI needs you, and counts them", async () => {
+  it("keeps Payments due and Trips leaving soon as the last two tabs, after AI needs you, and counts them", async () => {
     day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsDue: 1, tripDetails: 1 } });
     day.sections["payments-due"] = [kiranPayment];
     day.sections["trip-details"] = [goaTrip];
     needsMe = { handedOver: [handedOver], suggestions: [] };
     renderToday();
-    const ai = await region(words.sections.aiNeedsYou);
-    const payments = await region(words.sections["payments-due"]);
-    const trips = await region(words.sections["trip-details"]);
-    expect(ai.compareDocumentPosition(payments) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(payments.compareDocumentPosition(trips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await tab("Trips leaving soon 1");
+    expect(screen.getAllByRole("tab").map((each) => each.textContent)).toEqual([
+      "Overdue 2",
+      "Due today 3",
+      "New leads 3",
+      "AI needs you 1",
+      "Payments due 1",
+      "Trips leaving soon 1",
+    ]);
+    await userEvent.click(screen.getByRole("tab", { name: "Payments due 1" }));
+    const payments = await panel("Payments due 1");
     expect(await within(payments).findByRole("link", { name: "Kiran Joshi" })).toBeVisible();
-    expect(within(payments).getByText("₹25,000 was due 15 Oct")).toBeVisible();
-    expect(await within(trips).findByRole("link", { name: "Leela Menon" })).toBeVisible();
+    expect(within(payments).getByText("₹25,000")).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "Trips leaving soon 1" }));
+    expect(await within(await panel("Trips leaving soon 1")).findByRole("link", { name: "Leela Menon" })).toBeVisible();
     // 8 things, 1 payment due and 1 trip, and the AI's 1 chat.
     expect(await screen.findByText("Fri 16 Oct · 11 to do")).toBeVisible();
   });
 
-  it("holds every item of a section in its card, with no View all, and loads the next page inside the card", async () => {
+  it("holds every item of a tab in its table, with no View all, and loads the next page after the rows", async () => {
     const many = Array.from({ length: 7 }, (_, index) =>
       taskNamed(`Customer ${String(index + 1)}`, `0199e7a0-0000-7000-8000-0000000001${String(index).padStart(2, "0")}`),
     );
@@ -280,7 +308,7 @@ describe("TodayScreen", () => {
     day.sections.overdue = many;
     day.nextPages.overdue = [taskNamed("Customer 8", "0199e7a0-0000-7000-8000-000000000199")];
     renderToday();
-    const overdue = await region(words.sections.overdue);
+    const overdue = await panel("Overdue 8");
     expect(await within(overdue).findByRole("link", { name: "Customer 7" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "View all" })).toBeNull();
     expect(screen.queryByRole("link", { name: "View all" })).toBeNull();
@@ -288,57 +316,43 @@ describe("TodayScreen", () => {
     expect(await within(overdue).findByRole("link", { name: "Customer 8" })).toBeVisible();
   });
 
-  it("leads back to the Leads list on New and to the AI agent page for whoever manages the AI", async () => {
+  it("leads back to the Leads list on New leads and to the AI agent page for whoever manages the AI", async () => {
     needsMe = { handedOver: [handedOver], suggestions: [] };
     const { unmount } = renderToday(null, member({ permissions: ["leads:view", "inbox:view", "leads:edit"] }));
-    const newLeads = await region(words.sections["new-leads"]);
-    const all = within(newLeads).getByRole("link", { name: "All new leads" });
+    await userEvent.click(await tab("New leads 3"));
+    const all = within(await panel("New leads 3")).getByRole("link", { name: "All new leads" });
     expect(all).toHaveAttribute("href", "/leads?stage=new");
     expect(all.querySelector("svg")).not.toBeNull();
-    const ai = await region(words.sections.aiNeedsYou);
-    expect(within(ai).queryByRole("link", { name: "AI agent" })).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "AI needs you 1" }));
+    expect(within(await panel("AI needs you 1")).queryByRole("link", { name: "AI agent" })).toBeNull();
     unmount();
     renderToday(null, member({ permissions: ["leads:view", "inbox:view", "leads:edit", "ai:manage"] }));
-    const managed = await region(words.sections.aiNeedsYou);
-    expect(within(managed).getByRole("link", { name: "AI agent" })).toHaveAttribute("href", "/ai-agent");
-  });
-
-  it("draws Snooze as an icon button named for its task, Done keeping its word", async () => {
-    renderToday();
-    const overdue = await region(words.sections.overdue);
-    const snooze = await within(overdue).findByRole("button", { name: "Snooze: Send Goa options" });
-    expect(snooze).toHaveTextContent("");
-    expect(snooze).toHaveAttribute("data-size", "icon");
-    expect(within(overdue).getAllByRole("button", { name: /^Done: / })[0]).toHaveTextContent("Done");
-  });
-
-  it("clamps a row's second line to one line, with the full text in its title", async () => {
-    renderToday();
-    const newLeads = await region(words.sections["new-leads"]);
-    const line = await within(newLeads).findByText(`Kashmir · Dec · ${messages.leads.sources.phone_call}`);
-    expect(line).toHaveClass("line-clamp-1");
-    expect(line).toHaveAttribute("title", line.textContent);
-  });
-
-  it("on a phone opens only the first section with something in it", async () => {
-    screenIs("phone");
-    renderToday();
-    const overdue = await region(words.sections.overdue);
-    expect(within(overdue).getByRole("button", { name: words.sections.overdue })).toHaveAttribute(
-      "aria-expanded",
-      "true",
+    await userEvent.click(await tab("AI needs you 1"));
+    expect(within(await panel("AI needs you 1")).getByRole("link", { name: "AI agent" })).toHaveAttribute(
+      "href",
+      "/ai-agent",
     );
-    expect(await within(overdue).findByRole("link", { name: "Sneha Iyer" })).toBeVisible();
-    for (const name of [words.sections["due-today"], words.sections["new-leads"]]) {
-      const closed = await region(name);
-      expect(within(closed).getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
-      expect(within(closed).queryByRole("link")).toBeNull();
-    }
   });
 
-  it("marks a new lead contacted, and it leaves the section and the chips' counts load again", async () => {
+  it("on a phone scrolls the tabs sideways and stacks the rows, five and then Show more", async () => {
+    screenIs("phone");
+    day.sections.overdue = Array.from({ length: 7 }, (_, index) =>
+      taskNamed(`Customer ${String(index + 1)}`, `0199e7a0-0000-7000-8000-0000000001${String(index).padStart(2, "0")}`),
+    );
+    renderToday();
+    expect(await screen.findByRole("tablist", { name: words.sectionsLabel })).toHaveClass("overflow-x-auto");
+    const overdue = await panel("Overdue 2");
+    const list = await within(overdue).findByRole("list", { name: words.sections.overdue });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(overdue).queryByRole("table")).toBeNull();
+    await userEvent.click(within(overdue).getByRole("button", { name: words.more.overdue }));
+    expect(within(list).getAllByRole("listitem")).toHaveLength(7);
+  });
+
+  it("marks a new lead contacted, and it leaves the tab and the chips' counts load again", async () => {
     const api = renderToday(<ChipCounts />);
-    const newLeads = await region(words.sections["new-leads"]);
+    await userEvent.click(await tab("New leads 3"));
+    const newLeads = await panel("New leads 3");
     await waitFor(() => {
       expect(api.calls.filter((call) => call.path === "leads.counts")).toHaveLength(1);
     });
@@ -350,47 +364,54 @@ describe("TodayScreen", () => {
       });
     });
     await waitFor(() => {
-      expect(within(newLeads).queryByRole("link", { name: "Rahul Sharma" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Rahul Sharma" })).toBeNull();
     });
     expect(api.calls.filter((call) => call.path === "leads.counts")).toHaveLength(2);
-    expect(within(newLeads).getByRole("link", { name: "Arjun Mehta" })).toBeVisible();
+    expect(within(await panel("New leads 2")).getByRole("link", { name: "Arjun Mehta" })).toBeVisible();
   });
 
   describe("AI needs you", () => {
-    it("shows a handed-over chat with Open chat and a suggestion with its two buttons, after New leads", async () => {
+    it("is a table of the handed-over chats with Open chat and the suggestions with their two buttons", async () => {
       needsMe = { handedOver: [handedOver], suggestions: [lostSuggestion] };
       renderToday();
-      const ai = await region(words.sections.aiNeedsYou);
-      const newLeads = await region(words.sections["new-leads"]);
-      expect(newLeads.compareDocumentPosition(ai) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(within(ai).getByText("2")).toBeVisible();
-      expect(await within(ai).findByText("Meera Das")).toBeVisible();
-      expect(within(ai).getByText("Handed over: Asked for a discount")).toBeVisible();
-      expect(within(ai).getByRole("link", { name: "Open chat: Meera Das" })).toHaveAttribute(
+      await userEvent.click(await tab("AI needs you 2"));
+      const ai = await panel("AI needs you 2");
+      const table = within(ai).getByRole("table", { name: words.sections.aiNeedsYou });
+      expect(
+        within(table)
+          .getAllByRole("columnheader")
+          .map((header) => header.textContent),
+      ).toEqual([words.columns.customer, words.columns.why, words.columns.since, words.columns.actions]);
+      expect(within(table).getByText("Meera Das")).toBeVisible();
+      expect(within(table).getByText("Handed over: Asked for a discount")).toBeVisible();
+      expect(within(table).getByRole("link", { name: "Open chat: Meera Das" })).toHaveAttribute(
         "href",
         `/inbox/${handedOver.conversationId}`,
       );
-      const lost = within(ai).getByRole("button", { name: "Yes, mark it Lost" });
+      expect(within(table).getByRole("link", { name: "Nitin Rao" })).toHaveAttribute(
+        "href",
+        `/leads/${lostSuggestion.leadId}`,
+      );
+      const lost = within(table).getByRole("button", { name: "Yes, mark it Lost" });
       expect(lost).toHaveAttribute("data-variant", "destructive");
-      expect(within(ai).getByRole("button", { name: "No" })).toBeVisible();
+      expect(within(table).getByRole("button", { name: "No" })).toBeVisible();
     });
 
-    it("keeps the payments to check as a line inside it, leading to Payments", async () => {
+    it("keeps the payments to check as a line above the table, leading to Payments, and no count of its own", async () => {
       day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 2 } });
       renderToday();
-      const ai = await region(words.sections.aiNeedsYou);
+      // Only payments: the tab counts what the AI asks, so it has no number.
+      await userEvent.click(await tab("AI needs you"));
+      const ai = await panel("AI needs you");
       expect(within(ai).getByRole("link", { name: /2 payments are waiting/ })).toHaveAttribute("href", "/payments");
-      // Only payments: no AI count over the line, and not 2 over one chat's row either.
-      expect(within(ai).queryByText("2")).toBeNull();
+      expect(within(ai).queryByRole("table")).toBeNull();
     });
 
-    it("counts only the AI's rows in its heading, not the payments", async () => {
+    it("counts only the AI's rows on its tab, not the payments", async () => {
       day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 4 } });
       needsMe = { handedOver: [handedOver], suggestions: [] };
       renderToday();
-      const ai = await region(words.sections.aiNeedsYou);
-      expect(within(ai).getByText("1")).toBeVisible();
-      expect(within(ai).queryByText("5")).toBeNull();
+      expect(await tab("AI needs you 1")).toBeVisible();
     });
   });
 
@@ -403,7 +424,7 @@ describe("TodayScreen", () => {
 
   it("shows no follow-ups line when none are due", async () => {
     renderToday();
-    await region(words.sections.overdue);
+    await panel("Overdue 2");
     expect(screen.queryByText(/follow-ups? due/)).toBeNull();
   });
 
@@ -417,9 +438,7 @@ describe("TodayScreen", () => {
     expect(words.nothing).toBe("Nothing to do right now.");
     expect(screen.getByText("Fri 16 Oct")).toBeVisible();
     expect(screen.queryByText(/\d to do/)).toBeNull();
-    for (const name of ["Overdue", "Due today", "New leads to contact", "AI needs you"]) {
-      expect(screen.queryByRole("region", { name })).toBeNull();
-    }
+    expect(screen.queryByRole("tablist")).toBeNull();
   });
 
   it("shows the skeleton, the error with Try again, and a refusal's sentence", async () => {
