@@ -1,7 +1,8 @@
 // What Today reads from crm (spec 3.5, R35): one person's leads still in New, oldest first, as composable SQL over
 // lead_new_by_owner (R11: the performance tests EXPLAIN the exact query), and the brief line each lead shows beside
-// its task: the person's name and phone, the trip in one line and the source, for the leads the member may see.
-import { leadSource } from "@travel-crm/contracts/crm";
+// its task: the person's name and phone, the lead's stage, the trip in one line and the source, for the leads the
+// member may see.
+import { leadSource, leadStage } from "@travel-crm/contracts/crm";
 import type { LeadBrief } from "@travel-crm/contracts/today";
 import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
@@ -66,6 +67,7 @@ export async function leadBriefs(
       id: true,
       ownerUserId: true,
       source: true,
+      stage: true,
       person: { select: { name: true, phoneE164: true } },
       ...tripColumnNames,
     },
@@ -82,6 +84,7 @@ export async function leadBriefs(
         id: lead.id,
         personName: lead.person.name,
         phone: lead.person.phoneE164,
+        stage: leadStage.parse(lead.stage),
         trip: tripSummaryOf({ ...lead, childrenCount: lead.childrenAges.length }, names),
         source: leadSource.parse(lead.source),
       },
