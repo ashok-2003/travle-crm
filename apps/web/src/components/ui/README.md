@@ -82,8 +82,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   while the page has the phone navigation, so toasts clear the bar there and sit at the bottom elsewhere.
 - `field.tsx`, `input-otp.tsx`, `progress.tsx`: small fixes the repo's strict lint rules ask for.
 - `toggle.tsx` and `toggle-group.tsx` (release 1's quick filters, R42): pills (`rounded-full`), the filter chips of
-  DESIGN.md section 6; `default` 44px and `lg` 48px, the `sm` size gone; the selected chip in the action tint with its
-  dark blue (`accent`), the `outline` variant a hairline border; no focus ring (the global outline instead), and the
+  DESIGN.md section 6; `default` 44px and `lg` 48px, the `sm` size gone; the selected chip in ink with canvas text, as the selected tab is
+  (`foreground` on `background`, owner 2026-11-20; it was the action tint), hover keeping it, the `outline` variant a
+  hairline border that turns ink when chosen; no focus ring (the global outline instead), and the
   items' numeric `z-10` gone; `??` for the group's variant and size, as the lint rules ask. The CLI also wanted to overwrite `button`, `input`, `textarea`, `dialog` and
   `input-group` with the registry's own: ours were put back as they were.
 - `rolling-number.tsx` (Cult UI's, from `https://cult-ui.com/r/rolling-number.json`; "animated-number" is its deprecated
