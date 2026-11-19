@@ -4,7 +4,7 @@
 import { expect, test } from "./support/notifications";
 import { signInByEmail } from "./support/fixtures";
 import { addLeadThroughApi, dayInIndia, leadInput } from "./support/leads";
-import { opened } from "./support/sections";
+import { openTab, tabNamed } from "./support/tabs";
 
 const DAY = 24 * 3_600_000;
 
@@ -60,11 +60,10 @@ test("Home shows a quote opened with no reply as a hot lead, and My tasks a paym
   });
 
   await page.goto("/today");
-  const payments = page.getByRole("region", { name: "Payments due" });
-  await opened(payments, "Payments due");
+  const payments = await openTab(page, "Payments due");
   await expect(payments.getByRole("link", { name: "Kiran Joshi", exact: true })).toBeVisible();
-  await expect(payments.getByText(/^₹25,000 was due \d+ \w+/)).toBeVisible();
-  await expect(page.getByRole("region", { name: "Quote opened, no reply" })).toBeHidden();
+  await expect(payments.getByText("₹25,000", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: tabNamed("Quote opened, no reply") })).toHaveCount(0);
 
   await page.goto("/dashboard");
   const hot = page.getByRole("region", { name: "Hot leads to call" });

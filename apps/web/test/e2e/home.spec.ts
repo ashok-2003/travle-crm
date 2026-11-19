@@ -4,6 +4,7 @@
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, leadInput, moveStageThroughApi } from "./support/leads";
+import { tabNamed } from "./support/tabs";
 import { addOverdueFollowUp, laterToday } from "./support/work";
 
 test("Home's tasks lead to their leads and My tasks, and a stage card opens Leads at that stage", async ({
@@ -57,6 +58,8 @@ test("Home's tasks lead to their leads and My tasks, and a stage card opens Lead
   await expect(page).toHaveURL(/\/today$/);
   await expect(page.getByRole("heading", { level: 1, name: "My tasks" })).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "New leads to contact" }).getByRole("link", { name: "Rahul Sharma", exact: true }),
+    page
+      .getByRole("tabpanel", { name: tabNamed("New leads") })
+      .getByRole("link", { name: "Rahul Sharma", exact: true }),
   ).toBeVisible();
 });
