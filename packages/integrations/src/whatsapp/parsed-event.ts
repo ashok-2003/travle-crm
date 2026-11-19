@@ -57,15 +57,22 @@ interface ParsedMessageFields {
 
 export type ParsedEvent =
   | ({ type: "inbound" } & ParsedMessage)
-  | ({ type: "echo" } & ParsedMessage)
+  /** `requestId`: MSG91's id of the send request. An echo of one of our own sends carries the one its answer gave us. */
+  | ({ type: "echo"; requestId: string | null } & ParsedMessage)
   | {
       type: "status";
       wamid: string;
       integratedNumber: string;
+      /** The customer's number as "+<digits>", when the event named one. */
+      customerNumber: string | null;
+      /** MSG91's id of the send request, which finds a send whose answer gave no wamid. */
+      requestId: string | null;
       status: WhatsAppStatus;
       /** MSG91's or Meta's code for a failure. */
       reasonCode: string | null;
       occurredAt: Date | null;
     }
+  /** An edit or a deletion of a message: routed, then dropped without a row or a count. */
+  | { type: "ignored"; integratedNumber: string }
   /** Kept and counted, nothing more. `integratedNumber` is set when the event named one, so it can still be routed. */
   | { type: "unknown"; integratedNumber: string | null };

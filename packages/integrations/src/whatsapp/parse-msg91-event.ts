@@ -178,9 +178,19 @@ function cleaned(value: string | null): string | null {
   return text === "" ? null : text;
 }
 
-/** A Meta-shaped `referral` (a click-to-WhatsApp ad). SPIKE(S1): MSG91 may not forward it, or may nest it, so four places are tried. */
+/** Meta's raw message, which MSG91 forwards in `messages` (a list, or a list inside a string); empty when there is none. */
+function metaMessageOf(bag: Bag): Bag {
+  const raw = unstring(bag.messages);
+  const first = unstring(Array.isArray(raw) ? raw[0] : raw);
+  return isBag(first) ? first : {};
+}
+
+/**
+ * A Meta-shaped `referral` (a click-to-WhatsApp ad). SPIKE(S1): MSG91 may nest it, so five places are tried; a message from an
+ * ad (content type "referral") carries it only in Meta's own message.
+ */
 function referralOf(bag: Bag): ParsedMessage["referral"] {
-  for (const holder of [bag, bag.message, bag.context, bag.content].map(unstring)) {
+  for (const holder of [bag, bag.message, bag.context, bag.content, metaMessageOf(bag)].map(unstring)) {
     if (!isBag(holder)) continue;
     const referral = unstring(holder.referral);
     if (!isBag(referral)) continue;
@@ -192,8 +202,20 @@ function referralOf(bag: Bag): ParsedMessage["referral"] {
   return null;
 }
 
+/** MSG91's name for what a message is: a phone echo has `contentType`, an echo of our own send only `messageType`. */
+const typeOf = (bag: Bag): string =>
+  (pick(bag, ["contentType", "content_type", "type", "messageType"]) ?? "text").toLowerCase();
+
 function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNumber: string): ParsedMessage {
-  const contentType = (pick(bag, ["contentType", "content_type", "type", "messageType"]) ?? "text").toLowerCase();
+  // MSG91 keeps a file's link, and the words of an echo of our own send, only in `content` (a JSON string): read after the
+  // top-level names.
+  const inContent = unstring(bag.content);
+  const content = isBag(inContent) ? inContent : {};
+  // A message from an ad has its words only in Meta's own message.
+  const metaText = unstring(metaMessageOf(bag).text);
+  const metaWords = isBag(metaText) ? pick(metaText, ["body"]) : null;
+  const typeName = typeOf(bag);
+  const contentType = typeName === "referral" && metaWords !== null ? "text" : typeName;
   const kind = kindNames[contentType] ?? "unsupported";
   const reactionValue = unstring(bag.reaction);
   const reaction =
@@ -225,14 +247,14 @@ function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNu
     text:
       kind === "text"
         ? textual
-          ? (cleaned(tap?.title ?? null) ?? replyText(bag) ?? pick(bag, ["text", "message"]))
-          : pick(bag, ["text", "message", "body"])
+          ? (cleaned(tap?.title ?? null) ?? replyText(bag) ?? pick(bag, ["text", "message"]) ?? pick(content, ["text"]))
+          : (pick(bag, ["text", "message", "body"]) ?? pick(content, ["text"]) ?? metaWords)
         : null,
     ...(tap === null ? { buttonReplyId: null, replyKind: null } : { buttonReplyId: tap.id, replyKind: tap.kind }),
-    caption: pick(bag, ["caption"]),
-    fileName: pick(bag, ["filename", "fileName", "file_name"]),
+    caption: pick(bag, ["caption"]) ?? pick(content, ["caption"]),
+    fileName: pick(bag, ["filename", "fileName", "file_name"]) ?? pick(content, ["filename"]),
     mediaUrl: ["image", "video", "audio", "document", "sticker"].includes(kind)
-      ? pick(bag, ["url", "mediaUrl", "media_url", "link"])
+      ? (pick(bag, ["url", "mediaUrl", "media_url", "link"]) ?? pick(content, ["attachment_url"]))
       : null,
     latitude: numberOf(bag, ["latitude", "lat"]),
     longitude: numberOf(bag, ["longitude", "lng", "long"]),
@@ -251,6 +273,7 @@ function eventOf(bag: Bag): ParsedEvent {
   );
   const eventName = pick(bag, ["eventName", "event_name", "status", "event"])?.toLowerCase() ?? null;
   const direction = pick(bag, ["direction"]);
+  const requestId = pick(bag, ["requestId", "request_id"]);
   if (integratedNumber === null || wamid === null) return { type: "unknown", integratedNumber };
 
   const status = eventName === null ? undefined : statusNames[eventName];
@@ -259,16 +282,21 @@ function eventOf(bag: Bag): ParsedEvent {
       type: "status",
       wamid,
       integratedNumber,
+      customerNumber,
+      requestId,
       status,
       reasonCode: status === "failed" ? (pick(bag, ["reason", "errorCode", "error_code", "code"]) ?? "unknown") : null,
       occurredAt: timeOf(bag),
     };
   }
+  // SPIKE(S2): an edit or a deletion is dropped; once we have seen its inner shape, it can change or hide its message.
+  if (["edit", "revoke"].includes(typeOf(bag))) return { type: "ignored", integratedNumber };
   if (customerNumber === null) return { type: "unknown", integratedNumber };
   // MSG91 writes direction "0" for inbound and "1" for outbound; a message with a content type and no status name is a
-  // message. SPIKE(S2): an outbound one with no status name is taken to be an echo from the phone app.
+  // message. An outbound one with no status name is an echo: sent from the phone app, or one of our own sends.
   const outbound = direction === "1" || direction?.toLowerCase() === "outbound";
-  return { type: outbound ? "echo" : "inbound", ...messageOf(bag, wamid, integratedNumber, customerNumber) };
+  const message = messageOf(bag, wamid, integratedNumber, customerNumber);
+  return outbound ? { type: "echo", requestId, ...message } : { type: "inbound", ...message };
 }
 
 /** The events in a body: one object, a list, or an object holding a list. A body that is none of these has none. */
