@@ -1,103 +1,88 @@
 "use client";
 
-// A lead on the pipeline board: its name (a link to its page), its trip, its owner and what's next, and Move to, the
-// way to change its stage from the keyboard or on a phone. On a computer it can also be dragged to another column.
-import { leadStages, type LeadListItem, type LeadStage, type PeopleNames } from "@travel-crm/contracts/crm";
-import { ArrowRightLeftIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { TextLink } from "@/components/text-link";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+// A lead on the pipeline board, compact (web revamp part 4): its name in ink, the whole card one link to its page; its
+// trip when it has details; what's next on one line in its urgency's colour; its owner's initials in Everyone's view;
+// and Move to in the same top-right corner on every card. On a computer it can also be dragged to another column, and
+// lifts while it is (DESIGN.md Elevation: a shadow on what floats).
+import type { LeadListItem, LeadStage } from "@travel-crm/contracts/crm";
+import Link from "next/link";
+import { memo, useState } from "react";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { leadRoute } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { NextStep } from "../next-step";
-import { OwnerBadge } from "../owner-badge";
-import { StageDot } from "../stage-badge";
-import { useTripLine } from "../trip-line";
-import { DRAGGED_LEAD } from "./dragged-lead";
+import { OwnerInitials } from "../owner-initials";
+import { useTripDetails } from "../trip-line";
+import { DRAGGED_LEAD, type DraggedLead } from "./dragged-lead";
+import { MoveTo } from "./move-to";
 
-/** The id of the board's hint saying why the subscription refuses moves (pipeline-screen.tsx). */
-export const WRITE_HINT_ID = "pipeline-write-hint";
-
-export function PipelineCard({
+/** Drawn again only when its own lead changes, not for a move elsewhere on the board. */
+export const PipelineCard = memo(function PipelineCard({
   lead,
-  owners,
+  owner,
+  wide,
   onMove,
 }: {
   lead: LeadListItem;
-  owners: PeopleNames;
-  onMove: (lead: Pick<LeadListItem, "id" | "person">, stage: LeadStage) => void;
+  /** In Everyone's view, where a card's owner may be anyone: their name (null for a former member's). */
+  owner: string | null | undefined;
+  /** Tablet-wide or more, where cards are dragged; a phone moves them with Move to alone. */
+  wide: boolean;
+  onMove: (lead: DraggedLead, stage: LeadStage) => void;
 }) {
-  const t = useTranslations("leads");
-  const tripLine = useTripLine();
+  const tripDetails = useTripDetails();
   const { timeZone } = useMe().organization;
   const edits = useHolds("leads:edit");
   const write = useWriteAccess("change");
-  const draggable = edits && write.allowed;
+  const [dragging, setDragging] = useState(false);
+  const draggable = wide && edits && write.allowed;
+  const trip = tripDetails(lead.trip);
   return (
     <Item
       variant="outline"
       size="sm"
       draggable={draggable}
+      data-dragging={dragging || undefined}
       onDragStart={(event) => {
         event.dataTransfer.setData(DRAGGED_LEAD, JSON.stringify({ id: lead.id, name: lead.person.name }));
         event.dataTransfer.effectAllowed = "move";
+        setDragging(true);
       }}
-      className={draggable ? "cursor-grab active:cursor-grabbing" : undefined}
+      onDragEnd={() => {
+        setDragging(false);
+      }}
+      className={cn(
+        "relative bg-card hover:bg-muted data-dragging:shadow-lg",
+        draggable && "cursor-grab active:cursor-grabbing",
+      )}
     >
-      <ItemContent className="gap-1">
-        <ItemTitle>
-          <TextLink inline href={leadRoute(lead.id)}>
-            <span className="script-leading">{lead.person.name}</span>
-          </TextLink>
+      <ItemContent className="min-w-0 gap-0.5">
+        {/* Clear of Move to in the corner; the lines under the name have the card's whole width. */}
+        <ItemTitle className={cn("w-auto", edits && "pe-7")}>
+          {/* Stretched over the card, so the whole card opens the lead; not draggable itself, so a drag takes the card. */}
+          <Link
+            href={leadRoute(lead.id)}
+            draggable={false}
+            className="script-leading font-semibold wrap-anywhere after:absolute after:inset-0 after:rounded-lg"
+          >
+            {lead.person.name}
+          </Link>
         </ItemTitle>
-        <ItemDescription className="script-leading">{tripLine(lead.trip)}</ItemDescription>
-        <div className="flex flex-wrap items-center gap-2 text-label">
-          {lead.ownerUserId !== null && <OwnerBadge name={owners[lead.ownerUserId] ?? null} />}
-          <NextStep next={lead.next} timeZone={timeZone} />
+        {trip !== null && <ItemDescription className="script-leading">{trip}</ItemDescription>}
+        <div className="flex min-h-6 items-center gap-2 text-label">
+          <span className="min-w-0 flex-1 truncate">
+            <NextStep next={lead.next} timeZone={timeZone} />
+          </span>
+          {owner !== undefined && <OwnerInitials name={owner} />}
         </div>
       </ItemContent>
       {edits && (
-        <ItemActions className="self-start">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={!write.allowed}
-                aria-describedby={write.allowed ? undefined : WRITE_HINT_ID}
-                aria-label={t("pipeline.moveTo", { name: lead.person.name })}
-              >
-                <ArrowRightLeftIcon aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{t("pipeline.moveTo", { name: lead.person.name })}</DropdownMenuLabel>
-              {leadStages
-                .filter((stage) => stage !== lead.stage)
-                .map((stage) => (
-                  <DropdownMenuItem
-                    key={stage}
-                    onSelect={() => {
-                      onMove(lead, stage);
-                    }}
-                  >
-                    <StageDot stage={stage} />
-                    {t(`stages.${stage}`)}
-                  </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <ItemActions className="absolute top-1 right-1">
+          <MoveTo lead={lead} wide={wide} onMove={onMove} />
         </ItemActions>
       )}
     </Item>
   );
-}
+});
