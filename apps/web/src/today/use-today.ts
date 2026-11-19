@@ -27,6 +27,9 @@ export function todayItemId(item: TodayItem): string {
   }
 }
 
+/** My tasks' sections, each a tab (today-section.tsx) with its table's columns (section-columns.tsx). */
+export type MyTasksSection = "overdue" | "due-today" | "new-leads" | "payments-due" | "trip-details";
+
 export function useTodaySummary() {
   const trpc = useTRPC();
   return useQuery(trpc.today.summary.queryOptions());

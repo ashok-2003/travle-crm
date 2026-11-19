@@ -19,7 +19,7 @@ import { useHolds } from "@/session/me-context";
 import { TaskActions } from "@/tasks/task-actions";
 import { useItemWhen } from "./item-when";
 import { MarkContactedButton } from "./mark-contacted-button";
-import type { MyTasksSection } from "./today-section";
+import type { MyTasksSection } from "./use-today";
 import { WhenMark } from "./when-mark";
 
 type Cell = (item: TodayItem) => ReactNode;

@@ -11,9 +11,7 @@ import { ForwardLink } from "@/components/text-link";
 import { useTableFits, WorkTable } from "@/components/work-table";
 import { listFiltersHref } from "@/leads/list/list-filters";
 import { useSectionColumns } from "./section-columns";
-import { todayItemId, useTodaySection } from "./use-today";
-
-export type MyTasksSection = "overdue" | "due-today" | "new-leads" | "payments-due" | "trip-details";
+import { todayItemId, useTodaySection, type MyTasksSection } from "./use-today";
 
 export function TodaySection({ section }: { section: MyTasksSection }) {
   const t = useTranslations("today");

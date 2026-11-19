@@ -24,8 +24,8 @@ import { formatDay, formatWeekday } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { AddTaskDialog } from "./add-task-dialog";
 import { AiNeedsYouSection } from "./ai-needs-you-section";
-import { TodaySection, type MyTasksSection } from "./today-section";
-import { useTodaySummary } from "./use-today";
+import { TodaySection } from "./today-section";
+import { useTodaySummary, type MyTasksSection } from "./use-today";
 
 type Tab = MyTasksSection | "ai";
 
