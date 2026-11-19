@@ -88,9 +88,10 @@ export const StageColumn = memo(function StageColumn({
           </CardTitle>
         </CardHeader>
       )}
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className="relative flex flex-1 flex-col gap-2">
         {dropping && (
-          <p className="rounded-md bg-action-tint px-3 py-2 text-label text-action-pressed">
+          // Over the cards, not among them: nothing moves under the pointer, so the drop lands where it was aimed.
+          <p className="pointer-events-none absolute inset-x-2 inset-y-0 z-(--z-sticky) rounded-md bg-action-tint px-3 py-2 text-label text-action-pressed">
             {t("pipeline.dropHere", { stage: t(`stages.${stage}`) })}
           </p>
         )}
