@@ -26,8 +26,8 @@ import {
 import { holds, type SignedInMember } from "@/session/me-context";
 import { routes } from "@/lib/routes";
 
-/** The sidebar's headings, in order; also message keys in "shell.navigation.groups". */
-export const navigationGroups = ["work", "team", "manage"] as const;
+/** The sidebar's groups, in order, split by space and a hairline, without headings: the day, the business, the team. */
+export const navigationGroups = ["day", "business", "team"] as const;
 export type NavigationGroup = (typeof navigationGroups)[number];
 
 export interface NavigationItem {
@@ -51,7 +51,7 @@ export interface NavigationItem {
     | "roles"
     | "settings"
     | "audit";
-  /** The sidebar heading it sits under; phones list the items without headings. */
+  /** The sidebar group it sits in; phones list the items without groups. */
   group: NavigationGroup;
   href: string;
   icon: LucideIcon;
@@ -62,23 +62,30 @@ export interface NavigationItem {
 }
 
 export const navigationItems: readonly NavigationItem[] = [
-  { key: "home", group: "work", href: routes.home, icon: HouseIcon, requires: null, module: null },
-  { key: "today", group: "work", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
+  { key: "home", group: "day", href: routes.home, icon: HouseIcon, requires: null, module: null },
+  { key: "today", group: "day", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
   {
     key: "followUps",
-    group: "work",
+    group: "day",
     href: routes.followUps,
     icon: AlarmClockIcon,
     requires: "leads:view",
     module: "crm",
   },
-  { key: "leads", group: "work", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
-  { key: "inbox", group: "work", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
-  { key: "aiAgent", group: "work", href: routes.aiAgent, icon: BotIcon, requires: "ai:manage", module: "ai" },
-  { key: "quotes", group: "work", href: routes.quotes, icon: FileTextIcon, requires: "quotes:view", module: "quotes" },
+  { key: "leads", group: "day", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
+  { key: "inbox", group: "day", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
+  { key: "aiAgent", group: "business", href: routes.aiAgent, icon: BotIcon, requires: "ai:manage", module: "ai" },
+  {
+    key: "quotes",
+    group: "business",
+    href: routes.quotes,
+    icon: FileTextIcon,
+    requires: "quotes:view",
+    module: "quotes",
+  },
   {
     key: "packages",
-    group: "work",
+    group: "business",
     href: routes.packages,
     icon: PackageIcon,
     requires: "quotes:view",
@@ -86,7 +93,7 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     key: "bookings",
-    group: "work",
+    group: "business",
     href: routes.bookings,
     icon: BriefcaseBusinessIcon,
     requires: "bookings:view",
@@ -94,7 +101,7 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     key: "payments",
-    group: "work",
+    group: "business",
     href: routes.payments,
     icon: WalletIcon,
     requires: "quotes:record_payments",
@@ -102,7 +109,7 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     key: "departures",
-    group: "work",
+    group: "business",
     href: routes.departures,
     icon: BusIcon,
     requires: "departures:view",
@@ -110,7 +117,7 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     key: "suppliers",
-    group: "work",
+    group: "business",
     href: routes.suppliers,
     icon: HandshakeIcon,
     requires: "suppliers:view",
@@ -118,7 +125,7 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     key: "reports",
-    group: "work",
+    group: "business",
     href: routes.reports,
     icon: ChartColumnIcon,
     requires: "money:view_reports",
@@ -126,7 +133,7 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     key: "finance",
-    group: "manage",
+    group: "business",
     href: routes.finance,
     icon: IndianRupeeIcon,
     requires: "accounts:view",
@@ -136,13 +143,13 @@ export const navigationItems: readonly NavigationItem[] = [
   { key: "roles", group: "team", href: routes.roles, icon: ShieldCheckIcon, requires: "roles:manage", module: null },
   {
     key: "settings",
-    group: "manage",
+    group: "team",
     href: routes.settings,
     icon: SettingsIcon,
     requires: "settings:manage",
     module: null,
   },
-  { key: "audit", group: "manage", href: routes.audit, icon: HistoryIcon, requires: "audit:view", module: null },
+  { key: "audit", group: "team", href: routes.audit, icon: HistoryIcon, requires: "audit:view", module: null },
 ];
 
 /** Whether the plan's modules (subscription.get's) include the item's; while they are unknown, every item shows. */

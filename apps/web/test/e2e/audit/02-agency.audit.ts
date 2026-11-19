@@ -165,7 +165,7 @@ test("an Owner's agency, screen by screen, as it is set up", async ({ page, requ
     await expect(page.getByRole("dialog", { name: agency.name })).toBeVisible();
     await shoot(page, "more-sheet");
   } else {
-    await shoot(page, "sidebar", { element: page.locator("[data-slot=sidebar-container]") });
+    await shoot(page, "sidebar", { element: page.locator("[data-slot=aceternity-sidebar]") });
   }
 });
 

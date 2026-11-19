@@ -12,13 +12,9 @@
     "more": "More",
     "account": "Your account",
     "signOut": "Sign out",
-    "groups": {
-      "work": "Work",
-      "team": "Team",
-      "manage": "Manage"
-    },
-    "collapse": "Fold the sidebar to its icons",
-    "expand": "Open the sidebar",
+    "accountMenu": "{name}: your account and sign-out",
+    "openSidebar": "Open the sidebar",
+    "closeSidebar": "Close the sidebar",
     "inbox": "Inbox",
     "aiAgent": "AI agent",
     "quotes": "Quotes",
