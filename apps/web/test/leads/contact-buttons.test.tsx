@@ -184,7 +184,7 @@ describe("WhatsApp through the agency's inbox", () => {
     expect(api.calls).not.toContain("inbox.status");
   });
 
-  it("shows compact buttons as named icons, with no words", () => {
+  it("shows compact buttons as named quiet icons, with no words", () => {
     screenIs("phone");
     stubApi({});
     renderWithApi(
@@ -198,7 +198,8 @@ describe("WhatsApp through the agency's inbox", () => {
     const whatsApp = screen.getByRole("link", { name: "WhatsApp Priya Nair" });
     for (const button of [call, whatsApp]) {
       expect(button).toHaveTextContent(/^$/);
-      expect(button).toHaveAttribute("data-size", "icon");
+      expect(button).toHaveAttribute("data-size", "icon-sm");
+      expect(button).toHaveAttribute("data-variant", "quiet");
       expect(button.querySelector("svg")).not.toBeNull();
     }
   });

@@ -118,9 +118,10 @@ describe("the shadcn components", () => {
     }
   });
 
-  it("button has no size under the 36px dense one", () => {
+  it("button has no size under the 36px dense one but icon-sm, a table row's 32px icon with a 44px hit area", () => {
     const source = ui("button.tsx");
-    for (const dropped of ["xs:", "icon-xs", "icon-sm"]) expect(source).not.toContain(dropped);
+    for (const dropped of ["xs:", "icon-xs"]) expect(source).not.toContain(dropped);
+    expect(source).toContain('"icon-sm": "relative size-8 after:absolute after:-inset-1.5"');
   });
 
   it.each([
