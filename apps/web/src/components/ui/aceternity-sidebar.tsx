@@ -214,7 +214,7 @@ const row =
  */
 const pressable = cn(
   row,
-  "group/row hover:bg-sidebar-border data-[current=true]:bg-sidebar-accent data-[current=true]:text-sidebar-accent-foreground data-[current=true]:shadow-[0_4px_14px_-2px_color-mix(in_srgb,var(--sidebar-accent)_40%,transparent)]",
+  "group/row hover:bg-sidebar-border aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:shadow-[0_4px_14px_-2px_color-mix(in_srgb,var(--sidebar-accent)_40%,transparent)]",
 );
 
 /** The icon's 20px box (a 32px avatar centres on it); `dot`, a colour class, marks waiting work on its corner at rest. */
@@ -308,7 +308,6 @@ export function SidebarLink({
       <Link
         aria-current={current ? "page" : undefined}
         aria-describedby={description === undefined ? undefined : descriptionId}
-        data-current={current}
         className={cn(pressable, className)}
         onClick={(event) => {
           onClick?.(event);

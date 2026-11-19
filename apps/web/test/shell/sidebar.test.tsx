@@ -137,12 +137,12 @@ describe("the agency's sidebar", () => {
     const { sidebar } = renderSidebar();
     const home = sidebar.getByRole("link", { name: navigation.home });
     expect(home).toHaveAttribute("aria-current", "page");
-    expect(home).toHaveAttribute("data-current", "true");
-    // jsdom draws no CSS: the classes the current item wears, and what the agency's sidebar sets their tokens to.
+    // jsdom draws no CSS: the classes the current item wears, keyed on aria-current, and what the agency's sidebar sets
+    // their tokens to.
     for (const style of [
-      "data-[current=true]:bg-sidebar-accent",
-      "data-[current=true]:text-sidebar-accent-foreground",
-      "data-[current=true]:shadow-[0_4px_14px_-2px_color-mix(in_srgb,var(--sidebar-accent)_40%,transparent)]",
+      "aria-[current=page]:bg-sidebar-accent",
+      "aria-[current=page]:text-sidebar-accent-foreground",
+      "aria-[current=page]:shadow-[0_4px_14px_-2px_color-mix(in_srgb,var(--sidebar-accent)_40%,transparent)]",
     ]) {
       expect(home.className).toContain(style);
     }
@@ -151,7 +151,7 @@ describe("the agency's sidebar", () => {
     expect(agencyTokens).toContain("--sidebar-accent-foreground: var(--brand-on-action);");
     const leads = sidebar.getByRole("link", { name: navigation.leads });
     expect(leads).not.toHaveAttribute("aria-current");
-    expect(leads).toHaveAttribute("data-current", "false");
+    expect(document.querySelector("[data-current]")).toBeNull();
   });
 
   it("counts the work waiting: the Inbox's unread chats in violet, My tasks' in red, said after their names", async () => {

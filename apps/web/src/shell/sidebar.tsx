@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
 import { useTodaySummary } from "@/today/use-today";
-import { isAtOrUnder, isCurrent, navigationGroups, type NavigationItem } from "./navigation";
+import { isCurrent, navigationGroups, type NavigationItem } from "./navigation";
 import { OrgAvatar } from "./org-mark";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
@@ -122,7 +122,6 @@ function PersonMenu() {
   const t = useTranslations("shell.navigation");
   const { user } = useMe();
   const signOut = useSignOut();
-  const pathname = usePathname();
   const { hold, chose } = useSidebar();
   return (
     <DropdownMenu
@@ -139,7 +138,6 @@ function PersonMenu() {
           }
           label={user.name}
           aria-label={t("accountMenu", { name: user.name })}
-          data-current={isAtOrUnder(pathname, routes.account)}
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-56">
