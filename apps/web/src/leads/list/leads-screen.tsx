@@ -170,15 +170,11 @@ export function LeadsScreen() {
   };
 
   const toolbar = (
-    // Whose leads at the left, in the solid tabs with room for each word (as My tasks and Follow-ups); the search and
-    // Filters at the right (owner, 2026-11-20). On a phone the three tabs share the row.
+    // Whose leads at the left, the registry's own tabs (the stage chips under them are already ink) with room for each
+    // word; the search and Filters at the right (owner, 2026-11-20). On a phone the three tabs share the row.
     <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
       {!ownOnly && (
-        <TabsList
-          variant="solid"
-          className="w-full md:w-fit max-md:*:min-w-0 max-md:*:flex-1 max-md:*:px-2"
-          aria-label={t("whose")}
-        >
+        <TabsList className="w-full md:w-fit md:*:min-w-28 md:*:px-5" aria-label={t("whose")}>
           <TabsTrigger value="mine">{t("mine")}</TabsTrigger>
           <TabsTrigger value="everyone">{t("everyone")}</TabsTrigger>
           <TabsTrigger value="unassigned">
