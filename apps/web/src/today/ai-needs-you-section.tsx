@@ -89,7 +89,8 @@ export function AiNeedsYouSection({
           ]}
           actions={{
             header: t("columns.actions"),
-            width: 304,
+            // Open chat, or Yes and No (No wraps under a long Yes): narrow enough to sit beside Customer at 768px.
+            width: 240,
             cell: (row) =>
               row.kind === "chat" ? (
                 <Button variant="outline" asChild>

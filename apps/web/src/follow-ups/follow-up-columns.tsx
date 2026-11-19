@@ -86,7 +86,7 @@ export function useFollowUpColumns({
         cell: (row) => <CustomerCell name={row.lead.name} href={leadRoute(row.lead.id)} stage={row.lead.stage} />,
       },
       { header: t("columns.remarks"), cell: (row) => <ClampedText text={row.title} /> },
-      { header: t("columns.nextStep"), min: 200, cell: nextStep },
+      { header: t("columns.nextStep"), cell: nextStep },
       {
         header: t("columns.due"),
         width: 184,
