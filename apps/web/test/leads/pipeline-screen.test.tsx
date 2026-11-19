@@ -317,6 +317,13 @@ describe("the pipeline board", () => {
     expect(screen.queryByText(trip.none)).not.toBeInTheDocument();
   });
 
+  it("lets what's next take a second line rather than cut its day and time", async () => {
+    renderBoard();
+    const next = await (await column("new")).findByText(/not contacted yet/);
+    expect(next.parentElement).toHaveClass("line-clamp-2");
+    expect(next.parentElement).not.toHaveClass("truncate");
+  });
+
   it("shows each card's owner, as their initials, in Everyone's view only", async () => {
     renderBoard();
     const ownedBy = pipeline.ownedBy.replace("{name}", "Asha Sharma");

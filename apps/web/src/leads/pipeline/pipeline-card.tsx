@@ -1,9 +1,9 @@
 "use client";
 
 // A lead on the pipeline board, compact (web revamp part 4): its name in ink, the whole card one link to its page; its
-// trip when it has details; what's next on one line in its urgency's colour; its owner's initials in Everyone's view;
-// and Move to in the same top-right corner on every card. On a computer it can also be dragged to another column, and
-// lifts while it is (DESIGN.md Elevation: a shadow on what floats).
+// trip when it has details; what's next in its urgency's colour, on two lines at most; its owner's initials in
+// Everyone's view; and Move to in the same top-right corner on every card. On a computer it can also be dragged to
+// another column, and lifts while it is (DESIGN.md Elevation: a shadow on what floats).
 import type { LeadListItem, LeadStage } from "@travel-crm/contracts/crm";
 import Link from "next/link";
 import { memo, useState } from "react";
@@ -72,7 +72,8 @@ export const PipelineCard = memo(function PipelineCard({
         </ItemTitle>
         {trip !== null && <ItemDescription className="script-leading">{trip}</ItemDescription>}
         <div className="flex min-h-6 items-center gap-2 text-label">
-          <span className="min-w-0 flex-1 truncate">
+          {/* Two lines at most: a narrow column wraps the day and time rather than cut them. */}
+          <span className="line-clamp-2 min-w-0 flex-1">
             <NextStep next={lead.next} timeZone={timeZone} />
           </span>
           {owner !== undefined && <OwnerInitials name={owner} />}
