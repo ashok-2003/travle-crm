@@ -27,7 +27,7 @@ export function AiInsightsCard({ period }: { period: Period }) {
   const chats = useChatsAnswered(period);
   const failed = settings.isError ? settings : chats.isError ? chats : null;
   return (
-    <HomeCard title={t("title")}>
+    <HomeCard title={t("title")} tint="violet">
       {failed !== null && (
         <LoadFailedAlert
           message={t("loadFailed")}

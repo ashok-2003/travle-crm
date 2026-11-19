@@ -126,6 +126,14 @@ describe("Home's day", () => {
     });
   });
 
+  it("gives each day card a subtle tint of its own: tasks sky, attention amber, departures sage, AI violet", async () => {
+    renderHome({ departures: [departure] });
+    expect(await card(h.tasks.title)).toHaveClass("bg-avatar-sky-fill/50");
+    expect(await card(h.attention.title)).toHaveClass("bg-avatar-amber-fill/50");
+    expect(await card(h.departures.title)).toHaveClass("bg-avatar-sage-fill/50");
+    expect(await card(h.ai.title)).toHaveClass("bg-avatar-violet-fill/50");
+  });
+
   it("puts the cards of a row in one grid that stretches them to the same height", async () => {
     renderHome({ hot: [hotLead(1)], departures: [departure] });
     const tasks = await card(h.tasks.title);

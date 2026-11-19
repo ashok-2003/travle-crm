@@ -1,6 +1,8 @@
 "use client";
 
-// A card of Home's day (spec 5): its title, and View all in the corner when there is more to open.
+// A card of Home's day (spec 5): its title, and View all in the corner when there is more to open. Each of the four
+// day cards wears a subtle tint of its own (owner, 2026-11-19): the brand's decorative tints at half strength, which say
+// no status: your tasks sky, needs your attention amber, departures sage, AI insights violet.
 import { useTranslations } from "next-intl";
 import { useId, type ReactNode } from "react";
 import { ForwardLink } from "@/components/text-link";
@@ -17,11 +19,29 @@ export const rowClasses = {
   about: "min-w-0 line-clamp-2 break-words md:line-clamp-1",
 };
 
-export function HomeCard({ title, viewAll, children }: { title: string; viewAll?: string; children: ReactNode }) {
+/** Written out in full so Tailwind finds every class. */
+const tints = {
+  sky: "bg-avatar-sky-fill/50",
+  amber: "bg-avatar-amber-fill/50",
+  sage: "bg-avatar-sage-fill/50",
+  violet: "bg-avatar-violet-fill/50",
+} as const;
+
+export function HomeCard({
+  title,
+  viewAll,
+  tint,
+  children,
+}: {
+  title: string;
+  viewAll?: string;
+  tint?: keyof typeof tints;
+  children: ReactNode;
+}) {
   const t = useTranslations("home");
   const headingId = useId();
   return (
-    <Card role="region" aria-labelledby={headingId}>
+    <Card role="region" aria-labelledby={headingId} className={tint === undefined ? undefined : tints[tint]}>
       <CardHeader>
         <CardTitle>
           <h2 id={headingId}>{title}</h2>
