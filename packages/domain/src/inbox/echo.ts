@@ -38,7 +38,7 @@ export async function receiveEcho(
       // A send of ours still waiting for MSG91's answer gets its request id with it: the echo is tried again, as an early
       // report is. After two minutes it is stored, so a person's own message is never lost.
       const waiting = await tx.whatsappMessage.findFirst({
-        where: { conversationId: conversation.id, status: "sending" },
+        where: { conversationId: conversation.id, status: "sending", origin: { not: "staff_phone" } },
         select: { id: true },
       });
       if (waiting !== null && now.getTime() - (message.occurredAt ?? now).getTime() <= GIVE_UP_MS) {
