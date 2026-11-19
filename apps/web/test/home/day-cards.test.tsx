@@ -108,22 +108,36 @@ afterEach(() => {
 });
 
 describe("Home's day", () => {
-  it("lists the cards in order: setup, leads, tasks, needs your attention, hot leads, departures, AI insights", async () => {
+  it("lists the cards in order: setup, leads and AI insights, tasks, needs your attention, hot leads, departures", async () => {
     renderHome({ hot: [hotLead(1)], departures: [departure] });
     const names = [
       messages.business.setup.homeHeading.replace("{organization}", "Sharma Travels"),
       h.leads.title,
+      h.ai.title,
       h.tasks.title,
       h.attention.title,
       h.hot.title,
       h.departures.title,
-      h.ai.title,
     ];
     const cards: HTMLElement[] = [];
     for (const name of names) cards.push(await card(name));
     cards.slice(1).forEach((next, index) => {
       expect((cards[index]?.compareDocumentPosition(next) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
+  });
+
+  it("pairs Leads with AI insights from 1280px, leaves a lone card the whole row, and gives Departures the full width", async () => {
+    renderHome({ hot: [hotLead(1)], departures: [departure] });
+    const leads = await card(h.leads.title);
+    const ai = await card(h.ai.title);
+    expect(leads.parentElement).toBe(ai.parentElement);
+    expect(leads.parentElement?.className).toContain("xl:grid-cols-3");
+    expect(leads.parentElement?.className).toContain("xl:*:first:col-span-2");
+    const hot = await card(h.hot.title);
+    expect(hot.parentElement?.className).toContain("lg:*:last:odd:col-span-2");
+    const departures = await card(h.departures.title);
+    expect(departures.parentElement).not.toBe(hot.parentElement);
+    expect(departures.parentElement?.className ?? "").not.toContain("grid-cols");
   });
 
   it("tints each day card by what it holds: tasks primary, attention amber, departures good green, AI violet", async () => {

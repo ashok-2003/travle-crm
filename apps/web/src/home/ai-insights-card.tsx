@@ -38,42 +38,47 @@ export function AiInsightsCard({ period }: { period: Period }) {
           }}
         />
       )}
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <span className="text-label text-muted-foreground">
-            {t("chats")} · {tPeriod(period)}
-          </span>
-          {chats.data === undefined ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <span className="numbers text-number-lg font-medium text-(--brand-people-tint-ink)">
-              <CountUp value={chats.data.chats} />
+      {/* Side by side when the card is wide, stacked in its third of the row beside Leads. */}
+      <div className="@container">
+        <div className="grid gap-6 @md:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-label text-muted-foreground">
+              {t("chats")} · {tPeriod(period)}
             </span>
-          )}
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-label text-muted-foreground">{t("calls")}</span>
-          {calls === undefined ? (
-            <Skeleton className="h-8 w-32" />
-          ) : (
-            <>
-              <span className="text-label text-muted-foreground">
-                {t.rich("callsUsed", {
-                  used: formatCount(calls.usedThisMonth),
-                  limit: formatCount(calls.monthlyLimit),
-                  value: (figure) => (
-                    <span className="numbers text-number-lg font-medium text-(--brand-people-tint-ink)">{figure}</span>
-                  ),
-                  n: (figure) => <span className="numbers">{figure}</span>,
-                })}
+            {chats.data === undefined ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <span className="numbers text-number-lg font-medium text-(--brand-people-tint-ink)">
+                <CountUp value={chats.data.chats} />
               </span>
-              <Progress
-                value={usedShare}
-                aria-label={t("chart")}
-                className="mt-2 h-2 bg-[color-mix(in_oklab,var(--brand-people)_24%,var(--card))] [&>[data-slot=progress-indicator]]:bg-people"
-              />
-            </>
-          )}
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-label text-muted-foreground">{t("calls")}</span>
+            {calls === undefined ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <>
+                <span className="text-label text-muted-foreground">
+                  {t.rich("callsUsed", {
+                    used: formatCount(calls.usedThisMonth),
+                    limit: formatCount(calls.monthlyLimit),
+                    value: (figure) => (
+                      <span className="numbers text-number-lg font-medium text-(--brand-people-tint-ink)">
+                        {figure}
+                      </span>
+                    ),
+                    n: (figure) => <span className="numbers">{figure}</span>,
+                  })}
+                </span>
+                <Progress
+                  value={usedShare}
+                  aria-label={t("chart")}
+                  className="mt-2 h-2 bg-[color-mix(in_oklab,var(--brand-people)_24%,var(--card))] [&>[data-slot=progress-indicator]]:bg-people"
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </HomeCard>

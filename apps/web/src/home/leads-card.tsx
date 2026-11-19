@@ -1,8 +1,9 @@
 "use client";
 
-// Home's leads card (spec 5): leads that came in during the period, by the stage they are in now. A donut in the stages'
-// dot colours, the total, and a card for each stage in its own tint (DESIGN.md "Stage breakdown (Home)"), each a way
-// into the Leads list at that stage and period. The total is a figure, not a link.
+// Home's leads card (spec 5): leads that came in during the period, by the stage they are in now. A compact card for
+// each stage in its own tint (DESIGN.md "Stage breakdown (Home)"), each a way into the Leads list at that stage and
+// period, and a donut in the stages' dot colours with the total in its middle, compact enough to share its row with
+// the AI's insights from 1280px (owner, 2026-11-20). The total is a figure, not a link.
 import { leadStage, type LeadStage } from "@travel-crm/contracts/crm";
 import type { Period } from "@travel-crm/contracts/kernel";
 import Link from "next/link";
@@ -78,12 +79,12 @@ export function LeadsCard({ period }: { period: Period }) {
               {shown.map((stage) => (
                 <li key={stage}>
                   {data === undefined ? (
-                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-14 w-full" />
                   ) : (
                     <Link
                       href={hrefOf(stage)}
                       className={cn(
-                        "flex min-h-16 flex-col justify-between gap-1 rounded-lg p-3",
+                        "flex h-full min-h-14 flex-col justify-between gap-0.5 rounded-lg px-3 py-2",
                         stageTones[stage].badge,
                       )}
                     >
@@ -94,27 +95,23 @@ export function LeadsCard({ period }: { period: Period }) {
                         />
                         {tStages(stage)}
                       </span>
-                      <span className="numbers text-number-lg font-medium">{formatCount(data.stages[stage])}</span>
+                      <span className="numbers text-number font-medium">{formatCount(data.stages[stage])}</span>
                     </Link>
                   )}
                 </li>
               ))}
             </ul>
-            <div className="flex items-center gap-6 lg:shrink-0">
-              <ChartContainer
-                config={config}
-                className="aspect-square size-36 shrink-0"
-                role="img"
-                aria-label={t("chart")}
-              >
+            {/* The total sits in the donut's middle, so the pair takes one narrow column. */}
+            <div className="relative size-32 shrink-0 self-center">
+              <ChartContainer config={config} className="aspect-square size-32" role="img" aria-label={t("chart")}>
                 <PieChart>
                   <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="stage" />} />
                   {segments.length === 0 ? (
                     <Pie
                       data={[{ stage: "none", count: 1, fill: "var(--color-muted)" }]}
                       dataKey="count"
-                      innerRadius={44}
-                      outerRadius={64}
+                      innerRadius={46}
+                      outerRadius={62}
                       isAnimationActive={false}
                       stroke="none"
                     />
@@ -127,8 +124,8 @@ export function LeadsCard({ period }: { period: Period }) {
                       }))}
                       dataKey="count"
                       nameKey="stage"
-                      innerRadius={44}
-                      outerRadius={64}
+                      innerRadius={46}
+                      outerRadius={62}
                       paddingAngle={2}
                       stroke="none"
                       isAnimationActive={false}
@@ -136,13 +133,13 @@ export function LeadsCard({ period }: { period: Period }) {
                   )}
                 </PieChart>
               </ChartContainer>
-              <div className="flex flex-col gap-1">
-                <span className="text-label text-muted-foreground">{t("total")}</span>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 {data === undefined ? (
-                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-7 w-12" />
                 ) : (
                   <span className="numbers text-number-lg font-medium">{formatCount(data.total)}</span>
                 )}
+                <span className="text-caption text-muted-foreground">{t("total")}</span>
               </div>
             </div>
             {data !== undefined && (
