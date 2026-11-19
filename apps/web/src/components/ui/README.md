@@ -11,7 +11,9 @@ component drops under 44px (jsdom has no layout, so it reads the size utilities,
 included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and overlay shadow to DESIGN.md.
 
 - Touch targets, 44px: every `button` size (`default` 44, `lg` 48, `icon` 44, `icon-lg` 48; `sm` is 36 with a 44px hit
-  area from `after:-inset-y-1`, for dense desktop toolbars); the `xs`, `icon-xs` and `icon-sm` sizes are gone.
+  area from `after:-inset-y-1`, for dense desktop toolbars; `icon-sm` is 32 with a 44px hit area from
+  `after:-inset-1.5`, for the icon buttons in a table's rows, 12px apart so the hit areas never overlap; web revamp
+  part 2, 2026-11-19); the `xs` and `icon-xs` sizes are gone.
   `select` trigger and options, `dropdown-menu` items, `tabs` triggers, `table` rows and header cells, `input-otp`
   slots, the dialog and sheet close buttons are 44px. `checkbox` and `radio-group` items are 20px with a 44px hit
   area, `switch` 44x24 with a 44px tall one. The small `sm` sizes of `select` and `switch` are gone. `input-group` is
@@ -60,7 +62,7 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   around 44px menu buttons (the registry's are 32px), and the `lg` button keeps its padding. `SidebarProvider`'s
   `rememberOpen` opens it as the person left it (the registry's cookie), read in the browser, and it holds the
   `TooltipProvider` its folded icons' names need, as the registry's does. `SidebarTrigger` is the
-  44px `icon` button (the registry's `icon-sm` is gone from `button`), and takes its words as `label`, a message. Parts
+  44px `icon` button (not the registry's `icon-sm`, which is 32px to see), and takes its words as `label`, a message. Parts
   the app doesn't render are not yet DESIGN.md's: `SidebarMenuSubButton` (28px high), `SidebarMenuAction` and
   `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the rail and
   the phone sheet (the sheet's title), which are not messages. Make them 44px and messages before using one.

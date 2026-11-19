@@ -54,7 +54,7 @@ function expectTarget(element: Element, { square = false } = {}) {
 }
 
 describe("touch targets", () => {
-  it.each(["default", "sm", "lg", "icon", "icon-lg"] as const)("a %s button", (size) => {
+  it.each(["default", "sm", "lg", "icon", "icon-sm", "icon-lg"] as const)("a %s button", (size) => {
     render(<Button size={size}>Go</Button>);
     expectTarget(screen.getByRole("button"), { square: size.startsWith("icon") });
   });
