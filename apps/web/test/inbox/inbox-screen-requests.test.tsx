@@ -1,7 +1,7 @@
-// The Inbox asks for the chat list's owner names and tags together with its status, not after the list has loaded.
+// The Inbox asks for the chat list's owner names and tags together with its status, not after the list has loaded. It
+// leaves the sidebar alone (web revamp part 5: no fold), so it renders with no sidebar around it.
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { InboxScreen } from "@/inbox/inbox-screen";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
@@ -18,13 +18,7 @@ describe("InboxScreen's first requests", () => {
   it("send the status, the owners and the tags in one batch", async () => {
     screenIs("wide");
     stubApi({ "inbox.status": "never", "leads.owners": "never", "inbox.tags": "never" });
-    renderWithApi(
-      <SidebarProvider>
-        <InboxScreen conversationId={null} />
-      </SidebarProvider>,
-      newQueryClient(),
-      member({ isOwner: true }),
-    );
+    renderWithApi(<InboxScreen conversationId={null} />, newQueryClient(), member({ isOwner: true }));
     await waitFor(() => {
       expect(vi.mocked(globalThis.fetch)).toHaveBeenCalled();
     });

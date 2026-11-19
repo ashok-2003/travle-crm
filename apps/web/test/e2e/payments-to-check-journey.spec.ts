@@ -119,8 +119,6 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
   await traveller.close();
 
   // Today counts both, and leads to the list.
-  // The inbox folds the sidebar on a computer and a reload keeps it folded: the rest of the journey runs with the rail folded.
-  await owner.context().addCookies([{ name: "sidebar_state", value: "false", url: owner.url() }]);
   await owner.goto("/today");
   await openTab(owner, "AI needs you");
   await expect(owner.getByRole("button", { name: /^Notifications/ })).toBeVisible();
