@@ -170,9 +170,15 @@ export function LeadsScreen() {
   };
 
   const toolbar = (
+    // Whose leads at the left, in the solid tabs with room for each word (as My tasks and Follow-ups); the search and
+    // Filters at the right (owner, 2026-11-20). On a phone the three tabs share the row.
     <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
       {!ownOnly && (
-        <TabsList className="w-full md:w-fit" aria-label={t("whose")}>
+        <TabsList
+          variant="solid"
+          className="w-full md:w-fit max-md:*:min-w-0 max-md:*:flex-1 max-md:*:px-2"
+          aria-label={t("whose")}
+        >
           <TabsTrigger value="mine">{t("mine")}</TabsTrigger>
           <TabsTrigger value="everyone">{t("everyone")}</TabsTrigger>
           <TabsTrigger value="unassigned">
@@ -181,7 +187,7 @@ export function LeadsScreen() {
         </TabsList>
       )}
       {/* Filters sits beside the search, in view on a phone rather than at the end of the chips' strip. */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 md:ml-auto">
         <SearchField key={searchBox} initial={search} onSearch={searchFor} className="min-w-0 flex-1 md:flex-none" />
         <FiltersDialog filters={filters} chipShown={isChipStage(filters.stage)} ownOnly={ownOnly} onApply={show} />
       </div>
