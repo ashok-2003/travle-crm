@@ -219,6 +219,9 @@
   html {
     @apply font-sans;
     -webkit-text-size-adjust: 100%;
+    /* The scrollbar's room is kept on short pages too, so a centred page doesn't move by half a scrollbar between a
+       short page and a long one (Windows, or a Mac with a mouse; phones' scrollbars float and keep none). */
+    scrollbar-gutter: stable;
   }
   body {
     @apply bg-background text-body text-foreground antialiased;
@@ -261,6 +264,15 @@
 :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/*
+ * A dialog or menu that locks the page's scrolling (Radix, through react-remove-scroll) adds the scrollbar's width as
+ * a margin, for a page whose scrollbar goes; the gutter kept above stays, so that margin would push the page in by a
+ * second scrollbar's width. More specific than its own `body[data-scroll-locked]`, so this wins.
+ */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
 }
 
 /* An input with a button inside it (the password input): the outline goes round the whole field, not the input. */
