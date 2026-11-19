@@ -23,7 +23,9 @@ export function DenseRow({
     <Item size="sm" role="listitem" className="py-1">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 md:flex-nowrap">
-          <div className="flex min-w-0 flex-1 basis-48 flex-wrap items-baseline gap-x-2 md:flex-nowrap">{line}</div>
+          <div className="flex min-w-0 flex-1 basis-48 flex-wrap md:overflow-hidden items-baseline gap-x-2 md:flex-nowrap">
+            {line}
+          </div>
           {when}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-x-3">
