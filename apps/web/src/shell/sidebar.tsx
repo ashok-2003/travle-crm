@@ -1,158 +1,203 @@
 "use client";
 
-// The desktop navigation (DESIGN.md section 6), the registry's Sidebar: fixed to the window at full height while the
-// page scrolls, with the agency's logo (or name; folded, the logo small or the name's first letter), the bell and the fold
-// button; the destinations under their headings, the current page marked, and live counts where work waits (the Inbox's
-// unread chats, Today's due and overdue work); and at the bottom the person's name with the way to their account, and
-// sign-out. Folded, it keeps the icons, each named in a tooltip, and opens
-// again as it was left. Phones have the top bar and the bottom bar instead.
-import { LogOutIcon, UserIcon } from "lucide-react";
+// The desktop navigation (DESIGN.md section 6, web revamp part 5): a 60px rail of icons on every page that opens as the
+// full sidebar over the page on hover, keyboard focus or a touch screen's top button, and shuts when the pointer leaves
+// (components/ui/aceternity-sidebar.tsx). At its top the agency's mark and name and the bell; the destinations in three
+// groups split by a hairline, the current page marked, live counts where work waits (the Inbox's unread chats in the
+// people violet, My tasks' work in red); at its foot the person, whose menu holds their account and sign-out.
+// Phones have the top bar and the bottom bar instead.
+import { BellIcon, LogOutIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
+import { TabCount } from "@/components/tab-count";
 import {
   Sidebar,
+  SidebarBody,
+  SidebarButton,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
+  SidebarLink,
+  SidebarRow,
   SidebarSeparator,
-  SidebarTrigger,
+  SidebarToggle,
   useSidebar,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/aceternity-sidebar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { initialsOf, tintOf } from "@/inbox/chat-avatar";
 import { useInboxSummary } from "@/inbox/use-sales-inbox";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
 import { useTodaySummary } from "@/today/use-today";
-import { isAtOrUnder, isCurrent, navigationGroups, type NavigationItem } from "./navigation";
-import { FoldedOrgMark, OrgMark } from "./org-mark";
+import { isCurrent, navigationGroups, type NavigationItem } from "./navigation";
+import { OrgAvatar } from "./org-mark";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
 import { useNavigationItems } from "./use-navigation-items";
 
-/** A count beside a destination, past 99 as "99+"; nothing at zero. */
-function CountBadge({ count, label }: { count: number | undefined; label: string }) {
-  if (count === undefined || count === 0) return null;
+/** Work waiting at a destination: its pill (and its dot at rest), and the words a screen reader hears after its name. */
+interface Waiting {
+  count: number;
+  tone: "waiting" | "people";
+  words: string;
+}
+
+const dots = { waiting: "bg-status-bad-dot", people: "bg-people" } as const;
+
+function Destination({ item, waiting }: { item: NavigationItem; waiting?: Waiting }) {
+  const t = useTranslations("shell.navigation");
+  const pathname = usePathname();
+  const prefetch = usePrefetchDestination();
+  const shown = waiting !== undefined && waiting.count > 0 ? waiting : undefined;
   return (
-    <SidebarMenuBadge aria-label={label} className="numbers">
-      {count > 99 ? "99+" : count}
-    </SidebarMenuBadge>
+    <SidebarLink
+      href={item.href}
+      icon={<item.icon />}
+      label={t(item.key)}
+      current={isCurrent(item, pathname)}
+      dot={shown && dots[shown.tone]}
+      aside={shown && <TabCount count={shown.count} tone={shown.tone} />}
+      description={shown?.words}
+      {...prefetchHandlers(() => {
+        prefetch(item.key);
+      })}
+    />
   );
 }
 
-function InboxCount() {
+function InboxDestination({ item }: { item: NavigationItem }) {
   const t = useTranslations("shell.navigation");
-  const count = useInboxSummary().data?.unread;
-  return <CountBadge count={count} label={t("unread", { count: count ?? 0 })} />;
+  const count = useInboxSummary().data?.unread ?? 0;
+  return <Destination item={item} waiting={{ count, tone: "people", words: t("unread", { count }) }} />;
 }
 
-function TodayCount() {
+function TodayDestination({ item }: { item: NavigationItem }) {
   const t = useTranslations("shell.navigation");
   const counts = useTodaySummary().data?.counts;
-  const count = counts === undefined ? undefined : counts.overdue + counts.dueToday + counts.newLeads;
-  return <CountBadge count={count} label={t("toDo", { count: count ?? 0 })} />;
+  const count = counts === undefined ? 0 : counts.overdue + counts.dueToday + counts.newLeads;
+  return <Destination item={item} waiting={{ count, tone: "waiting", words: t("toDo", { count }) }} />;
 }
 
-const counts: Partial<Record<NavigationItem["key"], () => React.ReactNode>> = {
-  inbox: () => <InboxCount />,
-  today: () => <TodayCount />,
+/** The destinations with a live count; only these ask for one, so a role without the Inbox never asks for its count. */
+const counted: Partial<Record<NavigationItem["key"], (props: { item: NavigationItem }) => ReactNode>> = {
+  inbox: InboxDestination,
+  today: TodayDestination,
 };
 
-/** The person at the foot of the sidebar: their name with the way to their account, and Sign out, always in view (DESIGN.md section 6). */
-function PersonFooter() {
+/** The bell as one of the sidebar's rows; the sidebar stays open while its notifications are. */
+function BellRow() {
   const t = useTranslations("shell.navigation");
-  const me = useMe();
-  const signOut = useSignOut();
-  const pathname = usePathname();
-  const onAccount = isAtOrUnder(pathname, routes.account);
+  const { hold } = useSidebar();
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton asChild size="lg" isActive={onAccount} tooltip={t("account")}>
-          <Link href={routes.account} aria-current={onAccount ? "page" : undefined}>
+    <NotificationBell
+      opensAs="popover"
+      onOpenChange={(open) => {
+        hold("bell", open);
+      }}
+      trigger={({ label, unread }) => (
+        <SidebarButton
+          icon={<BellIcon />}
+          label={t("notifications")}
+          aria-label={label}
+          dot={unread > 0 ? dots.people : undefined}
+          aside={unread > 0 ? <TabCount count={unread} tone="people" /> : undefined}
+        />
+      )}
+    />
+  );
+}
+
+/** The person at the foot: their initials and name, opening a menu with their account and sign-out. */
+function PersonMenu() {
+  const t = useTranslations("shell.navigation");
+  const { user } = useMe();
+  const signOut = useSignOut();
+  const { hold, chose } = useSidebar();
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        hold("account", open);
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <SidebarButton
+          icon={
+            <Avatar className="size-8">
+              <AvatarFallback className={cn("font-semibold", tintOf(user.id))}>{initialsOf(user.name)}</AvatarFallback>
+            </Avatar>
+          }
+          label={user.name}
+          aria-label={t("accountMenu", { name: user.name })}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-56">
+        <DropdownMenuItem asChild>
+          <Link href={routes.account} onClick={chose}>
             <UserIcon aria-hidden="true" />
-            <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:sr-only">
-              <span className="font-medium break-words">{me.user.name}</span>
-              <span className="text-caption text-sidebar-foreground">{t("account")}</span>
-            </span>
+            {t("account")}
           </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton onClick={signOut} tooltip={t("signOut")}>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={signOut}>
           <LogOutIcon aria-hidden="true" />
-          <span className="group-data-[collapsible=icon]:sr-only">{t("signOut")}</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
+          {t("signOut")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 export function AppSidebar() {
   const t = useTranslations("shell.navigation");
-  const pathname = usePathname();
+  const { organization } = useMe();
   const items = useNavigationItems();
-  const prefetch = usePrefetchDestination();
-  const { open } = useSidebar();
+  const groups = navigationGroups
+    .map((group) => ({ group, items: items.filter((item) => item.group === group) }))
+    .filter((group) => group.items.length > 0);
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="gap-3 py-4">
-        {/* The bell and the fold button wear the sidebar's ink, not the action blue, on the green. */}
-        <div className="flex items-center gap-1 pl-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:pl-0 [&_button]:text-sidebar-foreground [&_button]:hover:bg-sidebar-accent [&_button]:hover:text-sidebar-accent-foreground">
-          <OrgMark className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden" />
-          <FoldedOrgMark />
-          <NotificationBell opensAs="popover" />
-          <SidebarTrigger label={open ? t("collapse") : t("expand")} />
-        </div>
-      </SidebarHeader>
-      <SidebarSeparator />
-      <SidebarContent className="gap-1 py-2">
-        <nav aria-label={t("label")}>
-          {navigationGroups.map((group) => {
-            const inGroup = items.filter((item) => item.group === group);
-            if (inGroup.length === 0) return null;
-            return (
-              <SidebarGroup key={group}>
-                <SidebarGroupLabel className="text-caption font-semibold text-sidebar-foreground tracking-wide uppercase group-data-[collapsible=icon]:hidden">
-                  {t(`groups.${group}`)}
-                </SidebarGroupLabel>
-                <SidebarMenu className="gap-0.5">
+    <Sidebar>
+      <SidebarBody>
+        <SidebarHeader>
+          <SidebarToggle openLabel={t("openSidebar")} closeLabel={t("closeSidebar")} />
+          <SidebarRow icon={<OrgAvatar className="size-8" />}>
+            <span className="script-leading text-section font-semibold">{organization.name}</span>
+          </SidebarRow>
+          <BellRow />
+        </SidebarHeader>
+        <SidebarSeparator />
+        <SidebarContent>
+          <nav aria-label={t("label")}>
+            {groups.map(({ group, items: inGroup }, index) => (
+              <div key={group}>
+                {index > 0 && <SidebarSeparator />}
+                <ul className="flex flex-col gap-0.5">
                   {inGroup.map((item) => {
-                    const current = isCurrent(item, pathname);
+                    const Item = counted[item.key] ?? Destination;
                     return (
-                      <SidebarMenuItem key={item.key}>
-                        <SidebarMenuButton asChild isActive={current} tooltip={t(item.key)} className="font-medium">
-                          <Link
-                            href={item.href}
-                            aria-current={current ? "page" : undefined}
-                            {...prefetchHandlers(() => {
-                              prefetch(item.key);
-                            })}
-                          >
-                            <item.icon aria-hidden="true" />
-                            <span className="group-data-[collapsible=icon]:sr-only">{t(item.key)}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                        {counts[item.key]?.()}
-                      </SidebarMenuItem>
+                      <li key={item.key}>
+                        <Item item={item} />
+                      </li>
                     );
                   })}
-                </SidebarMenu>
-              </SidebarGroup>
-            );
-          })}
-        </nav>
-      </SidebarContent>
-      <SidebarSeparator />
-      <SidebarFooter className="py-3">
-        <PersonFooter />
-      </SidebarFooter>
+                </ul>
+              </div>
+            ))}
+          </nav>
+        </SidebarContent>
+        <SidebarSeparator />
+        <SidebarFooter>
+          <PersonMenu />
+        </SidebarFooter>
+      </SidebarBody>
     </Sidebar>
   );
 }

@@ -67,7 +67,28 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
   the app doesn't render are not yet DESIGN.md's: `SidebarMenuSubButton` (28px high), `SidebarMenuAction` and
   `SidebarGroupAction` (20px, a 36px hit area on phones only), `SidebarRail` (16px wide), and the words of the rail and
   the phone sheet (the sheet's title), which are not messages. Make them 44px and messages before using one.
-  `tooltip.tsx` came with it.
+  `tooltip.tsx` came with it. Since web revamp part 5 only the console renders it (and `AppFrame` its provider and
+  inset); the agency's sidebar is `aceternity-sidebar.tsx`, and nothing uses `rememberOpen` or the folded state now.
+- `aceternity-sidebar.tsx` (web revamp part 5, the owner's choice of 2026-11-20): Manu Arora's Sidebar, from Aceternity's
+  registry (`pnpm dlx shadcn@4.21.4 add https://ui.aceternity.com/registry/sidebar.json`; the owner's 21st.dev address,
+  `https://21st.dev/r/manuarora700/sidebar`, refuses the CLI without an account). Its own path is `sidebar.tsx`, ours, so
+  ours was set aside while the CLI wrote and the result moved here. The CLI added `@tabler/icons-react`, removed again:
+  lucide icons instead (one icon set); `motion` was already ours. Kept: the hover expansion, `motion/react` animating
+  the width from 60px, the icon-and-label rows with the label nudged on hover. Changed, for DESIGN.md and the owner's
+  "nothing moves": the rail is fixed to the window with a 60px placeholder in the page's flow, and opens to 256px over
+  the page with the overlay shadow, in 200ms on DESIGN.md's ease-out (at once under reduced motion; the labels fade in
+  once it is open and go at once when it shuts, behind `motion-safe:`), its labels a fixed 188px so nothing reflows while
+  it widens, and names wrap. It opens on keyboard focus too and shuts on Escape; a touch screen (one that can't hover)
+  has a top button (`SidebarToggle`), and a tap or click outside shuts it; choosing a destination shuts it too (with a
+  mouse as well, so the open panel never covers the page just chosen), until the pointer has left; it stays open while a
+  menu or popover from it is (`hold`). The registry's phone overlay (`MobileSidebar`) and its `animate`, `open` and `setOpen` props are
+  gone: phones keep the bottom bar, and nothing is remembered. Rows are 44px at least, links are Next's `Link`, icons are
+  decoration, a shut row is named in a tooltip, and a count shows as a dot at rest. Its colours are the
+  `--sidebar-*` tokens, which `globals.css` sets light (surface, hairline) for it alone; without that rule it wears the
+  console's deep green. The current page is a matte neon (owner, 2026-11-20): a flat fill of `--sidebar-accent` (the
+  action blue) with its ink (white, 5.17:1) and a soft glow of the accent at 40%, 14px, a little below
+  (`aria-[current=page]:shadow-[...]`, the link's `aria-current` style and the one shadow on a resting surface; at rest the icon square wears it). Its `z-(--z-dropdown)` puts the open panel above the page's sticky parts and
+  under scrims, dialogs and menus.
 - `avatar.tsx` (added for the folded sidebar's agency mark): `cn` from `lib/utils.ts` (the registry's import named a
   package that doesn't exist); `AvatarBadge`, `AvatarGroup` and `AvatarGroupCount` are gone (unused; the badge held a
   numeric z-index). It is not interactive, so it has no touch target.

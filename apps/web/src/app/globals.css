@@ -184,13 +184,24 @@
   --border: var(--brand-hairline);
   --input: var(--brand-input-border);
   --ring: var(--brand-action);
-  /* The desktop sidebar (DESIGN.md section 6): deep green with white words, the current page a lighter green. */
+  /* The console's sidebar and the sign-in page's panel: deep green with white words, the current page a lighter green. */
   --sidebar: var(--brand-sidebar-fill);
   --sidebar-foreground: var(--brand-sidebar-ink);
   --sidebar-accent: var(--brand-sidebar-active);
   --sidebar-accent-foreground: var(--brand-sidebar-ink);
   --sidebar-border: var(--brand-sidebar-active);
   --sidebar-ring: var(--brand-sidebar-ink);
+}
+
+/* The agency's sidebar (DESIGN.md section 6, components/ui/aceternity-sidebar.tsx): light, in the warm surface tone,
+   hairlines between its parts, the current page solid action blue with white words (5.17:1) and its soft glow. Without
+   this rule it wears the deep green above. */
+[data-slot="aceternity-sidebar"] {
+  --sidebar: var(--brand-surface);
+  --sidebar-foreground: var(--brand-ink);
+  --sidebar-accent: var(--brand-action);
+  --sidebar-accent-foreground: var(--brand-on-action);
+  --sidebar-border: var(--brand-hairline);
 }
 
 /* On a phone, toasts sit above the bottom bar (56px, and 8px more) on the pages that have one
@@ -208,6 +219,9 @@
   html {
     @apply font-sans;
     -webkit-text-size-adjust: 100%;
+    /* The scrollbar's room is kept on short pages too, so a centred page doesn't move by half a scrollbar between a
+       short page and a long one (Windows, or a Mac with a mouse; phones' scrollbars float and keep none). */
+    scrollbar-gutter: stable;
   }
   body {
     @apply bg-background text-body text-foreground antialiased;
@@ -250,6 +264,15 @@
 :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/*
+ * A dialog or menu that locks the page's scrolling (Radix, through react-remove-scroll) adds the scrollbar's width as
+ * a margin, for a page whose scrollbar goes; the gutter kept above stays, so that margin would push the page in by a
+ * second scrollbar's width. More specific than its own `body[data-scroll-locked]`, so this wins.
+ */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
 }
 
 /* An input with a button inside it (the password input): the outline goes round the whole field, not the input. */

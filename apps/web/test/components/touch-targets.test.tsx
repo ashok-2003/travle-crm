@@ -4,6 +4,7 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
+import { Sidebar as AceternitySidebar, SidebarButton, SidebarLink } from "@/components/ui/aceternity-sidebar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -91,6 +92,17 @@ describe("touch targets", () => {
       expectTarget(screen.getByRole("button"));
     },
   );
+
+  it("the agency sidebar's rows, a link and a button, at least 44px so a wrapping name can grow them", () => {
+    render(
+      <AceternitySidebar>
+        <SidebarLink href="/staff" icon={null} label="Staff" />
+        <SidebarButton icon={null} label="Notifications" />
+      </AceternitySidebar>,
+    );
+    expectTarget(screen.getByRole("link"));
+    expectTarget(screen.getByRole("button"));
+  });
 
   it.each(["default", "sm"] as const)("a %s item that is a link", (size) => {
     render(

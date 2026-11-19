@@ -64,9 +64,9 @@ test("pointing at a destination loads its data before it opens", async ({ page, 
   await staffList;
 });
 
-test("on a desktop the sidebar stays put while a long page scrolls", async ({ page, agency }, testInfo) => {
+test("on a desktop the sidebar's rail stays put while a long page scrolls", async ({ page, agency }, testInfo) => {
   test.skip(isPhone(testInfo), "phones have the bottom bar, which is fixed already");
-  // A short window: the account page is longer than it, and so is the sidebar, whose own content then scrolls.
+  // A short window: the account page is longer than it, and so is the rail, whose destinations then scroll.
   await page.setViewportSize({ width: 1280, height: 320 });
   await signInByEmail(page, agency.owner);
   await page.goto("/account");
@@ -78,13 +78,47 @@ test("on a desktop the sidebar stays put while a long page scrolls", async ({ pa
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   expect(await navigation.boundingBox()).toEqual(before);
-  expect(await page.locator("[data-slot=sidebar-container]").boundingBox()).toEqual({
+  expect(await page.locator("[data-slot=aceternity-sidebar]").boundingBox()).toEqual({
     x: 0,
     y: 0,
-    width: 232,
+    width: 60,
     height: 320,
   });
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeInViewport();
+  await expect(page.getByRole("button", { name: /: your account and sign-out$/ })).toBeInViewport();
+});
+
+test("on a desktop nothing moves from page to page, and the sidebar opens over the page", async ({
+  page,
+  agency,
+}, testInfo) => {
+  test.skip(isPhone(testInfo), "phones have the bottom bar instead");
+  await signInByEmail(page, agency.owner);
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { level: 1, name: homeGreeting(agency.owner.name) })).toBeVisible();
+  const rail = page.locator("[data-slot=aceternity-sidebar]");
+  const pageBox = page.locator("[data-slot=sidebar-inset]");
+  /** The rail's box and the page's left edge, once the pointer is away and the rail is at rest. */
+  const atRest = async () => {
+    await page.mouse.move(900, 300);
+    await expect(rail).toHaveAttribute("data-state", "closed");
+    await expect.poll(async () => (await rail.boundingBox())?.width).toBe(60);
+    return { rail: await rail.boundingBox(), pageEdge: (await pageBox.boundingBox())?.x };
+  };
+  const home = await atRest();
+  expect(home.rail).toMatchObject({ x: 0, y: 0, width: 60 });
+  expect(home.pageEdge).toBe(60);
+  const navigation = page.getByRole("navigation", { name: "Main" });
+  for (const name of ["Inbox", "Leads"]) {
+    await navigation.getByRole("link", { name }).click();
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    expect(await atRest(), name).toEqual(home);
+  }
+  // On hover it opens over the page, which stays where it was, and shuts when the pointer leaves.
+  await rail.hover();
+  await expect(rail).toHaveAttribute("data-state", "open");
+  await expect.poll(async () => (await rail.boundingBox())?.width).toBe(256);
+  expect((await pageBox.boundingBox())?.x).toBe(60);
+  expect(await atRest()).toEqual(home);
 });
 
 test("pages carry the security headers, and the token and offline pages send only their origin as referrer", async ({
