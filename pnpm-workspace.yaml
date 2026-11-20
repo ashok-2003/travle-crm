@@ -62,6 +62,10 @@ overrides:
   "prisma>mysql2": 3.24.5
   # GHSA-ggr8-5vv4-36mx: Prisma's config loader holds deepmerge-ts 7.1.5; it merges only our own prisma.config.ts.
   "@prisma/config>deepmerge-ts": 8.0.2
+  # GHSA-7589-6fvf-x4pw (2026-11-20): effect up to 3.22.0 compiles Schema.TemplateLiteral into a regex open to ReDoS. Prisma's
+  # config loader pins 3.20.0 (it reads only our own prisma.config.ts) and the form resolvers take it as an optional peer we
+  # don't use; 3.22.4 is the month-old patched release of the same major.
+  effect: 3.22.4
   # GHSA-xjj6-f33q-929c: undici 8.0 to 8.12.1 (a dependency of jsdom, testcontainers and others) dies on a response with too many
   # content-encodings. Only our tests and tools reach it, but the fix is a patch release.
   "undici@>=8.0.0 <8.12.2": 8.12.2
