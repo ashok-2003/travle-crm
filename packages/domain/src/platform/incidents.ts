@@ -3,7 +3,7 @@
 // that stopped answering its ping) open an incident, one per kind at a time. Every super admin's browser gets a web push
 // when one opens and when it is resolved, after half an hour without a report (the owner, 2026-11-17). The email is for
 // what lasts: a kind other than the AI's is emailed when it opens; an AI incident (a flaky provider opens many) only if
-// it is still open after half an hour, found by the health check, and "Back to normal" is emailed only for an incident
+// it is still open after two hours (the owner, 2026-11-20), found by the health check, and "Back to normal" is emailed only for an incident
 // that was emailed. The console's Platform updates page shows what is open and the last week's.
 import {
   incidentKind,
@@ -33,8 +33,8 @@ export const HEALTH_CHECK_QUEUE = "platform.health-check";
 const QUIET_BEFORE_RESOLVED_MS = 30 * 60_000;
 /** A worker that hasn't answered a ping for this long has stopped. */
 const WORKER_SILENT_MS = 15 * 60_000;
-/** An AI incident this old, never emailed, is emailed once. */
-const AI_EMAIL_AFTER_MS = 30 * 60_000;
+/** An AI incident this old, never emailed, is emailed once (the owner, 2026-11-20: only the AI down for two hours). */
+const AI_EMAIL_AFTER_MS = 2 * 60 * 60_000;
 const RECENT_MS = 7 * 24 * 60 * 60_000;
 /** The console's emails give times in India, as its jobs run. */
 const EMAIL_TIME_ZONE = "Asia/Kolkata";
@@ -160,7 +160,7 @@ async function markEmailed(services: PlatformServices, id: string, now: Date): P
 }
 
 /**
- * An AI incident open for half an hour that nobody was emailed about: emailed now, once. The claim comes first, so two
+ * An AI incident open for two hours that nobody was emailed about: emailed now, once. The claim comes first, so two
  * checks never send it twice; a console that crashes between the claim and the email loses that one email.
  */
 export async function emailLongAiIncidents(services: PlatformServices, now: Date): Promise<void> {
@@ -180,7 +180,7 @@ export async function emailLongAiIncidents(services: PlatformServices, now: Date
     const kind = incidentKind.parse(incident.kind);
     await emailSuperAdmins(services, `Still happening: ${titles[kind]}`, [
       explanations[kind],
-      `It has lasted 30 minutes: since ${formatDateTime(incident.openedAt, { timeZone: EMAIL_TIME_ZONE, style: "date-time" })} (India time).`,
+      `It has lasted two hours: since ${formatDateTime(incident.openedAt, { timeZone: EMAIL_TIME_ZONE, style: "date-time" })} (India time).`,
     ]);
   }
 }
@@ -218,7 +218,7 @@ export function incidentHandler(services: PlatformServices): JobHandler {
 
 /**
  * Every five minutes: a ping for the worker (its answer, on the pong queue, says it is alive), the jobs that failed since
- * the last check, a worker silent too long, the AI incidents that have lasted half an hour, and the incidents that went
+ * the last check, a worker silent too long, the AI incidents that have lasted two hours, and the incidents that went
  * quiet. What it remembers lives in this process:
  * a console that restarts gives the worker the full quarter of an hour again.
  */

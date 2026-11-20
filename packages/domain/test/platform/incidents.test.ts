@@ -115,22 +115,22 @@ describe("the super admins' alerts (the owner, 2026-11-17)", () => {
     expect(await emailedAt("ai.rate-limited")).toBeNull();
   });
 
-  it("emails an AI incident once, when it has lasted half an hour", async () => {
+  it("emails an AI incident once, when it has lasted two hours (the owner, 2026-11-20)", async () => {
     const opened = new Date();
     await reportPlatformIncident(test.services, "ai.unavailable", "", opened);
-    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 29 * MINUTE));
+    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 119 * MINUTE));
     expect(emailsToAdmin()).toHaveLength(0);
-    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 30 * MINUTE));
-    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 35 * MINUTE));
+    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 120 * MINUTE));
+    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 125 * MINUTE));
     expect(emailsToAdmin().map((message) => message.subject)).toEqual(["Still happening: The AI isn't answering"]);
     expect(await emailedAt("ai.unavailable")).not.toBeNull();
   });
 
   it("pushes when it resolves, and emails only if the super admins were emailed about it", async () => {
-    const opened = new Date(Date.now() - 2 * 60 * MINUTE);
+    const opened = new Date(Date.now() - 3 * 60 * MINUTE);
     await reportPlatformIncident(test.services, "ai.unavailable", "", opened);
     await reportPlatformIncident(test.services, "ai.rate-limited", "", opened);
-    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 31 * MINUTE));
+    await emailLongAiIncidents(test.services, new Date(opened.getTime() + 121 * MINUTE));
     await test.services.platformDb.transaction((tx) =>
       tx.platformIncident.updateMany({
         where: { resolvedAt: null, kind: "ai.rate-limited" },

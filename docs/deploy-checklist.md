@@ -212,7 +212,7 @@ Secrets come from the platform's secret manager as environment variables, never 
     `platform.incident`; the console checks every five minutes (`platform.health-check`) for failed jobs and a worker
     that stopped answering its ping (`health.worker-ping`). Every super admin's subscribed browser gets a web push when
     an incident opens and when it is resolved after half an hour of quiet (the owner, 2026-11-17); an email goes out when
-    a kind other than the AI's opens, and for an AI incident only if it is still open after half an hour, and
+    a kind other than the AI's opens, and for an AI incident only if it is still open after two hours (the owner, 2026-11-20), and
     "Back to normal" is emailed only for an incident that was emailed. The console's Platform updates page (`/console/updates`) shows what is open and the last week's. The console
     sends through the same SMTP settings as the api, and pushes with the same VAPID trio as the api and the worker
     (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`: the table above), never a pair of its own.

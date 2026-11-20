@@ -66,7 +66,7 @@ export interface PlatformServices {
   email?: RecordedEmailSender | null;
   /**
    * Web push to the super admins' browsers (push.ts): an incident opens or resolves with one. Absent in processes and
-   * tests with no push; then nothing is sent, and the AI incidents still email after half an hour.
+   * tests with no push; then nothing is sent, and the AI incidents still email after two hours.
    */
   push?: PushSender | null;
   /** The VAPID public key a super admin's browser subscribes with (VAPID_PUBLIC_KEY); null or absent without push. */

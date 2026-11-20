@@ -154,7 +154,7 @@ model PlatformIncident {
   lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
   resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
   reports    Int       @default(1)
-  /// When the super admins were emailed about it; null while nobody has been (AI incidents wait half an hour).
+  /// When the super admins were emailed about it; null while nobody has been (AI incidents wait two hours).
   emailedAt  DateTime? @map("emailed_at") @db.Timestamptz(6)
 
   @@unique([kind], map: "platform_incident_one_open", where: { resolvedAt: null })
