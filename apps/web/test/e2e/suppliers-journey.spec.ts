@@ -48,8 +48,9 @@ test("a supplier with a contact, a typed cost linked to it, and the dues by supp
   await expect(page.getByRole("link", { name: "Call Dorje" })).toBeVisible();
 
   // The cost typed as "dolma lodge" is linked in one tap, and then counts as owed to the supplier.
-  // A toast stops while the pointer is over it: move off, and let it go before reaching for what lies under it.
-  await page.mouse.move(0, 0);
+  // A toast stops while the pointer is over it: move off, and let it go before reaching for what lies under it. The
+  // top's middle, not the corner, where a desktop's sidebar would open over the page.
+  await page.mouse.move((page.viewportSize()?.width ?? 0) / 2, 0);
   await expect(page.getByText("Contact saved")).toBeHidden({ timeout: 15_000 });
   // Centred first: on a phone the bottom bar and a toast sit over the foot of the page.
   const link = page.getByRole("button", { name: "Link 1 cost named like this one" });

@@ -1,45 +1,36 @@
 "use client";
 
-// One of My tasks' sections, as a card that scrolls inside itself: its heading with the day's count, then all its
-// things, the next page loading from a button at the foot of the scroll. Each has its own skeleton and its own error
-// with Try again, so one section failing leaves the others working.
+// One of My tasks' tabs (web revamp part 2): its things as a table (section-columns.tsx), a page at a time, the next one
+// loading from Show more after the rows; New leads leads back to the Leads list. Each has its own skeleton and its own
+// error with Try again, so one tab failing leaves the others working.
 import { useTranslations } from "next-intl";
-import { CappedRows } from "@/components/capped-rows";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
-import { ScrollingSection } from "@/components/scrolling-section";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { ForwardLink } from "@/components/text-link";
+import { useTableFits, WorkTable } from "@/components/work-table";
 import { listFiltersHref } from "@/leads/list/list-filters";
-import { TodayItem, todayItemId } from "./today-item";
-import { useTodaySection } from "./use-today";
+import { useSectionColumns } from "./section-columns";
+import { todayItemId, useTodaySection, type MyTasksSection } from "./use-today";
 
-export type MyTasksSection = "overdue" | "due-today" | "new-leads" | "payments-due" | "trip-details";
-
-export function TodaySection({
-  section,
-  count,
-  defaultOpen,
-}: {
-  section: MyTasksSection;
-  count: number;
-  /** On a phone: whether the section starts open. */
-  defaultOpen: boolean;
-}) {
+export function TodaySection({ section }: { section: MyTasksSection }) {
   const t = useTranslations("today");
   const tCommon = useTranslations("common");
+  const wide = useTableFits();
   const pages = useTodaySection(section);
+  const table = useSectionColumns(section);
 
   const body = () => {
     if (pages.items) {
       return (
-        <>
-          <CappedRows
-            rows={pages.items.map((item) => ({ id: todayItemId(item), row: <TodayItem item={item} /> }))}
-            label={t(`more.${section}`)}
-            after={<ShowMoreButton pages={pages} label={t(`more.${section}`)} />}
-          />
-        </>
+        <WorkTable
+          label={t(`sections.${section}`)}
+          rows={pages.items}
+          rowKey={todayItemId}
+          {...table}
+          more={t(`more.${section}`)}
+          after={<ShowMoreButton pages={pages} label={t(`more.${section}`)} />}
+        />
       );
     }
     if (pages.isError) {
@@ -52,21 +43,13 @@ export function TodaySection({
         />
       );
     }
-    return <LoadingRows rows={Math.min(count, 3)} shape="twoLines" />;
+    return <LoadingRows rows={3} shape={wide ? "table" : "twoLines"} columns={table.columns.length + 1} />;
   };
 
   return (
-    <ScrollingSection
-      title={t(`sections.${section}`)}
-      count={count}
-      defaultOpen={defaultOpen}
-      action={
-        section === "new-leads" ? (
-          <ForwardLink href={listFiltersHref({ stage: "new" })} label={t("allNewLeads")} />
-        ) : undefined
-      }
-    >
+    <div className="flex flex-col gap-3">
+      {section === "new-leads" && <ForwardLink href={listFiltersHref({ stage: "new" })} label={t("allNewLeads")} />}
       {body()}
-    </ScrollingSection>
+    </div>
   );
 }

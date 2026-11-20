@@ -1,9 +1,10 @@
 "use client";
 
 // The home screen (/dashboard), made to be read at a glance (spec 5): a greeting with the day and the period filter,
-// the setup line until the checklist is done, then the leads by stage, and the day under it: your tasks and what needs
-// you, the hot leads to call and the departures leaving soon, then the AI's insights. A card the role or the plan can't show
-// is left out.
+// the setup line until the checklist is done, then the period's numbers in one row (the leads by stage, and beside them
+// from 1280px the AI's insights, both by the chosen period: owner, 2026-11-20), and the day under them: your tasks and
+// what needs you, the hot leads to call, then the departures leaving soon across the full width, where long package
+// names fit. A card the role or the plan can't show is left out, and a card left alone in its row takes the whole row.
 import type { Period } from "@travel-crm/contracts/kernel";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -29,12 +30,14 @@ export default function HomePage() {
   const [period, setPeriod] = useState<Period>("month");
   const has = (key: NavigationItem["key"]) => items.some((item) => item.key === key);
   const managesSettings = holds(me, "settings:manage");
+  const numbers = [
+    has("leads") && <LeadsCard key="leads" period={period} />,
+    has("aiAgent") && <AiInsightsCard key="ai" period={period} />,
+  ].filter((card) => card !== false);
   const day = [
     has("today") && <TasksCard key="tasks" />,
     (has("leads") || has("inbox")) && <AttentionCard key="attention" />,
     has("leads") && <HotLeadsCard key="hot" />,
-    has("departures") && <DeparturesCard key="departures" />,
-    has("aiAgent") && <AiInsightsCard key="ai" period={period} />,
   ].filter((card) => card !== false);
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { timeZone: me.organization.timeZone, hour: "2-digit", hourCycle: "h23" }).format(
@@ -49,16 +52,22 @@ export default function HomePage() {
     month: "long",
   }).format(new Date());
   return (
-    <div className="flex max-w-[1400px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("greeting", { part: partOfDay, name: greetingName(me.user.name) })}
         intro={t("todayIs", { day: today })}
         action={<PeriodFilter value={period} onChange={setPeriod} />}
       />
       {managesSettings && <SetupCard />}
-      {has("leads") && <LeadsCard period={period} />}
-      {day.length > 0 && <div className="grid gap-6 lg:grid-cols-2">{day}</div>}
-      {!managesSettings && !has("leads") && day.length === 0 && (
+      {/* Leads two thirds and the AI one third from 1280px; either alone takes the row. */}
+      {numbers.length > 0 && (
+        <div className={numbers.length === 2 ? "grid gap-6 xl:grid-cols-3 xl:*:first:col-span-2" : "grid gap-6"}>
+          {numbers}
+        </div>
+      )}
+      {day.length > 0 && <div className="grid gap-6 lg:grid-cols-2 lg:*:last:odd:col-span-2">{day}</div>}
+      {has("departures") && <DeparturesCard />}
+      {!managesSettings && numbers.length === 0 && day.length === 0 && !has("departures") && (
         <p className="text-muted-foreground">{t("nothingToSetUp")}</p>
       )}
     </div>

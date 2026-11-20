@@ -1,16 +1,18 @@
 // My tasks' and Follow-ups' writes against the real api (spec 3.5, 7; web revamp):
-// - a follow-up added on the lead's page shows on Follow-ups under Due today (never on My tasks, which only counts it
-//   in its follow-ups line); done there, the next-follow-up dialog asks, and with "No more follow-ups" the lead's
-//   timeline says "Follow-up done";
-// - one snoozed to tomorrow morning at 9:00 on the agency's clock leaves Due, and the lead says when it comes back;
+// - a follow-up added on the lead's page shows on Follow-ups under Due (never on My tasks, which only counts it in its
+//   follow-ups line); done there, the next-follow-up dialog asks, and with "No more follow-ups" the lead's timeline
+//   says "Follow-up done";
+// - one snoozed to tomorrow morning at 9:00 on the agency's clock leaves Due for Later, and the lead says when it
+//   comes back;
 // - Add a task puts a task on a lead (found with the lead picker, over leads.list) and one standing alone under Due
 //   today;
-// - a new lead marked contacted leaves its section; one task snoozed for an hour and another to a chosen day.
+// - a new lead marked contacted leaves its tab; one task snoozed for an hour and another to a chosen day;
+// - a very long title stops at three lines, its buttons inside the table's box.
 // axe checks both screens and each dialog.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { addFollowUpThroughApi, addLeadThroughApi, dayInIndia, leadInput, moveStageThroughApi } from "./support/leads";
-import { opened } from "./support/sections";
+import { openTab, tabNamed } from "./support/tabs";
 import { animationsSettled } from "./support/settled";
 import { addTaskThroughApi, fillDue, laterToday, timeInIndia, typedDay } from "./support/work";
 
@@ -40,16 +42,16 @@ test("a follow-up added on a lead shows in Follow-ups and, done there, on the le
   await expect(page.getByRole("link", { name: "Follow-ups", exact: true }).first()).toBeVisible();
   await expect(page.getByText("1 follow-up due")).toBeVisible();
   await expect(page.getByText("Send the Kashmir options")).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "New leads to contact" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: tabNamed("New leads") })).toBeVisible();
 
   await page.goto("/leads/follow-ups");
-  const dueToday = page.getByRole("region", { name: "Due today" });
-  await expect(dueToday.getByRole("link", { name: "Rahul Sharma", exact: true })).toBeVisible();
-  await expect(dueToday.getByText("Send the Kashmir options")).toBeVisible();
+  const due = page.getByRole("tabpanel", { name: tabNamed("Due") });
+  await expect(due.getByRole("link", { name: "Rahul Sharma", exact: true })).toBeVisible();
+  await expect(due.getByText("Send the Kashmir options")).toBeVisible();
   await animationsSettled(page);
   await expectAccessible(page);
 
-  await dueToday.getByRole("button", { name: "Done: Send the Kashmir options" }).click();
+  await due.getByRole("button", { name: "Done: Send the Kashmir options" }).click();
   const next = page.getByRole("dialog", { name: "When's the next follow-up?" });
   // It opens once the task is done on the server: wait for it, or the settle check passes before it starts sliding in.
   await expect(next).toBeVisible();
@@ -58,7 +60,7 @@ test("a follow-up added on a lead shows in Follow-ups and, done there, on the le
   await next.getByRole("button", { name: "No more follow-ups" }).click();
   await expect(next).toBeHidden();
   await expect(page.getByText("Marked done")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Due today" })).toBeHidden();
+  await expect(due.getByText("Send the Kashmir options")).toHaveCount(0);
 
   await page.goto(`/leads/${leadId}`);
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
@@ -71,8 +73,8 @@ test("a follow-up snoozed to tomorrow 9:00 leaves Due and shows under Later", as
   await addFollowUpThroughApi(page, leadId, { title: "Call about the Goa dates", ...(await laterToday(page, 60)) });
 
   await page.goto("/leads/follow-ups");
-  const dueToday = page.getByRole("region", { name: "Due today" });
-  await dueToday.getByRole("button", { name: "Snooze: Call about the Goa dates" }).click();
+  const due = page.getByRole("tabpanel", { name: tabNamed("Due") });
+  await due.getByRole("button", { name: "Snooze: Call about the Goa dates" }).click();
   const snoozing = page.getByRole("dialog", { name: "Snooze" });
   await snoozing.getByRole("radio", { name: "Tomorrow morning, 9:00 am" }).check();
   await animationsSettled(page);
@@ -80,9 +82,9 @@ test("a follow-up snoozed to tomorrow 9:00 leaves Due and shows under Later", as
   await snoozing.getByRole("button", { name: "Snooze" }).click();
   await expect(snoozing).toBeHidden();
   await expect(page.getByText("Snoozed")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Due today" })).toBeHidden();
-  await page.getByRole("tab", { name: "Later" }).click();
-  await expect(page.getByRole("region", { name: "Tomorrow" }).getByText("Call about the Goa dates")).toBeVisible();
+  await expect(due.getByText("Call about the Goa dates")).toHaveCount(0);
+  const later = await openTab(page, "Later");
+  await expect(later.getByText("Call about the Goa dates")).toBeVisible();
 
   await page.goto(`/leads/${leadId}`);
   await expect(page.getByRole("main").getByText("Follow up tomorrow, 9:00 am").first()).toBeVisible();
@@ -112,7 +114,8 @@ test("Add a task puts one on a lead found by search, and one standing alone, und
   await expectAccessible(page);
   await adding.getByRole("button", { name: "Add the task" }).click();
   await expect(adding).toBeHidden();
-  const dueToday = page.getByRole("region", { name: "Due today" });
+  // Nothing is overdue, so Due today is the first tab, and open.
+  const dueToday = page.getByRole("tabpanel", { name: tabNamed("Due today") });
   await expect(dueToday.getByRole("link", { name: "Rahul Sharma", exact: true })).toBeVisible();
   await expect(dueToday.getByText("Send the Kashmir quote", { exact: true })).toBeVisible();
   await expect(dueToday.getByText("Kashmir", { exact: true })).toBeVisible();
@@ -139,8 +142,7 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
   await addTaskThroughApi(page, priya, { title: "Send the itinerary", ...(await laterToday(page, 45)) });
 
   await page.goto("/today");
-  const newLeads = page.getByRole("region", { name: "New leads to contact" });
-  await opened(newLeads, "New leads to contact");
+  const newLeads = await openTab(page, "New leads");
   await newLeads.getByRole("button", { name: "Mark Arjun Mehta contacted" }).click();
   // As the lead's own stage bar says it: Mark contacted is that same move.
   await expect(page.getByText("Moved to Contacted")).toBeVisible();
@@ -148,8 +150,8 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
   await animationsSettled(page);
   await expectAccessible(page);
 
-  // An hour on, from about now: today or, late at night, tomorrow.
-  const dueToday = page.getByRole("region", { name: "Due today" });
+  // New leads has gone, so Due today is open. An hour on, from about now: today or, late at night, tomorrow.
+  const dueToday = page.getByRole("tabpanel", { name: tabNamed("Due today") });
   await dueToday.getByRole("button", { name: "Snooze: Call about the hotel" }).click();
   const snoozing = page.getByRole("dialog", { name: "Snooze" });
   await snoozing.getByRole("radio", { name: "In an hour" }).check();
@@ -179,12 +181,12 @@ test("a new lead is marked contacted; one thing is snoozed for an hour, another 
   await expect(work.getByText(new RegExp(`^Task due ${dayShown}`))).toBeVisible();
 });
 
-test("a follow-up with a very long title keeps Done and Edit inside its card and cuts the title short", async ({
+test("a follow-up with a very long title keeps Done and Edit inside the table's box and stops at three lines", async ({
   page,
   agency,
 }, testInfo) => {
-  // A phone wraps the title instead of cutting it (and has its own five-row cap).
-  test.skip(testInfo.project.name === "phone", "Titles are cut short from 768px up.");
+  // A phone stacks the rows instead of a table (and has its own five-row cap).
+  test.skip(testInfo.project.name === "phone", "The table is from 768px up.");
   await signInByEmail(page, agency.owner);
   const leadId = await addLeadThroughApi(page, leadInput());
   const title =
@@ -194,14 +196,14 @@ test("a follow-up with a very long title keeps Done and Edit inside its card and
   await addFollowUpThroughApi(page, leadId, { title, ...(await laterToday(page, 60)) });
 
   await page.goto("/leads/follow-ups");
-  const dueToday = page.getByRole("region", { name: "Due today" });
-  const card = await dueToday.boundingBox();
+  const due = page.getByRole("tabpanel", { name: tabNamed("Due") });
+  const table = await due.locator("[data-slot=work-table]").boundingBox();
   for (const name of [`Done: ${title}`, `Edit: ${title}`]) {
-    const box = await dueToday.getByRole("button", { name }).boundingBox();
+    const box = await due.getByRole("button", { name }).boundingBox();
     expect(box).not.toBeNull();
-    expect(box?.x).toBeGreaterThanOrEqual(card?.x ?? 0);
-    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((card?.x ?? 0) + (card?.width ?? 0));
+    expect(box?.x).toBeGreaterThanOrEqual(table?.x ?? 0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((table?.x ?? 0) + (table?.width ?? 0));
   }
-  const shown = await dueToday.getByText(title).evaluate((element) => element.scrollWidth > element.clientWidth);
-  expect(shown).toBe(true);
+  const cut = await due.getByText(title).evaluate((element) => element.scrollHeight > element.clientHeight);
+  expect(cut).toBe(true);
 });

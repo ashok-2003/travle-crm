@@ -1,19 +1,21 @@
 "use client";
 
-// Home's leads card (spec 5): leads that came in during the period, by the stage they are in now. A donut in the stages'
-// dot colours, the total, and a card for each stage in its own tint (DESIGN.md "Stage breakdown (Home)"), each a way
-// into the Leads list at that stage and period. The total is a figure, not a link.
+// Home's leads card (spec 5): leads that came in during the period, by the stage they are in now. A compact card for
+// each stage in its own tint (DESIGN.md "Stage breakdown (Home)"), each a way into the Leads list at that stage and
+// period, and a donut in the stages' dot colours with the total in its middle, compact enough to share its row with
+// the AI's insights from 1280px (owner, 2026-11-20). The total is a figure, not a link. A stage under the pointer, on
+// the ring or its card, takes the middle (its count and name) and the other segments fade: no tooltip to cover it.
 import { leadStage, type LeadStage } from "@travel-crm/contracts/crm";
 import type { Period } from "@travel-crm/contracts/kernel";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Pie, PieChart } from "recharts";
 import { InfoHint } from "@/components/info-hint";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { TextLink } from "@/components/text-link";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCount } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -25,10 +27,11 @@ import { viewScope, useMe } from "@/session/me-context";
 import { useNavigationItems } from "@/shell/use-navigation-items";
 
 /** The stages shown, in the order of the pipeline; Not a lead is counted by nobody here. */
-const shown = leadStage.options.filter((stage): stage is Exclude<LeadStage, "not_a_lead"> => stage !== "not_a_lead");
+const shown = leadStage.options.filter((stage): stage is ShownStage => stage !== "not_a_lead");
+type ShownStage = Exclude<LeadStage, "not_a_lead">;
 
 /** Each stage's dot colour as the brand's variable, for the donut (never a literal). */
-const dotColours: Record<Exclude<LeadStage, "not_a_lead">, string> = {
+const dotColours: Record<ShownStage, string> = {
   new: "var(--brand-stage-new-dot)",
   contacted: "var(--brand-stage-contacted-dot)",
   quote_sent: "var(--brand-status-attention-dot)",
@@ -44,6 +47,7 @@ export function LeadsCard({ period }: { period: Period }) {
   const me = useMe();
   const hasReports = useNavigationItems().some((item) => item.key === "reports");
   const breakdown = useStageBreakdown(period);
+  const [pointed, setPointed] = useState<ShownStage | null>(null);
   const everyone = viewScope(me, "leads:view") === "all";
   const config = Object.fromEntries(
     shown.map((stage) => [stage, { label: tStages(stage), color: dotColours[stage] }]),
@@ -78,12 +82,18 @@ export function LeadsCard({ period }: { period: Period }) {
               {shown.map((stage) => (
                 <li key={stage}>
                   {data === undefined ? (
-                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-14 w-full" />
                   ) : (
                     <Link
                       href={hrefOf(stage)}
+                      onPointerEnter={() => {
+                        setPointed(stage);
+                      }}
+                      onPointerLeave={() => {
+                        setPointed((current) => (current === stage ? null : current));
+                      }}
                       className={cn(
-                        "flex min-h-16 flex-col justify-between gap-1 rounded-lg p-3",
+                        "flex h-full min-h-14 flex-col justify-between gap-0.5 rounded-lg px-3 py-2",
                         stageTones[stage].badge,
                       )}
                     >
@@ -94,27 +104,22 @@ export function LeadsCard({ period }: { period: Period }) {
                         />
                         {tStages(stage)}
                       </span>
-                      <span className="numbers text-number-lg font-medium">{formatCount(data.stages[stage])}</span>
+                      <span className="numbers text-number font-medium">{formatCount(data.stages[stage])}</span>
                     </Link>
                   )}
                 </li>
               ))}
             </ul>
-            <div className="flex items-center gap-6 lg:shrink-0">
-              <ChartContainer
-                config={config}
-                className="aspect-square size-36 shrink-0"
-                role="img"
-                aria-label={t("chart")}
-              >
+            {/* The total sits in the donut's middle, so the pair takes one narrow column. */}
+            <div className="relative size-32 shrink-0 self-center">
+              <ChartContainer config={config} className="aspect-square size-32" role="img" aria-label={t("chart")}>
                 <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="stage" />} />
                   {segments.length === 0 ? (
                     <Pie
                       data={[{ stage: "none", count: 1, fill: "var(--color-muted)" }]}
                       dataKey="count"
-                      innerRadius={44}
-                      outerRadius={64}
+                      innerRadius={46}
+                      outerRadius={62}
                       isAnimationActive={false}
                       stroke="none"
                     />
@@ -124,11 +129,20 @@ export function LeadsCard({ period }: { period: Period }) {
                         stage,
                         count: data?.stages[stage] ?? 0,
                         fill: `var(--color-${stage})`,
+                        fillOpacity: pointed === null || pointed === stage ? 1 : 0.25,
                       }))}
                       dataKey="count"
                       nameKey="stage"
-                      innerRadius={44}
-                      outerRadius={64}
+                      onMouseEnter={(_, index) => {
+                        setPointed(segments[index] ?? null);
+                      }}
+                      // A segment's leave comes after the next card's enter (mouse events follow pointer events):
+                      // it lets go of its own stage only.
+                      onMouseLeave={(_, index) => {
+                        setPointed((current) => (current === segments[index] ? null : current));
+                      }}
+                      innerRadius={46}
+                      outerRadius={62}
                       paddingAngle={2}
                       stroke="none"
                       isAnimationActive={false}
@@ -136,13 +150,17 @@ export function LeadsCard({ period }: { period: Period }) {
                   )}
                 </PieChart>
               </ChartContainer>
-              <div className="flex flex-col gap-1">
-                <span className="text-label text-muted-foreground">{t("total")}</span>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 {data === undefined ? (
-                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-7 w-12" />
                 ) : (
-                  <span className="numbers text-number-lg font-medium">{formatCount(data.total)}</span>
+                  <span className="numbers text-number-lg font-medium">
+                    {formatCount(pointed === null ? data.total : data.stages[pointed])}
+                  </span>
                 )}
+                <span className="max-w-20 text-center text-caption leading-tight text-muted-foreground">
+                  {pointed === null ? t("total") : tStages(pointed)}
+                </span>
               </div>
             </div>
             {data !== undefined && (

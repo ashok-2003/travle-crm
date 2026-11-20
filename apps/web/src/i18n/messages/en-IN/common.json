@@ -20,5 +20,15 @@
   },
   "loadingMore": "Loading more",
   "whatDoesItMean": "What does {term} mean?",
-  "serverWaking": "Starting up after a quiet spell. This can take up to a minute."
+  "serverWaking": "Starting up after a quiet spell. This can take up to a minute.",
+  "pagination": {
+    "label": "Pages",
+    "showing": "Showing <n>{from}–{to}</n> of <n>{total}</n> {noun}",
+    "rowsPerPage": "Rows per page",
+    "page": "Page <n>{page}</n> of <n>{pages}</n>",
+    "first": "First page",
+    "previous": "Previous page",
+    "next": "Next page",
+    "last": "Last page"
+  }
 }

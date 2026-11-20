@@ -62,6 +62,13 @@ function travellersOf(trip: TripSummary, t: TripWords): string | null {
 
 export function useTripLine(): (trip: TripSummary) => string {
   const t = useTranslations("leads.trip");
+  const details = useTripDetails();
+  return useCallback((trip: TripSummary) => details(trip) ?? t("none"), [details, t]);
+}
+
+/** The line, or null for a trip with no details yet: for the pipeline's cards, which leave the line out then. */
+export function useTripDetails(): (trip: TripSummary) => string | null {
+  const t = useTranslations("leads.trip");
   const { timeZone } = useMe().organization;
   return useCallback(
     (trip: TripSummary) => {
@@ -69,7 +76,7 @@ export function useTripLine(): (trip: TripSummary) => string {
       const parts = [trip.destinationName, whenOf(trip.when, thisYear, t), travellersOf(trip, t)].filter(
         (part): part is string => part !== null && part !== "",
       );
-      return parts.length > 0 ? parts.join(" · ") : t("none");
+      return parts.length > 0 ? parts.join(" · ") : null;
     },
     [t, timeZone],
   );

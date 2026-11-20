@@ -5,7 +5,7 @@
 // count, so a screen reader hears it without the badge.
 import { BellIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useState, type ReactElement } from "react";
 import { BOTTOM_SHEET_CLASSES } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,16 +23,31 @@ import { NotificationList } from "./notification-list";
 import { UnreadCount } from "./unread-count";
 import { useUnreadCount } from "./use-bell";
 
-export function NotificationBell({ opensAs }: { opensAs: "popover" | "sheet" }) {
+export function NotificationBell({
+  opensAs,
+  trigger: drawTrigger,
+  onOpenChange,
+}: {
+  opensAs: "popover" | "sheet";
+  /** Draws the button that opens it (the sidebar's row), named `label`; the icon button with the count otherwise. */
+  trigger?: (bell: { label: string; unread: number }) => ReactElement;
+  /** Told as it opens and shuts (the sidebar stays open while it is). */
+  onOpenChange?: (open: boolean) => void;
+}) {
   const t = useTranslations("notifications.bell");
   const titleId = useId();
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
   const unread = useUnreadCount().data ?? 0;
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
   const close = () => {
     setOpen(false);
   };
-  const trigger = (
-    <Button variant="ghost" size="icon" aria-label={t("label", { count: unread })} className="relative shrink-0">
+  const label = t("label", { count: unread });
+  const trigger = drawTrigger?.({ label, unread }) ?? (
+    <Button variant="ghost" size="icon" aria-label={label} className="relative shrink-0">
       <BellIcon aria-hidden="true" />
       {unread > 0 && <UnreadCount count={unread} />}
     </Button>

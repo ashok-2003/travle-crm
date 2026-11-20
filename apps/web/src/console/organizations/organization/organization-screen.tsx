@@ -74,7 +74,7 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
 
   const { organization, profile, subscription } = details.data;
   return (
-    <div className="flex max-w-[1200px] flex-col gap-8">
+    <div className="flex flex-col gap-8">
       <PageHeader
         title={<span className="break-words script-leading">{organization.name}</span>}
         intro={

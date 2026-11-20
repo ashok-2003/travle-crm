@@ -72,6 +72,9 @@ export const knownContactResult = z.object({
 });
 export type KnownContactResult = z.infer<typeof knownContactResult>;
 
+/** The furthest numbered page the list reads. */
+export const MAX_LEAD_PAGE = 10_000;
+
 export const listLeadsInput = z.strictObject({
   /** A salesperson always sees their own; "everyone" is for managers. */
   /** "unassigned" is the leads nobody owns (release C), for managers. */
@@ -86,9 +89,11 @@ export const listLeadsInput = z.strictObject({
   created: createdWithin.optional(),
   /** A name, forgiving of typos, or four or more digits of a phone. */
   search: z.string().trim().min(2).max(80).optional(),
-  /** The last lead id of the previous page. */
+  /** The last lead id of the previous page (a picker's "more"). */
   before: recordId.optional(),
-  limit: z.int().min(1).max(50).default(25),
+  /** A numbered page, from 1, for the Leads list: its page then says the total. 10,000 pages of 100 at most. */
+  page: z.int().min(1).max(MAX_LEAD_PAGE).optional(),
+  limit: z.int().min(1).max(100).default(25),
 });
 export type ListLeadsInput = z.infer<typeof listLeadsInput>;
 
@@ -119,11 +124,13 @@ export type LeadListItem = z.infer<typeof leadListItem>;
 export const leadListPage = z.object({
   items: z.array(leadListItem),
   nextCursor: recordId.nullable(),
+  /** For a numbered page: how many leads match across every page. Null after a cursor. */
+  total: z.int().nullable(),
   people: peopleNames,
 });
 export type LeadListPage = z.infer<typeof leadListPage>;
 
-export const leadCountsInput = listLeadsInput.omit({ stage: true, before: true, limit: true });
+export const leadCountsInput = listLeadsInput.omit({ stage: true, before: true, page: true, limit: true });
 export type LeadCountsInput = z.infer<typeof leadCountsInput>;
 
 /** Open leads by stage, for the quick filters. */

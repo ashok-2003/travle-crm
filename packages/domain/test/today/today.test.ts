@@ -274,7 +274,7 @@ describe("today", () => {
     expect(oldest).toMatchObject({ kind: "new-lead", waitingSince: created.createdAt.toISOString() });
   });
 
-  it("brings each lead's name, phone and trip line with its task", async () => {
+  it("brings each lead's name, phone, stage and trip line with its task", async () => {
     const me = aSalesperson();
     const now = at("2026-10-17T06:30:00Z");
     const phone = freshPhone();
@@ -334,6 +334,7 @@ describe("today", () => {
       id: ids.lead,
       personName: "Priya Nair",
       phone,
+      stage: "contacted",
       trip: {
         destinationName: ids.destination,
         when: { kind: "month", month: "2026-12" },
@@ -350,6 +351,7 @@ describe("today", () => {
         id: ids.newLead,
         personName: "Kabir Rao",
         phone: null,
+        stage: "new",
         trip: {
           destinationName: null,
           when: { kind: "dates", from: "2026-11-14", to: "2026-11-20" },

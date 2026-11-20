@@ -38,9 +38,11 @@ describe("LeadsHeaderActions", () => {
     // Export follows it as an outline pill in the same row.
     const exportButton = within(row).getByRole("button", { name: messages.leads.export.button });
     expect(exportButton.dataset.variant).toBe("outline");
-    // The way to the pipeline board closes the row.
+    // The way to the pipeline board closes the row, in its turning ring (the ring and its glow hidden from readers).
     expect(exportButton.nextElementSibling).toBe(row.lastElementChild);
-    expect(row.lastElementChild).toHaveAttribute("href", routes.leadsPipeline);
+    const pipeline = within(row).getByRole("link", { name: messages.leads.pipeline.toPipeline });
+    expect(pipeline).toHaveAttribute("href", routes.leadsPipeline);
+    expect(row.lastElementChild).toContainElement(pipeline);
   });
 
   it("puts Import after New lead in the same row, an outline pill, for whoever may import", () => {

@@ -108,22 +108,51 @@ afterEach(() => {
 });
 
 describe("Home's day", () => {
-  it("lists the cards in order: setup, leads, tasks, needs your attention, hot leads, departures, AI insights", async () => {
+  it("lists the cards in order: setup, leads and AI insights, tasks, needs your attention, hot leads, departures", async () => {
     renderHome({ hot: [hotLead(1)], departures: [departure] });
     const names = [
       messages.business.setup.homeHeading.replace("{organization}", "Sharma Travels"),
       h.leads.title,
+      h.ai.title,
       h.tasks.title,
       h.attention.title,
       h.hot.title,
       h.departures.title,
-      h.ai.title,
     ];
     const cards: HTMLElement[] = [];
     for (const name of names) cards.push(await card(name));
     cards.slice(1).forEach((next, index) => {
       expect((cards[index]?.compareDocumentPosition(next) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
+  });
+
+  it("pairs Leads with AI insights from 1280px, leaves a lone card the whole row, and gives Departures the full width", async () => {
+    renderHome({ hot: [hotLead(1)], departures: [departure] });
+    const leads = await card(h.leads.title);
+    const ai = await card(h.ai.title);
+    expect(leads.parentElement).toBe(ai.parentElement);
+    expect(leads.parentElement?.className).toContain("xl:grid-cols-3");
+    expect(leads.parentElement?.className).toContain("xl:*:first:col-span-2");
+    const hot = await card(h.hot.title);
+    expect(hot.parentElement?.className).toContain("lg:*:last:odd:col-span-2");
+    const departures = await card(h.departures.title);
+    expect(departures.parentElement).not.toBe(hot.parentElement);
+    expect(departures.parentElement?.className ?? "").not.toContain("grid-cols");
+  });
+
+  it("tints each day card by what it holds: tasks primary, attention amber, departures good green, AI violet", async () => {
+    renderHome({ departures: [departure] });
+    const tints = [
+      [h.tasks.title, "action-tint", "action-pressed"],
+      [h.attention.title, "status-attention-fill", "status-attention-ink"],
+      [h.departures.title, "status-good-fill", "status-good-ink"],
+      [h.ai.title, "people-tint", "people-tint-ink"],
+    ] as const;
+    for (const [title, fill, ink] of tints) {
+      const tinted = await card(title);
+      expect(tinted.className).toContain(`var(--brand-${fill})`);
+      expect(tinted.className).toContain(`[--color-border:color-mix(in_oklab,var(--brand-${ink})`);
+    }
   });
 
   it("puts the cards of a row in one grid that stretches them to the same height", async () => {
@@ -259,19 +288,21 @@ describe("Home's day", () => {
   });
 
   describe("AI insights", () => {
-    it("shows the calls used against the monthly limit and the chats answered, to whoever manages the AI", async () => {
+    it("shows the calls used against the monthly limit, as a figure and a bar, and the chats answered", async () => {
       renderHome();
       const ai = await card(h.ai.title);
+      expect(within(ai).getByText(h.ai.calls)).toBeVisible();
       expect(
-        await within(ai).findByText(
-          (_, el) => el?.tagName === "P" && el.textContent === "412 of 1,000 AI calls used this month",
-        ),
+        await within(ai).findByText((_, el) => el?.tagName === "SPAN" && el.textContent === "412 of 1,000"),
       ).toBeVisible();
+      expect(within(ai).getByRole("progressbar", { name: h.ai.chart })).toHaveAttribute("aria-valuenow", "41");
+      expect(within(ai).queryByRole("img")).toBeNull();
       expect((await within(ai).findAllByText("37")).length).toBeGreaterThan(0);
       expect(within(ai).getByText(new RegExp(h.ai.chats))).toBeVisible();
     });
 
     it("asks for the chats of the chosen period, and for the calls of the month alone", async () => {
+      screenIs("wide");
       renderHome();
       await card(h.ai.title);
       await userEvent.setup().click(screen.getByRole("radio", { name: h.period.week }));

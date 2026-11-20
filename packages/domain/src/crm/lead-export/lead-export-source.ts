@@ -13,7 +13,7 @@ import { destinationNames } from "../../catalog/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { nextOpenTasks } from "../../tasks/index.js";
 import { filterFor } from "../lead-list.js";
-import { exportCountQuery, leadExportRowsQuery, leadListQuery } from "../lead-list-query.js";
+import { leadTotalQuery, leadExportRowsQuery, leadListQuery } from "../lead-list-query.js";
 import { exportRowOf, leadExportColumns, type ExportedLead } from "./export-rows.js";
 
 /** Leads in a page of the file (B41). */
@@ -94,7 +94,7 @@ export function leadExportSource(
         );
         newest = latest?.id ?? NO_LEAD;
         const [counted] = await tx.$queryRaw<{ n: number }[]>(
-          exportCountQuery({ ...listFilter(access, filter), through: newest }),
+          leadTotalQuery({ ...listFilter(access, filter), through: newest }),
         );
         return counted?.n ?? 0;
       });

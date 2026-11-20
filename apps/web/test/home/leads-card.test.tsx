@@ -63,6 +63,21 @@ describe("LeadsCard", () => {
     expect(won).toHaveAttribute("href", "/leads?stage=won");
   });
 
+  it("names the stage under the pointer in the donut's middle, with no tooltip over it, and goes back to the total", async () => {
+    render("month");
+    const card = await screen.findByRole("region", { name: new RegExp(words.title) });
+    const booking = await within(card).findByRole("link", { name: new RegExp(`^${stages.booking_requested}`) });
+    await userEvent.hover(booking);
+    // Its card, the screen readers' table and now the middle.
+    expect(within(card).getAllByText(stages.booking_requested)).toHaveLength(3);
+    expect(within(card).queryByText(words.total)).toBeNull();
+    expect(within(card).queryByText("20")).toBeNull();
+    await userEvent.unhover(booking);
+    expect(within(card).getByText(words.total)).toBeVisible();
+    expect(within(card).getByText("20")).toBeVisible();
+    expect(document.querySelector(".recharts-tooltip-wrapper")).toBeNull();
+  });
+
   it("shows Total leads as a figure, not a link, and Open reports as a link", async () => {
     render("month");
     const card = await screen.findByRole("region", { name: new RegExp(words.title) });

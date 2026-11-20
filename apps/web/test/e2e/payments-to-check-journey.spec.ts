@@ -3,7 +3,7 @@
 // from the trip page both wait on one list and on Today's count. The owner reads the AI's note, types the ₹4,000 the bank shows
 // and sees the message first; confirmed, the lead is won, the quote shows ₹4,000 paid and the customer's chat gets it. The owner marks the claim
 // not received: the traveller's chat gets the not-found text. Only a person decides; nothing here is sent by the AI.
-import { opened } from "./support/sections";
+import { openTab } from "./support/tabs";
 import { expectAccessible } from "./support/accessibility";
 import { acceptOnTheLink, bookingOf } from "./support/bookings";
 import { saveBusinessProfile } from "./support/documents";
@@ -119,10 +119,8 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
   await traveller.close();
 
   // Today counts both, and leads to the list.
-  // The inbox folds the sidebar on a computer and a reload keeps it folded: the rest of the journey runs with the rail folded.
-  await owner.context().addCookies([{ name: "sidebar_state", value: "false", url: owner.url() }]);
   await owner.goto("/today");
-  await opened(owner.getByRole("region", { name: "AI needs you" }), "AI needs you");
+  await openTab(owner, "AI needs you");
   await expect(owner.getByRole("button", { name: /^Notifications/ })).toBeVisible();
   await expect(owner.getByText("2 payments are waiting for your word")).toBeVisible();
   await expectAccessible(owner);

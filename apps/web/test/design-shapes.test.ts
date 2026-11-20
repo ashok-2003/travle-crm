@@ -93,6 +93,13 @@ describe("z scale", () => {
   });
 });
 
+describe("the page's scrollbar", () => {
+  it("keeps its room on short pages, so a centred page doesn't move, and a dialog's scroll lock adds none", () => {
+    expect(css).toMatch(/ {2}html \{[^}]*scrollbar-gutter: stable;/);
+    expect(css).toMatch(/html body\[data-scroll-locked\] \{\s*margin-right: 0 !important;\s*\}/);
+  });
+});
+
 describe("overlay shadow", () => {
   it("is DESIGN.md's two layers, drawn in ink", () => {
     expect(designMd).toContain("0 8px 24px rgba(26,26,26,0.10), 0 1px 2px rgba(26,26,26,0.06)");
@@ -118,9 +125,10 @@ describe("the shadcn components", () => {
     }
   });
 
-  it("button has no size under the 36px dense one", () => {
+  it("button has no size under the 36px dense one but icon-sm, a table row's 32px icon with a 44px hit area", () => {
     const source = ui("button.tsx");
-    for (const dropped of ["xs:", "icon-xs", "icon-sm"]) expect(source).not.toContain(dropped);
+    for (const dropped of ["xs:", "icon-xs"]) expect(source).not.toContain(dropped);
+    expect(source).toContain('"icon-sm": "relative size-8 after:absolute after:-inset-1.5"');
   });
 
   it.each([

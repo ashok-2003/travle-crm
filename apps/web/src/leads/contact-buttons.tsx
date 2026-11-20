@@ -4,16 +4,16 @@
 // person comes back); on a wide screen, which has no dialler, it opens the call panel: the number with Copy, Send to my
 // phone and a QR code that dials (release 5). WhatsApp opens the customer's chat in the agency's inbox when its WhatsApp
 // is connected (web revamp, 2026-11-18), else the chat with the number in WhatsApp itself (wa.me, digits only). Both
-// wear the glyphs people know from their phones (WhatsApp's logo in its own green), and in lists come compact: round,
-// icon-only, named and with a tooltip. Show them only when the person has a phone.
+// wear the glyphs people know from their phones (WhatsApp's logo in its own green), and in a table's rows come compact:
+// the glyph alone, as a GlyphButton (quiet, named, no tooltip). Show them only when the person has a phone.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
 import { CallGlyph, WhatsAppLogo } from "@/components/contact-icons";
+import { GlyphButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTRPC } from "@/data/trpc";
 import { inboxRoute, leadChatRoute } from "@/lib/routes";
 import { useWideScreen } from "@/lib/use-wide-screen";
@@ -30,19 +30,6 @@ export function whatsAppLink(e164: string): string {
   return `https://wa.me/${e164.replace(/\D/g, "")}`;
 }
 
-/** A compact button's name as a tooltip too, for a mouse; the button already carries it for a screen reader. */
-export function Tipped({ compact, label, children }: { compact: boolean; label: string; children: ReactNode }) {
-  if (!compact) return children;
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
 export function CallButton({
   phone,
   name,
@@ -54,7 +41,7 @@ export function CallButton({
   name: string;
   leadId: string;
   variant?: Variant;
-  /** Round and icon-only, for a list's rows. */
+  /** The glyph alone (GlyphButton), for a table's rows. */
   compact?: boolean;
 }) {
   const t = useTranslations("leads.contact");
@@ -63,7 +50,8 @@ export function CallButton({
   const [logging, setLogging] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const label = t("callPerson", { name });
-  const size = compact ? "icon" : "default";
+  const Shape = compact ? GlyphButton : Button;
+  const shown = compact ? "quiet" : variant;
   const content = (
     <>
       <CallGlyph className="size-5" />
@@ -72,32 +60,27 @@ export function CallButton({
   );
   if (!wide) {
     return (
-      <Tipped compact={compact} label={label}>
-        <Button asChild variant={variant} size={size}>
-          <a
-            href={`tel:${phone}`}
-            aria-label={label}
-            onClick={() => {
-              // On coming back, the app asks how the call went.
-              rememberDial({ leadId, name });
-            }}
-          >
-            {content}
-          </a>
-        </Button>
-      </Tipped>
+      <Shape asChild variant={shown} aria-label={label}>
+        <a
+          href={`tel:${phone}`}
+          onClick={() => {
+            // On coming back, the app asks how the call went.
+            rememberDial({ leadId, name });
+          }}
+        >
+          {content}
+        </a>
+      </Shape>
     );
   }
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
-        <Tipped compact={compact} label={label}>
-          <PopoverTrigger asChild>
-            <Button ref={button} variant={variant} size={size} aria-label={label}>
-              {content}
-            </Button>
-          </PopoverTrigger>
-        </Tipped>
+        <PopoverTrigger asChild>
+          <Shape ref={button} variant={shown} aria-label={label}>
+            {content}
+          </Shape>
+        </PopoverTrigger>
         <PopoverContent align="start" aria-label={label} className="w-80">
           <CallPanel
             leadId={leadId}
@@ -138,6 +121,7 @@ function InboxWhatsAppButton({
   const queryClient = useQueryClient();
   const router = useRouter();
   const [opening, setOpening] = useState(false);
+  const Shape = compact ? GlyphButton : Button;
   const open = async () => {
     setOpening(true);
     try {
@@ -152,17 +136,9 @@ function InboxWhatsAppButton({
     }
   };
   return (
-    <Tipped compact={compact} label={label}>
-      <Button
-        variant={variant}
-        size={compact ? "icon" : "default"}
-        aria-label={label}
-        disabled={opening}
-        onClick={() => void open()}
-      >
-        {children}
-      </Button>
-    </Tipped>
+    <Shape variant={compact ? "quiet" : variant} aria-label={label} disabled={opening} onClick={() => void open()}>
+      {children}
+    </Shape>
   );
 }
 
@@ -177,7 +153,7 @@ export function WhatsAppButton({
   name: string;
   leadId: string;
   variant?: Variant;
-  /** Round and icon-only, for a list's rows. */
+  /** The glyph alone (GlyphButton), for a table's rows. */
   compact?: boolean;
 }) {
   const t = useTranslations("leads.contact");
@@ -202,13 +178,12 @@ export function WhatsAppButton({
       </InboxWhatsAppButton>
     );
   }
+  const Shape = compact ? GlyphButton : Button;
   return (
-    <Tipped compact={compact} label={label}>
-      <Button asChild variant={variant} size={compact ? "icon" : "default"}>
-        <a href={whatsAppLink(phone)} target="_blank" rel="noopener noreferrer" aria-label={label}>
-          {content}
-        </a>
-      </Button>
-    </Tipped>
+    <Shape asChild variant={compact ? "quiet" : variant} aria-label={label}>
+      <a href={whatsAppLink(phone)} target="_blank" rel="noopener noreferrer">
+        {content}
+      </a>
+    </Shape>
   );
 }

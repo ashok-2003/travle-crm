@@ -9,8 +9,7 @@ import { LoadingRows } from "@/components/loading-rows";
 import { FollowUpsLine } from "@/follow-ups/follow-ups-line";
 import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { routes } from "@/lib/routes";
-import { todayItemId } from "@/today/today-item";
-import { useMyTasksPreview } from "@/today/use-today";
+import { todayItemId, useMyTasksPreview } from "@/today/use-today";
 import { HomeCard, rowClasses } from "./home-card";
 import { TaskLine } from "./task-line";
 
@@ -18,7 +17,7 @@ export function TasksCard() {
   const t = useTranslations("home.tasks");
   const tasks = useMyTasksPreview(5);
   return (
-    <HomeCard title={t("title")} viewAll={routes.today}>
+    <HomeCard title={t("title")} tint="primary" viewAll={routes.today}>
       {tasks.isError ? (
         <LoadFailedAlert message={t("loadFailed")} error={tasks.error} onRetry={tasks.refetch} />
       ) : tasks.items === undefined ? (

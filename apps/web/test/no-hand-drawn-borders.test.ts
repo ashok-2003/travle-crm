@@ -7,8 +7,12 @@ import { describe, expect, it } from "vitest";
 
 const sourceDirectory = path.resolve(import.meta.dirname, "../src");
 
-/** The files that may draw an edge of their own, and why. None does now: even the phone's bottom bar has a Separator. */
-const allowed: Record<string, string> = {};
+/** The files that may draw an edge of their own, and why. Even the phone's bottom bar has a Separator. */
+const allowed: Record<string, string> = {
+  // A card being dragged floats over the board: the overlay shadow while it does, flat at rest (DESIGN.md Elevation;
+  // the owner, 2026-11-20, pipeline revamp).
+  "leads/pipeline/pipeline-card.tsx": "the dragged card's floating shadow",
+};
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

@@ -2,8 +2,8 @@
 
 // The agency's own mark at the top of the app's frame: its logo when it has uploaded one (organization.logo.forShell),
 // its name otherwise, and while the logo loads or can't. The logo's link lives five minutes, so it is asked again
-// before then; it is never kept on the device. FoldedOrgMark is the same mark for a sidebar folded to its icons: the
-// logo small and square, or the name's first letter while there is no logo.
+// before then; it is never kept on the device. OrgAvatar is the same mark for the sidebar's rail: the logo small and
+// round, or the name's first letter on a white disc while there is no logo.
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTRPC } from "@/data/trpc";
@@ -42,14 +42,16 @@ export function OrgMark({ className }: { className?: string }) {
   );
 }
 
-/** Shown only while the sidebar is folded (the class is the sidebar's own folded state). */
-export function FoldedOrgMark({ className }: { className?: string }) {
+/** The agency's mark in the sidebar: its first letter in the sidebar's green on a white disc while it has no logo. */
+export function OrgAvatar({ className }: { className?: string }) {
   const { name } = useMe().organization;
   const logo = useOrgLogo();
   return (
-    <Avatar role="img" aria-label={name} className={cn("hidden group-data-[collapsible=icon]:flex", className)}>
+    <Avatar role="img" aria-label={name} className={className}>
       {logo.data && <AvatarImage src={logo.data.url} alt="" className="object-contain" />}
-      <AvatarFallback aria-hidden="true">{Array.from(name.trim())[0]?.toUpperCase()}</AvatarFallback>
+      <AvatarFallback aria-hidden="true" className="bg-sidebar-ink font-semibold text-sidebar-fill">
+        {Array.from(name.trim())[0]?.toUpperCase()}
+      </AvatarFallback>
     </Avatar>
   );
 }

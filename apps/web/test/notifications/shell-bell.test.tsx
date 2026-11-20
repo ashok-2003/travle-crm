@@ -1,4 +1,4 @@
-// Where the bell sits in the app's frame: beside the organization's name at the top of the sidebar on wide screens,
+// Where the bell sits in the app's frame: under the organization's mark at the top of the sidebar on wide screens,
 // and in a bar above the page on phones, so the bottom bar keeps its destinations (DESIGN.md: 4-5, More included).
 // CSS shows one or the other, so both are here. The account screen leads to the notification choices.
 import "fake-indexeddb/auto";
@@ -49,7 +49,7 @@ describe("the bell in the app's frame", () => {
       </NextIntlClientProvider>,
     );
     const name = t("label", { count: 2 });
-    const sidebar = document.querySelector<HTMLElement>("[data-slot=sidebar]");
+    const sidebar = document.querySelector<HTMLElement>("[data-slot=aceternity-sidebar]");
     if (!sidebar) throw new Error("the sidebar is missing");
     expect(await within(sidebar).findByRole("button", { name })).toBeVisible();
     const topBar = within(screen.getByRole("banner"));

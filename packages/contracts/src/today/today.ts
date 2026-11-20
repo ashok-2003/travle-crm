@@ -1,7 +1,7 @@
 // Today (spec 3.5): the signed-in person's overdue and due-today follow-ups and tasks, and their new leads waiting for
 // a reply, counted for the day in the agency's zone and listed a section at a time.
 import { z } from "zod";
-import { leadSource } from "../crm/fields.js";
+import { leadSource, leadStage } from "../crm/fields.js";
 import { tripSummary } from "../crm/trip.js";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
@@ -24,11 +24,12 @@ export const departureReasons = ["holds-ending", "details-incomplete", "rooming-
 export const departureReason = z.enum(departureReasons);
 export type DepartureReason = z.infer<typeof departureReason>;
 
-/** A lead in brief, beside its task or as a new lead waiting. */
+/** A lead in brief, beside its task or as a new lead waiting: its stage shows under the name (web revamp part 2). */
 export const leadBrief = z.object({
   id: recordId,
   personName: z.string(),
   phone: z.string().nullable(),
+  stage: leadStage,
   trip: tripSummary,
   source: leadSource,
 });

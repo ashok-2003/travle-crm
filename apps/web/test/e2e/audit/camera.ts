@@ -39,8 +39,9 @@ async function settled(page: Page, { skeleton }: { skeleton: boolean }): Promise
   if (skeleton) await expect(busy.first()).toBeVisible();
   else await expect(busy).toHaveCount(0, { timeout: 20_000 });
   // A toast's timer pauses while the pointer rests on it, and a tap leaves the emulated pointer where it tapped, often
-  // where the toast then appears: move it to the corner so the toasts fade as they do for a person.
-  await page.mouse.move(0, 0);
+  // where the toast then appears: move it to the top's middle so the toasts fade as they do for a person (the corner is
+  // the desktop's sidebar, which would open over the page).
+  await page.mouse.move((page.viewportSize()?.width ?? 0) / 2, 0);
   await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 15_000 });
   await page.evaluate(async () => {
     await document.fonts.ready;

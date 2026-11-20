@@ -36,7 +36,7 @@ export function AttentionCard() {
     })),
   ].slice(0, wide ? 5 : 3);
   return (
-    <HomeCard title={t("title")} viewAll={managesAi ? routes.aiAgent : routes.today}>
+    <HomeCard title={t("title")} tint="attention" viewAll={managesAi ? routes.aiAgent : routes.today}>
       {needs.isError && <LoadFailedAlert message={t("loadFailed")} error={needs.error} onRetry={needs.refetch} />}
       {needs.isPending ? (
         <LoadingRows rows={2} />

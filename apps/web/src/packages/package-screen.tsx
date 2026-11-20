@@ -63,7 +63,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
     return <LoadingRows shape="twoLines" label={t("loading")} />;
   };
   return (
-    <div className="flex max-w-[1200px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {detail.data === undefined && <BackLink href={routes.packages} label={t("back")} />}
       {body()}
     </div>

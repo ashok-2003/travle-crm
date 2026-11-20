@@ -13,6 +13,7 @@ import {
   leadWorkerAgency,
   moveStageThroughApi,
 } from "../support/leads";
+import { openTab } from "../support/tabs";
 import { addOverdueFollowUp, fillDue, laterToday } from "../support/work";
 import { openFromNavigation, screenshotsOnly, shoot } from "./camera";
 
@@ -126,7 +127,7 @@ test("an Owner's day, its dialogs and Settings, and a salesperson's empty Today"
   await shoot(page, "home-today");
 
   await openFromNavigation(page, "Main", "Today");
-  await expect(page.getByRole("region", { name: "Due today" }).getByText("Renew the IATA licence")).toBeVisible();
+  await expect((await openTab(page, "Due today")).getByText("Renew the IATA licence")).toBeVisible();
   await shoot(page, "today");
 
   await page.getByRole("button", { name: "Snooze: Confirm the Kedarnath dates" }).click();

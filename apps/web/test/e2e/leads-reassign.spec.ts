@@ -6,6 +6,7 @@ import { expectAccessible } from "./support/accessibility";
 import { expect, signInByCode, signInByEmail, test } from "./support/fixtures";
 import { addLeadThroughApi, anotherPersonsDevice, leadInput, leadWorkerAgency } from "./support/leads";
 import { animationsSettled } from "./support/settled";
+import { tabNamed } from "./support/tabs";
 import { addOverdueFollowUp } from "./support/work";
 
 test("an Owner reassigns a lead; Ravi finds it in his Leads", async ({ page, browser, agency, addStaff }) => {
@@ -16,7 +17,7 @@ test("an Owner reassigns a lead; Ravi finds it in his Leads", async ({ page, bro
   await addOverdueFollowUp(page, leadId, "Send the Goa options");
   await page.goto("/leads/follow-ups");
   const followUp = /Send the Goa options/;
-  await expect(page.getByRole("region", { name: "Overdue" }).getByText(followUp)).toBeVisible();
+  await expect(page.getByRole("tabpanel", { name: tabNamed("Due") }).getByText(followUp)).toBeVisible();
 
   await page.goto(`/leads/${leadId}`);
   const ownerCard = page.getByRole("region", { name: "Owner and source" });
@@ -42,7 +43,7 @@ test("an Owner reassigns a lead; Ravi finds it in his Leads", async ({ page, bro
   const ravisPage = await ravisPhone.newPage();
   await signInByCode(ravisPage, { code: agency.code, staff: ravi });
   await ravisPage.goto("/leads/follow-ups");
-  await expect(ravisPage.getByRole("region", { name: "Overdue" }).getByText(followUp)).toBeVisible();
+  await expect(ravisPage.getByRole("tabpanel", { name: tabNamed("Due") }).getByText(followUp)).toBeVisible();
   await ravisPage.goto("/leads");
   await expect(ravisPage.getByRole("radio", { name: /^Mine · open/ })).toBeVisible();
   await expect(ravisPage.getByRole("tablist")).toHaveCount(0);

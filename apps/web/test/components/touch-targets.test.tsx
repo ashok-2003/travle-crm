@@ -4,6 +4,12 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
+import {
+  Sidebar as AceternitySidebar,
+  SidebarButton,
+  SidebarDock,
+  SidebarLink,
+} from "@/components/ui/aceternity-sidebar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -54,7 +60,7 @@ function expectTarget(element: Element, { square = false } = {}) {
 }
 
 describe("touch targets", () => {
-  it.each(["default", "sm", "lg", "icon", "icon-lg"] as const)("a %s button", (size) => {
+  it.each(["default", "sm", "lg", "icon", "icon-sm", "icon-lg"] as const)("a %s button", (size) => {
     render(<Button size={size}>Go</Button>);
     expectTarget(screen.getByRole("button"), { square: size.startsWith("icon") });
   });
@@ -91,6 +97,19 @@ describe("touch targets", () => {
       expectTarget(screen.getByRole("button"));
     },
   );
+
+  it("the agency sidebar's rows, a link and a button, at least 44px so a wrapping name can grow them, and its pin", () => {
+    render(
+      <AceternitySidebar>
+        <SidebarLink href="/staff" icon={null} label="Staff" />
+        <SidebarButton icon={null} label="Notifications" />
+        <SidebarDock label="Keep the sidebar open" />
+      </AceternitySidebar>,
+    );
+    expectTarget(screen.getByRole("link"));
+    expectTarget(screen.getByRole("button", { name: "Notifications" }));
+    expectTarget(screen.getByRole("button", { name: "Keep the sidebar open" }), { square: true });
+  });
 
   it.each(["default", "sm"] as const)("a %s item that is a link", (size) => {
     render(

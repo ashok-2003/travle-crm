@@ -25,7 +25,7 @@ export function DeparturesCard() {
     .slice(0, ROWS_SHOWN);
   if (departures.length === 0) return null;
   return (
-    <HomeCard title={t("title")} viewAll={routes.departures}>
+    <HomeCard title={t("title")} tint="good" viewAll={routes.departures}>
       <ItemGroup className={rowClasses.group}>
         {departures.map((departure, index) => (
           <Fragment key={departure.departureId}>

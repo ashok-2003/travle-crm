@@ -4,6 +4,7 @@
 import { expect, test } from "../support/notifications";
 import { signInByEmail } from "../support/fixtures";
 import { addLeadThroughApi, dayInIndia, leadInput } from "../support/leads";
+import { tabNamed } from "../support/tabs";
 import { screenshotsOnly, shoot } from "./camera";
 
 test.beforeEach(screenshotsOnly);
@@ -107,7 +108,7 @@ test("calling, the library, Today's new sections and the morning summary", async
   await page.keyboard.press("Escape");
 
   await page.goto("/today");
-  await expect(page.getByRole("region", { name: "Payments due" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: tabNamed("Payments due") })).toBeVisible();
   await expect(page.getByRole("region", { name: "Quote opened, no reply" })).toBeVisible();
   await shoot(page, "r5-today");
 
