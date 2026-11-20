@@ -73,7 +73,7 @@ export function PhoneNavigation({
             {...linkProps(destination)}
             className={cn(tabClasses, destination.current ? "text-primary" : "text-muted-foreground")}
           >
-            <destination.icon aria-hidden="true" className="size-5" />
+            <destination.icon aria-hidden="true" className="size-5 stroke-2" />
             {destination.label}
           </Link>
         ))}
@@ -82,7 +82,7 @@ export function PhoneNavigation({
             aria-current={moreCurrent ? "true" : undefined}
             className={cn(tabClasses, moreCurrent ? "text-primary" : "text-muted-foreground")}
           >
-            <EllipsisHorizontalIcon aria-hidden="true" className="size-5" />
+            <EllipsisHorizontalIcon aria-hidden="true" className="size-5 stroke-2" />
             {moreLabel}
           </SheetTrigger>
           <SheetContent side="bottom" className={BOTTOM_SHEET_CLASSES}>
@@ -102,7 +102,7 @@ export function PhoneNavigation({
                         setMoreOpen(false);
                       }}
                     >
-                      <destination.icon aria-hidden="true" />
+                      <destination.icon aria-hidden="true" className="stroke-2" />
                       {destination.label}
                     </Link>
                   </SidebarMenuButton>
@@ -110,7 +110,7 @@ export function PhoneNavigation({
               ))}
               <SidebarMenuItem>
                 <SidebarMenuButton onClick={signOut.onClick}>
-                  <ArrowRightStartOnRectangleIcon aria-hidden="true" />
+                  <ArrowRightStartOnRectangleIcon aria-hidden="true" className="stroke-2" />
                   {signOut.label}
                 </SidebarMenuButton>
               </SidebarMenuItem>

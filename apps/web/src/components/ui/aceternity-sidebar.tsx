@@ -292,10 +292,13 @@ const pressable = cn(
   "group/row hover:bg-sidebar-border aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:shadow-[0_4px_14px_-2px_color-mix(in_srgb,var(--sidebar-accent)_40%,transparent)]",
 );
 
-/** The icon's 20px box (a 32px avatar centres on it); `dot`, a colour class, marks waiting work on its corner at rest. */
+/** The icon's 20px box (a 32px avatar centres on it), an outline icon's stroke at 2 (owner: bolder than Heroicons' 1.5); `dot`, a colour class, marks waiting work on its corner at rest. */
 function SidebarIcon({ dot, children }: { dot?: string | undefined; children: React.ReactNode }) {
   return (
-    <span aria-hidden="true" className="relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
+    <span
+      aria-hidden="true"
+      className="relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-5 [&>svg]:stroke-2"
+    >
       {children}
       {dot !== undefined && (
         <span
@@ -469,7 +472,7 @@ export function SidebarDock({ label }: { label: string }) {
           // Out of the rail at rest, so out of the keyboard's way until the panel is open.
           tabIndex={open ? undefined : -1}
           onClick={dock}
-          className="flex size-11 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/75 opacity-0 group-data-[state=open]/panel:opacity-100 hover:bg-sidebar-border hover:text-sidebar-foreground aria-pressed:text-sidebar-foreground motion-safe:transition-opacity [&>svg]:size-5"
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/75 opacity-0 group-data-[state=open]/panel:opacity-100 hover:bg-sidebar-border hover:text-sidebar-foreground aria-pressed:text-sidebar-foreground motion-safe:transition-opacity [&>svg]:size-5 [&>svg]:stroke-2"
         >
           {docked ? <LockClosedIcon aria-hidden="true" /> : <LockOpenIcon aria-hidden="true" />}
         </button>

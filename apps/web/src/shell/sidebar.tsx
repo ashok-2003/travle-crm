@@ -146,12 +146,12 @@ function PersonMenu() {
       <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-56">
         <DropdownMenuItem asChild>
           <Link href={routes.account} onClick={chose}>
-            <UserIcon aria-hidden="true" />
+            <UserIcon aria-hidden="true" className="stroke-2" />
             {t("account")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={signOut}>
-          <ArrowRightStartOnRectangleIcon aria-hidden="true" />
+          <ArrowRightStartOnRectangleIcon aria-hidden="true" className="stroke-2" />
           {t("signOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>
