@@ -237,11 +237,15 @@ describe("Home's day", () => {
   });
 
   describe("Hot leads to call", () => {
-    it("shows the five hottest with Call, and View all opens Leads", async () => {
+    it("shows the five hottest with Call and WhatsApp as their glyphs, as My tasks has them, and View all opens Leads", async () => {
       renderHome({ hot: [1, 2, 3, 4, 5, 6, 7].map(hotLead) });
       const hot = await card(h.hot.title);
       expect(within(hot).getAllByRole("listitem")).toHaveLength(5);
-      expect(within(hot).getAllByRole("link", { name: /^Call / })).toHaveLength(5);
+      const calls = within(hot).getAllByLabelText(/^Call Hot person/);
+      expect(calls).toHaveLength(5);
+      expect(within(hot).getAllByLabelText(/^WhatsApp Hot person/)).toHaveLength(5);
+      // The glyph alone: no word beside it.
+      expect(calls[0]).not.toHaveTextContent("Call");
       expect(within(hot).getByRole("link", { name: h.viewAll })).toHaveAttribute("href", "/leads");
     });
 

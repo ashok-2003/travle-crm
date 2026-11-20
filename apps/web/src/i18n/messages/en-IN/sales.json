@@ -82,8 +82,6 @@
     "title": "{count, plural, one {# hot lead: call now} other {# hot leads: call now}}",
     "description": "They are deciding. A call in the next hour wins most of them.",
     "loadFailed": "Hot leads didn't load.",
-    "call": "Call",
-    "callNamed": "Call {name}",
     "reasons": {
       "quote_opened": "Opened the quote",
       "asked_price": "Asked to book",

@@ -1,17 +1,16 @@
 "use client";
 
 // The hot leads to call now (sales execution), on Home: the five hottest first, each with why (opened the quote, asked
-// to book, travels soon, a big budget), a call button and its page; View all opens Leads. Shown to whoever sees leads;
-// nothing when none is hot.
+// to book, travels soon, a big budget), Call and WhatsApp as their glyphs (as My tasks and Follow-ups have them) and its
+// page; View all opens Leads. Shown to whoever sees leads; nothing when none is hot.
 import type { HotLead } from "@travel-crm/contracts/sales";
-import { PhoneIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { StatusBadge } from "@/components/status-badge";
 import { TextLink } from "@/components/text-link";
-import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { HomeCard, rowClasses } from "@/home/home-card";
+import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
 import { formatCalendarDay } from "@/lib/format";
 import { leadRoute, routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
@@ -42,12 +41,8 @@ function HotRow({ lead }: { lead: HotLead }) {
       </ItemContent>
       {lead.phone !== null && (
         <ItemActions>
-          <Button asChild variant="outline" aria-label={t("callNamed", { name: lead.name })}>
-            <a href={`tel:${lead.phone}`}>
-              <PhoneIcon aria-hidden="true" />
-              {t("call")}
-            </a>
-          </Button>
+          <CallButton phone={lead.phone} name={lead.name} leadId={lead.leadId} compact />
+          <WhatsAppButton phone={lead.phone} name={lead.name} leadId={lead.leadId} compact />
         </ItemActions>
       )}
     </Item>
