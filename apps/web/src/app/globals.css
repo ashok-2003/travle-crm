@@ -184,7 +184,8 @@
   --border: var(--brand-hairline);
   --input: var(--brand-input-border);
   --ring: var(--brand-action);
-  /* The console's sidebar and the sign-in page's panel: deep green with white words, the current page a lighter green. */
+  /* The sidebars (the agency's sets its own current page below) and the sign-in page's panel: deep green with white
+     words, the current page a lighter green. */
   --sidebar: var(--brand-sidebar-fill);
   --sidebar-foreground: var(--brand-sidebar-ink);
   --sidebar-accent: var(--brand-sidebar-active);
@@ -193,15 +194,13 @@
   --sidebar-ring: var(--brand-sidebar-ink);
 }
 
-/* The agency's sidebar (DESIGN.md section 6, components/ui/aceternity-sidebar.tsx): light, in the warm surface tone,
-   hairlines between its parts, the current page solid action blue with white words (5.17:1) and its soft glow. Without
-   this rule it wears the deep green above. */
+/* The agency's sidebar (DESIGN.md section 6, components/ui/aceternity-sidebar.tsx): the deep green above with white
+   words, its current page a matte neon: a white pill with the green's words (7.66:1) and a soft white glow. The focus
+   outline is white too, which the green shows (the action blue's would be 1.6:1 on it). */
 [data-slot="aceternity-sidebar"] {
-  --sidebar: var(--brand-surface);
-  --sidebar-foreground: var(--brand-ink);
-  --sidebar-accent: var(--brand-action);
-  --sidebar-accent-foreground: var(--brand-on-action);
-  --sidebar-border: var(--brand-hairline);
+  --sidebar-accent: var(--brand-sidebar-ink);
+  --sidebar-accent-foreground: var(--brand-sidebar-fill);
+  --ring: var(--brand-sidebar-ink);
 }
 
 /* On a phone, toasts sit above the bottom bar (56px, and 8px more) on the pages that have one

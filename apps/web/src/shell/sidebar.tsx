@@ -1,12 +1,13 @@
 "use client";
 
 // The desktop navigation (DESIGN.md section 6, web revamp part 5): a 60px rail of icons on every page that opens as the
-// full sidebar over the page on hover, keyboard focus or a touch screen's top button, and shuts when the pointer leaves
-// (components/ui/aceternity-sidebar.tsx). At its top the agency's mark and name and the bell; the destinations in three
+// full sidebar over the page on hover, keyboard focus or a touch screen's top button, and shuts when the pointer leaves,
+// or stays open over the page while its pin is pressed (components/ui/aceternity-sidebar.tsx). Heroicons'
+// outline icons, the solid one for the current page. At its top the agency's mark and name and the bell; the destinations in three
 // groups split by a hairline, the current page marked, live counts where work waits (the Inbox's unread chats in the
 // people violet, My tasks' work in red); at its foot the person, whose menu holds their account and sign-out.
 // Phones have the top bar and the bottom bar instead.
-import { BellIcon, LogOutIcon, UserIcon } from "lucide-react";
+import { ArrowRightStartOnRectangleIcon, BellIcon, UserIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -17,6 +18,7 @@ import {
   SidebarBody,
   SidebarButton,
   SidebarContent,
+  SidebarDock,
   SidebarFooter,
   SidebarHeader,
   SidebarLink,
@@ -59,12 +61,13 @@ function Destination({ item, waiting }: { item: NavigationItem; waiting?: Waitin
   const pathname = usePathname();
   const prefetch = usePrefetchDestination();
   const shown = waiting !== undefined && waiting.count > 0 ? waiting : undefined;
+  const current = isCurrent(item, pathname);
   return (
     <SidebarLink
       href={item.href}
-      icon={<item.icon />}
+      icon={current ? <item.activeIcon /> : <item.icon />}
       label={t(item.key)}
-      current={isCurrent(item, pathname)}
+      current={current}
       dot={shown && dots[shown.tone]}
       aside={shown && <TabCount count={shown.count} tone={shown.tone} />}
       description={shown?.words}
@@ -148,7 +151,7 @@ function PersonMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={signOut}>
-          <LogOutIcon aria-hidden="true" />
+          <ArrowRightStartOnRectangleIcon aria-hidden="true" />
           {t("signOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -168,7 +171,7 @@ export function AppSidebar() {
       <SidebarBody>
         <SidebarHeader>
           <SidebarToggle openLabel={t("openSidebar")} closeLabel={t("closeSidebar")} />
-          <SidebarRow icon={<OrgAvatar className="size-8" />}>
+          <SidebarRow icon={<OrgAvatar className="size-8" />} action={<SidebarDock label={t("pinSidebar")} />}>
             <span className="script-leading text-section font-semibold">{organization.name}</span>
           </SidebarRow>
           <BellRow />

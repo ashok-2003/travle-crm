@@ -4,9 +4,9 @@
 // destinations and "More", labels always shown, above the home indicator. "More" opens a sheet with whose it is and
 // who is signed in, the rest of the destinations as the sidebar lists them, and sign-out. Wide screens have the
 // sidebar instead.
-import { EllipsisIcon, LogOutIcon, type LucideIcon } from "lucide-react";
+import { ArrowRightStartOnRectangleIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
@@ -20,7 +20,8 @@ const IN_BAR = 4;
 export interface PhoneDestination {
   key: string;
   href: string;
-  icon: LucideIcon;
+  /** The agency's Heroicons icon (solid for the current page), or the console's Lucide one. */
+  icon: ComponentType<Pick<SVGProps<SVGSVGElement>, "className" | "aria-hidden">>;
   label: string;
   current: boolean;
   /** Loads the destination's data when its link is touched or focused (shell/prefetch.ts). */
@@ -81,7 +82,7 @@ export function PhoneNavigation({
             aria-current={moreCurrent ? "true" : undefined}
             className={cn(tabClasses, moreCurrent ? "text-primary" : "text-muted-foreground")}
           >
-            <EllipsisIcon aria-hidden="true" className="size-5" />
+            <EllipsisHorizontalIcon aria-hidden="true" className="size-5" />
             {moreLabel}
           </SheetTrigger>
           <SheetContent side="bottom" className={BOTTOM_SHEET_CLASSES}>
@@ -109,7 +110,7 @@ export function PhoneNavigation({
               ))}
               <SidebarMenuItem>
                 <SidebarMenuButton onClick={signOut.onClick}>
-                  <LogOutIcon aria-hidden="true" />
+                  <ArrowRightStartOnRectangleIcon aria-hidden="true" />
                   {signOut.label}
                 </SidebarMenuButton>
               </SidebarMenuItem>

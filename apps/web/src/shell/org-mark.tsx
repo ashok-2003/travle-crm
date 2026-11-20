@@ -3,7 +3,7 @@
 // The agency's own mark at the top of the app's frame: its logo when it has uploaded one (organization.logo.forShell),
 // its name otherwise, and while the logo loads or can't. The logo's link lives five minutes, so it is asked again
 // before then; it is never kept on the device. OrgAvatar is the same mark for the sidebar's rail: the logo small and
-// round, or the name's first letter on the brand's green while there is no logo.
+// round, or the name's first letter on a white disc while there is no logo.
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTRPC } from "@/data/trpc";
@@ -42,14 +42,14 @@ export function OrgMark({ className }: { className?: string }) {
   );
 }
 
-/** The brand's green is the agency's mark's alone in the sidebar (web revamp part 5). */
+/** The agency's mark in the sidebar: its first letter in the sidebar's green on a white disc while it has no logo. */
 export function OrgAvatar({ className }: { className?: string }) {
   const { name } = useMe().organization;
   const logo = useOrgLogo();
   return (
     <Avatar role="img" aria-label={name} className={className}>
       {logo.data && <AvatarImage src={logo.data.url} alt="" className="object-contain" />}
-      <AvatarFallback aria-hidden="true" className="bg-sidebar-fill font-semibold text-sidebar-ink">
+      <AvatarFallback aria-hidden="true" className="bg-sidebar-ink font-semibold text-sidebar-fill">
         {Array.from(name.trim())[0]?.toUpperCase()}
       </AvatarFallback>
     </Avatar>

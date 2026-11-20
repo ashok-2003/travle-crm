@@ -4,7 +4,12 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
-import { Sidebar as AceternitySidebar, SidebarButton, SidebarLink } from "@/components/ui/aceternity-sidebar";
+import {
+  Sidebar as AceternitySidebar,
+  SidebarButton,
+  SidebarDock,
+  SidebarLink,
+} from "@/components/ui/aceternity-sidebar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -93,15 +98,17 @@ describe("touch targets", () => {
     },
   );
 
-  it("the agency sidebar's rows, a link and a button, at least 44px so a wrapping name can grow them", () => {
+  it("the agency sidebar's rows, a link and a button, at least 44px so a wrapping name can grow them, and its pin", () => {
     render(
       <AceternitySidebar>
         <SidebarLink href="/staff" icon={null} label="Staff" />
         <SidebarButton icon={null} label="Notifications" />
+        <SidebarDock label="Keep the sidebar open" />
       </AceternitySidebar>,
     );
     expectTarget(screen.getByRole("link"));
-    expectTarget(screen.getByRole("button"));
+    expectTarget(screen.getByRole("button", { name: "Notifications" }));
+    expectTarget(screen.getByRole("button", { name: "Keep the sidebar open" }), { square: true });
   });
 
   it.each(["default", "sm"] as const)("a %s item that is a link", (size) => {

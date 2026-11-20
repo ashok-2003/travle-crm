@@ -1,11 +1,11 @@
 // The agency's sidebar (web revamp part 5): a rail of icons, each named, that opens over the page on hover and on the
 // keyboard's focus and shuts when the pointer leaves or on Escape; a touch screen opens it with its top button and
-// shuts it with a tap outside or on a destination. The agency's mark and name and the bell at its top, the
+// shuts it with a tap outside or on a destination; its pin keeps it open over the page, remembered in the browser. The agency's mark and name and the bell at its top, the
 // destinations in three groups, the current page marked, the counts of waiting work, and the person's menu.
 import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { PointerEventsCheckLevel } from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -77,6 +77,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.localStorage.removeItem("sidebar-docked");
 });
 
 const logoLink = "https://files.example/logo.png?signed";
@@ -110,11 +111,11 @@ describe("the agency's sidebar", () => {
     });
   });
 
-  it("marks the agency with its first letter on the brand's green while it has no logo", () => {
+  it("marks the agency with its first letter in the sidebar's green on a white disc while it has no logo", () => {
     const { panel } = renderSidebar();
     const mark = panel.querySelector("[data-slot=avatar-fallback]");
     expect(mark).toHaveTextContent("S");
-    expect(mark).toHaveClass("bg-sidebar-fill", "text-sidebar-ink");
+    expect(mark).toHaveClass("bg-sidebar-ink", "text-sidebar-fill");
   });
 
   it("lists the destinations in three groups, without headings", () => {
@@ -133,7 +134,7 @@ describe("the agency's sidebar", () => {
     for (const heading of ["Work", "Team", "Manage"]) expect(sidebar.queryByText(heading)).toBeNull();
   });
 
-  it("marks the current page in a matte neon: solid action blue, white words, a soft blue glow", () => {
+  it("is the deep green, its current page a matte neon: a white pill, the green's words, a soft white glow", () => {
     const { sidebar } = renderSidebar();
     const home = sidebar.getByRole("link", { name: navigation.home });
     expect(home).toHaveAttribute("aria-current", "page");
@@ -147,8 +148,10 @@ describe("the agency's sidebar", () => {
       expect(home.className).toContain(style);
     }
     const agencyTokens = /\[data-slot="aceternity-sidebar"\] \{([^}]*)\}/.exec(globalsCss)?.[1] ?? "";
-    expect(agencyTokens).toContain("--sidebar-accent: var(--brand-action);");
-    expect(agencyTokens).toContain("--sidebar-accent-foreground: var(--brand-on-action);");
+    expect(agencyTokens).toContain("--sidebar-accent: var(--brand-sidebar-ink);");
+    expect(agencyTokens).toContain("--sidebar-accent-foreground: var(--brand-sidebar-fill);");
+    expect(agencyTokens).toContain("--ring: var(--brand-sidebar-ink);");
+    expect(agencyTokens).not.toContain("--sidebar:");
     const leads = sidebar.getByRole("link", { name: navigation.leads });
     expect(leads).not.toHaveAttribute("aria-current");
     expect(document.querySelector("[data-current]")).toBeNull();
@@ -254,6 +257,38 @@ describe("the agency's sidebar", () => {
     });
     await tap(leads);
     expect(panel).toHaveAttribute("data-state", "closed");
+  });
+
+  it("stays open over the page while pinned, and shuts at once when the pin is pressed again", async () => {
+    const { panel, sidebar } = renderSidebar();
+    const user = userEvent.setup();
+    await user.hover(panel);
+    const pin = sidebar.getByRole("button", { name: navigation.pinSidebar });
+    expect(pin).toHaveAttribute("aria-pressed", "false");
+    await user.click(pin);
+    expect(pin).toHaveAttribute("aria-pressed", "true");
+    await user.unhover(panel);
+    await user.click(screen.getByText("The page"));
+    const leads = sidebar.getByRole("link", { name: navigation.leads });
+    leads.addEventListener("click", (event) => {
+      event.preventDefault();
+    });
+    await user.click(leads);
+    expect(panel).toHaveAttribute("data-state", "open");
+    await user.click(pin);
+    expect(pin).toHaveAttribute("aria-pressed", "false");
+    expect(panel).toHaveAttribute("data-state", "closed");
+  });
+
+  it("remembers the pin in this browser, so the next page starts open", async () => {
+    const first = renderSidebar();
+    const user = userEvent.setup();
+    await user.hover(first.panel);
+    await user.click(first.sidebar.getByRole("button", { name: navigation.pinSidebar }));
+    expect(window.localStorage.getItem("sidebar-docked")).toBe("true");
+    cleanup();
+    const { panel } = renderSidebar();
+    expect(panel).toHaveAttribute("data-state", "open");
   });
 
   it("opens the person's menu, with their account and sign-out, and stays open while it is", async () => {

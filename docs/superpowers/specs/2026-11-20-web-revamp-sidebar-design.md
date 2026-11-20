@@ -60,3 +60,16 @@ The console's sidebar (it keeps the registry one), the phone's bottom bar, what 
 - At 768, 1024, 1280, 1440 and 1728: going Home → Inbox → Leads moves nothing, and opening the panel on hover moves
   nothing under it (the rail's box and the page's left edge stay put; measured); shots of the rail and of the open
   panel, and frames of it opening and closing.
+
+## After the owner's review (2026-11-20)
+
+- **Colour:** back to the deep sidebar green with white words (the light rail was my call; the owner kept the green).
+  The current page's matte neon is now a white pill with the green's words and a white glow.
+- **Motion:** real springs: opening overshoots a touch and settles, the labels slide in row after row; shutting lands
+  with less bounce. Nothing moves under reduced motion.
+- **A pin** ("a dock button, but it should not do the layout shift"): it keeps the panel open over the page on every
+  page, remembered in the browser, until pressed again, which shuts it at once. The page never moves, so a pinned panel
+  covers the page's left edge.
+- **Icons:** Heroicons (`@heroicons/react` 2.2.0) for the navigation, the sidebar's and the phone bar's: the outline at
+  rest, the solid one for the current page (the owner tried Phosphor first and chose Heroicons); the rest of the app
+  keeps Lucide until the owner says. Heroicons has no pin, so the pin is a padlock, open, then shut while pinned.

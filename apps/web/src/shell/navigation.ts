@@ -2,29 +2,52 @@
 // Hiding is for convenience only; the api refuses whatever a role or the plan doesn't allow. An item's `module` is
 // what the organization's plan must include for it to show (request check 3).
 import type { PlanModule } from "@travel-crm/contracts/subscriptions";
+import type { ComponentType, SVGProps } from "react";
 import {
-  AlarmClockIcon,
-  BotIcon,
-  CalendarCheckIcon,
-  ChartColumnIcon,
-  BriefcaseBusinessIcon,
-  BusIcon,
-  HandshakeIcon,
-  FileTextIcon,
-  HistoryIcon,
-  HouseIcon,
-  IndianRupeeIcon,
-  InboxIcon,
-  MessageCircleIcon,
-  PackageIcon,
-  SettingsIcon,
+  BriefcaseIcon,
+  BuildingStorefrontIcon,
+  ChartBarIcon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  CurrencyRupeeIcon,
+  DocumentTextIcon,
+  HomeIcon,
+  InboxArrowDownIcon,
+  MapIcon,
+  PaperAirplaneIcon,
   ShieldCheckIcon,
+  SparklesIcon,
   UsersIcon,
   WalletIcon,
-  type LucideIcon,
-} from "lucide-react";
+} from "@heroicons/react/24/outline";
+import {
+  BriefcaseIcon as BriefcaseIconSolid,
+  BuildingStorefrontIcon as BuildingStorefrontIconSolid,
+  ChartBarIcon as ChartBarIconSolid,
+  ChatBubbleLeftRightIcon as ChatBubbleLeftRightIconSolid,
+  CheckCircleIcon as CheckCircleIconSolid,
+  ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
+  ClockIcon as ClockIconSolid,
+  Cog6ToothIcon as Cog6ToothIconSolid,
+  CurrencyRupeeIcon as CurrencyRupeeIconSolid,
+  DocumentTextIcon as DocumentTextIconSolid,
+  HomeIcon as HomeIconSolid,
+  InboxArrowDownIcon as InboxArrowDownIconSolid,
+  MapIcon as MapIconSolid,
+  PaperAirplaneIcon as PaperAirplaneIconSolid,
+  ShieldCheckIcon as ShieldCheckIconSolid,
+  SparklesIcon as SparklesIconSolid,
+  UsersIcon as UsersIconSolid,
+  WalletIcon as WalletIconSolid,
+} from "@heroicons/react/24/solid";
 import { holds, type SignedInMember } from "@/session/me-context";
 import { routes } from "@/lib/routes";
+
+/** A navigation icon: Heroicons' outline or solid one. */
+export type NavigationIcon = ComponentType<Pick<SVGProps<SVGSVGElement>, "className" | "aria-hidden">>;
 
 /** The sidebar's groups, in order, split by space and a hairline, without headings: the day, the business, the team. */
 export const navigationGroups = ["day", "business", "team"] as const;
@@ -54,7 +77,9 @@ export interface NavigationItem {
   /** The sidebar group it sits in; phones list the items without groups. */
   group: NavigationGroup;
   href: string;
-  icon: LucideIcon;
+  /** Heroicons' (DESIGN.md Navigation): the outline at rest, the solid one for the current page. */
+  icon: NavigationIcon;
+  activeIcon: NavigationIcon;
   /** The permission the item needs, if any. */
   requires: string | null;
   /** The module of the plan (spec 7.2) the item belongs to; null for the Foundation's own screens. */
@@ -62,24 +87,66 @@ export interface NavigationItem {
 }
 
 export const navigationItems: readonly NavigationItem[] = [
-  { key: "home", group: "day", href: routes.home, icon: HouseIcon, requires: null, module: null },
-  { key: "today", group: "day", href: routes.today, icon: CalendarCheckIcon, requires: "leads:view", module: "crm" },
+  {
+    key: "home",
+    group: "day",
+    href: routes.home,
+    icon: HomeIcon,
+    activeIcon: HomeIconSolid,
+    requires: null,
+    module: null,
+  },
+  {
+    key: "today",
+    group: "day",
+    href: routes.today,
+    icon: CheckCircleIcon,
+    activeIcon: CheckCircleIconSolid,
+    requires: "leads:view",
+    module: "crm",
+  },
   {
     key: "followUps",
     group: "day",
     href: routes.followUps,
-    icon: AlarmClockIcon,
+    icon: ClockIcon,
+    activeIcon: ClockIconSolid,
     requires: "leads:view",
     module: "crm",
   },
-  { key: "leads", group: "day", href: routes.leads, icon: InboxIcon, requires: "leads:view", module: "crm" },
-  { key: "inbox", group: "day", href: routes.inbox, icon: MessageCircleIcon, requires: "inbox:view", module: "inbox" },
-  { key: "aiAgent", group: "business", href: routes.aiAgent, icon: BotIcon, requires: "ai:manage", module: "ai" },
+  {
+    key: "leads",
+    group: "day",
+    href: routes.leads,
+    icon: InboxArrowDownIcon,
+    activeIcon: InboxArrowDownIconSolid,
+    requires: "leads:view",
+    module: "crm",
+  },
+  {
+    key: "inbox",
+    group: "day",
+    href: routes.inbox,
+    icon: ChatBubbleLeftRightIcon,
+    activeIcon: ChatBubbleLeftRightIconSolid,
+    requires: "inbox:view",
+    module: "inbox",
+  },
+  {
+    key: "aiAgent",
+    group: "business",
+    href: routes.aiAgent,
+    icon: SparklesIcon,
+    activeIcon: SparklesIconSolid,
+    requires: "ai:manage",
+    module: "ai",
+  },
   {
     key: "quotes",
     group: "business",
     href: routes.quotes,
-    icon: FileTextIcon,
+    icon: DocumentTextIcon,
+    activeIcon: DocumentTextIconSolid,
     requires: "quotes:view",
     module: "quotes",
   },
@@ -87,7 +154,8 @@ export const navigationItems: readonly NavigationItem[] = [
     key: "packages",
     group: "business",
     href: routes.packages,
-    icon: PackageIcon,
+    icon: MapIcon,
+    activeIcon: MapIconSolid,
     requires: "quotes:view",
     module: "quotes",
   },
@@ -95,7 +163,8 @@ export const navigationItems: readonly NavigationItem[] = [
     key: "bookings",
     group: "business",
     href: routes.bookings,
-    icon: BriefcaseBusinessIcon,
+    icon: BriefcaseIcon,
+    activeIcon: BriefcaseIconSolid,
     requires: "bookings:view",
     module: "bookings",
   },
@@ -104,6 +173,7 @@ export const navigationItems: readonly NavigationItem[] = [
     group: "business",
     href: routes.payments,
     icon: WalletIcon,
+    activeIcon: WalletIconSolid,
     requires: "quotes:record_payments",
     module: "bookings",
   },
@@ -111,7 +181,8 @@ export const navigationItems: readonly NavigationItem[] = [
     key: "departures",
     group: "business",
     href: routes.departures,
-    icon: BusIcon,
+    icon: PaperAirplaneIcon,
+    activeIcon: PaperAirplaneIconSolid,
     requires: "departures:view",
     module: "departures",
   },
@@ -119,7 +190,8 @@ export const navigationItems: readonly NavigationItem[] = [
     key: "suppliers",
     group: "business",
     href: routes.suppliers,
-    icon: HandshakeIcon,
+    icon: BuildingStorefrontIcon,
+    activeIcon: BuildingStorefrontIconSolid,
     requires: "suppliers:view",
     module: "suppliers",
   },
@@ -127,7 +199,8 @@ export const navigationItems: readonly NavigationItem[] = [
     key: "reports",
     group: "business",
     href: routes.reports,
-    icon: ChartColumnIcon,
+    icon: ChartBarIcon,
+    activeIcon: ChartBarIconSolid,
     requires: "money:view_reports",
     module: "crm",
   },
@@ -135,21 +208,47 @@ export const navigationItems: readonly NavigationItem[] = [
     key: "finance",
     group: "business",
     href: routes.finance,
-    icon: IndianRupeeIcon,
+    icon: CurrencyRupeeIcon,
+    activeIcon: CurrencyRupeeIconSolid,
     requires: "accounts:view",
     module: "accounts",
   },
-  { key: "staff", group: "team", href: routes.staff, icon: UsersIcon, requires: "staff:manage", module: null },
-  { key: "roles", group: "team", href: routes.roles, icon: ShieldCheckIcon, requires: "roles:manage", module: null },
+  {
+    key: "staff",
+    group: "team",
+    href: routes.staff,
+    icon: UsersIcon,
+    activeIcon: UsersIconSolid,
+    requires: "staff:manage",
+    module: null,
+  },
+  {
+    key: "roles",
+    group: "team",
+    href: routes.roles,
+    icon: ShieldCheckIcon,
+    activeIcon: ShieldCheckIconSolid,
+    requires: "roles:manage",
+    module: null,
+  },
   {
     key: "settings",
     group: "team",
     href: routes.settings,
-    icon: SettingsIcon,
+    icon: Cog6ToothIcon,
+    activeIcon: Cog6ToothIconSolid,
     requires: "settings:manage",
     module: null,
   },
-  { key: "audit", group: "team", href: routes.audit, icon: HistoryIcon, requires: "audit:view", module: null },
+  {
+    key: "audit",
+    group: "team",
+    href: routes.audit,
+    icon: ClipboardDocumentListIcon,
+    activeIcon: ClipboardDocumentListIconSolid,
+    requires: "audit:view",
+    module: null,
+  },
 ];
 
 /** Whether the plan's modules (subscription.get's) include the item's; while they are unknown, every item shows. */

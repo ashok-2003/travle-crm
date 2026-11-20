@@ -1,7 +1,8 @@
 "use client";
 
-import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { Bars3Icon, LockOpenIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { LockClosedIcon } from "@heroicons/react/24/solid";
+import { motion, useReducedMotion, type Transition, type Variants } from "motion/react";
 import Link from "next/link";
 import * as React from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,8 +11,70 @@ import { cn } from "@/lib/utils";
 /** The rail's width at rest and the panel's when open, in px. */
 const RAIL_WIDTH = 60;
 const PANEL_WIDTH = 256;
-/** DESIGN.md's ease-out. */
-const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+/**
+ * Real springs (owner, 2026-11-20: "kinetic, real physics"): opening, the panel overshoots a touch and settles, and its
+ * rows' words follow one after another; shutting, it lands with less bounce and the words go at once. Reduced motion:
+ * no movement at all.
+ */
+const OPENING: Transition = { type: "spring", visualDuration: 0.42, bounce: 0.28 };
+const SHUTTING: Transition = { type: "spring", visualDuration: 0.32, bounce: 0.12 };
+const STILL: Transition = { duration: 0 };
+
+function panelMotion(still: boolean): Variants {
+  return {
+    open: {
+      width: PANEL_WIDTH,
+      transition: still ? STILL : { ...OPENING, delayChildren: 0.05, staggerChildren: 0.012 },
+    },
+    closed: { width: RAIL_WIDTH, transition: still ? STILL : SHUTTING },
+  };
+}
+
+function labelMotion(still: boolean): Variants {
+  return {
+    open: { opacity: 1, x: 0, transition: still ? STILL : { type: "spring", visualDuration: 0.3, bounce: 0.25 } },
+    closed: { opacity: 0, x: still ? 0 : -10, transition: still ? STILL : { duration: 0.06 } },
+  };
+}
+
+/** Where this browser keeps the pin (a preference, nothing personal); every tab follows it. */
+const DOCKED_KEY = "sidebar-docked";
+/** The pin while storage is blocked: it holds for this visit alone. */
+let dockedWithoutStorage = false;
+const dockedListeners = new Set<() => void>();
+
+function readDocked(): boolean {
+  try {
+    return window.localStorage.getItem(DOCKED_KEY) === "true";
+  } catch {
+    return dockedWithoutStorage;
+  }
+}
+
+function writeDocked(docked: boolean) {
+  dockedWithoutStorage = docked;
+  try {
+    if (docked) window.localStorage.setItem(DOCKED_KEY, "true");
+    else window.localStorage.removeItem(DOCKED_KEY);
+  } catch {
+    // Kept in memory only.
+  }
+  for (const listener of dockedListeners) listener();
+}
+
+function subscribeDocked(listener: () => void) {
+  dockedListeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    dockedListeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+/** The pin, as this browser remembers it; the server's HTML and the first paint are the rail. */
+function useDocked(): boolean {
+  return React.useSyncExternalStore(subscribeDocked, readDocked, () => false);
+}
 
 interface PanelHandlers {
   ref: React.RefObject<HTMLDivElement | null>;
@@ -24,7 +87,11 @@ interface PanelHandlers {
 
 interface SidebarContextProps {
   open: boolean;
-  /** The touch button: opens the panel, or shuts it. */
+  /** Pinned open by its pin button: it stays open over the page until the pin is pressed again. */
+  docked: boolean;
+  /** The pin: keeps the panel open, or, pinned, lets it go and shuts it at once. */
+  dock: () => void;
+  /** The touch button: opens the panel, or shuts it (and lets go of the pin). */
   toggle: () => void;
   /** After a choice: shuts the panel, so the page it chose is clear, until the pointer and focus have left it. */
   chose: () => void;
@@ -50,17 +117,19 @@ function isWithin(panel: HTMLElement | null, node: EventTarget | null): boolean 
 }
 
 /**
- * Open while a mouse is over it, keyboard focus is in it, the touch button pinned it or a menu from it is open.
- * Escape, a choice or the button shut it by hand, and it stays shut until the pointer and the focus have both left.
+ * Open while it is pinned, a mouse is over it, keyboard focus is in it, the touch button opened it or a menu from it is
+ * open. Escape, a choice or the button shut it by hand, and it stays shut until the pointer and the focus have both
+ * left; pinned, only its pin (or the touch button) shuts it.
  */
 function usePanel(): SidebarContextProps {
   const ref = React.useRef<HTMLDivElement>(null);
+  const docked = useDocked();
   const [hovered, setHovered] = React.useState(false);
   const [focused, setFocused] = React.useState(false);
   const [pinned, setPinned] = React.useState(false);
   const [dismissed, setDismissed] = React.useState(false);
   const [holds, setHolds] = React.useState<ReadonlySet<string>>(new Set());
-  const open = holds.size > 0 || (!dismissed && (hovered || focused || pinned));
+  const open = docked || holds.size > 0 || (!dismissed && (hovered || focused || pinned));
   if (dismissed && !hovered && !focused) setDismissed(false);
 
   // The panel's own leave misses a pointer whose menu shut under it: any move off the panel ends the hover.
@@ -75,9 +144,9 @@ function usePanel(): SidebarContextProps {
     };
   }, [hovered]);
 
-  // A tap or click anywhere else shuts it.
+  // A tap or click anywhere else shuts it, unless it is pinned.
   React.useEffect(() => {
-    if (!open) return;
+    if (!open || docked) return;
     const pressed = (event: PointerEvent) => {
       if (isWithin(ref.current, event.target)) return;
       setPinned(false);
@@ -87,7 +156,7 @@ function usePanel(): SidebarContextProps {
     return () => {
       document.removeEventListener("pointerdown", pressed);
     };
-  }, [open]);
+  }, [open, docked]);
 
   const shut = () => {
     setPinned(false);
@@ -104,9 +173,15 @@ function usePanel(): SidebarContextProps {
 
   return {
     open,
+    docked,
     hold,
+    dock: () => {
+      writeDocked(!docked);
+      if (docked) shut();
+    },
     toggle: () => {
       if (open) {
+        writeDocked(false);
         shut();
         return;
       }
@@ -141,7 +216,7 @@ function usePanel(): SidebarContextProps {
   };
 }
 
-/** Holds the panel's state for its parts. Nothing is remembered: it is always the rail at rest. */
+/** Holds the panel's state for its parts. Only the pin is remembered; unpinned, it is always the rail at rest. */
 export function Sidebar({ children }: { children: React.ReactNode }) {
   const value = usePanel();
   return (
@@ -166,8 +241,8 @@ export function SidebarBody({ className, children }: { className?: string; child
         data-slot="aceternity-sidebar"
         data-state={open ? "open" : "closed"}
         initial={false}
-        animate={{ width: open ? PANEL_WIDTH : RAIL_WIDTH }}
-        transition={{ duration: still ? 0 : 0.2, ease: EASE_OUT }}
+        variants={panelMotion(still)}
+        animate={open ? "open" : "closed"}
         className={cn(
           "group/panel fixed inset-y-0 left-0 z-(--z-dropdown) hidden flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground data-[state=open]:shadow-lg motion-safe:transition-shadow md:flex",
           className,
@@ -236,12 +311,25 @@ function SidebarIcon({ dot, children }: { dot?: string | undefined; children: Re
 }
 
 /**
- * The row's words, 188px wide (the open panel's 256, less its padding, the icon and the gaps), shown once the panel has
- * opened and gone at once when it shuts; `aside` (a count) after them, for the eye only. They wrap, never clip.
+ * The row's words, 188px wide (the open panel's 256, less its padding, the icon and the gaps; less a button beside them
+ * when `narrow`), sliding in on a spring after the panel's opening, row after row, and gone at once when it shuts;
+ * `aside` (a count) after them, for the eye only. They wrap, never clip.
  */
-export function SidebarLabel({ aside, children }: { aside?: React.ReactNode; children: React.ReactNode }) {
+export function SidebarLabel({
+  aside,
+  narrow = false,
+  children,
+}: {
+  aside?: React.ReactNode;
+  narrow?: boolean;
+  children: React.ReactNode;
+}) {
+  const still = useReducedMotion() === true;
   return (
-    <span className="flex w-[188px] shrink-0 items-center gap-2 opacity-0 group-data-[state=open]/panel:opacity-100 motion-safe:transition-opacity motion-safe:duration-75 motion-safe:group-data-[state=open]/panel:delay-100 motion-safe:group-data-[state=open]/panel:duration-150">
+    <motion.span
+      variants={labelMotion(still)}
+      className={cn("flex shrink-0 items-center gap-2", narrow ? "w-[140px]" : "w-[188px]")}
+    >
       <span className="min-w-0 flex-1 break-words motion-safe:transition-transform motion-safe:group-hover/row:translate-x-1">
         {children}
       </span>
@@ -250,7 +338,7 @@ export function SidebarLabel({ aside, children }: { aside?: React.ReactNode; chi
           {aside}
         </span>
       )}
-    </span>
+    </motion.span>
   );
 }
 
@@ -346,13 +434,50 @@ export function SidebarButton({
   );
 }
 
-/** A row that only shows something (the agency's mark and name). */
-export function SidebarRow({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+/** A row that only shows something (the agency's mark and name), with a button of its own at its end (the pin). */
+export function SidebarRow({
+  icon,
+  action,
+  children,
+}: {
+  icon: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className={row}>
+    <div className={cn(row, action !== undefined && "py-0 pr-0")}>
       <SidebarIcon>{icon}</SidebarIcon>
-      <SidebarLabel>{children}</SidebarLabel>
+      <SidebarLabel narrow={action !== undefined}>{children}</SidebarLabel>
+      {action}
     </div>
+  );
+}
+
+/**
+ * The pin (a padlock: open, then shut while pinned), at the end of the agency's row, seen while the panel is open: pressed, the panel stays open over the page
+ * (the page never moves) on every page until it is pressed again, which shuts it at once (owner, 2026-11-20).
+ */
+export function SidebarDock({ label }: { label: string }) {
+  const { open, docked, dock } = useSidebar();
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          aria-pressed={docked}
+          // Out of the rail at rest, so out of the keyboard's way until the panel is open.
+          tabIndex={open ? undefined : -1}
+          onClick={dock}
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/75 opacity-0 group-data-[state=open]/panel:opacity-100 hover:bg-sidebar-border hover:text-sidebar-foreground aria-pressed:text-sidebar-foreground motion-safe:transition-opacity [&>svg]:size-5"
+        >
+          {docked ? <LockClosedIcon aria-hidden="true" /> : <LockOpenIcon aria-hidden="true" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={4}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -361,7 +486,7 @@ export function SidebarToggle({ openLabel, closeLabel }: { openLabel: string; cl
   const { open, toggle } = useSidebar();
   return (
     <SidebarButton
-      icon={open ? <PanelLeftCloseIcon /> : <PanelLeftOpenIcon />}
+      icon={open ? <XMarkIcon /> : <Bars3Icon />}
       label={open ? closeLabel : openLabel}
       className="[@media(hover:hover)]:hidden"
       onClick={toggle}
