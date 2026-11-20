@@ -78,7 +78,7 @@ function useDocked(): boolean {
 
 interface PanelHandlers {
   ref: React.RefObject<HTMLDivElement | null>;
-  onPointerEnter: (event: React.PointerEvent) => void;
+  onPointerMove: (event: React.PointerEvent) => void;
   onPointerLeave: (event: React.PointerEvent) => void;
   onFocus: (event: React.FocusEvent) => void;
   onBlur: (event: React.FocusEvent) => void;
@@ -191,9 +191,10 @@ function usePanel(): SidebarContextProps {
     chose: shut,
     panel: {
       ref,
-      // A touch screen has no hover: a tap is a tap, not a peek.
-      onPointerEnter: (event) => {
-        if (event.pointerType === "touch") return;
+      // A peek is asked for by moving over it: a page whose layout shifts under a resting mouse (one parked in the
+      // corner) sends an enter without a move, and must not open it. A touch screen has no hover: a tap is a tap.
+      onPointerMove: (event) => {
+        if (event.pointerType === "touch" || hovered) return;
         setHovered(true);
         setDismissed(false);
       },

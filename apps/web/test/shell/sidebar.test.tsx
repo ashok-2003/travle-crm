@@ -5,7 +5,7 @@
 import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { PointerEventsCheckLevel } from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -181,6 +181,15 @@ describe("the agency's sidebar", () => {
     expect(panel).toHaveAttribute("data-state", "open");
     await userEvent.unhover(panel);
     expect(panel).toHaveAttribute("data-state", "closed");
+  });
+
+  it("opens for a pointer that moves over it, not for one the page merely ends up under", () => {
+    const { panel } = renderSidebar();
+    // A page's layout shifting under a resting mouse (one parked in the corner) sends an enter without a move.
+    fireEvent.pointerEnter(panel, { pointerType: "mouse" });
+    expect(panel).toHaveAttribute("data-state", "closed");
+    fireEvent.pointerMove(panel, { pointerType: "mouse" });
+    expect(panel).toHaveAttribute("data-state", "open");
   });
 
   it("shows no tooltip once a peek ends: the names were in the open panel", async () => {
