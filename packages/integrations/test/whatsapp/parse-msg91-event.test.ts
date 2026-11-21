@@ -238,6 +238,72 @@ describe("parseMsg91Event", () => {
     expect(one("status-failed")).toMatchObject({ type: "status", status: "failed", reasonCode: "131047" });
   });
 
+  it("keeps the send's request id and the customer's number on a status, and the request id on an echo", () => {
+    expect(one("status-delivered")).toMatchObject({ requestId: "req-out-1", customerNumber: "+919876543210" });
+    expect(one("status-failed")).toMatchObject({ requestId: null });
+    expect(one("echo-own-send")).toMatchObject({ type: "echo", requestId: "req-own-1" });
+    expect(one("echo-text")).toMatchObject({ type: "echo", requestId: null });
+    const [named] = parseMsg91Event({
+      customerNumber: "919876543210",
+      integratedNumber: "918888800000",
+      uuid: "w",
+      direction: "1",
+      request_id: "req-9",
+      text: "Hi",
+    });
+    expect(named).toMatchObject({ type: "echo", requestId: "req-9" });
+  });
+
+  it("reads the words and files MSG91 keeps only inside content", () => {
+    expect(one("echo-own-send")).toMatchObject({ kind: "text", text: "Your Goa quote is ready" });
+    expect(one("echo-phone-image")).toMatchObject({
+      kind: "image",
+      caption: "Your hotel",
+      mediaUrl: "https://media.example/phone/2",
+    });
+    expect(one("echo-phone-file")).toMatchObject({
+      kind: "document",
+      fileName: "itinerary.pdf",
+      mediaUrl: "https://media.example/phone/3",
+    });
+    const base = { customerNumber: "919876543210", integratedNumber: "918888800000", uuid: "w", direction: "1" };
+    // A document known only by its messageType, and a top-level name that wins over content's.
+    expect(
+      parseMsg91Event({ ...base, messageType: "document", content: { attachment_url: "https://m.example/d" } })[0],
+    ).toMatchObject({ kind: "document", mediaUrl: "https://m.example/d" });
+    expect(
+      parseMsg91Event({ ...base, contentType: "text", text: "Top", content: JSON.stringify({ text: "Inner" }) })[0],
+    ).toMatchObject({ text: "Top" });
+    expect(parseMsg91Event({ ...base, contentType: "image", content: "not json" })[0]).toMatchObject({
+      kind: "image",
+      mediaUrl: null,
+      caption: null,
+    });
+  });
+
+  it("drops an edit or a deletion quietly, from the customer or from the phone", () => {
+    expect(one("inbound-edit")).toEqual({ type: "ignored", integratedNumber: "918888800000" });
+    expect(one("echo-revoke")).toEqual({ type: "ignored", integratedNumber: "918888800000" });
+  });
+
+  it("reads a click-to-WhatsApp ad's words and the ad from Meta's own message", () => {
+    expect(one("inbound-ad")).toMatchObject({
+      type: "inbound",
+      kind: "text",
+      text: "Hi, is the Goa trip still on?",
+      referral: { sourceId: "120210000000001", headline: "Goa in December", sourceUrl: "https://fb.me/goa-dec" },
+    });
+    expect(one("inbound-ad")).not.toHaveProperty("unknownType");
+    const [wordless] = parseMsg91Event({
+      customerNumber: "919876543210",
+      integratedNumber: "918888800000",
+      uuid: "w",
+      contentType: "referral",
+      messages: [{ type: "image", referral: { headline: "Spiti" } }],
+    });
+    expect(wordless).toMatchObject({ kind: "unsupported", text: null, referral: { headline: "Spiti" } });
+  });
+
   it("reads a batch, each event on its own", () => {
     const events = parseMsg91Event(fixture("batch"));
     expect(events.map((event) => event.type)).toEqual(["inbound", "status"]);
