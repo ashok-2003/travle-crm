@@ -55,7 +55,11 @@ describe("InsightCard", () => {
     expect(document.querySelector("[data-temperature]")).toHaveTextContent("Hot 72%");
     expect(screen.getByText("Call today.")).toBeVisible();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: messages.ai.insight.title }).className).toContain("--brand-people-tint");
+    const card = screen.getByRole("region", { name: messages.ai.insight.title });
+    expect(card.className).toContain("--brand-people-tint");
+    // Over the timeline in a column of the screen's height, it never shrinks to fit (its words would be cut off): the
+    // column scrolls instead.
+    expect(card).toHaveClass("shrink-0");
     // Only the title, the next step and Why are headed: no row of the trip's facts is left.
     expect(screen.getAllByRole("heading").map((one) => one.textContent)).toEqual([
       messages.ai.insight.title,

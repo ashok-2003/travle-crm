@@ -4,7 +4,8 @@
 // hot, warm or cold and a number; a warning when it looks fake (spam, a test, a wrong number); a line on how the lead stands;
 // what to do next; and, folded until opened (the lead page's revamp, 2026-11-21: it sits over the timeline, which needs
 // the room), why, and what the AI noted from the chat (three lines, then More). The trip card shows what the customer wants. Always shown as a guess, in the AI's violet tint, and
-// it never moves the lead's stage. Nothing shows until the AI has scored the lead from its chat. LeadTemperature is the
+// it never moves the lead's stage. Nothing shows until the AI has scored the lead from its chat. Over the timeline in a
+// column of the screen's height (a computer), it never shrinks to fit: the column scrolls instead. LeadTemperature is the
 // guess alone ("Warm 65%"), for the lead's header.
 import type { LeadInsight } from "@travel-crm/contracts/ai";
 import { ChevronDownIcon, SparklesIcon, TriangleAlertIcon } from "lucide-react";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatDayTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
 import { useLeadInsight } from "./use-ai";
 
@@ -84,7 +86,7 @@ export function InsightCard({ insight }: { insight: LeadInsight }) {
   const { timeZone } = useMe().organization;
   const titleId = useId();
   return (
-    <Card size="sm" role="region" aria-labelledby={titleId} className={cardTints.ai}>
+    <Card size="sm" role="region" aria-labelledby={titleId} className={cn(cardTints.ai, "shrink-0")}>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
           <AiChip />
