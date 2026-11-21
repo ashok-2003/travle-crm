@@ -36,6 +36,8 @@ owner's: the crm module moves them with the lead.
   due first (a customer's export).
 - `listOpenRecordTasksOf(tx, { assigneeUserId, recordType, after?, limit })`: one person's open tasks on records of a
   type, by id, a page after a task id (a departing member's hand-over).
+- `overdueRecordIds(tx, { recordType, kind, dueBefore })`: the records with an open task of the kind due before then,
+  each once, longest overdue first (the Leads list's Show: Follow-up overdue).
 - `redactTaskTitles(tx, { organizationId, recordType, recordIds })`: an erasure's; empties the titles.
 
 Modules above call these functions and never read the task table themselves.
