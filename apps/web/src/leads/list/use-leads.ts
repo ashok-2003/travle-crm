@@ -5,7 +5,7 @@
 // table doesn't jump to a skeleton and back, and `isPlaceholderData` says so. The pipeline's columns read on with Show
 // more (data/use-cursor-pages.ts): each page asks for the leads before the last one of the page before. Both are keyed
 // under the procedure's path, so a change made anywhere (a stage moved, a task done) reaches them. The open leads'
-// counts by stage are for the same view and filters.
+// counts by stage are for the same view, filters and Show.
 import type { ListLeadsInput, PeopleNames } from "@travel-crm/contracts/crm";
 import { keepPreviousData, useQuery, type QueryKey } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
@@ -39,7 +39,7 @@ export function useLeads(input: Omit<ListLeadsInput, "page">) {
 /** Open leads by stage for the list's view and filters, whatever its stage. */
 export function useLeadCounts(input: ListLeadsInput) {
   const trpc = useTRPC();
-  const { view, ownerUserId, source, destinationId, tripType, created, search } = input;
+  const { view, ownerUserId, source, destinationId, tripType, created, show, search } = input;
   return useQuery(
     trpc.leads.counts.queryOptions({
       view,
@@ -48,6 +48,7 @@ export function useLeadCounts(input: ListLeadsInput) {
       ...(destinationId && { destinationId }),
       ...(tripType && { tripType }),
       ...(created && { created }),
+      ...(show && { show }),
       ...(search && { search }),
     }),
   );

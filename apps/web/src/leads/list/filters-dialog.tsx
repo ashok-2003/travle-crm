@@ -1,11 +1,12 @@
 "use client";
 
-// The list's Filters (spec 3.3): a button saying how many filters narrow the list, and its dialog (a sheet on phones)
-// with the form (filters-form.tsx). Show leads puts the choice in the address (R41), Clear all empties it; the search
-// box keeps its text either way. Closed, or cancelled, the dialog gives the focus back to Filters.
+// The list's Filters (spec 3.3): a button saying how many filters narrow the list (a Show among them), and its dialog
+// (a sheet on phones) with the form (filters-form.tsx). Show leads puts the choice in the address (R41), Clear all
+// empties it; the search box keeps its text either way. Closed, or cancelled, the dialog gives the focus back to
+// Filters, whose button the screen holds (`opener`), so the Show's chip can give it the focus too.
 import { SlidersHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState } from "react";
+import { useId, useState, type RefObject } from "react";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { FiltersForm } from "./filters-form";
@@ -13,25 +14,27 @@ import type { ListFilters } from "./list-filters";
 
 /** How many filters narrow the list beyond its view and search: a closed stage counts, as no chip shows it. */
 function chosenCount(filters: ListFilters, chipShown: boolean): number {
-  const { ownerUserId, source, destinationId, tripType, created } = filters;
-  return [ownerUserId, source, destinationId, tripType, created].filter(Boolean).length + (chipShown ? 0 : 1);
+  const { ownerUserId, source, destinationId, tripType, created, show } = filters;
+  return [ownerUserId, source, destinationId, tripType, created, show].filter(Boolean).length + (chipShown ? 0 : 1);
 }
 
 export function FiltersDialog({
   filters,
   chipShown,
   ownOnly,
+  opener,
   onApply,
 }: {
   filters: ListFilters;
   /** Whether a stage chip shows the list's stage. */
   chipShown: boolean;
   ownOnly: boolean;
+  /** The Filters button. */
+  opener: RefObject<HTMLButtonElement | null>;
   onApply: (filters: ListFilters) => void;
 }) {
   const t = useTranslations("leads.list");
   const [open, setOpen] = useState(false);
-  const opener = useRef<HTMLButtonElement>(null);
   const formId = useId();
   const chosen = chosenCount(filters, chipShown);
   const apply = (next: ListFilters) => {

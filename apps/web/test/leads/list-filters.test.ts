@@ -1,7 +1,7 @@
-// The lead list's filters live in the address (R41), so Back from a lead and a shared link keep them. They are read
-// with the api's own rules: a value it would refuse is left out, and a salesperson, who only ever sees their own
-// leads, has no view or owner to choose. The search is never in the address: a name or a phone in a URL reaches the
-// access logs and the Referer (the list keeps it in the tab, use-list-search.ts).
+// The lead list's filters live in the address (R41), its Show among them, so Back from a lead and a shared link keep
+// them. They are read with the api's own rules: a value it would refuse is left out, and a salesperson, who only ever
+// sees their own leads, has no view or owner to choose. The search is never in the address: a name or a phone in a URL
+// reaches the access logs and the Referer (the list keeps it in the tab, use-list-search.ts).
 import type { ListLeadsInput } from "@travel-crm/contracts/crm";
 import { describe, expect, it } from "vitest";
 import { isFiltered, leadHref, listFiltersHref, listFiltersOf } from "@/leads/list/list-filters";
@@ -91,6 +91,21 @@ describe("listFiltersOf", () => {
     }
   });
 
+  it("reads ?show=hot|overdue|uncontacted|ai, one at a time, and leaves out a Show the api would refuse", () => {
+    for (const show of ["hot", "overdue", "uncontacted", "ai"] as const) {
+      expect(listFiltersOf(address(`show=${show}`), "own")).toEqual({
+        view: "mine",
+        stage: "open",
+        show,
+        page: 1,
+        limit: 20,
+      });
+    }
+    for (const query of ["show=cold", "show=", "show=Hot"]) {
+      expect(listFiltersOf(address(query), "all"), query).toEqual({ view: "mine", stage: "open", page: 1, limit: 20 });
+    }
+  });
+
   it("never reads a search from the address, even an old link's ?q=", () => {
     expect(listFiltersOf(address("q=rahul&stage=new"), "all")).toEqual({
       view: "mine",
@@ -109,8 +124,11 @@ describe("listFiltersHref", () => {
     );
   });
 
-  it("writes the came-in period after the other filters", () => {
+  it("writes the came-in period after the other filters, then the Show", () => {
     expect(listFiltersHref({ created: "month", stage: "won" })).toBe("/leads?stage=won&created=month");
+    expect(listFiltersHref({ show: "hot", view: "everyone", created: "week" })).toBe(
+      "/leads?view=everyone&created=week&show=hot",
+    );
   });
 
   it("reads back what it wrote", () => {
@@ -121,6 +139,7 @@ describe("listFiltersHref", () => {
       source: "instagram",
       destinationId: goa,
       tripType: "honeymoon",
+      show: "overdue",
     } as const;
     const href = new URL(listFiltersHref(filters), "http://localhost");
     expect(listFiltersOf(href.searchParams, "all")).toEqual({ ...filters, page: 1, limit: 20 });
@@ -155,5 +174,6 @@ describe("isFiltered", () => {
     expect(isFiltered({ view: "mine", stage: "open", search: "rahul" })).toBe(true);
     expect(isFiltered({ view: "mine", stage: "open", tripType: "solo" })).toBe(true);
     expect(isFiltered({ view: "mine", stage: "open", created: "today" })).toBe(true);
+    expect(isFiltered({ view: "everyone", stage: "open", show: "ai" })).toBe(true);
   });
 });

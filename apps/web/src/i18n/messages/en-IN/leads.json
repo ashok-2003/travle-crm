@@ -220,6 +220,15 @@
     "mineOpen": "Mine · open",
     "filters": "Filters",
     "filtersChosen": "Filters, {count} chosen",
+    "shows": {
+      "all": "All leads",
+      "hot": "Hot",
+      "overdue": "Follow-up overdue",
+      "uncontacted": "Not contacted yet",
+      "ai": "AI needs a person",
+      "aiMine": "AI needs you"
+    },
+    "showChip": "Show: {show}",
     "leads": "Leads",
     "pageNoun": "{count, plural, one {lead} other {leads}}",
     "loading": "Loading leads",
@@ -246,6 +255,7 @@
     "filtersDialog": {
       "title": "Filters",
       "description": "Show only the leads that match.",
+      "show": "Show",
       "stage": "Stage",
       "openStages": "Open (New to Booking requested)",
       "owner": "Owner",
@@ -636,7 +646,12 @@
       "intro": "Download the leads this list shows."
     },
     "holds": {
-      "matching": "matching \"{search}\""
+      "matching": "matching \"{search}\"",
+      "created": {
+        "today": "came in today",
+        "week": "came in this week",
+        "month": "came in this month"
+      }
     }
   },
   "bulk": {

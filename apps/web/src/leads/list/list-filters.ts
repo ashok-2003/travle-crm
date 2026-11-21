@@ -1,9 +1,17 @@
-// The lead list's filters, kept in the address (R41: ?view=&stage=&owner=&source=&destination=&tripType=&created=) so Back
-// from a lead and a shared link keep them, and the list's page and its size after them (?page=2&size=50), so Back and
-// Forward walk the pages. They are read with the api's own rules: a value it would refuse is left out, and a
-// salesperson, who only ever sees their own leads, has no view or owner to choose. Only ids and fixed values go there:
-// the search, a name or a phone, never does (use-list-search.ts keeps it in the tab).
-import { leadSource, leadStage, MAX_LEAD_PAGE, tripType, type ListLeadsInput } from "@travel-crm/contracts/crm";
+// The lead list's filters, kept in the address (R41: ?view=&stage=&owner=&source=&destination=&tripType=&created=, and
+// the Show, ?show=hot|overdue|uncontacted|ai) so Back from a lead and a shared link keep them, and the list's page and
+// its size after them (?page=2&size=50), so Back and Forward walk the pages. They are read with the api's own rules: a
+// value it would refuse is left out, and a salesperson, who only ever sees their own leads, has no view or owner to
+// choose. Only ids and fixed values go there: the search, a name or a phone, never does (use-list-search.ts keeps it in
+// the tab).
+import {
+  leadShow,
+  leadSource,
+  leadStage,
+  MAX_LEAD_PAGE,
+  tripType,
+  type ListLeadsInput,
+} from "@travel-crm/contracts/crm";
 import { recordId } from "@travel-crm/contracts/identity";
 import { createdWithin } from "@travel-crm/contracts/kernel";
 import type { z } from "zod";
@@ -31,6 +39,7 @@ const names = {
   destinationId: "destination",
   tripType: "tripType",
   created: "created",
+  show: "show",
   page: "page",
   limit: "size",
 } as const satisfies Record<keyof AddressedList, string>;
@@ -55,6 +64,7 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
   const destinationId = read(recordId, "destinationId");
   const kind = read(tripType, "tripType");
   const created = read(createdWithin, "created");
+  const show = read(leadShow, "show");
   return {
     view,
     stage: search.get(names.stage) === "open" ? "open" : (read(leadStage, "stage") ?? "open"),
@@ -63,6 +73,7 @@ export function listFiltersOf(search: Pick<URLSearchParams, "get">, scope: "own"
     ...(destinationId && { destinationId }),
     ...(kind && { tripType: kind }),
     ...(created && { created }),
+    ...(show && { show }),
     page: pageOf(search.get(names.page)),
     limit: PAGE_SIZES.find((size) => String(size) === search.get(names.limit)) ?? LEADS_PER_PAGE,
   };
@@ -100,6 +111,6 @@ export function leadHref(leadId: string, filters: FiltersToShow): string {
 
 /** Whether the list shows less than all of the view's open leads. */
 export function isFiltered(filters: ListFilters & { search?: string }): boolean {
-  const { ownerUserId, source, destinationId, tripType: kind, created, search } = filters;
-  return filters.stage !== "open" || [ownerUserId, source, destinationId, kind, created, search].some(Boolean);
+  const { ownerUserId, source, destinationId, tripType: kind, created, show, search } = filters;
+  return filters.stage !== "open" || [ownerUserId, source, destinationId, kind, created, show, search].some(Boolean);
 }

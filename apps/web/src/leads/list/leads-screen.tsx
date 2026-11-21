@@ -3,18 +3,19 @@
 // Leads (spec 3.3): everyone who asked about a trip, newest first, in numbered pages (web revamp part 3: 20 a page by
 // default, 10 to 100, the bar under the list). Mine · open by default; managers (leads:view on everyone's) switch Mine
 // and Everyone with Tabs and filter by owner; everyone searches by name or phone, picks a stage chip, or opens Filters
-// beside the search. The filters and the page live in the address (R41), and each row's link carries them for the way
-// back; any other list starts at its page 1, at the same size, and a page past the last moves to the last. The search
-// never goes there, as a name or a phone in a URL reaches the access logs (use-list-search.ts). A phone gets a divided
-// list, a computer the Table (R44); loading shows skeleton rows, another page keeps the rows in view, faded, until it
-// arrives; a failure says so with Try again (a refusal its reason), and an empty list says what belongs here or that
-// nothing matches. Whoever may block a contact finds Blocked contacts at the end, whether or not they may open
+// beside the search, whose Show (Home's hot, overdue, not contacted or AI work) heads the chips while it is on (leads
+// show spec, 2026-11-21). The filters and the page live in the address (R41), and each row's link carries them for the
+// way back; any other list starts at its page 1, at the same size, and a page past the last moves to the last. The
+// search never goes there, as a name or a phone in a URL reaches the access logs (use-list-search.ts). A phone gets a
+// divided list, a computer the Table (R44); loading shows skeleton rows, another page keeps the rows in view, faded,
+// until it arrives; a failure says so with Try again (a refusal its reason), and an empty list says what belongs here
+// or that nothing matches. Whoever may block a contact finds Blocked contacts at the end, whether or not they may open
 // Settings, which also leads there. A polite status says which leads are shown of how many, or that a search or filter
 // found none, so screen readers hear each answer.
 import { ContactIcon, SearchXIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -37,6 +38,7 @@ import { LeadsHeaderActions } from "./leads-header-actions";
 import { LeadsTable, tableColumns } from "./leads-table";
 import { isFiltered, listFiltersHref, listFiltersOf, PAGE_SIZES, type FiltersToShow } from "./list-filters";
 import { SearchField } from "./search-field";
+import { ShowChip } from "./show-chip";
 import { isChipStage, StageChips } from "./stage-chips";
 import { useLeadCounts, useLeadPage, useUnassignedCount } from "./use-leads";
 import { useListSearch } from "./use-list-search";
@@ -62,6 +64,7 @@ export function LeadsScreen() {
   const blockedContacts = assigns && <TextLink href={routes.blockedContacts}>{t("blockedContacts")}</TextLink>;
   // Clear filters empties the search box too, by giving it a fresh start.
   const [searchBox, setSearchBox] = useState(0);
+  const filtersButton = useRef<HTMLButtonElement>(null);
   const total = leads.data?.total ?? 0;
   const range = pageRange(filters.page, filters.limit, total);
   // The rows in view are this page's, not the last one's kept while it loads.
@@ -185,15 +188,32 @@ export function LeadsScreen() {
       {/* Filters sits beside the search, in view on a phone rather than at the end of the chips' strip. */}
       <div className="flex gap-2 md:ml-auto">
         <SearchField key={searchBox} initial={search} onSearch={searchFor} className="min-w-0 flex-1 md:flex-none" />
-        <FiltersDialog filters={filters} chipShown={isChipStage(filters.stage)} ownOnly={ownOnly} onApply={show} />
+        <FiltersDialog
+          filters={filters}
+          chipShown={isChipStage(filters.stage)}
+          ownOnly={ownOnly}
+          opener={filtersButton}
+          onApply={show}
+        />
       </div>
       {/* Always there, so a change in it is heard; the list itself says it to the eye. */}
       <p role="status" className="sr-only">
         {shown}
       </p>
       {/* The chips scroll sideways in their own strip on a phone (R42) and wrap on a wider screen, a line of their own;
-          the padding keeps their focus outline in view. */}
-      <div className="-m-1 overflow-x-auto p-1 md:w-full md:overflow-visible">
+          the padding keeps their focus outline in view. A Show heads them while it is on; letting it go gives the focus
+          to Filters, where it was chosen. */}
+      <div className="-m-1 flex items-center gap-2 overflow-x-auto p-1 md:w-full md:flex-wrap md:overflow-visible">
+        {filters.show !== undefined && (
+          <ShowChip
+            show={filters.show}
+            view={filters.view}
+            onRemove={() => {
+              show({ ...filters, show: undefined });
+              filtersButton.current?.focus();
+            }}
+          />
+        )}
         <StageChips
           stage={filters.stage}
           counts={noLeadsAtAll ? undefined : counts.data}

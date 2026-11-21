@@ -102,6 +102,34 @@ describe("LeadExportButton", () => {
     expect(await screen.findByText("Mine · Contacted")).toBeVisible();
   });
 
+  it("asks for the list's Show and its 'came in' period too, and says so: 'Everyone · Open · Hot · came in this week'", async () => {
+    apiWith();
+    address.set("/leads?view=everyone&created=week&show=hot");
+    renderScreen(<LeadExportButton />);
+    await userEvent.click(screen.getByRole("button", { name: messages.leads.export.button }));
+    const dialog = await screen.findByRole("dialog", { name: messages.leads.export.dialog.title });
+    expect(within(dialog).getByText("Everyone · Open · Hot · came in this week")).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: words.dialog.prepare }));
+    await waitFor(() => {
+      expect(inputsTo("leadExports.start")).toEqual([
+        { filter: { view: "everyone", stage: "open", created: "week", show: "hot" }, format: "xlsx" },
+      ]);
+    });
+  });
+
+  it("names the Unassigned queue, and the AI's Show as the list does: 'AI needs you' on Mine", async () => {
+    apiWith();
+    address.set("/leads?view=unassigned&show=overdue");
+    const { unmount } = renderScreen(<LeadExportButton />);
+    await userEvent.click(screen.getByRole("button", { name: messages.leads.export.button }));
+    expect(await screen.findByText("Unassigned · Open · Follow-up overdue")).toBeVisible();
+    unmount();
+    address.set("/leads?show=ai");
+    renderScreen(<LeadExportButton />);
+    await userEvent.click(screen.getByRole("button", { name: messages.leads.export.button }));
+    expect(await screen.findByText("Mine · Open · AI needs you")).toBeVisible();
+  });
+
   it("prepares Excel by default, or CSV, and downloads it", async () => {
     apiWith();
     address.set(`/leads?view=everyone&stage=contacted&destination=${goaId}`);
