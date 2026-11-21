@@ -38,7 +38,7 @@ export function useLastContact(leadId: string): string | null | undefined {
   };
   const newer = (one: string, other: string) => new Date(one).getTime() > new Date(other).getTime();
   if (message !== undefined && (call === undefined || newer(message.occurredAt, call.occurredAt))) {
-    const words = [message.body, message.caption].find((text) => text !== null && text.trim() !== "");
+    const words = [message.body, message.caption].find((text): text is string => text !== null && text.trim() !== "");
     const who = message.direction === "in" ? "they" : message.byAi ? "ai" : "we";
     // Words are quoted; a photo or a voice note with none is named by its kind ("They sent: Photo").
     return words === undefined
