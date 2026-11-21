@@ -1,5 +1,6 @@
-// A large agency stays fast (spec 7, ADR 0028): with 50,000 leads, 100,000 tasks and 500 staff, the lead list, its
-// counts, search and Today answer within their time budgets, and the list, the counts and Today read their partial
+// A large agency stays fast (spec 7, ADR 0028): with 50,000 leads, 100,000 tasks, 500 staff, 25,000 WhatsApp chats and
+// their messages and a call on every 30th lead, the lead list, its counts, search, each Show and Today answer within
+// their time budgets, and the list, the counts, Hot's reads and Today (the Not contacted yet checks too) read their
 // indexes, never a whole table. Everything runs as the api does, as app_runtime inside forOrg, so the plans are the
 // runtime's under row-level security, on a database of its own shared with a neighbouring agency of 100,000 leads
 // made after it: in production many agencies share the tables, and the planner chooses by how few rows are this one's.
@@ -15,14 +16,15 @@ import type { MemberAccess } from "../../src/identity/index.js";
 import { countUncontactedLeadsQuery, uncontactedLeadsQuery } from "../../src/inbox/index.js";
 import { addDays, calendarDateIn, startOfDayIn } from "../../src/kernel/index.js";
 import { countOpenTasksQuery, openTasksQuery } from "../../src/tasks/index.js";
-import { todaySummary } from "../../src/today/index.js";
+import { travelSoonQuery } from "../../src/sales/hot-leads-queries.js";
+import { leadsToShow, todaySummary } from "../../src/today/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
-import { seedLargeAgency } from "./large-agency.js";
+import { seedChatsAndCalls, seedLargeAgency } from "./large-agency.js";
 import { fastestMs, planOf, type QueryPlan } from "./query-plans.js";
 
 const SIZE = { leads: 50_000, tasks: 100_000, staff: 500, destinations: 300 };
 const NEIGHBOUR = { leads: 100_000, tasks: 0, staff: 500, destinations: 300 };
-const BIG_TABLES = ["lead", "person", "task"];
+const BIG_TABLES = ["lead", "person", "task", "lead_call", "whatsapp_conversation", "whatsapp_message"];
 
 describe("a large agency", () => {
   let isolated: IsolatedDatabase;
@@ -53,6 +55,7 @@ describe("a large agency", () => {
     db = createDatabase(isolated.urls.runtime, { maxConnections: 2 });
     organizationId = await createTestOrganization(platform, "Large agency");
     const { ownerUserIds } = await seedLargeAgency(platform, isolated.urls, organizationId, SIZE);
+    await seedChatsAndCalls(platform, isolated.urls, organizationId);
     // Agencies share the database: one seeded after this one, so its rows are newer than all of this agency's.
     const neighbour = await createTestOrganization(platform, "Neighbouring agency");
     await seedLargeAgency(platform, isolated.urls, neighbour, NEIGHBOUR);
@@ -161,12 +164,16 @@ describe("a large agency", () => {
     expect(await time("search-digits", (tx) => listLeads(tx, manager, inStage("open")))).toBeLessThan(250);
   });
 
-  it("builds Today within 150 ms, on task_open_by_assignee and lead_new_by_owner", async () => {
+  it("builds Today within 150 ms, on task_open_by_assignee and lead_new_by_owner, its calls and chats by index", async () => {
     const now = new Date();
     const overdue = openTasksQuery({ assigneeUserId: salesperson.userId, kind: "task", dueBefore: now, limit: 21 });
     expect((await plan("today-overdue", overdue)).indexes).toContain("task_open_by_assignee");
     const newLeads = uncontactedLeadsQuery({ ownerUserId: salesperson.userId, limit: 21 });
-    expect((await plan("today-new-leads", newLeads)).indexes).toContain("lead_new_by_owner");
+    // Each of the owner's New leads is checked for a call, then its person's chats and their messages, by index.
+    const contactIndexes = ["lead_call_by_lead", "whatsapp_conversation_person", "whatsapp_message_chat"];
+    expect((await plan("today-new-leads", newLeads)).indexes).toEqual(
+      expect.arrayContaining(["lead_new_by_owner", ...contactIndexes]),
+    );
     const endsAt = startOfDayIn(addDays(calendarDateIn(now, "Asia/Kolkata"), 1), "Asia/Kolkata");
     const assigneeUserId = salesperson.userId;
     const dueToday = openTasksQuery({ assigneeUserId, kind: "task", dueFrom: now, dueBefore: endsAt, limit: 21 });
@@ -188,18 +195,58 @@ describe("a large agency", () => {
       countPlan.indexes.filter((name) => ownersNewLeads.includes(name)),
       countPlan.text,
     ).not.toEqual([]);
+    expect(countPlan.indexes, countPlan.text).toEqual(expect.arrayContaining(contactIndexes));
     const summary = await inOrg((tx) => todaySummary(tx, salesperson, now, { bookingsOn: true }));
-    expect(summary.counts.newLeads).toBe(SIZE.leads / 10 / SIZE.staff);
+    // The salesperson's New leads are numbers 10, 20 … 100 (seedLargeAgency); each has a chat with an automatic
+    // greeting, a member replied on the multiples of 4 and a call is logged on 30, 60 and 90: 10, 50 and 70 wait.
+    expect(summary.counts.newLeads).toBe(3);
     expect(summary.counts.overdue).toBeGreaterThan(0);
     expect(await time("today", (tx) => todaySummary(tx, salesperson, now, { bookingsOn: true }))).toBeLessThan(150);
   });
 
-  it("never scans lead, person or task from start to end", () => {
+  it("lists each Show within 250 ms, a Hot read on the open leads' indexes", async () => {
+    const now = new Date();
+    const today = calendarDateIn(now, "Asia/Kolkata");
+    const window = { from: today, to: addDays(today, 30) };
+    const openLeads = ["lead_open", "lead_open_by_owner", "lead_open_stage_counts"];
+    for (const [name, access] of [
+      ["hot-travel-soon", manager],
+      ["hot-travel-soon-mine", salesperson],
+    ] as const) {
+      const found = await plan(name, travelSoonQuery(access, window));
+      expect(
+        found.indexes.filter((index) => openLeads.includes(index)),
+        found.text,
+      ).not.toEqual([]);
+    }
+    for (const show of ["hot", "overdue", "uncontacted", "ai"] as const) {
+      for (const view of ["mine", "everyone"] as const) {
+        const input = listLeadsInput.parse({ view, show, page: 1, limit: 20 });
+        const list = async (tx: OrgTx) =>
+          listLeads(tx, manager, input, now, await leadsToShow(tx, manager, { view, show }, now));
+        expect(await time(`show-${show}-${view}`, list), `${show} ${view}`).toBeLessThan(250);
+      }
+    }
+    const waiting = await inOrg(async (tx) =>
+      listLeads(
+        tx,
+        manager,
+        listLeadsInput.parse({ show: "uncontacted", page: 1 }),
+        now,
+        await leadsToShow(tx, manager, { view: "mine", show: "uncontacted" }, now),
+      ),
+    );
+    expect(waiting.total).toBe(3);
+  });
+
+  it("never scans lead, person, task, calls or chats from start to end", () => {
     const checked = [...plans].filter(([name]) => !name.startsWith("search-"));
     expect(checked.map(([name]) => name).sort()).toEqual(
       [
         "counts",
         "everyone-open",
+        "hot-travel-soon",
+        "hot-travel-soon-mine",
         "mine-open",
         "today-due-today",
         "today-due-today-count",
