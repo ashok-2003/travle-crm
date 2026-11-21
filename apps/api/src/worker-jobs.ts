@@ -74,7 +74,7 @@ import {
   runDueWork,
   WHATSAPP_TEMPLATES_QUEUE,
 } from "@travel-crm/domain/inbox";
-import { MORNING_PUSH_QUEUE, runMorningPush } from "@travel-crm/domain/today";
+import { leadsToShow, MORNING_PUSH_QUEUE, runMorningPush } from "@travel-crm/domain/today";
 import { deliverNotificationListener, forgetPushSubscriptionsListener } from "@travel-crm/domain/notifications";
 import {
   customerWroteListener,
@@ -427,7 +427,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       addLeadImportListener(importJobs),
       checkStaffImportListener(importJobs),
       addStaffImportListener(importJobs),
-      makeLeadExportListener(exportJobs),
+      makeLeadExportListener(exportJobs, leadsToShow),
       makeStaffExportListener(exportJobs),
       ...(sheetsJobs === null
         ? []

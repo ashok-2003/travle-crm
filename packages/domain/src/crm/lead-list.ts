@@ -44,13 +44,25 @@ interface LeadListRow extends Pick<
 }
 
 /**
- * Whose leads: the scope's rule first (scopeFilter: a salesperson's own, whatever they ask for), then for everyone
- * else their own for "mine", or the owner asked for, or everyone's.
+ * A Show's leads (leads show spec, 2026-11-21) in the order the list shows them, found by the module whose rule it is:
+ * sales' hot leads, tasks' overdue follow-ups, inbox's New leads nobody contacted, the AI's needs. The list's view,
+ * scope and filters still apply on top. `mineChosen`: the choice settled whose leads are Mine (AI needs a person's
+ * holds the unowned ones too, for whoever manages the AI), so Mine takes them as they are; the scope still applies.
  */
-function ownerFor(access: MemberAccess, input: LeadCountsInput): string | null {
+export interface ChosenLeads {
+  ids: readonly string[];
+  mineChosen: boolean;
+}
+
+/**
+ * Whose leads: the scope's rule first (scopeFilter: a salesperson's own, whatever they ask for), then for everyone
+ * else their own for "mine" (or whomever a Show chose), or the owner asked for, or everyone's.
+ */
+function ownerFor(access: MemberAccess, input: LeadCountsInput, chosen: ChosenLeads | undefined): string | null {
   const scoped = scopeFilter(access, "leads:view", "ownerUserId").ownerUserId;
   if (scoped !== undefined) return scoped;
-  return input.view === "mine" ? access.userId : (input.ownerUserId ?? null);
+  if (input.view === "mine") return chosen?.mineChosen === true ? null : access.userId;
+  return input.ownerUserId ?? null;
 }
 
 /**
@@ -66,9 +78,14 @@ function searchFor(text: string | undefined): LeadCountsFilter["search"] {
   return { kind: "digits", digits: digits === "" ? typed : digits };
 }
 
-export function filterFor(access: MemberAccess, input: LeadCountsInput, createdFrom?: Date): LeadCountsFilter {
+export function filterFor(
+  access: MemberAccess,
+  input: LeadCountsInput,
+  createdFrom?: Date,
+  chosen?: ChosenLeads,
+): LeadCountsFilter {
   const search = searchFor(input.search);
-  const ownerUserId = ownerFor(access, input);
+  const ownerUserId = ownerFor(access, input, chosen);
   // The Unassigned queue is everyone's unowned leads; a salesperson, scoped to their own, never sees it.
   const unassigned = input.view === "unassigned" && ownerUserId === null;
   return {
@@ -79,6 +96,7 @@ export function filterFor(access: MemberAccess, input: LeadCountsInput, createdF
     ...(input.tripType === undefined ? {} : { tripType: input.tripType }),
     ...(createdFrom === undefined ? {} : { createdFrom }),
     ...(search === undefined ? {} : { search }),
+    ...(chosen === undefined ? {} : { chosen: chosen.ids }),
   };
 }
 
@@ -118,20 +136,22 @@ function itemOf(
 }
 
 /**
- * One page of leads, newest first; the router adds the owners' names. A numbered page starts (page - 1) × limit leads
- * in (after the cursor, when one is given too) and says how many leads match on every page; a page after a cursor
- * doesn't count them.
+ * One page of leads, newest first, or a Show's chosen leads in their own order; the router adds the owners' names. A
+ * numbered page starts (page - 1) × limit leads in (after the cursor, when one is given too) and says how many leads
+ * match on every page; a page after a cursor doesn't count them, and lists newest first, as its cursor needs.
  */
 export async function listLeads(
   tx: OrgTx,
   access: MemberAccess,
   input: ListLeadsInput,
   now = new Date(),
+  chosen?: ChosenLeads,
 ): Promise<Omit<LeadListPage, "people" | "items"> & { items: Omit<LeadListItem, "aiFilled">[] }> {
   const filter = {
-    ...filterFor(access, input, await createdFromOf(tx, access, input, now)),
+    ...filterFor(access, input, await createdFromOf(tx, access, input, now), chosen),
     stages: input.stage === "open" ? openLeadStages : [input.stage],
     ...(input.before === undefined ? {} : { before: input.before }),
+    ...(chosen !== undefined && input.before === undefined && { ranked: true as const }),
   };
   // One more than a page tells whether another page follows.
   const rows = await tx.$queryRaw<LeadListRow[]>(
@@ -158,15 +178,16 @@ export async function listLeads(
   };
 }
 
-/** Open leads by stage, for the same view and filters. */
+/** Open leads by stage, for the same view, filters and Show. */
 export async function countLeads(
   tx: OrgTx,
   access: MemberAccess,
   input: LeadCountsInput,
   now = new Date(),
+  chosen?: ChosenLeads,
 ): Promise<LeadCounts> {
   const rows = await tx.$queryRaw<{ stage: string; n: number }[]>(
-    leadCountsQuery(filterFor(access, input, await createdFromOf(tx, access, input, now))),
+    leadCountsQuery(filterFor(access, input, await createdFromOf(tx, access, input, now), chosen)),
   );
   const counts: LeadCounts = { open: 0, new: 0, contacted: 0, quote_sent: 0, booking_requested: 0 };
   for (const { stage, n } of rows) {

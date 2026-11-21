@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leadExportSource } from "../../src/crm/lead-export/lead-export-source.js";
 import type { ExportJobDependencies } from "../../src/exports/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
+import { leadsToShow } from "../../src/today/index.js";
 import { fakeExportIdentity } from "../exports/test-exports.js";
 import {
   anAgency,
@@ -30,7 +31,7 @@ describe("the lead export's pages", () => {
       identity: fakeExportIdentity(manager),
       appUrl: "https://app.example.test",
     };
-    return leadExportSource(dependencies, { timeZone: "Asia/Kolkata", pageSize: 2 });
+    return leadExportSource(dependencies, { timeZone: "Asia/Kolkata", chooseLeads: leadsToShow, pageSize: 2 });
   };
   const newLead = (name: string) =>
     inOrg(async (tx) => (await aLead(tx, { personId: (await aPerson(tx, { name })).id })).id);

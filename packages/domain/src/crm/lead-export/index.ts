@@ -4,16 +4,19 @@ import { exportRequestedEvent } from "@travel-crm/contracts/exports";
 import { runExport, type ExportJobDependencies } from "../../exports/index.js";
 import { organizationTimeZone } from "../../identity/index.js";
 import { defineListener, type EventListener } from "../../jobs/index.js";
-import { leadExportSource } from "./lead-export-source.js";
+import { leadExportSource, type ChooseLeads } from "./lead-export-source.js";
 
-export function makeLeadExportListener(dependencies: ExportJobDependencies): EventListener {
+export type { ChooseLeads } from "./lead-export-source.js";
+
+/** `chooseLeads` finds a Show's leads: today's leadsToShow, from the worker, as crm can't call the modules above it. */
+export function makeLeadExportListener(dependencies: ExportJobDependencies, chooseLeads: ChooseLeads): EventListener {
   return defineListener({
     name: "crm.make-lead-export",
     eventType: "export.requested",
     payload: exportRequestedEvent,
     handle: async (event, context) => {
       const timeZone = await context.forOrg((tx) => organizationTimeZone(tx, event.organizationId));
-      return runExport(event, context, dependencies, leadExportSource(dependencies, { timeZone }));
+      return runExport(event, context, dependencies, leadExportSource(dependencies, { timeZone, chooseLeads }));
     },
   });
 }

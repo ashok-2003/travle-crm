@@ -1,7 +1,8 @@
 # today
 
 The signed-in person's day (spec 3.5, R35), read-only, at the top of the business modules' layers: it composes the
-public queries of crm and tasks below it, and later releases add their own items.
+public queries of crm and tasks below it, and later releases add their own items. It also says which leads a Leads
+list's Show holds, as the same work makes the list.
 
 ## Public functions (`index.ts`)
 
@@ -14,6 +15,11 @@ public queries of crm and tasks below it, and later releases add their own items
   module's queries (`sales/today-work.ts`): a quote opened over a day ago with no reply, note, call or quote change
   since (Done marks the opens seen), and the unpaid instalments of accepted quotes due within the agency's reminder days
   or missed.
+- `leadsToShow(tx, access, { show, view }, now)`: the leads a Leads list's Show holds (leads show spec, 2026-11-21), in
+  its order, for crm's list, counts and export (the worker hands it to the export): sales' `hotLeadIds` (every hot
+  lead, hottest first), tasks' `overdueRecordIds` (a follow-up overdue, longest first), inbox's `uncontactedLeads`
+  (My tasks' own rule, longest waiting first) and the AI's `leadsNeedingPerson` (newest first; Mine holds the unowned
+  leads for whoever manages the AI). crm then applies the tab, the scope and the other filters.
 - `runMorningPush(dependencies, now)` (`today.morning-push`, every 15 minutes): for each agency, people with a phone
   registered for push whose chosen time (default 09:00, in the agency's zone) has come, at most two hours ago, and who
   have not had today's get "8 things today, 2 overdue" (counts only, nothing when there is nothing to do). The day is
@@ -23,6 +29,6 @@ public queries of crm and tasks below it, and later releases add their own items
 Both need `leads:view` (the api checks) and show the person's own items, whatever their scope. Overdue is open work
 due before now; due today runs from now to the agency's next midnight (`organizationTimeZone`), so at 00:05
 yesterday's undone follow-up is overdue and at 23:50 one due at 00:10 is not today's. New leads are the person's
-leads in New, oldest first (crm's `newLeadsWaiting`, over `lead_new_by_owner`); each task on a lead brings the lead in
-brief (crm's `leadBriefs`), unless it is a lead the person's scope doesn't reach. Every section pages by the last
-item's id, never by offset.
+leads in New that nobody has called or messaged since they came in, oldest first (inbox's `uncontactedLeads`, over
+`lead_new_by_owner`); each task on a lead brings the lead in brief (crm's `leadBriefs`), unless it is a lead the
+person's scope doesn't reach. Every section pages by the last item's id, never by offset.

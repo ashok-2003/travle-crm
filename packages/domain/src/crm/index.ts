@@ -57,7 +57,7 @@ export { mergeDestinations } from "./destination-merges.js";
 export { findKnownContact } from "./known-contact.js";
 export { getLead, isLeadInScope } from "./lead-detail.js";
 export { openLeadOfChat } from "./lead-of-chat.js";
-export { makeLeadExportListener } from "./lead-export/index.js";
+export { makeLeadExportListener, type ChooseLeads } from "./lead-export/index.js";
 export { addLeadImportListener, checkLeadImportListener } from "./lead-import/index.js";
 export {
   checkLeadSheet,
@@ -85,7 +85,7 @@ export {
   type InsightsPeriod,
   type LeadInsights,
 } from "./lead-insights.js";
-export { countLeads, listLeads } from "./lead-list.js";
+export { countLeads, listLeads, type ChosenLeads } from "./lead-list.js";
 export { stageBreakdownOf } from "./lead-stage-breakdown.js";
 export {
   leadCountsQuery,

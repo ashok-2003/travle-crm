@@ -7,7 +7,7 @@ import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { countLeads, listLeads } from "../../src/crm/index.js";
+import { countLeads, listLeads, type ChosenLeads } from "../../src/crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../src/identity/index.js";
 import { periodStart } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
@@ -339,5 +339,68 @@ describe("the lead list", () => {
     ).toBe(1);
     expect(await idsAt(everything)).toEqual(await ids(manager, { view: "everyone", ownerUserId: owner }));
     expect(await idsAt(everything)).toContain(lastSunday);
+  });
+
+  describe("with a Show's chosen leads", () => {
+    const chosenList = (access: MemberAccess, input: Record<string, unknown>, chosen: ChosenLeads) =>
+      inOrg((tx) => listLeads(tx, access, listLeadsInput.parse(input), new Date(), chosen));
+    const chosenIds = async (access: MemberAccess, input: Record<string, unknown>, chosen: ChosenLeads) =>
+      (await chosenList(access, input, chosen)).items.map((item) => item.id);
+    const chosenCounts = (access: MemberAccess, input: Record<string, unknown>, chosen: ChosenLeads) =>
+      inOrg((tx) => countLeads(tx, access, leadCountsInput.parse(input), new Date(), chosen));
+    /** The ids a Show would hand in, in its order. */
+    const choose = (ids: (string | undefined)[], mineChosen = false): ChosenLeads => ({
+      ids: ids.filter((id) => id !== undefined),
+      mineChosen,
+    });
+
+    it("lists only those leads, in the order given, numbered, totalled and counted, within the view and scope", async () => {
+      const ravi = randomUUID();
+      const [ownNew, ownContacted, ownWon] = await leadsOf(salesperson.userId, [
+        { stage: "new" },
+        { stage: "contacted" },
+        { stage: "won" },
+      ]);
+      const [ravis] = await leadsOf(ravi, [{ stage: "quote_sent" }]);
+      const nobodys = (await inOrg((tx) => aLead(tx, { ownerUserId: null }))).id;
+      await leadsOf(salesperson.userId, [{ stage: "new" }]);
+      const chosen = choose([ownContacted, ravis, ownNew, ownWon, nobodys]);
+
+      expect(await chosenIds(salesperson, {}, chosen)).toEqual([ownContacted, ownNew]);
+      expect(await chosenIds(salesperson, { view: "everyone", ownerUserId: ravi }, chosen)).toEqual([
+        ownContacted,
+        ownNew,
+      ]);
+      const first = await chosenList(salesperson, { page: 1, limit: 1 }, chosen);
+      expect(first).toMatchObject({ items: [expect.objectContaining({ id: ownContacted })], total: 2 });
+      expect(await chosenIds(salesperson, { page: 2, limit: 1 }, chosen)).toEqual([ownNew]);
+      expect(await chosenCounts(salesperson, {}, chosen)).toEqual({
+        open: 2,
+        new: 1,
+        contacted: 1,
+        quote_sent: 0,
+        booking_requested: 0,
+      });
+      expect(await chosenIds(salesperson, { stage: "won" }, chosen)).toEqual([ownWon]);
+
+      expect(await chosenIds(manager, { view: "everyone" }, chosen)).toEqual([ownContacted, ravis, ownNew, nobodys]);
+      expect(await chosenIds(manager, { view: "everyone", ownerUserId: ravi }, chosen)).toEqual([ravis]);
+      expect(await chosenIds(manager, { view: "unassigned" }, chosen)).toEqual([nobodys]);
+      expect((await chosenCounts(manager, { view: "everyone" }, chosen)).open).toBe(4);
+      expect(await chosenIds(manager, { view: "everyone" }, { ids: [], mineChosen: false })).toEqual([]);
+      expect((await chosenCounts(manager, { view: "everyone" }, { ids: [], mineChosen: false })).open).toBe(0);
+    });
+
+    it("takes Mine as the choice settled it, and still holds a salesperson to their own", async () => {
+      const ravi = randomUUID();
+      const [ravis] = await leadsOf(ravi, [{}]);
+      const nobodys = (await inOrg((tx) => aLead(tx, { ownerUserId: null }))).id;
+      const [own] = await leadsOf(salesperson.userId, [{}]);
+      const settled = choose([nobodys, own, ravis], true);
+      expect(await chosenIds(manager, {}, settled)).toEqual([nobodys, own, ravis]);
+      expect(await chosenIds(salesperson, {}, settled)).toEqual([own]);
+      expect(await chosenIds(manager, { view: "unassigned" }, settled)).toEqual([nobodys]);
+      expect(await chosenIds(manager, {}, { ...settled, mineChosen: false })).toEqual([]);
+    });
   });
 });

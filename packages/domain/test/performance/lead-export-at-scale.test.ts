@@ -23,6 +23,7 @@ import { leadExportRowsQuery, leadListQuery } from "../../src/crm/lead-list-quer
 import { exportDetail, startExport, type ExportJobDependencies } from "../../src/exports/index.js";
 import { createFiles } from "../../src/files/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
+import { leadsToShow } from "../../src/today/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { fakeExportIdentity, requested } from "../exports/test-exports.js";
@@ -75,7 +76,7 @@ describe("the lead export at scale", () => {
     }, 50);
     const started = performance.now();
     try {
-      await makeLeadExportListener(dependencies).handle(requested(organizationId, exportId), {
+      await makeLeadExportListener(dependencies, leadsToShow).handle(requested(organizationId, exportId), {
         actor: systemActor(organizationId),
         forOrg: (fn) => db.forOrg(organizationId, fn),
       });

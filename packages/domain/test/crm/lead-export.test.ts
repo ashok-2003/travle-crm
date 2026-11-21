@@ -1,6 +1,6 @@
-// The lead export's rows (spec B37-B41): exactly the list the person sees, B38's columns in order and the agency's
-// wall clock, the file named in its zone, the row limit, a requester who lost leads:view, and an audit entry that
-// names the filter by ids and never holds the search.
+// The lead export's rows (spec B37-B41): exactly the list the person sees (its Show and "came in" too), B38's columns in
+// order and the agency's wall clock, the file named in its zone, the row limit, a requester who lost leads:view, and an
+// audit entry that names the filter by ids and never holds the search.
 import { randomUUID } from "node:crypto";
 import { leadExportHeaders } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
@@ -10,6 +10,7 @@ import { exportDetail, startExport, type ExportJobDependencies } from "../../src
 import type { MemberAccess } from "../../src/identity/index.js";
 import { guessFields } from "../../src/imports/index.js";
 import { leadExportSource } from "../../src/crm/lead-export/lead-export-source.js";
+import { leadsToShow } from "../../src/today/index.js";
 import { runExport } from "../../src/exports/index.js";
 import { fakeExportIdentity, requested } from "../exports/test-exports.js";
 import {
@@ -65,7 +66,7 @@ describe("the lead export", () => {
     const access = options.access === undefined ? asker : options.access;
     const written = test.spreadsheets.written.length;
     if (options.maxRows === undefined) {
-      await makeLeadExportListener(dependencies(access)).handle(
+      await makeLeadExportListener(dependencies(access), leadsToShow).handle(
         requested(organizationId, exportId),
         listenerContext(test, organizationId),
       );
@@ -74,7 +75,11 @@ describe("the lead export", () => {
         requested(organizationId, exportId),
         listenerContext(test, organizationId),
         dependencies(access),
-        leadExportSource(dependencies(access), { timeZone: "Asia/Kolkata", maxRows: options.maxRows }),
+        leadExportSource(dependencies(access), {
+          timeZone: "Asia/Kolkata",
+          chooseLeads: leadsToShow,
+          maxRows: options.maxRows,
+        }),
       );
     }
     const detail = await inOrg((tx) => exportDetail(tx, asker, "leads", exportId));
@@ -140,6 +145,30 @@ describe("the lead export", () => {
     ]);
     // The search is emptied once the file is made; the rest of the filter stays.
     expect(asked.detail.filter).toEqual({ view: "everyone", stage: "contacted", destinationId: goaId });
+  });
+
+  it("exports a Show's leads, and only those that came in during the period asked, as the list holds them", async () => {
+    const hour = 60 * 60 * 1000;
+    const now = new Date();
+    await inOrg(async (tx) => {
+      const lead = async (name: string, createdAt: Date, overdue: boolean) => {
+        const person = await aPerson(tx, { name });
+        const made = await aLead(tx, { personId: person.id, ownerUserId: sales.userId, stage: "contacted", createdAt });
+        if (!overdue) return;
+        const record = { recordType: "lead", recordId: made.id };
+        await aTask(tx, { kind: "follow-up", record, dueAt: new Date(now.getTime() - hour) });
+      };
+      await lead("Zara Overdue", now, true);
+      await lead("Zara Waiting", now, false);
+      await lead("Zara Older", new Date(now.getTime() - 40 * 24 * hour), true);
+    });
+    const overdue = await makeExport(manager, { view: "everyone", show: "overdue", search: "Zara" });
+    expect(namesOf(overdue.file?.rows)).toEqual(["Zara Older", "Zara Overdue"]);
+    const thisMonth = { view: "everyone", created: "month", search: "Zara" };
+    expect(namesOf((await makeExport(manager, thisMonth)).file?.rows)).toEqual(["Zara Waiting", "Zara Overdue"]);
+    const both = await makeExport(manager, { ...thisMonth, show: "overdue" });
+    expect(namesOf(both.file?.rows)).toEqual(["Zara Overdue"]);
+    expect(both.detail.filter).toEqual({ view: "everyone", stage: "open", created: "month", show: "overdue" });
   });
 
   it("writes B38's columns in order: +91 98765 43210, Returning Yes, Dec 2026 or Flexible, '7, 4', the budget in rupees, the owner or Former member", async () => {
