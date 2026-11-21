@@ -285,6 +285,22 @@ describe("Timeline", () => {
     expect(window.sessionStorage.length).toBe(0);
   });
 
+  it("forgets a note sent while its box has gone (Back, the layout swapped), so it is never offered again", async () => {
+    window.sessionStorage.clear();
+    const saved = heldAnswer({ data: null });
+    stubApi({ "leads.timeline": aTimeline(entries()), "leads.addNote": saved.answer });
+    const { unmount } = renderScreen(<Timeline lead={aLead()} />);
+    await userEvent.type(await openNoteBox(), "Sent once");
+    await userEvent.click(screen.getByRole("button", { name: words.saveNote }));
+    unmount();
+    saved.release();
+    await waitFor(() => {
+      expect(window.sessionStorage.length).toBe(0);
+    });
+    renderScreen(<Timeline lead={aLead()} />);
+    expect(await screen.findByLabelText(words.addNote)).toHaveValue("");
+  });
+
   it("cuts a long note to three lines, with More to read the rest", async () => {
     vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(120);
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(66);

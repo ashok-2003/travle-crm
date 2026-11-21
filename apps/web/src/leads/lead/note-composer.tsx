@@ -63,6 +63,9 @@ export function NoteComposer({
     trpc.leads.addNote.mutationOptions({
       onSuccess: async () => {
         form.reset({ body: "" });
+        // Here, not only through the effect: a box gone while the note was on its way (Back, the layout swapped) would
+        // otherwise leave the sent words to come back as a draft, and be sent twice.
+        if (keepDraft) keepTabValue(draftKey(leadId), "");
         await queryClient.invalidateQueries({ queryKey: trpc.leads.timeline.pathKey() });
         toast.success(t("noteAdded"));
       },
