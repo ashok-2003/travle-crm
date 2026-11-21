@@ -18,6 +18,7 @@ import {
   knownContactResult,
   leadCounts,
   leadCountsInput,
+  type LeadCountsInput,
   leadDetail,
   leadIdInput,
   leadListPage,
@@ -32,6 +33,7 @@ import {
   timelinePage,
 } from "@travel-crm/contracts/crm";
 import { filledMessage, messageForLeadInput, quickReplyList } from "@travel-crm/contracts/inbox";
+import type { OrgTx } from "@travel-crm/db";
 import { task } from "@travel-crm/contracts/tasks";
 import {
   addLeadNote,
@@ -54,8 +56,10 @@ import {
   stageBreakdownOf,
 } from "@travel-crm/domain/crm";
 import { aiFilledLeadIds, leadSaved, recordFillApplied, tripSaved } from "@travel-crm/domain/ai";
+import type { MemberAccess } from "@travel-crm/domain/identity";
 import { listQuickReplies } from "@travel-crm/domain/inbox";
 import { previewMessage, readyMessage } from "@travel-crm/domain/sales";
+import { leadsToShow } from "@travel-crm/domain/today";
 import { z } from "zod";
 import { leadWorkerIds, leadWorkerIdsIfOther } from "../lead-workers.js";
 import { memberNames } from "../member-names.js";
@@ -63,14 +67,18 @@ import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
 const viewer = orgProcedure.requires("leads:view");
+
+/** A Show's leads (leads show spec), from today, which sits above crm and the modules whose rules they are; else none. */
+const chosenFor = (tx: OrgTx, member: MemberAccess, input: LeadCountsInput, now: Date) =>
+  input.show === undefined ? undefined : leadsToShow(tx, member, { show: input.show, view: input.view }, now);
 const editor = orgProcedure.requires("leads:edit");
 const assigner = orgProcedure.requires("leads:assign");
 const remover = orgProcedure.requires("leads:delete");
 
 export const leadsRouter = router({
   /**
-   * A page of leads, newest first, by number (with the total) or after a cursor: Mine · open unless asked otherwise; a
-   * salesperson only ever sees their own.
+   * A page of leads, newest first (a Show's in its own order), by number (with the total) or after a cursor: Mine · open
+   * unless asked otherwise; a salesperson only ever sees their own.
    */
   list: viewer
     .input(listLeadsInput)
@@ -79,7 +87,8 @@ export const leadsRouter = router({
       const { organizationId } = ctx.member;
       // The AI module sits above crm, so the router joins the two: which leads hold values the AI wrote.
       const { page, filled } = await ctx.db.forOrg(organizationId, async (tx) => {
-        const found = await listLeads(tx, ctx.member, input);
+        const now = new Date();
+        const found = await listLeads(tx, ctx.member, input, now, await chosenFor(tx, ctx.member, input, now));
         return {
           page: found,
           filled: await aiFilledLeadIds(
@@ -96,11 +105,16 @@ export const leadsRouter = router({
       return { ...page, items: page.items.map((item) => ({ ...item, aiFilled: filled.has(item.id) })), people };
     }),
 
-  /** Open leads by stage, for the quick filters. */
+  /** Open leads by stage, for the quick filters: of the same view, filters and Show. */
   counts: viewer
     .input(leadCountsInput)
     .output(leadCounts)
-    .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => countLeads(tx, ctx.member, input))),
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const now = new Date();
+        return countLeads(tx, ctx.member, input, now, await chosenFor(tx, ctx.member, input, now));
+      }),
+    ),
 
   /** Every stage of the leads that came in during a period, in the caller's scope (Home's card). */
   stageBreakdown: viewer
