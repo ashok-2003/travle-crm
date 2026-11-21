@@ -31,7 +31,7 @@ test("a repeat enquiry goes on the open lead's timeline, or makes a new trip enq
   await page.getByLabel("Notes", { exact: true }).fill("Now wants a houseboat night too");
   await page.getByRole("button", { name: "Save lead" }).click();
   await expect(page).toHaveURL(new RegExp(`/leads/${kashmir}$`));
-  const timeline = page.getByRole("list", { name: "Timeline" });
+  const timeline = page.getByRole("region", { name: "Timeline" });
   await expect(timeline.getByRole("listitem").first()).toContainText("Asked again");
   await expect(timeline.getByRole("listitem").first()).toContainText("Now wants a houseboat night too");
 

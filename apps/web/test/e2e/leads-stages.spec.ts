@@ -1,7 +1,7 @@
 // A lead's stages and its work (spec 3.4, 4, R29-R31, P2): tapped forward and back on the stage bar; a follow-up added
 // on the lead (two, listed earliest first) and one marked done; the trip edited and a note added; marked Lost after
 // asking (focus back on the ⋯ button when the dialog is cancelled), which cancels its open follow-ups; reopened from
-// where the bar sat to the stage it had. The timeline reads every kind as its sentence. The five steps are 44px, each
+// where the bar sat to the stage it had. The timeline reads every kind as its sentence (on a phone after Show more). The five steps are 44px, each
 // over its fifth of the one bar and its word, a tap on the bar itself moves the lead, and on a phone "Booking
 // requested" wraps.
 import { expectAccessible } from "./support/accessibility";
@@ -79,7 +79,7 @@ test("a lead moves forward and back, is marked Lost after asking, and reopens to
   await expect(trip).toBeHidden();
   await page.getByLabel("Add a note").fill("Wants one night on a houseboat.");
   await page.getByRole("button", { name: "Add note" }).click();
-  const timeline = page.getByRole("list", { name: "Timeline" });
+  const timeline = page.getByRole("region", { name: "Timeline" });
   await expect(timeline.getByRole("listitem").first()).toContainText("Wants one night on a houseboat.");
 
   const menu = page.getByRole("button", { name: "More for Rahul Sharma" });
@@ -107,7 +107,9 @@ test("a lead moves forward and back, is marked Lost after asking, and reopens to
   await bar().getByRole("button", { name: "Reopen" }).click();
   await expect(bar()).toHaveAccessibleName("Stage: Contacted");
 
-  await expect(timeline.getByRole("heading")).toHaveText([
+  // In one column (a phone) the timeline shows its newest five, then Show more; a computer's scrolls in its own box.
+  if (testInfo.project.name === "phone") await timeline.getByRole("button", { name: "Show more" }).click();
+  await expect(timeline.getByRole("heading", { level: 4 })).toHaveText([
     "Moved to Contacted",
     // Marked Lost, the lead's open follow-up was cancelled in the same change.
     "Moved to Lost",

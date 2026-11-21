@@ -37,7 +37,7 @@ test("the Owner switches to turns with two salespeople and three enquiries go A,
   await page.goto(`/leads/${first.id}`);
   await expect(
     page
-      .getByRole("list", { name: "Timeline" })
+      .getByRole("region", { name: "Timeline" })
       .getByText(`Assigned to ${team.nameOf(turns[0] ?? null)}, whose turn it was.`),
   ).toBeVisible();
   const entries = (await timelineOf(page, first.id)).entries;

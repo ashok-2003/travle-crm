@@ -40,7 +40,7 @@ test("each stage's colour in the list, Filters, the stage bar and the timeline",
 
   await page.goto(`/leads/${amit}`);
   await page.getByRole("button", { name: "Done: Send the Manali options" }).click();
-  const timeline = page.getByRole("list", { name: "Timeline" });
+  const timeline = page.getByRole("region", { name: "Timeline" });
   await expect(timeline.getByText("Follow-up done")).toBeVisible();
   await shoot(page, "lead-stage-midway");
   const bar = page.getByRole("region", { name: "Stage: Quote sent" });

@@ -96,7 +96,7 @@ test("calling, the library, Today's new sections and the morning summary", async
   await dialog.getByRole("button", { name: "Save the call" }).click();
   await expect(dialog).toBeHidden();
   await expect(
-    page.getByRole("list", { name: "Timeline" }).getByRole("heading", { name: "Call: No answer" }),
+    page.getByRole("region", { name: "Timeline" }).getByRole("heading", { name: "Call: No answer" }),
   ).toBeVisible();
   await shoot(page, "r5-lead-call-timeline");
 

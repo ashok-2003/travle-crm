@@ -34,7 +34,7 @@ test("a Kashmir rule sends a Kashmir enquiry to its person; a returning customer
   expect(enquiry.ownerUserId).toBe(team.ravi.userId);
   await page.goto(`/leads/${enquiry.id}`);
   await expect(
-    page.getByRole("list", { name: "Timeline" }).getByText("Assigned to Ravi Kumar by rule 1."),
+    page.getByRole("region", { name: "Timeline" }).getByText("Assigned to Ravi Kumar by rule 1."),
   ).toBeVisible();
 
   // A customer Priya served before, whose lead is closed, asks again about somewhere else.
@@ -49,7 +49,7 @@ test("a Kashmir rule sends a Kashmir enquiry to its person; a returning customer
   await page.goto(`/leads/${again.id}`);
   await expect(
     page
-      .getByRole("list", { name: "Timeline" })
+      .getByRole("region", { name: "Timeline" })
       .getByText("Assigned to Priya Nair, who owned this customer's earlier lead."),
   ).toBeVisible();
 });
