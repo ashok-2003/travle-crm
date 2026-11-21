@@ -42,7 +42,7 @@ describe("the chat model over our AI port", () => {
     ai.answer("Kedarkantha is ₹9,499 per person.");
     const answer = await model.invoke(start);
     expect(ai.requests).toStrictEqual([{ ...request, messages: [system, user] }]);
-    expect(fromLangChain(answer)).toStrictEqual(assistant);
+    expect(fromLangChain(answer)).toStrictEqual({ ...assistant, model: "memory-model" });
     expect(model._llmType()).toBe("travel-crm-ai-port");
   });
 
@@ -125,6 +125,7 @@ describe("the chat model over our AI port", () => {
         content: "",
         toolCalls: [{ id: "call_1", name: "get_trip", arguments: '{"trip_id":"T1"}' }],
         reasoningDetails: [{ signature: "s1" }],
+        model: "memory-model",
       },
       { role: "tool", content: "Kedarkantha, 6 days", toolCallId: "call_1" },
     ]);
@@ -154,18 +155,21 @@ describe("the chat model over our AI port", () => {
         content: "",
         toolCalls: [{ id: "call_1", name: "get_trip", arguments: '{"trip_id":"T1",}' }],
         reasoningDetails: [{ signature: "s1" }],
+        model: "memory-model",
       },
       {
         role: "assistant",
         content: "And the price:",
         toolCalls: [{ id: "call_2", name: "quote", arguments: '{"trip_id":"T1"}' }],
         reasoningDetails: "s2",
+        model: "memory-model",
       },
     ]);
     expect(list.map(fromLangChain).at(-1)).toStrictEqual({
       role: "assistant",
       content: "₹9,499 per person.",
       reasoningDetails: [{ signature: "s3" }],
+      model: "memory-model",
     });
   });
 
@@ -236,6 +240,8 @@ describe("the chat model over our AI port", () => {
       output_token_details: { reasoning: 12 },
     });
     expect(answer.response_metadata).toMatchObject({ model: "g/lite", finishReason: "stop" });
+    // Kept on the answer for the next request, so the chain sends its tool round back to an endpoint serving it.
+    expect(fromLangChain(answer).model).toBe("g/lite");
   });
 
   it("throws the failure's reason, and limit", async () => {

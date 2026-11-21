@@ -1,14 +1,15 @@
 // The AI model the features call (ADR 0029), built once per process: from AI_API_KEY with AI_BASE_URL and the models when
 // those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), or from AI_VERTEX_SERVICE_ACCOUNT's
-// token in the key's place (Gemini on Vertex AI, ruling R14), with AI_BACKUP_API_KEY's AI behind it
-// when that is set, else OpenRouter with its zero-data-retention routing from OPENROUTER_API_KEY. Null when no key is set:
-// the features then say the AI isn't set up. The journeys' fake (AI_TEST_SERVER_URL, never in production) receives
-// OpenRouter's calls in its place. Every call goes through the process's tracing (Langfuse, or none).
+// token in the key's place (Gemini on Vertex AI, ruling R14), with AI_BACKUP_API_KEY's AI behind it when that is set (and
+// AI_BACKUP_API_KEY_2's, on the same endpoint and models, behind that), else OpenRouter with its zero-data-retention
+// routing from OPENROUTER_API_KEY. Null when no key is set: the features then say the AI isn't set up. The journeys' fake
+// (AI_TEST_SERVER_URL, never in production) receives OpenRouter's calls in its place. Every call goes through the
+// process's tracing (Langfuse, or none).
 import {
   createOpenRouterModel,
   OPENROUTER_BASE_URL,
   serviceAccountToken,
-  withBackupModel,
+  withModelChain,
   withTracing,
   type AiModel,
 } from "@travel-crm/integrations/ai";
@@ -30,6 +31,7 @@ export type AiSettings = Pick<
   | "AI_SUMMARY_MODELS"
   | "AI_ZERO_RETENTION"
   | "AI_BACKUP_API_KEY"
+  | "AI_BACKUP_API_KEY_2"
   | "AI_BACKUP_BASE_URL"
   | "AI_BACKUP_CHAT_MODELS"
   | "AI_BACKUP_FAST_MODELS"
@@ -104,26 +106,32 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
     const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
     const backupFast = environment.AI_BACKUP_FAST_MODELS ?? environment.AI_BACKUP_CHAT_MODELS ?? fast;
     const backupBaseUrl = environment.AI_BACKUP_BASE_URL ?? environment.AI_BASE_URL;
-    const backup = createOpenRouterModel({
-      apiKey: environment.AI_BACKUP_API_KEY,
-      models: {
-        suggest_reply: backupChat,
-        autopilot: backupChat,
-        score_lead: backupFast,
-        fill_form: backupChat,
-        write_up: backupChat,
-        ask_report: backupFast,
-        draft_days: backupChat,
-        draft_packages: backupChat,
-        // The backup's own chat models serve every agent use; without them, the first's lists.
-        ...(environment.AI_BACKUP_CHAT_MODELS === undefined
-          ? agent
-          : agentModels({}, environment.AI_BACKUP_CHAT_MODELS)),
-      },
-      ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
-      ...zeroRetention,
-    });
-    return withBackupModel(first, backup);
+    const backup = (apiKey: string) =>
+      createOpenRouterModel({
+        apiKey,
+        models: {
+          suggest_reply: backupChat,
+          autopilot: backupChat,
+          score_lead: backupFast,
+          fill_form: backupChat,
+          write_up: backupChat,
+          ask_report: backupFast,
+          draft_days: backupChat,
+          draft_packages: backupChat,
+          // The backup's own chat models serve every agent use; without them, the first's lists.
+          ...(environment.AI_BACKUP_CHAT_MODELS === undefined
+            ? agent
+            : agentModels({}, environment.AI_BACKUP_CHAT_MODELS)),
+        },
+        ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
+        ...zeroRetention,
+      });
+    const second = environment.AI_BACKUP_API_KEY_2;
+    return withModelChain([
+      first,
+      backup(environment.AI_BACKUP_API_KEY),
+      ...(second === undefined ? [] : [backup(second)]),
+    ]);
   }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;

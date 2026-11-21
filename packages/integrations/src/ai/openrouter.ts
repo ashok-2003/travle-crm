@@ -276,6 +276,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   const restingUntil = new Map<string, number>();
   return {
     configured: options.apiKey !== "" && Object.values(options.models).some((list) => list.length > 0),
+    serves: (model) => Object.values(options.models).some((list) => list.includes(model)),
     async complete(request: AiRequest): Promise<AiResult> {
       const list = request.model === undefined ? (options.models[request.feature] ?? []) : [request.model];
       if (options.apiKey === "" || list.length === 0) return { ok: false, reason: "not_configured" };

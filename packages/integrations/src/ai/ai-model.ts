@@ -96,6 +96,8 @@ export interface AiMessage {
    * its thought signatures (400). Opaque to everything but the adapter.
    */
   reasoningDetails?: unknown;
+  /** The model that wrote this answer: a tool round goes back to an endpoint that serves it. */
+  model?: string;
 }
 
 export interface AiRequest {
@@ -179,4 +181,6 @@ export interface AiModel {
   /** Whether a key and a model are set: off, the AI features say so instead of failing. */
   readonly configured: boolean;
   complete(request: AiRequest): Promise<AiResult>;
+  /** Whether this model is one this adapter asks: a tool round goes back only to one that serves its writer. */
+  serves?(model: string): boolean;
 }

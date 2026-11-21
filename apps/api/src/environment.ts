@@ -217,7 +217,12 @@ const environmentSchema = z
     if (environment.AI_BACKUP_API_KEY !== undefined && !credential) {
       problem("AI_BACKUP_API_KEY", "is only for use with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT");
     }
-    for (const name of ["AI_BACKUP_BASE_URL", "AI_BACKUP_CHAT_MODELS", "AI_BACKUP_FAST_MODELS"] as const) {
+    for (const name of [
+      "AI_BACKUP_BASE_URL",
+      "AI_BACKUP_CHAT_MODELS",
+      "AI_BACKUP_FAST_MODELS",
+      "AI_BACKUP_API_KEY_2",
+    ] as const) {
       if (environment[name] !== undefined && environment.AI_BACKUP_API_KEY === undefined) {
         problem(name, "is only for use with AI_BACKUP_API_KEY");
       }

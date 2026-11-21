@@ -238,10 +238,12 @@ export const serviceVariables = {
   /**
    * A backup for the AI above (the owner, 2026-11-02): AI_BACKUP_API_KEY, a second key (a paid one, or another provider's),
    * asked only when the first can't answer (rate limited, down). Its endpoint and models are the first's unless
-   * AI_BACKUP_BASE_URL, AI_BACKUP_CHAT_MODELS and AI_BACKUP_FAST_MODELS say otherwise.
+   * AI_BACKUP_BASE_URL, AI_BACKUP_CHAT_MODELS and AI_BACKUP_FAST_MODELS say otherwise. AI_BACKUP_API_KEY_2, a third key
+   * on the backup's endpoint and models, is asked last (the owner, 2026-11-22).
    */
   AI_BACKUP_BASE_URL: emptyAsUnset(httpUrl.optional()),
   AI_BACKUP_API_KEY: emptyAsUnset(z.string().min(8, "must be the backup AI provider's API key").optional()),
+  AI_BACKUP_API_KEY_2: emptyAsUnset(z.string().min(8, "must be the backup AI provider's API key").optional()),
   AI_BACKUP_CHAT_MODELS: emptyAsUnset(modelList.optional()),
   AI_BACKUP_FAST_MODELS: emptyAsUnset(modelList.optional()),
   /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */

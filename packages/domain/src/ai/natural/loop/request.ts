@@ -50,7 +50,10 @@ export function requestOf(
   };
 }
 
-/** The answer as the model sent it, its reasoning unchanged: Gemini refuses a tool round without its signatures. */
+/**
+ * The answer as the model sent it, its reasoning unchanged (Gemini refuses a tool round without its signatures), and the
+ * model that wrote it, so the tool round goes back to an endpoint serving it.
+ */
 export function answerMessage(result: Extract<AiResult, { ok: true }>): AiMessage {
   const calls = result.toolCalls ?? [];
   return {
@@ -58,6 +61,7 @@ export function answerMessage(result: Extract<AiResult, { ok: true }>): AiMessag
     content: result.text,
     ...(calls.length === 0 ? {} : { toolCalls: calls }),
     ...(result.reasoningDetails === undefined ? {} : { reasoningDetails: result.reasoningDetails }),
+    model: result.model,
   };
 }
 

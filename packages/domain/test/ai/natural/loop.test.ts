@@ -237,6 +237,7 @@ describe("the natural agent's loop", () => {
         role: "assistant",
         content: "Ek minute, check karti hoon.",
         toolCalls: [{ id: "call_1", name: "quote", arguments: JSON.stringify(quoteCall.arguments) }],
+        model: "memory-model",
       },
       { role: "tool", toolCallId: "call_1", content: "quote: Sat 19 Dec, 2 adults, total ₹18,998" },
     ]);
@@ -244,14 +245,19 @@ describe("the natural agent's loop", () => {
     expect(io.checks.map((check) => check.words)).toEqual(["Sat 19 Dec, 2 log: total ₹18,998."]);
   });
 
-  it("sends the reasoning details back unchanged, and pins the first call's model", async () => {
+  it("sends the reasoning details back unchanged with the model that wrote them, and pins the first call's model", async () => {
     const reasoning = [{ type: "reasoning.encrypted", data: "sig" }];
     model.answer(
       { toolCalls: [quoteCall], reasoningDetails: reasoning, model: LITE },
       { text: "Sat 19 Dec, 2 log: total ₹18,998.", model: LITE },
     );
     expect(await loop()).toMatchObject({ end: "final", model: LITE });
-    expect(model.requests[1]?.messages.at(-2)).toMatchObject({ role: "assistant", reasoningDetails: reasoning });
+    // The model goes with the answer, so the chain of keys sends the tool round back to an endpoint serving it.
+    expect(model.requests[1]?.messages.at(-2)).toMatchObject({
+      role: "assistant",
+      reasoningDetails: reasoning,
+      model: LITE,
+    });
     expect(model.requests[0]).not.toHaveProperty("model");
     expect(model.requests[1]?.model).toBe(LITE);
   });
@@ -328,7 +334,7 @@ describe("the natural agent's loop", () => {
     model.answer("Special price ₹7,999 for you.", "₹9,499 per person on triple sharing.");
     expect(await loop()).toMatchObject({ end: "final", messages: ["₹9,499 per person on triple sharing."] });
     expect(model.requests[1]?.messages.slice(-2)).toEqual([
-      { role: "assistant", content: "Special price ₹7,999 for you." },
+      { role: "assistant", content: "Special price ₹7,999 for you.", model: "memory-model" },
       { role: "user", content: `[app check, not from the customer] Not sent: ${G1_RETRY}` },
     ]);
   });
@@ -716,9 +722,10 @@ describe("the natural agent's loop", () => {
         role: "assistant",
         content: "",
         toolCalls: [{ id: "call_1", name: "quote", arguments: JSON.stringify(quoteCall.arguments) }],
+        model: "memory-model",
       },
       { role: "tool", toolCallId: "call_1", content: "quote: Sat 19 Dec, 2 adults, total ₹18,998" },
-      { role: "assistant", content: "Sat 19 Dec, 2 log: total ₹18,998." },
+      { role: "assistant", content: "Sat 19 Dec, 2 log: total ₹18,998.", model: "memory-model" },
     ]);
   });
 });

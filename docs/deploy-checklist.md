@@ -156,6 +156,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_VOICE_MODELS`, `AI_IMAGE_MODELS`: voice notes' and photos' models (the agent's when blank)      | ○   | ○      |         |         |        |
 | `AI_SUMMARY_MODELS`: the chat summary's models (the agent's when blank)                             | ○   | ○      |         |         |        |
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                | ○   | ○      |         |         | yes    |
+| `AI_BACKUP_API_KEY_2`: a third key on the backup's endpoint and models, asked last                  | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models | ○   | ○      |         |         |        |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics |     |        | ○       |         |        |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`: both or neither (Tracing the AI, the agent's prompt)  | ○   | ○      |         |         | yes    |
@@ -292,7 +293,10 @@ Secrets come from the platform's secret manager as environment variables, never 
     `AI_BASE_URL=https://aiplatform.googleapis.com/v1/projects/<project>/locations/global/endpoints/openapi` and
     `AI_CHAT_MODELS` and `AI_AGENT_MODELS` as Vertex names them: `google/gemini-3.5-flash-lite` (the owner, 2026-11-17;
     `google/gemini-3.8-flash` costs more). `AI_VOICE_MODELS`, `AI_IMAGE_MODELS` and `AI_SUMMARY_MODELS` give voice notes,
-    photos and the chat summary models of their own (`AI_AGENT_MODELS` when blank). Every model list that is set (`AI_FAST_MODELS`, `AI_SUGGEST_MODELS`, `AI_SCORE_MODELS` too) needs Vertex's `google/…` names. The account needs the Vertex AI User
+    photos and the chat summary models of their own (`AI_AGENT_MODELS` when blank). Every model list that is set
+    (`AI_FAST_MODELS` too) needs Vertex's `google/…` names. `AI_SUGGEST_MODELS` and `AI_SCORE_MODELS` are not read here:
+    they are OpenRouter's, used only when neither `AI_API_KEY` nor `AI_VERTEX_SERVICE_ACCOUNT` is set. With a key or the
+    account, suggest reply takes `AI_CHAT_MODELS` and lead scoring `AI_FAST_MODELS`. The account needs the Vertex AI User
     role. Each request carries an OAuth token minted from the key (scope cloud-platform), kept for its hour and renewed
     five minutes before it ends; a failure to mint is logged by its error's name and code. One process uses one
     credential for all its AI features. A backup key behind it (`AI_BACKUP_API_KEY`, AI Studio's) must name its own
