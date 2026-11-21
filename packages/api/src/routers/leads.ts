@@ -70,7 +70,7 @@ const viewer = orgProcedure.requires("leads:view");
 
 /** A Show's leads (leads show spec), from today, which sits above crm and the modules whose rules they are; else none. */
 const chosenFor = (tx: OrgTx, member: MemberAccess, input: LeadCountsInput, now: Date) =>
-  input.show === undefined ? undefined : leadsToShow(tx, member, { show: input.show, view: input.view }, now);
+  input.show === undefined ? undefined : leadsToShow(tx, member, { ...input, show: input.show }, now);
 const editor = orgProcedure.requires("leads:edit");
 const assigner = orgProcedure.requires("leads:assign");
 const remover = orgProcedure.requires("leads:delete");

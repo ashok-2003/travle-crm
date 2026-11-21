@@ -85,7 +85,7 @@ export {
   type InsightsPeriod,
   type LeadInsights,
 } from "./lead-insights.js";
-export { countLeads, listLeads, type ChosenLeads } from "./lead-list.js";
+export { countLeads, listLeads, type ChosenLeads, type ShowFilter } from "./lead-list.js";
 export { stageBreakdownOf } from "./lead-stage-breakdown.js";
 export {
   leadCountsQuery,

@@ -76,9 +76,13 @@ function filterConditions(filter: LeadCountsFilter): Sql {
 const PERSON = sql`JOIN person ON person.organization_id = lead.organization_id AND person.id = lead.person_id
   AND person.deleted_at IS NULL`;
 
-/** One page of the list's rows, newest first, or the chosen leads in their given order (a hash join on its place). */
+/**
+ * One page of the list's rows, newest first, or the chosen leads in their given order: a join on their place, which
+ * holds only the chosen leads, so the conditions don't name them again.
+ */
 export function leadListQuery(filter: LeadListFilter): Sql {
-  const ranking = filter.ranked ? filter.chosen : undefined;
+  const { chosen, ...unchosen } = filter;
+  const ranking = filter.ranked ? chosen : undefined;
   return sql`
     SELECT lead.id, lead.stage, lead.returning, lead.owner_user_id AS "ownerUserId", lead.source,
       lead.created_at AS "createdAt", lead.destination_id AS "destinationId", lead.travel_kind AS "travelKind",
@@ -87,7 +91,7 @@ export function leadListQuery(filter: LeadListFilter): Sql {
       lead.budget_basis AS "budgetBasis", person.name AS "personName", person.phone_e164 AS "personPhone"
     FROM lead ${PERSON}
       ${ranking === undefined ? emptySql : sql`JOIN unnest(${[...ranking]}::uuid[]) WITH ORDINALITY AS chosen (id, place) ON chosen.id = lead.id`}
-    WHERE ${filterConditions(filter)} ${stageCondition(filter.stages)}
+    WHERE ${filterConditions(ranking === undefined ? filter : unchosen)} ${stageCondition(filter.stages)}
       ${filter.before === undefined ? emptySql : sql`AND lead.id < ${filter.before}::uuid`}
       ${filter.through === undefined ? emptySql : sql`AND lead.id <= ${filter.through}::uuid`}
     ORDER BY ${ranking === undefined ? sql`lead.id DESC` : sql`chosen.place`}

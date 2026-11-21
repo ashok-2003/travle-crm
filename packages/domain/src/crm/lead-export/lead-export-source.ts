@@ -7,9 +7,7 @@ import {
   leadExportFilter,
   MAX_LEAD_EXPORT_ROWS,
   openLeadStages,
-  type LeadCountsInput,
   type LeadExportFilter,
-  type LeadShow,
 } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import type { ExportJobDependencies, ExportSource } from "../../exports/index.js";
@@ -18,7 +16,7 @@ import { destinationNames } from "../../catalog/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { periodStart } from "../../kernel/index.js";
 import { nextOpenTasks } from "../../tasks/index.js";
-import { filterFor, type ChosenLeads } from "../lead-list.js";
+import { filterFor, type ChosenLeads, type ShowFilter } from "../lead-list.js";
 import { leadTotalQuery, leadExportRowsQuery, leadListQuery } from "../lead-list-query.js";
 import { exportRowOf, leadExportColumns, type ExportedLead } from "./export-rows.js";
 
@@ -55,12 +53,7 @@ type ExtraColumns = Pick<
  * A Show's leads, found by the module whose rule it is (today's leadsToShow, which the worker hands in: crm sits below
  * sales, tasks' callers, inbox and the AI).
  */
-export type ChooseLeads = (
-  tx: OrgTx,
-  access: MemberAccess,
-  filter: { show: LeadShow; view: LeadCountsInput["view"] },
-  now: Date,
-) => Promise<ChosenLeads>;
+export type ChooseLeads = (tx: OrgTx, access: MemberAccess, filter: ShowFilter, now: Date) => Promise<ChosenLeads>;
 
 /** What the count reads once for every page: where "came in" starts, and the Show's leads. */
 interface Narrowing {
@@ -121,7 +114,7 @@ export function leadExportSource(
           ...(createdFrom === null ? {} : { createdFrom }),
           ...(filter.show === undefined
             ? {}
-            : { chosen: await options.chooseLeads(tx, access, { show: filter.show, view: filter.view }, now) }),
+            : { chosen: await options.chooseLeads(tx, access, { ...filter, show: filter.show }, now) }),
         };
         const [latest] = await tx.$queryRaw<{ id: string }[]>(
           leadListQuery({ ...listFilter(access, filter, narrowing), limit: 1 }),

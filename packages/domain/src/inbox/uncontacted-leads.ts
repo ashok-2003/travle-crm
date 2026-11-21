@@ -9,6 +9,8 @@ import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
 export interface UncontactedLeadsFilter {
   /** One owner's leads; every lead when left out (the caller's list applies its own scope). */
   ownerUserId?: string;
+  /** Only the leads nobody owns (the Unassigned queue's). */
+  unownedOnly?: true;
   /** The last lead id of the previous page. */
   after?: string;
   /** Every one when left out. */
@@ -21,9 +23,10 @@ export interface UncontactedLead {
   waitingSince: Date;
 }
 
-function uncontacted(ownerUserId: string | undefined): Sql {
+function uncontacted(whose: Pick<UncontactedLeadsFilter, "ownerUserId" | "unownedOnly">): Sql {
   return sql`lead.stage = 'new' AND lead.deleted_at IS NULL
-    ${ownerUserId === undefined ? emptySql : sql`AND lead.owner_user_id = ${ownerUserId}::uuid`}
+    ${whose.ownerUserId === undefined ? emptySql : sql`AND lead.owner_user_id = ${whose.ownerUserId}::uuid`}
+    ${whose.unownedOnly ? sql`AND lead.owner_user_id IS NULL` : emptySql}
     AND NOT EXISTS (
       SELECT 1 FROM lead_call
       WHERE lead_call.organization_id = lead.organization_id AND lead_call.lead_id = lead.id
@@ -42,7 +45,7 @@ function uncontacted(ownerUserId: string | undefined): Sql {
 export function uncontactedLeadsQuery(filter: UncontactedLeadsFilter): Sql {
   return sql`
     SELECT lead.id AS "leadId", lead.created_at AS "waitingSince" FROM lead
-    WHERE ${uncontacted(filter.ownerUserId)}
+    WHERE ${uncontacted(filter)}
       ${filter.after === undefined ? emptySql : sql`AND lead.id > ${filter.after}::uuid`}
     ORDER BY lead.id
     ${filter.limit === undefined ? emptySql : sql`LIMIT ${filter.limit}`}`;
@@ -54,7 +57,7 @@ export async function uncontactedLeads(tx: OrgTx, filter: UncontactedLeadsFilter
 
 /** How many of the owner's leads wait for their first contact. */
 export function countUncontactedLeadsQuery(ownerUserId: string): Sql {
-  return sql`SELECT count(*)::int AS n FROM lead WHERE ${uncontacted(ownerUserId)}`;
+  return sql`SELECT count(*)::int AS n FROM lead WHERE ${uncontacted({ ownerUserId })}`;
 }
 
 export async function countUncontactedLeads(tx: OrgTx, ownerUserId: string): Promise<number> {

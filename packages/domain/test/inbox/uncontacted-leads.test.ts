@@ -81,7 +81,8 @@ describe("the New leads nobody has contacted yet", () => {
         contacted: (await aLead(tx, { ownerUserId: me, stage: "contacted", createdAt: cameIn })).id,
       };
       const someoneElses = (await aLead(tx, { ownerUserId: randomUUID(), createdAt: cameIn })).id;
-      return { kept, left, someoneElses };
+      const nobodys = (await aLead(tx, { ownerUserId: null, createdAt: cameIn })).id;
+      return { kept, left, someoneElses, nobodys };
     });
     const keptInOrder = Object.values(ids.kept).sort();
 
@@ -91,6 +92,8 @@ describe("the New leads nobody has contacted yet", () => {
     expect(await inOrg((tx) => countUncontactedLeads(tx, me))).toBe(keptInOrder.length);
 
     const everyone = (await inOrg((tx) => uncontactedLeads(tx, {}))).map((row) => row.leadId);
+    const nobodys = (await inOrg((tx) => uncontactedLeads(tx, { unownedOnly: true }))).map((row) => row.leadId);
+    expect(nobodys).toEqual([ids.nobodys]);
     expect(everyone).toEqual(expect.arrayContaining([...keptInOrder, ids.someoneElses]));
     for (const left of Object.values(ids.left)) expect(everyone).not.toContain(left);
 

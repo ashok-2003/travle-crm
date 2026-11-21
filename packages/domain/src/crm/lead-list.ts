@@ -9,6 +9,7 @@ import {
   type LeadCountsInput,
   type LeadListItem,
   type LeadListPage,
+  type LeadShow,
   type ListLeadsInput,
 } from "@travel-crm/contracts/crm";
 import type { Task } from "@travel-crm/contracts/tasks";
@@ -53,6 +54,9 @@ export interface ChosenLeads {
   ids: readonly string[];
   mineChosen: boolean;
 }
+
+/** What finding a Show's leads needs of the list's input: the Show, and whose leads the tab and owner filter hold. */
+export type ShowFilter = Pick<LeadCountsInput, "view" | "ownerUserId"> & { show: LeadShow };
 
 /**
  * Whose leads: the scope's rule first (scopeFilter: a salesperson's own, whatever they ask for), then for everyone

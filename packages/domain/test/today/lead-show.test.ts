@@ -109,11 +109,21 @@ describe("the Leads list's Show", () => {
       const waiting = (await aLead(tx, { ownerUserId: owner.userId })).id;
       const called = await aLead(tx, { ownerUserId: owner.userId });
       await tx.leadCall.create({ data: { leadId: called.id, outcome: "spoke" } });
-      return { waiting, sellers: (await aLead(tx, { ownerUserId: seller.userId })).id };
+      const sellers = (await aLead(tx, { ownerUserId: seller.userId })).id;
+      return { waiting, sellers, nobodys: (await aLead(tx, { ownerUserId: null })).id };
     });
-    expect(await shown(owner, "uncontacted", "everyone")).toEqual([ids.waiting, ids.sellers]);
+    expect(await shown(owner, "uncontacted", "everyone")).toEqual([ids.waiting, ids.sellers, ids.nobodys]);
     expect(await shown(owner, "uncontacted")).toEqual([ids.waiting]);
+    expect(await shown(owner, "uncontacted", "unassigned")).toEqual([ids.nobodys]);
     expect(await shown(seller, "uncontacted", "everyone")).toEqual([ids.sellers]);
+    // The rule reads only the leads the tab can show: the unowned ones for Unassigned, one owner's for an owner chosen.
+    const chosen = (filter: Parameters<typeof leadsToShow>[2], access = owner) =>
+      inOrg(async (tx) => (await leadsToShow(tx, access, filter, now)).ids);
+    expect(await chosen({ show: "uncontacted", view: "unassigned" })).toEqual([ids.nobodys]);
+    expect(await chosen({ show: "uncontacted", view: "everyone", ownerUserId: seller.userId })).toEqual([ids.sellers]);
+    expect(await chosen({ show: "uncontacted", view: "everyone", ownerUserId: owner.userId }, seller)).toEqual([
+      ids.sellers,
+    ]);
   });
 
   it("AI needs a person: hand-overs and open suggestions, newest first; Mine holds the unowned for an AI manager", async () => {
