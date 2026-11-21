@@ -186,8 +186,7 @@ export function StaffCheckStep({ page, onChangeColumns }: { page: StaffImportPag
         <WriteHint id={hintId} hint={write.hint} />
         <RefusalAlert error={cancel.error} />
         <Button
-          variant="link"
-          className="h-auto min-h-11 px-0"
+          variant="destructive"
           disabled={!write.allowed || cancel.isPending}
           onClick={() => {
             cancel.mutate({ importId: page.id });
