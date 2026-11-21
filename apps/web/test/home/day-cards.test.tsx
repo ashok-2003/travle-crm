@@ -237,7 +237,7 @@ describe("Home's day", () => {
   });
 
   describe("Hot leads to call", () => {
-    it("shows the five hottest with Call and WhatsApp as their glyphs, as My tasks has them, and View all opens Leads", async () => {
+    it("shows the five hottest with Call and WhatsApp as their glyphs, as My tasks has them, and View all opens Leads' Hot", async () => {
       renderHome({ hot: [1, 2, 3, 4, 5, 6, 7].map(hotLead) });
       const hot = await card(h.hot.title);
       expect(within(hot).getAllByRole("listitem")).toHaveLength(5);
@@ -246,7 +246,17 @@ describe("Home's day", () => {
       expect(within(hot).getAllByLabelText(/^WhatsApp Hot person/)).toHaveLength(5);
       // The glyph alone: no word beside it.
       expect(calls[0]).not.toHaveTextContent("Call");
-      expect(within(hot).getByRole("link", { name: h.viewAll })).toHaveAttribute("href", "/leads");
+      // Everyone's hot leads for whoever sees all leads, as the Leads card's links open everyone's.
+      expect(within(hot).getByRole("link", { name: h.viewAll })).toHaveAttribute(
+        "href",
+        "/leads?view=everyone&show=hot",
+      );
+    });
+
+    it("opens the member's own Hot leads for a member who sees only their own", async () => {
+      renderHome({ me: member({ permissions: ["leads:view"] }), hot: [hotLead(1)] });
+      const hot = await card(h.hot.title);
+      expect(within(hot).getByRole("link", { name: h.viewAll })).toHaveAttribute("href", "/leads?show=hot");
     });
 
     it("is left out when no lead is hot", async () => {

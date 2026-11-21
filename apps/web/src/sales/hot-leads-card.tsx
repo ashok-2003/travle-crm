@@ -2,7 +2,8 @@
 
 // The hot leads to call now (sales execution), on Home: the five hottest first, each with why (opened the quote, asked
 // to book, travels soon, a big budget), Call and WhatsApp as their glyphs (as My tasks and Follow-ups have them) and its
-// page; View all opens Leads. Shown to whoever sees leads; nothing when none is hot.
+// page; View all opens Leads on Show: Hot (everyone's, for whoever sees all leads, as the Leads card's links open).
+// Shown to whoever sees leads; nothing when none is hot.
 import type { HotLead } from "@travel-crm/contracts/sales";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -12,8 +13,9 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle }
 import { HomeCard, rowClasses } from "@/home/home-card";
 import { CallButton, WhatsAppButton } from "@/leads/contact-buttons";
 import { formatCalendarDay } from "@/lib/format";
-import { leadRoute, routes } from "@/lib/routes";
-import { useHolds } from "@/session/me-context";
+import { leadRoute } from "@/lib/routes";
+import { listFiltersHref } from "@/leads/list/list-filters";
+import { useHolds, useMe, viewScope } from "@/session/me-context";
 import { useHotLeads } from "./use-sales";
 
 function HotRow({ lead }: { lead: HotLead }) {
@@ -56,6 +58,7 @@ export function HotLeadsCard() {
   const t = useTranslations("sales.hot");
   const th = useTranslations("home.hot");
   const sees = useHolds("leads:view");
+  const everyone = viewScope(useMe(), "leads:view") === "all";
   const hot = useHotLeads();
   if (!sees) return null;
   if (hot.isError) {
@@ -63,7 +66,10 @@ export function HotLeadsCard() {
   }
   if (hot.data === undefined || hot.data.length === 0) return null;
   return (
-    <HomeCard title={th("title")} viewAll={routes.leads}>
+    <HomeCard
+      title={th("title")}
+      viewAll={listFiltersHref({ ...(everyone && { view: "everyone" as const }), show: "hot" })}
+    >
       <ItemGroup className={rowClasses.group}>
         {hot.data.slice(0, SHOWN).map((lead) => (
           <HotRow key={lead.leadId} lead={lead} />
