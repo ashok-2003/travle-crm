@@ -3,17 +3,18 @@
 // A lead's owner and source (spec 3.4, R43): the owner as a violet badge (assignment is people information, never a
 // button), with Reassign for leads:assign; then where the lead came from and who added it, its detail under it. A name
 // the page didn't carry is a former member's; a lead with no owner is unassigned (release 4's queue). Both labels say
-// what they mean (a lead's owner is not the Owner role; a source is a new word to some).
+// what they mean (a lead's owner is not the Owner role; a source is a new word to some). Under them, what its place
+// adds (the lead page's: the person's offers consent, which the person's card held until the page's revamp).
 import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Details } from "@/components/details";
 import { useHolds } from "@/session/me-context";
 import { OwnerBadge } from "../owner-badge";
 import { ChangeButton, LeadCard } from "./lead-card";
 import { ReassignDialog } from "./reassign-dialog";
 
-export function OwnerCard({ lead }: { lead: LeadDetail }) {
+export function OwnerCard({ lead, children }: { lead: LeadDetail; children?: ReactNode }) {
   const t = useTranslations("leads");
   const canAssign = useHolds("leads:assign");
   const [reassigning, setReassigning] = useState(false);
@@ -53,6 +54,7 @@ export function OwnerCard({ lead }: { lead: LeadDetail }) {
           },
         ]}
       />
+      {children}
       {reassigning && <ReassignDialog lead={lead} open onOpenChange={setReassigning} returnFocusTo={opener} />}
     </LeadCard>
   );

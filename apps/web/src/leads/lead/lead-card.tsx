@@ -1,26 +1,46 @@
 "use client";
 
 // One part of a lead's page (spec 3.4) as the registry Card: a heading the card is named by, its one action at the
-// right (Edit, Add follow-up), and its content. ChangeButton is that action: a change, so it is off while the
+// right (Edit, Add follow-up), and its content; a tint where its colour says what it holds (the trip's sky, the AI's
+// violet: components/card-tints.ts). ChangeButton is that action: a change, so it is off while the
 // subscription refuses changes, and says why (useWriteAccess); its ref is its dialog's returnFocusTo, which takes the
 // focus back when the dialog closes.
 import { useId, type ReactNode, type Ref } from "react";
+import { cardTints, type CardTint } from "@/components/card-tints";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 
-export function LeadCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+export function LeadCard({
+  title,
+  action,
+  tint,
+  fill = false,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  tint?: CardTint;
+  /** It takes the height its column has left, its content what the heading leaves (the computer's timeline). */
+  fill?: boolean;
+  children: ReactNode;
+}) {
   const id = useId();
   return (
-    <Card role="region" aria-labelledby={id}>
+    <Card
+      role="region"
+      aria-labelledby={id}
+      className={cn(tint !== undefined && cardTints[tint], fill && "min-h-80 flex-1")}
+    >
       <CardHeader>
         <CardTitle>
           <h2 id={id}>{title}</h2>
         </CardTitle>
         {action && <CardAction>{action}</CardAction>}
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
+      <CardContent className={cn("flex flex-col gap-4", fill && "min-h-0 flex-1")}>{children}</CardContent>
     </Card>
   );
 }

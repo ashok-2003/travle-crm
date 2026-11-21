@@ -136,8 +136,8 @@ describe("LogoPanel", () => {
     const removal = heldAnswer({ data: null });
     const api = renderPanel({ "organization.logo.remove": removal.answer });
     const remove = await screen.findByRole("button", { name: words.remove });
-    // Red is for the final step only.
-    expect(remove).toHaveAttribute("data-variant", "outline");
+    // Soft red, as every button that removes something (the owner, 2026-11-21), and its dialog's last step too.
+    expect(remove).toHaveAttribute("data-variant", "destructive");
     await user.click(remove);
     expect(screen.getByText(words.removeDescription)).toBeVisible();
     api.answer("organization.logo.get", { data: null });

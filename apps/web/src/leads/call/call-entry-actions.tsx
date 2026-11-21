@@ -68,7 +68,7 @@ export function CallEntryActions({
         </Button>
         <Button
           ref={deleteButton}
-          variant="ghost"
+          variant="destructive"
           aria-describedby={write.hint === null ? undefined : hintId}
           disabled={!write.allowed}
           aria-label={tTimeline("callDeleteNamed", { outcome })}

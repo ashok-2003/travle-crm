@@ -134,7 +134,7 @@ export function RejectClaimDialog({ claim }: { claim: Claim }) {
     <FormDialog
       dialog={dialog}
       sending={rejectClaim}
-      trigger={{ label: t("reject"), variant: "outline" }}
+      trigger={{ label: t("reject"), variant: "destructive" }}
       title={t("rejectTitle")}
       description={t("rejectDescription")}
       submit={t("rejectSubmit")}

@@ -58,7 +58,7 @@ function ReplyRow({ reply }: { reply: QuickReply }) {
           )}
           <Button
             ref={deleteButton}
-            variant="outline"
+            variant="destructive"
             disabled={!access.allowed}
             aria-label={t("deleteNamed", { title: reply.title })}
             onClick={() => {

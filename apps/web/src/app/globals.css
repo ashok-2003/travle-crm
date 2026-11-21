@@ -211,6 +211,12 @@
   --phone-navigation-height: calc(3.5rem + 1px + env(safe-area-inset-bottom));
 }
 
+/* A lead's page on a phone keeps Call, WhatsApp and Note in a bar above the bottom bar (leads/lead/lead-action-bar.tsx,
+   61px): toasts rise above both. */
+:root:has([data-phone-navigation]):has([data-lead-action-bar]) {
+  --toast-bottom-gap: 8rem;
+}
+
 @layer base {
   * {
     @apply border-border;

@@ -2,13 +2,15 @@
 
 // The bookings the AI took on a lead (the owner, 2026-10-29): what the customer said yes to, as the AI took it down,
 // whether it waits for payment or the customer sent a proof (each screenshot or PDF opens from here), and, for whoever
-// may work the lead, the decision: the payment is in (the lead is won) or the booking is off. On a plan with bookings the
+// may work the lead, the decision: the payment is in (the lead is won) or the booking is off (soft red: it ends the
+// booking). In the AI's violet card, as everything the AI did on the lead's page is (the lead page's revamp, 2026-11-21). On a plan with bookings the
 // payment is confirmed on Payments to check, which records the money and tells the customer. Nothing until there is one.
 import type { AiBooking } from "@travel-crm/contracts/ai";
-import { CalendarCheckIcon, ImageIcon } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
+import { cardTints } from "@/components/card-tints";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Details } from "@/components/details";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
@@ -25,6 +27,7 @@ import { useHolds, useMe } from "@/session/me-context";
 import { isOnPlan } from "@/shell/navigation";
 import { useSubscription } from "@/subscription/use-subscription";
 import { useWriteAccess } from "@/subscription/write-access";
+import { AiChip } from "./ai-chip";
 import { useLeadBookings, useSetBookingStatus } from "./use-ai-bookings";
 
 const statusTone: Record<AiBooking["status"], StatusTone> = {
@@ -110,7 +113,7 @@ function BookingBlock({ booking }: { booking: AiBooking }) {
             <p className="text-caption text-muted-foreground">{t("confirmedOnPayments")}</p>
           )}
           <Button
-            variant="outline"
+            variant="destructive"
             disabled={!access.allowed}
             onClick={() => {
               setConfirming("cancelled");
@@ -148,14 +151,15 @@ function BookingBlock({ booking }: { booking: AiBooking }) {
 
 export function LeadBookings({ leadId }: { leadId: string }) {
   const t = useTranslations("ai.bookings");
+  const titleId = useId();
   const bookings = useLeadBookings(leadId).data ?? [];
   if (bookings.length === 0) return null;
   return (
-    <Card size="sm">
+    <Card size="sm" role="region" aria-labelledby={titleId} className={cardTints.ai}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CalendarCheckIcon aria-hidden="true" className="size-4 text-primary" />
-          <h3>{t("title")}</h3>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <AiChip />
+          <h2 id={titleId}>{t("title")}</h2>
         </CardTitle>
         <CardDescription>{t("description")}</CardDescription>
         <CardAction>

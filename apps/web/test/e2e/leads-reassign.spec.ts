@@ -31,7 +31,7 @@ test("an Owner reassigns a lead; Ravi finds it in his Leads", async ({ page, bro
   await dialog.getByRole("button", { name: "Reassign" }).click();
   await expect(page.getByText("Reassigned to Ravi Kumar")).toBeVisible();
   await expect(ownerCard.getByText("Ravi Kumar", { exact: true })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Timeline" }).getByText("Assigned to Ravi Kumar")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Timeline" }).getByText("Assigned to Ravi Kumar")).toBeVisible();
   // The Owner's day is empty now: the lead and its follow-up are both Ravi's.
   await page.goto("/today");
   await expect(page.getByText("Nothing to do right now.")).toBeVisible();

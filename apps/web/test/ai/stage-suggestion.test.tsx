@@ -2,10 +2,10 @@
 // send the person's choice, are disabled while it is sent, and then reload the lead's work and the chats' AI state; a
 // member who may not edit the lead sees the alert alone.
 import type { StageSuggestion } from "@travel-crm/contracts/ai";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StageSuggestionAlert } from "@/ai/stage-suggestion";
+import { StageSuggestionCard } from "@/ai/stage-suggestion";
 import { messages } from "@/i18n/messages";
 import { fakeApi, newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { member } from "../support/members";
@@ -32,7 +32,7 @@ async function show(
 ) {
   const api = fakeApi();
   renderWithApi(
-    <StageSuggestionAlert leadId={leadId} />,
+    <StageSuggestionCard leadId={leadId} />,
     queryClient,
     permissions === undefined ? member({ isOwner: true }) : member({ permissions }),
   );
@@ -43,7 +43,7 @@ async function show(
   return api;
 }
 
-describe("StageSuggestionAlert", () => {
+describe("StageSuggestionCard", () => {
   it("says what the AI suggests and why", async () => {
     await show();
     expect(await screen.findByText("The AI suggests marking this lead Lost")).toBeVisible();
@@ -96,10 +96,17 @@ describe("StageSuggestionAlert", () => {
     expect(screen.queryByRole("button", { name: "No" })).toBeNull();
   });
 
+  it("is the AI's violet card, named by what it suggests, with Yes in soft red", async () => {
+    await show();
+    const card = await screen.findByRole("region", { name: "The AI suggests marking this lead Lost" });
+    expect(card.className).toContain("--brand-people-tint");
+    expect(within(card).getByRole("button", { name: "Yes, mark it Lost" })).toHaveClass("bg-status-bad-fill");
+  });
+
   it("shows nothing when there is no suggestion", async () => {
     await show(undefined, null);
     await waitFor(() => {
-      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.queryByRole("region")).toBeNull();
     });
     expect(screen.queryByText(/The AI suggests/)).toBeNull();
   });

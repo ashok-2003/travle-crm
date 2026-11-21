@@ -1,13 +1,16 @@
 "use client";
 
-// The AI's suggestion to mark a lead Lost or Not a lead: an alert above the lead's cards with the reason, and, for whoever
-// may edit leads, "Yes, mark it …" and "No". The AI never moves the lead itself; the choice is the person's.
+// The AI's suggestion to mark a lead Lost or Not a lead: first on the lead's page, in the AI's violet card (the lead page's
+// revamp, 2026-11-21), with the reason, and, for whoever may edit leads, "Yes, mark it …" (soft red: it ends the lead)
+// and "No". The AI never moves the lead itself; the choice is the person's.
 import type { StageSuggestion } from "@travel-crm/contracts/ai";
-import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useId } from "react";
+import { cardTints } from "@/components/card-tints";
 import { RefusalAlert } from "@/components/refusal-alert";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AiChip } from "./ai-chip";
 import { useHolds } from "@/session/me-context";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -56,19 +59,24 @@ export function SuggestionButtons({ suggestion }: { suggestion: StageSuggestion 
   );
 }
 
-/** The alert on a lead's page; nothing when the AI has no open suggestion for the lead. */
-export function StageSuggestionAlert({ leadId }: { leadId: string }) {
+/** The suggestion's card on a lead's page; nothing when the AI has no open suggestion for the lead. */
+export function StageSuggestionCard({ leadId }: { leadId: string }) {
   const t = useTranslations("ai.stageSuggestion");
+  const titleId = useId();
   const suggestion = useLeadStageSuggestion(leadId).data?.suggestion ?? null;
   if (suggestion === null) return null;
   return (
-    <Alert>
-      <SparklesIcon aria-hidden="true" />
-      <AlertTitle>{t("title", { stage: t(`stages.${suggestion.kind}`) })}</AlertTitle>
-      <AlertDescription>
+    <Card size="sm" role="region" aria-labelledby={titleId} className={cardTints.ai}>
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <AiChip />
+          <h2 id={titleId}>{t("title", { stage: t(`stages.${suggestion.kind}`) })}</h2>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
         <p>{suggestion.reason}</p>
         <SuggestionButtons suggestion={suggestion} />
-      </AlertDescription>
-    </Alert>
+      </CardContent>
+    </Card>
   );
 }

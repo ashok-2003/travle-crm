@@ -392,13 +392,13 @@
     "notFound": "There's no lead here. It may have been removed.",
     "stageNamed": "Stage: {stage}",
     "moveTo": "Move to {stage}",
-    "chooseToMove": "Choose a stage to move the lead there.",
     "moved": "Moved to {stage}",
     "reopen": "Reopen",
     "reopenReturns": "Reopen returns it to {stage}.",
     "reopened": "Reopened",
     "menu": {
       "label": "More for {name}",
+      "editPerson": "Edit person",
       "reassign": "Reassign",
       "lost": "Lost",
       "notALead": "Not a lead",
@@ -465,9 +465,20 @@
         }
       }
     },
+    "followUps": {
+      "title": "Follow-ups",
+      "lastContact": "Last contact",
+      "theyWrote": "They wrote “{words}” · {ago} ago",
+      "weWrote": "We wrote “{words}” · {ago} ago",
+      "aiWrote": "The AI wrote “{words}” · {ago} ago",
+      "theySent": "They sent: {kind} · {ago} ago",
+      "weSent": "We sent: {kind} · {ago} ago",
+      "aiSent": "The AI sent: {kind} · {ago} ago",
+      "theyWroteOnWhatsApp": "They wrote on WhatsApp · {ago} ago",
+      "called": "Call: {outcome} · {ago} ago",
+      "none": "No calls or messages yet"
+    },
     "person": {
-      "title": "The person",
-      "edit": "Edit the person",
       "saved": "Saved",
       "holder": "This {contact} is already {name}'s. A contact can be on only one person.",
       "contactKinds": {
@@ -535,8 +546,6 @@
       "addNote": "Add a note",
       "saveNote": "Add note",
       "noteAdded": "Note added",
-      "meta": "{actor} · {when}",
-      "system": "The system",
       "note": "Note",
       "moved": "Moved to {stage}",
       "reassigned": "Assigned to {name}",
@@ -615,7 +624,19 @@
         "room_type": "Room",
         "name": "Name"
       },
-      "ai": "The AI"
+      "filters": {
+        "label": "Show in the timeline",
+        "all": "All",
+        "ai": "AI",
+        "callsAndChats": "Calls & chats"
+      },
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "entries": "What happened, newest first",
+      "showFirst": "Show more",
+      "noneShown": "Nothing of this kind yet.",
+      "noneLoaded": "None among the entries shown.",
+      "aiMark": "AI"
     },
     "callCount": "{count, plural, one {# call} other {# calls}}",
     "messages": {
@@ -635,6 +656,10 @@
       "noPhone": "This lead has no phone number to message.",
       "copyFailed": "The message couldn't be copied. Select it and copy it yourself.",
       "blocked": "This lead has nothing for {blanks} yet, so the message can't be copied or opened. Add what's missing, such as a quote, first."
+    },
+    "actionBar": {
+      "label": "Reach {name}",
+      "note": "Note"
     }
   },
   "export": {

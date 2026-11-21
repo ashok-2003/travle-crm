@@ -120,7 +120,7 @@ export function SupplierScreen({ supplierId }: { supplierId: string }) {
                         <>
                           <ContactDialog supplierId={data.id} contact={contact} />
                           <Button
-                            variant="ghost"
+                            variant="destructive"
                             aria-label={t("contacts.removeNamed", { name: contact.name })}
                             onClick={() => {
                               setRemovingContact(contact.id);

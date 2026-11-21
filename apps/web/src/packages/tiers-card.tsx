@@ -35,7 +35,7 @@ export function TiersCard({ detail }: { detail: PackageDetail }) {
               <ItemActions className="flex-wrap">
                 <TierDialog packageId={detail.id} tier={tier} />
                 <Button
-                  variant="ghost"
+                  variant="destructive"
                   aria-label={t("removeNamed", { name: tier.name })}
                   onClick={() => {
                     setRemoving({ id: tier.id, name: tier.name });

@@ -183,7 +183,7 @@ test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", a
 
   await page.goto(`/leads/${rahul}`);
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Timeline" }).getByText("Note")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Timeline" }).getByText("Note")).toBeVisible();
   await shoot(page, "lead");
   if (test.info().project.name === "desktop") {
     // The narrowest computer that gets two columns: the cards and the timeline must both still read well.

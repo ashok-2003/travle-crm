@@ -210,8 +210,7 @@ export function CheckStep({ detail, onChangeColumns }: { detail: ImportDetail; o
           </Button>
         )}
         <Button
-          variant="link"
-          className="h-auto min-h-11 px-0"
+          variant="destructive"
           disabled={busy || !write.allowed}
           onClick={() => {
             cancel.mutate({ importId: detail.id });

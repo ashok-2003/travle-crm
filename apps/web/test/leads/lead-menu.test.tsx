@@ -1,12 +1,14 @@
-// A lead's ⋯ menu (spec 3.4, R33): Reassign, Lost, Not a lead and Block this number; the first three ask first
-// (Lost, Not a lead and Block); Reassign and Block need leads:assign, and Reassign gives the lead to one of the people
-// who can work leads.
+// A lead's ⋯ menu (spec 3.4, R33): Edit person (the lead page's revamp: the person's card went), Reassign, Lost, Not a
+// lead and Block this number; Lost, Not a lead and Block ask first; Reassign and Block need leads:assign, and Reassign
+// gives the lead to one of the people who can work leads. Edit person opens the person's dialog, which names who else
+// holds a contact before saving.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { LeadMenu } from "@/leads/lead/lead-menu";
 import { stubApi } from "../support/api-stub";
+import { member } from "../support/members";
 import { aLead, ids } from "./records";
 import { inputsTo, owner, renderScreen, salesperson } from "./screen";
 
@@ -59,7 +61,14 @@ describe("LeadMenu", () => {
       within(menu)
         .getAllByRole("menuitem")
         .map((item) => item.textContent),
-    ).toEqual([words.menu.reassign, words.menu.lost, words.menu.notALead, words.menu.block, words.menu.remove]);
+    ).toEqual([
+      words.menu.editPerson,
+      words.menu.reassign,
+      words.menu.lost,
+      words.menu.notALead,
+      words.menu.block,
+      words.menu.remove,
+    ]);
     await userEvent.keyboard("{Escape}");
 
     await chooseAndConfirm(words.menu.lost, words.lost.confirm, messages.sales.lost.reasons.price);
@@ -87,14 +96,21 @@ describe("LeadMenu", () => {
     });
   });
 
-  it("gives a salesperson Lost and Not a lead only, and leaves out the stage the lead is in", async () => {
+  it("gives a salesperson Edit person, Lost and Not a lead only, and leaves out the stage the lead is in", async () => {
     renderMenu(salesperson, { stage: "lost", reopenStage: "contacted" });
     const menu = await openMenu();
     expect(
       within(menu)
         .getAllByRole("menuitem")
         .map((item) => item.textContent),
-    ).toEqual([words.menu.notALead]);
+    ).toEqual([words.menu.editPerson, words.menu.notALead]);
+  });
+
+  it("offers no menu to someone who may only see the lead", () => {
+    renderMenu(member({ permissions: ["leads:view"] }));
+    expect(
+      screen.queryByRole("button", { name: words.menu.label.replace("{name}", "Rahul Sharma") }),
+    ).not.toBeInTheDocument();
   });
 
   it("names the contact it blocks when the person has no phone", async () => {

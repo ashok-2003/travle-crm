@@ -106,7 +106,7 @@ function RoomBlock({ room, stay, mayEdit }: { room: RoomingRoom; stay: RoomingSt
           <div className="flex flex-wrap gap-2">
             <RoomDialog stayId={stay.id} room={room} />
             <Button
-              variant="ghost"
+              variant="destructive"
               aria-label={t("removeNamed", { label: room.label })}
               onClick={() => {
                 setRemoving(true);
@@ -244,7 +244,7 @@ function StayBlock({ stay, mayEdit, departureId }: { stay: RoomingStay; mayEdit:
         <div className="flex flex-wrap gap-2">
           <StayDialog departureId={departureId} stay={stay} />
           <Button
-            variant="ghost"
+            variant="destructive"
             aria-label={t("removeStayNamed", { name: stay.hotelName })}
             onClick={() => {
               setRemoving(true);

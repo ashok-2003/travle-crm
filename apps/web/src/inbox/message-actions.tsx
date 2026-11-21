@@ -76,7 +76,7 @@ export function NotSent({ message }: { message: ChatMessage }) {
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant="destructive"
             size="sm"
             disabled={!access.allowed || retry.isPending || discard.isPending}
             onClick={() => {

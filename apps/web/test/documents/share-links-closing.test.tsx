@@ -55,7 +55,8 @@ describe("closing the share links' dialogs", () => {
     const revoking = heldAnswer({ data: null });
     renderDialog({ "shareLinks.revoke": revoking.answer });
     const turnOff = await screen.findByRole("button", { name: words.revokeNamed.replace("{label}", "For Meera Iyer") });
-    expect(turnOff).toHaveAttribute("data-variant", "outline");
+    // Soft red, as every button that ends something (the owner, 2026-11-21).
+    expect(turnOff).toHaveAttribute("data-variant", "destructive");
     await user.click(turnOff);
     const confirm = screen.getByRole("alertdialog", { name: words.revokeTitle });
     const action = within(confirm).getByRole("button", { name: words.revokeConfirm });

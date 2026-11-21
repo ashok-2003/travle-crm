@@ -30,5 +30,7 @@
     "previous": "Previous page",
     "next": "Next page",
     "last": "Last page"
-  }
+  },
+  "readMore": "More",
+  "readLess": "Less"
 }
