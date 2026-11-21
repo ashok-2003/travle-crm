@@ -84,8 +84,8 @@ describe("AttachmentsPanel", () => {
     });
     renderPanel();
     const remove = await screen.findByRole("button", { name: "Remove GST certificate.pdf" });
-    // Red is for the final step only: the row's button is an outline one.
-    expect(remove).toHaveAttribute("data-variant", "outline");
+    // Soft red, as every button that removes something (the owner, 2026-11-21), and its dialog's last step too.
+    expect(remove).toHaveAttribute("data-variant", "destructive");
     await userEvent.click(remove);
     const dialog = screen.getByRole("alertdialog", {
       name: words.removeTitle.replace("{name}", "GST certificate.pdf"),
