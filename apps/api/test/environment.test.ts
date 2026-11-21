@@ -179,6 +179,21 @@ describe("environment", () => {
       AI_BACKUP_CHAT_MODELS: "gemini-3.5-flash-lite",
     };
     expect(loadEnvironment({ ...production, ...vertex, ...studio }).AI_BACKUP_API_KEY).toBe(backupKey);
+    // A third key behind the backup, on its endpoint and models: only with a backup, and blank is unset.
+    const thirdKey = "AIza-third-key-0123456789";
+    expect(
+      loadEnvironment({ ...production, ...vertex, ...studio, AI_BACKUP_API_KEY_2: thirdKey }).AI_BACKUP_API_KEY_2,
+    ).toBe(thirdKey);
+    expect(
+      loadEnvironment({ ...production, ...vertex, ...studio, AI_BACKUP_API_KEY_2: "" }).AI_BACKUP_API_KEY_2,
+    ).toBeUndefined();
+    try {
+      loadEnvironment({ ...production, ...vertex, AI_BACKUP_API_KEY_2: thirdKey });
+      expect.unreachable();
+    } catch (error) {
+      expect(String(error)).toMatch(/AI_BACKUP_API_KEY_2: is only for use with AI_BACKUP_API_KEY/);
+      expect(String(error)).not.toContain(thirdKey);
+    }
     // One key, whole, or the process stops, saying nothing of the value.
     for (const wrong of [base64([key, key]), base64({ ...key, private_key: "not a key" }), "secret-key-text"]) {
       try {

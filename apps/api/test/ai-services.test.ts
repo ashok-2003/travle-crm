@@ -161,6 +161,43 @@ describe("the sales agent's models", () => {
   });
 });
 
+describe("the backup keys", () => {
+  it("asks AI_BACKUP_API_KEY_2 last, on the backup's endpoint and models, only when it is set", async () => {
+    const asked: { url: string; bearer: string; model: unknown }[] = [];
+    vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
+      const bearer = (init.headers as Record<string, string>).authorization ?? "";
+      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: unknown };
+      asked.push({ url, bearer, model: body.model });
+      const answer = { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+      // Only the second backup key answers.
+      return Promise.resolve(
+        bearer.endsWith("third-0123456789")
+          ? new Response(JSON.stringify(answer))
+          : new Response("busy", { status: 503 }),
+      );
+    });
+    const backups = {
+      AI_CHAT_MODELS: ["google/chat-one"],
+      AI_BACKUP_API_KEY: "AIza-second-0123456789",
+      AI_BACKUP_BASE_URL: GOOGLE,
+      AI_BACKUP_CHAT_MODELS: ["gemini-3.5-flash-lite"],
+    };
+    const request = { feature: "sales_agent" as const, messages, user: "org" };
+    expect(await createAiModel(settings(backups), logger)?.complete(request)).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    expect(asked).toHaveLength(2);
+    const three = createAiModel(settings({ ...backups, AI_BACKUP_API_KEY_2: "AIza-third-0123456789" }), logger);
+    expect(await three?.complete(request)).toMatchObject({ ok: true, model: "gemini-3.5-flash-lite" });
+    expect(asked.slice(2)).toEqual([
+      { url: `${OPENROUTER}/chat/completions`, bearer: "Bearer sk-first-0123456789", model: "google/chat-one" },
+      { url: `${GOOGLE}/chat/completions`, bearer: "Bearer AIza-second-0123456789", model: "gemini-3.5-flash-lite" },
+      { url: `${GOOGLE}/chat/completions`, bearer: "Bearer AIza-third-0123456789", model: "gemini-3.5-flash-lite" },
+    ]);
+  });
+});
+
 describe("Vertex AI", () => {
   it("sends every feature to the Vertex endpoint with the service account's token as the bearer", async () => {
     const headers: string[] = [];

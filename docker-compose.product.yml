@@ -55,6 +55,7 @@ x-api-environment: &api-environment
   AI_SUMMARY_MODELS: ${AI_SUMMARY_MODELS:-}
   AI_BACKUP_BASE_URL: ${AI_BACKUP_BASE_URL:-}
   AI_BACKUP_API_KEY: ${AI_BACKUP_API_KEY:-}
+  AI_BACKUP_API_KEY_2: ${AI_BACKUP_API_KEY_2:-}
   AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
   AI_BACKUP_FAST_MODELS: ${AI_BACKUP_FAST_MODELS:-}
   AI_ZERO_RETENTION: ${AI_ZERO_RETENTION:-}
@@ -219,6 +220,7 @@ services:
       AI_SUMMARY_MODELS: ""
       AI_BACKUP_BASE_URL: ""
       AI_BACKUP_API_KEY: ""
+      AI_BACKUP_API_KEY_2: ""
       AI_BACKUP_CHAT_MODELS: ""
       AI_BACKUP_FAST_MODELS: ""
       # Nor Langfuse's keys: with no model, it has nothing to trace.
