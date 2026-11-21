@@ -41,7 +41,8 @@ function KindIcon({ kind }: { kind: NonNullable<Quoted["kind"]> }) {
   }
 }
 
-const kindLabels = {
+/** Each message kind's word in `inbox.chat.quote.kinds` ("Photo"), for a message with no words of its own. */
+export const kindLabels = {
   text: "text",
   template: "template",
   image: "image",

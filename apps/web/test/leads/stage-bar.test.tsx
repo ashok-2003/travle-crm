@@ -238,12 +238,16 @@ describe("StageBar", () => {
     expect(fill()).toHaveClass("bg-stage-contacted-dot");
     expect(fill()).toHaveStyle({ transform: "translateX(-60%)" });
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByText(words.chooseToMove)).not.toBeInTheDocument();
   });
 
-  it("says how to move the lead in words for a mouse as for a finger, never 'Tap'", () => {
+  it("has no hint line under the bar: the steps' names say where each moves the lead", () => {
     renderBar({ stage: "contacted" });
-    expect(screen.getByText(words.chooseToMove)).toBeVisible();
-    expect(screen.queryByText(/\btap\b/i)).not.toBeInTheDocument();
+    const bar = screen.getByRole("region", {
+      name: words.stageNamed.replace("{stage}", messages.leads.stages.contacted),
+    });
+    expect(bar.querySelector("p")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: words.moveTo.replace("{stage}", messages.leads.stages.won) }),
+    ).toBeVisible();
   });
 });

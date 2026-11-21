@@ -1,5 +1,8 @@
-// A lead's timeline (spec 3.4, R36): what happened, newest first, a page at a time, each kind as its sentence with
-// who did it and when in the agency's zone; Add a note puts one at the top.
+// A lead's timeline (spec 3.4, R36; the lead page's revamp, 2026-11-21): what happened, newest first, a page at a time,
+// grouped under its days (Today, Yesterday, 6 Nov) in the agency's zone, each kind as its sentence with a mark in its
+// kind's colour, who did it beside it and its time; filters for the AI's entries and for calls and chats; a note cut
+// to three lines with More; Add a note, one line until used, puts one at the top. On a computer the entries scroll in
+// their own box; in one column the newest five show, then Show more.
 import type { TimelineEntry } from "@travel-crm/contracts/crm";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -44,12 +47,25 @@ function entries(): TimelineEntry[] {
   ].map((entry, index) => ({ ...entry, id: entryId(index) }));
 }
 
+/** The timeline's card. */
+const card = () => screen.getByRole("region", { name: words.title });
+
+/** Each entry's row, in the order shown. */
+async function rows(): Promise<HTMLElement[]> {
+  await screen.findAllByRole("heading", { level: 4 });
+  return within(card()).getAllByRole("listitem");
+}
+
 /** Each entry's sentence, in the order shown. */
 async function sentences(): Promise<string[]> {
-  const list = await screen.findByRole("list", { name: words.title });
-  return within(list)
-    .getAllByRole("listitem")
-    .map((item) => within(item).getByRole("heading").textContent);
+  return (await rows()).map((item) => within(item).getByRole("heading", { level: 4 }).textContent);
+}
+
+/** Opens the note box, which is one line until used. */
+async function openNoteBox() {
+  const box = await screen.findByLabelText(words.addNote);
+  await userEvent.click(box);
+  return box;
 }
 
 beforeEach(() => {
@@ -77,15 +93,18 @@ describe("Timeline", () => {
       words.tripEdited,
       words.createdFrom.phone_call,
     ]);
-    const list = screen.getByRole("list", { name: words.title });
-    const [note, , , added, , , enquiry, edited] = within(list).getAllByRole("listitem");
-    expect(note).toHaveTextContent("Ravi Kumar · 16 Oct, 10:42 am");
+    const [note, , , added, , , enquiry, edited] = await rows();
+    // Under today's heading, each with its time alone, and who did it beside what they did.
+    expect(within(card()).getByRole("heading", { level: 3, name: words.today })).toBeVisible();
+    expect(note).toHaveTextContent("Note · Ravi Kumar10:42 am");
     expect(note).toHaveTextContent("Wants one night on a houseboat.");
     expect(added).toHaveTextContent("Send the Kashmir options · due 17 Oct, 11:00 am");
     expect(enquiry).toHaveTextContent("Goa · Jan 2027 · 2 adults");
     expect(enquiry).toHaveTextContent("Instagram");
     expect(enquiry).toHaveTextContent("Now thinking of Goa");
-    expect(edited).toHaveTextContent(words.system);
+    // The system's own entries are smaller and grey, and never say "The system".
+    expect(edited).toHaveTextContent(`${words.tripEdited}10:42 am`);
+    expect(edited).not.toHaveTextContent("The system");
     expect(inputsTo("leads.timeline")).toEqual([{ leadId: ids.rahul }]);
 
     api.answer("leads.timeline", aTimeline([anEntry({ id: entryId(20), kind: "created", source: "walk_in" })]));
@@ -99,20 +118,18 @@ describe("Timeline", () => {
       "leads.timeline",
       aTimeline([anEntry({ id: entryId(30), kind: "note", body: "Called back" }), ...entries()]),
     );
-    await userEvent.type(screen.getByLabelText(words.addNote), "Called back");
+    await userEvent.type(await openNoteBox(), "Called back");
     await userEvent.click(screen.getByRole("button", { name: words.saveNote }));
     await waitFor(() => {
       expect(inputsTo("leads.addNote")).toEqual([{ leadId: ids.rahul, body: "Called back" }]);
     });
     await waitFor(() => {
-      expect(within(screen.getByRole("list", { name: words.title })).getAllByRole("listitem")[0]).toHaveTextContent(
-        "Called back",
-      );
+      expect(within(card()).getAllByRole("listitem")[0]).toHaveTextContent("Called back");
     });
     expect(screen.getByLabelText(words.addNote)).toHaveValue("");
   });
 
-  it("says what the AI set or changed, and that it was the AI", async () => {
+  it("says what the AI set or changed, and that it was the AI, in its violet", async () => {
     stubApi({
       "leads.timeline": aTimeline([
         anEntry({ kind: "ai-field-set", actorUserId: null, field: "adults", from: "3", to: "4" }),
@@ -128,29 +145,150 @@ describe("Timeline", () => {
       `${messages.ai.chip} ${words.moved.replace("{stage}", messages.leads.stages.quote_sent)}`,
       words.moved.replace("{stage}", messages.leads.stages.contacted),
     ]);
-    const items = within(screen.getByRole("list", { name: words.title })).getAllByRole("listitem");
-    expect(items[0]).toHaveTextContent(words.ai);
-    expect(items[2]).toHaveTextContent(words.ai);
-    expect(items[3]).not.toHaveTextContent(words.ai);
+    const marks = (await rows()).map((item) => item.querySelector("[data-mark]"));
+    for (const mark of marks.slice(0, 3)) expect(mark).toHaveClass("bg-people-tint", "text-people-tint-ink");
+    expect(marks[3]).toHaveClass("bg-stage-contacted-fill");
   });
 
-  it("marks a stage change with its stage's dot and a finished follow-up with status green, and nothing else", async () => {
-    stubApi({ "leads.timeline": aTimeline(entries(), entryId(8)) });
+  it("marks each kind in its colour: calls blue, chats teal, stages theirs, follow-ups amber, green or grey", async () => {
+    stubApi({
+      "leads.timeline": aTimeline(
+        [
+          ...entries(),
+          anEntry({ kind: "call", callId: ids.task, outcome: "spoke", note: null }),
+          anEntry({ kind: "whatsapp-contact" }),
+          anEntry({ kind: "booking-event", bookingId: ids.task, number: "B-1", event: "payment-confirmed" }),
+        ].map((entry, index) => ({ ...entry, id: entryId(index) })),
+      ),
+    });
     renderScreen(<Timeline lead={aLead()} />);
-    await sentences();
-    const dots = within(screen.getByRole("list", { name: words.title }))
-      .getAllByRole("heading")
-      .map((heading) => heading.querySelector("span[aria-hidden=true]")?.className ?? null);
-    const [, , moved, , done, ...rest] = dots;
-    expect(moved).toContain("bg-stage-contacted-dot");
-    expect(done).toContain("bg-status-good-dot");
-    expect(dots.filter((dot) => dot !== null)).toHaveLength(2);
-    expect(rest.every((dot) => dot === null)).toBe(true);
+    const marks = Object.fromEntries(
+      (await rows()).map((item) => [
+        within(item).getByRole("heading", { level: 4 }).textContent,
+        item.querySelector("[data-mark]")?.querySelector("span")?.className ??
+          item.querySelector("[data-mark]")?.className,
+      ]),
+    );
+    expect(marks[words.note]).toContain("bg-muted");
+    expect(marks[words.moved.replace("{stage}", messages.leads.stages.contacted)]).toContain("bg-stage-contacted-fill");
+    expect(marks[words.followUpAdded]).toContain("bg-status-attention-fill");
+    expect(marks[words.followUpDone]).toContain("bg-status-good-fill");
+    expect(marks[words.taskCancelled]).toContain("bg-status-neutral-fill");
+    expect(marks[words.repeatEnquiry]).toContain("bg-stage-contacted-fill");
+    expect(marks[words.call.replace("{outcome}", "Spoke")]).toContain("bg-avatar-sky-fill");
+    expect(marks[words.whatsappContact]).toContain("bg-stage-contacted-fill");
+    expect(marks[words.booking["payment-confirmed"].replace("{number}", "B-1")]).toContain("bg-status-good-fill");
+    // The system's own entries: a small grey dot, and a caption-sized title.
+    expect(marks[words.tripEdited]).toContain("bg-status-neutral-dot");
+    expect(marks[words.createdFrom.phone_call]).toContain("bg-status-neutral-dot");
+    const edited = (await rows()).find((item) => item.textContent.includes(words.tripEdited));
+    expect(edited?.querySelector(".text-caption")).not.toBeNull();
+  });
+
+  it("groups the entries under Today, Yesterday and the day, in the agency's zone", async () => {
+    stubApi({
+      "leads.timeline": aTimeline([
+        anEntry({ id: entryId(0), kind: "note", body: "Today's", occurredAt: "2026-10-16T05:00:00.000Z" }),
+        // 11:45 pm on the 15th in India, though the 16th in UTC.
+        anEntry({ id: entryId(1), kind: "note", body: "Late last night", occurredAt: "2026-10-15T18:15:00.000Z" }),
+        anEntry({ id: entryId(2), kind: "note", body: "Older", occurredAt: "2026-10-06T05:00:00.000Z" }),
+      ]),
+    });
+    renderScreen(<Timeline lead={aLead()} />);
+    await rows();
+    const days = within(card()).getAllByRole("heading", { level: 3 });
+    expect(days.map((day) => day.textContent)).toEqual([words.today, words.yesterday, "6 Oct"]);
+    expect(within(card()).getByRole("list", { name: words.yesterday })).toHaveTextContent("Late last night");
+    expect(within(card()).getByRole("list", { name: words.yesterday })).toHaveTextContent("11:45 pm");
+  });
+
+  it("shows the AI's entries alone, or the calls and chats alone, and All again", async () => {
+    stubApi({
+      "leads.timeline": aTimeline(
+        [
+          anEntry({ kind: "note", body: "Mine", byAi: false }),
+          anEntry({ kind: "note", body: "The AI's", byAi: true, actorUserId: null }),
+          anEntry({ kind: "ai-field-set", actorUserId: null, field: "adults", from: null, to: "4" }),
+          anEntry({ kind: "call", callId: ids.task, outcome: "busy", note: null }),
+          anEntry({ kind: "whatsapp-contact" }),
+          anEntry({ kind: "created", source: "phone_call", assignment: null }),
+        ].map((entry, index) => ({ ...entry, id: entryId(index) })),
+      ),
+    });
+    renderScreen(<Timeline lead={aLead()} />);
+    expect(await sentences()).toHaveLength(6);
+    const filters = within(card()).getByLabelText(words.filters.label);
+    await userEvent.click(within(filters).getByRole("radio", { name: words.filters.ai }));
+    expect(await sentences()).toEqual([words.aiNote, "AI Adults set to 4"]);
+    await userEvent.click(within(filters).getByRole("radio", { name: words.filters.callsAndChats }));
+    expect(await sentences()).toEqual([words.call.replace("{outcome}", "Busy or call later"), words.whatsappContact]);
+    await userEvent.click(within(filters).getByRole("radio", { name: words.filters.all }));
+    expect(await sentences()).toHaveLength(6);
+  });
+
+  it("says so when a filter finds nothing", async () => {
+    stubApi({ "leads.timeline": aTimeline(entries()) });
+    renderScreen(<Timeline lead={aLead()} />);
+    await rows();
+    await userEvent.click(within(card()).getByRole("radio", { name: words.filters.ai }));
+    expect(await screen.findByText(words.noneShown)).toBeVisible();
+  });
+
+  it("cuts a long note to three lines, with More to read the rest", async () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(120);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(66);
+    stubApi({ "leads.timeline": aTimeline([anEntry({ kind: "note", body: "A long note", byAi: false })]) });
+    renderScreen(<Timeline lead={aLead()} />);
+    const words = await screen.findByText("A long note");
+    expect(words).toHaveClass("line-clamp-3");
+    await userEvent.click(screen.getByRole("button", { name: messages.common.readMore }));
+    expect(words).not.toHaveClass("line-clamp-3");
+    vi.restoreAllMocks();
+  });
+
+  it("in one column shows the newest five, then Show more, then Show older", async () => {
+    stubApi({ "leads.timeline": aTimeline(entries(), entryId(8)) });
+    renderScreen(<Timeline lead={aLead()} firstShown={5} />);
+    expect(await sentences()).toHaveLength(5);
+    expect(screen.queryByRole("button", { name: words.showMore })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: words.showFirst }));
+    expect(await sentences()).toHaveLength(9);
+    expect(screen.getByRole("button", { name: words.showMore })).toBeVisible();
+  });
+
+  it("on a computer fills its column, its entries scrolling in a box the keyboard can reach", async () => {
+    stubApi({ "leads.timeline": aTimeline(entries()) });
+    renderScreen(<Timeline lead={aLead()} boxed />, { width: "wide" });
+    await rows();
+    expect(card()).toHaveClass("flex-1", "min-h-80");
+    const box = within(card()).getByRole("region", { name: words.entries });
+    expect(box).toHaveClass("overflow-y-auto", "min-h-0", "flex-1");
+    expect(box).toHaveAttribute("tabindex", "0");
+    expect(within(box).getAllByRole("listitem")).toHaveLength(9);
+    // The filters and the note box stay above the box, not in it.
+    expect(box).not.toContainElement(screen.getByLabelText(words.addNote));
+  });
+
+  it("keeps the note box to one line until it is used, then shows Add note", async () => {
+    stubApi({ "leads.timeline": aTimeline(entries()) });
+    renderScreen(<Timeline lead={aLead()} />);
+    const box = await screen.findByLabelText(words.addNote);
+    expect(box).toHaveAttribute("rows", "1");
+    expect(screen.queryByRole("button", { name: words.saveNote })).not.toBeInTheDocument();
+    await userEvent.click(box);
+    expect(box).toHaveAttribute("rows", "3");
+    expect(screen.getByRole("button", { name: words.saveNote })).toBeVisible();
+    // Left empty, it closes again.
+    await userEvent.click(card());
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: words.saveNote })).not.toBeInTheDocument();
+    });
   });
 
   it("asks for the note's words before sending, and offers no note to someone who can't edit leads", async () => {
     stubApi({ "leads.timeline": aTimeline(entries()) });
     const { unmount } = renderScreen(<Timeline lead={aLead()} />);
+    await openNoteBox();
     await userEvent.click(await screen.findByRole("button", { name: words.saveNote }));
     expect(await screen.findByText(words.problems.required)).toBeVisible();
     expect(inputsTo("leads.addNote")).toEqual([]);
@@ -188,7 +326,7 @@ describe("Timeline", () => {
     const sending = heldAnswer({ data: null });
     stubApi({ "leads.timeline": aTimeline(entries()), "leads.addNote": sending.answer });
     renderScreen(<Timeline lead={aLead()} />);
-    const box = await screen.findByLabelText(words.addNote);
+    const box = await openNoteBox();
     await userEvent.type(box, "Called back");
     await userEvent.click(screen.getByRole("button", { name: words.saveNote }));
     await waitFor(() => {
@@ -217,8 +355,8 @@ describe("Timeline", () => {
     async function lineFor(assignment: object): Promise<string> {
       stubApi({ "leads.timeline": aTimeline([created(assignment)]) });
       renderScreen(<Timeline lead={aLead()} />);
-      const list = await screen.findByRole("list", { name: words.title });
-      return within(within(list).getByRole("listitem")).getByText(/Assigned to|Nobody could/).textContent;
+      const [row] = await rows();
+      return within(row ?? card()).getByText(/Assigned to|Nobody could/).textContent;
     }
 
     it.each([
@@ -242,7 +380,7 @@ describe("Timeline", () => {
         "leads.timeline": aTimeline([anEntry({ kind: "created", source: "phone_call", assignment: null } as never)]),
       });
       renderScreen(<Timeline lead={aLead()} />);
-      await screen.findByRole("list", { name: words.title });
+      await rows();
       expect(screen.queryByText(/Assigned to/)).not.toBeInTheDocument();
     });
   });

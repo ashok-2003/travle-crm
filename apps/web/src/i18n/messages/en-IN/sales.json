@@ -93,10 +93,11 @@
     "title": "Sales",
     "hot": "Hot lead",
     "follow": {
-      "none": "No automatic follow-ups for this lead.",
-      "active": "Automatic follow-ups: {sent} of {steps} sent. The next goes {next}.",
-      "done": "Automatic follow-ups finished: {sent} sent.",
-      "stopped": "Automatic follow-ups stopped ({reason}) after {sent}.",
+      "label": "Automatic follow-ups",
+      "none": "None for this lead",
+      "active": "{sent} of {steps} sent · the next goes {next}",
+      "done": "Finished · {sent} sent",
+      "stopped": "Stopped after {sent} · {reason}",
       "stop": "Stop follow-ups",
       "start": "Start follow-ups"
     },
