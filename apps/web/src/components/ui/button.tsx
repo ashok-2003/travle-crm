@@ -19,7 +19,7 @@ const buttonVariants = cva(
         send: "bg-send-fill text-send-ink hover:bg-send-pressed",
         quiet: "text-foreground hover:bg-accent hover:text-accent-foreground",
         destructive:
-          "border-foreground bg-background text-destructive hover:bg-status-bad-fill focus-visible:border-destructive/40 dark:bg-destructive/20 dark:hover:bg-destructive/30",
+          "bg-status-bad-fill text-foreground hover:bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_16%)] aria-expanded:bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_16%)] dark:bg-destructive/20 dark:hover:bg-destructive/30",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

@@ -1,13 +1,16 @@
 "use client";
 
-// The Filters dialog's form (spec 3.3): stage (Won, Lost and Not a lead live here; each stage with its dot), owner for
-// managers, source, destination, trip type and when it came in, started from the list's filters. Choosing an owner shows everyone's
+// The Filters dialog's form (spec 3.3): first the Show (leads show spec, 2026-11-21: All leads, or one of Home's kinds
+// of work), then stage (Won, Lost and Not a lead live here; each stage with its dot), owner for managers, source,
+// destination, trip type and when it came in, started from the list's filters. Choosing an owner shows everyone's
 // leads, since an owner is a filter on them; the list's search, which isn't one of these, stays as it is. Owners that
 // didn't load say so with Try again, and Anyone still filters.
 import {
+  leadShows,
   leadSources,
   leadStages,
   tripTypes,
+  type LeadShow,
   type LeadSource,
   type LeadStage,
   type TripType,
@@ -24,10 +27,12 @@ import { OwnersFailed } from "../owners-failed";
 import { StageDot } from "../stage-badge";
 import { useLeadOwners } from "../use-lead-owners";
 import type { ListFilters } from "./list-filters";
+import { useShowWords } from "./show-chip";
 
 const ANY = "any";
 
 interface FilterValues {
+  show: LeadShow | typeof ANY;
   stage: "open" | LeadStage;
   owner: string;
   source: LeadSource | typeof ANY;
@@ -51,6 +56,7 @@ export function FiltersForm({
   const words = useTranslations("leads.list.filtersDialog");
   const trpc = useTRPC();
   const owners = useLeadOwners();
+  const showWords = useShowWords();
   // The list's destination is an id; its name comes from the agency's list, as the picker shows it.
   const destinations = useQuery(
     trpc.destinations.search.queryOptions({ limit: 100 }, { enabled: filters.destinationId !== undefined }),
@@ -59,6 +65,7 @@ export function FiltersForm({
   const destinationName = named?.name ?? words("chosen");
   const form = useForm<FilterValues>({
     defaultValues: {
+      show: filters.show ?? ANY,
       stage: filters.stage,
       owner: filters.ownerUserId ?? ANY,
       source: filters.source ?? ANY,
@@ -92,10 +99,20 @@ export function FiltersForm({
             ...(values.destination?.kind === "existing" && { destinationId: values.destination.destinationId }),
             ...(values.tripType !== ANY && { tripType: values.tripType }),
             ...(values.created !== ANY && { created: values.created }),
+            ...(values.show !== ANY && { show: values.show }),
           });
         })(event);
       }}
     >
+      <SelectField
+        control={control}
+        name="show"
+        label={words("show")}
+        options={[
+          { value: ANY, label: t("list.shows.all") },
+          ...leadShows.map((show) => ({ value: show, label: showWords(show, filters.view) })),
+        ]}
+      />
       <SelectField
         control={control}
         name="stage"

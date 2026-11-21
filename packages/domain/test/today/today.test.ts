@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { PermissionSet, type MemberAccess } from "../../src/identity/index.js";
 import { todaySection, todaySummary } from "../../src/today/index.js";
 import { aLead, aPerson, aTask, freshPhone } from "../crm/support/records.js";
+import { aChat, aMessage } from "../inbox/chat-records.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 
 const at = (iso: string) => new Date(iso);
@@ -272,6 +273,21 @@ describe("today", () => {
       tx.lead.findUniqueOrThrow({ where: { id: leadIds[0] ?? "" }, select: { createdAt: true } }),
     );
     expect(oldest).toMatchObject({ kind: "new-lead", waitingSince: created.createdAt.toISOString() });
+  });
+
+  it("leaves a New lead out of new leads, and its count, once a call is logged on it or its person got a message", async () => {
+    const me = aSalesperson();
+    const now = new Date();
+    const ids = await inOrg(async (tx) => {
+      const waiting = await aLead(tx, { ownerUserId: me.userId });
+      const called = await aLead(tx, { ownerUserId: me.userId });
+      await tx.leadCall.create({ data: { leadId: called.id, outcome: "no_answer" } });
+      const messaged = await aLead(tx, { ownerUserId: me.userId });
+      await aMessage(tx, await aChat(tx, messaged.personId));
+      return { waiting: waiting.id };
+    });
+    expect(idsOf((await sectionOf(me, "new-leads", now)).items)).toEqual([ids.waiting]);
+    expect((await summaryOf(me, now)).counts.newLeads).toBe(1);
   });
 
   it("brings each lead's name, phone, stage and trip line with its task", async () => {

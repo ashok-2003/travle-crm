@@ -39,23 +39,30 @@ test("an Owner adds a lead with a name and a phone, and finds it in Leads", asyn
 
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
   await expect(page.getByText("+91 98765 43210").first()).toBeVisible();
-  const timeline = page.getByRole("list", { name: "Timeline" });
+  const timeline = page.getByRole("region", { name: "Timeline" });
   await expect(timeline.getByText("Lead added from a phone call")).toBeVisible();
   await expectAccessible(page);
   // A computer (1280px here) has room beside the lead's cards: the timeline sits there, level with the top of their
-  // column (whichever card opens it: the sales and AI cards come before Next follow-up). A phone reads it under them.
-  const firstCard = await page
-    .getByRole("region", { name: "Timeline" })
-    .locator("xpath=ancestor::div[contains(@class, 'xl:sticky')]/preceding-sibling::div[1]")
-    .boundingBox();
+  // column (Follow-ups, with no AI card above it), and its entries scroll in their own box. A phone reads it under the
+  // trip, and keeps Call, WhatsApp and Note in a bar at the screen's foot.
+  const followUps = await page.getByRole("region", { name: "Follow-ups" }).boundingBox();
+  const trip = await page.getByRole("region", { name: "Trip" }).boundingBox();
   const history = await page.getByRole("region", { name: "Timeline" }).boundingBox();
-  if (firstCard === null || history === null) throw new Error("The lead's cards aren't on the page.");
+  if (followUps === null || trip === null || history === null) throw new Error("The lead's cards aren't on the page.");
+  const bar = page.getByRole("group", { name: "Reach Rahul Sharma" });
   if (testInfo.project.name === "phone") {
-    expect(history.y).toBeGreaterThan(firstCard.y + firstCard.height);
+    expect(history.y).toBeGreaterThan(trip.y + trip.height);
+    await expect(bar).toBeInViewport();
   } else {
-    expect(history.x).toBeGreaterThanOrEqual(firstCard.x + firstCard.width);
-    expect(Math.abs(history.y - firstCard.y)).toBeLessThan(1);
+    expect(history.x).toBeGreaterThanOrEqual(followUps.x + followUps.width);
+    expect(Math.abs(history.y - followUps.y)).toBeLessThan(1);
+    await expect(page.getByRole("region", { name: "What happened, newest first" })).toBeVisible();
+    await expect(bar).toHaveCount(0);
   }
+  // No sideways scroll at either width.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(
+    true,
+  );
 
   await page.getByRole("main").getByRole("link", { name: "Leads", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();

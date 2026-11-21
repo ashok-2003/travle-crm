@@ -18,7 +18,7 @@ import { StageBar } from "@/leads/lead/stage-bar";
 import { Timeline } from "@/leads/lead/timeline";
 import { TripCard } from "@/leads/lead/trip-card";
 import { useLead } from "@/leads/lead/use-lead";
-import { WorkCard } from "@/leads/lead/work-card";
+import { FollowUpsCard } from "@/leads/lead/follow-ups-card";
 import { formatPhoneNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { leadRoute } from "@/lib/routes";
@@ -51,10 +51,10 @@ function LeadParts({ leadId }: { leadId: string }) {
         <h3 className="text-label font-medium text-muted-foreground">{t("stage")}</h3>
         <StageBar lead={lead.data} />
       </section>
-      <WorkCard lead={lead.data} />
+      <FollowUpsCard lead={lead.data} place="panel" />
       <OwnerCard lead={lead.data} />
       <TripCard lead={lead.data} />
-      <Timeline lead={lead.data} />
+      <Timeline lead={lead.data} place="panel" />
     </div>
   );
 }

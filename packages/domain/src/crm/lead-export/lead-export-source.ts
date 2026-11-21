@@ -1,18 +1,22 @@
-// The lead export's rows (B37, B38, B41; D27): the Leads list as the person sees it, newest first, 1,000 leads a page by
-// keyset. A page is leadListQuery's ids, then the columns the list doesn't select, then the next follow-ups and
-// destination names, all in one transaction; the owners' names come from identity, outside it.
+// The lead export's rows (B37, B38, B41; D27): the Leads list as the person sees it, its "came in" period and its Show
+// included (leads show spec, 2026-11-21), newest first, 1,000 leads a page by keyset. A page is leadListQuery's ids,
+// then the columns the list doesn't select, then the next follow-ups and destination names, all in one transaction;
+// the owners' names come from identity, outside it. The period's start and the Show's leads are read once, with the
+// count, so every page holds the leads counted.
 import {
   leadExportFilter,
   MAX_LEAD_EXPORT_ROWS,
   openLeadStages,
   type LeadExportFilter,
 } from "@travel-crm/contracts/crm";
+import type { OrgTx } from "@travel-crm/db";
 import type { ExportJobDependencies, ExportSource } from "../../exports/index.js";
 import type { JsonValue } from "../../jobs/index.js";
 import { destinationNames } from "../../catalog/index.js";
 import type { MemberAccess } from "../../identity/index.js";
+import { periodStart } from "../../kernel/index.js";
 import { nextOpenTasks } from "../../tasks/index.js";
-import { filterFor } from "../lead-list.js";
+import { filterFor, type ChosenLeads, type ShowFilter } from "../lead-list.js";
 import { leadTotalQuery, leadExportRowsQuery, leadListQuery } from "../lead-list-query.js";
 import { exportRowOf, leadExportColumns, type ExportedLead } from "./export-rows.js";
 
@@ -45,17 +49,29 @@ type ExtraColumns = Pick<
   | "sourceDetail"
 >;
 
+/**
+ * A Show's leads, found by the module whose rule it is (today's leadsToShow, which the worker hands in: crm sits below
+ * sales, tasks' callers, inbox and the AI).
+ */
+export type ChooseLeads = (tx: OrgTx, access: MemberAccess, filter: ShowFilter, now: Date) => Promise<ChosenLeads>;
+
+/** What the count reads once for every page: where "came in" starts, and the Show's leads. */
+interface Narrowing {
+  createdFrom?: Date;
+  chosen?: ChosenLeads;
+}
+
 /** The list's own filter for this person: their scope first (a salesperson's own leads whatever they asked). */
-function listFilter(access: MemberAccess, filter: LeadExportFilter) {
+function listFilter(access: MemberAccess, filter: LeadExportFilter, narrowing: Narrowing) {
   return {
-    ...filterFor(access, filter),
+    ...filterFor(access, filter, narrowing.createdFrom, narrowing.chosen),
     stages: filter.stage === "open" ? openLeadStages : [filter.stage],
   };
 }
 
 /** The filter's ids and fixed values: everything but the search, which holds a customer's name or phone. */
 function fixedValues(filter: LeadExportFilter): Record<string, string> {
-  const { view, stage, ownerUserId, source, destinationId, tripType } = filter;
+  const { view, stage, ownerUserId, source, destinationId, tripType, created, show } = filter;
   return {
     view,
     stage,
@@ -63,6 +79,8 @@ function fixedValues(filter: LeadExportFilter): Record<string, string> {
     ...(source === undefined ? {} : { source }),
     ...(destinationId === undefined ? {} : { destinationId }),
     ...(tripType === undefined ? {} : { tripType }),
+    ...(created === undefined ? {} : { created }),
+    ...(show === undefined ? {} : { show }),
   };
 }
 
@@ -72,13 +90,14 @@ const NO_LEAD = "00000000-0000-0000-0000-000000000000";
 /** maxRows defaults to MAX_LEAD_EXPORT_ROWS and pageSize to a page of 1,000; a test passes small ones. */
 export function leadExportSource(
   dependencies: ExportJobDependencies,
-  options: { timeZone: string; maxRows?: number; pageSize?: number },
+  options: { timeZone: string; chooseLeads: ChooseLeads; maxRows?: number; pageSize?: number },
 ): ExportSource<LeadExportFilter> {
   const { timeZone } = options;
   const pageSize = options.pageSize ?? PAGE_SIZE;
   // The newest lead the count saw: every page stops at it, so leads added while the file is made stay out of it, and the
   // file holds exactly the leads counted (and the row limit holds). The source is made for one run.
   let newest: string | null = null;
+  let narrowing: Narrowing = {};
   return {
     kind: "leads",
     requires: "leads:view",
@@ -89,12 +108,20 @@ export function leadExportSource(
     maxRows: options.maxRows ?? MAX_LEAD_EXPORT_ROWS,
     count: async (context, access, filter) => {
       return context.forOrg(async (tx) => {
+        const now = new Date();
+        const createdFrom = filter.created === undefined ? null : periodStart(filter.created, now, timeZone);
+        narrowing = {
+          ...(createdFrom === null ? {} : { createdFrom }),
+          ...(filter.show === undefined
+            ? {}
+            : { chosen: await options.chooseLeads(tx, access, { ...filter, show: filter.show }, now) }),
+        };
         const [latest] = await tx.$queryRaw<{ id: string }[]>(
-          leadListQuery({ ...listFilter(access, filter), limit: 1 }),
+          leadListQuery({ ...listFilter(access, filter, narrowing), limit: 1 }),
         );
         newest = latest?.id ?? NO_LEAD;
         const [counted] = await tx.$queryRaw<{ n: number }[]>(
-          leadTotalQuery({ ...listFilter(access, filter), through: newest }),
+          leadTotalQuery({ ...listFilter(access, filter, narrowing), through: newest }),
         );
         return counted?.n ?? 0;
       });
@@ -104,7 +131,7 @@ export function leadExportSource(
         // One more than a page tells whether another follows.
         const found = await tx.$queryRaw<ListedLead[]>(
           leadListQuery({
-            ...listFilter(access, filter),
+            ...listFilter(access, filter, narrowing),
             ...(after === null ? {} : { before: after }),
             ...(newest === null ? {} : { through: newest }),
             limit: pageSize + 1,

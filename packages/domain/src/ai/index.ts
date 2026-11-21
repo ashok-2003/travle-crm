@@ -49,6 +49,7 @@ export {
 export { liteDryRun } from "./lite/dry-run.js";
 export { tryItTurn } from "./lite/dry-run-traced.js";
 export { decideStageSuggestion, stageSuggestionOfLead, stageSuggestionsOf } from "./lite/suggestions.js";
+export { leadsNeedingPerson } from "./needs-person.js";
 export { autopilotDefaults, autopilotOf } from "./autopilot.js";
 export { followUpBoardOf } from "./follow-up-board.js";
 export { AI_CHAT_RESUMED_EVENT, chatAiOf, resumeChat, setChatMode } from "./chat-state.js";

@@ -132,26 +132,31 @@ function viewOf(row: Row): StageSuggestion {
 }
 
 /**
- * The open suggestions on open leads in the member's leads scope, newest first, 20 at most. `mine` keeps the leads the
- * member owns and, for someone who manages the AI, the ones nobody owns.
+ * The leads the AI's needs are about, as a lead filter: live leads in the member's leads scope; `mine` keeps the ones
+ * the member owns and, for someone who manages the AI, the ones nobody owns.
  */
+export function leadsTheAiNeedsAbout(access: MemberAccess, mine: boolean) {
+  const owners = access.permissions.has("ai:manage") ? [access.userId, null] : [access.userId];
+  return {
+    deletedAt: null,
+    ...scopeFilter(access, "leads:view", "ownerUserId"),
+    ...(mine ? { OR: owners.map((ownerUserId) => ({ ownerUserId })) } : {}),
+  };
+}
+
+/** The open suggestions on the open leads leadsTheAiNeedsAbout covers: "Needs you" and the Leads list's Show alike. */
+export function openSuggestionsWhere(access: MemberAccess, mine: boolean) {
+  return { state: "open", lead: { ...leadsTheAiNeedsAbout(access, mine), stage: { in: [...suggestable] } } };
+}
+
+/** The open suggestions (openSuggestionsWhere), newest first, 20 at most. */
 export async function stageSuggestionsOf(
   tx: OrgTx,
   access: MemberAccess,
   { mine }: NeedsMeInput,
 ): Promise<StageSuggestion[]> {
-  const owners = access.permissions.has("ai:manage") ? [access.userId, null] : [access.userId];
-  const ownership = mine ? { OR: owners.map((ownerUserId) => ({ ownerUserId })) } : {};
   const rows = await tx.leadAiSuggestion.findMany({
-    where: {
-      state: "open",
-      lead: {
-        deletedAt: null,
-        stage: { in: [...suggestable] },
-        ...scopeFilter(access, "leads:view", "ownerUserId"),
-        ...ownership,
-      },
-    },
+    where: openSuggestionsWhere(access, mine),
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: LIST_MAX,
     select: columns,

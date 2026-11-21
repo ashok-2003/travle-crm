@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeLeadExportListener } from "../../src/crm/index.js";
 import { exportDetail, startExport, type ExportJobDependencies } from "../../src/exports/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
+import { leadsToShow } from "../../src/today/index.js";
 import { fakeExportIdentity, requested } from "../exports/test-exports.js";
 import {
   anAgency,
@@ -73,7 +74,7 @@ describe("the lead export's formula safety", () => {
     const { exportId } = await inOrg((tx) =>
       startExport(tx, manager, "leads", { format, filter: { view: "everyone", stage: "open" } }, new Date()),
     );
-    await makeLeadExportListener(dependencies).handle(
+    await makeLeadExportListener(dependencies, leadsToShow).handle(
       requested(organizationId, exportId),
       listenerContext(test, organizationId),
     );

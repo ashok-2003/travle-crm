@@ -76,7 +76,7 @@ test("call a lead, then write the call up with a note and the next follow-up", a
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Call saved")).toBeVisible();
 
-  const timeline = page.getByRole("list", { name: "Timeline" });
+  const timeline = page.getByRole("region", { name: "Timeline" });
   await expect(timeline.getByRole("heading", { name: "Call: No answer" })).toBeVisible();
   await expect(timeline.getByText("Rang twice, try again after lunch")).toBeVisible();
   await expect(timeline.getByText("Follow-up added")).toBeVisible();
@@ -98,7 +98,7 @@ test("a call that spoke marks a New lead contacted; the call can be changed and 
   await dialog.getByRole("button", { name: "Save the call" }).click();
   await expect(dialog).toBeHidden();
 
-  const timeline = page.getByRole("list", { name: "Timeline" });
+  const timeline = page.getByRole("region", { name: "Timeline" });
   await expect(timeline.getByRole("heading", { name: "Call: Spoke" })).toBeVisible();
   await expect(timeline.getByRole("heading", { name: "Moved to Contacted" })).toBeVisible();
 

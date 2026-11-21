@@ -3,10 +3,17 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DomainEvent, ListenerContext } from "../../src/jobs/index.js";
-import { customerWroteListener, defaultSalesAutomation, hotLeadsOf, leadHeatOf } from "../../src/sales/index.js";
+import {
+  customerWroteListener,
+  defaultSalesAutomation,
+  hotLeadIds,
+  hotLeadsOf,
+  leadHeatOf,
+} from "../../src/sales/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { memberWithStarterRole } from "../identity/rule-helpers.js";
 import { aLead } from "../crm/support/records.js";
+import { anAgency } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
   createTestInbox,
@@ -68,6 +75,77 @@ describe("hot leads", () => {
         )
       ).reasons,
     ).toEqual(["asked_price"]);
+  });
+
+  it("ranks every hot lead for the Leads list, past Home's 25, hottest first, a salesperson's own alone", async () => {
+    const organizationId = await anAgency(test, "Hot list");
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const owner = memberWithStarterRole("org-owner", { organizationId, userId: randomUUID() });
+    const seller = memberWithStarterRole("sales", { organizationId, userId: randomUUID() });
+    const minutesAgo = (minutes: number) => new Date(testNow.getTime() - minutes * 60_000);
+    const opened = async (leadId: string, at: Date) =>
+      inOrg((tx) => tx.leadSignal.create({ data: { leadId, kind: "quote_opened", sourceKey: randomUUID(), at } }));
+    // 27 opened their quote, the later the hotter; one also asked to book; one is closed; one opened it long ago.
+    const quoted: string[] = [];
+    for (let index = 0; index < 27; index += 1) {
+      const lead = await inOrg((tx) => aLead(tx, { ownerUserId: owner.userId, stage: "quote_sent" }));
+      await opened(lead.id, minutesAgo(100 - index));
+      quoted.push(lead.id);
+    }
+    const hottest = await inOrg((tx) => aLead(tx, { ownerUserId: seller.userId, stage: "quote_sent" }));
+    await opened(hottest.id, minutesAgo(500));
+    await inOrg((tx) =>
+      tx.leadSignal.create({
+        data: { leadId: hottest.id, kind: "asked_price", sourceKey: randomUUID(), at: minutesAgo(400) },
+      }),
+    );
+    const won = await inOrg((tx) => aLead(tx, { ownerUserId: owner.userId, stage: "won" }));
+    await opened(won.id, minutesAgo(5));
+    const longAgo = await inOrg((tx) => aLead(tx, { ownerUserId: owner.userId, stage: "contacted" }));
+    await opened(longAgo.id, minutesAgo(8 * 24 * 60));
+    // A budget for everyone at or over ₹10 lakh: 4 at ₹3 lakh each is; 2 adults and a child at ₹3 lakh each isn't.
+    const budget = (adults: number, childrenAges: number[], budgetBasis: string) => ({
+      ownerUserId: owner.userId,
+      stage: "contacted" as const,
+      adults,
+      childrenAges,
+      budgetPaise: 3_00_000_00n,
+      budgetBasis,
+    });
+    const big = await inOrg((tx) => aLead(tx, budget(4, [], "per_person")));
+    await inOrg((tx) => aLead(tx, budget(2, [7], "per_person")));
+    await inOrg((tx) => aLead(tx, budget(4, [], "for_everyone")));
+    const settings = { ...defaultSalesAutomation, hotBudgetPaise: 10_00_000_00, hotTravelDays: 0 };
+    const context = { now: testNow, today: "2026-10-23" };
+
+    const everyHot = await inOrg((tx) => hotLeadIds(tx, owner, settings, context));
+    expect(everyHot).toEqual([hottest.id, ...[...quoted].reverse(), big.id]);
+    expect(await inOrg((tx) => hotLeadIds(tx, seller, settings, context))).toEqual([hottest.id]);
+    const home = await inOrg((tx) => hotLeadsOf(tx, owner, settings, context));
+    expect(home.map((row) => row.leadId)).toEqual(everyHot.slice(0, 25));
+  });
+
+  it("counts a trip whose dates start within the agency's hot days, both ends included, on open leads alone", async () => {
+    const organizationId = await anAgency(test, "Travel soon");
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const owner = memberWithStarterRole("org-owner", { organizationId, userId: randomUUID() });
+    const trip = (start: string, stage: "contacted" | "won" = "contacted") => {
+      const travelStart = new Date(`${start}T00:00:00Z`);
+      const dates = { travelKind: "dates", travelStart, travelEnd: travelStart };
+      return inOrg((tx) => aLead(tx, { ownerUserId: owner.userId, stage, ...dates }));
+    };
+    const today = await trip("2026-10-23");
+    const lastDay = await trip("2026-11-02");
+    await trip("2026-11-03");
+    await trip("2026-10-22");
+    await trip("2026-10-25", "won");
+    const settings = { ...defaultSalesAutomation, hotTravelDays: 10 };
+    const context = { now: testNow, today: "2026-10-23" };
+    expect(new Set(await inOrg((tx) => hotLeadIds(tx, owner, settings, context)))).toEqual(
+      new Set([today.id, lastDay.id]),
+    );
+    const heat = await inOrg((tx) => leadHeatOf(tx, owner, settings, { ...context, leadId: lastDay.id }));
+    expect(heat).toEqual({ score: 20, reasons: ["travel_soon"] });
   });
 
   it("ignores a message with no buying word", async () => {

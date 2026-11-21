@@ -10,7 +10,12 @@ export {
   reassignOpenStandaloneTasks,
   reassignOpenTasks,
 } from "./record-tasks.js";
-export { listOpenRecordTasksOf, listTasksOnRecord, type OpenRecordTasksFilter } from "./record-task-reads.js";
+export {
+  listOpenRecordTasksOf,
+  listTasksOnRecord,
+  overdueRecordIds,
+  type OpenRecordTasksFilter,
+} from "./record-task-reads.js";
 export {
   addStandaloneTask,
   completeTask,

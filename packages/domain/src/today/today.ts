@@ -1,5 +1,6 @@
 // Today (spec 3.5), My tasks on screen: the signed-in person's own overdue and due-today tasks (follow-ups are counted
-// apart), their new leads waiting for a reply, the quotes customers opened and went quiet on and the payments falling due (release 5), counted for the day in
+// apart), their new leads nobody has called or messaged yet (inbox's rule, as the Leads list's Show), the quotes customers
+// opened and went quiet on and the payments falling due (release 5), counted for the day in
 // the agency's zone (R35). Overdue is due before now; due today runs from now to
 // the agency's next midnight, so yesterday's undone work is overdue at 00:05 and 00:10 tomorrow isn't today at 23:50.
 import type { Task } from "@travel-crm/contracts/tasks";
@@ -14,8 +15,9 @@ import type {
 import type { OrgTx } from "@travel-crm/db";
 import { bookingsMissingDetails, countClaimTasks, countPaymentsToCheck } from "../bookings/index.js";
 import { departuresStartingSoon } from "../departures/index.js";
-import { countNewLeadsWaiting, leadBriefs, newLeadsWaiting, type NewLeadWaiting } from "../crm/index.js";
+import { leadBriefs } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
+import { countUncontactedLeads, uncontactedLeads, type UncontactedLead } from "../inbox/index.js";
 import { addDays, calendarDateIn, startOfDayIn, type CalendarDate } from "../kernel/index.js";
 import { countOpenedQuotesNoReply, countPaymentsDue, openedQuotesNoReply, paymentsDue } from "../sales/index.js";
 import { countOpenTasks, listOpenTasks } from "../tasks/index.js";
@@ -62,8 +64,8 @@ async function taskItems(tx: OrgTx, access: MemberAccess, tasks: Task[]): Promis
   });
 }
 
-/** New leads in brief, each with the moment it came in. */
-async function newLeadItems(tx: OrgTx, access: MemberAccess, waiting: NewLeadWaiting[]): Promise<TodayItem[]> {
+/** New leads nobody has contacted yet in brief, each with the moment it came in. */
+async function newLeadItems(tx: OrgTx, access: MemberAccess, waiting: UncontactedLead[]): Promise<TodayItem[]> {
   const leads = await leadBriefs(
     tx,
     access,
@@ -208,7 +210,7 @@ async function sectionItems(
         await listOpenTasks(tx, { assigneeUserId, kind: "task", dueBefore: now, ...cursor }),
       );
     case "new-leads":
-      return newLeadItems(tx, access, await newLeadsWaiting(tx, { ownerUserId: access.userId, ...cursor }));
+      return newLeadItems(tx, access, await uncontactedLeads(tx, { ownerUserId: access.userId, ...cursor }));
     case "payments-due":
       return paymentItems(tx, access, cursor, day);
     case "trip-details":
@@ -258,7 +260,7 @@ export async function todaySummary(
     plan.bookingsOn && access.permissions.has("quotes:record_payments") && access.permissions.has("bookings:view");
   const counts = {
     overdue: await countOpenTasks(tx, { assigneeUserId, kind: "task", dueBefore: now }),
-    newLeads: await countNewLeadsWaiting(tx, access.userId),
+    newLeads: await countUncontactedLeads(tx, access.userId),
     dueToday: await countOpenTasks(tx, { assigneeUserId, kind: "task", dueFrom: now, dueBefore: endsAt }),
     // Apart from My tasks: the follow-ups have their own screen, so overdue and due today leave them out.
     followUpsDue: await countOpenTasks(tx, { assigneeUserId, kind: "follow-up", dueBefore: endsAt }),

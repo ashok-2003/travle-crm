@@ -105,7 +105,7 @@ function WaitlistRow({ entry, mayHold }: { entry: WaitlistEntry; mayHold: boolea
       {mayHold && (
         <ItemActions>
           <Button
-            variant="ghost"
+            variant="destructive"
             aria-label={t("removeNamed", { name: entry.customerName })}
             disabled={changes.removeFromWaitlist.isPending}
             onClick={() => {

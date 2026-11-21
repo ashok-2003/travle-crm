@@ -55,7 +55,7 @@ test("away skips Priya, then Ravi; the lead waits in Unassigned and the Owner re
     .getByRole("main")
     .getByRole("link", { name: /Dev Kapoor/ })
     .click();
-  await expect(page.getByRole("list", { name: "Timeline" }).getByText("Nobody could take it")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Timeline" }).getByText("Nobody could take it")).toBeVisible();
   await page.getByRole("region", { name: "Owner and source" }).getByRole("button", { name: "Reassign" }).click();
   const dialog = page.getByRole("dialog", { name: "Reassign" });
   await dialog.getByRole("combobox", { name: "Owner" }).click();

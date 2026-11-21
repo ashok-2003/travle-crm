@@ -107,7 +107,11 @@ export function ChatPanel({ conversationId, variant = "inbox" }: { conversationI
   const name = data.name ?? formatPhoneNumber(data.phone);
   return (
     <section
-      className={cn("flex min-h-0 min-w-0", variant === "lead" ? "h-128 overflow-hidden rounded-lg" : "h-full")}
+      className={cn(
+        "flex min-h-0 min-w-0",
+        // On the lead's page: a preview on a phone, and tall beside the timeline on a computer (two-thirds of the screen).
+        variant === "lead" ? "h-96 overflow-hidden rounded-lg md:h-128 xl:h-[max(32rem,66svh)]" : "h-full",
+      )}
       aria-label={t("region", { name })}
     >
       {chat}

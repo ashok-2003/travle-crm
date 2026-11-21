@@ -110,14 +110,11 @@ export async function setAgentOn(
 }
 
 /**
- * Open chats the agent handed over, newest first, among those the member's inbox may show. `mine` keeps the chats of
- * people with a live lead the member owns and, for someone who manages the AI, those whose leads nobody owns.
+ * Open chats the agent handed over, among those the member's inbox may show (inbox:view): "Needs you" and the Leads
+ * list's Show alike. `mine` keeps the chats of people with a live lead the member owns and, for someone who manages
+ * the AI, those whose leads nobody owns.
  */
-export async function handedOverChatsOf(
-  tx: OrgTx,
-  access: MemberAccess,
-  { mine }: NeedsMeInput,
-): Promise<HandedOverChat[]> {
+export function handedOverWhere(access: MemberAccess, mine: boolean) {
   const ownedLead = { deletedAt: null, ownerUserId: access.userId };
   const nobodys = { NOT: { person: { is: { leads: { some: { deletedAt: null, ownerUserId: { not: null } } } } } } };
   const ownership = mine
@@ -127,14 +124,23 @@ export async function handedOverChatsOf(
           : { person: { is: { leads: { some: ownedLead } } } },
       ]
     : [];
-  const rows = await tx.aiChat.findMany({
-    where: {
-      handedOffAt: { not: null },
-      // A hand-over the team has since answered is no longer waiting on anyone (replying clears needsReply).
-      conversation: {
-        AND: [{ state: "open", hidden: false, needsReply: true }, visibleConversations(access), ...ownership],
-      },
+  return {
+    handedOffAt: { not: null },
+    // A hand-over the team has since answered is no longer waiting on anyone (replying clears needsReply).
+    conversation: {
+      AND: [{ state: "open", hidden: false, needsReply: true }, visibleConversations(access), ...ownership],
     },
+  };
+}
+
+/** The handed-over chats (handedOverWhere), newest first. */
+export async function handedOverChatsOf(
+  tx: OrgTx,
+  access: MemberAccess,
+  { mine }: NeedsMeInput,
+): Promise<HandedOverChat[]> {
+  const rows = await tx.aiChat.findMany({
+    where: handedOverWhere(access, mine),
     orderBy: [{ handedOffAt: "desc" }, { id: "desc" }],
     take: HANDED_OVER_SHOWN,
     select: {

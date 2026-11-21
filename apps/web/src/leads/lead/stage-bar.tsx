@@ -6,7 +6,8 @@
 // five 44px steps, each one target over its fifth of the bar and its word, so a tap on the bar moves the lead there and
 // hover and focus sit on the whole stage. The current stage is marked as the step and its word is bold; passed words
 // carry a check wider than a phone; later ones are muted. Words are ink, not link blue.
-// Choosing another step moves the lead there, forwards or back (Won is on the bar, so a won lead moves freely). A Lost
+// Choosing another step moves the lead there, forwards or back (Won is on the bar, so a won lead moves freely), without a
+// line saying so under it (the lead page's revamp, 2026-11-21: the steps' hover and names say it). A Lost
 // or Not a lead lead shows its badge (Not a lead with an info hint saying what it means) and Reopen in place of the bar,
 // which returns it to the open stage it had before.
 // The section is named with the current stage and each step says where it moves the lead, for screen readers; the bar
@@ -201,7 +202,6 @@ export function StageBar({ lead }: { lead: LeadDetail }) {
         })}
       </ol>
       <StageProgress stage={lead.stage} reached={current + 1} />
-      {canEdit && <p className="text-caption text-muted-foreground">{t("lead.chooseToMove")}</p>}
       <WriteHint id={hintId} hint={canEdit ? write.hint : null} />
       {refusal}
     </section>

@@ -12,6 +12,8 @@ export function NoteField<Values extends FieldValues>({
   label,
   hint,
   disabled = false,
+  rows = 3,
+  className,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
@@ -19,6 +21,9 @@ export function NoteField<Values extends FieldValues>({
   hint?: string;
   /** Held while what it is part of is being sent. */
   disabled?: boolean;
+  /** How many lines it shows before it grows with what is typed: 3, or 1 for a box that opens when used. */
+  rows?: number;
+  className?: string;
 }) {
   return (
     <Controller
@@ -30,8 +35,9 @@ export function NoteField<Values extends FieldValues>({
             <Textarea
               {...links}
               {...field}
-              rows={3}
+              rows={rows}
               disabled={disabled}
+              {...(className !== undefined && { className })}
               value={typeof field.value === "string" ? field.value : ""}
             />
           )}

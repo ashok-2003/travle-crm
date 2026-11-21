@@ -1,12 +1,12 @@
 // Reads of the tasks on records, for the modules above tasks: every task of some records, open, done or cancelled (a
-// customer's export), and one person's open tasks on records of a type, a page at a time (a departing member's
-// hand-over).
+// customer's export), one person's open tasks on records of a type, a page at a time (a departing member's
+// hand-over), and the records with an open task of a kind overdue (the Leads list's Show: Follow-up overdue).
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { listOpenRecordTasksOf, listTasksOnRecord } from "../../src/tasks/index.js";
+import { listOpenRecordTasksOf, listTasksOnRecord, overdueRecordIds } from "../../src/tasks/index.js";
 import { aTask } from "../crm/support/records.js";
 
 const at = (iso: string) => new Date(iso);
@@ -72,5 +72,30 @@ describe("reading the tasks on records", () => {
     const first = await page();
     expect(first.map((task) => task.id)).toEqual(ids.slice(0, 2));
     expect((await page(first.at(-1)?.id)).map((task) => task.id)).toEqual(ids.slice(2));
+  });
+
+  it("names the records with an open task of a kind overdue, each once, longest overdue first", async () => {
+    // Before every other test's tasks are due, so only this test's count.
+    const now = at("2026-10-12T06:00:00Z");
+    const [first, second, notYet] = [randomUUID(), randomUUID(), randomUUID()];
+    const lead = (recordId: string) => ({ recordType: "lead", recordId });
+    const followUp = { kind: "follow-up" as const };
+    await inOrg(async (tx) => {
+      await aTask(tx, { ...followUp, record: lead(first), dueAt: at("2026-10-11T05:00:00Z") });
+      await aTask(tx, { ...followUp, record: lead(second), dueAt: at("2026-10-10T05:00:00Z") });
+      await aTask(tx, { ...followUp, record: lead(first), dueAt: at("2026-10-09T05:00:00Z") });
+      await aTask(tx, { ...followUp, record: lead(notYet), dueAt: at("2026-10-12T07:00:00Z") });
+      await aTask(tx, { ...followUp, record: lead(notYet), dueAt: at("2026-10-01T05:00:00Z"), doneAt: now });
+      await aTask(tx, { ...followUp, record: lead(notYet), dueAt: at("2026-10-01T05:00:00Z"), cancelledAt: now });
+      await aTask(tx, { record: lead(notYet), dueAt: at("2026-10-01T05:00:00Z") });
+      await aTask(tx, {
+        ...followUp,
+        record: { recordType: "booking", recordId: notYet },
+        dueAt: at("2026-10-01T05:00:00Z"),
+      });
+    });
+    expect(
+      await inOrg((tx) => overdueRecordIds(tx, { recordType: "lead", kind: "follow-up", dueBefore: now })),
+    ).toEqual([first, second]);
   });
 });

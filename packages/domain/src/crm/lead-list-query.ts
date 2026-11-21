@@ -3,7 +3,8 @@
 // 2026-11-19) skip (page - 1) × limit rows with OFFSET instead: the rows skipped grow with the page, and an agency's
 // list runs to thousands of leads, not millions. The open stages are written out as the partial indexes' predicate
 // is, so the planner can use lead_open, lead_open_by_owner and lead_open_stage_counts whatever the parameters; a
-// search reads person through its trigram indexes (R5).
+// search reads person through its trigram indexes (R5). A Show (leads show spec, 2026-11-21) hands in the ids of its
+// leads, from the module whose rule it is, ranked by that rule: the same conditions apply on top of them.
 import { isOpenStage, openLeadStages, type LeadSource, type LeadStage, type TripType } from "@travel-crm/contracts/crm";
 import { emptySql, joinSql, sql, type Sql } from "@travel-crm/db";
 
@@ -21,6 +22,10 @@ export interface LeadListFilter {
   createdFrom?: Date;
   /** A name (forgiving of typos) or four or more digits of a phone (R5). */
   search?: { kind: "name"; text: string } | { kind: "digits"; digits: string };
+  /** Only these leads: a Show's (leads show spec), found by the module whose rule it is. */
+  chosen?: readonly string[];
+  /** The chosen leads in the order given (hottest first, longest overdue first...) rather than newest first. */
+  ranked?: true;
   /** The last lead id of the previous page. */
   before?: string;
   /** How many of the matching leads to skip before the page: a numbered page's (page - 1) × limit. */
@@ -30,8 +35,8 @@ export interface LeadListFilter {
   limit: number;
 }
 
-/** The counts' filter: the list's, without the stage and the page. */
-export type LeadCountsFilter = Omit<LeadListFilter, "stages" | "before" | "offset" | "limit">;
+/** The counts' filter: the list's, without the stage, the order and the page. */
+export type LeadCountsFilter = Omit<LeadListFilter, "stages" | "ranked" | "before" | "offset" | "limit">;
 
 /** The open stages exactly as the partial indexes' predicate holds them. */
 const OPEN_STAGES = sql`lead.stage = ANY (ARRAY['new', 'contacted', 'quote_sent', 'booking_requested'])`;
@@ -64,14 +69,20 @@ function filterConditions(filter: LeadCountsFilter): Sql {
     ${filter.destinationId === undefined ? emptySql : sql`AND lead.destination_id = ${filter.destinationId}::uuid`}
     ${filter.tripType === undefined ? emptySql : sql`AND lead.trip_type = ${filter.tripType}`}
     ${filter.createdFrom === undefined ? emptySql : sql`AND lead.created_at >= ${filter.createdFrom}::timestamptz`}
-    ${searchCondition(filter.search)}`;
+    ${searchCondition(filter.search)}
+    ${filter.chosen === undefined ? emptySql : sql`AND lead.id = ANY(${[...filter.chosen]}::uuid[])`}`;
 }
 
 const PERSON = sql`JOIN person ON person.organization_id = lead.organization_id AND person.id = lead.person_id
   AND person.deleted_at IS NULL`;
 
-/** One page of the list's rows, newest first. */
+/**
+ * One page of the list's rows, newest first, or the chosen leads in their given order: a join on their place, which
+ * holds only the chosen leads, so the conditions don't name them again.
+ */
 export function leadListQuery(filter: LeadListFilter): Sql {
+  const { chosen, ...unchosen } = filter;
+  const ranking = filter.ranked ? chosen : undefined;
   return sql`
     SELECT lead.id, lead.stage, lead.returning, lead.owner_user_id AS "ownerUserId", lead.source,
       lead.created_at AS "createdAt", lead.destination_id AS "destinationId", lead.travel_kind AS "travelKind",
@@ -79,10 +90,11 @@ export function leadListQuery(filter: LeadListFilter): Sql {
       lead.adults, cardinality(lead.children_ages) AS "childrenCount", lead.budget_paise AS "budgetPaise",
       lead.budget_basis AS "budgetBasis", person.name AS "personName", person.phone_e164 AS "personPhone"
     FROM lead ${PERSON}
-    WHERE ${filterConditions(filter)} ${stageCondition(filter.stages)}
+      ${ranking === undefined ? emptySql : sql`JOIN unnest(${[...ranking]}::uuid[]) WITH ORDINALITY AS chosen (id, place) ON chosen.id = lead.id`}
+    WHERE ${filterConditions(ranking === undefined ? filter : unchosen)} ${stageCondition(filter.stages)}
       ${filter.before === undefined ? emptySql : sql`AND lead.id < ${filter.before}::uuid`}
       ${filter.through === undefined ? emptySql : sql`AND lead.id <= ${filter.through}::uuid`}
-    ORDER BY lead.id DESC
+    ORDER BY ${ranking === undefined ? sql`lead.id DESC` : sql`chosen.place`}
     LIMIT ${filter.limit}${filter.offset === undefined ? emptySql : sql` OFFSET ${filter.offset}`}`;
 }
 

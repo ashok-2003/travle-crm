@@ -159,7 +159,7 @@ export function InvitesScreen() {
                       <CopyButton value={messageFor(invite)} label={t("copyMessage")} />
                       {invite.status !== "joined" && invite.status !== "cancelled" && (
                         <Button
-                          variant="ghost"
+                          variant="destructive"
                           disabled={cancel.isPending}
                           onClick={() => {
                             cancel.mutate({ inviteId: invite.id }, { onSuccess: () => toast.success(t("cancelled")) });

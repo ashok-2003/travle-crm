@@ -6,6 +6,7 @@ import type { DownloadLinkOutput } from "@travel-crm/contracts/files";
 import { makeLeadExportListener } from "@travel-crm/domain/crm";
 import { startExport } from "@travel-crm/domain/exports";
 import { systemActor } from "@travel-crm/domain/kernel";
+import { leadsToShow } from "@travel-crm/domain/today";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { eventually } from "./support/eventually.js";
@@ -33,12 +34,15 @@ describe("the lead export", () => {
         where: { type: "export.requested", payload: { equals: { exportId, kind: "leads" } } },
       }),
     );
-    await makeLeadExportListener({
-      files: server.files,
-      spreadsheets: server.spreadsheets,
-      identity: server.identity,
-      appUrl: "https://app.example.in",
-    }).handle(
+    await makeLeadExportListener(
+      {
+        files: server.files,
+        spreadsheets: server.spreadsheets,
+        identity: server.identity,
+        appUrl: "https://app.example.in",
+      },
+      leadsToShow,
+    ).handle(
       {
         id: event.id,
         organizationId: agency.organizationId,

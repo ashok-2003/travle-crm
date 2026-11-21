@@ -60,7 +60,7 @@ function ShareLinkRow({ link }: { link: ShareLinkSummary }) {
         <ItemActions>
           <Button
             ref={revokeButton}
-            variant="outline"
+            variant="destructive"
             aria-label={t("revokeNamed", { label: link.label })}
             disabled={!revokeAccess.allowed}
             onClick={() => {

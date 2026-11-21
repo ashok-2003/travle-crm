@@ -316,12 +316,22 @@ describe("TodayScreen", () => {
     expect(await within(overdue).findByRole("link", { name: "Customer 8" })).toBeVisible();
   });
 
+  it("opens the Owner's own leads not contacted yet from New leads, as the section holds their own", async () => {
+    renderToday();
+    await userEvent.click(await tab("New leads 3"));
+    expect(within(await panel("New leads 3")).getByRole("link", { name: "All new leads" })).toHaveAttribute(
+      "href",
+      "/leads?show=uncontacted",
+    );
+  });
+
   it("leads back to the Leads list on New leads and to the AI agent page for whoever manages the AI", async () => {
     needsMe = { handedOver: [handedOver], suggestions: [] };
     const { unmount } = renderToday(null, member({ permissions: ["leads:view", "inbox:view", "leads:edit"] }));
     await userEvent.click(await tab("New leads 3"));
     const all = within(await panel("New leads 3")).getByRole("link", { name: "All new leads" });
-    expect(all).toHaveAttribute("href", "/leads?stage=new");
+    // The member's own leads nobody has contacted yet: the section's count, by the same rule.
+    expect(all).toHaveAttribute("href", "/leads?show=uncontacted");
     expect(all.querySelector("svg")).not.toBeNull();
     await userEvent.click(screen.getByRole("tab", { name: "AI needs you 1" }));
     expect(within(await panel("AI needs you 1")).queryByRole("link", { name: "AI agent" })).toBeNull();

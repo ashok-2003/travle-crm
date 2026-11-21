@@ -54,7 +54,9 @@ below it, never today above it (`business-modules-call-down`).
 - `lead-list.ts` and `lead-list-query.ts`: `listLeads` and `countLeads`, a salesperson's own leads whatever they ask
   for (`scopeFilter`), a manager's own or everyone's, by stage, owner, source, destination and trip type, and a
   search by name (trigram word similarity) or by four or more digits of a phone; keyset pages, newest first; the SQL
-  is composable (R11), so the performance tests `EXPLAIN` exactly what runs.
+  is composable (R11), so the performance tests `EXPLAIN` exactly what runs. A Show (leads show spec, 2026-11-21)
+  hands both its `ChosenLeads`: the ids today's `leadsToShow` found by their own module's rule, in its order, which
+  the list keeps on numbered pages (`mineChosen`: the AI's Mine, which holds the unowned leads for an AI manager).
 - `lead-detail.ts`: `getLead`, and `findLeadInScope` (`assertRecordInScope`; a lead out of scope is `NOT_FOUND`), which
   every change on a lead starts with.
 - `timeline.ts`: `listLeadTimeline`, newest first, each entry with the note, repeat enquiry or task it points to (the
@@ -76,9 +78,9 @@ below it, never today above it (`business-modules-call-down`).
 
 ## Today, a member leaving, erasure and the demo
 
-- `work-queries.ts`: what Today reads: `newLeadsWaitingQuery` and `newLeadsWaiting` (one person's leads still in New,
-  oldest first), `countNewLeadsWaiting`, and `leadBriefs` (a lead's name, stage and trip line for Today's rows, for leads in
-  the member's scope only).
+- `work-queries.ts`: what Today reads: `leadBriefs` (a lead's name, stage and trip line for Today's rows, for leads in
+  the member's scope only). Its New leads not contacted yet are inbox's `uncontactedLeads`, as a sent message is
+  inbox's to know.
 - `departing-member.ts`: `handOverDepartingMemberListener` on `staff.removed` (`crm.hand-over-departing-member`): the
   leaver's open leads, then their closed leads that still hold open work, then their standalone tasks go to the first
   Owner, 50 in a locked batch, until a batch selects none; the system's change, telling nobody (R27, R37).

@@ -616,6 +616,10 @@ export const SHOTS = [
   { name: "r7b-package", screen: "A package with its two tiers, photos and publishing", as: owner },
   { name: "r7b-public-page", screen: "A package's public page", as: visitor },
   { name: "r7b-public-form", screen: "The public page's enquiry form, joining a departure", as: visitor },
+  // The Leads list's Show (leads show spec, 2026-11-21): Home's Hot View all, and Not contacted yet on Mine.
+  { name: "leads-show-hot", screen: "Leads on Show: Hot, from Home's View all, its chip first", as: owner },
+  { name: "leads-show-hot-1024", screen: "Leads on Show: Hot at 1024px", as: owner, only: "desktop" },
+  { name: "leads-show-uncontacted", screen: "Leads on Show: Not contacted yet, Mine", as: owner },
 ] as const satisfies readonly Shot[];
 
 export type ShotName = (typeof SHOTS)[number]["name"];

@@ -1,31 +1,36 @@
-// A lead's person (spec 3.4, 4, R32, P7, P10): their name and contacts, edited with the new-lead form's own fields.
-// Before saving, a changed contact that is already on another person is named with that person (knownContact); one
-// that is this person's own is not. The api's CONTACT_ON_ANOTHER_PERSON shows its sentence.
+// A lead's person, edited from the ⋯ menu's Edit person (spec 3.4, 4, R32, P7, P10; the lead page's revamp, 2026-11-21:
+// the person's card went, its contacts joined the header): the new-lead form's own fields. Before saving, a changed
+// contact that is already on another person is named with that person (knownContact); one that is this person's own is
+// not. The api's CONTACT_ON_ANOTHER_PERSON shows its sentence; closed, the focus goes back to the ⋯ button.
 import type { KnownContactResult } from "@travel-crm/contracts/crm";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
-import { PersonCard } from "@/leads/lead/person-card";
+import { LeadMenu } from "@/leads/lead/lead-menu";
 import { stubApi } from "../support/api-stub";
 import { aLead, ids } from "./records";
 import { inputsTo, lastInputTo, renderScreen } from "./screen";
 
-const { person: words } = messages.leads.lead;
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+
+const { person: words, menu } = messages.leads.lead;
 const { person: fields } = messages.leads.form;
+const menuButton = () => screen.getByRole("button", { name: menu.label.replace("{name}", "Rahul Sharma") });
 
 const heldBy = (personId: string, personName: string): { data: KnownContactResult } => ({
   data: { match: { personId, personName, matchedBy: "phone", openLead: null }, blocked: false, people: {} },
 });
 
-function renderCard(knownContact = heldBy(ids.otherPerson, "Priya Nair")) {
+function renderMenu(knownContact = heldBy(ids.otherPerson, "Priya Nair")) {
   const api = stubApi({ "leads.knownContact": knownContact, "leads.editPerson": { data: null } });
-  renderScreen(<PersonCard lead={aLead()} />);
+  renderScreen(<LeadMenu lead={aLead()} />, { width: "wide" });
   return api;
 }
 
 async function openEditor() {
-  await userEvent.click(screen.getByRole("button", { name: words.edit }));
+  await userEvent.click(menuButton());
+  await userEvent.click(await screen.findByRole("menuitem", { name: menu.editPerson }));
   return screen.findByRole("dialog", { name: words.dialog.title });
 }
 
@@ -40,17 +45,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("PersonCard", () => {
-  it("shows the person's name and contacts", () => {
-    renderCard();
-    const card = screen.getByRole("region", { name: words.title });
-    expect(within(card).getByText("Rahul Sharma")).toBeVisible();
-    expect(within(card).getByText("+91 98765 43210")).toBeVisible();
-    expect(within(card).getByText("rahul.s@gmail.com")).toBeVisible();
-  });
-
+describe("Edit person, from the lead's ⋯ menu", () => {
   it("names who holds a contact before saving a person, and shows CONTACT_ON_ANOTHER_PERSON's sentence", async () => {
-    const api = renderCard();
+    const api = renderMenu();
     const dialog = await openEditor();
     expect(within(dialog).getByLabelText(fields.name)).toHaveValue("Rahul Sharma");
     expect(within(dialog).getByLabelText(fields.phone)).toHaveValue("98765 43210");
@@ -63,9 +60,7 @@ describe("PersonCard", () => {
     });
     expect(
       await within(dialog).findByText(
-        words.holder
-          .replace("{contact}", messages.leads.lead.person.contactKinds.phone)
-          .replace("{name}", "Priya Nair"),
+        words.holder.replace("{contact}", words.contactKinds.phone).replace("{name}", "Priya Nair"),
       ),
     ).toBeVisible();
 
@@ -78,8 +73,8 @@ describe("PersonCard", () => {
     });
   });
 
-  it("says nothing of a contact that is the person's own, and saves", async () => {
-    renderCard(heldBy(ids.person, "Rahul Sharma"));
+  it("says nothing of a contact that is the person's own, saves, and gives the focus back to the ⋯ button", async () => {
+    renderMenu(heldBy(ids.person, "Rahul Sharma"));
     const dialog = await openEditor();
     await replace(dialog, fields.instagramHandle, "@Rahul.Travels");
     await waitFor(() => {
@@ -99,5 +94,11 @@ describe("PersonCard", () => {
       });
     });
     expect(await screen.findByText(words.saved)).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(menuButton()).toHaveFocus();
+    });
   });
 });

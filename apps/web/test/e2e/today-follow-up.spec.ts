@@ -64,7 +64,7 @@ test("a follow-up added on a lead shows in Follow-ups and, done there, on the le
 
   await page.goto(`/leads/${leadId}`);
   await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Timeline" }).getByText("Follow-up done")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Timeline" }).getByText("Follow-up done")).toBeVisible();
 });
 
 test("a follow-up snoozed to tomorrow 9:00 leaves Due and shows under Later", async ({ page, agency }) => {

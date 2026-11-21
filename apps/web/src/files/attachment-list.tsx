@@ -63,7 +63,7 @@ function AttachmentActions({
       {removable && (
         <Button
           ref={removeButton}
-          variant="outline"
+          variant="destructive"
           aria-label={t("removeName", { name })}
           disabled={!change.allowed}
           onClick={() => {

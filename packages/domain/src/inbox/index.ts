@@ -29,6 +29,14 @@ export {
 } from "./chat-flags.js";
 export { unreadCounts, unreadIdsOf, UNREAD_FILTER_LIMIT } from "./unread.js";
 export {
+  countUncontactedLeads,
+  countUncontactedLeadsQuery,
+  uncontactedLeads,
+  uncontactedLeadsQuery,
+  type UncontactedLead,
+  type UncontactedLeadsFilter,
+} from "./uncontacted-leads.js";
+export {
   aiAgentOn,
   automationCouldAct,
   automationOf,

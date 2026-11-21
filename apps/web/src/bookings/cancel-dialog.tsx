@@ -143,7 +143,7 @@ export function CancelBookingDialog({ bookingId }: { bookingId: string }) {
     <FormDialog
       dialog={dialog}
       sending={cancel}
-      trigger={{ label: t("open"), variant: "outline" }}
+      trigger={{ label: t("open"), variant: "destructive" }}
       title={t("title")}
       description={t("description")}
       submit={t("submit")}

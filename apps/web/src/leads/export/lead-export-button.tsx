@@ -1,7 +1,7 @@
 "use client";
 
 // The Leads header's Export (spec 3.1, 3.3), for everyone who sees the list (leads:view): a dialog that asks for the
-// list as it is on screen, the stage, filters and search included, as Excel or CSV. It is an export (ADR 0021), so it
+// list as it is on screen, the stage, filters (its "came in" period and Show too) and search included, as Excel or CSV. It is an export (ADR 0021), so it
 // works while the agency is read-only. The dialog stays mounted while closed, so an export being prepared shows its
 // progress again on opening (exports/export-dialog.tsx).
 import type { LeadExportFilter } from "@travel-crm/contracts/crm";
@@ -34,6 +34,8 @@ export function LeadExportButton() {
     ...(listed.source && { source: listed.source }),
     ...(listed.destinationId && { destinationId: listed.destinationId }),
     ...(listed.tripType && { tripType: listed.tripType }),
+    ...(listed.created && { created: listed.created }),
+    ...(listed.show && { show: listed.show }),
     ...(search !== "" && { search }),
   };
   const [open, setOpen] = useState(false);

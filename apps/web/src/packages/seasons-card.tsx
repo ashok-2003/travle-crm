@@ -77,7 +77,7 @@ export function SeasonsCard({ detail }: { detail: PackageDetail }) {
                     {t("edit")}
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     aria-label={t("removeNamed", { name: season.label })}
                     disabled={!access.allowed}
                     aria-describedby={access.allowed ? undefined : hintId}

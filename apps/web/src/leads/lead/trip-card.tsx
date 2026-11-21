@@ -1,8 +1,9 @@
 "use client";
 
-// A lead's trip (spec 3.4, R49): where, when, who and the budget always, "Not asked yet" until known, then whatever
-// else was asked (leaving from, trip type, hotel, food, room). A per-person budget also says about how much it is for
-// everyone once the travellers are known. Edit opens the new-lead form's own trip fields.
+// A lead's trip (spec 3.4, R49): where, when, who and the budget always, then whatever else was asked (leaving from, trip
+// type, hotel, food, room). A gap is marked as something still to ask, "Not asked yet" in status amber with its dot (the
+// lead page's revamp, 2026-11-21), and the card wears the trip's soft sky tint. A per-person budget also says about how
+// much it is for everyone once the travellers are known. Edit opens the new-lead form's own trip fields.
 import type { SuggestedLeadField } from "@travel-crm/contracts/ai";
 import type { LeadDetail, TravelWhen, TripDetail } from "@travel-crm/contracts/crm";
 import { multiply, money, yearIn } from "@travel-crm/domain/kernel";
@@ -11,6 +12,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { AiValue } from "@/ai/ai-value";
 import { useLeadAiFields } from "@/ai/use-ai";
 import { Details, type Detail } from "@/components/details";
+import { StatusDot } from "@/components/status-badge";
 import { rupees } from "@/components/forms/money-field";
 import { formatRupees } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
@@ -101,7 +103,12 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
   const opener = useRef<HTMLButtonElement>(null);
   const { trip } = lead;
   const label = (key: "destination" | "when" | "travellers" | "budget") => t(`lead.trip.labels.${key}`);
-  const notAsked = <span className="text-muted-foreground">{t("lead.trip.notAsked")}</span>;
+  const notAsked = (
+    <span data-gap className="text-status-attention-ink">
+      <StatusDot tone="attention" className="me-1.5 inline-block align-middle" />
+      {t("lead.trip.notAsked")}
+    </span>
+  );
   const headcount = (trip.adults ?? 0) + trip.childrenAges.length;
   const budget = trip.budget;
   const budgetValue: ReactNode = budget
@@ -148,6 +155,7 @@ export function TripCard({ lead }: { lead: LeadDetail }) {
   return (
     <LeadCard
       title={t("lead.trip.title")}
+      tint="sky"
       action={
         canEdit && (
           <ChangeButton

@@ -1,15 +1,16 @@
 // The hot leads to call now (sales execution): open leads the member may see that opened their quote or asked to book in
 // the last seven days, that travel within the agency's days, or whose budget for everyone is at or over its mark. Each
-// gets a score from its reasons (a quote opened again counts more), hottest first, 25 at most.
+// gets a score from its reasons (a quote opened again counts more), hottest first: 25 at most for Home, every one of
+// them for the Leads list's Show: Hot (leads show spec, 2026-11-21).
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import { hotLeadList, type HotLead, type HotReason, type SalesAutomation } from "@travel-crm/contracts/sales";
 import type { OrgTx } from "@travel-crm/db";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { addDays, parseCalendarDate } from "../kernel/index.js";
+import { bigBudgetQuery, travelSoonQuery } from "./hot-leads-queries.js";
 
 const WEEK = 7 * 24 * 3_600_000;
 const weights: Record<HotReason, number> = { quote_opened: 40, asked_price: 30, travel_soon: 20, big_budget: 10 };
-const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
 
 interface Heat {
   score: number;
@@ -46,45 +47,53 @@ async function heatOf(
     add(signal.leadId, reason, signal.at, heat.get(signal.leadId)?.reasons.has(reason) === true ? 5 : 0);
   }
   if (settings.hotTravelDays > 0) {
-    const soon = await tx.lead.findMany({
-      where: {
-        ...lead,
-        travelKind: "dates",
-        travelStart: { gte: asDate(today), lte: asDate(addDays(parseCalendarDate(today), settings.hotTravelDays)) },
-      },
-      select: { id: true },
-      take: 500,
-    });
+    const window = { from: today, to: addDays(parseCalendarDate(today), settings.hotTravelDays) };
+    const soon = await tx.$queryRaw<{ id: string }[]>(travelSoonQuery(access, window, only));
     for (const row of soon) add(row.id, "travel_soon");
   }
   if (settings.hotBudgetPaise !== null) {
-    const mark = settings.hotBudgetPaise;
-    const budgets = await tx.lead.findMany({
-      where: { ...lead, budgetPaise: { not: null } },
-      select: { id: true, budgetPaise: true, budgetBasis: true, adults: true, childrenAges: true },
-      take: 1000,
-    });
-    for (const row of budgets) {
-      const people = Math.max(1, (row.adults ?? 0) + row.childrenAges.length);
-      const total = Number(row.budgetPaise ?? 0n) * (row.budgetBasis === "per_person" ? people : 1);
-      if (total >= mark) add(row.id, "big_budget");
-    }
+    const big = await tx.$queryRaw<{ id: string }[]>(bigBudgetQuery(access, settings.hotBudgetPaise, only));
+    for (const row of big) add(row.id, "big_budget");
   }
   return heat;
 }
 
 const reasonOrder = Object.keys(weights) as HotReason[];
 
+/** Every hot lead in scope, hottest first: by score, then the latest signal, then the newest lead, so pages hold still. */
+async function rankedHeat(
+  tx: OrgTx,
+  access: MemberAccess,
+  settings: SalesAutomation,
+  context: { now: Date; today: string },
+): Promise<[string, Heat][]> {
+  const heat = await heatOf(tx, access, settings, context.now, context.today);
+  return [...heat.entries()].sort(
+    ([aId, a], [bId, b]) =>
+      b.score - a.score ||
+      (b.lastSignalAt?.getTime() ?? 0) - (a.lastSignalAt?.getTime() ?? 0) ||
+      (aId < bId ? 1 : aId > bId ? -1 : 0),
+  );
+}
+
+/** Every hot lead's id in scope, hottest first: the Leads list's Show: Hot, which pages through all of them. */
+export async function hotLeadIds(
+  tx: OrgTx,
+  access: MemberAccess,
+  settings: SalesAutomation,
+  context: { now: Date; today: string },
+): Promise<string[]> {
+  return (await rankedHeat(tx, access, settings, context)).map(([leadId]) => leadId);
+}
+
+/** The 25 hottest, each with its person, trip and reasons, for Home. */
 export async function hotLeadsOf(
   tx: OrgTx,
   access: MemberAccess,
   settings: SalesAutomation,
   context: { now: Date; today: string },
 ): Promise<HotLead[]> {
-  const heat = await heatOf(tx, access, settings, context.now, context.today);
-  const top = [...heat.entries()]
-    .sort(([, a], [, b]) => b.score - a.score || (b.lastSignalAt?.getTime() ?? 0) - (a.lastSignalAt?.getTime() ?? 0))
-    .slice(0, 25);
+  const top = (await rankedHeat(tx, access, settings, context)).slice(0, 25);
   if (top.length === 0) return [];
   const leads = await tx.lead.findMany({
     where: { id: { in: top.map(([leadId]) => leadId) } },

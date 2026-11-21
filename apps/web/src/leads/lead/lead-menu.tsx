@@ -1,6 +1,7 @@
 "use client";
 
-// A lead's ⋯ menu (spec 3.4, R33, P2): Reassign (leads:assign), Lost and Not a lead (leads:edit; not the stage the lead
+// A lead's ⋯ menu (spec 3.4, R33, P2): Edit person (leads:edit; the lead page's revamp, 2026-11-21, moved it here from
+// the person's card, which went), Reassign (leads:assign), Lost and Not a lead (leads:edit; not the stage the lead
 // is in), and Block this number (leads:assign), which blocks the phone, else the email, else the handle, and marks the
 // lead Not a lead. Lost asks why (sales execution), and Lost, Not a lead and Block ask first (ConfirmDialog, held while the request is out); Reassign opens
 // its dialog; each gives the focus back to the ⋯ button when it closes. While the subscription refuses changes, the
@@ -22,10 +23,11 @@ import {
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { LostReasonChoice } from "@/sales/lost-reason";
+import { EditPersonDialog } from "./edit-person-dialog";
 import { ReassignDialog } from "./reassign-dialog";
 import { useBlockContact, useMoveStage, useRemoveLead } from "./use-lead";
 
-type Asking = "reassign" | "lost" | "notALead" | "block" | "remove" | null;
+type Asking = "person" | "reassign" | "lost" | "notALead" | "block" | "remove" | null;
 
 export function LeadMenu({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("leads.lead");
@@ -45,7 +47,7 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
   const remove = useRemoveLead();
   const closes = canEdit ? (["lost", "notALead"] as const) : [];
   const offered = closes.filter((item) => (item === "lost" ? lead.stage !== "lost" : lead.stage !== "not_a_lead"));
-  if (!canAssign && !canRemove && offered.length === 0) return null;
+  if (!canEdit && !canAssign && !canRemove) return null;
 
   const name = lead.person.name;
   const item = (choice: Exclude<Asking, null>, words: string, destructive = false) => (
@@ -75,14 +77,22 @@ export function LeadMenu({ lead }: { lead: LeadDetail }) {
           {write.hint !== null && (
             <DropdownMenuLabel className="text-caption font-normal">{write.hint}</DropdownMenuLabel>
           )}
+          {canEdit && item("person", t("menu.editPerson"))}
           {canAssign && item("reassign", t("menu.reassign"))}
-          {canAssign && offered.length > 0 && <DropdownMenuSeparator />}
+          {(canEdit || canAssign) && offered.length > 0 && <DropdownMenuSeparator />}
           {offered.map((choice) => item(choice, t(`menu.${choice}`)))}
-          {(canAssign || offered.length > 0) && (canAssign || canRemove) && <DropdownMenuSeparator />}
+          {(canEdit || canAssign) && (canAssign || canRemove) && <DropdownMenuSeparator />}
           {canAssign && item("block", lead.person.phone ? t("menu.block") : t("menu.blockContact"), true)}
           {canRemove && item("remove", t("menu.remove"), true)}
         </DropdownMenuContent>
       </DropdownMenu>
+      {canEdit && (
+        <EditPersonDialog
+          lead={lead}
+          dialog={{ open: asking === "person", setOpen: onOpenChange }}
+          returnFocusTo={opener}
+        />
+      )}
       {asking === "reassign" && <ReassignDialog lead={lead} open onOpenChange={onOpenChange} returnFocusTo={opener} />}
       {(asking === "lost" || asking === "notALead") && (
         <ConfirmDialog
