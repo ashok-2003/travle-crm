@@ -4,13 +4,13 @@
 // them for the Leads list's Show: Hot (leads show spec, 2026-11-21).
 import { openLeadStages } from "@travel-crm/contracts/crm";
 import { hotLeadList, type HotLead, type HotReason, type SalesAutomation } from "@travel-crm/contracts/sales";
-import { emptySql, joinSql, sql, type OrgTx, type Sql } from "@travel-crm/db";
+import type { OrgTx } from "@travel-crm/db";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { addDays, parseCalendarDate } from "../kernel/index.js";
+import { bigBudgetQuery, travelSoonQuery } from "./hot-leads-queries.js";
 
 const WEEK = 7 * 24 * 3_600_000;
 const weights: Record<HotReason, number> = { quote_opened: 40, asked_price: 30, travel_soon: 20, big_budget: 10 };
-const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
 
 interface Heat {
   score: number;
@@ -47,14 +47,8 @@ async function heatOf(
     add(signal.leadId, reason, signal.at, heat.get(signal.leadId)?.reasons.has(reason) === true ? 5 : 0);
   }
   if (settings.hotTravelDays > 0) {
-    const soon = await tx.lead.findMany({
-      where: {
-        ...lead,
-        travelKind: "dates",
-        travelStart: { gte: asDate(today), lte: asDate(addDays(parseCalendarDate(today), settings.hotTravelDays)) },
-      },
-      select: { id: true },
-    });
+    const window = { from: today, to: addDays(parseCalendarDate(today), settings.hotTravelDays) };
+    const soon = await tx.$queryRaw<{ id: string }[]>(travelSoonQuery(access, window, only));
     for (const row of soon) add(row.id, "travel_soon");
   }
   if (settings.hotBudgetPaise !== null) {
@@ -62,21 +56,6 @@ async function heatOf(
     for (const row of big) add(row.id, "big_budget");
   }
   return heat;
-}
-
-/**
- * Open leads in scope whose budget for everyone is at or over the mark: a per-person budget counts once for each of
- * the party, at least one. Worked out in the database, so every such lead is found however many have a budget.
- */
-function bigBudgetQuery(access: MemberAccess, mark: number, only: string | undefined): Sql {
-  const owner = scopeFilter(access, "leads:view", "ownerUserId").ownerUserId;
-  return sql`
-    SELECT id FROM lead
-    WHERE deleted_at IS NULL AND stage IN (${joinSql([...openLeadStages])}) AND budget_paise IS NOT NULL
-      ${owner === undefined ? emptySql : sql`AND owner_user_id = ${owner}::uuid`}
-      ${only === undefined ? emptySql : sql`AND id = ${only}::uuid`}
-      AND budget_paise * CASE WHEN budget_basis = 'per_person'
-        THEN GREATEST(1, COALESCE(adults, 0) + cardinality(children_ages)) ELSE 1 END >= ${mark}::bigint`;
 }
 
 const reasonOrder = Object.keys(weights) as HotReason[];

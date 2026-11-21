@@ -37,6 +37,8 @@ export interface LeadSeed {
   source?: string;
   returning?: boolean;
   travelKind?: string;
+  travelStart?: Date | null;
+  travelEnd?: Date | null;
   travelMonth?: Date | null;
   adults?: number | null;
   childrenAges?: number[];

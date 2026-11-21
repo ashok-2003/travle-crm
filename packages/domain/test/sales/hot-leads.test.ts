@@ -125,6 +125,29 @@ describe("hot leads", () => {
     expect(home.map((row) => row.leadId)).toEqual(everyHot.slice(0, 25));
   });
 
+  it("counts a trip whose dates start within the agency's hot days, both ends included, on open leads alone", async () => {
+    const organizationId = await anAgency(test, "Travel soon");
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const owner = memberWithStarterRole("org-owner", { organizationId, userId: randomUUID() });
+    const trip = (start: string, stage: "contacted" | "won" = "contacted") => {
+      const travelStart = new Date(`${start}T00:00:00Z`);
+      const dates = { travelKind: "dates", travelStart, travelEnd: travelStart };
+      return inOrg((tx) => aLead(tx, { ownerUserId: owner.userId, stage, ...dates }));
+    };
+    const today = await trip("2026-10-23");
+    const lastDay = await trip("2026-11-02");
+    await trip("2026-11-03");
+    await trip("2026-10-22");
+    await trip("2026-10-25", "won");
+    const settings = { ...defaultSalesAutomation, hotTravelDays: 10 };
+    const context = { now: testNow, today: "2026-10-23" };
+    expect(new Set(await inOrg((tx) => hotLeadIds(tx, owner, settings, context)))).toEqual(
+      new Set([today.id, lastDay.id]),
+    );
+    const heat = await inOrg((tx) => leadHeatOf(tx, owner, settings, { ...context, leadId: lastDay.id }));
+    expect(heat).toEqual({ score: 20, reasons: ["travel_soon"] });
+  });
+
   it("ignores a message with no buying word", async () => {
     const connection = await aConnectedAgency(test);
     const { organizationId } = connection;
