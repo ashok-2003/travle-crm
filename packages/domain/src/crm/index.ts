@@ -99,15 +99,7 @@ export { addPerson, type PersonRow } from "./people.js";
 export { offeredDestinations, offeredDestinationsQuery } from "./offered-destinations.js";
 export { advanceLeadStage, moveLeadStage, reassignLead, reopenLead, retreatLeadStage } from "./stage-changes.js";
 export { addAiLeadNote, addLeadNote, listLeadNotes, listLeadTimeline, type LeadNoteRow } from "./timeline.js";
-export {
-  countNewLeadsWaiting,
-  countNewLeadsWaitingQuery,
-  leadBriefs,
-  newLeadsWaiting,
-  newLeadsWaitingQuery,
-  type NewLeadsWaitingFilter,
-  type NewLeadWaiting,
-} from "./work-queries.js";
+export { leadBriefs } from "./work-queries.js";
 export {
   answerOf,
   receiveWebsiteEnquiry,

@@ -10,15 +10,9 @@ import { createDatabase, type Database, type OrgTx, type Sql } from "@travel-crm
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createIsolatedDatabase, createTestOrganization, type IsolatedDatabase } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import {
-  countLeads,
-  countNewLeadsWaitingQuery,
-  leadCountsQuery,
-  leadListQuery,
-  listLeads,
-  newLeadsWaitingQuery,
-} from "../../src/crm/index.js";
+import { countLeads, leadCountsQuery, leadListQuery, listLeads } from "../../src/crm/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
+import { countUncontactedLeadsQuery, uncontactedLeadsQuery } from "../../src/inbox/index.js";
 import { addDays, calendarDateIn, startOfDayIn } from "../../src/kernel/index.js";
 import { countOpenTasksQuery, openTasksQuery } from "../../src/tasks/index.js";
 import { todaySummary } from "../../src/today/index.js";
@@ -171,7 +165,7 @@ describe("a large agency", () => {
     const now = new Date();
     const overdue = openTasksQuery({ assigneeUserId: salesperson.userId, kind: "task", dueBefore: now, limit: 21 });
     expect((await plan("today-overdue", overdue)).indexes).toContain("task_open_by_assignee");
-    const newLeads = newLeadsWaitingQuery({ ownerUserId: salesperson.userId, limit: 21 });
+    const newLeads = uncontactedLeadsQuery({ ownerUserId: salesperson.userId, limit: 21 });
     expect((await plan("today-new-leads", newLeads)).indexes).toContain("lead_new_by_owner");
     const endsAt = startOfDayIn(addDays(calendarDateIn(now, "Asia/Kolkata"), 1), "Asia/Kolkata");
     const assigneeUserId = salesperson.userId;
@@ -185,7 +179,7 @@ describe("a large agency", () => {
     for (const [name, query] of Object.entries(counted)) {
       expect((await plan(name, query)).indexes, name).toContain("task_open_by_assignee");
     }
-    const newLeadsCount = countNewLeadsWaitingQuery(salesperson.userId);
+    const newLeadsCount = countUncontactedLeadsQuery(salesperson.userId);
     // Either partial index holds exactly the owner's leads in New for a count; the planner picks by its sampled
     // statistics, and both runs have been seen.
     const countPlan = await plan("today-new-leads-count", newLeadsCount);
