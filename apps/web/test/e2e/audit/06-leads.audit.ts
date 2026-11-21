@@ -1,6 +1,6 @@
 // The visual audit's lead screens (release 1): Leads empty, then an agency's week of leads as the mockup draws them
 // (trips, budgets, a returning customer, follow-ups, two of them Ravi's), Everyone filtered by a stage, the Filters
-// dialog, the new-lead form filled in and with a known contact, a lead (on a computer also at 1280px, the narrowest
+// dialog, Show: Hot from Home's View all and Show: Not contacted yet (leads show spec), the new-lead form filled in and with a known contact, a lead (on a computer also at 1280px, the narrowest
 // with the timeline beside the cards) with its menu, Reassign and Block, follow-up dialog and trip editor, a returning
 // customer's lead with Returning's info hint open, a lost lead with Reopen, the form warning of a blocked number, and
 // a salesperson's own list. Every lead is made through the api (R54).
@@ -145,6 +145,22 @@ test("an Owner's leads, a lead and its dialogs, and a salesperson's own list", a
   await page.getByRole("button", { name: "Filters" }).click();
   await expect(page.getByRole("dialog", { name: "Filters" })).toBeVisible();
   await shoot(page, "leads-filters");
+
+  // The Show: Priya travels within the agency's hot days, so Home's Hot View all opens everyone's Hot with her in it.
+  await page.goto("/dashboard");
+  await page.getByRole("region", { name: "Hot leads to call" }).getByRole("link", { name: "View all" }).click();
+  await expect(page).toHaveURL(/\/leads\?view=everyone&show=hot$/);
+  await expect(page.getByRole("main").getByText("Priya Nair").first()).toBeVisible();
+  await shoot(page, "leads-show-hot");
+  if (test.info().project.name === "desktop") {
+    const viewport = page.viewportSize();
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await shoot(page, "leads-show-hot-1024");
+    if (viewport) await page.setViewportSize(viewport);
+  }
+  await page.goto("/leads?show=uncontacted");
+  await expect(page.getByRole("main").getByText("Rahul Sharma").first()).toBeVisible();
+  await shoot(page, "leads-show-uncontacted");
 
   await page.goto("/leads/new");
   await page.getByLabel("Name", { exact: true }).fill("Meera Pillai");
