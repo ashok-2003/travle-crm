@@ -1,6 +1,7 @@
 // The New leads nobody has contacted yet (leads show spec, 2026-11-21): still in New, no call logged on the lead and no
-// message sent to its person since it came in; one the AI sent counts, an automatic welcome, away or keyword answer
-// and a failed send don't. Longest waiting first, a page at a time, and counted the same way.
+// message a person or the AI wrote to its person since it came in. Automatic messages (a welcome, away or keyword
+// answer, the sales cadence's first WhatsApp and its nudges, a broadcast) and a failed send are no contact. Longest
+// waiting first, a page at a time, and counted the same way.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
@@ -56,6 +57,17 @@ describe("the New leads nobody has contacted yet", () => {
           clientToken: `auto:welcome:${randomUUID()}`,
           occurredAt: after,
         }),
+        greetingOnly: await withMessage({
+          origin: "automation",
+          clientToken: `speed:${randomUUID()}`,
+          occurredAt: after,
+        }),
+        nudgeOnly: await withMessage({
+          origin: "automation",
+          clientToken: `follow:${randomUUID()}:1`,
+          status: "delivered",
+          occurredAt: after,
+        }),
         failedReply: await withMessage({ status: "failed", occurredAt: after }),
         messagedBefore: await withMessage({ occurredAt: before }),
         theyWrote: await withMessage({ direction: "in", occurredAt: after }),
@@ -64,6 +76,7 @@ describe("the New leads nobody has contacted yet", () => {
         called: called.id,
         replied: await withMessage({ occurredAt: after }),
         fromPhone: await withMessage({ origin: "staff_phone", status: "delivered", occurredAt: after }),
+        scheduledByStaff: await withMessage({ clientToken: `scheduled:${randomUUID()}`, occurredAt: after }),
         byAi: await withMessage({ origin: "automation", clientToken: `ai:${randomUUID()}`, occurredAt: after }),
         contacted: (await aLead(tx, { ownerUserId: me, stage: "contacted", createdAt: cameIn })).id,
       };

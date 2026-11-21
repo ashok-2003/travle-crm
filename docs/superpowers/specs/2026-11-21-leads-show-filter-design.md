@@ -27,10 +27,14 @@ all.. so on the lead page we should have filter for those too!"
      book in the last 7 days, travels within the agency's hot days, or has a budget at or over its mark. **All of
      them, not the top 25**, hottest first, paged like the rest. Home keeps its five.
    - **Follow-up overdue:** a lead with an open (not done) follow-up whose due time has passed, longest overdue first.
-   - **Not contacted yet (new rule):** still in New, **and** no call logged on it **and** no message sent to its person
-     since it came in. Longest waiting first. **My tasks' "New lead, not contacted yet" (and Home's tasks card that
-     shows it) uses the same rule**, so the counts agree everywhere. My call: a message the AI sent counts as a reply
-     (the customer did get one).
+   - **Not contacted yet (new rule):** still in New, **and** no call logged on it **and** no message a person or the
+     AI wrote to its person since it came in (one that went or may yet go, not a broadcast). Longest waiting first.
+     **My tasks' "New lead, not contacted yet" (and Home's tasks card that shows it) uses the same rule**, so the counts
+     agree everywhere. My call: a message the AI sent counts as a reply (the customer did get one). Ruling (2026-11-22,
+     task review): automatic messages are not contact: the welcome, away and keyword answers, the sales cadence's first
+     WhatsApp and its Day 1/3/7 nudges, and broadcasts; otherwise every lead that arrives by itself in an agency with the
+     first WhatsApp on would leave this list within a minute. The test is the AI's own for an answer (`may-write.ts`):
+     a message from the inbox or a member's phone, or one with an `ai:` token.
    - **AI needs a person:** the chats the AI handed over and its open Lost / Not a lead suggestions, on the leads the
      tab covers (Mine: the member's own, and, for someone who manages the AI, the unowned ones as Home does). Newest
      first.

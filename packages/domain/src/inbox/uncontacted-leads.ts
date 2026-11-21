@@ -1,8 +1,9 @@
 // The New leads nobody has contacted yet (leads show spec, 2026-11-21): still in New, with no call logged on the lead
-// and no message sent to its person since it came in. A message counts when it went or may yet go (not failed or
-// superseded), from a member, their phone or the AI; the automatic welcome, away and keyword answers (`auto:` tokens)
-// and broadcasts are not a reply to the enquiry. My tasks' "New lead, not contacted yet" and the Leads list's Show read
-// this one rule, longest waiting first, as composable SQL over lead_new_by_owner (R11: the performance tests EXPLAIN it).
+// and no message a person or the AI wrote to its person since it came in (the AI's own test of an answer, may-write.ts):
+// a member's from the inbox or their phone, or an `ai:` one, that went or may yet go (not failed or superseded).
+// Automatic messages are no contact: the welcome, away and keyword answers, the sales cadence's first WhatsApp and its
+// nudges, and broadcasts. My tasks' "New lead, not contacted yet" and the Leads list's Show read this one rule, longest
+// waiting first, as composable SQL over lead_new_by_owner (R11: the performance tests EXPLAIN it).
 import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
 
 export interface UncontactedLeadsFilter {
@@ -34,7 +35,7 @@ function uncontacted(ownerUserId: string | undefined): Sql {
       WHERE chat.organization_id = lead.organization_id AND chat.person_id = lead.person_id
         AND message.direction = 'out' AND message.occurred_at >= lead.created_at
         AND message.status NOT IN ('failed', 'superseded') AND message.broadcast_id IS NULL
-        AND (message.client_token IS NULL OR message.client_token NOT LIKE 'auto:%'))`;
+        AND (message.origin IN ('staff_crm', 'staff_phone') OR message.client_token LIKE 'ai:%'))`;
 }
 
 /** The uncontacted leads, oldest first (UUID v7 ids are in the order they were made). */
