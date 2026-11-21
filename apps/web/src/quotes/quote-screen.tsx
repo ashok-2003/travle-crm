@@ -212,7 +212,7 @@ function QuoteActions({ quote }: { quote: QuoteDetail }) {
         {/* The same rule as the api's: an accepted, paid or invoiced quote is a booking and stays. */}
         {mayEdit && quote.status !== "accepted" && quote.payments.length === 0 && quote.invoiceDocumentId === null && (
           <Button
-            variant="ghost"
+            variant="destructive"
             onClick={() => {
               setDeleting(true);
             }}

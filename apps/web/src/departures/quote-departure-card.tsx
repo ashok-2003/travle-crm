@@ -54,7 +54,7 @@ export function QuoteDepartureCard({ quote }: { quote: QuoteDetail }) {
           </Button>
           {quote.departure !== null && (
             <Button
-              variant="ghost"
+              variant="destructive"
               disabled={changes.setQuoteDeparture.isPending}
               onClick={() => {
                 changes.setQuoteDeparture.mutate(

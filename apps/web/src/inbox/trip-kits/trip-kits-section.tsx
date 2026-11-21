@@ -153,7 +153,7 @@ function TripCard({ kit }: { kit: TripKit }) {
           )}
           <Button
             ref={deleteButton}
-            variant="outline"
+            variant="destructive"
             disabled={!access.allowed}
             aria-label={t("deleteNamed", { name: kit.name })}
             onClick={() => {

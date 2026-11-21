@@ -62,7 +62,7 @@ function ConsentLine({ leadId, personName }: { leadId: string; personName: strin
               <div className="flex flex-col items-end gap-1">
                 <Button
                   ref={opener}
-                  variant="ghost"
+                  variant="destructive"
                   disabled={!write.allowed}
                   aria-describedby={write.hint === null ? undefined : hintId}
                   onClick={() => {

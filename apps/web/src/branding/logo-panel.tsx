@@ -182,7 +182,7 @@ export function LogoPanel() {
         {logo.data && (
           <Button
             ref={removeButton}
-            variant="outline"
+            variant="destructive"
             disabled={!write.allowed || uploading}
             aria-describedby={writeHint}
             onClick={() => {

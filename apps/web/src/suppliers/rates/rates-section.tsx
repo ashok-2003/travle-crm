@@ -60,7 +60,7 @@ export function RatesSection({ supplierId, mayEdit }: { supplierId: string; mayE
                   <SeasonDialog supplierId={supplierId} season={season} />
                   <CopySeasonDialog season={season} />
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     aria-label={t("removeSeasonNamed", { name: season.label })}
                     onClick={() => {
                       setRemovingSeason({ id: season.id, label: season.label });
@@ -98,7 +98,7 @@ export function RatesSection({ supplierId, mayEdit }: { supplierId: string; mayE
                           <div className="flex justify-end gap-2">
                             <RateDialog seasonId={season.id} rate={rate} />
                             <Button
-                              variant="ghost"
+                              variant="destructive"
                               aria-label={t("removeRateNamed", { item: rate.item })}
                               onClick={() => {
                                 setRemovingRate(rate.id);

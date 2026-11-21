@@ -50,7 +50,7 @@ export function AddingStep({ detail }: { detail: ImportDetail }) {
       />
       <p className="text-muted-foreground">{asked ? t("adding.stopping") : t("adding.leave")}</p>
       <Button
-        variant="outline"
+        variant="destructive"
         className="self-start"
         disabled={asked}
         onClick={() => {

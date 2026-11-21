@@ -102,7 +102,7 @@ Strategy: **Full palette with strict roles.** Neutral ink on warm canvas, plus t
 Named rules:
 
 - **One Action Colour.** Blue is the only interactive colour. A forest element is never a button; a violet one is a button only for an AI action (the `ai` button variant, owner 2026-11-02), otherwise it is information. If it is clickable, it gets blue treatment (underline or hover) on top.
-- **Status Is Only Status.** Red, amber and green never decorate, never colour a chart series for variety, never tint a card for emphasis. The two named exceptions below (Home's Day Cards, Work Waiting) say what is waiting, so they still mean something.
+- **Status Is Only Status.** Red, amber and green never decorate, never colour a chart series for variety, never tint a card for emphasis. The named exceptions below (Home's Day Cards, Work Waiting, the Lead Page's tints) say what is waiting, so they still mean something, and the destructive button's soft red (section 6, Buttons) says that pressing it ends something.
 - **The WhatsApp Logo.** The buttons that open a WhatsApp chat wear WhatsApp's own logo in WhatsApp's green (`whatsapp-logo`), the one place that green appears: a brand mark people know from their phones, never a status, a fill or text. The button around it stays outline, and Call beside it wears a solid handset in ink.
 - **Dot Plus Word.** Status is always a dot and a word, never colour alone.
 - **Forest Is Not Green.** Status green is a bright, light-bodied green (`#168f43` dot, `#e3f4e7` bg); forest is a deep blue-green used for money text and Accounts chrome. Never use forest for a status badge or green for a money total.
@@ -170,7 +170,7 @@ Shadows only on floating overlays that sit above the page: dropdown menus, popov
 
 Build on shadcn/ui; restyle with the tokens. Define colours as CSS variables on `:root`, not literals in components.
 
-**Buttons.** Pill. Heights 44px (default, mobile and desktop), 36px dense only in desktop table toolbars where an adjacent 44px hit area is provided. Primary: blue fill, white text (5.17:1), hover `#1d4ed8`. Secondary: canvas fill, hairline-strong border (`#8a8a82`), ink text. Ghost: no border, blue text. Destructive: ink-outline with red text; red fill only in the final confirm step of a dialog. One primary button per view region. Disabled: muted ink on surface, no pointer events, and say why in a hint. Loading: spinner replaces label width-stable, button stays disabled.
+**Buttons.** Pill. Heights 44px (default, mobile and desktop), 36px dense only in desktop table toolbars where an adjacent 44px hit area is provided. Primary: blue fill, white text (5.17:1), hover `#1d4ed8`. Secondary: canvas fill, hairline-strong border (`#8a8a82`), ink text. Ghost: no border, blue text. Destructive (owner, 2026-11-21): a soft red fill, the status-bad tint (`#fdecea`), with ink words (15.2:1), a little deeper on hover, for every button that ends, removes or refuses something: Delete, Remove, Revoke, Discard, Stop, Mark lost, Not a lead, cancelling a thing, and a confirm dialog's last step alike. Never red words on an outline or a ghost (`test/no-red-outline-buttons.test.ts`); an icon-only remover in a list's or a form's rows (a trash can, an ✕) stays a ghost, its dialog's last step soft red. One primary button per view region. Disabled: muted ink on surface, no pointer events, and say why in a hint. Loading: spinner replaces label width-stable, button stays disabled.
 
 **Inputs.** 44px high (16px text), 6px radius, 1px border `#8a8a82` (3.4:1 as a UI boundary), canvas fill, visible label above (never placeholder-only). Placeholder is ink muted. Focus: 2px blue ring with 2px offset. Error: red border plus message below with an icon, `aria-describedby` linked. Phone fields use `+91` prefix and mono digits. Money fields show `₹` prefix, mono, right-aligned, Indian grouping on blur.
 
@@ -250,6 +250,7 @@ Target WCAG 2.2 AA. Contrast checked with the WCAG relative-luminance formula (c
 | Forest `#034f46` on canvas                                                            | 9.35:1 | Money text                                              |
 | Forest on tint `#e3f1ee`                                                              | 8.18:1 | Money badges                                            |
 | Red ink `#9b1c1c` on `#fdecea`                                                        | 7.13:1 | Status badge                                            |
+| Ink `#1a1a1a` on red tint `#fdecea`                                                   | 15.2:1 | Destructive buttons                                     |
 | Amber ink `#7a4100` on `#fff3d6`                                                      | 7.37:1 | Status badge                                            |
 | Green ink `#14532d` on `#e3f4e7`                                                      | 7.97:1 | Status badge                                            |
 | Neutral ink `#4a4a4a` on `#ecebe6`                                                    | 7.42:1 | Status badge                                            |

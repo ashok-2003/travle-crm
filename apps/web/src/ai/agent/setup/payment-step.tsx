@@ -86,7 +86,7 @@ function QrPicker({ details }: { details: PaymentDetails }) {
             {qr.fileName}
           </TextLink>
           <Button
-            variant="ghost"
+            variant="destructive"
             disabled={!access.allowed || remove.isPending}
             aria-label={t("removeNamed", { name: qr.fileName })}
             aria-describedby={access.allowed ? undefined : hintId}
