@@ -122,12 +122,14 @@ export function tripInFull(sheet: TripSheet, today: CalendarDate): string {
 /** One line a trip; `dates`, when given (a month a lookup asked), replace the next 3: the first 5, then how many more. */
 export function tripIndexLine(sheet: TripSheet, today: CalendarDate, dates?: readonly CalendarDate[]): string {
   const shown = dates?.slice(0, MONTH_DATES) ?? sheet.departures.slice(0, INDEX_DATES).map((one) => one.startsOn);
-  const more =
-    dates !== undefined && dates.length > MONTH_DATES ? ` and ${String(dates.length - MONTH_DATES)} more` : "";
+  const total = dates?.length ?? sheet.departures.length;
+  const more = total > shown.length ? ` and ${String(total - shown.length)} more` : "";
   const stops = stopsOf(sheet);
   return [
     headOf(sheet),
-    sheet.fromPaise === null ? null : `from ${formatRupees(sheet.fromPaise)}`,
+    sheet.fromPaise === null
+      ? null
+      : `from ${formatRupees(sheet.fromPaise)} (the lowest room; quote or get_trip gives each room's)`,
     shown.length === 0 ? "no open dates" : `${shown.map((day) => formatShortDay(day, today)).join(", ")}${more}`,
     stops.length === 0 ? null : `stops: ${stops.join(", ")}`,
   ]

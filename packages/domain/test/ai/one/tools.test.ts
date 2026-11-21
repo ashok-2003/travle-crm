@@ -51,10 +51,17 @@ function setup(io: Partial<OneToolIO> = {}, forced: StagedAction[] = []) {
     if (found === undefined) throw new Error(`no tool ${name}`);
     return found.run(args, { words });
   };
-  return { run, trace, stages, call };
+  return { run, trace, stages, call, tools };
 }
 
 describe("the one agent's tools", () => {
+  it("ends the run on stay_quiet and hand_over alone", () => {
+    const ending = setup()
+      .tools.filter((tool) => tool.endsRun === true)
+      .map((tool) => tool.name);
+    expect(ending.sort()).toEqual(["hand_over", "stay_quiet"]);
+  });
+
   it("answers a media tool from the media IO, and a reference the turn lacks as refused", async () => {
     const asked: [string, Record<string, unknown>][] = [];
     const { run, call } = setup({

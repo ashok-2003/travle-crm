@@ -114,6 +114,8 @@ export const brand = {
     chat: {
       wallpaper: "#efeae2",
       bubbleOut: "#d9fdd3",
+      /** The AI's messages: a violet tint, so staff tell them from a person's at a glance (the owner, 2026-11-21). */
+      bubbleAi: "#f2eaff",
       bubbleIn: "#ffffff",
       dateChip: "#fdf5e6",
       tickRead: "#0369a1",

@@ -53,6 +53,28 @@ describe("the traced AI model", () => {
     expect(call?.end).toEqual({ output: "Hello there", model: "memory-model", usage: { input: 0, output: 0 } });
   });
 
+  it("counts cached input tokens apart, as Langfuse prices them (input_cached_tokens at a tenth)", async () => {
+    const tracing = createMemoryTracing();
+    const cached = {
+      ok: true as const,
+      text: "Hi",
+      model: "m",
+      inputTokens: 11_660,
+      outputTokens: 40,
+      cachedTokens: 11_657,
+    };
+    const odd = { ...cached, inputTokens: 0 };
+    const answers = [cached, odd];
+    const inner: AiModel = { configured: true, complete: () => Promise.resolve(answers.shift() ?? cached) };
+    await withTracing(inner, tracing).complete(request);
+    // A provider counting more cached tokens than input never makes the uncached part negative.
+    await withTracing(inner, tracing).complete(request);
+    expect(tracing.generations.map((call) => call.end?.usage)).toEqual([
+      { input: 3, input_cached_tokens: 11_657, output: 40 },
+      { input: 0, input_cached_tokens: 11_657, output: 40 },
+    ]);
+  });
+
   it("names a call by its answer's schema too", async () => {
     const tracing = createMemoryTracing();
     const inner = createMemoryAiModel();

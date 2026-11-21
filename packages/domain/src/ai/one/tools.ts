@@ -105,6 +105,8 @@ export function oneAgentTools(
     name,
     description,
     schema,
+    // Nothing more to say once these go through: asking the model again only got an empty answer live.
+    ...(name === "stay_quiet" || name === "hand_over" ? { endsRun: true } : {}),
     async run(raw, { words }) {
       // The port only checks for an object, so each tool refuses its own bad arguments, in the domain's words.
       const parsed = parseOneToolArguments(name, raw, tripLabels, { voiceNotes, photos });

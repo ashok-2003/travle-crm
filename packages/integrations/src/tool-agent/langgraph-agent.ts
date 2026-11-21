@@ -4,7 +4,7 @@
 // stages in the model's order.
 import { END, GraphRecursionError, MessagesAnnotation, START, StateGraph } from "@langchain/langgraph";
 import { toLangChain } from "./messages.js";
-import { answered, callsOf, failed, nextAnswer, modelForRun, toolMessages } from "./tool-calls.js";
+import { answered, callsOf, endsRun, failed, nextAnswer, modelForRun, toolMessages } from "./tool-calls.js";
 import type { ToolAgent, ToolAgentEnd, ToolAgentInput } from "./tool-agent.js";
 
 async function run(input: ToolAgentInput): Promise<ToolAgentEnd> {
@@ -17,7 +17,8 @@ async function run(input: ToolAgentInput): Promise<ToolAgentEnd> {
       "tools",
       END,
     ])
-    .addEdge("tools", "agent")
+    // A call of an endsRun tool that went through ends the run: asking the model again only gets an empty answer.
+    .addConditionalEdges("tools", ({ messages }) => (endsRun(input, messages) ? END : "agent"), ["agent", END])
     .compile();
   try {
     const { messages } = await graph.invoke(

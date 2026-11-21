@@ -98,10 +98,30 @@ describe("native tool calling through the OpenRouter adapter", () => {
       reasoningDetails: reasoning,
     });
     expect(bodies).toHaveLength(1);
-    // An answer with neither words nor tool calls is still empty: the next model is asked.
-    const empty = fakeFetch(completion({ content: "  " }), words("Hi"));
-    expect(await modelWith(empty.fetcher).complete(request)).toMatchObject({ ok: true, text: "Hi" });
-    expect(empty.bodies.map((body) => body.model)).toEqual(["g/lite", "g/flash"]);
+  });
+
+  it("takes no words and no calls to a request with tools as an empty answer, and asks the next model without tools", async () => {
+    // A tool round answered with silence (stop, or no reason) is the agent's to handle: it nudges once or ends quiet.
+    const silent = fakeFetch(completion({ content: "  " }), { choices: [{ message: { content: null } }] });
+    for (let i = 0; i < 2; i += 1) {
+      expect(await modelWith(silent.fetcher).complete(request)).toMatchObject({
+        ok: true,
+        text: "",
+        toolCalls: [],
+      });
+    }
+    expect(silent.bodies.map((body) => body.model)).toEqual(["g/lite", "g/lite"]);
+    // Cut short (length), or a request with no tools: still no answer, so the next model is asked.
+    const cut = fakeFetch(completion({ content: "" }, "length"), words("Hi"));
+    expect(await modelWith(cut.fetcher).complete(request)).toMatchObject({ ok: true, text: "Hi" });
+    const plain = fakeFetch(completion({ content: "  " }), words("Hi"));
+    expect(await modelWith(plain.fetcher).complete({ ...request, tools: [] })).toMatchObject({ ok: true, text: "Hi" });
+    expect([...cut.bodies, ...plain.bodies].map((body) => body.model)).toEqual([
+      "g/lite",
+      "g/flash",
+      "g/lite",
+      "g/flash",
+    ]);
   });
 
   it("sends an assistant's tool calls and reasoning back unchanged, and each tool result by its call's id", async () => {

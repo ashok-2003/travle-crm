@@ -1,6 +1,6 @@
 "use client";
 
-// One answer in the Try it chat: the words the customer would get, in our green bubble on the right; a line of its own,
+// One answer in the Try it chat: the words the customer would get, in the AI's violet bubble on the right; a line of its own,
 // never an error, when it would hand the chat over, send nothing, or be stopped by a check; and "Why", closed until
 // opened. The bubble and the "Why" toggle are the new agent's turn's too (test-natural-turn.tsx).
 import type { TestAiAnswer } from "@travel-crm/contracts/ai";
@@ -45,7 +45,7 @@ function TurnStatus({ answer }: { answer: TestAiAnswer }) {
 /** Our green bubble on the right: what would go to the customer. */
 export function OutBubble({ children }: { children: ReactNode }) {
   return (
-    <p className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-out px-3 py-2 whitespace-pre-line wrap-anywhere">
+    <p className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-ai px-3 py-2 whitespace-pre-line wrap-anywhere">
       {children}
     </p>
   );

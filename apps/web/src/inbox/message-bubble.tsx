@@ -1,8 +1,8 @@
 "use client";
 
-// One message of a chat (spec 3.2): the customer's on one side in white, ours on the other in WhatsApp's green, with its time
-// and, for ours, who sent it (or that it was an automatic reply) and its state in ticks; a failed one says why and offers Try
-// again. Nothing is drawn with a border or shadow.
+// One message of a chat (spec 3.2): the customer's on one side in white, ours on the other in WhatsApp's green (the AI's in a
+// violet tint, so it is told apart by colour alone), with its time and, for ours, who sent it (or that it was an automatic
+// reply) and its state in ticks; a failed one says why and offers Try again. Nothing is drawn with a border or shadow.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { StarIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -44,6 +44,37 @@ export function MessageBubble({
   const { replyTo } = useReplying();
   const mayReply = useHolds("inbox:reply");
   const swipe = useRef<{ x: number; y: number } | null>(null);
+  const fill = sticker
+    ? "bg-transparent"
+    : !ours
+      ? "bg-chat-bubble-in"
+      : message.byAi
+        ? "bg-chat-bubble-ai"
+        : "bg-chat-bubble-out";
+  // The corner's line: who sent it, the time and our ticks. It is also drawn, invisible, at the end of the words, so the
+  // last line leaves it exactly the room it takes, however long the sender's name or "From the phone" is.
+  const meta = (spacer: boolean) => (
+    <>
+      {ours && firstName !== undefined && <span>{firstName} ·</span>}
+      {ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
+        <span>{t("formerMember")} ·</span>
+      )}
+      {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
+      {message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
+      {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
+      <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
+      {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
+      {spacer ? (
+        <span className="size-6" />
+      ) : (
+        // One place for both sides: the end of the time line, shown on hover with a mouse and always on a touch screen.
+        <MessageActions
+          message={message}
+          className="relative opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100"
+        />
+      )}
+    </>
+  );
   return (
     <li
       data-message-id={message.id}
@@ -70,32 +101,28 @@ export function MessageBubble({
         className={cn(
           "relative flex max-w-[min(85%,38rem)] flex-col gap-1 rounded-lg text-body",
           media ? "p-1" : "px-2.5 pt-1.5 pb-1",
-          sticker
-            ? "bg-transparent"
-            : ours
-              ? "bg-chat-bubble-out text-foreground"
-              : "bg-chat-bubble-in text-foreground",
+          fill,
+          !sticker && "text-foreground",
           first && !sticker && (ours ? "rounded-tr-none" : "rounded-tl-none"),
           // The tail: a small triangle at the top corner, cut with a clip path (no border is drawn).
           first &&
             !sticker &&
             (ours
-              ? "before:absolute before:top-0 before:-right-2 before:size-2 before:bg-chat-bubble-out before:[clip-path:polygon(0_0,100%_0,0_100%)]"
+              ? cn(
+                  "before:absolute before:top-0 before:-right-2 before:size-2 before:[clip-path:polygon(0_0,100%_0,0_100%)]",
+                  message.byAi ? "before:bg-chat-bubble-ai" : "before:bg-chat-bubble-out",
+                )
               : "before:absolute before:top-0 before:-left-2 before:size-2 before:bg-chat-bubble-in before:[clip-path:polygon(0_0,100%_0,100%_100%)]"),
         )}
       >
         {message.quoted !== null && <QuoteBlock quoted={message.quoted} senderName={quotedSender} />}
         <div dir="auto" className={cn("break-words whitespace-pre-wrap script-leading", media && "px-1.5")}>
           <MessageBody message={message} />
-          {/* Room for the corner's time, so the last line never runs under it. */}
+          {/* Room for the corner's line, so the last line never runs under it. */}
           {!media && (
-            <span
-              aria-hidden="true"
-              className={cn(
-                "inline-block",
-                ours ? (message.origin === "automation" ? "w-52" : firstName === undefined ? "w-28" : "w-40") : "w-20",
-              )}
-            />
+            <span aria-hidden="true" className="invisible inline-flex items-center gap-1 ps-2 text-caption">
+              {meta(true)}
+            </span>
           )}
         </div>
         {message.reaction !== null && message.kind !== "reaction" && (
@@ -116,20 +143,7 @@ export function MessageBubble({
             media && "px-1.5 pb-0.5",
           )}
         >
-          {ours && firstName !== undefined && <span>{firstName} ·</span>}
-          {ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
-            <span>{t("formerMember")} ·</span>
-          )}
-          {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
-          {message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
-          {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
-          <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
-          {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
-          {/* One place for both sides: the end of the time line, shown on hover with a mouse and always on a touch screen. */}
-          <MessageActions
-            message={message}
-            className="relative opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100"
-          />
+          {meta(false)}
         </p>
       </div>
     </li>
