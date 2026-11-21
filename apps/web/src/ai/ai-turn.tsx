@@ -44,7 +44,7 @@ export function AiTyping({ conversationId }: { conversationId: string }) {
   return (
     <li className="mt-2 flex flex-row-reverse px-3 md:px-[6%]" role="status" aria-live="polite">
       <div className="flex flex-col items-end gap-1">
-        <span className="flex items-center gap-1 rounded-lg rounded-tr-none bg-chat-bubble-out px-3 py-2.5">
+        <span className="flex items-center gap-1 rounded-lg rounded-tr-none bg-chat-bubble-ai px-3 py-2.5">
           {["[animation-delay:0ms]", "[animation-delay:150ms]", "[animation-delay:300ms]"].map((delay) => (
             <span
               key={delay}
