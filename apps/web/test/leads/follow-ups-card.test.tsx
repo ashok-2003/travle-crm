@@ -14,7 +14,7 @@ import { aMessage } from "../inbox/answer-api";
 import { stubApi, type Answer } from "../support/api-stub";
 import { member } from "../support/members";
 import { aLead, anEntry, aTimeline, ids } from "./records";
-import { inputsTo, owner, renderScreen } from "./screen";
+import { inputsTo, owner, renderScreen, salesperson } from "./screen";
 
 const { work: words, followUps } = messages.leads.lead;
 const { follow } = messages.sales.lead;
@@ -31,7 +31,12 @@ const work = (changes: Partial<LeadWork>): LeadWork => ({
   ...changes,
 });
 
-function renderCard(lead = aLead(), me = owner, answers: Record<string, Answer> = {}) {
+function renderCard(
+  lead = aLead(),
+  me = owner,
+  answers: Record<string, Answer> = {},
+  { place = "page", access = "full" }: { place?: "page" | "panel"; access?: "full" | "read_only" } = {},
+) {
   const api = stubApi({
     "leads.addWork": {
       data: { ...work({}), firstDueAt: work({}).dueAt, record: null, doneAt: null, cancelledAt: null },
@@ -39,7 +44,10 @@ function renderCard(lead = aLead(), me = owner, answers: Record<string, Answer> 
     "leads.timeline": aTimeline([]),
     ...answers,
   });
-  renderScreen(<FollowUpsCard lead={lead} />, { me, subscription: { ...paidSubscription, modules: ["inbox"] } });
+  renderScreen(<FollowUpsCard lead={lead} place={place} />, {
+    me,
+    subscription: { ...paidSubscription, modules: ["inbox"], access },
+  });
   return api;
 }
 
@@ -226,5 +234,62 @@ describe("FollowUpsCard", () => {
     expect(await screen.findByText(followUps.none)).toBeVisible();
     expect(screen.queryByText(follow.label)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: follow.start })).not.toBeInTheDocument();
+  });
+
+  it("falls back to the timeline's 'wrote on WhatsApp' when the member can't read the chat", async () => {
+    renderCard(aLead(), salesperson, {
+      "leads.timeline": aTimeline([
+        anEntry({ id: ids.entry, kind: "whatsapp-contact", occurredAt: "2026-10-16T04:30:00.000Z" }),
+        { ...aCall("2026-10-16T03:30:00.000Z"), id: ids.otherTask },
+      ]),
+    });
+    expect(await screen.findByText("They wrote on WhatsApp · 1 hr ago")).toBeVisible();
+  });
+
+  it("leaves the last contact out while the chat loads, and while older entries may hold it", async () => {
+    renderCard(aLead(), owner, {
+      "leads.timeline": aTimeline([aCall("2026-10-16T05:00:00.000Z")]),
+      "inbox.leadChat": "never",
+    });
+    await waitFor(() => {
+      expect(inputsTo("leads.timeline")).toHaveLength(1);
+    });
+    expect(screen.queryByText(followUps.lastContact)).not.toBeInTheDocument();
+    cleanup();
+
+    renderCard(aLead(), owner, {
+      "leads.timeline": aTimeline([anEntry({ kind: "note", body: "Hi", byAi: false })], ids.entry),
+    });
+    await waitFor(() => {
+      expect(inputsTo("leads.timeline")).toHaveLength(1);
+    });
+    expect(screen.queryByText(followUps.lastContact)).not.toBeInTheDocument();
+    expect(screen.queryByText(followUps.none)).not.toBeInTheDocument();
+  });
+
+  it("says why Start and Stop are off while the subscription is read-only", async () => {
+    renderCard(aLead(), owner, sales(active), { access: "read_only" });
+    const stop = await screen.findByRole("button", { name: follow.stop });
+    expect(stop).toBeDisabled();
+    expect(stop).toHaveAccessibleDescription(messages.errors.reasons.ORGANIZATION_READ_ONLY);
+  });
+
+  it("in the inbox's contact panel is the open work alone, and asks for nothing more", async () => {
+    const api = renderCard(
+      aLead({ work: [work({})] }),
+      owner,
+      { ...sales(active), ...chatOf(aMessage({})) },
+      {
+        place: "panel",
+      },
+    );
+    const card = screen.getByRole("region", { name: words.title });
+    expect(within(card).getByRole("button", { name: "Done: Send the Kashmir options" })).toBeVisible();
+    expect(within(card).getByRole("button", { name: words.add })).toBeVisible();
+    expect(within(card).queryByText(followUps.lastContact)).not.toBeInTheDocument();
+    expect(within(card).queryByText(follow.label)).not.toBeInTheDocument();
+    // Given a moment to ask, it asks nothing: not the sales, the chat or the timeline.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(api.calls).toEqual([]);
   });
 });

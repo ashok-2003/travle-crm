@@ -3,9 +3,11 @@
 // A lead's sales signals on its page (sales execution; the lead page's revamp, 2026-11-21), in two places: how hot it
 // is and why in its header (HotSignals), and its automatic follow-ups in its Follow-ups card (useAutomaticFollowUps):
 // sent so far and when the next goes, or why they stopped, with Stop (they spoke on the phone; soft red, as it ends
-// something) and Start again. Neither shows before the lead's sales have loaded.
+// something) and Start again, off with the reason under it while the subscription refuses changes. Neither shows before
+// the lead's sales have loaded.
 import { FlameIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useId } from "react";
 import type { Detail } from "@/components/details";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge } from "@/components/status-badge";
@@ -13,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { formatDayTime } from "@/lib/format";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { useLeadSales, useSetFollowUps } from "./use-sales";
 
 const stopReasons = ["replied", "closed", "by_hand", "opted_out", "cant_send", "finished", "turned_off"] as const;
@@ -49,6 +52,7 @@ export function useAutomaticFollowUps(leadId: string, open: boolean): Detail | n
   const setFollowUps = useSetFollowUps();
   const mayEdit = useHolds("leads:edit");
   const access = useWriteAccess("change");
+  const hintId = useId();
   const cadence = sales.data?.cadence;
   if (cadence === undefined || (cadence === null && !open)) return null;
   const words =
@@ -76,15 +80,19 @@ export function useAutomaticFollowUps(leadId: string, open: boolean): Detail | n
     ...(mayEdit &&
       open && {
         action: (
-          <Button
-            variant={running ? "destructive" : "outline"}
-            disabled={setFollowUps.isPending || !access.allowed}
-            onClick={() => {
-              setFollowUps.mutate({ leadId, on: !running });
-            }}
-          >
-            {running ? t("follow.stop") : t("follow.start")}
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              variant={running ? "destructive" : "outline"}
+              aria-describedby={access.hint === null ? undefined : hintId}
+              disabled={setFollowUps.isPending || !access.allowed}
+              onClick={() => {
+                setFollowUps.mutate({ leadId, on: !running });
+              }}
+            >
+              {running ? t("follow.stop") : t("follow.start")}
+            </Button>
+            <WriteHint id={hintId} hint={access.hint} />
+          </div>
         ),
       }),
   };
