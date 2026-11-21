@@ -28,20 +28,23 @@ afterEach(() => {
 });
 
 describe("InsightCard", () => {
-  it("shows the AI chip and what the AI noted", () => {
+  it("shows the AI chip, and what the AI noted under Why, folded until opened", async () => {
     stubApi({});
     renderScreen(
       <InsightCard insight={{ ...insight, chatSummary: "Travels with her parents; likes quiet places." }} />,
     );
     expect(document.querySelector("[data-ai-chip]")).toHaveTextContent(messages.ai.chip);
+    expect(screen.queryByText("Travels with her parents; likes quiet places.")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: messages.ai.insight.why }));
     expect(screen.getByRole("heading", { name: messages.ai.insight.noted })).toBeVisible();
     expect(screen.getByText("Travels with her parents; likes quiet places.")).toBeVisible();
   });
 
-  it("shows nothing under 'What the AI noted' when there is no summary", () => {
+  it("shows nothing under 'What the AI noted' when there is no summary", async () => {
     stubApi({});
     renderScreen(<InsightCard insight={insight} />);
     expect(document.querySelector("[data-ai-chip]")).not.toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: messages.ai.insight.why }));
     expect(screen.queryByRole("heading", { name: messages.ai.insight.noted })).not.toBeInTheDocument();
   });
 
@@ -73,6 +76,7 @@ describe("InsightCard", () => {
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(66);
     stubApi({});
     renderScreen(<InsightCard insight={{ ...insight, chatSummary: "A long note.\nOn many lines.\nAnd more." }} />);
+    await userEvent.click(screen.getByRole("button", { name: messages.ai.insight.why }));
     const note = screen.getByText(/A long note\./);
     expect(note).toHaveClass("line-clamp-3");
     await userEvent.click(screen.getByRole("button", { name: messages.common.readMore }));

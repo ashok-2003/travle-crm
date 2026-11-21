@@ -1,6 +1,6 @@
 "use client";
 
-// A lead's timeline (spec 3.4; the lead page's revamp, 2026-11-21): small filters on top (All, AI, Calls & chats), Add a
+// A lead's timeline (spec 3.4; the lead page's revamp, 2026-11-21): small filters beside its title (All, AI, Calls & chats), Add a
 // note for whoever can edit the lead, then what happened, newest first, a page at a time (use-timeline.ts), grouped
 // under its days (Today, Yesterday, 6 Nov), each entry a compact row read by its colour (timeline-entry.tsx). On a
 // computer (`boxed`) it fills its column and its entries scroll inside their own box, so the history never pushes the
@@ -135,27 +135,30 @@ export function Timeline({
     );
   };
 
+  const filterChips = (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      aria-label={t("filters.label")}
+      value={filter}
+      onValueChange={(value) => {
+        // Pressing the chosen filter again keeps it: one is always chosen.
+        const chosen = filters.find((each) => each === value);
+        if (chosen !== undefined) setFilter(chosen);
+      }}
+      className="flex-wrap justify-end"
+    >
+      {filters.map((each) => (
+        <ToggleGroupItem key={each} value={each}>
+          {each === filter && <CheckIcon aria-hidden="true" />}
+          {t(`filters.${each}`)}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+
   return (
-    <LeadCard title={t("title")} fill={boxed}>
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        aria-label={t("filters.label")}
-        value={filter}
-        onValueChange={(value) => {
-          // Pressing the chosen filter again keeps it: one is always chosen.
-          const chosen = filters.find((each) => each === value);
-          if (chosen !== undefined) setFilter(chosen);
-        }}
-        className="flex-wrap"
-      >
-        {filters.map((each) => (
-          <ToggleGroupItem key={each} value={each}>
-            {each === filter && <CheckIcon aria-hidden="true" />}
-            {t(`filters.${each}`)}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+    <LeadCard title={t("title")} action={filterChips} fill={boxed}>
       {canEdit && <NoteComposer leadId={lead.id} {...(noteRef !== undefined && { ref: noteRef })} />}
       {boxed ? (
         <div

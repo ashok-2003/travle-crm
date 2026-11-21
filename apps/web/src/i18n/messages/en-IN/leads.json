@@ -461,6 +461,9 @@
       "theyWrote": "They wrote “{words}” · {ago} ago",
       "weWrote": "We wrote “{words}” · {ago} ago",
       "aiWrote": "The AI wrote “{words}” · {ago} ago",
+      "theySent": "They sent: {kind} · {ago} ago",
+      "weSent": "We sent: {kind} · {ago} ago",
+      "aiSent": "The AI sent: {kind} · {ago} ago",
       "called": "Call: {outcome} · {ago} ago",
       "none": "No calls or messages yet"
     },
@@ -618,7 +621,7 @@
       },
       "today": "Today",
       "yesterday": "Yesterday",
-      "entries": "The timeline’s entries",
+      "entries": "What happened, newest first",
       "showFirst": "Show more",
       "noneShown": "Nothing of this kind yet.",
       "aiMark": "AI"

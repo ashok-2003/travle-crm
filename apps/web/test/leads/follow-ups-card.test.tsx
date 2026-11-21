@@ -182,7 +182,7 @@ describe("FollowUpsCard", () => {
         }),
       ),
     );
-    expect(await screen.findByText("The AI wrote “Photo” · 2 days ago")).toBeVisible();
+    expect(await screen.findByText("The AI sent: Photo · 2 days ago")).toBeVisible();
     cleanup();
 
     renderCard(

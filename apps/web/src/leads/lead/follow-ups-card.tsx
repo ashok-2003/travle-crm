@@ -36,8 +36,9 @@ function OpenWork({ lead }: { lead: LeadDetail }) {
       {lead.work.map((work, index) => (
         <Fragment key={work.id}>
           {index > 0 && <ItemSeparator />}
-          <Item size="sm" role="listitem" className="px-0">
-            <ItemContent>
+          <Item size="sm" role="listitem">
+            {/* At least 12rem for what to do, so on a phone Done and Snooze go under it rather than squeeze it. */}
+            <ItemContent className="min-w-48">
               <ItemTitle>
                 <h3 className="script-leading">{work.title}</h3>
               </ItemTitle>

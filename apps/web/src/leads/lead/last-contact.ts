@@ -1,8 +1,8 @@
 "use client";
 
 // The Follow-ups card's last contact (the lead page's revamp, 2026-11-21): the newest of the lead's calls and WhatsApp
-// messages in one line, "They wrote “Ok thanks” · 2 hr ago", "We wrote …", "The AI wrote …" or "Call: Spoke · 3 hr
-// ago". Read from what the page already loads, so it asks nothing new: the timeline's call entries (its newest page) and
+// messages in one line, "They wrote “Ok thanks” · 2 hr ago", "We wrote …", "The AI wrote …", "They sent: Photo · …" or
+// "Call: Spoke · 3 hr ago". Read from what the page already loads, so it asks nothing new: the timeline's call entries (its newest page) and
 // the lead's chat (its newest messages, the WhatsApp section's own query). Null when there is neither; undefined while
 // the timeline is still loading.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
@@ -38,11 +38,12 @@ export function useLastContact(leadId: string): string | null | undefined {
   };
   const newer = (one: string, other: string) => new Date(one).getTime() > new Date(other).getTime();
   if (message !== undefined && (call === undefined || newer(message.occurredAt, call.occurredAt))) {
-    const words =
-      [message.body, message.caption].find((text) => text !== null && text.trim() !== "") ??
-      tKinds(kindLabels[message.kind]);
-    const who = message.direction === "in" ? "theyWrote" : message.byAi ? "aiWrote" : "weWrote";
-    return t(`lead.followUps.${who}`, { words, ago: ago(message.occurredAt) });
+    const words = [message.body, message.caption].find((text) => text !== null && text.trim() !== "");
+    const who = message.direction === "in" ? "they" : message.byAi ? "ai" : "we";
+    // Words are quoted; a photo or a voice note with none is named by its kind ("They sent: Photo").
+    return words === undefined
+      ? t(`lead.followUps.${who}Sent`, { kind: tKinds(kindLabels[message.kind]), ago: ago(message.occurredAt) })
+      : t(`lead.followUps.${who}Wrote`, { words, ago: ago(message.occurredAt) });
   }
   if (call?.kind !== "call") return null;
   return t("lead.followUps.called", {

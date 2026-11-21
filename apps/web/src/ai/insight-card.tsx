@@ -2,8 +2,8 @@
 
 // The AI's guess of how a lead will go (Settings, AI turns it on for the agency): how likely it books in the next two weeks, as
 // hot, warm or cold and a number; a warning when it looks fake (spam, a test, a wrong number); a line on how the lead stands;
-// what the AI noted from the chat (three lines, then More); what to do next; and why, folded until opened (the lead page's
-// revamp, 2026-11-21). The trip card shows what the customer wants. Always shown as a guess, in the AI's violet tint, and
+// what to do next; and, folded until opened (the lead page's revamp, 2026-11-21: it sits over the timeline, which needs
+// the room), why, and what the AI noted from the chat (three lines, then More). The trip card shows what the customer wants. Always shown as a guess, in the AI's violet tint, and
 // it never moves the lead's stage. Nothing shows until the AI has scored the lead from its chat. LeadTemperature is the
 // guess alone ("Warm 65%"), for the lead's header.
 import type { LeadInsight } from "@travel-crm/contracts/ai";
@@ -47,7 +47,7 @@ function GuessChip({ insight, named = false }: { insight: LeadInsight; named?: b
   );
 }
 
-function Why({ reasons }: { reasons: string[] }) {
+function Why({ reasons, noted }: { reasons: string[]; noted: string | null }) {
   const t = useTranslations("ai.insight");
   const [open, setOpen] = useState(false);
   return (
@@ -60,12 +60,20 @@ function Why({ reasons }: { reasons: string[] }) {
           </Button>
         </CollapsibleTrigger>
       </h3>
-      <CollapsibleContent>
-        <ul className="flex list-disc flex-col gap-1 pl-5">
-          {reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
+      <CollapsibleContent className="flex flex-col gap-4">
+        {reasons.length > 0 && (
+          <ul className="flex list-disc flex-col gap-1 pl-5">
+            {reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+        {noted !== null && (
+          <div className="flex flex-col gap-1">
+            <h4 className="text-label font-medium text-muted-foreground">{t("noted")}</h4>
+            <ClampedLines text={noted} />
+          </div>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );
@@ -97,19 +105,15 @@ export function InsightCard({ insight }: { insight: LeadInsight }) {
           </Alert>
         )}
         {insight.summary !== "" && <p>{insight.summary}</p>}
-        {insight.chatSummary !== null && (
-          <div className="flex flex-col gap-1">
-            <h3 className="text-label font-medium text-muted-foreground">{t("noted")}</h3>
-            <ClampedLines text={insight.chatSummary} />
-          </div>
-        )}
         {insight.nextStep !== "" && (
           <div className="flex flex-col gap-1">
             <h3 className="text-label font-medium text-muted-foreground">{t("nextStep")}</h3>
             <p>{insight.nextStep}</p>
           </div>
         )}
-        {insight.reasons.length > 0 && <Why reasons={insight.reasons} />}
+        {(insight.reasons.length > 0 || insight.chatSummary !== null) && (
+          <Why reasons={insight.reasons} noted={insight.chatSummary} />
+        )}
       </CardContent>
     </Card>
   );
