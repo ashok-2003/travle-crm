@@ -55,8 +55,9 @@ test("an Owner reassigns a lead; Ravi finds it in his Leads", async ({ page, bro
   await expect(ravisPage.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
   await expect(ravisPage.getByRole("list", { name: "Next follow-up" }).getByText("Send the Goa options")).toBeVisible();
   await expectAccessible(ravisPage);
-  // A salesperson can't reassign: the ⋯ menu offers Lost and Not a lead only.
+  // A salesperson can't reassign: the ⋯ menu offers Edit person (the person card's Edit, moved here), Lost and Not a lead
+  // only.
   await ravisPage.getByRole("button", { name: "More for Rahul Sharma" }).click();
-  await expect(ravisPage.getByRole("menuitem")).toHaveText(["Lost", "Not a lead"]);
+  await expect(ravisPage.getByRole("menuitem")).toHaveText(["Edit person", "Lost", "Not a lead"]);
   await ravisPhone.close();
 });
