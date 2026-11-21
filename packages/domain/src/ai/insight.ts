@@ -371,6 +371,8 @@ export async function scoreLead(
     messages: prepared.messages,
     json: true,
     maxTokens: 500,
+    // Gemini's thinking counts against maxTokens: left to itself, it used all 500 on long chats and answered nothing.
+    reasoning: { effort: "minimal" },
     user: organizationId,
   });
   const parsed = result.ok ? safeParse(result.text) : null;

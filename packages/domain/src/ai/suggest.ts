@@ -125,6 +125,8 @@ export async function suggestReply(
     feature: "suggest_reply",
     messages: promptOf(prepared.facts),
     maxTokens: 500,
+    // Gemini's thinking counts against maxTokens: left to itself, it used all 500 on long chats and answered nothing.
+    reasoning: { effort: "minimal" },
     // Opaque: the agency's id, never a person's.
     user: organizationId,
   });
