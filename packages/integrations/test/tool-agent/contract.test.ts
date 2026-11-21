@@ -93,9 +93,10 @@ describe.each([
           content: "Let me check.",
           toolCalls: [{ id: "call_1", name: "quote", arguments: '{"trip_id":"T1","adults":2}' }],
           reasoningDetails: signature,
+          model: "memory-model",
         },
         { role: "tool", content: "T1: ₹9,499 per person", toolCallId: "call_1" },
-        { role: "assistant", content: "₹9,499 per person" },
+        { role: "assistant", content: "₹9,499 per person", model: "memory-model" },
       ],
     });
   });
@@ -115,6 +116,7 @@ describe.each([
         content,
         toolCalls: [{ id, name: "quote", arguments: '{"trip_id":"T1","adults":2}' }],
         reasoningDetails,
+        model: "memory-model",
       },
       { role: "tool", content: "T1: ₹9,499 per person", toolCallId: id },
     ];

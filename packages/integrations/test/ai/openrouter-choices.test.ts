@@ -1,7 +1,7 @@
 // A request's own model and temperature (Try it's test chat): the model named replaces the feature's list, on the backup
 // key too, and a temperature goes only when it is set, so every other call carries none.
 import { describe, expect, it } from "vitest";
-import { createOpenRouterModel, withBackupModel, type AiRequest } from "../../src/ai/index.js";
+import { createOpenRouterModel, withModelChain, type AiRequest } from "../../src/ai/index.js";
 
 const KEY = "sk-or-secret-key-1234567890";
 const request: AiRequest = { feature: "autopilot", messages: [{ role: "user", content: "Hello" }] };
@@ -33,15 +33,20 @@ describe("a request's own model and temperature", () => {
   it("has the backup key ask the same model", async () => {
     const first = fakeFetch(503);
     const backup = fakeFetch(200);
-    const model = withBackupModel(
+    const model = withModelChain([
       createOpenRouterModel({ apiKey: KEY, models, fetch: first.fetcher }),
       createOpenRouterModel({ apiKey: `${KEY}-backup`, models: { autopilot: ["b/live"] }, fetch: backup.fetcher }),
-    );
+    ]);
     expect(await model.complete({ ...request, model: "google/gemini-3.5-flash" })).toMatchObject({
       ok: true,
       model: "google/gemini-3.5-flash",
     });
     expect(backup.bodies.map((body) => body.model)).toEqual(["google/gemini-3.5-flash"]);
+  });
+
+  it("serves the models any feature's list names, so a tool round can come back to it", () => {
+    const model = createOpenRouterModel({ apiKey: KEY, models: { ...models, sales_agent: ["s/agent"] } });
+    expect(["a/fallback", "s/agent", "b/live"].map((name) => model.serves?.(name))).toEqual([true, true, false]);
   });
 
   it("sends a temperature only when it is set", async () => {

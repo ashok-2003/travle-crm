@@ -8,7 +8,7 @@ import {
   createOpenRouterModel,
   OPENROUTER_BASE_URL,
   serviceAccountToken,
-  withBackupModel,
+  withModelChain,
   withTracing,
   type AiModel,
 } from "@travel-crm/integrations/ai";
@@ -123,7 +123,7 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
       ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
       ...zeroRetention,
     });
-    return withBackupModel(first, backup);
+    return withModelChain([first, backup]);
   }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;

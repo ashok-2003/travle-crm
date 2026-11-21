@@ -5,6 +5,7 @@ import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { messagesStateReducer } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { wireMessage } from "../../src/ai/index.js";
 import { aiToolOf, fromLangChain, toLangChain } from "../../src/tool-agent/messages.js";
 import {
   assistant,
@@ -32,6 +33,12 @@ describe("messages between our port and LangChain", () => {
       expect(fromLangChain(toLangChain(message))).toStrictEqual(message);
     }
     expect(fromLangChain(toLangChain(assistantWithCalls)).toolCalls?.[0]?.arguments).toBe('{"trip_id":"T1",}');
+  });
+
+  it("keeps the model that wrote an answer through LangChain and back, and never sends it to the endpoint", () => {
+    const written = { ...assistantWithSignedCalls, model: "gemini-3.5-flash-lite" };
+    expect(fromLangChain(toLangChain(written))).toStrictEqual(written);
+    expect(wireMessage(written)).not.toHaveProperty("model");
   });
 
   it("gives LangGraph the calls parsed for its routing, an object of {} when the text isn't one", () => {

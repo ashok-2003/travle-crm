@@ -50,8 +50,8 @@ function argumentsObject(text: string): Record<string, unknown> {
 }
 
 /**
- * An assistant message as LangChain's fields: the calls parsed for LangGraph's routing, and the raw calls (OpenAI's shape)
- * and the reasoning details kept in `additional_kwargs`, which is what goes back to the model.
+ * An assistant message as LangChain's fields: the calls parsed for LangGraph's routing, and the raw calls (OpenAI's shape),
+ * the reasoning details and the model that wrote it kept in `additional_kwargs`, which is what goes back to the model.
  */
 export function assistantFields(message: AiMessage): AIMessageFields {
   const calls = message.toolCalls;
@@ -75,6 +75,7 @@ export function assistantFields(message: AiMessage): AIMessageFields {
             })),
           }),
       ...(message.reasoningDetails === undefined ? {} : { reasoning_details: message.reasoningDetails }),
+      ...(message.model === undefined ? {} : { model: message.model }),
     },
   };
 }
@@ -127,12 +128,13 @@ export function fromLangChain(message: BaseMessage): AiMessage {
   }
   if (AIMessage.isInstance(message)) {
     const toolCalls = toolCallsOf(message);
-    const reasoningDetails = message.additional_kwargs.reasoning_details;
+    const { reasoning_details: reasoningDetails, model } = message.additional_kwargs;
     return {
       role: "assistant",
       content,
       ...(toolCalls === undefined ? {} : { toolCalls }),
       ...(reasoningDetails === undefined ? {} : { reasoningDetails }),
+      ...(typeof model === "string" ? { model } : {}),
     };
   }
   if (ToolMessage.isInstance(message)) return { role: "tool", content, toolCallId: message.tool_call_id };

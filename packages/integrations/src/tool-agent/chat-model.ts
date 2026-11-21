@@ -53,6 +53,7 @@ function answerMessage(answer: Answer): BaseMessage {
     content: answer.text,
     ...(calls.length === 0 ? {} : { toolCalls: calls }),
     ...(answer.reasoningDetails === undefined ? {} : { reasoningDetails: answer.reasoningDetails }),
+    model: answer.model,
   });
   // The standard structure: the default one types usage_metadata as never under our strict compiler settings.
   return new AIMessage<StandardMessageStructure>({
