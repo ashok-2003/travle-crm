@@ -136,9 +136,9 @@ function itemOf(
 }
 
 /**
- * One page of leads, newest first, or a Show's chosen leads in their own order; the router adds the owners' names. A
- * numbered page starts (page - 1) × limit leads in (after the cursor, when one is given too) and says how many leads
- * match on every page; a page after a cursor doesn't count them, and lists newest first, as its cursor needs.
+ * One page of leads, newest first; the router adds the owners' names. A numbered page starts (page - 1) × limit leads
+ * in (after the cursor, when one is given too), says how many leads match on every page, and lists a Show's chosen
+ * leads in their own order; a cursor's pages don't count them and stay newest first, as a cursor needs.
  */
 export async function listLeads(
   tx: OrgTx,
@@ -151,7 +151,7 @@ export async function listLeads(
     ...filterFor(access, input, await createdFromOf(tx, access, input, now), chosen),
     stages: input.stage === "open" ? openLeadStages : [input.stage],
     ...(input.before === undefined ? {} : { before: input.before }),
-    ...(chosen !== undefined && input.before === undefined && { ranked: true as const }),
+    ...(chosen !== undefined && input.page !== undefined && { ranked: true as const }),
   };
   // One more than a page tells whether another page follows.
   const rows = await tx.$queryRaw<LeadListRow[]>(

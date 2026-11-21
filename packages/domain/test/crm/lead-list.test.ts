@@ -344,8 +344,9 @@ describe("the lead list", () => {
   describe("with a Show's chosen leads", () => {
     const chosenList = (access: MemberAccess, input: Record<string, unknown>, chosen: ChosenLeads) =>
       inOrg((tx) => listLeads(tx, access, listLeadsInput.parse(input), new Date(), chosen));
+    /** A numbered page's ids, page 1 unless asked otherwise: the Leads page's, which keeps a Show's order. */
     const chosenIds = async (access: MemberAccess, input: Record<string, unknown>, chosen: ChosenLeads) =>
-      (await chosenList(access, input, chosen)).items.map((item) => item.id);
+      (await chosenList(access, { page: 1, ...input }, chosen)).items.map((item) => item.id);
     const chosenCounts = (access: MemberAccess, input: Record<string, unknown>, chosen: ChosenLeads) =>
       inOrg((tx) => countLeads(tx, access, leadCountsInput.parse(input), new Date(), chosen));
     /** The ids a Show would hand in, in its order. */
@@ -389,6 +390,17 @@ describe("the lead list", () => {
       expect((await chosenCounts(manager, { view: "everyone" }, chosen)).open).toBe(4);
       expect(await chosenIds(manager, { view: "everyone" }, { ids: [], mineChosen: false })).toEqual([]);
       expect((await chosenCounts(manager, { view: "everyone" }, { ids: [], mineChosen: false })).open).toBe(0);
+    });
+
+    it("walks a cursor newest first, as a cursor needs; only numbered pages take the Show's order", async () => {
+      const [oldest, middle, newest] = await leadsOf(randomUUID(), [{}, {}, {}]);
+      const chosen = choose([oldest, newest, middle]);
+      const first = await chosenList(manager, { view: "everyone", limit: 2 }, chosen);
+      expect(first.items.map((item) => item.id)).toEqual([newest, middle]);
+      expect(first.nextCursor).toBe(middle);
+      const rest = await chosenList(manager, { view: "everyone", limit: 2, before: first.nextCursor }, chosen);
+      expect(rest.items.map((item) => item.id)).toEqual([oldest]);
+      expect(await chosenIds(manager, { view: "everyone", limit: 3 }, chosen)).toEqual([oldest, newest, middle]);
     });
 
     it("takes Mine as the choice settled it, and still holds a salesperson to their own", async () => {
