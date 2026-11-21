@@ -64,10 +64,17 @@ wait_for_log() {
 }
 
 # Expects an address to answer with the status given. Extra arguments go to curl.
+# No answer within five seconds ("000") is asked again, up to six times in all: a server that has just restarted can be
+# slow to its first answer (a deploy's console, 2026-11-21). Any other wrong status fails at once.
 expect_status() {
-  local url="$1" expected="$2" actual
+  local url="$1" expected="$2" actual tries=1
   shift 2
   actual="$(status_of "$url" "$@")"
+  while [ "$actual" = 000 ] && [ "$expected" != 000 ] && [ "$tries" -lt 6 ]; do
+    sleep 5
+    tries=$((tries + 1))
+    actual="$(status_of "$url" "$@")"
+  done
   [ "$actual" = "$expected" ] || fail "$url answered $actual, not $expected"
   echo "ok: $url answers $expected"
 }

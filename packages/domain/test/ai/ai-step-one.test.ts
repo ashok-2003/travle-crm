@@ -372,7 +372,7 @@ describe("the AI, step one", () => {
       model.answer(JSON.stringify(answer));
       expect(await score()).toBe("scored");
       const request = model.requests[0];
-      expect(request).toMatchObject({ feature: "score_lead", json: true });
+      expect(request).toMatchObject({ feature: "score_lead", json: true, reasoning: { effort: "minimal" } });
       expect(JSON.stringify(request?.messages)).not.toMatch(/\+91\d{8}/);
       const row = await inOrg((tx) => tx.leadAiInsight.findFirstOrThrow({ where: { leadId: lead.id } }));
       expect(row).toMatchObject({

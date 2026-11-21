@@ -44,6 +44,23 @@ describe("the AI's backup", () => {
     expect(backup.requests).toHaveLength(0);
   });
 
+  it("never asks the backup in the middle of a tool round", async () => {
+    const first = createMemoryAiModel();
+    const backup = createMemoryAiModel();
+    first.answer({ ok: false, reason: "unavailable" });
+    backup.answer("From the backup");
+    const midReply = {
+      ...request,
+      messages: [
+        ...request.messages,
+        { role: "assistant" as const, content: "", toolCalls: [{ id: "c1", name: "quote", arguments: "{}" }] },
+        { role: "tool" as const, content: "₹9,499", toolCallId: "c1" },
+      ],
+    };
+    expect(await withBackupModel(first, backup).complete(midReply)).toEqual({ ok: false, reason: "unavailable" });
+    expect(backup.requests).toHaveLength(0);
+  });
+
   it("asks the backup only while 20 seconds remain before the request's deadline", async () => {
     const first = createMemoryAiModel();
     const backup = createMemoryAiModel();

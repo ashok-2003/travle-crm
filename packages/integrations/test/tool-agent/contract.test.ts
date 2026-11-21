@@ -24,6 +24,13 @@ const quote: AgentTool = {
   schema: z.strictObject({ trip_id: z.string(), adults: z.number().int().min(1) }),
   run: (args) => Promise.resolve(`${String(args.trip_id)}: ₹9,499 per person`),
 };
+const finish: AgentTool = {
+  name: "finish",
+  description: "Ends the turn.",
+  schema: z.strictObject({}),
+  endsRun: true,
+  run: (args) => Promise.resolve(args.refuse === true ? "refused: not now" : "done"),
+};
 const quoteCall = { name: "quote", arguments: { trip_id: "T1", adults: 2 } };
 
 /** A turn whose model answers as scripted, through the in-memory AI model. */
@@ -53,6 +60,20 @@ describe.each([
   ["LangGraph", langGraph],
   ["in-memory", memory],
 ])("the %s tool agent", (_name, agent) => {
+  it("ends on an endsRun call that went through, with its answer's words and model, and asks the model once", async () => {
+    const { ai, input } = turn([quote, finish], { text: "Bye.", toolCalls: [{ name: "finish", arguments: {} }] });
+    const end = await agent.run(input);
+    expect(end).toMatchObject({ end: "answered", text: "Bye.", model: "memory-model", calls: 1 });
+    expect(end.end === "answered" && end.transcript.at(-1)).toMatchObject({ role: "tool", content: "done" });
+    expect(ai.requests).toHaveLength(1);
+  });
+
+  it("goes on after an endsRun call that was refused", async () => {
+    const { ai, input } = turn([quote, finish], { toolCalls: [{ name: "finish", arguments: { refuse: true } }] }, "Ok");
+    expect(await agent.run(input)).toMatchObject({ end: "answered", text: "Ok", calls: 2 });
+    expect(ai.requests).toHaveLength(2);
+  });
+
   it("answers after a read: the text, the model, the transcript with each reasoning detail, and the calls", async () => {
     const { input } = turn(
       [quote],

@@ -35,6 +35,20 @@ export interface BookingContext {
 
 const refused = (why: string): Refused => ({ refused: `refused: ${why}` });
 
+/** A refusal that is the team's: the tool stages the hand-over itself, so the model can't forget it (live, 2026-11-18). */
+export type RefusedToTeam = Refused & { handOver: { reason: "big_group" | "existing_booking"; summary: string } };
+
+function toTeam(
+  context: BookingContext,
+  terms: BookingTerms,
+  reason: RefusedToTeam["handOver"]["reason"],
+  why: string,
+  detail: string,
+): RefusedToTeam {
+  const wants = `Wants ${termsWords(terms, context.sheets, context.today)}; ${detail}`;
+  return { ...refused(why), handOver: { reason, summary: wants.slice(0, 300) } };
+}
+
 /** Whether the chat's own AI booking waits for its payment, the one `resend_payment` sends again. */
 export const awaitsPayment = (booking: BookingContext["booking"]): boolean =>
   booking?.awaitingPayment === true && booking.id !== null;
@@ -44,10 +58,19 @@ export const awaitsPayment = (booking: BookingContext["booking"]): boolean =>
  * own (sellable, a departure open with seats for the party, the room priced). A big group goes to a person whatever
  * the seats, so it is checked first.
  */
-export async function offerChecks(context: BookingContext, terms: BookingTerms): Promise<QuoteFigures | Refused> {
+export async function offerChecks(
+  context: BookingContext,
+  terms: BookingTerms,
+): Promise<QuoteFigures | Refused | RefusedToTeam> {
   const people = terms.adults + terms.childrenAges.length;
   if (people > MOST_PEOPLE) {
-    return refused(`${String(people)} people is more than 10; hand_over(big_group) with the group's details`);
+    return toTeam(
+      context,
+      terms,
+      "big_group",
+      `${String(people)} people is more than 10; handed to the team`,
+      `${String(people)} people`,
+    );
   }
   if (!context.paymentReady) {
     return refused(
@@ -59,7 +82,13 @@ export async function offerChecks(context: BookingContext, terms: BookingTerms):
     return refused("their booking is waiting for payment; resend_payment sends the payment message again");
   }
   if (context.booking !== null) {
-    return refused("they have a booking ahead; changing it or a second one is the team's: hand_over(existing_booking)");
+    return toTeam(
+      context,
+      terms,
+      "existing_booking",
+      "they have a booking ahead; changing it or a second one is the team's",
+      "they have a booking ahead",
+    );
   }
   return context.quoteOf(terms);
 }
@@ -99,7 +128,7 @@ export async function bookChecks(
   context: BookingContext,
   terms: BookingTerms,
   said: { fullName: string; customerWords: string } | null,
-): Promise<{ figures: QuoteFigures; via: "offer" | "told" } | Refused> {
+): Promise<{ figures: QuoteFigures; via: "offer" | "told" } | Refused | RefusedToTeam> {
   const figures = await offerChecks(context, terms);
   if ("refused" in figures) return figures;
   // While an offer stands, only its terms can be booked: a total told counts only when no offer is live.

@@ -93,11 +93,28 @@ export async function toolMessages(input: ToolAgentInput, answer: BaseMessage | 
   return results.map((result) => new ToolMessage({ content: result.content, tool_call_id: result.toolCallId }));
 }
 
-/** The run's end once the model answered in words: the last answer's text and model, and every message. */
+/** True when the last tool step holds a call of an `endsRun` tool that went through (its result isn't a refusal). */
+export function endsRun(input: ToolAgentInput, messages: readonly BaseMessage[]): boolean {
+  const answerAt = messages.findLastIndex((message) => message.type === "ai");
+  const answer = messages[answerAt];
+  const results = new Map(
+    messages
+      .slice(answerAt + 1)
+      .flatMap((message) => (ToolMessage.isInstance(message) ? [[message.tool_call_id, message.text]] : [])),
+  );
+  return callsOf(answer).some(
+    (call) =>
+      input.tools.some((tool) => tool.name === call.name && tool.endsRun === true) &&
+      results.get(call.id)?.startsWith("refused:") === false,
+  );
+}
+
+/** The run's end: the last answer's text and model (not a tool message's), and every message. */
 export function answered(messages: readonly BaseMessage[], calls: number): ToolAgentEnd {
   const transcript = messages.map(fromLangChain);
-  const model: unknown = messages.at(-1)?.response_metadata.model;
-  const text = transcript.at(-1)?.content ?? "";
+  const answer = messages.findLast((message) => message.type === "ai");
+  const model: unknown = answer?.response_metadata.model;
+  const text = answer === undefined ? "" : fromLangChain(answer).content;
   return { end: "answered", text, model: typeof model === "string" ? model : "", transcript, calls };
 }
 

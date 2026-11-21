@@ -1,0 +1,401 @@
+{
+  "_note": "Generated once from @travel-crm/contracts' oneToolSchemas({\"tripLabels\":[\"T1\",\"T2\",\"T3\"],\"brochureLabels\":[\"B1\",\"B2\"],\"voiceNotes\":[\"m1\"],\"photos\":[\"m2\"]}), each through the tool agent's aiToolOf (zod's JSON Schema, io input, no $schema or examples). Regenerate when the one agent's tools change.",
+  "tools": [
+    {
+      "name": "find_trips",
+      "description": "Finds up to 5 trips for a place, month or kind of trip. A near spelling comes back as \"closest, not a match\".",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_trip",
+      "description": "Gives one trip in full.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "enum": ["T1", "T2", "T3"]
+          }
+        },
+        "required": ["trip_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "quote",
+      "description": "Prices a trip for this group: per person, total and advance, with the room used and the seat state.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "enum": ["T1", "T2", "T3"]
+          },
+          "date": {
+            "type": "string",
+            "description": "yyyy-mm-dd"
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "children_ages": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 17
+            },
+            "description": "Each child's age in years"
+          },
+          "room": {
+            "type": "string",
+            "enum": ["single", "double", "triple", "quad", "child_bed", "child_no_bed"]
+          }
+        },
+        "required": ["trip_id", "date", "adults"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "update_lead",
+      "description": "Saves on the lead what the customer said about their trip, marked as filled by the AI.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "enum": ["T1", "T2", "T3"]
+          },
+          "date": {
+            "type": "string",
+            "description": "yyyy-mm-dd"
+          },
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "description": "yyyy-mm, when they gave a month but no day"
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "children_ages": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 17
+            },
+            "description": "Each child's age in years"
+          },
+          "pickup_city": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "room": {
+            "type": "string",
+            "enum": ["single", "double", "triple", "quad", "child_bed", "child_no_bed"]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "send_brochure",
+      "description": "Sends one brochure, captioned with its name, and up to two of its trip's photos not sent before in this chat.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "brochure_id": {
+            "type": "string",
+            "enum": ["B1", "B2"]
+          }
+        },
+        "required": ["brochure_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "offer_booking",
+      "description": "Records a booking offer on the chat and returns its terms, total and advance. The app sends the offer card with Book and Change buttons after your words.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "enum": ["T1", "T2", "T3"]
+          },
+          "date": {
+            "type": "string",
+            "description": "yyyy-mm-dd"
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "children_ages": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 17
+            },
+            "description": "Each child's age in years"
+          },
+          "room": {
+            "type": "string",
+            "enum": ["single", "double", "triple", "quad", "child_bed", "child_no_bed"]
+          },
+          "pay_in_full": {
+            "type": "boolean",
+            "description": "True when they pay the whole amount now, not the advance"
+          }
+        },
+        "required": ["trip_id", "date", "adults"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "book",
+      "description": "Holds the seats on the live offer's terms, or a total told, once the customer said yes. After your reply, the app sends the payment message and QR.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "enum": ["T1", "T2", "T3"]
+          },
+          "date": {
+            "type": "string",
+            "description": "yyyy-mm-dd"
+          },
+          "adults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "children_ages": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 17
+            },
+            "description": "Each child's age in years"
+          },
+          "room": {
+            "type": "string",
+            "enum": ["single", "double", "triple", "quad", "child_bed", "child_no_bed"]
+          },
+          "pay_in_full": {
+            "type": "boolean",
+            "description": "True when they pay the whole amount now, not the advance"
+          }
+        },
+        "required": ["trip_id", "date", "adults"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "resend_payment",
+      "description": "Sends the payment message again.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "plan_follow_up",
+      "description": "Sets the next follow-up: in a few hours, this evening, tomorrow morning or evening, on a date, or none.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "when": {
+            "type": "string",
+            "enum": ["in_a_few_hours", "this_evening", "tomorrow_morning", "tomorrow_evening", "on_date", "none"]
+          },
+          "date": {
+            "type": "string",
+            "description": "yyyy-mm-dd, only with on_date"
+          },
+          "about": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": ["when", "about"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_task",
+      "description": "Gives the team a task: a question the data can't answer, or a call back.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["question", "call_back"]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "call_at": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])T([01]\\d|2[0-3]):[0-5]\\d$",
+            "description": "When to call, yyyy-mm-ddThh:mm in the agency's time zone"
+          }
+        },
+        "required": ["kind", "text"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "add_note",
+      "description": "Adds a note on the lead.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["text"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "hand_over",
+      "description": "Ends the turn and hands the chat to a person: the AI stops in this chat and the owner is told.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "discount",
+              "custom_trip",
+              "complaint",
+              "payment_check",
+              "wants_person",
+              "abuse",
+              "big_group",
+              "existing_booking",
+              "b2b"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["reason", "summary"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "suggest_close",
+      "description": "Suggests closing the lead as lost or not a lead; a person taps yes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["lost", "not_a_lead"]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": ["kind", "reason"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "stay_quiet",
+      "description": "Ends the turn with no message.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": ["reason"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "transcribe_voice_note",
+      "description": "Hears what a customer's voice note says. Pass its reference, as [voice note m3] shows it, then answer it like a typed message.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message's reference, like m1."
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "look_at_image",
+      "description": "Looks at a customer's photo, as [photo m7] shows it. You can pass a question about what to look for. Not for a sticker or a forward that needs no reply.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message's reference, like m1."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

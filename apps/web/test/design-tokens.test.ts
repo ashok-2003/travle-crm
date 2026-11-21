@@ -50,6 +50,7 @@ const brandValueOf: Record<string, string> = {
   "send.ink": colours.send.ink,
   "chat.wallpaper": colours.chat.wallpaper,
   "chat.out": colours.chat.bubbleOut,
+  "chat.ai": colours.chat.bubbleAi,
   "chat.in": colours.chat.bubbleIn,
   "chat.date": colours.chat.dateChip,
   "chat.tick": colours.chat.tickRead,

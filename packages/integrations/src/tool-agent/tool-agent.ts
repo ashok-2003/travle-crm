@@ -14,6 +14,8 @@ export interface AgentTool {
    * `words` are the words of the answer that made the call.
    */
   run(args: Record<string, unknown>, call: { words: string }): Promise<string>;
+  /** Once a call to this tool goes through (its result isn't a refusal) the run ends: the model isn't asked again. */
+  endsRun?: boolean;
 }
 
 /** One tool call as it went: its name, the model's own argument text, and the result the model read. */

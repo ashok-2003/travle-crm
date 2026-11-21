@@ -38,9 +38,10 @@ import { namedTrips } from "../context/turn-block.js";
 import { brochureLabelsOf } from "../trips/brochures.js";
 import { isText, roomNames } from "../trips/trip-text.js";
 import type { QuoteFigures, StagedAction, StagedSet, TripSheet } from "../types.js";
-import { awaitsPayment, bookChecks, offerChecks, type BookingContext } from "./booking-checks.js";
+import { awaitsPayment, bookChecks, offerChecks, type BookingContext, type RefusedToTeam } from "./booking-checks.js";
 import { monthWords } from "./find-trips.js";
 import { placeFollowUp } from "./follow-up-time.js";
+import { nextDay, nextMonth } from "./next-date.js";
 import type { Refused } from "./quote.js";
 import { termsOf, termsWords } from "./terms.js";
 
@@ -90,6 +91,15 @@ function withArgs<T, R>(
 /** A later call of one tool replaces the earlier (spec 3.2). */
 export function withStaged(set: StagedSet, action: StagedAction): StagedSet {
   return new Map(set).set(action.tool, action);
+}
+
+/** A refusal that is the team's becomes the hand-over itself, through the same staging as the model's `hand_over`. */
+function handedOver(refusal: Refused | RefusedToTeam): StageOutcome {
+  if (!("handOver" in refusal)) return refusal;
+  const { reason, summary } = refusal.handOver;
+  const staged: StagedAction = { tool: "hand_over", reason, summary };
+  const what = reason === "big_group" ? "big group" : "existing booking";
+  return stage(staged, `handed to the team (${what}): tell them a person will help with it`);
 }
 
 /** Checks an action call and stages it, or refuses it; `words` are this response's words, which may name a trip (G6). */
@@ -212,10 +222,20 @@ function saidOf(context: ActionContext, asked: Asked<typeof updateLeadArguments>
   const { date } = asked;
   const month = date === undefined ? asked.month : undefined;
   if (date !== undefined && date < today) {
-    return refused(`${day(date)} is past (today is ${day(today)}); ask which date they mean`);
+    const next = nextDay(date, today);
+    return refused(
+      next === null
+        ? `${day(date)} is past (today is ${day(today)}); ask which date they mean`
+        : `${date} is past (today is ${day(today)}); the next is ${day(next)} (${next}): ` +
+            "use it if that's the one they mean",
+    );
   }
   if (month !== undefined && month < today.slice(0, 7)) {
-    return refused(`${monthName(month)} is past (today is ${day(today)}); ask which month they mean`);
+    const next = nextMonth(month, today);
+    return refused(
+      `${month} is past (today is ${day(today)}); the next is ${monthName(next)} (${next}): ` +
+        "use it if that's the one they mean",
+    );
   }
   if (date !== undefined || month !== undefined) {
     const theirs = travelWhen.safeParse(typed.when);
@@ -367,7 +387,7 @@ async function offerBooking(
   const terms = termsOf(args, context.labels);
   if ("refused" in terms) return terms;
   const figures = await offerChecks(context, terms);
-  if ("refused" in figures) return figures;
+  if ("refused" in figures) return handedOver(figures);
   const { totalPaise, advancePaise } = figures;
   const inFull = figures.terms.payInFull;
   const money = inFull
@@ -419,7 +439,7 @@ async function stageBook(
   const terms = termsOf(args, context.labels);
   if ("refused" in terms) return terms;
   const checked = await bookChecks(context, terms, said);
-  if ("refused" in checked) return checked;
+  if ("refused" in checked) return handedOver(checked);
   const { figures, via } = checked;
   const due = figures.terms.payInFull
     ? `${formatRupees(figures.totalPaise)} due now`

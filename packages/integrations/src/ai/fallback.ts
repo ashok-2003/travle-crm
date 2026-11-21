@@ -11,12 +11,19 @@ type Final = Extract<AiResult, { ok: true }> | { ok: false; reason: "refused" | 
 const isFinal = (result: AiResult): result is Final =>
   result.ok || result.reason === "refused" || result.reason === "bad_request";
 
+/**
+ * A reply already mid-tool-round stays with the first model: the backup is another endpoint, and it refused Vertex's
+ * thought signatures live (a 400 that turned a slow answer into a failed turn).
+ */
+const inToolRound = (request: AiRequest) =>
+  request.messages.some((message) => message.role === "tool" || (message.toolCalls ?? []).length > 0);
+
 export function withBackupModel(first: AiModel, backup: AiModel): AiModel {
   return {
     configured: first.configured || backup.configured,
     async complete(request: AiRequest): Promise<AiResult> {
       const result = await first.complete(request);
-      if (isFinal(result)) return result;
+      if (isFinal(result) || inToolRound(request)) return result;
       const late = request.deadlineAt !== undefined && request.deadlineAt - Date.now() < NEXT_MODEL_MIN_LEFT_MS;
       if (late && result.reason !== "not_configured") return result;
       const second = await backup.complete(request);

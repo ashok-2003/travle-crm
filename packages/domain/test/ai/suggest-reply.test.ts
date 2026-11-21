@@ -89,7 +89,7 @@ describe("suggest reply", () => {
     expect(draft).toMatchObject({ usedThisMonth: 1, monthlyLimit: MONTHLY_AI_LIMIT });
 
     const [request] = model.requests;
-    expect(request).toMatchObject({ feature: "suggest_reply", user: organizationId });
+    expect(request).toMatchObject({ feature: "suggest_reply", user: organizationId, reasoning: { effort: "minimal" } });
     const prompt = request?.messages.map((message) => message.content).join("\n") ?? "";
     expect(prompt).toContain("Namaste from Sharma Holidays!");
     expect(prompt).toContain("Manali trip for 4 adults");
