@@ -51,10 +51,10 @@ function LeadParts({ leadId }: { leadId: string }) {
         <h3 className="text-label font-medium text-muted-foreground">{t("stage")}</h3>
         <StageBar lead={lead.data} />
       </section>
-      <FollowUpsCard lead={lead.data} />
+      <FollowUpsCard lead={lead.data} place="panel" />
       <OwnerCard lead={lead.data} />
       <TripCard lead={lead.data} />
-      <Timeline lead={lead.data} />
+      <Timeline lead={lead.data} place="panel" />
     </div>
   );
 }

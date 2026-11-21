@@ -175,7 +175,8 @@ describe("Timeline", () => {
     expect(marks[words.followUpDone]).toContain("bg-status-good-fill");
     expect(marks[words.taskCancelled]).toContain("bg-status-neutral-fill");
     expect(marks[words.repeatEnquiry]).toContain("bg-stage-contacted-fill");
-    expect(marks[words.call.replace("{outcome}", "Spoke")]).toContain("bg-avatar-sky-fill");
+    // Calls wear the action blue's tint: sky is the trip's.
+    expect(marks[words.call.replace("{outcome}", "Spoke")]).toContain("bg-action-tint");
     expect(marks[words.whatsappContact]).toContain("bg-stage-contacted-fill");
     expect(marks[words.booking["payment-confirmed"].replace("{number}", "B-1")]).toContain("bg-status-good-fill");
     // The system's own entries: a small grey dot, and a caption-sized title.
@@ -198,6 +199,8 @@ describe("Timeline", () => {
     await rows();
     const days = within(card()).getAllByRole("heading", { level: 3 });
     expect(days.map((day) => day.textContent)).toEqual([words.today, words.yesterday, "6 Oct"]);
+    // Each day's list is named by its heading, with no landmark per day.
+    expect(card().querySelector("section")).toBeNull();
     expect(within(card()).getByRole("list", { name: words.yesterday })).toHaveTextContent("Late last night");
     expect(within(card()).getByRole("list", { name: words.yesterday })).toHaveTextContent("11:45 pm");
   });
@@ -211,27 +214,75 @@ describe("Timeline", () => {
           anEntry({ kind: "ai-field-set", actorUserId: null, field: "adults", from: null, to: "4" }),
           anEntry({ kind: "call", callId: ids.task, outcome: "busy", note: null }),
           anEntry({ kind: "whatsapp-contact" }),
+          anEntry({
+            kind: "repeat-enquiry",
+            enquiry: { source: "instagram", sourceDetail: null, note: null, trip: aLead().trip },
+          }),
           anEntry({ kind: "created", source: "phone_call", assignment: null }),
         ].map((entry, index) => ({ ...entry, id: entryId(index) })),
       ),
     });
     renderScreen(<Timeline lead={aLead()} />);
-    expect(await sentences()).toHaveLength(6);
+    expect(await sentences()).toHaveLength(7);
     const filters = within(card()).getByLabelText(words.filters.label);
     await userEvent.click(within(filters).getByRole("radio", { name: words.filters.ai }));
     expect(await sentences()).toEqual([words.aiNote, "AI Adults set to 4"]);
     await userEvent.click(within(filters).getByRole("radio", { name: words.filters.callsAndChats }));
-    expect(await sentences()).toEqual([words.call.replace("{outcome}", "Busy or call later"), words.whatsappContact]);
+    expect(await sentences()).toEqual([
+      words.call.replace("{outcome}", "Busy or call later"),
+      words.whatsappContact,
+      words.repeatEnquiry,
+    ]);
     await userEvent.click(within(filters).getByRole("radio", { name: words.filters.all }));
-    expect(await sentences()).toHaveLength(6);
+    expect(await sentences()).toHaveLength(7);
   });
 
-  it("says so when a filter finds nothing", async () => {
+  it("says so when a filter finds nothing, of the entries shown while older ones are still to load", async () => {
     stubApi({ "leads.timeline": aTimeline(entries()) });
-    renderScreen(<Timeline lead={aLead()} />);
+    const { unmount } = renderScreen(<Timeline lead={aLead()} />);
     await rows();
     await userEvent.click(within(card()).getByRole("radio", { name: words.filters.ai }));
     expect(await screen.findByText(words.noneShown)).toBeVisible();
+    unmount();
+
+    stubApi({ "leads.timeline": aTimeline(entries(), entryId(8)) });
+    renderScreen(<Timeline lead={aLead()} />);
+    await rows();
+    await userEvent.click(within(card()).getByRole("radio", { name: words.filters.ai }));
+    expect(await screen.findByText(words.noneLoaded)).toBeVisible();
+    expect(screen.getByRole("button", { name: words.showMore })).toBeVisible();
+  });
+
+  it("in the inbox's contact panel has no filters, which its width can't hold", async () => {
+    stubApi({ "leads.timeline": aTimeline(entries()) });
+    renderScreen(<Timeline lead={aLead()} place="panel" />);
+    expect(await sentences()).toHaveLength(9);
+    expect(within(card()).queryByRole("radio")).not.toBeInTheDocument();
+  });
+
+  it("keeps an unsent note for the tab on the lead's page, so a new layout's box finds it, and forgets it once sent", async () => {
+    window.sessionStorage.clear();
+    stubApi({ "leads.timeline": aTimeline(entries()), "leads.addNote": { data: null } });
+    const { unmount } = renderScreen(<Timeline lead={aLead()} />);
+    await userEvent.type(await openNoteBox(), "Half a thought");
+    unmount();
+    const again = renderScreen(<Timeline lead={aLead()} boxed />, { width: "wide" });
+    const box = await screen.findByLabelText(words.addNote);
+    expect(box).toHaveValue("Half a thought");
+    // Kept, it shows open, with its button.
+    await userEvent.click(screen.getByRole("button", { name: words.saveNote }));
+    await waitFor(() => {
+      expect(box).toHaveValue("");
+    });
+    again.unmount();
+    renderScreen(<Timeline lead={aLead()} />);
+    expect(await screen.findByLabelText(words.addNote)).toHaveValue("");
+
+    // The inbox's panel keeps nothing.
+    window.sessionStorage.clear();
+    renderScreen(<Timeline lead={aLead()} place="panel" />);
+    await userEvent.type((await screen.findAllByLabelText(words.addNote)).at(-1) ?? card(), "Panel words");
+    expect(window.sessionStorage.length).toBe(0);
   });
 
   it("cuts a long note to three lines, with More to read the rest", async () => {

@@ -4,7 +4,8 @@
 // one place. Every open follow-up and task on the lead, earliest due first, each with when it is due in the list's own
 // words and colours (NextStep: red once overdue) and Done and Snooze (TaskActions), "None set." when there is none; then
 // the last contact in a line (the newest call or WhatsApp message), and the automatic follow-ups with Start or Stop
-// (sales). Add follow-up is for whoever can edit the lead.
+// (sales). Add follow-up is for whoever can edit the lead. In the inbox's contact panel (`place="panel"`) it is the open
+// work alone, as "Next follow-up", and asks nothing more: the chat beside it already says what happened last.
 import { isOpenStage, type LeadDetail } from "@travel-crm/contracts/crm";
 import { useTranslations } from "next-intl";
 import { Fragment, useRef, useState } from "react";
@@ -58,11 +59,9 @@ function OpenWork({ lead }: { lead: LeadDetail }) {
   );
 }
 
-export function FollowUpsCard({ lead }: { lead: LeadDetail }) {
-  const t = useTranslations("leads.lead");
-  const canEdit = useHolds("leads:edit");
-  const [adding, setAdding] = useState(false);
-  const opener = useRef<HTMLButtonElement>(null);
+/** What happened last and the automatic follow-ups, under the open work: the lead page's alone. */
+function ContactRows({ lead }: { lead: LeadDetail }) {
+  const t = useTranslations("leads.lead.followUps");
   const lastContact = useLastContact(lead.id);
   const automatic = useAutomaticFollowUps(lead.id, isOpenStage(lead.stage));
   const rows: Detail[] = [
@@ -70,15 +69,29 @@ export function FollowUpsCard({ lead }: { lead: LeadDetail }) {
       ? []
       : [
           {
-            label: t("followUps.lastContact"),
-            value: <span className="line-clamp-2 script-leading">{lastContact ?? t("followUps.none")}</span>,
+            label: t("lastContact"),
+            value: <span className="line-clamp-2 script-leading">{lastContact ?? t("none")}</span>,
           },
         ]),
     ...(automatic === null ? [] : [automatic]),
   ];
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <Separator />
+      <Details rows={rows} />
+    </>
+  );
+}
+
+export function FollowUpsCard({ lead, place = "page" }: { lead: LeadDetail; place?: "page" | "panel" }) {
+  const t = useTranslations("leads.lead");
+  const canEdit = useHolds("leads:edit");
+  const [adding, setAdding] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   return (
     <LeadCard
-      title={t("followUps.title")}
+      title={place === "page" ? t("followUps.title") : t("work.title")}
       action={
         canEdit && (
           <ChangeButton
@@ -92,12 +105,7 @@ export function FollowUpsCard({ lead }: { lead: LeadDetail }) {
       }
     >
       <OpenWork lead={lead} />
-      {rows.length > 0 && (
-        <>
-          <Separator />
-          <Details rows={rows} />
-        </>
-      )}
+      {place === "page" && <ContactRows lead={lead} />}
       {canEdit && (
         <AddFollowUpDialog leadId={lead.id} dialog={{ open: adding, setOpen: setAdding }} returnFocusTo={opener} />
       )}

@@ -40,6 +40,7 @@ import { FollowUpsCard } from "./follow-ups-card";
 import { LeadActionBar } from "./lead-action-bar";
 import { LeadHeader } from "./lead-header";
 import { OwnerCard } from "./owner-card";
+import { PersonConsent } from "./person-consent";
 import { StageBar } from "./stage-bar";
 import { Timeline } from "./timeline";
 import { TripCard } from "./trip-card";
@@ -67,7 +68,9 @@ function LeadColumns({ lead, noteForm }: { lead: LeadDetail; noteForm: RefObject
       {canSeeQuotes && <LeadQuotesCard lead={lead} />}
       <LeadBookingsCard lead={lead} />
       <LeadDeparturesCard leadId={lead.id} />
-      <OwnerCard lead={lead} />
+      <OwnerCard lead={lead}>
+        <PersonConsent leadId={lead.id} personName={lead.person.name} />
+      </OwnerCard>
     </>
   );
   if (twoColumns) {

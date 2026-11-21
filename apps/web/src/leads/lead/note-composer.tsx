@@ -4,7 +4,8 @@
 // then a few lines with its Add note button, until it is left empty. Checked by the api's schema (addNoteInput) before
 // it is sent, the box held meanwhile; saved, the box empties, takes the focus back and the note shows first. A change,
 // so it is off while the subscription refuses changes, and says why; a refusal shows its sentence. Its form is `ref`,
-// for the phone's Note button (LeadActionBar), which brings the box into view and into use.
+// for the phone's Note button (LeadActionBar), which brings the box into view and into use. On the lead's page an unsent
+// note is kept for the tab (`keepDraft`), as the inbox keeps a reply's.
 import { addNoteInput, type AddNoteInput } from "@travel-crm/contracts/crm";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -17,19 +18,33 @@ import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/data/trpc";
+import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { NoteField } from "../form/note-field";
 
-export function NoteComposer({ leadId, ref }: { leadId: string; ref?: Ref<HTMLFormElement> }) {
+/** Where the tab keeps a lead's unsent note (lib/tab-storage.ts, wiped at sign-out with the rest). */
+const draftKey = (leadId: string) => `lead-note.${leadId}`;
+
+export function NoteComposer({
+  leadId,
+  keepDraft = false,
+  ref,
+}: {
+  leadId: string;
+  /** Keep what is typed, unsent, for the tab: the lead's page, whose two layouts each have a box of their own. */
+  keepDraft?: boolean;
+  ref?: Ref<HTMLFormElement>;
+}) {
   const t = useTranslations("leads.lead.timeline");
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const write = useWriteAccess("change");
   const hintId = useId();
   const [inUse, setInUse] = useState(false);
+  const [draft] = useState(() => (keepDraft ? (readTabValue(draftKey(leadId)) ?? "") : ""));
   const { form, onSubmit, formProblem } = useCheckedForm<{ body: string }, AddNoteInput, "required" | "tooLong">(
-    { body: "" },
+    { body: draft },
     (values) =>
       checked(
         addNoteInput.safeParse({ leadId, body: values.body }),
@@ -40,6 +55,10 @@ export function NoteComposer({ leadId, ref }: { leadId: string; ref?: Ref<HTMLFo
     (problem) => t(`problems.${problem}`),
   );
   const body = useWatch({ control: form.control, name: "body" });
+  // Typed and not yet sent, it outlives this box (a screen crossing 1280px swaps the page's layout); sent, it goes.
+  useEffect(() => {
+    if (keepDraft) keepTabValue(draftKey(leadId), body);
+  }, [keepDraft, leadId, body]);
   const add = useMutation(
     trpc.leads.addNote.mutationOptions({
       onSuccess: async () => {

@@ -3,7 +3,7 @@
 // One entry of a lead's timeline (spec 3.4, R36; the lead page's revamp, 2026-11-21) as one compact row, read by colour: a
 // mark by kind, its title, who did it when a person did, and its time on the right (its day is the heading above it); a
 // body only when there is one, a note's words cut to three lines with More. The marks (lookOf): what the AI did violet
-// (and "AI" for screen readers), calls sky blue, the customer's chats and enquiries teal, stage moves their stage's own
+// (and "AI" for screen readers), calls the action blue's tint (sky is the trip's), the customer's chats and enquiries teal, stage moves their stage's own
 // colour, follow-ups amber when set, green when done and grey when cancelled, bookings and payments green; the system's
 // own entries (created, assigned, edited) grey and smaller, with no "The system". A name the page didn't carry is a
 // former member's.
@@ -47,7 +47,7 @@ interface Look {
 
 const looks: Record<Exclude<LookKind, "stage">, Omit<Look, "kind">> = {
   ai: { tone: "bg-people-tint text-people-tint-ink", icon: SparklesIcon },
-  call: { tone: "bg-avatar-sky-fill text-avatar-sky-ink", icon: PhoneIcon },
+  call: { tone: "bg-action-tint text-action-pressed", icon: PhoneIcon },
   chat: { tone: "bg-stage-contacted-fill text-stage-contacted-ink", icon: MessageCircleIcon },
   note: { tone: "bg-muted text-foreground", icon: StickyNoteIcon },
   set: { tone: statusToneClasses.attention.badge, icon: CalendarClockIcon },
@@ -65,9 +65,9 @@ export function byAi(entry: TimelineEntry): boolean {
   return entry.kind === "ai-field-set" || ((entry.kind === "note" || entry.kind === "stage-changed") && entry.byAi);
 }
 
-/** Whether the entry is a call or the customer writing on WhatsApp: the Calls & chats filter's. */
+/** Whether the entry is a call, or the customer writing on WhatsApp or asking again: the Calls & chats filter's. */
 export function isCallOrChat(entry: TimelineEntry): boolean {
-  return entry.kind === "call" || entry.kind === "whatsapp-contact";
+  return entry.kind === "call" || entry.kind === "whatsapp-contact" || entry.kind === "repeat-enquiry";
 }
 
 /** The entry's look by its kind. */

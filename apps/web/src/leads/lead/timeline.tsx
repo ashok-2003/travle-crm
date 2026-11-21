@@ -4,8 +4,8 @@
 // note for whoever can edit the lead, then what happened, newest first, a page at a time (use-timeline.ts), grouped
 // under its days (Today, Yesterday, 6 Nov), each entry a compact row read by its colour (timeline-entry.tsx). On a
 // computer (`boxed`) it fills its column and its entries scroll inside their own box, so the history never pushes the
-// page; in one column (`firstShown`) the newest few show, then Show more. Loading shows skeleton rows; a failure says so
-// with Try again.
+// page; in one column (`firstShown`) the newest few show, then Show more. In the inbox's contact panel (`place="panel"`)
+// it has no filters, which its width can't hold. Loading shows skeleton rows; a failure says so with Try again.
 import type { LeadDetail, TimelineEntry } from "@travel-crm/contracts/crm";
 import { addDays, calendarDateIn } from "@travel-crm/domain/kernel";
 import { CheckIcon } from "lucide-react";
@@ -46,27 +46,31 @@ function byDay(entries: TimelineEntry[], timeZone: string): { day: string; entri
   return days;
 }
 
+/** A day's heading and its entries, the list named by the heading (no landmark per day). */
 function Day({ heading, children }: { heading: string; children: ReactNode }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       <h3 id={id} className="text-label font-medium text-muted-foreground">
         {heading}
       </h3>
-      <ItemGroup aria-label={heading} className="gap-0.5 has-data-[size=sm]:gap-0.5">
+      <ItemGroup aria-labelledby={id} className="gap-0.5 has-data-[size=sm]:gap-0.5">
         {children}
       </ItemGroup>
-    </section>
+    </div>
   );
 }
 
 export function Timeline({
   lead,
+  place = "page",
   boxed = false,
   firstShown,
   noteRef,
 }: {
   lead: LeadDetail;
+  /** The lead's page, or the inbox's narrow contact panel: no filters there, and a note's draft isn't kept. */
+  place?: "page" | "panel";
   /** It fills its column, its entries scrolling in their own box (a computer's sticky column). */
   boxed?: boolean;
   /** Only the newest so many until Show more (one column). */
@@ -107,7 +111,10 @@ export function Timeline({
     const shown = capped ? chosen.slice(0, firstShown) : chosen;
     return (
       <>
-        {shown.length === 0 && filter !== "all" && <p className="text-muted-foreground">{t("noneShown")}</p>}
+        {shown.length === 0 && filter !== "all" && (
+          // While older entries are still to load, say it of the ones shown: an older one may be of this kind.
+          <p className="text-muted-foreground">{timeline.hasNextPage ? t("noneLoaded") : t("noneShown")}</p>
+        )}
         {byDay(shown, timeZone).map(({ day, entries: ofDay }) => (
           <Day key={day} heading={dayWords(day)}>
             {ofDay.map((entry) => (
@@ -158,8 +165,10 @@ export function Timeline({
   );
 
   return (
-    <LeadCard title={t("title")} action={filterChips} fill={boxed}>
-      {canEdit && <NoteComposer leadId={lead.id} {...(noteRef !== undefined && { ref: noteRef })} />}
+    <LeadCard title={t("title")} {...(place === "page" && { action: filterChips })} fill={boxed}>
+      {canEdit && (
+        <NoteComposer leadId={lead.id} keepDraft={place === "page"} {...(noteRef !== undefined && { ref: noteRef })} />
+      )}
       {boxed ? (
         <div
           role="region"

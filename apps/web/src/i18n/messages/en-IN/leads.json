@@ -464,6 +464,7 @@
       "theySent": "They sent: {kind} · {ago} ago",
       "weSent": "We sent: {kind} · {ago} ago",
       "aiSent": "The AI sent: {kind} · {ago} ago",
+      "theyWroteOnWhatsApp": "They wrote on WhatsApp · {ago} ago",
       "called": "Call: {outcome} · {ago} ago",
       "none": "No calls or messages yet"
     },
@@ -624,6 +625,7 @@
       "entries": "What happened, newest first",
       "showFirst": "Show more",
       "noneShown": "Nothing of this kind yet.",
+      "noneLoaded": "None among the entries shown.",
       "aiMark": "AI"
     },
     "callCount": "{count, plural, one {# call} other {# calls}}",
