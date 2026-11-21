@@ -1,8 +1,8 @@
 "use client";
 
 // One of My tasks' tabs (web revamp part 2): its things as a table (section-columns.tsx), a page at a time, the next one
-// loading from Show more after the rows; New leads leads back to the Leads list. Each has its own skeleton and its own
-// error with Try again, so one tab failing leaves the others working.
+// loading from Show more after the rows; New leads leads back to the Leads list on Show: Not contacted yet. Each has its
+// own skeleton and its own error with Try again, so one tab failing leaves the others working.
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -48,7 +48,10 @@ export function TodaySection({ section }: { section: MyTasksSection }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {section === "new-leads" && <ForwardLink href={listFiltersHref({ stage: "new" })} label={t("allNewLeads")} />}
+      {/* The member's own New leads nobody has contacted yet, by the section's own rule, so the list matches its count. */}
+      {section === "new-leads" && (
+        <ForwardLink href={listFiltersHref({ show: "uncontacted" })} label={t("allNewLeads")} />
+      )}
       {body()}
     </div>
   );
