@@ -1,12 +1,12 @@
-// Copying an inbound file into our storage (spec 4.3 I4): MSG91's link dies after 30 days, so each file is downloaded at once
-// through the port (size cap, type allowlist, timeout), stored as an attachment on the record type whatsapp_message, and the
-// link blanked. It retries with backoff for 25 days, then the photo is "expired". The job carries ids only; the file is the
-// customer's, and nothing is rendered or resized on our server.
+// Copying a customer's file, or one the agency sent from the phone, into our storage (spec 4.3 I4): MSG91's link dies after 30
+// days, so each file is downloaded at once through the port (size cap, type allowlist, timeout), stored as an attachment on the
+// record type whatsapp_message, and the link blanked. It retries with backoff for 25 days, then the photo is "expired". The job
+// carries ids only; the file is the chat's, and nothing is rendered or resized on our server.
 import { WHATSAPP_RECORD_TYPE, whatsappContentTypes } from "@travel-crm/contracts/files";
 import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
 import { systemActor } from "../kernel/index.js";
 import { isUuid } from "../kernel/index.js";
-import type { InboxDependencies } from "./dependencies.js";
+import { COPY_MEDIA_QUEUE, type InboxDependencies } from "./dependencies.js";
 import { noticeKey } from "../crm/index.js";
 import { notifyNeedsAttention } from "./attention.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
@@ -29,6 +29,19 @@ const extensionOf: Readonly<Record<string, string>> = {
 };
 
 export type CopyResult = "stored" | "gone" | "expired" | "failed" | "retry";
+
+/** Queues the copy of a message's file, after the commit that stored it. The id makes a repeat queue nothing. */
+export async function queueMediaCopy(
+  dependencies: Pick<InboxDependencies, "queue">,
+  organizationId: string,
+  messageId: string,
+): Promise<void> {
+  await dependencies.queue.send(
+    COPY_MEDIA_QUEUE,
+    { organizationId, messageId },
+    { id: messageId, retryLimit: 10, retryDelaySeconds: 60 },
+  );
+}
 
 /** Copies one message's file. A transient failure throws, so the job is retried; the other outcomes end it. */
 export async function copyMedia(

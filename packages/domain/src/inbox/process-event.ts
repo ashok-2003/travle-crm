@@ -55,6 +55,9 @@ async function handleEvent(
         applyStatus(tx, { organizationId, connectionId: connection.id }, event, now),
       );
       return;
+    case "ignored":
+      // An edit or a deletion (the parser's SPIKE(S2)): no row, no answer, no count.
+      return;
     case "unknown":
       await dependencies.db.forOrg(organizationId, (tx) =>
         tx.whatsappConnection.update({

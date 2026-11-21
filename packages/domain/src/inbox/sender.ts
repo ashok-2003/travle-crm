@@ -1,8 +1,8 @@
 // The outbox's worker (spec 4.4 S1-S5): for each queued reply it checks again that the number is on and the window is open, waits
 // for the per-minute budget, claims the row (`queued` to `sending`), calls MSG91 outside any transaction, and settles the row:
-// `sent` with the message id, or `failed` with the reason. At most once, never silently twice (D7): an answer of "unsure" (a
-// timeout) is a failure for a person to look at, not a try again; only a provider that never received it (down, or rate limited)
-// is tried again by itself, for five minutes. A row left `sending` is the health check's to fail.
+// `sent` with the message id and MSG91's request id, or `failed` with the reason. At most once, never silently twice (D7): an
+// answer of "unsure" (a timeout) is a failure for a person to look at, not a try again; only a provider that never received it
+// (down, or rate limited) is tried again by itself, for five minutes. A row left `sending` is the health check's to fail.
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { whatsappMessageQueuedEvent } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
@@ -256,9 +256,16 @@ export async function sendQueued(
           data: { wamid: null, status: "superseded" },
         });
       }
+      // MSG91 often answers with the request id alone: the send's echo or first report then gives it its wamid.
       await tx.whatsappMessage.update({
         where: { id: queued.id },
-        data: { status: "sent", wamid: result.wamid, sentAt: now, ...(quoteDropped ? { quoteDropped: true } : {}) },
+        data: {
+          status: "sent",
+          wamid: result.wamid,
+          requestId: result.requestId,
+          sentAt: now,
+          ...(quoteDropped ? { quoteDropped: true } : {}),
+        },
       });
       await tx.whatsappConnection.update({ where: { id: queued.connectionId }, data: { lastSendOkAt: now } });
       await bumpUsage(tx, { organizationId, connectionId: queued.connectionId }, monthStartOf(now, "Asia/Kolkata"), {

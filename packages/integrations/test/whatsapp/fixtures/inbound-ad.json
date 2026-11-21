@@ -1,0 +1,10 @@
+{
+  "companyId": "company-1",
+  "customerNumber": "919876543210",
+  "integratedNumber": "918888800000",
+  "uuid": "wamid.AD1",
+  "direction": "0",
+  "contentType": "referral",
+  "ts": "1792749600",
+  "messages": "[{\"from\":\"919876543210\",\"id\":\"wamid.AD1\",\"timestamp\":\"1792749600\",\"type\":\"text\",\"text\":{\"body\":\"Hi, is the Goa trip still on?\"},\"referral\":{\"source_url\":\"https://fb.me/goa-dec\",\"source_id\":\"120210000000001\",\"source_type\":\"ad\",\"headline\":\"Goa in December\",\"body\":\"4 nights, flights included\",\"media_type\":\"image\",\"image_url\":\"https://media.example/ad/1\",\"ctwa_clid\":\"ARAkLkA8rmlFeiCktEJQ\"}}]"
+}

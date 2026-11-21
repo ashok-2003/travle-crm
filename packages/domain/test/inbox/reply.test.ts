@@ -137,6 +137,8 @@ describe("replying on WhatsApp", () => {
     const row = await messageRow(connection, queued.messageId);
     expect(row).toMatchObject({ status: "sent", sentAt: at });
     expect(row.wamid).toMatch(/^wamid\./);
+    // MSG91's answer often holds the request id alone: it is kept, so the send's echo and reports find it.
+    expect(row.requestId).toMatch(/^req-/);
     expect(state.lead.firstReplyAt).toEqual(at);
     expect(state.usage.replies).toBe(1);
     expect(state.connection.lastSendOkAt).toEqual(at);
