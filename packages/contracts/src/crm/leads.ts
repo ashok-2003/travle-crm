@@ -75,6 +75,15 @@ export type KnownContactResult = z.infer<typeof knownContactResult>;
 /** The furthest numbered page the list reads. */
 export const MAX_LEAD_PAGE = 10_000;
 
+/**
+ * Home's work as a Leads list, one at a time (leads show spec, 2026-11-21): the hot leads, hottest first; those with a
+ * follow-up overdue, longest overdue first; the New leads nobody has called or messaged yet, longest waiting first; and
+ * those the AI needs a person on, newest first.
+ */
+export const leadShows = ["hot", "overdue", "uncontacted", "ai"] as const;
+export const leadShow = z.enum(leadShows);
+export type LeadShow = z.infer<typeof leadShow>;
+
 export const listLeadsInput = z.strictObject({
   /** A salesperson always sees their own; "everyone" is for managers. */
   /** "unassigned" is the leads nobody owns (release C), for managers. */
@@ -87,6 +96,8 @@ export const listLeadsInput = z.strictObject({
   tripType: tripType.optional(),
   /** Only leads that came in this day, week or month, in the agency's time zone. */
   created: createdWithin.optional(),
+  /** Only one kind of Home's work, listed in its own order rather than newest first. */
+  show: leadShow.optional(),
   /** A name, forgiving of typos, or four or more digits of a phone. */
   search: z.string().trim().min(2).max(80).optional(),
   /** The last lead id of the previous page (a picker's "more"). */

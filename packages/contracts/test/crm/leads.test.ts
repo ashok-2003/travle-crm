@@ -35,6 +35,18 @@ describe("the lead list", () => {
     expect(leadExportFilter.safeParse({ view: "mine", stage: "open", page: 1 }).success).toBe(false);
   });
 
+  it("shows one of Home's kinds of work at a time, in the list, its counts and its export", () => {
+    for (const show of ["hot", "overdue", "uncontacted", "ai"]) {
+      expect(listLeadsInput.parse({ show })).toMatchObject({ show });
+      expect(leadCountsInput.parse({ show })).toMatchObject({ show });
+      expect(leadExportFilter.parse({ view: "mine", stage: "open", show })).toMatchObject({ show });
+    }
+    expect(listLeadsInput.parse({})).not.toHaveProperty("show");
+    for (const bad of [{ show: "cold" }, { show: ["hot", "ai"] }, { show: "" }]) {
+      expect(listLeadsInput.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+
   it("says a numbered page's total, and none for a page after a cursor", () => {
     expect(leadListPage.parse({ items: [], nextCursor: null, total: 349, people: {} }).total).toBe(349);
     expect(leadListPage.parse({ items: [], nextCursor: null, total: null, people: {} }).total).toBeNull();
