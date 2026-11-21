@@ -55,6 +55,7 @@ describe("a trip as the natural agent reads it", () => {
     expect(text.split("\n")[0]).toBe("T1 Kedarkantha Trek · Sankri, Uttarakhand · 5 nights · from Dehradun");
     for (const part of [
       "triple ₹9,499 per person",
+      "Starts at ₹9,499 per person, the lowest room's price",
       "GST included",
       "advance ₹3,000 per person",
       "Sat 12 Dec: open",
@@ -68,7 +69,7 @@ describe("a trip as the natural agent reads it", () => {
       expect(text).toContain(part);
   });
 
-  it("writes each season's room prices on one line, with its days", () => {
+  it("writes each season's room prices on one line, with its days, the cheapest room first", () => {
     const text = tripInFull(
       {
         ...kedarkantha,
@@ -84,7 +85,7 @@ describe("a trip as the natural agent reads it", () => {
       },
       today,
     );
-    expect(text).toContain("Winter (Sun 1 Nov–Thu 31 Dec): double ₹10,999, triple ₹9,499 per person");
+    expect(text).toContain("Winter (Sun 1 Nov–Thu 31 Dec): triple ₹9,499, double ₹10,999 per person");
   });
 
   it("gives a departure's own prices as replacing the season's, and says when nothing prices a date", () => {

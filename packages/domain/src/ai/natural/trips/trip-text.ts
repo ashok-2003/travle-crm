@@ -1,6 +1,6 @@
 // A trip as the natural agent's context writes it (spec 4.2): in full, or as one index line. Dates carry their weekday,
 // money is in rupees with lakh grouping, and seats read "open" or "N left".
-import { roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
+import { adultRoomTypes, roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
 import { formatRupees, formatShortDay, type CalendarDate } from "../../../kernel/index.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
 
@@ -29,14 +29,23 @@ export function seatWords(freeSeats: number): string {
   return freeSeats > FEW_SEATS ? "open" : `${String(freeSeats)} left`;
 }
 
-/** "double ₹10,999, triple ₹9,499 per person", in the room types' order. */
+/**
+ * "triple ₹9,499, double ₹10,999, child with bed ₹6,000 per person": the cheapest room first, since the model quoted the first
+ * price on the line as the trip's starting price (live, 2026-11-21: double's ₹6,000 for quad's ₹5,000); a child's prices after.
+ */
 export const pricesWords = (prices: PerPersonPrices) =>
   `${roomTypes
     .flatMap((type) => {
       const price = prices[type];
-      return price === undefined ? [] : [`${roomNames[type]} ${formatRupees(price)}`];
+      return price === undefined ? [] : [{ type, price }];
     })
+    .sort((one, other) => rankOf(one) - rankOf(other))
+    .map(({ type, price }) => `${roomNames[type]} ${formatRupees(price)}`)
     .join(", ")} per person`;
+
+/** Adult rooms by price, then a child's prices in their own order (the sort is stable). */
+const rankOf = ({ type, price }: { type: RoomType; price: number }) =>
+  adultRoomTypes.includes(type) ? price : Number.MAX_SAFE_INTEGER;
 
 export const gstWords = (sheet: Pick<TripSheet, "pricesIncludeGst" | "taxRateBasisPoints">) =>
   sheet.pricesIncludeGst
@@ -107,6 +116,7 @@ export function tripInFull(sheet: TripSheet, today: CalendarDate): string {
     labelled("Notes", sheet.notes),
     labelled("Cancellation", sheet.cancellation),
     sheet.rooms.length === 0 ? null : `Rooms: ${sheet.rooms.map((room) => roomNames[room]).join(", ")}`,
+    sheet.fromPaise === null ? null : `Starts at ${formatRupees(sheet.fromPaise)} per person, the lowest room's price`,
     `Prices, ${gstWords(sheet)}:${seasons.length === 0 ? " by departure, below" : ""}`,
     ...seasons,
     sheet.advancePerPersonPaise === null
