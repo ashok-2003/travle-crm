@@ -72,7 +72,7 @@ const peopleOf = (terms: { adults: number; childrenAges: readonly number[] }) =>
  * (spec 3.6); with no calls left this month, or no model for the agent on this server, Try it refuses as lite's does.
  */
 function modelFailed(reason: AiFailure | "limit" | "superseded", newText: string): Ended {
-  if (reason === "limit") throw refuse("AI_LIMIT_REACHED", "This month's AI calls are used up", "LIMIT_REACHED");
+  if (reason === "limit") throw refuse("AI_LIMIT_REACHED", "This month's AI credits are used up", "LIMIT_REACHED");
   if (reason === "not_configured") throw modelRefusal(reason);
   const line = fallbackLine(newText);
   const wrote = newText.trim() === "" ? "" : ` They wrote: "${cutText(newText.replace(/\s+/gu, " "), 160)}".`;

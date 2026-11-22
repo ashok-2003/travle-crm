@@ -151,7 +151,7 @@
     "placeholder": "How many leads came from Instagram last month?",
     "ask": "Ask",
     "asking": "Looking",
-    "usage": "{used} of {limit} AI calls used this month, by every AI feature.",
+    "usage": "{used} of {limit} AI credits used this month, by every AI feature.",
     "understood": "I understood this as:",
     "rangeLabel": "Change the period",
     "period": "{from} to {to}",

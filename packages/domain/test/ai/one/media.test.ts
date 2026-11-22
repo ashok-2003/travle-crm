@@ -244,7 +244,7 @@ describe("the one agent reads a voice note or a photo", () => {
     const next = await message("audio");
     await inOrg((tx) => tx.aiUsage.updateMany({ data: { calls: 1_000_000 } }));
     const result = await transcribeVoiceNote(deps, { conversationId: chat.id, messageId: next });
-    expect(JSON.stringify(result)).toContain("this month's AI calls are used up");
+    expect(JSON.stringify(result)).toContain("this month's AI credits are used up");
     expect(model.requests).toHaveLength(2);
   });
 });

@@ -17,7 +17,7 @@ type Trace = TestAiAnswer["trace"];
 /** A model that gave nothing usable: the month's limit, or the model being down. */
 export function ended(reason: string): never {
   if (reason === "limit")
-    throw new DomainError("LIMIT_REACHED", "AI_LIMIT_REACHED", "This month's AI calls are used up");
+    throw new DomainError("LIMIT_REACHED", "AI_LIMIT_REACHED", "This month's AI credits are used up");
   throw new DomainError("CONFLICT", "AI_UNAVAILABLE", "The AI did not answer; try again");
 }
 

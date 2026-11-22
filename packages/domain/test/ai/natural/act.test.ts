@@ -692,7 +692,7 @@ describe("the natural agent's live act", () => {
     const both = await liveAgency(test);
     await atTheCap(both);
     done(await act(both, { messages: [line], handOver: { reason: "month_limit", summary: "" } }));
-    expect((await chatState(both)).handoffReason).toBe("This month's AI replies are used up");
+    expect((await chatState(both)).handoffReason).toBe("This month's AI credits are used up");
   });
 
   it("plans the follow-up the model chose, in waking hours", async () => {

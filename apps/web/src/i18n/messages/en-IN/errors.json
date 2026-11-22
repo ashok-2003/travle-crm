@@ -222,7 +222,7 @@
     "QUOTE_NOT_DELETABLE": "An accepted quote is the booking and can't be deleted.",
     "GST_STATE_REQUIRED": "Save your GST state in the business details before you quote with tax.",
     "AI_OFF": "The AI is off for this agency. An Owner or Admin turns it on in Settings, AI.",
-    "AI_LIMIT_REACHED": "This agency has used this month's AI calls. They start again next month.",
+    "AI_LIMIT_REACHED": "This agency has used this month's AI credits. They renew next month.",
     "TEMPLATE_REQUIRED": "Choose the template to send.",
     "FOLLOW_STEPS_REQUIRED": "Add at least one follow-up, or turn follow-ups off.",
     "FOLLOW_DAYS_ORDER": "Each follow-up has to come some days after the one before.",

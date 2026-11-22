@@ -114,7 +114,7 @@
     "loadFailed": "The usage didn't load.",
     "aiLabel": "The AI this month",
     "figures": {
-      "calls": "AI calls",
+      "calls": "AI credits",
       "tokens": "Tokens",
       "cost": "AI cost so far",
       "projected": "By month's end"
