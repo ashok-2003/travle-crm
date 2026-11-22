@@ -50,12 +50,27 @@ export function useArchive() {
   return useMutation(trpc.inbox.archive.mutationOptions({ onSuccess: refresh }));
 }
 
-/** Clears the member's unread count for a chat: the list's row and the count above it. */
+/**
+ * Clears the member's unread count for a chat: the list's row and the count above it. The chat's messages carry what was
+ * unread as they were read, so they are marked stale (not loaded now): a chat opened again a moment later, while its
+ * messages would still count as fresh, asks afresh and shows no "3 unread messages" it has read.
+ */
 export function useMarkRead() {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const invalidate = useInvalidate();
   return useMutation(
-    trpc.inbox.markRead.mutationOptions({ onSuccess: () => Promise.all([invalidate("chats"), invalidate("summary")]) }),
+    trpc.inbox.markRead.mutationOptions({
+      onSuccess: (_result, { conversationId }) =>
+        Promise.all([
+          invalidate("chats"),
+          invalidate("summary"),
+          queryClient.invalidateQueries({
+            queryKey: [...trpc.inbox.messages.pathKey(), conversationId],
+            refetchType: "none",
+          }),
+        ]),
+    }),
   );
 }
 
