@@ -18,7 +18,7 @@ import {
   type SubscriptionAccess,
 } from "@travel-crm/domain/subscriptions";
 import type { AccessCache } from "./access-cache.js";
-import { forwardCookies } from "./context.js";
+import { forwardCookies, type Context } from "./context.js";
 import { domainErrorsAsStatus } from "./errors.js";
 import { t, type ProcedureMeta } from "./trpc.js";
 
@@ -220,3 +220,24 @@ export const freshProcedure = Object.assign(freshMember, {
       return next();
     }),
 });
+
+/**
+ * The member a plain HTTP route serves (the live stream, `/api/live`), by the same checks an organization procedure that
+ * requires these permissions runs for a call that views: signed in (support's impersonation read afresh, as
+ * protectedProcedure does), a member past any pending step, the subscription letting them view, the module on the plan
+ * and the role holding the permissions. It refuses as the procedures do: TRPCError UNAUTHORIZED, or a DomainError.
+ */
+export async function memberForRoute(context: Context, ...permissions: RequiredPermissions): Promise<MemberAccess> {
+  let { session, user } = context;
+  if (!session || !user) throw new TRPCError({ code: "UNAUTHORIZED" });
+  if (session.impersonatedBy) {
+    const fresh = await sessionFromDatabase(context);
+    if (!fresh?.session.impersonatedBy) throw new TRPCError({ code: "UNAUTHORIZED" });
+    await assertImpersonationStillHolds(context, fresh.session);
+    ({ session, user } = fresh);
+  }
+  const call = { kind: "view", planModule: planModuleOfPermissions(permissions) } as const;
+  const { member, entitlements } = await memberAccessFor({ ...context, session, user }, call, { fresh: false });
+  assertMayUse(member, entitlements, permissions);
+  return member;
+}
