@@ -34,8 +34,11 @@ class FakeEventSource extends EventTarget {
   }
 }
 
-/** The browser's Web Locks, one holder of a name at a time, the others waiting in turn. */
-function fakeLocks() {
+/**
+ * The browser's Web Locks, one holder of a name at a time, the others waiting in turn. `lateAbort` plays an abort that
+ * comes too late: the request stays in line, and its callback still runs.
+ */
+function fakeLocks({ lateAbort = false }: { lateAbort?: boolean } = {}) {
   let busy = false;
   const waiting: { run: () => Promise<unknown>; reject: (error: unknown) => void }[] = [];
   const next = () => {
@@ -53,6 +56,7 @@ function fakeLocks() {
       new Promise((resolve, reject) => {
         const turn = { run: () => callback().then(resolve), reject };
         options.signal?.addEventListener("abort", () => {
+          if (lateAbort) return;
           const index = waiting.indexOf(turn);
           if (index === -1) return;
           waiting.splice(index, 1);
@@ -65,8 +69,7 @@ function fakeLocks() {
 }
 
 /** BroadcastChannels of one name: a message reaches every other channel, a moment later. */
-function fakeChannels() {
-  const open = new Set<EventTarget>();
+function fakeChannels(open = new Set<EventTarget>()) {
   return () => {
     const channel = Object.assign(new EventTarget(), {
       postMessage: (data: unknown) => {
@@ -87,8 +90,11 @@ function fakeChannels() {
 /** A tab: its part in the stream, and what it heard (with whether it held the stream). */
 function aTab(environment: LiveEnvironment) {
   const heard: { message: LiveMessage; own: boolean }[] = [];
-  const connection = createLiveConnection(environment, (message, own) => heard.push({ message, own }));
-  return { connection, heard, events: () => heard.filter(({ message }) => message.type === "event") };
+  const chimes: string[] = [];
+  const connection = createLiveConnection(environment, (message, own) => heard.push({ message, own }), {
+    chime: (conversationId) => chimes.push(conversationId),
+  });
+  return { connection, heard, chimes, events: () => heard.filter(({ message }) => message.type === "event") };
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -187,5 +193,86 @@ describe("one live stream per browser", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("asks the other tabs, not itself, to sound a chime", async () => {
+    const holder = aTab(environment);
+    const other = aTab(environment);
+    holder.connection.askChime(chat);
+    await settle();
+    expect(other.chimes).toEqual([chat]);
+    expect(holder.chimes).toEqual([]);
+  });
+
+  it("lets a lock granted after it was given up go at once, and never opens a stream for an old request", async () => {
+    const late = { ...environment, locks: fakeLocks({ lateAbort: true }) };
+    const holder = aTab(late);
+    const quitter = aTab(late);
+    const changer = aTab(late);
+    holder.connection.want(true);
+    await settle();
+    // Gave up while waiting, but the browser grants it all the same.
+    quitter.connection.want(false);
+    quitter.connection.want(true);
+    quitter.connection.want(false);
+    // Wanted, given up and wanted again: two requests in line, the first of them old.
+    changer.connection.want(true);
+    changer.connection.want(false);
+    changer.connection.want(true);
+    holder.connection.close();
+    await settle();
+    await settle();
+    expect(quitter.connection.holds()).toBe(false);
+    expect(changer.connection.holds()).toBe(true);
+    // The holder's stream, then the changer's one: nothing for the quitter or the old request.
+    expect(FakeEventSource.made).toHaveLength(2);
+  });
+
+  it("lets another tab hold the stream while it is frozen, and asks again when it is back", async () => {
+    const first = aTab(environment);
+    const second = aTab(environment);
+    first.connection.want(true);
+    second.connection.want(true);
+    await settle();
+    first.connection.pause(true);
+    await settle();
+    expect(first.connection.holds()).toBe(false);
+    expect(second.connection.holds()).toBe(true);
+    first.connection.pause(false);
+    second.connection.close();
+    await settle();
+    expect(first.connection.holds()).toBe(true);
+  });
+
+  it("opens its own stream when the lock fails for another reason than giving up (storage blocked)", async () => {
+    const blocked = {
+      ...environment,
+      locks: {
+        request: () => Promise.reject(new DOMException("The request is insecure", "SecurityError")),
+      } as unknown as LockManager,
+    };
+    const tab = aTab(blocked);
+    tab.connection.want(true);
+    await settle();
+    expect(tab.connection.holds()).toBe(true);
+    expect(FakeEventSource.made).toHaveLength(1);
+  });
+
+  it("ignores what another version of the app may send over the channel", async () => {
+    const channels = new Set<EventTarget>();
+    const shared = { ...environment, channel: fakeChannels(channels) };
+    const tab = aTab(shared);
+    const stranger = fakeChannels(channels)();
+    stranger.postMessage({ kind: "live", message: { type: "event", event: { conversationId: "not an id" } } });
+    stranger.postMessage({ kind: "live", message: { type: "connected", askedAt: "soon" } });
+    stranger.postMessage({ kind: "chime", conversationId: 42 });
+    stranger.postMessage({ kind: "front", tab: "t", chat: { id: chat } });
+    stranger.postMessage("hello");
+    stranger.postMessage({ kind: "live", message: { type: "event", event: { conversationId: chat, change: "chat" } } });
+    await settle();
+    expect(tab.heard).toEqual([
+      { message: { type: "event", event: { conversationId: chat, change: "chat" } }, own: false },
+    ]);
+    expect(tab.chimes).toEqual([]);
   });
 });
