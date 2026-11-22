@@ -14,6 +14,12 @@
 	handle /api/platform/* {
 		reverse_proxy console:3002
 	}
+	# The Inbox's live stream (server-sent events): each event goes out as it comes, never held back.
+	handle /api/live {
+		reverse_proxy api:3001 {
+			flush_interval -1
+		}
+	}
 	handle /api/* {
 		reverse_proxy api:3001
 	}
