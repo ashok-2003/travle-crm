@@ -1,5 +1,6 @@
 // The AI agent's last day at a glance (the AI agent page's head): chats it answered and messages it sent, chats it flagged
-// or handed over, and bookings it took. A blocked contact's or erased chat counts in none: the inbox lists neither.
+// or handed over, and bookings it took. A blocked contact's or erased chat counts in none of the chat figures (the
+// inbox lists neither); bookings it took there still count, as a booking stands on its own.
 import type { AiOverview } from "@travel-crm/contracts/ai";
 import { emptySql, sql, type OrgTx } from "@travel-crm/db";
 import { answeredByAiWhere, listedChatWhere } from "../inbox/index.js";
