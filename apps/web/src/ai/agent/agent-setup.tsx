@@ -62,7 +62,7 @@ export function AgentSetupScreen() {
         <CardContent>
           <ItemGroup>
             {setup.steps.map((step) => (
-              <div key={step.key} id={`step-${step.key}`} className="scroll-mt-6">
+              <div key={step.key} id={`step-${step.key}`} role="listitem" className="scroll-mt-6">
                 <StepRow
                   step={step}
                   open={openKey === step.key}
@@ -73,7 +73,7 @@ export function AgentSetupScreen() {
                 <ItemSeparator />
               </div>
             ))}
-            <Item>
+            <Item role="listitem">
               <ItemContent>
                 <TurnOnStep ready={setup.ready} on={setup.on} pausedBySupport={setup.pausedBySupport} />
               </ItemContent>

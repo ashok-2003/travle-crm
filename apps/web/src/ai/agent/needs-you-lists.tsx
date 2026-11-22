@@ -30,7 +30,7 @@ export function HandedOverList({ id, chats }: { id: string; chats: HandedOverCha
   return (
     <ListSection id={id} title={t("handedOver")}>
       {chats.map((chat, index) => (
-        <div key={chat.conversationId}>
+        <div key={chat.conversationId} role="listitem">
           {index > 0 && <ItemSeparator />}
           <Item>
             <ItemContent>
@@ -56,7 +56,7 @@ export function SuggestionList({ id, suggestions }: { id: string; suggestions: S
   return (
     <ListSection id={id} title={t("suggestions")}>
       {suggestions.map((suggestion, index) => (
-        <div key={suggestion.id}>
+        <div key={suggestion.id} role="listitem">
           {index > 0 && <ItemSeparator />}
           <Item>
             <ItemContent>
