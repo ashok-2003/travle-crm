@@ -423,13 +423,16 @@ describe("TodayScreen", () => {
       expect(within(table).getByRole("button", { name: "No" })).toBeVisible();
     });
 
-    it("keeps the payments to check as a line above the table, leading to Payments, and no count of its own", async () => {
+    it("keeps the payments to check above the table as an amber card with a Check payments button, no count of its own", async () => {
       day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 2 } });
       renderToday();
       // Only payments: the tab counts what the AI asks, so it has no number.
       await userEvent.click(await tab("AI needs you"));
       const ai = await panel("AI needs you");
-      expect(within(ai).getByRole("link", { name: /2 payments are waiting/ })).toHaveAttribute("href", "/payments");
+      const card = within(ai).getByRole("region", { name: "2 payments are waiting for your word" });
+      expect(card.className).toContain("--brand-status-attention-fill");
+      expect(within(card).getByText(words.paymentsToCheck.how)).toBeVisible();
+      expect(within(card).getByRole("link", { name: words.paymentsToCheck.open })).toHaveAttribute("href", "/payments");
       expect(within(ai).queryByRole("table")).toBeNull();
     });
 
