@@ -206,6 +206,51 @@ describe("environment", () => {
     }
   });
 
+  it("takes each fallback provider's address, key and models together, behind a key, over https in production", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    const studio = {
+      AI_API_KEY: "AIza-first-key-0123456789",
+      AI_BASE_URL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      AI_CHAT_MODELS: "gemini-3.5-flash-lite",
+    };
+    const fallbackKey = "sk-or-fallback-0123456789";
+    const fallback = {
+      AI_FALLBACK_BASE_URL: "https://openrouter.ai/api/v1",
+      AI_FALLBACK_API_KEY: fallbackKey,
+      AI_FALLBACK_MODELS: "vendor/free-one:free,vendor/free-two:free",
+    };
+    const second = {
+      AI_FALLBACK_2_BASE_URL: "https://api.mistral.ai/v1",
+      AI_FALLBACK_2_API_KEY: "mistral-key-0123456789",
+      AI_FALLBACK_2_MODELS: "mistral-small-latest",
+    };
+    expect(loadEnvironment({ ...production, ...studio, ...fallback, ...second })).toMatchObject({
+      AI_FALLBACK_MODELS: ["vendor/free-one:free", "vendor/free-two:free"],
+      AI_FALLBACK_2_MODELS: ["mistral-small-latest"],
+    });
+    // All three or none (a blank is unset); never without the AI they stand behind; https in production.
+    for (const [wrong, problem] of [
+      [{ ...studio, ...fallback, AI_FALLBACK_MODELS: "" }, /AI_FALLBACK_MODELS: is needed with AI_FALLBACK_API_KEY/],
+      [
+        { ...studio, ...second, AI_FALLBACK_2_BASE_URL: "" },
+        /AI_FALLBACK_2_BASE_URL: is needed with AI_FALLBACK_2_API_KEY/,
+      ],
+      [fallback, /AI_FALLBACK_API_KEY: is only for use with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT/],
+      [
+        { ...studio, ...fallback, AI_FALLBACK_BASE_URL: "http://openrouter.ai/api/v1" },
+        /AI_FALLBACK_BASE_URL: must be an https address/,
+      ],
+    ] as const) {
+      try {
+        loadEnvironment({ ...production, ...wrong });
+        expect.unreachable();
+      } catch (error) {
+        expect(String(error)).toMatch(problem);
+        expect(String(error)).not.toContain(fallbackKey);
+      }
+    }
+  });
+
   it("takes Axiom's token and dataset together or not at all, over https outside development", () => {
     const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
     expect(loadEnvironment(production).AXIOM_TOKEN).toBeUndefined();

@@ -246,6 +246,18 @@ export const serviceVariables = {
   AI_BACKUP_API_KEY_2: emptyAsUnset(z.string().min(8, "must be the backup AI provider's API key").optional()),
   AI_BACKUP_CHAT_MODELS: emptyAsUnset(modelList.optional()),
   AI_BACKUP_FAST_MODELS: emptyAsUnset(modelList.optional()),
+  /**
+   * Fallback providers behind every key above (the owner, 2026-11-23): each its own OpenAI-compatible endpoint, key and
+   * models for every feature, asked only when every key above refused (rate limited, down), the first before the second.
+   * Free tiers (OpenRouter's free models, Mistral's free mode) are allowed there, so a fallback never asks OpenRouter for
+   * zero data retention, which its free models don't offer.
+   */
+  AI_FALLBACK_BASE_URL: emptyAsUnset(httpUrl.optional()),
+  AI_FALLBACK_API_KEY: emptyAsUnset(z.string().min(8, "must be the fallback AI provider's API key").optional()),
+  AI_FALLBACK_MODELS: emptyAsUnset(modelList.optional()),
+  AI_FALLBACK_2_BASE_URL: emptyAsUnset(httpUrl.optional()),
+  AI_FALLBACK_2_API_KEY: emptyAsUnset(z.string().min(8, "must be the fallback AI provider's API key").optional()),
+  AI_FALLBACK_2_MODELS: emptyAsUnset(modelList.optional()),
   /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */
   AI_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake MSG91 (development and tests only; refused in production). */

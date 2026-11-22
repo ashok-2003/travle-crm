@@ -66,6 +66,12 @@ function isIpv4Mapped(address: string): boolean {
 
 const developmentLike = (nodeEnv: string): boolean => nodeEnv === "development" || nodeEnv === "test";
 
+/** Each fallback provider's address, key and models (the owner, 2026-11-23), the first asked before the second. */
+const fallbackSettings = [
+  ["AI_FALLBACK_BASE_URL", "AI_FALLBACK_API_KEY", "AI_FALLBACK_MODELS"],
+  ["AI_FALLBACK_2_BASE_URL", "AI_FALLBACK_2_API_KEY", "AI_FALLBACK_2_MODELS"],
+] as const;
+
 // DATABASE_MIGRATOR_URL and DATABASE_PLATFORM_URL are left out on purpose: the api never runs migrations, and it never
 // connects as the role that sees every organization.
 const environmentSchema = z
@@ -246,6 +252,17 @@ const environmentSchema = z
     ) {
       problem("AI_BACKUP_CHAT_MODELS", "is needed when AI_BACKUP_BASE_URL is another endpoint than AI_BASE_URL");
     }
+    // Each fallback provider: its address, key and models together, behind the AI above.
+    for (const [base, key, models] of fallbackSettings) {
+      if (environment[key] !== undefined && !credential) {
+        problem(key, "is only for use with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT");
+      }
+      for (const name of [base, models]) {
+        if (environment[key] !== undefined && environment[name] === undefined) problem(name, `is needed with ${key}`);
+        if (environment[key] === undefined && environment[name] !== undefined)
+          problem(name, `is only for use with ${key}`);
+      }
+    }
     if (environment.AI_TEST_SERVER_URL !== undefined && environment.OPENROUTER_API_KEY === undefined) {
       problem("AI_TEST_SERVER_URL", "is only for use with OPENROUTER_API_KEY");
     }
@@ -259,6 +276,9 @@ const environmentSchema = z
     }
     if (environment.AI_BACKUP_BASE_URL !== undefined && !environment.AI_BACKUP_BASE_URL.startsWith("https://")) {
       problem("AI_BACKUP_BASE_URL", "must be an https address in production");
+    }
+    for (const [base] of fallbackSettings) {
+      if (environment[base]?.startsWith("https://") === false) problem(base, "must be an https address in production");
     }
     if (environment.AI_TEST_SERVER_URL !== undefined) {
       problem("AI_TEST_SERVER_URL", "is for development and tests only: unset it in production");

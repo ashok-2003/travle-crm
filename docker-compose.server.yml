@@ -73,6 +73,13 @@ x-api-environment: &api-environment
   AI_BACKUP_BASE_URL: ${AI_BACKUP_BASE_URL:-}
   AI_BACKUP_API_KEY: ${AI_BACKUP_API_KEY:-}
   AI_BACKUP_API_KEY_2: ${AI_BACKUP_API_KEY_2:-}
+  # Fallback providers behind every key (the owner, 2026-11-23): each its own endpoint, key and models.
+  AI_FALLBACK_BASE_URL: ${AI_FALLBACK_BASE_URL:-}
+  AI_FALLBACK_API_KEY: ${AI_FALLBACK_API_KEY:-}
+  AI_FALLBACK_MODELS: ${AI_FALLBACK_MODELS:-}
+  AI_FALLBACK_2_BASE_URL: ${AI_FALLBACK_2_BASE_URL:-}
+  AI_FALLBACK_2_API_KEY: ${AI_FALLBACK_2_API_KEY:-}
+  AI_FALLBACK_2_MODELS: ${AI_FALLBACK_2_MODELS:-}
   AI_BACKUP_CHAT_MODELS: ${AI_BACKUP_CHAT_MODELS:-}
   AI_BACKUP_FAST_MODELS: ${AI_BACKUP_FAST_MODELS:-}
   AI_ZERO_RETENTION: ${AI_ZERO_RETENTION:-}
@@ -257,6 +264,12 @@ services:
       AI_BACKUP_BASE_URL: ""
       AI_BACKUP_API_KEY: ""
       AI_BACKUP_API_KEY_2: ""
+      AI_FALLBACK_BASE_URL: ""
+      AI_FALLBACK_API_KEY: ""
+      AI_FALLBACK_MODELS: ""
+      AI_FALLBACK_2_BASE_URL: ""
+      AI_FALLBACK_2_API_KEY: ""
+      AI_FALLBACK_2_MODELS: ""
       AI_BACKUP_CHAT_MODELS: ""
       AI_BACKUP_FAST_MODELS: ""
       # Nor Langfuse's keys: with no model, it has nothing to trace.
