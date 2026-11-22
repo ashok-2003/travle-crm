@@ -103,12 +103,18 @@ describe("the AI agent page's tabs", () => {
     expect(screen.queryByLabelText(messages.ai.test.message)).not.toBeInTheDocument();
   });
 
-  it("sends an old ?tab=setup address on to the Setup page, at the step it named", async () => {
+  it("sends an old ?tab=setup address on to the Setup page, at the step it named, showing and asking nothing meanwhile", async () => {
     window.location.hash = "#step-payment";
-    await open("/ai-agent?tab=setup");
+    const stub = api();
+    // The router is on its way: this page stays at ?tab=setup until the Setup page takes its place.
+    routerCalls.replace.mockImplementationOnce(() => undefined);
+    address.set("/ai-agent?tab=setup");
+    renderWithApi(<AgentScreen />, client(), member({ isOwner: true }));
     await waitFor(() => {
       expect(routerCalls.replace).toHaveBeenLastCalledWith("/ai-agent/setup#step-payment");
     });
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(stub.calls).toEqual([]);
     window.location.hash = "";
   });
 });

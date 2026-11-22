@@ -26,6 +26,8 @@ export function AgentScreen() {
     // Links made before Setup had its own page ("?tab=setup#step-payment") still reach it, at the step they named.
     if (asked === "setup") router.replace(`${routes.aiAgentSetup}${window.location.hash}`);
   }, [asked, router]);
+  // On its way to Setup: nothing to show, and nothing of the overview's to ask for.
+  if (asked === "setup") return null;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} status={<AgentStateBadge />} intro={t("intro")} action={<SetupButton />} />
