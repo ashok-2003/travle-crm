@@ -2,6 +2,7 @@
 // or handed over, and bookings it took.
 import type { AiOverview } from "@travel-crm/contracts/ai";
 import { emptySql, sql, type OrgTx } from "@travel-crm/db";
+import { answeredByAiWhere } from "../inbox/index.js";
 
 const DAY_MS = 86_400_000;
 /** A bound on each read of flagged chats: far above a day's real number, so the count stays cheap. */
@@ -49,11 +50,12 @@ export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {
   const since = new Date(now.getTime() - DAY_MS);
   const sent = await tx.whatsappMessage.findMany({
     where: { direction: "out", clientToken: { startsWith: "ai:" }, occurredAt: { gte: since } },
-    select: { conversationId: true },
+    select: { id: true },
     take: 2000,
   });
   return {
-    chatsAnswered: new Set(sent.map((message) => message.conversationId)).size,
+    // The inbox's Answered by the AI filter lists exactly these.
+    chatsAnswered: await tx.whatsappConversation.count({ where: answeredByAiWhere(now) }),
     messagesSent: sent.length,
     flagged: await flaggedChats(tx, since),
     bookingsRequested: await tx.aiBooking.count({ where: { createdAt: { gte: since } } }),
