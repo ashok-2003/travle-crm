@@ -15,7 +15,7 @@ import { Item, ItemContent, ItemGroup, ItemSeparator } from "@/components/ui/ite
 import { Progress } from "@/components/ui/progress";
 import { routes } from "@/lib/routes";
 import { setupProgress } from "./agent-state";
-import { StepRow, type StepKey } from "./setup/step-row";
+import { hasEditor, StepRow, type StepKey } from "./setup/step-row";
 import { TurnOnStep } from "./setup/turn-on-step";
 import { useAgentSetup } from "./use-agent";
 
@@ -28,10 +28,12 @@ function stepKeyOfHash(hash: string): StepKey | null {
 export function AgentSetupScreen() {
   const t = useTranslations("aiAgent");
   const progressId = useId();
-  // Arriving from a link to a step (#step-payment) opens that step's editor; the rows are there once the checklist loads.
-  const [openKey, setOpenKey] = useState<StepKey | null>(() =>
-    typeof window === "undefined" ? null : stepKeyOfHash(window.location.hash),
-  );
+  // Arriving from a link to a step (#step-payment) opens that step's editor, if it has one here; the page scrolls to the
+  // step either way, once the checklist has loaded.
+  const [openKey, setOpenKey] = useState<StepKey | null>(() => {
+    const key = typeof window === "undefined" ? null : stepKeyOfHash(window.location.hash);
+    return key !== null && hasEditor(key) ? key : null;
+  });
   const query = useAgentSetup();
   const setup = query.data;
   const loaded = setup !== undefined;

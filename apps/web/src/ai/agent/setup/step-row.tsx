@@ -34,6 +34,9 @@ const editors: Partial<Record<StepKey, () => ReactNode>> = {
   ads: () => <AdsStepEditor />,
 };
 
+/** Whether a step is done here, in an editor a link to it ("#step-payment") may open. */
+export const hasEditor = (key: StepKey): boolean => editors[key] !== undefined;
+
 function StateLine({ step, mayManage }: { step: Step; mayManage: boolean }) {
   const t = useTranslations("aiAgent.setup.steps");
   if (step.key === "payment" && !mayManage) return <>{t(step.done ? "payment.done" : "payment.askManager")}</>;
@@ -57,7 +60,7 @@ export function StepRow({ step, open, onToggle }: { step: Step; open: boolean; o
   const editor = editors[step.key];
   // The payment details are the settings managers' alone.
   const editable = editor !== undefined && (step.key !== "payment" || mayManage);
-  const action = open ? "close" : step.done ? (page === undefined ? "edit" : "manage") : "setUp";
+  const action = open && editable ? "close" : step.done ? (page === undefined ? "edit" : "manage") : "setUp";
   const words = t(`actions.${action}`);
   const named = t(`actions.${action}Named`, { title });
   return (

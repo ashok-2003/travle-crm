@@ -4,7 +4,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { brand } from "@travel-crm/brand";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentSetupScreen } from "@/ai/agent/agent-setup";
 import { messages } from "@/i18n/messages";
 import { address } from "../../leads/navigation";
@@ -54,6 +54,10 @@ beforeEach(() => {
   address.set("/ai-agent/setup");
 });
 
+afterEach(() => {
+  window.location.hash = "";
+});
+
 describe("the Setup page", () => {
   it("has a way back to the AI agent", async () => {
     show();
@@ -79,6 +83,22 @@ describe("the Setup page", () => {
       "true",
     );
     expect(scrollTo).toHaveBeenCalledWith("step-payment");
+    window.location.hash = "";
+  });
+});
+
+describe("arriving at a step done on its own page", () => {
+  it("scrolls to it, but opens nothing and calls its link nothing but Manage or Set up", async () => {
+    const scrollTo = vi.fn();
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrollTo(this.id);
+    };
+    window.location.hash = "#step-whatsapp";
+    show();
+    expect(await screen.findByRole("link", { name: `Manage ${t.steps.whatsapp.title}` })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: `Close ${t.steps.whatsapp.title}` })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Close / })).not.toBeInTheDocument();
+    expect(scrollTo).toHaveBeenCalledWith("step-whatsapp");
     window.location.hash = "";
   });
 });
