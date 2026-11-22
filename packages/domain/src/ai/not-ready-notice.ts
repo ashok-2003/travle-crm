@@ -29,7 +29,7 @@ export async function tellAgentNotReady(
       body:
         "It is switched on, but its setup isn't finished, so it sends no reply to anyone. Finish the setup, " +
         "or turn the agent off so your team knows to answer.",
-      link: "/ai-agent?tab=setup",
+      link: "/ai-agent/setup",
       channels: ["email", "push"],
     });
   });
