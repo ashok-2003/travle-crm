@@ -95,7 +95,9 @@ function Chats({ currentId, asked }: { currentId: string | null; asked: boolean 
   const [tagChoice, setTagChoice] = useState(() => keptOrFresh(KEYS.tag, asked) ?? "");
   // A kept tag that was since deleted counts as none.
   const tagId = tags.data?.some((tag) => tag.id === tagChoice) === true ? tagChoice : null;
-  const shownFilter = aiAnswered.on ? "ai_answered" : (filter ?? "all");
+  // Mine first (owner, 2026-11-22): a member starts on their own chats; All, Unassigned and the rest are a tap away, and
+  // the tab keeps whatever they choose.
+  const shownFilter = aiAnswered.on ? "ai_answered" : (filter ?? "mine");
   const chats = useConversations({
     filter: shownFilter,
     search: search.length >= 2 ? search : "",

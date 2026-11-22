@@ -70,14 +70,14 @@ describe("the inbox's Answered by the AI filter", () => {
     const view = show("/inbox?show=ai-answered");
     await userEvent.click(await screen.findByRole("button", { name: t.aiAnswered.label }));
     await waitFor(() => {
-      expect(asked.at(-1)).toMatchObject({ filter: "all" });
+      expect(asked.at(-1)).toMatchObject({ filter: "mine" });
     });
     expect(screen.queryByRole("button", { name: t.aiAnswered.label })).not.toBeInTheDocument();
     view.unmount();
     const again = api();
     show("/inbox");
     await waitFor(() => {
-      expect(again.at(-1)).toMatchObject({ filter: "all" });
+      expect(again.at(-1)).toMatchObject({ filter: "mine" });
     });
     expect(screen.queryByRole("button", { name: t.aiAnswered.label })).not.toBeInTheDocument();
   });
@@ -105,12 +105,13 @@ describe("the inbox's Answered by the AI filter", () => {
     expect(screen.queryByRole("button", { name: t.aiAnswered.label })).not.toBeInTheDocument();
   });
 
-  it("is not there on the plain inbox", async () => {
+  it("is not there on the plain inbox, which starts on Mine (owner, 2026-11-22)", async () => {
     const asked = api();
     show("/inbox");
     await waitFor(() => {
-      expect(asked.at(-1)).toMatchObject({ filter: "all" });
+      expect(asked.at(-1)).toMatchObject({ filter: "mine" });
     });
+    expect(screen.getByRole("radio", { name: new RegExp(`^${t.filterMine}`) })).toBeChecked();
     expect(screen.queryByRole("button", { name: t.aiAnswered.label })).not.toBeInTheDocument();
   });
 });
