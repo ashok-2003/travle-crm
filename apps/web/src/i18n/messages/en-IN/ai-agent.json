@@ -72,7 +72,6 @@
     "intro": "What the AI needs before it can answer your WhatsApp chats.",
     "back": "AI agent",
     "progress": "{done} of {total} done",
-    "progressLabel": "Setup progress",
     "done": "Done",
     "todo": "To do",
     "optional": "Optional",
