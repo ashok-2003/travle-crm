@@ -64,7 +64,12 @@ The Inbox is the page sales agents live in; the goal is that they use it instead
    a desktop notification ("New message from <name>", opening the chat) when a customer writes to a chat of theirs
    (or an unassigned one, for whoever takes unassigned) and that chat isn't the one in front of them. Both are off until
    the member turns them on in the Inbox (a small settings menu); the browser's permission is asked only then. Never in
-   the console; nothing is sent to the server for it.
+   the console; nothing is sent to the server for it. They work on every page of the agency app while the browser has it
+   open (owner, 2026-11-22: "if this does not add any infra hassle and is ok for our small server"): one stream per
+   browser, not per tab (one tab holds it by a Web Lock and passes its events to the others over a BroadcastChannel; the
+   next takes over when it closes), held only while an Inbox page is open or an alert is switched on; only that tab
+   sounds; outside the Inbox an event gives the alert and loads the menu's Inbox count (at most every 10 s), nothing else.
+   A closed browser gets nothing: that would be web push, not in this change.
 6. **Keyboard:** ↑ / ↓ move between chats (when the focus isn't in a box; Alt+↑ / Alt+↓ anywhere), Ctrl/⌘+K focuses
    the search, Esc closes the contact panel; Enter sends and Shift+Enter makes a new line as now. A "Keyboard shortcuts"
    item in the settings menu lists them.

@@ -171,7 +171,10 @@ describe("an alert", () => {
     answerApi({ "inbox.conversation": header(state) });
     const queryClient = newQueryClient();
     const Providers = withApp(queryClient);
-    return renderHook(() => useInboxAlerts(openId), {
+    // In front: the chat open, in a tab in view with the focus (as the app's shell asks it of every tab).
+    const inFront = (conversationId: string) =>
+      conversationId === openId && document.visibilityState === "visible" && document.hasFocus();
+    return renderHook(() => useInboxAlerts(inFront), {
       wrapper: ({ children }) => (
         <Providers>
           <MeProvider me={seller}>{children}</MeProvider>
@@ -189,7 +192,7 @@ describe("an alert", () => {
       alert(chat);
     });
     await waitFor(() => {
-      expect(shown).toEqual([{ title: "New message from Meera Rao", options: { tag: `inbox-${chat}` } }]);
+      expect(shown).toEqual([{ title: "New message from Meera Rao", options: { tag: chat } }]);
     });
     expect(tones).toHaveBeenCalled();
   });
@@ -206,7 +209,7 @@ describe("an alert", () => {
       alerts(null)(chat);
       await waitFor(() => {
         expect(showNotification).toHaveBeenCalledWith("New message from Meera Rao", {
-          tag: `inbox-${chat}`,
+          tag: chat,
           data: { path: `/inbox/${chat}` },
         });
       });

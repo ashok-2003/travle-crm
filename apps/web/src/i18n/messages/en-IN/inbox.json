@@ -803,6 +803,7 @@
   "alerts": {
     "open": "Alerts",
     "title": "Alerts",
+    "everywhere": "They work on every page of the app while this browser has it open, not once it is closed.",
     "sound": "Sound",
     "soundHint": "A soft sound when a customer writes to one of your chats, or to a chat nobody has yet.",
     "desktop": "Desktop notifications",

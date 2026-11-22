@@ -6,6 +6,7 @@
 // file; a desktop notification goes through the service worker where one is ready (the only way on Android's Chrome), else
 // the page's own Notification.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
+import { useSyncExternalStore } from "react";
 import { inboxRoute } from "@/lib/routes";
 import { holds, type SignedInMember } from "@/session/me-context";
 
@@ -27,6 +28,9 @@ export function alertIsOn(kind: AlertKind): boolean {
   }
 }
 
+/** Told in this tab when a switch changes (other tabs hear the storage event). */
+const ALERTS_CHANGED = "travel-crm:inbox-alerts";
+
 export function keepAlert(kind: AlertKind, on: boolean): void {
   try {
     if (on) window.localStorage.setItem(SETTING_KEYS[kind], "on");
@@ -34,6 +38,26 @@ export function keepAlert(kind: AlertKind, on: boolean): void {
   } catch {
     // Blocked storage: the switch lasts while the page is open.
   }
+  window.dispatchEvent(new Event(ALERTS_CHANGED));
+}
+
+/** Whether an alert would be given at all: the sound on, or desktop notifications on and allowed. */
+export function anyAlertOn(): boolean {
+  return alertIsOn("sound") || (alertIsOn("desktop") && notificationPermission() === "granted");
+}
+
+function watchAlerts(changed: () => void): () => void {
+  window.addEventListener(ALERTS_CHANGED, changed);
+  window.addEventListener("storage", changed);
+  return () => {
+    window.removeEventListener(ALERTS_CHANGED, changed);
+    window.removeEventListener("storage", changed);
+  };
+}
+
+/** anyAlertOn, kept up to date as the member switches them in this tab or another. */
+export function useAnyAlertOn(): boolean {
+  return useSyncExternalStore(watchAlerts, anyAlertOn, () => false);
 }
 
 /** Whether this tab gives the alert for a message in this chat now: no other tab gave one for it a moment ago. */
@@ -111,7 +135,8 @@ export function notificationPermission(): NotificationPermission | "unsupported"
  * `data.path`, as a push's does), else as the page's own notification, whose click comes back to this tab.
  */
 export async function showChatNotice(title: string, conversationId: string, open: () => void): Promise<void> {
-  const tag = `inbox-${conversationId}`;
+  // Tagged by the chat: a second notice for it replaces the first, never shows beside it.
+  const tag = conversationId;
   const worker = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
   if (worker?.active != null) {
     await worker.showNotification(title, { tag, data: { path: inboxRoute(conversationId) } });

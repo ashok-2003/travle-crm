@@ -1,9 +1,9 @@
 "use client";
 
-// What the Inbox does when the live stream says a customer wrote (inbox revamp spec, part 1 item 5): if the member turned
-// the sound or desktop notifications on, and the chat is theirs (inbox-alerts.ts) and not the one in front of them, a soft
-// sound and "New message from <name>", which opens the chat. The chat's name and owner come from its header, the same read
-// the chat itself uses.
+// What the tab holding the live stream does when it says a customer wrote (inbox revamp spec, part 1 item 5), on any page of
+// the app: if the member turned the sound or desktop notifications on, and the chat is theirs (inbox-alerts.ts) and not
+// in front of them in any tab, a soft sound and "New message from <name>", which opens the chat. The chat's name and
+// owner come from its header, the same read the chat itself uses.
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -14,25 +14,22 @@ import { inboxRoute } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
 import { alertIsOn, alertsMember, claimAlert, notificationPermission, playChime, showChatNotice } from "./inbox-alerts";
 
-/** Whether this chat is the one the member is looking at: open, in a tab that is in view and has the focus. */
-const inFront = (conversationId: string, openId: string | null) =>
-  conversationId === openId && document.visibilityState === "visible" && document.hasFocus();
-
-export function useInboxAlerts(openId: string | null): (conversationId: string) => void {
+/** `inFront` says whether a chat is the one the member is looking at, in this tab or another. */
+export function useInboxAlerts(inFront: (conversationId: string) => boolean): (conversationId: string) => void {
   const t = useTranslations("inbox.alerts");
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
   const me = useMe();
-  const open = useRef(openId);
+  const front = useRef(inFront);
   useEffect(() => {
-    open.current = openId;
+    front.current = inFront;
   });
   return useCallback(
     (conversationId: string) => {
       const sound = alertIsOn("sound");
       const desktop = alertIsOn("desktop") && notificationPermission() === "granted";
-      if ((!sound && !desktop) || inFront(conversationId, open.current)) return;
+      if ((!sound && !desktop) || front.current(conversationId)) return;
       void queryClient
         .query(trpc.inbox.conversation.queryOptions({ conversationId }))
         .then((header) => {

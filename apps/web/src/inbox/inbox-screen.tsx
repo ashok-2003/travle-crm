@@ -3,9 +3,10 @@
 // /inbox and /inbox/<id> (spec 3.1; sales inbox spec, section 3; inbox revamp spec, part 1): the shared WhatsApp inbox, edge
 // to edge like WhatsApp Web, built once by the chats' layout so choosing a chat never rebuilds the list. On a computer the
 // chats on the left and the open chat (the page, `children`) beside them, the chat first (inbox-panes.tsx); on a phone, or
-// a screen under 1024px, the chats, and a chat covers the whole screen over them, so Back finds the list as it was. It holds the live stream, the
-// alerts and the keys. The states: WhatsApp not set up for the agency (never naming MSG91), the connection in trouble or
-// paused, the demo (read only), a load that failed with Try again.
+// a screen under 1024px, the chats, and a chat covers the whole screen over them, so Back finds the list as it was. It
+// hears the live stream (the app's shell holds it and gives the alerts) and holds the keys. The states: WhatsApp not set
+// up for the agency (never naming MSG91), the connection in trouble or paused, the demo (read only), a load that failed
+// with Try again.
 import { MegaphoneIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -25,7 +26,6 @@ import { AlertsMenu } from "./alerts-menu";
 import { InboxList } from "./inbox-list";
 import { InboxPanesProvider, useInboxTwoPanes, useWidthOf } from "./inbox-panes";
 import { NotSetUp } from "./not-set-up";
-import { useInboxAlerts } from "./use-inbox-alerts";
 import { useInboxLive } from "./use-inbox-live";
 import { useInboxStatus, usePrefetchInboxLists } from "./use-inbox";
 import { useInboxKeys } from "./use-inbox-keys";
@@ -53,7 +53,7 @@ export function InboxScreen({ children }: { children: ReactNode }) {
   const conversationId = useOpenChatId();
   const status = useInboxStatus();
   usePrefetchInboxLists();
-  useInboxLive({ openId: conversationId, onCustomerWrote: useInboxAlerts(conversationId) });
+  useInboxLive({ openId: conversationId });
   const mayBroadcast = useHolds("inbox:templates");
 
   const fill = useFillScreen<HTMLDivElement>();

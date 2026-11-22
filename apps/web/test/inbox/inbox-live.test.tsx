@@ -2,16 +2,22 @@
 // queued, sent, delivered and read; a broadcast's delivery reports) makes a bounded number of requests: the list (its first
 // page alone) and the counts at most once every 3 s, the open chat a moment after it changes, typing only its bar, other
 // chats nothing until opened. A reconnect reads the list's first page, the counts and the open chat; a hidden tab loads
-// nothing; a customer's message is passed on for the alerts; a refused stream is asked for again a minute later.
+// nothing. (Who holds the stream, and the alerts: inbox-live-shell.test.tsx and live-connection.test.ts.)
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withFirstPage } from "@/inbox/first-page";
 import { GATHER_MS, LISTS_EVERY_MS, throttle } from "@/inbox/live-refresh";
 import { useConversation, useConversations, useMessages } from "@/inbox/use-inbox";
-import { RETRY_REFUSED_MS, useInboxLive } from "@/inbox/use-inbox-live";
+import { InboxLiveShell } from "@/inbox/inbox-live-shell";
+import { useInboxLive } from "@/inbox/use-inbox-live";
+import { MeProvider } from "@/session/me-context";
+import type { ReactNode } from "react";
+import { member } from "../support/members";
 import { useInboxSummary } from "@/inbox/use-sales-inbox";
 import { newQueryClient, withApp } from "../organization/api";
 import { aMessage, answerApi } from "./answer-api";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }) }));
 
 class FakeEventSource extends EventTarget {
   static readonly CONNECTING = 0;
@@ -98,6 +104,21 @@ const summary = {
 };
 const listInput = { filter: "all" as const, search: "", tagId: null, stage: null, period: null };
 
+/** The app around the Inbox: its shell holds the stream (in this browser without Web Locks, a stream of the tab's own). */
+function inTheApp(queryClient: ReturnType<typeof newQueryClient>) {
+  const Providers = withApp(queryClient);
+  return function App({ children }: { children: ReactNode }) {
+    return (
+      <Providers>
+        <MeProvider me={member({ isOwner: true })}>
+          <InboxLiveShell />
+          {children}
+        </MeProvider>
+      </Providers>
+    );
+  };
+}
+
 /** The Inbox with a chat open, as the live stream sees it: the list, the counts, and the open chat's bar and messages. */
 function inbox() {
   const api = answerApi({
@@ -122,7 +143,7 @@ function inbox() {
       useInboxLive({ openId: open });
       return list;
     },
-    { wrapper: withApp(queryClient) },
+    { wrapper: inTheApp(queryClient) },
   );
   const source = FakeEventSource.made.at(-1);
   if (source === undefined) throw new Error("no stream was opened");
@@ -259,44 +280,6 @@ describe("the Inbox's live stream", () => {
     });
     await pass(LISTS_EVERY_MS);
     expect(count()).toEqual(before);
-  });
-
-  it("passes on a customer's message, for the alerts", () => {
-    answerApi({});
-    const customerWrote = vi.fn();
-    renderHook(
-      () => {
-        useInboxLive({ openId: null, onCustomerWrote: customerWrote });
-      },
-      { wrapper: withApp(newQueryClient()) },
-    );
-    const source = FakeEventSource.made.at(-1);
-    act(() => {
-      source?.says({ conversationId: open, change: "message", direction: "in" });
-      source?.says({ conversationId: open, change: "status" });
-      source?.says({ conversationId: "not an id", change: "message", direction: "in" });
-    });
-    expect(customerWrote.mock.calls).toEqual([[open]]);
-  });
-
-  it("asks again a minute after the api refused the stream", () => {
-    answerApi({});
-    renderHook(
-      () => {
-        useInboxLive({ openId: null });
-      },
-      { wrapper: withApp(newQueryClient()) },
-    );
-    const source = FakeEventSource.made.at(-1);
-    act(() => {
-      source?.refused();
-    });
-    expect(source?.closed).toBe(true);
-    expect(FakeEventSource.made).toHaveLength(1);
-    act(() => {
-      vi.advanceTimersByTime(RETRY_REFUSED_MS);
-    });
-    expect(FakeEventSource.made).toHaveLength(2);
   });
 });
 

@@ -1,7 +1,8 @@
 "use client";
 
 // The Inbox's settings menu in the chats' bar (inbox revamp spec, part 1 items 5 and 6): two switches, Sound and Desktop
-// notifications, both off until the member turns them on and kept in this browser; the browser's permission for
+// notifications, both off until the member turns them on and kept in this browser, which alert on every page of the app
+// while the browser has it open; the browser's permission for
 // notifications is asked only as that switch is turned on, and a browser that blocked them says so; one that can't show
 // them at all has no such switch. Then the keyboard shortcuts, listed in a dialog.
 import { BellIcon } from "lucide-react";
@@ -88,7 +89,10 @@ export function AlertsMenu() {
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="flex w-80 flex-col gap-2">
-          <p className="text-label font-medium">{t("title")}</p>
+          <div className="flex flex-col gap-1">
+            <p className="text-label font-medium">{t("title")}</p>
+            <p className="text-caption text-muted-foreground">{t("everywhere")}</p>
+          </div>
           <ItemGroup>
             <AlertSwitch kind="sound" on={sound} onChange={changeSound} hint={t("soundHint")} />
             {permission !== "unsupported" && (
