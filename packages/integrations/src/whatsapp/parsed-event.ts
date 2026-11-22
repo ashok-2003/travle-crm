@@ -57,8 +57,11 @@ interface ParsedMessageFields {
 
 export type ParsedEvent =
   | ({ type: "inbound" } & ParsedMessage)
-  /** `requestId`: MSG91's id of the send request. An echo of one of our own sends carries the one its answer gave us. */
-  | ({ type: "echo"; requestId: string | null } & ParsedMessage)
+  /**
+   * `requestId`: MSG91's id of the send request. `ourSend`: the echo of a message our api sent, which MSG91 writes with no
+   * `contentType` (the phone app's always has one: 76 of 76 live, 2026-11-22).
+   */
+  | ({ type: "echo"; requestId: string | null; ourSend: boolean } & ParsedMessage)
   | {
       type: "status";
       wamid: string;

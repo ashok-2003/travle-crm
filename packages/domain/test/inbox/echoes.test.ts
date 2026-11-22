@@ -81,37 +81,76 @@ describe("echoes and reports of our own sends", () => {
     expect((await rows(connection))[0]).toMatchObject({ status: "read" });
   });
 
-  it("holds an echo while our send waits for MSG91's answer, then takes it as ours; past two minutes it is stored", async () => {
+  /** An echo of our own api's send as MSG91 writes it live: a messageType, no contentType, the words in `content`. */
+  const ourEcho = (connection: TestConnection, customerNumber: string, wamid: string, extra: object = {}) => ({
+    ...fromCustomer(connection, { customerNumber, wamid, direction: "1", ts: at(40), contentType: "" }),
+    messageType: "text",
+    content: JSON.stringify({ text: "Here is   your Goa\nquote" }),
+    ...extra,
+  });
+
+  it("takes an echo of our own send by its words when no request id matches: no copy, the wamid, then its reports", async () => {
+    const connection = await aConnectedAgency(test);
+    const { customerNumber, sent } = await ourSend(connection, null);
+    const wamid = "wamid.ECHO-WORDS";
+    await deliver(test, ourEcho(connection, customerNumber, wamid, { requestId: "req-msg91-only" }));
+    const out = await rows(connection);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ id: sent.id, origin: "automation", wamid });
+    await deliver(test, statusFor(connection, { customerNumber, wamid, eventName: "read", ts: at(50) }));
+    expect((await rows(connection))[0]).toMatchObject({ status: "read" });
+  });
+
+  it("gives an echo's wamid to our send still waiting for MSG91's answer, and a phone message never waits", async () => {
     const connection = await aConnectedAgency(test);
     const { customerNumber, sent } = await ourSend(connection, null, "sending");
-    const wamid = "wamid.ECHO-EARLY";
-    const echo = {
-      ...fromCustomer(connection, { customerNumber, wamid, direction: "1", ts: at(40) }),
-      requestId: "req-late",
-    };
-    await expect(deliver(test, echo)).rejects.toThrow();
-    // A phone message that waited past two minutes stops waiting, so a person's own message is never lost.
+    await deliver(test, ourEcho(connection, customerNumber, "wamid.ECHO-EARLY"));
+    await deliver(test, fromCustomer(connection, { customerNumber, direction: "1", text: "On my way", ts: at(45) }));
+    const out = await rows(connection);
+    expect(out).toHaveLength(2);
+    expect(out.find((row) => row.origin === "automation")).toMatchObject({ id: sent.id, wamid: "wamid.ECHO-EARLY" });
+    expect(out.find((row) => row.origin === "staff_phone")).toMatchObject({ body: "On my way" });
+  });
+
+  it("waits on an echo of ours that matches nothing while a send is waiting, then drops it, never a phone copy", async () => {
+    const connection = await aConnectedAgency(test);
+    const { customerNumber } = await ourSend(connection, null, "sending");
+    const other = ourEcho(connection, customerNumber, "wamid.ECHO-OTHER", {
+      content: JSON.stringify({ text: "Something we never sent" }),
+    });
+    await expect(deliver(test, other)).rejects.toThrow();
+    await deliver(test, other, new Date(testNow.getTime() + 3 * 60_000));
+    expect((await rows(connection)).map((row) => row.origin)).toEqual(["automation"]);
+  });
+
+  it("takes an echo of our own file by its kind", async () => {
+    const connection = await aConnectedAgency(test);
+    const customerNumber = digits(freshPhone());
+    await deliver(test, fromCustomer(connection, { customerNumber, text: "Plan?", ts: at(0) }));
+    const sent = await test.db.forOrg(connection.organizationId, async (tx) => {
+      const chat = await tx.whatsappConversation.findFirstOrThrow({ where: { phoneE164: `+${customerNumber}` } });
+      return tx.whatsappMessage.create({
+        data: {
+          conversationId: chat.id,
+          direction: "out",
+          origin: "automation",
+          kind: "document",
+          fileName: "Spiti.pdf",
+          status: "sent",
+          occurredAt: new Date(testNow.getTime() + 30_000),
+        },
+      });
+    });
     await deliver(
       test,
-      {
-        ...fromCustomer(connection, { customerNumber, direction: "1", text: "On my way", ts: at(0) }),
-        requestId: "req-x",
-      },
-      new Date(testNow.getTime() + 3 * 60_000),
+      ourEcho(connection, customerNumber, "wamid.ECHO-FILE", {
+        messageType: "document",
+        content: JSON.stringify({ attachment_url: "https://files.example/x.pdf", filename: "Spiti.pdf" }),
+      }),
     );
-    await test.db.forOrg(connection.organizationId, (tx) =>
-      tx.whatsappMessage.update({ where: { id: sent.id }, data: { status: "sent", requestId: "req-late" } }),
-    );
-    await deliver(test, echo);
     const out = await rows(connection);
-    expect(out.map((row) => [row.origin, row.wamid])).toEqual(
-      expect.arrayContaining([
-        ["automation", wamid],
-        ["staff_phone", expect.any(String)],
-      ]),
-    );
-    expect(out).toHaveLength(2);
-    expect(out.find((row) => row.origin === "staff_phone")).toMatchObject({ body: "On my way" });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ id: sent.id, wamid: "wamid.ECHO-FILE" });
   });
 
   it("still stores a phone message whose request id is not one of our sends", async () => {
