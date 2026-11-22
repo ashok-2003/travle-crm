@@ -1,6 +1,7 @@
 "use client";
 
-// What the AI needs from the signed-in member: the chats it handed over and the stage suggestions on their own leads.
+// What the AI needs from the signed-in member: the chats it handed over and the stage suggestions on their own leads. The
+// api sends the newest 20 of each and how many wait in all: the count is every one waiting, never the rows sent.
 import type { HandedOverChat, StageSuggestion } from "@travel-crm/contracts/ai";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/data/trpc";
@@ -25,7 +26,7 @@ export function useNeedsMe() {
   return {
     handedOver,
     suggestions: stageSuggestions,
-    count: handedOver.length + stageSuggestions.length,
+    count: (chats.data?.total ?? 0) + (suggestions.data?.total ?? 0),
     isPending: (mayChats && chats.isPending) || (maySuggestions && suggestions.isPending),
     isError: chats.isError || suggestions.isError,
     error: chats.error ?? suggestions.error,
