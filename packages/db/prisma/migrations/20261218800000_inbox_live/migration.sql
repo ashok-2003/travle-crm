@@ -10,7 +10,7 @@
 -- shows waits for the browser's slow poll.
 
 -- Creating a trigger locks its table: wait at most 5 s for that, rather than queueing every query behind it.
-SET lock_timeout = '5s';
+SET LOCAL lock_timeout = '5s';
 
 CREATE FUNCTION app_inbox_live_notify(organization_id uuid, conversation_id uuid, change text, customer_wrote boolean)
 RETURNS void

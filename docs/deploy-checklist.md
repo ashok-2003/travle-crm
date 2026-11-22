@@ -488,6 +488,11 @@ cut short and runs again later, as pg-boss retries it.
       docker run --rm --env DATABASE_MIGRATOR_URL --entrypoint node --workdir /app/packages/db <the api image> \
         node_modules/prisma/build/index.js migrate resolve --rolled-back <the migration's name>
 
+- **A lock timeout fails a migration too.** A migration that must lock a busy table waits at most a few seconds for it
+  (`SET LOCAL lock_timeout`, the inbox live one's 5 s), so a release never queues every query behind it. If it times
+  out, nothing of it stays (one transaction), but `_prisma_migrations` keeps a failed row: mark it rolled back with the
+  `migrate resolve --rolled-back <the migration's name>` above before the next deploy, which runs it again.
+
 ## The first super admin, plans and the demo (ADRs 0019, 0022)
 
 - **Once per new database**, after the first `migrate`, **from an operator's own terminal, never as a platform job.**
