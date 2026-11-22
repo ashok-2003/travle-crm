@@ -46,15 +46,17 @@ describe("inbox_live", () => {
     return heard.indexOf(marker);
   }
 
-  /** Everything heard because of `work`: between a marker sent before it and one sent after. */
+  /** Everything heard of this test's organization because of `work`: between a marker sent before it and one after. */
   async function heardAfter(work: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
     const from = await flushed();
     await work().catch(() => undefined);
     const to = await flushed();
+    // Other test files share the database and its channel: only this test's organization counts.
     return heard
       .slice(from + 1, to)
       .filter((payload) => !payload.startsWith("marker-"))
-      .map((payload) => JSON.parse(payload) as Record<string, unknown>);
+      .map((payload) => JSON.parse(payload) as Record<string, unknown>)
+      .filter((payload) => payload.organizationId === organizationId);
   }
 
   const inOrganization = <T>(work: (tx: OrgTx) => Promise<T>) => db.forOrg(organizationId, work);
