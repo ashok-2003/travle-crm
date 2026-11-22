@@ -1,7 +1,9 @@
 // The AI agent's last day at a glance (the AI agent page's head): chats it answered and messages it sent, chats it flagged
-// or handed over, and bookings it took.
+// or handed over, and bookings it took. A blocked contact's or erased chat counts in none of the chat figures (the
+// inbox lists neither); bookings it took there still count, as a booking stands on its own.
 import type { AiOverview } from "@travel-crm/contracts/ai";
 import { emptySql, sql, type OrgTx } from "@travel-crm/db";
+import { answeredByAiWhere, listedChatWhere } from "../inbox/index.js";
 
 const DAY_MS = 86_400_000;
 /** A bound on each read of flagged chats: far above a day's real number, so the count stays cheap. */
@@ -13,13 +15,16 @@ const FLAGGED_MAX = 2000;
  */
 async function flaggedChats(tx: OrgTx, since: Date): Promise<number> {
   const chats = await tx.aiChat.findMany({
-    where: { OR: [{ attentionAt: { gte: since } }, { handedOffAt: { gte: since } }] },
+    where: {
+      OR: [{ attentionAt: { gte: since } }, { handedOffAt: { gte: since } }],
+      conversation: listedChatWhere,
+    },
     distinct: ["conversationId"],
     select: { conversationId: true },
     take: FLAGGED_MAX,
   });
   const suggested = await tx.leadAiSuggestion.findMany({
-    where: { createdAt: { gte: since } },
+    where: { createdAt: { gte: since }, OR: [{ conversationId: null }, { conversation: { is: listedChatWhere } }] },
     distinct: ["conversationId", "leadId"],
     select: { conversationId: true, leadId: true },
     take: FLAGGED_MAX,
@@ -47,14 +52,17 @@ export async function chatsAnsweredSince(tx: OrgTx, since: Date | null): Promise
 
 export async function aiOverviewOf(tx: OrgTx, now: Date): Promise<AiOverview> {
   const since = new Date(now.getTime() - DAY_MS);
-  const sent = await tx.whatsappMessage.findMany({
-    where: { direction: "out", clientToken: { startsWith: "ai:" }, occurredAt: { gte: since } },
-    select: { conversationId: true },
-    take: 2000,
-  });
   return {
-    chatsAnswered: new Set(sent.map((message) => message.conversationId)).size,
-    messagesSent: sent.length,
+    // The inbox's Answered by the AI filter lists exactly these.
+    chatsAnswered: await tx.whatsappConversation.count({ where: answeredByAiWhere(now) }),
+    messagesSent: await tx.whatsappMessage.count({
+      where: {
+        direction: "out",
+        clientToken: { startsWith: "ai:" },
+        occurredAt: { gte: since },
+        conversation: listedChatWhere,
+      },
+    }),
     flagged: await flaggedChats(tx, since),
     bookingsRequested: await tx.aiBooking.count({ where: { createdAt: { gte: since } } }),
   };

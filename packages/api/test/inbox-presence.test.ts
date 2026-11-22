@@ -1,14 +1,16 @@
 // "Priya is replying" (sales inbox spec 6, owner decision 5 of 2026-10-26): kept in memory per organization and chat, gone
-// after its lifetime, swept so the map can't grow, and the lifetime outlasts the header's poll so a mark is seen.
-import { INBOX_POLL_MS } from "@travel-crm/contracts/inbox";
+// after its lifetime, swept so the map can't grow, and the lifetime outlasts the replying bar's ask so a mark is seen. Who
+// starts typing, or sends, is told to the watchers (the live stream), once per start.
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   clearTyping,
   markTyping,
   presenceSize,
+  REPLYING_POLL_MS,
   resetPresence,
   TYPING_LIFETIME_MS,
   typingIn,
+  watchTyping,
 } from "../src/inbox-presence.js";
 
 const org = "0199e7a0-0000-7000-8000-0000000000a1";
@@ -31,10 +33,10 @@ describe("who is replying in a chat", () => {
     expect(typingIn(otherOrg, chat, ravi, 2_000)).toEqual([]);
   });
 
-  it("forgets a mark after its lifetime, and that lifetime outlasts the poll that reads it", () => {
-    expect(TYPING_LIFETIME_MS).toBeGreaterThan(INBOX_POLL_MS);
+  it("forgets a mark after its lifetime, and that lifetime outlasts the ask that reads it", () => {
+    expect(TYPING_LIFETIME_MS).toBeGreaterThan(REPLYING_POLL_MS);
     markTyping(org, chat, priya, 1_000);
-    expect(typingIn(org, chat, ravi, 1_000 + INBOX_POLL_MS)).toEqual([priya]);
+    expect(typingIn(org, chat, ravi, 1_000 + REPLYING_POLL_MS)).toEqual([priya]);
     expect(typingIn(org, chat, ravi, 1_000 + TYPING_LIFETIME_MS)).toEqual([]);
   });
 
@@ -55,5 +57,17 @@ describe("who is replying in a chat", () => {
   it("stops taking new marks past a ceiling, rather than growing without bound", () => {
     for (let index = 0; index < 6_000; index += 1) markTyping(org, `chat-${String(index)}`, priya, 1_000);
     expect(presenceSize()).toBeLessThanOrEqual(5_000);
+  });
+
+  it("tells the watchers when someone starts typing and when they send, not on every signal between", () => {
+    const told: string[] = [];
+    const stop = watchTyping((organizationId, conversationId) => told.push(`${organizationId}:${conversationId}`));
+    markTyping(org, chat, priya, 1_000);
+    markTyping(org, chat, priya, 5_000);
+    clearTyping(org, chat, priya);
+    clearTyping(org, chat, priya);
+    stop();
+    markTyping(org, chat, ravi, 6_000);
+    expect(told).toEqual([`${org}:${chat}`, `${org}:${chat}`]);
   });
 });

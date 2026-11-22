@@ -31,8 +31,12 @@ logs, and what is still open.
   migrations:** `DATABASE_MIGRATOR_URL` connects to Postgres directly, or through a session-mode pooler. Prisma
   Migrate's lock is a session's advisory lock, so through a transaction-mode pooler two `migrate` runs can overlap,
   or fail part-way. The same goes for every `migrate` and `migrate resolve` below, the restore drill's among them.
+  **The api's live stream LISTENs** (the Inbox's `/api/live`): its one listening connection needs Postgres directly or a
+  session-mode pooler. Through a transaction-mode pooler it hears nothing, and the Inbox falls back to its poll once a
+  minute.
 - **Connections.** Each process opens up to `2 × DATABASE_POOL_SIZE + 5`, and the console 3 more for the platform
-  role (`apps/api/README.md`). Size Postgres or the pooler for every instance of all three.
+  role (`apps/api/README.md`); the api 1 more, its listening connection (`travel-crm-listen:inbox_live`). Size Postgres
+  or the pooler for every instance of all three.
 - **Who holds which URL.** The api and the worker get `DATABASE_URL` alone, the console `DATABASE_URL` and
   `DATABASE_PLATFORM_URL`; migrations run as a separate step with `DATABASE_MIGRATOR_URL`, which no process holds.
 
@@ -408,6 +412,19 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)                         |
 | everything else                 | web, 3000     | the app's pages, build files, manifest and service worker                   |
 
+- **The Inbox's live stream** (`GET /api/live`, inbox revamp spec part 1 item 4) is a long response of server-sent
+  events under the `/api/*` rule: a comment every 25 s keeps it open, and nothing between the browser and the api may
+  buffer or keep it (`docker/Caddyfile` and `docker/server/Caddyfile` flush it at once; the api sends `Cache-Control:
+no-store, no-transform`, which Vercel's rewrites honour, and `X-Accel-Buffering: no`). A member holds at most five at
+  once, one per open Inbox tab or lead page with a chat; each api process holds its own streams, and stopping it ends
+  them so it can stop.
+  - **Behind Vercel:** its rewrites to an outside address time a request out at 120 s, and whether that cuts a stream
+    isn't documented. Expect each open tab to reconnect about every 2 minutes, after its own wait of 3 to 10 s (the api
+    gives each stream a different one, so a cut or a restart doesn't bring every tab back in the same second). A
+    reconnect costs one request: the list's first page, the counts and the open chat; nothing else is read again.
+  - **Over HTTP/1.1** (`pnpm dev`, `pnpm product:up`) each tab's stream holds one of the browser's six connections to the
+    address, so more than a few Inbox tabs at once can slow every other request of that address; production on Vercel is
+    HTTP/2, where they share one connection.
 - **One address for everything** (spec 3): the app's https origin is `BETTER_AUTH_URL` and `APP_URL`, so cookies
   stay first-party and the api needs no CORS. Share links (`/p/*`) and the webhook intake (`/webhooks/*`) are the
   api's, not the web app's. `docker/Caddyfile` is this table, and `pnpm product:smoke` proves it path by path.
@@ -470,6 +487,11 @@ cut short and runs again later, as pg-boss retries it.
 
       docker run --rm --env DATABASE_MIGRATOR_URL --entrypoint node --workdir /app/packages/db <the api image> \
         node_modules/prisma/build/index.js migrate resolve --rolled-back <the migration's name>
+
+- **A lock timeout fails a migration too.** A migration that must lock a busy table waits at most a few seconds for it
+  (`SET LOCAL lock_timeout`, the inbox live one's 5 s), so a release never queues every query behind it. If it times
+  out, nothing of it stays (one transaction), but `_prisma_migrations` keeps a failed row: mark it rolled back with the
+  `migrate resolve --rolled-back <the migration's name>` above before the next deploy, which runs it again.
 
 ## The first super admin, plans and the demo (ADRs 0019, 0022)
 

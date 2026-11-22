@@ -7,7 +7,9 @@ import {
   appRouter,
   createAccessCache,
   type AccessCache,
+  type ApiDependencies,
   createContext,
+  memberForRoute,
 } from "@travel-crm/api";
 import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
@@ -30,6 +32,8 @@ import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
 import { Hono, type Context } from "hono";
 import { limitBody } from "./body-limit.js";
+import type { LiveHub } from "./live-hub.js";
+import { liveRoute } from "./live-route.js";
 import { metaDeletionRoute, metaVerifyRoute } from "./meta-routes.js";
 import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import type { MetaServices } from "./meta-services.js";
@@ -104,6 +108,8 @@ export interface ServerDependencies {
    * stored webhook, a signed-in person's change, a public form or share link taken. Absent, nothing is told.
    */
   signalWork?: () => void;
+  /** The Inbox's live streams at /api/live (live-hub.ts); absent, the route is not served and the browsers poll. */
+  live?: { hub: LiveHub; heartbeatMs?: number; recheckMs?: number; recheckGapMs?: number } | null;
 }
 
 /**
@@ -125,9 +131,18 @@ const BODY_LIMIT = 64 * 1024;
 
 export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv> {
   const toolAgent = createLangGraphToolAgent();
-  // One per process (createApp runs once): cleared after any change made through tRPC.
-  const accessCache =
+  // One per process (createApp runs once): cleared after any change made through tRPC. An organization it forgets may have
+  // changed someone's access, so that organization's live streams read theirs again too.
+  const cached =
     dependencies.accessCache ?? createAccessCache({ ttlMs: ACCESS_CACHE_TTL_MS, maxEntries: ACCESS_CACHE_MAX_ENTRIES });
+  const accessCache: AccessCache = {
+    member: (key, load, options) => cached.member(key, load, options),
+    subscription: (organizationId, load, options) => cached.subscription(organizationId, load, options),
+    forgetOrganization: (organizationId) => {
+      cached.forgetOrganization(organizationId);
+      dependencies.live?.hub.forgetOrganization(organizationId);
+    },
+  };
   const {
     identity,
     subscriptions,
@@ -155,6 +170,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
     turnstile = null,
     formAddress = { headerNames: ["x-forwarded-for"], trustedProxies: [], proxyHops: null },
     signalWork = () => undefined,
+    live = null,
   } = dependencies;
   const app = new Hono<RequestLogEnv>();
   app.use("*", requestLog(logger));
@@ -173,6 +189,45 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
   app.use("/api/auth/*", limitBody(BODY_LIMIT));
   app.on(["GET", "POST"], "/api/auth/*", (c) => identity.auth.handler(c.req.raw));
 
+  // What every procedure's context is built from, and the live stream's member.
+  const apiDependencies: ApiDependencies = {
+    identity,
+    subscriptions,
+    accessCache,
+    profiles,
+    db,
+    files,
+    pushPublicKey,
+    google,
+    sheetsHashes,
+    rateLimiter,
+    appUrl,
+    meta: meta?.dependencies ?? null,
+    whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
+    whatsappProvider,
+    ai,
+    ...(tracing === undefined ? {} : { tracing }),
+    ...(prompts === undefined ? {} : { prompts }),
+    toolAgent,
+    spreadsheets,
+    // An import's Add waits while a sheet's check is saving rows (S26).
+    addGuards: [assertNoSheetCheckSaving],
+  };
+
+  // The Inbox's live stream (inbox revamp spec, part 1 item 4): a GET with the session, as the procedures read it.
+  if (live !== null) {
+    app.route(
+      "/api/live",
+      liveRoute({
+        ...live,
+        logger,
+        memberOf: async (request, responseHeaders) =>
+          memberForRoute(await createContext(apiDependencies, request, responseHeaders), "inbox:view"),
+        trustedOrigin: async (origin) => (await identity.auth.$context).trustedOrigins.includes(origin),
+      }),
+    );
+  }
+
   app.use("/api/trpc/*", requireTrustedJson(identity));
   app.use("/api/trpc/*", limitBody(BODY_LIMIT));
   // Built for each request, so its context and its errors can tell the request's line who called and what failed.
@@ -185,33 +240,7 @@ export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv>
       // queries: what a call does, for the lifecycle, is its procedure's type, not the HTTP method.
       allowMethodOverride: true,
       createContext: async ({ resHeaders, info }) => {
-        const context = await createContext(
-          {
-            identity,
-            subscriptions,
-            accessCache,
-            profiles,
-            db,
-            files,
-            pushPublicKey,
-            google,
-            sheetsHashes,
-            rateLimiter,
-            appUrl,
-            meta: meta?.dependencies ?? null,
-            whatsappConfigured: webhookProviders.some((candidate) => candidate.name === WHATSAPP_PROVIDER),
-            whatsappProvider,
-            ai,
-            ...(tracing === undefined ? {} : { tracing }),
-            ...(prompts === undefined ? {} : { prompts }),
-            toolAgent,
-            spreadsheets,
-            // An import's Add waits while a sheet's check is saving rows (S26).
-            addGuards: [assertNoSheetCheckSaving],
-          },
-          c.req.raw,
-          resHeaders,
-        );
+        const context = await createContext(apiDependencies, c.req.raw, resHeaders);
         if (context.user !== null) {
           request.userId = context.user.id;
           // A change may leave work for the worker (a reply to send, an email): only a signed-in person's, so a stranger

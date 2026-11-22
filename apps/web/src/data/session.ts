@@ -1,7 +1,9 @@
-// Leaving a session, and forgetting what it left on this device: the query cache in memory and its saved copy, and
-// what the tab kept between screens (lib/tab-storage.ts), in this tab and in every other tab of the app (spec 11), and
-// on signing out this browser's push subscription. The service worker's page copies stay: it keeps only shells it
-// fetched itself without cookies, which hold no one's data, and the offline page must outlive a sign-out.
+// Leaving a session, and forgetting what it left on this device: the query cache in memory and its saved copy, and what
+// the tab kept between screens (lib/tab-storage.ts), in this tab and in every other tab of the app (spec 11), and on
+// signing out this browser's push subscription. The Inbox's alert switches stay: they are each member's own (kept by user
+// id), so no one else sees them, and the member finds them as they left them. The service worker's page copies stay: it
+// keeps only shells it fetched itself without cookies, which hold no one's data, and the offline page must outlive a
+// sign-out.
 import type { QueryClient } from "@tanstack/react-query";
 import { reportProblem } from "@/lib/report-problem";
 import { forgetTabValues } from "@/lib/tab-storage";

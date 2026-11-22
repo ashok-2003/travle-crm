@@ -33,7 +33,7 @@ describe("SellCard", () => {
     expect(screen.getByRole("link", { name: words.gaps.departures })).toHaveAttribute("href", "#package-departures");
     expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
       "href",
-      "/ai-agent?tab=setup#step-payment",
+      "/ai-agent/setup#step-payment",
     );
     // Each on a line of its own, a 44px touch target: never the inline link of a sentence.
     for (const gap of gaps) expect(screen.getByRole("link", { name: words.gaps[gap] })).toHaveClass("min-h-11");
@@ -44,7 +44,7 @@ describe("SellCard", () => {
     expect(words.gaps.payment_details).toBe("Add your payment QR");
     expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
       "href",
-      "/ai-agent?tab=setup#step-payment",
+      "/ai-agent/setup#step-payment",
     );
   });
 

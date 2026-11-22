@@ -4,7 +4,20 @@ import { attachmentFileName } from "../files/attachments.js";
 import { leadStage } from "../crm/fields.js";
 import { recordId } from "../identity/fields.js";
 
-export const conversationFilters = ["waiting", "unread", "all", "mine", "unassigned", "snoozed", "archived"] as const;
+/**
+ * The inbox's lists. `ai_answered` is no chip of its own: the AI agent page's Chats answered opens it (the chats the AI
+ * wrote in during the last 24 hours, archived and snoozed ones too).
+ */
+export const conversationFilters = [
+  "waiting",
+  "unread",
+  "all",
+  "mine",
+  "unassigned",
+  "snoozed",
+  "archived",
+  "ai_answered",
+] as const;
 export const conversationFilter = z.enum(conversationFilters);
 export type ConversationFilter = z.infer<typeof conversationFilter>;
 

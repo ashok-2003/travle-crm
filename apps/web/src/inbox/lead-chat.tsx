@@ -18,6 +18,13 @@ import { useSubscription } from "@/subscription/use-subscription";
 import { ChatPanel } from "./chat-panel";
 import { SendTemplateDialog } from "./send-template-dialog";
 import { useLeadChat } from "./use-inbox";
+import { useInboxLive } from "./use-inbox-live";
+
+/** The lead's chat hears the live stream as the Inbox does: a reply or a tick shows here at once. */
+function LiveChat({ conversationId }: { conversationId: string }) {
+  useInboxLive({ openId: conversationId });
+  return <ChatPanel key={conversationId} conversationId={conversationId} variant="lead" />;
+}
 
 /** Start a chat with a person who never wrote: the chat is made, then the template dialog opens on it. */
 function StartChat({ leadId }: { leadId: string }) {
@@ -95,7 +102,7 @@ export function LeadChat({ leadId }: { leadId: string }) {
           </>
         ) : (
           <>
-            <ChatPanel key={conversationId} conversationId={conversationId} variant="lead" />
+            <LiveChat key={conversationId} conversationId={conversationId} />
             <TextLink href={inboxRoute(conversationId)}>{t("open")}</TextLink>
           </>
         )}

@@ -2,12 +2,13 @@
 
 // The inbox's left side (spec 3.1; sales inbox spec, sections 3, 5 and design v2): the search, the filter chips and the
 // stage, time and tag choices (inbox-filters.tsx), then the chats, scrolling on their own under them. The search takes a
-// name or digits of a phone; it and every choice are kept in the tab, never the address.
+// name or digits of a phone; it and every choice are kept in the tab, never the address. The AI agent page opens it on
+// the chats the AI answered (ai-answered-filter.tsx), the one list an address names, by a fixed value.
 import { leadStages, type LeadStage } from "@travel-crm/contracts/crm";
 import { conversationPeriods, type ConversationFilter, type ConversationPeriod } from "@travel-crm/contracts/inbox";
 import { MessageCircleIcon, SearchXIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
@@ -15,6 +16,7 @@ import { ShowMoreButton } from "@/components/show-more-button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchField } from "@/leads/list/search-field";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
+import { AiAnsweredChip, useAiAnsweredAsked, useAiAnsweredFilter } from "./ai-answered-filter";
 import { ConversationList } from "./conversation-list";
 import { FilterChips, FilterChoices, inboxFilters } from "./inbox-filters";
 import { useConversations } from "./use-inbox";
@@ -29,9 +31,18 @@ const KEYS = {
   period: "inbox.period",
 };
 
+/** What the tab kept under a key; nothing, and nothing kept any more, when the list starts afresh. */
+function keptOrFresh(key: string, fresh: boolean): string | null {
+  if (!fresh) return readTabValue(key);
+  keepTabValue(key, "");
+  return null;
+}
+
 /** A value kept in the tab, read back only if it is still one of the allowed. */
-function useKept<Value extends string>(key: string, allowed: readonly Value[]) {
-  const [value, setValue] = useState<Value | null>(() => allowed.find((one) => one === readTabValue(key)) ?? null);
+function useKept<Value extends string>(key: string, allowed: readonly Value[], fresh: boolean) {
+  const [value, setValue] = useState<Value | null>(
+    () => allowed.find((one) => one === keptOrFresh(key, fresh)) ?? null,
+  );
   const keep = (next: Value | null) => {
     setValue(next);
     keepTabValue(key, next ?? "");
@@ -49,23 +60,44 @@ const emptyKeyOf = (filter: ConversationFilter) =>
         ? "emptyArchived"
         : filter === "snoozed"
           ? "emptySnoozed"
-          : "empty";
+          : filter === "ai_answered"
+            ? "aiAnswered.empty"
+            : "empty";
 
 export function InboxList({ currentId }: { currentId: string | null }) {
   const t = useTranslations("inbox");
-  const [filter, setFilter] = useKept<ConversationFilter>(KEYS.filter, inboxFilters);
-  const [stage, setStage] = useKept<LeadStage>(KEYS.stage, leadStages);
-  const [period, setPeriod] = useKept<ConversationPeriod>(KEYS.period, conversationPeriods);
-  const [search, setSearchText] = useState(() => readTabValue(KEYS.search) ?? "");
+  // The address (?show=) is the browser's alone: what reads it waits in a boundary of its own.
+  return (
+    <Suspense fallback={<LoadingRows shape="twoLines" label={t("loading")} />}>
+      <ChatsFromAddress currentId={currentId} />
+    </Suspense>
+  );
+}
+
+/** The chats, started afresh (a list of its own) when the address asks for the AI's, which it does only once. */
+function ChatsFromAddress({ currentId }: { currentId: string | null }) {
+  const asked = useAiAnsweredAsked();
+  return <Chats key={asked ? "asked" : "kept"} currentId={currentId} asked={asked} />;
+}
+
+function Chats({ currentId, asked }: { currentId: string | null; asked: boolean }) {
+  const t = useTranslations("inbox");
+  const aiAnswered = useAiAnsweredFilter(asked);
+  const [filter, setFilter] = useKept<ConversationFilter>(KEYS.filter, inboxFilters, asked);
+  const [stage, setStage] = useKept<LeadStage>(KEYS.stage, leadStages, asked);
+  const [period, setPeriod] = useKept<ConversationPeriod>(KEYS.period, conversationPeriods, asked);
+  const [search, setSearchText] = useState(() => keptOrFresh(KEYS.search, asked) ?? "");
   const setSearch = useCallback((text: string) => {
     setSearchText(text);
     keepTabValue(KEYS.search, text);
   }, []);
   const tags = useTags();
-  const [tagChoice, setTagChoice] = useState(() => readTabValue(KEYS.tag) ?? "");
+  const [tagChoice, setTagChoice] = useState(() => keptOrFresh(KEYS.tag, asked) ?? "");
   // A kept tag that was since deleted counts as none.
   const tagId = tags.data?.some((tag) => tag.id === tagChoice) === true ? tagChoice : null;
-  const shownFilter = filter ?? "all";
+  // Mine first (owner, 2026-11-22): a member starts on their own chats; All, Unassigned and the rest are a tap away, and
+  // the tab keeps whatever they choose.
+  const shownFilter = aiAnswered.on ? "ai_answered" : (filter ?? "mine");
   const chats = useConversations({
     filter: shownFilter,
     search: search.length >= 2 ? search : "",
@@ -115,7 +147,15 @@ export function InboxList({ currentId }: { currentId: string | null }) {
             className="md:w-full"
           />
         </div>
-        <FilterChips value={shownFilter} onChange={setFilter} summary={summary.data} />
+        {aiAnswered.on && <AiAnsweredChip onRemove={aiAnswered.clear} />}
+        <FilterChips
+          value={shownFilter}
+          onChange={(chosen) => {
+            aiAnswered.clear();
+            setFilter(chosen);
+          }}
+          summary={summary.data}
+        />
         <FilterChoices
           stage={stage}
           onStage={setStage}
@@ -130,7 +170,9 @@ export function InboxList({ currentId }: { currentId: string | null }) {
         />
       </div>
       {/* Radix lays the scrolled content out as a table, which a long message widens; a block keeps it the list's width. */}
-      <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">{body()}</ScrollArea>
+      <ScrollArea data-chat-list className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">
+        {body()}
+      </ScrollArea>
     </div>
   );
 }

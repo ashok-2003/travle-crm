@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocationCard } from "@/inbox/media/location-card";
 import { VoiceNotePlayer } from "@/inbox/media/voice-note-player";
+import { streamConnected } from "@/inbox/live-state";
 import { MessageList } from "@/inbox/message-list";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
@@ -72,6 +73,47 @@ describe("the message list", () => {
     await waitFor(() => {
       expect(api.of("inbox.markRead")).toHaveLength(1);
     });
+  });
+
+  it("doesn't show what was unread again when the chat is opened again a moment later, while the stream keeps it fresh", async () => {
+    streamConnected(true);
+    try {
+      let unread: { count: number; firstMessageId: string } | null = { count: 2, firstMessageId: id(2) };
+      const api = answerApi({
+        "inbox.conversation": header,
+        "salesInbox.notes": notes,
+        "inbox.markRead": () => {
+          unread = null;
+          return null;
+        },
+        "inbox.messages": () => ({
+          items: [
+            aMessage({ id: id(3), body: "And dates?", occurredAt: at(5) }),
+            aMessage({ id: id(2), body: "Price?", occurredAt: at(4) }),
+            aMessage({ id: id(1), body: "Hello", occurredAt: at(1) }),
+          ],
+          nextCursor: null,
+          people: {},
+          unread,
+        }),
+      });
+      const queryClient = newQueryClient();
+      const first = renderWithApi(<MessageList conversationId={chatId} />, queryClient);
+      expect(await screen.findByText("2 unread messages")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(api.of("inbox.markRead")).toHaveLength(1);
+      });
+      first.unmount();
+      // Back within the seconds its messages would count as fresh: they are asked afresh, and nothing is unread.
+      renderWithApi(<MessageList conversationId={chatId} />, queryClient);
+      await waitFor(() => {
+        expect(api.of("inbox.messages")).toHaveLength(2);
+      });
+      expect(await screen.findByText("Price?")).toBeInTheDocument();
+      expect(screen.queryByText("2 unread messages")).not.toBeInTheDocument();
+    } finally {
+      streamConnected(false);
+    }
   });
 
   it("loads older pages until a quoted message is found, then scrolls to it", async () => {

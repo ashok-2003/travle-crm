@@ -1,6 +1,6 @@
 // A group package from its seasons to a quote (group packages): the Owner makes "Manali 5N6D" a group trip with room types,
 // days, seats, GST and an advance, prices two seasons, sees the departures made for it, adds a brochure, adds the
-// agency's payment QR on the AI agent's Setup tab, lets the AI sell it, and a quote for three in a triple room on the
+// agency's payment QR on the AI agent's Setup page, lets the AI sell it, and a quote for three in a triple room on the
 // first season's departure totals ₹20,997.00.
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
@@ -87,9 +87,9 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   const sellCard = page.getByRole("region", { name: "Let the AI sell it" });
   await expect(sellCard.getByRole("link", { name: "Add your payment QR" })).toBeVisible();
 
-  // Where customers pay is the agency's, on the AI agent's Setup tab: the QR (required) and a UPI ID sent with it.
-  await page.goto("/ai-agent?tab=setup");
-  await page.getByRole("button", { name: "Edit Payment QR" }).click();
+  // Where customers pay is the agency's, on the AI agent's Setup page: the QR (required) and a UPI ID sent with it.
+  await page.goto("/ai-agent/setup");
+  await page.getByRole("button", { name: "Set up Payment QR" }).click();
   await page
     .getByTestId("payment-qr-input")
     .setInputFiles({ name: "pay-qr.png", mimeType: "image/png", buffer: PIXEL });

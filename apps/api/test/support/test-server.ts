@@ -26,6 +26,7 @@ import { createApp } from "../../src/app.js";
 import type { TestMeta } from "./meta.js";
 import type { TestWhatsApp } from "./whatsapp.js";
 import type { FormAddressSettings } from "../../src/form-client-address.js";
+import type { LiveHub } from "../../src/live-hub.js";
 import type { Turnstile } from "../../src/website-form-shared.js";
 import { loggerOfRequest } from "../../src/request-log.js";
 import { clientAddressFrom } from "../../src/rate-limit.js";
@@ -106,6 +107,8 @@ export interface TestServerOptions {
   accessCache?: AccessCache;
   /** Told when work for the worker came in (the host's wake-up signal): nothing unless given. */
   signalWork?: () => void;
+  /** The Inbox's live streams at /api/live: not served unless given. */
+  live?: { hub: LiveHub; heartbeatMs?: number; recheckMs?: number; recheckGapMs?: number };
 }
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
@@ -155,6 +158,7 @@ export function createTestServer(settings: Partial<AuthSettings> = {}, options: 
     ...(options.formAddress === undefined ? {} : { formAddress: options.formAddress }),
     ...(options.signalWork === undefined ? {} : { signalWork: options.signalWork }),
     ...(options.accessCache === undefined ? {} : { accessCache: options.accessCache }),
+    ...(options.live === undefined ? {} : { live: options.live }),
   });
   return {
     app,

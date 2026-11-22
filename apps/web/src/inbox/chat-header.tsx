@@ -42,7 +42,10 @@ export function ChatHeader({
   const waitingSince = header.needsReply ? header.lastInboundAt : null;
   const titleClass = cn("w-full truncate text-section font-semibold script-leading", header.name === null && "numbers");
   return (
-    <header className="flex min-h-16 shrink-0 items-center gap-2 bg-surface px-2 py-2 md:gap-3 md:px-4">
+    <header
+      data-chat-header
+      className="flex min-h-16 shrink-0 items-center gap-2 bg-surface px-2 py-2 md:gap-3 md:px-4"
+    >
       {asPage && (
         <Button asChild variant="ghost" size="icon" aria-label={t("back")}>
           <Link href={routes.inbox}>
@@ -98,6 +101,7 @@ export function ChatHeader({
       </Button>
       <Button
         ref={panelButton}
+        data-panel-toggle
         type="button"
         variant={panelOpen ? "secondary" : "ghost"}
         size="icon"

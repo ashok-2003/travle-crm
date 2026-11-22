@@ -25,6 +25,7 @@ const header: ConversationHeader = {
   personId: null,
   lead: null,
   pastCustomer: false,
+  liveLead: null,
   windowOpenUntil: "2099-01-01T00:00:00.000Z",
   lastInboundAt: "2026-10-26T10:00:00.000Z",
   needsReply: false,

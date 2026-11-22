@@ -9,6 +9,8 @@ export {
 } from "./access-cache.js";
 export { createContext, type ApiDependencies, type Context } from "./context.js";
 export type { ErrorDetails } from "./errors.js";
+export { watchTyping } from "./inbox-presence.js";
+export { memberForRoute } from "./procedures.js";
 export { appRouter, type AppRouter } from "./routers/app-router.js";
 export {
   closedFormOf,

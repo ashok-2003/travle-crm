@@ -1,9 +1,12 @@
 // Starts the api on Node (`pnpm --filter @travel-crm/api-server dev`). All settings come from the environment.
 import { serve } from "@hono/node-server";
-import { noAccessCache } from "@travel-crm/api";
+import { noAccessCache, watchTyping } from "@travel-crm/api";
+import { INBOX_LIVE_CHANNEL, listenForNotifications } from "@travel-crm/db";
+import { chatAudiencesOf, parseInboxNotification } from "@travel-crm/domain/inbox";
 import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { createApp } from "./app.js";
+import { createLiveHub } from "./live-hub.js";
 import { clientAddressFrom } from "./rate-limit.js";
 import { storageOriginOf } from "./storage-origin.js";
 import { metaSettingsOf, metaStartUpLine } from "./meta-settings.js";
@@ -20,7 +23,32 @@ const { environment, services, logger } = await startProcess("api", async ({ ser
   if (services.google !== null) await assertServiceAccountsInPlace(services.db, services.google.accounts());
 });
 
+// The Inbox's live streams (inbox revamp spec, part 1 item 4): one LISTEN connection of the process's own hears every saved
+// message and changed chat; a lost one is opened again, and the streams are ended so each browser reads afresh. A member
+// starting to type, or sending, is told too, as "typing" (it is kept in this process's memory, not the database).
+const live = createLiveHub({
+  audiencesOf: (organizationId, conversationIds) => chatAudiencesOf(services.db, organizationId, conversationIds),
+  logger,
+});
+const listener = listenForNotifications(environment.DATABASE_URL, INBOX_LIVE_CHANNEL, {
+  onNotification: (payload) => {
+    const notification = parseInboxNotification(payload);
+    if (notification !== null) live.deliver(notification);
+  },
+  onReconnected: () => {
+    logger.info({ open: live.size() }, "live: listening again; ending the streams so each reads afresh");
+    live.closeAll();
+  },
+  onError: (error) => {
+    logger.warn(errorFields(error), "live: the listening connection failed; opening it again");
+  },
+});
+watchTyping((organizationId, conversationId) => {
+  live.deliver({ organizationId, conversationId, change: "typing" });
+});
+
 const app = createApp({
+  live: { hub: live },
   // Off (ACCESS_CACHE=false), every request reads access afresh; on, createApp keeps it for five minutes.
   ...(environment.ACCESS_CACHE ? {} : { accessCache: noAccessCache }),
   identity: services.identity,
@@ -79,9 +107,12 @@ const server = serve({ fetch: app.fetch, port: environment.PORT }, (address) => 
 // Exit 0 only when that went well, so the platform can tell a clean stop from a failed one; 1 after an error nothing
 // handled, which drains the same way.
 function shutDown(exitCode: 0 | 1): void {
+  // Open streams would keep the server from closing.
+  live.closeAll();
   server.close((closeError) => {
-    services
+    listener
       .close()
+      .then(() => services.close())
       .then(() => {
         if (closeError) throw closeError;
         return exitAfterLogs(logger, exitCode);

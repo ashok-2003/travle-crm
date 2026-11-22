@@ -18,6 +18,7 @@ const header: ConversationHeader = {
   personId: ids.person,
   lead: { id: ids.rahul, stage: "new", ownerUserId: null, open: true },
   pastCustomer: false,
+  liveLead: null,
   windowOpenUntil: null,
   lastInboundAt: null,
   needsReply: false,

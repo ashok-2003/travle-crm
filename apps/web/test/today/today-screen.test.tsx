@@ -109,7 +109,12 @@ interface Day {
 }
 
 let day: Day;
-let needsMe: { handedOver: (typeof handedOver)[]; suggestions: (typeof lostSuggestion)[] };
+let needsMe: {
+  handedOver: (typeof handedOver)[];
+  suggestions: (typeof lostSuggestion)[];
+  /** How many wait in all, where the api's rows stop at 20; the rows' own count when not given. */
+  totals?: { chats: number; suggestions: number };
+};
 let followUps: ReturnType<typeof dueFollowUp>[];
 
 /** The id a page's cursor names: a task's, or a new lead's. */
@@ -135,8 +140,14 @@ function answer(call: Call): Reply {
     const last = items.at(-1);
     return { data: { items, nextCursor: next && last ? idOf(last) : null } };
   }
-  if (call.path === "ai.handedOver") return { data: needsMe.handedOver };
-  if (call.path === "ai.stageSuggestions") return { data: { suggestions: needsMe.suggestions } };
+  if (call.path === "ai.handedOver") {
+    return { data: { chats: needsMe.handedOver, total: needsMe.totals?.chats ?? needsMe.handedOver.length } };
+  }
+  if (call.path === "ai.stageSuggestions") {
+    return {
+      data: { suggestions: needsMe.suggestions, total: needsMe.totals?.suggestions ?? needsMe.suggestions.length },
+    };
+  }
   if (call.path === "tasks.followUps") return { data: { rows: followUps, people: {} } };
   // Whether the person takes new leads in turn, for the away switch above the day: not in the pool here.
   if (call.path === "assignment.mine") return { data: { inPool: false, awayUntil: null } };
@@ -344,13 +355,29 @@ describe("TodayScreen", () => {
     );
   });
 
+  it("brings a chosen tab fully into view when its row scrolls sideways", async () => {
+    screenIs("phone");
+    const shown = vi.fn();
+    Object.assign(Element.prototype, { scrollIntoView: shown });
+    renderToday();
+    const newLeads = await screen.findByRole("tab", { name: "New leads 3" });
+    await userEvent.click(newLeads);
+    expect(shown).toHaveBeenCalledWith(expect.objectContaining({ block: "nearest", inline: "nearest" }));
+    expect(shown.mock.contexts.at(-1)).toBe(newLeads);
+  });
+
   it("on a phone scrolls the tabs sideways and stacks the rows, five and then Show more", async () => {
     screenIs("phone");
     day.sections.overdue = Array.from({ length: 7 }, (_, index) =>
       taskNamed(`Customer ${String(index + 1)}`, `0199e7a0-0000-7000-8000-0000000001${String(index).padStart(2, "0")}`),
     );
     renderToday();
-    expect(await screen.findByRole("tablist", { name: words.sectionsLabel })).toHaveClass("overflow-x-auto");
+    const tabs = await screen.findByRole("tablist", { name: words.sectionsLabel });
+    expect(tabs).toHaveClass("overflow-x-auto");
+    // Each tab keeps its words' width with even padding, never squeezed under them (they spilled into the next tab).
+    for (const tab of within(tabs).getAllByRole("tab")) {
+      expect(tab.className).toContain("group-data-[variant=solid]/tabs-list:flex-none");
+    }
     const overdue = await panel("Overdue 2");
     const list = await within(overdue).findByRole("list", { name: words.sections.overdue });
     expect(within(list).getAllByRole("listitem")).toHaveLength(5);
@@ -407,14 +434,33 @@ describe("TodayScreen", () => {
       expect(within(table).getByRole("button", { name: "No" })).toBeVisible();
     });
 
-    it("keeps the payments to check as a line above the table, leading to Payments, and no count of its own", async () => {
+    it("keeps the payments to check above the table as an amber card with a Check payments button, no count of its own", async () => {
       day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 2 } });
       renderToday();
       // Only payments: the tab counts what the AI asks, so it has no number.
       await userEvent.click(await tab("AI needs you"));
       const ai = await panel("AI needs you");
-      expect(within(ai).getByRole("link", { name: /2 payments are waiting/ })).toHaveAttribute("href", "/payments");
+      const card = within(ai).getByRole("region", { name: "2 payments are waiting for your word" });
+      expect(card.className).toContain("--brand-status-attention-fill");
+      expect(within(card).getByText(words.paymentsToCheck.how)).toBeVisible();
+      expect(within(card).getByRole("link", { name: words.paymentsToCheck.open })).toHaveAttribute("href", "/payments");
       expect(within(ai).queryByRole("table")).toBeNull();
+    });
+
+    it("counts every one waiting on its tab, past the 20 rows the api sends of each", async () => {
+      needsMe = {
+        handedOver: Array.from({ length: 20 }, (_, index) => ({
+          ...handedOver,
+          conversationId: `0199e7a0-0000-7000-8000-0000000009${String(index).padStart(2, "0")}`,
+        })),
+        suggestions: Array.from({ length: 20 }, (_, index) => ({
+          ...lostSuggestion,
+          id: `0199e7a0-0000-7000-8000-0000000008${String(index).padStart(2, "0")}`,
+        })),
+        totals: { chats: 25, suggestions: 22 },
+      };
+      renderToday();
+      expect(await tab("AI needs you 47")).toBeVisible();
     });
 
     it("counts only the AI's rows on its tab, not the payments", async () => {

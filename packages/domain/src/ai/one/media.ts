@@ -154,7 +154,7 @@ async function read(
     user: organizationId,
   });
   if (!result.ok && result.reason === "limit") {
-    return unreadable("this month's AI calls are used up");
+    return unreadable("this month's AI credits are used up");
   }
   const couldNot = `it couldn't be ${way.kind === "audio" ? "played" : "seen"} just now`;
   if (!result.ok) return unreadable(couldNot);

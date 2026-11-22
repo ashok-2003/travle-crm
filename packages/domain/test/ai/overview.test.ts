@@ -91,6 +91,34 @@ describe("the AI agent's overview", () => {
     expect((await on.inOrg((tx) => aiOverviewOf(tx, liteTurnAt))).bookingsRequested).toBe(2);
   });
 
+  it("leaves a blocked contact's chat out of every figure, as the inbox leaves it out of every list", async () => {
+    const on = await liteAgency(test);
+    const blocked = await chatWith(on, { handedOff: hoursAgo(1), attention: hoursAgo(1), suggested: hoursAgo(1) });
+    await on.inOrg(async (tx) => {
+      await tx.whatsappMessage.create({
+        data: {
+          conversationId: blocked,
+          direction: "out",
+          origin: "staff_crm",
+          kind: "text",
+          body: "Hello",
+          clientToken: `ai:${randomUUID()}`,
+          status: "sent",
+          occurredAt: hoursAgo(1),
+        },
+      });
+      await tx.whatsappConversation.update({
+        where: { id: blocked },
+        data: { hidden: true, lastMessageAt: hoursAgo(1) },
+      });
+    });
+    expect(await on.inOrg((tx) => aiOverviewOf(tx, liteTurnAt))).toMatchObject({
+      chatsAnswered: 0,
+      messagesSent: 0,
+      flagged: 0,
+    });
+  });
+
   it("counts each chat the AI wrote in once, since the period's start", async () => {
     const on = await liteAgency(test);
     const connection = await on.inOrg((tx) => tx.whatsappConnection.findFirstOrThrow());

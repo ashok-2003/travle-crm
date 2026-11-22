@@ -53,7 +53,7 @@ describe("the notice that the agent answers nobody", () => {
     expect(await turn(on, new Date(liteTurnAt.getTime() + 60_000), on.message.id)).toBe("not_ready");
     const sent = await notices(on);
     expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ recipientUserId: on.owner.userId, link: "/ai-agent?tab=setup" });
+    expect(sent[0]).toMatchObject({ recipientUserId: on.owner.userId, link: "/ai-agent/setup" });
     expect(JSON.stringify(sent)).not.toMatch(/Kedarnath|Rahul/);
     // The bell's notice goes out by email and push too.
     const delivery = await on.inOrg((tx) =>

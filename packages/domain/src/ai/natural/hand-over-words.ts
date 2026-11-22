@@ -23,7 +23,7 @@ export const handOverSentences: Record<OneHandOverReason | CodeHandOverReason, s
   existing_booking: "Wants to change, cancel or ask about a booking they have",
   b2b: "Asks about a business booking or agent rates",
   day_cap: "Wrote more than the AI answers in a day",
-  month_limit: "This month's AI replies are used up",
+  month_limit: "This month's AI credits are used up",
 };
 
 const isKnown = (reason: string): reason is keyof typeof handOverSentences => Object.hasOwn(handOverSentences, reason);

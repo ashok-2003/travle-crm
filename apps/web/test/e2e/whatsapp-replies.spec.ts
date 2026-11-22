@@ -213,7 +213,7 @@ test("a connection whose delivery reports stopped goes to problem, in the consol
   await owner.close();
 });
 
-test("the chat scrolls inside its own box: it opens at the newest message, keeps the reader's place, and offers New messages", async ({
+test("the chat scrolls inside its own box: it opens at the first unread message, keeps the reader's place, and offers the new ones", async ({
   page,
   browser,
   superAdmin,
@@ -234,14 +234,13 @@ test("the chat scrolls inside its own box: it opens at the newest message, keeps
       ),
     ),
   ).toBe(200);
-  await expect(async () => {
-    await owner.goto("/inbox");
-    await owner
-      .getByRole("link", { name: /Anil Kapoor/ })
-      .first()
-      .click({ timeout: 4_000 });
-    await expect(owner.getByRole("list", { name: "Messages" }).getByText(line(25))).toBeVisible({ timeout: 6_000 });
-  }).toPass({ timeout: 150_000 });
+  // The list shows the chat once all 25 are in (it is live: no reload), and only then is it opened, so all 25 are unread.
+  await owner.goto("/inbox");
+  const row = owner.getByRole("link", { name: /Anil Kapoor/ }).first();
+  await expect(row).toContainText("Message number 25", { timeout: 150_000 });
+  await row.click();
+  const messages = owner.getByRole("list", { name: "Messages" });
+  await expect(messages.getByText(line(25))).toBeVisible();
   // The messages' own scroll box: the first in the chat's region, before the contact panel's, and not the chat list's.
   const viewport = owner
     .getByRole("region", { name: "Chat with Anil Kapoor" })
@@ -249,9 +248,17 @@ test("the chat scrolls inside its own box: it opens at the newest message, keeps
     .first();
   const fromBottom = () =>
     viewport.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight);
-  // The newest is in view, and the box is shorter than its messages.
-  expect(await fromBottom()).toBeLessThan(5);
+  // It opens on the first message the reader hadn't read, under the divider that counts them (inbox revamp spec, part 1
+  // item 3), and the box is shorter than its messages.
+  await expect(messages.getByText("25 unread messages")).toBeInViewport();
+  await expect(messages.getByText(line(1))).toBeInViewport();
+  expect(await fromBottom()).toBeGreaterThan(200);
   expect(await viewport.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  // Down to the newest.
+  await viewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect.poll(fromBottom).toBeLessThan(5);
   // The reply box is still on screen, whatever the scroll.
   await viewport.evaluate((element) => {
     element.scrollTop = 0;
@@ -261,11 +268,11 @@ test("the chat scrolls inside its own box: it opens at the newest message, keeps
   expect(await deliverWhatsapp([customerMessage({ to: business, customerNumber: customer, text: line(26) })])).toBe(
     200,
   );
-  const more = owner.getByRole("button", { name: "New messages" });
+  const more = owner.getByRole("button", { name: "1 new message" });
   await expect(more).toBeVisible({ timeout: 60_000 });
   expect(await fromBottom()).toBeGreaterThan(200);
   await more.click();
-  await expect(owner.getByRole("list", { name: "Messages" }).getByText(line(26))).toBeVisible();
+  await expect(messages.getByText(line(26))).toBeVisible();
   await expect(more).toHaveCount(0);
   expect(await fromBottom()).toBeLessThan(5);
   await owner.close();

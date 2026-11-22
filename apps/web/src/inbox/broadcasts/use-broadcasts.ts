@@ -2,15 +2,16 @@
 
 // The broadcasts' reads and changes (broadcasts.*; sales inbox spec 6): the list and one broadcast's recipients, both looked at
 // again every 15 seconds while open, since the worker sends in the background and the counts move. A change loads again only
-// the broadcast lists.
-import { INBOX_POLL_MS } from "@travel-crm/contracts/inbox";
+// the broadcast lists. Not the live stream's: it tells of chats, not broadcasts.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 
+const BROADCASTS_POLL_MS = 15_000;
+
 export function useBroadcastList() {
   const trpc = useTRPC();
-  return useQuery({ ...trpc.broadcasts.list.queryOptions(), refetchInterval: INBOX_POLL_MS, staleTime: 0 });
+  return useQuery({ ...trpc.broadcasts.list.queryOptions(), refetchInterval: BROADCASTS_POLL_MS, staleTime: 0 });
 }
 
 export function useBroadcastDetail(broadcastId: string) {
@@ -20,7 +21,7 @@ export function useBroadcastDetail(broadcastId: string) {
     queryKey: [...trpc.broadcasts.get.pathKey(), broadcastId],
     page: (cursor) => client.broadcasts.get.query({ broadcastId, ...(cursor !== null && { before: cursor }) }),
     items: (page) => page.recipients,
-    refetchInterval: INBOX_POLL_MS,
+    refetchInterval: BROADCASTS_POLL_MS,
     staleTime: 0,
   });
   return { ...pages, broadcast: pages.data?.pages[0]?.broadcast, people: pages.data?.pages[0]?.people ?? {} };

@@ -274,7 +274,7 @@ describe("the natural agent's live turn", () => {
     );
     expect(await full.turn()).toBe("handed_off");
     expect(full.model.requests).toEqual([]);
-    expect((await full.chatState())?.handoffReason).toBe("This month's AI replies are used up");
+    expect((await full.chatState())?.handoffReason).toBe("This month's AI credits are used up");
   });
 
   it("thanks for a payment screenshot in the model's words and hands over for payment_check", async () => {

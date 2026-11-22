@@ -6,12 +6,14 @@
 // the people violet, the AI's colour, so the card reads as the AI's even when its numbers are 0.
 import type { Period } from "@travel-crm/contracts/kernel";
 import { useTranslations } from "next-intl";
+import { aiProgress } from "@/components/card-tints";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatsAnswered } from "@/ai/use-chats-answered";
 import { useAiSettings } from "@/ai/use-ai";
 import { formatCount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { CountUp } from "./count-up";
 import { HomeCard } from "./home-card";
 
@@ -71,11 +73,7 @@ export function AiInsightsCard({ period }: { period: Period }) {
                     n: (figure) => <span className="numbers">{figure}</span>,
                   })}
                 </span>
-                <Progress
-                  value={usedShare}
-                  aria-label={t("chart")}
-                  className="mt-2 h-2 bg-[color-mix(in_oklab,var(--brand-people)_24%,var(--card))] [&>[data-slot=progress-indicator]]:bg-people"
-                />
+                <Progress value={usedShare} aria-label={t("chart")} className={cn("mt-2 h-2", aiProgress)} />
               </>
             )}
           </div>
