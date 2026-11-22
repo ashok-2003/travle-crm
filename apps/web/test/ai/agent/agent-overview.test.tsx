@@ -136,8 +136,9 @@ describe("the last 24 hours", () => {
     renderWithApi(<AgentScreen />, client(), owner);
     const link = await screen.findByRole("link", { name: "Chats answered: 12, in the Inbox" });
     expect(link).toHaveAttribute("href", "/inbox?show=ai-answered");
-    // The link covers its whole cell, so the focus outline goes round the cell; the ⓘ stays its own button.
-    expect(link).toHaveClass("absolute");
+    // Its words, stretched over the cell, whose focus outline goes round the cell; the ⓘ stays its own button.
+    expect(link).toHaveTextContent(t.last24.chats);
+    expect(link.closest("[data-figure-link]")).not.toBeNull();
     expect(within(screen.getByRole("group", { name: t.last24.chats })).getByRole("button")).toBeInTheDocument();
     for (const label of [t.last24.messages, t.last24.bookings, t.last24.flagged]) {
       expect(within(screen.getByRole("group", { name: label })).queryByRole("link")).not.toBeInTheDocument();

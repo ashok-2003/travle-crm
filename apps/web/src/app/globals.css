@@ -288,3 +288,15 @@ html body[data-scroll-locked] {
 [data-slot="input-group-control"]:focus-visible {
   outline: none;
 }
+
+/*
+ * A figure that opens its list (dashboard/kpi-strip.tsx): its words are the link, stretched over the figure, so the
+ * outline goes round the whole figure, not the words; inside it, as the strip's card clips what passes its edge.
+ */
+[data-figure-link]:has(a:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+[data-figure-link] a:focus-visible {
+  outline: none;
+}

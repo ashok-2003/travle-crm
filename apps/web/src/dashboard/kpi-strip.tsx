@@ -1,8 +1,9 @@
 // A key figure in a quiet strip, divided by hairlines (DESIGN.md): its label with its info hint, and its mono value; no icon,
 // no colour for a normal count. Side by side from a tablet up, and on a phone two to a row with a wide figure (money, up
 // to crores) taking a row of its own, so no amount is ever clipped. A figure with a list that holds exactly what it
-// counts (the AI agent's Chats answered) is a way into it: a hover in its card's hairline colour, an arrow after its
-// value, and a link over the whole cell, named by the number and where it leads, whose focus outline is the cell's.
+// counts (the AI agent's Chats answered) is a way into it: a hover in its card's own tint, an arrow after its
+// value, and its words a link stretched over the cell, named by the number and where it leads, whose focus outline goes
+// round the cell (globals.css). The ⓘ stays a button of its own beside the words, never under the link.
 import { ArrowRightIcon } from "lucide-react";
 import Link from "next/link";
 import { InfoHint } from "@/components/info-hint";
@@ -27,6 +28,7 @@ export function FigureCell({
   count,
   wideNext = false,
   valueClassName,
+  hoverClassName = "hover:bg-muted",
 }: {
   figure: Figure;
   label: string;
@@ -36,6 +38,8 @@ export function FigureCell({
   wideNext?: boolean;
   /** The value's colour on a tinted card (its tint's dark ink). */
   valueClassName?: string;
+  /** A figure with a link: its cell under the pointer, in its card's tint (the muted surface on a plain card). */
+  hoverClassName?: string;
 }) {
   const wide = figure.wide === true;
   const { link } = figure;
@@ -44,19 +48,25 @@ export function FigureCell({
       {wide && <Separator className="md:hidden" />}
       <div className="flex flex-1">
         <div
+          data-figure-link={link === undefined ? undefined : ""}
           className={cn(
             "flex min-w-0 flex-1 flex-col gap-1 p-4",
-            link !== undefined && "relative hover:bg-border/60 motion-safe:transition-colors",
+            link !== undefined && cn("relative motion-safe:transition-colors", hoverClassName),
           )}
         >
-          {/* First, so the ⓘ (later, and positioned) stays above it; inset so its outline sits inside the cell. */}
-          {link !== undefined && (
-            <Link href={link.href} className="absolute inset-1 rounded-md">
-              <span className="sr-only">{link.name}</span>
-            </Link>
-          )}
           <span className="flex items-center gap-1 text-label text-muted-foreground">
-            {label}
+            {link === undefined ? (
+              label
+            ) : (
+              // Its ::after takes the pointer anywhere on the cell; the ⓘ, later and positioned, stays above it.
+              <Link
+                href={link.href}
+                aria-label={link.name}
+                className="underline-offset-4 after:absolute after:inset-0 hover:underline"
+              >
+                {label}
+              </Link>
+            )}
             <InfoHint term={label}>{figure.hint}</InfoHint>
           </span>
           <p

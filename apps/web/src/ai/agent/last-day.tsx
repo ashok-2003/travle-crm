@@ -64,6 +64,7 @@ export function LastDay() {
                   count={figures.length}
                   wideNext={index === 1}
                   valueClassName="text-(--brand-people-tint-ink)"
+                  hoverClassName="hover:bg-people-tint"
                 />
                 {/* On a phone the figures sit two to a row: a line between the rows, as the vertical one is between cells. */}
                 {index === 1 && <Separator className="col-span-2 md:hidden" />}
