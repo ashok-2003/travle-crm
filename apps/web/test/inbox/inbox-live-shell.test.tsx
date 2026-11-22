@@ -37,10 +37,14 @@ class FakeEventSource extends EventTarget {
 
 const tones = vi.fn();
 class FakeAudioContext {
-  state = "running";
+  /** "suspended" plays a tab the browser keeps quiet (nobody clicked in it). */
+  static state = "running";
+  get state() {
+    return FakeAudioContext.state;
+  }
   currentTime = 0;
   destination = {};
-  resume = vi.fn();
+  resume = vi.fn(() => Promise.resolve());
   createOscillator() {
     tones();
     return { type: "", frequency: { value: 0 }, connect: (next: unknown) => next, start: vi.fn(), stop: vi.fn() };
@@ -55,6 +59,54 @@ class FakeAudioContext {
 
 const chat = "01900000-0000-7000-8000-00000000000a";
 const reader = member({ permissions: ["inbox:view", "leads:view", "leads:assign"] });
+const soundKey = `travel-crm.inbox.alerts.${reader.user.id}.sound`;
+
+/** The browser's BroadcastChannels: a message reaches every other channel of the name, a moment later. */
+class FakeBroadcastChannel extends EventTarget {
+  static open = new Set<FakeBroadcastChannel>();
+  constructor(readonly name: string) {
+    super();
+    FakeBroadcastChannel.open.add(this);
+  }
+  postMessage(data: unknown) {
+    for (const other of FakeBroadcastChannel.open) {
+      if (other === this || other.name !== this.name) continue;
+      queueMicrotask(() => other.dispatchEvent(new MessageEvent("message", { data: structuredClone(data) })));
+    }
+  }
+  close() {
+    FakeBroadcastChannel.open.delete(this);
+  }
+}
+
+/** The browser's Web Locks: granted in turn; `hold` takes the lock first, as another tab would, until released. */
+function fakeLocks() {
+  let tail = Promise.resolve();
+  const request = (_name: string, _options: unknown, callback: () => Promise<unknown>) => {
+    const turn = tail.then(() => callback());
+    tail = turn.then(
+      () => undefined,
+      () => undefined,
+    );
+    return turn;
+  };
+  const hold = () => {
+    let release: () => void = () => undefined;
+    void request("inbox-live", {}, () => new Promise<void>((resolve) => (release = resolve)));
+    return () => {
+      release();
+    };
+  };
+  return { locks: { request } as unknown as LockManager, hold };
+}
+
+/** This browser with Web Locks and BroadcastChannel: its tabs share one stream. */
+function sharingTabs() {
+  const { locks, hold } = fakeLocks();
+  Object.defineProperty(navigator, "locks", { configurable: true, value: locks });
+  vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+  return { hold, anotherTab: () => new FakeBroadcastChannel("inbox-live") };
+}
 
 /** The menu's Inbox count, on every page. */
 function Menu() {
@@ -88,6 +140,8 @@ function theApp(me: SignedInMember, page: "elsewhere" | "inbox" = "elsewhere") {
 describe("the app's live stream", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    FakeAudioContext.state = "running";
+    FakeBroadcastChannel.open.clear();
     tones.mockClear();
     FakeEventSource.made = [];
     vi.stubGlobal("EventSource", FakeEventSource);
@@ -95,6 +149,8 @@ describe("the app's live stream", () => {
   });
   afterEach(() => {
     for (const cache of caches.splice(0)) cache.clear();
+    Reflect.deleteProperty(navigator, "locks");
+    Reflect.deleteProperty(navigator, "userActivation");
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -104,11 +160,11 @@ describe("the app's live stream", () => {
     theApp(reader);
     expect(FakeEventSource.made).toHaveLength(0);
     act(() => {
-      keepAlert("sound", true);
+      keepAlert(reader.user.id, "sound", true);
     });
     expect(FakeEventSource.made).toHaveLength(1);
     act(() => {
-      keepAlert("sound", false);
+      keepAlert(reader.user.id, "sound", false);
     });
     expect(FakeEventSource.made[0]?.closed).toBe(true);
   });
@@ -121,14 +177,14 @@ describe("the app's live stream", () => {
 
   it("holds none for a member who can't read the inbox, the sound on or not", () => {
     answerApi({});
-    window.localStorage.setItem("travel-crm.inbox.alerts.sound", "on");
+    window.localStorage.setItem(soundKey, "on");
     theApp(member({ permissions: ["leads:view"] }));
     expect(FakeEventSource.made).toHaveLength(0);
   });
 
   it("outside the Inbox, alerts and loads the menu's count, at most once every 10 s, and nothing else", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    window.localStorage.setItem("travel-crm.inbox.alerts.sound", "on");
+    window.localStorage.setItem(soundKey, "on");
     const api = answerApi({
       "inbox.conversation": { id: chat, phone: "+919876543210", name: "Meera Rao", liveLead: null, replying: [] },
       "salesInbox.summary": {},
@@ -164,5 +220,56 @@ describe("the app's live stream", () => {
     expect(counted() - opened).toBe(2);
     // The alert read the chat's header (whose it is, its name); nothing else was asked.
     expect(new Set(api.calls.map((call) => call.path))).toEqual(new Set(["inbox.conversation", "salesInbox.summary"]));
+  });
+
+  it("kept quiet by the browser, the tab holding the stream asks the other tabs to sound the chime", async () => {
+    const { anotherTab } = sharingTabs();
+    const heard: unknown[] = [];
+    anotherTab().addEventListener("message", (event) => heard.push((event as MessageEvent).data));
+    FakeAudioContext.state = "suspended";
+    window.localStorage.setItem(soundKey, "on");
+    answerApi({
+      "inbox.conversation": { id: chat, phone: "+919876543210", name: "Meera Rao", liveLead: null, replying: [] },
+      "salesInbox.summary": {},
+    });
+    theApp(reader);
+    await waitFor(() => {
+      expect(FakeEventSource.made).toHaveLength(1);
+    });
+    act(() => {
+      FakeEventSource.made[0]?.says({ conversationId: chat, change: "message", direction: "in" });
+    });
+    await waitFor(() => {
+      expect(heard).toContainEqual({ kind: "chime", conversationId: chat });
+    });
+    expect(tones).not.toHaveBeenCalled();
+  });
+
+  it("a tab the browser lets sound takes another's chime once; one nobody has clicked in leaves it", async () => {
+    const { hold, anotherTab } = sharingTabs();
+    // Another tab holds the stream: this one follows.
+    hold();
+    window.localStorage.setItem(soundKey, "on");
+    answerApi({ "salesInbox.summary": {} });
+    theApp(reader);
+    await waitFor(() => {
+      expect(FakeBroadcastChannel.open.size).toBe(1);
+    });
+    const holder = anotherTab();
+    holder.postMessage({ kind: "chime", conversationId: chat });
+    holder.postMessage({ kind: "chime", conversationId: chat });
+    await waitFor(() => {
+      expect(tones).toHaveBeenCalled();
+    });
+    // One chime: two notes.
+    expect(tones).toHaveBeenCalledTimes(2);
+    expect(FakeEventSource.made).toHaveLength(0);
+
+    tones.mockClear();
+    window.localStorage.removeItem(`travel-crm.inbox.alerts.chime`);
+    Object.defineProperty(navigator, "userActivation", { configurable: true, value: { hasBeenActive: false } });
+    holder.postMessage({ kind: "chime", conversationId: chat });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(tones).not.toHaveBeenCalled();
   });
 });

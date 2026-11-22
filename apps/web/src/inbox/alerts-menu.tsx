@@ -16,7 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { alertIsOn, keepAlert, notificationPermission, playChime, type AlertKind } from "./inbox-alerts";
+import { useMe } from "@/session/me-context";
+import { alertIsOn, keepAlert, notificationPermission, playChime, readySound, type AlertKind } from "./inbox-alerts";
 
 /** The keys the Inbox answers (use-inbox-keys.ts and the reply box), as the dialog lists them: each with `<what>Keys`. */
 const shortcuts = ["nextChat", "nextChatTyping", "search", "closePanel", "send", "newLine"] as const;
@@ -57,26 +58,27 @@ export function AlertsMenu() {
   const menuButton = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
-  const [sound, setSound] = useState(() => alertIsOn("sound"));
+  const userId = useMe().user.id;
+  const [sound, setSound] = useState(() => alertIsOn(userId, "sound"));
   const [permission, setPermission] = useState(notificationPermission);
-  const [desktop, setDesktop] = useState(() => alertIsOn("desktop") && notificationPermission() === "granted");
+  const [desktop, setDesktop] = useState(() => alertIsOn(userId, "desktop") && notificationPermission() === "granted");
 
   const changeSound = (on: boolean) => {
     setSound(on);
-    keepAlert("sound", on);
+    keepAlert(userId, "sound", on);
     // Inside the click: the browser lets the page make sounds from now on, and this one says what it will sound like.
-    if (on) playChime();
+    if (on) void readySound()?.resume().then(playChime);
   };
   const changeDesktop = async (on: boolean) => {
     if (!on) {
       setDesktop(false);
-      keepAlert("desktop", false);
+      keepAlert(userId, "desktop", false);
       return;
     }
     const answer = notificationPermission() === "default" ? await Notification.requestPermission() : permission;
     setPermission(answer);
     setDesktop(answer === "granted");
-    keepAlert("desktop", answer === "granted");
+    keepAlert(userId, "desktop", answer === "granted");
   };
   const desktopHint = permission === "denied" ? t("desktopBlocked") : t("desktopHint");
 

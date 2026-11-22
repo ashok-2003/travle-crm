@@ -98,7 +98,10 @@ test("a customer's message shows in the lead page's chat within seconds, without
 test("with the sound on, the app holds one stream for the browser on any page, and another tab takes it over", async ({
   browser,
   agency,
+  database,
 }) => {
+  // The switches are kept for the member signed in.
+  const owner = await database.platform.user.findUniqueOrThrow({ where: { email: agency.owner.email } });
   const context = await browser.newContext();
   const streams: string[] = [];
   context.on("request", (request) => {
@@ -111,9 +114,9 @@ test("with the sound on, the app holds one stream for the browser on any page, a
   await expect(leads.getByRole("heading", { level: 1 })).toBeVisible();
   await leads.waitForTimeout(1_000);
   expect(streams).toHaveLength(0);
-  await leads.evaluate(() => {
-    window.localStorage.setItem("travel-crm.inbox.alerts.sound", "on");
-  });
+  await leads.evaluate((userId) => {
+    window.localStorage.setItem(`travel-crm.inbox.alerts.${userId}.sound`, "on");
+  }, owner.id);
   await leads.reload();
   await expect.poll(() => streams.length).toBe(1);
 

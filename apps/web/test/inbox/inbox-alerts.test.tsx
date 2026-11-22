@@ -7,7 +7,17 @@ import { act, renderHook, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AlertsMenu } from "@/inbox/alerts-menu";
-import { alertsMember, claimAlert, takesUnassigned } from "@/inbox/inbox-alerts";
+import {
+  alertIsOn,
+  alertsMember,
+  claimAlert,
+  claimChime,
+  forgetAlerts,
+  keepAlert,
+  playChime,
+  takesUnassigned,
+} from "@/inbox/inbox-alerts";
+import { wipeLocalData } from "@/data/session";
 import { useInboxAlerts } from "@/inbox/use-inbox-alerts";
 import { MeProvider } from "@/session/me-context";
 import { newQueryClient, renderWithApi, withApp } from "../organization/api";
@@ -19,6 +29,9 @@ const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const chat = "01900000-0000-7000-8000-00000000000a";
+/** The switches are kept for the member signed in: every test member here is the default one. */
+const userId = member().user.id;
+const switchKey = (kind: "sound" | "desktop") => `travel-crm.inbox.alerts.${userId}.${kind}`;
 /** Whose the chat is, as its header says: a lead of the member's, someone's, nobody's, or no lead at all. */
 const whose = (state: "mine" | "someone's" | "nobody's" | "no lead") => ({
   liveLead:
@@ -31,10 +44,14 @@ const assigner = member({ permissions: ["inbox:view", "leads:view", "leads:assig
 /** The browser's sound and notifications, as the tests watch them. */
 const tones = vi.fn();
 class FakeAudioContext {
-  state = "running";
+  /** Whether the browser lets the tab sound: "suspended" until a click, in a tab nobody has clicked. */
+  static state = "running";
+  get state() {
+    return FakeAudioContext.state;
+  }
   currentTime = 0;
   destination = {};
-  resume = vi.fn();
+  resume = vi.fn(() => Promise.resolve());
   createOscillator() {
     tones();
     return { type: "", frequency: { value: 0 }, connect: (next: unknown) => next, start: vi.fn(), stop: vi.fn() };
@@ -66,6 +83,7 @@ beforeEach(() => {
   shown.length = 0;
   router.push.mockClear();
   screenIs("wide");
+  FakeAudioContext.state = "running";
   vi.stubGlobal("AudioContext", FakeAudioContext);
 });
 afterEach(() => {
@@ -98,10 +116,34 @@ describe("whose chats alert", () => {
     expect(alertsMember(everyChatOwnLeads, whose("no lead"))).toBe(true);
   });
 
+  it("are the member's own: another member on the same browser starts with them off, and a sign-out forgets them", async () => {
+    const other = "0199a000-0000-7000-8000-0000000000ee";
+    keepAlert(userId, "sound", true);
+    expect(alertIsOn(userId, "sound")).toBe(true);
+    expect(alertIsOn(other, "sound")).toBe(false);
+    forgetAlerts();
+    expect(alertIsOn(userId, "sound")).toBe(false);
+    keepAlert(userId, "desktop", true);
+    await wipeLocalData(newQueryClient());
+    expect(alertIsOn(userId, "desktop")).toBe(false);
+  });
+
   it("is given by one tab only for the same message", () => {
     expect(claimAlert(chat, 1_000)).toBe(true);
     expect(claimAlert(chat, 2_000)).toBe(false);
     expect(claimAlert(chat, 5_000)).toBe(true);
+    // A chime asked of the other tabs is sounded by the first that takes it.
+    expect(claimChime(chat, 1_000)).toBe(true);
+    expect(claimChime(chat, 1_500)).toBe(false);
+  });
+
+  it("sounds only while the browser lets this tab sound, and queues nothing on a quiet one", () => {
+    FakeAudioContext.state = "suspended";
+    expect(playChime()).toBe(false);
+    expect(tones).not.toHaveBeenCalled();
+    FakeAudioContext.state = "running";
+    expect(playChime()).toBe(true);
+    expect(tones).toHaveBeenCalled();
   });
 });
 
@@ -114,7 +156,7 @@ describe("the alerts menu", () => {
     expect(sound).not.toBeChecked();
     await userEvent.click(sound);
     expect(sound).toBeChecked();
-    expect(window.localStorage.getItem("travel-crm.inbox.alerts.sound")).toBe("on");
+    expect(window.localStorage.getItem(switchKey("sound"))).toBe("on");
     expect(tones).toHaveBeenCalled();
   });
 
@@ -126,7 +168,7 @@ describe("the alerts menu", () => {
     await userEvent.click(await screen.findByRole("switch", { name: "Desktop notifications" }));
     expect(allowing.requestPermission).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("switch", { name: "Desktop notifications" })).toBeChecked();
-    expect(window.localStorage.getItem("travel-crm.inbox.alerts.desktop")).toBe("on");
+    expect(window.localStorage.getItem(switchKey("desktop"))).toBe("on");
     view.unmount();
 
     window.localStorage.clear();
@@ -136,7 +178,7 @@ describe("the alerts menu", () => {
     await userEvent.click(await screen.findByRole("switch", { name: "Desktop notifications" }));
     expect(screen.getByRole("switch", { name: "Desktop notifications" })).not.toBeChecked();
     expect(screen.getByText(/This browser blocks our notifications/)).toBeInTheDocument();
-    expect(window.localStorage.getItem("travel-crm.inbox.alerts.desktop")).toBeNull();
+    expect(window.localStorage.getItem(switchKey("desktop"))).toBeNull();
   });
 
   it("has no desktop switch in a browser that can't show notifications", async () => {
@@ -174,7 +216,7 @@ describe("an alert", () => {
     // In front: the chat open, in a tab in view with the focus (as the app's shell asks it of every tab).
     const inFront = (conversationId: string) =>
       conversationId === openId && document.visibilityState === "visible" && document.hasFocus();
-    return renderHook(() => useInboxAlerts(inFront), {
+    return renderHook(() => useInboxAlerts(inFront, () => void playChime()), {
       wrapper: ({ children }) => (
         <Providers>
           <MeProvider me={seller}>{children}</MeProvider>
@@ -185,8 +227,8 @@ describe("an alert", () => {
 
   it("sounds and shows 'New message from <name>' for the member's chat, which opens it", async () => {
     stubNotifications("granted");
-    window.localStorage.setItem("travel-crm.inbox.alerts.sound", "on");
-    window.localStorage.setItem("travel-crm.inbox.alerts.desktop", "on");
+    window.localStorage.setItem(switchKey("sound"), "on");
+    window.localStorage.setItem(switchKey("desktop"), "on");
     const alert = alerts(null);
     act(() => {
       alert(chat);
@@ -199,7 +241,7 @@ describe("an alert", () => {
 
   it("goes through the service worker where one is ready, whose click opens the chat", async () => {
     stubNotifications("granted");
-    window.localStorage.setItem("travel-crm.inbox.alerts.desktop", "on");
+    window.localStorage.setItem(switchKey("desktop"), "on");
     const showNotification = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, "serviceWorker", {
       configurable: true,
@@ -222,7 +264,7 @@ describe("an alert", () => {
   it("says nothing while both are off, for someone else's chat, or for the chat in front of the member", async () => {
     stubNotifications("granted");
     alerts(null)(chat);
-    window.localStorage.setItem("travel-crm.inbox.alerts.sound", "on");
+    window.localStorage.setItem(switchKey("sound"), "on");
     alerts(null, "someone's")(chat);
     // Its header answered before the next case's api takes over.
     await new Promise((resolve) => setTimeout(resolve, 50));

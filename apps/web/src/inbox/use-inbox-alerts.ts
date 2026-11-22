@@ -12,29 +12,35 @@ import { useTRPC } from "@/data/trpc";
 import { formatPhoneNumber } from "@/lib/format";
 import { inboxRoute } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
-import { alertIsOn, alertsMember, claimAlert, notificationPermission, playChime, showChatNotice } from "./inbox-alerts";
+import { alertIsOn, alertsMember, claimAlert, notificationPermission, showChatNotice } from "./inbox-alerts";
 
-/** `inFront` says whether a chat is the one the member is looking at, in this tab or another. */
-export function useInboxAlerts(inFront: (conversationId: string) => boolean): (conversationId: string) => void {
+/**
+ * `inFront` says whether a chat is the one the member is looking at, in this tab or another; `chime` sounds the chime,
+ * from this tab or one the browser lets sound.
+ */
+export function useInboxAlerts(
+  inFront: (conversationId: string) => boolean,
+  chime: (conversationId: string) => void,
+): (conversationId: string) => void {
   const t = useTranslations("inbox.alerts");
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
   const me = useMe();
-  const front = useRef(inFront);
+  const front = useRef({ inFront, chime });
   useEffect(() => {
-    front.current = inFront;
+    front.current = { inFront, chime };
   });
   return useCallback(
     (conversationId: string) => {
-      const sound = alertIsOn("sound");
-      const desktop = alertIsOn("desktop") && notificationPermission() === "granted";
-      if ((!sound && !desktop) || front.current(conversationId)) return;
+      const sound = alertIsOn(me.user.id, "sound");
+      const desktop = alertIsOn(me.user.id, "desktop") && notificationPermission() === "granted";
+      if ((!sound && !desktop) || front.current.inFront(conversationId)) return;
       void queryClient
         .query(trpc.inbox.conversation.queryOptions({ conversationId }))
         .then((header) => {
           if (!alertsMember(me, header) || !claimAlert(conversationId)) return;
-          if (sound) playChime();
+          if (sound) front.current.chime(conversationId);
           if (!desktop) return;
           return showChatNotice(
             t("newMessageFrom", { name: header.name ?? formatPhoneNumber(header.phone) }),
