@@ -2,6 +2,7 @@
 // shows notifies inbox_live on commit, with ids and a word for what changed only; nothing else notifies, and a rolled-back
 // change tells nobody. The listener opens its connection again when it is lost, and says so.
 import { randomUUID } from "node:crypto";
+import net from "node:net";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createDatabase, type Database } from "../src/database.js";
@@ -36,16 +37,22 @@ describe("inbox_live", () => {
   let reconnected = 0;
   let markers = 0;
 
-  /** Everything heard after `work`, up to a marker sent once it is done (notifications arrive in commit order). */
-  async function heardAfter(work: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
-    const from = heard.length;
-    await work().catch(() => undefined);
+  /** Sends a marker and waits for it: everything committed before it has been heard (notifications come in commit order). */
+  async function flushed(): Promise<number> {
     markers += 1;
     const marker = `marker-${String(markers)}`;
     await superuser.query("SELECT pg_notify($1, $2)", [INBOX_LIVE_CHANNEL, marker]);
     await until(() => heard.includes(marker), marker);
+    return heard.indexOf(marker);
+  }
+
+  /** Everything heard because of `work`: between a marker sent before it and one sent after. */
+  async function heardAfter(work: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
+    const from = await flushed();
+    await work().catch(() => undefined);
+    const to = await flushed();
     return heard
-      .slice(from, heard.indexOf(marker))
+      .slice(from + 1, to)
       .filter((payload) => !payload.startsWith("marker-"))
       .map((payload) => JSON.parse(payload) as Record<string, unknown>);
   }
@@ -159,6 +166,45 @@ describe("inbox_live", () => {
     ).toEqual([{ organizationId, conversationId, change: "chat" }]);
   });
 
+  it("tells of a chat's messages sent later, the AI's state in it and its team notes, and not of the AI's memory", async () => {
+    const conversationId = await aChat();
+    const chat = [{ organizationId, conversationId, change: "chat" }];
+    expect(
+      await heardAfter(() =>
+        inOrganization((tx) =>
+          tx.scheduledMessage.create({
+            data: {
+              conversationId,
+              body: "See you",
+              sendAt: new Date(Date.now() + 3_600_000),
+              createdBy: randomUUID(),
+            },
+          }),
+        ),
+      ),
+    ).toEqual(chat);
+    const ai = await inOrganization((tx) => tx.aiChat.create({ data: { conversationId } }));
+    const updateAi = (data: Record<string, unknown>) =>
+      inOrganization((tx) => tx.aiChat.update({ where: { id: ai.id }, data: data }));
+    expect(await heardAfter(() => updateAi({ turnState: "thinking", turnAt: new Date() }))).toEqual(chat);
+    expect(await heardAfter(() => updateAi({ memory: "Likes beaches", repliesCount: { increment: 1 } }))).toEqual([]);
+    // A note on a lead of the chat's person is shown in the chat.
+    let leadId = "";
+    // The chat gets its person (a change of its own, heard here so the note's is heard alone).
+    await heardAfter(() =>
+      inOrganization(async (tx) => {
+        const person = await tx.person.create({ data: { name: "Meera Rao", phoneE164: `+91${digits()}` } });
+        await tx.whatsappConversation.update({ where: { id: conversationId }, data: { personId: person.id } });
+        leadId = (await tx.lead.create({ data: { personId: person.id, source: "whatsapp" } })).id;
+      }),
+    );
+    expect(
+      await heardAfter(() =>
+        inOrganization((tx) => tx.leadNote.create({ data: { leadId, body: "Called, no answer" } })),
+      ),
+    ).toEqual(chat);
+  });
+
   it("tells nobody of a change that was rolled back", async () => {
     const conversationId = await aChat();
     expect(
@@ -196,4 +242,46 @@ describe("inbox_live", () => {
     inOrganization((tx) =>
       tx.whatsappConversation.update({ where: { id: conversationId }, data: { needsReply: true } }),
     );
+
+  it("drops a connection whose ping gets no answer, and listens again on a new one", async () => {
+    // A proxy in front of Postgres that can go silent, as a connection does when a network drops it without a word.
+    const target = new URL(urls.runtime);
+    const silenced = new Set<net.Socket>();
+    const sockets: net.Socket[] = [];
+    const proxy = net.createServer((incoming) => {
+      const outgoing = net.connect(Number(target.port), target.hostname);
+      const forward = (from: net.Socket, to: net.Socket) =>
+        from.on("data", (chunk) => {
+          if (!silenced.has(incoming)) to.write(chunk);
+        });
+      forward(incoming, outgoing);
+      forward(outgoing, incoming);
+      incoming.on("error", () => outgoing.destroy());
+      outgoing.on("error", () => incoming.destroy());
+      sockets.push(incoming);
+    });
+    await new Promise<void>((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+    const address = proxy.address() as net.AddressInfo;
+    const viaProxy = new URL(urls.runtime);
+    viaProxy.hostname = "127.0.0.1";
+    viaProxy.port = String(address.port);
+    let back = 0;
+    const errors: unknown[] = [];
+    const quiet = listenForNotifications(
+      viaProxy.toString(),
+      INBOX_LIVE_CHANNEL,
+      { onNotification: () => undefined, onReconnected: () => (back += 1), onError: (error) => errors.push(error) },
+      { retryMs: 50, maxRetryMs: 100, pingMs: 100, answerWithinMs: 300 },
+    );
+    try {
+      await quiet.listening;
+      for (const socket of sockets) silenced.add(socket);
+      await until(() => back > 0, "the listener to open a new connection");
+      expect(String(errors[0])).toContain("ping got no answer");
+    } finally {
+      await quiet.close();
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => proxy.close(resolve));
+    }
+  });
 });
