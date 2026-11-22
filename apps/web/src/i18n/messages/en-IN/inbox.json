@@ -342,7 +342,8 @@
     "unreadDivider": "{count, plural, one {# unread message} other {# unread messages}}",
     "toBottom": "Go to the newest message",
     "toBottomCount": "{count, plural, one {# new message} other {# new messages}} below. Go to the newest",
-    "makeLead": "Make a lead from this chat"
+    "makeLead": "Make a lead from this chat",
+    "newMessagesCount": "{count, plural, one {# new message} other {# new messages}}"
   },
   "leadSection": {
     "title": "WhatsApp",
@@ -803,5 +804,33 @@
     "label": "Filter: Answered by the AI",
     "hint": "Chats the AI answered in the last 24 hours",
     "empty": "The AI answered no chats in the last 24 hours."
+  },
+  "alerts": {
+    "open": "Alerts",
+    "title": "Alerts",
+    "sound": "Sound",
+    "soundHint": "A soft sound when a customer writes to one of your chats, or to a chat nobody has yet.",
+    "desktop": "Desktop notifications",
+    "desktopHint": "\"New message from …\" on your screen, even while the Inbox is out of sight.",
+    "desktopBlocked": "This browser blocks our notifications. Allow them in its settings for this site, then turn this on.",
+    "desktopUnsupported": "This browser can't show notifications.",
+    "shortcuts": "Keyboard shortcuts",
+    "newMessageFrom": "New message from {name}"
+  },
+  "keys": {
+    "title": "Keyboard shortcuts",
+    "intro": "Move through the chats without the mouse.",
+    "nextChat": "The next or the previous chat, when you aren't typing",
+    "nextChatKeys": "↓ or ↑",
+    "nextChatTyping": "The next or the previous chat, even while typing",
+    "nextChatTypingKeys": "Alt+↓ or Alt+↑",
+    "search": "Search the chats",
+    "searchKeys": "Ctrl+K (⌘K on a Mac)",
+    "closePanel": "Close the contact details",
+    "closePanelKeys": "Esc",
+    "send": "Send the message",
+    "sendKeys": "Enter",
+    "newLine": "A new line in the message",
+    "newLineKeys": "Shift+Enter"
   }
 }

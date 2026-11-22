@@ -88,7 +88,8 @@
   },
   "paymentsToCheck": {
     "count": "{count, plural, one {# payment is waiting for your word} other {# payments are waiting for your word}}",
-    "open": "Open payments to check"
+    "how": "Check each against your bank, then confirm it.",
+    "open": "Check payments"
   },
   "aiNeedsYou": {
     "handedOver": "The AI handed this chat over to you",

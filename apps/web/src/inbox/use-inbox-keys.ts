@@ -1,45 +1,92 @@
 "use client";
 
-// The inbox's keys (sales inbox spec 3), when the person is not typing in a box: "/" goes to the chats' search, Esc
-// closes the open chat, and Alt with the arrows moves to the chat above or below in the list.
+// The inbox's keys (sales inbox spec 3; inbox revamp spec, part 1 item 6). Anywhere: Alt with ↑ or ↓ goes to the chat above
+// or below in the list, and Ctrl+K (⌘K on a Mac) to the chats' search. When the person is not typing in a box: ↑ and ↓ alone
+// do the same (but not after a click among the messages, where they scroll what was clicked), "/" goes to the search, and
+// Esc closes the contact panel kept open beside the chat, or else the open chat. A dialog, menu or sheet open keeps its keys.
+// Enter sends and Shift+Enter makes a new line in the reply box, which is the box's own (composer.tsx).
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { inboxRoute, routes } from "@/lib/routes";
+import { useInboxPanes } from "./inbox-panes";
 
 const typingIn = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
+const among = (target: EventTarget | null, selector: string) =>
+  target instanceof Element && target.closest(selector) !== null;
+
+const plain = (event: KeyboardEvent) => !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+
+function focusSearch(): boolean {
+  const search = document.querySelector<HTMLInputElement>('[data-inbox-search] input[type="search"]');
+  search?.focus();
+  return search !== null;
+}
+
 export function useInboxKeys(conversationId: string | null) {
   const router = useRouter();
+  const panes = useInboxPanes();
+  const latestPanes = useRef(panes);
   useEffect(() => {
+    latestPanes.current = panes;
+  });
+  useEffect(() => {
+    /** Where the person last pressed the pointer: arrows after a click among the messages scroll them. */
+    let pressedIn: EventTarget | null = null;
+    const onPointer = (event: PointerEvent) => {
+      pressedIn = event.target;
+    };
+    /** Opens the chat a step above or below the open one (the first, when none is open); false when there is none. */
+    const move = (step: 1 | -1): boolean => {
+      const rows = [...document.querySelectorAll<HTMLAnchorElement>('[data-chat-row="true"]')];
+      const here = rows.findIndex((row) => row.dataset.chatId === conversationId);
+      const next = rows[here + step] ?? (here === -1 ? rows[0] : undefined);
+      const id = next?.dataset.chatId;
+      if (next === undefined || id === undefined) return false;
+      next.scrollIntoView({ block: "nearest" });
+      // The focus follows along the list when it was there; from the reply box it stays in the box.
+      if (among(document.activeElement, '[data-chat-row="true"]')) next.focus();
+      router.push(inboxRoute(id));
+      return true;
+    };
     const onKey = (event: KeyboardEvent) => {
-      // A dialog, menu or sheet open has the keys to itself (Esc closes it, not the chat).
       if (event.defaultPrevented || document.querySelector('[role="dialog"], [role="menu"]') !== null) return;
-      if (event.altKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
-        const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-chat-row="true"]')];
-        const here = links.findIndex((link) => link.dataset.chatId === conversationId);
-        const next = links[here + (event.key === "ArrowDown" ? 1 : -1)] ?? (here === -1 ? links[0] : undefined);
-        if (next?.dataset.chatId !== undefined) {
-          event.preventDefault();
-          router.push(inboxRoute(next.dataset.chatId));
-        }
+      const arrow = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : null;
+      if (arrow !== null && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        if (move(arrow)) event.preventDefault();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
+        if (focusSearch()) event.preventDefault();
         return;
       }
       if (typingIn(event.target)) return;
-      if (event.key === "/") {
-        const search = document.querySelector<HTMLInputElement>('[data-inbox-search] input[type="search"]');
-        if (search !== null) {
-          event.preventDefault();
-          search.focus();
+      if (arrow !== null && plain(event)) {
+        if (among(event.target, "[data-chat-messages]") || among(pressedIn, "[data-chat-messages]")) return;
+        if (move(arrow)) event.preventDefault();
+        return;
+      }
+      if (event.key === "/" && plain(event)) {
+        if (focusSearch()) event.preventDefault();
+        return;
+      }
+      if (event.key === "Escape") {
+        const shown = latestPanes.current;
+        if (shown?.panelDocks === true && shown.panelOpen && document.querySelector("[data-contact-panel]") !== null) {
+          shown.setPanelOpen(false);
+          document.querySelector<HTMLButtonElement>("[data-panel-toggle]")?.focus();
+        } else if (conversationId !== null) {
+          router.push(routes.inbox);
         }
-      } else if (event.key === "Escape" && conversationId !== null) {
-        router.push(routes.inbox);
       }
     };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer, { capture: true });
     return () => {
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer, { capture: true });
     };
   }, [conversationId, router]);
 }

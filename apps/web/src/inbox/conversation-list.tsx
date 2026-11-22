@@ -4,12 +4,14 @@
 // live in: the person's tinted picture, their name and how long ago the last message came ("18m", "5h", "25 Oct"); under
 // them our ticks and the last message's first words, with the member's unread count (or a dot while the customer waits)
 // and a pin; then the sale: the lead's stage as its coloured pill, its owner, how long the customer has waited, and the
-// agency's tags. The open chat is marked as the current link.
+// agency's tags. The open chat is marked as the current link. A chat is asked for ahead as the pointer rests on its row or
+// the row gets the focus (inbox revamp spec, part 1 item 3), so it opens at once.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { ConversationListItem } from "@travel-crm/contracts/inbox";
 import { AlarmClockIcon, PinIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemGroup, ItemMedia } from "@/components/ui/item";
 import { stageTones } from "@/leads/stage-badge";
@@ -21,8 +23,35 @@ import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
 import { ChatAvatar } from "./chat-avatar";
 import { Ticks } from "./ticks";
+import { usePrefetchChat } from "./use-inbox";
 import { useOwners } from "./use-owner-names";
 import { WaitTimer } from "./wait-timer";
+
+/** How long the pointer rests on a row before its chat is asked for: passing over rows on the way elsewhere asks nothing. */
+export const PREFETCH_REST_MS = 150;
+
+/** The handlers that ask for a row's chat ahead: when the pointer has rested on it, or at once when it gets the focus. */
+function usePrefetchOnRest(conversationId: string) {
+  const prefetch = usePrefetchChat();
+  const resting = useRef<number | undefined>(undefined);
+  const stop = () => {
+    window.clearTimeout(resting.current);
+    resting.current = undefined;
+  };
+  return {
+    onPointerEnter: () => {
+      stop();
+      resting.current = window.setTimeout(() => {
+        prefetch(conversationId);
+      }, PREFETCH_REST_MS);
+    },
+    onPointerLeave: stop,
+    onFocus: () => {
+      stop();
+      prefetch(conversationId);
+    },
+  };
+}
 
 /** "18m", "5h" within a day; after that the day ("25 Oct"). */
 function useShortWhen() {
@@ -44,6 +73,7 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
   const when = useShortWhen();
   const { nameOf } = useOwners();
   const owner = chat.lead === null ? null : nameOf(chat.lead.ownerUserId);
+  const prefetch = usePrefetchOnRest(chat.id);
   const fresh = chat.unread > 0 || chat.needsReply;
   // The open chat's row is darker (bg-hairline), where the muted grey is too faint to read.
   const quiet = current ? "text-foreground" : "text-muted-foreground";
@@ -63,6 +93,7 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
           aria-current={current ? "page" : undefined}
           data-chat-row="true"
           data-chat-id={chat.id}
+          {...prefetch}
         >
           <ItemMedia>
             <ChatAvatar name={chat.name} seed={chat.id} />

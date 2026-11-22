@@ -31,8 +31,12 @@ logs, and what is still open.
   migrations:** `DATABASE_MIGRATOR_URL` connects to Postgres directly, or through a session-mode pooler. Prisma
   Migrate's lock is a session's advisory lock, so through a transaction-mode pooler two `migrate` runs can overlap,
   or fail part-way. The same goes for every `migrate` and `migrate resolve` below, the restore drill's among them.
+  **The api's live stream LISTENs** (the Inbox's `/api/live`): its one listening connection needs Postgres directly or a
+  session-mode pooler. Through a transaction-mode pooler it hears nothing, and the Inbox falls back to its poll once a
+  minute.
 - **Connections.** Each process opens up to `2 × DATABASE_POOL_SIZE + 5`, and the console 3 more for the platform
-  role (`apps/api/README.md`). Size Postgres or the pooler for every instance of all three.
+  role (`apps/api/README.md`); the api 1 more, its listening connection (`travel-crm-listen:inbox_live`). Size Postgres
+  or the pooler for every instance of all three.
 - **Who holds which URL.** The api and the worker get `DATABASE_URL` alone, the console `DATABASE_URL` and
   `DATABASE_PLATFORM_URL`; migrations run as a separate step with `DATABASE_MIGRATOR_URL`, which no process holds.
 
@@ -408,6 +412,12 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `/meta/deletion`                | web, 3000     | Meta's data-deletion status page (the default rule)                         |
 | everything else                 | web, 3000     | the app's pages, build files, manifest and service worker                   |
 
+- **The Inbox's live stream** (`GET /api/live`, inbox revamp spec part 1 item 4) is a long response of server-sent
+  events under the `/api/*` rule: a comment every 25 s keeps it open, and nothing between the browser and the api may
+  buffer it (`docker/Caddyfile` and `docker/server/Caddyfile` flush it at once; the api sends `Cache-Control: no-cache,
+no-transform` and `X-Accel-Buffering: no`). Vercel's rewrite to the api may end a long stream: the browser reconnects
+  by itself and reads the Inbox afresh, so nothing is lost but a few seconds. A member holds at most five at once, one
+  per open Inbox tab; each api process holds its own streams, and stopping it ends them so it can stop.
 - **One address for everything** (spec 3): the app's https origin is `BETTER_AUTH_URL` and `APP_URL`, so cookies
   stay first-party and the api needs no CORS. Share links (`/p/*`) and the webhook intake (`/webhooks/*`) are the
   api's, not the web app's. `docker/Caddyfile` is this table, and `pnpm product:smoke` proves it path by path.

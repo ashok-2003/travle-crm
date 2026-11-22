@@ -8,7 +8,11 @@ import { screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/inbox", useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/inbox",
+  useParams: () => ({}),
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -18,7 +22,7 @@ describe("InboxScreen's first requests", () => {
   it("send the status, the owners and the tags in one batch", async () => {
     screenIs("wide");
     stubApi({ "inbox.status": "never", "leads.owners": "never", "inbox.tags": "never" });
-    renderWithApi(<InboxScreen conversationId={null} />, newQueryClient(), member({ isOwner: true }));
+    renderWithApi(<InboxScreen>{null}</InboxScreen>, newQueryClient(), member({ isOwner: true }));
     await waitFor(() => {
       expect(vi.mocked(globalThis.fetch)).toHaveBeenCalled();
     });

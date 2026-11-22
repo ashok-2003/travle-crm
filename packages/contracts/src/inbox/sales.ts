@@ -50,8 +50,11 @@ export type QuickReplyIdInput = z.infer<typeof quickReplyIdInput>;
 export const conversationFlagInput = z.strictObject({ conversationId: recordId, on: z.boolean() });
 export type ConversationFlagInput = z.infer<typeof conversationFlagInput>;
 
-/** How often an open inbox asks again for new messages, and for who else is replying (no websocket, spec 4.4 S1). */
-export const INBOX_POLL_MS = 15_000;
+/**
+ * How often an open inbox asks again by itself: the safety net under the live stream (live.ts), which tells it of every
+ * change as it happens (inbox revamp spec, part 1 item 4). Never in a hidden tab.
+ */
+export const INBOX_POLL_MS = 60_000;
 
 /** How long a customer may wait for a reply before their chat counts as late (the reply timer turns red). */
 export const REPLY_TARGET_MINUTES = 15;

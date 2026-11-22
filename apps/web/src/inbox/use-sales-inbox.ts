@@ -2,17 +2,19 @@
 
 // The sales inbox's reads and changes beyond WhatsApp (salesInbox.*; sales inbox spec 6): the counts above the chats,
 // stars, snooze, team notes, messages sent later, "someone is replying", the automatic answers and broadcasts. A change
-// loads again only what it changed (the polls are every 15 seconds already, so a change must not set off all of them).
+// loads again only what it changed (the live stream and the polls load the rest, so a change must not set off all of them).
 import { INBOX_POLL_MS } from "@travel-crm/contracts/inbox";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { usePathname } from "next/navigation";
 import { useRef } from "react";
 import { useTRPC } from "@/data/trpc";
 
 const POLL_MS = INBOX_POLL_MS;
 
-/** Off the Inbox the count in the menu is read once a minute: every tab asking every 15 seconds queued the api's calls. */
-export const INBOX_SUMMARY_POLL_MS = 60_000;
+/**
+ * The counts (the chips' and the menu's) are read once a minute: on the Inbox the live stream loads them again as chats
+ * change; elsewhere every tab asking more often queued the api's calls.
+ */
+export const INBOX_SUMMARY_POLL_MS = INBOX_POLL_MS;
 
 /** Loads these queries again, by the keys the router gives (a procedure's path covers every input it was asked with). */
 export function useInvalidate() {
@@ -35,10 +37,9 @@ export function useInvalidate() {
 
 export function useInboxSummary() {
   const trpc = useTRPC();
-  const onInbox = usePathname().startsWith("/inbox");
   return useQuery({
     ...trpc.salesInbox.summary.queryOptions(),
-    refetchInterval: onInbox ? POLL_MS : INBOX_SUMMARY_POLL_MS,
+    refetchInterval: INBOX_SUMMARY_POLL_MS,
     staleTime: 15_000,
   });
 }

@@ -344,13 +344,29 @@ describe("TodayScreen", () => {
     );
   });
 
+  it("brings a chosen tab fully into view when its row scrolls sideways", async () => {
+    screenIs("phone");
+    const shown = vi.fn();
+    Object.assign(Element.prototype, { scrollIntoView: shown });
+    renderToday();
+    const newLeads = await screen.findByRole("tab", { name: "New leads 3" });
+    await userEvent.click(newLeads);
+    expect(shown).toHaveBeenCalledWith(expect.objectContaining({ block: "nearest", inline: "nearest" }));
+    expect(shown.mock.contexts.at(-1)).toBe(newLeads);
+  });
+
   it("on a phone scrolls the tabs sideways and stacks the rows, five and then Show more", async () => {
     screenIs("phone");
     day.sections.overdue = Array.from({ length: 7 }, (_, index) =>
       taskNamed(`Customer ${String(index + 1)}`, `0199e7a0-0000-7000-8000-0000000001${String(index).padStart(2, "0")}`),
     );
     renderToday();
-    expect(await screen.findByRole("tablist", { name: words.sectionsLabel })).toHaveClass("overflow-x-auto");
+    const tabs = await screen.findByRole("tablist", { name: words.sectionsLabel });
+    expect(tabs).toHaveClass("overflow-x-auto");
+    // Each tab keeps its words' width with even padding, never squeezed under them (they spilled into the next tab).
+    for (const tab of within(tabs).getAllByRole("tab")) {
+      expect(tab.className).toContain("group-data-[variant=solid]/tabs-list:flex-none");
+    }
     const overdue = await panel("Overdue 2");
     const list = await within(overdue).findByRole("list", { name: words.sections.overdue });
     expect(within(list).getAllByRole("listitem")).toHaveLength(5);
@@ -407,13 +423,16 @@ describe("TodayScreen", () => {
       expect(within(table).getByRole("button", { name: "No" })).toBeVisible();
     });
 
-    it("keeps the payments to check as a line above the table, leading to Payments, and no count of its own", async () => {
+    it("keeps the payments to check above the table as an amber card with a Check payments button, no count of its own", async () => {
       day = busy({ ...busyDay, counts: { ...busyDay.counts, paymentsToCheck: 2 } });
       renderToday();
       // Only payments: the tab counts what the AI asks, so it has no number.
       await userEvent.click(await tab("AI needs you"));
       const ai = await panel("AI needs you");
-      expect(within(ai).getByRole("link", { name: /2 payments are waiting/ })).toHaveAttribute("href", "/payments");
+      const card = within(ai).getByRole("region", { name: "2 payments are waiting for your word" });
+      expect(card.className).toContain("--brand-status-attention-fill");
+      expect(within(card).getByText(words.paymentsToCheck.how)).toBeVisible();
+      expect(within(card).getByRole("link", { name: words.paymentsToCheck.open })).toHaveAttribute("href", "/payments");
       expect(within(ai).queryByRole("table")).toBeNull();
     });
 

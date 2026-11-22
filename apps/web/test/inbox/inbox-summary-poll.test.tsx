@@ -1,4 +1,4 @@
-// The inbox count in the menu is read once a minute off the Inbox and every 15 seconds on it.
+// The inbox counts are read once a minute, on the Inbox (where the live stream loads them again as chats change) and off it.
 import { INBOX_POLL_MS } from "@travel-crm/contracts/inbox";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
@@ -32,14 +32,11 @@ afterEach(() => {
 });
 
 describe("useInboxSummary", () => {
-  it("reads the count once a minute off the Inbox", () => {
+  it("reads the count once a minute, on the Inbox and off it", () => {
     expect(pollingOn("/leads")).toEqual({ every: 60_000, staleTime: 15_000 });
+    expect(pollingOn("/inbox")).toEqual({ every: 60_000, staleTime: 15_000 });
     expect(INBOX_SUMMARY_POLL_MS).toBe(60_000);
-  });
-
-  it("reads it every 15 seconds on the Inbox, and on its chats", () => {
-    expect(pollingOn("/inbox")).toEqual({ every: INBOX_POLL_MS, staleTime: 15_000 });
-    expect(pollingOn("/inbox/chats")).toMatchObject({ every: INBOX_POLL_MS });
-    expect(INBOX_POLL_MS).toBe(15_000);
+    // The safety net under the live stream, not the 3 or 10 seconds of a poll that stands in for it.
+    expect(INBOX_POLL_MS).toBe(60_000);
   });
 });

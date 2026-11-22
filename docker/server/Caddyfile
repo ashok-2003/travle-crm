@@ -18,6 +18,12 @@
 
 # The api's paths, and /health for the uptime monitor: the api's {"status":"ok"}.
 (api-paths) {
+	# The Inbox's live stream (server-sent events): each event goes out as it comes, never held back.
+	handle /api/live {
+		reverse_proxy api:3001 {
+			flush_interval -1
+		}
+	}
 	handle /api/* {
 		reverse_proxy api:3001
 	}
