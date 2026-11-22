@@ -196,6 +196,98 @@ describe("the backup keys", () => {
       { url: `${GOOGLE}/chat/completions`, bearer: "Bearer AIza-third-0123456789", model: "gemini-3.5-flash-lite" },
     ]);
   });
+
+  it("logs each 429 by its key's setting name, never the key (the owner, 2026-11-22: how often)", async () => {
+    vi.stubGlobal("fetch", (_url: string, init: RequestInit) => {
+      const bearer = (init.headers as Record<string, string>).authorization ?? "";
+      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: unknown };
+      const answer = { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+      return Promise.resolve(
+        bearer.endsWith("third-0123456789")
+          ? new Response(JSON.stringify(answer))
+          : new Response("", { status: 429, headers: { "retry-after": "30" } }),
+      );
+    });
+    const log = createMemoryLogger();
+    const model = createAiModel(
+      settings({
+        AI_CHAT_MODELS: ["google/chat-one"],
+        AI_BACKUP_API_KEY: "AIza-second-0123456789",
+        AI_BACKUP_BASE_URL: GOOGLE,
+        AI_BACKUP_CHAT_MODELS: ["gemini-3.5-flash-lite"],
+        AI_BACKUP_API_KEY_2: "AIza-third-0123456789",
+      }),
+      log,
+    );
+    expect(await model?.complete({ feature: "score_lead", messages, user: "org" })).toMatchObject({ ok: true });
+    const limited = log.entries.filter((entry) => entry.msg === "AI rate limited (429)");
+    expect(limited).toEqual([
+      expect.objectContaining({
+        level: "warn",
+        setting: "AI_API_KEY",
+        model: "google/chat-one",
+        feature: "score_lead",
+        restSeconds: 30,
+      }),
+      expect.objectContaining({
+        level: "warn",
+        setting: "AI_BACKUP_API_KEY",
+        model: "gemini-3.5-flash-lite",
+        feature: "score_lead",
+        restSeconds: 30,
+      }),
+    ]);
+    expect(JSON.stringify(log.entries)).not.toMatch(/0123456789/);
+  });
+});
+
+describe("the fallback providers (the owner, 2026-11-23: free providers catch what every key refuses)", () => {
+  const MISTRAL = "https://api.mistral.ai/v1";
+  const fallbacks = {
+    AI_BASE_URL: GOOGLE,
+    AI_CHAT_MODELS: ["gemini-3.5-flash-lite"],
+    AI_BACKUP_API_KEY: "AIza-second-0123456789",
+    AI_FALLBACK_BASE_URL: OPENROUTER,
+    AI_FALLBACK_API_KEY: "sk-or-fallback-0123456789",
+    AI_FALLBACK_MODELS: ["vendor/free-one:free", "vendor/free-two:free"],
+    AI_FALLBACK_2_BASE_URL: MISTRAL,
+    AI_FALLBACK_2_API_KEY: "mistral-fallback-0123456789",
+    AI_FALLBACK_2_MODELS: ["mistral-small-latest"],
+  };
+
+  it("asks each fallback after every key, on its own endpoint, key and models, for every feature", async () => {
+    const asked: { url: string; bearer: string; model: unknown; provider: unknown }[] = [];
+    vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
+      const bearer = (init.headers as Record<string, string>).authorization ?? "";
+      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as {
+        model?: unknown;
+        provider?: unknown;
+      };
+      asked.push({ url, bearer, model: body.model, provider: body.provider });
+      const answer = { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+      return Promise.resolve(
+        url.startsWith(MISTRAL) ? new Response(JSON.stringify(answer)) : new Response("", { status: 429 }),
+      );
+    });
+    for (const feature of ["sales_agent", "score_lead"] as const) {
+      asked.length = 0;
+      // A new model each time: a rate-limited model rests a while unasked.
+      const model = createAiModel(settings(fallbacks), logger);
+      expect(await model?.complete({ feature, messages, user: "org" })).toMatchObject({
+        ok: true,
+        model: "mistral-small-latest",
+      });
+      expect(asked.map(({ url, bearer, model: name }) => [url, bearer, name])).toEqual([
+        [`${GOOGLE}/chat/completions`, "Bearer sk-first-0123456789", "gemini-3.5-flash-lite"],
+        [`${GOOGLE}/chat/completions`, "Bearer AIza-second-0123456789", "gemini-3.5-flash-lite"],
+        [`${OPENROUTER}/chat/completions`, "Bearer sk-or-fallback-0123456789", "vendor/free-one:free"],
+        [`${OPENROUTER}/chat/completions`, "Bearer sk-or-fallback-0123456789", "vendor/free-two:free"],
+        [`${MISTRAL}/chat/completions`, "Bearer mistral-fallback-0123456789", "mistral-small-latest"],
+      ]);
+      // OpenRouter's free models have no zero-data-retention route: a fallback never asks for one.
+      expect(asked.every((call) => call.provider === undefined)).toBe(true);
+    }
+  });
 });
 
 describe("Vertex AI", () => {

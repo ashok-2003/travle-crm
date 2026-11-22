@@ -130,6 +130,24 @@ describe("the OpenRouter adapter", () => {
     expect(replies.calls.map((call) => bodyOf(call).model)).toEqual(["a/one", "b/two", "b/two"]);
   });
 
+  it("tells of each 429 it gets (the owner, 2026-11-22: how often), not of a model skipped while it rests", async () => {
+    const replies = fakeFetch(
+      new Response("", { status: 429, headers: { "retry-after": "120" } }),
+      answer("First", "b/two"),
+      answer("Second", "b/two"),
+    );
+    const told: unknown[] = [];
+    const model = createOpenRouterModel({
+      apiKey: KEY,
+      models: { suggest_reply: ["a/one", "b/two"], score_lead: [], autopilot: [] },
+      fetch: replies.fetcher,
+      onRateLimited: (event) => told.push(event),
+    });
+    await model.complete({ feature: "suggest_reply", messages });
+    await model.complete({ feature: "suggest_reply", messages });
+    expect(told).toEqual([{ model: "a/one", feature: "suggest_reply", restMs: 120_000 }]);
+  });
+
   it("says unavailable for a failure, and never leaks the key in what it returns", async () => {
     const { fetcher } = fakeFetch(new Error(`connect failed for ${KEY}`));
     const model = createOpenRouterModel({
