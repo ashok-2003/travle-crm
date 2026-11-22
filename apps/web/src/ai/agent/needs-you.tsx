@@ -11,7 +11,7 @@ import { cardTints } from "@/components/card-tints";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Item, ItemActions, ItemContent, ItemTitle } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemHeader, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCount } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -26,9 +26,12 @@ const listIds = { handedOver: "needs-you-handed-over", suggestions: "needs-you-s
 function Tile({ label, count, action }: { label: string; count: number | null | undefined; action: ReactNode }) {
   const waiting = typeof count === "number" && count > 0;
   return (
-    <Item variant="outline" className={cn("items-end", waiting && cardTints.attention)}>
-      <ItemContent>
+    // The words take the tile's first line, so a narrow tile never squeezes them beside the button.
+    <Item variant="outline" className={cn(waiting && cardTints.attention)}>
+      <ItemHeader>
         <ItemTitle>{label}</ItemTitle>
+      </ItemHeader>
+      <ItemContent>
         {count === undefined ? (
           <Skeleton className="h-7 w-10" />
         ) : (

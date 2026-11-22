@@ -63,7 +63,8 @@ export function StepRow({ step, open, onToggle }: { step: Step; open: boolean; o
   return (
     <>
       <Item>
-        <ItemContent>
+        {/* On a phone the words take the row, and the state and the button go under them. */}
+        <ItemContent className="basis-full sm:basis-0">
           <ItemTitle>{title}</ItemTitle>
           <ItemDescription>
             <StateLine step={step} mayManage={mayManage} />
