@@ -31,9 +31,10 @@ const SETTLE_MS = 3_000;
 const AT_ONCE = 5;
 /**
  * When the natural or one agent's model fails, its turn runs again after the first wait, then after the second; a third
- * failure sends the fallback line and a task for the team (no silence). Index: the attempt that failed.
+ * failure sends the fallback line and a task for the team (no silence). Index: the attempt that failed. Two minutes, then
+ * ten (the owner, 2026-11-22): long enough for a rate-limited key's rest to end.
  */
-export const RETRY_AFTER_MS = [60_000, 300_000] as const;
+export const RETRY_AFTER_MS = [120_000, 600_000] as const;
 /**
  * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
  * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.

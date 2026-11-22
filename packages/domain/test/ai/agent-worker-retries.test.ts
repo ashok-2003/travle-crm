@@ -48,7 +48,7 @@ describe("a failed natural turn is tried again, never left silent", () => {
     );
   const clockAt = (at: Date) => vi.useFakeTimers({ now: at, toFake: ["Date"] });
 
-  it("sends the job again after a minute, then five, when the model fails", async () => {
+  it("sends the job again after two minutes, then ten, when the model fails", async () => {
     const on = await liveAgency(test);
     const handler = handlerOf(on);
     const from = test.queue.sent.length;
@@ -60,14 +60,14 @@ describe("a failed natural turn is tried again, never left silent", () => {
       data: { ...jobOf(on, on.message.id), attempt: 1 },
       id: uuidFromKey(`${on.message.id}:1`),
     });
-    expect(first?.options.startAfter?.getTime()).toBe(liveNow.getTime() + 60_000);
+    expect(first?.options.startAfter?.getTime()).toBe(liveNow.getTime() + 120_000);
     expect(await outbound(on)).toEqual([]);
 
     on.model.answer(FAILED);
     await handler.handle(first?.data ?? {});
     const [, second] = retries(from);
     expect(second).toMatchObject({ data: { attempt: 2 }, id: uuidFromKey(`${on.message.id}:2`) });
-    expect(second?.options.startAfter?.getTime()).toBe(liveNow.getTime() + 300_000);
+    expect(second?.options.startAfter?.getTime()).toBe(liveNow.getTime() + 600_000);
     expect(await outbound(on)).toEqual([]);
   });
 
@@ -91,7 +91,7 @@ describe("a failed natural turn is tried again, never left silent", () => {
     expect(on.model.requests).toHaveLength(0);
   });
 
-  it("retries one's failed model after 1 and 5 minutes", async () => {
+  it("retries one's failed model after 2 and 10 minutes", async () => {
     const on = await liveAgency(test);
     await on.inOrg((tx) => setAgent(tx, systemActor(on.organizationId), "one"));
     const handler = handlerOf(on);
@@ -102,8 +102,8 @@ describe("a failed natural turn is tried again, never left silent", () => {
     on.model.answer(FAILED);
     await handler.handle(retries(from)[0]?.data ?? {});
     expect(retries(from).map((job) => job.options.startAfter?.getTime())).toEqual([
-      liveNow.getTime() + 60_000,
-      liveNow.getTime() + 300_000,
+      liveNow.getTime() + 120_000,
+      liveNow.getTime() + 600_000,
     ]);
     expect(await outbound(on)).toEqual([]);
   });
