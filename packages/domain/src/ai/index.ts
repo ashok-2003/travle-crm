@@ -24,7 +24,7 @@ export {
 } from "./knowledge.js";
 export { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "./agency-answers.js";
 export { agentOf, setAgent } from "./agent-choice.js";
-export { agentSetupOf, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
+export { agentSetupOf, countHandedOver, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
 export { aiFilledLeadIds, decideSuggestions, suggestedFieldsOf } from "./fill/lead-fields.js";
 export { suggestReply } from "./suggest.js";
@@ -48,7 +48,12 @@ export {
 } from "./booking.js";
 export { liteDryRun } from "./lite/dry-run.js";
 export { tryItTurn } from "./lite/dry-run-traced.js";
-export { decideStageSuggestion, stageSuggestionOfLead, stageSuggestionsOf } from "./lite/suggestions.js";
+export {
+  countOpenSuggestions,
+  decideStageSuggestion,
+  stageSuggestionOfLead,
+  stageSuggestionsOf,
+} from "./lite/suggestions.js";
 export { leadsNeedingPerson } from "./needs-person.js";
 export { autopilotDefaults, autopilotOf } from "./autopilot.js";
 export { followUpBoardOf } from "./follow-up-board.js";

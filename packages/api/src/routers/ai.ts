@@ -58,6 +58,7 @@ import {
   agencyAnswersOf,
   agentBasicsOf,
   agentSetupOf,
+  countHandedOver,
   handedOverChatsOf,
   setAgentOn,
   saveAgencyAnswers,
@@ -89,6 +90,7 @@ import {
   saveAiSettings,
   decideStageSuggestion,
   stageSuggestionOfLead,
+  countOpenSuggestions,
   stageSuggestionsOf,
   suggestReply,
   updateKnowledge,
@@ -271,6 +273,7 @@ export const aiRouter = router({
     .query(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
         suggestions: await stageSuggestionsOf(tx, ctx.member, input),
+        total: await countOpenSuggestions(tx, ctx.member, input),
       })),
     ),
 
@@ -391,7 +394,10 @@ export const aiRouter = router({
       if (!input.mine && !ctx.member.permissions.has("ai:manage")) {
         throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires ai:manage");
       }
-      return ctx.db.forOrg(ctx.member.organizationId, (tx) => handedOverChatsOf(tx, ctx.member, input));
+      return ctx.db.forOrg(ctx.member.organizationId, async (tx) => ({
+        chats: await handedOverChatsOf(tx, ctx.member, input),
+        total: await countHandedOver(tx, ctx.member, input),
+      }));
     }),
 
   /** The autopilot's last day at a glance. */

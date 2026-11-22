@@ -26,6 +26,9 @@ const overview = {
 const handed = [
   { conversationId, name: "Meera Rao", reason: "Asked for a discount", since: "2026-11-11T05:00:00.000Z" },
 ];
+/** The api's answers: the newest rows, and how many wait in all. */
+const chatsOf = (chats: unknown[], total = chats.length) => ({ chats, total });
+const suggestionsOf = (suggestions: unknown[], total = suggestions.length) => ({ suggestions, total });
 const suggestion = {
   id: "0199a000-0000-7000-8000-0000000000e1",
   leadId: "0199a000-0000-7000-8000-0000000000a1",
@@ -44,8 +47,8 @@ function api(over: Record<string, unknown> = {}) {
     Object.fromEntries(
       Object.entries({
         "ai.agentSetup": setup,
-        "ai.handedOver": [],
-        "ai.stageSuggestions": { suggestions: [] },
+        "ai.handedOver": chatsOf([]),
+        "ai.stageSuggestions": suggestionsOf([]),
         "ai.overview": overview,
         "paymentsToCheck.count": { count: 0 },
         ...over,
@@ -167,8 +170,8 @@ describe("what needs you", () => {
 
   it("counts everything waiting in its title, each tile amber with its count and its button", async () => {
     api({
-      "ai.handedOver": handed,
-      "ai.stageSuggestions": { suggestions: [suggestion] },
+      "ai.handedOver": chatsOf(handed),
+      "ai.stageSuggestions": suggestionsOf([suggestion]),
       "paymentsToCheck.count": { count: 3 },
     });
     renderWithApi(<AgentScreen />, client(), owner);
@@ -194,7 +197,7 @@ describe("what needs you", () => {
     expect(screen.queryByText(t.needsYou.nothing)).not.toBeInTheDocument();
   });
 
-  it("keeps a tile with nothing waiting quiet, with no button", async () => {
+  it("keeps a tile with nothing waiting quiet, with no button to an empty list", async () => {
     api({ "paymentsToCheck.count": { count: 2 } });
     renderWithApi(<AgentScreen />, client(), owner);
     await screen.findByRole("heading", { name: "Needs you · 2" });
@@ -205,19 +208,39 @@ describe("what needs you", () => {
     expect(tile(t.needsYou.tiles.payments).className).toContain("status-attention");
   });
 
-  it("says nothing needs you when nothing does, its three tiles quiet", async () => {
+  it("says nothing needs you when nothing does, its tiles quiet; Payments to check still opens its page", async () => {
     api();
     renderWithApi(<AgentScreen />, client(), owner);
     expect(await screen.findByText(t.needsYou.nothing)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: t.needsYou.title })).toBeInTheDocument();
-    for (const label of Object.values(t.needsYou.tiles)) {
+    for (const label of Object.values(t.needsYou.tiles))
       expect(tile(label).className).not.toContain("status-attention");
-      expect(within(tile(label)).queryByRole("link")).not.toBeInTheDocument();
-    }
+    expect(within(tile(t.needsYou.tiles.handedOver)).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(tile(t.needsYou.tiles.suggestions)).queryByRole("link")).not.toBeInTheDocument();
+    expect(
+      within(tile(t.needsYou.tiles.payments)).getByRole("link", { name: t.needsYou.show.payments }),
+    ).toHaveAttribute("href", "/payments");
+  });
+
+  it("counts every one waiting, past the 20 each list shows", async () => {
+    const many = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...handed[0],
+        conversationId: `0199a000-0000-7000-8000-0000000001${String(index).padStart(2, "0")}`,
+      }));
+    const suggestions = Array.from({ length: 20 }, (_, index) => ({
+      ...suggestion,
+      id: `0199a000-0000-7000-8000-0000000002${String(index).padStart(2, "0")}`,
+    }));
+    api({ "ai.handedOver": chatsOf(many(20), 25), "ai.stageSuggestions": suggestionsOf(suggestions, 21) });
+    renderWithApi(<AgentScreen />, client(), owner);
+    expect(await screen.findByRole("heading", { name: "Needs you · 46" })).toBeInTheDocument();
+    expect(tile(t.needsYou.tiles.handedOver)).toHaveTextContent("25");
+    expect(tile(t.needsYou.tiles.suggestions)).toHaveTextContent("21");
   });
 
   it("lists the handed-over chats, each opening the chat in the inbox", async () => {
-    api({ "ai.handedOver": handed });
+    api({ "ai.handedOver": chatsOf(handed) });
     renderWithApi(<AgentScreen />, client(), owner);
     const link = await screen.findByRole("link", { name: "Meera Rao" });
     expect(link).toHaveAttribute("href", `/inbox/${conversationId}`);
@@ -225,15 +248,15 @@ describe("what needs you", () => {
   });
 
   it("shows a chat that has no name by its phone number, spaced the Indian way", async () => {
-    api({ "ai.handedOver": [{ ...handed[0], name: "+919876543210" }] });
+    api({ "ai.handedOver": chatsOf([{ ...handed[0], name: "+919876543210" }]) });
     renderWithApi(<AgentScreen />, client(), owner);
     expect(await screen.findByRole("link", { name: "+91 98765 43210" })).toBeInTheDocument();
   });
 
   it("lists the AI's Lost suggestions, each with its lead, reason and buttons", async () => {
     const stub = api({
-      "ai.handedOver": handed,
-      "ai.stageSuggestions": { suggestions: [suggestion] },
+      "ai.handedOver": chatsOf(handed),
+      "ai.stageSuggestions": suggestionsOf([suggestion]),
       "ai.decideStageSuggestion": null,
     });
     renderWithApi(<AgentScreen />, client(), owner);
@@ -270,7 +293,7 @@ describe("what needs you", () => {
   });
 
   it("shows and counts only what the member may act on, and never asks for the rest", async () => {
-    const stub = api({ "paymentsToCheck.count": { count: 3 }, "ai.handedOver": handed });
+    const stub = api({ "paymentsToCheck.count": { count: 3 }, "ai.handedOver": chatsOf(handed) });
     renderWithApi(<AgentScreen />, client(), member({ permissions: ["ai:manage"] }));
     expect(await screen.findByText(t.needsYou.nothing)).toBeInTheDocument();
     for (const label of Object.values(t.needsYou.tiles)) expect(screen.queryByText(label)).not.toBeInTheDocument();

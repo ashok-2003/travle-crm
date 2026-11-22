@@ -28,8 +28,8 @@ const checklist = (done: number) => ({
 function api(setup: unknown = checklist(4)) {
   return stubApi({
     "ai.agentSetup": { data: setup },
-    "ai.handedOver": { data: [] },
-    "ai.stageSuggestions": { data: { suggestions: [] } },
+    "ai.handedOver": { data: { chats: [], total: 0 } },
+    "ai.stageSuggestions": { data: { suggestions: [], total: 0 } },
     "ai.overview": { data: { chatsAnswered: 0, messagesSent: 0, flagged: 0, bookingsRequested: 0 } },
     "paymentsToCheck.count": { data: { count: 0 } },
   });

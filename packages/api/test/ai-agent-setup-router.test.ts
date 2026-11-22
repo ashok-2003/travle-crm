@@ -40,6 +40,6 @@ describe("ai.handedOver for a member without ai:manage", () => {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
     const { caller } = callerOf(harness, { organizationId, granted: ["inbox:view", "leads:view"] });
     expect(await refusal(caller.ai.handedOver({ mine: false }))).toBe("MISSING_PERMISSION");
-    expect(await caller.ai.handedOver({ mine: true })).toEqual([]);
+    expect(await caller.ai.handedOver({ mine: true })).toEqual({ chats: [], total: 0 });
   });
 });

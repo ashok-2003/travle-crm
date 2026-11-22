@@ -85,8 +85,8 @@ function renderHome({
     "sales.hotLeads": { data: hot },
     "ai.settings": { data: { monthlyLimit: 1000, usedThisMonth: 412 } },
     "ai.chatsAnswered": { data: { chats: 37 } },
-    "ai.handedOver": { data: [handedOver] },
-    "ai.stageSuggestions": { data: { suggestions: [suggestion] } },
+    "ai.handedOver": { data: { chats: [handedOver], total: 1 } },
+    "ai.stageSuggestions": { data: { suggestions: [suggestion], total: 1 } },
     ...answers,
   });
   const queryClient = newQueryClient({ ...paidSubscription, modules: modules as never });
@@ -343,14 +343,14 @@ describe("Home's day", () => {
 
     it("shows at most five rows on a wide screen", async () => {
       screenIs("wide");
-      renderHome({ answers: { "ai.handedOver": { data: chats } } });
+      renderHome({ answers: { "ai.handedOver": { data: { chats, total: chats.length } } } });
       const needs = await card(h.attention.title);
       await within(needs).findByText("Chat person 0");
       expect(within(needs).getAllByRole("listitem")).toHaveLength(5);
     });
 
     it("shows three on a phone, each reason without the repeated words", async () => {
-      renderHome({ answers: { "ai.handedOver": { data: chats } } });
+      renderHome({ answers: { "ai.handedOver": { data: { chats, total: chats.length } } } });
       const needs = await card(h.attention.title);
       await within(needs).findByText("Chat person 0");
       expect(within(needs).getAllByRole("listitem")).toHaveLength(3);
@@ -373,7 +373,12 @@ describe("Home's day", () => {
     });
 
     it("says in one quiet line that nothing needs the member", async () => {
-      renderHome({ answers: { "ai.handedOver": { data: [] }, "ai.stageSuggestions": { data: { suggestions: [] } } } });
+      renderHome({
+        answers: {
+          "ai.handedOver": { data: { chats: [], total: 0 } },
+          "ai.stageSuggestions": { data: { suggestions: [], total: 0 } },
+        },
+      });
       expect(await within(await card(h.attention.title)).findByText(h.attention.nothing)).toBeVisible();
     });
   });

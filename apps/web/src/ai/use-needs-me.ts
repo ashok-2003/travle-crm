@@ -20,7 +20,7 @@ export function useNeedsMe() {
     enabled: maySuggestions,
     staleTime: 30_000,
   });
-  const handedOver = chats.data ?? noChats;
+  const handedOver = chats.data?.chats ?? noChats;
   const stageSuggestions = suggestions.data?.suggestions ?? noSuggestions;
   return {
     handedOver,

@@ -135,8 +135,10 @@ function answer(call: Call): Reply {
     const last = items.at(-1);
     return { data: { items, nextCursor: next && last ? idOf(last) : null } };
   }
-  if (call.path === "ai.handedOver") return { data: needsMe.handedOver };
-  if (call.path === "ai.stageSuggestions") return { data: { suggestions: needsMe.suggestions } };
+  if (call.path === "ai.handedOver") return { data: { chats: needsMe.handedOver, total: needsMe.handedOver.length } };
+  if (call.path === "ai.stageSuggestions") {
+    return { data: { suggestions: needsMe.suggestions, total: needsMe.suggestions.length } };
+  }
   if (call.path === "tasks.followUps") return { data: { rows: followUps, people: {} } };
   // Whether the person takes new leads in turn, for the away switch above the day: not in the pool here.
   if (call.path === "assignment.mine") return { data: { inPool: false, awayUntil: null } };

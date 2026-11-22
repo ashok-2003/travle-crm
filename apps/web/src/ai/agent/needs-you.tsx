@@ -2,8 +2,9 @@
 
 // "Needs you · N" on the AI agent's Overview: three tiles at a glance (the chats the AI handed over, its Lost or Not a
 // lead suggestions to confirm, the payments to check), each with its count, amber while something waits and quiet when
-// nothing does, and its button: the first two jump to their lists just below, the third opens Payments to check. A
-// member sees, and N counts, only what the api lets them act on. The two lists sit side by side from 1280px.
+// nothing does, and its button: the first two jump to their lists just below (only while something waits), the third
+// opens Payments to check (always: its page is there either way). The counts are the api's totals, not the 20 rows a
+// list shows. A member sees, and N counts, only what the api lets them act on. The lists sit side by side from 1280px.
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useId, type ReactNode } from "react";
@@ -22,8 +23,21 @@ import { useHandedOver, usePaymentsToCheckCount, useStageSuggestions } from "./u
 /** Where the tiles' buttons jump to: the lists just below them. */
 const listIds = { handedOver: "needs-you-handed-over", suggestions: "needs-you-suggestions" } as const;
 
-/** `count` is undefined while it loads and null when it failed (the alert above says so). */
-function Tile({ label, count, action }: { label: string; count: number | null | undefined; action: ReactNode }) {
+/**
+ * `count` is undefined while it loads and null when it failed (the alert above says so). The button shows while something
+ * waits, or always when `always` (a page of its own, not a list below).
+ */
+function Tile({
+  label,
+  count,
+  action,
+  always = false,
+}: {
+  label: string;
+  count: number | null | undefined;
+  action: ReactNode;
+  always?: boolean;
+}) {
   const waiting = typeof count === "number" && count > 0;
   return (
     // The words take the tile's first line, so a narrow tile never squeezes them beside the button.
@@ -42,7 +56,7 @@ function Tile({ label, count, action }: { label: string; count: number | null | 
           )
         )}
       </ItemContent>
-      {waiting && <ItemActions>{action}</ItemActions>}
+      {(waiting || always) && <ItemActions>{action}</ItemActions>}
     </Item>
   );
 }
@@ -53,13 +67,13 @@ export function NeedsYou() {
   const handed = useHandedOver();
   const payments = usePaymentsToCheckCount();
   const suggested = useStageSuggestions();
-  const chats = handed.query.data;
+  const chats = handed.query.data?.chats;
   const suggestions = suggested.query.data?.suggestions;
   const waiting = payments.query.data?.count;
-  // Only what the member may act on is shown and counted.
+  // Only what the member may act on is shown and counted, each in full.
   const counts = [
-    ...(handed.may ? [chats?.length] : []),
-    ...(suggested.may ? [suggestions?.length] : []),
+    ...(handed.may ? [handed.query.data?.total] : []),
+    ...(suggested.may ? [suggested.query.data?.total] : []),
     ...(payments.may ? [waiting] : []),
   ];
   const settled = counts.every((count) => count !== undefined);
@@ -97,14 +111,14 @@ export function NeedsYou() {
           {handed.may && (
             <Tile
               label={t("tiles.handedOver")}
-              count={handed.query.isError ? null : chats?.length}
+              count={handed.query.isError ? null : handed.query.data?.total}
               action={jump(listIds.handedOver, t("show.handedOver"))}
             />
           )}
           {suggested.may && (
             <Tile
               label={t("tiles.suggestions")}
-              count={suggested.query.isError ? null : suggestions?.length}
+              count={suggested.query.isError ? null : suggested.query.data?.total}
               action={jump(listIds.suggestions, t("show.suggestions"))}
             />
           )}
@@ -112,6 +126,7 @@ export function NeedsYou() {
             <Tile
               label={t("tiles.payments")}
               count={payments.query.isError ? null : waiting}
+              always
               action={
                 <Button variant="outline" asChild>
                   <Link href={routes.payments}>{t("show.payments")}</Link>

@@ -14,7 +14,8 @@ export const stageSuggestion = z.object({
   createdAt: z.iso.datetime(),
 });
 export type StageSuggestion = z.infer<typeof stageSuggestion>;
-export const stageSuggestionList = z.object({ suggestions: z.array(stageSuggestion) });
+/** The newest 20 open suggestions, and how many are open in all (`total`), for the "Needs you" count. */
+export const stageSuggestionList = z.object({ suggestions: z.array(stageSuggestion), total: z.int().min(0) });
 export const leadStageSuggestionInput = z.strictObject({ leadId: recordId });
 export const leadStageSuggestion = z.object({ suggestion: stageSuggestion.nullable() });
 export const decideStageSuggestionInput = z.strictObject({ suggestionId: recordId, accept: z.boolean() });
