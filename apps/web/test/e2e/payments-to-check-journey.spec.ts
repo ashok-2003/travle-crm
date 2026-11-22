@@ -124,7 +124,7 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
   await expect(owner.getByRole("button", { name: /^Notifications/ })).toBeVisible();
   await expect(owner.getByText("2 payments are waiting for your word")).toBeVisible();
   await expectAccessible(owner);
-  await owner.getByRole("link", { name: /Open payments to check/ }).click();
+  await owner.getByRole("link", { name: "Check payments" }).click();
   await expect(owner.getByRole("heading", { level: 1, name: "Payments to check" })).toBeVisible();
   await expect(owner.getByRole("row", { name: /Asha Verma/ })).toContainText("Proof sent to the AI");
   await expect(owner.getByRole("row", { name: /Asha Verma/ })).toContainText("The AI's note: ₹4,000");
