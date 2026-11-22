@@ -3,7 +3,14 @@
 // choosing another chat leaves the list where it was.
 import { expect, signInToConsole, test } from "./support/console";
 import { signInByEmail } from "./support/fixtures";
-import { connectNumber, customerMessage, deliverWhatsapp, newCustomerNumber, openNewChat } from "./support/whatsapp";
+import {
+  connectNumber,
+  customerMessage,
+  deliverWhatsapp,
+  newCustomerNumber,
+  openContactDetails,
+  openNewChat,
+} from "./support/whatsapp";
 
 // Well under the minute's poll: only the live stream can show it in time.
 const LIVE_WITHIN_MS = 15_000;
@@ -52,5 +59,38 @@ test("a customer's message shows in the open chat within seconds, without a relo
     await expect(list.getByRole("link", { name: /Meera Rao/ })).toBeVisible();
     expect(loads).toBe(0);
   }
+  await owner.close();
+});
+
+test("a customer's message shows in the lead page's chat within seconds, without a reload", async ({
+  page,
+  browser,
+  superAdmin,
+  agency,
+}) => {
+  test.setTimeout(360_000);
+  await signInToConsole(page, superAdmin);
+  const business = await connectNumber(page, agency.organizationId);
+  const owner = await browser.newPage();
+  await signInByEmail(owner, agency.owner);
+  const customer = newCustomerNumber();
+  const chat = await openNewChat(owner, business, customer, "Priya Nair", "Kerala in March?");
+  const openLead = owner.getByRole("link", { name: "Open the lead" }).first();
+  if (!(await openLead.isVisible())) await openContactDetails(owner, chat);
+  await openLead.click();
+  const onLead = owner.getByRole("region", { name: "Chat with Priya Nair" });
+  await expect(onLead.getByRole("list", { name: "Messages" }).getByText("Kerala in March?")).toBeVisible();
+
+  let loads = 0;
+  owner.on("load", () => (loads += 1));
+  expect(
+    await deliverWhatsapp([
+      customerMessage({ to: business, customerNumber: customer, text: "For two adults, please." }),
+    ]),
+  ).toBe(200);
+  await expect(onLead.getByRole("list", { name: "Messages" }).getByText("For two adults, please.")).toBeVisible({
+    timeout: LIVE_WITHIN_MS,
+  });
+  expect(loads).toBe(0);
   await owner.close();
 });
