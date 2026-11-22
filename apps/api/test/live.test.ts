@@ -99,7 +99,9 @@ describe("the Inbox's live stream", () => {
         ownerUserId === undefined
           ? null
           : await tx.person.create({ data: { name: "Meera Rao", phoneE164: `+91${digits()}` }, select: { id: true } });
-      if (person !== null) await tx.lead.create({ data: { personId: person.id, source: "whatsapp", ownerUserId } });
+      if (person !== null) {
+        await tx.lead.create({ data: { personId: person.id, source: "whatsapp", ownerUserId: ownerUserId ?? null } });
+      }
       const chat = await tx.whatsappConversation.create({
         data: { connectionId, phoneE164: `+91${digits()}`, personId: person?.id ?? null },
         select: { id: true },
