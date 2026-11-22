@@ -1,27 +1,33 @@
 "use client";
 
 // The inbox's Answered by the AI filter, which the AI agent page's Chats answered opens (/inbox?show=ai-answered): the
-// chats the AI wrote in during the last 24 hours, exactly what that number counts. Arriving by that address starts the
-// list afresh (no search or choice kept from before narrows it) and keeps the filter in the tab, so opening a chat keeps
-// the list. It shows as a chosen chip with a ✕; pressing it, or choosing another chip, lets it go.
+// chats the AI wrote in during the last 24 hours, exactly what that number counts. The address asks once: the list
+// starts afresh (no search or choice kept from before narrows it), the filter is kept in the tab, and the address goes
+// back to plain, so opening a chat keeps the list and Back never asks again. It shows as a chosen chip with a ✕;
+// pressing it, or choosing another chip, lets it go for good.
 import { XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Toggle } from "@/components/ui/toggle";
 import { AI_ANSWERED_SHOW } from "@/lib/routes";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 
 const KEY = "inbox.show";
 
-/** Whether this address asks for the filter (`?show=ai-answered`, a fixed value). */
+/** Whether this address asks for the filter (`?show=ai-answered`, a fixed value); it is then replaced by the plain one. */
 export function useAiAnsweredAsked(): boolean {
-  return useSearchParams().get("show") === AI_ANSWERED_SHOW;
-}
-
-export function useAiAnsweredFilter(asked: boolean) {
+  const asked = useSearchParams().get("show") === AI_ANSWERED_SHOW;
   const router = useRouter();
   const pathname = usePathname();
+  useEffect(() => {
+    if (asked) router.replace(pathname);
+  }, [asked, pathname, router]);
+  return asked;
+}
+
+/** The filter, on when the address asked for it now or the tab kept it from then. */
+export function useAiAnsweredFilter(asked: boolean) {
   const [on, setOn] = useState(() => {
     if (asked) keepTabValue(KEY, AI_ANSWERED_SHOW);
     return asked || readTabValue(KEY) === AI_ANSWERED_SHOW;
@@ -29,7 +35,6 @@ export function useAiAnsweredFilter(asked: boolean) {
   const clear = () => {
     setOn(false);
     keepTabValue(KEY, "");
-    if (asked) router.replace(pathname);
   };
   return { on, clear };
 }

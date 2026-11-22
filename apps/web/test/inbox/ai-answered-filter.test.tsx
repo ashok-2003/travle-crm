@@ -1,6 +1,7 @@
-// The inbox's Answered by the AI filter, opened from the AI agent page's Chats answered (/inbox?show=ai-answered): it
-// asks for those chats alone, afresh (nothing kept from before narrows them), shows as a chosen chip with a ✕, stays on
-// while a chat is opened, and goes when its chip is pressed or another chip is chosen.
+// The inbox's Answered by the AI filter, opened from the AI agent page's Chats answered (/inbox?show=ai-answered): read
+// from the address once, it asks for those chats alone, afresh (nothing kept from before narrows them), and leaves the
+// address plain /inbox, so Back never finds ?show= again. It shows as a chosen chip with a ✕, stays on while a chat is
+// opened, and goes, for good, when its chip is pressed or another chip is chosen.
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -41,13 +42,15 @@ beforeEach(() => {
 });
 
 describe("the inbox's Answered by the AI filter", () => {
-  it("asks for the chats the AI answered, afresh, and says so as a chosen chip", async () => {
+  it("asks for the chats the AI answered, afresh, says so as a chosen chip, and leaves the address plain", async () => {
     window.sessionStorage.setItem("travel-crm.inbox.stage", "won");
     window.sessionStorage.setItem("travel-crm.inbox.search", "Meera");
     const asked = api();
     show("/inbox?show=ai-answered");
     expect(await screen.findByText(t.aiAnswered.empty)).toBeInTheDocument();
-    expect(asked.at(-1)).toEqual({ filter: "ai_answered" });
+    expect(asked.every((input) => JSON.stringify(input) === JSON.stringify({ filter: "ai_answered" }))).toBe(true);
+    expect(routerCalls.replace).toHaveBeenLastCalledWith("/inbox");
+    expect(address.href).toBe("/inbox");
     const chip = screen.getByRole("button", { name: t.aiAnswered.label, pressed: true });
     expect(chip).toHaveAccessibleDescription(t.aiAnswered.hint);
     expect(window.sessionStorage.getItem("travel-crm.inbox.stage")).toBeNull();
@@ -62,15 +65,33 @@ describe("the inbox's Answered by the AI filter", () => {
     expect(asked.at(-1)).toMatchObject({ filter: "ai_answered" });
   });
 
-  it("goes when its chip is pressed, taking the address's ?show= with it", async () => {
+  it("goes when its chip is pressed, and stays gone when the list comes back (Back from a chat)", async () => {
     const asked = api();
-    show("/inbox?show=ai-answered");
+    const view = show("/inbox?show=ai-answered");
     await userEvent.click(await screen.findByRole("button", { name: t.aiAnswered.label }));
-    expect(routerCalls.replace).toHaveBeenLastCalledWith("/inbox");
     await waitFor(() => {
       expect(asked.at(-1)).toMatchObject({ filter: "all" });
     });
     expect(screen.queryByRole("button", { name: t.aiAnswered.label })).not.toBeInTheDocument();
+    view.unmount();
+    const again = api();
+    show("/inbox");
+    await waitFor(() => {
+      expect(again.at(-1)).toMatchObject({ filter: "all" });
+    });
+    expect(screen.queryByRole("button", { name: t.aiAnswered.label })).not.toBeInTheDocument();
+  });
+
+  it("clears the kept choices only once: a choice made after it survives the list coming back", async () => {
+    api();
+    show("/inbox?show=ai-answered").unmount();
+    // A choice the member makes afterwards, kept in the tab as every choice is.
+    window.sessionStorage.setItem("travel-crm.inbox.stage", "won");
+    const asked = api();
+    show("/inbox");
+    await waitFor(() => {
+      expect(asked.at(-1)).toMatchObject({ filter: "ai_answered", stage: "won" });
+    });
   });
 
   it("goes when another chip is chosen", async () => {

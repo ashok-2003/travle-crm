@@ -65,17 +65,23 @@ const emptyKeyOf = (filter: ConversationFilter) =>
             : "empty";
 
 export function InboxList({ currentId }: { currentId: string | null }) {
+  const t = useTranslations("inbox");
   // The address (?show=) is the browser's alone: what reads it waits in a boundary of its own.
   return (
-    <Suspense>
-      <Chats currentId={currentId} />
+    <Suspense fallback={<LoadingRows shape="twoLines" label={t("loading")} />}>
+      <ChatsFromAddress currentId={currentId} />
     </Suspense>
   );
 }
 
-function Chats({ currentId }: { currentId: string | null }) {
-  const t = useTranslations("inbox");
+/** The chats, started afresh (a list of its own) when the address asks for the AI's, which it does only once. */
+function ChatsFromAddress({ currentId }: { currentId: string | null }) {
   const asked = useAiAnsweredAsked();
+  return <Chats key={asked ? "asked" : "kept"} currentId={currentId} asked={asked} />;
+}
+
+function Chats({ currentId, asked }: { currentId: string | null; asked: boolean }) {
+  const t = useTranslations("inbox");
   const aiAnswered = useAiAnsweredFilter(asked);
   const [filter, setFilter] = useKept<ConversationFilter>(KEYS.filter, inboxFilters, asked);
   const [stage, setStage] = useKept<LeadStage>(KEYS.stage, leadStages, asked);
