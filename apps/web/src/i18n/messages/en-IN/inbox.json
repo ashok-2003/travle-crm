@@ -806,6 +806,7 @@
     "everywhere": "They work on every page of the app while this browser has it open, not once it is closed.",
     "sound": "Sound",
     "soundHint": "A soft sound when a customer writes to one of your chats, or to a chat nobody has yet.",
+    "soundAfterClick": "Your browser plays it after a click in the app.",
     "desktop": "Desktop notifications",
     "desktopHint": "\"New message from …\" on your screen, even while the Inbox is out of sight.",
     "desktopBlocked": "This browser blocks our notifications. Allow them in its settings for this site, then turn this on.",

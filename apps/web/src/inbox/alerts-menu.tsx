@@ -7,7 +7,7 @@
 // them at all has no such switch. Then the keyboard shortcuts, listed in a dialog.
 import { BellIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Details } from "@/components/details";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ function AlertSwitch({
   kind: AlertKind;
   on: boolean;
   onChange: (on: boolean) => void;
-  hint: string;
+  hint: ReactNode;
   disabled?: boolean;
 }) {
   const t = useTranslations("inbox.alerts");
@@ -96,7 +96,16 @@ export function AlertsMenu() {
             <p className="text-caption text-muted-foreground">{t("everywhere")}</p>
           </div>
           <ItemGroup>
-            <AlertSwitch kind="sound" on={sound} onChange={changeSound} hint={t("soundHint")} />
+            <AlertSwitch
+              kind="sound"
+              on={sound}
+              onChange={changeSound}
+              hint={
+                <>
+                  {t("soundHint")} {t("soundAfterClick")}
+                </>
+              }
+            />
             {permission !== "unsupported" && (
               <AlertSwitch
                 kind="desktop"

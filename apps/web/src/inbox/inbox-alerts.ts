@@ -1,6 +1,6 @@
 // The Inbox's sound and desktop alerts (inbox revamp spec, part 1 item 5), all in the browser: nothing is sent to the
 // server for them. Both are off until the member turns them on (alerts-menu.tsx), and kept in this browser's localStorage
-// for that member alone (another member signing in on the same computer starts with both off; a sign-out forgets them).
+// for that member alone (another member signing in on the same computer starts with both off; a sign-out keeps them).
 // An alert is for a customer's new message in a chat of the member's own, or an unassigned one for whoever takes those,
 // when that chat isn't the one in front of them; two tabs of the Inbox alert once. A chat is unassigned when its person has
 // no lead or no lead anyone owns, never because the member can't see its lead. The sound is made with the Web Audio API, no
@@ -13,7 +13,7 @@ import { holds, type SignedInMember } from "@/session/me-context";
 
 export type AlertKind = "sound" | "desktop";
 
-/** Everything the alerts keep in localStorage starts with this, so a sign-out forgets it all. */
+/** Everything the alerts keep in localStorage starts with this. */
 const PREFIX = "travel-crm.inbox.alerts.";
 /** A switch, for one member: the switches are a person's, not the computer's. */
 const settingKey = (userId: string, kind: AlertKind) => `${PREFIX}${userId}.${kind}`;
@@ -27,19 +27,6 @@ export function alertIsOn(userId: string, kind: AlertKind): boolean {
     return window.localStorage.getItem(settingKey(userId, kind)) === "on";
   } catch {
     return false;
-  }
-}
-
-/** Forgets every switch and mark of the alerts on this browser (a sign-out's wipe). */
-export function forgetAlerts(): void {
-  try {
-    const storage = window.localStorage;
-    const kept = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-      (key): key is string => key?.startsWith(PREFIX) === true,
-    );
-    for (const key of kept) storage.removeItem(key);
-  } catch {
-    // Blocked storage kept nothing.
   }
 }
 

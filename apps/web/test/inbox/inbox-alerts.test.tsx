@@ -12,7 +12,6 @@ import {
   alertsMember,
   claimAlert,
   claimChime,
-  forgetAlerts,
   keepAlert,
   playChime,
   takesUnassigned,
@@ -116,16 +115,15 @@ describe("whose chats alert", () => {
     expect(alertsMember(everyChatOwnLeads, whose("no lead"))).toBe(true);
   });
 
-  it("are the member's own: another member on the same browser starts with them off, and a sign-out forgets them", async () => {
+  it("are the member's own: another member on the same browser never sees them, and a sign-out keeps them", async () => {
     const other = "0199a000-0000-7000-8000-0000000000ee";
     keepAlert(userId, "sound", true);
     expect(alertIsOn(userId, "sound")).toBe(true);
     expect(alertIsOn(other, "sound")).toBe(false);
-    forgetAlerts();
-    expect(alertIsOn(userId, "sound")).toBe(false);
-    keepAlert(userId, "desktop", true);
+    // A sign-out (an expired session's too) leaves them for when the member is back.
     await wipeLocalData(newQueryClient());
-    expect(alertIsOn(userId, "desktop")).toBe(false);
+    expect(alertIsOn(userId, "sound")).toBe(true);
+    expect(alertIsOn(other, "sound")).toBe(false);
   });
 
   it("is given by one tab only for the same message", () => {
@@ -154,6 +152,7 @@ describe("the alerts menu", () => {
     await userEvent.click(screen.getByRole("button", { name: "Alerts" }));
     const sound = await screen.findByRole("switch", { name: "Sound" });
     expect(sound).not.toBeChecked();
+    expect(sound).toHaveAccessibleDescription(/plays it after a click in the app/);
     await userEvent.click(sound);
     expect(sound).toBeChecked();
     expect(window.localStorage.getItem(switchKey("sound"))).toBe("on");
