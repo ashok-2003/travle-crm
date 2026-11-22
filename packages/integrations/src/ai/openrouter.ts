@@ -35,6 +35,8 @@ export interface OpenRouterOptions {
   /** Milliseconds before one model's try is given up, unless the request sets its own. */
   timeoutMs?: number;
   fetch?: typeof fetch;
+  /** Told of each 429 the endpoint answers (not of a model skipped while it rests), so the rate of them can be watched. */
+  onRateLimited?: (event: { model: string; feature: AiFeature; restMs: number }) => void;
 }
 
 interface ChatCompletion {
@@ -340,7 +342,9 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           if (!response.ok) {
             if (response.status === 429) {
               limited = true;
-              restingUntil.set(model, Date.now() + restOf(response));
+              const restMs = restOf(response);
+              restingUntil.set(model, Date.now() + restMs);
+              options.onRateLimited?.({ model, feature: request.feature, restMs });
             }
             if (TRY_NEXT.has(response.status)) continue;
             // A 400 to a request with tools is the request's fault (a tool round without its thought signatures, say):

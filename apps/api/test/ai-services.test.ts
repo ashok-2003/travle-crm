@@ -196,6 +196,49 @@ describe("the backup keys", () => {
       { url: `${GOOGLE}/chat/completions`, bearer: "Bearer AIza-third-0123456789", model: "gemini-3.5-flash-lite" },
     ]);
   });
+
+  it("logs each 429 by its key's setting name, never the key (the owner, 2026-11-22: how often)", async () => {
+    vi.stubGlobal("fetch", (_url: string, init: RequestInit) => {
+      const bearer = (init.headers as Record<string, string>).authorization ?? "";
+      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: unknown };
+      const answer = { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+      return Promise.resolve(
+        bearer.endsWith("third-0123456789")
+          ? new Response(JSON.stringify(answer))
+          : new Response("", { status: 429, headers: { "retry-after": "30" } }),
+      );
+    });
+    const log = createMemoryLogger();
+    const model = createAiModel(
+      settings({
+        AI_CHAT_MODELS: ["google/chat-one"],
+        AI_BACKUP_API_KEY: "AIza-second-0123456789",
+        AI_BACKUP_BASE_URL: GOOGLE,
+        AI_BACKUP_CHAT_MODELS: ["gemini-3.5-flash-lite"],
+        AI_BACKUP_API_KEY_2: "AIza-third-0123456789",
+      }),
+      log,
+    );
+    expect(await model?.complete({ feature: "score_lead", messages, user: "org" })).toMatchObject({ ok: true });
+    const limited = log.entries.filter((entry) => entry.msg === "AI rate limited (429)");
+    expect(limited).toEqual([
+      expect.objectContaining({
+        level: "warn",
+        setting: "AI_API_KEY",
+        model: "google/chat-one",
+        feature: "score_lead",
+        restSeconds: 30,
+      }),
+      expect.objectContaining({
+        level: "warn",
+        setting: "AI_BACKUP_API_KEY",
+        model: "gemini-3.5-flash-lite",
+        feature: "score_lead",
+        restSeconds: 30,
+      }),
+    ]);
+    expect(JSON.stringify(log.entries)).not.toMatch(/0123456789/);
+  });
 });
 
 describe("Vertex AI", () => {

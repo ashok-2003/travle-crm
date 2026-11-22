@@ -63,6 +63,16 @@ function agentModels(
   };
 }
 
+/** Each 429 a key gets, logged by the key's setting name (never the key), so how often each runs out can be watched. */
+const logRateLimits =
+  (logger: Logger, setting: string) =>
+  (event: { model: string; feature: string; restMs: number }): void => {
+    logger.warn(
+      { setting, model: event.model, feature: event.feature, restSeconds: Math.round(event.restMs / 1000) },
+      "AI rate limited (429)",
+    );
+  };
+
 // The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
 // revisited before scale.
 function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
@@ -100,13 +110,14 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
       ...zeroRetention,
+      onRateLimited: logRateLimits(logger, vertex === undefined ? "AI_API_KEY" : "AI_VERTEX_SERVICE_ACCOUNT"),
     });
     if (environment.AI_BACKUP_API_KEY === undefined) return first;
     // The backup keeps the first's endpoint and models unless it names its own.
     const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
     const backupFast = environment.AI_BACKUP_FAST_MODELS ?? environment.AI_BACKUP_CHAT_MODELS ?? fast;
     const backupBaseUrl = environment.AI_BACKUP_BASE_URL ?? environment.AI_BASE_URL;
-    const backup = (apiKey: string) =>
+    const backup = (apiKey: string, name: string) =>
       createOpenRouterModel({
         apiKey,
         models: {
@@ -125,12 +136,13 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
         },
         ...(backupBaseUrl === undefined ? {} : { baseUrl: backupBaseUrl }),
         ...zeroRetention,
+        onRateLimited: logRateLimits(logger, name),
       });
     const second = environment.AI_BACKUP_API_KEY_2;
     return withModelChain([
       first,
-      backup(environment.AI_BACKUP_API_KEY),
-      ...(second === undefined ? [] : [backup(second)]),
+      backup(environment.AI_BACKUP_API_KEY, "AI_BACKUP_API_KEY"),
+      ...(second === undefined ? [] : [backup(second, "AI_BACKUP_API_KEY_2")]),
     ]);
   }
   const apiKey = environment.OPENROUTER_API_KEY;
