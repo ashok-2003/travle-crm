@@ -94,3 +94,38 @@ test("a customer's message shows in the lead page's chat within seconds, without
   expect(loads).toBe(0);
   await owner.close();
 });
+
+test("with the sound on, the app holds one stream for the browser on any page, and another tab takes it over", async ({
+  browser,
+  agency,
+}) => {
+  const context = await browser.newContext();
+  const streams: string[] = [];
+  context.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/live") streams.push(request.url());
+  });
+  const leads = await context.newPage();
+  await signInByEmail(leads, agency.owner);
+  await leads.goto("/leads");
+  // No alert switched on and no Inbox page: no stream.
+  await expect(leads.getByRole("heading", { level: 1 })).toBeVisible();
+  await leads.waitForTimeout(1_000);
+  expect(streams).toHaveLength(0);
+  await leads.evaluate(() => {
+    window.localStorage.setItem("travel-crm.inbox.alerts.sound", "on");
+  });
+  await leads.reload();
+  await expect.poll(() => streams.length).toBe(1);
+
+  // A second tab on the Inbox hears the first one's stream rather than opening its own.
+  const inbox = await context.newPage();
+  await inbox.goto("/inbox");
+  await expect(inbox.getByRole("heading", { level: 1, name: "Inbox" })).toBeVisible();
+  await inbox.waitForTimeout(1_500);
+  expect(streams).toHaveLength(1);
+
+  // The tab holding it closes: the other opens the stream.
+  await leads.close();
+  await expect.poll(() => streams.length).toBe(2);
+  await context.close();
+});
