@@ -149,6 +149,11 @@ export function openSuggestionsWhere(access: MemberAccess, mine: boolean) {
   return { state: "open", lead: { ...leadsTheAiNeedsAbout(access, mine), stage: { in: [...suggestable] } } };
 }
 
+/** How many open suggestions there are (openSuggestionsWhere): every one, where the list shows the newest 20. */
+export function countOpenSuggestions(tx: OrgTx, access: MemberAccess, { mine }: NeedsMeInput): Promise<number> {
+  return tx.leadAiSuggestion.count({ where: openSuggestionsWhere(access, mine) });
+}
+
 /** The open suggestions (openSuggestionsWhere), newest first, 20 at most. */
 export async function stageSuggestionsOf(
   tx: OrgTx,

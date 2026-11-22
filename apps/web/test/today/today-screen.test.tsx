@@ -109,7 +109,12 @@ interface Day {
 }
 
 let day: Day;
-let needsMe: { handedOver: (typeof handedOver)[]; suggestions: (typeof lostSuggestion)[] };
+let needsMe: {
+  handedOver: (typeof handedOver)[];
+  suggestions: (typeof lostSuggestion)[];
+  /** How many wait in all, where the api's rows stop at 20; the rows' own count when not given. */
+  totals?: { chats: number; suggestions: number };
+};
 let followUps: ReturnType<typeof dueFollowUp>[];
 
 /** The id a page's cursor names: a task's, or a new lead's. */
@@ -135,8 +140,14 @@ function answer(call: Call): Reply {
     const last = items.at(-1);
     return { data: { items, nextCursor: next && last ? idOf(last) : null } };
   }
-  if (call.path === "ai.handedOver") return { data: needsMe.handedOver };
-  if (call.path === "ai.stageSuggestions") return { data: { suggestions: needsMe.suggestions } };
+  if (call.path === "ai.handedOver") {
+    return { data: { chats: needsMe.handedOver, total: needsMe.totals?.chats ?? needsMe.handedOver.length } };
+  }
+  if (call.path === "ai.stageSuggestions") {
+    return {
+      data: { suggestions: needsMe.suggestions, total: needsMe.totals?.suggestions ?? needsMe.suggestions.length },
+    };
+  }
   if (call.path === "tasks.followUps") return { data: { rows: followUps, people: {} } };
   // Whether the person takes new leads in turn, for the away switch above the day: not in the pool here.
   if (call.path === "assignment.mine") return { data: { inPool: false, awayUntil: null } };
@@ -434,6 +445,22 @@ describe("TodayScreen", () => {
       expect(within(card).getByText(words.paymentsToCheck.how)).toBeVisible();
       expect(within(card).getByRole("link", { name: words.paymentsToCheck.open })).toHaveAttribute("href", "/payments");
       expect(within(ai).queryByRole("table")).toBeNull();
+    });
+
+    it("counts every one waiting on its tab, past the 20 rows the api sends of each", async () => {
+      needsMe = {
+        handedOver: Array.from({ length: 20 }, (_, index) => ({
+          ...handedOver,
+          conversationId: `0199e7a0-0000-7000-8000-0000000009${String(index).padStart(2, "0")}`,
+        })),
+        suggestions: Array.from({ length: 20 }, (_, index) => ({
+          ...lostSuggestion,
+          id: `0199e7a0-0000-7000-8000-0000000008${String(index).padStart(2, "0")}`,
+        })),
+        totals: { chats: 25, suggestions: 22 },
+      };
+      renderToday();
+      expect(await tab("AI needs you 47")).toBeVisible();
     });
 
     it("counts only the AI's rows on its tab, not the payments", async () => {

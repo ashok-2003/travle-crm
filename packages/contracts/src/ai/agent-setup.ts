@@ -89,5 +89,6 @@ export const handedOverChat = z.object({
   reason: z.string().nullable(),
   since: z.iso.datetime(),
 });
-export const handedOverChatList = z.array(handedOverChat);
+/** The newest 20 handed-over chats, and how many wait in all (`total`), for the "Needs you" count. */
+export const handedOverChatList = z.object({ chats: z.array(handedOverChat), total: z.int().min(0) });
 export type HandedOverChat = z.infer<typeof handedOverChat>;

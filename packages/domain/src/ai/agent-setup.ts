@@ -133,6 +133,11 @@ export function handedOverWhere(access: MemberAccess, mine: boolean) {
   };
 }
 
+/** How many chats wait under handedOverWhere: every one, where the list shows the newest 20. */
+export function countHandedOver(tx: OrgTx, access: MemberAccess, { mine }: NeedsMeInput): Promise<number> {
+  return tx.aiChat.count({ where: handedOverWhere(access, mine) });
+}
+
 /** The handed-over chats (handedOverWhere), newest first. */
 export async function handedOverChatsOf(
   tx: OrgTx,

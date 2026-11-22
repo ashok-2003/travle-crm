@@ -75,8 +75,10 @@ export const routes = {
   bookingSettings: "/settings/bookings",
   /** Suggest reply's switch and the agency's documents for package drafts. */
   aiSettings: "/settings/ai",
-  /** The AI agent's own page: overview, setup and trying it. */
+  /** The AI agent's own page: its overview and trying it. */
   aiAgent: "/ai-agent",
+  /** What the AI agent needs before it answers, step by step, and its switch; "#step-<key>" opens a step. */
+  aiAgentSetup: "/ai-agent/setup",
   /** The agency's WhatsApp number and its state. */
   whatsapp: "/settings/whatsapp",
   /** Who new leads that arrive by themselves go to (release C). */
@@ -125,6 +127,12 @@ export function supplierRoute(supplierId: string): string {
 export function broadcastRoute(broadcastId: string): string {
   return `${routes.broadcasts}/${encodeURIComponent(broadcastId)}`;
 }
+
+/** The address value of the inbox's Answered by the AI filter (a fixed value, never input). */
+export const AI_ANSWERED_SHOW = "ai-answered";
+
+/** The inbox showing the chats the AI answered in the last 24 hours: what the AI agent page's Chats answered counts. */
+export const inboxAiAnsweredRoute = `${routes.inbox}?show=${AI_ANSWERED_SHOW}`;
 
 export function inboxRoute(conversationId: string): string {
   return `${routes.inbox}/${encodeURIComponent(conversationId)}`;

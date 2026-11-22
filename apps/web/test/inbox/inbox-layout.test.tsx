@@ -14,7 +14,9 @@ const navigation = vi.hoisted(() => ({ params: {} }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/inbox",
   useParams: () => navigation.params,
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  // The list reads ?show= (the AI agent page's Answered by the AI): none here.
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const id = (n: number) => `01900000-0000-7000-8000-0000000000${String(n).padStart(2, "0")}`;

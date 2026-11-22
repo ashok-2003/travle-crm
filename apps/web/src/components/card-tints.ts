@@ -15,3 +15,7 @@ export const cardTints = {
 } as const;
 
 export type CardTint = keyof typeof cardTints;
+
+/** A progress bar in the AI's violet on a faint violet track (Home's AI calls used, the AI agent's setup). */
+export const aiProgress =
+  "bg-[color-mix(in_oklab,var(--brand-people)_24%,var(--card))] [&>[data-slot=progress-indicator]]:bg-people";

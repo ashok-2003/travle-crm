@@ -1,8 +1,9 @@
 // "AI needs you" for one member: `mine` narrows the hand-overs and stage suggestions to the leads the member owns (and,
-// for someone who manages the AI, the ones nobody owns), where `mine: false` keeps the whole scope.
+// for someone who manages the AI, the ones nobody owns), where `mine: false` keeps the whole scope. A list shows 20; its
+// count is every one waiting.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { handedOverChatsOf, stageSuggestionsOf } from "../../src/ai/index.js";
+import { countHandedOver, countOpenSuggestions, handedOverChatsOf, stageSuggestionsOf } from "../../src/ai/index.js";
 import { aLead, aPerson } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import { aConnectedAgency, createTestInbox, freshPhone, type TestInbox } from "../inbox/support.js";
@@ -67,6 +68,20 @@ describe("what the AI needs from one member", () => {
     const suggestions = await on.inOrg((tx) => stageSuggestionsOf(tx, on.manager, { mine: true }));
     expect(chats.map((chat) => chat.conversationId)).toEqual([unowned.chatId, own.chatId]);
     expect(suggestions.map((one) => one.leadId)).toEqual([unowned.leadId, own.leadId]);
+  });
+
+  it("counts every one waiting, past the 20 each list shows, within the member's scope", async () => {
+    const on = await world();
+    for (let minute = 10; minute < 32; minute += 1)
+      await on.customer(on.colleague, `2026-11-01T10:${String(minute)}:00Z`);
+    const all = { mine: false };
+    expect(await on.inOrg((tx) => handedOverChatsOf(tx, on.manager, all))).toHaveLength(20);
+    expect(await on.inOrg((tx) => countHandedOver(tx, on.manager, all))).toBe(22);
+    expect(await on.inOrg((tx) => stageSuggestionsOf(tx, on.manager, all))).toHaveLength(20);
+    expect(await on.inOrg((tx) => countOpenSuggestions(tx, on.manager, all))).toBe(22);
+    // None of them is on a lead the salesperson owns.
+    expect(await on.inOrg((tx) => countHandedOver(tx, on.seller, { mine: true }))).toBe(0);
+    expect(await on.inOrg((tx) => countOpenSuggestions(tx, on.seller, { mine: true }))).toBe(0);
   });
 
   it("mine false keeps the whole scope", async () => {

@@ -15,6 +15,7 @@ import { openLeadStages } from "@travel-crm/contracts/crm";
 import type { OrgTx } from "@travel-crm/db";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { answeredByAiWhere } from "./ai-answered.js";
 import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { previewOf } from "./messages.js";
@@ -74,6 +75,8 @@ async function filterWhere(
   now: Date,
 ): Promise<ConversationWhere> {
   if (filter === "archived") return { archivedAt: { not: null } };
+  // Exactly the chats the AI agent page counts: awake or not.
+  if (filter === "ai_answered") return answeredByAiWhere(now);
   if (filter === "snoozed") return { archivedAt: null, snoozedUntil: { gt: now } };
   if (filter === "unread") return { AND: [awakeWhere(now), { id: { in: await unreadIdsOf(tx, access) } }] };
   return { AND: [awakeWhere(now), presetWhere(access, filter)] };
