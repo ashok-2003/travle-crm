@@ -6,6 +6,7 @@
 import { agentSetupSteps } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
+import { aiProgress } from "@/components/card-tints";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
@@ -14,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 import { setupProgress } from "./agent-state";
 import { hasEditor, StepRow, type StepKey } from "./setup/step-row";
 import { TurnOnStep } from "./setup/turn-on-step";
@@ -58,7 +60,7 @@ export function AgentSetupScreen() {
           <Progress
             value={progress.total === 0 ? 0 : Math.round((progress.done / progress.total) * 100)}
             aria-labelledby={progressId}
-            className="mt-2 h-2 bg-[color-mix(in_oklab,var(--brand-people)_24%,var(--card))] [&>[data-slot=progress-indicator]]:bg-people"
+            className={cn("mt-2 h-2", aiProgress)}
           />
         </CardHeader>
         <CardContent>

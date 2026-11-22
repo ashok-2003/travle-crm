@@ -131,15 +131,15 @@ describe("the last 24 hours", () => {
     expect(screen.getByRole("region", { name: t.last24.title }).className).toContain("people-tint");
   });
 
-  it("opens the Inbox's Answered by the AI from Chats answered; the other three are figures", async () => {
+  it("opens the Inbox's Answered by the AI from Chats answered, a link named by its number and where it leads", async () => {
     api();
     renderWithApi(<AgentScreen />, client(), owner);
-    expect(await screen.findByRole("link", { name: t.last24.chats })).toHaveAttribute(
-      "href",
-      "/inbox?show=ai-answered",
-    );
+    const link = await screen.findByRole("link", { name: "Chats answered: 12, in the Inbox" });
+    expect(link).toHaveAttribute("href", "/inbox?show=ai-answered");
+    // The link covers its whole cell, so the focus outline goes round the cell; the ⓘ stays its own button.
+    expect(link).toHaveClass("absolute");
+    expect(within(screen.getByRole("group", { name: t.last24.chats })).getByRole("button")).toBeInTheDocument();
     for (const label of [t.last24.messages, t.last24.bookings, t.last24.flagged]) {
-      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
       expect(within(screen.getByRole("group", { name: label })).queryByRole("link")).not.toBeInTheDocument();
     }
   });
@@ -148,7 +148,7 @@ describe("the last 24 hours", () => {
     api();
     renderWithApi(<AgentScreen />, client(), member({ permissions: ["ai:manage"] }));
     await screen.findByText("12");
-    expect(screen.queryByRole("link", { name: t.last24.chats })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: t.last24.chats })).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("puts a line between the strip's two rows on a phone", async () => {

@@ -59,6 +59,7 @@
     "messages": "Messages sent",
     "bookings": "Bookings requested",
     "flagged": "Flagged for a person",
+    "chatsLink": "Chats answered: {count}, in the Inbox",
     "chatsHint": "Chats the AI answered in the last 24 hours.",
     "messagesHint": "Messages the AI sent in the last 24 hours.",
     "bookingsHint": "Bookings the AI took in the last 24 hours.",

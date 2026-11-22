@@ -54,7 +54,7 @@ test("the owner reads the AI's day and what needs them, opens the chats it answe
   await expectAccessible(owner);
 
   // Chats answered opens its list: the Inbox, on the chats the AI answered.
-  await owner.getByRole("link", { name: "Chats answered" }).click();
+  await owner.getByRole("link", { name: "Chats answered: 1, in the Inbox" }).click();
   await expect(owner).toHaveURL(/\/inbox\?show=ai-answered$/);
   const chip = owner.getByRole("button", { name: "Filter: Answered by the AI" });
   await expect(chip).toBeVisible();
