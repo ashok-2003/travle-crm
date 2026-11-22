@@ -2,7 +2,7 @@
 import { serve } from "@hono/node-server";
 import { noAccessCache, watchTyping } from "@travel-crm/api";
 import { INBOX_LIVE_CHANNEL, listenForNotifications } from "@travel-crm/db";
-import { chatAudienceOf, parseInboxNotification } from "@travel-crm/domain/inbox";
+import { chatAudiencesOf, parseInboxNotification } from "@travel-crm/domain/inbox";
 import { createSubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import { errorFields } from "@travel-crm/integrations/logging";
 import { createApp } from "./app.js";
@@ -25,20 +25,15 @@ const { environment, services, logger } = await startProcess("api", async ({ ser
 
 // The Inbox's live streams (inbox revamp spec, part 1 item 4): one LISTEN connection of the process's own hears every saved
 // message and changed chat; a lost one is opened again, and the streams are ended so each browser reads afresh. A member
-// starting to type, or sending, is told too (it is kept in this process's memory, not the database).
+// starting to type, or sending, is told too, as "typing" (it is kept in this process's memory, not the database).
 const live = createLiveHub({
-  audienceOf: (organizationId, conversationId) => chatAudienceOf(services.db, organizationId, conversationId),
+  audiencesOf: (organizationId, conversationIds) => chatAudiencesOf(services.db, organizationId, conversationIds),
   logger,
 });
-const deliver = (notification: Parameters<typeof live.deliver>[0]) => {
-  live.deliver(notification).catch((error: unknown) => {
-    logger.warn(errorFields(error), "live: a change could not be delivered");
-  });
-};
 const listener = listenForNotifications(environment.DATABASE_URL, INBOX_LIVE_CHANNEL, {
   onNotification: (payload) => {
     const notification = parseInboxNotification(payload);
-    if (notification !== null) deliver(notification);
+    if (notification !== null) live.deliver(notification);
   },
   onReconnected: () => {
     logger.info({ open: live.size() }, "live: listening again; ending the streams so each reads afresh");
@@ -49,7 +44,7 @@ const listener = listenForNotifications(environment.DATABASE_URL, INBOX_LIVE_CHA
   },
 });
 watchTyping((organizationId, conversationId) => {
-  deliver({ organizationId, conversationId, change: "chat" });
+  live.deliver({ organizationId, conversationId, change: "typing" });
 });
 
 const app = createApp({

@@ -131,9 +131,18 @@ const BODY_LIMIT = 64 * 1024;
 
 export function createApp(dependencies: ServerDependencies): Hono<RequestLogEnv> {
   const toolAgent = createLangGraphToolAgent();
-  // One per process (createApp runs once): cleared after any change made through tRPC.
-  const accessCache =
+  // One per process (createApp runs once): cleared after any change made through tRPC. An organization it forgets may have
+  // changed someone's access, so that organization's live streams read theirs again too.
+  const cached =
     dependencies.accessCache ?? createAccessCache({ ttlMs: ACCESS_CACHE_TTL_MS, maxEntries: ACCESS_CACHE_MAX_ENTRIES });
+  const accessCache: AccessCache = {
+    member: (key, load, options) => cached.member(key, load, options),
+    subscription: (organizationId, load, options) => cached.subscription(organizationId, load, options),
+    forgetOrganization: (organizationId) => {
+      cached.forgetOrganization(organizationId);
+      dependencies.live?.hub.forgetOrganization(organizationId);
+    },
+  };
   const {
     identity,
     subscriptions,

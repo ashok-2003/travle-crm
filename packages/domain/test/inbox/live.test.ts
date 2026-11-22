@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { INBOX_LIVE_CHANNEL, listenForNotifications, type NotificationListener } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { PermissionSet, type Grant, type MemberAccess } from "../../src/identity/index.js";
-import { chatAudienceOf, maySeeChat, parseInboxNotification } from "../../src/inbox/index.js";
+import { chatAudiencesOf, conversationHeaderOf, maySeeChat, parseInboxNotification } from "../../src/inbox/index.js";
 import { aLead, aPerson } from "../crm/support/records.js";
 import {
   aConnectedAgency,
@@ -128,9 +128,9 @@ describe("the live stream's notifications, from the worker's processing", () => 
       direction: "in",
     });
     // The new number became a lead with an owner: who may hear of it is read from it.
-    const audience = await chatAudienceOf(test.db, connection.organizationId, chat.id);
-    expect(audience.listed).toBe(true);
-    expect(audience.leadOwners).toHaveLength(1);
+    const audience = (await chatAudiencesOf(test.db, connection.organizationId, [chat.id])).get(chat.id);
+    expect(audience?.listed).toBe(true);
+    expect(audience?.leadOwners).toHaveLength(1);
   });
 
   it("tells of a delivery report as a status, without the customer's mark", async () => {
@@ -180,16 +180,58 @@ describe("the live stream's notifications, from the worker's processing", () => 
       });
       return { chatId: chat.id, hiddenId: hidden.id };
     });
-    const audience = await chatAudienceOf(test.db, connection.organizationId, chatId);
-    expect(audience.listed).toBe(true);
-    expect([...audience.leadOwners].sort()).toEqual([owner, null].sort());
-    expect(await chatAudienceOf(test.db, connection.organizationId, hiddenId)).toEqual({
-      listed: false,
-      leadOwners: [],
+    const gone = randomUUID();
+    const audiences = await chatAudiencesOf(test.db, connection.organizationId, [chatId, hiddenId, gone]);
+    expect(audiences.get(chatId)?.listed).toBe(true);
+    expect([...(audiences.get(chatId)?.leadOwners ?? [])].sort()).toEqual([owner, null].sort());
+    expect(audiences.get(hiddenId)).toEqual({ listed: false, leadOwners: [] });
+    expect(audiences.get(gone)).toEqual({ listed: false, leadOwners: [] });
+  });
+});
+
+describe("whose a chat is, in its header", () => {
+  let test: TestInbox;
+  beforeAll(() => {
+    test = createTestInbox();
+  });
+  afterAll(() => test.close());
+
+  it("says whether the chat's lead is the member's, someone's or nobody's, never whose, past the member's lead scope", async () => {
+    const connection = await aConnectedAgency(test);
+    const seller = randomUUID();
+    const sellerAccess = memberHolding(
+      [
+        { permission: "inbox:view", scope: "all" },
+        { permission: "leads:view", scope: "own" },
+      ],
+      seller,
+    );
+    const chats = await test.db.forOrg(connection.organizationId, async (tx) => {
+      const chatOf = async (ownerUserId: string | null | undefined) => {
+        const person = ownerUserId === undefined ? null : await aPerson(tx);
+        if (person !== null) await aLead(tx, { personId: person.id, ownerUserId: ownerUserId ?? null });
+        const chat = await tx.whatsappConversation.create({
+          data: { connectionId: connection.connectionId, phoneE164: freshPhone(), personId: person?.id ?? null },
+        });
+        return chat.id;
+      };
+      return {
+        mine: await chatOf(seller),
+        someoneElses: await chatOf(randomUUID()),
+        unowned: await chatOf(null),
+        noLead: await chatOf(undefined),
+      };
     });
-    expect(await chatAudienceOf(test.db, connection.organizationId, randomUUID())).toEqual({
-      listed: false,
-      leadOwners: [],
-    });
+    const header = (conversationId: string) =>
+      test.db.forOrg(connection.organizationId, (tx) =>
+        conversationHeaderOf(tx, sellerAccess, conversationId, new Date()),
+      );
+    expect((await header(chats.mine)).liveLead).toEqual({ mine: true, assigned: true });
+    const someoneElses = await header(chats.someoneElses);
+    // The seller can't see that lead (no link, no owner), but the chat is not unassigned.
+    expect(someoneElses.lead).toBeNull();
+    expect(someoneElses.liveLead).toEqual({ mine: false, assigned: true });
+    expect((await header(chats.unowned)).liveLead).toEqual({ mine: false, assigned: false });
+    expect((await header(chats.noLead)).liveLead).toBeNull();
   });
 });

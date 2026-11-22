@@ -22,25 +22,37 @@ export function parseInboxNotification(payload: string): InboxNotification | nul
   }
 }
 
-/** Who may hear of a chat: whether it is listed, and its person's live leads' owners. A chat that is gone is heard by nobody. */
-export async function chatAudienceOf(
+/**
+ * Who may hear of each of these chats, in one transaction: whether the list shows it, and its person's live leads'
+ * owners. A chat that is gone is heard by nobody.
+ */
+export async function chatAudiencesOf(
   db: Database,
   organizationId: string,
-  conversationId: string,
-): Promise<ChatAudience> {
+  conversationIds: readonly string[],
+): Promise<Map<string, ChatAudience>> {
   return db.forOrg(organizationId, async (tx) => {
-    const chat = await tx.whatsappConversation.findUnique({
-      where: { id: conversationId },
-      select: { hidden: true, state: true, personId: true },
+    const chats = await tx.whatsappConversation.findMany({
+      where: { id: { in: [...conversationIds] } },
+      select: { id: true, hidden: true, state: true, personId: true },
     });
-    if (chat === null) return { listed: false, leadOwners: [] };
+    const personIds = chats.map((chat) => chat.personId).filter((id): id is string => id !== null);
     const leads =
-      chat.personId === null
+      personIds.length === 0
         ? []
         : await tx.lead.findMany({
-            where: { personId: chat.personId, deletedAt: null },
-            select: { ownerUserId: true },
+            where: { personId: { in: personIds }, deletedAt: null },
+            select: { personId: true, ownerUserId: true },
           });
-    return { listed: !chat.hidden && chat.state === "open", leadOwners: leads.map((lead) => lead.ownerUserId) };
+    const audiences = new Map<string, ChatAudience>(
+      conversationIds.map((id) => [id, { listed: false, leadOwners: [] }]),
+    );
+    for (const chat of chats) {
+      audiences.set(chat.id, {
+        listed: !chat.hidden && chat.state === "open",
+        leadOwners: leads.filter((lead) => lead.personId === chat.personId).map((lead) => lead.ownerUserId),
+      });
+    }
+    return audiences;
   });
 }

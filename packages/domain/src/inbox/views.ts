@@ -296,6 +296,13 @@ export async function conversationHeaderOf(
   // The lead the chat is about is the list's and the notes' own choice (see chatLeadsOf), so all three name one lead.
   const chosen = await leadOfChat(tx, access, row.personId);
   const shown = leads.find((lead) => lead.id === chosen?.id) ?? null;
+  // Every lead of the person, whatever this member may see, for whether the chat is theirs, someone's or nobody's.
+  const owners =
+    row.personId === null
+      ? []
+      : (
+          await tx.lead.findMany({ where: { personId: row.personId, deletedAt: null }, select: { ownerUserId: true } })
+        ).map((lead) => lead.ownerUserId);
   const windowEnd = windowEndOf(row.lastInboundAt);
   const consent = row.personId === null ? { state: null, source: null } : await whatsappConsentOf(tx, row.personId);
   return conversationHeader.parse({
@@ -308,6 +315,10 @@ export async function conversationHeaderOf(
         ? null
         : { id: shown.id, stage: shown.stage, ownerUserId: shown.ownerUserId, open: isOpen(shown.stage) },
     pastCustomer: leads.length > 0 && !leads.some((lead) => isOpen(lead.stage)),
+    liveLead:
+      owners.length === 0
+        ? null
+        : { mine: owners.includes(access.userId), assigned: owners.some((owner) => owner !== null) },
     windowOpenUntil: windowEnd !== null && windowEnd.getTime() > now.getTime() ? windowEnd.toISOString() : null,
     lastInboundAt: row.lastInboundAt?.toISOString() ?? null,
     needsReply: row.needsReply,

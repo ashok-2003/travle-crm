@@ -3,12 +3,13 @@
 // more) as the database notifies them, keeps quiet streams alive with a comment, ends a stream whose access lapsed, and
 // holds a member to five streams.
 import { INBOX_LIVE_CHANNEL, listenForNotifications, type NotificationListener } from "@travel-crm/db";
-import { chatAudienceOf, parseInboxNotification } from "@travel-crm/domain/inbox";
+import { chatAudiencesOf, parseInboxNotification } from "@travel-crm/domain/inbox";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createLiveHub } from "../src/live-hub.js";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { addStaff, signedInOwner, signedInStaff, type TestStaff } from "./support/people.js";
+import { dataOf, mutate } from "./support/trpc.js";
 import {
   createTestAgency,
   createTestServer,
@@ -88,7 +89,7 @@ describe("the Inbox's live stream", () => {
   let listener: NotificationListener;
   let connectionId: string;
   const hub = createLiveHub({
-    audienceOf: (organizationId, conversationId) => chatAudienceOf(server.db, organizationId, conversationId),
+    audiencesOf: (organizationId, conversationIds) => chatAudiencesOf(server.db, organizationId, conversationIds),
     logger: createMemoryLogger(),
   });
 
@@ -125,8 +126,12 @@ describe("the Inbox's live stream", () => {
     );
 
   beforeAll(async () => {
-    // Access read on every request, so a stream's recheck sees a role changed a moment ago.
-    server = createTestServer({}, { live: { hub, heartbeatMs: 200, recheckMs: 300 }, accessCache: everyRequestReads });
+    // Access read on every request; a stream reads it again only when its organization's access changed (its regular
+    // reading, every few minutes, is out of the tests' reach).
+    server = createTestServer(
+      {},
+      { live: { hub, heartbeatMs: 200, recheckMs: 600_000 }, accessCache: everyRequestReads },
+    );
     agency = await createTestAgency(server);
     owner = await signedInOwner(server, agency);
     const sellerStaff = await addStaff(server, agency, { username: `seller${digits()}`, roleKey: "sales" });
@@ -153,7 +158,7 @@ describe("the Inbox's live stream", () => {
     listener = listenForNotifications(server.urls.runtime, INBOX_LIVE_CHANNEL, {
       onNotification: (payload) => {
         const notification = parseInboxNotification(payload);
-        if (notification !== null) void hub.deliver(notification);
+        if (notification !== null) hub.deliver(notification);
       },
     });
     await listener.listening;
@@ -177,14 +182,17 @@ describe("the Inbox's live stream", () => {
     expect(hub.size()).toBe(0);
   });
 
-  it("streams events that no proxy may hold back, with a retry and a comment to keep it alive", async () => {
+  it("streams events that no cache or proxy may hold back, with its own retry and a comment to keep it alive", async () => {
     const stream = await openStream(server, owner, { origin: ORIGIN });
     try {
       expect(stream.response.status).toBe(200);
       expect(stream.response.headers.get("content-type")).toContain("text/event-stream");
-      expect(stream.response.headers.get("cache-control")).toBe("no-cache, no-transform");
+      expect(stream.response.headers.get("cache-control")).toBe("no-store, no-transform");
       await stream.waitFor((text) => text.includes(": keep-alive\n\n"), "a heartbeat");
-      expect(stream.text().startsWith("retry: 3000\n\n")).toBe(true);
+      // Between 3 and 10 s, a wait of its own, so streams ended together don't all come back in the same second.
+      const retry = Number(/^retry: (\d+)\n\n/.exec(stream.text())?.[1]);
+      expect(retry).toBeGreaterThanOrEqual(3_000);
+      expect(retry).toBeLessThan(10_000);
     } finally {
       await stream.close();
     }
@@ -220,12 +228,13 @@ describe("the Inbox's live stream", () => {
     }
   });
 
-  it("ends a stream once its member may no longer read the inbox", async () => {
+  it("ends a stream at its next beat once its member's new role no longer reads the inbox", async () => {
     const staff = await addStaff(server, agency, { username: `moving${digits()}`, roleKey: "sales" });
     const stream = await openStream(server, await signedInStaff(server, agency, staff));
     expect(stream.response.status).toBe(200);
     expect(hub.size()).toBe(1);
-    await server.platform.member.update({ where: { id: staff.memberId }, data: { role: "accounts" } });
+    // The Owner moves them to Accounts in the app: the organization's access changed, so its streams read theirs again.
+    await dataOf(await mutate(server, "staff.updateRole", { memberId: staff.memberId, roleKey: "accounts" }, owner));
     for (let attempt = 0; attempt < 100 && hub.size() > 0; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }

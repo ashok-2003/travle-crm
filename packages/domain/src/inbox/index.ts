@@ -128,7 +128,7 @@ export {
   upsertRoute,
 } from "./routes.js";
 export { chatNameOf } from "./chat-name.js";
-export { chatAudienceOf, parseInboxNotification, type InboxNotification } from "./live.js";
+export { chatAudiencesOf, parseInboxNotification, type InboxNotification } from "./live.js";
 export { maySeeChat, visibleConversations, type ChatAudience } from "./scope.js";
 export { applyStatus } from "./statuses.js";
 export { bumpUsage, monthStartOf, type UsageCounts } from "./usage.js";

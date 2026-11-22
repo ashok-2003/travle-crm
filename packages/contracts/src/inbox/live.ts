@@ -8,8 +8,11 @@ export const INBOX_LIVE_PATH = "/api/live";
 /** The server-sent event's name. */
 export const INBOX_LIVE_EVENT = "inbox";
 
-/** A message saved, a message's status moved, or the chat's own state (waiting, pinned, archived, its tags...). */
-export const inboxLiveChanges = ["message", "status", "chat"] as const;
+/**
+ * A message saved, a message's status moved, the chat's own state (waiting, pinned, archived, its tags, its notes, its
+ * messages sent later, the AI's state), or a teammate starting or stopping a reply (only the chat's bar shows that).
+ */
+export const inboxLiveChanges = ["message", "status", "chat", "typing"] as const;
 export type InboxLiveChange = (typeof inboxLiveChanges)[number];
 
 export const inboxLiveEvent = z.object({

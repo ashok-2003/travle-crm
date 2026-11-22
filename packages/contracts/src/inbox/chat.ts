@@ -104,6 +104,13 @@ export const conversationHeader = z.object({
   lead: z.object({ id: recordId, stage: z.string(), ownerUserId: recordId.nullable(), open: z.boolean() }).nullable(),
   /** Past customer: leads exist and all are closed. Start a new lead is offered. */
   pastCustomer: z.boolean(),
+  /**
+   * Whether the person has a lead at all (not deleted), whatever the member's own lead scope, and who works it as far as
+   * they may know: whether one is theirs, and whether any has an owner. Never another member's id. Null with no lead. The
+   * alerts read it: a chat with no lead, or whose leads nobody owns, is for whoever takes unassigned chats; one whose
+   * lead someone else owns is theirs, though this member can't see that lead.
+   */
+  liveLead: z.object({ mine: z.boolean(), assigned: z.boolean() }).nullable(),
   /** The 24-hour window: until when free text may be sent, or null when it is closed or the customer never wrote. */
   windowOpenUntil: timestamp.nullable(),
   /** The customer's latest message: the window closed 24 hours after it. Null when they never wrote. */
