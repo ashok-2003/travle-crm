@@ -89,11 +89,7 @@ export function TodayScreen() {
               }}
             >
               {/* Every panel stays mounted (its query, its pages) and the others hidden, so a switch is instant. */}
-              <TabsList
-                variant="solid"
-                aria-label={t("sectionsLabel")}
-                className="max-w-full justify-start overflow-x-auto"
-              >
+              <TabsList variant="solid" aria-label={t("sectionsLabel")}>
                 {shown.map((tab) => (
                   <TabsTrigger key={tab} value={tab}>
                     {t(`sections.${tab === "ai" ? "aiNeedsYou" : tab}`)} <TabCount count={countIn(tab)} />
