@@ -241,7 +241,9 @@ describe("parseMsg91Event", () => {
   it("keeps the send's request id and the customer's number on a status, and the request id on an echo", () => {
     expect(one("status-delivered")).toMatchObject({ requestId: "req-out-1", customerNumber: "+919876543210" });
     expect(one("status-failed")).toMatchObject({ requestId: null });
-    expect(one("echo-own-send")).toMatchObject({ type: "echo", requestId: "req-own-1" });
+    expect(one("echo-own-send")).toMatchObject({ type: "echo", requestId: "req-own-1", ourSend: true });
+    // The phone app's echoes always carry a contentType: never ours.
+    expect(one("echo-phone-image")).toMatchObject({ type: "echo", ourSend: false });
     expect(one("echo-text")).toMatchObject({ type: "echo", requestId: null });
     const [named] = parseMsg91Event({
       customerNumber: "919876543210",

@@ -296,7 +296,9 @@ function eventOf(bag: Bag): ParsedEvent {
   // message. An outbound one with no status name is an echo: sent from the phone app, or one of our own sends.
   const outbound = direction === "1" || direction?.toLowerCase() === "outbound";
   const message = messageOf(bag, wamid, integratedNumber, customerNumber);
-  return outbound ? { type: "echo", requestId, ...message } : { type: "inbound", ...message };
+  if (!outbound) return { type: "inbound", ...message };
+  // Our own api's sends come back with a messageType and no contentType; the phone app's always carry one.
+  return { type: "echo", requestId, ourSend: pick(bag, ["contentType", "content_type"]) === null, ...message };
 }
 
 /** The events in a body: one object, a list, or an object holding a list. A body that is none of these has none. */

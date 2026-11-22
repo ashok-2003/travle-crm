@@ -261,7 +261,8 @@ export async function sendQueued(
         where: { id: queued.id },
         data: {
           status: "sent",
-          wamid: result.wamid,
+          // An echo may have given the send its wamid already: MSG91's answer has carried none live.
+          ...(result.wamid === null ? {} : { wamid: result.wamid }),
           requestId: result.requestId,
           sentAt: now,
           ...(quoteDropped ? { quoteDropped: true } : {}),
