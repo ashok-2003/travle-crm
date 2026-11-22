@@ -130,7 +130,7 @@ describe("the Inbox's live stream", () => {
     // reading, every few minutes, is out of the tests' reach).
     server = createTestServer(
       {},
-      { live: { hub, heartbeatMs: 200, recheckMs: 600_000 }, accessCache: everyRequestReads },
+      { live: { hub, heartbeatMs: 200, recheckMs: 600_000, recheckGapMs: 300 }, accessCache: everyRequestReads },
     );
     agency = await createTestAgency(server);
     owner = await signedInOwner(server, agency);

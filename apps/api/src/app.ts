@@ -109,7 +109,7 @@ export interface ServerDependencies {
    */
   signalWork?: () => void;
   /** The Inbox's live streams at /api/live (live-hub.ts); absent, the route is not served and the browsers poll. */
-  live?: { hub: LiveHub; heartbeatMs?: number; recheckMs?: number } | null;
+  live?: { hub: LiveHub; heartbeatMs?: number; recheckMs?: number; recheckGapMs?: number } | null;
 }
 
 /**

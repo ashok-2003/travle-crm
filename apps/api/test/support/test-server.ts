@@ -108,7 +108,7 @@ export interface TestServerOptions {
   /** Told when work for the worker came in (the host's wake-up signal): nothing unless given. */
   signalWork?: () => void;
   /** The Inbox's live streams at /api/live: not served unless given. */
-  live?: { hub: LiveHub; heartbeatMs?: number; recheckMs?: number };
+  live?: { hub: LiveHub; heartbeatMs?: number; recheckMs?: number; recheckGapMs?: number };
 }
 
 export function createTestServer(settings: Partial<AuthSettings> = {}, options: TestServerOptions = {}): TestServer {
