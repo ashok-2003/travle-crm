@@ -13,6 +13,7 @@ import { useCallback, useEffect } from "react";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useCursorPages } from "@/data/use-cursor-pages";
 import { useHolds } from "@/session/me-context";
+import { LIVE_FRESH_MS, useLiveConnected } from "./live-state";
 
 const POLL_MS = INBOX_POLL_MS;
 /** While a teammate is replying, the chat's bar asks again this often, to see them stop (the api's REPLYING_POLL_MS). */
@@ -24,6 +25,11 @@ const PREFETCH_FRESH_MS = 10_000;
  * opening one always asks again, and the copy only fills the screen until the answer comes.
  */
 const LIVE = 0;
+
+/** A chat's reads stay fresh a few seconds while the stream tells of every change; without it, never. */
+function useChatFreshness(): number {
+  return useLiveConnected() ? LIVE_FRESH_MS : LIVE;
+}
 
 /** Loads every inbox read again (the chats, a chat's header and messages): something changed that no poll has seen yet. */
 export function useRefreshInbox(): () => Promise<unknown> {
@@ -60,24 +66,24 @@ export interface ConversationQuery {
   period: ConversationPeriod | null;
 }
 
+/** What a page of the chats is asked with: the list's choices, and the cursor (none for the first page). */
+export function conversationsInput(input: ConversationQuery, cursor: string | null) {
+  return {
+    filter: input.filter,
+    ...(input.search !== "" && { search: input.search }),
+    ...(input.tagId !== null && { tagId: input.tagId }),
+    ...(input.stage !== null && { stage: input.stage }),
+    ...(input.period !== null && { period: input.period }),
+    ...(cursor !== null && { before: cursor }),
+  };
+}
+
 export function useConversations(input: ConversationQuery) {
   const trpc = useTRPC();
   const client = useTRPCClient();
-  const search = input.search === "" ? {} : { search: input.search };
-  const tag = input.tagId === null ? {} : { tagId: input.tagId };
-  const stage = input.stage === null ? {} : { stage: input.stage };
-  const period = input.period === null ? {} : { period: input.period };
   return useCursorPages({
     queryKey: [...trpc.inbox.conversations.pathKey(), input],
-    page: (cursor) =>
-      client.inbox.conversations.query({
-        filter: input.filter,
-        ...search,
-        ...tag,
-        ...stage,
-        ...period,
-        ...(cursor !== null && { before: cursor }),
-      }),
+    page: (cursor) => client.inbox.conversations.query(conversationsInput(input, cursor)),
     items: (page) => page.items,
     refetchInterval: POLL_MS,
     staleTime: LIVE,
@@ -90,7 +96,7 @@ export function useConversation(conversationId: string) {
   const query = useQuery({
     ...trpc.inbox.conversation.queryOptions(valid ? { conversationId } : skipToken),
     refetchInterval: (current) => ((current.state.data?.replying.length ?? 0) > 0 ? REPLYING_POLL_MS : POLL_MS),
-    staleTime: LIVE,
+    staleTime: useChatFreshness(),
   });
   return { ...query, valid };
 }
@@ -102,7 +108,7 @@ export interface MessageFilter {
 }
 
 /** What a page of a chat's messages is asked with, beyond the chat: a search, the starred only. */
-const narrowingOf = (filter: MessageFilter) => ({
+export const narrowingOf = (filter: MessageFilter) => ({
   ...(filter.search.length >= 2 && { search: filter.search }),
   ...(filter.starredOnly && { starredOnly: true }),
 });
@@ -121,7 +127,7 @@ export function useMessages(
       client.inbox.messages.query({ conversationId, ...narrowing, ...(cursor !== null && { before: cursor }) }),
     items: (page) => page.items,
     enabled,
-    staleTime: LIVE,
+    staleTime: useChatFreshness(),
     refetchInterval: POLL_MS,
   });
 }

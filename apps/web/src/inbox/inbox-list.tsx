@@ -130,7 +130,9 @@ export function InboxList({ currentId }: { currentId: string | null }) {
         />
       </div>
       {/* Radix lays the scrolled content out as a table, which a long message widens; a block keeps it the list's width. */}
-      <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">{body()}</ScrollArea>
+      <ScrollArea data-chat-list className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">
+        {body()}
+      </ScrollArea>
     </div>
   );
 }

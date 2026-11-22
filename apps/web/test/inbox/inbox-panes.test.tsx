@@ -5,6 +5,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatPanel } from "@/inbox/chat-panel";
+import { InboxChat, InboxHome } from "@/inbox/inbox-chat";
 import { CHAT_MIN_WIDTH, inboxPanes, InboxPanesProvider } from "@/inbox/inbox-panes";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
@@ -45,6 +46,9 @@ describe("the panes' widths", () => {
   });
 
   it("keep the panel beside the chat only where the chat keeps its 520px, at 1280 and up", () => {
+    // From 1024 the list and the chat share the screen, the chat at 520px or more.
+    const { list } = inboxPanes(1024 - RAIL);
+    expect(1024 - RAIL - list - 1).toBeGreaterThanOrEqual(CHAT_MIN_WIDTH);
     const docks = [1024, 1280, 1440, 1728, 1920].map((screenWidth) => inboxPanes(screenWidth - RAIL).panelDocks);
     expect(docks).toEqual([false, true, true, true, true]);
     for (const screenWidth of [1280, 1440, 1728, 1920]) {
@@ -107,5 +111,36 @@ describe("the contact panel beside a chat", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
     expect(window.localStorage.getItem("travel-crm.inbox.contact-panel")).toBe("open");
+  });
+});
+
+describe("under 1024px", () => {
+  beforeEach(() => {
+    // A tablet: wider than a phone, narrower than the two panes need.
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: !query.includes("1024") && !query.includes("1280"),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    answerApi({
+      "inbox.conversation": header(chatA),
+      "inbox.messages": { items: [], nextCursor: null, people: {}, unread: null },
+      "salesInbox.notes": { items: [], people: {} },
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows one pane at a time: the chat over the list, with a way back, and nothing beside an empty list", async () => {
+    const chat = renderWithApi(<InboxChat conversationId={chatA} />, newQueryClient());
+    await screen.findByRole("region", { name: "Chat with Meera Rao" });
+    expect(screen.getByRole("link", { name: "Back to the chats" })).toBeInTheDocument();
+    chat.unmount();
+    const { container } = renderWithApi(<InboxHome />, newQueryClient());
+    expect(container).toBeEmptyDOMElement();
   });
 });

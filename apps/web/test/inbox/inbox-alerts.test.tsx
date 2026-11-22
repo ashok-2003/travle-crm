@@ -18,10 +18,12 @@ import { answerApi } from "./answer-api";
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
-const me = "0199a000-0000-7000-8000-000000000001";
-const someoneElse = "0199a000-0000-7000-8000-0000000000ff";
 const chat = "01900000-0000-7000-8000-00000000000a";
-const leadOf = (ownerUserId: string | null) => ({ lead: { id: chat, stage: "new", ownerUserId, open: true } });
+/** Whose the chat is, as its header says: a lead of the member's, someone's, nobody's, or no lead at all. */
+const whose = (state: "mine" | "someone's" | "nobody's" | "no lead") => ({
+  liveLead:
+    state === "no lead" ? null : { mine: state === "mine", assigned: state === "mine" || state === "someone's" },
+});
 
 const seller = member({ permissions: ["inbox:view", "leads:view"] });
 const assigner = member({ permissions: ["inbox:view", "leads:view", "leads:assign"] });
@@ -73,15 +75,27 @@ afterEach(() => {
 
 describe("whose chats alert", () => {
   it("is the lead's owner's, and an unassigned chat is for whoever assigns or sees every chat or lead", () => {
-    expect(alertsMember(seller, leadOf(me))).toBe(true);
-    expect(alertsMember(seller, leadOf(someoneElse))).toBe(false);
-    expect(alertsMember(seller, leadOf(null))).toBe(false);
-    expect(alertsMember(assigner, leadOf(null))).toBe(true);
-    expect(alertsMember(member({ isOwner: true }), { lead: null })).toBe(true);
-    const everyChat = member({ permissions: ["inbox:view"] });
-    everyChat.member.permissions = [{ permission: "inbox:view", scope: "all" }];
-    expect(takesUnassigned(everyChat)).toBe(true);
+    expect(alertsMember(seller, whose("mine"))).toBe(true);
+    expect(alertsMember(seller, whose("someone's"))).toBe(false);
+    expect(alertsMember(seller, whose("nobody's"))).toBe(false);
+    expect(alertsMember(seller, whose("no lead"))).toBe(false);
+    expect(alertsMember(assigner, whose("nobody's"))).toBe(true);
+    expect(alertsMember(assigner, whose("no lead"))).toBe(true);
+    expect(alertsMember(assigner, whose("someone's"))).toBe(false);
+    expect(alertsMember(member({ isOwner: true }), whose("no lead"))).toBe(true);
     expect(takesUnassigned(seller)).toBe(false);
+  });
+
+  it("never takes a lead the member can't see for an unassigned chat (every chat, but only their own leads)", () => {
+    const everyChatOwnLeads = member({ permissions: ["inbox:view", "leads:view"] });
+    everyChatOwnLeads.member.permissions = [
+      { permission: "inbox:view", scope: "all" },
+      { permission: "leads:view", scope: "own" },
+    ];
+    expect(takesUnassigned(everyChatOwnLeads)).toBe(true);
+    // Someone else's lead: the header shows no lead to this member, yet the chat is not unassigned.
+    expect(alertsMember(everyChatOwnLeads, whose("someone's"))).toBe(false);
+    expect(alertsMember(everyChatOwnLeads, whose("no lead"))).toBe(true);
   });
 
   it("is given by one tab only for the same message", () => {
@@ -125,6 +139,13 @@ describe("the alerts menu", () => {
     expect(window.localStorage.getItem("travel-crm.inbox.alerts.desktop")).toBeNull();
   });
 
+  it("has no desktop switch in a browser that can't show notifications", async () => {
+    renderWithApi(<AlertsMenu />, newQueryClient());
+    await userEvent.click(screen.getByRole("button", { name: "Alerts" }));
+    await screen.findByRole("switch", { name: "Sound" });
+    expect(screen.queryByRole("switch", { name: "Desktop notifications" })).not.toBeInTheDocument();
+  });
+
   it("lists the keyboard shortcuts", async () => {
     stubNotifications("default");
     renderWithApi(<AlertsMenu />, newQueryClient());
@@ -138,16 +159,16 @@ describe("the alerts menu", () => {
 });
 
 describe("an alert", () => {
-  const header = (ownerUserId: string | null): ConversationHeader =>
+  const header = (state: Parameters<typeof whose>[0]): ConversationHeader =>
     ({
       id: chat,
       phone: "+919876543210",
       name: "Meera Rao",
-      ...leadOf(ownerUserId),
+      ...whose(state),
     }) as ConversationHeader;
 
-  function alerts(openId: string | null, ownerUserId: string | null = me) {
-    answerApi({ "inbox.conversation": header(ownerUserId) });
+  function alerts(openId: string | null, state: Parameters<typeof whose>[0] = "mine") {
+    answerApi({ "inbox.conversation": header(state) });
     const queryClient = newQueryClient();
     const Providers = withApp(queryClient);
     return renderHook(() => useInboxAlerts(openId), {
@@ -173,11 +194,33 @@ describe("an alert", () => {
     expect(tones).toHaveBeenCalled();
   });
 
+  it("goes through the service worker where one is ready, whose click opens the chat", async () => {
+    stubNotifications("granted");
+    window.localStorage.setItem("travel-crm.inbox.alerts.desktop", "on");
+    const showNotification = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { getRegistration: () => Promise.resolve({ active: {}, showNotification }) },
+    });
+    try {
+      alerts(null)(chat);
+      await waitFor(() => {
+        expect(showNotification).toHaveBeenCalledWith("New message from Meera Rao", {
+          tag: `inbox-${chat}`,
+          data: { path: `/inbox/${chat}` },
+        });
+      });
+      expect(shown).toEqual([]);
+    } finally {
+      Reflect.deleteProperty(navigator, "serviceWorker");
+    }
+  });
+
   it("says nothing while both are off, for someone else's chat, or for the chat in front of the member", async () => {
     stubNotifications("granted");
     alerts(null)(chat);
     window.localStorage.setItem("travel-crm.inbox.alerts.sound", "on");
-    alerts(null, someoneElse)(chat);
+    alerts(null, "someone's")(chat);
     // Its header answered before the next case's api takes over.
     await new Promise((resolve) => setTimeout(resolve, 50));
     // The chat open, in a tab in view with the focus: in front of the member.

@@ -12,7 +12,7 @@ import { useTRPC } from "@/data/trpc";
 import { formatPhoneNumber } from "@/lib/format";
 import { inboxRoute } from "@/lib/routes";
 import { useMe } from "@/session/me-context";
-import { alertIsOn, alertsMember, claimAlert, notificationPermission, playChime } from "./inbox-alerts";
+import { alertIsOn, alertsMember, claimAlert, notificationPermission, playChime, showChatNotice } from "./inbox-alerts";
 
 /** Whether this chat is the one the member is looking at: open, in a tab that is in view and has the focus. */
 const inFront = (conversationId: string, openId: string | null) =>
@@ -39,17 +39,13 @@ export function useInboxAlerts(openId: string | null): (conversationId: string) 
           if (!alertsMember(me, header) || !claimAlert(conversationId)) return;
           if (sound) playChime();
           if (!desktop) return;
-          const notice = new Notification(
+          return showChatNotice(
             t("newMessageFrom", { name: header.name ?? formatPhoneNumber(header.phone) }),
-            {
-              tag: `inbox-${conversationId}`,
+            conversationId,
+            () => {
+              router.push(inboxRoute(conversationId));
             },
           );
-          notice.onclick = () => {
-            window.focus();
-            router.push(inboxRoute(conversationId));
-            notice.close();
-          };
         })
         // A chat that didn't load gives no alert; the list shows the message all the same.
         .catch(() => undefined);

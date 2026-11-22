@@ -3,12 +3,22 @@
 // How the Inbox's panes share a computer's screen (inbox revamp spec, part 1 item 2), the chat first: the list takes
 // clamp(300px, 24%, 400px) of the inbox (inbox-screen.tsx's grid), the chat everything left, never under 520px, and the
 // contact panel clamp(300px, 22%, 380px) beside it when it fits; when it would push the chat under its 520px, it floats
-// over the chat's right edge instead. Whether the panel beside the chat is open is kept in this browser.
+// over the chat's right edge instead. So the chat keeps its 520px, the list and the chat share the screen from 1024px;
+// narrower, the Inbox shows one pane at a time as on a phone (the list, then the chat with a way back). Whether the panel
+// beside the chat is open is kept in this browser.
 import { createContext, useContext, useEffect, useState, type ReactNode, type RefObject } from "react";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 const LIST = { min: 300, share: 0.24, max: 400 };
 const PANEL = { min: 300, share: 0.22, max: 380 };
 export const CHAT_MIN_WIDTH = 520;
+/** From this wide a screen, the list and the chat sit side by side. */
+export const TWO_PANES_FROM = 1024;
+
+/** Whether the list and the chat sit side by side (1024px and wider); else one at a time, as on a phone. */
+export function useInboxTwoPanes(): boolean {
+  return useMediaQuery(`(min-width: ${String(TWO_PANES_FROM)}px)`);
+}
 /** The two vertical separators: list | chat | panel. */
 const SEPARATORS = 2;
 

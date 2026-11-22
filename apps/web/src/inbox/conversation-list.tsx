@@ -4,12 +4,13 @@
 // live in: the person's tinted picture, their name and how long ago the last message came ("18m", "5h", "25 Oct"); under
 // them our ticks and the last message's first words, with the member's unread count (or a dot while the customer waits)
 // and a pin; then the sale: the lead's stage as its coloured pill, its owner, how long the customer has waited, and the
-// agency's tags. The open chat is marked as the current link. A chat is asked for ahead as the pointer rests on its row or
-// the row gets the focus (inbox revamp spec, part 1 item 3), so it opens at once.
+// agency's tags. The open chat is marked as the current link. A chat (its page and its data) is asked for ahead as the
+// pointer rests on its row or the row gets the focus (inbox revamp spec, part 1 item 3), so it opens at once.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { ConversationListItem } from "@travel-crm/contracts/inbox";
 import { AlarmClockIcon, PinIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,12 @@ export const PREFETCH_REST_MS = 150;
 
 /** The handlers that ask for a row's chat ahead: when the pointer has rested on it, or at once when it gets the focus. */
 function usePrefetchOnRest(conversationId: string) {
-  const prefetch = usePrefetchChat();
+  const prefetchChat = usePrefetchChat();
+  const router = useRouter();
+  const prefetch = (id: string) => {
+    router.prefetch(inboxRoute(id));
+    prefetchChat(id);
+  };
   const resting = useRef<number | undefined>(undefined);
   const stop = () => {
     window.clearTimeout(resting.current);

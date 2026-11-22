@@ -2,8 +2,8 @@
 
 // The Inbox's settings menu in the chats' bar (inbox revamp spec, part 1 items 5 and 6): two switches, Sound and Desktop
 // notifications, both off until the member turns them on and kept in this browser; the browser's permission for
-// notifications is asked only as that switch is turned on, and a browser that blocked them says so. Then the keyboard
-// shortcuts, listed in a dialog.
+// notifications is asked only as that switch is turned on, and a browser that blocked them says so; one that can't show
+// them at all has no such switch. Then the keyboard shortcuts, listed in a dialog.
 import { BellIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -77,12 +77,7 @@ export function AlertsMenu() {
     setDesktop(answer === "granted");
     keepAlert("desktop", answer === "granted");
   };
-  const desktopHint =
-    permission === "unsupported"
-      ? t("desktopUnsupported")
-      : permission === "denied"
-        ? t("desktopBlocked")
-        : t("desktopHint");
+  const desktopHint = permission === "denied" ? t("desktopBlocked") : t("desktopHint");
 
   return (
     <>
@@ -96,13 +91,15 @@ export function AlertsMenu() {
           <p className="text-label font-medium">{t("title")}</p>
           <ItemGroup>
             <AlertSwitch kind="sound" on={sound} onChange={changeSound} hint={t("soundHint")} />
-            <AlertSwitch
-              kind="desktop"
-              on={desktop}
-              onChange={(on) => void changeDesktop(on)}
-              hint={desktopHint}
-              disabled={permission === "unsupported" || (permission === "denied" && !desktop)}
-            />
+            {permission !== "unsupported" && (
+              <AlertSwitch
+                kind="desktop"
+                on={desktop}
+                onChange={(on) => void changeDesktop(on)}
+                hint={desktopHint}
+                disabled={permission === "denied" && !desktop}
+              />
+            )}
           </ItemGroup>
           <Separator />
           <Button

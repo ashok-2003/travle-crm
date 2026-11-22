@@ -343,7 +343,8 @@
     "toBottom": "Go to the newest message",
     "toBottomCount": "{count, plural, one {# new message} other {# new messages}} below. Go to the newest",
     "makeLead": "Make a lead from this chat",
-    "newMessagesCount": "{count, plural, one {# new message} other {# new messages}}"
+    "newMessagesCount": "{count, plural, one {# new message} other {# new messages}}",
+    "jumpToUnread": "{count, plural, one {Go to the unread message} other {Go to the # unread messages}}"
   },
   "leadSection": {
     "title": "WhatsApp",
@@ -807,7 +808,6 @@
     "desktop": "Desktop notifications",
     "desktopHint": "\"New message from …\" on your screen, even while the Inbox is out of sight.",
     "desktopBlocked": "This browser blocks our notifications. Allow them in its settings for this site, then turn this on.",
-    "desktopUnsupported": "This browser can't show notifications.",
     "shortcuts": "Keyboard shortcuts",
     "newMessageFrom": "New message from {name}"
   },

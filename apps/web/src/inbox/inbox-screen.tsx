@@ -2,8 +2,8 @@
 
 // /inbox and /inbox/<id> (spec 3.1; sales inbox spec, section 3; inbox revamp spec, part 1): the shared WhatsApp inbox, edge
 // to edge like WhatsApp Web, built once by the chats' layout so choosing a chat never rebuilds the list. On a computer the
-// chats on the left and the open chat (the page, `children`) beside them, the chat first (inbox-panes.tsx); on a phone the
-// chats, and a chat covers the whole screen over them, so Back finds the list as it was. It holds the live stream, the
+// chats on the left and the open chat (the page, `children`) beside them, the chat first (inbox-panes.tsx); on a phone, or
+// a screen under 1024px, the chats, and a chat covers the whole screen over them, so Back finds the list as it was. It holds the live stream, the
 // alerts and the keys. The states: WhatsApp not set up for the agency (never naming MSG91), the connection in trouble or
 // paused, the demo (read only), a load that failed with Try again.
 import { MegaphoneIcon } from "lucide-react";
@@ -20,11 +20,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { routes } from "@/lib/routes";
 import { useFillScreen } from "@/lib/use-fill-screen";
-import { useWideScreen } from "@/lib/use-wide-screen";
 import { useHolds } from "@/session/me-context";
 import { AlertsMenu } from "./alerts-menu";
 import { InboxList } from "./inbox-list";
-import { InboxPanesProvider, useWidthOf } from "./inbox-panes";
+import { InboxPanesProvider, useInboxTwoPanes, useWidthOf } from "./inbox-panes";
 import { NotSetUp } from "./not-set-up";
 import { useInboxAlerts } from "./use-inbox-alerts";
 import { useInboxLive } from "./use-inbox-live";
@@ -50,11 +49,11 @@ function InboxKeys({ conversationId }: { conversationId: string | null }) {
 
 export function InboxScreen({ children }: { children: ReactNode }) {
   const t = useTranslations("inbox");
-  const wide = useWideScreen();
+  const twoPanes = useInboxTwoPanes();
   const conversationId = useOpenChatId();
   const status = useInboxStatus();
   usePrefetchInboxLists();
-  useInboxLive(useInboxAlerts(conversationId));
+  useInboxLive({ openId: conversationId, onCustomerWrote: useInboxAlerts(conversationId) });
   const mayBroadcast = useHolds("inbox:templates");
 
   const fill = useFillScreen<HTMLDivElement>();
@@ -136,7 +135,7 @@ export function InboxScreen({ children }: { children: ReactNode }) {
   return frame(
     <>
       {banner}
-      {wide ? (
+      {twoPanes ? (
         // The list a share of the inbox between 300 and 400px; the chat everything left.
         <div className="grid min-h-0 flex-1 grid-cols-[clamp(300px,24%,400px)_auto_minmax(0,1fr)] grid-rows-[minmax(0,1fr)]">
           {listPane}

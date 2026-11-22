@@ -4,6 +4,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InboxPanesProvider } from "@/inbox/inbox-panes";
+import { takeReplyFocus } from "@/inbox/reply-focus";
 import { useInboxKeys } from "@/inbox/use-inbox-keys";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -18,18 +19,31 @@ function Inbox({ openId, panel = false }: { openId: string | null; panel?: boole
       <div data-inbox-search>
         <input type="search" aria-label="Search chats" />
       </div>
-      <div role="list" aria-label="Chats">
-        {[1, 2, 3].map((n) => (
-          <a key={n} href={`/inbox/${id(n)}`} data-chat-row="true" data-chat-id={id(n)}>
-            Chat {n}
-          </a>
-        ))}
+      <div data-chat-list>
+        <div data-slot="scroll-area-viewport">
+          <div role="list" aria-label="Chats">
+            {[1, 2, 3].map((n) => (
+              <a key={n} href={`/inbox/${id(n)}`} data-chat-row="true" data-chat-id={id(n)}>
+                Chat {n}
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
+      <header data-chat-header>
+        <button type="button">Stage</button>
+      </header>
       <div data-chat-messages>
-        <p>A message</p>
+        <div data-slot="scroll-area-viewport">
+          <p>A message</p>
+        </div>
       </div>
-      <textarea aria-label="Message" />
-      {panel && <aside data-contact-panel />}
+      <textarea aria-label="Message" data-reply-box />
+      {panel && (
+        <aside data-contact-panel>
+          <button type="button">Add follow-up</button>
+        </aside>
+      )}
       <button type="button" data-panel-toggle>
         Contact and lead details
       </button>
@@ -74,6 +88,30 @@ describe("the Inbox's keys", () => {
     fireEvent.pointerDown(screen.getByText("A message"));
     fireEvent.keyDown(document.body, { key: "ArrowDown" });
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("leaves the arrows to the contact panel, the chat's bar and any scrolling part but the list", () => {
+    render(inInbox(id(2), true));
+    for (const name of ["Add follow-up", "Stage"]) {
+      const button = screen.getByRole("button", { name });
+      button.focus();
+      fireEvent.keyDown(button, { key: "ArrowDown" });
+    }
+    expect(router.push).not.toHaveBeenCalled();
+    // A click among the chats gives the arrows back to the list.
+    fireEvent.pointerDown(screen.getByRole("link", { name: "Chat 1" }));
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+    expect(router.push).toHaveBeenLastCalledWith(`/inbox/${id(3)}`);
+  });
+
+  it("from a reply box, puts the focus in the next chat's reply box", () => {
+    render(inInbox(id(2)));
+    const box = screen.getByRole("textbox", { name: "Message" });
+    box.focus();
+    fireEvent.keyDown(box, { key: "ArrowUp", altKey: true });
+    expect(router.push).toHaveBeenLastCalledWith(`/inbox/${id(1)}`);
+    expect(takeReplyFocus(id(1))).toBe(true);
+    expect(takeReplyFocus(id(1))).toBe(false);
   });
 
   it("goes to the search with Ctrl+K or ⌘K, from the reply box too", () => {

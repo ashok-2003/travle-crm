@@ -14,7 +14,7 @@ import {
 } from "@travel-crm/contracts/inbox";
 import { PaperclipIcon, SendIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -34,6 +34,7 @@ import { draftKey } from "./forward-dialog";
 import { EmojiButton } from "./emoji-button";
 import { ToolsRow, ToolsSheet } from "./composer-tools";
 import { QuickReplyList } from "./quick-reply-list";
+import { takeReplyFocus } from "./reply-focus";
 import { ReplyingBar } from "./replying-bar";
 import { useQuickReplyPicker } from "./use-quick-reply-picker";
 import { useReplying } from "./use-replying";
@@ -70,6 +71,10 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
   const [fileProblem, setFileProblem] = useState<"fileType" | "fileSize" | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  // Come here with Alt+↑ or Alt+↓ from another chat's box: the focus goes on in this one.
+  useEffect(() => {
+    if (takeReplyFocus(conversationId)) box.current?.focus();
+  }, [conversationId]);
   const wide = useWideScreen();
   const signalTyping = useTypingSignal(conversationId);
   const replying = useReplying();
@@ -227,6 +232,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
                 )}
                 <InputGroupTextarea
                   ref={box}
+                  data-reply-box
                   dir="auto"
                   rows={1}
                   maxLength={MAX_TEXT}

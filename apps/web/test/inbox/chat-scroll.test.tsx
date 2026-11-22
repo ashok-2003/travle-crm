@@ -167,4 +167,54 @@ describe("where a chat opens", () => {
     expect(screen.queryByRole("button", { name: /new messages/ })).not.toBeInTheDocument();
     expect(viewport.scrollTop).toBe(12 * ROW);
   });
+
+  /** A chat of `count` messages served ten a page, newest first, the first unread being `firstUnread`. */
+  function pagedChat(count: number, firstUnread: number) {
+    const all = messagesUpTo(count);
+    const api = answerApi({
+      "inbox.conversation": header,
+      "salesInbox.notes": { items: [], people: {} },
+      "inbox.markRead": null,
+      "inbox.messages": (input: unknown) => {
+        const before = (input as { before?: string }).before;
+        const start = before === undefined ? 0 : all.findIndex((message) => message.id === before) + 1;
+        const items = all.slice(start, start + 10);
+        return {
+          items,
+          nextCursor: start + 10 < all.length ? (items.at(-1)?.id ?? null) : null,
+          people: {},
+          unread: { count: count - firstUnread + 1, firstMessageId: id(firstUnread) },
+        };
+      },
+    });
+    return api;
+  }
+
+  it("loads earlier pages to land on a first unread message that isn't among the newest", async () => {
+    const api = pagedChat(20, 5);
+    renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
+    expect(await screen.findByText("16 unread messages")).toBeInTheDocument();
+    const viewport = await viewportOf();
+    // Message 5 is the fifth row once the earlier page is in.
+    await waitFor(() => {
+      expect(viewport.scrollTop).toBe(4 * ROW - 56);
+    });
+    expect(api.of("inbox.messages")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Go to the 16 unread messages" })).not.toBeInTheDocument();
+  });
+
+  it("past three earlier pages, opens at the newest with the way up to the first unread", async () => {
+    const api = pagedChat(50, 2);
+    renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
+    const way = await screen.findByRole("button", { name: "Go to the 49 unread messages" });
+    // The newest page and three earlier ones, no more.
+    expect(api.of("inbox.messages")).toHaveLength(4);
+    const viewport = await viewportOf();
+    expect(viewport.scrollTop).toBe(40 * ROW);
+    await userEvent.click(way);
+    await waitFor(() => {
+      expect(api.of("inbox.messages")).toHaveLength(5);
+    });
+    expect(screen.queryByRole("button", { name: "Go to the 49 unread messages" })).not.toBeInTheDocument();
+  });
 });

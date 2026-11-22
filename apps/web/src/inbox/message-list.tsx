@@ -2,11 +2,12 @@
 
 // The messages of a chat, in a scroll area of their own (spec 3.2): oldest at the top, the newest at the bottom, a line between
 // days, earlier messages loaded as the top is reached (and a button for whoever cannot scroll), and "3 new messages ↓" when
-// some arrived below while the person was reading higher up. It opens on the first unread message, or where the chat was
-// left in this tab (chat-scroll.ts). The team's notes sit among the messages at their time (sales inbox spec 6); a search in
+// some arrived below while the person was reading higher up. It opens on the first unread message (loading up to
+// LAND_PAGES earlier pages to find it, else at the newest with a way to it), or where the chat was left in this tab
+// (chat-scroll.ts). The team's notes sit among the messages at their time (sales inbox spec 6); a search in
 // the chat shows only what matches. The reply box is not in here: it stays where it is.
 import type { ChatMessage, ConversationNote } from "@travel-crm/contracts/inbox";
-import { ArrowDownIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AiTyping } from "@/ai/ai-turn";
@@ -34,6 +35,9 @@ const dayKey = (instant: string, timeZone: string) =>
   );
 
 type Pages = ReturnType<typeof useMessages>;
+
+/** Earlier pages loaded, at most, to land on the first unread message as a chat opens. */
+export const LAND_PAGES = 3;
 
 /** One line of the chat: a message, or a team note. */
 type Entry =
@@ -63,20 +67,37 @@ function Loaded({
   const oldestFirst: ChatMessage[] = [...items].reverse();
   const newest = oldestFirst.at(-1);
   // What was unread as the chat opened stays on screen as a divider while the chat is open, though the read mark moves.
-  // Not before the list has been asked for afresh: the read mark is what says what was unread, and a saved copy of the last
-  // visit must not clear it first.
-  const fresh = messages.isFetchedAfterMount;
+  // Not before the list is fresh (asked for afresh, or a moment ago, as the pointer rested on its row): the read mark is
+  // what says what was unread, and a saved copy of the last visit must not clear it first.
+  const fresh = messages.isFetchedAfterMount || !messages.isStale;
   const [opened, setOpened] = useState<{ count: number; firstMessageId: string | null } | null | undefined>(undefined);
   const unreadNow = messages.data?.pages[0]?.unread;
   if (opened === undefined && fresh && unreadNow !== undefined) setOpened(unreadNow);
+  // The first unread message, found among the pages loaded, or after loading up to LAND_PAGES earlier ones.
+  const firstUnread =
+    !searching && opened !== undefined && opened !== null && opened.count > 0 ? opened.firstMessageId : null;
+  const unreadShown = firstUnread !== null && items.some((message) => message.id === firstUnread);
+  // The pages loaded past the newest: as the chat opens, the ones loaded to find it.
+  const earlierLoaded = (messages.data?.pages.length ?? 1) - 1;
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = messages;
+  useEffect(() => {
+    if (firstUnread === null || unreadShown || !hasNextPage || isFetchingNextPage || earlierLoaded >= LAND_PAGES)
+      return;
+    void fetchNextPage();
+  }, [firstUnread, unreadShown, hasNextPage, isFetchingNextPage, earlierLoaded, fetchNextPage]);
+  const unreadOutOfReach =
+    firstUnread !== null && !unreadShown && !isFetchingNextPage && (!hasNextPage || earlierLoaded >= LAND_PAGES);
+  const [wentToUnread, setWentToUnread] = useState(false);
   const { root, unseen, unseenCount, away, toBottom } = useChatScroll({
     positionKey: searching ? null : conversationId,
     landOn:
       searching || opened === undefined
         ? undefined
-        : opened !== null && opened.count > 0
-          ? opened.firstMessageId
-          : null,
+        : firstUnread === null || unreadOutOfReach
+          ? null
+          : unreadShown
+            ? firstUnread
+            : undefined,
     oldestId: oldestFirst[0]?.id ?? null,
     newestId: newest?.id ?? null,
     newestIsOurs: newest?.origin === "staff_crm" && newest.status === "queued",
@@ -91,7 +112,6 @@ function Loaded({
     shown.current = oldestFirst;
   });
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  const { fetchNextPage } = messages;
   const jumpTo = useCallback(
     async (messageId: string) => {
       let more = true;
@@ -202,6 +222,20 @@ function Loaded({
               </ol>
             </div>
           </ScrollArea>
+          {unreadOutOfReach && !wentToUnread && (
+            // The first unread message is further up than the chat loads as it opens: the way to it.
+            <Button
+              variant="secondary"
+              className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full"
+              onClick={() => {
+                setWentToUnread(true);
+                jump.jumpTo(firstUnread);
+              }}
+            >
+              <ArrowUpIcon aria-hidden="true" />
+              {t("jumpToUnread", { count: opened?.count ?? 0 })}
+            </Button>
+          )}
           {unseen && unseenCount > 0 ? (
             // Messages came in below while the person read higher up: how many, and the way down to them.
             <Button

@@ -1,9 +1,12 @@
 // The Inbox's sound and desktop alerts (inbox revamp spec, part 1 item 5), all in the browser: nothing is sent to the
 // server for them. Both are off until the member turns them on (alerts-menu.tsx), and kept in this browser's localStorage.
 // An alert is for a customer's new message in a chat of the member's own, or an unassigned one for whoever takes those,
-// when that chat isn't the one in front of them; two tabs of the Inbox alert once. The sound is made with the Web Audio
-// API, no file.
+// when that chat isn't the one in front of them; two tabs of the Inbox alert once. A chat is unassigned when its person has
+// no lead or no lead anyone owns, never because the member can't see its lead. The sound is made with the Web Audio API, no
+// file; a desktop notification goes through the service worker where one is ready (the only way on Android's Chrome), else
+// the page's own Notification.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
+import { inboxRoute } from "@/lib/routes";
 import { holds, type SignedInMember } from "@/session/me-context";
 
 export type AlertKind = "sound" | "desktop";
@@ -55,10 +58,14 @@ export function takesUnassigned(me: SignedInMember): boolean {
   return scopeOf("inbox:view") === "all" || scopeOf("leads:view") === "all";
 }
 
-/** Whether a customer's message in this chat is the member's to hear of: their lead's, or unassigned and theirs to take. */
-export function alertsMember(me: SignedInMember, header: Pick<ConversationHeader, "lead">): boolean {
-  const owner = header.lead?.ownerUserId ?? null;
-  return owner === null ? takesUnassigned(me) : owner === me.user.id;
+/**
+ * Whether a customer's message in this chat is the member's to hear of: a lead of theirs, or no lead anyone owns and
+ * unassigned chats theirs to take. A lead someone else owns makes the chat theirs, though this member may not see it.
+ */
+export function alertsMember(me: SignedInMember, header: Pick<ConversationHeader, "liveLead">): boolean {
+  const lead = header.liveLead;
+  if (lead?.mine === true) return true;
+  return lead?.assigned !== true && takesUnassigned(me);
 }
 
 let audio: AudioContext | null = null;
@@ -97,4 +104,23 @@ export function playChime(): void {
 /** Whether this browser can show desktop notifications, and what the member let it do. */
 export function notificationPermission(): NotificationPermission | "unsupported" {
   return typeof Notification === "undefined" ? "unsupported" : Notification.permission;
+}
+
+/**
+ * Shows "New message from …" for a chat, which opens it: through the service worker when one is ready (its click opens
+ * `data.path`, as a push's does), else as the page's own notification, whose click comes back to this tab.
+ */
+export async function showChatNotice(title: string, conversationId: string, open: () => void): Promise<void> {
+  const tag = `inbox-${conversationId}`;
+  const worker = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+  if (worker?.active != null) {
+    await worker.showNotification(title, { tag, data: { path: inboxRoute(conversationId) } });
+    return;
+  }
+  const notice = new Notification(title, { tag });
+  notice.onclick = () => {
+    window.focus();
+    open();
+    notice.close();
+  };
 }

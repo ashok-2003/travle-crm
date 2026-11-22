@@ -9,6 +9,7 @@ import { ChatDropZone } from "@/inbox/chat-drop";
 import { Composer } from "@/inbox/composer";
 import { draftKey } from "@/inbox/forward-dialog";
 import { PendingBubble } from "@/inbox/pending-bubble";
+import { askReplyFocus } from "@/inbox/reply-focus";
 import { readTabValue } from "@/lib/tab-storage";
 import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
@@ -23,6 +24,7 @@ const header = (id: string): ConversationHeader => ({
   personId: null,
   lead: null,
   pastCustomer: false,
+  liveLead: null,
   windowOpenUntil: "2099-01-01T00:00:00.000Z",
   lastInboundAt: "2026-10-26T10:00:00.000Z",
   needsReply: false,
@@ -64,6 +66,15 @@ describe("the reply box", () => {
     other.unmount();
     render(chatA);
     expect(box()).toHaveValue("Houseboat quote?");
+  });
+
+  it("takes the focus when the keys came from another chat's box (Alt with an arrow), and only then", () => {
+    const first = render(chatA);
+    expect(box()).not.toHaveFocus();
+    first.unmount();
+    askReplyFocus(chatB);
+    render(chatB);
+    expect(box()).toHaveFocus();
   });
 
   it("takes words forwarded from another chat, which wait under the same key", () => {
