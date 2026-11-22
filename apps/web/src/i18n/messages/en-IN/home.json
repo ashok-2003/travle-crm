@@ -38,9 +38,9 @@
   },
   "ai": {
     "title": "AI insights",
-    "calls": "AI calls used this month",
+    "calls": "AI credits used this month",
     "callsUsed": "<value>{used}</value> of <n>{limit}</n>",
-    "chart": "AI calls used this month, against the monthly limit",
+    "chart": "AI credits used this month, against the monthly limit",
     "chats": "Chats the AI answered",
     "loadFailed": "The AI's figures didn't load."
   },

@@ -1,11 +1,14 @@
-// How many AI calls an agency has made this month, against its limit (a named constant): every AI feature (a suggested
+// How many AI credits (one per AI call) an agency has used this month, against its limit (a named constant): every AI feature (a suggested
 // reply, a lead's score) shares it. The count is one row a month, raised in a single statement that refuses to pass the limit,
 // so two members asking at once never go over it.
 import type { OrgTx } from "@travel-crm/db";
 import { monthStartOf } from "../inbox/index.js";
 
-/** AI calls an agency may make in a month, whatever its plan (the owner, 2026-11-06: 8,000, shared by every AI feature and the autopilot). */
-export const MONTHLY_AI_LIMIT = 8000;
+/**
+ * AI credits an agency may use in a month (one per AI call), whatever its plan: shared by every AI feature and the autopilot
+ * (the owner: 8,000 on 2026-11-06, 10,000 on 2026-11-22, when calls were renamed credits for the first paid plans).
+ */
+export const MONTHLY_AI_LIMIT = 10_000;
 
 /** Takes one of this month's calls; false when none is left. */
 export async function reserveAiCall(tx: OrgTx, now: Date, timeZone: string): Promise<boolean> {

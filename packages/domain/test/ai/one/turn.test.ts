@@ -285,7 +285,7 @@ describe("the one agent's live turn", () => {
     expect(await full.turn()).toBe("handed_off");
     expect(full.model.requests).toEqual([]);
     expect((await full.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
-    expect((await full.chatState())?.handoffReason).toBe("This month's AI replies are used up");
+    expect((await full.chatState())?.handoffReason).toBe("This month's AI credits are used up");
   });
 
   it("hands over as at the limit when the month's last call goes during the turn", async () => {
@@ -297,7 +297,7 @@ describe("the one agent's live turn", () => {
     expect(await on.turn()).toBe("handed_off");
     expect(on.model.requests).toHaveLength(1);
     expect((await on.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
-    expect((await on.chatState())?.handoffReason).toBe("This month's AI replies are used up");
+    expect((await on.chatState())?.handoffReason).toBe("This month's AI credits are used up");
   });
 
   /** A payment photo in the chat: the UPI line the QR went out on, then the customer's image. */
