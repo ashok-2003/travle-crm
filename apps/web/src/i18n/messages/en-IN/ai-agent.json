@@ -10,33 +10,47 @@
     }
   },
   "title": "AI agent",
-  "intro": "Your WhatsApp sales assistant: what it's doing, what needs you, and how it's set up.",
+  "intro": "Your WhatsApp sales assistant: what it's doing and what needs you.",
   "tabs": {
     "label": "AI agent sections",
     "overview": "Overview",
-    "setup": "Setup",
     "try": "Try it"
+  },
+  "setupButton": {
+    "done": "Setup",
+    "progress": "Setup · {done} of {total}"
   },
   "state": {
     "on": "On: answering WhatsApp chats",
     "onNotReady": "On, but not answering chats",
-    "wontAnswerUntil": "It won't answer until you:",
     "off": "Off",
     "paused": "Paused by {product} support",
     "notSetUp": "Not set up yet",
-    "openSetup": "Open Setup",
     "loadFailed": "The agent's state didn't load."
+  },
+  "banner": {
+    "title": "The AI isn't answering yet: {count, plural, one {# step left} other {# steps left}}",
+    "finish": "Finish setup"
   },
   "needsYou": {
     "title": "Needs you",
+    "titleCount": "Needs you · {count}",
+    "nothing": "Nothing needs you right now.",
+    "tiles": {
+      "handedOver": "Chats handed to you",
+      "suggestions": "Lost or Not a lead to confirm",
+      "payments": "Payments to check"
+    },
+    "show": {
+      "handedOver": "Show chats",
+      "suggestions": "Show suggestions",
+      "payments": "Open payments"
+    },
     "handedOver": "Chats handed over to you",
     "reasonNone": "No reason was given.",
     "since": "Since {when}",
     "suggestions": "Suggested: Lost or Not a lead",
     "suggested": "{stage}: {reason}",
-    "payments": "Payments to check",
-    "paymentsCount": "{count, plural, one {# payment waits for you} other {# payments wait for you}}",
-    "nothing": "Nothing needs you right now.",
     "loadFailed": "This part didn't load."
   },
   "last24": {
@@ -54,29 +68,37 @@
   "loading": "Loading the AI agent",
   "loadFailed": "The AI agent didn't load.",
   "setup": {
+    "title": "AI agent setup",
+    "intro": "What the AI needs before it can answer your WhatsApp chats.",
+    "back": "AI agent",
+    "progress": "{done} of {total} done",
+    "progressLabel": "Setup progress",
     "done": "Done",
     "todo": "To do",
     "optional": "Optional",
-    "edit": "Edit",
-    "close": "Close",
-    "editNamed": "Edit {title}",
-    "closeNamed": "Close {title}",
+    "actions": {
+      "setUp": "Set up",
+      "edit": "Edit",
+      "manage": "Manage",
+      "close": "Close",
+      "setUpNamed": "Set up {title}",
+      "editNamed": "Edit {title}",
+      "manageNamed": "Manage {title}",
+      "closeNamed": "Close {title}"
+    },
     "steps": {
       "ai": {
         "title": "Use the AI",
-        "open": "Open AI settings",
         "done": "The AI is on for your agency",
         "todo": "Turn on the AI in Settings, AI"
       },
       "whatsapp": {
         "title": "WhatsApp number",
-        "open": "Connect your WhatsApp number",
         "done": "Your WhatsApp number is connected",
         "todo": "Connect your WhatsApp number"
       },
       "packages": {
         "title": "Packages the AI can sell",
-        "open": "Open packages",
         "count": "{count, plural, one {# package the AI can sell} other {# packages the AI can sell}}",
         "done": "Packages are ready",
         "todo": "Mark at least one package 'AI can sell'; each needs an advance",
@@ -176,9 +198,9 @@
     },
     "turnOn": {
       "title": "Turn the AI agent on",
-      "finishFirst": "Before the AI agent can be turned on, it needs:",
+      "finishFirst": "Finish the steps above to turn it on.",
       "paused": "Paused by {product} support",
-      "onButNotReady": "The AI agent is on but not answering until:"
+      "onButNotReady": "It's on, but it won't answer until the steps above are done."
     }
   }
 }

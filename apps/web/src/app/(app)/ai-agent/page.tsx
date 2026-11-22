@@ -1,4 +1,4 @@
-// /ai-agent: the AI agent's page (overview, setup, try it), for whoever manages the AI (Owner, Admin).
+// /ai-agent: the AI agent's page (its overview and Try it; Setup is /ai-agent/setup), for whoever manages the AI.
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";

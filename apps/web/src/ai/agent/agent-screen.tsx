@@ -1,16 +1,18 @@
 "use client";
 
-// /ai-agent: the AI agent's own page, in three tabs (Overview, Setup, Try it); the open tab is kept in the address as ?tab=.
+// /ai-agent: the AI agent's own page, the full width: its state beside the title, Setup (a page of its own) at the top
+// right, and two tabs, Overview and Try it (?tab=try). An old ?tab=setup address opens the Setup page, at its step.
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { routes } from "@/lib/routes";
 import { TestSection } from "../test-section";
 import { AgentOverview } from "./agent-overview";
-import { AgentSetupTab } from "./agent-setup";
+import { AgentStateBadge, SetupButton } from "./agent-state";
 
-const tabs = ["overview", "setup", "try"] as const;
+const tabs = ["overview", "try"] as const;
 type AgentTab = (typeof tabs)[number];
 
 const tabOf = (value: string | null): AgentTab => tabs.find((tab) => tab === value) ?? "overview";
@@ -18,14 +20,19 @@ const tabOf = (value: string | null): AgentTab => tabs.find((tab) => tab === val
 export function AgentScreen() {
   const t = useTranslations("aiAgent");
   const router = useRouter();
-  const tab = tabOf(useSearchParams().get("tab"));
+  const asked = useSearchParams().get("tab");
+  const tab = tabOf(asked);
+  useEffect(() => {
+    // Links made before Setup had its own page ("?tab=setup#step-payment") still reach it, at the step they named.
+    if (asked === "setup") router.replace(`${routes.aiAgentSetup}${window.location.hash}`);
+  }, [asked, router]);
   return (
-    <div className="flex max-w-[720px] flex-col gap-6">
-      <PageHeader title={t("title")} intro={t("intro")} />
+    <div className="flex flex-col gap-6">
+      <PageHeader title={t("title")} status={<AgentStateBadge />} intro={t("intro")} action={<SetupButton />} />
       <Tabs
         value={tab}
         onValueChange={(next) => {
-          router.replace(`${routes.aiAgent}?tab=${tabOf(next)}`);
+          router.replace(tabOf(next) === "try" ? `${routes.aiAgent}?tab=try` : routes.aiAgent);
         }}
       >
         <TabsList aria-label={t("tabs.label")}>
@@ -37,9 +44,6 @@ export function AgentScreen() {
         </TabsList>
         <TabsContent value="overview" className="pt-4">
           <AgentOverview />
-        </TabsContent>
-        <TabsContent value="setup" className="pt-4">
-          <AgentSetupTab />
         </TabsContent>
         <TabsContent value="try" className="pt-4">
           <TestSection />

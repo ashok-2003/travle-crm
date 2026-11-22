@@ -1,8 +1,8 @@
-// The Setup tab's editors: each saves the input the api takes, refuses in words, and refreshes the checklist.
+// The Setup page's editors: each saves the input the api takes, refuses in words, and refreshes the checklist.
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentScreen } from "@/ai/agent/agent-screen";
+import { AgentSetupScreen } from "@/ai/agent/agent-setup";
 import { messages } from "@/i18n/messages";
 import { address } from "../../leads/navigation";
 import { newQueryClient, renderWithApi } from "../../organization/api";
@@ -41,10 +41,10 @@ const details = {
 };
 
 function open(title: string, answers: Record<string, Answer>) {
-  address.set("/ai-agent?tab=setup");
+  address.set("/ai-agent/setup");
   const api = recordingApi({ "ai.agentSetup": { data: checklist }, ...answers });
-  renderWithApi(<AgentScreen />, newQueryClient());
-  return { api, edit: () => screen.findByRole("button", { name: `Edit ${title}` }).then((b) => userEvent.click(b)) };
+  renderWithApi(<AgentSetupScreen />, newQueryClient());
+  return { api, edit: () => screen.findByRole("button", { name: `Set up ${title}` }).then((b) => userEvent.click(b)) };
 }
 
 beforeEach(() => {
