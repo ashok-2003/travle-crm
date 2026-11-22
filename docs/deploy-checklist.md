@@ -414,10 +414,17 @@ Secrets come from the platform's secret manager as environment variables, never 
 
 - **The Inbox's live stream** (`GET /api/live`, inbox revamp spec part 1 item 4) is a long response of server-sent
   events under the `/api/*` rule: a comment every 25 s keeps it open, and nothing between the browser and the api may
-  buffer it (`docker/Caddyfile` and `docker/server/Caddyfile` flush it at once; the api sends `Cache-Control: no-cache,
-no-transform` and `X-Accel-Buffering: no`). Vercel's rewrite to the api may end a long stream: the browser reconnects
-  by itself and reads the Inbox afresh, so nothing is lost but a few seconds. A member holds at most five at once, one
-  per open Inbox tab; each api process holds its own streams, and stopping it ends them so it can stop.
+  buffer or keep it (`docker/Caddyfile` and `docker/server/Caddyfile` flush it at once; the api sends `Cache-Control:
+no-store, no-transform`, which Vercel's rewrites honour, and `X-Accel-Buffering: no`). A member holds at most five at
+  once, one per open Inbox tab or lead page with a chat; each api process holds its own streams, and stopping it ends
+  them so it can stop.
+  - **Behind Vercel:** its rewrites to an outside address time a request out at 120 s, and whether that cuts a stream
+    isn't documented. Expect each open tab to reconnect about every 2 minutes, after its own wait of 3 to 10 s (the api
+    gives each stream a different one, so a cut or a restart doesn't bring every tab back in the same second). A
+    reconnect costs one request: the list's first page, the counts and the open chat; nothing else is read again.
+  - **Over HTTP/1.1** (`pnpm dev`, `pnpm product:up`) each tab's stream holds one of the browser's six connections to the
+    address, so more than a few Inbox tabs at once can slow every other request of that address; production on Vercel is
+    HTTP/2, where they share one connection.
 - **One address for everything** (spec 3): the app's https origin is `BETTER_AUTH_URL` and `APP_URL`, so cookies
   stay first-party and the api needs no CORS. Share links (`/p/*`) and the webhook intake (`/webhooks/*`) are the
   api's, not the web app's. `docker/Caddyfile` is this table, and `pnpm product:smoke` proves it path by path.

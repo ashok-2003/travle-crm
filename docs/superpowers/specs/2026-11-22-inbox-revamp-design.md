@@ -38,6 +38,8 @@ The Inbox is the page sales agents live in; the goal is that they use it instead
    **min of 520px**, the contact panel `clamp(300px, 22%, 380px)` when open. When the panel would push the chat under
    its min, it floats over the chat's right edge instead (a sheet from the right, the floating shadow), never squeezing
    it. Whether the panel is open is remembered in the browser. Edge to edge as now; phones unchanged in structure.
+   The 520px holds from 1024px wide; below 1024px the Inbox shows one pane at a time as a phone does (the list, then
+   the chat over it with a way back) (team lead's ruling, fix round 1, 2026-11-22).
 3. **Instant switching:** a row's chat (its header and the newest page of messages) is fetched when the pointer rests
    on the row or it gets focus, so it opens at once; each chat keeps its unsent draft (as now) and its scroll position
    for the tab; opening a chat lands on its first unread message; scrolled up, a "N new messages ↓" button appears.
