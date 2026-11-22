@@ -98,6 +98,7 @@ export function ChatHeader({
       </Button>
       <Button
         ref={panelButton}
+        data-panel-toggle
         type="button"
         variant={panelOpen ? "secondary" : "ghost"}
         size="icon"
