@@ -19,6 +19,7 @@ import {
   pauseWhatsApp,
   renameWhatsApp,
   resumeWhatsApp,
+  setWhatsAppCaps,
   setWhatsAppMain,
   type PlatformServices,
 } from "../../src/platform/index.js";
@@ -200,6 +201,14 @@ describe("the console's WhatsApp numbers", () => {
     const second = await connected(organizationId, "Sales 2");
     const third = await connected(organizationId, "Sales 3");
 
+    // Two Make mains at once take turns under the subscription's lock: both land, one after the other.
+    await Promise.all([
+      setWhatsAppMain(services, superAdmin, { organizationId, connectionId: second }),
+      setWhatsAppMain(services, superAdmin, { organizationId, connectionId: third }),
+    ]);
+    const flagged = await platform.whatsappConnection.findMany({ where: { organizationId, isMain: true } });
+    expect(flagged).toHaveLength(1);
+
     await setWhatsAppMain(services, superAdmin, { organizationId, connectionId: third });
     expect((await group(organizationId)).numbers.map(({ id, main }) => ({ id, main }))).toEqual([
       { id: third, main: true },
@@ -207,8 +216,8 @@ describe("the console's WhatsApp numbers", () => {
       { id: second, main: false },
     ]);
     expect(
-      await platform.auditEntry.findMany({ where: { organizationId, action: "whatsapp.made-main" } }),
-    ).toMatchObject([{ entityId: third, source: "platform", actorUserId: superAdmin.userId }]);
+      await platform.auditEntry.findMany({ where: { organizationId, action: "whatsapp.made-main", entityId: third } }),
+    ).toContainEqual(expect.objectContaining({ source: "platform", actorUserId: superAdmin.userId }));
 
     await disconnectWhatsApp(services, superAdmin, { organizationId, connectionId: third });
     expect((await group(organizationId)).numbers.map(({ id, main }) => ({ id, main }))).toEqual([
@@ -226,7 +235,7 @@ describe("the console's WhatsApp numbers", () => {
     await renameWhatsApp(services, superAdmin, { organizationId, connectionId, label: "Sales 2" });
     expect((await group(organizationId)).numbers).toMatchObject([{ id: connectionId, label: "Sales 2" }]);
     expect(await platform.auditEntry.findMany({ where: { organizationId, action: "whatsapp.renamed" } })).toMatchObject(
-      [{ entityId: connectionId, before: { label: "Sales 1" }, after: { label: "Sales 2" } }],
+      [{ entityId: connectionId, before: { numberLabel: "Sales 1" }, after: { numberLabel: "Sales 2" } }],
     );
   });
 
@@ -243,10 +252,12 @@ describe("the console's WhatsApp numbers", () => {
     for (const action of [
       () => markWhatsAppConnected(services, superAdmin, input),
       () => pauseWhatsApp(services, superAdmin, input),
+      () => resumeWhatsApp(services, superAdmin, input),
       () => disconnectWhatsApp(services, superAdmin, input),
       () => setWhatsAppMain(services, superAdmin, input),
       () => renameWhatsApp(services, superAdmin, { ...input, label: "Mine" }),
       () => checkWhatsAppWithProvider(services, input),
+      () => setWhatsAppCaps(services, superAdmin, { ...input, marketingCapMonth: 10, templateCapDay: 10 }),
     ]) {
       await expect(action()).rejects.toMatchObject({ code: "NOT_FOUND" });
     }

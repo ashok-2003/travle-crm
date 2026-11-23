@@ -57,7 +57,7 @@ export async function connectNumber(tx: OrgTx, actor: Actor, input: ConnectWhats
     action: "whatsapp.recorded",
     entityType: "whatsapp_connection",
     entityId: created.id,
-    after: { status: "setup", mode: input.mode, label: input.label, main },
+    after: { status: "setup", mode: input.mode, numberLabel: input.label, main },
   });
   await changed(tx, created.id);
   return created.id;
@@ -177,8 +177,8 @@ export async function renameNumber(
     action: "whatsapp.renamed",
     entityType: "whatsapp_connection",
     entityId: connection.id,
-    before: { label: connection.label },
-    after: { label: input.label },
+    before: { numberLabel: connection.label },
+    after: { numberLabel: input.label },
   });
 }
 

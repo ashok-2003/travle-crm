@@ -395,6 +395,9 @@
     }
   },
   "fields": {
+    "main": "Main number",
+    "numberLabel": "Label",
+    "aiAnswers": "AI answers",
     "paused": "Paused",
     "name": "Name",
     "permissions": "What the role allows",

@@ -1,9 +1,9 @@
 "use client";
 
 // One of an organization's WhatsApp numbers on its console page (spec 2026-11-22 section 10), in a region named by its
-// label: the Main mark, number, status, mode and quality; once recorded, "Waiting for the first message", then "Webhook
-// received" and Mark connected (off, with its reason, until the plan has the inbox and room for it and the first event
-// arrived); Pause, Resume, Check with MSG91, Make main, Rename and Disconnect (asked once more, naming the number that
+// label and number (labels need not differ): the Main mark, status, mode and quality; once recorded, "Waiting for the
+// first message", then "Webhook received" and Mark connected (off, with its reason, until the plan has the inbox and
+// room for it and the first event arrived); Pause, Resume, Check with MSG91, Make main, Rename and Disconnect (asked once more, naming the number that
 // becomes main); and its usage by month. Every action sends this number's id. Super admins change; support only looks.
 import type { ConsoleNumber } from "@travel-crm/contracts/inbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -80,13 +80,12 @@ export function NumberBlock({
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 id={headingId} className="font-semibold">
-          {number.label}
+          {t("group.numberName", { label: number.label, number: shown })}
         </h3>
         {number.main && <Badge variant="outline">{t("group.main")}</Badge>}
       </div>
       <Details
         rows={[
-          { label: t("columns.number"), value: <span className="numbers">{shown}</span> },
           {
             label: t("columns.status"),
             value: (

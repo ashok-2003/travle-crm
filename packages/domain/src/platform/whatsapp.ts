@@ -280,21 +280,37 @@ export async function markWhatsAppConnected(
   );
 }
 
-/** A change to one number by its id, as the platform admin, logged under `action`. */
-function onNumber(action: string, change: (tx: OrgTx, actor: Actor, connectionId: string, now: Date) => Promise<void>) {
+/** A change to one number by its id, as the platform admin, logged under `action`, after the guard if one is given. */
+function onNumber(
+  action: string,
+  change: (tx: OrgTx, actor: Actor, connectionId: string, now: Date) => Promise<void>,
+  guard?: (organizationId: string) => (tx: PlatformTx, now: Date) => Promise<void>,
+) {
   return async (services: PlatformServices, staff: PlatformActor, input: WhatsappNumberInput): Promise<void> => {
     const actor = platformActor(input.organizationId, adminOf(staff));
-    await changeNumber(services, staff, input.organizationId, action, (tx, now) =>
-      change(tx, actor, input.connectionId, now).then(() => input.connectionId),
+    await changeNumber(
+      services,
+      staff,
+      input.organizationId,
+      action,
+      (tx, now) => change(tx, actor, input.connectionId, now).then(() => input.connectionId),
+      guard?.(input.organizationId),
     );
   };
 }
 
+/** The subscription's lock, held first: two Make mains at once run one after the other, never both clearing the flag. */
+const oneAtATime = (organizationId: string) => async (tx: PlatformTx, now: Date) => {
+  await lockSubscription(tx, organizationId, now);
+};
+
 export const pauseWhatsApp = onNumber("whatsapp.paused", pauseNumber);
 export const resumeWhatsApp = onNumber("whatsapp.resumed", resumeNumber);
 export const disconnectWhatsApp = onNumber("whatsapp.disconnected", disconnectNumber);
-export const setWhatsAppMain = onNumber("whatsapp.made-main", (tx, actor, connectionId) =>
-  setMainNumber(tx, actor, connectionId),
+export const setWhatsAppMain = onNumber(
+  "whatsapp.made-main",
+  (tx, actor, connectionId) => setMainNumber(tx, actor, connectionId),
+  oneAtATime,
 );
 
 export async function renameWhatsApp(
