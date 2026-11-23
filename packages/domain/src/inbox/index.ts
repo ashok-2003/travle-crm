@@ -115,6 +115,7 @@ export {
   updateTripKit,
   type TripKitDependencies,
 } from "./trip-kits.js";
+export { numberAnswers, setNumberAnswers } from "./number-ai.js";
 export { sendTripKit, sendTripKitOnKeyword, tripKitFor, tripKitKeywordListener } from "./trip-kit-send.js";
 export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";

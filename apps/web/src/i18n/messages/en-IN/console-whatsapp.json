@@ -64,6 +64,7 @@
       "LIMIT_REACHED": "The plan has no room for another number."
     },
     "main": "Main",
+    "numberName": "{label} ({number})",
     "connect": "Connect a number",
     "waiting": "Waiting for the first message: send a WhatsApp to {number} from any phone.",
     "received": "Webhook received {when}",

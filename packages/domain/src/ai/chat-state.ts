@@ -5,6 +5,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
+import { numberAnswers } from "../inbox/index.js";
 import { DomainError } from "../kernel/index.js";
 import { agentReachOf, answersInChat } from "./agent-reach.js";
 import { autopilotOf } from "./autopilot.js";
@@ -21,7 +22,8 @@ const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 
 /**
  * `available`: the AI is configured on this server and allowed for the agency (plan, subscription, the AI module's
- * switch, no pause by platform staff). Then the agent's own switch and setup decide whether it answers (agent-reach.ts).
+ * switch, no pause by platform staff). Then the agent's own switch and setup, and the chat's number's switch, decide
+ * whether it answers (agent-reach.ts).
  */
 export async function chatAiOf(
   tx: OrgTx,
@@ -35,7 +37,8 @@ export async function chatAiOf(
   const mode = state?.mode === "on" || state?.mode === "off" ? state.mode : "default";
   // The setup is read only where the AI shows at all.
   const agent = available ? await agentReachOf(tx, input.organizationId, input.now) : "off";
-  const answering = available && answersInChat(agent, state);
+  const numberOn = await numberAnswers(tx, conversationId);
+  const answering = available && answersInChat(agent, state, numberOn);
   return {
     mode,
     answering,
@@ -56,6 +59,7 @@ export async function chatAiOf(
       : null,
     agentName: settings.agentName,
     available,
+    numberOff: !numberOn,
   };
 }
 

@@ -101,6 +101,7 @@
     "agentOff": "The AI agent is off, so it answers no chat.",
     "agentNotReady": "The AI agent isn't set up yet, so it answers no chat.",
     "agentLink": "Open AI agent",
+    "numberOff": "The AI is off for this chat's WhatsApp number.",
     "queued": "The AI has the message and is waiting for the next line.",
     "thinking": "The AI is writing a reply.",
     "handedOff": "The AI handed this chat to a person.",

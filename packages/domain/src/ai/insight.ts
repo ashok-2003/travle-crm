@@ -16,7 +16,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import { openLeadOfChat } from "../crm/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { calendarDateIn } from "../kernel/index.js";
-import { TEXT_RECEIVED_EVENT } from "../inbox/index.js";
+import { numberAnswers, TEXT_RECEIVED_EVENT } from "../inbox/index.js";
 import { defineListener, uuidFromKey, type EventListener, type JobHandler } from "../jobs/index.js";
 import type { SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
@@ -78,7 +78,7 @@ async function nothingNewSince(tx: OrgTx, conversationId: string, leadId: string
  * postpones the scoring (`turn_under_way`: the job runs again a little later, `later`); a turn that scored the lead after
  * the customer's newest line leaves it nothing to add, and saves the call (`agent_scores`). A turn may end without a
  * score (the setup not ready, a hand-over before the model), so a later run scores it then. A chat the agent doesn't
- * answer (handed over, switched off in the chat, the owner's switch off) is scored here as before.
+ * answer (handed over, switched off in the chat or on its number, the owner's switch off) is scored here as before.
  */
 async function agentScores(
   tx: OrgTx,
@@ -90,7 +90,8 @@ async function agentScores(
     where: { conversationId: input.conversationId },
     select: { mode: true, handedOffAt: true, turnState: true, turnAt: true },
   });
-  if (!agentAnswers(chat?.mode ?? "default", settings.autopilot) || chat?.handedOffAt != null) return null;
+  const numberOn = await numberAnswers(tx, input.conversationId);
+  if (!agentAnswers(chat?.mode ?? "default", settings.autopilot, numberOn) || chat?.handedOffAt != null) return null;
   // A mark the worker left behind (it stopped mid-way) waits for no turn; a later run waits for none either.
   if (!input.later && turnUnderWay(chat, input.now) !== null) return "turn_under_way";
   const insight = await tx.leadAiInsight.findFirst({ where: { leadId: input.leadId }, select: { updatedAt: true } });

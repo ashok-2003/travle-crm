@@ -11,6 +11,7 @@ import {
   chatsAnsweredInput,
   handedOverChatList,
   setAgentOnInput,
+  setNumberAnswersInput,
   linkAdInput,
   whatsappAds,
   saveAgencyAnswersInput,
@@ -96,7 +97,7 @@ import {
   updateKnowledge,
   writeUpQuote,
 } from "@travel-crm/domain/ai";
-import { adPackageChoicesOf, adsOf, linkAd } from "@travel-crm/domain/inbox";
+import { adPackageChoicesOf, adsOf, linkAd, setNumberAnswers } from "@travel-crm/domain/inbox";
 import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
 import { organizationTimeZone } from "@travel-crm/domain/identity";
@@ -383,6 +384,19 @@ export const aiRouter = router({
     .mutation(async ({ ctx, input }) => {
       const today = await agencyToday(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => setAgentOn(tx, ctx.member, input.on, today));
+    }),
+
+  /** One WhatsApp number's AI on or off, under the agency's switch; the setup again, with the numbers. */
+  setNumberAnswers: freshProcedure
+    .requires("ai:manage")
+    .input(setNumberAnswersInput)
+    .output(agentSetup)
+    .mutation(async ({ ctx, input }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        await setNumberAnswers(tx, ctx.member, input);
+        return agentSetupOf(tx, ctx.member.organizationId, today);
+      });
     }),
 
   /** Chats the agent handed over to a person: the member's own (`mine`), or all their inbox shows (AI managers only). */

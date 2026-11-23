@@ -16,6 +16,12 @@ const text = messages.consoleWhatsapp;
 const organizationId = "0199a000-0000-7000-8000-0000000000a1";
 const first = "0199a000-0000-7000-8000-0000000000d1";
 const second = "0199a000-0000-7000-8000-0000000000d2";
+const third = "0199a000-0000-7000-8000-0000000000d3";
+const displayNumbers: Record<string, string> = {
+  [first]: "+919876543210",
+  [second]: "+919812345678",
+  [third]: "+919811122233",
+};
 
 beforeEach(() => {
   screenIs("wide");
@@ -32,7 +38,7 @@ function aNumber(id: string, label: string, overrides: Partial<ConsoleNumber> = 
     organizationName: "Test agency",
     label,
     main: false,
-    displayNumber: id === first ? "+919876543210" : "+919812345678",
+    displayNumber: displayNumbers[id] ?? "+919800000000",
     mode: "new_number",
     status: "connected",
     connectedAt: "2026-11-20T04:30:00.000Z",
@@ -73,7 +79,8 @@ const render = (group: ConsoleOrganizationWhatsapp, answers: Record<string, { da
   return renderConsole(<OrganizationWhatsapp organizationId={organizationId} />);
 };
 
-const numberRegion = (label: string) => screen.findByRole("region", { name: label });
+/** A number's region, named by its label and number. */
+const numberRegion = (label: string) => screen.findByRole("region", { name: new RegExp(`^${label} \\(\\+91`) });
 
 describe("an organization's WhatsApp numbers", () => {
   it("lists each number with its label, status and main mark, and its own actions", async () => {
@@ -128,6 +135,29 @@ describe("an organization's WhatsApp numbers", () => {
     await waitFor(() => {
       expect(inputsTo("whatsapp.disconnect")).toEqual([{ organizationId, connectionId: first }]);
     });
+  });
+
+  it("names two numbers with one label apart by their numbers", async () => {
+    render(aGroup([aNumber(first, "Sales 1", { main: true }), aNumber(second, "Sales 1")]));
+    expect(await screen.findByRole("region", { name: "Sales 1 (+91 98765 43210)" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Sales 1 (+91 98123 45678)" })).toBeVisible();
+  });
+
+  it("names as the next main the oldest number past setting up, not an older one still setting up", async () => {
+    render(
+      aGroup(
+        [
+          aNumber(first, "Sales 1", { main: true }),
+          aNumber(second, "Sales 2", { status: "setup", connectedAt: null }),
+          aNumber(third, "Sales 3"),
+        ],
+        { limit: { used: 3, allowed: 3 } },
+      ),
+    );
+    await userEvent.click(within(await numberRegion("Sales 1")).getByRole("button", { name: text.group.disconnect }));
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent(
+      "Sales 3 (+91 98111 22233) becomes the main number.",
+    );
   });
 
   it("renames a number and makes another main", async () => {

@@ -15,6 +15,7 @@ import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { agentPauseOf } from "../subscriptions/index.js";
+import { numberAnswers } from "./number-ai.js";
 
 /** Published when a customer writes and the agency has an automatic answer that could fit (never a reaction, a blocked contact, or STOP). */
 export const CUSTOMER_WROTE_EVENT = "whatsapp.customer-wrote";
@@ -87,13 +88,15 @@ const agentSwitchedOn = async (tx: OrgTx): Promise<boolean> =>
   (await tx.aiAutopilot.findFirst({ select: { autopilot: true } }))?.autopilot === true;
 
 /**
- * Whether the agency's AI agent can answer now: its switch is on, the AI module is on and platform staff have not paused
- * it. Inbox reads these in a few lines rather than import ai (ai imports inbox). Keyword trip kits stand aside only for
- * an agent that can answer, so a paused agency keeps them. The plan and subscription are not read here: they come from a
- * service this path doesn't have, and an agency without the AI module has `ai_settings.enabled` off in practice.
+ * Whether the agency's AI agent can answer in this chat now: its switch is on, the chat's number lets it (its own switch
+ * on, not disconnected), the AI module is on and platform staff have not paused it. Inbox reads these in a few lines
+ * rather than import ai (ai imports inbox). Keyword trip kits stand aside only where the agent can answer, so a paused
+ * agency, and a number whose AI is off, keep them. The plan and subscription are not read here: they come from a service
+ * this path doesn't have, and an agency without the AI module has `ai_settings.enabled` off in practice.
  */
-export async function aiAgentOn(tx: OrgTx, organizationId: string): Promise<boolean> {
+export async function aiAgentOn(tx: OrgTx, organizationId: string, conversationId: string): Promise<boolean> {
   if (!(await agentSwitchedOn(tx))) return false;
+  if (!(await numberAnswers(tx, conversationId))) return false;
   if ((await tx.aiSettings.findFirst({ select: { enabled: true } }))?.enabled !== true) return false;
   return (await agentPauseOf(tx, organizationId)) === null;
 }

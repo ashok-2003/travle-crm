@@ -251,9 +251,11 @@ describe("automatic answers", () => {
     expect(await inOrg((tx) => automationCouldAct(tx))).toBe(false);
     await inOrg((tx) => tx.aiAutopilot.updateMany({ data: { autopilot: true } }));
     expect(await inOrg((tx) => automationCouldAct(tx))).toBe(true);
+    await deliver(test, fromCustomer(connection, { customerNumber: freshPhone().replace("+", ""), text: "Hi" }));
+    const chat = await inOrg((tx) => tx.whatsappConversation.findFirstOrThrow());
     // On in its settings is not yet able to answer: the AI module has to be on too.
-    expect(await inOrg((tx) => aiAgentOn(tx, connection.organizationId))).toBe(false);
+    expect(await inOrg((tx) => aiAgentOn(tx, connection.organizationId, chat.id))).toBe(false);
     await inOrg((tx) => tx.aiSettings.create({ data: { enabled: true } }));
-    expect(await inOrg((tx) => aiAgentOn(tx, connection.organizationId))).toBe(true);
+    expect(await inOrg((tx) => aiAgentOn(tx, connection.organizationId, chat.id))).toBe(true);
   });
 });
