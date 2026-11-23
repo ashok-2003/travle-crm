@@ -65,7 +65,7 @@ describe("the Inbox's shared layout", () => {
     window.sessionStorage.clear();
     window.localStorage.clear();
     answerApi({
-      "inbox.status": { configured: true, connected: true, connectionStatus: "connected", demo: false, number: null },
+      "inbox.status": { configured: true, connected: true, demo: false, numbers: [] },
       "inbox.conversations": { items: Array.from({ length: 12 }, (_, index) => aRow(index + 1)), nextCursor: null },
       "salesInbox.summary": summary,
       "inbox.tags": [],

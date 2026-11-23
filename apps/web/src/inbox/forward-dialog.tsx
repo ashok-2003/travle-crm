@@ -49,6 +49,7 @@ export function ForwardDialog({
     tagId: null,
     stage: null,
     period: null,
+    connectionId: null,
   });
   const forward = useForward();
   // The audit entry is written first; only then do the words move to the other chat's box.

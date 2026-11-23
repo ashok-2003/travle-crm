@@ -5,8 +5,8 @@
 // chats on the left and the open chat (the page, `children`) beside them, the chat first (inbox-panes.tsx); on a phone, or
 // a screen under 1024px, the chats, and a chat covers the whole screen over them, so Back finds the list as it was. It
 // hears the live stream (the app's shell holds it and gives the alerts) and holds the keys. The states: WhatsApp not set
-// up for the agency (never naming MSG91), the connection in trouble or paused, the demo (read only), a load that failed
-// with Try again.
+// up for the agency (never naming MSG91), the number in trouble or paused (each such number by its label, once the agency
+// has two), the demo (read only), a load that failed with Try again.
 import { MegaphoneIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -29,6 +29,7 @@ import { NotSetUp } from "./not-set-up";
 import { useInboxLive } from "./use-inbox-live";
 import { useInboxStatus, usePrefetchInboxLists } from "./use-inbox";
 import { useInboxKeys } from "./use-inbox-keys";
+import { useNumbers } from "./use-numbers";
 
 /** The page's own padding, for the states that are a page of words rather than the inbox itself. */
 function Padded({ children }: { children: ReactNode }) {
@@ -52,6 +53,7 @@ export function InboxScreen({ children }: { children: ReactNode }) {
   const twoPanes = useInboxTwoPanes();
   const conversationId = useOpenChatId();
   const status = useInboxStatus();
+  const numbers = useNumbers();
   usePrefetchInboxLists();
   useInboxLive({ openId: conversationId });
   const mayBroadcast = useHolds("inbox:templates");
@@ -87,7 +89,7 @@ export function InboxScreen({ children }: { children: ReactNode }) {
       </Padded>,
     );
   }
-  const { configured, connected, connectionStatus, demo } = status.data;
+  const { configured, connected, demo } = status.data;
   if (!configured || !connected) {
     return frame(
       <Padded>
@@ -96,17 +98,29 @@ export function InboxScreen({ children }: { children: ReactNode }) {
       </Padded>,
     );
   }
-  const notice =
-    connectionStatus === "problem"
-      ? t("problem")
-      : connectionStatus === "paused"
-        ? t("paused")
-        : demo
-          ? t("demo")
-          : null;
-  const banner = notice !== null && (
+  // One number speaks for the agency, as it always did; with two, each number in trouble or paused is named.
+  const [only] = numbers.live;
+  const notices = numbers.show
+    ? numbers.live.flatMap((number) =>
+        number.status === "problem"
+          ? [t("numberProblem", { label: number.label })]
+          : number.status === "paused"
+            ? [t("numberPaused", { label: number.label })]
+            : [],
+      )
+    : only?.status === "problem"
+      ? [t("problem")]
+      : only?.status === "paused"
+        ? [t("paused")]
+        : [];
+  if (demo) notices.push(t("demo"));
+  const banner = notices.length > 0 && (
     <Alert className="shrink-0 rounded-none">
-      <AlertDescription>{notice}</AlertDescription>
+      <AlertDescription>
+        {notices.map((notice) => (
+          <p key={notice}>{notice}</p>
+        ))}
+      </AlertDescription>
     </Alert>
   );
   const listPane = (

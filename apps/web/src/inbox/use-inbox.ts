@@ -64,6 +64,8 @@ export interface ConversationQuery {
   tagId: string | null;
   stage: LeadStage | null;
   period: ConversationPeriod | null;
+  /** Only the chats on this WhatsApp number. */
+  connectionId: string | null;
 }
 
 /** What a page of the chats is asked with: the list's choices, and the cursor (none for the first page). */
@@ -74,6 +76,8 @@ export function conversationsInput(input: ConversationQuery, cursor: string | nu
     ...(input.tagId !== null && { tagId: input.tagId }),
     ...(input.stage !== null && { stage: input.stage }),
     ...(input.period !== null && { period: input.period }),
+    // A list kept from before the filter (its key read back by live-refresh.ts) has no number at all.
+    ...(typeof input.connectionId === "string" && { connectionId: input.connectionId }),
     ...(cursor !== null && { before: cursor }),
   };
 }

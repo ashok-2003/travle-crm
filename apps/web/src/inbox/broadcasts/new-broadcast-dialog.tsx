@@ -1,7 +1,9 @@
 "use client";
 
 // A new broadcast (sales inbox spec 6): choose an approved template, the tags and the template's blanks, check who it reaches
-// (who is left out, and why, and what is left of the month's allowance), then confirm. The browser's request id is made once
+// (who is left out, and why, and what is left of the month's allowance), then confirm. A broadcast goes from its template's
+// number to that number's chats (spec 2026-11-22 section 7, path 20): once the agency has two numbers, the number comes
+// first, the main one chosen to start with, and the templates listed are its own. The browser's request id is made once
 // per opening, so a confirm sent twice is one broadcast. Nothing is sent before the confirm.
 import type { BroadcastPreview, TemplateSummary } from "@travel-crm/contracts/inbox";
 import { broadcastSegments, MAX_BROADCAST_TAGS, type BroadcastSegment } from "@travel-crm/contracts/inbox";
@@ -19,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { broadcastRoute } from "@/lib/routes";
 import { useTags } from "../use-inbox-tools";
+import { useNumbers } from "../use-numbers";
 import { useTemplates } from "../use-templates";
 import { BroadcastPreviewCard } from "./broadcast-preview";
 import { useBroadcastPreview, useCreateBroadcast } from "./use-broadcasts";
@@ -39,7 +42,13 @@ export function NewBroadcastDialog({
   const t = useTranslations("inbox.broadcasts.dialog");
   const router = useRouter();
   const formId = useId();
-  const templates = useTemplates(open);
+  const numbers = useNumbers();
+  const [picked, setPicked] = useState<string | null>(null);
+  // The number picked while it is live, else the main one; none to name while the agency has one number.
+  const connectionId = numbers.show
+    ? ((numbers.live.find((number) => number.id === picked) ?? numbers.live[0])?.id ?? null)
+    : null;
+  const templates = useTemplates(open, connectionId);
   const tags = useTags();
   const [templateId, setTemplateId] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
@@ -117,6 +126,32 @@ export function NewBroadcastDialog({
           if (ready) check.mutate(input, { onSuccess: setPreview });
         }}
       >
+        {connectionId !== null && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`${formId}-number`}>{t("number")}</Label>
+            <Select
+              value={connectionId}
+              onValueChange={(chosen) => {
+                change(() => {
+                  setPicked(chosen);
+                  setTemplateId("");
+                  setParams([]);
+                });
+              }}
+            >
+              <SelectTrigger id={`${formId}-number`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {numbers.live.map((number) => (
+                  <SelectItem key={number.id} value={number.id}>
+                    {number.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor={`${formId}-template`}>{t("template")}</Label>
           {approved.length === 0 && templates.data !== undefined ? (
