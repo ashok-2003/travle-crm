@@ -202,7 +202,7 @@ export function FilterChoices({
             <SelectItem value={ANY}>{t("anyNumber")}</SelectItem>
             {number.numbers.map((one) => (
               <SelectItem key={one.id} value={one.id}>
-                {one.label}
+                {one.status === "disconnected" ? t("disconnectedNumber", { label: one.label }) : one.label}
               </SelectItem>
             ))}
           </SelectContent>

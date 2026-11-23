@@ -8,6 +8,7 @@ import {
   type SaveAssignmentInput,
 } from "@travel-crm/contracts/crm";
 import { checked, type Checked } from "@/components/forms/checked";
+import { mayBeMissing } from "@/lib/older-api";
 import type { RuleDraft } from "./rule-row";
 
 /** The days of the week in the order of the api's bits: Monday is 1, Sunday 64. */
@@ -62,15 +63,18 @@ export function extrasOf(settings: AssignmentSettings): AssignmentExtras {
   return {
     pool: new Set(settings.pool.map((member) => member.userId)),
     workdays: settings.workdays,
-    rules: settings.rules.map((rule): RuleDraft => ({
-      key: newRuleKey(),
-      source: rule.source,
-      destination: rule.destinationId === null ? null : { id: rule.destinationId, name: rule.destinationName ?? "" },
-      tripType: rule.tripType,
-      whatsapp:
-        rule.whatsappConnectionId === null ? null : { id: rule.whatsappConnectionId, label: rule.whatsappLabel ?? "" },
-      assigneeUserId: rule.assigneeUserId,
-    })),
+    rules: settings.rules.map((rule): RuleDraft => {
+      // An older api's rules name no number (the release window).
+      const numberId = mayBeMissing(rule.whatsappConnectionId) ?? null;
+      return {
+        key: newRuleKey(),
+        source: rule.source,
+        destination: rule.destinationId === null ? null : { id: rule.destinationId, name: rule.destinationName ?? "" },
+        tripType: rule.tripType,
+        whatsapp: numberId === null ? null : { id: numberId, label: rule.whatsappLabel ?? "" },
+        assigneeUserId: rule.assigneeUserId,
+      };
+    }),
   };
 }
 

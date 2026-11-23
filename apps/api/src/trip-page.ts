@@ -59,14 +59,19 @@ function noticeOf(context: TripPageContext): string {
   return "";
 }
 
-/** The ways to reach the agency: Talk to its contact (a call, when it gave a number) and WhatsApp us. */
+/** Talk to the agency's contact: a call when it gave a number, else who to ask. */
 function talkTo(context: TripPageContext): string {
   const who = context.contact.name ?? context.agencyName;
-  const call =
-    context.contact.phone === null
-      ? escapeHtml(who)
-      : `<a class="button quiet" href="tel:+${context.contact.phone.replace(/[^\d]/g, "")}">Talk to ${escapeHtml(who)}</a>`;
-  return call + whatsappUs(context.whatsapp);
+  return context.contact.phone === null
+    ? escapeHtml(who)
+    : `<a class="button quiet" href="tel:+${context.contact.phone.replace(/[^\d]/g, "")}">Talk to ${escapeHtml(who)}</a>`;
+}
+
+/** The page's last section, the ways to reach the agency: a call and WhatsApp us; none when it has neither to link. */
+function questions(context: TripPageContext): string {
+  if (context.contact.phone === null && context.whatsapp === null) return "";
+  const call = context.contact.phone === null ? "" : talkTo(context);
+  return `<section><h2>Questions?</h2><div class="row">${call}${whatsappUs(context.whatsapp)}</div></section>`;
 }
 
 function statusWords(trip: PublicTrip): string {
@@ -279,7 +284,7 @@ ${cancelled ? "" : meeting(trip)}
 ${cancelled ? "" : section("Pack for the trip", trip.packingList === "" ? "" : `<p>${paragraphs(trip.packingList)}</p>`)}
 ${terms(trip)}
 ${cancelled ? "" : feedback(trip)}
-<section><h2>Questions?</h2><div class="row">${talkTo(context)}</div></section>`;
+${questions(context)}`;
   const nonce = randomBytes(16).toString("base64url");
   const withScript = !cancelled;
   const html = document({

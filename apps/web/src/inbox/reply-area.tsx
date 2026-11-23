@@ -14,6 +14,7 @@ import { AiReplyBar } from "@/ai/ai-turn";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
 import { formatDayTime } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -73,7 +74,9 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
 
   const box = () => {
     if (status.data?.demo === true) return <Note>{t("replyDemo")}</Note>;
-    if (header.number.status === "disconnected") {
+    // An older api says nothing of the chat's number (the release window): the box behaves as it did before.
+    const number = mayBeMissing(header.number);
+    if (number?.status === "disconnected") {
       return (
         <div className="flex flex-col gap-2">
           <Note>{tErrors("reasons.WHATSAPP_NUMBER_DISCONNECTED")}</Note>
@@ -81,8 +84,8 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
         </div>
       );
     }
-    if (header.number.status === "paused") {
-      const label = labelOf(header.number.id);
+    if (number?.status === "paused") {
+      const label = labelOf(number.id);
       return <Note>{label === null ? t("replyPaused") : t("replyNumberPaused", { label })}</Note>;
     }
     if (header.windowOpenUntil !== null) {

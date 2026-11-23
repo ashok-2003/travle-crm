@@ -1,6 +1,7 @@
 // A package page's ways to reach the agency: Call dials the agency's contact phone and WhatsApp opens a chat with its
 // main WhatsApp number (the api falls back to the contact phone when no number is connected), each shown when it's there.
-import type { PublicPackage } from "@travel-crm/contracts/package-pages";
+// An older api's answer (the release window) has no number: it still parses, and WhatsApp opens the contact phone.
+import { publicPackageAnswer, type PublicPackage } from "@travel-crm/contracts/package-pages";
 import { render, screen } from "@testing-library/react";
 import { createTranslator } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
@@ -59,8 +60,21 @@ describe("PackageView", () => {
     expect(screen.queryByRole("link", { name: words.call })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: words.whatsapp })).toBeVisible();
     unmount();
-    render(await PackageView({ page: pageWith({ phone: "+919820012345", whatsapp: null }) }));
-    expect(screen.getByRole("link", { name: words.call })).toBeVisible();
+    render(await PackageView({ page: pageWith({ phone: null, whatsapp: null }) }));
+    expect(screen.queryByRole("link", { name: words.call })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: words.whatsapp })).not.toBeInTheDocument();
+  });
+
+  it("parses an older api's answer, which has no WhatsApp number, and opens WhatsApp on the contact phone", async () => {
+    const page = pageWith({ phone: "+919820012345", whatsapp: null });
+    const olderAgency: Record<string, unknown> = { ...page.agency };
+    delete olderAgency.whatsapp;
+    const answer = publicPackageAnswer.safeParse(
+      JSON.parse(JSON.stringify({ available: true, page: { ...page, agency: olderAgency } })),
+    );
+    expect(answer.success).toBe(true);
+    if (!answer.success || !answer.data.available) throw new Error("the older answer did not parse");
+    render(await PackageView({ page: answer.data.page }));
+    expect(screen.getByRole("link", { name: words.whatsapp })).toHaveAttribute("href", "https://wa.me/919820012345");
   });
 });

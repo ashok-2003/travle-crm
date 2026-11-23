@@ -2,6 +2,11 @@
 -- gets a short label, a main flag and its own AI switch; the one-live-number index gives way to one main number and one
 -- live record of a number per agency; and an assignment rule may name the number a lead came in on. It only adds, but for
 -- the index swap: undoing it brings the old index back, which works only while every agency has one live number.
+
+-- Altering the two tables and swapping the index lock them: wait at most 5 s for that, rather than queueing every query
+-- behind it.
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE whatsapp_connection
   ADD COLUMN label text NOT NULL DEFAULT 'WhatsApp',
   ADD COLUMN is_main boolean NOT NULL DEFAULT false,

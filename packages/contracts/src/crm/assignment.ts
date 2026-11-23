@@ -54,7 +54,8 @@ export const assignmentRuleInput = z
     source: leadSource.nullable(),
     destinationId: recordId.nullable(),
     tripType: tripType.nullable(),
-    whatsappConnectionId: recordId.nullable(),
+    /** Absent from a tab opened before this release (an older web's save): no number. */
+    whatsappConnectionId: recordId.nullable().default(null),
     assigneeUserId: recordId,
   })
   .refine(

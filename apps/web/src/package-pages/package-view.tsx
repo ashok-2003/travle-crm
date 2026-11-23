@@ -21,6 +21,9 @@ export async function PackageView({ page }: { page: PublicPackage }) {
   const t = await getTranslations("packagePages.page");
   const { agency, package: trip } = page;
   const [hero, ...others] = trip.photos;
+  // The api's number already falls back to the contact phone, so it is null only with neither; an older api's answer
+  // has none (read as null), and the button then opens the contact phone, as before this release.
+  const whatsapp = agency.whatsapp ?? agency.phone;
   const facts = [trip.nights === null ? null : t("nights", { count: trip.nights }), trip.destinationName].filter(
     (fact): fact is string => fact !== null,
   );
@@ -50,9 +53,9 @@ export async function PackageView({ page }: { page: PublicPackage }) {
               </a>
             </Button>
           )}
-          {agency.whatsapp !== null && (
+          {whatsapp !== null && (
             <Button variant="outline" asChild>
-              <a href={`https://wa.me/${digitsOf(agency.whatsapp)}`} target="_blank" rel="noopener noreferrer">
+              <a href={`https://wa.me/${digitsOf(whatsapp)}`} target="_blank" rel="noopener noreferrer">
                 <MessageCircleIcon aria-hidden="true" />
                 {t("whatsapp")}
               </a>

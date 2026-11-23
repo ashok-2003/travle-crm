@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useTRPC } from "@/data/trpc";
 import { formatPhoneNumber } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { useAgentSetup } from "./use-agent";
@@ -37,7 +38,8 @@ export function NumberSwitches() {
     }),
   );
   if (setup === undefined) return null;
-  const { numbers } = setup;
+  // An older api lists no numbers (the release window): no switches, as before.
+  const numbers = mayBeMissing(setup.numbers) ?? [];
   if (numbers.length < 2 && numbers.every((number) => number.aiAnswers)) return null;
   const hintId = `${id}-write`;
   return (
