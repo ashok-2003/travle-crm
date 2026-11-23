@@ -1,7 +1,8 @@
 // What each kind of shared record opens as at /p/<token> (spec 9.3): an issued document redirects to a short-lived download
 // of its PDF; a quote opens as its page (quote-page.ts), where the customer pays by UPI and accepts it, and, once the agency
 // has confirmed the booking made from it, as the trip page (trip-page.ts), where they say "I've paid", fill their details
-// and leave feedback.
+// and leave feedback. Both offer "WhatsApp us" to the agency's main number, found as the package pages find it.
+import { whatsappUsNumber } from "@travel-crm/api";
 import { publicUploadInput, publicConfirmInput } from "@travel-crm/contracts/bookings";
 import { roomRequests } from "@travel-crm/contracts/departures";
 import type { Database } from "@travel-crm/db";
@@ -59,9 +60,11 @@ export function shareLinkResolvers(dependencies: ShareLinkResolverDependencies):
   return {
     [QUOTE_RECORD_TYPE]: async (opened, view) => {
       const now = new Date();
-      const { quote, trip } = await db.forOrg(opened.organizationId, async (tx) => ({
+      const { quote, trip, whatsapp } = await db.forOrg(opened.organizationId, async (tx) => ({
         quote: await publicQuoteOf(tx, opened.recordId),
         trip: await publicTripOf(tx, opened.recordId, now),
+        // "WhatsApp us": the main number, as the package pages find it.
+        whatsapp: await whatsappUsNumber(tx),
       }));
       const agencyName = await agencyNameOf(identity, opened.organizationId);
       // The trip once the agency has confirmed (or it is over or cancelled); the quote until then.
@@ -70,11 +73,12 @@ export function shareLinkResolvers(dependencies: ShareLinkResolverDependencies):
         return tripPage(trip, {
           agencyName,
           contact: { name: profile?.contactName ?? null, phone: profile?.contactPhone ?? null },
+          whatsapp,
           view,
           storageOrigin: dependencies.storageOrigin,
         });
       }
-      return quotePage(quote, agencyName, view, { trip, storageOrigin: dependencies.storageOrigin });
+      return quotePage(quote, agencyName, view, { trip, storageOrigin: dependencies.storageOrigin, whatsapp });
     },
     issued_document: async (opened) => pdfRedirect(dependencies, opened.organizationId, opened.recordId),
   };

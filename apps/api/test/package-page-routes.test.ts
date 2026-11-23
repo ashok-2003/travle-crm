@@ -147,6 +147,40 @@ describe("an agency's public package pages", () => {
       expect((await get(path)).status).toBe(404);
       expect((await get(quiet.code.toLowerCase())).status).toBe(404);
     });
+
+    it("points WhatsApp us at the main number, and at the contact phone with no number connected", async () => {
+      const own = await createTestAgency(server);
+      const ownCode = own.code.toLowerCase();
+      const inOwn = <T>(work: Parameters<typeof server.db.forOrg<T>>[1]) => server.db.forOrg(own.organizationId, work);
+      await inOwn(async (tx) => {
+        await tx.publicPageSettings.create({ data: { enabled: true } });
+        await tx.quoteTemplate.create({
+          data: { name: "Trip", title: "Trip", slug: "trip", summary: "x", published: true },
+        });
+        await tx.organizationProfile.create({
+          data: { legalName: "Agency", gstStateCode: "29", contactPhone: "+919820012345" },
+        });
+      });
+      const agencyOn = async (path: string) =>
+        ((await (await get(path)).json()) as { page: { agency: { phone: string | null; whatsapp: string | null } } })
+          .page.agency;
+      expect(await agencyOn(`${ownCode}/trip`)).toMatchObject({ phone: "+919820012345", whatsapp: "+919820012345" });
+      // The oldest number, which a stray first-found would pick, and the main one, still being set up.
+      const number = (integratedNumber: string, status: string, isMain: boolean) =>
+        inOwn((tx) =>
+          tx.whatsappConnection.create({
+            data: { integratedNumber, displayNumber: `+${integratedNumber}`, mode: "new_number", status, isMain },
+            select: { id: true },
+          }),
+        );
+      await number("919800000071", "connected", false);
+      const main = await number("919800000072", "setup", true);
+      expect(await agencyOn(`${ownCode}/trip`)).toMatchObject({ whatsapp: "+919820012345" });
+      await inOwn((tx) => tx.whatsappConnection.update({ where: { id: main.id }, data: { status: "connected" } }));
+      for (const path of [`${ownCode}/trip`, ownCode]) {
+        expect(await agencyOn(path)).toMatchObject({ phone: "+919820012345", whatsapp: "+919800000072" });
+      }
+    });
   });
 
   describe("an enquiry", () => {

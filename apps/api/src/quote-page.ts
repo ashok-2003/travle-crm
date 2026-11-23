@@ -1,11 +1,21 @@
 // The page a customer sees at /p/<token> for a shared quote (step 3, P0): the agency's name, the trip, its day-by-day
-// plan, the price with GST, what is due and when, a button that opens their UPI app to pay the agency, and Accept with
-// their name. Plain HTML with the device's fonts and no script; the only form posts back to the same link.
+// plan, the price with GST, what is due and when, a button that opens their UPI app to pay the agency, Accept with their
+// name, and WhatsApp us (the agency's main WhatsApp number). Plain HTML with the device's fonts and no script; the only
+// form posts back to the same link.
 import { brand } from "@travel-crm/brand";
 import type { PublicTrip } from "@travel-crm/domain/bookings";
 import type { PublicQuote } from "@travel-crm/domain/quotes";
 import { randomBytes } from "node:crypto";
-import { dayOf, escapeHtml, paragraphs, rupees, securityHeaders, styles, SYSTEM_FONTS } from "./public-html.js";
+import {
+  dayOf,
+  escapeHtml,
+  paragraphs,
+  rupees,
+  securityHeaders,
+  styles,
+  SYSTEM_FONTS,
+  whatsappUs,
+} from "./public-html.js";
 import type { ShareLinkView } from "./share-link-route.js";
 import { claimForm } from "./trip-forms.js";
 import { uploadScript } from "./trip-upload-script.js";
@@ -22,13 +32,15 @@ function refusalWords(quote: PublicQuote, agencyName: string): string {
 export interface QuotePageExtras {
   trip: PublicTrip | null;
   storageOrigin: string | null;
+  /** The agency's main WhatsApp number for "WhatsApp us", E.164; null when it has none past being set up. */
+  whatsapp: string | null;
 }
 
 export function quotePage(
   quote: PublicQuote,
   agencyName: string,
   view: ShareLinkView,
-  extras: QuotePageExtras = { trip: null, storageOrigin: null },
+  extras: QuotePageExtras = { trip: null, storageOrigin: null, whatsapp: null },
 ): Response {
   const { notice } = view;
   if (quote.status === "replaced") return replacedPage(quote, agencyName);
@@ -108,6 +120,7 @@ ${section("Notes", quote.notes === "" ? "" : `<p>${paragraphs(quote.notes)}</p>`
 ${section("Terms", quote.terms === "" ? "" : `<p>${paragraphs(quote.terms)}</p>`)}
 ${accept}
 ${claim}
+${section("Questions?", extras.whatsapp === null ? "" : `<div class="row">${whatsappUs(extras.whatsapp)}</div>`)}
 </main>${claiming ? `<script nonce="${nonce}">${uploadScript}</script>` : ""}</body>
 </html>`;
   return new Response(html, {
