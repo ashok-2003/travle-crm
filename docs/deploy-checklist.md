@@ -677,7 +677,7 @@ it gets a second number.
    (`migrate resolve --rolled-back 20261218900000_multi_number_whatsapp`, Migrations above) and deploy again.
 2. Where the order can be chosen, the api, the worker and the console update before the web. The new web reads the
    release before's answers as one number (no labels, no number choices, the paused and disconnected notes as before),
-   but a New template sent to the release before's api is refused until it updates.
+   but a New template or a Lead assignment save sent to the release before's api is refused until it updates.
 3. Tell agencies to reload any open tab: a New template sent from a tab opened before the deploy is refused (the call's
    shape changed).
 
