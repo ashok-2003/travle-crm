@@ -30,7 +30,10 @@ export async function chatAiOf(
   input: { organizationId: string; conversationId: string; available: boolean; now: Date },
 ): Promise<ChatAi> {
   const { conversationId, available } = input;
-  const chat = await tx.whatsappConversation.findUnique({ where: { id: conversationId }, select: { id: true } });
+  const chat = await tx.whatsappConversation.findUnique({
+    where: { id: conversationId },
+    select: { connection: { select: { aiAnswers: true, status: true } } },
+  });
   if (chat === null) throw notFound();
   const settings = await autopilotOf(tx);
   const state = await tx.aiChat.findFirst({ where: { conversationId } });
@@ -59,7 +62,8 @@ export async function chatAiOf(
       : null,
     agentName: settings.agentName,
     available,
-    numberOff: !numberOn,
+    // Only a live number's switch can be turned back on (the AI agent page lists live numbers).
+    numberOff: !chat.connection.aiAnswers && chat.connection.status !== "disconnected",
   };
 }
 

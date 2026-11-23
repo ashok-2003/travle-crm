@@ -70,7 +70,12 @@ export async function agentSetupOf(
     ready: steps.every((step) => step.optional || step.done),
     on: settings.autopilot,
     pausedBySupport: pause !== null,
-    numbers: numbers.map((number) => ({ id: number.id, label: number.label, aiAnswers: number.aiAnswers })),
+    numbers: numbers.map((number) => ({
+      id: number.id,
+      label: number.label,
+      displayNumber: number.displayNumber,
+      aiAnswers: number.aiAnswers,
+    })),
   });
 }
 

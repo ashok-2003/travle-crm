@@ -68,7 +68,8 @@
   },
   "numbers": {
     "title": "WhatsApp numbers",
-    "intro": "The AI answers on a number only while its switch here is on, and the agent is on."
+    "intro": "The AI answers on a number only while its switch here is on, and the agent is on.",
+    "numberName": "{label} ({number})"
   },
   "loading": "Loading the AI agent",
   "loadFailed": "The AI agent didn't load.",

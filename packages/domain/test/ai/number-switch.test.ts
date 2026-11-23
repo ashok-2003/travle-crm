@@ -165,8 +165,27 @@ describe("each number's AI switch", () => {
       tx.whatsappConnection.update({ where: { id: other.connectionId }, data: { status: "disconnected" } }),
     );
     expect(await on.inOrg((tx) => numberAnswers(tx, other.chat.id))).toBe(false);
-    expect(await cardOf(on, other.chat)).toMatchObject({ answering: false });
+    // Not "off for this number": a disconnected number has no switch to turn back on.
+    expect(await cardOf(on, other.chat)).toMatchObject({ answering: false, numberOff: false });
     expect(await customerWrote(on, other.chat, other.message.id)).toEqual({ queues: [], mark: null });
+  });
+
+  it("leaves a follow-up due on a number switched off unclaimed, and claims it once the number is on", async () => {
+    const on = await liteAgency(test);
+    const at = new Date(liteTurnAt.getTime() + 2 * 3_600_000);
+    const due = new Date(at.getTime() - 60_000);
+    await on.inOrg(async (tx) => {
+      await tx.whatsappConversation.update({ where: { id: on.chat.id }, data: { needsReply: false } });
+      await tx.aiChat.create({ data: { conversationId: on.chat.id, followUpAt: due } });
+    });
+    const followUpAt = async () =>
+      (await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }))).followUpAt;
+    await switchNumber(on, on.chat.connectionId, false);
+    await on.nudges(at);
+    expect(await followUpAt()).toEqual(due);
+    await switchNumber(on, on.chat.connectionId, true);
+    await on.nudges(at);
+    expect(await followUpAt()).toBeNull();
   });
 
   it("sends a keyword trip kit on a number whose AI is off while the other's answers", async () => {
@@ -221,10 +240,13 @@ describe("each number's AI switch", () => {
     await aSecondNumber(test, mainOf(on), { label: "Sales 4", status: "disconnected" });
     await switchNumber(on, second.connectionId, false);
     const setup = await on.inOrg((tx) => agentSetupOf(tx, on.organizationId, liteToday));
+    const main = await on.inOrg((tx) =>
+      tx.whatsappConnection.findUniqueOrThrow({ where: { id: on.chat.connectionId } }),
+    );
     expect(setup.numbers).toEqual([
-      { id: on.chat.connectionId, label: "WhatsApp", aiAnswers: true },
-      { id: second.connectionId, label: "Sales 2", aiAnswers: false },
-      { id: third.connectionId, label: "Sales 3", aiAnswers: true },
+      { id: on.chat.connectionId, label: "WhatsApp", displayNumber: main.displayNumber, aiAnswers: true },
+      { id: second.connectionId, label: "Sales 2", displayNumber: `+${second.integratedNumber}`, aiAnswers: false },
+      { id: third.connectionId, label: "Sales 3", displayNumber: `+${third.integratedNumber}`, aiAnswers: true },
     ]);
     expect(setup.steps.find((step) => step.key === "whatsapp")).toMatchObject({ done: true, count: 2 });
   });
