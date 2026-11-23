@@ -1,8 +1,9 @@
 "use client";
 
-// /console/whatsapp (spec 3.5): every agency's WhatsApp number in a table (organization, number, mode, state, when it was
-// connected, the last event, this month's messages, marketing against its cap), a banner when any number has stopped getting
-// delivery reports, the numbers MSG91 sent events for that nobody recorded, and, for super admins, the webhook block.
+// /console/whatsapp (spec 3.5): every agency's live WhatsApp numbers in a table (organization, label, whether it is the
+// agency's main number, number, mode, state, when it was connected, the last event, this month's messages, marketing
+// against its cap), a banner when any number has stopped getting delivery reports, the numbers MSG91 sent events for that
+// nobody recorded, and, for super admins, the webhook block.
 import { useQuery } from "@tanstack/react-query";
 import { MessageCircleIcon } from "lucide-react";
 import Link from "next/link";
@@ -48,7 +49,7 @@ export function WhatsappScreen() {
           onRetry={() => void list.refetch()}
         />
       ) : (
-        <LoadingRows shape="table" columns={7} label={t("loading")} />
+        <LoadingRows shape="table" columns={10} label={t("loading")} />
       );
     }
     const { items, unrouted, configured } = list.data;
@@ -71,6 +72,8 @@ export function WhatsappScreen() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("columns.agency")}</TableHead>
+                <TableHead>{t("columns.label")}</TableHead>
+                <TableHead>{t("columns.main")}</TableHead>
                 <TableHead>{t("columns.number")}</TableHead>
                 <TableHead>{t("columns.mode")}</TableHead>
                 <TableHead>{t("columns.status")}</TableHead>
@@ -88,6 +91,8 @@ export function WhatsappScreen() {
                       {item.organizationName}
                     </Link>
                   </TableCell>
+                  <TableCell>{item.label}</TableCell>
+                  <TableCell>{item.main ? t("main.yes") : t("main.no")}</TableCell>
                   <TableCell className="numbers">{formatPhoneNumber(item.displayNumber)}</TableCell>
                   <TableCell>{t(`mode.${item.mode}`)}</TableCell>
                   <TableCell>

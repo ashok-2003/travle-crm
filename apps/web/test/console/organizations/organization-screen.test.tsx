@@ -22,31 +22,37 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** An organization's WhatsApp group as whatsapp.get gives it, with a number in the given state. */
+/** An organization's WhatsApp group as whatsapp.get gives it, with one number in the given state. */
 function group(status: "setup" | "connected") {
   return {
     configured: true,
-    cannotConnectReason: null,
-    usage: [],
-    connection: {
-      id: "0199a000-0000-7000-8000-0000000000d1",
-      organizationId,
-      organizationName: "Kerala Trails",
-      displayNumber: "919876543210",
-      mode: "shared",
-      status,
-      connectedAt: null,
-      lastEventAt: null,
-      webhookSeenAt: null,
-      messagesThisMonth: { inbound: 0, outbound: 0, marketing: 0 },
-      marketingCapMonth: 1000,
-      templateCapDay: 100,
-      overFairUse: false,
-      cancelledButConnected: false,
-      problemSince: null,
-      qualityRating: null,
-      note: null,
-    },
+    limit: { used: 1, allowed: 1 },
+    cannotAddReason: "LIMIT_REACHED",
+    numbers: [
+      {
+        id: "0199a000-0000-7000-8000-0000000000d1",
+        organizationId,
+        organizationName: "Kerala Trails",
+        label: "WhatsApp",
+        main: true,
+        displayNumber: "919876543210",
+        mode: "new_number",
+        status,
+        connectedAt: null,
+        lastEventAt: null,
+        webhookSeenAt: null,
+        messagesThisMonth: { inbound: 0, outbound: 0, marketing: 0 },
+        marketingCapMonth: 1000,
+        templateCapDay: 100,
+        overFairUse: false,
+        cancelledButConnected: false,
+        problemSince: null,
+        qualityRating: null,
+        note: null,
+        usage: [],
+        cannotConnectReason: null,
+      },
+    ],
   };
 }
 

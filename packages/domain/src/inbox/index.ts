@@ -4,7 +4,16 @@
 export { adoptAll, adoptChats } from "./adopt.js";
 export { answeredByAiWhere, listedChatWhere } from "./ai-answered.js";
 export { adPackageChoicesOf, adPackageOf, adsOf, linkAd, noteAdOf } from "./ads.js";
-export { connectNumber, disconnectNumber, markConnected, pauseNumber, resumeNumber, setCaps } from "./connection.js";
+export {
+  connectNumber,
+  disconnectNumber,
+  markConnected,
+  pauseNumber,
+  renameNumber,
+  resumeNumber,
+  setCaps,
+  setMainNumber,
+} from "./connection.js";
 export {
   connectionById,
   liveConnection,

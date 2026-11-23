@@ -183,6 +183,8 @@
       "resumed": "Resumed WhatsApp",
       "disconnected": "Disconnected WhatsApp",
       "caps-changed": "Changed the WhatsApp message limits",
+      "made-main": "Made a WhatsApp number the agency's main number",
+      "renamed": "Renamed a WhatsApp number",
       "lead-started-from-chat": "Started a new lead from a WhatsApp chat",
       "template-created": "Sent a WhatsApp template for approval",
       "template-edited": "Edited a rejected WhatsApp template and sent it again",

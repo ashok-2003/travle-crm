@@ -99,7 +99,7 @@ export function OrganizationScreen({ organizationId, onboarded }: { organization
       )}
       <RecordSection organization={organization} />
       <SubscriptionSection organization={organization} subscription={subscription} />
-      <OrganizationWhatsapp organizationId={organization.id} organizationName={organization.name} />
+      <OrganizationWhatsapp organizationId={organization.id} />
       <OrganizationAgentState organizationId={organization.id} />
       <OrganizationAgentPause organizationId={organization.id} organizationName={organization.name} />
       <OrganizationAgentChoice organizationId={organization.id} organizationName={organization.name} />
