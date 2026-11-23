@@ -1,7 +1,9 @@
 // In a chat, the chat's own number (spec 2026-11-22-multi-number-whatsapp-design.md, sections 5 and 6, paths 1-9 and 11):
-// every send in a chat on "Sales 2" is written in that chat and leaves from Sales 2, never from the main number "Sales 1"
-// that a lookup taking whichever number comes first would return, even though the customer last wrote to the main one. A
-// chat whose number is disconnected or paused sends nothing, and the refusal names why.
+// every send in a chat is written in that chat and leaves from its number. Each path sends in the customer's chat on
+// "Sales 2" and in their chat on the main number "Sales 1", so a path that took whichever live number a lookup returns
+// first sends one of the two from the wrong number, whichever it gets (Postgres's row order moves with every write, so
+// no one number is reliably that lookup's). The customer last wrote to the main number, so a path that used the
+// customer's rule instead is caught too. A chat whose number is disconnected or paused sends nothing, and says why.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
@@ -35,7 +37,6 @@ import {
   freshPhone,
   fromCustomer,
   sentFrom,
-  strayLookupFinds,
   testNow,
   type TestConnection,
   type TestInbox,
@@ -54,16 +55,14 @@ describe("a send in a chat goes from the chat's own number", () => {
 
   /**
    * An agency with "Sales 1" (main) and "Sales 2"; the customer wrote to Sales 2 an hour before testNow and to Sales 1 at
-   * testNow, so the main number is the one they last wrote to, and the one a lookup taking whichever number comes first
-   * finds. `chat` is theirs on Sales 2.
+   * testNow. `chat` is theirs on Sales 2, `mainChat` on Sales 1; `chats` both, each with the number it must send from.
    */
   async function agency() {
     const main = await aConnectedAgency(test);
-    const second = await aSecondNumber(test, main, { label: "Sales 2" });
     const inOrg = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(main.organizationId, work);
     await inOrg((tx) => tx.whatsappConnection.update({ where: { id: main.connectionId }, data: { label: "Sales 1" } }));
-    const phone = freshPhone();
-    const customerNumber = phone.replace("+", "");
+    const second = await aSecondNumber(test, main, { label: "Sales 2" });
+    const customerNumber = freshPhone().replace("+", "");
     /** The customer writes on the number; the message's id and its chat's. */
     const writes = async (connection: TestConnection, text: string, when: Date) => {
       await deliver(
@@ -82,8 +81,10 @@ describe("a send in a chat goes from the chat's own number", () => {
     };
     const { conversationId: chat } = await writes(second, "Goa?", at(-1));
     const { conversationId: mainChat } = await writes(main, "Hello", testNow);
-    await strayLookupFinds(test, main, second);
-    const member = memberOf(main.organizationId);
+    const chats = [
+      { number: second, chat, from: second.integratedNumber },
+      { number: main, chat: mainChat, from: main.integratedNumber },
+    ];
     /** The message's chat, and the number the worker's sender sent it from. */
     const landed = async (messageId: string, when: Date) => {
       const row = await inOrg((tx) =>
@@ -91,15 +92,14 @@ describe("a send in a chat goes from the chat's own number", () => {
       );
       return { chat: row.conversationId, from: await sentFrom(test, main.organizationId, messageId, when) };
     };
-    const onSecond = { chat, from: second.integratedNumber };
     const setStatus = (connection: TestConnection, status: string) =>
       inOrg((tx) => tx.whatsappConnection.update({ where: { id: connection.connectionId }, data: { status } }));
     const outgoing = (conversationId: string) =>
       inOrg((tx) =>
         tx.whatsappMessage.findMany({ where: { conversationId, direction: "out" }, orderBy: { id: "asc" } }),
       );
-    const template = (connection: TestConnection, name: string, category: "utility" | "marketing" = "utility") =>
-      inOrg((tx) =>
+    const template = async (connection: TestConnection, name: string, category = "utility") => {
+      const row = await inOrg((tx) =>
         tx.whatsappTemplate.create({
           data: {
             connectionId: connection.connectionId,
@@ -112,7 +112,10 @@ describe("a send in a chat goes from the chat's own number", () => {
           select: { id: true },
         }),
       );
-    return { main, second, chat, mainChat, member, inOrg, writes, landed, onSecond, setStatus, outgoing, template };
+      return row.id;
+    };
+    const member = memberOf(main.organizationId);
+    return { main, second, chat, mainChat, chats, member, inOrg, writes, landed, setStatus, outgoing, template };
   }
 
   type Agency = Awaited<ReturnType<typeof agency>>;
@@ -166,80 +169,94 @@ describe("a send in a chat goes from the chat's own number", () => {
       }),
     );
 
-  const aiTarget = (world: Agency, when = at(1)) => ({
+  const aiTarget = (world: Agency, conversationId: string, when = at(1)) => ({
     organizationId: world.main.organizationId,
-    conversationId: world.chat,
+    conversationId,
     now: when,
     answers: true,
   });
 
   it("sends a staff reply and a file from the chat's number when the agency has two", async () => {
     const world = await agency();
-    const text = await reply(world, world.chat);
-    expect(await world.landed(text.messageId, at(1))).toEqual(world.onSecond);
-    const file = await sendFile(world, world.chat);
-    expect(await world.landed(file.messageId, at(1))).toEqual(world.onSecond);
+    for (const { chat, from } of world.chats) {
+      const text = await reply(world, chat);
+      expect(await world.landed(text.messageId, at(1))).toEqual({ chat, from });
+      const file = await sendFile(world, chat);
+      expect(await world.landed(file.messageId, at(1))).toEqual({ chat, from });
+    }
   });
 
   it("sends a template in a chat from the chat's number, and refuses another number's template", async () => {
     const world = await agency();
-    const own = await world.template(world.second, "trip_update");
-    const mains = await world.template(world.main, "trip_update");
-    const sent = await sendTemplate(world, world.chat, own.id);
-    expect(await world.landed(sent.messageId, at(30))).toEqual(world.onSecond);
-    await expect(sendTemplate(world, world.chat, mains.id)).rejects.toMatchObject({ reason: "TEMPLATE_NOT_APPROVED" });
-    expect(await world.outgoing(world.mainChat)).toHaveLength(0);
+    const templates = [
+      await world.template(world.second, "trip_update"),
+      await world.template(world.main, "trip_update"),
+    ];
+    for (const [index, { chat, from }] of world.chats.entries()) {
+      const sent = await sendTemplate(world, chat, templates[index] ?? "");
+      expect(await world.landed(sent.messageId, at(30))).toEqual({ chat, from });
+      await expect(sendTemplate(world, chat, templates[1 - index] ?? "")).rejects.toMatchObject({
+        reason: "TEMPLATE_NOT_APPROVED",
+      });
+      expect(await world.outgoing(chat)).toHaveLength(1);
+    }
   });
 
   it("tries a failed message again from the chat's number", async () => {
     const world = await agency();
-    const queued = await reply(world, world.chat);
-    test.provider.failNext("other");
-    expect(await sentFrom(test, world.main.organizationId, queued.messageId, at(1))).toBeNull();
-    const again = await world.inOrg((tx) => retryMessage(tx, world.member, queued.messageId, context, at(2)));
-    expect(again).toMatchObject({ messageId: queued.messageId, status: "queued" });
-    expect(await world.landed(queued.messageId, at(2))).toEqual(world.onSecond);
+    for (const { chat, from } of world.chats) {
+      const queued = await reply(world, chat);
+      test.provider.failNext("other");
+      expect(await sentFrom(test, world.main.organizationId, queued.messageId, at(1))).toBeNull();
+      const again = await world.inOrg((tx) => retryMessage(tx, world.member, queued.messageId, context, at(2)));
+      expect(again).toMatchObject({ messageId: queued.messageId, status: "queued" });
+      expect(await world.landed(queued.messageId, at(2))).toEqual({ chat, from });
+    }
   });
 
   it("sends a staff trip kit and a keyword trip kit from the chat's number", async () => {
     const world = await agency();
     const { id: tripKitId } = await kit(world, ["kerala"]);
     // The agency's AI agent is off (no settings at all), so a keyword sends the kit by itself.
-    const staff = await sendTripKit(
-      test.dependencies,
-      world.member,
-      { conversationId: world.chat, tripKitId, clientToken: randomUUID() },
-      context,
-      at(1),
-    );
-    expect(staff).toEqual({ queued: 1, refused: null });
-    const said = await world.writes(world.second, "Any Kerala trips?", at(2));
-    expect(said.conversationId).toBe(world.chat);
-    expect(await sendTripKitOnKeyword(test.dependencies, systemActor(world.main.organizationId), said, at(2))).toBe(
-      true,
-    );
-    const sent = await world.outgoing(world.chat);
-    expect(sent.map((message) => message.origin)).toEqual(["staff_crm", "automation"]);
-    for (const message of sent) {
-      expect(await world.landed(message.id, at(2))).toEqual(world.onSecond);
+    for (const { number, chat, from } of world.chats) {
+      const staff = await sendTripKit(
+        test.dependencies,
+        world.member,
+        { conversationId: chat, tripKitId, clientToken: randomUUID() },
+        context,
+        at(1),
+      );
+      expect(staff).toEqual({ queued: 1, refused: null });
+      const said = await world.writes(number, "Any Kerala trips?", at(2));
+      expect(said.conversationId).toBe(chat);
+      const actor = systemActor(world.main.organizationId);
+      expect(await sendTripKitOnKeyword(test.dependencies, actor, said, at(2))).toBe(true);
+      const sent = await world.outgoing(chat);
+      expect(sent.map((message) => message.origin)).toEqual(["staff_crm", "automation"]);
+      for (const message of sent) {
+        expect(await world.landed(message.id, at(2))).toEqual({ chat, from });
+      }
     }
-    expect(await world.outgoing(world.mainChat)).toHaveLength(0);
   });
 
   it("sends a scheduled message from the chat's number", async () => {
     const world = await agency();
-    await world.inOrg((tx) =>
-      scheduleMessage(
-        tx,
-        world.member,
-        { conversationId: world.chat, body: "Your quote is ready", sendAt: at(2).toISOString() },
-        testNow,
-      ),
-    );
-    expect(await runDueWorkFor(test.dependencies, world.main.organizationId, at(3))).toBe(1);
-    const [sent] = await world.outgoing(world.chat);
-    expect(sent).toMatchObject({ body: "Your quote is ready", origin: "staff_crm" });
-    expect(await world.landed(sent?.id ?? "", at(3))).toEqual(world.onSecond);
+    for (const { chat } of world.chats) {
+      await world.inOrg((tx) =>
+        scheduleMessage(
+          tx,
+          world.member,
+          { conversationId: chat, body: "Your quote is ready", sendAt: at(2).toISOString() },
+          testNow,
+        ),
+      );
+    }
+    expect(await runDueWorkFor(test.dependencies, world.main.organizationId, at(3))).toBe(2);
+    for (const { chat, from } of world.chats) {
+      const [sent] = await world.outgoing(chat);
+      expect(sent).toMatchObject({ body: "Your quote is ready", origin: "staff_crm" });
+      expect(await world.landed(sent?.id ?? "", at(3))).toEqual({ chat, from });
+    }
   });
 
   it("sends the away, welcome and keyword answers from the chat's number", async () => {
@@ -256,73 +273,78 @@ describe("a send in a chat goes from the chat's own number", () => {
       });
       await createKeywordReply(tx, world.member, { keyword: "price", reply: "Prices start at Rs 9,999" });
     });
-    const answer = async (text: string, hours: number, firstEver: boolean) => {
-      const said = await world.writes(world.second, text, at(hours));
-      return world.inOrg((tx) =>
-        answerAutomatically(tx, { ...said, eventId: randomUUID(), firstEver, timeZone: "Asia/Kolkata" }, at(hours)),
-      );
-    };
-    expect(await answer("Hi there", 1, true)).toBe("welcome");
-    expect(await answer("What is the price?", 2, false)).toBe("keyword");
-    expect(await answer("Anyone there?", 3, false)).toBe("away");
-    const sent = await world.outgoing(world.chat);
-    expect(sent.map((message) => message.body)).toEqual(["Welcome!", "Prices start at Rs 9,999", "We are closed"]);
-    for (const message of sent) {
-      expect(await world.landed(message.id, at(3))).toEqual(world.onSecond);
+    for (const { number, chat, from } of world.chats) {
+      const answer = async (text: string, hours: number, firstEver: boolean) => {
+        const said = await world.writes(number, text, at(hours));
+        return world.inOrg((tx) =>
+          answerAutomatically(tx, { ...said, eventId: randomUUID(), firstEver, timeZone: "Asia/Kolkata" }, at(hours)),
+        );
+      };
+      expect(await answer("Hi there", 1, true)).toBe("welcome");
+      expect(await answer("What is the price?", 2, false)).toBe("keyword");
+      expect(await answer("Anyone there?", 3, false)).toBe("away");
+      const sent = await world.outgoing(chat);
+      expect(sent.map((message) => message.body)).toEqual(["Welcome!", "Prices start at Rs 9,999", "We are closed"]);
+      for (const message of sent) {
+        expect(await world.landed(message.id, at(3))).toEqual({ chat, from });
+      }
     }
   });
 
   it("sends the AI's reply, file and card from the chat's number", async () => {
     const world = await agency();
-    const replyId = await world.inOrg((tx) => sendAiText(tx, aiTarget(world), randomUUID(), "Goa in March?", "reply"));
-    const fileId = newUuidV7();
-    await test.files.storeGeneratedFile(systemActor(world.main.organizationId), {
-      recordType: WHATSAPP_RECORD_TYPE,
-      recordId: fileId,
-      fileName: "goa.png",
-      contentType: "image/png",
-      body: tinyPng,
-      attachmentId: fileId,
-    });
-    const media = { messageId: fileId, kind: "image" as const, fileName: "goa.png" };
-    const sentFile = await world.inOrg((tx) =>
-      sendAiText(tx, aiTarget(world), randomUUID(), "The Goa trip", "file", media),
-    );
     const buttons = [
       { id: "book", title: "Book" },
       { id: "change", title: "Change" },
     ];
-    const card = await world.inOrg((tx) =>
-      sendAiText(tx, aiTarget(world), randomUUID(), "Shall I book it?", "reply", undefined, buttons),
-    );
-    expect(sentFile).toBe(fileId);
-    for (const id of [replyId, sentFile, card]) {
-      expect(await world.landed(id, at(1))).toEqual(world.onSecond);
+    for (const { chat, from } of world.chats) {
+      const target = aiTarget(world, chat);
+      const replyId = await world.inOrg((tx) => sendAiText(tx, target, randomUUID(), "Goa in March?", "reply"));
+      const fileId = newUuidV7();
+      await test.files.storeGeneratedFile(systemActor(world.main.organizationId), {
+        recordType: WHATSAPP_RECORD_TYPE,
+        recordId: fileId,
+        fileName: "goa.png",
+        contentType: "image/png",
+        body: tinyPng,
+        attachmentId: fileId,
+      });
+      const media = { messageId: fileId, kind: "image" as const, fileName: "goa.png" };
+      const fileSent = await world.inOrg((tx) => sendAiText(tx, target, randomUUID(), "The Goa trip", "file", media));
+      const card = await world.inOrg((tx) =>
+        sendAiText(tx, target, randomUUID(), "Shall I book it?", "reply", undefined, buttons),
+      );
+      expect(fileSent).toBe(fileId);
+      for (const id of [replyId, fileSent, card]) {
+        expect(await world.landed(id, at(1))).toEqual({ chat, from });
+      }
     }
   });
 
   it("sends a payment message in the booking's chat from that chat's number", async () => {
     const world = await agency();
-    const told = await world.inOrg((tx) =>
-      tellPaymentOutcome(
-        tx,
-        {
-          organizationId: world.main.organizationId,
-          leadId: null,
-          conversationId: world.chat,
-          outcome: "confirmed",
-          amountPaise: 1_250_000,
-          trip: "Goa 4N",
-          recordKey: randomUUID(),
-        },
-        at(1),
-      ),
-    );
-    expect(told).toBe("sent");
-    const [sent] = await world.outgoing(world.chat);
-    expect(sent?.body).toContain("Thank you Test!");
-    expect(await world.landed(sent?.id ?? "", at(1))).toEqual(world.onSecond);
-    expect(await world.outgoing(world.mainChat)).toHaveLength(0);
+    for (const { chat, from } of world.chats) {
+      const told = await world.inOrg((tx) =>
+        tellPaymentOutcome(
+          tx,
+          {
+            organizationId: world.main.organizationId,
+            leadId: null,
+            conversationId: chat,
+            outcome: "confirmed",
+            amountPaise: 1_250_000,
+            trip: "Goa 4N",
+            recordKey: randomUUID(),
+          },
+          at(1),
+        ),
+      );
+      expect(told).toBe("sent");
+      const sent = await world.outgoing(chat);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]?.body).toContain("Thank you Test!");
+      expect(await world.landed(sent[0]?.id ?? "", at(1))).toEqual({ chat, from });
+    }
   });
 
   it("refuses every send in a chat whose number was disconnected, and tells staff why", async () => {
@@ -339,7 +361,7 @@ describe("a send in a chat goes from the chat's own number", () => {
     const disconnected = { reason: "WHATSAPP_NUMBER_DISCONNECTED" };
     await expect(reply(world, world.chat, at(2))).rejects.toMatchObject(disconnected);
     await expect(sendFile(world, world.chat, at(2))).rejects.toMatchObject(disconnected);
-    await expect(sendTemplate(world, world.chat, template.id)).rejects.toMatchObject(disconnected);
+    await expect(sendTemplate(world, world.chat, template)).rejects.toMatchObject(disconnected);
     await expect(
       world.inOrg((tx) => retryMessage(tx, world.member, failed.messageId, context, at(2))),
     ).rejects.toMatchObject(disconnected);
@@ -373,7 +395,7 @@ describe("a send in a chat goes from the chat's own number", () => {
       false,
     );
     await expect(
-      world.inOrg((tx) => sendAiText(tx, aiTarget(world, at(2)), randomUUID(), "Goa?", "reply")),
+      world.inOrg((tx) => sendAiText(tx, aiTarget(world, world.chat, at(2)), randomUUID(), "Goa?", "reply")),
     ).rejects.toMatchObject({ reason: "WHATSAPP_NOT_CONNECTED" });
     expect(await world.outgoing(world.chat)).toEqual(before);
     // The chat on the main number still sends.
@@ -389,7 +411,10 @@ describe("a send in a chat goes from the chat's own number", () => {
     await world.setStatus(world.main, "paused");
     await expect(reply(world, world.mainChat)).rejects.toMatchObject({ reason: "WHATSAPP_PAUSED" });
     const sent = await reply(world, world.chat);
-    expect(await world.landed(sent.messageId, at(1))).toEqual(world.onSecond);
+    expect(await world.landed(sent.messageId, at(1))).toEqual({
+      chat: world.chat,
+      from: world.second.integratedNumber,
+    });
 
     await world.setStatus(world.main, "connected");
     await world.setStatus(world.second, "paused");
@@ -422,18 +447,18 @@ describe("a send in a chat goes from the chat's own number", () => {
     await world.inOrg((tx) => tx.whatsappConnection.updateMany({ data: { marketingCapMonth: 1, templateCapDay: 2 } }));
 
     // The main number uses up both its caps.
-    await sendTemplate(world, world.mainChat, mainMarketing.id);
-    await sendTemplate(world, world.mainChat, mainUtility.id);
-    await expect(sendTemplate(world, world.mainChat, mainUtility.id)).rejects.toMatchObject({
+    await sendTemplate(world, world.mainChat, mainMarketing);
+    await sendTemplate(world, world.mainChat, mainUtility);
+    await expect(sendTemplate(world, world.mainChat, mainUtility)).rejects.toMatchObject({
       reason: "TEMPLATE_CAP_REACHED",
     });
     // Sales 2's caps are its own: its marketing message and a utility one still go.
-    await sendTemplate(world, world.chat, ownMarketing.id);
-    await expect(sendTemplate(world, world.chat, ownMarketing.id)).rejects.toMatchObject({
+    await sendTemplate(world, world.chat, ownMarketing);
+    await expect(sendTemplate(world, world.chat, ownMarketing)).rejects.toMatchObject({
       reason: "MARKETING_CAP_REACHED",
     });
-    await sendTemplate(world, world.chat, ownUtility.id);
-    await expect(sendTemplate(world, world.chat, ownUtility.id)).rejects.toMatchObject({
+    await sendTemplate(world, world.chat, ownUtility);
+    await expect(sendTemplate(world, world.chat, ownUtility)).rejects.toMatchObject({
       reason: "TEMPLATE_CAP_REACHED",
     });
   });
