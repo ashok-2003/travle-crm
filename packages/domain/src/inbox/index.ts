@@ -16,7 +16,6 @@ export {
 } from "./connection.js";
 export {
   connectionById,
-  liveConnection,
   liveConnections,
   mainConnection,
   numbersOf,

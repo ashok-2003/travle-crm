@@ -3,6 +3,9 @@
 Date: 2026-10-23 · Status: accepted · Applies to the WhatsApp release (a chat with an agency's number becomes a lead and a
 shared inbox; spec `docs/superpowers/specs/2026-10-23-whatsapp-design.md`)
 
+2026-11-23: an agency may connect several numbers, one of them its main number, and every send goes from the number the
+chat is on (spec `docs/superpowers/specs/2026-11-22-multi-number-whatsapp-design.md`).
+
 ## Decision
 
 ### One MSG91 account, a port, and nothing of MSG91's outside the adapter
