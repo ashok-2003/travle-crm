@@ -147,6 +147,24 @@ export async function aSecondNumber(
   return { organizationId, connectionId, integratedNumber };
 }
 
+/**
+ * Makes a lookup taking whichever live number comes first find `found`, so a send path that used one would pick it, not the
+ * number the test expects. Postgres returns rows as they lie on disk and a write moves a row back, so `other`'s row is
+ * written until `found`'s comes first.
+ */
+export async function strayLookupFinds(test: TestInbox, found: TestConnection, other: TestConnection): Promise<void> {
+  for (let tries = 0; tries < 10; tries += 1) {
+    const [first] = await test.db.forOrg(found.organizationId, (tx) =>
+      tx.whatsappConnection.findMany({ where: { status: { not: "disconnected" } }, take: 1, select: { id: true } }),
+    );
+    if (first?.id === found.connectionId) return;
+    await test.db.forOrg(found.organizationId, (tx) =>
+      tx.whatsappConnection.update({ where: { id: other.connectionId }, data: { lastEventAt: testNow } }),
+    );
+  }
+  throw new Error("The other number's row could not be moved behind the expected one");
+}
+
 /** Runs the worker's sender on a queued message; the number MSG91 was asked to send from, or null for none. */
 export async function sentFrom(
   test: TestInbox,

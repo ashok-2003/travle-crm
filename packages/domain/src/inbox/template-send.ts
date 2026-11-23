@@ -1,7 +1,7 @@
 // Sending a template (spec 3.3, 4.4 S7, 5): the only way to write to a customer outside the 24-hour window, or to start a chat with
 // a person who never wrote. Checks, in the transaction: the template is approved, its values fit, nobody asked to stop, the staff
-// ticked "they agreed" for a person we start a chat with, the day's template cap and the month's marketing cap, and that
-// WhatsApp's own daily limit did not just refuse. The message is queued like any reply; the sender sends it.
+// ticked "they agreed" for a person we start a chat with, the day's template cap and the month's marketing cap of the chat's
+// number, and that WhatsApp's own daily limit did not just refuse. The message is queued like any reply; the sender sends it.
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import type { Actor } from "../kernel/index.js";
 import { markersOf, type SendTemplateInput, type SentMessage } from "@travel-crm/contracts/inbox";
@@ -9,7 +9,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
-import { liveConnection } from "./connection-row.js";
+import { connectionById, liveConnection } from "./connection-row.js";
 import { MESSAGE_QUEUED_EVENT, sendableChat, showAsLast, sentOf, earlierSend, type ReplyContext } from "./outbox.js";
 import { monthStartOf } from "./usage.js";
 import { grantWhatsappConsent, whatsappConsentOf } from "./whatsapp-consent.js";
@@ -99,7 +99,9 @@ export async function assertTemplateAllowed(
     }
   }
 
-  const connection = await liveConnection(tx);
+  // The caps are the chat's number's own, counting that number's messages alone.
+  const connection = await connectionById(tx, chat.connectionId);
+  const onNumber = { conversation: { is: { connectionId: chat.connectionId } } };
   const month = monthStartOf(now, "Asia/Kolkata");
   const usage = await tx.whatsappUsageMonth.findFirst({ where: { connectionId: chat.connectionId, month } });
   // The month's count grows when MSG91 accepts a send (sender.ts), so what is still on its way is added to it here.
@@ -107,6 +109,7 @@ export async function assertTemplateAllowed(
     template.category === "marketing"
       ? await tx.whatsappMessage.count({
           where: {
+            ...onNumber,
             kind: "template",
             status: { in: ["queued", "sending"] },
             template: { is: { category: "marketing" } },
@@ -118,6 +121,7 @@ export async function assertTemplateAllowed(
   }
   const sentToday = await tx.whatsappMessage.count({
     where: {
+      ...onNumber,
       kind: "template",
       direction: "out",
       occurredAt: { gte: dayStart(now, "Asia/Kolkata") },
@@ -127,6 +131,7 @@ export async function assertTemplateAllowed(
   if (sentToday >= (connection?.templateCapDay ?? 0)) {
     throw new DomainError("LIMIT_REACHED", "TEMPLATE_CAP_REACHED", "Today's template messages are used up");
   }
+  // WhatsApp's tier-limit pause stays agency-wide (multi-number spec, section 7).
   const refused = await tx.whatsappMessage.count({
     where: { kind: "template", failureCode: "tier_limit", occurredAt: { gt: new Date(now.getTime() - HOUR) } },
   });
