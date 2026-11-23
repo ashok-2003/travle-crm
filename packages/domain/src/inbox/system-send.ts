@@ -1,13 +1,13 @@
 // A reply the system writes on the team's behalf (sales inbox spec 6): a scheduled message when its time comes, and the
-// automatic answers (away, welcome, keyword). It passes the same checks as a reply typed now (the number connected and
-// not paused, the 24-hour window open) and one more: nobody who withdrew their WhatsApp consent is written to. It goes
-// through the same outbox; an automatic answer is written as "automation" and leaves the chat waiting for a person's
-// reply. The client token makes a repeat (a job run twice) one message.
+// automatic answers (away, welcome, keyword). It passes the same checks as a reply typed now (the chat's own number
+// connected and not paused, the 24-hour window open) and one more: nobody who withdrew their WhatsApp consent is written
+// to. It goes through the same outbox; an automatic answer is written as "automation" and leaves the chat waiting for a
+// person's reply. The client token makes a repeat (a job run twice) one message.
 import type { OrgTx } from "@travel-crm/db";
 import type { WhatsAppButton } from "@travel-crm/integrations/whatsapp";
 import { publishEvent } from "../jobs/index.js";
-import { liveConnection } from "./connection-row.js";
 import { MESSAGE_QUEUED_EVENT, showAsLast } from "./outbox.js";
+import { sendFrom } from "./send-from.js";
 import { chatOptedOut } from "./whatsapp-consent.js";
 import { windowIsOpen } from "./window.js";
 
@@ -37,13 +37,12 @@ export async function queueSystemText(
 ): Promise<SystemSendResult> {
   const chat = await tx.whatsappConversation.findUnique({
     where: { id: input.conversationId },
-    select: { id: true, connectionId: true, personId: true, state: true, hidden: true, lastInboundAt: true },
+    select: { id: true, personId: true, state: true, hidden: true, lastInboundAt: true },
   });
   if (chat?.state !== "open" || chat.hidden) return { ok: false, code: "not_connected" };
-  const connection = await liveConnection(tx);
-  if (connection?.id !== chat.connectionId || connection.mode === "demo") return { ok: false, code: "not_connected" };
-  if (connection.status === "paused") return { ok: false, code: "paused" };
-  if (connection.status === "setup") return { ok: false, code: "not_connected" };
+  // The chat's own number or nothing; a disconnected one is "not_connected" here, as before (MN2).
+  const from = await sendFrom(tx, { chat: chat.id });
+  if (!from.ok) return { ok: false, code: from.code === "paused" ? "paused" : "not_connected" };
   if (!windowIsOpen(chat.lastInboundAt, now)) return { ok: false, code: "window_closed" };
   if (await chatOptedOut(tx, chat)) return { ok: false, code: "opted_out" };
   const [row] = await tx.whatsappMessage.createManyAndReturn({
