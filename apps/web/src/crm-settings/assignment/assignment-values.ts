@@ -67,6 +67,8 @@ export function extrasOf(settings: AssignmentSettings): AssignmentExtras {
       source: rule.source,
       destination: rule.destinationId === null ? null : { id: rule.destinationId, name: rule.destinationName ?? "" },
       tripType: rule.tripType,
+      whatsapp:
+        rule.whatsappConnectionId === null ? null : { id: rule.whatsappConnectionId, label: rule.whatsappLabel ?? "" },
       assigneeUserId: rule.assigneeUserId,
     })),
   };
@@ -76,7 +78,8 @@ export function extrasOf(settings: AssignmentSettings): AssignmentExtras {
 export const rulesComplete = (rules: readonly RuleDraft[]) =>
   rules.every(
     (rule) =>
-      rule.assigneeUserId !== null && (rule.source !== null || rule.destination !== null || rule.tripType !== null),
+      rule.assigneeUserId !== null &&
+      (rule.source !== null || rule.destination !== null || rule.tripType !== null || rule.whatsapp !== null),
   );
 
 /** The form's values and the screen's other state, checked by the api's own schema. */
@@ -102,6 +105,7 @@ export function toSaveInput(
               source: rule.source,
               destinationId: rule.destination?.id ?? null,
               tripType: rule.tripType,
+              whatsappConnectionId: rule.whatsapp?.id ?? null,
               assigneeUserId: rule.assigneeUserId,
             },
           ],

@@ -1,9 +1,24 @@
-// whatsappTemplates.*: the agency's message templates (spec 3.3, 3.4, 6.3). The agency's Owner or Admin (inbox:templates) writes,
-// edits when rejected, archives and refreshes; whoever may reply reads the approved ones for the send dialog. Meta's rules are
-// the contract's checks; the provider is called by the domain, never with a customer's words.
-import { editTemplateInput, templateDraftInput, templateIdInput, templateList } from "@travel-crm/contracts/inbox";
+// whatsappTemplates.*: the agency's message templates (spec 3.3, 3.4, 6.3), each on one WhatsApp number. The agency's Owner or
+// Admin (inbox:templates) writes, edits when rejected, archives and refreshes; whoever may reply reads the approved ones of a
+// chat's number for the send dialog. Meta's rules are the contract's checks; the provider is called by the domain, never with
+// a customer's words. The list inputs are optional, so a call naming no number gets the main number's (MN3).
+import {
+  createTemplateInput,
+  editTemplateInput,
+  sendableTemplatesInput,
+  templateIdInput,
+  templateList,
+  templateListInput,
+} from "@travel-crm/contracts/inbox";
 import { recordId } from "@travel-crm/contracts/identity";
-import { archiveTemplate, createTemplate, editTemplate, listTemplates, syncTemplates } from "@travel-crm/domain/inbox";
+import {
+  archiveTemplate,
+  createTemplate,
+  editTemplate,
+  listTemplates,
+  sendableTemplates,
+  syncTemplates,
+} from "@travel-crm/domain/inbox";
 import { z } from "zod";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
@@ -12,22 +27,31 @@ const manager = orgProcedure.requires("inbox:templates");
 const replier = orgProcedure.requires("inbox:view", "inbox:reply");
 
 export const whatsappTemplatesRouter = router({
-  /** Every template but the archived, with the month's marketing count against the cap. */
+  /** A number's templates but the archived (the main number's unless one is named), with its month's marketing count. */
   list: manager
+    .input(templateListInput.optional())
     .output(templateList)
-    .query(({ ctx }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => listTemplates(tx, { onlyApproved: false, now: new Date() })),
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        listTemplates(tx, {
+          onlyApproved: false,
+          now: new Date(),
+          ...(input?.connectionId === undefined ? {} : { connectionId: input.connectionId }),
+        }),
+      ),
     ),
 
-  /** The approved ones, for the send dialog. */
+  /** The approved ones of the chat's number, else the named number, else the main one: the send dialog's. */
   sendable: replier
+    .input(sendableTemplatesInput.optional())
     .output(templateList)
-    .query(({ ctx }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => listTemplates(tx, { onlyApproved: true, now: new Date() })),
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => sendableTemplates(tx, ctx.member, input ?? {}, new Date())),
     ),
 
+  /** Written on the named live number, else the main one. */
   create: manager
-    .input(templateDraftInput)
+    .input(createTemplateInput)
     .output(z.object({ templateId: recordId }))
     .mutation(({ ctx, input }) =>
       createTemplate(
@@ -57,7 +81,7 @@ export const whatsappTemplatesRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => archiveTemplate(tx, ctx.member, input.templateId)),
     ),
 
-  /** Reads the templates and their statuses from the provider. */
+  /** Reads every live number's templates and their statuses from the provider. */
   refresh: manager
     .output(z.object({ templates: z.number().int() }))
     .mutation(({ ctx }) =>

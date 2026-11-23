@@ -72,8 +72,25 @@ export type TemplateDraftInput = z.infer<typeof templateDraftInput>;
 export const editTemplateInput = z.strictObject({ templateId: recordId, draft: templateDraftInput });
 export const templateIdInput = z.strictObject({ templateId: recordId });
 
+/** A template is written on one number: the named one, else the main number. */
+export const createTemplateInput = z.strictObject({ connectionId: recordId.optional(), draft: templateDraftInput });
+export type CreateTemplateInput = z.infer<typeof createTemplateInput>;
+
+/** The templates of one number: the named one, else the main number. */
+export const templateListInput = z.strictObject({ connectionId: recordId.optional() });
+export type TemplateListInput = z.infer<typeof templateListInput>;
+
+/** The send dialog's templates: the chat's number (a chat the member sees), else the named number, else the main one. */
+export const sendableTemplatesInput = z.strictObject({
+  conversationId: recordId.optional(),
+  connectionId: recordId.optional(),
+});
+export type SendableTemplatesInput = z.infer<typeof sendableTemplatesInput>;
+
 export const templateSummary = z.object({
   id: recordId,
+  /** The number it belongs to: it can be sent only from there. */
+  connectionId: recordId,
   name: z.string(),
   language: z.string(),
   category: templateCategory,
@@ -90,8 +107,10 @@ export const templateSummary = z.object({
 export type TemplateSummary = z.infer<typeof templateSummary>;
 
 export const templateList = z.object({
+  /** The number listed; null when the agency has none. */
+  connectionId: recordId.nullable(),
   items: z.array(templateSummary),
-  /** The month's marketing messages sent, and the agency's cap. */
+  /** The month's marketing messages sent from the number, and its cap. */
   marketingUsed: z.number().int(),
   marketingCap: z.number().int(),
   syncedAt: z.iso.datetime().nullable(),

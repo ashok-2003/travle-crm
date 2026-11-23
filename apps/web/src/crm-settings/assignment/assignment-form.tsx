@@ -68,6 +68,7 @@ export function AssignmentForm({
           setExtras({ ...extras, rules });
         }}
         workers={workers}
+        numbers={settings.whatsappNumbers}
       />
       <ModeCard
         mode={mode}

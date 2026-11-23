@@ -1,5 +1,5 @@
 // Replying (spec 4.4 S1-S4): a staff reply is a message row in `queued`, written in one transaction with the event that wakes the
-// worker (the outbox), after the checks: the chat is the member's to see, the number is connected and not paused, and the 24-hour
+// worker (the outbox), after the checks: the chat is the member's to see, its number is connected and not paused, and the 24-hour
 // window is open. The browser's token makes a double tap one message. A file is uploaded to storage first (never through the api)
 // and named by a second call. Try again puts a failed message back in the queue; Mark as answered clears the chat's waiting mark.
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
@@ -20,8 +20,8 @@ import type { Files } from "../files/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError, newUuidV7 } from "../kernel/index.js";
-import { liveConnection } from "./connection-row.js";
 import { settleNeedsReply } from "./needs-reply.js";
+import { sendFrom } from "./send-from.js";
 import { visibleConversation } from "./views.js";
 import { windowIsOpen } from "./window.js";
 
@@ -39,7 +39,10 @@ interface SendableChat {
   personId: string | null;
 }
 
-/** The checks every reply makes before anything is written. The window is checked last: the others are never a matter of time. */
+/**
+ * The checks every reply makes before anything is written. The chat's own number must be able to send: a reply never goes
+ * from another (sendFrom). The window is checked last: the others are never a matter of time.
+ */
 export async function sendableChat(
   tx: OrgTx,
   access: MemberAccess,
@@ -49,19 +52,15 @@ export async function sendableChat(
   { window = true }: { window?: boolean } = {},
 ): Promise<SendableChat & { phoneE164: string; lastInboundAt: Date | null; connectionId: string }> {
   const chat = await visibleConversation(tx, access, conversationId);
-  const connection = await liveConnection(tx);
-  if (
-    !context.whatsappConfigured ||
-    connection === null ||
-    connection.status === "setup" ||
-    connection.mode === "demo" ||
-    connection.id !== chat.connectionId ||
-    chat.state === "erased"
-  ) {
-    throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
+  const from = context.whatsappConfigured && chat.state !== "erased" ? await sendFrom(tx, { chat: chat.id }) : null;
+  if (from?.ok === false && from.code === "disconnected") {
+    throw new DomainError("CONFLICT", "WHATSAPP_NUMBER_DISCONNECTED", "This chat's WhatsApp number was disconnected");
   }
-  if (connection.status === "paused") {
-    throw new DomainError("CONFLICT", "WHATSAPP_PAUSED", "WhatsApp is paused for this agency");
+  if (from?.ok === false && from.code === "paused") {
+    throw new DomainError("CONFLICT", "WHATSAPP_PAUSED", "WhatsApp is paused for this chat's number");
+  }
+  if (from?.ok !== true) {
+    throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
   }
   if (window && !windowIsOpen(chat.lastInboundAt, now)) {
     throw new DomainError("CONFLICT", "WINDOW_CLOSED", "The 24-hour window for free text is closed");
@@ -71,7 +70,7 @@ export async function sendableChat(
     personId: chat.personId,
     phoneE164: chat.phoneE164,
     lastInboundAt: chat.lastInboundAt,
-    connectionId: connection.id,
+    connectionId: from.connection.id,
   };
 }
 

@@ -182,6 +182,7 @@ export {
   createTemplate,
   editTemplate,
   listTemplates,
+  sendableTemplates,
   syncAllTemplates,
   syncTemplates,
   type TemplateDependencies,

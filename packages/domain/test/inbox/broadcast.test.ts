@@ -4,7 +4,9 @@
 // resumed or cancelled. No figure is a rupee.
 import { randomUUID } from "node:crypto";
 import { BROADCAST_PAUSE_MIN_SETTLED } from "@travel-crm/contracts/inbox";
+import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { MemberAccess } from "../../src/identity/index.js";
 import {
   BROADCAST_READY_EVENT,
   broadcastDetailOf,
@@ -21,7 +23,7 @@ import {
 } from "../../src/inbox/index.js";
 import { aLead, aPerson, freshPhone } from "../crm/support/records.js";
 import { auditOf, eventsOf, memberOf } from "../imports/support/test-imports.js";
-import { aConnectedAgency, createTestInbox, testNow, type TestInbox } from "./support.js";
+import { aConnectedAgency, aSecondNumber, createTestInbox, sentFrom, testNow, type TestInbox } from "./support.js";
 
 const HOUR = 3_600_000;
 const ZONE = "Asia/Kolkata";
@@ -32,6 +34,42 @@ describe("broadcasts", () => {
     test = createTestInbox();
   });
   afterAll(() => test.close());
+
+  type Consent = "granted" | "withdrawn" | "none" | "noPerson";
+
+  /** A chat on the number carrying the tag; its person (none for "noPerson") has a lead of `owner`'s and that consent. */
+  async function aTaggedChat(
+    tx: OrgTx,
+    admin: MemberAccess,
+    on: { connectionId: string; tagId: string; owner: string },
+    consent: Consent,
+  ) {
+    const person = consent === "noPerson" ? null : await aPerson(tx);
+    if (person !== null) await aLead(tx, { personId: person.id, ownerUserId: on.owner });
+    if (person !== null && consent !== "none") {
+      await tx.personConsent.create({
+        data: {
+          personId: person.id,
+          purpose: "whatsapp",
+          action: consent,
+          wording: "test",
+          wordingVersion: 1,
+          source: "staff",
+          recordedAt: new Date(testNow.getTime() - 48 * HOUR),
+        },
+      });
+    }
+    const row = await tx.whatsappConversation.create({
+      data: {
+        connectionId: on.connectionId,
+        phoneE164: freshPhone(),
+        personId: person?.id ?? null,
+        lastMessageAt: testNow,
+      },
+    });
+    await setConversationTags(tx, admin, { conversationId: row.id, tagIds: [on.tagId] });
+    return { id: row.id, personId: person?.id ?? null };
+  }
 
   /** An agency with an approved marketing template, a tag, and `granted` chats whose people agreed, plus one of each way to be left out. */
   async function agency(options: { granted?: number; marketingCap?: number; dayCap?: number } = {}) {
@@ -56,33 +94,8 @@ describe("broadcasts", () => {
         },
       });
       const tag = await createTag(tx, admin, { name: "Goa interested" });
-      const chat = async (consent: "granted" | "withdrawn" | "none" | "noPerson") => {
-        const person = consent === "noPerson" ? null : await aPerson(tx);
-        if (person !== null) await aLead(tx, { personId: person.id, ownerUserId: owner });
-        if (person !== null && consent !== "none") {
-          await tx.personConsent.create({
-            data: {
-              personId: person.id,
-              purpose: "whatsapp",
-              action: consent,
-              wording: "test",
-              wordingVersion: 1,
-              source: "staff",
-              recordedAt: new Date(testNow.getTime() - 48 * HOUR),
-            },
-          });
-        }
-        const row = await tx.whatsappConversation.create({
-          data: {
-            connectionId: connection.connectionId,
-            phoneE164: freshPhone(),
-            personId: person?.id ?? null,
-            lastMessageAt: testNow,
-          },
-        });
-        await setConversationTags(tx, admin, { conversationId: row.id, tagIds: [tag.id] });
-        return { id: row.id, personId: person?.id ?? null };
-      };
+      const chat = (consent: Consent) =>
+        aTaggedChat(tx, admin, { connectionId: connection.connectionId, tagId: tag.id, owner }, consent);
       const granted = [];
       for (let index = 0; index < (options.granted ?? 3); index += 1) granted.push(await chat("granted"));
       const left = {
@@ -102,12 +115,52 @@ describe("broadcasts", () => {
     return { connection, organizationId, admin, inOrg, owner, ...made, input, create, run, detail, messages };
   }
 
+  /**
+   * The agency above with a second number, "Sales 2" (not the main one): its own approved "goa_offer", its caps, and
+   * `granted` chats with the same tag whose people agreed. Its `create` broadcasts its template.
+   */
+  async function withSecondNumber(
+    base: Awaited<ReturnType<typeof agency>>,
+    options: { granted?: number; marketingCap?: number; dayCap?: number } = {},
+  ) {
+    const second = await aSecondNumber(test, base.connection);
+    const made = await base.inOrg(async (tx) => {
+      await tx.whatsappConnection.update({
+        where: { id: second.connectionId },
+        data: { marketingCapMonth: options.marketingCap ?? 300, templateCapDay: options.dayCap ?? 100 },
+      });
+      const template = await tx.whatsappTemplate.create({
+        data: {
+          connectionId: second.connectionId,
+          name: "goa_offer",
+          language: "en",
+          category: "marketing",
+          body: "Hi {{1}}, Goa packages are on offer.",
+          status: "approved",
+        },
+      });
+      const on = { connectionId: second.connectionId, tagId: base.tag.id, owner: base.owner };
+      const granted = [];
+      for (let index = 0; index < (options.granted ?? 2); index += 1) {
+        granted.push(await aTaggedChat(tx, base.admin, on, "granted"));
+      }
+      return { template, granted };
+    });
+    const input = { ...base.input, templateId: made.template.id };
+    const create = (requestId = randomUUID(), at = testNow) =>
+      base.inOrg((tx) => createBroadcast(tx, base.admin, { requestId, ...input }, at));
+    const preview = (from = input) => base.inOrg((tx) => previewBroadcast(tx, base.admin, from, testNow));
+    const setStatus = (connectionId: string, status: string) =>
+      base.inOrg((tx) => tx.whatsappConnection.update({ where: { id: connectionId }, data: { status } }));
+    return { second, ...made, input, create, preview, setStatus };
+  }
+
   it("previews who it reaches and who is left out, and why, and what is left of the allowance", async () => {
     const { inOrg, admin, input, owner, organizationId } = await agency({ marketingCap: 2 });
     const preview = await inOrg((tx) => previewBroadcast(tx, admin, input, testNow));
     expect(preview).toEqual({
       willSend: 2,
-      leftOut: { optedOut: 1, noConsent: 2, outsideVisibility: 0, overAllowance: 1 },
+      leftOut: { optedOut: 1, noConsent: 2, outsideVisibility: 0, overAllowance: 1, otherNumber: 0 },
       allowance: { limit: 2, used: 0, remaining: 2 },
       today: { sendToday: 2, waitForTomorrow: 0 },
     });
@@ -327,5 +380,102 @@ describe("broadcasts", () => {
     const another = memberOf(organizationId, "org-admin");
     await inOrg((tx) => cancelBroadcast(tx, another, { broadcastId: id }, testNow));
     expect((await inOrg((tx) => tx.whatsappBroadcast.findUniqueOrThrow({ where: { id } }))).status).toBe("cancelled");
+  });
+
+  describe("with two numbers", () => {
+    it("sends a broadcast from its template's number to that number's chats only", async () => {
+      const base = await agency({ granted: 2 });
+      const two = await withSecondNumber(base, { granted: 2 });
+      expect(await two.preview()).toMatchObject({
+        willSend: 2,
+        leftOut: { optedOut: 0, noConsent: 0, outsideVisibility: 0, overAllowance: 0, otherNumber: 5 },
+      });
+      const { id } = await two.create();
+      await base.run(id);
+      const sent = await base.messages();
+      expect(sent.map((message) => message.conversationId).sort()).toEqual(two.granted.map((chat) => chat.id).sort());
+      for (const message of sent) {
+        expect(await sentFrom(test, base.organizationId, message.id)).toBe(two.second.integratedNumber);
+      }
+    });
+
+    it("counts the matching chats on other numbers as left out", async () => {
+      const base = await agency({ granted: 1 });
+      const two = await withSecondNumber(base, { granted: 3 });
+      expect(await two.preview(base.input)).toEqual({
+        willSend: 1,
+        leftOut: { optedOut: 1, noConsent: 2, outsideVisibility: 0, overAllowance: 0, otherNumber: 3 },
+        allowance: { limit: 300, used: 0, remaining: 300 },
+        today: { sendToday: 1, waitForTomorrow: 0 },
+      });
+      // Someone who sees none of the chats: this number's are out of sight, the other number's on another number.
+      const stranger = memberOf(base.organizationId, "sales");
+      expect(await base.inOrg((tx) => previewBroadcast(tx, stranger, base.input, testNow))).toMatchObject({
+        willSend: 0,
+        leftOut: { optedOut: 0, noConsent: 0, outsideVisibility: 4, overAllowance: 0, otherNumber: 3 },
+      });
+    });
+
+    it("holds a broadcast while its number is paused, whatever the other number does", async () => {
+      const base = await agency({ granted: 2 });
+      const two = await withSecondNumber(base, { granted: 2 });
+      const onSecond = await two.create();
+      const onMain = await base.create();
+      await two.setStatus(two.second.connectionId, "paused");
+      // One made while the number is paused waits with it.
+      const whilePaused = await two.create();
+      expect(await base.run(onSecond.id)).toBe(0);
+      expect(await base.run(whilePaused.id)).toBe(0);
+      expect(await base.run(onMain.id)).toBe(2);
+      expect((await base.detail(onSecond.id)).broadcast.counts).toMatchObject({ waiting: 2, sent: 0 });
+      expect((await base.detail(onMain.id)).broadcast).toMatchObject({ status: "done", counts: { sent: 2 } });
+      // The other way round: the main number paused and Sales 2 back, its broadcast goes once its wait is over.
+      await two.setStatus(base.connection.connectionId, "paused");
+      await two.setStatus(two.second.connectionId, "connected");
+      const later = new Date(testNow.getTime() + 11 * 60_000);
+      expect(await base.run(onSecond.id, later)).toBe(2);
+      expect(await base.run(whilePaused.id, later)).toBe(2);
+      expect((await base.detail(onSecond.id)).broadcast).toMatchObject({ status: "done", counts: { sent: 2 } });
+      // A disconnected number starts none.
+      await two.setStatus(two.second.connectionId, "disconnected");
+      await expect(two.create()).rejects.toMatchObject({ reason: "WHATSAPP_NOT_CONNECTED" });
+    });
+
+    it("counts the marketing allowance and the day's cap on the broadcast's number", async () => {
+      const base = await agency({ granted: 3, marketingCap: 1, dayCap: 1 });
+      const two = await withSecondNumber(base, { granted: 3, marketingCap: 10, dayCap: 2 });
+      // The main number's month and day are used up: one marketing message counted, and one on its way today.
+      await base.inOrg(async (tx) => {
+        await tx.whatsappUsageMonth.create({
+          data: { connectionId: base.connection.connectionId, month: new Date("2026-10-01T00:00:00Z"), marketing: 1 },
+        });
+        await tx.whatsappMessage.create({
+          data: {
+            conversationId: base.granted[0]?.id ?? "",
+            direction: "out",
+            origin: "staff_crm",
+            kind: "template",
+            body: "Hi there, Goa packages are on offer.",
+            templateId: base.template.id,
+            status: "queued",
+            occurredAt: testNow,
+          },
+        });
+      });
+      expect(await two.preview()).toMatchObject({
+        willSend: 3,
+        allowance: { limit: 10, used: 0, remaining: 10 },
+        today: { sendToday: 2, waitForTomorrow: 1 },
+      });
+      await two.create();
+      // Its waiting recipients hold their places in Sales 2's allowance, not in the main number's.
+      expect((await two.preview()).allowance).toEqual({ limit: 10, used: 3, remaining: 7 });
+      expect(await two.preview(base.input)).toMatchObject({
+        willSend: 0,
+        leftOut: { overAllowance: 3 },
+        allowance: { limit: 1, used: 2, remaining: 0 },
+        today: { sendToday: 0, waitForTomorrow: 0 },
+      });
+    });
   });
 });

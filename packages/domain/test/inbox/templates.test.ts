@@ -3,7 +3,7 @@
 // the "they agreed" tick for a chat we start, and within the day's and the month's caps and WhatsApp's own limit.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { TemplateDraftInput } from "@travel-crm/contracts/inbox";
+import type { SendableTemplatesInput, TemplateDraftInput } from "@travel-crm/contracts/inbox";
 import {
   archiveTemplate,
   createTemplate,
@@ -12,8 +12,10 @@ import {
   listTemplates,
   queueTemplate,
   retryMessage,
+  sendableTemplates,
   sendQueued,
   startChatForLead,
+  syncAllTemplates,
   syncTemplates,
   whatsappConsentOf,
   type ReplyContext,
@@ -22,6 +24,7 @@ import { newUuidV7 } from "../../src/kernel/index.js";
 import { listenerContext, memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
+  aSecondNumber,
   createTestInbox,
   deliver,
   freshPhone,
@@ -76,7 +79,7 @@ describe("message templates", () => {
     category: "utility" | "marketing" = "utility",
     name = "booking_update",
   ) {
-    await createTemplate(deps(), member, { ...draft, name, category }, testNow);
+    await createTemplate(deps(), member, { draft: { ...draft, name, category } }, testNow);
     test.provider.setTemplateStatus(connection.integratedNumber, name, "approved");
     await syncTemplates(deps(), connection.organizationId, testNow);
     return test.db.forOrg(connection.organizationId, (tx) => tx.whatsappTemplate.findFirstOrThrow({ where: { name } }));
@@ -142,8 +145,10 @@ describe("message templates", () => {
 
   it("sends a new template for approval, refuses a name used twice, and sends a rejected one again", async () => {
     const { connection, member } = await agency();
-    await createTemplate(deps(), member, draft, testNow);
-    await expect(createTemplate(deps(), member, draft, testNow)).rejects.toMatchObject({ reason: "TEMPLATE_EXISTS" });
+    await createTemplate(deps(), member, { draft }, testNow);
+    await expect(createTemplate(deps(), member, { draft }, testNow)).rejects.toMatchObject({
+      reason: "TEMPLATE_EXISTS",
+    });
     await expect(editTemplate(deps(), member, randomUUID(), draft, testNow)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
@@ -207,7 +212,7 @@ describe("message templates", () => {
 
   it("refuses a template that is not approved, or whose values do not fit", async () => {
     const { connection, member } = await agency();
-    await createTemplate(deps(), member, draft, testNow);
+    await createTemplate(deps(), member, { draft }, testNow);
     const pending = await test.db.forOrg(connection.organizationId, (tx) => tx.whatsappTemplate.findFirstOrThrow());
     const { chat } = await chatOf(connection);
     await expect(send(connection, member, { conversationId: chat.id, templateId: pending.id })).rejects.toMatchObject({
@@ -344,7 +349,7 @@ describe("message templates", () => {
 
   it("tells the author and the Owner once when a template is rejected, and the lead assigners when WhatsApp's limit is reached", async () => {
     const { connection, member } = await agency();
-    await createTemplate(deps(), member, draft, testNow);
+    await createTemplate(deps(), member, { draft }, testNow);
     test.provider.setTemplateStatus(connection.integratedNumber, draft.name, "rejected", "No");
     await syncTemplates(deps(), connection.organizationId, testNow);
     await syncTemplates(deps(), connection.organizationId, testNow);
@@ -476,6 +481,151 @@ describe("message templates", () => {
     );
     await expect(send(connection, member, { conversationId: chat.id, templateId: utility.id })).rejects.toMatchObject({
       reason: "TIER_LIMIT_REACHED",
+    });
+  });
+
+  describe("with two numbers", () => {
+    /** A template as MSG91 lists it, approved unless told. */
+    const listed = (name: string, status: "approved" | "pending" = "approved") => ({
+      name,
+      language: "en",
+      category: "utility" as const,
+      body: "Hello {{1}}, your trip is confirmed.",
+      footer: null,
+      status,
+      reason: null,
+      providerRef: name,
+    });
+
+    /** The agency's main number with "main_update" listed at MSG91, and "Sales 2" with "second_update". */
+    async function twoNumbers() {
+      const { connection, member } = await agency();
+      const second = await aSecondNumber(test, connection);
+      test.provider.addTemplate(connection.integratedNumber, listed("main_update"));
+      test.provider.addTemplate(second.integratedNumber, listed("second_update"));
+      const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) =>
+        test.db.forOrg(connection.organizationId, work);
+      const stored = async () =>
+        (await inOrg((tx) => tx.whatsappTemplate.findMany({ orderBy: { name: "asc" } }))).map((row) => [
+          row.name,
+          row.connectionId,
+        ]);
+      return { connection, second, member, inOrg, stored };
+    }
+
+    /** What MSG91 holds for the number, as "name: body". */
+    async function atProvider(number: string) {
+      const held = await test.provider.listTemplates(number);
+      return held.ok ? held.templates.map((template) => `${template.name}: ${template.body}`) : [];
+    }
+
+    it("lists templates per number, the main number's when none is named", async () => {
+      const { connection, second, inOrg } = await twoNumbers();
+      await syncTemplates(deps(), connection.organizationId, testNow);
+      await inOrg((tx) =>
+        tx.whatsappConnection.update({ where: { id: second.connectionId }, data: { marketingCapMonth: 50 } }),
+      );
+      const list = (connectionId?: string) =>
+        inOrg((tx) =>
+          listTemplates(tx, {
+            onlyApproved: false,
+            now: testNow,
+            ...(connectionId === undefined ? {} : { connectionId }),
+          }),
+        );
+      const main = await list();
+      expect(main).toMatchObject({ connectionId: connection.connectionId, marketingCap: 300 });
+      expect(main.items.map((item) => [item.name, item.connectionId])).toEqual([
+        ["main_update", connection.connectionId],
+      ]);
+      const other = await list(second.connectionId);
+      expect(other).toMatchObject({ connectionId: second.connectionId, marketingCap: 50 });
+      expect(other.items.map((item) => [item.name, item.connectionId])).toEqual([
+        ["second_update", second.connectionId],
+      ]);
+      await expect(list(randomUUID())).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+
+    it("lists a chat's number's templates for the send dialog, and refuses a chat the member can't see", async () => {
+      const { connection, second, member, inOrg } = await twoNumbers();
+      test.provider.addTemplate(second.integratedNumber, listed("second_draft", "pending"));
+      await syncTemplates(deps(), connection.organizationId, testNow);
+      const { chat } = await chatOf(second);
+      const sendable = async (who: ReturnType<typeof memberOf>, input: SendableTemplatesInput) => {
+        const list = await inOrg((tx) => sendableTemplates(tx, who, input, testNow));
+        return [list.connectionId, ...list.items.map((item) => item.name)];
+      };
+      expect(await sendable(member, { conversationId: chat.id })).toEqual([second.connectionId, "second_update"]);
+      expect(await sendable(member, { connectionId: second.connectionId })).toEqual([
+        second.connectionId,
+        "second_update",
+      ]);
+      expect(await sendable(member, {})).toEqual([connection.connectionId, "main_update"]);
+      const stranger = memberOf(connection.organizationId, "sales");
+      await expect(sendable(stranger, { conversationId: chat.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+
+    it("writes a template on the named number and sends an edited one to its own", async () => {
+      const { connection, second, member, stored } = await twoNumbers();
+      const { templateId } = await createTemplate(
+        deps(),
+        member,
+        { connectionId: second.connectionId, draft },
+        testNow,
+      );
+      await createTemplate(deps(), member, { draft: { ...draft, name: "other_update" } }, testNow);
+      expect(await stored()).toEqual([
+        ["booking_update", second.connectionId],
+        ["other_update", connection.connectionId],
+      ]);
+      expect(await atProvider(second.integratedNumber)).toEqual([
+        "second_update: Hello {{1}}, your trip is confirmed.",
+        `booking_update: ${draft.body}`,
+      ]);
+      await expect(
+        createTemplate(deps(), member, { connectionId: randomUUID(), draft: { ...draft, name: "lost" } }, testNow),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+      test.provider.setTemplateStatus(second.integratedNumber, draft.name, "rejected", "No");
+      await syncTemplates(deps(), connection.organizationId, testNow, second.connectionId);
+      const edited = "Hi {{1}}, {{2}} is confirmed.";
+      await editTemplate(deps(), member, templateId, { ...draft, body: edited }, testNow);
+      expect((await atProvider(second.integratedNumber)).at(-1)).toBe(`booking_update: ${edited}`);
+      expect(await atProvider(connection.integratedNumber)).toEqual([
+        "main_update: Hello {{1}}, your trip is confirmed.",
+        `other_update: ${draft.body}`,
+      ]);
+    });
+
+    it("refreshes every live number's templates, and the half-hourly pass each route's own", async () => {
+      const { connection, second, stored } = await twoNumbers();
+      const gone = await aSecondNumber(test, connection, { label: "Old", status: "disconnected" });
+      test.provider.addTemplate(gone.integratedNumber, listed("gone_update"));
+      expect(await syncTemplates(deps(), connection.organizationId, testNow)).toEqual({ templates: 2 });
+      expect(await stored()).toEqual([
+        ["main_update", connection.connectionId],
+        ["second_update", second.connectionId],
+      ]);
+
+      test.provider.addTemplate(second.integratedNumber, listed("later_update"));
+      const read: string[] = [];
+      const provider = {
+        ...test.provider,
+        listTemplates: (number: string) => {
+          read.push(number);
+          return test.provider.listTemplates(number);
+        },
+      };
+      await syncAllTemplates({ ...test.dependencies, provider }, testNow);
+      const ours = [connection.integratedNumber, second.integratedNumber, gone.integratedNumber];
+      expect(read.filter((number) => ours.includes(number)).sort()).toEqual(
+        [connection.integratedNumber, second.integratedNumber].sort(),
+      );
+      expect(await stored()).toEqual([
+        ["later_update", second.connectionId],
+        ["main_update", connection.connectionId],
+        ["second_update", second.connectionId],
+      ]);
     });
   });
 });

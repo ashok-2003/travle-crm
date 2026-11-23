@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const chat = (n: number): ConversationListItem => ({
   id: `01900000-0000-7000-8000-0000000000${String(n).padStart(2, "0")}`,
+  connectionId: "01900000-0000-7000-8000-0000000000aa",
   phone: "+919876543210",
   name: n === 1 ? "Meera Rao" : "Amit Shah",
   personId: null,

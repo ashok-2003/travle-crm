@@ -19,6 +19,12 @@ export const shortDayOf = (day: string) => escapeHtml(shortDayWords.format(new D
 /** A link is shown only when it is an http(s) address; anything else (javascript:) is dropped. */
 export const safeLink = (link: string) => (/^https?:\/\/\S+$/.test(link) ? escapeHtml(link) : null);
 
+/** "WhatsApp us": a chat with the agency's main WhatsApp number (E.164), opened in WhatsApp; nothing without one. */
+export const whatsappUs = (number: string | null) =>
+  number === null
+    ? ""
+    : `<a class="button quiet" href="https://wa.me/${number.replace(/\D/g, "")}" target="_blank" rel="noopener noreferrer">WhatsApp us</a>`;
+
 /** The page's stylesheet, in the brand's colours. */
 export function styles(): string {
   const { colours } = brand;

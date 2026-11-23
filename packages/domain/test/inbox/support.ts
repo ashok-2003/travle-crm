@@ -89,9 +89,15 @@ export interface TestConnection {
   integratedNumber: string;
 }
 
-/** An agency with its main number in the given status (connected unless told), routed as the route listener would. */
-export async function aConnectedAgency(test: TestInbox, options: { status?: string } = {}): Promise<TestConnection> {
-  const organizationId = await anAgency(test);
+/**
+ * An agency with its main number in the given status (connected unless told), routed as the route listener would; a new
+ * agency unless `organizationId` names one another test made.
+ */
+export async function aConnectedAgency(
+  test: TestInbox,
+  options: { status?: string; organizationId?: string } = {},
+): Promise<TestConnection> {
+  const organizationId = options.organizationId ?? (await anAgency(test));
   const integratedNumber = aBusinessNumber();
   test.provider.addNumber(integratedNumber);
   const connectionId = await test.db.forOrg(organizationId, async (tx) => {
@@ -145,6 +151,31 @@ export async function aSecondNumber(
   const organizationId = first.organizationId;
   if (status !== "disconnected") await upsertRoute(test.db, { integratedNumber, organizationId, connectionId });
   return { organizationId, connectionId, integratedNumber };
+}
+
+/** The customer writes to `before` two hours before `at`, then to `last` an hour before it; their chat on `last`. */
+export async function lastWroteTo(
+  test: TestInbox,
+  phoneE164: string,
+  last: TestConnection,
+  before: TestConnection,
+  at: Date = testNow,
+): Promise<string> {
+  for (const [connection, hours] of [
+    [before, 2],
+    [last, 1],
+  ] as const) {
+    const when = new Date(at.getTime() - hours * 3_600_000);
+    const customerNumber = phoneE164.replace("+", "");
+    await deliver(test, fromCustomer(connection, { customerNumber, text: "Hello", ts: when.getTime() / 1000 }), when);
+  }
+  const chat = await test.db.forOrg(last.organizationId, (tx) =>
+    tx.whatsappConversation.findFirstOrThrow({
+      where: { connectionId: last.connectionId, phoneE164 },
+      select: { id: true },
+    }),
+  );
+  return chat.id;
 }
 
 /** Runs the worker's sender on a queued message; the number MSG91 was asked to send from, or null for none. */

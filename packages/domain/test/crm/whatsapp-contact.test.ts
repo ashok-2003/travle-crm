@@ -24,6 +24,8 @@ describe("receiving a WhatsApp contact", () => {
     const owner = randomUUID();
     const actor = systemActor(organizationId);
     const context = { ownerUserId: owner, workers: new Set([owner]) };
+    // The number the messages come in on: only an assignment rule could name it, and here none does.
+    const connectionId = randomUUID();
     const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
     const receive = (phone: string, extra: { profileName?: string | null; previousInboundAt?: Date | null } = {}) =>
       inOrg((tx) =>
@@ -32,6 +34,7 @@ describe("receiving a WhatsApp contact", () => {
           actor,
           {
             phoneE164: phone,
+            connectionId,
             profileName: "Priya",
             firstText: "Goa in December?",
             occurredAt: testNow,
@@ -42,7 +45,7 @@ describe("receiving a WhatsApp contact", () => {
           testNow,
         ),
       );
-    return { organizationId, owner, actor, context, inOrg, receive };
+    return { organizationId, owner, actor, context, connectionId, inOrg, receive };
   }
 
   it("makes a lead from a number we don't know: source WhatsApp, named by the profile, dated by the message", async () => {
@@ -85,7 +88,7 @@ describe("receiving a WhatsApp contact", () => {
   });
 
   it("leaves a past customer for the Start a new lead button, which makes a Returning lead", async () => {
-    const { receive, inOrg, actor, context } = await setup();
+    const { receive, inOrg, actor, context, connectionId } = await setup();
     const phone = freshPhone();
     const personId = await inOrg(async (tx) => {
       const person = await aPerson(tx, { phoneE164: phone });
@@ -94,12 +97,14 @@ describe("receiving a WhatsApp contact", () => {
     });
     expect(await receive(phone)).toEqual({ kind: "past_customer", personId });
     expect(await inOrg((tx) => tx.lead.count())).toBe(1);
-    const { leadId } = await inOrg((tx) => startLeadFromChat(tx, actor, { personId }, context, testNow));
+    const { leadId } = await inOrg((tx) => startLeadFromChat(tx, actor, { personId, connectionId }, context, testNow));
     expect(await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: leadId } }))).toMatchObject({
       returning: true,
       source: "whatsapp",
     });
-    await expect(inOrg((tx) => startLeadFromChat(tx, actor, { personId }, context, testNow))).rejects.toMatchObject({
+    await expect(
+      inOrg((tx) => startLeadFromChat(tx, actor, { personId, connectionId }, context, testNow)),
+    ).rejects.toMatchObject({
       reason: "OPEN_LEAD_EXISTS",
     });
   });

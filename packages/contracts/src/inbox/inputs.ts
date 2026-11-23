@@ -36,6 +36,8 @@ export const listConversationsInput = z.strictObject({
   stage: leadStage.optional(),
   /** Only the chats with a message in the last day, 7 days or 30 days. */
   period: conversationPeriod.optional(),
+  /** Only the chats on this WhatsApp number. */
+  connectionId: recordId.optional(),
   /** The last conversation id of the previous page. */
   before: recordId.optional(),
   limit: z.int().min(1).max(50).default(25),

@@ -3,12 +3,22 @@
 // hidden, a number nobody recorded counted and ignored, a number being set up only stamped, and a read-only agency's
 // messages kept until access returns.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { openLeadForChat } from "../../src/ai/lite/open-lead.js";
 import { addBlockedContact, QUIET_HOURS } from "../../src/crm/index.js";
-import { adoptChats, noteUnrouted, routeOfNumber, unroutedNumbers } from "../../src/inbox/index.js";
+import {
+  adoptAll,
+  adoptChats,
+  noteUnrouted,
+  routeOfNumber,
+  startLeadFromConversation,
+  unroutedNumbers,
+} from "../../src/inbox/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { aLead, aPerson } from "../crm/support/records.js";
+import { memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
+  aSecondNumber,
   createTestInbox,
   deliver,
   freshPhone,
@@ -268,6 +278,122 @@ describe("an inbound WhatsApp message", () => {
     expect(byWamid("wamid.TAP1")).toMatchObject({ buttonReplyId: id, body: "Book these seats" });
     expect(byWamid("wamid.TAP2")).toMatchObject({ buttonReplyId: id, body: null });
     expect(byWamid("wamid.QR1")?.buttonReplyId).toBeNull();
+  });
+
+  describe("with two numbers", () => {
+    /**
+     * An agency with a second number, "Sales 2", whose rule gives its leads to the Owner; every other lead waits in
+     * Unassigned (the turns, with nobody in the pool).
+     */
+    async function ruledBySecondNumber() {
+      const first = await aConnectedAgency(test);
+      const second = await aSecondNumber(test, first);
+      const { organizationId } = first;
+      const owner = (await test.dependencies.identity.firstOwner(organizationId)) ?? "";
+      await test.db.forOrg(organizationId, async (tx) => {
+        await tx.assignmentSettings.create({ data: { mode: "turns" } });
+        await tx.assignmentRule.create({
+          data: { position: 0, whatsappConnectionId: second.connectionId, assigneeUserId: owner },
+        });
+      });
+      /** The owner of the newest lead of the person in the number's chat with the phone. */
+      const leadOwnerOf = (connectionId: string, phoneE164: string) =>
+        test.db.forOrg(organizationId, async (tx) => {
+          const chat = await tx.whatsappConversation.findFirstOrThrow({ where: { connectionId, phoneE164 } });
+          const lead = await tx.lead.findFirstOrThrow({
+            where: { personId: chat.personId ?? "" },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          });
+          return lead.ownerUserId;
+        });
+      return { first, second, organizationId, owner, leadOwnerOf };
+    }
+
+    it("assigns a first message by the rule for the number it came in on", async () => {
+      const { first, second, owner, leadOwnerOf } = await ruledBySecondNumber();
+      const [onFirst, onSecond] = [freshPhone(), freshPhone()];
+      await deliver(test, fromCustomer(second, { customerNumber: digits(onSecond), text: "Goa in December?" }));
+      await deliver(test, fromCustomer(first, { customerNumber: digits(onFirst), text: "Goa in December?" }));
+      expect(await leadOwnerOf(second.connectionId, onSecond)).toBe(owner);
+      expect(await leadOwnerOf(first.connectionId, onFirst)).toBeNull();
+    });
+
+    it("adopts the chats of every connected number, each by its number's rule", async () => {
+      const { first, second, organizationId, owner, leadOwnerOf } = await ruledBySecondNumber();
+      const [onFirst, onSecond] = [freshPhone(), freshPhone()];
+      test.setAccess("read_only");
+      try {
+        await deliver(test, fromCustomer(second, { customerNumber: digits(onSecond), text: "Kerala trip?" }));
+        await deliver(test, fromCustomer(first, { customerNumber: digits(onFirst), text: "Kerala trip?" }));
+      } finally {
+        test.setAccess("full");
+      }
+      expect(await test.db.forOrg(organizationId, (tx) => tx.lead.count())).toBe(0);
+      expect(await adoptChats(test.dependencies, organizationId, testNow)).toBe(2);
+      expect(await leadOwnerOf(second.connectionId, onSecond)).toBe(owner);
+      expect(await leadOwnerOf(first.connectionId, onFirst)).toBeNull();
+    });
+
+    it("starts a new lead in a chat by that chat's number's rule", async () => {
+      const { first, second, organizationId, owner } = await ruledBySecondNumber();
+      const pastCustomerOn = (connectionId: string) =>
+        test.db.forOrg(organizationId, async (tx) => {
+          const phoneE164 = freshPhone();
+          const person = await aPerson(tx, { phoneE164 });
+          await aLead(tx, { personId: person.id, stage: "won" });
+          return tx.whatsappConversation.create({
+            data: { connectionId, phoneE164, personId: person.id },
+            select: { id: true, personId: true, phoneE164: true },
+          });
+        });
+      const newLeadOwnerOf = async (personId: string | null) =>
+        (
+          await test.db.forOrg(organizationId, (tx) =>
+            tx.lead.findFirstOrThrow({ where: { personId: personId ?? "", stage: "new" } }),
+          )
+        ).ownerUserId;
+      const staff = memberOf(organizationId, "org-owner");
+      const context = { ownerUserId: owner, workers: new Set([owner]) };
+      const onSecond = await pastCustomerOn(second.connectionId);
+      const onFirst = await pastCustomerOn(first.connectionId);
+      for (const chat of [onSecond, onFirst]) {
+        await test.db.forOrg(organizationId, (tx) => startLeadFromConversation(tx, staff, chat.id, context, testNow));
+      }
+      expect(await newLeadOwnerOf(onSecond.personId)).toBe(owner);
+      expect(await newLeadOwnerOf(onFirst.personId)).toBeNull();
+      // The AI opening a past customer's lead in a Sales 2 chat follows the same rule.
+      const byAi = await pastCustomerOn(second.connectionId);
+      const identity = {
+        ...test.dependencies.identity,
+        memberContacts: () => Promise.resolve([]),
+        membersHolding: () => Promise.resolve([]),
+      };
+      const deps = { db: test.db, identity, subscriptions: test.dependencies.subscriptions };
+      expect(await openLeadForChat(deps, organizationId, byAi, testNow)).toBe("opened");
+      expect(await newLeadOwnerOf(byAi.personId)).toBe(owner);
+    });
+
+    it("adopts an agency's chats once a pass, however many numbers it has", async () => {
+      const { organizationId } = await ruledBySecondNumber();
+      const asked: string[] = [];
+      const counting = {
+        ...test.dependencies,
+        subscriptions: {
+          entitlementsOf: (id: string) => {
+            asked.push(id);
+            return test.dependencies.subscriptions.entitlementsOf(id);
+          },
+        },
+      };
+      // Read-only, so the pass looks at every agency and changes none: other tests' agencies share the database.
+      test.setAccess("read_only");
+      try {
+        await adoptAll(counting, testNow);
+      } finally {
+        test.setAccess("full");
+      }
+      expect(asked.filter((id) => id === organizationId)).toHaveLength(1);
+    });
   });
 });
 

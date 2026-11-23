@@ -20,4 +20,10 @@ export {
   PREVIEW_TOKEN,
   type PublicFormServices,
 } from "./public-form.js";
-export { consentLine, publicPackageListOf, publicPackageOf, type PublicPackageServices } from "./public-package.js";
+export {
+  consentLine,
+  publicPackageListOf,
+  publicPackageOf,
+  whatsappUsNumber,
+  type PublicPackageServices,
+} from "./public-package.js";
