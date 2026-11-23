@@ -23,7 +23,15 @@ test("a Kashmir rule sends a Kashmir enquiry to its person; a returning customer
   const [kashmir] = await callApi<{ id: string; name: string }[]>(page, "destinations.search", { query: "Kashmir" });
   if (!kashmir) throw new Error("Kashmir was not made");
   await saveSettings(page, {
-    rules: [{ source: null, destinationId: kashmir.id, tripType: null, assigneeUserId: team.ravi.userId }],
+    rules: [
+      {
+        source: null,
+        destinationId: kashmir.id,
+        tripType: null,
+        whatsappConnectionId: null,
+        assigneeUserId: team.ravi.userId,
+      },
+    ],
   });
   const visitors = await websiteVisitors(page, request);
 

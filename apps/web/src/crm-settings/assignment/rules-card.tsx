@@ -1,7 +1,7 @@
 "use client";
 
 // The assignment rules (release 4, spec 3.1): an ordered list, tried before the mode in every mode; a rule whose
-// person left or no longer works leads is marked and passed over.
+// person left or no longer works leads, or whose WhatsApp number was disconnected, is marked and passed over.
 import type { LeadWorker } from "@travel-crm/contracts/crm";
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -10,19 +10,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { newRuleKey, rulesComplete } from "./assignment-values";
-import { RuleRow, type RuleDraft } from "./rule-row";
+import { RuleRow, type RuleDraft, type RuleNumber } from "./rule-row";
 
 export function RulesCard({
   rules,
   onRules,
   workers,
+  numbers,
 }: {
   rules: readonly RuleDraft[];
   onRules: (rules: RuleDraft[]) => void;
   workers: readonly LeadWorker[];
+  /** The agency's live WhatsApp numbers. */
+  numbers: readonly RuleNumber[];
 }) {
   const t = useTranslations("settings.assignment.rules");
   const working = new Set(workers.map((worker) => worker.userId));
+  const live = new Set(numbers.map((number) => number.id));
   return (
     <Card>
       <CardHeader>
@@ -39,7 +43,9 @@ export function RulesCard({
               number={index + 1}
               count={rules.length}
               workers={workers}
+              numbers={numbers}
               personLeft={rule.assigneeUserId !== null && !working.has(rule.assigneeUserId)}
+              numberGone={rule.whatsapp !== null && !live.has(rule.whatsapp.id)}
               onChange={(changed) => {
                 onRules(rules.map((each) => (each.key === rule.key ? changed : each)));
               }}
@@ -62,14 +68,25 @@ export function RulesCard({
           onClick={() => {
             onRules([
               ...rules,
-              { key: newRuleKey(), source: null, destination: null, tripType: null, assigneeUserId: null },
+              {
+                key: newRuleKey(),
+                source: null,
+                destination: null,
+                tripType: null,
+                whatsapp: null,
+                assigneeUserId: null,
+              },
             ]);
           }}
         >
           <PlusIcon aria-hidden="true" />
           {t("add")}
         </Button>
-        {!rulesComplete(rules) && <p className="text-label text-muted-foreground">{t("needsCondition")}</p>}
+        {!rulesComplete(rules) && (
+          <p className="text-label text-muted-foreground">
+            {t(numbers.length >= 2 ? "needsConditionWithNumber" : "needsCondition")}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

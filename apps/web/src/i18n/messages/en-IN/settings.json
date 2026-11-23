@@ -163,6 +163,7 @@
       "source": "Source",
       "destination": "Destination",
       "tripType": "Trip type",
+      "whatsapp": "Came in on WhatsApp number",
       "person": "Goes to",
       "any": "Any",
       "choosePerson": "Choose someone",
@@ -172,7 +173,10 @@
       "rule": "Rule {number}",
       "personLeft": "Person left",
       "personLeftHint": "This rule's person no longer works leads, so it is passed over. Choose someone else or remove it.",
-      "needsCondition": "Give each rule a source, destination or trip type, and a person."
+      "numberGone": "Number disconnected",
+      "numberGoneHint": "This rule's WhatsApp number was disconnected, so no new lead matches it. Choose another number or remove the rule.",
+      "needsCondition": "Give each rule a source, destination or trip type, and a person.",
+      "needsConditionWithNumber": "Give each rule a source, destination, trip type or WhatsApp number, and a person."
     },
     "hours": {
       "label": "Working hours and reply time",
