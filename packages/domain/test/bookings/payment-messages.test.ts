@@ -1,11 +1,21 @@
 // Telling the customer a person's decision about their payment: the agency's own words inside the 24-hour window, its approved
 // template outside it, else one task for the lead's owner; a repeat of the same decision changes nothing. {date} is the
 // agency's day of the decision; a blank the record can't fill keeps the words from going; the preview is what then goes.
+// The words go from the number the customer last wrote to.
+import { randomUUID } from "node:crypto";
 import { saveBookingSettingsInput } from "@travel-crm/contracts/bookings";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { bookingSettingsOf, saveBookingSettings } from "../../src/bookings/settings.js";
 import { previewPaymentTelling, tellPaymentOutcome, type PaymentTelling } from "../../src/bookings/payment-messages.js";
 import { aLead, aPerson } from "../crm/support/records.js";
+import {
+  aConnectedAgency,
+  aSecondNumber,
+  createTestInbox,
+  lastWroteTo,
+  sentFrom,
+  type TestInbox,
+} from "../inbox/support.js";
 import { openWorld, type World } from "./support.js";
 
 const now = new Date("2026-10-30T06:30:00Z");
@@ -264,5 +274,60 @@ describe("telling the customer about their payment", () => {
         paymentConfirmedText: "Hi {name}, {amount} {trip} {date}",
       }).success,
     ).toBe(true);
+  });
+});
+
+describe("the number a payment message goes from", () => {
+  let world: World;
+  let test: TestInbox;
+  beforeAll(async () => {
+    world = await openWorld("Payment numbers");
+    test = createTestInbox();
+  });
+  afterAll(async () => {
+    await test.close();
+    await world.close();
+  });
+
+  it("tells the customer about their payment from the number they last wrote to", async () => {
+    const main = await aConnectedAgency(test, { organizationId: world.organizationId });
+    const second = await aSecondNumber(test, main, { label: "Sales 2" });
+    // The first customer last wrote to Sales 2, the second to the main number. Both are told with no write to a number
+    // between, so a send that took the first live number a lookup finds goes from the wrong number for one of them.
+    const customers = [];
+    for (const [last, before] of [
+      [second, main],
+      [main, second],
+    ] as const) {
+      const lead = await world.inOrg(async (tx) => {
+        const person = await aPerson(tx);
+        const made = await aLead(tx, { personId: person.id, ownerUserId: world.seller.userId });
+        const row = await tx.person.findUniqueOrThrow({ where: { id: person.id }, select: { phoneE164: true } });
+        return { id: made.id, phone: row.phoneE164 ?? "" };
+      });
+      customers.push({ leadId: lead.id, chat: await lastWroteTo(test, lead.phone, last, before, now), from: last });
+    }
+    for (const { leadId } of customers) {
+      const telling: PaymentTelling = {
+        organizationId: world.organizationId,
+        leadId,
+        conversationId: null,
+        outcome: "confirmed",
+        amountPaise: 1_250_000,
+        trip: "Manali 5N",
+        recordKey: randomUUID(),
+      };
+      expect(await world.inOrg((tx) => tellPaymentOutcome(tx, telling, now))).toBe("sent");
+    }
+    for (const { leadId, chat, from } of customers) {
+      const sent = await world.inOrg((tx) =>
+        tx.whatsappMessage.findMany({
+          where: { direction: "out", conversation: { person: { leads: { some: { id: leadId } } } } },
+          select: { id: true, conversationId: true },
+        }),
+      );
+      expect(sent).toMatchObject([{ conversationId: chat }]);
+      expect(await sentFrom(test, world.organizationId, sent[0]?.id ?? "", now)).toBe(from.integratedNumber);
+    }
   });
 });

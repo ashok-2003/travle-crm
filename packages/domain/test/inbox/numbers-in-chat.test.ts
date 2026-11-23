@@ -30,6 +30,7 @@ import {
   type ReplyContext,
 } from "../../src/inbox/index.js";
 import { newUuidV7, systemActor } from "../../src/kernel/index.js";
+import { sendToChat } from "../../src/sales/index.js";
 import { memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
@@ -441,6 +442,19 @@ describe("a send in a chat goes from the chat's own number", () => {
     await expect(
       world.inOrg((tx) => sendAiText(tx, aiTarget(world, world.chat, at(2)), randomUUID(), "Goa?", "reply")),
     ).rejects.toMatchObject({ reason: "WHATSAPP_NOT_CONNECTED" });
+    // A payment message in the booking's chat outside the window queues no template there either (path 11).
+    const row = await world.inOrg((tx) => tx.whatsappConversation.findUniqueOrThrow({ where: { id: world.chat } }));
+    const payment = { organizationId: world.main.organizationId, templateId: template, params: ["Test"] };
+    expect(
+      await world.inOrg((tx) =>
+        sendToChat(
+          tx,
+          { ...row, personId: row.personId ?? "" },
+          { ...payment, agreed: true, clientToken: randomUUID() },
+          at(30),
+        ),
+      ),
+    ).toEqual({ kind: "later", reason: "not_connected" });
     expect(await world.outgoing(world.chat)).toEqual(before);
     // The chat on the main number still sends.
     const onMain = await reply(world, world.mainChat, at(2));

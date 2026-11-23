@@ -19,6 +19,7 @@ import { answeredByAiWhere } from "./ai-answered.js";
 import { chatNameOf } from "./chat-name.js";
 import { liveConnection } from "./connection-row.js";
 import { previewOf } from "./messages.js";
+import { customerChatOf } from "./send-from.js";
 import { unreadCounts, unreadIdsOf } from "./unread.js";
 import { visibleConversations, type ConversationWhere } from "./scope.js";
 import { whatsappConsentOf } from "./whatsapp-consent.js";
@@ -342,20 +343,37 @@ export async function conversationHeaderOf(
   });
 }
 
-/** The chat of the person a lead belongs to, if the member may see both; null when there is none yet. */
+/**
+ * The chat of the person a lead belongs to, if the member may see both; null when there is none yet. It is the chat a send
+ * would go in (customerChatOf: the one they last wrote in on a live number, else the main number's); without one, their
+ * most recent chat, so a disconnected number's chat stays readable from the lead.
+ */
 export async function leadChatOf(
   tx: OrgTx,
   access: MemberAccess,
   leadId: string,
 ): Promise<{ conversationId: string } | null> {
-  const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { ownerUserId: true, personId: true } });
+  const lead = await tx.lead.findUnique({
+    where: { id: leadId },
+    select: { ownerUserId: true, personId: true, person: { select: { phoneE164: true } } },
+  });
   if (lead === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
   assertRecordInScope(access, "leads:view", lead.ownerUserId);
-  const chat = await tx.whatsappConversation.findFirst({
-    where: { AND: [{ personId: lead.personId, hidden: false, state: "open" }, visibleConversations(access)] },
-    orderBy: { lastMessageAt: "desc" },
-    select: { id: true },
-  });
+  const shown: ConversationWhere[] = [{ hidden: false, state: "open" }, visibleConversations(access)];
+  const phone = lead.person.phoneE164;
+  const ruled = phone === null ? null : await customerChatOf(tx, phone);
+  const chat =
+    (ruled === null
+      ? null
+      : await tx.whatsappConversation.findFirst({
+          where: { AND: [{ id: ruled.id }, ...shown] },
+          select: { id: true },
+        })) ??
+    (await tx.whatsappConversation.findFirst({
+      where: { AND: [{ personId: lead.personId }, ...shown] },
+      orderBy: { lastMessageAt: "desc" },
+      select: { id: true },
+    }));
   return chat === null ? null : { conversationId: chat.id };
 }
 

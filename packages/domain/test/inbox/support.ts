@@ -89,9 +89,15 @@ export interface TestConnection {
   integratedNumber: string;
 }
 
-/** An agency with its main number in the given status (connected unless told), routed as the route listener would. */
-export async function aConnectedAgency(test: TestInbox, options: { status?: string } = {}): Promise<TestConnection> {
-  const organizationId = await anAgency(test);
+/**
+ * An agency with its main number in the given status (connected unless told), routed as the route listener would; a new
+ * agency unless `organizationId` names one another test made.
+ */
+export async function aConnectedAgency(
+  test: TestInbox,
+  options: { status?: string; organizationId?: string } = {},
+): Promise<TestConnection> {
+  const organizationId = options.organizationId ?? (await anAgency(test));
   const integratedNumber = aBusinessNumber();
   test.provider.addNumber(integratedNumber);
   const connectionId = await test.db.forOrg(organizationId, async (tx) => {
@@ -147,22 +153,29 @@ export async function aSecondNumber(
   return { organizationId, connectionId, integratedNumber };
 }
 
-/**
- * Makes a lookup taking whichever live number comes first find `found`, so a send path that used one would pick it, not the
- * number the test expects. Postgres returns rows as they lie on disk and a write moves a row back, so `other`'s row is
- * written until `found`'s comes first.
- */
-export async function strayLookupFinds(test: TestInbox, found: TestConnection, other: TestConnection): Promise<void> {
-  for (let tries = 0; tries < 10; tries += 1) {
-    const [first] = await test.db.forOrg(found.organizationId, (tx) =>
-      tx.whatsappConnection.findMany({ where: { status: { not: "disconnected" } }, take: 1, select: { id: true } }),
-    );
-    if (first?.id === found.connectionId) return;
-    await test.db.forOrg(found.organizationId, (tx) =>
-      tx.whatsappConnection.update({ where: { id: other.connectionId }, data: { lastEventAt: testNow } }),
-    );
+/** The customer writes to `before` two hours before `at`, then to `last` an hour before it; their chat on `last`. */
+export async function lastWroteTo(
+  test: TestInbox,
+  phoneE164: string,
+  last: TestConnection,
+  before: TestConnection,
+  at: Date = testNow,
+): Promise<string> {
+  for (const [connection, hours] of [
+    [before, 2],
+    [last, 1],
+  ] as const) {
+    const when = new Date(at.getTime() - hours * 3_600_000);
+    const customerNumber = phoneE164.replace("+", "");
+    await deliver(test, fromCustomer(connection, { customerNumber, text: "Hello", ts: when.getTime() / 1000 }), when);
   }
-  throw new Error("The other number's row could not be moved behind the expected one");
+  const chat = await test.db.forOrg(last.organizationId, (tx) =>
+    tx.whatsappConversation.findFirstOrThrow({
+      where: { connectionId: last.connectionId, phoneE164 },
+      select: { id: true },
+    }),
+  );
+  return chat.id;
 }
 
 /** Runs the worker's sender on a queued message; the number MSG91 was asked to send from, or null for none. */

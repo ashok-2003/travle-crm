@@ -9,8 +9,9 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
-import { connectionById, liveConnection } from "./connection-row.js";
+import { connectionById } from "./connection-row.js";
 import { MESSAGE_QUEUED_EVENT, sendableChat, showAsLast, sentOf, earlierSend, type ReplyContext } from "./outbox.js";
+import { sendFrom } from "./send-from.js";
 import { monthStartOf } from "./usage.js";
 import { grantWhatsappConsent, whatsappConsentOf } from "./whatsapp-consent.js";
 
@@ -237,8 +238,10 @@ export async function queueCheckedTemplate(
 }
 
 /**
- * A chat with a lead's person who never wrote: the chat is made (for the agency's number) so a template can go in it. The
- * member must be able to see and edit the lead. A chat that exists already is returned as it is.
+ * The chat a template goes in to reach a lead's person, by the sending rule (sendFrom): the one they last wrote in on a
+ * live number, else the main number's, made for a person who never wrote there (a customer whose number was disconnected
+ * starts afresh on the main one). The member must be able to see and edit the lead. A chat that exists already is
+ * returned as it is; a paused number is refused, never swapped for another.
  */
 export async function startChatForLead(
   tx: OrgTx,
@@ -251,22 +254,12 @@ export async function startChatForLead(
   });
   if (lead === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
   assertRecordInScope(access, "leads:view", lead.ownerUserId);
-  const connection = await liveConnection(tx);
-  if (connection === null || connection.status === "setup" || connection.mode === "demo") {
-    throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
-  }
   const phoneE164 = lead.person.phoneE164;
   if (phoneE164 === null) throw new DomainError("CONFLICT", "NO_PERSON_YET", "This person has no phone number");
-  await tx.whatsappConversation.createMany({
-    data: [{ connectionId: connection.id, phoneE164, personId: lead.personId }],
-    skipDuplicates: true,
-  });
-  const chat = await tx.whatsappConversation.findFirstOrThrow({
-    where: { connectionId: connection.id, phoneE164 },
-    select: { id: true, personId: true },
-  });
-  if (chat.personId === null) {
-    await tx.whatsappConversation.update({ where: { id: chat.id }, data: { personId: lead.personId } });
+  const from = await sendFrom(tx, { customer: { phoneE164, personId: lead.personId }, make: true });
+  if (!from.ok && from.code === "paused") {
+    throw new DomainError("CONFLICT", "WHATSAPP_PAUSED", "WhatsApp is paused for this customer's number");
   }
-  return { conversationId: chat.id };
+  if (!from.ok) throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
+  return { conversationId: from.chat.id };
 }

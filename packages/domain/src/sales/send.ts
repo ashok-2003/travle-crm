@@ -1,9 +1,11 @@
-// An automatic WhatsApp to a lead (sales execution): the lead's chat is found or made for the agency's number, and the
-// approved template goes through the inbox's one template send (consent, STOP, the day's and month's caps, WhatsApp's own
-// limit), as the system. Inside the 24-hour window a plain message may go instead. What can't go now says whether a
-// later try may (the day's cap, the number paused) or never will (no phone, the person asked to stop).
+// An automatic WhatsApp to a lead (sales execution): the lead's chat is found or made by the sending rule (the number the
+// customer last wrote to, else the main one), and the approved template goes through the inbox's one template send
+// (consent, STOP, the day's and month's caps, WhatsApp's own limit), as the system: the chosen template, or its twin on
+// the chat's number, never another number's. Inside the 24-hour window a plain message may go instead. What can't go now
+// says whether a later try may (the day's cap, the number paused) or never will (no phone, the person asked to stop, the
+// template not on that number).
 import type { OrgTx } from "@travel-crm/db";
-import { liveConnection, queueCheckedTemplate, queueSystemText, windowIsOpen } from "../inbox/index.js";
+import { queueCheckedTemplate, queueSystemText, sendFrom, templateOnNumber, windowIsOpen } from "../inbox/index.js";
 import { DomainError, systemActor } from "../kernel/index.js";
 
 export type AutoSendResult =
@@ -13,8 +15,9 @@ export type AutoSendResult =
 const LATER = ["TEMPLATE_CAP_REACHED", "TIER_LIMIT_REACHED", "paused", "not_connected"];
 
 /**
- * The lead's person's chat on the agency's live number, made when there is none (unless `make` is false, for a look that
- * changes nothing: then a chat not made yet is "none_yet"); null without a phone or a number.
+ * The lead's person's chat by the sending rule (sendFrom): the one they last wrote in on a live number, else the main
+ * number's, made when there is none (unless `make` is false, for a look that changes nothing: then a chat not made yet is
+ * "none_yet"); null without a phone or a number that can send. A paused number waits: the send never moves to another.
  */
 export async function chatForLead(tx: OrgTx, leadId: string, make = true) {
   const lead = await tx.lead.findUnique({
@@ -23,32 +26,12 @@ export async function chatForLead(tx: OrgTx, leadId: string, make = true) {
   });
   const phoneE164 = lead?.person.phoneE164 ?? null;
   if (lead === null || phoneE164 === null) return { chat: null, reason: "no_phone" } as const;
-  const connection = await liveConnection(tx);
-  if (connection === null || connection.mode === "demo" || !["connected", "problem"].includes(connection.status)) {
-    return { chat: null, reason: connection?.status === "paused" ? "paused" : "not_connected" } as const;
+  const from = await sendFrom(tx, { customer: { phoneE164, personId: lead.personId }, make });
+  if (!from.ok) {
+    const reason = from.code === "paused" || from.code === "none_yet" ? from.code : "not_connected";
+    return { chat: null, reason } as const;
   }
-  if (make) {
-    await tx.whatsappConversation.createMany({
-      data: [{ connectionId: connection.id, phoneE164, personId: lead.personId }],
-      skipDuplicates: true,
-    });
-  }
-  const chat = await tx.whatsappConversation.findFirst({
-    where: { connectionId: connection.id, phoneE164 },
-    select: {
-      id: true,
-      personId: true,
-      phoneE164: true,
-      lastInboundAt: true,
-      connectionId: true,
-      hidden: true,
-      state: true,
-    },
-  });
-  if (chat === null) return { chat: null, reason: "none_yet" } as const;
-  if (chat.personId === null && make) {
-    await tx.whatsappConversation.update({ where: { id: chat.id }, data: { personId: lead.personId } });
-  }
+  const { chat } = from;
   if (chat.hidden || chat.state !== "open") return { chat: null, reason: "unavailable" } as const;
   return { chat: { ...chat, personId: chat.personId ?? lead.personId }, reason: null } as const;
 }
@@ -79,7 +62,10 @@ export async function sendToLead(
 
 type ChatToSendTo = NonNullable<Awaited<ReturnType<typeof chatForLead>>["chat"]>;
 
-/** The same send, to a chat already in hand (a conversation with no lead): free text in the window, else the template. */
+/**
+ * The same send, to a chat already in hand (a conversation with no lead): free text in the window, else the template on
+ * the chat's number. Nothing is queued while the chat's number can't send: a row is never written for another number.
+ */
 export async function sendToChat(
   tx: OrgTx,
   chat: ChatToSendTo,
@@ -93,6 +79,8 @@ export async function sendToChat(
   },
   now: Date,
 ): Promise<AutoSendResult> {
+  const from = await sendFrom(tx, { chat: chat.id });
+  if (!from.ok) return { kind: "later", reason: from.code === "paused" ? "paused" : "not_connected" };
   if (input.sessionText !== undefined && windowIsOpen(chat.lastInboundAt, now)) {
     const sent = await queueSystemText(
       tx,
@@ -111,13 +99,16 @@ export async function sendToChat(
     if (input.templateId === null) return { kind: "never", reason: sent.code };
   }
   if (input.templateId === null) return { kind: "never", reason: "no_template" };
+  // The automation's template is chosen from the main number's: another number sends its twin, or nothing.
+  const templateId = await templateOnNumber(tx, input.templateId, from.connection.id);
+  if (templateId === null) return { kind: "never", reason: "TEMPLATE_NOT_ON_NUMBER" };
   try {
     const sent = await queueCheckedTemplate(
       tx,
       systemActor(input.organizationId),
       chat,
       {
-        templateId: input.templateId,
+        templateId,
         parameters: input.params,
         agreed: input.agreed,
         clientToken: input.clientToken,

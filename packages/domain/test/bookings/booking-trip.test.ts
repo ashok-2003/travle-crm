@@ -1,7 +1,10 @@
 // The trip side of a booking (release 6, spec 2.4-2.9): travellers' own details and the cut-off, the stays with their vouchers
-// and the itinerary PDF going out of date, cancellation with its charge and refund, feedback, and the reminders.
+// and the itinerary PDF going out of date, cancellation with its charge and refund, feedback, and the reminders, each
+// sent from the number the customer last wrote to.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { OrgTx } from "@travel-crm/db";
 import {
+  bookingSettingsOf,
   cancelBooking,
   confirmBooking,
   getBooking,
@@ -12,6 +15,7 @@ import {
   recordTripUpdatesConsentByStaff,
   requestFeedback,
   runBookingRemindersFor,
+  saveBookingSettings,
   saveEssentials,
   saveStay,
   saveTravellerByStaff,
@@ -23,6 +27,15 @@ import {
   travellerIdentityOf,
 } from "../../src/bookings/index.js";
 import { recordPayment } from "../../src/quotes/index.js";
+import {
+  aConnectedAgency,
+  aSecondNumber,
+  createTestInbox,
+  lastWroteTo,
+  sentFrom,
+  type TestConnection,
+  type TestInbox,
+} from "../inbox/support.js";
 import { aBooking, openWorld, type World } from "./support.js";
 
 const now = new Date("2026-10-29T06:30:00Z"); // 12:00 on 29 Oct in India
@@ -562,5 +575,96 @@ describe("reminders", () => {
         tx.personConsent.count({ where: { personId: lead.lead.personId, purpose: "trip_updates" } }),
       ),
     ).toBe(1);
+  });
+});
+
+describe("the number reminders and the feedback ask go from", () => {
+  let world: World;
+  let test: TestInbox;
+  beforeAll(async () => {
+    world = await openWorld("Booking numbers");
+    test = createTestInbox();
+  });
+  afterAll(async () => {
+    await test.close();
+    await world.close();
+  });
+
+  const dependencies = () => ({
+    db: world.db,
+    appUrl: "https://app.example.test",
+    timeZone: () => Promise.resolve("Asia/Kolkata"),
+    names: () => Promise.resolve({ agencyName: "The agency", agentName: null }),
+  });
+
+  it("sends a booking reminder and the feedback ask from the number the customer last wrote to", async () => {
+    // "Sales 1" (main) and "Sales 2", each with the details template the agency chose on the main number.
+    const main = await aConnectedAgency(test, { organizationId: world.organizationId });
+    const second = await aSecondNumber(test, main, { label: "Sales 2" });
+    const template = (connection: TestConnection) =>
+      world.inOrg(async (tx: OrgTx) => {
+        const row = await tx.whatsappTemplate.create({
+          data: {
+            connectionId: connection.connectionId,
+            name: "trip_details",
+            language: "en",
+            category: "utility",
+            body: "Hello {{1}}, please send your details.",
+            status: "approved",
+          },
+          select: { id: true },
+        });
+        return row.id;
+      });
+    const chosen = await template(main);
+    await template(second);
+    await world.inOrg(async (tx) =>
+      saveBookingSettings(tx, world.manager, {
+        ...(await bookingSettingsOf(tx)),
+        detailsTemplateId: chosen,
+        detailsParams: ["text:there"],
+      }),
+    );
+    // Two travellers departing 8 Nov, so the details reminder came due this morning: the first last wrote to Sales 2,
+    // the second to Sales 1. Both are sent to with no write to a number between, so a send that took the first live
+    // number a lookup finds goes from the wrong number for one of them.
+    const customers = [];
+    for (const [last, before] of [
+      [second, main],
+      [main, second],
+    ] as const) {
+      const { bookingId, leadId } = await aBooking(world, { startDate: "2026-11-08" });
+      await world.inOrg(async (tx) => {
+        await confirmBooking(tx, world.seller, { bookingId }, now);
+        await recordTripUpdatesConsentByStaff(tx, world.manager, { bookingId }, now);
+      });
+      const person = await world.inOrg((tx) =>
+        tx.lead.findUniqueOrThrow({ where: { id: leadId }, select: { person: { select: { phoneE164: true } } } }),
+      );
+      const chat = await lastWroteTo(test, person.person.phoneE164 ?? "", last, before, now);
+      customers.push({ bookingId, chat, from: last.integratedNumber });
+    }
+    await runBookingRemindersFor(dependencies(), world.organizationId, now);
+    for (const { bookingId } of customers) {
+      expect(await world.inOrg((tx) => requestFeedback(tx, world.manager, { bookingId }, dependencies(), now))).toEqual(
+        { sent: true },
+      );
+    }
+    for (const { bookingId, chat, from } of customers) {
+      const sent = await world.inOrg(async (tx) => [
+        (await tx.bookingReminder.findFirstOrThrow({ where: { bookingId, kind: "details", status: "sent" } }))
+          .messageId ?? "",
+        (await tx.whatsappMessage.findFirstOrThrow({ where: { clientToken: `booking-feedback:${bookingId}` } })).id,
+      ]);
+      for (const messageId of sent) {
+        const message = await world.inOrg((tx) =>
+          tx.whatsappMessage.findUniqueOrThrow({ where: { id: messageId }, select: { conversationId: true } }),
+        );
+        expect({
+          chat: message.conversationId,
+          from: await sentFrom(test, world.organizationId, messageId, now),
+        }).toEqual({ chat, from });
+      }
+    }
   });
 });
