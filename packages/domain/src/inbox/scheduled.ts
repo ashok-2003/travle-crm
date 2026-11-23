@@ -13,7 +13,7 @@ import { DomainError, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
 import { askForBatch } from "./broadcast.js";
 import { chatNameOf } from "./chat-name.js";
-import { routesPage } from "./routes.js";
+import { routedOrganizationsPage } from "./routes.js";
 import { queueSystemText } from "./system-send.js";
 import { visibleConversation } from "./views.js";
 import { windowEndOf } from "./window.js";
@@ -267,23 +267,26 @@ export async function runDueWorkFor(
   return done;
 }
 
-/** Every connected agency's due work (the worker's `inbox.due-work`, each minute). One agency failing never stops the rest. */
+/**
+ * Every agency with a routed number's due work (the worker's `inbox.due-work`, each minute), once a pass however many numbers
+ * it has. One agency failing never stops the rest.
+ */
 export async function runDueWork(dependencies: { db: Database; logger: Logger }, now: Date): Promise<number> {
   let done = 0;
   let after: string | undefined;
   for (;;) {
-    const page = await routesPage(dependencies.db, { after, limit: 100 });
-    for (const route of page) {
+    const page = await routedOrganizationsPage(dependencies.db, { after, limit: 100 });
+    for (const organizationId of page) {
       try {
-        done += await runDueWorkFor(dependencies, route.organizationId, now);
+        done += await runDueWorkFor(dependencies, organizationId, now);
       } catch (error) {
         dependencies.logger.error(
-          { connectionId: route.connectionId, error: error instanceof Error ? error.name : "unknown" },
+          { organizationId, error: error instanceof Error ? error.name : "unknown" },
           "The inbox's due work failed for an agency",
         );
       }
     }
     if (page.length < 100) return done;
-    after = page.at(-1)?.integratedNumber;
+    after = page.at(-1);
   }
 }

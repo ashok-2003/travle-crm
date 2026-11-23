@@ -41,8 +41,10 @@ export const publicAgency = z.object({
   colour: z.object({ primary: z.string(), ink: z.string() }).nullable(),
   about: z.string(),
   instagramUrl: z.string().nullable(),
-  /** E.164, for the call and WhatsApp buttons; null when the agency gave none. */
+  /** E.164, for the call button; null when the agency gave none. */
   phone: z.string().nullable(),
+  /** E.164, for the WhatsApp button: the agency's main WhatsApp number, else its contact phone; null for neither. */
+  whatsapp: z.string().nullable(),
 });
 export type PublicAgency = z.infer<typeof publicAgency>;
 

@@ -1,9 +1,9 @@
 // The worker's side of sales execution: on a new lead, the greeting and the follow-ups enrolled (sales.greet-new-lead);
-// each minute, for every agency with a WhatsApp number, its due follow-ups and payment reminders. One agency failing
-// never stops the rest.
+// each minute, for every agency with a WhatsApp number (once, however many it has), its due follow-ups and payment
+// reminders. One agency failing never stops the rest.
 import { leadCreatedEvent } from "@travel-crm/contracts/crm";
 import type { Logger } from "@travel-crm/integrations/logging";
-import { routesPage } from "../inbox/index.js";
+import { routedOrganizationsPage } from "../inbox/index.js";
 import { defineListener, type EventListener } from "../jobs/index.js";
 import { greetNewLead, type CadenceDependencies } from "./cadence.js";
 import { runSalesDueWorkFor, type ReminderDependencies } from "./reminders.js";
@@ -33,18 +33,18 @@ export async function runSalesDueWork(
   let done = 0;
   let after: string | undefined;
   for (;;) {
-    const page = await routesPage(dependencies.db, { after, limit: 100 });
-    for (const route of page) {
+    const page = await routedOrganizationsPage(dependencies.db, { after, limit: 100 });
+    for (const organizationId of page) {
       try {
-        done += await runSalesDueWorkFor(dependencies, route.organizationId, now);
+        done += await runSalesDueWorkFor(dependencies, organizationId, now);
       } catch (error) {
         dependencies.logger.error(
-          { connectionId: route.connectionId, error: error instanceof Error ? error.name : "unknown" },
+          { organizationId, error: error instanceof Error ? error.name : "unknown" },
           "The sales due work failed for an agency",
         );
       }
     }
     if (page.length < 100) return done;
-    after = page.at(-1)?.integratedNumber;
+    after = page.at(-1);
   }
 }
