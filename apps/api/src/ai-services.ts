@@ -1,4 +1,6 @@
-// The AI model the features call (ADR 0029), built once per process: from AI_API_KEY with AI_BASE_URL and the models when
+// The AI model the features call (ADR 0029), built once per process: the primary model first when AI_PRIMARY_* are set
+// (an OpenAI reasoning model on its own endpoint, for every feature but those that hear recordings), then the keys: from
+// AI_API_KEY with AI_BASE_URL and the models when
 // those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), or from AI_VERTEX_SERVICE_ACCOUNT's
 // token in the key's place (Gemini on Vertex AI, ruling R14), with AI_BACKUP_API_KEY's AI behind it when that is set (and
 // AI_BACKUP_API_KEY_2's, on the same endpoint and models, behind that), then the fallback providers (AI_FALLBACK_* and
@@ -42,6 +44,9 @@ export type AiSettings = Pick<
   | "AI_FALLBACK_2_BASE_URL"
   | "AI_FALLBACK_2_API_KEY"
   | "AI_FALLBACK_2_MODELS"
+  | "AI_PRIMARY_BASE_URL"
+  | "AI_PRIMARY_API_KEY"
+  | "AI_PRIMARY_MODELS"
   | "OPENROUTER_API_KEY"
   | "AI_SUGGEST_MODELS"
   | "AI_SCORE_MODELS"
@@ -128,9 +133,47 @@ function fallbackModels(environment: AiSettings, logger: Logger): AiModel[] {
   );
 }
 
+/**
+ * The primary model (the owner, 2026-11-24): gpt-5-mini on Azure AI Foundry, asked before every key for all but what
+ * holds a recording (voice notes, Fill it for me), which it can't hear. Medium effort with room to think: a replay of 40
+ * live turns found medium as right as high, inside the agent's turn time, and accuracy matters more than speed here.
+ */
+function primaryModel(environment: AiSettings, logger: Logger): AiModel | null {
+  const { AI_PRIMARY_API_KEY: apiKey, AI_PRIMARY_BASE_URL: baseUrl, AI_PRIMARY_MODELS: list } = environment;
+  if (apiKey === undefined || baseUrl === undefined || list === undefined) return null;
+  return createOpenRouterModel({
+    apiKey,
+    baseUrl,
+    models: {
+      suggest_reply: list,
+      autopilot: list,
+      score_lead: list,
+      write_up: list,
+      ask_report: list,
+      read_requests: list,
+      read_rates: list,
+      reach_out: list,
+      draft_days: list,
+      draft_packages: list,
+      sales_agent: list,
+      agent_image: list,
+      chat_summary: list,
+    },
+    reasoningModel: { effort: "medium", maxCompletionTokens: 16_000 },
+    onRateLimited: logRateLimits(logger, "AI_PRIMARY_API_KEY"),
+  });
+}
+
+function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
+  const primary = primaryModel(environment, logger);
+  const keys = keysModelOf(environment, logger);
+  if (primary === null) return keys;
+  return keys === null ? primary : withModelChain([primary, keys]);
+}
+
 // The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
 // revisited before scale.
-function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
+function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
   // One credential for every feature: the service account (its token kept and renewed for the process's life), or the key.
   const vertex = environment.AI_VERTEX_SERVICE_ACCOUNT;
   // Never a token to the adapter's default address (OpenRouter's): the bench skips the start-up check that refuses this.

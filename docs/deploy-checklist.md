@@ -162,6 +162,7 @@ Secrets come from the platform's secret manager as environment variables, never 
 | `AI_BACKUP_API_KEY`: a backup AI key, asked only when the first can't answer (below)                        | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_API_KEY_2`: a third key on the backup's endpoint and models, asked last                          | ○   | ○      |         |         | yes    |
 | `AI_BACKUP_BASE_URL`, `AI_BACKUP_CHAT_MODELS`, `AI_BACKUP_FAST_MODELS`: its own endpoint and models         | ○   | ○      |         |         |        |
+| `AI_PRIMARY_BASE_URL`, `AI_PRIMARY_API_KEY`, `AI_PRIMARY_MODELS`: the primary model, all three (below)      | ○   | ○      |         |         | yes    |
 | `AI_FALLBACK_BASE_URL`, `AI_FALLBACK_API_KEY`, `AI_FALLBACK_MODELS`: a fallback provider, all three (below) | ○   | ○      |         |         | yes    |
 | `AI_FALLBACK_2_BASE_URL`, `AI_FALLBACK_2_API_KEY`, `AI_FALLBACK_2_MODELS`: a second, asked last             | ○   | ○      |         |         | yes    |
 | `AI_PRICE_INPUT_PAISE_PER_MILLION`, `AI_PRICE_OUTPUT_PAISE_PER_MILLION`: AI cost in usage analytics         |     |        | ○       |         |        |
@@ -319,6 +320,12 @@ Secrets come from the platform's secret manager as environment variables, never 
     models (the start-up check refuses it otherwise). A model that answered 429 rests (its Retry-After, else a
     minute) without being asked, so the backup answers at once. Use a paid key or another provider's, never a second free
     account to get round a provider's limits: its terms forbid that, and its free tier may use the customers' words.
+  - **Primary model** (the owner, 2026-11-24): `AI_PRIMARY_*`, an OpenAI reasoning model on its own endpoint (all
+    three, with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`; today gpt-5-mini on Azure AI Foundry, `AI_PRIMARY_BASE_URL`
+    `https://<resource>.services.ai.azure.com/openai/v1`, `AI_PRIMARY_MODELS` the deployment's name), is asked before
+    every key for every feature but voice notes and Fill it for me, which hear recordings and stay on the keys. It
+    gets `max_completion_tokens` of at least 16,000 (its thinking counts), no temperature, medium effort on every call
+    and a prompt cache key of the feature and organization. When it can't answer, the keys and fallbacks below do.
   - **Fallback providers** (the owner, 2026-11-23): `AI_FALLBACK_*`, then `AI_FALLBACK_2_*`, each another provider's
     endpoint, key and models (all three, with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`), are asked for every feature
     only when every key above refused. The owner allows free tiers there (OpenRouter's free models, Mistral's free mode)

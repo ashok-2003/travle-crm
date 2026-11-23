@@ -66,8 +66,13 @@ function isIpv4Mapped(address: string): boolean {
 
 const developmentLike = (nodeEnv: string): boolean => nodeEnv === "development" || nodeEnv === "test";
 
-/** Each fallback provider's address, key and models (the owner, 2026-11-23), the first asked before the second. */
-const fallbackSettings = [
+/**
+ * Each other provider's address, key and models: the primary model asked before every key (the owner, 2026-11-24), the
+ * fallbacks after them (2026-11-23), the first before the second. Each needs AI_API_KEY or the service account behind it:
+ * voice notes and Fill it for me go to Gemini.
+ */
+const providerSettings = [
+  ["AI_PRIMARY_BASE_URL", "AI_PRIMARY_API_KEY", "AI_PRIMARY_MODELS"],
   ["AI_FALLBACK_BASE_URL", "AI_FALLBACK_API_KEY", "AI_FALLBACK_MODELS"],
   ["AI_FALLBACK_2_BASE_URL", "AI_FALLBACK_2_API_KEY", "AI_FALLBACK_2_MODELS"],
 ] as const;
@@ -252,8 +257,8 @@ const environmentSchema = z
     ) {
       problem("AI_BACKUP_CHAT_MODELS", "is needed when AI_BACKUP_BASE_URL is another endpoint than AI_BASE_URL");
     }
-    // Each fallback provider: its address, key and models together, behind the AI above.
-    for (const [base, key, models] of fallbackSettings) {
+    // Each other provider: its address, key and models together, with the AI above.
+    for (const [base, key, models] of providerSettings) {
       if (environment[key] !== undefined && !credential) {
         problem(key, "is only for use with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT");
       }
@@ -277,7 +282,7 @@ const environmentSchema = z
     if (environment.AI_BACKUP_BASE_URL !== undefined && !environment.AI_BACKUP_BASE_URL.startsWith("https://")) {
       problem("AI_BACKUP_BASE_URL", "must be an https address in production");
     }
-    for (const [base] of fallbackSettings) {
+    for (const [base] of providerSettings) {
       if (environment[base]?.startsWith("https://") === false) problem(base, "must be an https address in production");
     }
     if (environment.AI_TEST_SERVER_URL !== undefined) {
