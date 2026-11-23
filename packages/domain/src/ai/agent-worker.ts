@@ -255,7 +255,14 @@ async function nudgeAgency(
         followUpAt: { lte: now },
         handedOffAt: null,
         mode: { not: "off" },
-        conversation: { state: "open", hidden: false, needsReply: false, lastInboundAt: { gt: windowFloor } },
+        conversation: {
+          state: "open",
+          hidden: false,
+          needsReply: false,
+          lastInboundAt: { gt: windowFloor },
+          // On a number whose AI is off, or disconnected, a follow-up is never claimed: its turn would only stop.
+          connection: { aiAnswers: true, status: { not: "disconnected" } },
+        },
       },
       orderBy: { followUpAt: "asc" },
       take: NUDGES_PER_AGENCY,

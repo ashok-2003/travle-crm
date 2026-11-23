@@ -100,25 +100,26 @@ export function InboxScreen({ children }: { children: ReactNode }) {
   }
   // One number speaks for the agency, as it always did; with two, each number in trouble or paused is named.
   const [only] = numbers.live;
-  const notices = numbers.show
+  // Keyed by the number they name (labels may repeat), the agency's own lines by a key of their own.
+  const notices: { key: string; text: string }[] = numbers.show
     ? numbers.live.flatMap((number) =>
         number.status === "problem"
-          ? [t("numberProblem", { label: number.label })]
+          ? [{ key: number.id, text: t("numberProblem", { label: number.label }) }]
           : number.status === "paused"
-            ? [t("numberPaused", { label: number.label })]
+            ? [{ key: number.id, text: t("numberPaused", { label: number.label }) }]
             : [],
       )
     : only?.status === "problem"
-      ? [t("problem")]
+      ? [{ key: "problem", text: t("problem") }]
       : only?.status === "paused"
-        ? [t("paused")]
+        ? [{ key: "paused", text: t("paused") }]
         : [];
-  if (demo) notices.push(t("demo"));
+  if (demo) notices.push({ key: "demo", text: t("demo") });
   const banner = notices.length > 0 && (
     <Alert className="shrink-0 rounded-none">
       <AlertDescription>
         {notices.map((notice) => (
-          <p key={notice}>{notice}</p>
+          <p key={notice.key}>{notice.text}</p>
         ))}
       </AlertDescription>
     </Alert>

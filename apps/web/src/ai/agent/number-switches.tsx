@@ -1,7 +1,7 @@
 "use client";
 
 // The AI agent page's switch for each WhatsApp number (spec 2026-11-22 section 8): the agency's live numbers, the main
-// one first, each with its own AI switch under the agency's. Shown once the agency has two live numbers, and also while
+// one first, each with its own AI switch under the agency's, named by its label and number (labels may repeat). Shown once the agency has two live numbers, and also while
 // its one number is switched off, so a switch left off after the other number went is never out of reach. Each switch
 // needs ai:manage and a fresh session (the api checks); the setup that comes back is what the page then shows.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/componen
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useTRPC } from "@/data/trpc";
+import { formatPhoneNumber } from "@/lib/format";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { useAgentSetup } from "./use-agent";
@@ -26,8 +27,10 @@ export function NumberSwitches() {
   const setup = useAgentSetup().data;
   const change = useMutation(
     trpc.ai.setNumberAnswers.mutationOptions({
-      onSuccess: (next) => {
+      onSuccess: async (next) => {
         queryClient.setQueryData(trpc.ai.agentSetup.queryKey(), next);
+        // The inbox's numbers carry the switch too.
+        await queryClient.invalidateQueries({ queryKey: trpc.inbox.status.queryKey() });
       },
       // A refusal means the numbers the page showed were out of date: read them again.
       onError: () => queryClient.invalidateQueries({ queryKey: trpc.ai.agentSetup.queryKey() }),
@@ -51,7 +54,9 @@ export function NumberSwitches() {
             <Item key={number.id} size="sm">
               <ItemContent>
                 <ItemTitle>
-                  <Label htmlFor={`${id}-${number.id}`}>{number.label}</Label>
+                  <Label htmlFor={`${id}-${number.id}`}>
+                    {t("numberName", { label: number.label, number: formatPhoneNumber(number.displayNumber) })}
+                  </Label>
                 </ItemTitle>
               </ItemContent>
               <ItemActions>

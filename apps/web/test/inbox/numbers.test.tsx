@@ -176,6 +176,19 @@ describe("the inbox with several numbers", () => {
     expect(screen.queryByRole("combobox", { name: t.numberFilter })).toBeNull();
   });
 
+  it("names each paused number in the banner, even two with one label", async () => {
+    screenIs("wide");
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    listApi(
+      statusWith([aNumber(first, "WhatsApp", { status: "paused" }), aNumber(second, "WhatsApp", { status: "paused" })]),
+    );
+    renderWithApi(<InboxScreen>{null}</InboxScreen>, newQueryClient());
+    const paused = t.numberPaused.replace("{label}", "WhatsApp");
+    expect(await screen.findAllByText(paused)).toHaveLength(2);
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    errors.mockRestore();
+  });
+
   it("filters the chats by number, kept in the tab", async () => {
     screenIs("wide");
     const api = listApi(twoNumbers);

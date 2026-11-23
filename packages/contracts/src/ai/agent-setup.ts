@@ -78,7 +78,7 @@ export const agentSetup = z.object({
   on: z.boolean(),
   pausedBySupport: z.boolean(),
   /** The agency's live WhatsApp numbers, the main one first, each with its own AI switch (under the agency's). */
-  numbers: z.array(z.object({ id: recordId, label: z.string(), aiAnswers: z.boolean() })),
+  numbers: z.array(z.object({ id: recordId, label: z.string(), displayNumber: z.string(), aiAnswers: z.boolean() })),
 });
 export type AgentSetup = z.infer<typeof agentSetup>;
 

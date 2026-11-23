@@ -38,7 +38,7 @@ export const chatAi = z.object({
   agentName: z.string(),
   /** Whether this server has an AI key, and the agency may use the AI at all (plan, subscription, its own switch). */
   available: z.boolean(),
-  /** The chat's WhatsApp number answers nothing by the AI: its own switch is off, or it was disconnected. */
+  /** The chat's WhatsApp number is live with its own AI switch off (the AI agent page turns it on). */
   numberOff: z.boolean(),
 });
 export type ChatAi = z.infer<typeof chatAi>;
