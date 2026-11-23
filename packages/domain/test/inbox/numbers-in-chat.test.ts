@@ -1,9 +1,11 @@
 // In a chat, the chat's own number (spec 2026-11-22-multi-number-whatsapp-design.md, sections 5 and 6, paths 1-9 and 11):
 // every send in a chat is written in that chat and leaves from its number. Each path sends in the customer's chat on
-// "Sales 2" and in their chat on the main number "Sales 1", so a path that took whichever live number a lookup returns
-// first sends one of the two from the wrong number, whichever it gets (Postgres's row order moves with every write, so
-// no one number is reliably that lookup's). The customer last wrote to the main number, so a path that used the
-// customer's rule instead is caught too. A chat whose number is disconnected or paused sends nothing, and says why.
+// "Sales 2" and in their chat on the main number "Sales 1", both queued before the worker sends any: a send or a
+// customer's message rewrites a number's row, and Postgres's row order moves with every write, so no one number is
+// reliably what a lookup taking the first live number finds, but with no write between them both sends meet the same
+// one, and a path that used it sends one of the two from the wrong number. The customer last wrote to the main number, so
+// a path that used the customer's rule instead is caught too. A chat whose number is disconnected or paused sends
+// nothing, and says why.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
@@ -92,6 +94,13 @@ describe("a send in a chat goes from the chat's own number", () => {
       );
       return { chat: row.conversationId, from: await sentFrom(test, main.organizationId, messageId, when) };
     };
+    /** The messages queued in each chat (in `chats`' order, all before any is sent) landed there, from its number. */
+    const landsEach = async (sent: readonly (readonly string[])[], when: Date) => {
+      expect(sent.map((ids) => ids.length > 0)).toEqual([true, true]);
+      for (const [index, { chat: queuedIn, from }] of chats.entries()) {
+        for (const id of sent[index] ?? []) expect(await landed(id, when)).toEqual({ chat: queuedIn, from });
+      }
+    };
     const setStatus = (connection: TestConnection, status: string) =>
       inOrg((tx) => tx.whatsappConnection.update({ where: { id: connection.connectionId }, data: { status } }));
     const outgoing = (conversationId: string) =>
@@ -115,7 +124,21 @@ describe("a send in a chat goes from the chat's own number", () => {
       return row.id;
     };
     const member = memberOf(main.organizationId);
-    return { main, second, chat, mainChat, chats, member, inOrg, writes, landed, setStatus, outgoing, template };
+    return {
+      main,
+      second,
+      chat,
+      mainChat,
+      chats,
+      member,
+      inOrg,
+      writes,
+      landed,
+      landsEach,
+      setStatus,
+      outgoing,
+      template,
+    };
   }
 
   type Agency = Awaited<ReturnType<typeof agency>>;
@@ -178,12 +201,11 @@ describe("a send in a chat goes from the chat's own number", () => {
 
   it("sends a staff reply and a file from the chat's number when the agency has two", async () => {
     const world = await agency();
-    for (const { chat, from } of world.chats) {
-      const text = await reply(world, chat);
-      expect(await world.landed(text.messageId, at(1))).toEqual({ chat, from });
-      const file = await sendFile(world, chat);
-      expect(await world.landed(file.messageId, at(1))).toEqual({ chat, from });
+    const sent: string[][] = [];
+    for (const { chat } of world.chats) {
+      sent.push([(await reply(world, chat)).messageId, (await sendFile(world, chat)).messageId]);
     }
+    await world.landsEach(sent, at(1));
   });
 
   it("sends a template in a chat from the chat's number, and refuses another number's template", async () => {
@@ -192,33 +214,39 @@ describe("a send in a chat goes from the chat's own number", () => {
       await world.template(world.second, "trip_update"),
       await world.template(world.main, "trip_update"),
     ];
-    for (const [index, { chat, from }] of world.chats.entries()) {
-      const sent = await sendTemplate(world, chat, templates[index] ?? "");
-      expect(await world.landed(sent.messageId, at(30))).toEqual({ chat, from });
+    const sent: string[][] = [];
+    for (const [index, { chat }] of world.chats.entries()) {
+      sent.push([(await sendTemplate(world, chat, templates[index] ?? "")).messageId]);
       await expect(sendTemplate(world, chat, templates[1 - index] ?? "")).rejects.toMatchObject({
         reason: "TEMPLATE_NOT_APPROVED",
       });
       expect(await world.outgoing(chat)).toHaveLength(1);
     }
+    await world.landsEach(sent, at(30));
   });
 
   it("tries a failed message again from the chat's number", async () => {
     const world = await agency();
-    for (const { chat, from } of world.chats) {
-      const queued = await reply(world, chat);
+    const queued: string[] = [];
+    for (const { chat } of world.chats) queued.push((await reply(world, chat)).messageId);
+    for (const messageId of queued) {
       test.provider.failNext("other");
-      expect(await sentFrom(test, world.main.organizationId, queued.messageId, at(1))).toBeNull();
-      const again = await world.inOrg((tx) => retryMessage(tx, world.member, queued.messageId, context, at(2)));
-      expect(again).toMatchObject({ messageId: queued.messageId, status: "queued" });
-      expect(await world.landed(queued.messageId, at(2))).toEqual({ chat, from });
+      expect(await sentFrom(test, world.main.organizationId, messageId, at(1))).toBeNull();
     }
+    for (const messageId of queued) {
+      const again = await world.inOrg((tx) => retryMessage(tx, world.member, messageId, context, at(2)));
+      expect(again).toEqual({ messageId, status: "queued" });
+    }
+    await world.landsEach(
+      queued.map((messageId) => [messageId]),
+      at(2),
+    );
   });
 
   it("sends a staff trip kit and a keyword trip kit from the chat's number", async () => {
     const world = await agency();
     const { id: tripKitId } = await kit(world, ["kerala"]);
-    // The agency's AI agent is off (no settings at all), so a keyword sends the kit by itself.
-    for (const { number, chat, from } of world.chats) {
+    for (const { chat } of world.chats) {
       const staff = await sendTripKit(
         test.dependencies,
         world.member,
@@ -227,16 +255,20 @@ describe("a send in a chat goes from the chat's own number", () => {
         at(1),
       );
       expect(staff).toEqual({ queued: 1, refused: null });
-      const said = await world.writes(number, "Any Kerala trips?", at(2));
-      expect(said.conversationId).toBe(chat);
-      const actor = systemActor(world.main.organizationId);
-      expect(await sendTripKitOnKeyword(test.dependencies, actor, said, at(2))).toBe(true);
-      const sent = await world.outgoing(chat);
-      expect(sent.map((message) => message.origin)).toEqual(["staff_crm", "automation"]);
-      for (const message of sent) {
-        expect(await world.landed(message.id, at(2))).toEqual({ chat, from });
-      }
     }
+    // The agency's AI agent is off (no settings at all), so a keyword sends the kit by itself.
+    const said = [];
+    for (const { number } of world.chats) said.push(await world.writes(number, "Any Kerala trips?", at(2)));
+    expect(said.map((message) => message.conversationId)).toEqual(world.chats.map(({ chat }) => chat));
+    const actor = systemActor(world.main.organizationId);
+    for (const message of said) expect(await sendTripKitOnKeyword(test.dependencies, actor, message, at(2))).toBe(true);
+    const sent: string[][] = [];
+    for (const { chat } of world.chats) {
+      const rows = await world.outgoing(chat);
+      expect(rows.map((message) => message.origin)).toEqual(["staff_crm", "automation"]);
+      sent.push(rows.map((message) => message.id));
+    }
+    await world.landsEach(sent, at(2));
   });
 
   it("sends a scheduled message from the chat's number", async () => {
@@ -252,11 +284,13 @@ describe("a send in a chat goes from the chat's own number", () => {
       );
     }
     expect(await runDueWorkFor(test.dependencies, world.main.organizationId, at(3))).toBe(2);
-    for (const { chat, from } of world.chats) {
-      const [sent] = await world.outgoing(chat);
-      expect(sent).toMatchObject({ body: "Your quote is ready", origin: "staff_crm" });
-      expect(await world.landed(sent?.id ?? "", at(3))).toEqual({ chat, from });
+    const sent: string[][] = [];
+    for (const { chat } of world.chats) {
+      const rows = await world.outgoing(chat);
+      expect(rows).toMatchObject([{ body: "Your quote is ready", origin: "staff_crm" }]);
+      sent.push(rows.map((message) => message.id));
     }
+    await world.landsEach(sent, at(3));
   });
 
   it("sends the away, welcome and keyword answers from the chat's number", async () => {
@@ -273,22 +307,28 @@ describe("a send in a chat goes from the chat's own number", () => {
       });
       await createKeywordReply(tx, world.member, { keyword: "price", reply: "Prices start at Rs 9,999" });
     });
-    for (const { number, chat, from } of world.chats) {
-      const answer = async (text: string, hours: number, firstEver: boolean) => {
-        const said = await world.writes(number, text, at(hours));
-        return world.inOrg((tx) =>
-          answerAutomatically(tx, { ...said, eventId: randomUUID(), firstEver, timeZone: "Asia/Kolkata" }, at(hours)),
-        );
-      };
-      expect(await answer("Hi there", 1, true)).toBe("welcome");
-      expect(await answer("What is the price?", 2, false)).toBe("keyword");
-      expect(await answer("Anyone there?", 3, false)).toBe("away");
-      const sent = await world.outgoing(chat);
-      expect(sent.map((message) => message.body)).toEqual(["Welcome!", "Prices start at Rs 9,999", "We are closed"]);
-      for (const message of sent) {
-        expect(await world.landed(message.id, at(3))).toEqual({ chat, from });
-      }
+    const texts = ["Hi there", "What is the price?", "Anyone there?"];
+    const said = [];
+    for (const { number } of world.chats) {
+      const messages = [];
+      for (const [hour, text] of texts.entries()) messages.push(await world.writes(number, text, at(hour + 1)));
+      said.push(messages);
     }
+    for (const messages of said) {
+      const answers = [];
+      for (const [hour, message] of messages.entries()) {
+        const input = { ...message, eventId: randomUUID(), firstEver: hour === 0, timeZone: "Asia/Kolkata" };
+        answers.push(await world.inOrg((tx) => answerAutomatically(tx, input, at(hour + 1))));
+      }
+      expect(answers).toEqual(["welcome", "keyword", "away"]);
+    }
+    const sent: string[][] = [];
+    for (const { chat } of world.chats) {
+      const rows = await world.outgoing(chat);
+      expect(rows.map((message) => message.body)).toEqual(["Welcome!", "Prices start at Rs 9,999", "We are closed"]);
+      sent.push(rows.map((message) => message.id));
+    }
+    await world.landsEach(sent, at(3));
   });
 
   it("sends the AI's reply, file and card from the chat's number", async () => {
@@ -297,7 +337,8 @@ describe("a send in a chat goes from the chat's own number", () => {
       { id: "book", title: "Book" },
       { id: "change", title: "Change" },
     ];
-    for (const { chat, from } of world.chats) {
+    const sent: string[][] = [];
+    for (const { chat } of world.chats) {
       const target = aiTarget(world, chat);
       const replyId = await world.inOrg((tx) => sendAiText(tx, target, randomUUID(), "Goa in March?", "reply"));
       const fileId = newUuidV7();
@@ -315,15 +356,14 @@ describe("a send in a chat goes from the chat's own number", () => {
         sendAiText(tx, target, randomUUID(), "Shall I book it?", "reply", undefined, buttons),
       );
       expect(fileSent).toBe(fileId);
-      for (const id of [replyId, fileSent, card]) {
-        expect(await world.landed(id, at(1))).toEqual({ chat, from });
-      }
+      sent.push([replyId, fileSent, card]);
     }
+    await world.landsEach(sent, at(1));
   });
 
   it("sends a payment message in the booking's chat from that chat's number", async () => {
     const world = await agency();
-    for (const { chat, from } of world.chats) {
+    for (const { chat } of world.chats) {
       const told = await world.inOrg((tx) =>
         tellPaymentOutcome(
           tx,
@@ -340,11 +380,15 @@ describe("a send in a chat goes from the chat's own number", () => {
         ),
       );
       expect(told).toBe("sent");
-      const sent = await world.outgoing(chat);
-      expect(sent).toHaveLength(1);
-      expect(sent[0]?.body).toContain("Thank you Test!");
-      expect(await world.landed(sent[0]?.id ?? "", at(1))).toEqual({ chat, from });
     }
+    const sent: string[][] = [];
+    for (const { chat } of world.chats) {
+      const rows = await world.outgoing(chat);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.body).toContain("Thank you Test!");
+      sent.push(rows.map((message) => message.id));
+    }
+    await world.landsEach(sent, at(1));
   });
 
   it("refuses every send in a chat whose number was disconnected, and tells staff why", async () => {
