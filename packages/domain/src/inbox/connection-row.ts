@@ -2,7 +2,6 @@
 import type { WhatsappConnectionStatus } from "@travel-crm/contracts/inbox";
 import { whatsappConnectionStatus } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
-import { DomainError } from "../kernel/index.js";
 
 export interface ConnectionRow {
   id: string;
@@ -89,26 +88,8 @@ export async function mainConnection(tx: OrgTx): Promise<ConnectionRow | null> {
   return (await liveConnections(tx))[0] ?? null;
 }
 
-/** The agency's live connection (any status but disconnected), or null. Deleted in Task 14 (MN1): use sendFrom. */
-export async function liveConnection(tx: OrgTx): Promise<ConnectionRow | null> {
-  const row = await tx.whatsappConnection.findFirst({
-    where: { status: { not: "disconnected" } },
-    select: connectionFields,
-  });
-  return row === null ? null : toConnectionRow(row);
-}
-
 /** The connection by id, or null. */
 export async function connectionById(tx: OrgTx, id: string): Promise<ConnectionRow | null> {
   const row = await tx.whatsappConnection.findUnique({ where: { id }, select: connectionFields });
   return row === null ? null : toConnectionRow(row);
-}
-
-/** The agency's live connection, or the refusal that there is none. Deleted in Task 14 (MN1): use sendFrom. */
-export async function requireConnection(tx: OrgTx): Promise<ConnectionRow> {
-  const connection = await liveConnection(tx);
-  if (connection === null) {
-    throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
-  }
-  return connection;
 }
