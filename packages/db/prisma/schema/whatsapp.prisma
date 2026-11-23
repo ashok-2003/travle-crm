@@ -1,4 +1,4 @@
-// WhatsApp through MSG91 (spec 2026-10-23, ADR 0035): an agency's connected number, its chats (one per person and number),
+// WhatsApp through MSG91 (spec 2026-10-23, ADR 0035): an agency's numbers, their chats (one per person and number),
 // their messages, the message templates and the monthly usage. Organization-owned: row-level security applies (the migration
 // calls app_enable_org_rls on each). Nothing is soft-deleted and the runtime role deletes none of them (a chat is erased by
 // emptying it). Ids of other modules' records (members, users) are plain uuids with no key. The last two models sit outside
@@ -6,7 +6,8 @@
 // OrgTx leaves them out and only the inbox module reaches them, in db.withoutOrg(), through @travel-crm/db/whatsapp-routes.
 // Predicates are written as Postgres prints them, so the drift check reads them as equal.
 
-/// The WhatsApp number an agency uses through MSG91 (one a phase 1).
+/// One of an agency's WhatsApp numbers through MSG91 (spec 2026-11-22-multi-number-whatsapp-design.md): as many live as
+/// the plan allows, one of them main. A disconnected one stays as history.
 model WhatsappConnection {
   /// Filled from db.forOrg()'s organization when omitted.
   organizationId    String                 @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
@@ -37,6 +38,12 @@ model WhatsappConnection {
   eventsUnknown     Int                    @default(0) @map("events_unknown")
   /// not_applicable, waiting, received or skipped.
   historyState      String                 @default("not_applicable") @map("history_state")
+  /// The short label staff know the number by ("Sales 1"): 1 to 20 characters (CHECK whatsapp_connection_label_length).
+  label             String                 @default("WhatsApp")
+  /// The main number: a first message to a new customer and the "WhatsApp us" links go from it. One live per agency.
+  isMain            Boolean                @default(false) @map("is_main")
+  /// The number's AI switch, ANDed with the agency's.
+  aiAnswers         Boolean                @default(true) @map("ai_answers")
   createdBy         String?                @map("created_by") @db.Uuid
   impersonatedBy    String?                @map("impersonated_by") @db.Uuid
   createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -44,11 +51,14 @@ model WhatsappConnection {
   conversations     WhatsappConversation[]
   templates         WhatsappTemplate[]
   usage             WhatsappUsageMonth[]
+  assignmentRules   AssignmentRule[]
 
   /// Lets the connection's children point at (organization_id, id).
   @@unique([organizationId, id])
-  /// One number at a time per agency in phase 1; a disconnected one stays as history.
-  @@unique([organizationId], map: "whatsapp_connection_live", where: raw("(status <> 'disconnected'::text)"))
+  /// One main number among an agency's live ones.
+  @@unique([organizationId], map: "whatsapp_connection_main", where: raw("(is_main AND (status <> 'disconnected'::text))"))
+  /// An agency records a number once while it is live; the route keeps a number to one agency.
+  @@unique([organizationId, integratedNumber], map: "whatsapp_connection_live_number", where: raw("(status <> 'disconnected'::text)"))
   @@map("whatsapp_connection")
 }
 

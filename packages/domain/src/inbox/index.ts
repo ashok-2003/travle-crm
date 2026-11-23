@@ -5,7 +5,23 @@ export { adoptAll, adoptChats } from "./adopt.js";
 export { answeredByAiWhere, listedChatWhere } from "./ai-answered.js";
 export { adPackageChoicesOf, adPackageOf, adsOf, linkAd, noteAdOf } from "./ads.js";
 export { connectNumber, disconnectNumber, markConnected, pauseNumber, resumeNumber, setCaps } from "./connection.js";
-export { connectionById, liveConnection, toConnectionRow, type ConnectionRow } from "./connection-row.js";
+export {
+  connectionById,
+  liveConnection,
+  liveConnections,
+  mainConnection,
+  numbersOf,
+  toConnectionRow,
+  type ConnectionRow,
+} from "./connection-row.js";
+export {
+  customerChatOf,
+  sendFrom,
+  templateOnNumber,
+  type SendFrom,
+  type SendingChat,
+  type SendTarget,
+} from "./send-from.js";
 export {
   ADOPT_QUEUE,
   COPY_MEDIA_QUEUE,
@@ -123,6 +139,7 @@ export {
   noteUnrouted,
   removeRoute,
   routeCount,
+  routedOrganizationsPage,
   routeOfNumber,
   routesPage,
   unroutedNumbers,

@@ -69,6 +69,22 @@ export async function routesPage(
   );
 }
 
+/** A page of the organizations with a route, each once, by id: what the per-agency jobs walk. */
+export async function routedOrganizationsPage(
+  db: Database,
+  input: { after?: string | undefined; limit: number },
+): Promise<string[]> {
+  const groups = await db.withoutOrg((tx) =>
+    whatsappNumberRoutes(tx).groupBy({
+      by: ["organizationId"],
+      where: input.after === undefined ? {} : { organizationId: { gt: input.after } },
+      orderBy: { organizationId: "asc" },
+      take: input.limit,
+    }),
+  );
+  return groups.map((group) => group.organizationId);
+}
+
 /** How many routes there are, for a test. */
 export function routeCount(db: Database): Promise<number> {
   return db.withoutOrg((tx) => whatsappNumberRoutes(tx).count());

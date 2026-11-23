@@ -1,6 +1,7 @@
-// What the inbox module's tests need: an agency with a connected WhatsApp number routed to it, the in-memory MSG91, the files
-// module on in-memory storage, the job queue and log, the agency facts (an Owner, workers, a subscription that allows
-// changes unless the test turns it off), and the webhook bodies MSG91 would send.
+// What the inbox module's tests need: an agency with a connected WhatsApp number routed to it (and a second number), the
+// in-memory MSG91, the files module on in-memory storage, the job queue and log, the agency facts (an Owner, workers, a
+// subscription that allows changes unless the test turns it off), the webhook bodies MSG91 would send, and the worker's
+// sender, to see which number a message left from.
 import { randomUUID } from "node:crypto";
 import type { Entitlements } from "../../src/subscriptions/index.js";
 import { createMemoryJobQueue, type MemoryJobQueue } from "@travel-crm/integrations/jobs";
@@ -15,8 +16,9 @@ import {
 } from "@travel-crm/integrations/whatsapp";
 import { createRateLimiter } from "../../src/rate-limits/index.js";
 import { upsertRoute, type InboxDependencies } from "../../src/inbox/index.js";
-import { processWhatsAppBody } from "../../src/inbox/index.js";
-import { anAgency, createTestImports, type TestImports } from "../imports/support/test-imports.js";
+import { processWhatsAppBody, sendQueued } from "../../src/inbox/index.js";
+import { newUuidV7 } from "../../src/kernel/index.js";
+import { anAgency, createTestImports, listenerContext, type TestImports } from "../imports/support/test-imports.js";
 import { freshPhone } from "../crm/support/records.js";
 
 export { eventsOf } from "../imports/support/test-imports.js";
@@ -87,7 +89,7 @@ export interface TestConnection {
   integratedNumber: string;
 }
 
-/** An agency with a number in the given status (connected unless told), routed as the route listener would. */
+/** An agency with its main number in the given status (connected unless told), routed as the route listener would. */
 export async function aConnectedAgency(test: TestInbox, options: { status?: string } = {}): Promise<TestConnection> {
   const organizationId = await anAgency(test);
   const integratedNumber = aBusinessNumber();
@@ -99,6 +101,7 @@ export async function aConnectedAgency(test: TestInbox, options: { status?: stri
         displayNumber: `+${integratedNumber}`,
         mode: "new_number",
         status: options.status ?? "connected",
+        isMain: true,
         connectedAt: testNow,
       },
       select: { id: true },
@@ -107,6 +110,68 @@ export async function aConnectedAgency(test: TestInbox, options: { status?: stri
   });
   await upsertRoute(test.db, { integratedNumber, organizationId, connectionId });
   return { organizationId, connectionId, integratedNumber };
+}
+
+/**
+ * A second number in the agency of `first`, routed (unless disconnected: a disconnect removes the route); "Sales 2" and
+ * connected unless told. `main` moves the main flag to it.
+ */
+export async function aSecondNumber(
+  test: TestInbox,
+  first: TestConnection,
+  options: { label?: string; status?: string; main?: boolean } = {},
+): Promise<TestConnection> {
+  const integratedNumber = aBusinessNumber();
+  test.provider.addNumber(integratedNumber);
+  const status = options.status ?? "connected";
+  const connectionId = await test.db.forOrg(first.organizationId, async (tx) => {
+    if (options.main === true) {
+      await tx.whatsappConnection.updateMany({ where: { isMain: true }, data: { isMain: false } });
+    }
+    const connection = await tx.whatsappConnection.create({
+      data: {
+        integratedNumber,
+        displayNumber: `+${integratedNumber}`,
+        mode: "new_number",
+        status,
+        label: options.label ?? "Sales 2",
+        isMain: options.main === true,
+        connectedAt: testNow,
+      },
+      select: { id: true },
+    });
+    return connection.id;
+  });
+  const organizationId = first.organizationId;
+  if (status !== "disconnected") await upsertRoute(test.db, { integratedNumber, organizationId, connectionId });
+  return { organizationId, connectionId, integratedNumber };
+}
+
+/** Runs the worker's sender on a queued message; the number MSG91 was asked to send from, or null for none. */
+export async function sentFrom(
+  test: TestInbox,
+  organizationId: string,
+  messageId: string,
+  at: Date = testNow,
+): Promise<string | null> {
+  await sendQueued(
+    {
+      provider: test.provider,
+      files: test.files,
+      limiter: test.dependencies.limiter,
+      logger: test.logger,
+      managers: test.dependencies.managers,
+    },
+    listenerContext(test, organizationId),
+    { id: newUuidV7(), messageId },
+    at,
+  );
+  // By the message's own wamid, so sends of other tests running beside it are never taken for it.
+  const row = await test.db.forOrg(organizationId, (tx) =>
+    tx.whatsappMessage.findUnique({ where: { id: messageId }, select: { wamid: true } }),
+  );
+  const wamid = row?.wamid ?? null;
+  return wamid === null ? null : (test.provider.sent.find((sent) => sent.wamid === wamid)?.number ?? null);
 }
 
 export const fromCustomer = (
