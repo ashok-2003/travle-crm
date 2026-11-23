@@ -20,6 +20,8 @@ const MAX_NOTE_LENGTH = 1000;
 export interface WhatsAppContact {
   /** The customer's number, E.164. */
   phoneE164: string;
+  /** The agency's WhatsApp number the message came in on: an assignment rule may name it. */
+  connectionId: string;
   /** The customer's WhatsApp profile name, if they have one. */
   profileName: string | null;
   /** The first message's words for the lead's note, "Sent a photo" for media; null for none. */
@@ -118,19 +120,19 @@ export async function receiveWhatsAppContact(
     stage: "new",
     createdAt: contact.occurredAt,
     notify: "each",
-    assign: { workers: context.workers },
+    assign: { workers: context.workers, whatsappConnectionId: contact.connectionId },
   });
   return { kind: "lead_created", personId: saved.personId, leadId: saved.leadId, ownerUserId: saved.leadOwnerUserId };
 }
 
 /**
- * Start a new lead (Q2): a lead for a person whose leads are all closed, marked Returning, through the same path. Refused
- * when they have an open lead already.
+ * Start a new lead (Q2): a lead for a person whose leads are all closed, marked Returning, through the same path, assigned
+ * by the rules for the chat's number. Refused when they have an open lead already.
  */
 export async function startLeadFromChat(
   tx: OrgTx,
   actor: Actor,
-  input: { personId: string },
+  input: { personId: string; connectionId: string },
   context: WhatsAppContactContext,
   now: Date,
 ): Promise<{ leadId: string }> {
@@ -153,7 +155,7 @@ export async function startLeadFromChat(
       stage: "new",
       createdAt: null,
       notify: "each",
-      assign: { workers: context.workers },
+      assign: { workers: context.workers, whatsappConnectionId: input.connectionId },
     },
   );
   return { leadId: saved.leadId };

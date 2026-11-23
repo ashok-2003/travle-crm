@@ -13,6 +13,8 @@ export interface LeadFacts {
   tripType: string | null;
   /** The owner of the person's latest earlier lead, for a returning customer. */
   previousOwnerUserId: string | null;
+  /** The WhatsApp number the lead came in on; null for every lead not made from a WhatsApp chat. */
+  whatsappConnectionId: string | null;
 }
 
 export interface AssignContext {
@@ -74,7 +76,8 @@ export async function chooseOwner(tx: OrgTx, lead: LeadFacts, context: AssignCon
       workers.has(rule.assigneeUserId) &&
       (rule.source === null || rule.source === lead.source) &&
       (rule.destinationId === null || rule.destinationId === lead.destinationId) &&
-      (rule.tripType === null || rule.tripType === lead.tripType),
+      (rule.tripType === null || rule.tripType === lead.tripType) &&
+      (rule.whatsappConnectionId === null || rule.whatsappConnectionId === lead.whatsappConnectionId),
   );
   if (matched) return decided(tx, context, matched.assigneeUserId, "rule", matched.position);
 

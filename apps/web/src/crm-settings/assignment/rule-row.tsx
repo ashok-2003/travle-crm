@@ -1,8 +1,8 @@
 "use client";
 
-// One assignment rule being edited: its conditions (a source, a destination, a trip type; "Any" for each left open) and
-// the person a matching lead goes to, with buttons to move it up or down the order or remove it. A rule whose person
-// left is marked and passed over.
+// One assignment rule being edited: its conditions (a source, a destination, a trip type, and with two or more numbers the
+// WhatsApp number the lead came in on; "Any" for each left open) and the person a matching lead goes to, with buttons to
+// move it up or down the order or remove it. A rule whose person left, or whose number was disconnected, is marked.
 import { leadSources, tripTypes, type LeadSource, type LeadWorker, type TripType } from "@travel-crm/contracts/crm";
 import type { Destination } from "@travel-crm/contracts/catalog";
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-react";
@@ -13,12 +13,19 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DestinationPicker } from "../destination-picker";
 
-/** A rule as the screen holds it: a key of its own, and its destination with its name. */
+/** A WhatsApp number as a rule names it. */
+export interface RuleNumber {
+  id: string;
+  label: string;
+}
+
+/** A rule as the screen holds it: a key of its own, and its destination and number with their names. */
 export interface RuleDraft {
   key: string;
   source: LeadSource | null;
   destination: Destination | null;
   tripType: TripType | null;
+  whatsapp: RuleNumber | null;
   assigneeUserId: string | null;
 }
 
@@ -29,7 +36,9 @@ export function RuleRow({
   number,
   count,
   workers,
+  numbers,
   personLeft,
+  numberGone,
   onChange,
   onMove,
   onRemove,
@@ -39,21 +48,30 @@ export function RuleRow({
   number: number;
   count: number;
   workers: readonly LeadWorker[];
+  /** The agency's live WhatsApp numbers: the condition is offered with two or more. */
+  numbers: readonly RuleNumber[];
   /** Its person no longer works leads: the rule is passed over. */
   personLeft: boolean;
+  /** Its number was disconnected: no lead matches it. */
+  numberGone: boolean;
   onChange: (rule: RuleDraft) => void;
   onMove: (by: -1 | 1) => void;
   onRemove: () => void;
 }) {
   const t = useTranslations("settings.assignment.rules");
   const tLeads = useTranslations("leads");
+  const { whatsapp } = rule;
+  const numberChoices =
+    whatsapp === null || numbers.some((number) => number.id === whatsapp.id) ? numbers : [...numbers, whatsapp];
   return (
     <fieldset className="flex flex-col gap-3">
       <legend className="mb-2 flex items-center gap-2 font-medium">
         {t("rule", { number })}
         {personLeft && <StatusBadge tone="attention">{t("personLeft")}</StatusBadge>}
+        {numberGone && <StatusBadge tone="attention">{t("numberGone")}</StatusBadge>}
       </legend>
       {personLeft && <p className="text-label text-muted-foreground">{t("personLeftHint")}</p>}
+      {numberGone && <p className="text-label text-muted-foreground">{t("numberGoneHint")}</p>}
       <div className="grid gap-3 md:grid-cols-2">
         <FormField label={t("source")}>
           {(links) => (
@@ -110,6 +128,30 @@ export function RuleRow({
             </Select>
           )}
         </FormField>
+        {(numbers.length >= 2 || whatsapp !== null) && (
+          <FormField label={t("whatsapp")}>
+            {(links) => (
+              <Select
+                value={whatsapp?.id ?? ANY}
+                onValueChange={(value) => {
+                  onChange({ ...rule, whatsapp: numberChoices.find((number) => number.id === value) ?? null });
+                }}
+              >
+                <SelectTrigger {...links}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ANY}>{t("any")}</SelectItem>
+                  {numberChoices.map((number) => (
+                    <SelectItem key={number.id} value={number.id}>
+                      {number.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FormField>
+        )}
         <FormField label={t("person")}>
           {(links) => (
             <Select

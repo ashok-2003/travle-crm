@@ -17,6 +17,8 @@ const words = messages.settings.assignment;
 const priya = { userId: owner.user.id, name: "Priya Nair" };
 const ravi = { userId: salesperson.user.id, name: "Ravi Kumar" };
 const gone = "0199a000-0000-7000-8000-0000000000f9";
+const salesOne = { id: "0199a000-0000-7000-8000-0000000000a1", label: "Sales 1" };
+const salesTwo = { id: "0199a000-0000-7000-8000-0000000000a2", label: "Sales 2" };
 const NOW = new Date("2026-10-23T05:30:00Z");
 
 const saved: AssignmentSettings = {
@@ -27,6 +29,7 @@ const saved: AssignmentSettings = {
   closesMinute: 1140,
   rules: [],
   pool: [],
+  whatsappNumbers: [],
 };
 
 function renderSettings(settings: Partial<AssignmentSettings> = {}, options: Parameters<typeof renderScreen>[1] = {}) {
@@ -84,6 +87,9 @@ describe("AssignmentScreen", () => {
           destinationId: null,
           destinationName: null,
           tripType: null,
+          whatsappConnectionId: null,
+          whatsappLabel: null,
+          whatsappGone: false,
           assigneeUserId: gone,
         },
       ],
@@ -122,8 +128,66 @@ describe("AssignmentScreen", () => {
       opensMinute: 570,
       closesMinute: 1140,
       pool: expect.arrayContaining([priya.userId, ravi.userId]) as unknown,
-      rules: [{ source: "web_form", destinationId: null, tripType: null, assigneeUserId: ravi.userId }],
+      rules: [
+        {
+          source: "web_form",
+          destinationId: null,
+          tripType: null,
+          whatsappConnectionId: null,
+          assigneeUserId: ravi.userId,
+        },
+      ],
     });
+  });
+
+  it("offers the WhatsApp number condition when the agency has two numbers, and saves it", async () => {
+    renderSettings({ whatsappNumbers: [salesOne, salesTwo] });
+    await userEvent.click(await screen.findByRole("button", { name: words.rules.add }));
+    const rule = screen.getByRole("group", { name: "Rule 1" });
+    await userEvent.click(within(rule).getByRole("combobox", { name: words.rules.whatsapp }));
+    await userEvent.click(await screen.findByRole("option", { name: "Sales 2" }));
+    await userEvent.click(within(rule).getByRole("combobox", { name: words.rules.person }));
+    await userEvent.click(await screen.findByRole("option", { name: "Ravi Kumar" }));
+    await userEvent.click(await saveButton());
+    await waitFor(() => {
+      expect(inputsTo("assignment.save")).toHaveLength(1);
+    });
+    expect(inputsTo("assignment.save")[0]).toMatchObject({
+      rules: [
+        {
+          source: null,
+          destinationId: null,
+          tripType: null,
+          whatsappConnectionId: salesTwo.id,
+          assigneeUserId: ravi.userId,
+        },
+      ],
+    });
+  });
+
+  it("shows no number condition with one number, and marks a rule whose number is gone", async () => {
+    renderSettings({
+      whatsappNumbers: [salesOne],
+      rules: [
+        {
+          id: "r1",
+          source: null,
+          destinationId: null,
+          destinationName: null,
+          tripType: null,
+          whatsappConnectionId: salesTwo.id,
+          whatsappLabel: salesTwo.label,
+          whatsappGone: true,
+          assigneeUserId: ravi.userId,
+        },
+      ],
+    });
+    const kept = await screen.findByRole("group", { name: /^Rule 1/ });
+    expect(within(kept).getByText(words.rules.numberGone)).toBeVisible();
+    expect(within(kept).getByRole("combobox", { name: words.rules.whatsapp })).toHaveTextContent("Sales 2");
+    await userEvent.click(screen.getByRole("button", { name: words.rules.add }));
+    const added = screen.getByRole("group", { name: "Rule 2" });
+    expect(within(added).queryByRole("combobox", { name: words.rules.whatsapp })).not.toBeInTheDocument();
   });
 
   it("turns the reply alert off", async () => {

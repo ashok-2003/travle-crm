@@ -11,7 +11,10 @@ import { lockChat } from "./outbox.js";
 import { visibleConversations } from "./scope.js";
 import { visibleMessage } from "./views.js";
 
-/** Start a new lead from a chat whose person has only closed leads; the lead is Returning and assigned by the agency's rules. */
+/**
+ * Start a new lead from a chat whose person has only closed leads; the lead is Returning and assigned by the agency's rules,
+ * as one that came in on the chat's number.
+ */
 export async function startLeadFromConversation(
   tx: OrgTx,
   access: MemberAccess,
@@ -24,11 +27,17 @@ export async function startLeadFromConversation(
   await lockChat(tx, conversationId);
   const chat = await tx.whatsappConversation.findFirst({
     where: { AND: [{ id: conversationId, state: "open" }, visibleConversations(access)] },
-    select: { personId: true },
+    select: { personId: true, connectionId: true },
   });
   if (chat === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
   if (chat.personId === null) throw new DomainError("CONFLICT", "NO_PERSON_YET", "This number has no person yet");
-  const { leadId } = await startLeadFromChat(tx, access, { personId: chat.personId }, context, now);
+  const { leadId } = await startLeadFromChat(
+    tx,
+    access,
+    { personId: chat.personId, connectionId: chat.connectionId },
+    context,
+    now,
+  );
   await recordAudit(tx, access, {
     action: "whatsapp.lead-started-from-chat",
     entityType: "lead",

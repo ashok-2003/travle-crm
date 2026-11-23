@@ -68,11 +68,16 @@ export async function openLeadForChat(
     if (await isBlocked(tx, { phone: chat.phoneE164 })) return "blocked";
     // Read again under the chat's lock: a person may have marked it since the turn's first read.
     if (await markedNotALead(tx, personId)) return "not_a_lead";
+    // The lead came in on the chat's number, which an assignment rule may name.
+    const { connectionId } = await tx.whatsappConversation.findUniqueOrThrow({
+      where: { id: chat.id },
+      select: { connectionId: true },
+    });
     try {
       await startLeadFromChat(
         tx,
         systemActor(organizationId),
-        { personId },
+        { personId, connectionId },
         { ownerUserId: facts.ownerUserId, workers: facts.workers },
         now,
       );

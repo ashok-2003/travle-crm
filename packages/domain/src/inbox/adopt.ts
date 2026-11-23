@@ -1,11 +1,13 @@
 // Chats stored while the subscription did not allow changes get their person and lead once access returns (spec 8.5, D11): an
-// hourly pass over routed connections finds chats with no person and makes them the way a new message would. Cheap, since chats
-// are few. Nothing is made for a paused or cancelled number.
+// hourly pass over the agencies with a routed number finds, on each connected or troubled number, chats with no person and
+// makes them the way a new message would, assigned as having come in on that number. Cheap, since chats are few. Nothing is
+// made for a paused or cancelled number.
 import { agencyFactsOf, mayBringIn, receiveWhatsAppContact } from "../crm/index.js";
 import { systemActor } from "../kernel/index.js";
+import { liveConnections } from "./connection-row.js";
 import type { InboxDependencies } from "./dependencies.js";
 import { firstTextOf } from "./messages.js";
-import { routesPage } from "./routes.js";
+import { routedOrganizationsPage } from "./routes.js";
 
 const PAGE = 100;
 
@@ -15,14 +17,13 @@ export async function adoptChats(dependencies: InboxDependencies, organizationId
   const facts = await agencyFactsOf(dependencies, organizationId);
   if (facts === null) return 0;
   return dependencies.db.forOrg(organizationId, async (tx) => {
-    const connection = await tx.whatsappConnection.findFirst({
-      where: { status: { in: ["connected", "problem"] } },
-      select: { id: true },
-    });
-    if (connection === null) return 0;
+    const numbers = (await liveConnections(tx)).filter((connection) =>
+      ["connected", "problem"].includes(connection.status),
+    );
+    if (numbers.length === 0) return 0;
     const chats = await tx.whatsappConversation.findMany({
-      where: { connectionId: connection.id, personId: null, hidden: false, state: "open" },
-      select: { id: true, phoneE164: true, profileName: true, lastInboundAt: true },
+      where: { connectionId: { in: numbers.map((number) => number.id) }, personId: null, hidden: false, state: "open" },
+      select: { id: true, connectionId: true, phoneE164: true, profileName: true, lastInboundAt: true },
       take: 50,
     });
     let handled = 0;
@@ -38,6 +39,7 @@ export async function adoptChats(dependencies: InboxDependencies, organizationId
         systemActor(organizationId),
         {
           phoneE164: chat.phoneE164,
+          connectionId: chat.connectionId,
           profileName: chat.profileName,
           firstText: firstTextOf({ kind: first.kind as never, text: first.body, caption: first.caption }),
           occurredAt: first.occurredAt,
@@ -57,14 +59,14 @@ export async function adoptChats(dependencies: InboxDependencies, organizationId
   });
 }
 
-/** One pass over every routed connection's organization. */
+/** One pass over every organization with a routed number, each once however many numbers it has. */
 export async function adoptAll(dependencies: InboxDependencies, now: Date): Promise<number> {
   let total = 0;
   let after: string | undefined;
   for (;;) {
-    const page = await routesPage(dependencies.db, { after, limit: PAGE });
-    for (const route of page) total += await adoptChats(dependencies, route.organizationId, now);
+    const page = await routedOrganizationsPage(dependencies.db, { after, limit: PAGE });
+    for (const organizationId of page) total += await adoptChats(dependencies, organizationId, now);
     if (page.length < PAGE) return total;
-    after = page.at(-1)?.integratedNumber;
+    after = page.at(-1);
   }
 }
