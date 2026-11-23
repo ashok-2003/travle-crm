@@ -1,6 +1,7 @@
 // What the inbox screens read (spec 3.1, 3.2, 6.3): the list of chats, one chat's header, a page of its messages, the chat of
-// a lead's person, and the status. Reads are views: the member's inbox:view scope (and, for "own", their leads:view scope)
-// decides which chats exist for them; a chat out of scope is "not found". Nothing here holds MSG91's key or a provider link.
+// a lead's person, and the status with every number. Each chat names its number (a chat is one phone on one number). Reads
+// are views: the member's inbox:view scope (and, for "own", their leads:view scope) decides which chats exist for them; a
+// chat out of scope is "not found". Nothing here holds MSG91's key or a provider link.
 import {
   conversationHeader,
   conversationPage,
@@ -17,7 +18,7 @@ import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import { answeredByAiWhere } from "./ai-answered.js";
 import { chatNameOf } from "./chat-name.js";
-import { liveConnection } from "./connection-row.js";
+import { connectionById, mainConnection, numbersOf } from "./connection-row.js";
 import { previewOf } from "./messages.js";
 import { customerChatOf } from "./send-from.js";
 import { unreadCounts, unreadIdsOf } from "./unread.js";
@@ -25,15 +26,28 @@ import { visibleConversations, type ConversationWhere } from "./scope.js";
 import { whatsappConsentOf } from "./whatsapp-consent.js";
 import { windowEndOf } from "./window.js";
 
-/** Whether WhatsApp is on for this server and the agency has a number (3.1's states). */
+/**
+ * Whether WhatsApp is on for this server and the agency has a number (3.1's states): connected while any live number is
+ * past setting up, and every number the agency has had, live ones first. The main mark is mainConnection()'s answer, never
+ * the stored flag, which a disconnected number may keep.
+ */
 export async function inboxStatusOf(tx: OrgTx, configured: boolean): Promise<InboxStatus> {
-  const connection = await liveConnection(tx);
+  const numbers = await numbersOf(tx);
+  const main = await mainConnection(tx);
   return inboxStatus.parse({
     configured,
-    connected: connection !== null && connection.status !== "setup",
-    connectionStatus: connection?.status ?? null,
-    demo: connection?.mode === "demo",
-    number: connection?.displayNumber ?? null,
+    connected: numbers.some((number) => number.status !== "disconnected" && number.status !== "setup"),
+    connectionStatus: main?.status ?? null,
+    demo: main?.mode === "demo",
+    number: main?.displayNumber ?? null,
+    numbers: numbers.map((number) => ({
+      id: number.id,
+      label: number.label,
+      displayNumber: number.displayNumber,
+      status: number.status,
+      main: number.id === main?.id,
+      aiAnswers: number.aiAnswers,
+    })),
   });
 }
 
@@ -162,9 +176,11 @@ export async function listConversations(
       ? []
       : [{ person: { is: { leads: { some: { deletedAt: null, stage: input.stage, ...leadScopeWhere(access) } } } } }]),
     ...(input.period === undefined ? [] : [{ lastMessageAt: { gte: periodStart(input.period, now) } }]),
+    ...(input.connectionId === undefined ? [] : [{ connectionId: input.connectionId }]),
   ];
   const select = {
     id: true,
+    connectionId: true,
     phoneE164: true,
     profileName: true,
     personId: true,
@@ -229,6 +245,7 @@ export async function listConversations(
             ? row.snoozedUntil.toISOString()
             : null,
         id: row.id,
+        connectionId: row.connectionId,
         phone: row.phoneE164,
         name: chatNameOf(row),
         personId: row.personId,
@@ -267,7 +284,10 @@ export async function visibleConversation(tx: OrgTx, access: MemberAccess, conve
   return row;
 }
 
-/** The chat's header (3.2): name, the lead it links to, whether a new lead can be started, and the window. */
+/**
+ * The chat's header (3.2): name, the lead it links to, whether a new lead can be started, the window, the chat's own number,
+ * and the customer's chats on the agency's other numbers.
+ */
 export async function conversationHeaderOf(
   tx: OrgTx,
   access: MemberAccess,
@@ -309,6 +329,19 @@ export async function conversationHeaderOf(
         ).map((lead) => lead.ownerUserId);
   const windowEnd = windowEndOf(row.lastInboundAt);
   const consent = row.personId === null ? { state: null, source: null } : await whatsappConsentOf(tx, row.personId);
+  const number = await connectionById(tx, row.connectionId);
+  if (number === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  // The same phone on the agency's other numbers (owner 3): the open chats this member may see, the newest first.
+  const others = await tx.whatsappConversation.findMany({
+    where: {
+      AND: [
+        { phoneE164: row.phoneE164, connectionId: { not: row.connectionId }, hidden: false, state: "open" },
+        visibleConversations(access),
+      ],
+    },
+    orderBy: [{ lastMessageAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+    select: { id: true, connection: { select: { label: true } } },
+  });
   return conversationHeader.parse({
     id: row.id,
     phone: row.phoneE164,
@@ -340,6 +373,8 @@ export async function conversationHeaderOf(
       row.snoozedUntil !== null && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil.toISOString() : null,
     // The api adds who is typing: it alone knows (kept in its memory, never stored).
     replying: [],
+    number: { id: number.id, label: number.label, status: number.status },
+    otherChats: others.map((chat) => ({ id: chat.id, label: chat.connection.label })),
   });
 }
 

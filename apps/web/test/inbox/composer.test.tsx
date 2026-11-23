@@ -37,6 +37,8 @@ const header = (id: string): ConversationHeader => ({
   archived: false,
   snoozedUntil: null,
   replying: [],
+  number: { id: "01900000-0000-7000-8000-0000000000aa", label: "WhatsApp", status: "connected" },
+  otherChats: [],
 });
 const chatA = "01900000-0000-7000-8000-00000000000a";
 const chatB = "01900000-0000-7000-8000-00000000000b";
