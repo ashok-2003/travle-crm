@@ -51,14 +51,17 @@ const chatColumns = {
 } as const;
 
 /**
- * The chat to write to: the lead's (found, or made when `make`), else the conversation the booking came from. "later"
- * when the lead's chat is not made yet, so only a template could start it.
+ * The chat to write to: the lead's (found by the sending rule, or made when `make`), else, only for a lead with no phone or
+ * no lead, the conversation the booking came from. "later" when the lead's chat is not made yet, so only a template could
+ * start it. Null (a task for a person) when the lead's number can't send now: a paused number holds, and the message
+ * never moves to another number's chat.
  */
 async function chatToTellIn(tx: OrgTx, input: Pick<PaymentTelling, "leadId" | "conversationId">, make: boolean) {
   if (input.leadId !== null) {
     const found = await chatForLead(tx, input.leadId, make);
     if (found.chat !== null) return found.chat;
     if (found.reason === "none_yet") return "later" as const;
+    if (found.reason !== "no_phone") return null;
   }
   if (input.conversationId === null) return null;
   const chat = await tx.whatsappConversation.findUnique({ where: { id: input.conversationId }, select: chatColumns });

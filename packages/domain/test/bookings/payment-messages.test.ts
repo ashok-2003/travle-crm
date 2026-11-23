@@ -14,6 +14,7 @@ import {
   createTestInbox,
   lastWroteTo,
   sentFrom,
+  type TestConnection,
   type TestInbox,
 } from "../inbox/support.js";
 import { openWorld, type World } from "./support.js";
@@ -280,9 +281,14 @@ describe("telling the customer about their payment", () => {
 describe("the number a payment message goes from", () => {
   let world: World;
   let test: TestInbox;
+  /** "Sales 1" (main) and "Sales 2". */
+  let main: TestConnection;
+  let second: TestConnection;
   beforeAll(async () => {
     world = await openWorld("Payment numbers");
     test = createTestInbox();
+    main = await aConnectedAgency(test, { organizationId: world.organizationId });
+    second = await aSecondNumber(test, main, { label: "Sales 2" });
   });
   afterAll(async () => {
     await test.close();
@@ -290,8 +296,6 @@ describe("the number a payment message goes from", () => {
   });
 
   it("tells the customer about their payment from the number they last wrote to", async () => {
-    const main = await aConnectedAgency(test, { organizationId: world.organizationId });
-    const second = await aSecondNumber(test, main, { label: "Sales 2" });
     // The first customer last wrote to Sales 2, the second to the main number. Both are told with no write to a number
     // between, so a send that took the first live number a lookup finds goes from the wrong number for one of them.
     const customers = [];
@@ -329,5 +333,41 @@ describe("the number a payment message goes from", () => {
       expect(sent).toMatchObject([{ conversationId: chat }]);
       expect(await sentFrom(test, world.organizationId, sent[0]?.id ?? "", now)).toBe(from.integratedNumber);
     }
+  });
+
+  it("makes a task while the customer's number is paused, and sends nothing from the booking's chat on another", async () => {
+    // The customer booked in their chat on the main number, then wrote to Sales 2, which is now paused.
+    const lead = await world.inOrg(async (tx) => {
+      const person = await aPerson(tx);
+      const made = await aLead(tx, { personId: person.id, ownerUserId: world.seller.userId });
+      const row = await tx.person.findUniqueOrThrow({ where: { id: person.id }, select: { phoneE164: true } });
+      return { id: made.id, phone: row.phoneE164 ?? "" };
+    });
+    await lastWroteTo(test, lead.phone, second, main, now);
+    const bookedIn = await world.inOrg((tx) =>
+      tx.whatsappConversation.findFirstOrThrow({
+        where: { connectionId: main.connectionId, phoneE164: lead.phone },
+        select: { id: true },
+      }),
+    );
+    const paused = (status: string) =>
+      world.inOrg((tx) => tx.whatsappConnection.update({ where: { id: second.connectionId }, data: { status } }));
+    await paused("paused");
+    const telling: PaymentTelling = {
+      organizationId: world.organizationId,
+      leadId: lead.id,
+      conversationId: bookedIn.id,
+      outcome: "confirmed",
+      amountPaise: 1_250_000,
+      trip: "Manali 5N",
+      recordKey: randomUUID(),
+    };
+    expect(await world.inOrg((tx) => previewPaymentTelling(tx, telling, now))).toEqual({ way: "task" });
+    expect(await world.inOrg((tx) => tellPaymentOutcome(tx, telling, now))).toBe("task");
+    const sent = await world.inOrg((tx) =>
+      tx.whatsappMessage.count({ where: { direction: "out", conversation: { phoneE164: lead.phone } } }),
+    );
+    expect(sent).toBe(0);
+    await paused("connected");
   });
 });

@@ -4,50 +4,26 @@
 // customer's message rewrites a number's row, and Postgres's row order moves with every write, so no one number is
 // reliably what a lookup taking the first live number finds, but with no write between them both sends meet the same
 // one, and a path that used it sends one of the two from the wrong number. The customer last wrote to the main number, so
-// a path that used the customer's rule instead is caught too. A chat whose number is disconnected or paused sends
-// nothing, and says why.
+// a path that used the customer's rule instead is caught too. Refusals are in numbers-in-chat-refusals.test.ts.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
-import type { OrgTx } from "@travel-crm/db";
 import { tinyPng } from "@travel-crm/integrations/testing";
 import { sendAiText } from "../../src/ai/agent-send.js";
 import { tellPaymentOutcome } from "../../src/bookings/payment-messages.js";
 import {
   answerAutomatically,
   createKeywordReply,
-  queueMedia,
-  queueSystemText,
-  queueTemplate,
-  queueText,
-  requestMediaUpload,
   retryMessage,
   runDueWorkFor,
   saveAutomation,
   scheduleMessage,
   sendTripKit,
   sendTripKitOnKeyword,
-  type ReplyContext,
 } from "../../src/inbox/index.js";
 import { newUuidV7, systemActor } from "../../src/kernel/index.js";
-import { sendToChat } from "../../src/sales/index.js";
-import { memberOf } from "../imports/support/test-imports.js";
-import {
-  aConnectedAgency,
-  aSecondNumber,
-  createTestInbox,
-  deliver,
-  freshPhone,
-  fromCustomer,
-  sentFrom,
-  testNow,
-  type TestConnection,
-  type TestInbox,
-} from "./support.js";
-
-const HOUR = 3_600_000;
-const context: ReplyContext = { whatsappConfigured: true };
-const at = (hours: number) => new Date(testNow.getTime() + hours * HOUR);
+import { createTestInbox, sentFrom, testNow, type TestInbox } from "./support.js";
+import { at, context, inChatHelpers } from "./numbers-in-chat-support.js";
 
 describe("a send in a chat goes from the chat's own number", () => {
   let test: TestInbox;
@@ -55,150 +31,7 @@ describe("a send in a chat goes from the chat's own number", () => {
     test = createTestInbox();
   });
   afterAll(() => test.close());
-
-  /**
-   * An agency with "Sales 1" (main) and "Sales 2"; the customer wrote to Sales 2 an hour before testNow and to Sales 1 at
-   * testNow. `chat` is theirs on Sales 2, `mainChat` on Sales 1; `chats` both, each with the number it must send from.
-   */
-  async function agency() {
-    const main = await aConnectedAgency(test);
-    const inOrg = <T>(work: (tx: OrgTx) => Promise<T>) => test.db.forOrg(main.organizationId, work);
-    await inOrg((tx) => tx.whatsappConnection.update({ where: { id: main.connectionId }, data: { label: "Sales 1" } }));
-    const second = await aSecondNumber(test, main, { label: "Sales 2" });
-    const customerNumber = freshPhone().replace("+", "");
-    /** The customer writes on the number; the message's id and its chat's. */
-    const writes = async (connection: TestConnection, text: string, when: Date) => {
-      await deliver(
-        test,
-        fromCustomer(connection, { customerNumber, text, customerName: "Test Customer", ts: when.getTime() / 1000 }),
-        when,
-      );
-      const message = await inOrg((tx) =>
-        tx.whatsappMessage.findFirstOrThrow({
-          where: { direction: "in", body: text, conversation: { connectionId: connection.connectionId } },
-          orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-          select: { id: true, conversationId: true },
-        }),
-      );
-      return { messageId: message.id, conversationId: message.conversationId };
-    };
-    const { conversationId: chat } = await writes(second, "Goa?", at(-1));
-    const { conversationId: mainChat } = await writes(main, "Hello", testNow);
-    const chats = [
-      { number: second, chat, from: second.integratedNumber },
-      { number: main, chat: mainChat, from: main.integratedNumber },
-    ];
-    /** The message's chat, and the number the worker's sender sent it from. */
-    const landed = async (messageId: string, when: Date) => {
-      const row = await inOrg((tx) =>
-        tx.whatsappMessage.findUniqueOrThrow({ where: { id: messageId }, select: { conversationId: true } }),
-      );
-      return { chat: row.conversationId, from: await sentFrom(test, main.organizationId, messageId, when) };
-    };
-    /** The messages queued in each chat (in `chats`' order, all before any is sent) landed there, from its number. */
-    const landsEach = async (sent: readonly (readonly string[])[], when: Date) => {
-      expect(sent.map((ids) => ids.length > 0)).toEqual([true, true]);
-      for (const [index, { chat: queuedIn, from }] of chats.entries()) {
-        for (const id of sent[index] ?? []) expect(await landed(id, when)).toEqual({ chat: queuedIn, from });
-      }
-    };
-    const setStatus = (connection: TestConnection, status: string) =>
-      inOrg((tx) => tx.whatsappConnection.update({ where: { id: connection.connectionId }, data: { status } }));
-    const outgoing = (conversationId: string) =>
-      inOrg((tx) =>
-        tx.whatsappMessage.findMany({ where: { conversationId, direction: "out" }, orderBy: { id: "asc" } }),
-      );
-    const template = async (connection: TestConnection, name: string, category = "utility") => {
-      const row = await inOrg((tx) =>
-        tx.whatsappTemplate.create({
-          data: {
-            connectionId: connection.connectionId,
-            name,
-            language: "en",
-            category,
-            body: "Hello {{1}}, your trip is confirmed.",
-            status: "approved",
-          },
-          select: { id: true },
-        }),
-      );
-      return row.id;
-    };
-    const member = memberOf(main.organizationId);
-    return {
-      main,
-      second,
-      chat,
-      mainChat,
-      chats,
-      member,
-      inOrg,
-      writes,
-      landed,
-      landsEach,
-      setStatus,
-      outgoing,
-      template,
-    };
-  }
-
-  type Agency = Awaited<ReturnType<typeof agency>>;
-
-  const reply = (world: Agency, conversationId: string, when = at(1)) =>
-    world.inOrg((tx) =>
-      queueText(tx, world.member, { conversationId, clientToken: randomUUID(), text: "On it" }, context, when),
-    );
-
-  const sendTemplate = (world: Agency, conversationId: string, templateId: string, when = at(30)) =>
-    world.inOrg((tx) =>
-      queueTemplate(
-        tx,
-        world.member,
-        { conversationId, templateId, parameters: ["Test"], agreed: false, clientToken: randomUUID() },
-        context,
-        when,
-      ),
-    );
-
-  async function sendFile(world: Agency, conversationId: string, when = at(1)) {
-    const deps = { db: test.db, files: test.files };
-    const slot = await requestMediaUpload(
-      deps,
-      world.member,
-      { conversationId, fileName: "itinerary.png", contentType: "image/png", sizeBytes: tinyPng.byteLength },
-      context,
-      when,
-    );
-    await test.storage.upload({ ...slot.upload, expiresAt: new Date(slot.upload.expiresAt) }, tinyPng, "image/png");
-    return queueMedia(
-      deps,
-      world.member,
-      {
-        conversationId,
-        messageId: slot.messageId,
-        attachmentId: slot.attachmentId,
-        clientToken: randomUUID(),
-        caption: "Your itinerary",
-      },
-      context,
-      when,
-    );
-  }
-
-  const kit = (world: Agency, keywords: string[]) =>
-    world.inOrg((tx) =>
-      tx.tripKit.create({
-        data: { name: "Goa", message: "Goa: itinerary and price", keywords, autoSend: true },
-        select: { id: true },
-      }),
-    );
-
-  const aiTarget = (world: Agency, conversationId: string, when = at(1)) => ({
-    organizationId: world.main.organizationId,
-    conversationId,
-    now: when,
-    answers: true,
-  });
+  const { agency, reply, sendTemplate, sendFile, kit, aiTarget } = inChatHelpers(() => test);
 
   it("sends a staff reply and a file from the chat's number when the agency has two", async () => {
     const world = await agency();
@@ -390,134 +223,5 @@ describe("a send in a chat goes from the chat's own number", () => {
       sent.push(rows.map((message) => message.id));
     }
     await world.landsEach(sent, at(1));
-  });
-
-  it("refuses every send in a chat whose number was disconnected, and tells staff why", async () => {
-    const world = await agency();
-    const failed = await reply(world, world.chat);
-    test.provider.failNext("other");
-    await sentFrom(test, world.main.organizationId, failed.messageId, at(1));
-    const template = await world.template(world.second, "trip_update");
-    const { id: tripKitId } = await kit(world, ["goa"]);
-    const said = await world.writes(world.second, "Goa in March?", at(2));
-    await world.setStatus(world.second, "disconnected");
-    const before = await world.outgoing(world.chat);
-
-    const disconnected = { reason: "WHATSAPP_NUMBER_DISCONNECTED" };
-    await expect(reply(world, world.chat, at(2))).rejects.toMatchObject(disconnected);
-    await expect(sendFile(world, world.chat, at(2))).rejects.toMatchObject(disconnected);
-    await expect(sendTemplate(world, world.chat, template)).rejects.toMatchObject(disconnected);
-    await expect(
-      world.inOrg((tx) => retryMessage(tx, world.member, failed.messageId, context, at(2))),
-    ).rejects.toMatchObject(disconnected);
-    await expect(
-      sendTripKit(
-        test.dependencies,
-        world.member,
-        { conversationId: world.chat, tripKitId, clientToken: randomUUID() },
-        context,
-        at(2),
-      ),
-    ).rejects.toMatchObject(disconnected);
-    // What the system sends by itself is refused as "not connected", as for any number that can't send (MN2).
-    expect(
-      await world.inOrg((tx) =>
-        queueSystemText(
-          tx,
-          {
-            conversationId: world.chat,
-            body: "Later",
-            sentBy: null,
-            origin: "automation",
-            clientToken: randomUUID(),
-            answers: false,
-          },
-          at(2),
-        ),
-      ),
-    ).toEqual({ ok: false, code: "not_connected" });
-    expect(await sendTripKitOnKeyword(test.dependencies, systemActor(world.main.organizationId), said, at(2))).toBe(
-      false,
-    );
-    await expect(
-      world.inOrg((tx) => sendAiText(tx, aiTarget(world, world.chat, at(2)), randomUUID(), "Goa?", "reply")),
-    ).rejects.toMatchObject({ reason: "WHATSAPP_NOT_CONNECTED" });
-    // A payment message in the booking's chat outside the window queues no template there either (path 11).
-    const row = await world.inOrg((tx) => tx.whatsappConversation.findUniqueOrThrow({ where: { id: world.chat } }));
-    const payment = { organizationId: world.main.organizationId, templateId: template, params: ["Test"] };
-    expect(
-      await world.inOrg((tx) =>
-        sendToChat(
-          tx,
-          { ...row, personId: row.personId ?? "" },
-          { ...payment, agreed: true, clientToken: randomUUID() },
-          at(30),
-        ),
-      ),
-    ).toEqual({ kind: "later", reason: "not_connected" });
-    expect(await world.outgoing(world.chat)).toEqual(before);
-    // The chat on the main number still sends.
-    const onMain = await reply(world, world.mainChat, at(2));
-    expect(await world.landed(onMain.messageId, at(2))).toEqual({
-      chat: world.mainChat,
-      from: world.main.integratedNumber,
-    });
-  });
-
-  it("refuses sends only in the paused number's chats", async () => {
-    const world = await agency();
-    await world.setStatus(world.main, "paused");
-    await expect(reply(world, world.mainChat)).rejects.toMatchObject({ reason: "WHATSAPP_PAUSED" });
-    const sent = await reply(world, world.chat);
-    expect(await world.landed(sent.messageId, at(1))).toEqual({
-      chat: world.chat,
-      from: world.second.integratedNumber,
-    });
-
-    await world.setStatus(world.main, "connected");
-    await world.setStatus(world.second, "paused");
-    await expect(reply(world, world.chat)).rejects.toMatchObject({ reason: "WHATSAPP_PAUSED" });
-    const system = (conversationId: string) =>
-      world.inOrg((tx) =>
-        queueSystemText(
-          tx,
-          {
-            conversationId,
-            body: "Later",
-            sentBy: null,
-            origin: "automation",
-            clientToken: randomUUID(),
-            answers: false,
-          },
-          at(1),
-        ),
-      );
-    expect(await system(world.chat)).toEqual({ ok: false, code: "paused" });
-    expect(await system(world.mainChat)).toMatchObject({ ok: true });
-  });
-
-  it("counts the day's template cap and the month's marketing cap on the chat's number alone", async () => {
-    const world = await agency();
-    const mainUtility = await world.template(world.main, "trip_update");
-    const mainMarketing = await world.template(world.main, "offer_update", "marketing");
-    const ownUtility = await world.template(world.second, "trip_update");
-    const ownMarketing = await world.template(world.second, "offer_update", "marketing");
-    await world.inOrg((tx) => tx.whatsappConnection.updateMany({ data: { marketingCapMonth: 1, templateCapDay: 2 } }));
-
-    // The main number uses up both its caps.
-    await sendTemplate(world, world.mainChat, mainMarketing);
-    await sendTemplate(world, world.mainChat, mainUtility);
-    await expect(sendTemplate(world, world.mainChat, mainUtility)).rejects.toMatchObject({
-      reason: "TEMPLATE_CAP_REACHED",
-    });
-    // Sales 2's caps are its own: its marketing message and a utility one still go.
-    await sendTemplate(world, world.chat, ownMarketing);
-    await expect(sendTemplate(world, world.chat, ownMarketing)).rejects.toMatchObject({
-      reason: "MARKETING_CAP_REACHED",
-    });
-    await sendTemplate(world, world.chat, ownUtility);
-    await expect(sendTemplate(world, world.chat, ownUtility)).rejects.toMatchObject({
-      reason: "TEMPLATE_CAP_REACHED",
-    });
   });
 });

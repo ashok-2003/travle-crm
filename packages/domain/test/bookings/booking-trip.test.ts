@@ -590,8 +590,8 @@ describe("the number reminders and the feedback ask go from", () => {
     await world.close();
   });
 
-  const dependencies = () => ({
-    db: world.db,
+  const dependencies = (db = world.db) => ({
+    db,
     appUrl: "https://app.example.test",
     timeZone: () => Promise.resolve("Asia/Kolkata"),
     names: () => Promise.resolve({ agencyName: "The agency", agentName: null }),
@@ -665,6 +665,56 @@ describe("the number reminders and the feedback ask go from", () => {
           from: await sentFrom(test, world.organizationId, messageId, now),
         }).toEqual({ chat, from });
       }
+    }
+  });
+
+  it("turns a reminder into a task when the customer's number lacks the template, and sends nothing from another", async () => {
+    // Its own agency: the details template is on the main number only, and the customer last wrote to Sales 2 a day and
+    // more ago, so only a template could reach them, and Sales 2 has none of that name.
+    const own = await openWorld("Booking numbers without the template");
+    try {
+      const main = await aConnectedAgency(test, { organizationId: own.organizationId });
+      const second = await aSecondNumber(test, main, { label: "Sales 2" });
+      await own.inOrg(async (tx) => {
+        const chosen = await tx.whatsappTemplate.create({
+          data: {
+            connectionId: main.connectionId,
+            name: "trip_details",
+            language: "en",
+            category: "utility",
+            body: "Hello {{1}}, please send your details.",
+            status: "approved",
+          },
+          select: { id: true },
+        });
+        await saveBookingSettings(tx, own.manager, {
+          ...(await bookingSettingsOf(tx)),
+          detailsTemplateId: chosen.id,
+          detailsParams: ["text:there"],
+        });
+      });
+      const { bookingId, leadId } = await aBooking(own, { startDate: "2026-11-08" });
+      await own.inOrg(async (tx) => {
+        await confirmBooking(tx, own.seller, { bookingId }, now);
+        await recordTripUpdatesConsentByStaff(tx, own.manager, { bookingId }, now);
+      });
+      const person = await own.inOrg((tx) =>
+        tx.lead.findUniqueOrThrow({ where: { id: leadId }, select: { person: { select: { phoneE164: true } } } }),
+      );
+      const phone = person.person.phoneE164 ?? "";
+      await lastWroteTo(test, phone, second, main, new Date(now.getTime() - 30 * 3_600_000));
+      await runBookingRemindersFor(dependencies(own.db), own.organizationId, now);
+      const row = await own.inOrg((tx) =>
+        tx.bookingReminder.findFirstOrThrow({ where: { bookingId, kind: "details" } }),
+      );
+      expect(row).toMatchObject({ status: "by_hand", note: "TEMPLATE_NOT_ON_NUMBER" });
+      expect(row.taskId).not.toBeNull();
+      const sent = await own.inOrg((tx) =>
+        tx.whatsappMessage.count({ where: { direction: "out", conversation: { phoneE164: phone } } }),
+      );
+      expect(sent).toBe(0);
+    } finally {
+      await own.close();
     }
   });
 });
