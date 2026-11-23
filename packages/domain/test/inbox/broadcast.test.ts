@@ -422,16 +422,23 @@ describe("broadcasts", () => {
       const onSecond = await two.create();
       const onMain = await base.create();
       await two.setStatus(two.second.connectionId, "paused");
-      await expect(two.create()).rejects.toMatchObject({ reason: "WHATSAPP_NOT_CONNECTED" });
+      // One made while the number is paused waits with it.
+      const whilePaused = await two.create();
       expect(await base.run(onSecond.id)).toBe(0);
+      expect(await base.run(whilePaused.id)).toBe(0);
       expect(await base.run(onMain.id)).toBe(2);
       expect((await base.detail(onSecond.id)).broadcast.counts).toMatchObject({ waiting: 2, sent: 0 });
       expect((await base.detail(onMain.id)).broadcast).toMatchObject({ status: "done", counts: { sent: 2 } });
       // The other way round: the main number paused and Sales 2 back, its broadcast goes once its wait is over.
       await two.setStatus(base.connection.connectionId, "paused");
       await two.setStatus(two.second.connectionId, "connected");
-      expect(await base.run(onSecond.id, new Date(testNow.getTime() + 11 * 60_000))).toBe(2);
+      const later = new Date(testNow.getTime() + 11 * 60_000);
+      expect(await base.run(onSecond.id, later)).toBe(2);
+      expect(await base.run(whilePaused.id, later)).toBe(2);
       expect((await base.detail(onSecond.id)).broadcast).toMatchObject({ status: "done", counts: { sent: 2 } });
+      // A disconnected number starts none.
+      await two.setStatus(two.second.connectionId, "disconnected");
+      await expect(two.create()).rejects.toMatchObject({ reason: "WHATSAPP_NOT_CONNECTED" });
     });
 
     it("counts the marketing allowance and the day's cap on the broadcast's number", async () => {

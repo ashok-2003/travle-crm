@@ -58,7 +58,7 @@ export async function createBroadcast(
 ): Promise<{ id: string }> {
   const earlier = await tx.whatsappBroadcast.findFirst({ where: { requestId: input.requestId }, select: { id: true } });
   if (earlier !== null) return earlier;
-  // The broadcast's number is its template's: it must be able to send.
+  // The broadcast's number is its template's. A paused one may start it: its batches wait until the number resumes.
   const template = await tx.whatsappTemplate.findUnique({
     where: { id: input.templateId },
     select: { connectionId: true },
@@ -66,7 +66,7 @@ export async function createBroadcast(
   if (template === null)
     throw new DomainError("CONFLICT", "TEMPLATE_NOT_APPROVED", "Only an approved template can be sent");
   const connection = await connectionById(tx, template.connectionId);
-  if (connection === null || connection.mode === "demo" || !["connected", "problem"].includes(connection.status)) {
+  if (connection === null || connection.mode === "demo" || ["setup", "disconnected"].includes(connection.status)) {
     throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
   }
   // Two broadcasts made at once must not both take the last of the allowance: the number's row is held, as a send does.
