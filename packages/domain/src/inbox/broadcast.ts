@@ -1,6 +1,7 @@
 // Broadcasts (sales inbox spec 6, rebuilt 2026-10-26): confirming one snapshots its audience into recipient rows in one
-// transaction and publishes an event; the worker sends (broadcast-send.ts). The browser's request id makes a retried create
-// the broadcast it made already. Cancel, resume and the list are here too. Everything is audited; nothing holds a rupee.
+// transaction and publishes an event; the worker sends (broadcast-send.ts). A broadcast goes from its template's number, to
+// that number's chats (multi-number spec section 7). The browser's request id makes a retried create the broadcast it made
+// already. Cancel, resume and the list are here too. Everything is audited; nothing holds a rupee.
 import {
   broadcastDetail,
   type BroadcastCounts,
@@ -18,7 +19,7 @@ import { publishEvent } from "../jobs/index.js";
 import { DomainError } from "../kernel/index.js";
 import { broadcastAudience } from "./broadcast-audience.js";
 import { chatNameOf } from "./chat-name.js";
-import { liveConnection } from "./connection-row.js";
+import { connectionById } from "./connection-row.js";
 import { renderTemplate } from "./template-send.js";
 
 /** WhatsApp's refusals that say something is wrong with the sending (a customer's number not being on WhatsApp is not one). */
@@ -57,11 +58,18 @@ export async function createBroadcast(
 ): Promise<{ id: string }> {
   const earlier = await tx.whatsappBroadcast.findFirst({ where: { requestId: input.requestId }, select: { id: true } });
   if (earlier !== null) return earlier;
-  const connection = await liveConnection(tx);
-  if (connection === null || connection.status === "setup" || connection.mode === "demo") {
+  // The broadcast's number is its template's: it must be able to send.
+  const template = await tx.whatsappTemplate.findUnique({
+    where: { id: input.templateId },
+    select: { connectionId: true },
+  });
+  if (template === null)
+    throw new DomainError("CONFLICT", "TEMPLATE_NOT_APPROVED", "Only an approved template can be sent");
+  const connection = await connectionById(tx, template.connectionId);
+  if (connection === null || connection.mode === "demo" || !["connected", "problem"].includes(connection.status)) {
     throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
   }
-  // Two broadcasts made at once must not both take the last of the allowance: the connection's row is held, as a send does.
+  // Two broadcasts made at once must not both take the last of the allowance: the number's row is held, as a send does.
   await tx.$queryRaw`SELECT id FROM whatsapp_connection WHERE id = ${connection.id}::uuid FOR UPDATE`;
   const audience = await broadcastAudience(tx, access, input, now);
   if (audience.chatIds.length === 0) {

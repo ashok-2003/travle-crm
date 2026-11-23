@@ -1,12 +1,13 @@
-// Who a broadcast reaches (sales inbox spec 6, rebuilt 2026-10-26): the open chats carrying any of the tags, minus those the
-// sender may not see, those whose person asked to stop, and those with no WhatsApp consent recorded (a customer who wrote
-// first has not agreed to marketing: Meta asks for the opt-in), then as many as the month's marketing allowance has room for.
-// The preview and the confirm both read it, so what is shown is what is sent.
+// Who a broadcast reaches (sales inbox spec 6, rebuilt 2026-10-26): the open chats carrying any of the tags on the template's
+// number (a broadcast goes from that number alone: multi-number spec section 7), minus those the sender may not see, those
+// whose person asked to stop, and those with no WhatsApp consent recorded (a customer who wrote first has not agreed to
+// marketing: Meta asks for the opt-in), then as many as that number's month's marketing allowance has room for. The preview
+// and the confirm both read it, so what is shown is what is sent.
 import { markersOf, type BroadcastPreview, type BroadcastPreviewInput } from "@travel-crm/contracts/inbox";
 import { joinSql, sql, type OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { liveConnection } from "./connection-row.js";
+import { connectionById } from "./connection-row.js";
 import { visibleConversations } from "./scope.js";
 import { monthStartOf } from "./usage.js";
 
@@ -30,7 +31,7 @@ export async function broadcastAudience(
 ): Promise<Audience> {
   const template = await tx.whatsappTemplate.findUnique({
     where: { id: input.templateId },
-    select: { id: true, name: true, category: true, body: true, status: true },
+    select: { id: true, connectionId: true, name: true, category: true, body: true, status: true },
   });
   if (template?.status !== "approved") {
     throw new DomainError("CONFLICT", "TEMPLATE_NOT_APPROVED", "Only an approved template can be sent");
@@ -43,8 +44,9 @@ export async function broadcastAudience(
   if (tags.length !== tagIds.length) throw new DomainError("NOT_FOUND", "NOT_FOUND", "A tag no longer exists");
   const segments = [...new Set(input.segments ?? [])];
 
-  // The chats carrying a tag, and those whose person has a lead in a chosen segment (lost, or won: past customers).
-  const tagged = await tx.whatsappConversation.findMany({
+  // The chats carrying a tag, and those whose person has a lead in a chosen segment (lost, or won: past customers); those
+  // on another number are left out as such.
+  const matching = await tx.whatsappConversation.findMany({
     where: {
       hidden: false,
       state: "open",
@@ -54,8 +56,9 @@ export async function broadcastAudience(
       ],
     },
     orderBy: { id: "asc" },
-    select: { id: true, personId: true },
+    select: { id: true, personId: true, connectionId: true },
   });
+  const tagged = matching.filter((chat) => chat.connectionId === template.connectionId);
   const seen = new Set(
     (
       await tx.whatsappConversation.findMany({
@@ -85,7 +88,7 @@ export async function broadcastAudience(
     else noConsent += 1;
   }
 
-  const connection = await liveConnection(tx);
+  const connection = await connectionById(tx, template.connectionId);
   const marketing = template.category === "marketing";
   let allowance: BroadcastPreview["allowance"] = null;
   let chatIds = eligible;
@@ -101,6 +104,7 @@ export async function broadcastAudience(
       direction: "out",
       occurredAt: { gte: dayStart(now) },
       status: { notIn: ["failed", "superseded"] },
+      conversation: { is: { connectionId: template.connectionId } },
     },
   });
   const roomToday = Math.max(0, (connection?.templateCapDay ?? 0) - sentToday);
@@ -117,6 +121,7 @@ export async function broadcastAudience(
         noConsent,
         outsideVisibility: tagged.length - visible.length,
         overAllowance: eligible.length - chatIds.length,
+        otherNumber: matching.length - tagged.length,
       },
       allowance,
       today: { sendToday, waitForTomorrow: chatIds.length - sendToday },
@@ -125,8 +130,8 @@ export async function broadcastAudience(
 }
 
 /**
- * Marketing messages the month has used or promised: those MSG91 took, those still on their way, and those waiting in a
- * broadcast that is not over (each will go as a marketing message, so it holds a place in the allowance).
+ * Marketing messages the number's month has used or promised: those MSG91 took, those still on their way from it, and those
+ * waiting in a broadcast from it that is not over (each will go as a marketing message, so it holds a place in the allowance).
  */
 async function marketingUsed(tx: OrgTx, connectionId: string, now: Date): Promise<number> {
   const usage = await tx.whatsappUsageMonth.findFirst({
@@ -134,12 +139,19 @@ async function marketingUsed(tx: OrgTx, connectionId: string, now: Date): Promis
     select: { marketing: true },
   });
   const onItsWay = await tx.whatsappMessage.count({
-    where: { kind: "template", status: { in: ["queued", "sending"] }, template: { is: { category: "marketing" } } },
+    where: {
+      kind: "template",
+      status: { in: ["queued", "sending"] },
+      template: { is: { category: "marketing" } },
+      conversation: { is: { connectionId } },
+    },
   });
   const promised = await tx.whatsappBroadcastRecipient.count({
     where: {
       state: "waiting",
-      broadcast: { is: { status: { in: ["sending", "paused"] }, template: { is: { category: "marketing" } } } },
+      broadcast: {
+        is: { status: { in: ["sending", "paused"] }, template: { is: { category: "marketing", connectionId } } },
+      },
     },
   });
   return (usage?.marketing ?? 0) + onItsWay + promised;

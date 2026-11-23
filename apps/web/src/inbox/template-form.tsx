@@ -187,7 +187,14 @@ export function TemplateDialog({
   const edit = useMutation(trpc.whatsappTemplates.edit.mutationOptions({ onSuccess: dialog.onSuccess }));
   const sending: Sending<TemplateDraftInput> =
     existing === undefined
-      ? create
+      ? {
+          mutate: (draft) => {
+            create.mutate({ draft });
+          },
+          isPending: create.isPending,
+          error: create.error,
+          reset: create.reset,
+        }
       : {
           mutate: (draft) => {
             edit.mutate({ templateId: existing.id, draft });

@@ -1,10 +1,13 @@
 // The agency's message templates (spec 3.4, 5): picked up from the provider (those our team made in MSG91's panel and the status
 // of every one), written here and sent for Meta's approval, edited and sent again when rejected, and archived. Meta's category
-// wins: it is synced on every refresh. The provider is called outside any transaction.
+// wins: it is synced on every refresh. A template belongs to one number (multi-number spec section 7): it is listed, written,
+// edited and refreshed on its own number. The provider is called outside any transaction.
 import {
   markersOf,
   templateList,
   templateStatus,
+  type CreateTemplateInput,
+  type SendableTemplatesInput,
   type TemplateDraftInput,
   type TemplateList,
   type TemplateSummary,
@@ -17,8 +20,9 @@ import { noticeKey } from "../crm/index.js";
 import { DomainError, systemActor } from "../kernel/index.js";
 import { notifyNeedsAttention } from "./attention.js";
 import type { InboxDependencies } from "./dependencies.js";
-import { liveConnection } from "./connection-row.js";
+import { connectionById, liveConnections, mainConnection, type ConnectionRow } from "./connection-row.js";
 import { routesPage } from "./routes.js";
+import { visibleConversations } from "./scope.js";
 import { monthStartOf } from "./usage.js";
 
 export interface TemplateDependencies {
@@ -31,18 +35,31 @@ export interface TemplateDependencies {
 
 const refusedBy = (reason: string) =>
   new DomainError("CONFLICT", reason, "That template could not be sent for approval");
+const notConnected = () =>
+  new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
+const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 
-async function connectionFor(deps: TemplateDependencies, organizationId: string) {
+/** Whether MSG91 holds the number's templates now: not while it is being set up, a demo, or disconnected. */
+const atProvider = (connection: ConnectionRow | null): connection is ConnectionRow =>
+  connection !== null &&
+  connection.status !== "setup" &&
+  connection.status !== "disconnected" &&
+  connection.mode !== "demo";
+
+/** The named number (another agency's is not found), else the main one, if MSG91 holds its templates now. */
+async function numberFor(deps: TemplateDependencies, organizationId: string, connectionId: string | undefined) {
   if (deps.provider === null) throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up");
-  const connection = await deps.db.forOrg(organizationId, (tx) => liveConnection(tx));
-  if (connection === null || connection.status === "setup" || connection.mode === "demo") {
-    throw new DomainError("CONFLICT", "WHATSAPP_NOT_CONNECTED", "WhatsApp is not set up for this agency");
-  }
+  const connection = await deps.db.forOrg(organizationId, (tx) =>
+    connectionId === undefined ? mainConnection(tx) : connectionById(tx, connectionId),
+  );
+  if (connectionId !== undefined && connection === null) throw notFound();
+  if (!atProvider(connection)) throw notConnected();
   return connection;
 }
 
 function summaryOf(row: {
   id: string;
+  connectionId: string;
   name: string;
   language: string;
   category: string;
@@ -57,6 +74,7 @@ function summaryOf(row: {
 }): TemplateSummary {
   return {
     id: row.id,
+    connectionId: row.connectionId,
     name: row.name,
     language: row.language,
     category: row.category === "marketing" ? "marketing" : "utility",
@@ -71,22 +89,47 @@ function summaryOf(row: {
   };
 }
 
-/** Takes in what the provider lists: new templates, and each one's status, category and words. An archived one stays archived. */
+/**
+ * Takes in what the provider lists for the named number, or for every live one: new templates, and each one's status,
+ * category and words. An archived one stays archived. A number MSG91 would not answer for is tried after the others.
+ */
 export async function syncTemplates(
   deps: TemplateDependencies,
   organizationId: string,
   now: Date,
+  connectionId?: string,
 ): Promise<{ templates: number }> {
-  const connection = await connectionFor(deps, organizationId);
-  const listed = await deps.provider?.listTemplates(connection.integratedNumber);
-  if (!listed?.ok) {
-    throw new DomainError("CONFLICT", "WHATSAPP_UNAVAILABLE", "The templates could not be read");
+  const numbers =
+    connectionId === undefined
+      ? (await deps.db.forOrg(organizationId, (tx) => liveConnections(tx))).filter(atProvider)
+      : [await numberFor(deps, organizationId, connectionId)];
+  if (deps.provider === null || numbers.length === 0) throw notConnected();
+  const owner = await deps.firstOwner(organizationId);
+  let templates = 0;
+  let unread = false;
+  for (const connection of numbers) {
+    const read = await syncNumber(deps, organizationId, connection, owner, now);
+    if (read === null) unread = true;
+    else templates += read;
   }
+  if (unread) throw new DomainError("CONFLICT", "WHATSAPP_UNAVAILABLE", "The templates could not be read");
+  return { templates };
+}
+
+/** One number's templates as the provider lists them: how many it took in, or null when MSG91 did not answer. */
+async function syncNumber(
+  deps: TemplateDependencies,
+  organizationId: string,
+  connection: ConnectionRow,
+  owner: string | null,
+  now: Date,
+): Promise<number | null> {
+  const listed = await deps.provider?.listTemplates(connection.integratedNumber);
+  if (!listed?.ok) return null;
   const usable = listed.templates.filter(
     (template): template is WhatsAppTemplateSummary & { category: "utility" | "marketing" } =>
       template.category !== "authentication",
   );
-  const owner = await deps.firstOwner(organizationId);
   await deps.db.forOrg(organizationId, async (tx) => {
     for (const template of usable) {
       const key = { connectionId: connection.id, name: template.name, language: template.language };
@@ -129,19 +172,30 @@ export async function syncTemplates(
       }
     }
   });
-  return { templates: usable.length };
+  return usable.length;
 }
 
-/** The templates, newest first; `onlyApproved` is the send dialog's list. With the month's marketing count against the cap. */
+/**
+ * One number's templates, newest first: the named number (another agency's is not found), else the main one. `onlyApproved`
+ * is the send dialog's list. With the number's month's marketing count against its cap.
+ */
 export async function listTemplates(
   tx: OrgTx,
-  options: { onlyApproved: boolean; now: Date; timeZone?: string },
+  options: { onlyApproved: boolean; now: Date; timeZone?: string; connectionId?: string },
 ): Promise<TemplateList> {
-  const connection = await liveConnection(tx);
-  const rows = await tx.whatsappTemplate.findMany({
-    where: options.onlyApproved ? { status: "approved" } : { status: { not: "archived" } },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-  });
+  const connection =
+    options.connectionId === undefined ? await mainConnection(tx) : await connectionById(tx, options.connectionId);
+  if (options.connectionId !== undefined && connection === null) throw notFound();
+  const rows =
+    connection === null
+      ? []
+      : await tx.whatsappTemplate.findMany({
+          where: {
+            connectionId: connection.id,
+            ...(options.onlyApproved ? { status: "approved" } : { status: { not: "archived" } }),
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        });
   const month = monthStartOf(options.now, options.timeZone ?? "Asia/Kolkata");
   const usage =
     connection === null
@@ -152,6 +206,7 @@ export async function listTemplates(
         });
   const synced = rows.map((row) => row.syncedAt).filter((at): at is Date => at !== null);
   return templateList.parse({
+    connectionId: connection?.id ?? null,
     items: rows.map(summaryOf),
     marketingUsed: usage?.marketing ?? 0,
     marketingCap: connection?.marketingCapMonth ?? 0,
@@ -159,14 +214,40 @@ export async function listTemplates(
   });
 }
 
-/** Writes a new template and sends it for approval. It waits as `pending` until a refresh says Meta decided. */
+/**
+ * The send dialog's templates (MN3): the chat's number when one is named (a chat out of the member's sight is not found),
+ * else the named number, else the main one.
+ */
+export async function sendableTemplates(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: SendableTemplatesInput,
+  now: Date,
+): Promise<TemplateList> {
+  let connectionId = input.connectionId;
+  if (input.conversationId !== undefined) {
+    const chat = await tx.whatsappConversation.findFirst({
+      where: { AND: [{ id: input.conversationId }, visibleConversations(access)] },
+      select: { connectionId: true },
+    });
+    if (chat === null) throw notFound();
+    connectionId = chat.connectionId;
+  }
+  return listTemplates(tx, { onlyApproved: true, now, ...(connectionId === undefined ? {} : { connectionId }) });
+}
+
+/**
+ * Writes a new template on the named live number, else the main one, and sends it for approval. It waits as `pending`
+ * until a refresh says Meta decided.
+ */
 export async function createTemplate(
   deps: TemplateDependencies,
   access: MemberAccess,
-  draft: TemplateDraftInput,
+  input: CreateTemplateInput,
   now: Date,
 ): Promise<{ templateId: string }> {
-  const connection = await connectionFor(deps, access.organizationId);
+  const { draft } = input;
+  const connection = await numberFor(deps, access.organizationId, input.connectionId);
   const taken = await deps.db.forOrg(access.organizationId, (tx) =>
     tx.whatsappTemplate.findFirst({
       where: { connectionId: connection.id, name: draft.name, language: draft.language },
@@ -211,7 +292,10 @@ export async function createTemplate(
   });
 }
 
-/** Edit and send again: only a template written here that Meta rejected. The same name goes to Meta again. SPIKE(S5). */
+/**
+ * Edit and send again: only a template written here that Meta rejected, on its own number. The same name goes to Meta again.
+ * SPIKE(S5).
+ */
 export async function editTemplate(
   deps: TemplateDependencies,
   access: MemberAccess,
@@ -219,14 +303,13 @@ export async function editTemplate(
   draft: TemplateDraftInput,
   now: Date,
 ): Promise<void> {
-  const connection = await connectionFor(deps, access.organizationId);
   const current = await deps.db.forOrg(access.organizationId, (tx) =>
     tx.whatsappTemplate.findUnique({
       where: { id: templateId },
-      select: { status: true, createdBy: true, name: true, language: true },
+      select: { connectionId: true, status: true, createdBy: true, name: true, language: true },
     }),
   );
-  if (current === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  if (current === null) throw notFound();
   if (
     current.status !== "rejected" ||
     current.createdBy === null ||
@@ -235,6 +318,7 @@ export async function editTemplate(
   ) {
     throw new DomainError("CONFLICT", "TEMPLATE_NOT_EDITABLE", "Only a rejected template written here can be edited");
   }
+  const connection = await numberFor(deps, access.organizationId, current.connectionId);
   const sent = await deps.provider?.createTemplate(connection.integratedNumber, {
     name: draft.name,
     language: draft.language,
@@ -286,7 +370,10 @@ export async function archiveTemplate(tx: OrgTx, access: MemberAccess, templateI
   });
 }
 
-/** Reads every connected agency's templates (the worker, every half hour), so a rejection is noticed without anyone pressing Refresh. */
+/**
+ * Reads every routed number's templates, each on its own number (the worker, every half hour), so a rejection is noticed
+ * without anyone pressing Refresh.
+ */
 export async function syncAllTemplates(dependencies: InboxDependencies, now: Date): Promise<number> {
   let done = 0;
   let after: string | undefined;
@@ -298,6 +385,7 @@ export async function syncAllTemplates(dependencies: InboxDependencies, now: Dat
           { db: dependencies.db, provider: dependencies.provider, firstOwner: dependencies.identity.firstOwner },
           route.organizationId,
           now,
+          route.connectionId,
         );
         done += 1;
       } catch (error) {

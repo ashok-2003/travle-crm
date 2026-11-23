@@ -45,6 +45,8 @@ export const broadcastPreview = z.object({
     noConsent: z.int(),
     outsideVisibility: z.int(),
     overAllowance: z.int(),
+    /** Matching chats on another of the agency's numbers: a broadcast goes from its template's number only. */
+    otherNumber: z.int(),
   }),
   /** The month's marketing allowance (null for a template that is not marketing: it has none). */
   allowance: z.object({ limit: z.int(), used: z.int(), remaining: z.int() }).nullable(),
