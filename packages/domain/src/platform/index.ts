@@ -32,8 +32,10 @@ export {
   listWhatsAppConnections,
   markWhatsAppConnected,
   pauseWhatsApp,
+  renameWhatsApp,
   resumeWhatsApp,
   setWhatsAppCaps,
+  setWhatsAppMain,
   whatsappWebhookSettings,
 } from "./whatsapp.js";
 export type { PlatformWhatsApp } from "./whatsapp-settings.js";

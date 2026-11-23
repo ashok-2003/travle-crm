@@ -90,7 +90,7 @@ describe("messages sent later", () => {
     const { schedule, run, outgoing, connection, member, conversation } = await chat();
     await schedule("Your quote is ready", at(2));
     await test.db.forOrg(connection.organizationId, (tx) =>
-      pauseNumber(tx, systemActor(connection.organizationId), at(1)),
+      pauseNumber(tx, systemActor(connection.organizationId), connection.connectionId, at(1)),
     );
     await run(at(3));
     const [waiting] = await test.db.forOrg(connection.organizationId, (tx) =>
@@ -98,7 +98,7 @@ describe("messages sent later", () => {
     );
     expect(waiting).toMatchObject({ status: "pending", failureCode: null });
     await test.db.forOrg(connection.organizationId, (tx) =>
-      resumeNumber(tx, systemActor(connection.organizationId), at(3)),
+      resumeNumber(tx, systemActor(connection.organizationId), connection.connectionId, at(3)),
     );
     await run(at(4));
     expect(await outgoing()).toHaveLength(1);

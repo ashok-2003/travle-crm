@@ -177,6 +177,7 @@
     "WHATSAPP_PAUSED": "WhatsApp is paused, so this can't be done right now.",
     "WHATSAPP_NOT_SEEN": "No message from MSG91 has arrived for this number yet. Send a WhatsApp to it first.",
     "WHATSAPP_NUMBER_TAKEN": "Another agency already uses this WhatsApp number.",
+    "WHATSAPP_NUMBER_RECORDED": "This agency already has this WhatsApp number.",
     "TAG_NAME_TAKEN": "Another tag already has this name.",
     "QUICK_REPLY_SHORTCUT_TAKEN": "Another quick reply already uses this shortcut.",
     "KEYWORD_TAKEN": "Another automatic answer already uses this word.",
