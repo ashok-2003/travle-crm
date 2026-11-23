@@ -75,27 +75,35 @@ export function customerMessage(input: {
   });
 }
 
-/** Records the agency's number in the console (Connect a number), as a super admin does. */
-export async function recordNumber(page: Page, organizationId: string, integratedNumber: string): Promise<void> {
+/** Records one of the agency's numbers in the console (Connect a number), as a super admin does, under its label. */
+export async function recordNumber(
+  page: Page,
+  organizationId: string,
+  integratedNumber: string,
+  label = "Sales 1",
+): Promise<void> {
   await page.goto(`/console/organizations/${organizationId}`);
   const group = page.getByRole("region", { name: "WhatsApp" });
   await group.getByRole("button", { name: "Connect a number" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect a WhatsApp number" });
+  await dialog.getByLabel("Label").fill(label);
   await dialog.getByLabel("The agency's number").fill(integratedNumber.slice(2));
   await dialog.getByLabel("The number as MSG91 writes it").fill(integratedNumber);
   await dialog.getByRole("button", { name: "Record the number" }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(group.getByText("Waiting for the first message", { exact: false })).toBeVisible();
+  await expect(
+    group.getByRole("region", { name: label }).getByText("Waiting for the first message", { exact: false }),
+  ).toBeVisible();
 }
 
 /**
- * Records the agency's number as a super admin does, sends test messages from an operator's phone until the console shows the
- * webhook arrived, and marks it connected. Returns our number.
+ * Records one of the agency's numbers as a super admin does, under its label, sends test messages from an operator's
+ * phone until the console shows the webhook arrived, and marks it connected. Returns our number.
  */
-export async function connectNumber(page: Page, organizationId: string): Promise<string> {
+export async function connectNumber(page: Page, organizationId: string, label = "Sales 1"): Promise<string> {
   const business = newBusinessNumber();
-  await recordNumber(page, organizationId, business);
-  const group = page.getByRole("region", { name: "WhatsApp" });
+  await recordNumber(page, organizationId, business, label);
+  const number = page.getByRole("region", { name: "WhatsApp" }).getByRole("region", { name: label });
   // The operator's own phone: a message still waiting in the queue when the number is marked connected would become a lead,
   // and it must not be a customer's.
   const operator = newCustomerNumber();
@@ -106,10 +114,10 @@ export async function connectNumber(page: Page, organizationId: string): Promise
       await deliverWhatsapp([customerMessage({ to: business, customerNumber: operator, text: "test message" })]),
     ).toBe(200);
     await page.reload();
-    await expect(group.getByText(/Webhook received/)).toBeVisible({ timeout: 4_000 });
+    await expect(number.getByText(/Webhook received/)).toBeVisible({ timeout: 4_000 });
   }).toPass({ timeout: 150_000 });
-  await group.getByRole("button", { name: "Mark connected" }).click();
-  await expect(group.getByText("Connected", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await number.getByRole("button", { name: "Mark connected" }).click();
+  await expect(number.getByText("Connected", { exact: true })).toBeVisible({ timeout: 30_000 });
   return business;
 }
 
