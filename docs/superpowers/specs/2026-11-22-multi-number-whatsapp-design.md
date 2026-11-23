@@ -358,6 +358,8 @@ ALTER TABLE assignment_rule ADD COLUMN whatsapp_connection_id uuid,
 
 ## 16. The lead's calls, for the owner to check
 
+The owner approved all of these on 2026-11-23.
+
 1. The number's AI switch is ANDed with the agency's and starts on.
 2. When the main number is disconnected, the oldest live number becomes main by itself.
 3. The first number recorded (not connected) is the main one.
@@ -380,7 +382,8 @@ ALTER TABLE assignment_rule ADD COLUMN whatsapp_connection_id uuid,
 
 - **"WhatsApp us" on trip pages and quotes (owner 2).** Only the public trip page (`package-view.tsx`) has a WhatsApp
   button, and it uses the agency profile's contact phone. The quote page and the confirmed trip page at `/p/<token>`
-  have no WhatsApp link, only a call link. This work points the trip page's button at the main number. Adding one to
-  the quote and trip pages is new scope, left out until the owner says.
+  have no WhatsApp link, only a call link. The owner decided (2026-11-23) that all three get one: the trip page's button
+  points at the main number, and the quote page and the confirmed trip page gain a "WhatsApp us" link to the main
+  number beside their call link (Task 13).
 - **Templates belong to one number,** so automatic messages and broadcasts can't simply "use the number": each number
   needs its own approved copy, matched by name and language (rule 4, section 7).

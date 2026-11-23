@@ -612,7 +612,7 @@ Merges with Task 10.
 - [ ] **Step 4: Run** `pnpm --filter @travel-crm/domain test -- test/inbox test/sales`; expect PASS.
 - [ ] **Step 5: Commit** `fix(inbox): the per-agency jobs walk each agency once, not once per number`.
 
-### Task 13: "WhatsApp us" on the public trip page (path 19)
+### Task 13: "WhatsApp us" on the public trip page, the quote page and the confirmed trip page (path 19)
 
 **Files:**
 - Modify:
@@ -621,10 +621,17 @@ Merges with Task 10.
     set up, else the contact phone.
   - `apps/web/src/package-pages/package-view.tsx`: WhatsApp uses `agency.whatsapp` and Call uses `agency.phone`, each
     shown when it's there.
-- Test: `apps/api/test/package-page-routes.test.ts`, `apps/web/test/package-pages/package-view.test.tsx`
+  - The owner's addition (2026-11-23): the quote page (`apps/api/src/quote-page.ts`) and the confirmed trip page
+    (`apps/api/src/trip-page.ts`, beside "Talk to …") show a "WhatsApp us" link (`https://wa.me/<digits>`) to the main
+    number's display number when it isn't still being set up. With no such number they show no WhatsApp link, and Call
+    stays as it is. The number comes from the same domain lookup as `agencyOf`'s, passed in by the resolver
+    (`apps/api/src/share-link-resolvers.ts`).
+- Test: `apps/api/test/package-page-routes.test.ts`, `apps/web/test/package-pages/package-view.test.tsx`,
+  `apps/api/test/share-link-route.test.ts`
 
 - [ ] **Step 1: Write the failing tests:** api `it("points WhatsApp us at the main number, and at the contact phone
-  with no number connected")`; web `it("dials the contact phone and opens WhatsApp on the main number")`.
+  with no number connected")`; web `it("dials the contact phone and opens WhatsApp on the main number")`; api
+  `it("shows WhatsApp us on a quote and a confirmed trip page to the main number, and none with no number")`.
 - [ ] **Step 2: Run** both files; expect FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** the same and the api's and web's `typecheck`; expect PASS.
