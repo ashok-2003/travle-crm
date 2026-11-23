@@ -1,7 +1,8 @@
 "use client";
 
 // The bar atop a chat (sales inbox spec, sections 3, 6 and design v2), as the sales inboxes teams know: on a phone a way
-// back; the person's tinted picture, their name, and under it their phone and how long the 24-hour window stays open, or
+// back; the person's tinted picture, their name, and under it their phone, the chat's WhatsApp number (once the agency has
+// two), how long the 24-hour window stays open and a link to the customer's chat on another number ("Also on Sales 2"), or
 // "Priya is replying…" while a teammate types here; then the sale worked in place (the lead's owner and its stage as
 // menus, on a wide screen; in the contact panel otherwise), how long the customer has waited, search in the chat, a call,
 // the contact panel and the chat's menu. On a phone the name is the page's title.
@@ -11,13 +12,15 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { Ref } from "react";
 import { PageTitle } from "@/components/page-title";
+import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { formatPhoneNumber } from "@/lib/format";
-import { routes } from "@/lib/routes";
+import { inboxRoute, routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { ChatAvatar } from "./chat-avatar";
 import { OwnerMenu, StageMenu, WindowChip } from "./chat-lead-controls";
 import { ChatMenu } from "./chat-menu";
+import { useNumbers } from "./use-numbers";
 import { WaitTimer } from "./wait-timer";
 
 export function ChatHeader({
@@ -38,6 +41,8 @@ export function ChatHeader({
   onToggleSearch: () => void;
 }) {
   const t = useTranslations("inbox.chat");
+  const { labelOf } = useNumbers();
+  const numberLabel = labelOf(header.number.id);
   const name = header.name ?? formatPhoneNumber(header.phone);
   const waitingSince = header.needsReply ? header.lastInboundAt : null;
   const titleClass = cn("w-full truncate text-section font-semibold script-leading", header.name === null && "numbers");
@@ -71,8 +76,15 @@ export function ChatHeader({
           ) : (
             <>
               {header.name !== null && <span className="numbers truncate">{formatPhoneNumber(header.phone)}</span>}
+              {numberLabel !== null && <span className="shrink-0">{numberLabel}</span>}
               <WindowChip header={header} />
               {header.optedOut && <span className="text-status-bad-ink">{t("optedOut")}</span>}
+              {/* Labels may repeat; a disconnected number says so. */}
+              {header.otherChats.map((other) => (
+                <TextLink key={other.id} href={inboxRoute(other.id)} inline>
+                  {t(other.status === "disconnected" ? "alsoOnDisconnected" : "alsoOn", { label: other.label })}
+                </TextLink>
+              ))}
             </>
           )}
         </p>

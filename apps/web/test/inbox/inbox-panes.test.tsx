@@ -32,6 +32,8 @@ const header = (id: string) => ({
   archived: false,
   snoozedUntil: null,
   replying: [],
+  number: { id: "01900000-0000-7000-8000-0000000000f1", label: "WhatsApp", status: "connected" },
+  otherChats: [],
 });
 
 /** The inbox's width on a screen of each size: the screen less the sidebar's rail. */

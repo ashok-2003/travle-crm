@@ -1,7 +1,7 @@
 "use client";
 
 // The inbox's left side (spec 3.1; sales inbox spec, sections 3, 5 and design v2): the search, the filter chips and the
-// stage, time and tag choices (inbox-filters.tsx), then the chats, scrolling on their own under them. The search takes a
+// stage, time, tag and (with two numbers) number choices (inbox-filters.tsx), then the chats, scrolling on their own under them. The search takes a
 // name or digits of a phone; it and every choice are kept in the tab, never the address. The AI agent page opens it on
 // the chats the AI answered (ai-answered-filter.tsx), the one list an address names, by a fixed value.
 import { leadStages, type LeadStage } from "@travel-crm/contracts/crm";
@@ -20,6 +20,7 @@ import { AiAnsweredChip, useAiAnsweredAsked, useAiAnsweredFilter } from "./ai-an
 import { ConversationList } from "./conversation-list";
 import { FilterChips, FilterChoices, inboxFilters } from "./inbox-filters";
 import { useConversations } from "./use-inbox";
+import { useNumbers } from "./use-numbers";
 import { useTags } from "./use-inbox-tools";
 import { useInboxSummary } from "./use-sales-inbox";
 
@@ -29,6 +30,7 @@ const KEYS = {
   tag: "inbox.tag",
   stage: "inbox.stage",
   period: "inbox.period",
+  number: "inbox.number",
 };
 
 /** What the tab kept under a key; nothing, and nothing kept any more, when the list starts afresh. */
@@ -95,6 +97,10 @@ function Chats({ currentId, asked }: { currentId: string | null; asked: boolean 
   const [tagChoice, setTagChoice] = useState(() => keptOrFresh(KEYS.tag, asked) ?? "");
   // A kept tag that was since deleted counts as none.
   const tagId = tags.data?.some((tag) => tag.id === tagChoice) === true ? tagChoice : null;
+  const numbers = useNumbers();
+  const [numberChoice, setNumberChoice] = useState(() => keptOrFresh(KEYS.number, asked) ?? "");
+  // The same for a number: one no longer known, or any while the agency has one number live, is none.
+  const connectionId = numbers.show && numbers.numbers.some((one) => one.id === numberChoice) ? numberChoice : null;
   // Mine first (owner, 2026-11-22): a member starts on their own chats; All, Unassigned and the rest are a tap away, and
   // the tab keeps whatever they choose.
   const shownFilter = aiAnswered.on ? "ai_answered" : (filter ?? "mine");
@@ -104,6 +110,7 @@ function Chats({ currentId, asked }: { currentId: string | null; asked: boolean 
     tagId,
     stage,
     period,
+    connectionId,
   });
   const summary = useInboxSummary();
 
@@ -122,7 +129,7 @@ function Chats({ currentId, asked }: { currentId: string | null; asked: boolean 
     }
     if (chats.items.length === 0) {
       if (search.length >= 2) return <EmptyState icon={SearchXIcon} message={t("emptySearch")} />;
-      const narrowed = stage !== null || period !== null || tagId !== null;
+      const narrowed = stage !== null || period !== null || tagId !== null || connectionId !== null;
       return <EmptyState icon={MessageCircleIcon} message={t(narrowed ? "emptyChoices" : emptyKeyOf(shownFilter))} />;
     }
     return (
@@ -166,6 +173,18 @@ function Chats({ currentId, asked }: { currentId: string | null; asked: boolean 
             setTagChoice(chosen ?? "");
             keepTabValue(KEYS.tag, chosen ?? "");
           }}
+          number={
+            numbers.show
+              ? {
+                  numbers: numbers.numbers,
+                  connectionId,
+                  onChange: (chosen) => {
+                    setNumberChoice(chosen ?? "");
+                    keepTabValue(KEYS.number, chosen ?? "");
+                  },
+                }
+              : null
+          }
           summary={summary.data}
         />
       </div>

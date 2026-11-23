@@ -3,12 +3,12 @@
 // The inbox's list of chats (spec 3.1; sales inbox spec, sections 3 and design v2), dense like the chat apps sales teams
 // live in: the person's tinted picture, their name and how long ago the last message came ("18m", "5h", "25 Oct"); under
 // them our ticks and the last message's first words, with the member's unread count (or a dot while the customer waits)
-// and a pin; then the sale: the lead's stage as its coloured pill, its owner, how long the customer has waited, and the
-// agency's tags. The open chat is marked as the current link. A chat (its page and its data) is asked for ahead as the
+// and a pin; then the sale: the lead's stage as its coloured pill, its owner, the chat's WhatsApp number (once the agency
+// has two), how long the customer has waited, and the agency's tags. The open chat is marked as the current link. A chat (its page and its data) is asked for ahead as the
 // pointer rests on its row or the row gets the focus (inbox revamp spec, part 1 item 3), so it opens at once.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { ConversationListItem } from "@travel-crm/contracts/inbox";
-import { AlarmClockIcon, PinIcon, UserRoundIcon } from "lucide-react";
+import { AlarmClockIcon, PinIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -25,6 +25,7 @@ import { useMe } from "@/session/me-context";
 import { ChatAvatar } from "./chat-avatar";
 import { Ticks } from "./ticks";
 import { usePrefetchChat } from "./use-inbox";
+import { useNumbers } from "./use-numbers";
 import { useOwners } from "./use-owner-names";
 import { WaitTimer } from "./wait-timer";
 
@@ -73,7 +74,16 @@ function useShortWhen() {
   };
 }
 
-function Row({ chat, current }: { chat: ConversationListItem; current: boolean }) {
+function Row({
+  chat,
+  current,
+  numberLabel,
+}: {
+  chat: ConversationListItem;
+  current: boolean;
+  /** The chat's number's label, shown once the agency has two numbers; null otherwise. */
+  numberLabel: string | null;
+}) {
   const t = useTranslations("inbox");
   const tStages = useTranslations("leads.stages");
   const when = useShortWhen();
@@ -163,6 +173,12 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
                   </span>
                 </>
               )}
+              {numberLabel !== null && (
+                <span className="flex min-w-0 items-center gap-1">
+                  <SmartphoneIcon aria-hidden="true" className="size-3 shrink-0" />
+                  <span className="truncate">{numberLabel}</span>
+                </span>
+              )}
               <span className="ml-auto flex shrink-0 items-center gap-1">
                 {chat.snoozedUntil !== null && (
                   <AlarmClockIcon aria-label={t("snoozed")} role="img" className="size-3.5" />
@@ -188,10 +204,11 @@ function Row({ chat, current }: { chat: ConversationListItem; current: boolean }
 
 export function ConversationList({ items, currentId }: { items: ConversationListItem[]; currentId: string | null }) {
   const t = useTranslations("inbox");
+  const { labelOf } = useNumbers();
   return (
     <ItemGroup aria-label={t("list")} className="gap-0">
       {items.map((chat) => (
-        <Row key={chat.id} chat={chat} current={chat.id === currentId} />
+        <Row key={chat.id} chat={chat} current={chat.id === currentId} numberLabel={labelOf(chat.connectionId)} />
       ))}
     </ItemGroup>
   );

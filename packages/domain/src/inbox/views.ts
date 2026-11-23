@@ -37,9 +37,7 @@ export async function inboxStatusOf(tx: OrgTx, configured: boolean): Promise<Inb
   return inboxStatus.parse({
     configured,
     connected: numbers.some((number) => number.status !== "disconnected" && number.status !== "setup"),
-    connectionStatus: main?.status ?? null,
     demo: main?.mode === "demo",
-    number: main?.displayNumber ?? null,
     numbers: numbers.map((number) => ({
       id: number.id,
       label: number.label,
@@ -340,7 +338,7 @@ export async function conversationHeaderOf(
       ],
     },
     orderBy: [{ lastMessageAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
-    select: { id: true, connection: { select: { label: true } } },
+    select: { id: true, connection: { select: { label: true, status: true } } },
   });
   return conversationHeader.parse({
     id: row.id,
@@ -374,7 +372,7 @@ export async function conversationHeaderOf(
     // The api adds who is typing: it alone knows (kept in its memory, never stored).
     replying: [],
     number: { id: number.id, label: number.label, status: number.status },
-    otherChats: others.map((chat) => ({ id: chat.id, label: chat.connection.label })),
+    otherChats: others.map((chat) => ({ id: chat.id, label: chat.connection.label, status: chat.connection.status })),
   });
 }
 

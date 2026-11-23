@@ -1,13 +1,14 @@
 "use client";
 
-// Who a broadcast would reach before it is confirmed (sales inbox spec 6): how many get it, how many are left out and why,
-// the month's allowance, and how many go today and how many wait for the next morning. Counts only: no rupee.
+// Who a broadcast would reach before it is confirmed (sales inbox spec 6): how many get it, how many are left out and why
+// (a matching chat on another of the agency's numbers among them), the month's allowance, and how many go today and how
+// many wait for the next morning. Counts only: no rupee.
 import type { BroadcastPreview } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 
 export function BroadcastPreviewCard({ preview }: { preview: BroadcastPreview }) {
   const t = useTranslations("inbox.broadcasts.dialog");
-  const left = (["optedOut", "noConsent", "outsideVisibility", "overAllowance"] as const).filter(
+  const left = (["optedOut", "noConsent", "outsideVisibility", "overAllowance", "otherNumber"] as const).filter(
     (reason) => preview.leftOut[reason] > 0,
   );
   return (

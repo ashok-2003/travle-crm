@@ -1,13 +1,18 @@
 "use client";
 
-// /settings/whatsapp (spec 3.4): the agency's number and how it is doing, in words; never MSG91's name or a secret. Templates,
-// quick replies, the chats' tags, trip details (for whoever may manage them) are the sections below (sales inbox spec 5). Not connected says so in the same sentence as the inbox.
+// /settings/whatsapp (spec 3.4): the agency's number and how it is doing, in words; never MSG91's name or a secret. With
+// two numbers or more (spec 2026-11-22 section 11), a table of them: label (the main one marked), number and status.
+// Templates (per number), quick replies, the chats' tags, trip details (for whoever may manage them) are the sections
+// below (sales inbox spec 5). Not connected says so in the same sentence as the inbox.
+import type { WhatsappNumber } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Details } from "@/components/details";
 import { formatPhoneNumber } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -19,6 +24,7 @@ import { QuickRepliesSection, TagsSection } from "./quick-replies-section";
 import { TemplatesSection } from "./templates-section";
 import { TripKitsSection } from "./trip-kits/trip-kits-section";
 import { useInboxStatus } from "./use-inbox";
+import { useNumbers } from "./use-numbers";
 
 const tones: Record<string, StatusTone> = {
   connected: "good",
@@ -31,6 +37,7 @@ const tones: Record<string, StatusTone> = {
 export function WhatsappSettingsScreen() {
   const t = useTranslations("inbox.settings");
   const status = useInboxStatus();
+  const numbers = useNumbers();
   const mayManageTemplates = useHolds("inbox:templates");
   const body = () => {
     if (status.data === undefined) {
@@ -45,25 +52,51 @@ export function WhatsappSettingsScreen() {
         <LoadingRows shape="twoLines" />
       );
     }
-    const { configured, connected, connectionStatus, number, demo } = status.data;
-    if (!configured || connectionStatus === null || connectionStatus === "disconnected") {
-      return <NotSetUp scope="inbox.settings" />;
-    }
+    const { configured, connected, demo } = status.data;
+    const [only] = numbers.live;
+    if (!configured || only === undefined) return <NotSetUp scope="inbox.settings" />;
+    const badge = (state: WhatsappNumber["status"]) => (
+      <StatusBadge tone={tones[state] ?? "neutral"}>{t(state)}</StatusBadge>
+    );
     return (
       <div className="flex flex-col gap-4">
-        <div className="max-w-[720px]">
-          <Details
-            rows={[
-              {
-                label: t("status"),
-                value: <StatusBadge tone={tones[connectionStatus] ?? "neutral"}>{t(connectionStatus)}</StatusBadge>,
-              },
-              ...(number === null
-                ? []
-                : [{ label: t("number"), value: <span className="numbers">{formatPhoneNumber(number)}</span> }]),
-            ]}
-          />
-        </div>
+        {numbers.show ? (
+          <Table aria-label={t("numbers")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("label")}</TableHead>
+                <TableHead>{t("number")}</TableHead>
+                <TableHead>{t("status")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {numbers.live.map((number) => (
+                <TableRow key={number.id}>
+                  <TableCell>
+                    <span className="flex flex-wrap items-center gap-2">
+                      {number.label}
+                      {number.main && <Badge variant="outline">{t("main")}</Badge>}
+                    </span>
+                  </TableCell>
+                  <TableCell className="numbers">{formatPhoneNumber(number.displayNumber)}</TableCell>
+                  <TableCell>{badge(number.status)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="max-w-[720px]">
+            <Details
+              rows={[
+                { label: t("status"), value: badge(only.status) },
+                {
+                  label: t("number"),
+                  value: <span className="numbers">{formatPhoneNumber(only.displayNumber)}</span>,
+                },
+              ]}
+            />
+          </div>
+        )}
         {demo && <p className="text-muted-foreground">{t("demoNote")}</p>}
         {connected && mayManageTemplates && !demo && <TemplatesSection />}
         {connected && mayManageTemplates && (

@@ -2,7 +2,8 @@
 
 // Templates on /settings/whatsapp (spec 3.4): a table of every template but the archived (name, kind, language, status with
 // Meta's reason when rejected, last used), New template, Refresh status, Edit and send again for a rejected one written here,
-// and Archive. The month's marketing messages against the agency's cap sit above it.
+// and Archive. The month's marketing messages against the number's cap sit above it. Templates belong to one number: once
+// the agency has two, a picker (the main number first, and chosen) says whose are listed and where a new one is written.
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -13,12 +14,15 @@ import { LoadingRows } from "@/components/loading-rows";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { templateLanguages, type TemplateSummary } from "@travel-crm/contracts/inbox";
 import { TemplateDialog } from "./template-form";
+import { useNumbers } from "./use-numbers";
 import { useTemplateActions, useTemplates } from "./use-templates";
 
 const tones: Record<string, StatusTone> = {
@@ -124,7 +128,13 @@ function Row({ template }: { template: TemplateSummary }) {
 
 export function TemplatesSection() {
   const t = useTranslations("inbox.templates");
-  const list = useTemplates();
+  const numbers = useNumbers();
+  const [picked, setPicked] = useState<string | null>(null);
+  // The number picked while it is live, else the main one; none to name while the agency has one number.
+  const connectionId = numbers.show
+    ? ((numbers.live.find((number) => number.id === picked) ?? numbers.live[0])?.id ?? null)
+    : null;
+  const list = useTemplates(true, connectionId);
   const { sync } = useTemplateActions();
   const access = useWriteAccess("change");
   const body = () => {
@@ -179,10 +189,27 @@ export function TemplatesSection() {
           >
             {t("refresh")}
           </Button>
-          <TemplateDialog />
+          <TemplateDialog connectionId={connectionId} />
         </div>
       </div>
       <p className="text-muted-foreground">{t("intro")}</p>
+      {connectionId !== null && (
+        <div className="flex max-w-xs flex-col gap-2">
+          <Label htmlFor="templates-number">{t("number")}</Label>
+          <Select value={connectionId} onValueChange={setPicked}>
+            <SelectTrigger id="templates-number" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {numbers.live.map((number) => (
+                <SelectItem key={number.id} value={number.id}>
+                  {number.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       {list.data !== undefined && (
         <p className="text-label">
           {t("marketingUsed", { used: list.data.marketingUsed, cap: list.data.marketingCap })}

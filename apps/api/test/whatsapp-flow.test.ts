@@ -104,7 +104,11 @@ describe("a WhatsApp message, end to end", () => {
     expect(leads[0]).toMatchObject({ source: "whatsapp" });
 
     const status = await dataOf<InboxStatus>(await query(server, "inbox.status", owner));
-    expect(status).toMatchObject({ configured: true, connected: true, connectionStatus: "connected" });
+    expect(status).toMatchObject({
+      configured: true,
+      connected: true,
+      numbers: [expect.objectContaining({ status: "connected", main: true })],
+    });
     const list = await dataOf<ConversationPage>(
       await query(server, "inbox.conversations", owner, { filter: "waiting" }),
     );

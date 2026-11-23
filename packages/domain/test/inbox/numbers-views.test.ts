@@ -65,9 +65,7 @@ describe("the inbox says which number", () => {
     expect(await status(old)).toEqual({
       configured: true,
       connected: true,
-      connectionStatus: "connected",
       demo: false,
-      number: `+${sales1.integratedNumber}`,
       numbers: [
         { ...shown(sales1), label: "Sales 1", status: "connected", main: true, aiAnswers: true },
         { ...shown(sales2), label: "Sales 2", status: "paused", main: false, aiAnswers: false },
@@ -103,7 +101,7 @@ describe("the inbox says which number", () => {
     // Every number disconnected: not connected.
     await update(first, { status: "disconnected" });
     await update(second, { status: "disconnected" });
-    expect(await status(first)).toMatchObject({ connected: false, connectionStatus: null, number: null });
+    expect(await status(first)).toMatchObject({ connected: false });
   });
 
   it("filters the chats by number", async () => {
@@ -141,14 +139,17 @@ describe("the inbox says which number", () => {
     const header = await inOrg(main, (tx) => conversationHeaderOf(tx, member, onMain, testNow));
     expect(header.number).toEqual({ id: main.connectionId, label: "Sales 1", status: "connected" });
     expect(header.otherChats).toEqual([
-      { id: onThird, label: "WhatsApp" },
-      { id: onSecond, label: "Sales 2" },
+      { id: onThird, label: "WhatsApp", status: "connected" },
+      { id: onSecond, label: "Sales 2", status: "connected" },
     ]);
     // A disconnected number's chat stays readable, and says so.
     await update(second, { status: "disconnected" });
     const old = await inOrg(main, (tx) => conversationHeaderOf(tx, member, onSecond, testNow));
     expect(old.number).toEqual({ id: second.connectionId, label: "Sales 2", status: "disconnected" });
     expect(old.otherChats.map((chat) => chat.id)).toEqual([onThird, onMain]);
+    // And the main number's chat names it disconnected beside its link.
+    const fromMain = await inOrg(main, (tx) => conversationHeaderOf(tx, member, onMain, testNow));
+    expect(fromMain.otherChats).toContainEqual({ id: onSecond, label: "Sales 2", status: "disconnected" });
   });
 
   it("links no chat the member may not see", async () => {
@@ -169,7 +170,7 @@ describe("the inbox says which number", () => {
     const admin = memberOf(main.organizationId);
     const otherChats = async (member: typeof admin) =>
       (await inOrg(main, (tx) => conversationHeaderOf(tx, member, onMain, testNow))).otherChats;
-    expect(await otherChats(admin)).toEqual([{ id: onSecond, label: "Sales 2" }]);
+    expect(await otherChats(admin)).toEqual([{ id: onSecond, label: "Sales 2", status: "connected" }]);
     expect(await otherChats(seller)).toEqual([]);
     // A hidden chat (a blocked contact's) is linked for nobody.
     await inOrg(main, (tx) => tx.whatsappConversation.update({ where: { id: onSecond }, data: { hidden: true } }));

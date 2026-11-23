@@ -1,9 +1,11 @@
 "use client";
 
 // What sits under the messages for someone who may reply (spec 3.2; sales inbox spec 6): a choice of Reply or Note (a note
-// on the chat's lead, for the team, never sent, which works whatever the window), the messages scheduled for later, then the reply box while
-// the 24-hour window is open, or a plain line instead when it has closed, the customer never wrote, the number is paused
-// or this is the demo (Mark as answered is in the chat's menu). Someone who may only read sees nothing here.
+// on the chat's lead, for the team, never sent, which works whatever the window), the messages scheduled for later, then
+// the reply box while the 24-hour window is open, or a plain line instead when it has closed, the customer never wrote,
+// the chat's own number is paused or this is the demo (Mark as answered is in the chat's menu). A chat on a disconnected
+// number can't be answered: it says so and offers Start a chat, which opens the customer's chat by the sending rule (the
+// number they last wrote to, else the main one). Someone who may only read sees nothing here.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
 import { MessageSquareIcon, StickyNoteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -19,7 +21,9 @@ import { Composer } from "./composer";
 import { ScheduledList } from "./scheduled-list";
 import { TeamNoteComposer } from "./team-note-composer";
 import { SendTemplateDialog } from "./send-template-dialog";
+import { StartChat } from "./start-chat";
 import { useInboxStatus } from "./use-inbox";
+import { useNumbers } from "./use-numbers";
 
 const WINDOW_MS = 24 * 3_600_000;
 
@@ -59,15 +63,28 @@ function TemplateButton({ conversationId }: { conversationId: string }) {
 
 export function ReplyArea({ header }: { header: ConversationHeader }) {
   const t = useTranslations("inbox.chat");
+  const tErrors = useTranslations("errors");
   const { timeZone } = useMe().organization;
   const mayReply = useHolds("inbox:reply");
   const status = useInboxStatus();
+  const { labelOf } = useNumbers();
   const [mode, setMode] = useState<"reply" | "note">("reply");
   if (!mayReply || header.state !== "open") return null;
 
   const box = () => {
     if (status.data?.demo === true) return <Note>{t("replyDemo")}</Note>;
-    if (status.data?.connectionStatus === "paused") return <Note>{t("replyPaused")}</Note>;
+    if (header.number.status === "disconnected") {
+      return (
+        <div className="flex flex-col gap-2">
+          <Note>{tErrors("reasons.WHATSAPP_NUMBER_DISCONNECTED")}</Note>
+          {header.lead !== null && <StartChat leadId={header.lead.id} />}
+        </div>
+      );
+    }
+    if (header.number.status === "paused") {
+      const label = labelOf(header.number.id);
+      return <Note>{label === null ? t("replyPaused") : t("replyNumberPaused", { label })}</Note>;
+    }
     if (header.windowOpenUntil !== null) {
       // One box per chat: its words are that chat's own, and never carried over to another when the address changes.
       return (

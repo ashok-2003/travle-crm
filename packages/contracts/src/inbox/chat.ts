@@ -65,12 +65,8 @@ export const inboxStatus = z.object({
   configured: z.boolean(),
   /** The agency has a number that is connected, paused or in trouble. */
   connected: z.boolean(),
-  /** The main number's status. Going once the screens read `numbers` (MN5). */
-  connectionStatus: whatsappConnectionStatus.nullable(),
   /** The shared demo: reading works, sending is off. */
   demo: z.boolean(),
-  /** The main number as the agency knows it, E.164. Going once the screens read `numbers` (MN5). */
-  number: z.string().nullable(),
   /** Every number the agency has had, the live ones first (the main one leading), then the disconnected ones. */
   numbers: z.array(whatsappNumber),
 });
@@ -151,8 +147,11 @@ export const conversationHeader = z.object({
   replying: z.array(z.string()),
   /** The chat's own number: every reply goes from it, and its status says whether one can. */
   number: z.object({ id: recordId, label: z.string(), status: whatsappConnectionStatus }),
-  /** The customer's open chats on the agency's other numbers that the member may see, the newest first. */
-  otherChats: z.array(z.object({ id: recordId, label: z.string() })),
+  /**
+   * The customer's open chats on the agency's other numbers that the member may see, the newest first; each number's
+   * status, as labels may repeat and a disconnected number's chat can't be answered.
+   */
+  otherChats: z.array(z.object({ id: recordId, label: z.string(), status: whatsappConnectionStatus })),
 });
 export type ConversationHeader = z.infer<typeof conversationHeader>;
 
