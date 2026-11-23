@@ -44,6 +44,8 @@ function StateLine({ step, mayManage }: { step: Step; mayManage: boolean }) {
   if (step.key === "packages" && !step.done && total !== null && total > 0) return <>{t("packages.needsPayment")}</>;
   if (step.key === "packages" && step.done && count !== null) return <>{t("packages.count", { count })}</>;
   if (step.key === "answers" && count !== null && total !== null) return <>{t("answers.count", { count, total })}</>;
+  // Two numbers or more are counted; one reads as it always did.
+  if (step.key === "whatsapp" && step.done && count !== null && count > 1) return <>{t("whatsapp.count", { count })}</>;
   if (step.key === "ads") {
     return <>{total === null || total === 0 ? t("ads.none") : t("ads.count", { count: count ?? 0, total })}</>;
   }

@@ -23,6 +23,7 @@ const checklist = (done: number) => ({
   ready: done === keys.length,
   on: false,
   pausedBySupport: false,
+  numbers: [],
 });
 
 function api(setup: unknown = checklist(4)) {

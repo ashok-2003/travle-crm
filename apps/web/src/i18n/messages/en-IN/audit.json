@@ -185,6 +185,8 @@
       "caps-changed": "Changed the WhatsApp message limits",
       "made-main": "Made a WhatsApp number the agency's main number",
       "renamed": "Renamed a WhatsApp number",
+      "number-ai-on": "Turned the AI on for a WhatsApp number",
+      "number-ai-off": "Turned the AI off for a WhatsApp number",
       "lead-started-from-chat": "Started a new lead from a WhatsApp chat",
       "template-created": "Sent a WhatsApp template for approval",
       "template-edited": "Edited a rejected WhatsApp template and sent it again",

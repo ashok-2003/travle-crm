@@ -66,6 +66,10 @@
     "flaggedHint": "Chats in the last 24 hours that the AI handed to a person, couldn't answer safely, or suggested marking Lost or Not a lead.",
     "loadFailed": "The last 24 hours didn't load."
   },
+  "numbers": {
+    "title": "WhatsApp numbers",
+    "intro": "The AI answers on a number only while its switch here is on, and the agent is on."
+  },
   "loading": "Loading the AI agent",
   "loadFailed": "The AI agent didn't load.",
   "setup": {
@@ -94,6 +98,7 @@
       },
       "whatsapp": {
         "title": "WhatsApp number",
+        "count": "{count, plural, one {# WhatsApp number connected} other {# WhatsApp numbers connected}}",
         "done": "Your WhatsApp number is connected",
         "todo": "Connect your WhatsApp number"
       },

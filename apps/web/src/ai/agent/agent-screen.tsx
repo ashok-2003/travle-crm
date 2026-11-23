@@ -1,7 +1,8 @@
 "use client";
 
 // /ai-agent: the AI agent's own page, the full width: its state beside the title, Setup (a page of its own) at the top
-// right, and two tabs, Overview and Try it (?tab=try). An old ?tab=setup address opens the Setup page, at its step.
+// right, and two tabs, Overview (with each WhatsApp number's AI switch, once there are two) and Try it (?tab=try). An old
+// ?tab=setup address opens the Setup page, at its step.
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
@@ -11,6 +12,7 @@ import { routes } from "@/lib/routes";
 import { TestSection } from "../test-section";
 import { AgentOverview } from "./agent-overview";
 import { AgentStateBadge, SetupButton } from "./agent-state";
+import { NumberSwitches } from "./number-switches";
 
 const tabs = ["overview", "try"] as const;
 type AgentTab = (typeof tabs)[number];
@@ -44,8 +46,9 @@ export function AgentScreen() {
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value="overview" className="pt-4">
+        <TabsContent value="overview" className="flex flex-col gap-6 pt-4">
           <AgentOverview />
+          <NumberSwitches />
         </TabsContent>
         <TabsContent value="try" className="pt-4">
           <TestSection />

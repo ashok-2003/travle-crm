@@ -1,8 +1,8 @@
 // Whether the AI may write in a chat now (the one agent's turn and its follow-ups): the chat is open, not stopped,
-// inside the 24-hour window, not already answered, the agent's switch is on and the chat not switched off, nobody took
-// the chat over, the day's count has room.
+// inside the 24-hour window, not already answered, the agent's switch is on, the chat's number lets it and the chat is
+// not switched off, nobody took the chat over, the day's count has room.
 import type { OrgTx } from "@travel-crm/db";
-import { chatOptedOut, windowIsOpen } from "../inbox/index.js";
+import { chatOptedOut, numberAnswers, windowIsOpen } from "../inbox/index.js";
 import type { AutopilotRow } from "./autopilot.js";
 import { personAnsweringUntil } from "./person-pause.js";
 
@@ -25,11 +25,13 @@ export const WINDOW_MARGIN_MS = 60 * 60_000;
 export const AI_TOKEN_PREFIX = "ai:";
 
 /**
- * Whether the agent answers in a chat by the switches alone: the agency's own switch is on and the chat isn't switched
- * off. A chat's "On" adds nothing while the agency's switch is off: the turn answers no chat then. The inbox adds the
+ * Whether the agent answers in a chat by the switches alone: the agency's own switch is on, the chat's number lets it
+ * (`numberOn`: numberAnswers, its own switch on and not disconnected) and the chat isn't switched off. Neither a chat's
+ * "On" nor a number's adds anything while the agency's switch is off: the turn answers no chat then. The inbox adds the
  * setup's readiness (agent-reach.ts).
  */
-export const agentAnswers = (mode: string | undefined, autopilot: boolean) => autopilot && mode !== "off";
+export const agentAnswers = (mode: string | undefined, autopilot: boolean, numberOn: boolean) =>
+  autopilot && numberOn && mode !== "off";
 
 /** The chat row alone, from a wider one (the chat with its number): what the checks and notices are handed. */
 export const chatRowOf = ({ id, personId, lastInboundAt, state, hidden }: ChatRow): ChatRow => ({
@@ -84,7 +86,7 @@ export async function mayWrite(
     if (answered !== null) return "answered";
   }
   const state = await tx.aiChat.findFirst({ where: { conversationId: chat.id } });
-  if (!agentAnswers(state?.mode, settings.autopilot)) return "off";
+  if (!agentAnswers(state?.mode, settings.autopilot, await numberAnswers(tx, chat.id))) return "off";
   if (state?.handedOffAt != null) return "handed_off";
   // The cap is at least 1 (ai_autopilot_max_replies), so a count kept for another day never reaches it.
   if (options.dayCap !== false && repliesToday(state, now) >= settings.maxRepliesPerDay) return "day_limit";
