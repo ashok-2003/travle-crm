@@ -314,7 +314,7 @@ describe("WhatsApp us on a quote's and a trip's page", () => {
   });
 
   /** An accepted quote's booking and its link: the quote's page while it waits for the agency, the trip's once confirmed. */
-  async function aBookingLink(confirmed: boolean): Promise<string> {
+  async function aBooking(confirmed: boolean): Promise<{ bookingId: string; path: string }> {
     const quoteId = await server.db.forOrg(agency.organizationId, async (tx) => {
       const person = await tx.person.create({
         data: { name: "Customer", email: `c-${crypto.randomUUID()}@example.test` },
@@ -341,7 +341,8 @@ describe("WhatsApp us on a quote's and a trip's page", () => {
     );
     if (bookingId === null) throw new Error("no booking");
     if (confirmed) await dataOf(await mutate(server, "bookings.confirm", { bookingId }, jar));
-    return (await dataOf<{ path: string }>(await mutate(server, "bookings.tripLink", { bookingId }, jar))).path;
+    const { path } = await dataOf<{ path: string }>(await mutate(server, "bookings.tripLink", { bookingId }, jar));
+    return { bookingId, path };
   }
 
   let nextAddress = 10;
@@ -353,14 +354,17 @@ describe("WhatsApp us on a quote's and a trip's page", () => {
     ).text();
 
   it("shows WhatsApp us on a quote and a confirmed trip page to the main number, and none with no number", async () => {
-    const quote = await aBookingLink(false);
-    const trip = await aBookingLink(true);
+    const quote = (await aBooking(false)).path;
+    const booked = await aBooking(true);
+    const trip = booked.path;
     expect(await pageAt(quote)).toContain("Accept");
     expect(await pageAt(trip)).toContain("Confirmed");
     for (const path of [quote, trip]) {
       const html = await pageAt(path);
       expect(html).not.toContain("wa.me");
       expect(html).not.toContain("WhatsApp us");
+      // No contact phone and no number: nothing to link, so no Questions? section.
+      expect(html).not.toContain("Questions?");
     }
     // The oldest number, which a stray first-found would pick, and the main one.
     await server.db.forOrg(agency.organizationId, async (tx) => {
@@ -385,5 +389,28 @@ describe("WhatsApp us on a quote's and a trip's page", () => {
       expect(html).toContain("WhatsApp us");
       expect(html).not.toContain("919800000081");
     }
+
+    // A payment the agency couldn't match: the payments say to contact them, and WhatsApp us shows once, at the end.
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.paymentClaim.create({
+        data: {
+          bookingId: booked.bookingId,
+          amountPaise: 1_000_00n,
+          reference: "UPI 123",
+          status: "rejected",
+          rejectReason: "not_found",
+          decidedAt: new Date(),
+        },
+      }),
+    );
+    const rejected = await pageAt(trip);
+    expect(rejected).toContain("We couldn't match one payment.");
+    expect(rejected.split("WhatsApp us")).toHaveLength(2);
+
+    // The shared demo's number sends nothing: no WhatsApp us to it.
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.whatsappConnection.updateMany({ where: { integratedNumber: "919800000082" }, data: { mode: "demo" } }),
+    );
+    for (const path of [quote, trip]) expect(await pageAt(path)).not.toContain("wa.me/919800000082");
   });
 });

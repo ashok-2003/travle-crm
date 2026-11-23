@@ -95,7 +95,9 @@ describe("an organization's WhatsApp numbers", () => {
     expect(within(other).queryByText(text.group.main)).toBeNull();
     expect(within(other).getByText(text.status.setup)).toBeVisible();
     expect(within(other).getByRole("button", { name: text.group.markConnected })).toBeEnabled();
-    expect(within(other).getByRole("button", { name: text.group.makeMain })).toBeVisible();
+    // Still being set up: it can be made main once it is connected.
+    expect(within(other).getByRole("button", { name: text.group.makeMain })).toBeDisabled();
+    expect(within(other).getByText(text.group.makeMainAfterSetup)).toBeVisible();
     expect(within(other).queryByRole("button", { name: text.group.pause })).toBeNull();
   });
 

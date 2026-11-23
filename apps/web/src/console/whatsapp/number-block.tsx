@@ -46,6 +46,7 @@ export function NumberBlock({
   const trpc = useConsoleTRPC();
   const queryClient = useQueryClient();
   const headingId = useId();
+  const makeMainHintId = useId();
   const [confirming, setConfirming] = useState(false);
   const disconnectButton = useRef<HTMLButtonElement>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: trpc.whatsapp.pathKey() });
@@ -155,7 +156,9 @@ export function NumberBlock({
           {!number.main && (
             <Button
               variant="outline"
-              disabled={makeMain.isPending}
+              // A number still being set up sends nothing: it can be made main once it is connected.
+              disabled={makeMain.isPending || number.status === "setup"}
+              aria-describedby={number.status === "setup" ? makeMainHintId : undefined}
               onClick={() => {
                 makeMain.mutate(ids);
               }}
@@ -174,6 +177,11 @@ export function NumberBlock({
             {t("group.disconnect")}
           </Button>
         </div>
+      )}
+      {mayChange && !number.main && number.status === "setup" && (
+        <p id={makeMainHintId} className="text-caption text-muted-foreground">
+          {t("group.makeMainAfterSetup")}
+        </p>
       )}
       {failure !== undefined && <RefusalAlert error={failure} />}
       <ConfirmDialog

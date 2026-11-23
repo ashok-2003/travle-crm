@@ -43,8 +43,11 @@ export const publicAgency = z.object({
   instagramUrl: z.string().nullable(),
   /** E.164, for the call button; null when the agency gave none. */
   phone: z.string().nullable(),
-  /** E.164, for the WhatsApp button: the agency's main WhatsApp number, else its contact phone; null for neither. */
-  whatsapp: z.string().nullable(),
+  /**
+   * E.164, for the WhatsApp button: the agency's main WhatsApp number, else its contact phone; null for neither. An older
+   * api sends none (the release window): read as null, and the page falls back to the contact phone, as before.
+   */
+  whatsapp: z.string().nullable().catch(null),
 });
 export type PublicAgency = z.infer<typeof publicAgency>;
 

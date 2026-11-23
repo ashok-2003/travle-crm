@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Details } from "@/components/details";
 import { formatPhoneNumber } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { useHolds } from "@/session/me-context";
@@ -54,13 +55,15 @@ export function WhatsappSettingsScreen() {
     }
     const { configured, connected, demo } = status.data;
     const [only] = numbers.live;
-    if (!configured || only === undefined) return <NotSetUp scope="inbox.settings" />;
+    // An older api lists no numbers (the release window): whether it is connected says if WhatsApp is set up.
+    const listed = mayBeMissing(status.data.numbers) !== undefined;
+    if (!configured || (listed ? only === undefined : !connected)) return <NotSetUp scope="inbox.settings" />;
     const badge = (state: WhatsappNumber["status"]) => (
       <StatusBadge tone={tones[state] ?? "neutral"}>{t(state)}</StatusBadge>
     );
     return (
       <div className="flex flex-col gap-4">
-        {numbers.show ? (
+        {only === undefined ? null : numbers.show ? (
           <Table aria-label={t("numbers")}>
             <TableHeader>
               <TableRow>

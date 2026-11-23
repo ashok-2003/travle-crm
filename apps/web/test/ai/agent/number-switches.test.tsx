@@ -67,6 +67,14 @@ describe("the AI's switch on each number", () => {
     expect(screen.queryByRole("switch")).toBeNull();
   });
 
+  it("shows no switch from an older api, which lists no numbers", async () => {
+    const olderSetup: Record<string, unknown> = setupWith([]);
+    delete olderSetup.numbers;
+    show(olderSetup);
+    expect(await screen.findByText(messages.aiAgent.state.on)).toBeVisible();
+    expect(screen.queryByRole("switch")).toBeNull();
+  });
+
   it("shows the switch of a lone number switched off, so it can be turned back on", async () => {
     show(setupWith([aNumber(first, "Sales 1", false)]));
     expect(await screen.findByRole("switch", { name: salesOne })).not.toBeChecked();

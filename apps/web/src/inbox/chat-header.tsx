@@ -15,6 +15,7 @@ import { PageTitle } from "@/components/page-title";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { formatPhoneNumber } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
 import { inboxRoute, routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { ChatAvatar } from "./chat-avatar";
@@ -41,8 +42,11 @@ export function ChatHeader({
   onToggleSearch: () => void;
 }) {
   const t = useTranslations("inbox.chat");
-  const { labelOf } = useNumbers();
-  const numberLabel = labelOf(header.number.id);
+  const { labelOf, show } = useNumbers();
+  // An older api sends neither (the release window): no label and no link, as before.
+  const number = mayBeMissing(header.number);
+  const numberLabel = number === undefined ? null : labelOf(number.id);
+  const otherChats = mayBeMissing(header.otherChats) ?? [];
   const name = header.name ?? formatPhoneNumber(header.phone);
   const waitingSince = header.needsReply ? header.lastInboundAt : null;
   const titleClass = cn("w-full truncate text-section font-semibold script-leading", header.name === null && "numbers");
@@ -79,10 +83,13 @@ export function ChatHeader({
               {numberLabel !== null && <span className="shrink-0">{numberLabel}</span>}
               <WindowChip header={header} />
               {header.optedOut && <span className="text-status-bad-ink">{t("optedOut")}</span>}
-              {/* Labels may repeat; a disconnected number says so. */}
-              {header.otherChats.map((other) => (
+              {/* Labels may repeat, and say nothing with one live number (every first number is "WhatsApp"); a
+                  disconnected number says so. */}
+              {otherChats.map((other) => (
                 <TextLink key={other.id} href={inboxRoute(other.id)} inline>
-                  {t(other.status === "disconnected" ? "alsoOnDisconnected" : "alsoOn", { label: other.label })}
+                  {show
+                    ? t(other.status === "disconnected" ? "alsoOnDisconnected" : "alsoOn", { label: other.label })
+                    : t(other.status === "disconnected" ? "otherChatDisconnected" : "otherChat")}
                 </TextLink>
               ))}
             </>

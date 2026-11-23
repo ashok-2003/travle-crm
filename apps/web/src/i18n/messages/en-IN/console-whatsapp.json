@@ -74,6 +74,7 @@
     "disconnect": "Disconnect",
     "check": "Check with MSG91",
     "makeMain": "Make main",
+    "makeMainAfterSetup": "It can be made main once it is connected.",
     "rename": "Rename",
     "checkAnswered": "MSG91 answered.",
     "checkFailed": "MSG91 did not answer.",

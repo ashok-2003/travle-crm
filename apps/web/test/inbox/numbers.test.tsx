@@ -191,9 +191,11 @@ describe("the inbox with several numbers", () => {
 
   it("filters the chats by number, kept in the tab", async () => {
     screenIs("wide");
-    const api = listApi(twoNumbers);
+    const third = "01900000-0000-7000-8000-0000000000d3";
+    const api = listApi(statusWith([...twoNumbers.numbers, aNumber(third, "Sales 3", { status: "disconnected" })]));
     const view = renderWithApi(<InboxScreen>{null}</InboxScreen>, newQueryClient());
     await userEvent.click(await screen.findByRole("combobox", { name: t.numberFilter }));
+    expect(await screen.findByRole("option", { name: "Sales 3 (disconnected)" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("option", { name: "Sales 2" }));
     await waitFor(() => {
       expect(api.of("inbox.conversations").at(-1)?.input).toMatchObject({ connectionId: second });
@@ -222,6 +224,45 @@ describe("the inbox with several numbers", () => {
     renderWithApi(<ChatPanel conversationId={chatOnFirst} variant="page" />, newQueryClient());
     const link = await screen.findByRole("link", { name: "Also on Sales 2" });
     expect(link).toHaveAttribute("href", `/inbox/${chatOnSecond}`);
+  });
+
+  it("words the other chat's link without a label while one number is live", async () => {
+    screenIs("wide");
+    answerApi(
+      chatApi(
+        aHeader(
+          chatOnFirst,
+          { id: first, label: "WhatsApp", status: "connected" },
+          { otherChats: [{ id: chatOnSecond, label: "WhatsApp", status: "disconnected" }] },
+        ),
+        statusWith([aNumber(first, "WhatsApp"), aNumber(second, "WhatsApp", { status: "disconnected" })]),
+      ),
+    );
+    renderWithApi(<ChatPanel conversationId={chatOnFirst} variant="page" />, newQueryClient());
+    const link = await screen.findByRole("link", { name: t.chat.otherChatDisconnected });
+    expect(link).toHaveAttribute("href", `/inbox/${chatOnSecond}`);
+  });
+
+  it("reads an older api's chat and status, which name no number, as one number", async () => {
+    screenIs("wide");
+    const olderHeader: Record<string, unknown> = aHeader(chatOnFirst, {
+      id: first,
+      label: "Sales 1",
+      status: "connected",
+    });
+    delete olderHeader.number;
+    delete olderHeader.otherChats;
+    const olderStatus = { configured: true, connected: true, demo: false };
+    answerApi(chatApi(olderHeader, olderStatus));
+    const view = renderWithApi(<ChatPanel conversationId={chatOnFirst} variant="page" />, newQueryClient());
+    expect(await screen.findByRole("combobox", { name: "Message" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Customer A" })).toBeVisible();
+    view.unmount();
+
+    answerApi({ "inbox.status": olderStatus, "whatsappTemplates.list": templatesOf(null) });
+    renderWithApi(<WhatsappSettingsScreen />, newQueryClient());
+    expect(await screen.findByRole("heading", { name: t.templates.title })).toBeVisible();
+    expect(screen.queryByText(/WhatsApp is not set up/)).toBeNull();
   });
 
   it("says a disconnected number's chat can't be answered, and offers a chat from the main number", async () => {

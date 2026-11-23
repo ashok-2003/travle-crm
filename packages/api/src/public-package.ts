@@ -60,10 +60,13 @@ async function photoLinksOf(
   return links.filter((link): link is string => link !== null);
 }
 
-/** The number "WhatsApp us" opens, E.164: the agency's main WhatsApp number once it is past being set up; null otherwise. */
+/**
+ * The number "WhatsApp us" opens, E.164: the agency's main WhatsApp number once it is past being set up; null otherwise,
+ * and for the shared demo's number, which nothing is sent from (as sendFrom skips it).
+ */
 export async function whatsappUsNumber(tx: OrgTx): Promise<string | null> {
   const main = await mainConnection(tx);
-  return main === null || main.status === "setup" ? null : main.displayNumber;
+  return main === null || main.status === "setup" || main.mode === "demo" ? null : main.displayNumber;
 }
 
 async function agencyOf(
