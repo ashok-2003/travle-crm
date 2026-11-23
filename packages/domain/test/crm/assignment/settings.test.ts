@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
-import type { SaveAssignmentInput } from "@travel-crm/contracts/crm";
+import { assignmentRuleInput, type SaveAssignmentInput } from "@travel-crm/contracts/crm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   chooseOwner,
@@ -62,6 +62,7 @@ describe("the assignment settings", () => {
       closesMinute: 1140,
       rules: [],
       pool: [],
+      whatsappNumbers: [],
     });
   });
 
@@ -74,8 +75,14 @@ describe("the assignment settings", () => {
         opensMinute: 9 * 60 + 30,
         closesMinute: 18 * 60,
         rules: [
-          { source: null, destinationId, tripType: null, assigneeUserId: meena },
-          { source: "web_form", destinationId: null, tripType: "family", assigneeUserId: ravi },
+          { source: null, destinationId, tripType: null, whatsappConnectionId: null, assigneeUserId: meena },
+          {
+            source: "web_form",
+            destinationId: null,
+            tripType: "family",
+            whatsappConnectionId: null,
+            assigneeUserId: ravi,
+          },
         ],
       }),
     );
@@ -98,7 +105,19 @@ describe("the assignment settings", () => {
     const stranger = randomUUID();
     await expect(save(input({ pool: [priya, stranger] }))).rejects.toMatchObject({ reason: "NOT_A_LEAD_WORKER" });
     await expect(
-      save(input({ rules: [{ source: "web_form", destinationId: null, tripType: null, assigneeUserId: stranger }] })),
+      save(
+        input({
+          rules: [
+            {
+              source: "web_form",
+              destinationId: null,
+              tripType: null,
+              whatsappConnectionId: null,
+              assigneeUserId: stranger,
+            },
+          ],
+        }),
+      ),
     ).rejects.toMatchObject({ reason: "NOT_A_LEAD_WORKER" });
   });
 
@@ -108,7 +127,15 @@ describe("the assignment settings", () => {
       input({
         mode: "fewest_open",
         pool: [ravi, meena],
-        rules: [{ source: "whatsapp", destinationId: null, tripType: null, assigneeUserId: priya }],
+        rules: [
+          {
+            source: "whatsapp",
+            destinationId: null,
+            tripType: null,
+            whatsappConnectionId: null,
+            assigneeUserId: priya,
+          },
+        ],
       }),
     );
     const entries = await auditOf("assignment.updated");
@@ -120,7 +147,9 @@ describe("the assignment settings", () => {
       workdays: 63,
       opensMinute: 600,
       closesMinute: 1140,
-      rules: [{ source: "whatsapp", destinationId: null, tripType: null, assigneeUserId: priya }],
+      rules: [
+        { source: "whatsapp", destinationId: null, tripType: null, whatsappConnectionId: null, assigneeUserId: priya },
+      ],
       pool: [ravi, meena].sort(),
     });
     expect(entry?.before).toMatchObject({ pool: expect.arrayContaining([ravi]) as unknown });
@@ -137,7 +166,13 @@ describe("the assignment settings", () => {
   });
 
   it("keeps the rule list from growing on a repeated save", async () => {
-    const rule = { source: "web_form" as const, destinationId: null, tripType: null, assigneeUserId: priya };
+    const rule = {
+      source: "web_form" as const,
+      destinationId: null,
+      tripType: null,
+      whatsappConnectionId: null,
+      assigneeUserId: priya,
+    };
     await save(input({ rules: [rule] }));
     await save(input({ rules: [rule] }));
     expect((await inOrg((tx) => readAssignment(tx))).rules).toHaveLength(1);
@@ -156,7 +191,13 @@ describe("the assignment settings", () => {
     const choosing = inOrg(async (tx) => {
       await chooseOwner(
         tx,
-        { source: "web_form", destinationId: null, tripType: null, previousOwnerUserId: null },
+        {
+          source: "web_form",
+          destinationId: null,
+          tripType: null,
+          previousOwnerUserId: null,
+          whatsappConnectionId: null,
+        },
         {
           workers,
           fallback: meena,
@@ -176,6 +217,60 @@ describe("the assignment settings", () => {
     release();
     await Promise.all([choosing, saving]);
     expect(saved).toBe(true);
+  });
+
+  describe("a WhatsApp number's rule", () => {
+    let nextNumber = Math.floor(Math.random() * 9e6);
+    /** A WhatsApp number of the agency given (this one unless told). */
+    const aNumber = (label: string, organization = organizationId) =>
+      db.forOrg(organization, async (tx) => {
+        const integratedNumber = `9166${String((nextNumber += 1)).padStart(8, "0")}`;
+        const row = await tx.whatsappConnection.create({
+          data: {
+            integratedNumber,
+            displayNumber: `+${integratedNumber}`,
+            mode: "new_number",
+            status: "connected",
+            label,
+          },
+        });
+        return row.id;
+      });
+    const onNumber = (whatsappConnectionId: string) => ({
+      source: null,
+      destinationId: null,
+      tripType: null,
+      whatsappConnectionId,
+      assigneeUserId: ravi,
+    });
+
+    it("saves a rule whose one condition is a WhatsApp number, and refuses a number that isn't the agency's", async () => {
+      const number = await aNumber("Sales 2");
+      expect(assignmentRuleInput.safeParse(onNumber(number)).success).toBe(true);
+      await save(input({ rules: [onNumber(number)] }));
+      const saved = await inOrg((tx) => readAssignment(tx));
+      expect(saved.rules).toMatchObject([
+        { whatsappConnectionId: number, whatsappLabel: "Sales 2", whatsappGone: false, assigneeUserId: ravi },
+      ]);
+      expect(saved.whatsappNumbers).toContainEqual({ id: number, label: "Sales 2" });
+      const elsewhere = await aNumber("Sales 9", await createTestOrganization(platform, "Another agency"));
+      await expect(save(input({ rules: [onNumber(elsewhere)] }))).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect((await inOrg((tx) => readAssignment(tx))).rules).toMatchObject([{ whatsappConnectionId: number }]);
+    });
+
+    it("marks a rule whose number was disconnected", async () => {
+      const number = await aNumber("Sales 3");
+      await save(input({ rules: [onNumber(number)] }));
+      await inOrg((tx) => tx.whatsappConnection.update({ where: { id: number }, data: { status: "disconnected" } }));
+      const read = await inOrg((tx) => readAssignment(tx));
+      expect(read.rules).toMatchObject([
+        { whatsappConnectionId: number, whatsappLabel: "Sales 3", whatsappGone: true },
+      ]);
+      expect(read.whatsappNumbers.map((row) => row.id)).not.toContain(number);
+      // Saving the settings again keeps it.
+      await save(input({ rules: [onNumber(number)] }));
+      expect((await inOrg((tx) => readAssignment(tx))).rules).toHaveLength(1);
+    });
   });
 
   describe("the away switch", () => {

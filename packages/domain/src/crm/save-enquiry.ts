@@ -37,9 +37,9 @@ export type EnquiryOptions =
       notify?: "each" | "none";
       /**
        * Set when ownerUserId is only the fallback (the row named no one): a new lead is then assigned by the agency's
-       * rules and mode, among these lead workers.
+       * rules and mode, among these lead workers; a lead from a WhatsApp chat names the number it came in on.
        */
-      assign?: { workers: ReadonlySet<string> };
+      assign?: { workers: ReadonlySet<string>; whatsappConnectionId?: string };
       /**
        * Nobody proved the phone or the email (the website form, W18): the person is found by phone alone, an existing
        * person is never changed, and an email that isn't theirs, or that another person holds, goes into the note.
@@ -118,6 +118,7 @@ export async function saveEnquiry(
             destinationId: trip.destinationId,
             tripType: trip.tripType,
             previousOwnerUserId: returning ? await previousOwnerOf(tx, person.id) : null,
+            whatsappConnectionId: options.assign.whatsappConnectionId ?? null,
           },
           { workers: options.assign.workers, fallback: options.ownerUserId, now },
         )

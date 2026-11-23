@@ -18,8 +18,11 @@ const facts = (overrides: Partial<LeadFacts> = {}): LeadFacts => ({
   destinationId: null,
   tripType: null,
   previousOwnerUserId: null,
+  whatsappConnectionId: null,
   ...overrides,
 });
+
+let nextNumber = Math.floor(Math.random() * 9e6);
 
 describe("choosing an owner", () => {
   let platform: PlatformClient;
@@ -134,6 +137,60 @@ describe("choosing an owner", () => {
         chooseOwner(tx, facts(), { workers: new Set([owner]), fallback: owner, now: NOW }),
       );
       expect(result).toMatchObject({ userId: owner, reason: "owner" });
+    });
+
+    /** Two WhatsApp numbers of the agency, "Sales 1" and "Sales 2". */
+    const twoNumbers = (inOrg: <T>(work: (tx: OrgTx) => Promise<T>) => Promise<T>) =>
+      inOrg(async (tx) => {
+        const number = async (label: string) => {
+          const integratedNumber = `9177${String((nextNumber += 1)).padStart(8, "0")}`;
+          const row = await tx.whatsappConnection.create({
+            data: {
+              integratedNumber,
+              displayNumber: `+${integratedNumber}`,
+              mode: "new_number",
+              status: "connected",
+              label,
+            },
+          });
+          return row.id;
+        };
+        return [await number("Sales 1"), await number("Sales 2")] as const;
+      });
+
+    it("gives a lead that came in on a number to that number's rule", async () => {
+      const { choose, people, inOrg } = await agency("owner", [{}, {}]);
+      const [first, second] = await twoNumbers(inOrg);
+      await inOrg((tx) =>
+        tx.assignmentRule.createMany({
+          data: [
+            { position: 0, whatsappConnectionId: second, assigneeUserId: people[1] ?? "" },
+            { position: 1, source: "whatsapp", assigneeUserId: people[0] ?? "" },
+          ],
+        }),
+      );
+      expect(await choose(facts({ source: "whatsapp", whatsappConnectionId: second }))).toMatchObject({
+        userId: people[1],
+        reason: "rule",
+        rulePosition: 0,
+      });
+      expect(await choose(facts({ source: "whatsapp", whatsappConnectionId: first }))).toMatchObject({
+        userId: people[0],
+        rulePosition: 1,
+      });
+    });
+
+    it("passes a number's rule over for a lead from anywhere else", async () => {
+      const { choose, people, inOrg, owner } = await agency("owner", [{}]);
+      const [first] = await twoNumbers(inOrg);
+      await inOrg((tx) =>
+        tx.assignmentRule.create({
+          data: { position: 0, whatsappConnectionId: first, assigneeUserId: people[0] ?? "" },
+        }),
+      );
+      expect(await choose(facts({ source: "web_form" }))).toMatchObject({ userId: owner, reason: "owner" });
+      // An imported row that says WhatsApp came in on no number.
+      expect(await choose(facts({ source: "whatsapp" }))).toMatchObject({ userId: owner, reason: "owner" });
     });
   });
 

@@ -45,17 +45,26 @@ const workingHours = {
   closesMinute: z.int().min(0).max(1440),
 };
 
-/** A rule: a lead matching every condition given goes to the person. At least one condition. */
+/**
+ * A rule: a lead matching every condition given goes to the person. At least one condition. The WhatsApp number is the one
+ * a lead came in on (a first message, an adopted chat, or Start a new lead in a chat); other leads have none.
+ */
 export const assignmentRuleInput = z
   .strictObject({
     source: leadSource.nullable(),
     destinationId: recordId.nullable(),
     tripType: tripType.nullable(),
+    whatsappConnectionId: recordId.nullable(),
     assigneeUserId: recordId,
   })
-  .refine((rule) => rule.source !== null || rule.destinationId !== null || rule.tripType !== null, {
-    message: "Give the rule at least one condition",
-  });
+  .refine(
+    (rule) =>
+      rule.source !== null ||
+      rule.destinationId !== null ||
+      rule.tripType !== null ||
+      rule.whatsappConnectionId !== null,
+    { message: "Give the rule at least one condition" },
+  );
 export type AssignmentRuleInput = z.infer<typeof assignmentRuleInput>;
 
 export const saveAssignmentInput = z
@@ -87,10 +96,17 @@ export const assignmentSettings = z.object({
       /** The destination's name, for the screen. */
       destinationName: z.string().nullable(),
       tripType: tripType.nullable(),
+      whatsappConnectionId: recordId.nullable(),
+      /** The number's label, for the screen. */
+      whatsappLabel: z.string().nullable(),
+      /** Its number was disconnected: the rule matches nothing until it is changed. */
+      whatsappGone: z.boolean(),
       assigneeUserId: recordId,
     }),
   ),
   pool: z.array(z.object({ userId: recordId, awayUntil: z.iso.datetime().nullable() })),
+  /** The agency's live WhatsApp numbers, the main one first: a rule's number is one of them. */
+  whatsappNumbers: z.array(z.object({ id: recordId, label: z.string() })),
 });
 export type AssignmentSettings = z.infer<typeof assignmentSettings>;
 
