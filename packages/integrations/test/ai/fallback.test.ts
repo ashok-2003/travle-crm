@@ -109,6 +109,21 @@ describe("the AI's chain of keys", () => {
     expect([studio.ai.requests.length, studioTwo.ai.requests.length]).toEqual([3, 1]);
   });
 
+  it("sends a tool round to the chain inside that serves its writer: the keys behind the primary model", async () => {
+    const primary = serving("our-gpt-5-mini");
+    const studio = serving(STUDIO);
+    const model = withModelChain([primary.member, withModelChain([studio.member])]);
+    studio.ai.answer("From Gemini");
+    expect(await model.complete(toolRoundBy(STUDIO))).toMatchObject({ ok: true, text: "From Gemini" });
+    expect(primary.ai.requests).toHaveLength(0);
+    primary.ai.answer("From the primary");
+    expect(await model.complete(toolRoundBy("our-gpt-5-mini"))).toMatchObject({
+      ok: true,
+      text: "From the primary",
+    });
+    expect(studio.ai.requests).toHaveLength(1);
+  });
+
   it("sends a tool round to the first member alone when none says it serves the model that wrote it", async () => {
     const first = createMemoryAiModel();
     const backup = serving(STUDIO);

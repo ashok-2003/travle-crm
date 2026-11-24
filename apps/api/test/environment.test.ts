@@ -251,6 +251,40 @@ describe("environment", () => {
     }
   });
 
+  it("takes the primary model's address, key and models together, with a key behind it, over https in production", () => {
+    const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
+    const studio = {
+      AI_API_KEY: "AIza-first-key-0123456789",
+      AI_BASE_URL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      AI_CHAT_MODELS: "gemini-3.5-flash-lite",
+    };
+    const primaryKey = "azure-primary-key-0123456789";
+    const primary = {
+      AI_PRIMARY_BASE_URL: "https://example.services.ai.azure.com/openai/v1",
+      AI_PRIMARY_API_KEY: primaryKey,
+      AI_PRIMARY_MODELS: "our-gpt-5-mini",
+    };
+    expect(loadEnvironment({ ...production, ...studio, ...primary })).toMatchObject({
+      AI_PRIMARY_MODELS: ["our-gpt-5-mini"],
+    });
+    for (const [wrong, problem] of [
+      [{ ...studio, ...primary, AI_PRIMARY_MODELS: "" }, /AI_PRIMARY_MODELS: is needed with AI_PRIMARY_API_KEY/],
+      [primary, /AI_PRIMARY_API_KEY: is only for use with AI_API_KEY or AI_VERTEX_SERVICE_ACCOUNT/],
+      [
+        { ...studio, ...primary, AI_PRIMARY_BASE_URL: "http://example.services.ai.azure.com/openai/v1" },
+        /AI_PRIMARY_BASE_URL: must be an https address/,
+      ],
+    ] as const) {
+      try {
+        loadEnvironment({ ...production, ...wrong });
+        expect.unreachable();
+      } catch (error) {
+        expect(String(error)).toMatch(problem);
+        expect(String(error)).not.toContain(primaryKey);
+      }
+    }
+  });
+
   it("takes Axiom's token and dataset together or not at all, over https outside development", () => {
     const production = { ...valid, BETTER_AUTH_URL: "https://app.example.in", APP_URL: "https://app.example.in" };
     expect(loadEnvironment(production).AXIOM_TOKEN).toBeUndefined();

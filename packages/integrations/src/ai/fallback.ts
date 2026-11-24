@@ -22,6 +22,8 @@ const writerOf = (request: AiRequest): string | undefined =>
 export function withModelChain(models: readonly AiModel[]): AiModel {
   return {
     configured: models.some((model) => model.configured),
+    // A chain inside a chain (the keys behind the primary model) serves what any of its members serves.
+    serves: (model) => models.some((member) => member.serves?.(model) === true),
     async complete(request: AiRequest): Promise<AiResult> {
       const writer = writerOf(request);
       const serving = writer === undefined ? models : models.filter((model) => model.serves?.(writer) === true);

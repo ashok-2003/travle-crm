@@ -258,6 +258,9 @@ export const serviceVariables = {
   AI_FALLBACK_2_BASE_URL: emptyAsUnset(httpUrl.optional()),
   AI_FALLBACK_2_API_KEY: emptyAsUnset(z.string().min(8, "must be the fallback AI provider's API key").optional()),
   AI_FALLBACK_2_MODELS: emptyAsUnset(modelList.optional()),
+  AI_PRIMARY_BASE_URL: emptyAsUnset(httpUrl.optional()),
+  AI_PRIMARY_API_KEY: emptyAsUnset(z.string().min(8, "must be the primary AI provider's API key").optional()),
+  AI_PRIMARY_MODELS: emptyAsUnset(modelList.optional()),
   /** The journeys' fake OpenRouter (development and tests only; refused in production): the adapter's calls are sent there. */
   AI_TEST_SERVER_URL: emptyAsUnset(httpUrl.optional()),
   /** The journeys' fake MSG91 (development and tests only; refused in production). */

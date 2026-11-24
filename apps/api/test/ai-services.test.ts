@@ -290,6 +290,56 @@ describe("the fallback providers (the owner, 2026-11-23: free providers catch wh
   });
 });
 
+describe("the primary model (the owner, 2026-11-24: gpt-5-mini on Azure, medium effort)", () => {
+  const AZURE = "https://example.services.ai.azure.com/openai/v1";
+  const primary = {
+    AI_BASE_URL: GOOGLE,
+    AI_CHAT_MODELS: ["gemini-3.5-flash-lite"],
+    AI_PRIMARY_BASE_URL: AZURE,
+    AI_PRIMARY_API_KEY: "azure-key-0123456789",
+    AI_PRIMARY_MODELS: ["our-gpt-5-mini"],
+  };
+
+  it("asks it first for every feature but voice notes and Fill it for me, which go to the keys", async () => {
+    const { asked, fields } = stubFetch();
+    const model = createAiModel(settings(primary), logger);
+    const features = ["sales_agent", "agent_image", "score_lead", "chat_summary", "agent_voice", "fill_form"] as const;
+    for (const feature of features) await model?.complete({ feature, messages, user: "org" });
+    const azure = { url: `${AZURE}/chat/completions`, model: "our-gpt-5-mini" };
+    const google = { url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" };
+    expect(asked).toEqual([azure, azure, azure, azure, google, google]);
+    expect(fields[0]?.keys).toEqual(
+      expect.arrayContaining(["max_completion_tokens", "reasoning_effort", "prompt_cache_key"]),
+    );
+    expect(fields[4]?.keys).toContain("max_tokens");
+  });
+
+  it("falls back to the keys when it can't answer, and sends a Gemini tool round back to Gemini", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
+      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: string };
+      asked.push(`${url.startsWith(AZURE) ? "azure" : "google"}:${body.model ?? ""}`);
+      const answer = { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+      return Promise.resolve(
+        url.startsWith(AZURE) ? new Response("", { status: 503 }) : new Response(JSON.stringify(answer)),
+      );
+    });
+    const model = createAiModel(settings(primary), logger);
+    expect(await model?.complete({ feature: "sales_agent", messages })).toMatchObject({
+      ok: true,
+      model: "gemini-3.5-flash-lite",
+    });
+    const calls = [{ id: "c1", name: "quote", arguments: "{}" }];
+    const round = [
+      ...messages,
+      { role: "assistant" as const, content: "", model: "gemini-3.5-flash-lite", toolCalls: calls },
+      { role: "tool" as const, content: "₹9,499", toolCallId: "c1" },
+    ];
+    await model?.complete({ feature: "sales_agent", messages: round, model: "gemini-3.5-flash-lite" });
+    expect(asked).toEqual(["azure:our-gpt-5-mini", "google:gemini-3.5-flash-lite", "google:gemini-3.5-flash-lite"]);
+  });
+});
+
 describe("Vertex AI", () => {
   it("sends every feature to the Vertex endpoint with the service account's token as the bearer", async () => {
     const headers: string[] = [];

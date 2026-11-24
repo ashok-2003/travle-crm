@@ -335,3 +335,55 @@ describe("the OpenRouter adapter", () => {
     expect(bodyOf(calls[3] ?? { init: {} })).toMatchObject({ model: "b/two" });
   });
 });
+
+describe("an OpenAI reasoning model (gpt-5-mini on Azure AI Foundry, the owner, 2026-11-24)", () => {
+  const AZURE = "https://example.services.ai.azure.com/openai/v1";
+  const reasoningModel = { effort: "medium" as const, maxCompletionTokens: 16_000 };
+
+  it("gets max_completion_tokens with room to think, no temperature, its own effort and a prompt cache key", async () => {
+    const { fetcher, calls } = fakeFetch(answer("Hi"), answer("Hi"));
+    const model = createOpenRouterModel({
+      apiKey: KEY,
+      baseUrl: AZURE,
+      models: { sales_agent: ["our-gpt-5-mini"] },
+      reasoningModel,
+      fetch: fetcher,
+    });
+    const asked = { feature: "sales_agent" as const, messages, user: "org-1", temperature: 0.3 };
+    await model.complete({ ...asked, maxTokens: 500, reasoning: { effort: "minimal" } });
+    await model.complete({ ...asked, maxTokens: 20_000 });
+    const [short, long] = calls.map(bodyOf);
+    expect(short).toMatchObject({
+      max_completion_tokens: 16_000,
+      reasoning_effort: "medium",
+      prompt_cache_key: "sales_agent:org-1",
+    });
+    expect(long).toMatchObject({ max_completion_tokens: 20_000, reasoning_effort: "medium" });
+    for (const body of [short, long]) {
+      expect(body).not.toHaveProperty("max_tokens");
+      expect(body).not.toHaveProperty("temperature");
+      expect(body).not.toHaveProperty("provider");
+    }
+  });
+
+  it("answers under the name it asked off OpenRouter: Azure's dated model name isn't a deployment it takes back", async () => {
+    const { fetcher } = fakeFetch(answer("Hi", "gpt-5-mini-2025-08-07"), answer("Hi", "gemini-3.5-flash-lite-001"));
+    const azure = createOpenRouterModel({
+      apiKey: KEY,
+      baseUrl: AZURE,
+      models: { sales_agent: ["our-gpt-5-mini"] },
+      reasoningModel,
+      fetch: fetcher,
+    });
+    expect(await azure.complete({ feature: "sales_agent", messages })).toMatchObject({ model: "our-gpt-5-mini" });
+    const gemini = createOpenRouterModel({
+      apiKey: KEY,
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      models: { sales_agent: ["gemini-3.5-flash-lite"] },
+      fetch: fetcher,
+    });
+    expect(await gemini.complete({ feature: "sales_agent", messages })).toMatchObject({
+      model: "gemini-3.5-flash-lite",
+    });
+  });
+});

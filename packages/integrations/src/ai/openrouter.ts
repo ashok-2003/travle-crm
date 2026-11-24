@@ -12,6 +12,7 @@
 import {
   NEXT_MODEL_MIN_LEFT_MS,
   type AiAudioFormat,
+  type AiEffort,
   type AiFeature,
   type AiFinishReason,
   type AiMessage,
@@ -37,6 +38,13 @@ export interface OpenRouterOptions {
   fetch?: typeof fetch;
   /** Told of each 429 the endpoint answers (not of a model skipped while it rests), so the rate of them can be watched. */
   onRateLimited?: (event: { model: string; feature: AiFeature; restMs: number }) => void;
+  /**
+   * An OpenAI reasoning model (gpt-5 and later; on Azure AI Foundry, 2026-11-24): it refuses `max_tokens` and any
+   * temperature but its default, so it gets `max_completion_tokens` (its thinking counts, so never less than this room)
+   * and no temperature, this one effort on every call whatever the request asks, and a prompt cache key of the feature
+   * and the request's user (an organization's id), so a repeated prompt start is read from its cache.
+   */
+  reasoningModel?: { effort: AiEffort; maxCompletionTokens: number };
 }
 
 interface ChatCompletion {
@@ -186,6 +194,26 @@ function reasoningSetting(request: AiRequest, openRouter: boolean): object {
     : { reasoning_effort: request.reasoning.effort };
 }
 
+/** The answer's length, temperature and effort: as the request asks, or a reasoning model's own (its option's comment). */
+function lengthAndEffort(
+  request: AiRequest,
+  openRouter: boolean,
+  reasoningModel: OpenRouterOptions["reasoningModel"],
+): object {
+  if (reasoningModel === undefined) {
+    return {
+      max_tokens: request.maxTokens ?? 500,
+      ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
+      ...reasoningSetting(request, openRouter),
+    };
+  }
+  return {
+    max_completion_tokens: Math.max(request.maxTokens ?? 500, reasoningModel.maxCompletionTokens),
+    reasoning_effort: reasoningModel.effort,
+    prompt_cache_key: `${request.feature}:${request.user ?? "none"}`,
+  };
+}
+
 const hasTools = (request: AiRequest): boolean => (request.tools ?? []).length > 0;
 
 /**
@@ -226,7 +254,8 @@ const finishReasonOf = (reason: string | undefined): AiFinishReason =>
 /**
  * The completion's answer, or null when it holds neither words nor tool calls (the next model is asked). To a request with
  * tools, nothing said, with a stop or no reason, is an empty answer: the agent's loop nudges once or ends quiet, where
- * asking another model would fail the turn and drop what its tool rounds staged.
+ * asking another model would fail the turn and drop what its tool rounds staged. `model` is the name the answer goes
+ * back under: the agent asks that name for its next tool round.
  */
 function answerOf(
   body: ChatCompletion,
@@ -255,7 +284,7 @@ function answerOf(
   return {
     ok: true,
     text,
-    model: body.model ?? model,
+    model,
     inputTokens: body.usage?.prompt_tokens ?? 0,
     outputTokens: body.usage?.completion_tokens ?? 0,
     toolCalls,
@@ -318,11 +347,9 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
                 messages: (asJson ? withSchemaInSystem(request) : request.messages)
                   .slice(cache === null ? 0 : 1)
                   .map((message) => wireMessage(message, vertex)),
-                max_tokens: request.maxTokens ?? 500,
-                ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
+                ...lengthAndEffort(request, openRouter, options.reasoningModel),
                 ...responseFormat(request, asJson),
                 ...(cache === null ? toolSettings(request) : { extra_body: { google: { cached_content: cache } } }),
-                ...reasoningSetting(request, openRouter),
                 ...(request.user === undefined ? {} : { user: request.user }),
                 // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
                 ...(openRouter && options.zeroRetention !== false
@@ -353,7 +380,10 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           }
           const body = (await response.json()) as ChatCompletion;
           if (body.choices?.[0]?.finish_reason === "content_filter") return { ok: false, reason: "refused" };
-          const answer = answerOf(body, model, Date.now() - started, hasTools(request));
+          // Off OpenRouter, the answer goes back under the name asked: Azure answers with the model's dated name, which
+          // isn't a deployment it takes back, so a tool round named that way would fail.
+          const named = openRouter ? (body.model ?? model) : model;
+          const answer = answerOf(body, named, Date.now() - started, hasTools(request));
           if (answer === null) continue;
           restingUntil.delete(model);
           return answer;
