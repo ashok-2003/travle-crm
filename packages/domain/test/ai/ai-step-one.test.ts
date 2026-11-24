@@ -411,6 +411,54 @@ describe("the AI, step one", () => {
       expect((await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: lead.id } }))).stage).toBe("contacted");
     });
 
+    it("reads the chat's summary and every message after its point, never the lines it already holds", async () => {
+      const { inOrg, chat, message, model, score } = await agency();
+      // The summary holds everything up to the customer's first line; two lines follow it.
+      await inOrg((tx) =>
+        tx.aiChat.create({
+          data: {
+            conversationId: chat.id,
+            chatSummary: "Wants Manali for 4 adults in December, budget about 1 lakh; asked the price.",
+            chatSummaryThroughId: message.id,
+            chatSummaryThroughAt: message.occurredAt,
+          },
+        }),
+      );
+      const line = (direction: "in" | "out", body: string, seconds: number) =>
+        inOrg((tx) =>
+          tx.whatsappMessage.create({
+            data: {
+              conversationId: chat.id,
+              direction,
+              origin: direction === "in" ? "customer" : "staff_crm",
+              kind: "text",
+              body,
+              wamid: randomUUID(),
+              status: direction === "in" ? "received" : "sent",
+              occurredAt: new Date(message.occurredAt.getTime() + seconds * 1000),
+            },
+            select: { id: true },
+          }),
+        );
+      await line("out", "The 5-day Manali trip is Rs 18,999 per person.", 60);
+      const newest = await line("in", "Book it for the 12th, I'll pay the advance today", 120);
+      model.answer(JSON.stringify(answer));
+      expect(
+        await scoreLead(
+          { db: test.db, ai: model, subscriptions: { entitlementsOf: () => Promise.resolve(entitlements()) } },
+          { organizationId: chat.organizationId, conversationId: chat.id, messageId: newest.id },
+          testNow,
+        ),
+      ).toBe("scored");
+      const read = String(model.requests[0]?.messages[1]?.content);
+      expect(read).toContain("budget about 1 lakh");
+      expect(read).toContain("Rs 18,999 per person");
+      expect(read).toContain("pay the advance today");
+      // The first line is in the summary: it isn't read again.
+      expect(read).not.toContain("What is the price?");
+      expect(score).toBeDefined();
+    });
+
     it("scores nothing, and asks the AI nothing, once the agency turned scoring off", async () => {
       const { organizationId, inOrg, owner, model, score } = await agency();
       await inOrg((tx) =>

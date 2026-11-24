@@ -26,6 +26,8 @@ import { agentAnswers } from "./may-write.js";
 import { turnUnderWay } from "./turn-under-way.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
 import { aiEnabled, aiFillLeadsOn, aiScoringOn } from "./settings.js";
+import { linesAfter } from "./chat-summary/index.js";
+import { lineWords } from "./natural/context/chat-turns.js";
 import { releaseAiCall, reserveAiCall } from "./usage.js";
 
 export const AI_SCORE_QUEUE = "ai.score";
@@ -35,7 +37,11 @@ export const SCORE_SETTLE_MS = 30_000;
 export const SCORE_AGAIN_AFTER = 5;
 /** How long a scoring waits for a lite turn under way to end, so a turn that writes no score still leaves one. */
 export const SCORE_LATER_MS = 2 * 60_000;
-const CHAT_MESSAGES = 20;
+/**
+ * The most messages after the chat summary's point that one scoring reads: the summary is refreshed once more than 30
+ * follow it, so this bounds only a chat whose summary isn't kept up (the AI off or handed over).
+ */
+const SCORE_MOST_LINES = 40;
 /** The most lines read to count what is new since a guess: a page this full is scored without counting further. */
 const NEW_LINES_READ = 50;
 
@@ -170,6 +176,8 @@ const promptOf = (facts: {
   wantTrip: boolean;
   lead: readonly string[];
   trips: readonly string[];
+  /** The chat summary: what the messages before `chat` said, or "" when there is none yet. */
+  notes: string;
   chat: readonly { fromCustomer: boolean; text: string }[];
 }): AiMessage[] => {
   const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "›");
@@ -185,7 +193,10 @@ Use only what the chat and the facts say; leave a fact null when it isn't there.
       content: [
         facts.lead.length === 0 ? "" : `What is known of the lead:\n<data>${fenced(facts.lead.join("\n"))}</data>`,
         facts.trips.length === 0 ? "" : `The trips the agency sells:\n<data>${fenced(facts.trips.join("\n"))}</data>`,
-        `The chat, oldest first:\n<data>${fenced(
+        facts.notes.trim() === ""
+          ? ""
+          : `Notes on the chat so far (its earlier messages):\n<data>${fenced(facts.notes)}</data>`,
+        `${facts.notes.trim() === "" ? "The chat" : "The messages since those notes"}, oldest first:\n<data>${fenced(
           facts.chat
             .map((line) => `${line.fromCustomer ? "Customer" : "Agency"}: ${line.text.slice(0, 500)}`)
             .join("\n"),
@@ -270,12 +281,18 @@ async function prepare(
     lead.destinationId === null
       ? null
       : (await tx.destination.findUnique({ where: { id: lead.destinationId }, select: { name: true } }))?.name;
-  const rows = await tx.whatsappMessage.findMany({
-    where: { conversationId: job.conversationId, OR: [{ body: { not: null } }, { caption: { not: null } }] },
-    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    take: CHAT_MESSAGES,
-    select: { direction: true, body: true, caption: true },
+  // The chat summary and every message after its point (the owner, 2026-11-24): the whole chat, at a summary's cost.
+  const state = await tx.aiChat.findFirst({
+    where: { conversationId: job.conversationId },
+    select: { chatSummary: true, chatSummaryThroughId: true, chatSummaryThroughAt: true, summary: true },
   });
+  const through =
+    state?.chatSummaryThroughAt != null && state.chatSummaryThroughId !== null
+      ? { at: state.chatSummaryThroughAt, id: state.chatSummaryThroughId }
+      : null;
+  // With no point yet, lite's notes stand for the summary, as the summary's own refresh reads them.
+  const notes = (through === null ? state?.summary : state?.chatSummary) ?? "";
+  const { lines } = await linesAfter(tx, job.conversationId, through, null, SCORE_MOST_LINES);
   const trips = await tripsOnOffer(tx, calendarDateIn(now, timeZone));
   return {
     leadId: lead.id,
@@ -294,9 +311,15 @@ async function prepare(
         lead.departureCity === null ? "" : `Leaving from: ${lead.departureCity}`,
       ].filter((line) => line !== ""),
       trips,
-      chat: rows
-        .reverse()
-        .map((row) => ({ fromCustomer: row.direction === "in", text: row.body ?? row.caption ?? "" })),
+      notes,
+      chat: lines.map((line) => ({
+        fromCustomer: line.from === "customer",
+        text:
+          lineWords(line, 500, { earlierWhole: true }) +
+          (line.aiText === undefined
+            ? ""
+            : ` (${line.aiText.kind === "transcript" ? "heard" : "seen"}: ${line.aiText.text})`),
+      })),
     }),
   };
 }
