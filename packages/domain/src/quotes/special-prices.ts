@@ -15,8 +15,13 @@ export async function saveSpecialPrices(
   const start = parseCalendarDate(input.startsOn);
   const seasons = await seasonsOf(tx, packageId);
   const covering = seasons.find((season) => season.startsOn <= start && season.endsOn >= start);
+  // With nothing covering the start, "until I change them" stops short of the next season, so that season keeps its prices.
+  const next = seasons.find((season) => season.startsOn > start);
+  const yearOn = addDays(start, 364);
   const end =
-    (input.endsOn === null ? null : parseCalendarDate(input.endsOn)) ?? covering?.endsOn ?? addDays(start, 364);
+    (input.endsOn === null ? null : parseCalendarDate(input.endsOn)) ??
+    covering?.endsOn ??
+    (next !== undefined && next.startsOn <= yearOn ? addDays(next.startsOn, -1) : yearOn);
   const save = (season: {
     id?: string;
     label: string;

@@ -153,6 +153,18 @@ describe("special prices", () => {
     expect(await shape(id)).toEqual(["Special 2027-01-01..2027-12-31 9900000"]);
   });
 
+  it("until I change them with no season covering the start stops the day before the next season, which keeps its days and prices", async () => {
+    const id = await aPackage();
+    await save(id, "Summer", "2027-04-01", "2027-06-30");
+    await save(id, "Winter", "2028-01-10", "2028-01-31");
+    await special(id, "2027-12-20", null);
+    expect(await shape(id)).toEqual([
+      "Summer 2027-04-01..2027-06-30 4500000",
+      "Special 2027-12-20..2028-01-09 9900000",
+      "Winter 2028-01-10..2028-01-31 4500000",
+    ]);
+  });
+
   it("a room type given no price stays unsold in the period", async () => {
     const id = await aPackage();
     await save(id, "Summer", "2027-05-01", "2027-06-30");
