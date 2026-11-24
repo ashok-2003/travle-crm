@@ -43,6 +43,8 @@ export interface WrittenLine {
   sentBy?: string;
   /** Unset: received for a line in, sent for a line out. */
   status?: string;
+  /** The reply button or list row the customer tapped. */
+  buttonReplyId?: string;
 }
 
 /**
@@ -129,6 +131,7 @@ export async function liveAgency(
           sentBy: line.sentBy ?? null,
           wamid: incoming ? `wamid.${randomUUID()}` : null,
           status: line.status ?? (incoming ? "received" : "sent"),
+          buttonReplyId: line.buttonReplyId ?? null,
           occurredAt: line.at,
         },
         select: { id: true },
