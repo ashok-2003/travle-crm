@@ -141,7 +141,10 @@ describe("a photo or video in a bubble", () => {
 
   it("holds the frame for a photo that was not kept", () => {
     show({ failureCode: "too_big", mediaState: "failed" });
-    expect(screen.getByText("Too big to keep").parentElement?.parentElement).toHaveClass("w-64", "aspect-[4/5]");
+    expect(screen.getByText("Too big to keep").closest(String.raw`.aspect-\[4\/5\]`)).toHaveClass(
+      "w-64",
+      "aspect-[4/5]",
+    );
   });
 
   it("holds the video frame while a video is pending", () => {
@@ -152,6 +155,16 @@ describe("a photo or video in a bubble", () => {
   it("calls a document that is gone a file", () => {
     show({ kind: "document", failureCode: "unavailable", mediaState: "failed" });
     expect(screen.getByText("File not available")).toBeInTheDocument();
+  });
+
+  it("words an expired document and a failed voice note without invalid nesting", () => {
+    const warn = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    show({ kind: "document", mediaState: "expired" });
+    expect(screen.getByText("File not available")).toBeInTheDocument();
+    show({ kind: "audio", failureCode: "too_big", mediaState: "failed" });
+    expect(screen.getByText("Too big to keep")).toBeInTheDocument();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("keeps the storage-full wording", () => {

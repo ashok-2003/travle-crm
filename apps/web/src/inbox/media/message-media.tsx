@@ -101,10 +101,10 @@ function lostFile(message: ChatMessage, kind: MediaKind, t: ReturnType<typeof us
   const known = title ?? (message.mediaState === "expired" ? gone : undefined);
   if (known === undefined) return null;
   return (
-    <>
-      <p>{known}</p>
-      <p className="text-caption">{t("openOnPhone")}</p>
-    </>
+    <span className="grid">
+      <span>{known}</span>
+      <span className="text-caption">{t("openOnPhone")}</span>
+    </span>
   );
 }
 
