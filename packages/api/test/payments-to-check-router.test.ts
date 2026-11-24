@@ -116,7 +116,7 @@ describe("paymentsToCheck", () => {
         // An open chat inside the 24-hour window, and the customer's consent: the confirmation goes as free text.
         const connection = await tx.whatsappConnection.create({
           data: {
-            integratedNumber: `91${String(Math.floor(Math.random() * 1e8))}`,
+            integratedNumber: `91${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`,
             displayNumber: "+919800000000",
             mode: "new_number",
             status: "connected",

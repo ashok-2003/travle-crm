@@ -1,10 +1,10 @@
 // The AI's guess of how a lead will go: how likely it books (0-100), hot, warm or cold, why, whether it looks fake and what to
 // do next, worked out from the chat and what we know of the lead. Only for an agency with the AI on, whose plan has it and
-// whose subscription isn't suspended or cancelled; it spends one of the agency's monthly AI calls; it runs once for a burst
-// of the customer's messages (the newest one's turn, a few seconds after it), never again for the same one, at most once in
-// ten minutes for one lead (later lines wait and are read then), not for an "ok" or a "thanks" once it has a guess, nor
-// for a chat the lite agent answers (its turn scores it); and it never changes a lead's stage or anything but its own
-// row. A chat whose lite turn is still under way is scored again two minutes later, unless that turn scored it. Erased
+// whose subscription isn't suspended or cancelled; it spends one of the agency's monthly AI calls; it runs when the customer
+// pauses (30 seconds after their newest message, which alone is scored), never again for the same one, and once a lead has
+// a guess, again only after five new messages with real words (the owner, 2026-11-24: not every message deserves a call;
+// an "ok", a "thanks" or an emoji doesn't count), nor for a chat the lite agent answers (its turn scores it); and it never
+// changes a lead's stage or anything but its own row. A chat whose lite turn is still under way is scored again two minutes later, unless that turn scored it. Erased
 // with the customer.
 import { aiScoreJob, liteFacts, scoreAnswer, type LeadInsight, type ScoreAnswer } from "@travel-crm/contracts/ai";
 import { whatsappTextReceivedEvent } from "@travel-crm/contracts/inbox";
@@ -30,16 +30,21 @@ import { releaseAiCall, reserveAiCall } from "./usage.js";
 
 export const AI_SCORE_QUEUE = "ai.score";
 /** How long the scoring waits after a customer's message for the next one: a burst of lines is scored once. */
-export const SCORE_SETTLE_MS = 20_000;
-/** The least time between two scorings of one lead: a busy chat is scored again only once this has passed. */
-export const SCORE_REST_MS = 10 * 60_000;
+export const SCORE_SETTLE_MS = 30_000;
+/** A lead with a guess is scored again only once the customer has written this many messages with real words since. */
+export const SCORE_AGAIN_AFTER = 5;
 /** How long a scoring waits for a lite turn under way to end, so a turn that writes no score still leaves one. */
 export const SCORE_LATER_MS = 2 * 60_000;
-const CHAT_MESSAGES = 20;
+/**
+ * The most messages after the chat summary's point that one scoring reads: the summary is refreshed once more than 30
+ * follow it, so this bounds only a chat whose summary isn't kept up (the AI off or handed over).
+ */
+const SCORE_MOST_LINES = 40;
+/** The most lines read to count what is new since a guess: a page this full is scored without counting further. */
+const NEW_LINES_READ = 50;
 
 /**
- * A customer's line that says nothing new (an "ok", a "thanks", an emoji): a lead already scored isn't scored again for
- * it. Common acknowledgements in English and Hinglish only; a yes or a no ("haan", "ji", "done") may answer a question, so
+ * A customer's line that says nothing new (an "ok", a "thanks", an emoji): it doesn't count towards scoring a lead again. Common acknowledgements in English and Hinglish only; a yes or a no ("haan", "ji", "done") may answer a question, so
  * it is always scored.
  */
 const ACKNOWLEDGEMENT =
@@ -56,21 +61,21 @@ export function saysNothingNew(text: string): boolean {
 }
 
 /**
- * True when the lead has a guess and every line the customer wrote since it was made is an "ok", a "thanks" or an emoji:
- * the call is saved. A burst of real words with an "ok" at its end is read whole, and a lead never scored is scored.
+ * True when the lead has a guess and the customer has written fewer than five messages with real words since it was made:
+ * the call is saved. A lead never scored is scored.
  */
-async function nothingNewSince(tx: OrgTx, conversationId: string, leadId: string): Promise<boolean> {
+async function tooFewNewSince(tx: OrgTx, conversationId: string, leadId: string): Promise<boolean> {
   const insight = await tx.leadAiInsight.findFirst({ where: { leadId }, select: { updatedAt: true } });
   if (insight === null) return false;
   const since = await tx.whatsappMessage.findMany({
     where: { conversationId, direction: "in", occurredAt: { gt: insight.updatedAt } },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    take: CHAT_MESSAGES,
+    take: NEW_LINES_READ,
     select: { body: true, caption: true },
   });
-  // A page full of lines may have real words beyond it: read it all.
-  if (since.length === CHAT_MESSAGES) return false;
-  return since.every((message) => saysNothingNew(message.body ?? message.caption ?? ""));
+  if (since.length === NEW_LINES_READ) return false;
+  const withWords = since.filter((message) => !saysNothingNew(message.body ?? message.caption ?? ""));
+  return withWords.length < SCORE_AGAIN_AFTER;
 }
 
 /**
@@ -98,23 +103,6 @@ async function agentScores(
   return insight !== null && insight.updatedAt > input.newestAt ? "agent_scores" : null;
 }
 
-/**
- * When the lead this chat is about was last scored, or null: never, or no lead yet (a first message's lead may be made
- * after this is asked, so the job still goes, and finds it).
- */
-async function lastScoredAt(tx: OrgTx, conversationId: string): Promise<Date | null> {
-  const chat = await tx.whatsappConversation.findUnique({ where: { id: conversationId }, select: { personId: true } });
-  if (chat?.personId == null) return null;
-  const lead = await tx.lead.findFirst({
-    where: { personId: chat.personId, stage: { in: [...openLeadStages] } },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-  if (lead === null) return null;
-  const insight = await tx.leadAiInsight.findFirst({ where: { leadId: lead.id }, select: { updatedAt: true } });
-  return insight?.updatedAt ?? null;
-}
-
 export interface ScoreDependencies {
   db: Database;
   ai: AiModel;
@@ -124,7 +112,7 @@ export interface ScoreDependencies {
   queue?: JobQueue;
 }
 
-/** A customer wrote: for an agency with the AI on, the lead's scoring is queued for the end of the burst, once per message. */
+/** A customer wrote: for an agency with the AI on, the lead's scoring is queued for their pause, once per message. */
 export function scoreOnCustomerWroteListener(dependencies: {
   queue: JobQueue;
   ai: AiModel;
@@ -139,23 +127,11 @@ export function scoreOnCustomerWroteListener(dependencies: {
       // Nothing leaves for an agency that hasn't switched the AI on, or has no right to it.
       if (!aiAllowed(await dependencies.subscriptions.entitlementsOf(event.organizationId))) return;
       // The call serves the lead's score and its filling-in from the first messages: either switch keeps it.
-      const { conversationId } = event.payload;
-      const scoredAt = await context.forOrg(async (tx) => {
-        if (!(await aiEnabled(tx))) return "off";
-        const filling = await aiFillLeadsOn(tx);
-        if (!(await aiScoringOn(tx)) && !filling) return "off";
-        // A chat still in its first messages may fill its lead in: no rest then, so the lead fills at once.
-        const early =
-          filling &&
-          (await tx.whatsappMessage.count({ where: { conversationId, direction: "in" }, take: FILL_MESSAGES + 1 })) <=
-            FILL_MESSAGES;
-        return early ? null : await lastScoredAt(tx, conversationId);
-      });
-      if (scoredAt === "off") return;
-      // A lead scored a moment ago waits out its rest: every message meanwhile queues for the same time, and only the
-      // newest is scored then, so a busy chat costs a call every few minutes and its last words are still read.
-      const settled = Date.now() + SCORE_SETTLE_MS;
-      const rested = scoredAt === null ? 0 : scoredAt.getTime() + SCORE_REST_MS;
+      const on = await context.forOrg(
+        async (tx) => (await aiEnabled(tx)) && ((await aiScoringOn(tx)) || (await aiFillLeadsOn(tx))),
+      );
+      if (!on) return;
+      // Whether the lead is scored again is the job's to decide, by what the customer wrote since its guess.
       await dependencies.queue.send(
         AI_SCORE_QUEUE,
         {
@@ -163,7 +139,7 @@ export function scoreOnCustomerWroteListener(dependencies: {
           conversationId: event.payload.conversationId,
           messageId: event.payload.messageId,
         },
-        { startAfter: new Date(Math.max(settled, rested)), id: event.payload.messageId },
+        { startAfter: new Date(Date.now() + SCORE_SETTLE_MS), id: event.payload.messageId },
       );
     },
   });
@@ -198,6 +174,8 @@ const promptOf = (facts: {
   wantTrip: boolean;
   lead: readonly string[];
   trips: readonly string[];
+  /** The chat summary: what the messages before `chat` said, or "" when there is none yet. */
+  notes: string;
   chat: readonly { fromCustomer: boolean; text: string }[];
 }): AiMessage[] => {
   const fenced = (text: string) => text.replaceAll("<", "‹").replaceAll(">", "›");
@@ -213,7 +191,10 @@ Use only what the chat and the facts say; leave a fact null when it isn't there.
       content: [
         facts.lead.length === 0 ? "" : `What is known of the lead:\n<data>${fenced(facts.lead.join("\n"))}</data>`,
         facts.trips.length === 0 ? "" : `The trips the agency sells:\n<data>${fenced(facts.trips.join("\n"))}</data>`,
-        `The chat, oldest first:\n<data>${fenced(
+        facts.notes.trim() === ""
+          ? ""
+          : `Notes on the chat so far (its earlier messages):\n<data>${fenced(facts.notes)}</data>`,
+        `${facts.notes.trim() === "" ? "The chat" : "The messages since those notes"}, oldest first:\n<data>${fenced(
           facts.chat
             .map((line) => `${line.fromCustomer ? "Customer" : "Agency"}: ${line.text.slice(0, 500)}`)
             .join("\n"),
@@ -290,19 +271,38 @@ async function prepare(
   });
   const wantFill = filling && firstMessages.length <= FILL_MESSAGES && !(await leadIsComplete(tx, lead.id));
   if (!scoring && !wantFill) return "nothing_to_do";
-  // Only an "ok" or a "thanks" since the last guess: the call is saved. Such a line has nothing to fill in either.
-  if (await nothingNewSince(tx, job.conversationId, lead.id)) return "nothing_new";
+  // Fewer than five messages with real words since the last guess: the call is saved, for the filling-in too.
+  if (await tooFewNewSince(tx, job.conversationId, lead.id)) return "too_few_new";
   const timeZone = await organizationTimeZone(tx, job.organizationId);
   if (!(await reserveAiCall(tx, now, timeZone))) return "limit";
   const destination =
     lead.destinationId === null
       ? null
       : (await tx.destination.findUnique({ where: { id: lead.destinationId }, select: { name: true } }))?.name;
+  // The chat summary and every message after its point (the owner, 2026-11-24): the whole chat, at a summary's cost.
+  const state = await tx.aiChat.findFirst({
+    where: { conversationId: job.conversationId },
+    select: { chatSummary: true, chatSummaryThroughId: true, chatSummaryThroughAt: true, summary: true },
+  });
+  const through =
+    state?.chatSummaryThroughAt != null && state.chatSummaryThroughId !== null
+      ? { at: state.chatSummaryThroughAt, id: state.chatSummaryThroughId }
+      : null;
+  // With no point yet, lite's notes stand for the summary, as the summary's own refresh reads them.
+  const notes = (through === null ? state?.summary : state?.chatSummary) ?? "";
+  // Read here, not through the summary's own reader, which would make the agent's modules and this one import each other.
   const rows = await tx.whatsappMessage.findMany({
-    where: { conversationId: job.conversationId, OR: [{ body: { not: null } }, { caption: { not: null } }] },
+    where: {
+      conversationId: job.conversationId,
+      kind: { not: "reaction" },
+      status: { not: "superseded" },
+      ...(through === null
+        ? {}
+        : { OR: [{ occurredAt: { gt: through.at } }, { occurredAt: through.at, id: { gt: through.id } }] }),
+    },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    take: CHAT_MESSAGES,
-    select: { direction: true, body: true, caption: true },
+    take: SCORE_MOST_LINES,
+    select: { direction: true, body: true, caption: true, aiText: true, aiTextKind: true },
   });
   const trips = await tripsOnOffer(tx, calendarDateIn(now, timeZone));
   return {
@@ -322,9 +322,13 @@ async function prepare(
         lead.departureCity === null ? "" : `Leaving from: ${lead.departureCity}`,
       ].filter((line) => line !== ""),
       trips,
-      chat: rows
-        .reverse()
-        .map((row) => ({ fromCustomer: row.direction === "in", text: row.body ?? row.caption ?? "" })),
+      notes,
+      chat: rows.reverse().flatMap((row) => {
+        const said =
+          row.aiText === null ? "" : ` (${row.aiTextKind === "transcript" ? "heard" : "seen"}: ${row.aiText})`;
+        const text = `${row.body ?? row.caption ?? ""}${said}`.trim();
+        return text === "" ? [] : [{ fromCustomer: row.direction === "in", text }];
+      }),
     }),
   };
 }
@@ -371,8 +375,10 @@ export async function scoreLead(
     feature: "score_lead",
     messages: prepared.messages,
     json: true,
-    maxTokens: 500,
-    // Gemini's thinking counts against maxTokens: left to itself, it used all 500 on long chats and answered nothing.
+    // Room for the answer (at most about 410 tokens in four days of live scoring) and a backup Gemini's thinking, which
+    // counts against it: at 500 with its thinking left to itself it once used it all on long chats and answered nothing.
+    // The primary gpt-5-mini on Azure gets its own room (16,000) and effort whatever this asks.
+    maxTokens: 1_500,
     reasoning: { effort: "minimal" },
     user: organizationId,
   });
