@@ -6,7 +6,7 @@ import { inflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateIcons, icoFromPng } from "../scripts/render-icons.js";
 import { brandAssets } from "../src/assets.js";
-import { brand, pwaIcons } from "../src/index.js";
+import { appleStartupImages, appleStartupScreens, brand, pwaIcons } from "../src/index.js";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -87,25 +87,26 @@ describe("generated icons", () => {
 
   it("writes the favicon, the home-screen icons and the manifest icons", async () => {
     const expected = [
-      "apple-touch-icon.png",
+      ...appleStartupScreens.map((screen) => `apple-startup-${String(screen.width)}x${String(screen.height)}-v2.png`),
+      "apple-touch-icon-v2.png",
       "favicon-32.png",
       "favicon.ico",
       "favicon.svg",
-      "icon-192.png",
-      "icon-512.png",
-      "icon-maskable-512.png",
+      "icon-192-v2.png",
+      "icon-512-v2.png",
+      "icon-maskable-512-v2.png",
     ];
-    expect([...written].sort()).toEqual(expected);
-    expect((await readdir(directory)).sort()).toEqual(expected);
+    expect([...written].sort()).toEqual([...expected].sort());
+    expect((await readdir(directory)).sort()).toEqual([...expected].sort());
   });
 
   it("renders each PNG at its size", async () => {
     const sizes = {
       "favicon-32.png": 32,
-      "apple-touch-icon.png": 180,
-      "icon-192.png": 192,
-      "icon-512.png": 512,
-      "icon-maskable-512.png": 512,
+      "apple-touch-icon-v2.png": 180,
+      "icon-192-v2.png": 192,
+      "icon-512-v2.png": 512,
+      "icon-maskable-512-v2.png": 512,
     };
     for (const [fileName, size] of Object.entries(sizes)) {
       const { width, height } = readPng(await read(fileName));
@@ -114,10 +115,10 @@ describe("generated icons", () => {
   });
 
   it("fills the maskable icon to its edges with ink, and the Apple icon with warm white", async () => {
-    expect(readPng(await read("icon-maskable-512.png")).topLeft).toEqual(opaque(brand.colours.ink));
-    expect(readPng(await read("apple-touch-icon.png")).topLeft).toEqual(opaque(brand.colours.canvas));
+    expect(readPng(await read("icon-maskable-512-v2.png")).topLeft).toEqual(opaque(brand.colours.ink));
+    expect(readPng(await read("apple-touch-icon-v2.png")).topLeft).toEqual(opaque(brand.colours.canvas));
     // The plain icons keep the mark's rounded corners on a transparent background.
-    expect(readPng(await read("icon-512.png")).topLeft[3]).toBe(0);
+    expect(readPng(await read("icon-512-v2.png")).topLeft[3]).toBe(0);
   });
 
   it("wraps the 32-pixel PNG in a valid .ico file", async () => {
@@ -136,10 +137,10 @@ describe("generated icons", () => {
   it("draws the mark: the middle of each icon holds pixels unlike its corner", async () => {
     for (const fileName of [
       "favicon-32.png",
-      "apple-touch-icon.png",
-      "icon-192.png",
-      "icon-512.png",
-      "icon-maskable-512.png",
+      "apple-touch-icon-v2.png",
+      "icon-192-v2.png",
+      "icon-512-v2.png",
+      "icon-maskable-512-v2.png",
     ]) {
       const { width, height, pixel } = decodePng(await read(fileName));
       const corner = pixel(0, 0).join();
@@ -154,7 +155,7 @@ describe("generated icons", () => {
   });
 
   it("keeps the maskable icon's edges all ink, so the mark sits inside the safe zone", async () => {
-    const { width, height, pixel } = decodePng(await read("icon-maskable-512.png"));
+    const { width, height, pixel } = decodePng(await read("icon-maskable-512-v2.png"));
     const ink = opaque(brand.colours.ink);
     for (let i = 0; i < width; i++) {
       expect(pixel(i, 0)).toEqual(ink);
@@ -175,11 +176,61 @@ describe("generated icons", () => {
     expect(() => icoFromPng(new Uint8Array(1), 256)).toThrow(RangeError);
   });
 
+  it("names the icons with a version, so a changed mark gets a new address", () => {
+    expect(pwaIcons.map((icon) => icon.src)).toEqual([
+      "/icons/icon-192-v2.png",
+      "/icons/icon-512-v2.png",
+      "/icons/icon-maskable-512-v2.png",
+    ]);
+  });
+
   it("lists, for the PWA manifest, exactly the icons it wrote", async () => {
     for (const icon of pwaIcons) {
       const { width, height } = readPng(await read(path.basename(icon.src)));
       expect(icon.sizes).toBe(`${String(width)}x${String(height)}`);
     }
     expect(pwaIcons.map((icon) => icon.purpose)).toEqual(["any", "any", "maskable"]);
+  });
+
+  it("draws one portrait startup image per iPhone screen: ink all over, the mark centred", async () => {
+    expect(appleStartupScreens.length).toBeGreaterThanOrEqual(8);
+    for (const screen of appleStartupScreens) {
+      const png = await read(path.basename(appleStartupImages[appleStartupScreens.indexOf(screen)]?.url ?? ""));
+      const { width, height, pixel } = decodePng(png);
+      expect([width, height]).toEqual([screen.width, screen.height]);
+      expect(pixel(0, 0)).toEqual(opaque(brand.colours.ink));
+      expect(pixel(width - 1, height - 1)).toEqual(opaque(brand.colours.ink));
+      // The mark's box: the extent of non-ink pixels in a band around the middle (the petals leave the very middle open).
+      const ink = opaque(brand.colours.ink).join();
+      const xs: number[] = [];
+      const ys: number[] = [];
+      for (let y = Math.floor(height / 2 - width / 2); y < height / 2 + width / 2; y++) {
+        for (let x = 0; x < width; x++) {
+          if (pixel(x, y).join() !== ink) {
+            xs.push(x);
+            ys.push(y);
+          }
+        }
+      }
+      const [left, right] = [Math.min(...xs), Math.max(...xs)];
+      const [top, bottom] = [Math.min(...ys), Math.max(...ys)];
+      expect((right - left) / width, `${String(width)} wide`).toBeGreaterThan(0.25);
+      expect((right - left) / width).toBeLessThan(0.4);
+      expect(Math.abs((left + right) / 2 - width / 2)).toBeLessThan(width * 0.01);
+      expect(Math.abs((top + bottom) / 2 - height / 2)).toBeLessThan(height * 0.01);
+      // Mostly one colour, so the file stays small.
+      expect(png.length, `${String(width)} wide`).toBeLessThan(60_000);
+    }
+  }, 60_000);
+
+  it("lists, for the layout, a media query that names each screen's size, ratio and portrait", () => {
+    for (const [index, screen] of appleStartupScreens.entries()) {
+      const { url, media } = appleStartupImages[index] ?? { url: "", media: "" };
+      expect(url).toBe(`/icons/apple-startup-${String(screen.width)}x${String(screen.height)}-v2.png`);
+      expect(media).toBe(
+        `(device-width: ${String(screen.width / screen.pixelRatio)}px) and (device-height: ${String(screen.height / screen.pixelRatio)}px)` +
+          ` and (-webkit-device-pixel-ratio: ${String(screen.pixelRatio)}) and (orientation: portrait)`,
+      );
+    }
   });
 });

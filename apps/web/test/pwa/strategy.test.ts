@@ -66,7 +66,7 @@ describe("strategyFor", () => {
   });
 
   it("asks the network first for the icons, whose names stay the same when they change", () => {
-    expect(strategyFor(request("/icons/icon-192.png"), origin)).toBe("network-first");
+    expect(strategyFor(request("/icons/icon-192-v2.png"), origin)).toBe("network-first");
     expect(strategyFor(request("/icons/favicon.svg"), origin)).toBe("network-first");
   });
 

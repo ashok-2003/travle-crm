@@ -16,7 +16,8 @@ The product's own identity (spec section 10): name, colours, fonts, contacts and
 - The main entry is plain data, safe in the browser (`test/browser-safe.test.ts`). `brandAssets`, the logo files'
   absolute paths, is Node-only and comes from `@travel-crm/brand/files`.
 - `pnpm --filter @travel-crm/brand build` renders the icons from `assets/logo.svg` into `dist/icons`: `favicon.svg`,
-  `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png` and
-  `icon-maskable-512.png`. `pwaIcons` lists the manifest's icons for the web app (plan 5), which serves them under
+  `favicon.ico`, `favicon-32.png`, `apple-touch-icon-v2.png` (180), `icon-192-v2.png`, `icon-512-v2.png`,
+  `icon-maskable-512-v2.png` (the version in a name is bumped when the mark changes: Chrome updates an installed app's
+  icon only when its address changes) and one `apple-startup-<w>x<h>-v2.png` per iPhone screen (`appleStartupImages`). `pwaIcons` lists the manifest's icons for the web app (plan 5), which serves them under
   `/icons/`. The renderer (`scripts/render-icons.ts`, using `@resvg/resvg-js`) runs at build time only.
 - An organization's own logo, colours and terms are settings stored per organization, not brand values.

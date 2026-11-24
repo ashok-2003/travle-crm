@@ -6,7 +6,7 @@ import notificationWords from "../i18n/messages/en-IN/notifications.json";
 import { isAppPath, routes } from "../lib/routes";
 
 /** The app's icon, shown beside the notification's text. */
-const ICON = "/icons/icon-192.png";
+const ICON = "/icons/icon-192-v2.png";
 
 export interface PushNotification {
   title: string;

@@ -1,10 +1,11 @@
-// Renders the favicon, the home-screen icons and the PWA manifest's icons from assets/logo.svg (spec 10).
+// Renders the favicon, the home-screen icons, the PWA manifest's icons and the iPhone startup images from assets/logo.svg (spec 10).
 // Build-time only: it uses @resvg/resvg-js, a dev dependency, which is why it lives outside src/.
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import { brandAssets } from "../src/assets.js";
 import { brand } from "../src/brand.js";
+import { appleStartupFileName, appleStartupScreens, type AppleStartupScreen } from "../src/icons.js";
 
 interface PngIcon {
   fileName: string;
@@ -19,11 +20,11 @@ interface PngIcon {
 const pngIcons: readonly PngIcon[] = [
   { fileName: "favicon-32.png", size: 32, background: null, markScale: 1 },
   // iOS puts home-screen icons on its own rounded square and fills transparency with black: give it the page colour.
-  { fileName: "apple-touch-icon.png", size: 180, background: brand.colours.canvas, markScale: 0.8 },
-  { fileName: "icon-192.png", size: 192, background: null, markScale: 1 },
-  { fileName: "icon-512.png", size: 512, background: null, markScale: 1 },
+  { fileName: "apple-touch-icon-v2.png", size: 180, background: brand.colours.canvas, markScale: 0.8 },
+  { fileName: "icon-192-v2.png", size: 192, background: null, markScale: 1 },
+  { fileName: "icon-512-v2.png", size: 512, background: null, markScale: 1 },
   // Devices crop maskable icons to their own shape, keeping only the central 80 % (the safe zone) for sure.
-  { fileName: "icon-maskable-512.png", size: 512, background: brand.colours.ink, markScale: 0.8 },
+  { fileName: "icon-maskable-512-v2.png", size: 512, background: brand.colours.ink, markScale: 0.8 },
 ];
 
 const FAVICON_SIZE = 32;
@@ -47,6 +48,25 @@ function iconSvg(logo: { viewBox: string; drawing: string }, icon: PngIcon): str
     background +
     `<svg x="${String(offset)}" y="${String(offset)}" width="${String(markSide)}" height="${String(markSide)}" viewBox="${logo.viewBox}">` +
     logo.drawing +
+    "</svg></svg>"
+  );
+}
+
+/** The mark's share of an iPhone startup image's width. */
+const STARTUP_MARK_WIDTH_SHARE = 1 / 3;
+/** The logo's petals span about this much of its viewBox's side (42 of 64 units, stroke included). */
+const PETALS_SHARE_OF_LOGO = 42 / 64;
+
+/** A startup image: the brand's ink all over, the petals alone (no rounded tile) centred. */
+function startupSvg(logo: { viewBox: string; drawing: string }, screen: AppleStartupScreen): string {
+  const side = (screen.width * STARTUP_MARK_WIDTH_SHARE) / PETALS_SHARE_OF_LOGO;
+  // The logo's first shape is its ink tile; the petals after it are warm white and stand on their own.
+  const petals = logo.drawing.replace(/<path\b[^>]*\/>/, "");
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${String(screen.width)}" height="${String(screen.height)}" viewBox="0 0 ${String(screen.width)} ${String(screen.height)}">` +
+    `<rect width="${String(screen.width)}" height="${String(screen.height)}" fill="${brand.colours.ink}"/>` +
+    `<svg x="${String((screen.width - side) / 2)}" y="${String((screen.height - side) / 2)}" width="${String(side)}" height="${String(side)}" viewBox="${logo.viewBox}">` +
+    petals +
     "</svg></svg>"
   );
 }
@@ -94,6 +114,12 @@ export async function generateIcons(outputDirectory: string): Promise<string[]> 
       await writeFile(path.join(outputDirectory, "favicon.ico"), icoFromPng(png, FAVICON_SIZE));
       written.push("favicon.ico");
     }
+  }
+  for (const screen of appleStartupScreens) {
+    const fileName = appleStartupFileName(screen);
+    const png = new Resvg(startupSvg(logo, screen), { font: { loadSystemFonts: false } }).render().asPng();
+    await writeFile(path.join(outputDirectory, fileName), png);
+    written.push(fileName);
   }
   // Browsers that read SVG favicons get the logo itself, sharp at any size.
   await copyFile(brandAssets.logo, path.join(outputDirectory, "favicon.svg"));

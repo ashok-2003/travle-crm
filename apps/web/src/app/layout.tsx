@@ -1,7 +1,7 @@
 // The root layout: the document, its language, the brand's fonts and styles, and the toast region.
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { brand } from "@travel-crm/brand";
+import { appleStartupImages, brand } from "@travel-crm/brand";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { messages } from "@/i18n/messages";
@@ -30,7 +30,14 @@ export const metadata: Metadata = {
       { url: "/icons/favicon.ico", sizes: "32x32" },
       { url: "/icons/favicon.svg", type: "image/svg+xml" },
     ],
-    apple: "/icons/apple-touch-icon.png",
+    apple: "/icons/apple-touch-icon-v2.png",
+  },
+  // An installed iPhone app opens on the brand's ink with the mark, not a white flash.
+  appleWebApp: {
+    capable: true,
+    title: brand.shortName,
+    statusBarStyle: "black-translucent",
+    startupImage: appleStartupImages.map((image) => ({ ...image })),
   },
 };
 

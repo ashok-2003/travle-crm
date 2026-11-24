@@ -15,7 +15,8 @@ describe("manifest", () => {
       scope: "/",
       display: "standalone",
       theme_color: brand.colours.canvas,
-      background_color: brand.colours.canvas,
+      background_color: brand.colours.ink,
+      related_applications: [{ platform: "webapp", url: "/manifest.webmanifest" }],
     });
   });
 
