@@ -2,12 +2,14 @@
 // numbers, templates, files and the messages sent, a settable clock, a switch for each failure kind, and the delivery
 // reports MSG91 would send for what was sent (you advance them yourself).
 import { buttonsFit } from "./button-limits.js";
+import { listFits } from "./list-limits.js";
 import {
   failed,
   type WhatsAppButtonsToSend,
   type WhatsAppCreateResult,
   type WhatsAppFailureReason,
   type WhatsAppListResult,
+  type WhatsAppListToSend,
   type WhatsAppMediaResult,
   type WhatsAppMediaToSend,
   type WhatsAppNumberInfo,
@@ -25,7 +27,7 @@ export interface SentMessage {
   wamid: string;
   number: string;
   to: string;
-  kind: "text" | "media" | "template" | "buttons";
+  kind: "text" | "media" | "template" | "buttons" | "list";
   text?: string;
   /** The message id this one answered, as sent. */
   replyTo?: string;
@@ -33,6 +35,8 @@ export interface SentMessage {
   template?: WhatsAppTemplateSend;
   /** For buttons: the buttons and footer as sent; the body is `text`. */
   buttons?: { buttons: WhatsAppButtonsToSend["buttons"]; footer?: string };
+  /** For a list: its button and sections as sent; the body is `text`. */
+  list?: Pick<WhatsAppListToSend, "button" | "sections">;
   sentAt: Date;
 }
 
@@ -166,6 +170,22 @@ export function createMemoryWhatsAppProvider(options: { now?: Date } = {}): Memo
           buttons: {
             buttons: message.buttons.map((button) => ({ ...button })),
             ...(message.footer === undefined ? {} : { footer: message.footer }),
+          },
+          ...(message.replyTo === undefined ? {} : { replyTo: message.replyTo }),
+        });
+      }),
+    sendList: (number, to, message) =>
+      Promise.resolve().then(() => {
+        if (!listFits(message)) return failed("other", { providerCode: "invalid_list" });
+        return send("sendList", number, to, {
+          kind: "list",
+          text: message.body,
+          list: {
+            button: message.button,
+            sections: message.sections.map((section) => ({
+              ...section,
+              rows: section.rows.map((row) => ({ ...row })),
+            })),
           },
           ...(message.replyTo === undefined ? {} : { replyTo: message.replyTo }),
         });

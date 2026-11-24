@@ -136,6 +136,101 @@ describe("the real WhatsApp provider", () => {
     expect(requests).toHaveLength(1);
   });
 
+  it("sends a list as MSG91's interactive list documents it, one section, rows with their lines", async () => {
+    const { adapter, requests } = provider(() =>
+      json(200, { status: "success", data: { messages: [{ id: "wamid.L1" }] } }),
+    );
+    const result = await adapter.sendList("+91 88888 00000", "+919876543210", {
+      body: "Pick a trip, we'll send its plan.",
+      button: "See trips",
+      sections: [
+        {
+          rows: [
+            { id: "trips:manali", title: "Manali", description: "2 trips · from ₹5,999 · next Fri 27 Nov" },
+            { id: "trips:other", title: "Something else" },
+          ],
+        },
+      ],
+    });
+    expect(result).toEqual({ ok: true, wamid: "wamid.L1", requestId: null });
+    expect(requests[0]?.url).toBe("https://msg91.test/api/v5/whatsapp/whatsapp-outbound-message/");
+    expect(JSON.parse(requests[0]?.init.body as string)).toEqual({
+      integrated_number: "918888800000",
+      recipient_number: "919876543210",
+      content_type: "interactive",
+      interactive: {
+        type: "list",
+        body: { text: "Pick a trip, we'll send its plan." },
+        action: {
+          button: "See trips",
+          sections: [
+            {
+              rows: [
+                { id: "trips:manali", title: "Manali", description: "2 trips · from ₹5,999 · next Fri 27 Nov" },
+                { id: "trips:other", title: "Something else" },
+              ],
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it("refuses a list past WhatsApp's limits without a request", async () => {
+    const { adapter, requests } = provider(() => json(200, {}));
+    const row = (n: number) => ({ id: `r${String(n)}`, title: `Row ${String(n)}` });
+    const ok = { body: "x", button: "See", sections: [{ rows: [row(1)] }] };
+    const cases = [
+      { ...ok, sections: [] },
+      { ...ok, sections: [{ rows: [] }] },
+      { ...ok, sections: [{ rows: Array.from({ length: 11 }, (_, n) => row(n)) }] },
+      { ...ok, body: "" },
+      { ...ok, body: "b".repeat(1025) },
+      { ...ok, button: "" },
+      { ...ok, button: "B".repeat(21) },
+      { ...ok, sections: [{ rows: [{ id: "a", title: "T".repeat(25) }] }] },
+      { ...ok, sections: [{ rows: [{ id: "a", title: "" }] }] },
+      { ...ok, sections: [{ rows: [{ id: "a", title: "A", description: "d".repeat(73) }] }] },
+      { ...ok, sections: [{ rows: [{ id: "i".repeat(201), title: "A" }] }] },
+      { ...ok, sections: [{ rows: [{ id: "a b", title: "A" }] }] },
+      { ...ok, sections: [{ rows: [row(1), { id: "r1", title: "Again" }] }] },
+      { ...ok, sections: [{ title: "S".repeat(25), rows: [row(1)] }] },
+      // Two sections need a title each, and their rows' ids stay unique across them.
+      { ...ok, sections: [{ rows: [row(1)] }, { title: "More", rows: [row(2)] }] },
+      {
+        ...ok,
+        sections: [
+          { title: "One", rows: [row(1)] },
+          { title: "Two", rows: [row(1)] },
+        ],
+      },
+    ];
+    for (const message of cases) {
+      expect(await adapter.sendList("918888800000", "919876543210", message)).toEqual({
+        ok: false,
+        reason: "other",
+        providerCode: "invalid_list",
+      });
+    }
+    expect(requests).toHaveLength(0);
+    // The limits themselves pass.
+    const edge = await adapter.sendList("918888800000", "919876543210", {
+      body: "b".repeat(1024),
+      button: "B".repeat(20),
+      sections: [
+        {
+          title: "S".repeat(24),
+          rows: [
+            { id: "i".repeat(200), title: "T".repeat(24), description: "d".repeat(72) },
+            ...Array.from({ length: 9 }, (_, n) => row(n)),
+          ],
+        },
+      ],
+    });
+    expect(edge.ok).toBe(true);
+    expect(requests).toHaveLength(1);
+  });
+
   it("sends a file as MSG91's attachment_url, with its caption and, for a document, its name", async () => {
     const { adapter, requests } = provider(() =>
       json(200, { status: "success", data: { messages: [{ id: "wamid.M1" }] } }),

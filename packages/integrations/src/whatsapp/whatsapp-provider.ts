@@ -59,6 +59,26 @@ export interface WhatsAppButtonsToSend {
   replyTo?: string;
 }
 
+/** One row of a list. The id comes back when it is picked, so it holds ids only, never personal data. */
+export interface WhatsAppListRow {
+  id: string;
+  title: string;
+  /** The line under the title. */
+  description?: string;
+}
+
+/**
+ * A list message: the body, the button that opens the list (up to 20 characters) and its sections, 10 rows in all, each
+ * title up to 24 characters and line up to 72, ids unique; a section needs its title (24) only when there are two or more.
+ */
+export interface WhatsAppListToSend {
+  body: string;
+  button: string;
+  sections: readonly { title?: string; rows: readonly WhatsAppListRow[] }[];
+  /** The WhatsApp message id this one answers, shown as its quote. SPIKE(reply-context). */
+  replyTo?: string;
+}
+
 export interface WhatsAppTemplateSend {
   name: string;
   language: string;
@@ -117,6 +137,8 @@ export interface WhatsAppProvider {
   sendMedia(number: string, to: string, media: WhatsAppMediaToSend): Promise<WhatsAppSendResult>;
   /** A message past WhatsApp's limits answers `{ ok: false, reason: "other", providerCode: "invalid_buttons" }` with no request. */
   sendButtons(number: string, to: string, message: WhatsAppButtonsToSend): Promise<WhatsAppSendResult>;
+  /** A list past WhatsApp's limits answers `{ ok: false, reason: "other", providerCode: "invalid_list" }` with no request. */
+  sendList(number: string, to: string, message: WhatsAppListToSend): Promise<WhatsAppSendResult>;
   sendTemplate(number: string, to: string, template: WhatsAppTemplateSend): Promise<WhatsAppSendResult>;
   listTemplates(number: string): Promise<WhatsAppListResult>;
   createTemplate(number: string, template: WhatsAppTemplateDraft): Promise<WhatsAppCreateResult>;
