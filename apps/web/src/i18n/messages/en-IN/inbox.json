@@ -749,6 +749,12 @@
     }
   },
   "emptyChoices": "No chat matches these choices.",
+  "filtersButton": "Filters",
+  "filtersChosen": "Filters, {count} chosen",
+  "filtersTitle": "Filter the chats",
+  "filtersDescription": "Narrow the chats by stage, time or tag.",
+  "filtersDone": "Done",
+  "filtersClear": "Clear all",
   "stageFilter": "Show chats at a stage",
   "anyStage": "Status",
   "periodFilter": "Show chats from a period",

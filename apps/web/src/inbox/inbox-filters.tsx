@@ -13,7 +13,11 @@ import {
   type InboxSummary,
   type WhatsappNumber,
 } from "@travel-crm/contracts/inbox";
+import { SlidersHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { StageDot } from "@/leads/stage-badge";
@@ -62,8 +66,8 @@ export function FilterChips({
 }) {
   const t = useTranslations("inbox");
   return (
-    // On a phone the row scrolls sideways and fades its right edge as the cue; on a computer it wraps, so no chip is cut.
-    <div className="-mx-3 overflow-x-auto px-3 mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)] md:mx-0 md:overflow-visible md:px-0 md:mask-none">
+    // One row that scrolls sideways on every screen, fading its right edge as the cue, so the chips take one line.
+    <div className="-mx-3 overflow-x-auto px-3 mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
       <ToggleGroup
         type="single"
         variant="outline"
@@ -73,7 +77,7 @@ export function FilterChips({
           const found = inboxFilters.find((filter) => filter === chosen);
           if (found !== undefined) onChange(found);
         }}
-        className="w-max pr-6 md:w-full md:flex-wrap md:pr-0"
+        className="w-max pr-6"
       >
         {inboxFilters.map((filter) => {
           const count = countOf(summary, filter);
@@ -81,13 +85,12 @@ export function FilterChips({
           return (
             <ToggleGroupItem key={filter} value={filter} className="gap-1.5 rounded-full px-3">
               {t(filterLabel[filter])}
-              {count !== null && count > 0 && <span className="numbers text-caption">{count}</span>}
-              {late > 0 && (
+              {count !== null && count > 0 && (
                 <span
-                  className="rounded-full bg-status-bad-dot px-1.5 text-caption font-semibold text-primary-foreground"
-                  aria-label={t("lateCount", { count: late })}
+                  className={cn("numbers text-caption", late > 0 && "font-semibold text-status-bad-ink")}
+                  aria-label={late > 0 ? t("lateCount", { count: late }) : undefined}
                 >
-                  {late}
+                  {count}
                 </span>
               )}
             </ToggleGroupItem>
@@ -128,14 +131,14 @@ export function FilterChoices({
       ? null
       : summary.stages[value as (typeof pipelineStages)[number]];
   return (
-    <div className={cn("grid gap-2", number === null ? "grid-cols-3" : "grid-cols-2")}>
+    <div className="flex flex-col gap-3">
       <Select
         value={stage ?? ANY}
         onValueChange={(chosen) => {
           onStage(leadStages.find((candidate) => candidate === chosen) ?? null);
         }}
       >
-        <SelectTrigger aria-label={t("stageFilter")} className="h-11 w-full min-w-0 rounded-full px-3 text-label">
+        <SelectTrigger aria-label={t("stageFilter")} className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -158,7 +161,7 @@ export function FilterChoices({
           onPeriod(conversationPeriods.find((candidate) => candidate === chosen) ?? null);
         }}
       >
-        <SelectTrigger aria-label={t("periodFilter")} className="h-11 w-full min-w-0 rounded-full px-3 text-label">
+        <SelectTrigger aria-label={t("periodFilter")} className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -176,7 +179,7 @@ export function FilterChoices({
           onTag(chosen === ANY ? null : chosen);
         }}
       >
-        <SelectTrigger aria-label={t("tagFilter")} className="h-11 w-full min-w-0 rounded-full px-3 text-label">
+        <SelectTrigger aria-label={t("tagFilter")} className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -195,7 +198,7 @@ export function FilterChoices({
             number.onChange(chosen === ANY ? null : chosen);
           }}
         >
-          <SelectTrigger aria-label={t("numberFilter")} className="h-11 w-full min-w-0 rounded-full px-3 text-label">
+          <SelectTrigger aria-label={t("numberFilter")} className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -209,5 +212,56 @@ export function FilterChoices({
         </Select>
       )}
     </div>
+  );
+}
+
+type Choices = Parameters<typeof FilterChoices>[0];
+
+/** The stage, time, tag and number choices behind one button that says how many are made (the Leads page's pattern). */
+export function FiltersButton({ onClear, ...choices }: Choices & { onClear: () => void }) {
+  const t = useTranslations("inbox");
+  const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
+  const chosen = [choices.stage, choices.period, choices.tagId, choices.number?.connectionId].filter(Boolean).length;
+  return (
+    <>
+      <Button
+        ref={opener}
+        variant="outline"
+        className="shrink-0"
+        aria-label={chosen > 0 ? t("filtersChosen", { count: chosen }) : undefined}
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        <SlidersHorizontalIcon aria-hidden="true" />
+        {t("filtersButton")}
+        {chosen > 0 && <span className="numbers">{chosen}</span>}
+      </Button>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={setOpen}
+        returnFocusTo={opener}
+        title={t("filtersTitle")}
+        description={t("filtersDescription")}
+        cancel={false}
+        footer={
+          <>
+            <Button variant="outline" disabled={chosen === 0} onClick={onClear}>
+              {t("filtersClear")}
+            </Button>
+            <Button
+              onClick={() => {
+                setOpen(false);
+              }}
+            >
+              {t("filtersDone")}
+            </Button>
+          </>
+        }
+      >
+        <FilterChoices {...choices} />
+      </ResponsiveDialog>
+    </>
   );
 }

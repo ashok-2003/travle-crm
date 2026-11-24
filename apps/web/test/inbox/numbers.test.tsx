@@ -194,6 +194,7 @@ describe("the inbox with several numbers", () => {
     const third = "01900000-0000-7000-8000-0000000000d3";
     const api = listApi(statusWith([...twoNumbers.numbers, aNumber(third, "Sales 3", { status: "disconnected" })]));
     const view = renderWithApi(<InboxScreen>{null}</InboxScreen>, newQueryClient());
+    await userEvent.click(await screen.findByRole("button", { name: t.filtersButton }));
     await userEvent.click(await screen.findByRole("combobox", { name: t.numberFilter }));
     expect(await screen.findByRole("option", { name: "Sales 3 (disconnected)" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("option", { name: "Sales 2" }));
