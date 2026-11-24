@@ -133,6 +133,37 @@ describe("the live stream's notifications, from the worker's processing", () => 
     expect(audience?.leadOwners).toHaveLength(1);
   });
 
+  it("tells of an edit and of a deletion for everyone, which change only their own columns", async () => {
+    const connection = await aConnectedAgency(test);
+    const customerNumber = freshPhone().replace("+", "");
+    await deliver(
+      test,
+      fromCustomer(connection, { customerNumber, wamid: "wamid.live1", text: "Goa?", ts: 1792749000 }),
+    );
+    const chat = await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappConversation.findFirstOrThrow({ where: { phoneE164: `+${customerNumber}` }, select: { id: true } }),
+    );
+    expect((await heardOf(chat.id, "message")).length).toBeGreaterThan(0);
+    const messagesHeard = () =>
+      heard
+        .map(parseInboxNotification)
+        .filter((event) => event?.conversationId === chat.id && event.change === "message").length;
+    for (const [contentType, field] of [
+      ["edit", { edit: { original_message_id: "wamid.live1", message: { text: { body: "Goa?" } } } }],
+      ["revoke", { revoke: { original_message_id: "wamid.live1" } }],
+    ] as const) {
+      const before = messagesHeard();
+      await deliver(test, {
+        ...fromCustomer(connection, { customerNumber, contentType, ts: 1792749100 }),
+        messages: JSON.stringify([{ type: contentType, ...field }]),
+      });
+      for (let attempt = 0; attempt < 100 && messagesHeard() === before; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      expect(messagesHeard()).toBeGreaterThan(before);
+    }
+  });
+
   it("tells of a delivery report as a status, without the customer's mark", async () => {
     const connection = await aConnectedAgency(test);
     const customerNumber = freshPhone().replace("+", "");

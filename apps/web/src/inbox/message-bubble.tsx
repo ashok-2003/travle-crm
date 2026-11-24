@@ -12,26 +12,29 @@ import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useChatJump } from "./chat-jump";
 import { MessageActions, NotSent } from "./message-actions";
-import { MessageBody } from "./message-body";
+import { MessageBody, deletedLabelKey, whatHappened } from "./message-body";
 import { QuoteBlock } from "./quote-block";
 import { Ticks } from "./ticks";
 import { useReplying } from "./use-replying";
 
 /**
  * One bubble. `first` is the first of a run from the same side: it gets the tail and the space above it, as in WhatsApp,
- * and later ones in the run sit close under it. The time, the sender's first name and our ticks sit in the bubble's corner.
+ * and later ones in the run sit close under it. The time and our ticks sit in the bubble's corner; the sender's first name (or "From the phone") only on `showSender`.
  */
 export function MessageBubble({
   message,
   senderName,
   quotedSender,
   first,
+  showSender,
 }: {
   message: ChatMessage;
   senderName: string | null;
   /** Who wrote the message this one quotes, as the quote names them. */
   quotedSender: string;
   first: boolean;
+  /** The first bubble of a run by one sender: only it names the sender, the others show just their time. */
+  showSender: boolean;
 }) {
   const t = useTranslations("inbox.chat");
   const { timeZone } = useMe().organization;
@@ -51,16 +54,29 @@ export function MessageBubble({
       : message.byAi
         ? "bg-chat-bubble-ai"
         : "bg-chat-bubble-out";
-  // The corner's line: who sent it, the time and our ticks. It is also drawn, invisible, at the end of the words, so the
+  // The corner's line: who sent it (once per run), the time and our ticks. It is also drawn, invisible, at the end of the words, so the
   // last line leaves it exactly the room it takes, however long the sender's name or "From the phone" is.
+  const { revokedAt, editedAt } = whatHappened(message);
+  // Who sent it, in the words of the visible mark.
+  const sender =
+    ours && firstName !== undefined
+      ? firstName
+      : ours && message.origin === "staff_crm" && message.sentBy !== null
+        ? t("formerMember")
+        : message.origin === "staff_phone"
+          ? t("phoneApp")
+          : message.origin === "automation"
+            ? message.byAi
+              ? t("sentByAi")
+              : t("automatic")
+            : null;
   const meta = (spacer: boolean) => (
     <>
-      {ours && firstName !== undefined && <span>{firstName} ·</span>}
-      {ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
-        <span>{t("formerMember")} ·</span>
-      )}
-      {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
-      {message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
+      {/* Screen readers hear the sender on every bubble; the mark is drawn once per run, so it is hidden from them. */}
+      {!spacer && sender !== null && <span className="sr-only">{sender}</span>}
+      {showSender && sender !== null && <span aria-hidden="true">{sender} ·</span>}
+      {revokedAt !== null && <span aria-hidden="true">{t(deletedLabelKey(message))} ·</span>}
+      {editedAt !== null && <span>{t("edited")} ·</span>}
       {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
       <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
       {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
@@ -117,13 +133,17 @@ export function MessageBubble({
       >
         {message.quoted !== null && <QuoteBlock quoted={message.quoted} senderName={quotedSender} />}
         <div dir="auto" className={cn("break-words whitespace-pre-wrap script-leading", media && "px-1.5")}>
-          <MessageBody message={message} />
-          {/* Room for the corner's line, so the last line never runs under it. */}
-          {!media && (
-            <span aria-hidden="true" className="invisible inline-flex items-center gap-1 ps-2 text-caption">
-              {meta(true)}
-            </span>
-          )}
+          {/* Room for the corner's line, so the last line never runs under it: the body puts it on the words' last line. */}
+          <MessageBody
+            message={message}
+            after={
+              media ? undefined : (
+                <span aria-hidden="true" className="invisible inline-flex items-center gap-1 ps-2 text-caption">
+                  {meta(true)}
+                </span>
+              )
+            }
+          />
         </div>
         {message.reaction !== null && message.kind !== "reaction" && (
           <span

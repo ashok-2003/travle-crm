@@ -4,6 +4,7 @@
 // event is tied to its agency with isAbout as soon as the number's route is found.
 import { parseMsg91Event, type ParsedEvent } from "@travel-crm/integrations/whatsapp";
 import type { WebhookProcessing } from "../webhooks/index.js";
+import { receiveChange } from "./change.js";
 import { connectionById } from "./connection-row.js";
 import type { InboxDependencies } from "./dependencies.js";
 import { receiveEcho } from "./echo.js";
@@ -55,8 +56,11 @@ async function handleEvent(
         applyStatus(tx, { organizationId, connectionId: connection.id }, event, now),
       );
       return;
+    case "change":
+      await receiveChange(dependencies, organizationId, connection, event, now);
+      return;
     case "ignored":
-      // An edit or a deletion (the parser's SPIKE(S2)): no row, no answer, no count.
+      // An edit or a deletion that names no original: no row, no answer, no count.
       return;
     case "unknown":
       await dependencies.db.forOrg(organizationId, (tx) =>

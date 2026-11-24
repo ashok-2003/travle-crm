@@ -3,6 +3,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   consumeSignedIn,
+  forgetTurnedOffByChoice,
+  rememberTurnedOffByChoice,
+  turnedOffByChoice,
   localDay,
   markOffered,
   markSignedIn,
@@ -49,6 +52,14 @@ describe("the offer's memory", () => {
     expect(wasOfferedOn()).toBe("2026-11-17");
   });
 
+  it("keeps that the person turned push off, until they turn it on again", () => {
+    expect(turnedOffByChoice()).toBe(false);
+    rememberTurnedOffByChoice();
+    expect(turnedOffByChoice()).toBe(true);
+    forgetTurnedOffByChoice();
+    expect(turnedOffByChoice()).toBe(false);
+  });
+
   it("names the device's own day, not UTC's", () => {
     expect(localDay(new Date(2026, 10, 17, 0, 30))).toBe("2026-11-17");
     expect(localDay(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
@@ -64,7 +75,10 @@ describe("the offer's memory", () => {
       expect(() => {
         markSignedIn();
         markOffered("2026-11-17");
+        rememberTurnedOffByChoice();
+        forgetTurnedOffByChoice();
       }).not.toThrow();
+      expect(turnedOffByChoice()).toBe(false);
       expect(consumeSignedIn()).toBe(false);
       expect(wasOfferedOn()).toBeNull();
     } finally {

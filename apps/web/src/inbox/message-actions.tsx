@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { ForwardDialog } from "./forward-dialog";
+import { whatHappened } from "./message-body";
 import { MessageInfo } from "./message-info";
 import { useReplying } from "./use-replying";
 import { useInvalidate, useStar } from "./use-sales-inbox";
@@ -138,7 +139,7 @@ export function MessageActions({ message, className }: { message: ChatMessage; c
               {message.starred ? t("unstar") : t("star")}
             </DropdownMenuItem>
           )}
-          {mayReply && words !== null && (
+          {mayReply && words !== null && whatHappened(message).revokedAt === null && (
             <DropdownMenuItem
               onSelect={() => {
                 setForwarding(true);

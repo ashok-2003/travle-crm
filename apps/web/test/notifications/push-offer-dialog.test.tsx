@@ -9,12 +9,23 @@ import { locale, messages } from "@/i18n/messages";
 import type { PushApi } from "@/notifications/push/push-api";
 import { AgencyPushOffer } from "@/notifications/push/agency-push-offer";
 import { PushOfferDialog } from "@/notifications/push/push-offer-dialog";
-import { localDay, markOffered, markSignedIn, wasOfferedOn } from "@/notifications/push/push-offer";
+import {
+  localDay,
+  markOffered,
+  markSignedIn,
+  rememberTurnedOffByChoice,
+  wasOfferedOn,
+} from "@/notifications/push/push-offer";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { member } from "../support/members";
 
-const device = vi.hoisted(() => ({ pushState: vi.fn(), turnPushOn: vi.fn(), turnPushOff: vi.fn() }));
+const device = vi.hoisted(() => ({
+  pushState: vi.fn(),
+  subscribeQuietly: vi.fn(),
+  turnPushOn: vi.fn(),
+  turnPushOff: vi.fn(),
+}));
 vi.mock("@/notifications/push/push-device", () => device);
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
@@ -37,6 +48,7 @@ function renderOffer(platform = false) {
 beforeEach(() => {
   screenIs("wide");
   for (const call of Object.values(device)) call.mockReset();
+  device.subscribeQuietly.mockResolvedValue(false);
   toast.success.mockClear();
   window.localStorage.clear();
 });
@@ -98,6 +110,49 @@ describe("PushOfferDialog", () => {
       expect(device.pushState).toHaveBeenCalled();
     });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("subscribes by itself, and never asks, when the browser already allows notifications", async () => {
+    markSignedIn();
+    device.pushState.mockResolvedValue("off");
+    device.subscribeQuietly.mockResolvedValue(true);
+    renderOffer();
+    await waitFor(() => {
+      expect(device.subscribeQuietly).toHaveBeenCalledWith(api);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("asks as before when that quiet subscribe fails, and when permission is not granted", async () => {
+    markSignedIn();
+    device.pushState.mockResolvedValue("off");
+    device.subscribeQuietly.mockResolvedValue(false);
+    renderOffer();
+    expect(await screen.findByRole("dialog", { name: offer.title })).toBeVisible();
+  });
+
+  it("does not subscribe by itself after the person turned push off, and asks at most once a day", async () => {
+    rememberTurnedOffByChoice();
+    markOffered(localDay());
+    device.pushState.mockResolvedValue("off");
+    device.subscribeQuietly.mockResolvedValue(true);
+    renderOffer();
+    await waitFor(() => {
+      expect(device.pushState).toHaveBeenCalled();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(device.subscribeQuietly).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("asks again the next day after the person turned push off", async () => {
+    rememberTurnedOffByChoice();
+    markOffered("2020-01-01");
+    device.pushState.mockResolvedValue("off");
+    renderOffer();
+    expect(await screen.findByRole("dialog", { name: offer.title })).toBeVisible();
+    expect(device.subscribeQuietly).not.toHaveBeenCalled();
   });
 
   it("turns push on inside the tap, then closes and says so", async () => {

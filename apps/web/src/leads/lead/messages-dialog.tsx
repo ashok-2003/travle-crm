@@ -7,7 +7,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { MessageSquareTextIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChoiceGroup } from "@/components/forms/choice-field";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -17,26 +17,8 @@ import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/data/trpc";
 import { useHolds } from "@/session/me-context";
+import { WhatsAppText } from "@/inbox/whatsapp-text";
 import { whatsAppLink } from "../contact-buttons";
-
-const BLANK = /(\{[a-z]+\})/;
-
-/** The text with each blank still in it marked, so the person sees what they must type. */
-function Highlighted({ text }: { text: string }) {
-  return (
-    <p className="break-words whitespace-pre-line script-leading">
-      {text.split(BLANK).map((part, index) =>
-        BLANK.test(part) ? (
-          <span key={`${String(index)}-${part}`} className="bg-status-attention-fill text-status-attention-ink">
-            {part}
-          </span>
-        ) : (
-          <Fragment key={`${String(index)}-text`}>{part}</Fragment>
-        ),
-      )}
-    </p>
-  );
-}
 
 export function MessagesButton({ leadId, name, phone }: { leadId: string; name: string; phone: string | null }) {
   const t = useTranslations("leads.lead.messages");
@@ -107,7 +89,9 @@ export function MessagesButton({ leadId, name, phone }: { leadId: string; name: 
               )
             ) : (
               <>
-                <Highlighted text={preview.data.text} />
+                <div className="break-words script-leading">
+                  <WhatsAppText text={preview.data.text} blanks />
+                </div>
                 {message.body.includes("{link}") && <p className="text-label text-muted-foreground">{t("linkNote")}</p>}
               </>
             )}

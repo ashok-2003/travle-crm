@@ -2,8 +2,10 @@
 // it flagged, and the one button that hands the chat the other way; the typing bubble shows while the AI reads or writes.
 import type { ChatAi } from "@travel-crm/contracts/ai";
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { AiReplyBar, AiTyping } from "@/ai/ai-turn";
+import { cardTints } from "@/components/card-tints";
 import { messages } from "@/i18n/messages";
 import { newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { stubApi } from "../support/api-stub";
@@ -46,28 +48,61 @@ function render(state: Partial<ChatAi>, view: "bar" | "typing", extra: "ai:manag
 }
 
 describe("the AI bar over the reply box", () => {
-  it("says the AI is answering, by its first name, with Take over", async () => {
-    render({}, "bar");
-    expect(await screen.findByText("Riya is answering this chat. If you write, it waits 10 minutes.")).toBeVisible();
-    expect(screen.getByRole("button", { name: t.takeOver })).toBeEnabled();
+  it("is one violet line that says the AI answers and when it follows up, with Take over", async () => {
+    render({ followUpAt: "2026-11-24T10:30:00.000Z", followUpReason: "asked to think" }, "bar");
+    const line = await screen.findByText(/^AI answering · follows up .*4:00 pm/);
+    expect(line).toHaveClass("line-clamp-1");
+    expect(line.closest("[data-slot=collapsible]")).toHaveClass(cardTints.ai);
+    expect(screen.queryByText(/Riya/)).toBeNull();
+    const take = screen.getByRole("button", { name: t.takeOver });
+    expect(take).toBeEnabled();
+    expect(take).toHaveClass("min-h-11");
   });
 
-  it("says why it flagged a chat while it keeps answering", async () => {
+  it("opens the rest, the follow-up's why, when the line is tapped", async () => {
+    const user = userEvent.setup();
+    render({ followUpAt: "2026-11-24T10:30:00.000Z", followUpReason: "asked to think" }, "bar");
+    expect(screen.queryByText(/asked to think/)).toBeNull();
+    await user.click(await screen.findByText(/^AI answering · follows up/));
+    expect(await screen.findByText(/asked to think/)).toBeVisible();
+  });
+
+  it("says why it flagged a chat while it keeps answering, amber and bold like a hand-over (owner, 2026-11-24)", async () => {
     render({ attention: "wants to book for 4 on 12 Dec" }, "bar");
-    expect(
-      await screen.findByText("Riya flagged: wants to book for 4 on 12 Dec. It's still answering; join any time."),
-    ).toBeVisible();
+    const line = await screen.findByText("AI answering · flagged: wants to book for 4 on 12 Dec");
+    expect(line.closest("[data-slot=collapsible]")).toHaveClass(cardTints.attention);
+    expect(line).toHaveClass("font-semibold");
   });
 
-  it("says a chat was handed over, with the reason and Let AI answer", async () => {
+  it("says the AI is paused till the time because you replied, violet, with Let AI answer now", async () => {
+    render({ personPausedUntil: "2026-11-24T09:18:00.000Z" }, "bar");
+    const line = await screen.findByText(/^The AI is paused till .* because you replied$/);
+    expect(line.closest("[data-slot=collapsible]")).toHaveClass(cardTints.ai);
+    expect(screen.getByRole("button", { name: t.answerNow })).toBeVisible();
+  });
+
+  it("says a chat was handed over in amber and bold, with the reason and Let AI answer", async () => {
     render({ answering: false, handedOff: true, handoffReason: "asked for a person" }, "bar");
-    expect(await screen.findByText("Over to you: asked for a person")).toBeVisible();
+    const line = await screen.findByText("Over to you: asked for a person");
+    expect(line).toHaveClass("font-semibold");
+    expect(line.closest("[data-slot=collapsible]")).toHaveClass(cardTints.attention);
     expect(screen.getByRole("button", { name: t.letAnswer })).toBeVisible();
   });
 
-  it("says the AI is off in this chat, with Let AI answer", async () => {
+  it("opens a long hand-over reason in full while the line stays one line", async () => {
+    const user = userEvent.setup();
+    const reason = "asked for a refund on the Spiti trip and wants to speak to the owner about the cancellation terms";
+    render({ answering: false, handedOff: true, handoffReason: reason }, "bar");
+    const line = await screen.findByText(`Over to you: ${reason}`);
+    expect(line).toHaveClass("line-clamp-1");
+    await user.click(line);
+    expect(await screen.findAllByText(`Over to you: ${reason}`)).toHaveLength(2);
+  });
+
+  it("says the AI is off in this chat, quiet, with Let AI answer", async () => {
     render({ answering: false, mode: "off" }, "bar");
-    expect(await screen.findByText(t.barOff)).toBeVisible();
+    const line = await screen.findByText(t.barOff);
+    expect(line.closest("[data-slot=collapsible]")).not.toHaveClass(cardTints.ai);
     expect(screen.getByRole("button", { name: t.letAnswer })).toBeVisible();
   });
 

@@ -19,6 +19,8 @@ const visibleAfter = (conversationId: string, after: SummaryPoint | null, before
   conversationId,
   kind: { not: "reaction" },
   status: { not: "superseded" },
+  // Deleted for everyone: kept for the team, never read by the AI.
+  revokedAt: null,
   AND: [
     ...(after === null
       ? []

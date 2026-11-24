@@ -53,7 +53,12 @@ interface ParsedMessageFields {
   referral: { sourceId: string | null; headline: string | null; sourceUrl: string | null } | null;
   /** MSG91's name for a content type we don't read (kind "unsupported"), so it can be logged and added; else absent. */
   unknownType?: string;
+  /** For kind "unsupported": WhatsApp's own reason it could not pass the message on; else absent. */
+  unsupportedReason?: UnsupportedReason;
 }
+
+/** `unavailable`: WhatsApp could not read it (error 131060); `album`: a set of photos sent together; else `unknown`. */
+export type UnsupportedReason = "unavailable" | "album" | "unknown";
 
 export type ParsedEvent =
   | ({ type: "inbound" } & ParsedMessage)
@@ -75,7 +80,23 @@ export type ParsedEvent =
       reasonCode: string | null;
       occurredAt: Date | null;
     }
-  /** An edit or a deletion of a message: routed, then dropped without a row or a count. */
+  /**
+   * An edit or a deletion of a message already stored, by the customer or (`fromPhone`) from the agency's phone: it lands on
+   * that message and is no message of its own. `text` is the edit's new words.
+   */
+  | {
+      type: "change";
+      kind: "edit" | "revoke";
+      fromPhone: boolean;
+      originalWamid: string;
+      text: string | null;
+      wamid: string;
+      integratedNumber: string;
+      customerNumber: string;
+      customerName: string | null;
+      occurredAt: Date | null;
+    }
+  /** An edit or a deletion that names no original (or an edit with no words): routed, then dropped. */
   | { type: "ignored"; integratedNumber: string }
   /** Kept and counted, nothing more. `integratedNumber` is set when the event named one, so it can still be routed. */
   | { type: "unknown"; integratedNumber: string | null };

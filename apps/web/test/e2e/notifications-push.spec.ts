@@ -9,10 +9,11 @@ import { signInByEmail, signOutOf } from "./support/fixtures";
 import { expect, test } from "./support/notifications";
 
 /**
- * Runs in the page before the app: notifications allowed, and a push manager that hands out one subscription on a
+ * Runs in the page before the app: a browser never asked (permission "default" until requestPermission() is called,
+ * which allows it; `alreadyAllowed` starts it allowed), and a push manager that hands out one subscription on a
  * known push service and records in sessionStorage (which outlives the sign-out's page load) that it was removed.
  */
-function standInPush(): void {
+function standInPush(alreadyAllowed = false): void {
   const endpoint = `https://fcm.googleapis.com/fcm/send/e2e-${crypto.randomUUID()}`;
   const keys = { p256dh: `B${"A".repeat(86)}`, auth: "A".repeat(22) };
   let current: object | null = null;
@@ -26,8 +27,12 @@ function standInPush(): void {
       return Promise.resolve(true);
     },
   };
-  Object.defineProperty(Notification, "permission", { configurable: true, get: () => "granted" });
-  Notification.requestPermission = () => Promise.resolve("granted");
+  let permission: NotificationPermission = alreadyAllowed ? "granted" : "default";
+  Object.defineProperty(Notification, "permission", { configurable: true, get: () => permission });
+  Notification.requestPermission = () => {
+    permission = "granted";
+    return Promise.resolve(permission);
+  };
   PushManager.prototype.subscribe = function subscribe() {
     current = subscription;
     sessionStorage.setItem("e2e-push-subscribed", endpoint);
@@ -105,4 +110,16 @@ test("right after signing in the app asks to turn notifications on, and Turn on 
   await offer.getByRole("button", { name: "Turn on", exact: true }).click();
   await expect(offer).toBeHidden();
   await expect.poll(ownerPushEndpoints).toHaveLength(1);
+});
+
+test("when the browser already allows notifications the app subscribes by itself and never asks", async ({
+  page,
+  agency,
+  ownerPushEndpoints,
+}) => {
+  await page.addInitScript(standInPush, true);
+  await signInByEmail(page, agency.owner);
+  await page.goto("/");
+  await expect.poll(ownerPushEndpoints).toHaveLength(1);
+  await expect(page.getByRole("dialog", { name: "Please turn on notifications for the best experience" })).toBeHidden();
 });
