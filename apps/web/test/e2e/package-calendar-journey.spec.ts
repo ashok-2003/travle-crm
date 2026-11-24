@@ -119,7 +119,5 @@ test("an Owner adds a week of dates, sets special prices, cancels and reopens a 
   await expect(itinerary).toContainText("Spiti, the cold desert");
   await expect(page.getByRole("button", { name: "Edit Itinerary" })).toBeVisible();
   expect(await prices.innerText()).toBe(pricesBefore);
-  // The calendar's tinted and cancelled days fall short of axe's colour contrast (a product finding, reported apart):
-  // everything else on the page is held to it.
-  await expectAccessible(page, { exclude: ['[data-slot="calendar"]'] });
+  await expectAccessible(page);
 });

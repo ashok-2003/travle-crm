@@ -1,18 +1,18 @@
 // The price calendar: departures with their seats, price periods in a legend, a day's actions, and choosing a range.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { DepartureSummary } from "@travel-crm/contracts/departures";
+import type { AddPackageDatesResult, DepartureSummary } from "@travel-crm/contracts/departures";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePackage } from "@/packages/use-packages";
 import { PriceCalendar } from "@/packages/price-calendar";
 import { messages } from "@/i18n/messages";
-import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
+import { fakeApi, newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { member } from "../support/members";
 import { aPackage } from "./detail";
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const none = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
 const peak = {
@@ -47,13 +47,18 @@ function Page() {
   return null;
 }
 
-function show(departures: DepartureSummary[], onSelectRange = vi.fn(), me = member({ isOwner: true })) {
+function show(
+  departures: DepartureSummary[],
+  onSelectRange = vi.fn(),
+  me = member({ isOwner: true }),
+  subscription = paidSubscription,
+) {
   renderWithApi(
     <>
       <Page />
       <PriceCalendar detail={detail} departures={departures} onSelectRange={onSelectRange} />
     </>,
-    newQueryClient(),
+    newQueryClient(subscription),
     me,
   );
   return onSelectRange;
@@ -228,5 +233,58 @@ describe("PriceCalendar", () => {
     expect(changes().cancel).toBeNull();
     await userEvent.click(day(/^24 Oct, cancelled/));
     expect(changes().reopen).toBeNull();
+  });
+
+  it("Set special prices from here is disabled, with the hint, while the subscription refuses changes", async () => {
+    show([], vi.fn(), member({ isOwner: true }), { ...paidSubscription, status: "read_only", access: "read_only" });
+    await userEvent.click(day(/^22 Oct/));
+    expect(changes().specialPrices).toBeDisabled();
+  });
+
+  /** Taps Add a departure on 22 Oct, has the api answer `result`, and lets the trip's refresh finish. */
+  async function addOn22(result: AddPackageDatesResult) {
+    const api = fakeApi();
+    show([]);
+    const loads = () => api.calls.filter((call) => call.path === "packages.get");
+    await waitFor(() => {
+      expect(loads()).toHaveLength(1);
+    });
+    loads()[0]?.answer(detail);
+    await userEvent.click(day(/^22 Oct/));
+    await userEvent.click(screen.getByRole("button", { name: calendarWords.addDeparture }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "departures.addPackageDates")).toBe(true);
+    });
+    api.calls.find((call) => call.path === "departures.addPackageDates")?.answer(result);
+    await waitFor(() => {
+      expect(loads()).toHaveLength(2);
+    });
+    loads()[1]?.answer(detail);
+  }
+
+  it("Add a departure says it was added only when something was", async () => {
+    await addOn22({ added: [], alreadyThere: ["2027-10-22"], cancelled: [] });
+    await waitFor(() => {
+      expect(toast.info).toHaveBeenCalledWith(calendarWords.alreadyThere);
+    });
+    expect(toast.success).not.toHaveBeenCalledWith(calendarWords.added);
+  });
+
+  it("Add a departure that finds a cancelled one there says so", async () => {
+    await addOn22({
+      added: [],
+      alreadyThere: [],
+      cancelled: [{ date: "2027-10-22", departureId: "0190a000-0000-7000-8000-0000000000d9" }],
+    });
+    await waitFor(() => {
+      expect(toast.info).toHaveBeenCalledWith(calendarWords.cancelledThere);
+    });
+  });
+
+  it("Add a departure toasts Departure added when it added one", async () => {
+    await addOn22({ added: ["2027-10-22"], alreadyThere: [], cancelled: [] });
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(calendarWords.added);
+    });
   });
 });

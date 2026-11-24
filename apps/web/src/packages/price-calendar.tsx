@@ -8,7 +8,7 @@ import type { DepartureSummary } from "@travel-crm/contracts/departures";
 import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState, type ComponentProps } from "react";
+import { useId, useMemo, useState, type ComponentProps } from "react";
 import type { DayButton } from "react-day-picker";
 import { enIN } from "react-day-picker/locale";
 import { rupees } from "@/components/forms/money-field";
@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
 import { formatCalendarDay } from "@/lib/format";
 import { shownRoomTypes } from "@/room-prices/room-prices";
 import { useHolds } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
+import { WriteHint } from "@/subscription/write-hint";
 import { CalendarDayActions } from "./calendar-day-actions";
-import { calendarDaysOf, dayKeyOf, type CalendarDate } from "./price-calendar-days";
+import { dayKeyOf, departuresByDay, type CalendarDate } from "./price-calendar-days";
 
 /** One of two tints per season, repeating (the neutral fill leaves the muted day numbers under 4.5:1): the legend's swatch wears the same class as its days. */
 const seasonTints = ["bg-status-good-fill", "bg-status-attention-fill"] as const;
@@ -40,13 +42,15 @@ export function PriceCalendar({
 }) {
   const t = useTranslations("packages.calendar");
   const tRooms = useTranslations("packages.form.roomTypeNames");
-  const days = useMemo(() => calendarDaysOf(detail.seasons, departures), [detail.seasons, departures]);
+  const days = useMemo(() => departuresByDay(departures), [departures]);
   // The day selected: what it offers shows beneath, and the next day tapped closes a range with it.
   const [first, setFirst] = useState<CalendarDate | null>(null);
   // After "Set special prices from here": the next day tapped ends the range.
   const [ranging, setRanging] = useState(false);
   const today = dayKeyOf(new Date());
   const mayPrice = useHolds("quotes:edit");
+  const access = useWriteAccess("change");
+  const hintId = `${useId()}-write`;
 
   const onDeparture = (pick: (departure: DepartureSummary) => boolean) =>
     departures.filter(pick).map((departure) => dateOf(departure.startDate));
@@ -69,7 +73,7 @@ export function PriceCalendar({
   const DepartureDayButton = useMemo(
     () =>
       function DepartureDayButton(props: ComponentProps<typeof DayButton>) {
-        const departure = days.get(dayKeyOf(props.day.date))?.departure ?? null;
+        const departure = days.get(dayKeyOf(props.day.date)) ?? null;
         return (
           <CalendarDayButton locale={enIN} {...props} className={cn(props.className, "[&>span]:opacity-100")}>
             {props.children}
@@ -84,7 +88,7 @@ export function PriceCalendar({
   const dayLabel = (date: Date) => {
     const key = dayKeyOf(date);
     const day = formatCalendarDay(key);
-    const departure = days.get(key)?.departure ?? null;
+    const departure = days.get(key) ?? null;
     if (departure === null) return day;
     if (departure.status === "cancelled") return t("cancelledDay", { day });
     return departure.state === "full" ? t("full", { day }) : t("seatsLeft", { day, free: departure.free });
@@ -131,18 +135,23 @@ export function PriceCalendar({
               <CalendarDayActions
                 packageId={detail.id}
                 day={first}
-                departure={days.get(first)?.departure ?? null}
+                departure={days.get(first) ?? null}
                 ahead={first > today}
               />
               {mayPrice && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setRanging(true);
-                  }}
-                >
-                  {t("rangeStart")}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    disabled={!access.allowed}
+                    aria-describedby={access.allowed ? undefined : hintId}
+                    onClick={() => {
+                      setRanging(true);
+                    }}
+                  >
+                    {t("rangeStart")}
+                  </Button>
+                  <WriteHint id={hintId} hint={access.hint} />
+                </>
               )}
               <p className="text-muted-foreground">{t("moveHint")}</p>
             </>
