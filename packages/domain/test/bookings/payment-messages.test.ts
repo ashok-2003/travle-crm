@@ -36,7 +36,7 @@ describe("telling the customer about their payment", () => {
     return world.inOrg(async (tx) => {
       const connection = await tx.whatsappConnection.create({
         data: {
-          integratedNumber: `91${String(Math.floor(Math.random() * 1e8))}`,
+          integratedNumber: `91${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`,
           displayNumber: "+919800000000",
           mode: "new_number",
           status: "connected",

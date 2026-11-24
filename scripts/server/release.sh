@@ -5,10 +5,10 @@
 # A rollback is a release of the commit before (the server keeps its images, so nothing is built).
 #   SERVER=ubuntu@<address> scripts/server/release.sh [--push-only] [--build-here] [<commit or branch>]  (main by default)
 # --push-only puts the commit on the server without deploying it: the first time, before setup.sh has run.
-# --build-here builds the api's image on this computer, for the server's linux/amd64, from the commit as git has it
-# (not the working tree), and loads it onto the server, for the two small servers, which are too small to build it
-# (docs/runbook.md, "Two small servers"). The image stays here, so releasing the same commit to the other server only
-# loads it.
+# --build-here builds the api's image on this computer, for the server's architecture (amd64, or arm64 on an Ampere
+# A1), from the commit as git has it (not the working tree), and loads it onto the server, for the small servers, which
+# don't build it themselves (docs/runbook.md, "Two small servers"). The image stays here, so releasing the same commit
+# to another server of that architecture only loads it.
 # SSH_KEY says which key reaches the server (~/.ssh/travel-crm-oracle by default).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -32,12 +32,20 @@ on_server() {
   ssh -i "$key" -o IdentitiesOnly=yes "$server" "$@"
 }
 
-# Builds travel-crm-api:<release> for linux/amd64 unless this computer has it already (build-api-image.sh), and loads
-# it onto the server unless the server has it already. The release is the commit's first 12 characters, as deploy.sh
-# names it.
+# Builds travel-crm-api:<release> for the server's architecture unless this computer has it already
+# (build-api-image.sh), and loads it onto the server unless the server has it already. The release is the commit's
+# first 12 characters, as deploy.sh names it. A database server of another architecture than this computer's gets
+# none: Postgres alone runs there, and building for it would mean emulation, which GitHub's runners lack. Its restore
+# drill then needs an image brought by hand (docs/runbook.md, "Backups and restoring").
 bring_api_image() {
-  local image="travel-crm-api:${commit:0:12}"
-  scripts/server/build-api-image.sh "$commit"
+  local image="travel-crm-api:${commit:0:12}" architecture
+  architecture="$(docker_architecture "$(on_server uname -m)")"
+  if [ "$architecture" != "$(docker_architecture "$(uname -m)")" ] &&
+    [ "$(on_server "sudo bash -c 'source $checkout/scripts/server/paths.sh && server_role'")" = database ]; then
+    echo "$server runs Postgres alone, on $architecture: it gets no image of the api's"
+    return
+  fi
+  scripts/server/build-api-image.sh "$commit" "$architecture"
   if on_server "sudo docker image inspect $image >/dev/null 2>&1"; then
     echo "$image is already on $server"
   else

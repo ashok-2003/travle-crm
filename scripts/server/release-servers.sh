@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Releases a commit to the two small servers (docs/runbook.md, "Two small servers"): it builds the api's image once,
-# applies the commit's migrations to the managed database with that image when DATABASE_MIGRATOR_URL is given, as a
-# deploy's one-off `migrate` does, then releases to the api's server and then the console's, stopping at the first
-# failure. GitHub Actions runs it on every merge (.github/workflows/deploy.yml); the owner can run it from the Mac too.
+# Releases a commit to the two small servers (docs/runbook.md, "Two small servers"): when DATABASE_MIGRATOR_URL is
+# given, it builds the api's image for this computer and applies the commit's migrations to the managed database with
+# it, as a deploy's one-off `migrate` does; then it releases to the api's server and then the console's (or the
+# database server's), each getting the image built for its architecture, stopping at the first failure. GitHub Actions
+# runs it on every merge (.github/workflows/deploy.yml); the owner can run it from the Mac too.
 #   API_SERVER=ubuntu@<ip> CONSOLE_SERVER=ubuntu@<ip> [DATABASE_MIGRATOR_URL=…] \
 #     scripts/server/release-servers.sh [<commit or branch>]  (main by default)
 # SSH_KEY says which key reaches the servers, as for release.sh.
@@ -14,9 +15,10 @@ console_server="${CONSOLE_SERVER:?set CONSOLE_SERVER=ubuntu@<the console server 
 commit="$(git rev-parse --verify "${1:-main}^{commit}")"
 image="travel-crm-api:${commit:0:12}"
 
-scripts/server/build-api-image.sh "$commit"
 if [ -n "${DATABASE_MIGRATOR_URL:-}" ]; then
   echo "Applying the migrations of $(git rev-parse --short "$commit")"
+  # They run here, so with an image of this computer's architecture.
+  scripts/server/build-api-image.sh "$commit"
   # The URL reaches the container from this environment, never on a command line.
   docker run --rm --env DATABASE_MIGRATOR_URL --env PRISMA_HIDE_UPDATE_MESSAGE=1 "$image" migrate
 else

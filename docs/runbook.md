@@ -92,6 +92,15 @@ Without the Mac, on the server:
 
   Write the date and how long it took in the log at the end of this page.
 
+  The drill runs the release's `migrate`, so it needs the api's image on the server. A database server of another
+  architecture than the app server's doesn't get it with each release (`release.sh`), so bring it first, from the Mac
+  (Docker Desktop emulates the other architecture), with the release the server runs:
+
+      release=$(ssh -i ~/.ssh/travel-crm-oracle ubuntu@<ip> cat /srv/travel-crm/release)
+      scripts/server/build-api-image.sh "$release" amd64
+      docker save "travel-crm-api:${release:0:12}" | gzip -1 |
+        ssh -i ~/.ssh/travel-crm-oracle ubuntu@<ip> 'gunzip | sudo docker load --quiet'
+
 ### Restoring production's database
 
 Do this when a bad change or a lost database means going back to a backup. Everything written since that backup is
@@ -215,8 +224,9 @@ in GitHub Actions and the web app on Vercel.
   some tenths of a second slower than next to it.
 - **Memory:** idle, the api and the worker take about 400 MB between them and the console about 200 MB (measured
   2026-10-28). `setup.sh` adds 4 GB of swap for heavier moments.
-- **Builds:** neither server builds. The api's image is built for linux/amd64 elsewhere and loaded onto each server:
-  by GitHub Actions on every merge ("Releases from GitHub Actions" below), or by `release.sh --build-here` on the Mac.
+- **Builds:** neither server builds. The api's image is built elsewhere for each server's architecture (amd64, or
+  arm64 on an Ampere A1) and loaded onto it: by GitHub Actions on every merge ("Releases from GitHub Actions" below),
+  or by `release.sh --build-here` on the Mac.
 - **Migrations:** neither server holds `DATABASE_MIGRATOR_URL`, so deploys run none. GitHub Actions applies a
   release's migrations before releasing it; from the Mac, apply them first, as on Render (`docs/serverless.md`).
 
@@ -301,6 +311,9 @@ is cut short.
 4. **Repository variables** (Settings → Secrets and variables → Actions → Variables):
    - `ORACLE_API_SERVER` = `ubuntu@<api ip>` and `ORACLE_CONSOLE_SERVER` = `ubuntu@<console ip>`;
    - `ORACLE_KNOWN_HOSTS`: step 2's two lines;
+   - `ORACLE_API_SERVER_ARCH` = `arm64` when the api's server is an Ampere A1 (aarch64); unset for x86_64. The run
+     builds on a runner of that architecture (GitHub's runners don't emulate another), and stops at once, saying so,
+     when the variable and the server disagree;
    - `ORACLE_DEPLOY_ENABLED` = `true`, last. Without it the workflow does nothing, so a fork or a fresh clone releases
      nothing.
 5. **Render:** once the servers serve the pilot, turn off the two Render services' auto-deploy (or suspend them), or

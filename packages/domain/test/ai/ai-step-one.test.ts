@@ -1,7 +1,7 @@
 // The AI's knowledge documents (for package drafts) and its guess of how a lead will go: knowledge typed or read from a document,
 // deleted with its file; the scoring queued and run only for an agency with the AI on, a plan that has it and a subscription
-// that isn't suspended or cancelled, never moving a stage, within the monthly limit, once for a burst of messages, and erased
-// with the customer. Against the real database, under row-level security.
+// that isn't suspended or cancelled, never moving a stage, within the monthly limit, once for a burst of messages, again
+// only after five new messages with real words, and erased with the customer. Against the real database, under row-level security.
 import { randomUUID } from "node:crypto";
 import { AI_KNOWLEDGE_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
@@ -367,12 +367,43 @@ describe("the AI, step one", () => {
       expect(test.queue.sent.length - before).toBe(0);
     });
 
+    it("is queued 30 seconds after the customer's message, even when the lead was scored a moment ago", async () => {
+      const { organizationId, model, chat, message, score } = await agency();
+      model.answer(JSON.stringify(answer));
+      expect(await score()).toBe("scored");
+      const listener = scoreOnCustomerWroteListener({
+        queue: test.queue,
+        ai: model,
+        subscriptions: { entitlementsOf: () => Promise.resolve(entitlements()) },
+      });
+      const before = Date.now();
+      await listener.handle(
+        {
+          id: randomUUID(),
+          organizationId,
+          type: "whatsapp.text-received",
+          payload: { conversationId: chat.id, messageId: message.id },
+          occurredAt: testNow,
+        },
+        { actor: systemActor(organizationId), forOrg: (work) => test.db.forOrg(organizationId, work) },
+      );
+      // No rest after a guess: whether the lead is scored again is the job's to decide, by the new messages.
+      const waited = (test.queue.sent.at(-1)?.options.startAfter?.getTime() ?? 0) - before;
+      expect(waited).toBeGreaterThanOrEqual(30_000);
+      expect(waited).toBeLessThan(40_000);
+    });
+
     it("scores a lead from its chat, keeps the guess, and never moves the stage", async () => {
       const { inOrg, lead, model, score } = await agency();
       model.answer(JSON.stringify(answer));
       expect(await score()).toBe("scored");
       const request = model.requests[0];
-      expect(request).toMatchObject({ feature: "score_lead", json: true, reasoning: { effort: "minimal" } });
+      expect(request).toMatchObject({
+        feature: "score_lead",
+        json: true,
+        maxTokens: 1_500,
+        reasoning: { effort: "minimal" },
+      });
       expect(JSON.stringify(request?.messages)).not.toMatch(/\+91\d{8}/);
       const row = await inOrg((tx) => tx.leadAiInsight.findFirstOrThrow({ where: { leadId: lead.id } }));
       expect(row).toMatchObject({
@@ -383,6 +414,54 @@ describe("the AI, step one", () => {
       });
       expect((await inOrg((tx) => leadInsightOf(tx, lead.id)))?.summary).toBe(row.summary);
       expect((await inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: lead.id } }))).stage).toBe("contacted");
+    });
+
+    it("reads the chat's summary and every message after its point, never the lines it already holds", async () => {
+      const { inOrg, chat, message, model, score } = await agency();
+      // The summary holds everything up to the customer's first line; two lines follow it.
+      await inOrg((tx) =>
+        tx.aiChat.create({
+          data: {
+            conversationId: chat.id,
+            chatSummary: "Wants Manali for 4 adults in December, budget about 1 lakh; asked the price.",
+            chatSummaryThroughId: message.id,
+            chatSummaryThroughAt: message.occurredAt,
+          },
+        }),
+      );
+      const line = (direction: "in" | "out", body: string, seconds: number) =>
+        inOrg((tx) =>
+          tx.whatsappMessage.create({
+            data: {
+              conversationId: chat.id,
+              direction,
+              origin: direction === "in" ? "customer" : "staff_crm",
+              kind: "text",
+              body,
+              wamid: randomUUID(),
+              status: direction === "in" ? "received" : "sent",
+              occurredAt: new Date(message.occurredAt.getTime() + seconds * 1000),
+            },
+            select: { id: true },
+          }),
+        );
+      await line("out", "The 5-day Manali trip is Rs 18,999 per person.", 60);
+      const newest = await line("in", "Book it for the 12th, I'll pay the advance today", 120);
+      model.answer(JSON.stringify(answer));
+      expect(
+        await scoreLead(
+          { db: test.db, ai: model, subscriptions: { entitlementsOf: () => Promise.resolve(entitlements()) } },
+          { organizationId: chat.organizationId, conversationId: chat.id, messageId: newest.id },
+          testNow,
+        ),
+      ).toBe("scored");
+      const read = String(model.requests[0]?.messages[1]?.content);
+      expect(read).toContain("budget about 1 lakh");
+      expect(read).toContain("Rs 18,999 per person");
+      expect(read).toContain("pay the advance today");
+      // The first line is in the summary: it isn't read again.
+      expect(read).not.toContain("What is the price?");
+      expect(score).toBeDefined();
     });
 
     it("scores nothing, and asks the AI nothing, once the agency turned scoring off", async () => {
@@ -438,7 +517,7 @@ describe("the AI, step one", () => {
       expect(job.organizationId).toBe(organizationId);
     });
 
-    it("reads a burst whole: real words with an ok at the end are scored, an ok alone is not", async () => {
+    it("scores a lead again only once five new messages with real words came since its guess", async () => {
       const { inOrg, chat, model, score, organizationId } = await agency();
       model.answer(JSON.stringify(answer));
       expect(await score()).toBe("scored");
@@ -469,12 +548,16 @@ describe("the AI, step one", () => {
           { organizationId, conversationId: chat.id, messageId },
           testNow,
         );
-      await write("We are six now, and want Kasol too");
-      const trailingOk = await write("ok");
+      for (const line of ["We are six now", "and want Kasol too", "Is the hotel near the river?", "Veg food?"]) {
+        await write(line);
+      }
+      // Four lines with words, then an "ok" and a "thanks": too little new to score again, so no call.
+      await write("ok");
+      const thanks = await write("thanks 👍");
+      expect(await scoreFor(thanks.id)).toBe("too_few_new");
+      const fifth = await write("Can we leave on the 12th?");
       model.answer(JSON.stringify(answer));
-      expect(await scoreFor(trailingOk.id)).toBe("scored");
-      const onlyThanks = await write("thanks 👍");
-      expect(await scoreFor(onlyThanks.id)).toBe("nothing_new");
+      expect(await scoreFor(fifth.id)).toBe("scored");
       expect(model.requests).toHaveLength(2);
     });
 
