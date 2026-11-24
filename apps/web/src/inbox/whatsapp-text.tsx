@@ -3,7 +3,7 @@
 import { Fragment, type ReactNode } from "react";
 import { parseWhatsApp, type Span } from "./whatsapp-format";
 
-// A {blank} is swapped for private-use characters before parsing, which the marker rules read as part of a word, so a run
+// With `blanks` set, a {blank} is swapped for private-use characters before parsing, which the marker rules read as edges inside a word, so a run
 // like *Hi {name}* stays one bold run around the highlighted blank; Spans turns them back.
 const BLANK = /\{([a-z]+)\}/g;
 const HIDDEN_BLANK = /\uE000([a-z]+)\uE001/g;
@@ -24,11 +24,16 @@ function withBlanks(text: string): ReactNode {
 
 function Spans({ spans, blanks }: { spans: Span[]; blanks: boolean }) {
   return spans.map((span, index) => {
-    let node: ReactNode = blanks ? withBlanks(span.text) : restoreBlanks(span.text);
+    let node: ReactNode = blanks ? withBlanks(span.text) : span.text;
     if (span.href !== undefined) {
       node = (
-        <a href={restoreBlanks(span.href)} target="_blank" rel="noopener noreferrer" className="underline">
-          {span.text}
+        <a
+          href={blanks ? restoreBlanks(span.href) : span.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          {node}
         </a>
       );
     }
@@ -44,7 +49,7 @@ function Spans({ spans, blanks }: { spans: Span[]; blanks: boolean }) {
 export function WhatsAppText({ text, blanks = false }: { text: string; blanks?: boolean }) {
   return (
     <div className="flex flex-col gap-1 whitespace-pre-wrap break-words">
-      {parseWhatsApp(text.replace(BLANK, "\uE000$1\uE001")).map((block, index) => {
+      {parseWhatsApp(blanks ? text.replace(BLANK, "\uE000$1\uE001") : text).map((block, index) => {
         const key = String(index);
         switch (block.kind) {
           case "paragraph":
@@ -66,7 +71,7 @@ export function WhatsAppText({ text, blanks = false }: { text: string; blanks?: 
           case "code":
             return (
               <pre key={key} className="rounded-md bg-muted p-2 font-mono text-label whitespace-pre-wrap">
-                {block.text}
+                {blanks ? withBlanks(block.text) : block.text}
               </pre>
             );
           case "bullets":

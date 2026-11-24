@@ -19,7 +19,8 @@ type Style = Pick<Span, "bold" | "italic" | "strike">;
 
 const STYLES: Readonly<Record<string, keyof Style>> = { "*": "bold", _: "italic", "~": "strike" };
 const SPACE = /\s/u;
-const EDGE = /[\s\p{P}\p{S}]/u;
+// U+E000 and U+E001 hold a message-library blank while it is parsed (whatsapp-text.tsx): a blank is a word edge, as its braces are.
+const EDGE = /[\s\p{P}\p{S}\uE000\uE001]/u;
 
 /** Where each web address in the line starts and ends, so a marker never reaches into one. */
 function addressRanges(line: string): [number, number][] {

@@ -52,4 +52,25 @@ describe("WhatsAppText", () => {
     expect(container.textContent).toBe("Hi {name}");
     expect(container.querySelector(".bg-status-attention-fill")).toBeNull();
   });
+
+  it("shows braces in code and links exactly as typed, with no hidden characters", () => {
+    const { container } = render(<WhatsAppText text={"```\n{id}\n```\nhttps://x.co/{id}"} />);
+    expect(container.querySelector("pre")?.textContent).toBe("{id}");
+    expect(screen.getByRole("link")).toHaveTextContent("https://x.co/{id}");
+    expect(container.textContent).not.toMatch(/[\uE000\uE001]/);
+  });
+
+  it("highlights a blank in a fenced block and a link when asked", () => {
+    const { container } = render(<WhatsAppText text={"```\n{id}\n```\nhttps://x.co/{id}"} blanks />);
+    const pre = container.querySelector("pre");
+    if (pre === null) throw new Error("no code block");
+    expect(within(pre).getByText("{id}")).toHaveClass("bg-status-attention-fill");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "https://x.co/{id}");
+    expect(container.textContent).not.toMatch(/[\uE000\uE001]/);
+  });
+
+  it("lets a blank sit against a marker", () => {
+    const { container } = render(<WhatsAppText text="{name}*bold* and *Hi*{name}" blanks />);
+    expect([...container.querySelectorAll("strong")].map((bold) => bold.textContent)).toEqual(["bold", "Hi"]);
+  });
 });
