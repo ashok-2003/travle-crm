@@ -180,11 +180,13 @@ describe("Try it on the new agent", () => {
   it("shows each message as it was split, its line breaks and blank lines kept", async () => {
     const list = "Snow Lake mein ye included hai:\n\n• Dehradun se transport\n• Saare meals\n\n*Porter* alag se.";
     await chat(naturalTurn([list, "Aapke group mein kitne log hain?"]));
-    const bubble = await screen.findByText(
-      (_content, element) => element?.tagName === "P" && element.textContent === `${words.agent} ${list}`,
-    );
-    // The bubble keeps the newlines it was given: a • list stays a list, a blank line a gap.
-    expect(bubble).toHaveClass("whitespace-pre-line");
+    const porter = await screen.findByText("Porter");
+    // Bold becomes bold, not asterisks; a • list stays lines of its own and a blank line a gap between paragraphs.
+    expect(porter.tagName).toBe("STRONG");
+    const bubble = porter.closest("div.flex");
+    expect(bubble?.querySelectorAll("p")).toHaveLength(3);
+    expect(bubble?.textContent).not.toContain("*");
+    expect(bubble).toHaveClass("whitespace-pre-wrap");
     expect(screen.getByText("Aapke group mein kitne log hain?")).toBeVisible();
   });
 

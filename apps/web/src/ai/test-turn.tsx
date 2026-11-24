@@ -10,6 +10,7 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { WhatsAppText } from "@/inbox/whatsapp-text";
 import { TestWhy } from "./test-why";
 
 /**
@@ -45,9 +46,7 @@ function TurnStatus({ answer }: { answer: TestAiAnswer }) {
 /** Our green bubble on the right: what would go to the customer. */
 export function OutBubble({ children }: { children: ReactNode }) {
   return (
-    <p className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-ai px-3 py-2 whitespace-pre-line wrap-anywhere">
-      {children}
-    </p>
+    <div className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-ai px-3 py-2 wrap-anywhere">{children}</div>
   );
 }
 
@@ -84,7 +83,7 @@ export function TestTurn({ answer }: { answer: TestAiAnswer }) {
       {answer.answer !== "" && (
         <OutBubble>
           <span className="sr-only">{t("agent")} </span>
-          {answer.answer}
+          <WhatsAppText text={answer.answer} />
         </OutBubble>
       )}
       <TurnStatus answer={answer} />

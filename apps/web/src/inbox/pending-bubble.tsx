@@ -6,6 +6,7 @@ import { FileIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Progress } from "@/components/ui/progress";
 import { usePendingSend } from "./pending-sends";
+import { WhatsAppText } from "./whatsapp-text";
 
 export function PendingBubble({ conversationId }: { conversationId: string }) {
   const t = useTranslations("inbox.chat");
@@ -30,9 +31,9 @@ export function PendingBubble({ conversationId }: { conversationId: string }) {
           />
         )}
         {sending.caption !== undefined && (
-          <p dir="auto" className="px-1.5 whitespace-pre-wrap">
-            {sending.caption}
-          </p>
+          <div dir="auto" className="px-1.5">
+            <WhatsAppText text={sending.caption} />
+          </div>
         )}
         <div className="flex items-center gap-2 px-1.5 pb-0.5 text-caption text-muted-foreground">
           <Progress value={percent} aria-label={t("sendingFile")} className="max-w-32" />
