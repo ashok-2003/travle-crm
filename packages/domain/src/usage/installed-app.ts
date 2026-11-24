@@ -1,5 +1,5 @@
 // Who opens the installed app (the home-screen app) on which kind of phone, so their browser on that kind of phone can say
-// "open Veeper from your home screen": Safari can't tell whether the app is installed. A time and the phone type only.
+// "open the app from your home screen": Safari can't tell whether the app is installed. A time and the phone type only.
 import type { InstalledAppPlatform } from "@travel-crm/contracts/usage";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
