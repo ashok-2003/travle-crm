@@ -11,7 +11,31 @@ import { LocationCard } from "./media/location-card";
 import { MessageMedia } from "./media/message-media";
 import { WhatsAppText } from "./whatsapp-text";
 
+/** The label of a message deleted for everyone: who deleted it. */
+export function deletedLabelKey(message: ChatMessage): "deletedFromPhone" | "deletedByCustomer" {
+  return message.origin === "staff_phone" ? "deletedFromPhone" : "deletedByCustomer";
+}
+
+// A deleted message keeps its words for the team, struck through, and screen readers hear who deleted it first; a message that
+// came from an ad names the ad's headline under its words.
 export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
+  const t = useTranslations("inbox.chat");
+  const deleted = message.revokedAt !== null;
+  if (!deleted && message.adHeadline === null) return <MessageContent message={message} />;
+  return (
+    <div className="flex flex-col gap-1">
+      {deleted && <span className="sr-only">{t(deletedLabelKey(message))}. </span>}
+      <div className={deleted ? "line-through" : undefined}>
+        <MessageContent message={message} />
+      </div>
+      {message.adHeadline !== null && (
+        <span className="text-caption text-muted-foreground">{t("fromAd", { headline: message.adHeadline })}</span>
+      )}
+    </div>
+  );
+}
+
+function MessageContent({ message }: { message: ChatMessage }): ReactNode {
   const t = useTranslations("inbox.chat");
   switch (message.kind) {
     case "text":
@@ -62,6 +86,12 @@ export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
     case "reaction":
       return t("reactedWith", { emoji: message.reaction ?? "" });
     case "unsupported":
-      return t("unsupported");
+      return t(
+        message.unsupportedReason === "unavailable"
+          ? "unavailable"
+          : message.unsupportedReason === "album"
+            ? "album"
+            : "unsupported",
+      );
   }
 }

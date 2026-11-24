@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useChatJump } from "./chat-jump";
 import { MessageActions, NotSent } from "./message-actions";
-import { MessageBody } from "./message-body";
+import { MessageBody, deletedLabelKey } from "./message-body";
 import { QuoteBlock } from "./quote-block";
 import { Ticks } from "./ticks";
 import { useReplying } from "./use-replying";
@@ -64,6 +64,8 @@ export function MessageBubble({
       )}
       {showSender && message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
       {showSender && message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
+      {message.revokedAt !== null && <span aria-hidden="true">{t(deletedLabelKey(message))} ·</span>}
+      {message.editedAt !== null && <span>{t("edited")} ·</span>}
       {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
       <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
       {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
