@@ -226,3 +226,32 @@ export type DepartureMoney = z.infer<typeof departureMoney>;
 export const holdExpiredEvent = z.strictObject({ holdId: recordId, departureId: recordId });
 export const seatsFreedEvent = z.strictObject({ departureId: recordId });
 export const overbookedEvent = z.strictObject({ departureId: recordId, bookingId: recordId });
+
+/** The most days one "add dates" request may span (about two months). */
+export const MAX_ADDED_DATES = 62;
+const DAY_MS = 86_400_000;
+const daysInRange = (value: { from: string; to: string }) =>
+  (Date.parse(`${value.to}T00:00:00Z`) - Date.parse(`${value.from}T00:00:00Z`)) / DAY_MS + 1;
+
+/** A trip's dates added in bulk: every day from `from` to `to`, or only the chosen weekdays. */
+export const addPackageDatesInput = z
+  .strictObject({
+    packageId: recordId,
+    from: calendarDate,
+    to: calendarDate,
+    /** 0 Sunday … 6 Saturday; empty means every day. */
+    weekdays: z.array(z.int().min(0).max(6)).max(7),
+  })
+  .refine((value) => value.to >= value.from, { message: "The last day is before the first", path: ["to"] })
+  .refine((value) => value.to < value.from || daysInRange(value) <= MAX_ADDED_DATES, {
+    message: `Add at most ${String(MAX_ADDED_DATES)} days at a time`,
+    path: ["to"],
+  });
+export type AddPackageDatesInput = z.infer<typeof addPackageDatesInput>;
+export const addPackageDatesResult = z.object({
+  added: z.array(calendarDate),
+  alreadyThere: z.array(calendarDate),
+  /** Days that hold a cancelled departure: nothing was added there, so the screen can offer to reopen it. */
+  cancelled: z.array(z.object({ date: calendarDate, departureId: recordId })),
+});
+export type AddPackageDatesResult = z.infer<typeof addPackageDatesResult>;
