@@ -47,7 +47,10 @@ describe("HTML from strings", () => {
     });
     expect(scripts.map(({ file }) => file)).toEqual(["pwa/install-prompt-capture.tsx"]);
     for (const { file, source } of scripts) {
-      expect(source.match(/<script\b[^>]*>[^<]*<\/script>/g), file).toEqual(["<script>{installPromptScript}</script>"]);
+      // Case-insensitive, so a <SCRIPT> or <Script> in the file is caught too, and fails the exact match below.
+      expect(source.match(/<script\b[^>]*>[^<]*<\/script>/gi), file).toEqual([
+        "<script>{installPromptScript}</script>",
+      ]);
     }
   });
 
