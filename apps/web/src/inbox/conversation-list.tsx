@@ -1,20 +1,21 @@
 "use client";
 
 // The inbox's list of chats (spec 3.1; sales inbox spec, sections 3 and design v2), dense like the chat apps sales teams
-// live in: the person's tinted picture, their name and how long ago the last message came ("18m", "5h", "25 Oct"); under
-// them our ticks and the last message's first words, with the member's unread count (or a dot while the customer waits)
-// and a pin; then the sale: the lead's stage as its coloured pill, its owner, the chat's WhatsApp number (once the agency
-// has two), how long the customer has waited, and the agency's tags. The open chat is marked as the current link. A chat (its page and its data) is asked for ahead as the
+// live in, two lines: the person's tinted picture, their name, how long the customer has waited ("waiting 25m") or else
+// how long ago the last message came ("18m", "5h", "25 Oct"), and the unread count (or a dot while they wait); under it
+// our ticks and the last message's first words, the lead's stage as its coloured pill, its owner's initials when it is
+// not the member, and the chat's WhatsApp number (once the agency has two). A chat the AI handed to a person wears an
+// amber hand. The open chat is marked as the current link. A chat (its page and its data) is asked for ahead as the
 // pointer rests on its row or the row gets the focus (inbox revamp spec, part 1 item 3), so it opens at once.
 import type { LeadStage } from "@travel-crm/contracts/crm";
 import type { ConversationListItem } from "@travel-crm/contracts/inbox";
-import { AlarmClockIcon, PinIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react";
+import { AlarmClockIcon, HandIcon, PinIcon, SmartphoneIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemGroup, ItemMedia } from "@/components/ui/item";
+import { OwnerInitials } from "@/leads/owner-initials";
 import { stageTones } from "@/leads/stage-badge";
 import { formatDay, formatPhoneNumber } from "@/lib/format";
 import { elapsed } from "@/lib/relative-time";
@@ -27,7 +28,8 @@ import { Ticks } from "./ticks";
 import { usePrefetchChat } from "./use-inbox";
 import { useNumbers } from "./use-numbers";
 import { useOwners } from "./use-owner-names";
-import { WaitTimer } from "./wait-timer";
+import { waitedFor, waitTone } from "./wait-timer";
+import { plainWhatsAppText } from "./whatsapp-format";
 
 /** How long the pointer rests on a row before its chat is asked for: passing over rows on the way elsewhere asks nothing. */
 export const PREFETCH_REST_MS = 150;
@@ -74,6 +76,22 @@ function useShortWhen() {
   };
 }
 
+/** "waiting 25m", in the tone of the chat header's timer (wait-timer.tsx): amber from half the reply target, red from the target. */
+const waitInk = {
+  bad: "text-status-bad-ink",
+  attention: "text-status-attention-ink",
+  neutral: "text-muted-foreground",
+};
+function WaitingFor({ since }: { since: string }) {
+  const t = useTranslations("inbox");
+  const minutes = Math.floor((useNow().getTime() - new Date(since).getTime()) / 60_000);
+  return (
+    <span className={cn("text-caption font-semibold", waitInk[waitTone(minutes)])}>
+      {t("waitingShort", { time: waitedFor(minutes) })}
+    </span>
+  );
+}
+
 function Row({
   chat,
   current,
@@ -88,7 +106,7 @@ function Row({
   const tStages = useTranslations("leads.stages");
   const when = useShortWhen();
   const { nameOf } = useOwners();
-  const owner = chat.lead === null ? null : nameOf(chat.lead.ownerUserId);
+  const me = useMe();
   const prefetch = usePrefetchOnRest(chat.id);
   const fresh = chat.unread > 0 || chat.needsReply;
   // The open chat's row is darker (bg-hairline), where the muted grey is too faint to read.
@@ -115,50 +133,64 @@ function Row({
             <ChatAvatar name={chat.name} seed={chat.id} />
           </ItemMedia>
           <ItemContent className="min-w-0 flex-1 gap-0.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span
-                className={cn(
-                  "truncate script-leading",
-                  fresh ? "font-semibold" : "font-medium",
-                  chat.name === null && "numbers",
-                )}
-              >
-                {chat.name ?? formatPhoneNumber(chat.phone)}
-              </span>
-              <span className={cn("shrink-0 text-caption", fresh ? "font-semibold text-primary" : quiet)}>
-                {when(chat.lastMessageAt)}
-              </span>
-            </div>
             <div className="flex items-center justify-between gap-2">
-              <span className={cn("flex min-w-0 items-center gap-1 text-label", fresh ? "text-foreground" : quiet)}>
-                {chat.lastDirection === "out" && chat.lastStatus !== null && <Ticks status={chat.lastStatus} />}
-                <span className="truncate script-leading" dir="auto">
-                  {chat.preview}
+              <span className="flex min-w-0 items-center gap-1.5">
+                {chat.handedOver && (
+                  <HandIcon
+                    aria-label={t("handedOver")}
+                    role="img"
+                    className="size-3.5 shrink-0 text-status-attention-ink"
+                  />
+                )}
+                <span
+                  className={cn(
+                    "truncate script-leading",
+                    fresh ? "font-semibold" : "font-medium",
+                    chat.name === null && "numbers",
+                  )}
+                >
+                  {chat.name ?? formatPhoneNumber(chat.phone)}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1.5">
+                {chat.snoozedUntil !== null && (
+                  <AlarmClockIcon aria-label={t("snoozed")} role="img" className="size-3.5 text-muted-foreground" />
+                )}
                 {chat.pinned && (
                   <PinIcon aria-label={t("pinned")} role="img" className="size-3.5 text-muted-foreground" />
                 )}
+                {chat.waitingSince !== null ? (
+                  <WaitingFor since={chat.waitingSince} />
+                ) : (
+                  <span className={cn("text-caption", fresh ? "font-semibold text-primary" : quiet)}>
+                    {when(chat.lastMessageAt)}
+                  </span>
+                )}
                 {chat.unread > 0 ? (
                   <span
-                    className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-caption font-semibold text-primary-foreground"
+                    className="flex h-5 min-w-5 items-center justify-center rounded-full bg-people-tint px-1.5 text-caption font-semibold text-people-tint-ink"
                     aria-label={t("unreadCount", { count: chat.unread })}
                   >
                     {chat.unread}
                   </span>
                 ) : (
                   chat.needsReply && (
-                    <span className="size-2.5 rounded-full bg-primary" role="img" aria-label={t("waiting")} />
+                    <span className="size-2.5 rounded-full bg-people-tint-ink" role="img" aria-label={t("waiting")} />
                   )
                 )}
               </span>
             </div>
-            <div className={cn("flex min-w-0 items-center gap-2 pt-0.5 text-caption", quiet)}>
-              {chat.lead === null ? (
-                chat.isNewNumber && <span>{t("newNumber")}</span>
-              ) : (
-                <>
+            <div className="flex items-center justify-between gap-2">
+              <span className={cn("flex min-w-0 items-center gap-1 text-label", fresh ? "text-foreground" : quiet)}>
+                {chat.lastDirection === "out" && chat.lastStatus !== null && <Ticks status={chat.lastStatus} />}
+                <span className="truncate script-leading" dir="auto">
+                  {plainWhatsAppText(chat.preview)}
+                </span>
+              </span>
+              <span className={cn("flex shrink-0 items-center gap-1.5 text-caption", quiet)}>
+                {chat.lead === null ? (
+                  chat.isNewNumber && <span>{t("newNumber")}</span>
+                ) : (
                   <span
                     className={cn(
                       "inline-flex h-5 shrink-0 items-center rounded-full px-2 text-caption font-medium",
@@ -167,34 +199,18 @@ function Row({
                   >
                     {tStages(chat.lead.stage as never)}
                   </span>
-                  <span className="flex min-w-0 items-center gap-1">
-                    <UserRoundIcon aria-hidden="true" className="size-3 shrink-0" />
-                    <span className="truncate">{owner ?? t("unassigned")}</span>
-                  </span>
-                </>
-              )}
-              {numberLabel !== null && (
-                <span className="flex min-w-0 items-center gap-1">
-                  <SmartphoneIcon aria-hidden="true" className="size-3 shrink-0" />
-                  <span className="truncate">{numberLabel}</span>
-                </span>
-              )}
-              <span className="ml-auto flex shrink-0 items-center gap-1">
-                {chat.snoozedUntil !== null && (
-                  <AlarmClockIcon aria-label={t("snoozed")} role="img" className="size-3.5" />
                 )}
-                {chat.waitingSince !== null && <WaitTimer since={chat.waitingSince} />}
+                {chat.lead?.ownerUserId != null && chat.lead.ownerUserId !== me.user.id && (
+                  <OwnerInitials name={nameOf(chat.lead.ownerUserId)} />
+                )}
+                {numberLabel !== null && (
+                  <span className="flex min-w-0 items-center gap-1">
+                    <SmartphoneIcon aria-hidden="true" className="size-3 shrink-0" />
+                    <span className="truncate">{numberLabel}</span>
+                  </span>
+                )}
               </span>
             </div>
-            {chat.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {chat.tags.map((tag) => (
-                  <Badge key={tag.id} variant="secondary" className="h-5 px-1.5 text-caption font-normal">
-                    {tag.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
           </ItemContent>
         </Link>
       </Item>

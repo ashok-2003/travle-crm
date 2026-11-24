@@ -44,7 +44,7 @@ const header: ConversationHeader = {
 
 const message = (fields: Record<string, unknown>) => aMessage(fields) as ChatMessage;
 const bubble = (chat: ChatMessage, quotedSender = "Rahul Mehta") => (
-  <MessageBubble message={chat} senderName={null} quotedSender={quotedSender} first />
+  <MessageBubble message={chat} senderName={null} quotedSender={quotedSender} first showSender />
 );
 
 describe("a quote in a bubble", () => {
@@ -149,7 +149,7 @@ describe("replying with a quote", () => {
     renderWithApi(
       <ReplyingProvider conversationId={chatId}>
         {bubble(message({ id: theirs, body: "Goa in December?" }))}
-        <Composer header={header} windowOpenUntil="2099-01-01T00:00:00.000Z" />
+        <Composer header={header} windowOpenUntil="2099-01-01T00:00:00.000Z" onNote={null} />
       </ReplyingProvider>,
       newQueryClient(),
     );
@@ -176,7 +176,7 @@ describe("replying with a quote", () => {
     renderWithApi(
       <ReplyingProvider conversationId={chatId}>
         {bubble(message({ id: theirs, body: null, tapped: true }))}
-        <Composer header={header} windowOpenUntil="2099-01-01T00:00:00.000Z" />
+        <Composer header={header} windowOpenUntil="2099-01-01T00:00:00.000Z" onNote={null} />
       </ReplyingProvider>,
       newQueryClient(),
     );

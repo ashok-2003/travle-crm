@@ -27,7 +27,7 @@ export interface LiveLoop {
 export async function newerLineIn(db: Database, input: LiteTurnInput, lastInboundAt: Date): Promise<boolean> {
   const newest = await db.forOrg(input.organizationId, (tx) =>
     tx.whatsappMessage.findFirst({
-      where: { conversationId: input.conversationId, direction: "in" },
+      where: { conversationId: input.conversationId, direction: "in", revokedAt: null },
       orderBy: { occurredAt: "desc" },
       select: { id: true, occurredAt: true },
     }),

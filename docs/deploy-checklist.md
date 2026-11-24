@@ -703,6 +703,19 @@ and answer by AI on numbers switched off. So, before deploying the previous dige
 numbers in the console, keeping its main one. The migration needs no undo: the release before reads nothing it added.
 Undoing it would bring the old index back, which works only while every agency has one live number.
 
+## Release: inbox part 2 (edits, deletions, ads)
+
+Two migrations, both only adding, so the release before keeps working while they apply and nothing of them needs an undo:
+`20261219000000_inbox_edits_and_unshared` adds four columns to `whatsapp_message` (`edited_at`, `revoked_at`,
+`unsupported_reason`, `ad_headline`) and a check on the reason; `20261219000100_inbox_live_edits` replaces the live
+trigger's function so an edit or a deletion refreshes open chats.
+
+1. CI applies both before the api release. The first waits at most 5 s for its table lock; on a lock timeout nothing of
+   it stays, so mark it rolled back (`migrate resolve --rolled-back 20261219000000_inbox_edits_and_unshared`, Migrations
+   above) and deploy again. The second only replaces a function and takes no table lock.
+2. The web is safe whichever side deploys first: it reads the four new fields as possibly missing (`lib/older-api.ts`),
+   so against the release before's api no message shows as deleted, edited or from an ad, and Forward stays offered.
+
 ## Still open before launch
 
 - **The deploy pipeline** (spec 12.1). CI builds the images and runs them, but publishes nothing. Still to build: a

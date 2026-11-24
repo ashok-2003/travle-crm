@@ -102,6 +102,14 @@ describe("the Inbox's shared layout", () => {
     expect(screen.getByRole("link", { name: /Customer G/ })).not.toHaveAttribute("aria-current");
   });
 
+  it("hides the Inbox heading on a computer and names the Broadcasts button", async () => {
+    screenIs("wide");
+    renderWithApi(<InboxScreen>{null}</InboxScreen>, newQueryClient());
+    await screen.findByRole("link", { name: /Customer L/ });
+    expect(screen.getByRole("heading", { name: "Inbox" })).toHaveClass("lg:sr-only");
+    expect(screen.getByRole("link", { name: "Broadcasts" })).toHaveAttribute("href", "/inbox/broadcasts");
+  });
+
   it("keeps the list under a phone's chat, so Back finds it as it was", async () => {
     screenIs("phone");
     const view = renderWithApi(<InboxScreen>{null}</InboxScreen>, newQueryClient());

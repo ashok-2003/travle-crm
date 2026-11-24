@@ -296,6 +296,8 @@ async function prepare(
       conversationId: job.conversationId,
       kind: { not: "reaction" },
       status: { not: "superseded" },
+      // Words the customer deleted for everyone stay for the team, never for the AI (owner, 2026-11-24).
+      revokedAt: null,
       ...(through === null
         ? {}
         : { OR: [{ occurredAt: { gt: through.at } }, { occurredAt: through.at, id: { gt: through.id } }] }),

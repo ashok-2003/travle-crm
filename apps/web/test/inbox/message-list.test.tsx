@@ -284,3 +284,64 @@ describe("a voice note and a place", () => {
     expect(screen.getByText("Location")).toBeInTheDocument();
   });
 });
+
+describe("a run of messages from one sender", () => {
+  beforeEach(() => {
+    screenIs("wide");
+    window.sessionStorage.clear();
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  const ours = { direction: "out", status: "sent", byAi: false };
+  const open = (items: unknown[], people: Record<string, string> = {}) => {
+    answerApi({
+      "inbox.conversation": header,
+      "salesInbox.notes": notes,
+      "inbox.markRead": null,
+      "inbox.messages": { items, nextCursor: null, people, unread: { count: 0, firstMessageId: null } },
+    });
+    renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
+  };
+
+  // What is drawn: the words kept for screen readers (sr-only) left out.
+  const visibleText = (row: HTMLElement | undefined) => {
+    const copy = row?.cloneNode(true);
+    if (!(copy instanceof HTMLElement)) return "";
+    for (const hidden of copy.querySelectorAll(".sr-only")) hidden.remove();
+    return copy.textContent;
+  };
+
+  it("names 'From the phone' once, on the first bubble, and each bubble keeps its time", async () => {
+    const phone = { ...ours, origin: "staff_phone" };
+    open([
+      aMessage({ ...phone, id: id(3), body: "Third", occurredAt: at(3) }),
+      aMessage({ ...phone, id: id(2), body: "Second", occurredAt: at(2) }),
+      aMessage({ ...phone, id: id(1), body: "First", occurredAt: at(1) }),
+    ]);
+    await screen.findByText("First");
+    const rows = screen.getAllByRole("listitem");
+    expect(visibleText(rows[0])).toContain("From the phone");
+    expect(visibleText(rows[1])).not.toContain("From the phone");
+    expect(visibleText(rows[2])).not.toContain("From the phone");
+    for (const row of rows) expect(row.textContent).toMatch(/\d{1,2}:\d{2}/);
+    // Screen readers hear the sender on every bubble of the run.
+    for (const row of rows) expect(row.querySelector(".sr-only")).toHaveTextContent("From the phone");
+  });
+
+  it("starts a new run when the sender changes: the AI, then a teammate", async () => {
+    const teammate = "01900000-0000-7000-8000-0000000000c1";
+    open(
+      [
+        aMessage({ ...ours, origin: "staff_crm", sentBy: teammate, id: id(2), body: "Staff reply", occurredAt: at(2) }),
+        aMessage({ ...ours, origin: "automation", byAi: true, id: id(1), body: "AI reply", occurredAt: at(1) }),
+      ],
+      { [teammate]: "Priya Shah" },
+    );
+    await screen.findByText("AI reply");
+    const rows = screen.getAllByRole("listitem");
+    expect(visibleText(rows[0])).toContain("Sent by the AI");
+    expect(visibleText(rows[0])).not.toContain("Priya");
+    expect(visibleText(rows[1])).toContain("Priya");
+    expect(visibleText(rows[1])).not.toContain("Sent by the AI");
+  });
+});

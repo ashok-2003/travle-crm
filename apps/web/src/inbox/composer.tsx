@@ -46,7 +46,16 @@ import { MicButton, RecordingRow, VoiceProblemNote } from "./voice/voice-control
 const MAX_TEXT = 4096;
 const acceptedTypes = whatsappSendContentTypes.join(",");
 
-export function Composer({ header, windowOpenUntil }: { header: ConversationHeader; windowOpenUntil: string }) {
+export function Composer({
+  header,
+  windowOpenUntil,
+  onNote,
+}: {
+  header: ConversationHeader;
+  windowOpenUntil: string;
+  /** Turns the box into a team note (a tool in "+"); null when the chat has no lead. */
+  onNote: (() => void) | null;
+}) {
   const t = useTranslations("inbox.chat");
   const conversationId = header.id;
   const listId = useId();
@@ -109,6 +118,7 @@ export function Composer({ header, windowOpenUntil }: { header: ConversationHead
     words,
     hasFile: file !== null,
     windowOpenUntil,
+    onNote,
     onQuickReplies: () => {
       setText("/");
       quick.typedSomething();

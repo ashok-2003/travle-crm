@@ -21,6 +21,7 @@ const t = createTranslator({ locale, messages, namespace: "notifications.push" }
 function renderPush(me = member({ name: "Asha" })) {
   renderWithApi(<PushOnThisDevice />, newQueryClient(), me);
 }
+import { turnedOffByChoice } from "@/notifications/push/push-offer";
 
 beforeEach(() => {
   for (const call of Object.values(device)) call.mockReset();
@@ -51,6 +52,19 @@ describe("PushOnThisDevice", () => {
     fireEvent.click(screen.getByRole("button", { name: push.turnOn }));
     expect(device.turnPushOn).toHaveBeenCalledOnce();
     await screen.findByText(push.on);
+  });
+
+  it("remembers that the person turned push off, and forgets it when they turn it on again", async () => {
+    device.pushState.mockResolvedValue("on");
+    device.turnPushOff.mockResolvedValue("off");
+    device.turnPushOn.mockResolvedValue("on");
+    renderPush();
+    await userEvent.click(await screen.findByRole("button", { name: push.turnOff }));
+    await userEvent.click(await screen.findByRole("button", { name: push.turnOn }));
+    expect(turnedOffByChoice()).toBe(false);
+    await userEvent.click(await screen.findByRole("button", { name: push.turnOff }));
+    expect(turnedOffByChoice()).toBe(true);
+    window.localStorage.clear();
   });
 
   it("turns push off again", async () => {

@@ -34,6 +34,10 @@ const dayKey = (instant: string, timeZone: string) =>
     new Date(instant),
   );
 
+/** Two messages from the same side by the same sender kind (who sent it, or the AI, or the phone) form one run. */
+const sameSender = (a: ChatMessage, b: ChatMessage) =>
+  a.direction === b.direction && a.origin === b.origin && a.byAi === b.byAi && a.sentBy === b.sentBy;
+
 type Pages = ReturnType<typeof useMessages>;
 
 /** Earlier pages loaded, at most, to land on the first unread message as a chat opens. */
@@ -201,6 +205,7 @@ function Loaded({
             : customerName
         }
         first={newDay || previous.kind !== "message" || previous.message.direction !== message.direction}
+        showSender={newDay || previous.kind !== "message" || !sameSender(previous.message, message)}
       />,
     );
   });

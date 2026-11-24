@@ -1,11 +1,12 @@
 // A natural turn whose model fails is sent again after two minutes, then after ten; the third failure sends the
 // customer nothing (the owner, 2026-11-24: no automatic holding line) and leaves the team a task, and the AI stays on.
 // An old attempt ends quietly when the customer wrote since, and five chats run at once.
+import { randomUUID } from "node:crypto";
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { setAgent } from "../../src/ai/agent-choice.js";
 import { systemActor } from "../../src/kernel/index.js";
-import { aiReplyHandler, type AgentDependencies } from "../../src/ai/index.js";
+import { aiChatResumedListener, aiReplyHandler, type AgentDependencies } from "../../src/ai/index.js";
 import { replyDayOf } from "../../src/ai/may-write.js";
 import { uuidFromKey } from "../../src/jobs/index.js";
 import { createTestInbox, type TestInbox } from "../inbox/support.js";
@@ -161,6 +162,39 @@ describe("a failed natural turn is tried again, then left to the team", () => {
     expect(await on.inOrg((tx) => tx.task.count({ where: { byAi: true } }))).toBe(0);
     expect(retries(from)).toEqual([]);
     expect(on.model.requests).toHaveLength(0);
+  });
+
+  it("answers the newest message that was not deleted for everyone", async () => {
+    const on = await liveAgency(test);
+    await on.write({ direction: "in", at: liveAt(30), body: "Never mind" });
+    await on.inOrg((tx) =>
+      tx.whatsappMessage.updateMany({ where: { body: "Never mind" }, data: { revokedAt: liveAt(40) } }),
+    );
+    clockAt(liveAt(60));
+    // The first line is the newest one that stands, so the job is not ended as an old one: a turn runs and is logged.
+    const before = test.logger.entries.length;
+    await handlerOf(on).handle(jobOf(on, on.message.id, 2));
+    expect(test.logger.entries.slice(before).map((entry) => entry.msg)).toContain("The AI agent's turn");
+  });
+
+  it("queues a chat given back to the AI on the newest message that was not deleted", async () => {
+    const on = await liveAgency(test);
+    await on.write({ direction: "in", at: liveAt(30), body: "Never mind" });
+    await on.inOrg((tx) =>
+      tx.whatsappMessage.updateMany({ where: { body: "Never mind" }, data: { revokedAt: liveAt(40) } }),
+    );
+    const from = test.queue.sent.length;
+    await aiChatResumedListener({ queue: test.queue, subscriptions: on.dependencies().subscriptions }).handle(
+      {
+        id: randomUUID(),
+        organizationId: on.organizationId,
+        type: "ai.chat-resumed",
+        payload: { conversationId: on.chat.id },
+        occurredAt: liveAt(50),
+      },
+      { actor: systemActor(on.organizationId), forOrg: (work) => on.inOrg(work) },
+    );
+    expect(retries(from).map((job) => (job.data as { messageId: string }).messageId)).toEqual([on.message.id]);
   });
 
   it("runs five chats at once", () => {

@@ -73,7 +73,8 @@ test("Sales inbox tools: chat, quick replies, notes, send later, snooze and the 
   if (!phoneSheet) await shoot(owner, "inbox-tools-chat");
 
   // A team note with a mention.
-  await chat.getByRole("radio", { name: "Note" }).click();
+  if (phoneSheet) await chat.getByRole("button", { name: "Message tools" }).click();
+  await owner.getByRole("button", { name: "Note", exact: true }).click();
   const note = chat.getByRole("combobox", { name: "A note for your team" });
   await note.fill("Honeymoon trip, wants the houseboat night. @");
   await expect(owner.getByRole("option").first()).toBeVisible();
@@ -82,7 +83,7 @@ test("Sales inbox tools: chat, quick replies, notes, send later, snooze and the 
   await chat.getByRole("button", { name: "Save the note" }).click();
   await expect(chat.getByText("Call back after 6 pm.")).toBeVisible();
   await shoot(owner, "inbox-tools-note-saved");
-  await chat.getByRole("radio", { name: "Reply" }).click();
+  await chat.getByRole("button", { name: "Back to replying" }).click();
 
   // Send later.
   await box.fill("Here is the quote we discussed.");

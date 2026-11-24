@@ -4,6 +4,7 @@ import {
   chatMessagePage,
   whatsappMessageKind,
   whatsappMessageStatus,
+  whatsappUnsupportedReason,
   type ChatMessagePage,
   type ListMessagesInput,
 } from "@travel-crm/contracts/inbox";
@@ -86,6 +87,10 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
     mediaState: row.mediaState,
     sentBy: row.sentBy,
     occurredAt: row.occurredAt.toISOString(),
+    editedAt: row.editedAt?.toISOString() ?? null,
+    revokedAt: row.revokedAt?.toISOString() ?? null,
+    unsupportedReason: whatsappUnsupportedReason.catch("unknown").nullable().parse(row.unsupportedReason),
+    adHeadline: row.adHeadline,
     starred: row.starredAt !== null,
     aiText:
       row.aiText === null || (row.aiTextKind !== "transcript" && row.aiTextKind !== "description")
