@@ -99,10 +99,18 @@ const QUOTE = /^> ?(.*)$/;
 
 function parseLines(text: string): WhatsAppBlock[] {
   const blocks: WhatsAppBlock[] = [];
-  let lines: string[] = [];
+  // Raw lines of the paragraph or quote being read, parsed once when it ends so no marker is split between lines.
+  let pending: { kind: "paragraph" | "quote"; lines: string[] } | null = null;
   const flush = () => {
-    if (lines.length > 0) blocks.push({ kind: "paragraph", spans: parseInline(lines.join("\n")) });
-    lines = [];
+    if (pending) blocks.push({ kind: pending.kind, spans: parseInline(pending.lines.join("\n")) });
+    pending = null;
+  };
+  const collect = (kind: "paragraph" | "quote", line: string) => {
+    if (pending?.kind !== kind) {
+      flush();
+      pending = { kind, lines: [] };
+    }
+    pending.lines.push(line);
   };
   const grow = (kind: "bullets" | "numbered", item: string) => {
     flush();
@@ -117,14 +125,9 @@ function parseLines(text: string): WhatsAppBlock[] {
     const quote = QUOTE.exec(line);
     if (bullet) grow("bullets", bullet[1] ?? "");
     else if (numbered) grow("numbered", numbered[1] ?? "");
-    else if (quote) {
-      flush();
-      const last = blocks[blocks.length - 1];
-      const joined = quote[1] ?? "";
-      if (last?.kind === "quote") last.spans = parseInline(`${plainOf(last.spans)}\n${joined}`);
-      else blocks.push({ kind: "quote", spans: parseInline(joined) });
-    } else if (line.trim() === "") flush();
-    else lines.push(line);
+    else if (quote) collect("quote", quote[1] ?? "");
+    else if (line.trim() === "") flush();
+    else collect("paragraph", line);
   }
   flush();
   return blocks;

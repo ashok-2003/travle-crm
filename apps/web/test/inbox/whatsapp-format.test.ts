@@ -68,6 +68,15 @@ describe("parseWhatsApp blocks", () => {
     expect(parseWhatsApp("> hi")).toEqual([{ kind: "quote", spans: [{ text: "hi" }] }]);
   });
 
+  it("keeps the formatting of every line of a quote", () => {
+    expect(parseWhatsApp("> *a*\n> b")).toEqual([
+      {
+        kind: "quote",
+        spans: [{ text: "a", bold: true }, { text: "\nb" }],
+      },
+    ]);
+  });
+
   it("treats *one* at a line start as bold, not a bullet", () => {
     expect(parseWhatsApp("*one*")).toEqual([{ kind: "paragraph", spans: [{ text: "one", bold: true }] }]);
   });
