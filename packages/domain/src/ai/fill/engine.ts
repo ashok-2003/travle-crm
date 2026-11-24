@@ -121,7 +121,11 @@ async function prepare(tx: OrgTx, access: MemberAccess, input: AiFillInput, now:
     chatPhone = conversation.phoneE164;
     from = "chat";
     const recent = await tx.whatsappMessage.findMany({
-      where: { conversationId: conversation.id, OR: [{ body: { not: null } }, { caption: { not: null } }] },
+      where: {
+        conversationId: conversation.id,
+        revokedAt: null,
+        OR: [{ body: { not: null } }, { caption: { not: null } }],
+      },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       take: CHAT_MESSAGES,
       select: { direction: true, body: true, caption: true },

@@ -77,7 +77,7 @@ async function prepare(
     throw err("AI_MONTH_LIMIT", "This agency has used this month's AI suggestions", "LIMIT_REACHED");
   }
   const recent = await tx.whatsappMessage.findMany({
-    where: { conversationId: chat.id, OR: [{ body: { not: null } }, { caption: { not: null } }] },
+    where: { conversationId: chat.id, revokedAt: null, OR: [{ body: { not: null } }, { caption: { not: null } }] },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: CHAT_MESSAGES,
     select: { direction: true, body: true, caption: true },

@@ -191,6 +191,7 @@ export async function listConversations(
     snoozedUntil: true,
     person: { select: { name: true } },
     tags: { select: { tag: { select: { id: true, name: true } } } },
+    aiChats: { select: { handedOffAt: true } },
   } as const;
   // Pinned chats head the first page (sales inbox spec 5); the pages after it are the rest, newest first.
   const pinned =
@@ -250,6 +251,8 @@ export async function listConversations(
         preview: last === undefined ? "" : previewOf(last),
         lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
         needsReply: row.needsReply,
+        // The meaning of handedOverWhere (ai module): handed over, and the customer still waits.
+        handedOver: row.needsReply && row.aiChats.some((ai) => ai.handedOffAt !== null),
         isNewNumber: row.personId === null,
       };
     }),

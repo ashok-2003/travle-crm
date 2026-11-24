@@ -299,7 +299,11 @@ async function prepare(
       ? null
       : (await tx.destination.findUnique({ where: { id: lead.destinationId }, select: { name: true } }))?.name;
   const rows = await tx.whatsappMessage.findMany({
-    where: { conversationId: job.conversationId, OR: [{ body: { not: null } }, { caption: { not: null } }] },
+    where: {
+      conversationId: job.conversationId,
+      revokedAt: null,
+      OR: [{ body: { not: null } }, { caption: { not: null } }],
+    },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: CHAT_MESSAGES,
     select: { direction: true, body: true, caption: true },

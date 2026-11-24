@@ -76,7 +76,7 @@ export function burstOf(messages: ContextMessage[]): ContextMessage[] {
 /** The chat's lines as the prompts read them: who wrote each (the customer, this AI, or the team) and what. */
 export async function chatLines(tx: OrgTx, conversationId: string) {
   const rows = await tx.whatsappMessage.findMany({
-    where: { conversationId, kind: { not: "reaction" } },
+    where: { conversationId, kind: { not: "reaction" }, revokedAt: null },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: LAST_MESSAGES,
     select: storedMessageFields,

@@ -207,6 +207,14 @@ model WhatsappMessage {
   /// Starred for the team (sales inbox spec 6).
   starredAt       DateTime?                    @map("starred_at") @db.Timestamptz(6)
   starredBy       String?                      @map("starred_by") @db.Uuid
+  /// When the sender edited it (the words are the latest).
+  editedAt        DateTime?                    @map("edited_at") @db.Timestamptz(6)
+  /// When it was deleted for everyone; the original words are kept for the team.
+  revokedAt       DateTime?                    @map("revoked_at") @db.Timestamptz(6)
+  /// Why an unsupported message could not be shown: unavailable, album or unknown.
+  unsupportedReason String?                    @map("unsupported_reason")
+  /// The headline of the click-to-WhatsApp ad this message came from.
+  adHeadline      String?                      @map("ad_headline")
   /// The broadcast that sent it, if one did.
   broadcastId     String?                      @map("broadcast_id") @db.Uuid
   createdAt       DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)

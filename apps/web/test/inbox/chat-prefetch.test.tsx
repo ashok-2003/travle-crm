@@ -22,6 +22,7 @@ const chat = (n: number): ConversationListItem => ({
   preview: "Hello",
   lastMessageAt: "2026-10-26T10:00:00.000Z",
   needsReply: false,
+  handedOver: false,
   isNewNumber: false,
   lastDirection: "in",
   lastStatus: null,
