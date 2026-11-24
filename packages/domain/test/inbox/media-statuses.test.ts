@@ -58,6 +58,41 @@ describe("media, statuses, echoes and health", () => {
     expect(states).toMatchObject({ mediaState: "failed", failureCode: "bad_type" });
   });
 
+  describe("a file MSG91 cannot serve", () => {
+    const days = (count: number) => new Date(Date.now() + count * 24 * 60 * 60 * 1000);
+    const unreachable = () => ({
+      ...test.dependencies,
+      provider: {
+        ...test.provider,
+        downloadMedia: () => Promise.resolve({ ok: false, reason: "unavailable" } as const),
+      },
+    });
+
+    it("keeps trying while it is young, then fails it as unavailable after 3 days", async () => {
+      const { connection, message } = await photo("https://media.example/stuck");
+      const copy = (now: Date) => copyMedia(unreachable(), connection.organizationId, message.id, now);
+      await expect(copy(days(1))).rejects.toThrow();
+      const row = () => test.db.forOrg(connection.organizationId, (tx) => tx.whatsappMessage.findFirstOrThrow());
+      expect(await row()).toMatchObject({ mediaState: "pending" });
+      expect(await copy(days(4))).toBe("failed");
+      expect(await row()).toMatchObject({ mediaState: "failed", failureCode: "unavailable", mediaUrl: null });
+    });
+
+    it("is failed by the health check once it is past 3 days, and queued again before that", async () => {
+      const { connection, message } = await photo("https://media.example/stuck-health");
+      const check = (now: Date) =>
+        checkConnection(test.dependencies, connection.organizationId, connection.connectionId, now);
+      const queued = () => test.queue.sent.filter((job) => job.data.messageId === message.id).length;
+      await check(days(1));
+      expect(queued()).toBe(1);
+      await check(days(4));
+      expect(queued()).toBe(1);
+      expect(
+        await test.db.forOrg(connection.organizationId, (tx) => tx.whatsappMessage.findFirstOrThrow()),
+      ).toMatchObject({ mediaState: "failed", failureCode: "unavailable", mediaUrl: null });
+    });
+  });
+
   it("moves a sent message forward only, whatever order its reports come in", async () => {
     const connection = await aConnectedAgency(test);
     const customerNumber = digits(freshPhone());
