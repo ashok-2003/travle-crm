@@ -28,6 +28,13 @@ export const welcome = z.object({
 });
 export type Welcome = z.infer<typeof welcome>;
 
+/** The kind of phone the installed app was opened on: an iPhone or iPad, or an Android phone. */
+export const installedAppPlatform = z.enum(["ios", "android"]);
+export type InstalledAppPlatform = z.infer<typeof installedAppPlatform>;
+export const installedAppSeenInput = z.strictObject({ platform: installedAppPlatform });
+/** The phone types this member opened the installed app on in the last 30 days. */
+export const installedApps = z.object({ platforms: z.array(installedAppPlatform) });
+
 /** What opening an invite's link answers (the invite program): how to sign the owner in, or that they joined already. */
 export const vipInviteOpened = z.discriminatedUnion("state", [
   z.object({
