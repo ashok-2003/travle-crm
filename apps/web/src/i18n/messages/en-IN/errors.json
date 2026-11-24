@@ -295,6 +295,8 @@
     "INSTALLMENT_IN_USE": "A payment that was claimed on or reminded about can't be removed. Change its amount or day instead.",
     "DEPARTURE_FULL": "There aren't that many seats free on this departure.",
     "DEPARTURE_NOT_OPEN": "This departure is closed or cancelled, so it takes no new seats.",
+    "DEPARTURE_NOT_CANCELLED": "Only a cancelled departure can be opened again.",
+    "DEPARTURE_IN_PAST": "This departure's first day has already passed, so it can't be opened again.",
     "NOT_ENOUGH_SEATS": "This departure doesn't have that many seats free.",
     "NO_PRICE_FOR_DATE": "No season prices this departure's day. Add a season for it first.",
     "ROOM_SPLIT": "The people don't fill whole rooms of that type.",

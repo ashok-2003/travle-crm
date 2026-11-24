@@ -3,7 +3,7 @@
 import type { CancelDepartureInput } from "@travel-crm/contracts/departures";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
-import type { Actor } from "../kernel/index.js";
+import { DomainError, type Actor, type CalendarDate } from "../kernel/index.js";
 import { asDate, dayOf, findDepartureForChange, type DepartureRow } from "./rows.js";
 import { announceSeatsFreed } from "./waitlist.js";
 
@@ -109,6 +109,30 @@ export async function reopenScheduledDeparture(
     entityType: "departure",
     entityId: before.id,
     before: { status: before.status },
+    after: { status: "open" },
+  });
+}
+
+/** Staff open a cancelled departure again while its first day is still ahead: seats as they were, bookings as they were. */
+export async function reopenCancelledDeparture(
+  tx: OrgTx,
+  actor: Actor,
+  departureId: string,
+  today: CalendarDate,
+): Promise<void> {
+  const before = await findDepartureForChange(tx, departureId);
+  if (before.status !== "cancelled") {
+    throw new DomainError("CONFLICT", "DEPARTURE_NOT_CANCELLED", "Only a cancelled departure is opened again");
+  }
+  if (dayOf(before.startDate) < today) {
+    throw new DomainError("CONFLICT", "DEPARTURE_IN_PAST", "This departure's first day has passed");
+  }
+  await tx.departure.update({ where: { id: before.id }, data: { status: "open", cancelledReason: null } });
+  await recordAudit(tx, actor, {
+    action: "departure.reopened",
+    entityType: "departure",
+    entityId: before.id,
+    before: { status: "cancelled" },
     after: { status: "open" },
   });
 }
