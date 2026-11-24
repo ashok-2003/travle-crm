@@ -81,29 +81,37 @@ function MessageContent({ message, after }: { message: ChatMessage; after?: Reac
     case "video":
     case "audio":
     case "document":
-    case "sticker":
+    case "sticker": {
+      // The room for the corner's time goes on the caption's last line only when the caption is the last line; else (a
+      // voice note or document with no caption, or a line of heard words under it) it follows the column, so the corner
+      // never lands on a player's or a download's button.
+      const captionLast = message.caption !== null && message.aiText === null;
       return (
-        <div className="flex flex-col gap-2">
-          <MessageMedia message={message} />
-          {message.caption !== null && (
-            <div dir="auto">
-              <WhatsAppText text={message.caption} after={after} />
-            </div>
-          )}
-          {message.aiText !== null && (
-            <p dir="auto" className="flex items-start gap-1 text-caption text-muted-foreground">
-              <span className="min-w-0 break-words">
-                {t(message.aiText.kind === "transcript" ? "aiText.heard" : "aiText.seen", {
-                  text: message.aiText.text,
-                })}
-              </span>
-              <InfoHint term={t(message.aiText.kind === "transcript" ? "aiText.heardTerm" : "aiText.seenTerm")}>
-                {t(message.aiText.kind === "transcript" ? "aiText.heardHint" : "aiText.seenHint")}
-              </InfoHint>
-            </p>
-          )}
-        </div>
+        <>
+          <div className="flex flex-col gap-2">
+            <MessageMedia message={message} />
+            {message.caption !== null && (
+              <div dir="auto">
+                <WhatsAppText text={message.caption} after={captionLast ? after : undefined} />
+              </div>
+            )}
+            {message.aiText !== null && (
+              <p dir="auto" className="flex items-start gap-1 text-caption text-muted-foreground">
+                <span className="min-w-0 break-words">
+                  {t(message.aiText.kind === "transcript" ? "aiText.heard" : "aiText.seen", {
+                    text: message.aiText.text,
+                  })}
+                </span>
+                <InfoHint term={t(message.aiText.kind === "transcript" ? "aiText.heardTerm" : "aiText.seenTerm")}>
+                  {t(message.aiText.kind === "transcript" ? "aiText.heardHint" : "aiText.seenHint")}
+                </InfoHint>
+              </p>
+            )}
+          </div>
+          {!captionLast && after}
+        </>
       );
+    }
     case "location":
       if (message.latitude === null || message.longitude === null) return ended(t("unsupported"));
       return (

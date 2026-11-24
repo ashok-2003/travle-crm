@@ -117,6 +117,33 @@ describe("a bubble's account of what happened to the message", () => {
     });
   });
 
+  describe("a voice note's or document's spacer", () => {
+    const column = () => document.querySelector("[aria-hidden=true].invisible")?.previousElementSibling;
+    it.each(["audio", "document"])("follows the %s with no caption, outside the player or card", (kind) => {
+      show({ kind, body: null, caption: null, mediaState: "failed", failureCode: "unavailable" });
+      const spacer = document.querySelector("[aria-hidden=true].invisible");
+      expect(spacer).not.toBeNull();
+      expect(column()?.classList.contains("flex-col")).toBe(true);
+      expect(spacer?.parentElement?.classList.contains("flex-col")).toBe(false);
+    });
+    it("follows the voice note when words heard under it come last", () => {
+      show({ kind: "audio", body: null, caption: null, aiText: { kind: "transcript", text: "hello" } });
+      expect(column()?.classList.contains("flex-col")).toBe(true);
+    });
+    it("stays inside a document's caption when the caption is last", () => {
+      show({
+        kind: "document",
+        body: null,
+        caption: "The itinerary",
+        mediaState: "failed",
+        failureCode: "unavailable",
+      });
+      const spacer = document.querySelector("[aria-hidden=true].invisible");
+      expect(spacer?.parentElement?.getAttribute("dir")).toBe("auto");
+      expect(spacer?.parentElement?.textContent).toContain("The itinerary");
+    });
+  });
+
   it("offers Forward on a message but not on one deleted for everyone", async () => {
     show({ body: "Five nights" });
     await userEvent.click(screen.getByRole("button", { name: "More for this message" }));
