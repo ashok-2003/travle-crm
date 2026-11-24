@@ -1,13 +1,12 @@
 "use client";
 
-// What sits under the messages for someone who may reply (spec 3.2; sales inbox spec 6): a choice of Reply or Note (a note
-// on the chat's lead, for the team, never sent, which works whatever the window), the messages scheduled for later, then
-// the reply box while the 24-hour window is open, or a plain line instead when it has closed, the customer never wrote,
+// What sits under the messages for someone who may reply (spec 3.2; sales inbox spec 6): the messages scheduled for later,
+// then the reply box (a team note, on the chat's lead, never sent and good whatever the window, is a tool in its "+": it
+// turns the box into the note box until the person goes back, and each box keeps its own words meanwhile) while the 24-hour window is open, or a plain line instead when it has closed, the customer never wrote,
 // the chat's own number is paused or this is the demo (Mark as answered is in the chat's menu). A chat on a disconnected
 // number can't be answered: it says so and offers Start a chat, which opens the customer's chat by the sending rule (the
 // number they last wrote to, else the main one). Someone who may only read sees nothing here.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
-import { MessageSquareIcon, StickyNoteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
 import { AiReplyBar } from "@/ai/ai-turn";
@@ -17,7 +16,6 @@ import { formatDayTime } from "@/lib/format";
 import { mayBeMissing } from "@/lib/older-api";
 import { useHolds, useMe } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Composer } from "./composer";
 import { ScheduledList } from "./scheduled-list";
 import { TeamNoteComposer } from "./team-note-composer";
@@ -70,8 +68,17 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
   const status = useInboxStatus();
   const { labelOf } = useNumbers();
   const [mode, setMode] = useState<"reply" | "note">("reply");
+  // The note box stays mounted once opened, hidden while replying, so its words wait for the person's return.
+  const [noteOpened, setNoteOpened] = useState(false);
   if (!mayReply || header.state !== "open") return null;
 
+  const openNote =
+    header.lead === null
+      ? null
+      : () => {
+          setNoteOpened(true);
+          setMode("note");
+        };
   const box = () => {
     if (status.data?.demo === true) return <Note>{t("replyDemo")}</Note>;
     // An older api says nothing of the chat's number (the release window): the box behaves as it did before.
@@ -93,7 +100,7 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
       return (
         <>
           <AiReplyBar conversationId={header.id} />
-          <Composer key={header.id} header={header} windowOpenUntil={header.windowOpenUntil} />
+          <Composer key={header.id} header={header} windowOpenUntil={header.windowOpenUntil} onNote={openNote} />
         </>
       );
     }
@@ -108,31 +115,21 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
       </Note>
     );
   };
+  const writingNote = mode === "note" && header.lead !== null;
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <ToggleGroup
-          type="single"
-          aria-label={t("composeAs")}
-          value={mode}
-          onValueChange={(chosen) => {
-            if (chosen === "reply" || chosen === "note") setMode(chosen);
-          }}
-        >
-          <ToggleGroupItem value="reply" className="h-8 rounded-full px-3">
-            <MessageSquareIcon aria-hidden="true" />
-            {t("modeReply")}
-          </ToggleGroupItem>
-          <ToggleGroupItem value="note" className="h-8 rounded-full px-3" disabled={header.lead === null}>
-            <StickyNoteIcon aria-hidden="true" />
-            {t("modeNote")}
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-      {header.lead === null && <p className="text-caption text-muted-foreground">{t("noteNeedsLead")}</p>}
-      {mode === "note" && header.lead !== null ? (
-        <TeamNoteComposer conversationId={header.id} leadId={header.lead.id} />
-      ) : (
+      {noteOpened && header.lead !== null && (
+        <div hidden={!writingNote}>
+          <TeamNoteComposer
+            conversationId={header.id}
+            leadId={header.lead.id}
+            onBack={() => {
+              setMode("reply");
+            }}
+          />
+        </div>
+      )}
+      {!writingNote && (
         <>
           <ScheduledList conversationId={header.id} />
           {box()}

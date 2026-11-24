@@ -44,7 +44,10 @@ const chatA = "01900000-0000-7000-8000-00000000000a";
 const chatB = "01900000-0000-7000-8000-00000000000b";
 
 const render = (id: string) =>
-  renderWithApi(<Composer header={header(id)} windowOpenUntil="2099-01-01T00:00:00.000Z" />, newQueryClient());
+  renderWithApi(
+    <Composer header={header(id)} windowOpenUntil="2099-01-01T00:00:00.000Z" onNote={null} />,
+    newQueryClient(),
+  );
 const box = () => screen.getByRole("combobox", { name: "Message" });
 
 describe("the reply box", () => {
@@ -116,7 +119,7 @@ describe("the reply box", () => {
   it("takes a file dropped on the chat into the box", async () => {
     renderWithApi(
       <ChatDropZone>
-        <Composer header={header(chatA)} windowOpenUntil="2099-01-01T00:00:00.000Z" />
+        <Composer header={header(chatA)} windowOpenUntil="2099-01-01T00:00:00.000Z" onNote={null} />
       </ChatDropZone>,
       newQueryClient(),
     );
@@ -152,7 +155,7 @@ describe("the reply box", () => {
     );
     renderWithApi(
       <>
-        <Composer header={header(chatA)} windowOpenUntil="2099-01-01T00:00:00.000Z" />
+        <Composer header={header(chatA)} windowOpenUntil="2099-01-01T00:00:00.000Z" onNote={null} />
         <ul>
           <PendingBubble conversationId={chatA} />
         </ul>

@@ -3,9 +3,9 @@
 // The reply box's tools besides the clip and the emoji (sales inbox spec, design v2): a template, the trip details, the quick
 // replies, the payment words and Send later. On a computer they sit in a row under the box; on a phone they wait behind the
 // "+" at its left, each with its name, so the box itself keeps the whole width.
-import { IndianRupeeIcon, PlusIcon, ZapIcon } from "lucide-react";
+import { IndianRupeeIcon, PlusIcon, StickyNoteIcon, ZapIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -24,33 +24,54 @@ interface ToolsProps {
   onQuickReplies: () => void;
   onPayment: () => void;
   onScheduled: () => void;
+  /** Turns the box into a team note; null when the chat has no lead, and the item says so. */
+  onNote: (() => void) | null;
 }
 
 function Tools({ layout, ...props }: ToolsProps & { layout: "row" | "list" }) {
   const t = useTranslations("inbox.chat.composer");
-  const { conversationId, disabled, words, hasFile, windowOpenUntil, onQuickReplies, onPayment, onScheduled } = props;
+  const tChat = useTranslations("inbox.chat");
+  const { conversationId, disabled, words, hasFile, windowOpenUntil, onQuickReplies, onPayment, onScheduled, onNote } =
+    props;
+  const noteReason = useId();
   const list = layout === "list";
-  const labelled = (label: string, icon: ReactNode, onClick: () => void) => {
+  const labelled = (label: string, icon: ReactNode, onClick: () => void, unavailable?: string) => {
     const button = (
       <Button
+        aria-describedby={unavailable === undefined ? undefined : noteReason}
         type="button"
         variant="ghost"
         className={cn("text-muted-foreground", list && "w-full justify-start gap-2 px-2.5")}
         size={list ? "default" : "icon"}
         aria-label={label}
-        disabled={disabled}
+        disabled={disabled || unavailable !== undefined}
         onClick={onClick}
       >
         {icon}
         {list && label}
       </Button>
     );
-    if (list) return button;
-    // An icon alone says its name in a tooltip, with a mouse and for the keyboard's focus.
+    const reason = unavailable !== undefined && (
+      <span id={noteReason} className={list ? "px-2.5 text-caption text-muted-foreground" : "sr-only"}>
+        {unavailable}
+      </span>
+    );
+    if (list)
+      return unavailable === undefined ? (
+        button
+      ) : (
+        <div className="flex flex-col">
+          {button}
+          {reason}
+        </div>
+      );
+    // An icon alone says its name in a tooltip, with a mouse and for the keyboard's focus; a disabled one can't be
+    // focused, so its tooltip hangs on a span around it.
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
+        <TooltipTrigger asChild>{unavailable === undefined ? button : <span>{button}</span>}</TooltipTrigger>
+        <TooltipContent>{unavailable ?? label}</TooltipContent>
+        {reason}
       </Tooltip>
     );
   };
@@ -60,6 +81,12 @@ function Tools({ layout, ...props }: ToolsProps & { layout: "row" | "list" }) {
       <SendDetailsTool conversationId={conversationId} disabled={disabled} listed={list} />
       {labelled(t("quickReplies"), <ZapIcon aria-hidden="true" />, onQuickReplies)}
       {labelled(t("paymentDetails"), <IndianRupeeIcon aria-hidden="true" />, onPayment)}
+      {labelled(
+        t("note"),
+        <StickyNoteIcon aria-hidden="true" />,
+        onNote ?? (() => undefined),
+        onNote === null ? tChat("noteNeedsLead") : undefined,
+      )}
       {words !== "" && !hasFile && (
         <ScheduleButton
           conversationId={conversationId}
@@ -122,6 +149,7 @@ export function ToolsSheet(props: ToolsProps) {
             {...props}
             onQuickReplies={closing(props.onQuickReplies)}
             onPayment={closing(props.onPayment)}
+            onNote={props.onNote === null ? null : closing(props.onNote)}
           />
         </div>
       </SheetContent>

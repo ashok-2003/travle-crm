@@ -7,13 +7,13 @@
 import { MAX_NOTE_LENGTH } from "@travel-crm/contracts/inbox";
 import type { WallClockTime } from "@travel-crm/contracts/kernel";
 import { useMutation } from "@tanstack/react-query";
-import { SendIcon } from "lucide-react";
+import { SendIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
-import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
@@ -31,7 +31,16 @@ const typedMention = (text: string): string | null => {
   return match === null ? null : (match[1] ?? "").toLowerCase();
 };
 
-export function TeamNoteComposer({ conversationId, leadId }: { conversationId: string; leadId: string }) {
+export function TeamNoteComposer({
+  conversationId,
+  leadId,
+  onBack,
+}: {
+  conversationId: string;
+  leadId: string;
+  /** The × at the box's corner: back to replying. */
+  onBack: () => void;
+}) {
   const t = useTranslations("inbox.chat");
   const trpc = useTRPC();
   const refreshWork = useRefreshWork();
@@ -154,6 +163,11 @@ export function TeamNoteComposer({ conversationId, leadId }: { conversationId: s
               }}
               onKeyDown={onKey}
             />
+            <InputGroupAddon align="inline-end" className="items-start">
+              <Button type="button" variant="ghost" size="icon" aria-label={t("backToReplying")} onClick={onBack}>
+                <XIcon aria-hidden="true" />
+              </Button>
+            </InputGroupAddon>
           </InputGroup>
         </div>
         <div className="flex flex-wrap items-center gap-2">
