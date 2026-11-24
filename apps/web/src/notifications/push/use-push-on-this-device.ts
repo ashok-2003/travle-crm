@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useErrorMessage } from "@/lib/error-message";
 import type { PushApi } from "./push-api";
 import { pushState, turnPushOff, turnPushOn, type PushState } from "./push-device";
+import { forgetTurnedOffByChoice, rememberTurnedOffByChoice } from "./push-offer";
 
 /** `onChecked` hears this device's settled state once per page (not while the worker is still to register). */
 export function usePushOnThisDevice(api: PushApi, onChecked?: (state: PushState) => void) {
@@ -56,7 +57,16 @@ export function usePushOnThisDevice(api: PushApi, onChecked?: (state: PushState)
   return {
     state,
     busy,
-    turnOn: () => change(turnPushOn),
-    turnOff: () => change(turnPushOff),
+    turnOn: async () => {
+      const turned = await change(turnPushOn);
+      if (turned === "on") forgetTurnedOffByChoice();
+      return turned;
+    },
+    // Remembered so a sign-in doesn't quietly switch push back on (push-offer-dialog.tsx).
+    turnOff: async () => {
+      const turned = await change(turnPushOff);
+      if (turned !== null) rememberTurnedOffByChoice();
+      return turned;
+    },
   };
 }

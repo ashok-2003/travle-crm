@@ -9,7 +9,7 @@ import {
   forgetThisDevicesPush,
 } from "@/notifications/push/forget-push";
 import type { PushApi } from "@/notifications/push/push-api";
-import { pushState, turnPushOff, turnPushOn } from "@/notifications/push/push-device";
+import { pushState, subscribeQuietly, turnPushOff, turnPushOn } from "@/notifications/push/push-device";
 import { fakePushBrowser, THIS_PHONE, type FakePushBrowser } from "./fake-push-browser";
 
 /** A VAPID public key as the api gives it: a P-256 point (65 bytes, the first 4) in base64url. */
@@ -121,6 +121,30 @@ describe("turnPushOn", () => {
     const refusal = new Error("refused");
     await expect(turnPushOn(fakeApi({ subscribe: () => Promise.reject(refusal) }))).rejects.toBe(refusal);
     expect(browser.subscription()).toBeNull();
+  });
+});
+
+describe("subscribeQuietly", () => {
+  it("subscribes and saves without asking when permission is already granted", async () => {
+    browser = fakePushBrowser({ permission: "granted" });
+    const api = fakeApi();
+    expect(await subscribeQuietly(api)).toBe(true);
+    expect(browser.asked).toBe(0);
+    expect(api.calls.map(([name]) => name)).toEqual(["subscribe"]);
+  });
+
+  it.each(["default", "denied"] as const)("does nothing when permission is %s", async (permission) => {
+    browser = fakePushBrowser({ permission });
+    const api = fakeApi();
+    expect(await subscribeQuietly(api)).toBe(false);
+    expect(browser.asked).toBe(0);
+    expect(browser.subscribedWith).toEqual([]);
+  });
+
+  it("answers false, never throws, when the subscribe fails", async () => {
+    browser = fakePushBrowser({ permission: "granted" });
+    const api = fakeApi({ subscribe: () => Promise.reject(new Error("refused")) });
+    expect(await subscribeQuietly(api)).toBe(false);
   });
 });
 
