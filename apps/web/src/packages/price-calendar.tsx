@@ -15,14 +15,15 @@ import { rupees } from "@/components/forms/money-field";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { formatCalendarDay } from "@/lib/format";
 import { shownRoomTypes } from "@/room-prices/room-prices";
 import { useHolds } from "@/session/me-context";
 import { CalendarDayActions } from "./calendar-day-actions";
 import { calendarDaysOf, dayKeyOf, type CalendarDate } from "./price-calendar-days";
 
-/** One tint per season, repeating: the legend's swatch wears the same class as its days. */
-const seasonTints = ["bg-status-good-fill", "bg-status-attention-fill", "bg-status-neutral-fill"] as const;
+/** One of two tints per season, repeating (the neutral fill leaves the muted day numbers under 4.5:1): the legend's swatch wears the same class as its days. */
+const seasonTints = ["bg-status-good-fill", "bg-status-attention-fill"] as const;
 const tintOf = (index: number) => seasonTints[index % seasonTints.length] ?? seasonTints[0];
 
 const dateOf = (key: CalendarDate) =>
@@ -70,7 +71,7 @@ export function PriceCalendar({
       function DepartureDayButton(props: ComponentProps<typeof DayButton>) {
         const departure = days.get(dayKeyOf(props.day.date))?.departure ?? null;
         return (
-          <CalendarDayButton locale={enIN} {...props}>
+          <CalendarDayButton locale={enIN} {...props} className={cn(props.className, "[&>span]:opacity-100")}>
             {props.children}
             {departure?.status === "cancelled" && <XIcon aria-hidden="true" className="size-3" />}
             {departure !== null && departure.status !== "cancelled" && <span>{departure.free}</span>}

@@ -42,12 +42,16 @@ export function usePackageChanges() {
     removeTier: useMutation(trpc.packages.removeTier.mutationOptions(options)),
     saveSeason: useMutation(trpc.packages.saveSeason.mutationOptions(options)),
     saveSpecialPrices: useMutation(trpc.packages.saveSpecialPrices.mutationOptions(options)),
-    // One section of the trip saved; a destination named anew was added to the agency's list, so its pickers and
-    // Settings load it again.
+    // One section of the trip saved; a schedule change made or moved departures, so their lists load again, and a
+    // destination named anew was added to the agency's list, so its pickers and Settings load it again.
     updatePart: useMutation(
       trpc.packages.updatePart.mutationOptions({
         onSuccess: (_saved, input) =>
-          Promise.all([options.onSuccess(), input.newDestinationName === undefined ? null : refreshWork()]),
+          Promise.all([
+            options.onSuccess(),
+            queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
+            input.newDestinationName === undefined ? null : refreshWork(),
+          ]),
       }),
     ),
     copyNote: useMutation(trpc.packages.copyNote.mutationOptions(options)),
