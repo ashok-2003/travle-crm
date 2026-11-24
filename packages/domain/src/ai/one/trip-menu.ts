@@ -87,18 +87,9 @@ export function tripMenu(
   language: "hindi" | "hinglish" | "english",
 ): TripMenu {
   const words = WORDS[language];
-  const destinations = destinationsOf(sheets)
-    .map((destination) => ({ destination, soonest: soonestOf(destination) }))
-    .sort((one, other) =>
-      one.soonest === other.soonest
-        ? 0
-        : one.soonest === null
-          ? 1
-          : other.soonest === null || one.soonest < other.soonest
-            ? -1
-            : 1,
-    )
-    .map(({ destination }) => destination);
+  // Days in yyyy-mm-dd sort as text; a destination with no open date goes last, and the sort keeps ties in order.
+  const order = (destination: Destination) => soonestOf(destination) ?? "9999-12-31";
+  const destinations = destinationsOf(sheets).sort((one, other) => order(one).localeCompare(order(other)));
   const shown = destinations.length > MOST_ROWS ? destinations.slice(0, MOST_ROWS - 1) : destinations;
   const rest = destinations.slice(shown.length);
   const rows = shown.map((destination) => ({
