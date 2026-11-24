@@ -64,8 +64,47 @@ describe("parseWhatsApp blocks", () => {
   it("reads bullets, numbers and quotes", () => {
     expect(parseWhatsApp("- one\n- two")).toEqual([{ kind: "bullets", items: [[{ text: "one" }], [{ text: "two" }]] }]);
     expect(parseWhatsApp("* one")).toEqual([{ kind: "bullets", items: [[{ text: "one" }]] }]);
-    expect(parseWhatsApp("1. a\n2. b")).toEqual([{ kind: "numbered", items: [[{ text: "a" }], [{ text: "b" }]] }]);
+    expect(parseWhatsApp("1. a\n2. b")).toEqual([
+      { kind: "numbered", items: [[{ text: "a" }], [{ text: "b" }]], numbers: [1, 2] },
+    ]);
     expect(parseWhatsApp("> hi")).toEqual([{ kind: "quote", spans: [{ text: "hi" }] }]);
+  });
+
+  it("keeps the numbers as typed", () => {
+    expect(parseWhatsApp("3. Hotel")).toEqual([{ kind: "numbered", items: [[{ text: "Hotel" }]], numbers: [3] }]);
+    expect(plainWhatsAppText("2. 5 people\n3. December")).toBe("2. 5 people 3. December");
+  });
+
+  it("reads a number of four digits as plain text", () => {
+    expect(parseWhatsApp("2026. Great year")).toEqual([{ kind: "paragraph", spans: [{ text: "2026. Great year" }] }]);
+  });
+
+  it("joins an indented line to the item above, keeping one list", () => {
+    const [list, ...rest] = parseWhatsApp("1. *Manali*\n   Includes hotel\n2. *Spiti*");
+    expect(rest).toEqual([]);
+    expect(list).toMatchObject({ kind: "numbered", numbers: [1, 2] });
+    expect(plainWhatsAppText("1. *Manali*\n   Includes hotel\n2. *Spiti*")).toBe("1. Manali Includes hotel 2. Spiti");
+  });
+
+  it("leaves a line after a paragraph that follows a list out of the list", () => {
+    const blocks = parseWhatsApp("- a\nfoo\n  bar");
+    expect(blocks.map((block) => block.kind)).toEqual(["bullets", "paragraph"]);
+  });
+
+  it("needs a space after > for a quote", () => {
+    expect(parseWhatsApp(">50 people")).toEqual([{ kind: "paragraph", spans: [{ text: ">50 people" }] }]);
+  });
+
+  it("leaves a marker or punctuation right after an address out of the link", () => {
+    expect(parseWhatsApp("*https://rzp.io/l/abc*")).toEqual([
+      { kind: "paragraph", spans: [{ text: "https://rzp.io/l/abc", bold: true, href: "https://rzp.io/l/abc" }] },
+    ]);
+    expect(parseWhatsApp("pay https://rzp.io/l/abc.")).toEqual([
+      {
+        kind: "paragraph",
+        spans: [{ text: "pay " }, { text: "https://rzp.io/l/abc", href: "https://rzp.io/l/abc" }, { text: "." }],
+      },
+    ]);
   });
 
   it("keeps the formatting of every line of a quote", () => {

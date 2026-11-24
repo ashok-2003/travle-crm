@@ -12,7 +12,9 @@ export interface Span {
 export type WhatsAppBlock =
   | { kind: "paragraph"; spans: Span[] }
   | { kind: "quote"; spans: Span[] }
-  | { kind: "bullets" | "numbered"; items: Span[][] }
+  | { kind: "bullets"; items: Span[][] }
+  /** `numbers` are the numbers as typed, one per item: WhatsApp shows "3. Hotel" as 3, not as the list's next number. */
+  | { kind: "numbered"; items: Span[][]; numbers: number[] }
   | { kind: "code"; text: string };
 
 type Style = Pick<Span, "bold" | "italic" | "strike">;
@@ -25,8 +27,9 @@ const EDGE = /[\s\p{P}\p{S}\uE000\uE001]/u;
 /** Where each web address in the line starts and ends, so a marker never reaches into one. */
 function addressRanges(line: string): [number, number][] {
   const ranges: [number, number][] = [];
+  // A marker or punctuation right after an address belongs to the sentence, not the link.
   for (const found of line.matchAll(/https?:\/\/[^\s<>"']+/g))
-    ranges.push([found.index, found.index + found[0].length]);
+    ranges.push([found.index, found.index + found[0].replace(/[*_~.,)!?]+$/, "").length]);
   return ranges;
 }
 
@@ -95,8 +98,10 @@ function parseInline(line: string, style: Style = {}, offset = 0, whole = line):
 }
 
 const BULLET = /^[-*] +(\S.*)$/;
-const NUMBERED = /^\d+\. +(\S.*)$/;
-const QUOTE = /^> ?(.*)$/;
+// A number of four digits or more ("2026. Great year") is a sentence, as WhatsApp shows it.
+const NUMBERED = /^(\d{1,3})\. +(\S.*)$/;
+const QUOTE = /^>(?: (.*))?$/;
+const CONTINUATION = /^\s+\S/;
 
 function parseLines(text: string): WhatsAppBlock[] {
   const blocks: WhatsAppBlock[] = [];
@@ -113,20 +118,41 @@ function parseLines(text: string): WhatsAppBlock[] {
     }
     pending.lines.push(line);
   };
-  const grow = (kind: "bullets" | "numbered", item: string) => {
+  const reading = () => pending !== null;
+  // The list being read and each item's raw words, so an indented line under an item can join it.
+  const open: { now: { block: Extract<WhatsAppBlock, { items: Span[][] }>; raws: string[] } | null } = { now: null };
+  const grow = (kind: "bullets" | "numbered", item: string, number: number) => {
     flush();
     const last = blocks[blocks.length - 1];
     const spans = parseInline(item);
-    if (last?.kind === kind) last.items.push(spans);
-    else blocks.push({ kind, items: [spans] });
+    if (last?.kind === kind && open.now?.block === last) {
+      last.items.push(spans);
+      open.now.raws.push(item);
+      if (last.kind === "numbered") last.numbers.push(number);
+    } else {
+      const block: WhatsAppBlock =
+        kind === "numbered" ? { kind, items: [spans], numbers: [number] } : { kind, items: [spans] };
+      blocks.push(block);
+      open.now = { block, raws: [item] };
+    }
   };
   for (const line of text.split("\n")) {
     const bullet = BULLET.exec(line);
     const numbered = NUMBERED.exec(line);
     const quote = QUOTE.exec(line);
-    if (bullet) grow("bullets", bullet[1] ?? "");
-    else if (numbered) grow("numbered", numbered[1] ?? "");
-    else if (quote) collect("quote", quote[1] ?? "");
+    if (bullet) grow("bullets", bullet[1] ?? "", 0);
+    else if (numbered) grow("numbered", numbered[2] ?? "", Number(numbered[1]));
+    else if (
+      open.now !== null &&
+      !reading() &&
+      CONTINUATION.test(line) &&
+      blocks[blocks.length - 1] === open.now.block
+    ) {
+      const list = open.now;
+      const at = list.raws.length - 1;
+      list.raws[at] = `${list.raws[at] ?? ""}\n${line.trim()}`;
+      list.block.items[at] = parseInline(list.raws[at] ?? "");
+    } else if (quote) collect("quote", quote[1] ?? "");
     else if (line.trim() === "") flush();
     else collect("paragraph", line);
   }
@@ -156,8 +182,9 @@ export function plainWhatsAppText(text: string): string {
       case "code":
         return [block.text];
       case "bullets":
-      case "numbered":
         return block.items.map(plainOf);
+      case "numbered":
+        return block.items.map((item, at) => `${String(block.numbers[at])}. ${plainOf(item)}`);
       case "paragraph":
       case "quote":
         return [plainOf(block.spans)];

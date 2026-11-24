@@ -110,7 +110,7 @@ export function WhatsAppText({ text, blanks = false, after }: { text: string; bl
             return (
               <List key={key} className={`ms-5 ${block.kind === "bullets" ? "list-disc" : "list-decimal"}`}>
                 {block.items.map((item, at) => (
-                  <li key={String(at)}>
+                  <li key={String(at)} value={block.kind === "numbered" ? block.numbers[at] : undefined}>
                     <Spans spans={item} blanks={blanks} />
                     {at === block.items.length - 1 ? tail : undefined}
                   </li>

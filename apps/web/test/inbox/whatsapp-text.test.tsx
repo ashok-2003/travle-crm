@@ -18,6 +18,11 @@ describe("WhatsAppText", () => {
     expect(container.querySelectorAll("ol > li")).toHaveLength(1);
   });
 
+  it("numbers each item as typed", () => {
+    const { container } = render(<WhatsAppText text={"2. 5 people\n3. December"} />);
+    expect([...container.querySelectorAll("ol > li")].map((item) => item.getAttribute("value"))).toEqual(["2", "3"]);
+  });
+
   it("renders a quote and a code block", () => {
     const { container } = render(<WhatsAppText text={"> hi\n```x *y*```"} />);
     expect(container.querySelector("blockquote")?.textContent).toBe("hi");
