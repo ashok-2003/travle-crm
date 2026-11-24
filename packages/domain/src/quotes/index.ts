@@ -34,6 +34,7 @@ export { exTaxSubtotal, fromPrices, onlyRoomType, priceOn, totalFor, type Season
 export { attachDraftBrochure, createGroupPackage } from "./group-package-create.js";
 export { findPackage } from "./package-row.js";
 export { removePackageSeason, savePackageSeason, seasonsByPackage, seasonsOf } from "./package-seasons.js";
+export { saveSpecialPrices } from "./special-prices.js";
 export {
   departurePriceColumn,
   packageSellGaps,

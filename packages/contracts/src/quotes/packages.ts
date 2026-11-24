@@ -196,6 +196,26 @@ export const savePackageSeasonInput = z
 export type SavePackageSeasonInput = z.infer<typeof savePackageSeasonInput>;
 export const removePackageSeasonInput = z.strictObject({ seasonId: recordId });
 
+/** Special prices for some dates: the seasons around them are split to make room. */
+export const saveSpecialPricesInput = z
+  .strictObject({
+    packageId: recordId,
+    label: text(60).min(1),
+    startsOn: calendarDate,
+    /** null: "until I change them". */
+    endsOn: calendarDate.nullable(),
+    prices: roomPrices,
+  })
+  .refine((value) => value.endsOn === null || value.endsOn >= value.startsOn, {
+    message: "The prices must end on or after their first day",
+    path: ["endsOn"],
+  })
+  .refine((value) => Object.values(value.prices).some((price) => price !== null), {
+    message: "Give at least one room type a price",
+    path: ["prices"],
+  });
+export type SaveSpecialPricesInput = z.infer<typeof saveSpecialPricesInput>;
+
 export const packageDetail = z.object({
   id: recordId,
   ...z.object(packageFields).shape,
