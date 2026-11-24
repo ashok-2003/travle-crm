@@ -12,6 +12,7 @@ import { SessionGate } from "@/session/session-gate";
 import { AiStatusPrefetch } from "@/shell/ai-status-prefetch";
 import { Banners } from "@/shell/banners";
 import { BottomBar } from "@/shell/bottom-bar";
+import { InstallBanner } from "@/shell/install-banner";
 import { RefreshOnPush } from "@/shell/refresh-on-push";
 import { AppSidebar } from "@/shell/sidebar";
 import { TopBar } from "@/shell/top-bar";
@@ -35,6 +36,7 @@ export default function SignedInLayout({ children }: { children: ReactNode }) {
               <WelcomeDialog />
               <AgencyPushOffer />
               <TopBar />
+              <InstallBanner />
               <Banners />
             </>
           }

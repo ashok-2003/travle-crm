@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { messages } from "@/i18n/messages";
 import { AppProviders } from "@/pwa/app-providers";
+import { InstallPromptCapture } from "@/pwa/install-prompt-capture";
 import { fontVariables } from "./fonts";
 // Indian scripts (DESIGN.md section 3). Each file's faces carry a unicode-range, so a browser downloads one only when
 // a page shows that script.
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN" className={fontVariables}>
       <body>
+        <InstallPromptCapture />
         {/* Only what the root's own pieces read: every screen brings its own provider with all the words (the signed-in
             app, the account screens and the console below), and the visitor's form brings a small one, so a page that needs
             few words does not carry them all. */}
