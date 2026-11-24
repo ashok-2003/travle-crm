@@ -84,15 +84,13 @@ export function FilterChips({
           const late = filter === "waiting" ? (summary?.late ?? 0) : 0;
           return (
             <ToggleGroupItem key={filter} value={filter} className="gap-1.5 rounded-full px-3">
-              {t(filterLabel[filter])}
+              {t(filterLabel[filter])}{" "}
               {count !== null && count > 0 && (
-                <span
-                  className={cn("numbers text-caption", late > 0 && "font-semibold text-status-bad-ink")}
-                  aria-label={late > 0 ? t("lateCount", { count: late }) : undefined}
-                >
+                <span className={cn("numbers text-caption", late > 0 && "font-semibold text-status-bad-ink")}>
                   {count}
                 </span>
               )}
+              {late > 0 && <span className="sr-only">, {t("lateCount", { count: late })}</span>}
             </ToggleGroupItem>
           );
         })}

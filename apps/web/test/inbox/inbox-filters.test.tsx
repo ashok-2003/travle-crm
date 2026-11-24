@@ -70,7 +70,8 @@ describe("the inbox list's compact top", () => {
     await waitFor(() => {
       expect(waiting).toHaveTextContent("3");
     });
-    expect(waiting.textContent.match(/\d/g)).toHaveLength(1);
+    expect(within(waiting).getAllByText("3")).toHaveLength(1);
+    expect(waiting).toHaveAccessibleName(new RegExp(`${t.filterWaiting} 3.*2 chats waiting too long`));
     expect(within(waiting).getByText("3")).toHaveClass("text-status-bad-ink");
   });
 
