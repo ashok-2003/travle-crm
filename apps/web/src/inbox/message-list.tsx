@@ -213,7 +213,13 @@ function Loaded({
     <ChatJumpContext.Provider value={jump}>
       <MediaViewerProvider messages={oldestFirst} customerName={customerName} people={people}>
         <div className="absolute inset-0" data-chat-messages>
-          <ScrollArea ref={root} className="h-full" aria-label={t("messages")}>
+          {/* Radix lays the viewport's content out as a table, which grows to fit its widest unbreakable child; as a block it
+              stays the screen's width, whatever a message holds (owner, 2026-11-25: chats wider than a phone). */}
+          <ScrollArea
+            ref={root}
+            className="h-full [&_[data-radix-scroll-area-viewport]>div]:block!"
+            aria-label={t("messages")}
+          >
             <div className="flex flex-col gap-3 pt-2 pb-4">
               <div className="flex justify-center">
                 <ShowMoreButton pages={messages} label={t("earlier")} />
