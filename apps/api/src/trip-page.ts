@@ -1,8 +1,9 @@
 // The trip page at /p/<token> (release 6): the quote's link once the agency has confirmed the booking. In the order a phone
 // reads it: where the booking stands and the next payment, the plan with its days, the hotels, the vouchers and tickets, the
 // payments with "I've paid", each traveller's details, who to meet and where, the packing list, the cancellation terms and
-// the trip PDF, then the feedback form once asked for. It never shows an ID number or photo back ("Details received"), and
-// never a margin or a cost. A cancelled booking shows a plain notice and the terms.
+// the trip PDF, then the feedback form once asked for, and the ways to reach the agency: Talk to and WhatsApp us (its main
+// WhatsApp number). It never shows an ID number or photo back ("Details received"), and never a margin or a cost. A
+// cancelled booking shows a plain notice, the terms and the ways to reach the agency.
 import type { PublicTrip } from "@travel-crm/domain/bookings";
 import { randomBytes } from "node:crypto";
 import { claimForm, feedbackForm, travellerForm } from "./trip-forms.js";
@@ -16,6 +17,7 @@ import {
   safeLink,
   securityHeaders,
   shortDayOf,
+  whatsappUs,
 } from "./public-html.js";
 import type { ShareLinkView } from "./share-link-route.js";
 
@@ -23,6 +25,8 @@ export interface TripPageContext {
   agencyName: string;
   /** The agent to talk to: the agency's contact name and number (the business details). */
   contact: { name: string | null; phone: string | null };
+  /** The agency's main WhatsApp number for "WhatsApp us", E.164; null when it has none past being set up. */
+  whatsapp: string | null;
   view: ShareLinkView;
   /** The bucket's origin, which the page's script may send pictures to. */
   storageOrigin: string | null;
@@ -55,11 +59,19 @@ function noticeOf(context: TripPageContext): string {
   return "";
 }
 
+/** Talk to the agency's contact: a call when it gave a number, else who to ask. */
 function talkTo(context: TripPageContext): string {
   const who = context.contact.name ?? context.agencyName;
-  if (context.contact.phone === null) return escapeHtml(who);
-  const digits = context.contact.phone.replace(/[^\d]/g, "");
-  return `<a class="button quiet" href="tel:+${digits}">Talk to ${escapeHtml(who)}</a>`;
+  return context.contact.phone === null
+    ? escapeHtml(who)
+    : `<a class="button quiet" href="tel:+${context.contact.phone.replace(/[^\d]/g, "")}">Talk to ${escapeHtml(who)}</a>`;
+}
+
+/** The page's last section, the ways to reach the agency: a call and WhatsApp us; none when it has neither to link. */
+function questions(context: TripPageContext): string {
+  if (context.contact.phone === null && context.whatsapp === null) return "";
+  const call = context.contact.phone === null ? "" : talkTo(context);
+  return `<section><h2>Questions?</h2><div class="row">${call}${whatsappUs(context.whatsapp)}</div></section>`;
 }
 
 function statusWords(trip: PublicTrip): string {
@@ -271,7 +283,8 @@ ${travellers(trip)}
 ${cancelled ? "" : meeting(trip)}
 ${cancelled ? "" : section("Pack for the trip", trip.packingList === "" ? "" : `<p>${paragraphs(trip.packingList)}</p>`)}
 ${terms(trip)}
-${cancelled ? `<section><h2>Questions?</h2><div class="row">${talkTo(context)}</div></section>` : feedback(trip)}`;
+${cancelled ? "" : feedback(trip)}
+${questions(context)}`;
   const nonce = randomBytes(16).toString("base64url");
   const withScript = !cancelled;
   const html = document({

@@ -1,8 +1,9 @@
 // The checks an agent's act runs in its one transaction, under the chat's lock, so a turn that is no longer the one to
-// answer sends nothing and keeps nothing: no person replied or took the chat over, the switches are still on, no newer
-// customer line came, a follow-up's silence is unbroken, and platform staff have not paused the agent. Lite's act and
-// the natural agent's share them.
+// answer sends nothing and keeps nothing: no person replied or took the chat over, the switches (the agency's, the
+// chat's number's and the chat's) are still on, no newer customer line came, a follow-up's silence is unbroken, and
+// platform staff have not paused the agent. Lite's act and the natural agent's share them.
 import type { OrgTx } from "@travel-crm/db";
+import { numberAnswers } from "../../inbox/index.js";
 import { DomainError } from "../../kernel/index.js";
 import { agentPauseOf } from "../../subscriptions/index.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
@@ -71,7 +72,8 @@ export async function assertStillAnswering(tx: OrgTx, input: ActGateInput): Prom
           where: { conversationId: input.conversationId },
           select: { mode: true, handedOffAt: true },
         });
-  if (settings === null || !agentAnswers(state?.mode, settings.autopilot) || state?.handedOffAt != null) {
+  const numberOn = settings !== null && (await numberAnswers(tx, input.conversationId));
+  if (settings === null || !agentAnswers(state?.mode, settings.autopilot, numberOn) || state?.handedOffAt != null) {
     throw new DomainError("CONFLICT", "AGENT_STOPPED", "A person took the chat over or the AI was switched off");
   }
 }

@@ -24,6 +24,7 @@ const chat: ChatAi = {
   personPausedUntil: null,
   agentName: "Riya",
   available: true,
+  numberOff: false,
 };
 
 /** Someone who answers chats but doesn't manage the AI. */
@@ -36,6 +37,14 @@ function show(state: Partial<ChatAi>, me?: typeof replier) {
     ...(me === undefined ? {} : { me }),
   });
 }
+
+describe("ChatAiCard, the chat's number", () => {
+  it("says the AI is off for this chat's number", async () => {
+    show({ answering: false, numberOff: true });
+    expect(await screen.findByText(messages.ai.chat.numberOff)).toBeVisible();
+    expect(screen.queryByText(messages.ai.chat.notAnswering)).not.toBeInTheDocument();
+  });
+});
 
 describe("ChatAiCard, what the AI noted", () => {
   it("shows the summary under its heading", async () => {

@@ -1,12 +1,15 @@
 // Messages written now and sent later, and snoozed chats waking (sales inbox spec 6): a time past the chat's 24-hour window is
 // refused when scheduling; at its time a message is sent once however many runs overlap; one that cannot be sent notifies
 // and audits its writer; a waking chat reminds its snoozer once.
+import type { Database } from "@travel-crm/db";
+import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   cancelScheduled,
   listScheduled,
   pauseNumber,
   resumeNumber,
+  runDueWork,
   runDueWorkFor,
   scheduleMessage,
   snoozeConversation,
@@ -16,6 +19,7 @@ import { systemActor } from "../../src/kernel/index.js";
 import { auditOf, memberOf } from "../imports/support/test-imports.js";
 import {
   aConnectedAgency,
+  aSecondNumber,
   createTestInbox,
   deliver,
   freshPhone,
@@ -90,7 +94,7 @@ describe("messages sent later", () => {
     const { schedule, run, outgoing, connection, member, conversation } = await chat();
     await schedule("Your quote is ready", at(2));
     await test.db.forOrg(connection.organizationId, (tx) =>
-      pauseNumber(tx, systemActor(connection.organizationId), at(1)),
+      pauseNumber(tx, systemActor(connection.organizationId), connection.connectionId, at(1)),
     );
     await run(at(3));
     const [waiting] = await test.db.forOrg(connection.organizationId, (tx) =>
@@ -98,7 +102,7 @@ describe("messages sent later", () => {
     );
     expect(waiting).toMatchObject({ status: "pending", failureCode: null });
     await test.db.forOrg(connection.organizationId, (tx) =>
-      resumeNumber(tx, systemActor(connection.organizationId), at(3)),
+      resumeNumber(tx, systemActor(connection.organizationId), connection.connectionId, at(3)),
     );
     await run(at(4));
     expect(await outgoing()).toHaveLength(1);
@@ -172,5 +176,43 @@ describe("snoozed chats waking", () => {
         tx.whatsappConversation.findUniqueOrThrow({ where: { id: conversation.id } }),
       ),
     ).toMatchObject({ snoozedUntil: null, snoozedBy: null });
+  });
+});
+
+describe("the minute's pass over the agencies", () => {
+  let test: TestInbox;
+  beforeAll(() => {
+    test = createTestInbox();
+  });
+  afterAll(() => test.close());
+
+  /**
+   * The database, counting the agency's transactions and refusing every other agency's: the test database holds other
+   * tests' agencies, which this pass must leave alone.
+   */
+  function onlyFor(organizationId: string) {
+    let transactions = 0;
+    const db: Database = {
+      forOrg: (id, work, options) => {
+        if (id !== organizationId) return Promise.reject(new Error("Another test's agency"));
+        transactions += 1;
+        return test.db.forOrg(id, work, options);
+      },
+      withoutOrg: (work, options) => test.db.withoutOrg(work, options),
+      disconnect: () => Promise.resolve(),
+    };
+    return { db, transactions: () => transactions };
+  }
+
+  it("runs an agency's due work once a pass, however many numbers it has", async () => {
+    const first = await aConnectedAgency(test);
+    await aSecondNumber(test, first);
+    const logger = createMemoryLogger();
+    const alone = onlyFor(first.organizationId);
+    await runDueWorkFor({ db: alone.db, logger }, first.organizationId, testNow);
+    const pass = onlyFor(first.organizationId);
+    await runDueWork({ db: pass.db, logger }, testNow);
+    expect(alone.transactions()).toBeGreaterThan(0);
+    expect(pass.transactions()).toBe(alone.transactions());
   });
 });

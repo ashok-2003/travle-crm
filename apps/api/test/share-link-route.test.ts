@@ -4,6 +4,7 @@ import { brand } from "@travel-crm/brand";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
+import { createBookingFromQuote } from "@travel-crm/domain/bookings";
 import { DomainError } from "@travel-crm/domain/kernel";
 import {
   createShareLink,
@@ -18,6 +19,10 @@ import { afterAll, beforeAll, describe, expect, inject, it, onTestFinished, vi }
 import { apiErrorHandler } from "../src/error-handler.js";
 import { clientAddressFrom } from "../src/rate-limit.js";
 import { shareLinkRoutes, tooManyRequestsPage, type ShareLinkRouteOptions } from "../src/share-link-route.js";
+import type { CookieJar } from "./support/cookie-jar.js";
+import { signedInOwner } from "./support/people.js";
+import { createTestAgency, createTestServer, type TestAgency, type TestServer } from "./support/test-server.js";
+import { dataOf, mutate } from "./support/trpc.js";
 
 const opened: OpenedShareLink = {
   organizationId: "0199e7a0-0000-7000-8000-0000000000aa",
@@ -291,5 +296,121 @@ describe("share-link route against the database", () => {
       tx.shareLink.update({ where: { id: link.shareLinkId }, data: { revokedAt: new Date() } }),
     );
     expect((await app.request(link.path.slice("/p".length))).status).toBe(410);
+  });
+});
+
+describe("WhatsApp us on a quote's and a trip's page", () => {
+  let server: TestServer;
+  let agency: TestAgency;
+  let jar: CookieJar;
+
+  beforeAll(async () => {
+    server = createTestServer();
+    agency = await createTestAgency(server);
+    jar = await signedInOwner(server, agency);
+  });
+  afterAll(async () => {
+    await server.close();
+  });
+
+  /** An accepted quote's booking and its link: the quote's page while it waits for the agency, the trip's once confirmed. */
+  async function aBooking(confirmed: boolean): Promise<{ bookingId: string; path: string }> {
+    const quoteId = await server.db.forOrg(agency.organizationId, async (tx) => {
+      const person = await tx.person.create({
+        data: { name: "Customer", email: `c-${crypto.randomUUID()}@example.test` },
+      });
+      const lead = await tx.lead.create({
+        data: { personId: person.id, source: "walk_in", stage: "booking_requested", ownerUserId: agency.owner.userId },
+      });
+      const quote = await tx.quote.create({
+        data: {
+          leadId: lead.id,
+          title: "Spiti 6 days",
+          status: "accepted",
+          acceptedAt: new Date(),
+          acceptedName: "Customer",
+          adults: 2,
+          subtotalPaise: 100_000_00n,
+          totalPaise: 100_000_00n,
+        },
+      });
+      return quote.id;
+    });
+    const bookingId = await server.db.forOrg(agency.organizationId, (tx) =>
+      createBookingFromQuote(tx, { organizationId: agency.organizationId, quoteId, confirmed: false }, new Date()),
+    );
+    if (bookingId === null) throw new Error("no booking");
+    if (confirmed) await dataOf(await mutate(server, "bookings.confirm", { bookingId }, jar));
+    const { path } = await dataOf<{ path: string }>(await mutate(server, "bookings.tripLink", { bookingId }, jar));
+    return { bookingId, path };
+  }
+
+  let nextAddress = 10;
+  const pageAt = async (path: string) =>
+    (
+      await server.app.request(path, {
+        headers: { "x-forwarded-for": `198.51.100.${String((nextAddress += 1) % 250)}` },
+      })
+    ).text();
+
+  it("shows WhatsApp us on a quote and a confirmed trip page to the main number, and none with no number", async () => {
+    const quote = (await aBooking(false)).path;
+    const booked = await aBooking(true);
+    const trip = booked.path;
+    expect(await pageAt(quote)).toContain("Accept");
+    expect(await pageAt(trip)).toContain("Confirmed");
+    for (const path of [quote, trip]) {
+      const html = await pageAt(path);
+      expect(html).not.toContain("wa.me");
+      expect(html).not.toContain("WhatsApp us");
+      // No contact phone and no number: nothing to link, so no Questions? section.
+      expect(html).not.toContain("Questions?");
+    }
+    // The oldest number, which a stray first-found would pick, and the main one.
+    await server.db.forOrg(agency.organizationId, async (tx) => {
+      for (const [integratedNumber, isMain] of [
+        ["919800000081", false],
+        ["919800000082", true],
+      ] as const) {
+        await tx.whatsappConnection.create({
+          data: {
+            integratedNumber,
+            displayNumber: `+${integratedNumber}`,
+            mode: "new_number",
+            status: "connected",
+            isMain,
+          },
+        });
+      }
+    });
+    for (const path of [quote, trip]) {
+      const html = await pageAt(path);
+      expect(html).toContain('<a class="button quiet" href="https://wa.me/919800000082"');
+      expect(html).toContain("WhatsApp us");
+      expect(html).not.toContain("919800000081");
+    }
+
+    // A payment the agency couldn't match: the payments say to contact them, and WhatsApp us shows once, at the end.
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.paymentClaim.create({
+        data: {
+          bookingId: booked.bookingId,
+          amountPaise: 1_000_00n,
+          reference: "UPI 123",
+          status: "rejected",
+          rejectReason: "not_found",
+          decidedAt: new Date(),
+        },
+      }),
+    );
+    const rejected = await pageAt(trip);
+    expect(rejected).toContain("We couldn't match one payment.");
+    expect(rejected.split("WhatsApp us")).toHaveLength(2);
+
+    // The shared demo's number sends nothing: no WhatsApp us to it.
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.whatsappConnection.updateMany({ where: { integratedNumber: "919800000082" }, data: { mode: "demo" } }),
+    );
+    for (const path of [quote, trip]) expect(await pageAt(path)).not.toContain("wa.me/919800000082");
   });
 });

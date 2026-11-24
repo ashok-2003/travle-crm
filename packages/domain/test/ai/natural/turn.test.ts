@@ -1,6 +1,6 @@
 // The natural agent's live turn against the real database and the memory model (plan 2, Task 6): the reads, Plan 1's
 // loop on the live prompt, then the act in one transaction. What the model wrote goes as it wrote it, after its tools;
-// the day's cap and the month's limit hand over with the fallback line and no model call; a payment screenshot gets one
+// the day's cap and the month's limit hand over with nothing sent and no model call; a payment screenshot gets one
 // call with no tools and goes to a person; a booking the act can't take gets one more call; a person or the customer
 // writing while the model thinks sends nothing; a model that can't answer sends nothing (the worker tries again). Each
 // turn is one trace of its chat, linked to the prompt it ran.
@@ -12,7 +12,6 @@ import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AI_BOOKING_KIND } from "../../../src/ai/booking.js";
 import { replyDayOf } from "../../../src/ai/may-write.js";
-import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import { BUILT_IN_NATURAL_PROMPT } from "../../../src/ai/natural/prompt.js";
 import { NATURAL_PROMPT_NAME } from "../../../src/ai/natural/prompt-source.js";
 import { runNaturalTurn } from "../../../src/ai/natural/turn.js";
@@ -249,7 +248,7 @@ describe("the natural agent's live turn", () => {
     expect(state?.handoffReason).toBe("Asked for a discount or a better price: Wants 20% off for 6 people");
   });
 
-  it("hands over with the fallback line at the day cap, without a model call", async () => {
+  it("hands over at the day cap with nothing sent, without a model call", async () => {
     const on = await world();
     await on.inOrg(async (tx) => {
       const { maxRepliesPerDay } = await tx.aiAutopilot.findFirstOrThrow();
@@ -262,9 +261,7 @@ describe("the natural agent's live turn", () => {
     });
     expect(await on.turn()).toBe("handed_off");
     expect(on.model.requests).toEqual([]);
-    expect((await on.outbound()).map((message) => [message.clientToken, message.body])).toEqual([
-      [`ai:${on.message.id}`, fallbackLine(FIRST_LINE)],
-    ]);
+    expect(await on.outbound()).toEqual([]);
     expect((await on.chatState())?.handoffReason).toBe("Wrote more than the AI answers in a day");
 
     // The month's calls used up: the same, with its own reason.
@@ -274,6 +271,7 @@ describe("the natural agent's live turn", () => {
     );
     expect(await full.turn()).toBe("handed_off");
     expect(full.model.requests).toEqual([]);
+    expect(await full.outbound()).toEqual([]);
     expect((await full.chatState())?.handoffReason).toBe("This month's AI credits are used up");
   });
 
@@ -324,7 +322,7 @@ describe("the natural agent's live turn", () => {
     expect((await on.chatState())?.facts).toMatchObject({ offer: { startsOn: "2026-12-26" } });
   });
 
-  it("sends the fallback line and a task when no call is left after the act refused the booking", async () => {
+  it("sends nothing more and leaves a task when no call is left after the act refused the booking", async () => {
     const on = await world();
     const yes = await on.offered();
     on.model.answer(
@@ -342,9 +340,7 @@ describe("the natural agent's live turn", () => {
     ).toBe("fallback");
     expect(on.model.requests).toHaveLength(5);
     const sent = await on.outbound();
-    expect(sent.slice(1).map((message) => [message.clientToken, message.body])).toEqual([
-      [`ai:${yes}`, fallbackLine("haan, Rohan Mehta")],
-    ]);
+    expect(sent.slice(1)).toEqual([]);
     const task = await on.inOrg((tx) =>
       tx.task.findFirstOrThrow({ where: { recordType: "lead", recordId: on.leadId, byAi: true } }),
     );
@@ -352,7 +348,7 @@ describe("the natural agent's live turn", () => {
     expect(await on.inOrg((tx) => tx.aiBooking.count({ where: { conversationId: on.chat.id } }))).toBe(0);
   });
 
-  it("tells the customer and the team when the retry's booking is refused too", async () => {
+  it("tells only the team when the retry's booking is refused too", async () => {
     const on = await world();
     const yes = await on.offered();
     on.model.answer({ toolCalls: [bookCall] }, { text: bookWords }, { toolCalls: [bookCall] }, { text: bookWords });
@@ -371,9 +367,7 @@ describe("the natural agent's live turn", () => {
     // The offer's call, then two for the first act and two for the retry, both refused.
     expect(on.model.requests).toHaveLength(5);
     const sent = await on.outbound();
-    expect(sent.slice(1).map((message) => [message.clientToken, message.body])).toEqual([
-      [`ai:${yes}`, fallbackLine("haan, Rohan Mehta")],
-    ]);
+    expect(sent.slice(1)).toEqual([]);
     const task = await on.inOrg((tx) =>
       tx.task.findFirstOrThrow({ where: { recordType: "lead", recordId: on.leadId, byAi: true } }),
     );
@@ -464,7 +458,7 @@ describe("the natural agent's live turn", () => {
     const on = await world();
     const closed = await closeLeads(on);
     const asked = await on.writes("Kedarkantha ka rate?", -60);
-    // A price the tools never showed, twice: the guards give up and the fallback line goes.
+    // A price the tools never showed, twice: the guards give up, and the team gets the question.
     const invented = { text: "Kedarkantha ka rate ₹7,777 per person hai." };
     on.model.answer(invented, invented);
     expect(await on.turn(asked)).toBe("fallback");

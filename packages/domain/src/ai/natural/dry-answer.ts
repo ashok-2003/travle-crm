@@ -1,6 +1,6 @@
 // What a natural dry turn would do, described and never done (spec 9.5): the messages, the payment lines code would send
 // after them, each action, how the turn ended, the state the next turn reads (the stage forward only) and the lines to
-// add to the chat. A model that didn't answer shows the live turn's end after its re-queues: the fallback line and a task.
+// add to the chat. A model that didn't answer shows the live turn's end after its re-queues: nothing sent, and a task.
 import {
   dryLeadStages,
   TEST_LINE_MAX,
@@ -20,7 +20,6 @@ import { formatRupees, formatShortDay, parseCalendarDate, type CalendarDate } fr
 import { travellerWords } from "../lite/context/lead-card.js";
 import { modelRefusal, refuse } from "../refusals.js";
 import { cutText } from "./context/tokens.js";
-import { fallbackLine } from "./fallback-line.js";
 import { amountsIn } from "./guards/amounts.js";
 import { groundedSetOf } from "./guards/grounded.js";
 import { BOOK_TITLE, CHANGE_TITLE, offerCardBody } from "../one/card.js";
@@ -37,7 +36,7 @@ export interface DryTurnRead {
   sheets: readonly TripSheet[];
   paymentLines: string[] | null;
   state: NaturalTestState;
-  /** The customer's new lines, whose language the fallback line takes. */
+  /** The customer's new lines, which the fallback's task quotes. */
   newText: string;
 }
 
@@ -68,19 +67,18 @@ const peopleOf = (terms: { adults: number; childrenAges: readonly number[] }) =>
   terms.adults + terms.childrenAges.length;
 
 /**
- * The live turn re-queues a model that didn't answer after 1 minute and 5, then sends the fallback line with a task
- * (spec 3.6); with no calls left this month, or no model for the agent on this server, Try it refuses as lite's does.
+ * The live turn re-queues a model that didn't answer twice, then sends nothing and leaves the team a task (spec 3.6);
+ * with no calls left this month, or no model for the agent on this server, Try it refuses as lite's does.
  */
 function modelFailed(reason: AiFailure | "limit" | "superseded", newText: string): Ended {
   if (reason === "limit") throw refuse("AI_LIMIT_REACHED", "This month's AI credits are used up", "LIMIT_REACHED");
   if (reason === "not_configured") throw modelRefusal(reason);
-  const line = fallbackLine(newText);
   const wrote = newText.trim() === "" ? "" : ` They wrote: "${cutText(newText.replace(/\s+/gu, " "), 160)}".`;
   const task =
-    `The AI didn't answer (${reason}), at once or 1 and 5 minutes later, so the customer got "${line}".` +
+    `The AI didn't answer (${reason}), at once or on its two later tries, so nothing went to the customer.` +
     `${wrote} Why on this turn shows what it tried.`;
   return {
-    messages: [line],
+    messages: [],
     staged: new Map(),
     quoted: [],
     task: cutText(task, 500),
@@ -102,7 +100,7 @@ function endedOf(end: LoopEnd, newText: string): Ended {
     }
     case "fallback":
       return {
-        messages: end.messages,
+        messages: [],
         staged: end.staged,
         quoted: [],
         task: end.task,

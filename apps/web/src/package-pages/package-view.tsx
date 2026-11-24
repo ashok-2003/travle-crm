@@ -1,6 +1,7 @@
 // An agency's package page (release 7b), server-rendered so a link preview and a search engine read it: the photos, what the
 // trip is and costs, the day plan, what is included, the dates, and the enquiry form. Everything on it is what the agency chose
-// to publish: no cost, margin, supplier or seat count.
+// to publish: no cost, margin, supplier or seat count. Call dials the agency's contact phone; WhatsApp opens its main
+// WhatsApp number (the api gives the contact phone when no number is connected).
 import type { PublicPackage } from "@travel-crm/contracts/package-pages";
 import { money } from "@travel-crm/domain/kernel";
 import { MessageCircleIcon, PhoneIcon } from "lucide-react";
@@ -20,6 +21,9 @@ export async function PackageView({ page }: { page: PublicPackage }) {
   const t = await getTranslations("packagePages.page");
   const { agency, package: trip } = page;
   const [hero, ...others] = trip.photos;
+  // The api's number already falls back to the contact phone, so it is null only with neither; an older api's answer
+  // has none (read as null), and the button then opens the contact phone, as before this release.
+  const whatsapp = agency.whatsapp ?? agency.phone;
   const facts = [trip.nights === null ? null : t("nights", { count: trip.nights }), trip.destinationName].filter(
     (fact): fact is string => fact !== null,
   );
@@ -42,20 +46,20 @@ export async function PackageView({ page }: { page: PublicPackage }) {
             <a href="#enquire">{t("enquire")}</a>
           </Button>
           {agency.phone !== null && (
-            <>
-              <Button variant="outline" asChild>
-                <a href={`tel:${agency.phone}`}>
-                  <PhoneIcon aria-hidden="true" />
-                  {t("call")}
-                </a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={`https://wa.me/${digitsOf(agency.phone)}`} target="_blank" rel="noopener noreferrer">
-                  <MessageCircleIcon aria-hidden="true" />
-                  {t("whatsapp")}
-                </a>
-              </Button>
-            </>
+            <Button variant="outline" asChild>
+              <a href={`tel:${agency.phone}`}>
+                <PhoneIcon aria-hidden="true" />
+                {t("call")}
+              </a>
+            </Button>
+          )}
+          {whatsapp !== null && (
+            <Button variant="outline" asChild>
+              <a href={`https://wa.me/${digitsOf(whatsapp)}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircleIcon aria-hidden="true" />
+                {t("whatsapp")}
+              </a>
+            </Button>
           )}
         </div>
       </section>

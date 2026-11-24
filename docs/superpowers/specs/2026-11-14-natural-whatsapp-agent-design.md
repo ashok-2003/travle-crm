@@ -164,15 +164,17 @@ the team and keeps helping. A person answers in the chat, which the AI reads as 
 
 | What fails | What happens |
 |---|---|
-| A model call: 429, 5xx, timeout, empty answer | The next model in the list, or the backup, if 20 s remain; else the job is re-queued after 1 minute, then 5. After the last try, the fallback line and a task holding the question; the AI stays on (writer) |
+| A model call: 429, 5xx, timeout, empty answer | The next model in the list, or the backup, if 20 s remain; else the job is re-queued after 2 minutes, then 10 (the owner, 2026-11-22; was 1, then 5). After the last try, the fallback line and a task holding the question; the AI stays on (writer) |
 | A thought-signature 400, a model change mid-turn, or `finish_reason: length` | The turn starts over once on that model without the earlier tool messages; a cut-off call retries at effort minimal |
 | The cap or the deadline, with no final answer | The fallback line, and a task linking the trace |
 | A guard fails twice | That guard's fallback (section 5) |
 | The act refuses a booking (seats gone, a hold already there) | One more call with the refusal and open dates, else the fallback line and a task |
 | The day cap (25 replies in a chat in a day), or the month's AI limit | A fixed hand-over line and a hand-over, so a person answers (writer) |
 
-The fallback line is fixed in three languages, picked by the customer's script (writer): "Ye team se check karke yahin
-batate hain." / "Let me check this with the team; they'll reply here." / "यह टीम से पूछकर यहीं बताते हैं।". The gates
+**No fallback line (the owner, 2026-11-24).** Where this table and section 5 say "the fallback line", nothing goes to
+the customer: the team's task holds what they wrote, what wasn't done and any draft, and the AI stays on for their next
+message. The day cap and the month's limit hand the chat over with no line either. Customers had been getting the same
+fixed line again and again while the model was down. A hand-over the AI chooses still goes in its own words. The gates
 (off, paused, a person answering, outside the window) send nothing, as today.
 
 ## 4. Context

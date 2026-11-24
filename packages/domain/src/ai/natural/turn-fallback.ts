@@ -1,16 +1,16 @@
-// The natural agent's last try (plan 2, Task 8): its model failed twice, so no model is asked. The customer gets the
-// fallback line, in their language, and the team a question task holding what the customer wrote; a long text goes to the
-// lead's note (act-task.ts), and a returning customer with no open lead gets one first (F1). The AI stays on.
+// The natural agent's last try (plan 2, Task 8): its model failed twice, so no model is asked. Nothing goes to the
+// customer (the owner, 2026-11-24: no automatic holding line), and the team gets a question task holding what the
+// customer wrote; a long text goes to the lead's note (act-task.ts), and a returning customer with no open lead gets one
+// first (F1). The AI stays on.
 import { randomUUID } from "node:crypto";
 import type { LiteDependencies, LiteOutcome, LiteTurnInput } from "../lite/types.js";
 import { PAYMENT_PHOTO_TASK } from "../one/before-the-model.js";
 import { newLinesOf } from "./context/chat-turns.js";
-import { fallbackLine } from "./fallback-line.js";
 import { prepareNaturalTurn } from "./prepare.js";
 import type { LiveTurn } from "./turn-act.js";
 import { actAndSettle } from "./turn-done.js";
 
-/** The fallback line and a team task, with no model call. `now` is the act's clock for the chat's last reply (M3). */
+/** A team task and nothing sent, with no model call. `now` is the act's clock. */
 export async function runNaturalFallback(
   deps: LiteDependencies,
   input: LiteTurnInput,
@@ -24,7 +24,7 @@ export async function runNaturalFallback(
     .map((line) => line.text.trim())
     .filter((text) => text !== "")
     .join(" / ");
-  // At the day's cap or a full month the line goes with code's hand-over, as in the live turn (ruling 5): never silence.
+  // At the day's cap or a full month code hands the chat over too, as the live turn does (ruling 5).
   const limit = prepared.monthFull
     ? { reason: "month_limit", summary: "" }
     : prepared.repliesToday >= prepared.dayCap
@@ -34,7 +34,7 @@ export async function runNaturalFallback(
   const payment = newLines.some((line) => line.mayBePayment === true) ? ` Also: ${PAYMENT_PHOTO_TASK}` : "";
   const turn: LiveTurn = { deps, input, now, prepared, traceId: randomUUID(), actions: [] };
   const done = await actAndSettle(turn, {
-    messages: [fallbackLine(wrote)],
+    messages: [],
     staged: new Map(),
     quoted: [],
     handOver: limit,
@@ -43,7 +43,7 @@ export async function runNaturalFallback(
       text:
         wrote === ""
           ? `The AI couldn't answer the customer's last message (no words in it). Please reply.${payment}`
-          : `The AI couldn't answer, so the customer got a holding line. They wrote: ${wrote}${payment}`,
+          : `The AI couldn't answer, so nothing went to the customer. They wrote: ${wrote}${payment}`,
     },
     model: null,
     fallback: "model_failed",

@@ -1,6 +1,7 @@
 // The agency's assignment settings (release C): read for the settings screen, and saved whole by whoever manages
 // settings (the rules replaced in their new order, the pool set to exactly the people given), audited. Each person in
-// the pool marks themselves away and back.
+// the pool marks themselves away and back. A rule may name the WhatsApp number a lead came in on (multi-number spec
+// section 9): the settings come with the agency's live numbers, and a rule whose number was disconnected is marked.
 import {
   assignmentMode,
   DEFAULT_CLOSES_MINUTE,
@@ -22,6 +23,13 @@ import { destinationNames } from "../../catalog/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError } from "../../kernel/index.js";
 
+/** The agency's WhatsApp numbers, the main one first, then the oldest: the inbox's table, only read here for their labels. */
+const whatsappNumbersOf = (tx: OrgTx) =>
+  tx.whatsappConnection.findMany({
+    orderBy: [{ isMain: "desc" }, { createdAt: "asc" }, { id: "asc" }],
+    select: { id: true, label: true, status: true },
+  });
+
 export async function readAssignment(tx: OrgTx): Promise<AssignmentSettings> {
   const settings = await tx.assignmentSettings.findFirst();
   const rules = await tx.assignmentRule.findMany({ orderBy: [{ position: "asc" }, { id: "asc" }] });
@@ -30,6 +38,8 @@ export async function readAssignment(tx: OrgTx): Promise<AssignmentSettings> {
     tx,
     rules.flatMap((rule) => (rule.destinationId === null ? [] : [rule.destinationId])),
   );
+  const numbers = await whatsappNumbersOf(tx);
+  const numberOf = (id: string | null) => (id === null ? undefined : numbers.find((number) => number.id === id));
   return {
     // The columns' CHECKs hold these values; parsing names the type without a cast.
     mode: assignmentMode.parse(settings?.mode ?? "owner"),
@@ -44,9 +54,15 @@ export async function readAssignment(tx: OrgTx): Promise<AssignmentSettings> {
       destinationId: rule.destinationId,
       destinationName: rule.destinationId === null ? null : (names.get(rule.destinationId) ?? null),
       tripType: rule.tripType === null ? null : tripType.parse(rule.tripType),
+      whatsappConnectionId: rule.whatsappConnectionId,
+      whatsappLabel: numberOf(rule.whatsappConnectionId)?.label ?? null,
+      whatsappGone: numberOf(rule.whatsappConnectionId)?.status === "disconnected",
       assigneeUserId: rule.assigneeUserId,
     })),
     pool: pool.map((member) => ({ userId: member.userId, awayUntil: member.awayUntil?.toISOString() ?? null })),
+    whatsappNumbers: numbers
+      .filter((number) => number.status !== "disconnected")
+      .map((number) => ({ id: number.id, label: number.label })),
   };
 }
 
@@ -59,6 +75,11 @@ export async function saveAssignment(
   const people = [...input.rules.map((rule) => rule.assigneeUserId), ...input.pool];
   if (people.some((userId) => !workers.has(userId))) {
     throw new DomainError("VALIDATION", "NOT_A_LEAD_WORKER", "That person can't work leads");
+  }
+  // A rule's number must be the agency's (one since disconnected stays, matching nothing): another agency's is not found.
+  const ours = new Set((await whatsappNumbersOf(tx)).map((number) => number.id));
+  if (input.rules.some((rule) => rule.whatsappConnectionId !== null && !ours.has(rule.whatsappConnectionId))) {
+    throw new DomainError("NOT_FOUND", "NOT_FOUND", "No such WhatsApp number");
   }
   // The pool's rows are locked in id order, as chooseOwner locks them, so saving while a lead is given out waits for
   // it rather than deadlocking with it.

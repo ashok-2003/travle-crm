@@ -57,7 +57,8 @@ export type LinkAdInput = z.infer<typeof linkAdInput>;
 
 /**
  * The checklist before the agent may be turned on; "ads" is the one step that is optional. "ai" is the agency's own
- * "Use the AI" switch (Settings, AI): without it the agent answers nothing.
+ * "Use the AI" switch (Settings, AI): without it the agent answers nothing. "whatsapp" is done with one number past
+ * setting up, and counts them.
  */
 export const agentSetupSteps = ["ai", "whatsapp", "packages", "payment", "answers", "basics", "ads"] as const;
 
@@ -76,11 +77,17 @@ export const agentSetup = z.object({
   /** The autopilot switch. */
   on: z.boolean(),
   pausedBySupport: z.boolean(),
+  /** The agency's live WhatsApp numbers, the main one first, each with its own AI switch (under the agency's). */
+  numbers: z.array(z.object({ id: recordId, label: z.string(), displayNumber: z.string(), aiAnswers: z.boolean() })),
 });
 export type AgentSetup = z.infer<typeof agentSetup>;
 
 export const setAgentOnInput = z.strictObject({ on: z.boolean() });
 export type SetAgentOnInput = z.infer<typeof setAgentOnInput>;
+
+/** One WhatsApp number's AI on or off: it answers there only while the agency's switch is on too. */
+export const setNumberAnswersInput = z.strictObject({ connectionId: recordId, on: z.boolean() });
+export type SetNumberAnswersInput = z.infer<typeof setNumberAnswersInput>;
 
 /** A chat the agent handed over to a person, and why. */
 export const handedOverChat = z.object({

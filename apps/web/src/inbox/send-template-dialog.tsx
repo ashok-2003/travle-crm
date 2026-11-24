@@ -184,7 +184,8 @@ export function SendTemplateDialog({
   const queryClient = useQueryClient();
   const formId = useId();
   const header = useConversation(conversationId);
-  const sendable = useSendableTemplates(open);
+  // The chat's own number's templates: a template goes only from its own number.
+  const sendable = useSendableTemplates(open, { conversationId });
   const [token, setToken] = useState(() => crypto.randomUUID());
   const send = useMutation(
     trpc.inbox.sendTemplate.mutationOptions({

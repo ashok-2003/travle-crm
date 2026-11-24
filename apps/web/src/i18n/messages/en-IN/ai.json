@@ -101,6 +101,7 @@
     "agentOff": "The AI agent is off, so it answers no chat.",
     "agentNotReady": "The AI agent isn't set up yet, so it answers no chat.",
     "agentLink": "Open AI agent",
+    "numberOff": "The AI is off for this chat's WhatsApp number.",
     "queued": "The AI has the message and is waiting for the next line.",
     "thinking": "The AI is writing a reply.",
     "handedOff": "The AI handed this chat to a person.",
@@ -149,7 +150,7 @@
     "natural": {
       "payment": "Then code sends:",
       "quiet": "It would stay quiet: {reason}",
-      "fallback": "It couldn't answer, so it would send the fallback line and add a task",
+      "fallback": "It couldn't answer, so it would send nothing and add a task for your team",
       "handOverReasons": {
         "discount": "they asked for a discount or a better price",
         "custom_trip": "they want a trip made for them",
@@ -165,7 +166,7 @@
         "replied": "Replied",
         "quiet": "Stayed quiet",
         "handed_off": "Handed to your team",
-        "fallback": "Sent the fallback line"
+        "fallback": "Couldn't answer: added a task, sent nothing"
       },
       "fields": {
         "trip": "trip",

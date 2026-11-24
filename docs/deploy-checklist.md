@@ -668,6 +668,41 @@ The old columns and tables (the earlier agents' settings, chat memory and voice 
 the files of record types `ai_knowledge`, `ai_media` and `package_payment_qr`) are dropped in a later release, after
 those stored files are deleted. It deletes data, so it needs the owner's approval on its own; until then everything stays.
 
+## Release: several WhatsApp numbers per agency
+
+The release that lets one agency connect several WhatsApp numbers (`docs/superpowers/specs/2026-11-22-multi-number-whatsapp-design.md`,
+plan `docs/superpowers/plans/2026-11-22-multi-number-whatsapp.md`). Every agency's one number becomes its main number,
+labelled "WhatsApp" (shown nowhere while it is the only one), with its AI switch on: nothing changes for an agency until
+it gets a second number.
+
+**The deploy**
+
+1. The merge deploys, and CI applies `20261218900000_multi_number_whatsapp`. It adds three columns to
+   `whatsapp_connection` and one to `assignment_rule`, and swaps the one-live-number index for one main number per
+   agency: the release before keeps working while it applies (its console still refuses a second number in code). It
+   waits at most 5 s for its locks; on a lock timeout nothing of it stays, so mark it rolled back
+   (`migrate resolve --rolled-back 20261218900000_multi_number_whatsapp`, Migrations above) and deploy again.
+2. Where the order can be chosen, the api, the worker and the console update before the web. The new web reads the
+   release before's answers as one number (no labels, no number choices, the paused and disconnected notes as before),
+   but a New template or a Lead assignment save sent to the release before's api is refused until it updates.
+3. Tell agencies to reload any open tab: a New template sent from a tab opened before the deploy is refused (the call's
+   shape changed).
+
+**Before an agency gets a second number**
+
+- Platform staff rename its first number from "WhatsApp" to its real label (the console's Rename).
+- Its automation templates (sales and bookings) are set up and approved on the new number in MSG91, then refreshed in
+  WhatsApp settings: without them its customers' automatic messages are skipped, never sent from another number.
+- The agency chooses whether the AI answers on the new number (the AI agent page's switch for each number).
+- Its plan allows two numbers (Growth): the console refuses a number past the plan's limit.
+
+**Rolling back**
+
+The release before knows one live number per agency: it would treat a second number's chats as the agency's only number's
+and answer by AI on numbers switched off. So, before deploying the previous digests, disconnect every agency's extra
+numbers in the console, keeping its main one. The migration needs no undo: the release before reads nothing it added.
+Undoing it would bring the old index back, which works only while every agency has one live number.
+
 ## Still open before launch
 
 - **The deploy pipeline** (spec 12.1). CI builds the images and runs them, but publishes nothing. Still to build: a

@@ -1,9 +1,8 @@
 // How a one turn ends, as natural's does (spec 3.2 and 3.6) but with no word checks (R5): the reply in at most two
-// messages with what was staged; or the fallback line with only the agency's own actions kept, and a task for the team
-// holding what the customer wrote and what wasn't done.
+// messages with what was staged; or the fallback: nothing to the customer (the owner, 2026-11-24), only the agency's own
+// actions kept, and a task for the team holding what the customer wrote and what wasn't done.
 import type { AiMessage } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../kernel/index.js";
-import { fallbackLine } from "../natural/fallback-line.js";
 import { CUSTOMER_FACING, notDone, without } from "../natural/loop/ends.js";
 import type { FallbackReason, LoopEnd } from "../natural/loop/types.js";
 import { fallbackTask, splitMessages } from "../natural/loop/words.js";
@@ -27,7 +26,7 @@ export function oneFinal(
   return { end: "final", messages: splitMessages(words), staged, quoted: run.quoted, ...answer };
 }
 
-/** The fallback line in the customer's language; nothing that reaches them goes beside it, and the task names it. */
+/** The fallback: nothing reaches the customer, and the team's task says what they wrote and what wasn't done. */
 export function oneFallback(
   reason: FallbackReason,
   run: OneRun,
@@ -41,7 +40,6 @@ export function oneFallback(
     .filter((action) => !staged.has(action.tool))
     .flatMap((action) => notDone(action, tripOf, turn.today) ?? []);
   const customerText = turn.context.newLines.map((line) => line.text).join("\n");
-  const line = fallbackLine(customerText);
-  const task = fallbackTask({ reason, line, customerText, dropped, draft: null });
-  return { end: "fallback", reason, messages: [line], staged, task, draft: null };
+  const task = fallbackTask({ reason, customerText, dropped, draft: null });
+  return { end: "fallback", reason, staged, task, draft: null };
 }

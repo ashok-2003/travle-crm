@@ -23,6 +23,7 @@ const chat: ChatAi = {
   personPausedUntil: null,
   agentName: "Riya from Sharma Holidays",
   available: true,
+  numberOff: false,
 };
 const t = messages.ai.chat;
 

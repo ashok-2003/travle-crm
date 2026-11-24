@@ -111,6 +111,7 @@ export async function receiveInbound(
         systemActor(organizationId),
         {
           phoneE164,
+          connectionId: connection.id,
           profileName: message.customerName,
           firstText: firstTextOf(message),
           occurredAt: columns.occurredAt,

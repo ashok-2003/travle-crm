@@ -1,13 +1,12 @@
 // Ruling 7 (spec 3.2's last line): the act refused the booking the turn staged (the seats went, a hold was there already,
 // the price changed) and rolled it back, so nothing went. With a call left and 8 seconds of the turn, the model answers
 // once more on its own transcript and the app's check of what happened, with the trip's open dates and the turn's other
-// actions kept; otherwise, or when that answer is refused too, the customer gets the fallback line and the team a task
-// saying what wasn't done.
+// actions kept; otherwise, or when that answer is refused too, nothing goes to the customer and the team gets a task
+// saying what wasn't done (the owner, 2026-11-24: no automatic holding line).
 import { formatShortDay, parseCalendarDate } from "../../kernel/index.js";
 import type { NaturalContext } from "./context/build.js";
 import { cutText } from "./context/tokens.js";
 import { stagedOf } from "./act-types.js";
-import { fallbackLine } from "./fallback-line.js";
 import { NATURAL_LIMITS, runNaturalLoop, type LoopEnd, type LoopIO, type LoopSettings } from "./loop.js";
 import { CUSTOMER_FACING, without } from "./loop/ends.js";
 import { appCheck } from "./loop/words.js";
@@ -69,8 +68,8 @@ export async function refusalNote(turn: LiveTurn, staged: StagedSet, refused: Re
   return `The seats couldn't be held: ${reasonWords(refused)}.${open} Nothing was sent; reply again.`;
 }
 
-/** The team's task: why, what the customer got and wrote, and the booking not done. */
-function refusalTask(turn: LiveTurn, staged: StagedSet, refused: Refused, line: string, customerText: string): string {
+/** The team's task: why, what the customer wrote, and the booking not done. */
+function refusalTask(turn: LiveTurn, staged: StagedSet, refused: Refused, customerText: string): string {
   const { prepared } = turn;
   const party = partyOf(turn, staged);
   const title = prepared.sheets.find((sheet) => sheet.packageId === party?.packageId)?.title ?? "the trip";
@@ -81,20 +80,19 @@ function refusalTask(turn: LiveTurn, staged: StagedSet, refused: Refused, line: 
       : ` Not done: the booking of ${title} for ${String(party.people)} on ` +
         `${formatShortDay(parseCalendarDate(party.startsOn), prepared.today)}.`;
   return cutText(
-    `The seats couldn't be held (${reasonWords(refused)}), so the customer got "${line}".${wrote}${booking}`,
+    `The seats couldn't be held (${reasonWords(refused)}), so nothing went to the customer.${wrote}${booking}`,
     TASK_CHARS,
   );
 }
 
-/** The fallback line, the turn's own actions kept but what reaches the customer, and the team's task. */
+/** Nothing to the customer, the turn's own actions kept but what reaches the customer, and the team's task. */
 export function refusedAct(turn: LiveTurn, staged: StagedSet, refused: Refused, customerText: string): TurnAct {
-  const line = fallbackLine(customerText);
   return {
-    messages: [line],
+    messages: [],
     staged: without(staged, CUSTOMER_FACING),
     quoted: [],
     handOver: null,
-    task: { kind: "question", text: refusalTask(turn, staged, refused, line, customerText) },
+    task: { kind: "question", text: refusalTask(turn, staged, refused, customerText) },
     model: null,
     fallback: `refused:${refused.refused}`,
   };
@@ -112,7 +110,7 @@ function refusedFallback(
   return actAndSettle(turn, act);
 }
 
-/** After the act refused the turn's booking: one more call if one is left and there is time, else the fallback line. */
+/** After the act refused the turn's booking: one more call if one is left and there is time, else the team's task. */
 export async function afterRefusal(
   turn: LiveTurn,
   loop: TurnLoop,

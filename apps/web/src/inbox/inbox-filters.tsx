@@ -2,19 +2,22 @@
 
 // The filters above the chats (sales inbox spec, sections 3, 5 and design v2), as the sales inboxes teams know: one row of
 // chips with their counts (All, Unread, Waiting with the late ones in red, Mine, Unassigned, Snoozed, Archived), and under
-// it three small choices: the lead's stage (each with how many chats stand there, the pipeline at a glance), how recent
-// the last message is, and a tag. Every choice is kept in the tab, never the address.
+// it small choices: the lead's stage (each with how many chats stand there, the pipeline at a glance), how recent the
+// last message is, a tag, and, once the agency has two WhatsApp numbers, the number. Every choice is kept in the tab,
+// never the address. The chips' counts stay for every number, as they do for a tag.
 import { leadStages, type LeadStage } from "@travel-crm/contracts/crm";
 import {
   conversationPeriods,
   type ConversationFilter,
   type ConversationPeriod,
   type InboxSummary,
+  type WhatsappNumber,
 } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { StageDot } from "@/leads/stage-badge";
+import { cn } from "@/lib/utils";
 import { useTags } from "./use-inbox-tools";
 
 export const inboxFilters = [
@@ -104,6 +107,7 @@ export function FilterChoices({
   onPeriod,
   tagId,
   onTag,
+  number,
   summary,
 }: {
   stage: LeadStage | null;
@@ -112,6 +116,8 @@ export function FilterChoices({
   onPeriod: (period: ConversationPeriod | null) => void;
   tagId: string | null;
   onTag: (tagId: string | null) => void;
+  /** The Number choice, once the agency has two numbers: every number it has had, and the one chosen. */
+  number: { numbers: WhatsappNumber[]; connectionId: string | null; onChange: (id: string | null) => void } | null;
   summary: InboxSummary | undefined;
 }) {
   const t = useTranslations("inbox");
@@ -122,7 +128,7 @@ export function FilterChoices({
       ? null
       : summary.stages[value as (typeof pipelineStages)[number]];
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={cn("grid gap-2", number === null ? "grid-cols-3" : "grid-cols-2")}>
       <Select
         value={stage ?? ANY}
         onValueChange={(chosen) => {
@@ -182,6 +188,26 @@ export function FilterChoices({
           ))}
         </SelectContent>
       </Select>
+      {number !== null && (
+        <Select
+          value={number.connectionId ?? ANY}
+          onValueChange={(chosen) => {
+            number.onChange(chosen === ANY ? null : chosen);
+          }}
+        >
+          <SelectTrigger aria-label={t("numberFilter")} className="h-11 w-full min-w-0 rounded-full px-3 text-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY}>{t("anyNumber")}</SelectItem>
+            {number.numbers.map((one) => (
+              <SelectItem key={one.id} value={one.id}>
+                {one.status === "disconnected" ? t("disconnectedNumber", { label: one.label }) : one.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </div>
   );
 }

@@ -334,7 +334,8 @@
       "unavailable": "chat unavailable",
       "no_lead": "no lead",
       "TEMPLATE_CAP_REACHED": "daily limit reached",
-      "TIER_LIMIT_REACHED": "daily limit reached"
+      "TIER_LIMIT_REACHED": "daily limit reached",
+      "TEMPLATE_NOT_ON_NUMBER": "template not on that number"
     }
   },
   "proof": {

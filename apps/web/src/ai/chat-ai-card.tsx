@@ -3,7 +3,8 @@
 // A chat's AI, in the contact panel: whether it answers here (the agency's default, on or off), whether it handed the chat to
 // a person and why (with a way to give it back), and what it noted about the customer. Who writes next, what it flagged and
 // when it follows up are said by the bar over the reply box. Every message it sends is marked "Sent by the AI" in the chat.
-// An agency whose agent is off or not set up reads that, whatever the chat's mode. Hidden for an agency without the AI.
+// An agency whose agent is off or not set up reads that, whatever the chat's mode, and so does a chat on a WhatsApp number
+// whose AI is off (spec 2026-11-22 section 8). Hidden for an agency without the AI.
 import { BotIcon, BotOffIcon, HandIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -49,25 +50,29 @@ export function ChatAiCard({ conversationId }: { conversationId: string }) {
       <p className={state.answering ? "font-medium text-people-tint-ink" : "text-muted-foreground"}>
         {state.agent !== "ready"
           ? t(state.agent === "off" ? "agentOff" : "agentNotReady")
-          : state.handedOff
-            ? t("handedOff")
-            : state.turn === "thinking"
-              ? t("thinking")
-              : state.turn === "queued"
-                ? t("queued")
-                : state.answering
-                  ? t("answering")
-                  : t("notAnswering")}
+          : state.numberOff
+            ? t("numberOff")
+            : state.handedOff
+              ? t("handedOff")
+              : state.turn === "thinking"
+                ? t("thinking")
+                : state.turn === "queued"
+                  ? t("queued")
+                  : state.answering
+                    ? t("answering")
+                    : t("notAnswering")}
       </p>
-      {state.agent !== "ready" && mayManage && <TextLink href={routes.aiAgent}>{t("agentLink")}</TextLink>}
+      {(state.agent !== "ready" || state.numberOff) && mayManage && (
+        <TextLink href={routes.aiAgent}>{t("agentLink")}</TextLink>
+      )}
       {state.handedOff && (
         <Alert>
           <HandIcon aria-hidden="true" />
           <AlertTitle>{t("handoffTitle")}</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
             <span>{state.handoffReason ?? t("handoffNoReason")}</span>
-            {/* Given back to an agent that answers no chat, it would answer nothing: the line above says why. */}
-            {state.agent === "ready" && (
+            {/* Given back to an agent that answers no chat here, it would answer nothing: the line above says why. */}
+            {state.agent === "ready" && !state.numberOff && (
               <Button
                 variant="outline"
                 size="sm"

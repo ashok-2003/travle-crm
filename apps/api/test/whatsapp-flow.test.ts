@@ -104,7 +104,11 @@ describe("a WhatsApp message, end to end", () => {
     expect(leads[0]).toMatchObject({ source: "whatsapp" });
 
     const status = await dataOf<InboxStatus>(await query(server, "inbox.status", owner));
-    expect(status).toMatchObject({ configured: true, connected: true, connectionStatus: "connected" });
+    expect(status).toMatchObject({
+      configured: true,
+      connected: true,
+      numbers: [expect.objectContaining({ status: "connected", main: true })],
+    });
     const list = await dataOf<ConversationPage>(
       await query(server, "inbox.conversations", owner, { filter: "waiting" }),
     );
@@ -210,7 +214,7 @@ describe("a WhatsApp message, end to end", () => {
       samples: ["Priya", "Goa"],
     };
     const created = await dataOf<{ templateId: string }>(
-      await mutate(server, "whatsappTemplates.create", draft, owner),
+      await mutate(server, "whatsappTemplates.create", { draft }, owner),
     );
     whatsapp.memory.setTemplateStatus(business, "trip_update", "approved");
     await dataOf(await mutate(server, "whatsappTemplates.refresh", undefined, owner));
@@ -237,7 +241,11 @@ describe("a WhatsApp message, end to end", () => {
     const sales = await addStaff(server, agency, { username: "kiran", roleKey: "sales" });
     const jar = await signedInStaff(server, agency, sales);
     expect(
-      (await refusalOf(await mutate(server, "whatsappTemplates.create", { ...draft, name: "other_one" }, jar))).status,
+      (
+        await refusalOf(
+          await mutate(server, "whatsappTemplates.create", { draft: { ...draft, name: "other_one" } }, jar),
+        )
+      ).status,
     ).toBe(403);
   });
 

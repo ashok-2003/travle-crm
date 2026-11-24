@@ -56,7 +56,7 @@ describe("natural's seams for tools, trace and ends", () => {
   });
 
   it("says why a turn that ran out of steps fell back", () => {
-    const task = fallbackTask({ reason: "steps", line: "One moment", customerText: "", dropped: [], draft: null });
+    const task = fallbackTask({ reason: "steps", customerText: "", dropped: [], draft: null });
     expect(task).toContain("The AI took too many steps without a reply it could send");
   });
 

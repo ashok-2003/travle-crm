@@ -73,6 +73,8 @@ const header = {
   archived: false,
   snoozedUntil: null,
   replying: [],
+  number: { id: "01900000-0000-7000-8000-0000000000f1", label: "WhatsApp", status: "connected" },
+  otherChats: [],
 };
 const row = (n: number) => ({
   id: id(n),
@@ -102,7 +104,7 @@ const summary = {
   snoozed: 0,
   stages: { new: 0, contacted: 0, quote_sent: 0, booking_requested: 0, won: 0 },
 };
-const listInput = { filter: "all" as const, search: "", tagId: null, stage: null, period: null };
+const listInput = { filter: "all" as const, search: "", tagId: null, stage: null, period: null, connectionId: null };
 
 /** The app around the Inbox: its shell holds the stream (in this browser without Web Locks, a stream of the tab's own). */
 function inTheApp(queryClient: ReturnType<typeof newQueryClient>) {

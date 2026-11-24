@@ -195,8 +195,8 @@ export async function sendTripKitOnKeyword(
       select: { body: true, caption: true },
     });
     const text = message?.body ?? message?.caption ?? null;
-    // An agency's AI agent sends its files; a keyword never sends a kit by itself there.
-    if (await aiAgentOn(tx, actor.organizationId)) return null;
+    // Where the AI agent answers, it sends the files; a keyword never sends a kit by itself there.
+    if (await aiAgentOn(tx, actor.organizationId, input.conversationId)) return null;
     // Someone asking to stop is never answered, and nobody who withdrew their consent is written to.
     if (text === null || isOptOutText(text)) return null;
     const chat = await tx.whatsappConversation.findUnique({

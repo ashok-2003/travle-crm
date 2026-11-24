@@ -4,8 +4,32 @@
 export { adoptAll, adoptChats } from "./adopt.js";
 export { answeredByAiWhere, listedChatWhere } from "./ai-answered.js";
 export { adPackageChoicesOf, adPackageOf, adsOf, linkAd, noteAdOf } from "./ads.js";
-export { connectNumber, disconnectNumber, markConnected, pauseNumber, resumeNumber, setCaps } from "./connection.js";
-export { connectionById, liveConnection, toConnectionRow, type ConnectionRow } from "./connection-row.js";
+export {
+  connectNumber,
+  disconnectNumber,
+  markConnected,
+  pauseNumber,
+  renameNumber,
+  resumeNumber,
+  setCaps,
+  setMainNumber,
+} from "./connection.js";
+export {
+  connectionById,
+  liveConnections,
+  mainConnection,
+  numbersOf,
+  toConnectionRow,
+  type ConnectionRow,
+} from "./connection-row.js";
+export {
+  customerChatOf,
+  sendFrom,
+  templateOnNumber,
+  type SendFrom,
+  type SendingChat,
+  type SendTarget,
+} from "./send-from.js";
 export {
   ADOPT_QUEUE,
   COPY_MEDIA_QUEUE,
@@ -90,6 +114,7 @@ export {
   updateTripKit,
   type TripKitDependencies,
 } from "./trip-kits.js";
+export { numberAnswers, setNumberAnswers } from "./number-ai.js";
 export { sendTripKit, sendTripKitOnKeyword, tripKitFor, tripKitKeywordListener } from "./trip-kit-send.js";
 export { createTag, deleteTag, listTags, setConversationTags } from "./tags.js";
 export { settleNeedsReply } from "./needs-reply.js";
@@ -123,6 +148,7 @@ export {
   noteUnrouted,
   removeRoute,
   routeCount,
+  routedOrganizationsPage,
   routeOfNumber,
   routesPage,
   unroutedNumbers,
@@ -155,6 +181,7 @@ export {
   createTemplate,
   editTemplate,
   listTemplates,
+  sendableTemplates,
   syncAllTemplates,
   syncTemplates,
   type TemplateDependencies,

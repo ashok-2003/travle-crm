@@ -1,7 +1,8 @@
 "use client";
 
-// Connect a number (spec 3.5): the number the agency's customers message, the same number as MSG91 writes it, how it was
-// added, MSG91's own ids (free text, optional) and a note. The api's own schema checks it; the connection starts as Setting
+// Connect a number (spec 3.5; several numbers, spec 2026-11-22 section 10): its short label ("Sales 1"), the number the
+// agency's customers message, the same number as MSG91 writes it, how it was added, MSG91's own ids (free text, optional)
+// and a note. The api's own schema checks it; the connection starts as Setting
 // up. The form is mounted only while the dialog is open (components/forms/form-dialog.tsx).
 import { connectWhatsappInput, type ConnectWhatsappInput } from "@travel-crm/contracts/inbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +17,7 @@ import { FieldGroup } from "@/components/ui/field";
 import { useConsoleTRPC } from "../data/console-trpc";
 
 interface ConnectValues extends Record<string, unknown> {
+  label: string;
   displayNumber: string;
   integratedNumber: string;
   mode: string;
@@ -25,7 +27,7 @@ interface ConnectValues extends Record<string, unknown> {
   note: string;
 }
 
-type Problem = "required" | "invalid";
+type Problem = "required" | "invalid" | "tooLong";
 
 const optional = (text: string) => (text.trim() === "" ? {} : { value: text.trim() });
 
@@ -37,6 +39,7 @@ function check(organizationId: string, values: ConnectValues): Checked<ConnectVa
   return checked(
     connectWhatsappInput.safeParse({
       organizationId,
+      label: values.label,
       displayNumber: values.displayNumber,
       integratedNumber: values.integratedNumber.replace(/\D/g, ""),
       mode: values.mode,
@@ -47,7 +50,7 @@ function check(organizationId: string, values: ConnectValues): Checked<ConnectVa
     }),
     values,
     ([key]) => (typeof key === "string" && key in values ? key : undefined),
-    () => "invalid",
+    (field) => (field === "label" ? "tooLong" : "invalid"),
   );
 }
 
@@ -64,6 +67,7 @@ function Form({
   const tProblems = useTranslations("consoleWhatsapp.connect.problems");
   const { form, onSubmit, formProblem } = useCheckedForm<ConnectValues, ConnectWhatsappInput, Problem>(
     {
+      label: "",
       displayNumber: "",
       integratedNumber: "",
       mode: "new_number",
@@ -78,6 +82,7 @@ function Form({
   return (
     <form id={formId} noValidate onSubmit={onSubmit(sending.mutate)} className="flex flex-col gap-6">
       <FieldGroup>
+        <TextField control={form.control} name="label" label={t("label")} hint={t("labelHint")} autoComplete="off" />
         <PhoneField control={form.control} name="displayNumber" label={t("displayNumber")} />
         <TextField
           control={form.control}

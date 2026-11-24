@@ -1,5 +1,5 @@
 // The one agent's turn (spec 3; rulings R5, R7, P7, P8) on the in-memory tool agent, with a scripted model, a fake IO and
-// a fake clock, no database: its requests, the words beside actions, the one extra call for words, the fallback line,
+// a fake clock, no database: its requests, the words beside actions, the one extra call for words, the fallback,
 // the ends the port passes through, and the trace.
 import { oneHandOverArguments, oneToolSchemas, type NaturalToolName } from "@travel-crm/contracts/ai";
 import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integrations/ai";
@@ -18,8 +18,6 @@ const START = Date.parse("2026-11-14T18:13:00Z");
 const CALL_MS = 2_000;
 const ORGANIZATION = "organization-1";
 const LITE = "google/gemini-3.5-flash-lite";
-// The customer wrote "Kedarkantha ka rate?": the Hinglish fallback line.
-const FALLBACK_LINE = "Ek minute, check karke yahin batate hain.";
 const APP_CHECK = "[app check, not from the customer]";
 
 const quoted: QuoteFigures = {
@@ -210,7 +208,7 @@ describe("the one agent's loop", () => {
     model.answer({ toolCalls: [leadCall] }, "", { text: "  " });
     const end = await loop();
     expect(model.requests[4]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${NO_WORDS}`);
-    expect(end).toMatchObject({ end: "fallback", reason: "model", messages: [FALLBACK_LINE], draft: null });
+    expect(end).toMatchObject({ end: "fallback", reason: "model", draft: null });
     expect(stagedOf(end)).toEqual(["update_lead"]);
     expect(end.end === "fallback" && end.task).toContain("The AI wrote no reply");
     expect(model.requests).toHaveLength(5);
@@ -312,7 +310,7 @@ describe("the one agent's loop", () => {
       // A brochure beside them ends nothing.
       model.answer({ toolCalls: [call, brochureCall] }, "", "");
       const end = await loop();
-      expect(end).toMatchObject({ end: "fallback", reason: "model", messages: [FALLBACK_LINE] });
+      expect(end).toMatchObject({ end: "fallback", reason: "model" });
       expect(stagedOf(end)).toEqual([]);
     }
     expect(model.requests[2]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${NO_WORDS}`);
@@ -350,10 +348,9 @@ describe("the one agent's loop", () => {
     expect(end).toEqual({
       end: "fallback",
       reason: "steps",
-      messages: [FALLBACK_LINE],
       staged: new Map([["update_lead", staging.update_lead]]),
       task:
-        `The AI took too many steps without a reply it could send, so the customer got "${FALLBACK_LINE}". ` +
+        `The AI took too many steps without a reply it could send, so nothing went to the customer. ` +
         `They wrote: "Kedarkantha ka rate?". Not done: the AI meant to offer T1 for 2 on Sat 19 Dec, total ₹18,998. ` +
         "Why on this turn shows what it tried.",
       draft: null,
@@ -403,7 +400,7 @@ describe("the one agent's loop", () => {
     if (brochure === undefined) throw new Error("no brochure staging");
     model.answer("", "");
     const fallback = await loop({ forced: [handOver, brochure] });
-    expect(fallback).toMatchObject({ end: "fallback", reason: "model", messages: [FALLBACK_LINE] });
+    expect(fallback).toMatchObject({ end: "fallback", reason: "model" });
     expect(stagedOf(fallback)).toEqual(["hand_over"]);
     expect(fallback.end === "fallback" && fallback.task).toContain("Not done: the AI meant to send T1's brochure.");
   });

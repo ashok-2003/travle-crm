@@ -1,7 +1,7 @@
 // The worker's side of a broadcast (sales inbox spec 6, rebuilt 2026-10-26): on "broadcast-ready" it sends the waiting
-// recipients a batch at a time, each through the same template send as one person's (consent, STOP, the day's and the month's
-// caps under the connection's lock), with a token of the broadcast and the chat so a retry or an overlapping run never sends
-// twice. Recipients over today's template cap wait for the next morning; over the month's, they are skipped. When WhatsApp
+// recipients a batch at a time, each in its own chat from that chat's number (sendFrom), through the same template send as one
+// person's (consent, STOP, the day's and the month's caps under the number's lock), with a token of the broadcast and the chat
+// so a retry or an overlapping run never sends twice. A number that can't send holds the batch. Recipients over today's template cap wait for the next morning; over the month's, they are skipped. When WhatsApp
 // refuses too many (the failure rate), the broadcast pauses itself, says why, and tells its creator. Safe to run twice.
 import {
   BROADCAST_NEXT_DAY_HOUR,
@@ -16,7 +16,7 @@ import { defineListener, type EventListener } from "../jobs/index.js";
 import { addDays, calendarDateIn, DomainError, instantAt, parseTimeOfDay, systemActor } from "../kernel/index.js";
 import { notify } from "../notifications/index.js";
 import { askForBatch, BROADCAST_READY_EVENT, REFUSALS_OF_OURS } from "./broadcast.js";
-import { liveConnection } from "./connection-row.js";
+import { sendFrom } from "./send-from.js";
 import { queueCheckedTemplate } from "./template-send.js";
 import { whatsappConsentOf } from "./whatsapp-consent.js";
 
@@ -114,27 +114,16 @@ async function sendNext(
       data: { notBefore: until },
     });
 
-  const connection = await liveConnection(tx);
-  const chat = await tx.whatsappConversation.findUnique({
-    where: { id: next.conversationId },
-    select: {
-      id: true,
-      personId: true,
-      connectionId: true,
-      lastInboundAt: true,
-      phoneE164: true,
-      hidden: true,
-      state: true,
-    },
-  });
-  if (chat === null || chat.hidden || chat.state !== "open") {
-    await settle("skipped", "unavailable");
-    return "sent";
-  }
-  if (connection?.id !== chat.connectionId || !["connected", "problem"].includes(connection.status)) {
+  const from = await sendFrom(tx, { chat: next.conversationId });
+  if (!from.ok && from.code !== "none_yet") {
     await holdAll(new Date(now.getTime() + NUMBER_WAIT_MS));
     return "stop";
   }
+  if (!from.ok || from.chat.hidden || from.chat.state !== "open") {
+    await settle("skipped", "unavailable");
+    return "sent";
+  }
+  const { chat } = from;
   const consent = chat.personId === null ? null : await whatsappConsentOf(tx, chat.personId);
   if (consent?.state !== "granted") {
     await settle("skipped", consent?.state === "withdrawn" ? "opted_out" : "no_consent");
@@ -144,13 +133,7 @@ async function sendNext(
     const sent = await queueCheckedTemplate(
       tx,
       systemActor(organizationId),
-      {
-        id: chat.id,
-        personId: chat.personId,
-        phoneE164: chat.phoneE164,
-        lastInboundAt: chat.lastInboundAt,
-        connectionId: connection.id,
-      },
+      chat,
       {
         templateId: broadcast.templateId,
         parameters: broadcast.params,

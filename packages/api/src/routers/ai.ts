@@ -11,6 +11,7 @@ import {
   chatsAnsweredInput,
   handedOverChatList,
   setAgentOnInput,
+  setNumberAnswersInput,
   linkAdInput,
   whatsappAds,
   saveAgencyAnswersInput,
@@ -96,7 +97,7 @@ import {
   updateKnowledge,
   writeUpQuote,
 } from "@travel-crm/domain/ai";
-import { adPackageChoicesOf, adsOf, linkAd } from "@travel-crm/domain/inbox";
+import { adPackageChoicesOf, adsOf, linkAd, setNumberAnswers } from "@travel-crm/domain/inbox";
 import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
 import { organizationTimeZone } from "@travel-crm/domain/identity";
@@ -385,6 +386,19 @@ export const aiRouter = router({
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => setAgentOn(tx, ctx.member, input.on, today));
     }),
 
+  /** One WhatsApp number's AI on or off, under the agency's switch; the setup again, with the numbers. */
+  setNumberAnswers: freshProcedure
+    .requires("ai:manage")
+    .input(setNumberAnswersInput)
+    .output(agentSetup)
+    .mutation(async ({ ctx, input }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        await setNumberAnswers(tx, ctx.member, input);
+        return agentSetupOf(tx, ctx.member.organizationId, today);
+      });
+    }),
+
   /** Chats the agent handed over to a person: the member's own (`mine`), or all their inbox shows (AI managers only). */
   handedOver: freshProcedure
     .requires("inbox:view")
@@ -485,8 +499,8 @@ export const aiRouter = router({
 
   /**
    * Try it on the natural agent: its own strict input and answer, on the live prompt (label production). A server with
-   * no model for the agent answers AI_NOT_READY; any other model failure comes back as the fallback line and a task, as
-   * it would live. Nothing is sent or kept but the month's AI calls. When the server traces (Langfuse), each turn is one
+   * no model for the agent answers AI_NOT_READY; any other model failure comes back as nothing sent and a task, as it
+   * would live. Nothing is sent or kept but the month's AI calls. When the server traces (Langfuse), each turn is one
    * traced turn of the test chat, its session the chat's id.
    */
   testNatural: freshProcedure

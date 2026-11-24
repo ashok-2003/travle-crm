@@ -133,9 +133,17 @@ describe("WhatsApp through the agency's inbox", () => {
   const connected = {
     configured: true,
     connected: true,
-    connectionStatus: "connected",
     demo: false,
-    number: "+919000000000",
+    numbers: [
+      {
+        id: "01900000-0000-7000-8000-0000000000f1",
+        label: "WhatsApp",
+        displayNumber: "+919000000000",
+        status: "connected",
+        main: true,
+        aiAnswers: true,
+      },
+    ],
   };
   const onInboxPlan = () => newQueryClient({ ...paidSubscription, modules: ["inbox"] });
   const inboxReader = member({ permissions: ["leads:view", "inbox:view"] });
@@ -163,7 +171,7 @@ describe("WhatsApp through the agency's inbox", () => {
   });
 
   it("falls back to wa.me when the agency has no WhatsApp connected", async () => {
-    stubApi({ "inbox.status": { data: { ...connected, connected: false, connectionStatus: null } } });
+    stubApi({ "inbox.status": { data: { ...connected, connected: false, numbers: [] } } });
     renderWithApi(<WhatsAppButton phone={phone} name="Priya Nair" leadId={leadId} />, onInboxPlan(), inboxReader);
     const link = await screen.findByRole("link", { name: "WhatsApp Priya Nair" });
     expect(link).toHaveAttribute("href", "https://wa.me/919876543210");

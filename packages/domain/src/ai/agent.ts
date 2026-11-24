@@ -82,7 +82,7 @@ export async function runAgentTurn(dependencies: AgentDependencies, input: LiteT
 }
 
 /**
- * The last try of a natural or one turn whose model failed twice: the fallback line and a task for the team, with no model call,
+ * The last try of a natural or one turn whose model failed twice: a team task, nothing sent, with no model call,
  * through the same checks as a turn. Lite has no such try.
  */
 export async function runAgentFallback(

@@ -3,7 +3,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { naturalChatLines } from "../../../src/ai/natural/chat-lines.js";
 import { lineWords } from "../../../src/ai/natural/context/chat-turns.js";
-import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import { refusedAct } from "../../../src/ai/natural/turn-refused.js";
 import type { NaturalChatLine } from "../../../src/ai/natural/types.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
@@ -93,7 +92,7 @@ describe("natural's seams for reads and refusal", () => {
     expect(lineWords(stored, 1_000)).toBe("[voice note]");
   });
 
-  it("builds the refused booking's act: the fallback line, the agency's actions kept, the task naming the booking", async () => {
+  it("builds the refused booking's act: nothing sent, the agency's actions kept, the task naming the booking", async () => {
     const on = await liveAgency(test);
     const prepared = await on.prepare();
     if (typeof prepared === "string") throw new Error(`The turn ended: ${prepared}`);
@@ -117,7 +116,8 @@ describe("natural's seams for reads and refusal", () => {
 
     const act = refusedAct(turn, staged, { refused: "seats_gone", message: "Only 1 seat is left." }, "haan");
 
-    expect(act.messages).toEqual([fallbackLine("haan")]);
+    expect(act.messages).toEqual([]);
+    expect(act.task?.text).toContain("so nothing went to the customer");
     expect([...act.staged.keys()]).toEqual(["add_note"]);
     expect(act.handOver).toBeNull();
     expect(act.fallback).toBe("refused:seats_gone");

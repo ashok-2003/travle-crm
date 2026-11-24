@@ -1,10 +1,10 @@
 // The one agent's live turn (spec 3; R4, R7), step for step as natural's: the live prompt (Langfuse's at label
 // production, else the built-in text) and natural's reads at once, the earlier system's lines whole; then the tool
-// agent's run on the chat, and natural's act in one transaction. At the day's cap or a full month the fallback line goes
-// with code's hand-over and no model call; a likely payment photo adds a task for the team and a notice, and the agent
+// agent's run on the chat, and natural's act in one transaction. At the day's cap or a full month code hands the chat
+// over, with nothing sent and no model call; a likely payment photo adds a task for the team and a notice, and the agent
 // keeps its tools; a Book tap on the live offer books with no model call, and any other tap is a notice (spec 7.1); a
-// model that can't answer sends nothing, for the worker to try again; steps that run out end on the fallback line and a
-// task; a booking the act refused gets one more run. The whole turn is one trace of its chat, and one log line.
+// model that can't answer sends nothing, for the worker to try again; steps that run out send nothing and leave a task
+// for the team; a booking the act refused gets one more run. The whole turn is one trace of its chat, and one log line.
 import { randomUUID } from "node:crypto";
 import type { LiteOutcome, LiteTurnInput } from "../lite/types.js";
 import { newLinesOf } from "../natural/context/chat-turns.js";
@@ -52,8 +52,8 @@ async function liveTurn(
   deps.tracing?.note({ input: turnInputOf(newLines) });
   const before = oneBeforeTheModel(newLines);
   // At a limit the photo's task still goes: the turn moves past the photo.
-  if (prepared.monthFull) return atLimit(turn, "month_limit", customerText, before.task);
-  if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap", customerText, before.task);
+  if (prepared.monthFull) return atLimit(turn, "month_limit", before.task);
+  if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap", before.task);
   const plain = buildOneContext({ ...prepared, prompt, now, notice: before.notice, tools: "all", summary: null });
   // A Book tap on the live offer books here, with no model (so no summary call); any other tap is a notice for it.
   const tap = await tapStep(turn, liveActionContext(deps.db, prepared, input, plain, now));
@@ -75,12 +75,13 @@ async function liveTurn(
       return endedOf(turn, "superseded", null);
     case "model_failed":
       // The month's last call went to another chat while this one ran: as at the limit.
-      if (end.reason === "limit") return atLimit(turn, "month_limit", customerText, before.task);
+      if (end.reason === "limit") return atLimit(turn, "month_limit", before.task);
       return endedOf(turn, "model_failed", end.reason);
     case "fallback":
       return actAndSettle(turn, withPaymentTask(actOfEnd(end), before.task));
     case "final": {
-      // A tap's notice owes a reply (as a typed booking's refusal does): a silent end falls back, a hand-over aside.
+      // A tap's notice owes a reply (as a typed booking's refusal does): a silent end goes to the team as a task, a
+      // hand-over aside.
       if (tap !== null && end.messages.length === 0 && !end.staged.has("hand_over")) {
         const act = withPaymentTask(refusedAct(turn, end.staged, TAP_UNANSWERED, customerText), before.task);
         trace.staged(act.staged);

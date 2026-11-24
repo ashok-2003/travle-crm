@@ -169,13 +169,18 @@ function Form({
   );
 }
 
-/** New template (no `existing`, with its own button) or Edit and send again (a rejected one, opened from its row). */
+/**
+ * New template (no `existing`, with its own button), written on `connectionId`'s number (the main one when null), or Edit
+ * and send again (a rejected one, opened from its row), which stays on its own number.
+ */
 export function TemplateDialog({
   existing,
+  connectionId = null,
   held,
   returnFocusTo,
 }: {
   existing?: TemplateSummary;
+  connectionId?: string | null;
   held?: OpenState;
   returnFocusTo?: ReturnFocusTo;
 }) {
@@ -187,7 +192,14 @@ export function TemplateDialog({
   const edit = useMutation(trpc.whatsappTemplates.edit.mutationOptions({ onSuccess: dialog.onSuccess }));
   const sending: Sending<TemplateDraftInput> =
     existing === undefined
-      ? create
+      ? {
+          mutate: (draft) => {
+            create.mutate({ ...(connectionId !== null && { connectionId }), draft });
+          },
+          isPending: create.isPending,
+          error: create.error,
+          reset: create.reset,
+        }
       : {
           mutate: (draft) => {
             edit.mutate({ templateId: existing.id, draft });

@@ -7,7 +7,7 @@
 import type { LiveOffer } from "@travel-crm/contracts/ai";
 import { formatRupees, isUuid } from "../../kernel/index.js";
 import { fenced } from "../fenced.js";
-import { languageOf } from "../natural/fallback-line.js";
+import { languageOf } from "../natural/language-of.js";
 import { stageAction, type ActionContext } from "../natural/tools/action-tools.js";
 import { awaitsPayment, liveOfferOf } from "../natural/tools/booking-checks.js";
 import type { NaturalChatLine, StagedAction } from "../natural/types.js";

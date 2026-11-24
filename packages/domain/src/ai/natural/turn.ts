@@ -1,6 +1,6 @@
 // The natural agent's live turn (spec 3.2; plan 2, Task 6): the live reads and the live prompt (Langfuse's at label
 // production, else the built-in text) at once, then Plan 1's loop on the chat, then the act in one transaction. At the
-// day's cap or a full month the fallback line goes with code's own hand-over and no model call (ruling 5); a payment
+// day's cap or a full month code hands the chat over, with nothing sent and no model call (ruling 5); a payment
 // screenshot or a voice note nobody could play gets one call with no tools (ruling 6); a model that can't answer ends
 // `model_failed` with nothing sent, for the worker to try again (ruling 6); a booking the act refused gets one more call
 // (ruling 7). The whole turn is one trace of its chat, and one log line.
@@ -11,7 +11,6 @@ import type { AiTracing, TurnStart } from "@travel-crm/integrations/tracing";
 import type { LiteDependencies, LiteOutcome, LiteTurnInput } from "../lite/types.js";
 import { buildNaturalContext } from "./context/build.js";
 import { newLinesOf } from "./context/chat-turns.js";
-import { fallbackLine } from "./fallback-line.js";
 import type { CodeHandOverReason } from "./hand-over-words.js";
 import { liveLoopIO } from "./live-io.js";
 import { runNaturalLoop, type LoopSettings } from "./loop.js";
@@ -31,15 +30,10 @@ export interface NaturalTurnDependencies extends LiteDependencies {
   prompts?: AiPrompts;
 }
 
-/** Ruling 5: the fallback line and code's hand-over at a limit, with no model call. */
-export function atLimit(
-  turn: LiveTurn,
-  reason: CodeHandOverReason,
-  customerText: string,
-  task: TurnAct["task"] = null,
-): Promise<TurnDone> {
+/** Ruling 5: code's hand-over at a limit, with no model call; nothing goes to the customer (the owner, 2026-11-24). */
+export function atLimit(turn: LiveTurn, reason: CodeHandOverReason, task: TurnAct["task"] = null): Promise<TurnDone> {
   return actAndSettle(turn, {
-    messages: [fallbackLine(customerText)],
+    messages: [],
     staged: new Map(),
     quoted: [],
     handOver: { reason, summary: "" },
@@ -60,8 +54,8 @@ async function liveTurn(
   const newLines = newLinesOf(prepared.lines, lastTurnAt);
   const customerText = newLines.map((line) => line.text).join("\n");
   deps.tracing?.note({ input: turnInputOf(newLines) });
-  if (prepared.monthFull) return atLimit(turn, "month_limit", customerText);
-  if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap", customerText);
+  if (prepared.monthFull) return atLimit(turn, "month_limit");
+  if (prepared.repliesToday >= prepared.dayCap) return atLimit(turn, "day_cap");
   const before = beforeTheModel(newLines);
   const context = buildNaturalContext({
     prompt,
@@ -91,7 +85,7 @@ async function liveTurn(
       return endedOf(turn, "superseded", null);
     case "model_failed":
       // The month's last call went to another chat while this one ran: as at the limit.
-      if (end.reason === "limit") return atLimit(turn, "month_limit", customerText);
+      if (end.reason === "limit") return atLimit(turn, "month_limit");
       return endedOf(turn, "model_failed", end.reason);
     case "fallback":
       return actAndSettle(turn, actOfEnd(end));

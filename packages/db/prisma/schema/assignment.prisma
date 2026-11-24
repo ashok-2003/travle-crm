@@ -27,21 +27,24 @@ model AssignmentSettings {
 
 /// A rule tried before the mode, in order: a lead that matches every set condition goes to its person.
 model AssignmentRule {
-  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
-  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId       String              @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id                   String              @id @default(uuid(7)) @db.Uuid
   /// Tried from the lowest up.
-  position       Int
+  position             Int
   /// A lead source (leadSources), or null for any.
-  source         String?
+  source               String?
   /// A destination, or null for any.
-  destinationId  String?      @map("destination_id") @db.Uuid
+  destinationId        String?             @map("destination_id") @db.Uuid
   /// A trip type, or null for any.
-  tripType       String?      @map("trip_type")
+  tripType             String?             @map("trip_type")
+  /// The WhatsApp number a lead came in on, or null for any.
+  whatsappConnectionId String?             @map("whatsapp_connection_id") @db.Uuid
   /// Who gets a matching lead (a lead worker; a rule for someone who left is passed over).
-  assigneeUserId String       @map("assignee_user_id") @db.Uuid
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  destination    Destination? @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  assigneeUserId       String              @map("assignee_user_id") @db.Uuid
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  destination          Destination?        @relation(fields: [organizationId, destinationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  whatsappConnection   WhatsappConnection? @relation(fields: [organizationId, whatsappConnectionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "assignment_rule_whatsapp_connection_fkey")
 
   @@unique([organizationId, id])
   @@index([organizationId, position], map: "assignment_rule_order")

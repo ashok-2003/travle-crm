@@ -271,19 +271,22 @@ describe("the natural agent's dry turn", () => {
     });
   });
 
-  it("answers the fallback line and a task when the model can't answer", async () => {
+  it("answers nothing sent and a task when the model can't answer", async () => {
     const on = await world();
     on.model.answer({ ok: false, reason: "unavailable" });
-    const line = "Ek minute, check karke yahin batate hain.";
     const answer = await on.dry(["Kedarkantha ka rate?"]);
     expect(answer).toMatchObject({
       outcome: "fallback",
-      messages: [line],
+      messages: [],
       payment: null,
       actions: [
-        { tool: "create_task", kind: "question", text: expect.stringContaining("1 and 5 minutes later") as string },
+        {
+          tool: "create_task",
+          kind: "question",
+          text: expect.stringContaining("so nothing went to the customer") as string,
+        },
       ],
-      history: [{ from: "agent", text: line }],
+      history: [],
       trace: { outcome: "fallback", fallback: "model_failed:unavailable" },
     });
     expect(answer.state.lead.tasks).toHaveLength(1);
@@ -319,7 +322,7 @@ describe("the natural agent's dry turn", () => {
     const trace = startNaturalTrace(BUILT_IN_NATURAL_PROMPT, NOW.getTime());
     expect(dryAnswerOf({ end: "superseded" }, read, trace, NOW.getTime())).toMatchObject({
       outcome: "fallback",
-      messages: ["Ek minute, check karke yahin batate hain."],
+      messages: [],
       actions: [{ tool: "create_task", kind: "question" }],
       trace: { outcome: "fallback", fallback: "model_failed:superseded" },
     });
@@ -505,7 +508,7 @@ describe("the natural agent's dry turn", () => {
     expect(read.answer).toMatchObject({ outcome: "replied", messages: [mule] });
     expect(read.guardContext.ownerText).toContain("₹1,200");
 
-    // Without get_trip the cut sheet holds no ₹1,200: refused, retried, then the fallback line.
+    // Without get_trip the cut sheet holds no ₹1,200: refused, retried, then the fallback.
     on.model.answer({ text: mule }, { text: mule });
     const unread = await on.turn(asked);
     expect(unread.answer).toMatchObject({ outcome: "fallback", trace: { fallback: "guard:G1" } });

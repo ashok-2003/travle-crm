@@ -17,6 +17,7 @@ import { useTRPC } from "@/data/trpc";
 import { useMe } from "@/session/me-context";
 import { WriteHint } from "@/subscription/write-hint";
 import { useWriteAccess } from "@/subscription/write-access";
+import { mayBeMissing } from "@/lib/older-api";
 import {
   extrasOf,
   rulesComplete,
@@ -68,6 +69,8 @@ export function AssignmentForm({
           setExtras({ ...extras, rules });
         }}
         workers={workers}
+        // An older api lists no numbers (the release window): no number condition, as before.
+        numbers={mayBeMissing(settings.whatsappNumbers) ?? []}
       />
       <ModeCard
         mode={mode}

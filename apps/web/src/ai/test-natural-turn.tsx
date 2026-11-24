@@ -2,7 +2,7 @@
 
 // One answer of the new agent in the Try it chat: up to two messages in our green bubbles; then the agency's payment
 // lines, which code (never the model) would send after them, as a bubble of their own under a caption; a line of its own
-// when it would hand the chat over, stay quiet or send the fallback line; and "Why", closed until opened.
+// when it would hand the chat over, stay quiet or leave it to the team (a task); and "Why", closed until opened.
 import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,8 @@ import { TestNaturalWhy } from "./test-natural-why";
 import { OutBubble, WhyToggle } from "./test-turn";
 
 /**
- * What else the turn would do with the chat: the fallback line, a hand-over (under the fallback line too, when the
- * fallback hands the chat over, so it shows at a glance that a person would take it), staying quiet, or nothing at all.
+ * What else the turn would do with the chat: couldn't answer (a task, nothing sent), a hand-over (under that too, when
+ * the fallback hands the chat over, so it shows at a glance that a person would take it), staying quiet, or nothing.
  */
 function NaturalStatus({ answer }: { answer: NaturalTestAnswer }) {
   const t = useTranslations("ai.test");

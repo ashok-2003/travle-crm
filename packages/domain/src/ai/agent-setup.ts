@@ -11,7 +11,7 @@ import {
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
-import { adsOf, chatNameOf, inboxStatusOf, visibleConversations } from "../inbox/index.js";
+import { adsOf, chatNameOf, liveConnections, visibleConversations } from "../inbox/index.js";
 import { DomainError, type CalendarDate } from "../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady } from "../profile/index.js";
 import { packagesAwaitingPayment, sellablePackages } from "../quotes/index.js";
@@ -30,8 +30,10 @@ export async function agentSetupOf(
   sellable?: readonly { id: string; kind: string }[],
 ): Promise<AgentSetup> {
   // One step at a time: a transaction runs one query at once.
-  // The page shows the agency's own connection, whatever this server has configured.
-  const status = await inboxStatusOf(tx, true);
+  // The page shows the agency's own numbers, whatever this server has configured.
+  const numbers = await liveConnections(tx);
+  // A number past setting up counts as connected, as one number did (paused and in trouble among them).
+  const connected = numbers.filter((number) => number.status !== "setup").length;
   // The lite agent books group departures only: a custom package the AI may quote does not make the agent ready.
   const packages = (sellable ?? (await sellablePackages(tx, organizationId, today))).filter(
     (one) => one.kind === "group",
@@ -49,7 +51,7 @@ export async function agentSetupOf(
   const linked = ads.filter((ad) => ad.packageId !== null).length;
   const steps: AgentSetup["steps"] = [
     { key: "ai", done: aiOn, optional: false, count: null, total: null },
-    { key: "whatsapp", done: status.connected, optional: false, count: null, total: null },
+    { key: "whatsapp", done: connected > 0, optional: false, count: connected, total: null },
     // "total" here is the switched-on packages held back only by the missing payment details (the line says so).
     { key: "packages", done: packages.length > 0, optional: false, count: packages.length, total: awaitingPayment },
     { key: "payment", done: paymentDetailsReady(payment), optional: false, count: null, total: null },
@@ -68,6 +70,12 @@ export async function agentSetupOf(
     ready: steps.every((step) => step.optional || step.done),
     on: settings.autopilot,
     pausedBySupport: pause !== null,
+    numbers: numbers.map((number) => ({
+      id: number.id,
+      label: number.label,
+      displayNumber: number.displayNumber,
+      aiAnswers: number.aiAnswers,
+    })),
   });
 }
 

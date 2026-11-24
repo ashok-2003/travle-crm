@@ -1,5 +1,5 @@
 // How a live natural turn ends (plan 2, Task 6): the loop's end as the act takes it, and the turn's outcome after the
-// act: the fallback line, a hand-over, nothing sent (quiet) or a reply; or the outcome of a turn the act gave way in.
+// act: the fallback (a task), a hand-over, nothing sent (quiet) or a reply; or the outcome of a turn the act gave way in.
 import type { LiteOutcome } from "../lite/types.js";
 import { stagedOf } from "./act-types.js";
 import type { LoopEnd } from "./loop.js";
@@ -17,7 +17,7 @@ export interface TurnDone {
   leadId: string | null;
 }
 
-/** The loop's end as the act takes it: the reply, or the fallback line with the team's task. */
+/** The loop's end as the act takes it: the reply, or the fallback's task for the team. */
 export function actOfEnd(end: Extract<LoopEnd, { end: "final" | "fallback" }>): TurnAct {
   if (end.end === "final") {
     const { messages, staged, quoted, model } = end;
@@ -25,7 +25,7 @@ export function actOfEnd(end: Extract<LoopEnd, { end: "final" | "fallback" }>): 
   }
   const task = { kind: "question" as const, text: end.task };
   return {
-    messages: end.messages,
+    messages: [],
     staged: end.staged,
     quoted: [],
     handOver: null,
@@ -67,7 +67,7 @@ export function doneOf(turn: LiveTurn, act: TurnAct, result: Exclude<ActEnd, { r
   };
 }
 
-/** Acts on a turn with no money staged (the fallback line, a limit's hand-over), which the act never refuses. */
+/** Acts on a turn with no money staged (the fallback, a limit's hand-over), which the act never refuses. */
 export async function actAndSettle(turn: LiveTurn, act: TurnAct): Promise<TurnDone> {
   const result = await actOnTurn(turn, act);
   return "refused" in result ? endedOf(turn, "blocked", result.refused, act.fallback) : doneOf(turn, act, result);

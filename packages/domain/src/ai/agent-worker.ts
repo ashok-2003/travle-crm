@@ -7,7 +7,7 @@ import { whatsappCustomerWroteEvent } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
-import { CUSTOMER_WROTE_EVENT, routesPage, WINDOW_MS } from "../inbox/index.js";
+import { CUSTOMER_WROTE_EVENT, numberAnswers, routedOrganizationsPage, WINDOW_MS } from "../inbox/index.js";
 import { defineListener, uuidFromKey, type EventListener, type JobHandler } from "../jobs/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
@@ -31,9 +31,10 @@ const SETTLE_MS = 3_000;
 const AT_ONCE = 5;
 /**
  * When the natural or one agent's model fails, its turn runs again after the first wait, then after the second; a third
- * failure sends the fallback line and a task for the team (no silence). Index: the attempt that failed.
+ * failure leaves the team a task and sends the customer nothing (the owner, 2026-11-24). Index: the attempt that failed.
+ * Two minutes, then ten (the owner, 2026-11-22): long enough for a rate-limited key's rest to end.
  */
-export const RETRY_AFTER_MS = [60_000, 300_000] as const;
+export const RETRY_AFTER_MS = [120_000, 600_000] as const;
 /**
  * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
  * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.
@@ -45,8 +46,8 @@ const NUDGES_PER_AGENCY = 20;
 /**
  * Whether a chat's turn is worth queueing, and whether the inbox may say the AI has the message (agent-reach.ts's rule).
  * An agent switched on with its setup unfinished still gets its turn, which writes nothing and tells the owner
- * (not-ready-notice.ts), but nothing says the AI has the message. Read inside the chat's organization, after the AI
- * module and the pause.
+ * (not-ready-notice.ts), but nothing says the AI has the message. A chat on a number whose AI is off, or disconnected,
+ * gets neither. Read inside the chat's organization, after the AI module and the pause.
  */
 async function turnFor(
   tx: OrgTx,
@@ -56,10 +57,12 @@ async function turnFor(
   const now = new Date();
   const reach = await agentReachOf(tx, organizationId, now);
   if (reach === "off") return { queue: false, mark: false };
+  const numberOn = await numberAnswers(tx, conversationId);
+  if (!numberOn) return { queue: false, mark: false };
   const state = await tx.aiChat.findFirst({ where: { conversationId }, select: { mode: true, handedOffAt: true } });
   // A person answering keeps the AI waiting: no "typing" for a turn that writes nothing.
-  const takes = chatOpenToAgent(state) && (await personAnsweringUntil(tx, conversationId, now)) === null;
-  return { queue: takes, mark: takes && answersInChat(reach, state) };
+  const takes = chatOpenToAgent(state, numberOn) && (await personAnsweringUntil(tx, conversationId, now)) === null;
+  return { queue: takes, mark: takes && answersInChat(reach, state, numberOn) };
 }
 
 /** A customer wrote: for an agency whose AI answers this chat, the AI's turn is queued, once per message. */
@@ -180,7 +183,7 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
           kind: "reply" as const,
           token: job.messageId,
         };
-        // The last try sends the fallback line with no model call; the earlier ones may fail and be tried again.
+        // The last try leaves the team a task with no model call; the earlier ones may fail and be tried again.
         const last = job.attempt >= RETRY_AFTER_MS.length;
         const outcome = last
           ? await runAgentFallback(dependencies, input, new Date())
@@ -253,7 +256,14 @@ async function nudgeAgency(
         followUpAt: { lte: now },
         handedOffAt: null,
         mode: { not: "off" },
-        conversation: { state: "open", hidden: false, needsReply: false, lastInboundAt: { gt: windowFloor } },
+        conversation: {
+          state: "open",
+          hidden: false,
+          needsReply: false,
+          lastInboundAt: { gt: windowFloor },
+          // On a number whose AI is off, or disconnected, a follow-up is never claimed: its turn would only stop.
+          connection: { aiAnswers: true, status: { not: "disconnected" } },
+        },
       },
       orderBy: { followUpAt: "asc" },
       take: NUDGES_PER_AGENCY,
@@ -286,9 +296,9 @@ async function nudgeAgency(
 }
 
 /**
- * Each minute, every agency with a WhatsApp number: its quiet customers' nudges that came due. One agency failing never
- * stops the rest. `clock` is read at each step, never once for the run: an agency late in the list is reached minutes
- * after the job began.
+ * Each minute, every agency with a WhatsApp number, once however many numbers it has: its quiet customers' nudges that
+ * came due. One agency failing never stops the rest. `clock` is read at each step, never once for the run: an agency
+ * late in the list is reached minutes after the job began.
  */
 export async function runAiNudges(
   dependencies: AgentDependencies & { logger: Logger },
@@ -298,8 +308,8 @@ export async function runAiNudges(
   let done = 0;
   let after: string | undefined;
   for (;;) {
-    const page = await routesPage(dependencies.db, { after, limit: 100 });
-    for (const organizationId of new Set(page.map((route) => route.organizationId))) {
+    const page = await routedOrganizationsPage(dependencies.db, { after, limit: 100 });
+    for (const organizationId of page) {
       try {
         done += await nudgeAgency(dependencies, organizationId, clock);
       } catch (error) {
@@ -310,6 +320,6 @@ export async function runAiNudges(
       }
     }
     if (page.length < 100) return done;
-    after = page.at(-1)?.integratedNumber;
+    after = page.at(-1);
   }
 }

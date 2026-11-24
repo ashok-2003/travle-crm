@@ -15,7 +15,6 @@ import {
   type NaturalActResult,
 } from "../../../src/ai/natural/act.js";
 import { offerButtons } from "../../../src/ai/one/card.js";
-import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import type { QuoteFigures, StagedAction, StagedSet } from "../../../src/ai/natural/types.js";
 import { tripFieldValues } from "../../../src/crm/index.js";
 import {
@@ -28,7 +27,7 @@ import {
 } from "../../../src/kernel/index.js";
 import { aLead } from "../../crm/support/records.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
-import { FIRST_AT, FIRST_LINE, liveAgency, liveNow, liveToday, type LiveAgency } from "./support/live-agency.js";
+import { FIRST_AT, liveAgency, liveNow, liveToday, type LiveAgency } from "./support/live-agency.js";
 import { NATURAL_UPI } from "./support/natural-agency.js";
 
 const TIME_ZONE = "Asia/Kolkata";
@@ -254,10 +253,14 @@ describe("the natural agent's live act", () => {
     expect(tokensOf(await outbound(other)).filter((token) => token?.endsWith(":card"))).toEqual([]);
   });
 
-  it("sends no card beside the fallback line", async () => {
+  it("sends nothing on a fallback, no words and no card, and leaves the team its task", async () => {
     const on = await liveAgency(test);
-    done(await act(on, { messages: [fallbackLine(FIRST_LINE)] }));
-    expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
+    const task = { kind: "question" as const, text: "The AI wrote no reply, so nothing went to the customer." };
+    const result = done(await act(on, { messages: [], task }));
+    expect(await outbound(on)).toEqual([]);
+    expect(result.sentIds).toEqual([]);
+    const tasks = await on.inOrg((tx) => tx.task.findMany({ where: { byAi: true }, select: { title: true } }));
+    expect(tasks).toEqual([{ title: task.text }]);
   });
 
   it("holds the seats, then sends the agency's payment lines and QR after the words", async () => {
@@ -530,7 +533,7 @@ describe("the natural agent's live act", () => {
 
     // The fallback's task (ruling 6, up to 500 characters) and a long call-back: each title is cut at a word and points
     // to its note, which holds the text whole.
-    const fallback = `The AI didn't answer (timeout), so the customer got the fallback line. They wrote: "${"x ".repeat(80)}". Not done: may want to book Kedarkantha for 3 on 19 Dec.`;
+    const fallback = `The AI didn't answer (timeout), so nothing went to the customer. They wrote: "${"x ".repeat(80)}". Not done: may want to book Kedarkantha for 3 on 19 Dec.`;
     const callBack = `Call Rahul: ${"he wants to talk through the trek day by day before he books, ".repeat(4)}`;
     const third = await nextTurn(on, "Please call me", 10);
     done(
@@ -682,16 +685,16 @@ describe("the natural agent's live act", () => {
     expect(await act(on, { messages: ["Kedarkantha is lovely in December."] })).toEqual({ stopped: "day_limit" });
     expect(await kept(on)).toEqual(nothingKept);
 
-    const line = fallbackLine(FIRST_LINE);
-    const result = done(await act(on, { messages: [line], handOver: { reason: "day_cap", summary: "" } }));
-    expect(tokensOf(await outbound(on))).toEqual([`ai:${on.message.id}`]);
+    // Code's hand-over at the cap sends nothing (the owner, 2026-11-24: no automatic holding line).
+    const result = done(await act(on, { messages: [], handOver: { reason: "day_cap", summary: "" } }));
+    expect(await outbound(on)).toEqual([]);
     expect(result.handedOver).toBe(true);
     expect((await chatState(on)).handoffReason).toBe("Wrote more than the AI answers in a day");
 
     // The month's limit reached as well: its hand-over goes too, whichever of the two the turn names.
     const both = await liveAgency(test);
     await atTheCap(both);
-    done(await act(both, { messages: [line], handOver: { reason: "month_limit", summary: "" } }));
+    done(await act(both, { messages: [], handOver: { reason: "month_limit", summary: "" } }));
     expect((await chatState(both)).handoffReason).toBe("This month's AI credits are used up");
   });
 

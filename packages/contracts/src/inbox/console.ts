@@ -1,5 +1,6 @@
-// WhatsApp in the platform console (spec 3.5): the connections, one organization's connection and the webhook block.
-// Outputs are z.object. The webhook block is the only place the secrets appear, for super admins alone.
+// WhatsApp in the platform console (spec 3.5; several numbers, spec 2026-11-22 section 10): every agency's numbers, one
+// organization's numbers within its plan, the actions on one number, and the webhook block. Outputs are z.object. The
+// webhook block is the only place the secrets appear, for super admins alone.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { phoneNumber } from "../kernel/index.js";
@@ -17,8 +18,12 @@ export const TEMPLATE_CAP_DEFAULT = 100;
 /** MSG91 writes a number as digits with the country code. */
 export const integratedNumber = z.string().regex(/^[0-9]{8,15}$/, "Use the number's digits with the country code");
 
+/** A number's short label ("Sales 1"), shown in the inbox once the agency has two numbers. Not unique. */
+export const numberLabel = z.string().trim().min(1).max(20);
+
 export const connectWhatsappInput = z.strictObject({
   organizationId: recordId,
+  label: numberLabel,
   /** The number the agency's customers message. */
   displayNumber: phoneNumber,
   integratedNumber,
@@ -32,6 +37,17 @@ export type ConnectWhatsappInput = z.infer<typeof connectWhatsappInput>;
 
 export const whatsappOrganizationInput = z.strictObject({ organizationId: recordId });
 export type WhatsappOrganizationInput = z.infer<typeof whatsappOrganizationInput>;
+
+/** One of the organization's numbers: another agency's is "not found". */
+export const whatsappNumberInput = z.strictObject({ organizationId: recordId, connectionId: recordId });
+export type WhatsappNumberInput = z.infer<typeof whatsappNumberInput>;
+
+export const renameWhatsappInput = z.strictObject({
+  organizationId: recordId,
+  connectionId: recordId,
+  label: numberLabel,
+});
+export type RenameWhatsappInput = z.infer<typeof renameWhatsappInput>;
 
 export const whatsappUsageRow = z.object({
   month: z.string(),
@@ -47,6 +63,9 @@ export const consoleConnection = z.object({
   id: recordId,
   organizationId: recordId,
   organizationName: z.string(),
+  label: z.string(),
+  /** The agency's main number: the one flagged, else the oldest live one (mainConnection). */
+  main: z.boolean(),
   displayNumber: z.string(),
   mode: whatsappMode,
   status: whatsappConnectionStatus,
@@ -76,18 +95,28 @@ export const consoleConnectionList = z.object({
 });
 export type ConsoleConnectionList = z.infer<typeof consoleConnectionList>;
 
-/** One organization's WhatsApp group: its connection (or none), whether it could be connected, and its usage. */
-export const consoleOrganizationWhatsapp = z.object({
-  configured: z.boolean(),
-  connection: consoleConnection.nullable(),
+/** One of an organization's live numbers, with this and earlier months' counts and why Mark connected is off. */
+export const consoleNumber = consoleConnection.extend({
   usage: z.array(whatsappUsageRow),
   /** Why Mark connected is off, as a reason code, or null when it is on. */
   cannotConnectReason: z.enum(["NO_INBOX_MODULE", "NO_NUMBER_LIMIT", "NOT_SEEN"]).nullable(),
+});
+export type ConsoleNumber = z.infer<typeof consoleNumber>;
+
+/** One organization's WhatsApp group: its live numbers (the main one first), the plan's room, and why none may be added. */
+export const consoleOrganizationWhatsapp = z.object({
+  configured: z.boolean(),
+  numbers: z.array(consoleNumber),
+  /** Live numbers (setting up, connected, in trouble or paused) against the plan's limit; a downgrade may leave used above it. */
+  limit: z.object({ used: z.int(), allowed: z.int() }),
+  /** Why Connect a number is off, as a reason code, or null when it is on. */
+  cannotAddReason: z.enum(["NO_INBOX_MODULE", "LIMIT_REACHED"]).nullable(),
 });
 export type ConsoleOrganizationWhatsapp = z.infer<typeof consoleOrganizationWhatsapp>;
 
 export const setWhatsappCapsInput = z.strictObject({
   organizationId: recordId,
+  connectionId: recordId,
   marketingCapMonth: z.int().min(0).max(100_000),
   templateCapDay: z.int().min(0).max(100_000),
 });

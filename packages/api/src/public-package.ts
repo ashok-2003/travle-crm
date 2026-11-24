@@ -1,12 +1,14 @@
 // A package page as a visitor sees it (release 7b): the agency's name, logo, colour and words, the package as the agency
 // published it, its upcoming departures by words, and what the enquiry form needs. The public GET and nothing else builds it,
 // so what a visitor reads is exactly these fields: never a cost, a margin, a supplier, a tier line or a seat count. It needs
-// no signed-in member: the photo and logo links are the system's.
+// no signed-in member: the photo and logo links are the system's. "WhatsApp us" goes to the agency's main WhatsApp number
+// (multi-number spec, path 19), the same lookup the quote's and the trip's pages use.
 import { PACKAGE_PHOTO_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { PublicAgency, PublicPackage, PublicPackageList } from "@travel-crm/contracts/package-pages";
-import type { Database } from "@travel-crm/db";
+import type { Database, OrgTx } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
+import { mainConnection } from "@travel-crm/domain/inbox";
 import { DomainError, calendarDateIn, publicActor } from "@travel-crm/domain/kernel";
 import {
   departuresOf,
@@ -58,10 +60,20 @@ async function photoLinksOf(
   return links.filter((link): link is string => link !== null);
 }
 
+/**
+ * The number "WhatsApp us" opens, E.164: the agency's main WhatsApp number once it is past being set up; null otherwise,
+ * and for the shared demo's number, which nothing is sent from (as sendFrom skips it).
+ */
+export async function whatsappUsNumber(tx: OrgTx): Promise<string | null> {
+  const main = await mainConnection(tx);
+  return main === null || main.status === "setup" || main.mode === "demo" ? null : main.displayNumber;
+}
+
 async function agencyOf(
   services: PublicPackageServices,
   agency: Agency,
   settings: { about: string; instagramUrl: string },
+  whatsapp: string | null,
 ): Promise<PublicAgency> {
   const profile = await services.profiles.get(agency.organizationId);
   return {
@@ -72,6 +84,7 @@ async function agencyOf(
     about: settings.about,
     instagramUrl: settings.instagramUrl === "" ? null : settings.instagramUrl,
     phone: profile?.contactPhone ?? null,
+    whatsapp: whatsapp ?? profile?.contactPhone ?? null,
   };
 }
 
@@ -102,12 +115,13 @@ export async function publicPackageOf(
       row,
       settings: await publicPageSettingsOf(tx),
       departures: await departuresOf(tx, row, { today, now: input.now }),
+      whatsapp: await whatsappUsNumber(tx),
     };
   });
   if (found === null) return null;
   const { row } = found;
   return {
-    agency: await agencyOf(services, agency, found.settings),
+    agency: await agencyOf(services, agency, found.settings, found.whatsapp),
     package: {
       slug: row.slug,
       name: row.name,
@@ -149,6 +163,7 @@ export async function publicPackageListOf(
     settings: await publicPageSettingsOf(tx),
     rows: await publishedPackages(tx, { organizationId: agency.organizationId, now: input.now }),
     open: await pagesAreOn(tx, { organizationId: agency.organizationId, now: input.now }),
+    whatsapp: await whatsappUsNumber(tx),
   }));
   if (!found.open) return null;
   const cards = await Promise.all(
@@ -169,7 +184,7 @@ export async function publicPackageListOf(
       destinations.set(card.destinationId, card.destinationName);
   }
   return {
-    agency: await agencyOf(services, agency, found.settings),
+    agency: await agencyOf(services, agency, found.settings, found.whatsapp),
     packages: cards,
     destinations: [...destinations].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
   };

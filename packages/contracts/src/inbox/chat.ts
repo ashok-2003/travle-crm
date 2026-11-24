@@ -44,22 +44,38 @@ export type WhatsappMediaState = z.infer<typeof whatsappMediaState>;
 
 const timestamp = z.iso.datetime();
 
+/** One of the agency's WhatsApp numbers as the inbox shows it (multi-number spec, section 11). */
+export const whatsappNumber = z.object({
+  id: recordId,
+  /** The short name staff gave it ("Sales 1"), shown only when the agency has two or more numbers. */
+  label: z.string(),
+  /** E.164. */
+  displayNumber: z.string(),
+  status: whatsappConnectionStatus,
+  /** The main number: the live one flagged main, else the oldest live one. A disconnected number is never main. */
+  main: z.boolean(),
+  /** The number's own AI switch; the AI answers there only while the agency's switch is on too. */
+  aiAnswers: z.boolean(),
+});
+export type WhatsappNumber = z.infer<typeof whatsappNumber>;
+
 /** What the inbox page needs before it shows a list: whether WhatsApp is on, connected, and in trouble (3.1). */
 export const inboxStatus = z.object({
   /** The three MSG91 settings are set on this server. */
   configured: z.boolean(),
   /** The agency has a number that is connected, paused or in trouble. */
   connected: z.boolean(),
-  connectionStatus: whatsappConnectionStatus.nullable(),
   /** The shared demo: reading works, sending is off. */
   demo: z.boolean(),
-  /** The number as the agency knows it, E.164. */
-  number: z.string().nullable(),
+  /** Every number the agency has had, the live ones first (the main one leading), then the disconnected ones. */
+  numbers: z.array(whatsappNumber),
 });
 export type InboxStatus = z.infer<typeof inboxStatus>;
 
 export const conversationListItem = z.object({
   id: recordId,
+  /** The number the chat is on, one of inboxStatus.numbers: a chat is one phone on one number. */
+  connectionId: recordId,
   phone: z.string(),
   /** The person's name in the CRM, else the WhatsApp profile name; null for a number we know nothing of. */
   name: z.string().nullable(),
@@ -129,6 +145,13 @@ export const conversationHeader = z.object({
   snoozedUntil: timestamp.nullable(),
   /** Teammates typing a reply in this chat right now (first names), so two don't answer at once. */
   replying: z.array(z.string()),
+  /** The chat's own number: every reply goes from it, and its status says whether one can. */
+  number: z.object({ id: recordId, label: z.string(), status: whatsappConnectionStatus }),
+  /**
+   * The customer's open chats on the agency's other numbers that the member may see, the newest first; each number's
+   * status, as labels may repeat and a disconnected number's chat can't be answered.
+   */
+  otherChats: z.array(z.object({ id: recordId, label: z.string(), status: whatsappConnectionStatus })),
 });
 export type ConversationHeader = z.infer<typeof conversationHeader>;
 

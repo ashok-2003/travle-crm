@@ -16,8 +16,8 @@ export const setChatAiInput = z.strictObject({ conversationId: recordId, mode: a
 export const chatAi = z.object({
   mode: aiChatMode,
   /**
-   * Whether the AI answers in this chat now: the agency's agent is on with its setup finished, the chat isn't switched
-   * off, and nobody took it over. A chat set "On" adds nothing to an agent that is off.
+   * Whether the AI answers in this chat now: the agency's agent is on with its setup finished, the chat's number lets it,
+   * the chat isn't switched off, and nobody took it over. A chat set "On" adds nothing to an agent that is off.
    */
   answering: z.boolean(),
   /** The agency's agent, whatever this chat's mode: "off" or "not_ready" say why it answers no chat. */
@@ -38,6 +38,8 @@ export const chatAi = z.object({
   agentName: z.string(),
   /** Whether this server has an AI key, and the agency may use the AI at all (plan, subscription, its own switch). */
   available: z.boolean(),
+  /** The chat's WhatsApp number is live with its own AI switch off (the AI agent page turns it on). */
+  numberOff: z.boolean(),
 });
 export type ChatAi = z.infer<typeof chatAi>;
 
@@ -45,7 +47,7 @@ export type ChatAi = z.infer<typeof chatAi>;
 export const aiChatResumedEvent = z.strictObject({ conversationId: recordId });
 /**
  * The ai.reply job: the AI's turn after a customer's message, a few seconds later so a burst reads as one. `attempt` counts
- * the natural agent's tries again after its model failed: 0 the first, 2 the last, which sends the fallback line.
+ * the natural agent's tries again after its model failed: 0 the first, 2 the last, which leaves a task.
  */
 export const aiReplyJob = z.strictObject({
   organizationId: recordId,

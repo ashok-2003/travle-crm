@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => import("../../leads/navigation"));
 
 const t = messages.aiAgent;
 const conversationId = "0199a000-0000-7000-8000-0000000000c1";
-const setup = { steps: [], ready: false, on: false, pausedBySupport: false };
+const setup = { steps: [], ready: false, on: false, pausedBySupport: false, numbers: [] };
 const overview = {
   chatsAnswered: 12,
   messagesSent: 30,

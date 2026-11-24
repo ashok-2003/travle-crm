@@ -7,6 +7,8 @@
   "empty": "No agency has a WhatsApp number yet. Record one on the agency's page.",
   "columns": {
     "agency": "Agency",
+    "label": "Label",
+    "main": "Main",
     "number": "Number",
     "mode": "Mode",
     "status": "Status",
@@ -14,6 +16,10 @@
     "lastEvent": "Last event",
     "messages": "This month",
     "marketing": "Marketing"
+  },
+  "main": {
+    "yes": "Yes",
+    "no": "No"
   },
   "mode": {
     "new_number": "New number",
@@ -52,6 +58,13 @@
   "group": {
     "title": "WhatsApp",
     "none": "No WhatsApp number is recorded for this agency.",
+    "limit": "{used} of {allowed, plural, one {# number} other {# numbers}}",
+    "cannotAdd": {
+      "NO_INBOX_MODULE": "The plan does not include the inbox.",
+      "LIMIT_REACHED": "The plan has no room for another number."
+    },
+    "main": "Main",
+    "numberName": "{label} ({number})",
     "connect": "Connect a number",
     "waiting": "Waiting for the first message: send a WhatsApp to {number} from any phone.",
     "received": "Webhook received {when}",
@@ -60,6 +73,9 @@
     "resume": "Resume",
     "disconnect": "Disconnect",
     "check": "Check with MSG91",
+    "makeMain": "Make main",
+    "makeMainAfterSetup": "It can be made main once it is connected.",
+    "rename": "Rename",
     "checkAnswered": "MSG91 answered.",
     "checkFailed": "MSG91 did not answer.",
     "caps": "Caps",
@@ -75,7 +91,7 @@
     "usageFailed": "Failed",
     "cannot": {
       "NO_INBOX_MODULE": "The plan does not include the inbox.",
-      "NO_NUMBER_LIMIT": "The plan has no WhatsApp number.",
+      "NO_NUMBER_LIMIT": "The plan has no room for this number.",
       "NOT_SEEN": "No message from MSG91 has arrived for this number yet."
     },
     "quality": "Quality rating: {rating}",
@@ -85,6 +101,8 @@
   "connect": {
     "title": "Connect a WhatsApp number",
     "description": "Record the number the agency's customers message, as MSG91 has it. It starts as Setting up and is marked connected after MSG91's first message arrives.",
+    "label": "Label",
+    "labelHint": "A short name staff see on its chats in the inbox, such as Sales 1. 20 characters at most.",
     "displayNumber": "The agency's number",
     "integratedNumber": "The number as MSG91 writes it",
     "integratedHint": "Digits with the country code, for example 919876543210",
@@ -101,13 +119,27 @@
     "submitting": "Recording",
     "problems": {
       "required": "Fill this in.",
-      "invalid": "Check this."
+      "invalid": "Check this.",
+      "tooLong": "Use 20 characters at most."
     }
   },
   "disconnectConfirm": {
-    "title": "Stop WhatsApp for {agency}?",
-    "description": "Chats stay. Remove the number in MSG91's panel too.",
+    "title": "Disconnect {label}?",
+    "description": "Its chats stay readable but can't be answered. Remove {number} in MSG91's panel too.",
+    "mainMoves": "{label} ({number}) becomes the main number.",
     "confirm": "Disconnect"
+  },
+  "rename": {
+    "title": "Rename {label}",
+    "description": "The short name staff see on its chats in the inbox, such as Sales 1.",
+    "label": "Label",
+    "submit": "Rename",
+    "submitting": "Renaming",
+    "done": "The number is renamed.",
+    "problems": {
+      "required": "Fill this in.",
+      "tooLong": "Use 20 characters at most."
+    }
   },
   "retry": "Try again",
   "agentState": {
