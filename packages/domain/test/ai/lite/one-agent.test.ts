@@ -2,9 +2,8 @@
 // customer's message queues on ai.reply, an AI follow-up task is the team's, and Try it is the lite dry run.
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { aiCustomerWroteListener, aiReplyHandler, liteDryRun, type AgentDependencies } from "../../../src/ai/index.js";
+import { aiCustomerWroteListener, aiReplyHandler, type AgentDependencies } from "../../../src/ai/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
-import { memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteEntitlements, liteTurnAt } from "./support/lite-agency.js";
 import { greeting, outbound, understood, written, type Agency } from "./support/turn-script.js";
@@ -82,17 +81,5 @@ describe("one agent", () => {
     expect(await on.nudges(new Date(testNow.getTime() + 2 * 3_600_000))).toBe(0);
     expect(await on.inOrg((tx) => tx.aiFollowUpTouch.count())).toBe(0);
     expect(await outbound(on)).toHaveLength(0);
-  });
-
-  it("Try it is the lite dry run", async () => {
-    const on = await liteAgency(test, { ready: false });
-    on.model.answer(understood([["discount", "discount"]]));
-    await liteDryRun(
-      { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
-      memberOf(on.organizationId, "org-owner"),
-      { messages: [{ from: "customer", text: "any discount?" }], state: null },
-      testNow,
-    );
-    expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
   });
 });

@@ -1,16 +1,29 @@
 "use client";
 
-// "Why" under the new agent's answer, for whoever tests it as a developer would: the prompt version, how the turn ended (and a fallback's or a restart's reason),
+// "Why" under the agent's answer, for whoever tests it as a developer would: the prompt version, how the turn ended (and a fallback's or a restart's reason),
 // its calls, time and tokens; then each model call in order with its model, time, tokens and words, and each tool it
 // called as name(arguments) → result, a refused one marked; each guard's verdict; the flags; and what it would do, in the
 // owner's words. Codes and recorded values show as recorded.
 import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { Details, type Detail } from "@/components/details";
 import { StatusDot } from "@/components/status-badge";
 import { formatCount } from "@/lib/format";
 import { useActionWords } from "./test-natural-actions";
-import { code, Part } from "./test-why";
+
+/** A code or recorded value, as recorded. */
+const code = (text: string) => <span className="numbers wrap-anywhere">{text}</span>;
+
+/** One titled part of "Why". */
+function Part({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="font-medium">{title}</p>
+      {children}
+    </div>
+  );
+}
 
 type Call = NaturalTestAnswer["trace"]["calls"][number];
 type Tokens = Pick<Call, "inputTokens" | "cachedTokens" | "outputTokens" | "reasoningTokens">;

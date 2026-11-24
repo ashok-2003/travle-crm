@@ -4,7 +4,7 @@ import { postedState } from "./natural-try-it.js";
 import { testAiInput } from "./try-it.js";
 
 export const oneTestInput = z.strictObject({
-  /** As lite's: oldest first, ending with the customer's line this turn answers. */
+  /** Oldest first, ending with the customer's line this turn answers. */
   messages: testAiInput.shape.messages,
   /** The last turn's state, sent back as it came; null starts a new chat. */
   state: postedState.nullable(),

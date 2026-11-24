@@ -2,13 +2,10 @@
 // what the customer wrote in, what went out (or why nothing did) out, both model calls inside, and the whole lite trace,
 // noted by the sink in the turn's own async context, as metadata. Tracing changes nothing the turn does.
 import { createMemoryTracing, notedTurn, type MemoryTracing } from "@travel-crm/integrations/tracing";
-import { withTracing } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { tryItTurn } from "../../../src/ai/index.js";
 import type { LiteTrace } from "../../../src/ai/lite/types.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
-import { memberOf } from "../../imports/support/test-imports.js";
-import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
+import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteEntitlements, liteTurnAt } from "./support/lite-agency.js";
 import { greeting, outbound, understood, written } from "./support/turn-script.js";
 
@@ -126,58 +123,5 @@ describe("the agent's turns as traces", () => {
     expect(seen?.output).toMatchObject({ role: "assistant" });
     expect(JSON.stringify(seen?.output)).toContain("Which trip");
     expect(seen?.metadata).toMatchObject({ outcome: "replied", move: "follow_up" });
-  });
-
-  it("Try it is a turn of the person's test chat, the same chat on its next line", async () => {
-    const on = await liteAgency(test);
-    const tracing = createMemoryTracing();
-    const member = memberOf(on.organizationId, "org-owner");
-    const tryIt = (messages: { from: "customer" | "agent"; text: string }[]) =>
-      tryItTurn(
-        {
-          db: test.db,
-          ai: withTracing(on.model, tracing),
-          agencyName: () => Promise.resolve("Sharma Holidays"),
-          tracing,
-        },
-        member,
-        { messages, state: null },
-        testNow,
-      );
-    on.model.answer(
-      understood([["price_question", "price for kedarnath"]], {
-        details: { package: { name: "Kedarnath Yatra 4N", proof: "price for kedarnath", changed: false } },
-      }),
-      written("Which city will you join us from?"),
-    );
-    const first = await tryIt([{ from: "customer", text: "price for kedarnath?" }]);
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
-    await tryIt([
-      { from: "customer", text: "price for kedarnath?" },
-      { from: "agent", text: first.answer },
-      { from: "customer", text: "thanks" },
-    ]);
-
-    const [one, two] = tracing.turns;
-    expect(one?.start).toMatchObject({
-      name: "whatsapp-agent.try-it",
-      organizationId: on.organizationId,
-      userId: member.userId,
-      tags: ["whatsapp-agent", "try-it"],
-    });
-    expect(one?.start.sessionId).toMatch(/^try-it:/);
-    expect(two?.start.sessionId).toBe(one?.start.sessionId);
-    expect(one?.generations).toHaveLength(2);
-    expect(one?.steps.map((step) => step.start.name)).toEqual(["look-up-and-decide"]);
-    expect(shown(tracing)).toMatchObject({
-      input: [{ role: "user", content: "price for kedarnath?" }],
-      output: { role: "assistant", content: first.answer },
-      metadata: { handoff: false, move: first.trace.move },
-    });
-    expect(shown(tracing, 1)?.input).toEqual([
-      { role: "user", content: "price for kedarnath?" },
-      { role: "assistant", content: first.answer },
-      { role: "user", content: "thanks" },
-    ]);
   });
 });

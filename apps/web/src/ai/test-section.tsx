@@ -1,20 +1,17 @@
 "use client";
 
 // Try it: the owner writes as a customer and the AI agent answers, turn after turn, in a chat laid out as WhatsApp lays
-// one out (the customer's lines on the left, the agent's on the right), with "Why" under each answer. It always runs the
-// agency's own agent, as its setting says (the owner chooses nothing here): each turn sends the chat so far and the
-// state the last turn handed back to that agent's procedure: ai.test (lite), ai.testNatural or ai.testOne. The chat
-// lives only in this screen's state, never stored or in the address; Start again empties it. The natural and one
-// agents' turns also send the test chat's id, a random one each time the chat starts, which groups its turns' traces.
-// Nothing is sent to anyone; each answer spends some of the month's AI calls.
+// one out (the customer's lines on the left, the agent's on the right), with "Why" under each answer. The owner chooses
+// nothing here: each turn sends ai.testOne the chat so far, the state the last turn handed back and the test chat's id,
+// a random one each time the chat starts, which groups its turns' traces. The chat lives only in this screen's state,
+// never stored or in the address; Start again empties it. Nothing is sent to anyone; each answer spends some of the
+// month's AI calls.
 import {
   TEST_CHAT_LINES,
   TEST_LINE_MAX,
   type NaturalTestAnswer,
   type NaturalTestState,
-  type TestAiAnswer,
   type TestAiLine,
-  type TestAiState,
 } from "@travel-crm/contracts/ai";
 import { RotateCcwIcon, SendHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -26,98 +23,52 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { TestNaturalTurn } from "./test-natural-turn";
-import { TestTurn } from "./test-turn";
-import { useTestAgent, useTestAi, useTestNatural, useTestOne } from "./use-ai";
+import { useTestOne } from "./use-ai";
 
-type Entry =
-  | { from: "customer"; text: string }
-  | { from: "agent"; answer: TestAiAnswer }
-  | { from: "natural"; answer: NaturalTestAnswer };
-
-/** What the last turn handed back, for the agent that answered it: one agent's state means nothing to the other. */
-interface ChatState {
-  current: TestAiState | null;
-  natural: NaturalTestState | null;
-}
-const noState: ChatState = { current: null, natural: null };
+type Entry = { from: "customer"; text: string } | { from: "agent"; answer: NaturalTestAnswer };
 
 /**
- * The chat as the api reads it, its newest lines: the current agent's line is only words it would have sent; the new
- * agent's are its answer's history (its messages, then a mark for each brochure, offer and hold).
+ * The chat as the api reads it, its newest lines: the agent's are its answer's history (its messages, then a mark for
+ * each brochure, offer and hold).
  */
 function linesOf(entries: readonly Entry[]): TestAiLine[] {
   return entries
-    .flatMap((entry): TestAiLine[] => {
-      if (entry.from === "customer") return [entry];
-      if (entry.from === "natural") return entry.answer.history;
-      const words = entry.answer.answer.trim();
-      return words === "" ? [] : [{ from: "agent", text: words.slice(0, TEST_LINE_MAX) }];
-    })
+    .flatMap((entry): TestAiLine[] => (entry.from === "customer" ? [entry] : entry.answer.history))
     .slice(-TEST_CHAT_LINES);
 }
 
 export function TestSection() {
   const t = useTranslations("ai.test");
   const id = useId();
-  const test = useTestAi();
-  const natural = useTestNatural();
   const one = useTestOne();
-  const agent = useTestAgent();
-  const pending = test.isPending || natural.isPending || one.isPending;
+  const pending = one.isPending;
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [state, setState] = useState(noState);
+  const [state, setState] = useState<NaturalTestState | null>(null);
   const [chatId, setChatId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState("");
 
   // A tapped card button is the customer's line "Tapped: <title>" with `tap`, as any turn (a dry run: nothing is booked).
   const send = (line = draft, tap?: "book" | "change") => {
     const text = line.trim();
-    if (text === "" || pending || agent.data === undefined) return;
+    if (text === "" || pending) return;
     const next: Entry[] = [...entries, { from: "customer", text }];
     setEntries(next);
     setDraft("");
-    const turn = { messages: linesOf(next) };
-    if (agent.data.agent === "one") {
-      one.mutate(
-        { ...turn, state: state.natural, chatId, ...(tap === undefined ? {} : { tap }) },
-        {
-          onSuccess: (answer) => {
-            setEntries((shown) => [...shown, { from: "natural", answer }]);
-            setState({ ...noState, natural: answer.state });
-          },
-        },
-      );
-      return;
-    }
-    if (agent.data.agent === "natural") {
-      natural.mutate(
-        { ...turn, state: state.natural, chatId },
-        {
-          onSuccess: (answer) => {
-            setEntries((shown) => [...shown, { from: "natural", answer }]);
-            setState({ ...noState, natural: answer.state });
-          },
-        },
-      );
-      return;
-    }
-    test.mutate(
-      { ...turn, state: state.current },
+    one.mutate(
+      { messages: linesOf(next), state, chatId, ...(tap === undefined ? {} : { tap }) },
       {
         onSuccess: (answer) => {
           setEntries((shown) => [...shown, { from: "agent", answer }]);
-          setState({ ...noState, current: answer.state });
+          setState(answer.state);
         },
       },
     );
   };
   const reset = () => {
     setEntries([]);
-    setState(noState);
+    setState(null);
     setChatId(crypto.randomUUID());
     setDraft("");
-    test.reset();
-    natural.reset();
     one.reset();
   };
 
@@ -134,9 +85,8 @@ export function TestSection() {
           <ol aria-label={t("thread")} className="flex flex-col gap-2 rounded-lg bg-chat-wallpaper p-4">
             {entries.map((entry, index) => {
               // The chat only grows, and Start again empties it: a line's place is its identity.
-              if (entry.from === "agent") return <TestTurn key={index} answer={entry.answer} />;
-              if (entry.from === "natural") {
-                const latest = index === entries.length - 1 && !pending && agent.data?.agent === "one";
+              if (entry.from === "agent") {
+                const latest = index === entries.length - 1 && !pending;
                 return (
                   <TestNaturalTurn
                     key={index}
@@ -191,7 +141,7 @@ export function TestSection() {
             />
           </Field>
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={pending || agent.data === undefined || draft.trim() === ""}>
+            <Button type="submit" disabled={pending || draft.trim() === ""}>
               {pending ? <Spinner /> : <SendHorizontalIcon aria-hidden="true" />}
               {t("send")}
             </Button>
@@ -201,7 +151,7 @@ export function TestSection() {
             </Button>
           </div>
         </form>
-        <RefusalAlert error={agent.error ?? test.error ?? natural.error ?? one.error} />
+        <RefusalAlert error={one.error} />
       </CardContent>
     </Card>
   );

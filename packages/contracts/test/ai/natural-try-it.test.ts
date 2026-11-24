@@ -1,7 +1,8 @@
-// Try it on the natural agent: the posted chat and the state a turn handed back, strict at every level, and the answer
-// with its actions described, the next state and the lines to add to the chat.
+// Try it on the one agent, in natural's shapes: the posted chat and the state a turn handed back, strict at every level,
+// and the answer with its actions described, the next state and the lines to add to the chat.
 import { describe, expect, it } from "vitest";
-import { naturalDryAction, naturalTestAnswer, naturalTestInput } from "../../src/ai/natural-try-it.js";
+import { naturalDryAction, naturalTestAnswer } from "../../src/ai/natural-try-it.js";
+import { oneTestInput } from "../../src/ai/one-try-it.js";
 
 const packageId = "0192f3a0-0000-7000-8000-000000000001";
 const departureId = "0192f3a0-0000-7000-8000-000000000002";
@@ -52,28 +53,28 @@ const input = {
   state,
 };
 
-describe("Try it on the natural agent", () => {
+describe("Try it on the one agent", () => {
   it("takes the chat and the state the last turn handed back", () => {
-    expect(naturalTestInput.parse(input).state?.facts.offer?.totalPaise).toBe(1_899_800);
-    expect(naturalTestInput.parse({ ...input, state: null }).state).toBeNull();
+    expect(oneTestInput.parse(input).state?.facts.offer?.totalPaise).toBe(1_899_800);
+    expect(oneTestInput.parse({ ...input, state: null }).state).toBeNull();
   });
 
   it("takes the test chat's id, its trace's session, when the client sends one, and only an id", () => {
     const chatId = "0192f3a0-0000-7000-8000-0000000000ff";
-    expect(naturalTestInput.parse({ ...input, chatId }).chatId).toBe(chatId);
-    expect(naturalTestInput.parse(input).chatId).toBeUndefined();
-    expect(naturalTestInput.safeParse({ ...input, chatId: "+91 98765 43210" }).success).toBe(false);
+    expect(oneTestInput.parse({ ...input, chatId }).chatId).toBe(chatId);
+    expect(oneTestInput.parse(input).chatId).toBeUndefined();
+    expect(oneTestInput.safeParse({ ...input, chatId: "+91 98765 43210" }).success).toBe(false);
   });
 
   it("refuses a model, a temperature or a prompt choice: the agency tests the live agent", () => {
     for (const extra of [{ model: "flash" }, { temperature: "0.4" }, { prompt: "draft" }]) {
-      expect(naturalTestInput.safeParse({ ...input, ...extra }).success).toBe(false);
+      expect(oneTestInput.safeParse({ ...input, ...extra }).success).toBe(false);
     }
   });
 
   it("refuses unknown keys in a posted state", () => {
     const withExtraKey = { ...input, state: { ...state, summary: "" } };
-    expect(naturalTestInput.safeParse(withExtraKey).success).toBe(false);
+    expect(oneTestInput.safeParse(withExtraKey).success).toBe(false);
   });
 
   it("refuses unknown keys deep in the state: the facts, the offer, a told total, the lead, a task, the booking", () => {
@@ -89,12 +90,12 @@ describe("Try it on the natural agent", () => {
         lead: { ...state.lead, booking: { packageId, startsOn: "2026-12-19", advancePaise: 600_000, extra: 1 } },
       },
     ];
-    for (const one of posted) expect(naturalTestInput.safeParse({ ...input, state: one }).success).toBe(false);
+    for (const one of posted) expect(oneTestInput.safeParse({ ...input, state: one }).success).toBe(false);
   });
 
   it("refuses a chat that ends with the agent's line", () => {
     const endsWithUs = { ...input, messages: input.messages.slice(0, 2) };
-    expect(naturalTestInput.safeParse(endsWithUs).success).toBe(false);
+    expect(oneTestInput.safeParse(endsWithUs).success).toBe(false);
   });
 
   it("describes each action by its tool, with the trip's title, the day and the money", () => {

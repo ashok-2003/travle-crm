@@ -1,7 +1,8 @@
 // ai.testOne on the real router is Try it for the one agent: one dry turn of the tool agent on a test chat. It answers
-// AI_NOT_READY without a model or a tool agent, takes no model, temperature or prompt choice, runs only for an agency on the one agent, and shows what the customer would get.
+// AI_NOT_READY without a model or a tool agent, takes no model, temperature or prompt choice nor a state it never
+// handed out, needs ai:manage, and shows what the customer would get.
 import { TRPCError } from "@trpc/server";
-import { saveAiSettings, setAgent, type ToolAgent } from "@travel-crm/domain/ai";
+import { saveAiSettings, type ToolAgent } from "@travel-crm/domain/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Context } from "../src/context.js";
 import { anAgency, callerOf, createHarness, type Harness } from "./forms-support.js";
@@ -31,7 +32,7 @@ describe("ai.testOne", () => {
       ready?: boolean;
       toolAgent?: ToolAgent | null;
       prompts?: Context["prompts"];
-      agent?: "lite" | "one";
+      granted?: Parameters<typeof callerOf>[1]["granted"];
     } = {},
   ) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
@@ -49,8 +50,9 @@ describe("ai.testOne", () => {
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
-    await harness.db.forOrg(organizationId, (tx) => setAgent(tx, owner.member, options.agent ?? "one"));
-    return owner.caller;
+    return options.granted === undefined
+      ? owner.caller
+      : callerOf(harness, { organizationId, granted: options.granted, context }).caller;
   }
 
   const codeOf = async (call: Promise<unknown>) => {
@@ -82,13 +84,30 @@ describe("ai.testOne", () => {
     expect(agent.runs).toEqual([]);
   });
 
-  it("says which agent Try it runs, and refuses a turn for any other", async () => {
+  it("refuses a member without ai:manage", async () => {
     const agent = answering();
-    const lite = await anAiAgency({ toolAgent: agent.toolAgent, agent: "lite" });
-    expect(await lite.ai.testAgent()).toEqual({ agent: "lite" });
-    expect(await codeOf(lite.ai.testOne({ messages: hi, state: null }))).toBe("AGENT_CHANGED");
+    const caller = await anAiAgency({
+      toolAgent: agent.toolAgent,
+      granted: ["ai:suggest", "inbox:view", "inbox:reply"],
+    });
+    expect(await codeOf(caller.ai.testOne({ messages: hi, state: null }))).toBe("MISSING_PERMISSION");
     expect(agent.runs).toEqual([]);
-    expect(await (await anAiAgency({ toolAgent: agent.toolAgent })).ai.testAgent()).toEqual({ agent: "one" });
+  });
+
+  it("refuses a chat that ends with the agent's line, and unknown keys in the state", async () => {
+    const agent = answering();
+    const caller = await anAiAgency({ toolAgent: agent.toolAgent });
+    const messages = [...hi, { from: "agent" as const, text: "Hello!" }];
+    expect(await codeOf(caller.ai.testOne({ messages, state: null }))).toBe("BAD_REQUEST");
+    const { facts, lead } = (await caller.ai.testOne({ messages: hi, state: null })).state;
+    for (const state of [
+      { facts: { ...facts, injected: true }, lead },
+      { facts, lead: { ...lead, injected: true } },
+      { facts, lead, injected: true },
+    ]) {
+      expect(await codeOf(caller.ai.testOne({ messages: hi, state }))).toBe("BAD_REQUEST");
+    }
+    expect(agent.runs).toHaveLength(1);
   });
 
   it("answers what the customer would get", async () => {

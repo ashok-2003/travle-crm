@@ -1,7 +1,7 @@
-// Try it on the new agent (the agency's own): it sends turns to ai.testNatural with the state the last one handed back,
-// the chat's lines (the customer's and each answer's history) and the test chat's id, and no model, temperature or prompt.
-// A turn shows its messages, the payment lines code would send after them, a status line, and a "Why" with each call's
-// tools, the guards' verdicts and what it would do, in the screen's own forms.
+// Try it's answers: it sends turns to ai.testOne with the state the last one handed back, the chat's lines (the
+// customer's and each answer's history) and the test chat's id, and no model, temperature or prompt. A turn shows its
+// messages, the payment lines code would send after them, a status line, and a "Why" with each call's tools, the
+// guards' verdicts and what it would do, in the screen's own forms.
 import { money } from "@travel-crm/domain/kernel";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -9,20 +9,19 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { TestSection } from "@/ai/test-section";
 import { messages } from "@/i18n/messages";
 import { formatCalendarDay, formatDayTime, formatRupees } from "@/lib/format";
-import { fakeApi, renderWithApi } from "../organization/api";
+import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { stubApi } from "../support/api-stub";
-import { clientRunning } from "./try-it-client";
 
 const words = messages.ai.test;
 const { natural } = words;
 
-const client = () => clientRunning("natural");
+const client = () => newQueryClient();
 beforeEach(() => {
   screenIs("wide");
 });
 
-/** The state a natural turn hands back: the chat's facts and the dry lead, told apart by when the turn ran. */
+/** The state a turn hands back (natural's shape): the chat's facts and the dry lead, told apart by when it ran. */
 const stateAt = (minute: number) => ({
   facts: {
     agent: "natural",
@@ -52,7 +51,7 @@ const stateAt = (minute: number) => ({
 
 const reply = "Sat 12 Dec works: ₹22,600 for both of you.";
 const trace = {
-  agent: "natural",
+  agent: "one",
   promptVersion: "built-in-1",
   promptLabel: null,
   outcome: "replied",
@@ -123,19 +122,19 @@ async function send(text: string) {
 
 /** Sends one line to the new agent with the api answering `answer`. */
 async function chat(answer: object) {
-  stubApi({ "ai.testNatural": { data: answer } });
+  stubApi({ "ai.testOne": { data: answer } });
   renderWithApi(<TestSection />, client());
   await send("Kedarkantha on 12 Dec for 2?");
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-describe("Try it on the new agent", () => {
-  it("sends the new agent's turns to ai.testNatural with the state it handed back", async () => {
+describe("Try it's answers", () => {
+  it("sends each turn to ai.testOne with the state the last one handed back", async () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
     await send("Kedarkantha in Dec?");
-    expect(api.last().path).toBe("ai.testNatural");
+    expect(api.last().path).toBe("ai.testOne");
     expect(api.last().input).toEqual({
       messages: [{ from: "customer", text: "Kedarkantha in Dec?" }],
       state: null,
@@ -146,7 +145,7 @@ describe("Try it on the new agent", () => {
     api.last().answer(first);
     expect(await screen.findByText("Yes! It departs every Saturday in December.")).toBeVisible();
     await send("12 Dec for 2");
-    expect(api.last().path).toBe("ai.testNatural");
+    expect(api.last().path).toBe("ai.testOne");
     // The same test chat, so the same id: its turns are one session of traces.
     expect(api.last().input).toMatchObject({ state: first.state, chatId });
   });
@@ -171,7 +170,7 @@ describe("Try it on the new agent", () => {
     expect(api.last().input).not.toHaveProperty("model");
     expect(api.last().input).not.toHaveProperty("temperature");
     expect(api.last().input).not.toHaveProperty("prompt");
-    const version = "langfuse:whatsapp-agent/natural-system@4";
+    const version = "langfuse:whatsapp-agent/real-agent@4";
     api.last().answer(naturalTurn([reply], { trace: { ...trace, promptVersion: version, promptLabel: "production" } }));
     await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
     expect(screen.getByText(version)).toBeVisible();

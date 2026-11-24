@@ -1,14 +1,52 @@
 "use client";
 
-// One answer of the new agent in the Try it chat: up to two messages in our green bubbles; then the agency's payment
+// One answer of the agent in the Try it chat: up to two messages in our green bubbles; then the agency's payment
 // lines, which code (never the model) would send after them, as a bubble of their own under a caption; a line of its own
 // when it would hand the chat over, stay quiet or leave it to the team (a task); and "Why", closed until opened.
 import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
+import { ChevronDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { actionOf } from "./test-natural-actions";
 import { TestNaturalWhy } from "./test-natural-why";
-import { OutBubble, WhyToggle } from "./test-turn";
+
+/** Our green bubble on the right: what would go to the customer. */
+function OutBubble({ children }: { children: ReactNode }) {
+  return (
+    <p className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-ai px-3 py-2 whitespace-pre-line wrap-anywhere">
+      {children}
+    </p>
+  );
+}
+
+/** "Why" under an answer, closed until opened, its parts in a card. */
+function WhyToggle({ children }: { children: ReactNode }) {
+  const t = useTranslations("ai.test");
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="flex w-full flex-col items-end gap-1">
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost">
+          {t("why.open")}
+          <ChevronDownIcon
+            aria-hidden="true"
+            data-icon="inline-end"
+            className="motion-safe:transition-transform data-[open=true]:rotate-180"
+            data-open={open}
+          />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="w-full">
+        <Card size="sm">
+          <CardContent>{children}</CardContent>
+        </Card>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 /**
  * What else the turn would do with the chat: couldn't answer (a task, nothing sent), a hand-over (under that too, when

@@ -1,13 +1,12 @@
-// Try it on the one agent (the agency's own): it sends its turns to ai.testOne with natural's state and the chat's id,
-// with no model, temperature or prompt choice, and shows its answer as the new agent's.
+// Try it on the one agent: it sends its turns to ai.testOne with natural's state and the chat's id, with no model,
+// temperature or prompt choice, and shows its answer and its offer card.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { TestSection } from "@/ai/test-section";
 import { messages } from "@/i18n/messages";
-import { fakeApi, renderWithApi } from "../organization/api";
+import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
-import { clientRunning } from "./try-it-client";
 
 const words = messages.ai.test;
 beforeEach(() => {
@@ -66,7 +65,7 @@ const answer = {
 describe("Try it on the one agent", () => {
   it("sends the one agent's turns to ai.testOne with no choice, and shows its answer", async () => {
     const api = fakeApi();
-    renderWithApi(<TestSection />, clientRunning("one"));
+    renderWithApi(<TestSection />, newQueryClient());
     await userEvent.type(screen.getByLabelText(words.message), "Kedarkantha in Dec?");
     await userEvent.click(screen.getByRole("button", { name: words.send }));
     expect(api.last().path).toBe("ai.testOne");
@@ -85,7 +84,7 @@ describe("Try it on the one agent", () => {
 
   it("shows the card's buttons and sends a tap", async () => {
     const api = fakeApi();
-    renderWithApi(<TestSection />, clientRunning("one"));
+    renderWithApi(<TestSection />, newQueryClient());
     await userEvent.type(screen.getByLabelText(words.message), "Kedarkantha 19 Dec, 2 log");
     await userEvent.click(screen.getByRole("button", { name: words.send }));
     const card = { body: "*Kedarkantha*\nTotal ₹18,998", buttons: ["Book these seats", "Change something"] };
