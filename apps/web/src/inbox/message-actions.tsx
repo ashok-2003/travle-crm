@@ -138,7 +138,7 @@ export function MessageActions({ message, className }: { message: ChatMessage; c
               {message.starred ? t("unstar") : t("star")}
             </DropdownMenuItem>
           )}
-          {mayReply && words !== null && (
+          {mayReply && words !== null && message.revokedAt === null && (
             <DropdownMenuItem
               onSelect={() => {
                 setForwarding(true);

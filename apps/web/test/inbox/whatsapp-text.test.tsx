@@ -1,5 +1,5 @@
 // WhatsApp's formatting on screen: semantic elements, safe links, and never HTML built from the text.
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { WhatsAppText } from "@/inbox/whatsapp-text";
 
@@ -72,5 +72,21 @@ describe("WhatsAppText", () => {
   it("lets a blank sit against a marker", () => {
     const { container } = render(<WhatsAppText text="{name}*bold* and *Hi*{name}" blanks />);
     expect([...container.querySelectorAll("strong")].map((bold) => bold.textContent)).toEqual(["bold", "Hi"]);
+  });
+
+  it("puts a trailing node on the last line of paragraphs, a list item, a quote, and below a code block", () => {
+    const after = <i data-testid="after" />;
+    const place = (text: string) => {
+      const { container, unmount } = render(<WhatsAppText text={text} after={after} />);
+      const spot = screen.getByTestId("after").parentElement?.tagName;
+      unmount();
+      return [spot, container.querySelector("p")] as const;
+    };
+    expect(render(<WhatsAppText text={"a\n\nb"} after={after} />).container.querySelector("p")).toBeNull();
+    cleanup();
+    expect(place("- a\n- b")[0]).toBe("LI");
+    expect(place("> q")[0]).toBe("BLOCKQUOTE");
+    expect(place("```x```")[0]).toBe("DIV");
+    expect(place("text\n- a\nmore")[0]).toBe("P");
   });
 });

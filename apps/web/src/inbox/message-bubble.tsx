@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useChatJump } from "./chat-jump";
 import { MessageActions, NotSent } from "./message-actions";
-import { MessageBody } from "./message-body";
+import { MessageBody, deletedLabelKey } from "./message-body";
 import { QuoteBlock } from "./quote-block";
 import { Ticks } from "./ticks";
 import { useReplying } from "./use-replying";
@@ -64,6 +64,8 @@ export function MessageBubble({
       )}
       {showSender && message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
       {showSender && message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
+      {message.revokedAt !== null && <span aria-hidden="true">{t(deletedLabelKey(message))} ·</span>}
+      {message.editedAt !== null && <span>{t("edited")} ·</span>}
       {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
       <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
       {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
@@ -120,13 +122,17 @@ export function MessageBubble({
       >
         {message.quoted !== null && <QuoteBlock quoted={message.quoted} senderName={quotedSender} />}
         <div dir="auto" className={cn("break-words whitespace-pre-wrap script-leading", media && "px-1.5")}>
-          <MessageBody message={message} />
-          {/* Room for the corner's line, so the last line never runs under it. */}
-          {!media && (
-            <span aria-hidden="true" className="invisible inline-flex items-center gap-1 ps-2 text-caption">
-              {meta(true)}
-            </span>
-          )}
+          {/* Room for the corner's line, so the last line never runs under it: the body puts it on the words' last line. */}
+          <MessageBody
+            message={message}
+            after={
+              media ? undefined : (
+                <span aria-hidden="true" className="invisible inline-flex items-center gap-1 ps-2 text-caption">
+                  {meta(true)}
+                </span>
+              )
+            }
+          />
         </div>
         {message.reaction !== null && message.kind !== "reaction" && (
           <span
