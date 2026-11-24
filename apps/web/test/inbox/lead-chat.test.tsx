@@ -45,4 +45,11 @@ describe("the lead's WhatsApp section", () => {
     expect(await screen.findByText("No WhatsApp chat with this person yet.", { exact: false })).toBeVisible();
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
+
+  it("runs edge to edge inside its card on a phone, with side padding from sm up", async () => {
+    renderSection();
+    const text = await screen.findByText("No WhatsApp chat with this person yet.", { exact: false });
+    const content = text.closest('[data-slot="card-content"]');
+    expect(content).toHaveClass("px-0", "sm:px-(--card-spacing)");
+  });
 });
