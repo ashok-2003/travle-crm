@@ -94,7 +94,7 @@ describe("a photo or video in a bubble", () => {
     expect(await screen.findByRole("button", { name: "Open the photo" })).toBeInTheDocument();
     fireEvent.error(await screen.findByRole("img", { name: "Photo" }));
     const words = screen.getByText("Photo not available");
-    expect(words.parentElement).toHaveClass("w-64", "max-w-full", "aspect-[4/5]");
+    expect(words.parentElement?.parentElement).toHaveClass("w-64", "max-w-full", "aspect-[4/5]");
     expect(screen.getByText("Open it on the phone")).toBeInTheDocument();
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.queryByRole("button", { name: "Open the photo" })).toBeNull();
@@ -127,6 +127,26 @@ describe("a photo or video in a bubble", () => {
     expect(screen.getByText(words)).toBeInTheDocument();
     expect(screen.getByText("Open it on the phone")).toBeInTheDocument();
     expect(screen.queryByText(/not loaded yet/)).toBeNull();
+  });
+
+  it("holds the frame while a photo is pending and when it arrives", async () => {
+    answerLink("image/jpeg");
+    const { container, rerender } = show({ mediaState: "pending" });
+    const frame = container.querySelector('[data-slot="skeleton"]')?.parentElement;
+    expect(frame).toHaveClass("w-64", "max-w-full", "aspect-[4/5]");
+    rerender(<MessageMedia message={message()} />);
+    const picture = await screen.findByRole("img", { name: "Photo" });
+    expect(picture.parentElement).toHaveClass("w-64", "max-w-full", "aspect-[4/5]");
+  });
+
+  it("holds the frame for a photo that was not kept", () => {
+    show({ failureCode: "too_big", mediaState: "failed" });
+    expect(screen.getByText("Too big to keep").parentElement?.parentElement).toHaveClass("w-64", "aspect-[4/5]");
+  });
+
+  it("holds the video frame while a video is pending", () => {
+    const { container } = show({ kind: "video", mediaState: "pending" });
+    expect(container.querySelector('[data-slot="skeleton"]')?.parentElement).toHaveClass("w-64", "aspect-video");
   });
 
   it("calls a document that is gone a file", () => {

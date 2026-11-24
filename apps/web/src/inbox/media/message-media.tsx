@@ -24,32 +24,43 @@ const iconOfKind: Record<MediaKind, LucideIcon> = {
   document: FileIcon,
 };
 
-/** What stands where a file will be while it is still being copied, or when it could not be: a plain box, never blank. */
-function MediaPlaceholder({ kind, children }: { kind: MediaKind; children: ReactNode }) {
-  const Icon = iconOfKind[kind];
-  return (
-    <p className="flex min-h-24 min-w-40 items-center gap-2 rounded-md bg-background/20 p-3 text-label">
-      <Icon aria-hidden="true" className="size-5 shrink-0" />
-      {children}
-    </p>
-  );
-}
-
 /** The fixed frames a photo and a video sit in: their size never depends on the file, so nothing shifts as it loads. */
 export const mediaFrameClass = "w-64 max-w-full aspect-[4/5]";
 export const videoFrameClass = "w-64 max-w-full aspect-video";
+
+/**
+ * What stands where a file will be while it is still being copied, or when it could not be: never blank. A photo's and a
+ * video's stands in their own frame, so the bubble keeps its size when the file arrives; other files get a plain box.
+ */
+function MediaPlaceholder({ kind, waiting, children }: { kind: MediaKind; waiting?: boolean; children: ReactNode }) {
+  const Icon = iconOfKind[kind];
+  if (kind !== "image" && kind !== "video") {
+    return (
+      <p className="flex min-h-24 min-w-40 items-center gap-2 rounded-md bg-background/20 p-3 text-label">
+        <Icon aria-hidden="true" className="size-5 shrink-0" />
+        {children}
+      </p>
+    );
+  }
+  return (
+    <div
+      className={`relative flex flex-col items-center justify-center gap-1 overflow-hidden rounded-md bg-background/20 p-3 text-center text-label ${kind === "image" ? mediaFrameClass : videoFrameClass}`}
+    >
+      {waiting === true && <Skeleton className="absolute inset-0" />}
+      <Icon aria-hidden="true" className="relative size-5 shrink-0" />
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
 
 /** A photo that could not be shown keeps its frame, with the words in it, and is not tappable. */
 function PhotoUnavailable() {
   const t = useTranslations("inbox.chat");
   return (
-    <div
-      className={`flex flex-col items-center justify-center gap-1 rounded-md bg-background/20 p-3 text-center text-label ${mediaFrameClass}`}
-    >
-      <ImageIcon aria-hidden="true" className="size-5" />
+    <MediaPlaceholder kind="image">
       <p>{t("photoUnavailable")}</p>
       <p className="text-caption">{t("openOnPhone")}</p>
-    </div>
+    </MediaPlaceholder>
   );
 }
 
@@ -90,10 +101,10 @@ function lostFile(message: ChatMessage, kind: MediaKind, t: ReturnType<typeof us
   const known = title ?? (message.mediaState === "expired" ? gone : undefined);
   if (known === undefined) return null;
   return (
-    <span className="grid">
-      <span>{known}</span>
-      <span className="text-caption">{t("openOnPhone")}</span>
-    </span>
+    <>
+      <p>{known}</p>
+      <p className="text-caption">{t("openOnPhone")}</p>
+    </>
   );
 }
 
@@ -105,7 +116,11 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   // The link whose picture the browser could not load; a fresh link for the same message gets a fresh try.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   if (message.mediaState === "pending")
-    return <MediaPlaceholder kind={kind}>{t(`mediaPending.${kind}`)}</MediaPlaceholder>;
+    return (
+      <MediaPlaceholder kind={kind} waiting>
+        {t(`mediaPending.${kind}`)}
+      </MediaPlaceholder>
+    );
   if (message.mediaState === "expired" || message.mediaState === "failed") {
     const lost = lostFile(message, kind, t);
     return <MediaPlaceholder kind={kind}>{lost ?? t(`mediaFailed.${kind}`)}</MediaPlaceholder>;
@@ -113,7 +128,7 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   if (link.data === undefined) {
     if (kind === "sticker") return <StickerTile />;
     return (
-      <MediaPlaceholder kind={kind}>
+      <MediaPlaceholder kind={kind} waiting={!link.isError}>
         {link.isError ? t(`mediaFailed.${kind}`) : t(`mediaPending.${kind}`)}
       </MediaPlaceholder>
     );
