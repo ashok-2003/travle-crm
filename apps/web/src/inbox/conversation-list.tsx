@@ -8,7 +8,7 @@
 // amber hand. The open chat is marked as the current link. A chat (its page and its data) is asked for ahead as the
 // pointer rests on its row or the row gets the focus (inbox revamp spec, part 1 item 3), so it opens at once.
 import type { LeadStage } from "@travel-crm/contracts/crm";
-import { REPLY_TARGET_MINUTES, type ConversationListItem } from "@travel-crm/contracts/inbox";
+import type { ConversationListItem } from "@travel-crm/contracts/inbox";
 import { AlarmClockIcon, HandIcon, PinIcon, SmartphoneIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,7 +28,7 @@ import { Ticks } from "./ticks";
 import { usePrefetchChat } from "./use-inbox";
 import { useNumbers } from "./use-numbers";
 import { useOwners } from "./use-owner-names";
-import { waitedFor } from "./wait-timer";
+import { waitedFor, waitTone } from "./wait-timer";
 import { plainWhatsAppText } from "./whatsapp-format";
 
 /** How long the pointer rests on a row before its chat is asked for: passing over rows on the way elsewhere asks nothing. */
@@ -76,19 +76,19 @@ function useShortWhen() {
   };
 }
 
-/** "waiting 25m": amber from 15 minutes, red once the customer has waited past the reply target (the chips' late rule). */
+/** "waiting 25m", in the tone of the chat header's timer (wait-timer.tsx): amber from half the reply target, red from the target. */
+const waitInk = {
+  bad: "text-status-bad-ink",
+  attention: "text-status-attention-ink",
+  neutral: "text-muted-foreground",
+};
 function WaitingFor({ since }: { since: string }) {
   const t = useTranslations("inbox");
-  const waitedMs = useNow().getTime() - new Date(since).getTime();
-  const minutes = Math.floor(waitedMs / 60_000);
-  const late = waitedMs > REPLY_TARGET_MINUTES * 60_000;
-  const tone = late
-    ? "text-status-bad-ink"
-    : minutes >= REPLY_TARGET_MINUTES
-      ? "text-status-attention-ink"
-      : "text-muted-foreground";
+  const minutes = Math.floor((useNow().getTime() - new Date(since).getTime()) / 60_000);
   return (
-    <span className={cn("text-caption font-semibold", tone)}>{t("waitingShort", { time: waitedFor(minutes) })}</span>
+    <span className={cn("text-caption font-semibold", waitInk[waitTone(minutes)])}>
+      {t("waitingShort", { time: waitedFor(minutes) })}
+    </span>
   );
 }
 

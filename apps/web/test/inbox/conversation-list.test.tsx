@@ -65,13 +65,21 @@ describe("a chat's row", () => {
     expect(within(row).getByText("New")).toBeInTheDocument();
   });
 
-  it("shows the wait instead of the time, amber at 15 minutes and red once late", () => {
+  it("shows the wait instead of the time: neutral below half the reply target, amber at half, red at the target", () => {
+    const tones = [
+      [5, "text-muted-foreground"],
+      [8, "text-status-attention-ink"],
+      [25, "text-status-bad-ink"],
+    ] as const;
+    for (const [minutes, tone] of tones) {
+      const { unmount } = show(chat({ needsReply: true, waitingSince: minutesAgo(minutes) }));
+      expect(screen.getByText(`waiting ${String(minutes)}m`)).toHaveClass(tone);
+      expect(screen.queryByText("5m")).not.toBeInTheDocument();
+      unmount();
+    }
     const { unmount } = show(chat({ needsReply: true, waitingSince: minutesAgo(15) }));
-    expect(screen.getByText("waiting 15m")).toHaveClass("text-status-attention-ink");
+    expect(screen.getByText("waiting 15m")).toHaveClass("text-status-bad-ink");
     unmount();
-    show(chat({ needsReply: true, waitingSince: minutesAgo(25) }));
-    expect(screen.getByText("waiting 25m")).toHaveClass("text-status-bad-ink");
-    expect(screen.queryByText("5m")).not.toBeInTheDocument();
   });
 
   it("shows the unread count in the people violet", () => {
