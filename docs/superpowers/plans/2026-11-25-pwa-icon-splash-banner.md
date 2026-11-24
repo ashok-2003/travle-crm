@@ -54,6 +54,21 @@ exported from the brand's data entry for the layout.
   holds the new files; run the brand and web tests, typecheck and lint.
 - [ ] Commit `feat(brand): versioned app icons, a black boot screen and iphone startup screens`.
 
+### Task 3: Remembering who uses the installed app (do this first in Task 2's worktree)
+
+**Files:** a migration creating an organization table for it (e.g. `member_installed_app`: organization_id, user_id,
+platform `ios`/`android`, last_seen_at; primary key or unique on (organization_id, user_id, platform);
+`SELECT app_enable_org_rls(...)`; `ON DELETE RESTRICT ON UPDATE RESTRICT` to organization), its Prisma model, a fixture in
+`packages/db/test/org-table-fixtures/`, a domain function in the identity or profile module (record: upsert at most once a
+day; read: platforms seen in the last 30 days for the signed-in member), contracts (`z.strictObject` input, `z.object`
+output), a router procedure pair (`orgProcedure` with `.meta({ planModule: "core", lifecycle: "always" })`), and the erasure
+step if the module keeps data about a person (`packages/domain/src/platform/erasure.ts`: a member's rows go with them).
+
+- [ ] Failing tests: recording twice in a day writes once; reading returns the platforms seen within 30 days and not older;
+  another member's or organization's rows are never read (RLS); the erasure removes a member's rows.
+- [ ] Implement; run the db, domain and api tests for it (the shared local Postgres on 55432; don't start or remove
+  containers), typecheck, lint, depcruise. Commit `feat(identity): remember who opens the installed app, per phone type`.
+
 ### Task 2: The "works best in the app" bar
 
 **Files:** create `apps/web/src/shell/install-banner.tsx` (the bar) and `apps/web/src/shell/use-install-state.ts` (the
@@ -62,11 +77,14 @@ an early `beforeinstallprompt` listener (kept on `window` before React mounts, e
 layout's head, or a module imported by the root layout), words in `apps/web/src/i18n/messages/en-IN/shell.json`; tests in
 `apps/web/test/shell/`.
 
-**Interfaces:** `useInstallState(): "none" | "installable" | "installed" | "ios"` and `promptInstall(): Promise<void>`.
+**Interfaces:** `useInstallState(): "none" | "installable" | "installed" | "ios"` and `promptInstall(): Promise<void>`;
+inside the installed app it records the visit (Task 3's mutation, once a day); in the browser, Task 3's query turning true
+for this phone type gives "installed".
 
 - [ ] Failing tests for each state in the spec (stub `matchMedia`, `navigator.standalone`, the user agent and touch,
   `getInstalledRelatedApps`, and a saved `beforeinstallprompt` event): the words, the Install button calling `prompt()`,
-  × hiding it and the 14-day return (fake timers), storage blocked; the bar never renders on a computer width, in the
+  × hiding it and the 1-week return (fake timers), the installed-app visit recorded from standalone and the browser
+  showing the home-screen line when the server says this phone type was used, storage blocked; the bar never renders on a computer width, in the
   console, or on the public pages.
 - [ ] Implement with registry pieces (a thin `Item`/`Alert`-like bar, `Button`, the × as an icon button with a 44px hit
   area named "Hide"); run the tests, typecheck, lint; shots at 390px of the three visible states (a throwaway spec or the
