@@ -22,16 +22,20 @@ export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
   const t = useTranslations("inbox.chat");
   const deleted = message.revokedAt !== null;
   if (!deleted && message.adHeadline === null) return <MessageContent message={message} />;
+  // Inline, never a block box: the bubble's invisible spacer for the corner's time must stay on the text's last line.
   return (
-    <div className="flex flex-col gap-1">
+    <>
       {deleted && <span className="sr-only">{t(deletedLabelKey(message))}. </span>}
-      <div className={deleted ? "line-through" : undefined}>
+      <span className={deleted ? "line-through" : undefined}>
         <MessageContent message={message} />
-      </div>
+      </span>
       {message.adHeadline !== null && (
-        <span className="text-caption text-muted-foreground">{t("fromAd", { headline: message.adHeadline })}</span>
+        <>
+          <br />
+          <span className="text-caption text-muted-foreground">{t("fromAd", { headline: message.adHeadline })}</span>
+        </>
       )}
-    </div>
+    </>
   );
 }
 

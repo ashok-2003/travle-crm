@@ -1,6 +1,7 @@
 // What a bubble says about a message that was edited, deleted for everyone, not shared by WhatsApp, an album, or came from an ad.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { cleanup, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MessageBubble } from "@/inbox/message-bubble";
 import { newQueryClient, renderWithApi } from "../organization/api";
@@ -89,5 +90,32 @@ describe("a bubble's account of what happened to the message", () => {
     show({ body: "Is this trip open?", adHeadline: "Spiti in June" });
     expect(screen.getByText("Is this trip open?")).toBeTruthy();
     expect(screen.getByText("From your ad: Spiti in June")).toBeTruthy();
+  });
+
+  it("adds no block-level box around the words, so the corner's spacer stays on the last line", () => {
+    for (const fields of [
+      { body: "Five nights", revokedAt: "2026-10-26T10:05:00.000Z" },
+      { body: "Is this trip open?", adHeadline: "Spiti in June" },
+    ]) {
+      show(fields);
+      const line = screen.getByText(fields.body).closest("[dir=auto]");
+      const blocks = Array.from(line?.children ?? []).filter(
+        (child) => child.getAttribute("aria-hidden") !== "true" && /\b(flex|flex-col|block)\b/.test(child.className),
+      );
+      expect(blocks).toHaveLength(0);
+      cleanup();
+    }
+  });
+
+  it("offers Forward on a message but not on one deleted for everyone", async () => {
+    show({ body: "Five nights" });
+    await userEvent.click(screen.getByRole("button", { name: "More for this message" }));
+    expect(screen.getByRole("menuitem", { name: /Forward/ })).toBeTruthy();
+    cleanup();
+    show({ body: "Five nights", revokedAt: "2026-10-26T10:05:00.000Z" });
+    await userEvent.click(screen.getByRole("button", { name: "More for this message" }));
+    expect(screen.getByRole("menuitem", { name: /Reply/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Star/ })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /Forward/ })).toBeNull();
   });
 });
