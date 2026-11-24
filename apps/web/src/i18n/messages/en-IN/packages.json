@@ -353,5 +353,22 @@
       "wrongType": "Choose a PDF or a picture (JPEG, PNG or WebP).",
       "tooLarge": "Choose a file of up to {size}."
     }
+  },
+  "calendar": {
+    "title": "Dates and prices",
+    "seatsLeft": "{day}, {free, plural, one {# seat} other {# seats}} left",
+    "full": "{day}, full",
+    "cancelledDay": "{day}, cancelled",
+    "legendTitle": "Price periods",
+    "legendDates": "{from} to {to}",
+    "legendPrice": "{room} {price}",
+    "noSeasons": "No special prices are set.",
+    "rangeHint": "Tap another day to set special prices from this day to that one.",
+    "addDeparture": "Add a departure",
+    "added": "Departure added",
+    "reopen": "Reopen",
+    "reopened": "Departure opened again",
+    "viewDeparture": "Open departure",
+    "specialLabel": "Special prices"
   }
 }
