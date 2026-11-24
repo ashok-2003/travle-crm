@@ -8,10 +8,12 @@
 // again at once, so its answer shows without waiting for the next refresh.
 import { BotIcon, BotOffIcon, CalendarClockIcon, HandIcon, PauseCircleIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { cardTints } from "@/components/card-tints";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/components/ui/item";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Item, ItemActions, ItemContent, ItemMedia } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { useRefreshInbox } from "@/inbox/use-inbox";
 import { formatDayTime, formatTime } from "@/lib/format";
@@ -71,6 +73,34 @@ export function AiTyping({ conversationId }: { conversationId: string }) {
   );
 }
 
+/** One highlighted line (violet while the AI answers, amber and bold when it handed over, quiet when off) that opens for the rest. */
+function Strip(props: {
+  tone: "ai" | "attention" | "quiet";
+  icon: ReactNode;
+  line: string;
+  more?: ReactNode;
+  action: ReactNode;
+}) {
+  const { tone, icon, line, more, action } = props;
+  return (
+    <Collapsible className={cn("rounded-md", tone === "quiet" ? "bg-muted/50" : cardTints[tone])}>
+      <Item size="sm">
+        <ItemMedia variant="icon">{icon}</ItemMedia>
+        <ItemContent>
+          <CollapsibleTrigger className="min-h-11 text-left">
+            <span className={cn("line-clamp-1 text-sm", tone === "attention" && "font-semibold")}>{line}</span>
+          </CollapsibleTrigger>
+        </ItemContent>
+        <ItemActions>{action}</ItemActions>
+      </Item>
+      <CollapsibleContent className="flex flex-col gap-1 px-4 pb-3 text-sm">
+        <p>{line}</p>
+        {more}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 /** Over the reply box: the AI or a person has this chat, and the button that hands it the other way. */
 export function AiReplyBar({ conversationId }: { conversationId: string }) {
   const t = useTranslations("ai.chat");
@@ -84,110 +114,83 @@ export function AiReplyBar({ conversationId }: { conversationId: string }) {
   if (ai?.available !== true) return null;
   if (ai.agent !== "ready") {
     return (
-      <Item variant="muted" size="sm">
-        <ItemMedia variant="icon">
-          <BotOffIcon aria-hidden="true" />
-        </ItemMedia>
-        <ItemContent>
-          <ItemDescription className="line-clamp-2">
-            {t(ai.agent === "off" ? "agentOff" : "agentNotReady")}
-          </ItemDescription>
-        </ItemContent>
-        {mayManage && (
-          <ItemActions>
-            <TextLink href={routes.aiAgent}>{t("agentLink")}</TextLink>
-          </ItemActions>
-        )}
-      </Item>
+      <Strip
+        tone="quiet"
+        icon={<BotOffIcon aria-hidden="true" />}
+        line={t(ai.agent === "off" ? "agentOff" : "agentNotReady")}
+        action={mayManage && <TextLink href={routes.aiAgent}>{t("agentLink")}</TextLink>}
+      />
     );
   }
-  const name = aiFirstName(ai.agentName) ?? t("theAi");
   const busy = setMode.isPending || resume.isPending || !access.allowed || !mayReply;
   const button = (label: string, onClick: () => void) => (
-    <Button variant="outline" size="sm" disabled={busy} onClick={onClick}>
+    <Button variant="link" size="sm" className="min-h-11" disabled={busy} onClick={onClick}>
       {(setMode.isPending || resume.isPending) && <Spinner aria-hidden="true" />}
       {label}
     </Button>
   );
   if (ai.handedOff) {
     return (
-      <Item variant="muted" size="sm">
-        <ItemMedia variant="icon">
-          <HandIcon aria-hidden="true" />
-        </ItemMedia>
-        <ItemContent>
-          <ItemDescription className="line-clamp-2">
-            {t("barHandedOff", { reason: ai.handoffReason ?? t("handoffNoReason") })}
-          </ItemDescription>
-        </ItemContent>
-        <ItemActions>
-          {button(t("letAnswer"), () => {
-            resume.mutate({ conversationId });
-          })}
-        </ItemActions>
-      </Item>
+      <Strip
+        tone="attention"
+        icon={<HandIcon aria-hidden="true" />}
+        line={t("barHandedOff", { reason: ai.handoffReason ?? t("handoffNoReason") })}
+        action={button(t("letAnswer"), () => {
+          resume.mutate({ conversationId });
+        })}
+      />
     );
   }
   // Someone on the team wrote here: the AI waits, and says till when, with the way to let it answer now.
   if (ai.answering && ai.turn === null && ai.personPausedUntil !== null) {
     return (
-      <Item variant="muted" size="sm">
-        <ItemMedia variant="icon">
-          <PauseCircleIcon aria-hidden="true" />
-        </ItemMedia>
-        <ItemContent>
-          <ItemDescription className="line-clamp-2">
-            {t("barPaused", { name, until: formatTime(new Date(ai.personPausedUntil), { timeZone }) })}
-          </ItemDescription>
-        </ItemContent>
-        <ItemActions>
-          {button(t("answerNow"), () => {
-            resume.mutate({ conversationId });
-          })}
-        </ItemActions>
-      </Item>
+      <Strip
+        tone="ai"
+        icon={<PauseCircleIcon aria-hidden="true" />}
+        line={t("barPaused", { until: formatTime(new Date(ai.personPausedUntil), { timeZone }) })}
+        action={button(t("answerNow"), () => {
+          resume.mutate({ conversationId });
+        })}
+      />
     );
   }
+  const followUp =
+    ai.answering && ai.turn === null && ai.followUpAt !== null
+      ? formatDayTime(new Date(ai.followUpAt), { timeZone })
+      : null;
+  const line = !ai.answering
+    ? t("barOff")
+    : ai.turn !== null
+      ? t("barWorking")
+      : ai.attention !== null
+        ? t("barFlagged", { reason: ai.attention })
+        : followUp !== null
+          ? t("barAnsweringFollowUp", { when: followUp })
+          : t("barAnswering");
   return (
-    <Item variant="muted" size="sm">
-      <ItemMedia variant="icon">
-        {ai.turn === null ? (
-          <BotIcon aria-hidden="true" className={ai.answering ? "text-primary" : "text-muted-foreground"} />
-        ) : (
-          <Spinner aria-hidden="true" className="text-primary" />
-        )}
-      </ItemMedia>
-      <ItemContent>
-        <ItemDescription className={cn("line-clamp-2", ai.attention !== null && ai.answering && "text-foreground")}>
-          {!ai.answering
-            ? t("barOff")
-            : ai.turn !== null
-              ? t("barWorking", { name })
-              : ai.attention !== null
-                ? t("barFlagged", { name, reason: ai.attention })
-                : t("barAnswering", { name })}
-        </ItemDescription>
-        {ai.answering && ai.turn === null && ai.followUpAt !== null && (
-          <ItemDescription className="flex items-center gap-1 text-caption">
+    <Strip
+      tone={ai.answering ? "ai" : "quiet"}
+      icon={ai.turn === null ? <BotIcon aria-hidden="true" /> : <Spinner aria-hidden="true" />}
+      line={line}
+      more={
+        followUp !== null && (
+          <span className="flex items-center gap-1 text-caption">
             <CalendarClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
             {ai.followUpReason === null
-              ? t("followUpPlanned", { when: formatDayTime(new Date(ai.followUpAt), { timeZone }) })
-              : t("followUpWhy", {
-                  when: formatDayTime(new Date(ai.followUpAt), { timeZone }),
-                  why: ai.followUpReason,
-                })}
-          </ItemDescription>
-        )}
-      </ItemContent>
-      <ItemActions>
-        {ai.answering
+              ? t("followUpPlanned", { when: followUp })
+              : t("followUpWhy", { when: followUp, why: ai.followUpReason })}
+          </span>
+        )
+      }
+      action={
+        ai.answering
           ? button(t("takeOver"), () => {
               setMode.mutate({ conversationId, mode: "off" });
             })
           : button(t("letAnswer"), () => {
               setMode.mutate({ conversationId, mode: "on" });
-            })}
-      </ItemActions>
-    </Item>
+            })
+      }
+    />
   );
 }
