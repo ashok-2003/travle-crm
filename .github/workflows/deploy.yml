@@ -1,8 +1,9 @@
 # Releases main to the two small Oracle servers (docs/runbook.md, "Two small servers"): scripts/server/release-servers.sh
-# builds the api's image once on this runner (linux/amd64 is native here), applies the commit's migrations to Neon
-# when DATABASE_MIGRATOR_URL is set, then releases to the api's server and the console's. It runs only where the owner
-# has turned it on (the repository variable ORACLE_DEPLOY_ENABLED), never for a pull request, one at a time, and in
-# the `production` environment, where the owner can require an approval before each run.
+# builds the api's image on this runner, applies the commit's migrations to Neon when DATABASE_MIGRATOR_URL is set,
+# then releases to the api's server and the console's. The runner is the api server's architecture, so the image
+# builds natively: x86_64, or arm64 when the repository variable ORACLE_API_SERVER_ARCH says `arm64` (an Ampere A1).
+# It runs only where the owner has turned it on (the repository variable ORACLE_DEPLOY_ENABLED), never for a pull
+# request, one at a time, and in the `production` environment, where the owner can require an approval before each run.
 name: Deploy to Oracle
 
 on:
@@ -27,7 +28,7 @@ jobs:
   deploy:
     name: Release to the api's and the console's servers
     if: vars.ORACLE_DEPLOY_ENABLED == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.ORACLE_API_SERVER_ARCH == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 45
     environment: production
     steps:
@@ -46,6 +47,17 @@ jobs:
         env:
           DEPLOY_SSH_KEY: ${{ secrets.ORACLE_DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ vars.ORACLE_KNOWN_HOSTS }}
+      # GitHub's runners can't build for another architecture than their own, and the variable picking the runner may
+      # lag a move to another server: say so, rather than fail halfway through the build.
+      - name: Check the runner is the api server's architecture
+        run: |
+          server="$(ssh -i ~/.ssh/oracle-deploy "$API_SERVER" uname -m)"
+          if [ "$server" != "$(uname -m)" ]; then
+            echo "::error::The api's server is $server and this runner $(uname -m): set the repository variable ORACLE_API_SERVER_ARCH to arm64 for an aarch64 server, or delete it for x86_64"
+            exit 1
+          fi
+        env:
+          API_SERVER: ${{ vars.ORACLE_API_SERVER }}
       - name: Migrate, then release
         run: |
           # Prisma prints the database's host as it migrates, and this repository's logs are public.
