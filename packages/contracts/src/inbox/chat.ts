@@ -85,6 +85,8 @@ export const conversationListItem = z.object({
   lastMessageAt: timestamp.nullable(),
   /** The customer wrote last and nobody has answered. */
   needsReply: z.boolean(),
+  /** The AI handed the chat to a person and nobody has answered since (the rule of the AI hand-over lists): the row's amber marker. */
+  handedOver: z.boolean(),
   /** A number with no person and no lead: the row says "New number". */
   isNewNumber: z.boolean(),
   /** Who wrote the last message, and for ours how far it got: the row's ticks. */
