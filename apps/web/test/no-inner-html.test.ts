@@ -47,10 +47,9 @@ describe("HTML from strings", () => {
     });
     expect(scripts.map(({ file }) => file)).toEqual(["pwa/install-prompt-capture.tsx"]);
     for (const { file, source } of scripts) {
-      // Case-insensitive, so a <SCRIPT> or <Script> in the file is caught too, and fails the exact match below.
-      expect(source.match(/<script\b[^>]*>[^<]*<\/script>/gi), file).toEqual([
-        "<script>{installPromptScript}</script>",
-      ]);
+      // Exactly one script tag in any case (<SCRIPT>, <Script>), and that one is the constant's element, written out.
+      expect(source.match(/<script\b/gi), file).toHaveLength(1);
+      expect(source, file).toContain("<script>{installPromptScript}</script>");
     }
   });
 
