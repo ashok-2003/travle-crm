@@ -19,19 +19,22 @@ import { useReplying } from "./use-replying";
 
 /**
  * One bubble. `first` is the first of a run from the same side: it gets the tail and the space above it, as in WhatsApp,
- * and later ones in the run sit close under it. The time, the sender's first name and our ticks sit in the bubble's corner.
+ * and later ones in the run sit close under it. The time and our ticks sit in the bubble's corner; the sender's first name (or "From the phone") only on `showSender`.
  */
 export function MessageBubble({
   message,
   senderName,
   quotedSender,
   first,
+  showSender,
 }: {
   message: ChatMessage;
   senderName: string | null;
   /** Who wrote the message this one quotes, as the quote names them. */
   quotedSender: string;
   first: boolean;
+  /** The first bubble of a run by one sender: only it names the sender, the others show just their time. */
+  showSender: boolean;
 }) {
   const t = useTranslations("inbox.chat");
   const { timeZone } = useMe().organization;
@@ -51,16 +54,16 @@ export function MessageBubble({
       : message.byAi
         ? "bg-chat-bubble-ai"
         : "bg-chat-bubble-out";
-  // The corner's line: who sent it, the time and our ticks. It is also drawn, invisible, at the end of the words, so the
+  // The corner's line: who sent it (once per run), the time and our ticks. It is also drawn, invisible, at the end of the words, so the
   // last line leaves it exactly the room it takes, however long the sender's name or "From the phone" is.
   const meta = (spacer: boolean) => (
     <>
-      {ours && firstName !== undefined && <span>{firstName} ·</span>}
-      {ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
+      {showSender && ours && firstName !== undefined && <span>{firstName} ·</span>}
+      {showSender && ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
         <span>{t("formerMember")} ·</span>
       )}
-      {message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
-      {message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
+      {showSender && message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
+      {showSender && message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
       {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
       <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
       {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
