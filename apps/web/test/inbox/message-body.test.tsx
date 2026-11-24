@@ -1,6 +1,6 @@
 // What a bubble says about a message that was edited, deleted for everyone, not shared by WhatsApp, an album, or came from an ad.
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
-import { screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MessageBubble } from "@/inbox/message-bubble";
 import { newQueryClient, renderWithApi } from "../organization/api";
@@ -46,6 +46,28 @@ describe("a bubble's account of what happened to the message", () => {
       revokedAt: "2026-10-26T10:05:00.000Z",
     });
     expect(screen.getAllByText(/^Deleted from the phone/).length).toBeGreaterThan(0);
+  });
+
+  it("reads Deleted from the phone for any outbound message, sent from the CRM or by the AI", () => {
+    show({
+      direction: "out",
+      origin: "staff_crm",
+      status: "sent",
+      body: "Hello",
+      revokedAt: "2026-10-26T10:05:00.000Z",
+    });
+    expect(screen.getAllByText(/^Deleted from the phone/).length).toBeGreaterThan(0);
+    cleanup();
+    show({
+      direction: "out",
+      origin: "automation",
+      byAi: true,
+      status: "sent",
+      body: "Hi",
+      revokedAt: "2026-10-26T10:05:00.000Z",
+    });
+    expect(screen.getAllByText(/^Deleted from the phone/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Deleted by the customer/)).toBeNull();
   });
 
   it("explains a message WhatsApp did not share", () => {

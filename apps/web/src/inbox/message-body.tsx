@@ -13,7 +13,7 @@ import { WhatsAppText } from "./whatsapp-text";
 
 /** The label of a message deleted for everyone: who deleted it. */
 export function deletedLabelKey(message: ChatMessage): "deletedFromPhone" | "deletedByCustomer" {
-  return message.origin === "staff_phone" ? "deletedFromPhone" : "deletedByCustomer";
+  return message.direction === "out" ? "deletedFromPhone" : "deletedByCustomer";
 }
 
 // A deleted message keeps its words for the team, struck through, and screen readers hear who deleted it first; a message that
