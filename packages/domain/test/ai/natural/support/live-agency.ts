@@ -1,18 +1,17 @@
-// The agency the natural agent's live tests start from (plan 2: its reads, its act and its turn): Plan 1's natural
-// agency, its number connected, the AI on and the natural agent chosen through `setAgent`, a customer who has written,
-// the lead their message opened, owned by the Owner, the brochure's and the QR's bytes in storage, the trip sheets the
-// turn reads, and a quote as the loop's `quote` tool makes one. The clock is past the earlier agents' last line (ruling
+// The agency the agent's live tests start from (plan 2: its reads, its act and its turn): Plan 1's natural agency, its
+// number connected, the AI on, a customer who has written, the lead their message opened, owned by the Owner, the
+// brochure's and the QR's bytes in storage, the trip sheets the turn reads, and a quote as the loop's `quote` tool
+// makes one. The clock is past the earlier agents' last line (ruling
 // 2), so the AI lines a test writes are this agent's. Invented data.
 import { randomUUID } from "node:crypto";
 import type { BookingTerms } from "@travel-crm/contracts/ai";
-import { setAgent } from "../../../../src/ai/agent-choice.js";
 import type { LiteDependencies, LiteTurnInput } from "../../../../src/ai/lite/types.js";
 import { prepareNaturalTurn } from "../../../../src/ai/natural/prepare.js";
 import { quoteFor } from "../../../../src/ai/natural/tools/read-tools.js";
 import { tripSheetsOf } from "../../../../src/ai/natural/trips/trip-sheets.js";
 import type { QuoteFigures } from "../../../../src/ai/natural/types.js";
 import type { MemberContact } from "../../../../src/identity/index.js";
-import { parseCalendarDate, systemActor } from "../../../../src/kernel/index.js";
+import { parseCalendarDate } from "../../../../src/kernel/index.js";
 import { memberOf } from "../../../imports/support/test-imports.js";
 import { deliver, freshPhone, fromCustomer, type TestInbox } from "../../../inbox/support.js";
 import { liteEntitlements } from "../../lite/support/lite-agency.js";
@@ -61,7 +60,6 @@ export async function liveAgency(
   const amit = { userId: randomUUID(), name: "Amit Kumar", email: null };
   const team: MemberContact[] = [{ userId: owner.userId, name: "Asha Rao", email: "asha@example.com" }, amit];
   const connection = await inOrg(async (tx) => {
-    await setAgent(tx, systemActor(organizationId), "natural");
     const row = await tx.whatsappConnection.findFirstOrThrow({ select: { id: true, integratedNumber: true } });
     return { organizationId, connectionId: row.id, integratedNumber: row.integratedNumber };
   });

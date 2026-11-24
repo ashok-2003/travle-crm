@@ -283,8 +283,7 @@
       "answers-changed": "Changed the AI agent's answers",
       "basics-changed": "Changed the AI agent's name or tone",
       "turned-on": "Turned the AI agent on",
-      "turned-off": "Turned the AI agent off",
-      "agent-changed": "Changed which AI agent answers on WhatsApp"
+      "turned-off": "Turned the AI agent off"
     },
     "whatsapp-ad": {
       "linked": "Linked an ad to a package"

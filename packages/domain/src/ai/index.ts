@@ -30,7 +30,6 @@ export {
   saveAgentBasics,
   type AgencyContact,
 } from "./agency-answers.js";
-export { agentOf, setAgent } from "./agent-choice.js";
 export { agentSetupOf, countHandedOver, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
 export { aiFilledLeadIds, decideSuggestions, suggestedFieldsOf } from "./fill/lead-fields.js";
@@ -90,17 +89,5 @@ export { promptLibrary, promptVersions, type PromptPiece } from "./lite/prompts/
 export { modelCalls, type ModelCallOutline } from "./lite/prompts/calls.js";
 export type { ContextMessage } from "./lite/types.js";
 export type { BlockHead } from "./lite/context/block-heads.js";
-export { BENCH_NOW, BENCH_OWNER_ID, seedBenchAgency } from "./bench/seed.js";
-export { benchModel } from "./bench/script.js";
-export {
-  benchChecks,
-  heldItems,
-  inventedSpans,
-  type BenchCheck,
-  type BenchEnd,
-  type BenchTurn,
-  type Span,
-} from "./bench/rubric.js";
-export { runLiteCase, type LiteCaseResult } from "./bench/replay.js";
 export * from "./natural/index.js";
 export * from "./one/index.js";

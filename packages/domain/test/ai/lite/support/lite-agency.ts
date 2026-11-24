@@ -9,6 +9,7 @@ import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { Database } from "@travel-crm/db";
 import { createMemoryAiModel, withTracing } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
+import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
 import {
   runAgentTurn,
@@ -76,7 +77,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
       ownerUserId: owner.userId,
     });
     await saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: testNow });
-    await storeAutopilot(tx, organizationId, { autopilot: true, agent: "lite", agentName: "Riya", tone: "friendly" });
+    await storeAutopilot(tx, organizationId, { autopilot: true, agentName: "Riya", tone: "friendly" });
     await tx.organizationProfile.upsert({
       where: { organizationId },
       create: {
@@ -211,6 +212,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([]),
+        toolAgent: createMemoryToolAgent(),
         ...(options.traces === undefined ? {} : { traces: options.traces }),
       },
       { organizationId, conversationId: chat.id, kind: "reply", token: options.token ?? message.id },
@@ -232,6 +234,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([]),
+        toolAgent: createMemoryToolAgent(),
         ...(traces === undefined ? {} : { traces }),
       },
       typeof at === "function" ? at : () => at,

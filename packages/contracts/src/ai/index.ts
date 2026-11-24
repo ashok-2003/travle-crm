@@ -15,7 +15,6 @@ export * from "./package-drafts.js";
 export * from "./reply-words.js";
 export * from "./agent-setup.js";
 export * from "./lite.js";
-export * from "./lite-cases.js";
 export * from "./lite-docs.js";
 export * from "./lite-trace.js";
 export * from "./stage-suggestions.js";

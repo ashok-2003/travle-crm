@@ -1,5 +1,6 @@
-// What a lite turn costs in round trips to the database, which a distant database turns into seconds: preparing a turn
-// and booking read the trips on offer in a few batched queries, so an agency with ten packages pays what one with one does.
+// What preparing a turn costs in round trips to the database, which a distant database turns into seconds: it reads the
+// trips on offer in a few batched queries, so an agency with ten packages pays what one with one does; and the agent's
+// turns wait on ai.reply.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { aiChatResumedListener, aiCustomerWroteListener, aiReplyHandler } from "../../../src/ai/index.js";
@@ -10,7 +11,7 @@ import type { Entitlements } from "../../../src/subscriptions/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { countingDatabase } from "./support/counting-db.js";
 import { liteAgency, liteTurnAt } from "./support/lite-agency.js";
-import { at, says, understood, withFacts, written, type Agency } from "./support/turn-script.js";
+import type { Agency } from "./support/turn-script.js";
 
 const day = (text: string) => new Date(`${text}T00:00:00Z`);
 const allowed: Entitlements = {
@@ -95,43 +96,6 @@ async function prepareCost(test: TestInbox, more: number): Promise<number> {
   return counting.count();
 }
 
-/**
- * The queries one booking turn sends (the price told the turn before), with `more` other packages for sale: in all, in
- * its act transaction (the last it opens), and how many transactions it opens.
- */
-async function bookCost(test: TestInbox, more: number): Promise<{ turn: number; act: number; transactions: number }> {
-  const on = await liteAgency(test);
-  await morePackages(on, more);
-  await withFacts(on, { packageId: on.packageId, lastMove: "greet" });
-  const priced = await says(on, "price for kedarnath on 14 nov, 2 people, double?", 30);
-  on.model.answer(
-    understood([["price_question", "price for kedarnath"]], {
-      details: {
-        package: { name: "Kedarnath Yatra 4N", proof: "price for kedarnath", changed: false },
-        date: { day: "2026-11-14", month: null, proof: "14 nov", changed: false },
-        adults: { count: 2, proof: "2 people", changed: false },
-        room: { type: "double", proof: "double", changed: false },
-      },
-    }),
-    written("Which city will you join us from?"),
-  );
-  expect(await on.turn(at(60), { token: priced })).toBe("replied");
-  const token = await says(on, "book it, joining from Delhi, Riya Sharma", 90);
-  on.model.answer(
-    understood([["wants_to_book", "book it"]], {
-      details: {
-        pickup_city: { words: "Delhi", proof: "joining from Delhi", changed: false },
-        name: { full: "Riya Sharma", proof: "Riya Sharma" },
-      },
-    }),
-  );
-  const counting = countingDatabase(test.db);
-  expect(await on.turn(at(120), { token, db: counting.db })).toBe("replied");
-  expect(await on.inOrg((tx) => tx.aiBooking.count())).toBe(1);
-  const transactions = counting.transactions();
-  return { turn: counting.count(), act: transactions.at(-1) ?? 0, transactions: transactions.length };
-}
-
 describe("what a lite turn costs the database", () => {
   let test: TestInbox;
   beforeAll(() => {
@@ -166,11 +130,5 @@ describe("what a lite turn costs the database", () => {
     expect(test.queue.sent.slice(before).map((job) => job.queue)).toEqual(["ai.reply", "ai.reply"]);
     const handler = aiReplyHandler({ ...dependenciesOf(test, on), logger: on.logger });
     expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 5]);
-  });
-
-  it("a booking turn costs the same with ten packages as with one", async () => {
-    const one = await bookCost(test, 0);
-    const ten = await bookCost(test, 9);
-    expect({ one, ten }).toEqual({ one, ten: one });
   });
 });

@@ -20,7 +20,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import { noTracing, type AiTracing } from "@travel-crm/integrations/tracing";
 import type { Environment } from "./environment.js";
 
-/** The settings that make the model: the bench reads just these, the processes the whole environment. */
+/** The settings that make the model, out of the process's whole environment. */
 export type AiSettings = Pick<
   Environment,
   | "AI_API_KEY"
@@ -176,7 +176,7 @@ function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
 function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
   // One credential for every feature: the service account (its token kept and renewed for the process's life), or the key.
   const vertex = environment.AI_VERTEX_SERVICE_ACCOUNT;
-  // Never a token to the adapter's default address (OpenRouter's): the bench skips the start-up check that refuses this.
+  // Never a token to the adapter's default address (OpenRouter's), whatever the start-up check let through.
   if (vertex !== undefined && environment.AI_BASE_URL === undefined) return null;
   const credential = vertex === undefined ? environment.AI_API_KEY : serviceAccountToken(vertex, logger);
   if (credential !== undefined) {

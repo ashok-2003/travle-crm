@@ -12,7 +12,6 @@ import { defineListener, uuidFromKey, type EventListener, type JobHandler } from
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import { agentReachOf, answersInChat, chatOpenToAgent } from "./agent-reach.js";
-import { agentOf } from "./agent-choice.js";
 import { runAgentFallback, runAgentTurn, type AgentDependencies } from "./agent.js";
 import { WINDOW_MARGIN_MS } from "./may-write.js";
 import { autopilotOf } from "./autopilot.js";
@@ -30,17 +29,17 @@ const SETTLE_MS = 3_000;
  */
 const AT_ONCE = 5;
 /**
- * When the natural or one agent's model fails, its turn runs again after the first wait, then after the second; a third
- * failure leaves the team a task and sends the customer nothing (the owner, 2026-11-24). Index: the attempt that failed.
+ * When the agent's model fails, its turn runs again after the first wait, then after the second; a third failure leaves
+ * the team a task and sends the customer nothing (the owner, 2026-11-24). Index: the attempt that failed.
  * Two minutes, then ten (the owner, 2026-11-22): long enough for a rate-limited key's rest to end.
  */
 export const RETRY_AFTER_MS = [120_000, 600_000] as const;
 /**
- * How late the minute job may reach a lite follow-up and still send it: the lite agent plans one for the margin's very
- * edge (09:00 for a customer who wrote at 10:00), and the job runs a few seconds after its minute, or a little later.
- * One reached later than this (a backlog, an outage) is let go: it was planned for a moment that has passed.
+ * How late the minute job may reach a follow-up and still send it: the agent may plan one for the margin's very edge
+ * (09:00 for a customer who wrote at 10:00; follow-up-time.ts), and the job runs a few seconds after its minute, or a
+ * little later. One reached later than this (a backlog, an outage) is let go: it was planned for a moment that has passed.
  */
-const LITE_LATE_MS = 5 * 60_000;
+const FOLLOW_UP_LATE_MS = 5 * 60_000;
 const NUDGES_PER_AGENCY = 20;
 
 /**
@@ -145,13 +144,9 @@ export function aiChatResumedListener(dependencies: {
   });
 }
 
-/** Only the natural and one agents' failed turns are tried again: lite's turn ends as it always did. */
-const retriesModelFailures = (dependencies: AgentDependencies, organizationId: string) =>
-  dependencies.db.forOrg(organizationId, async (tx) => (await agentOf(tx)) !== "lite");
-
 /**
  * The agent's turn for one message, five chats at a time: only the chat's newest customer message is answered; an
- * earlier one's job ends. A turn queued by the release before the move keeps this job's shape, so it runs as lite.
+ * earlier one's job ends.
  */
 export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logger; queue?: JobQueue }): JobHandler {
   const queue = AI_REPLY_QUEUE;
@@ -189,12 +184,7 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
           ? await runAgentFallback(dependencies, input, new Date())
           : await runAgentTurn(dependencies, input, new Date());
         dependencies.logger.info({ queue, outcome, attempt: job.attempt }, "The AI agent's turn");
-        if (
-          outcome === "model_failed" &&
-          !last &&
-          dependencies.queue !== undefined &&
-          (await retriesModelFailures(dependencies, job.organizationId))
-        ) {
+        if (outcome === "model_failed" && !last && dependencies.queue !== undefined) {
           const attempt = job.attempt + 1;
           await dependencies.queue.send(
             queue,
@@ -240,9 +230,9 @@ async function nudgeAgency(
       return [];
     }
     const settings = await autopilotOf(tx);
-    const windowFloor = new Date(now.getTime() - WINDOW_MS + WINDOW_MARGIN_MS - LITE_LATE_MS);
+    const windowFloor = new Date(now.getTime() - WINDOW_MS + WINDOW_MARGIN_MS - FOLLOW_UP_LATE_MS);
     await tx.aiChat.updateMany({
-      where: { followUpAt: { lt: new Date(now.getTime() - LITE_LATE_MS) } },
+      where: { followUpAt: { lt: new Date(now.getTime() - FOLLOW_UP_LATE_MS) } },
       data: { followUpAt: null },
     });
     await tx.aiChat.updateMany({
