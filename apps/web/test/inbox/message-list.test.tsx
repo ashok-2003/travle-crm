@@ -303,6 +303,14 @@ describe("a run of messages from one sender", () => {
     renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
   };
 
+  // What is drawn: the words kept for screen readers (sr-only) left out.
+  const visibleText = (row: HTMLElement | undefined) => {
+    const copy = row?.cloneNode(true);
+    if (!(copy instanceof HTMLElement)) return "";
+    for (const hidden of copy.querySelectorAll(".sr-only")) hidden.remove();
+    return copy.textContent;
+  };
+
   it("names 'From the phone' once, on the first bubble, and each bubble keeps its time", async () => {
     const phone = { ...ours, origin: "staff_phone" };
     open([
@@ -312,10 +320,12 @@ describe("a run of messages from one sender", () => {
     ]);
     await screen.findByText("First");
     const rows = screen.getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent("From the phone");
-    expect(rows[1]).not.toHaveTextContent("From the phone");
-    expect(rows[2]).not.toHaveTextContent("From the phone");
+    expect(visibleText(rows[0])).toContain("From the phone");
+    expect(visibleText(rows[1])).not.toContain("From the phone");
+    expect(visibleText(rows[2])).not.toContain("From the phone");
     for (const row of rows) expect(row.textContent).toMatch(/\d{1,2}:\d{2}/);
+    // Screen readers hear the sender on every bubble of the run.
+    for (const row of rows) expect(row.querySelector(".sr-only")).toHaveTextContent("From the phone");
   });
 
   it("starts a new run when the sender changes: the AI, then a teammate", async () => {
@@ -329,9 +339,9 @@ describe("a run of messages from one sender", () => {
     );
     await screen.findByText("AI reply");
     const rows = screen.getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent("Sent by the AI");
-    expect(rows[0]).not.toHaveTextContent("Priya");
-    expect(rows[1]).toHaveTextContent("Priya");
-    expect(rows[1]).not.toHaveTextContent("Sent by the AI");
+    expect(visibleText(rows[0])).toContain("Sent by the AI");
+    expect(visibleText(rows[0])).not.toContain("Priya");
+    expect(visibleText(rows[1])).toContain("Priya");
+    expect(visibleText(rows[1])).not.toContain("Sent by the AI");
   });
 });

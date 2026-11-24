@@ -57,14 +57,24 @@ export function MessageBubble({
   // The corner's line: who sent it (once per run), the time and our ticks. It is also drawn, invisible, at the end of the words, so the
   // last line leaves it exactly the room it takes, however long the sender's name or "From the phone" is.
   const { revokedAt, editedAt } = whatHappened(message);
+  // Who sent it, in the words of the visible mark.
+  const sender =
+    ours && firstName !== undefined
+      ? firstName
+      : ours && message.origin === "staff_crm" && message.sentBy !== null
+        ? t("formerMember")
+        : message.origin === "staff_phone"
+          ? t("phoneApp")
+          : message.origin === "automation"
+            ? message.byAi
+              ? t("sentByAi")
+              : t("automatic")
+            : null;
   const meta = (spacer: boolean) => (
     <>
-      {showSender && ours && firstName !== undefined && <span>{firstName} ·</span>}
-      {showSender && ours && firstName === undefined && message.origin === "staff_crm" && message.sentBy !== null && (
-        <span>{t("formerMember")} ·</span>
-      )}
-      {showSender && message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
-      {showSender && message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
+      {/* Screen readers hear the sender on every bubble; the mark is drawn once per run, so it is hidden from them. */}
+      {!spacer && sender !== null && <span className="sr-only">{sender}</span>}
+      {showSender && sender !== null && <span aria-hidden="true">{sender} ·</span>}
       {revokedAt !== null && <span aria-hidden="true">{t(deletedLabelKey(message))} ·</span>}
       {editedAt !== null && <span>{t("edited")} ·</span>}
       {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
