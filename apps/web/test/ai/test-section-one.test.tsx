@@ -1,5 +1,5 @@
 // Try it on the one agent: it sends its turns to ai.testOne with natural's state and the chat's id, with no model,
-// temperature or prompt choice, and shows its answer and its offer card.
+// temperature or prompt choice, and shows its answer, its offer card and its trip menu.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -95,5 +95,24 @@ describe("Try it on the one agent", () => {
     expect(api.last().input).toMatchObject({
       messages: expect.arrayContaining([{ from: "customer", text: "Tapped: Book these seats" }]) as unknown,
     });
+  });
+
+  it("shows the trip menu a turn would send, with its rows", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, newQueryClient());
+    await userEvent.type(screen.getByLabelText(words.message), "Hello");
+    await userEvent.click(screen.getByRole("button", { name: words.send }));
+    const menu = {
+      body: "Pick a trip, we'll send its plan.",
+      button: "See trips",
+      rows: [{ title: "Manali", description: "2 trips · from ₹5,999 · next Fri 27 Nov" }, { title: "Spiti" }],
+    };
+    api.last().answer({ ...answer, menu });
+    expect(await screen.findByText("Then it would send this trip menu (See trips):")).toBeVisible();
+    expect(screen.getByText(menu.body)).toBeVisible();
+    const rows = screen.getByRole("list", { name: "See trips" });
+    expect(rows).toHaveTextContent("Manali");
+    expect(rows).toHaveTextContent("2 trips · from ₹5,999 · next Fri 27 Nov");
+    expect(rows).toHaveTextContent("Spiti");
   });
 });

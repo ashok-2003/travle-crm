@@ -1,8 +1,9 @@
 "use client";
 
 // One answer of the agent in the Try it chat: up to two messages in our green bubbles; then the agency's payment
-// lines, which code (never the model) would send after them, as a bubble of their own under a caption; a line of its own
-// when it would hand the chat over, stay quiet or leave it to the team (a task); and "Why", closed until opened.
+// lines, the offer card and the trip menu, which code (never the model) would send after them, each as a bubble of its
+// own under a caption; a line of its own when it would hand the chat over, stay quiet or leave it to the team (a task);
+// and "Why", closed until opened.
 import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
 import { ChevronDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -110,6 +111,28 @@ function TestCard({
   );
 }
 
+/** The trip menu the turn would send: its line, then the rows its button opens, each with the line under it. */
+function TestMenu({ menu }: { menu: NonNullable<NaturalTestAnswer["menu"]> }) {
+  const t = useTranslations("ai.test.menu");
+  return (
+    <>
+      <p className="text-caption text-muted-foreground">{t("caption", { button: menu.button })}</p>
+      <OutBubble>{menu.body}</OutBubble>
+      <ol aria-label={menu.button} className="flex max-w-[85%] flex-col items-end gap-1 text-right">
+        {menu.rows.map((row, index) => (
+          // The rows never change: a row's place is its identity.
+          <li key={index}>
+            {row.title}
+            {row.description !== undefined && (
+              <span className="block text-caption text-muted-foreground">{row.description}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
 export function TestNaturalTurn({
   answer,
   onTap,
@@ -142,6 +165,7 @@ export function TestNaturalTurn({
         </>
       )}
       {answer.card && <TestCard card={answer.card} onTap={onTap} />}
+      {answer.menu && <TestMenu menu={answer.menu} />}
       <NaturalStatus answer={answer} />
       <WhyToggle>
         <TestNaturalWhy answer={answer} />
