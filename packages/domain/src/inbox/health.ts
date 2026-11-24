@@ -1,5 +1,5 @@
-// The connection's health (spec 8.4), every five minutes over connected numbers: our own sends prove the delivery-report path
-// is down without needing customers to message. Messages sent more than 20 minutes ago with no status, and no report seen since,
+// The connection's health (spec 8.4), every five minutes over connected numbers: our own sends prove the delivery-report
+// path is down without needing customers to message. Messages sent more than 20 minutes ago with no status, and no report seen since,
 // mean the webhook is probably dead or paused: the connection is `problem`, with a log line at error level. A row left `sending`
 // over two minutes is `failed/unsure`; media still pending is queued again, until it is 24 hours old: then it is
 // `failed/unavailable` and never queued. The connection returns to connected by itself when

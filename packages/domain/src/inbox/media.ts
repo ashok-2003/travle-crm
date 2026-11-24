@@ -1,8 +1,9 @@
 // Copying a customer's file, or one the agency sent from the phone, into our storage (spec 4.3 I4): MSG91's link dies after 30
 // days, so each file is downloaded at once through the port (size cap, type allowlist, timeout), stored as an attachment on the
-// record type whatsapp_message, and the link blanked. While MSG91 can't serve it the job retries with backoff
-// (10 retries from 60 s, about 1.4 days in all); a retry made more than 24 hours after the file arrived settles the row `failed`
-// (code `unavailable`), and the health check settles any leftover past the same limit, so nothing queues it again. The job
+// record type whatsapp_message, and the link blanked. While MSG91 can't serve it the job retries with backoff (10 retries
+// from 60 s, capped at an hour each: it gives up within about 6 hours). A row still pending after 24 hours is settled `failed`
+// (code `unavailable`) by the health check, or by a copy-job retry landing after 24 hours, which only a health re-queue can
+// produce; nothing queues it again. The job
 // carries ids only; the file is the chat's, and nothing is rendered or resized on our server.
 import { WHATSAPP_RECORD_TYPE, whatsappContentTypes } from "@travel-crm/contracts/files";
 import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
@@ -14,7 +15,7 @@ import { notifyNeedsAttention } from "./attention.js";
 import { bumpUsage, monthStartOf } from "./usage.js";
 
 export const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
-/** A file MSG91 still can't serve this long after it arrived is given up on; inside the copy job's retry window, so a retry reaches it. */
+/** A file still pending this long after it arrived is given up on: well past the job's own retries, leaving room for an outage. */
 export const GIVE_UP_AFTER_MS = 24 * 60 * 60 * 1000;
 
 const extensionOf: Readonly<Record<string, string>> = {
