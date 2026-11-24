@@ -192,6 +192,17 @@ describe("generated icons", () => {
     expect(pwaIcons.map((icon) => icon.purpose)).toEqual(["any", "any", "maskable"]);
   });
 
+  it("covers the 2024-2025 iPhones: 16 Pro, 17, Air, and the Pro Max", () => {
+    const sizes = appleStartupScreens.map(
+      (screen) => `${String(screen.width)}x${String(screen.height)}@${String(screen.pixelRatio)}`,
+    );
+    expect(sizes).toEqual(expect.arrayContaining(["1206x2622@3", "1320x2868@3", "1260x2736@3"]));
+    const medias = appleStartupImages.map((image) => image.media).join("\n");
+    expect(medias).toContain("(device-width: 402px) and (device-height: 874px)");
+    expect(medias).toContain("(device-width: 440px) and (device-height: 956px)");
+    expect(medias).toContain("(device-width: 420px) and (device-height: 912px)");
+  });
+
   it("draws one portrait startup image per iPhone screen: ink all over, the mark centred", async () => {
     expect(appleStartupScreens.length).toBeGreaterThanOrEqual(8);
     for (const screen of appleStartupScreens) {

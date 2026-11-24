@@ -25,16 +25,19 @@ export interface AppleStartupScreen {
   pixelRatio: number;
 }
 
-/** The common iPhone portrait screens, from the 4.7 inch models to the 6.7 inch ones. */
+/** The common iPhone portrait screens, from the 4.7 inch models to the newest 6.9 inch ones. */
 export const appleStartupScreens: readonly AppleStartupScreen[] = [
   { width: 750, height: 1334, pixelRatio: 2 },
   { width: 828, height: 1792, pixelRatio: 2 },
   { width: 1125, height: 2436, pixelRatio: 3 },
   { width: 1170, height: 2532, pixelRatio: 3 },
   { width: 1179, height: 2556, pixelRatio: 3 },
+  { width: 1206, height: 2622, pixelRatio: 3 },
+  { width: 1260, height: 2736, pixelRatio: 3 },
   { width: 1242, height: 2688, pixelRatio: 3 },
   { width: 1284, height: 2778, pixelRatio: 3 },
   { width: 1290, height: 2796, pixelRatio: 3 },
+  { width: 1320, height: 2868, pixelRatio: 3 },
 ];
 
 /** The file name of a screen's startup image, written by the build into dist/icons. */
