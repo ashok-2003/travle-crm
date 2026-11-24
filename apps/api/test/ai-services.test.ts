@@ -291,13 +291,13 @@ describe("the fallback providers (the owner, 2026-11-23: free providers catch wh
 });
 
 describe("the primary model (the owner, 2026-11-24: gpt-5-mini on Azure, medium effort)", () => {
-  const AZURE = "https://veeper.services.ai.azure.com/openai/v1";
+  const AZURE = "https://example.services.ai.azure.com/openai/v1";
   const primary = {
     AI_BASE_URL: GOOGLE,
     AI_CHAT_MODELS: ["gemini-3.5-flash-lite"],
     AI_PRIMARY_BASE_URL: AZURE,
     AI_PRIMARY_API_KEY: "azure-key-0123456789",
-    AI_PRIMARY_MODELS: ["veeper-gpt-5-mini"],
+    AI_PRIMARY_MODELS: ["our-gpt-5-mini"],
   };
 
   it("asks it first for every feature but voice notes and Fill it for me, which go to the keys", async () => {
@@ -305,7 +305,7 @@ describe("the primary model (the owner, 2026-11-24: gpt-5-mini on Azure, medium 
     const model = createAiModel(settings(primary), logger);
     const features = ["sales_agent", "agent_image", "score_lead", "chat_summary", "agent_voice", "fill_form"] as const;
     for (const feature of features) await model?.complete({ feature, messages, user: "org" });
-    const azure = { url: `${AZURE}/chat/completions`, model: "veeper-gpt-5-mini" };
+    const azure = { url: `${AZURE}/chat/completions`, model: "our-gpt-5-mini" };
     const google = { url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" };
     expect(asked).toEqual([azure, azure, azure, azure, google, google]);
     expect(fields[0]?.keys).toEqual(
@@ -336,7 +336,7 @@ describe("the primary model (the owner, 2026-11-24: gpt-5-mini on Azure, medium 
       { role: "tool" as const, content: "₹9,499", toolCallId: "c1" },
     ];
     await model?.complete({ feature: "sales_agent", messages: round, model: "gemini-3.5-flash-lite" });
-    expect(asked).toEqual(["azure:veeper-gpt-5-mini", "google:gemini-3.5-flash-lite", "google:gemini-3.5-flash-lite"]);
+    expect(asked).toEqual(["azure:our-gpt-5-mini", "google:gemini-3.5-flash-lite", "google:gemini-3.5-flash-lite"]);
   });
 });
 

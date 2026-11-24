@@ -110,14 +110,14 @@ describe("the AI's chain of keys", () => {
   });
 
   it("sends a tool round to the chain inside that serves its writer: the keys behind the primary model", async () => {
-    const primary = serving("veeper-gpt-5-mini");
+    const primary = serving("our-gpt-5-mini");
     const studio = serving(STUDIO);
     const model = withModelChain([primary.member, withModelChain([studio.member])]);
     studio.ai.answer("From Gemini");
     expect(await model.complete(toolRoundBy(STUDIO))).toMatchObject({ ok: true, text: "From Gemini" });
     expect(primary.ai.requests).toHaveLength(0);
     primary.ai.answer("From the primary");
-    expect(await model.complete(toolRoundBy("veeper-gpt-5-mini"))).toMatchObject({
+    expect(await model.complete(toolRoundBy("our-gpt-5-mini"))).toMatchObject({
       ok: true,
       text: "From the primary",
     });

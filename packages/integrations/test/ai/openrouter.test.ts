@@ -337,7 +337,7 @@ describe("the OpenRouter adapter", () => {
 });
 
 describe("an OpenAI reasoning model (gpt-5-mini on Azure AI Foundry, the owner, 2026-11-24)", () => {
-  const AZURE = "https://veeper.services.ai.azure.com/openai/v1";
+  const AZURE = "https://example.services.ai.azure.com/openai/v1";
   const reasoningModel = { effort: "medium" as const, maxCompletionTokens: 16_000 };
 
   it("gets max_completion_tokens with room to think, no temperature, its own effort and a prompt cache key", async () => {
@@ -345,7 +345,7 @@ describe("an OpenAI reasoning model (gpt-5-mini on Azure AI Foundry, the owner, 
     const model = createOpenRouterModel({
       apiKey: KEY,
       baseUrl: AZURE,
-      models: { sales_agent: ["veeper-gpt-5-mini"] },
+      models: { sales_agent: ["our-gpt-5-mini"] },
       reasoningModel,
       fetch: fetcher,
     });
@@ -371,11 +371,11 @@ describe("an OpenAI reasoning model (gpt-5-mini on Azure AI Foundry, the owner, 
     const azure = createOpenRouterModel({
       apiKey: KEY,
       baseUrl: AZURE,
-      models: { sales_agent: ["veeper-gpt-5-mini"] },
+      models: { sales_agent: ["our-gpt-5-mini"] },
       reasoningModel,
       fetch: fetcher,
     });
-    expect(await azure.complete({ feature: "sales_agent", messages })).toMatchObject({ model: "veeper-gpt-5-mini" });
+    expect(await azure.complete({ feature: "sales_agent", messages })).toMatchObject({ model: "our-gpt-5-mini" });
     const gemini = createOpenRouterModel({
       apiKey: KEY,
       baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
