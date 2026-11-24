@@ -440,5 +440,26 @@
       "required": "Fill this in.",
       "invalid": "Check this."
     }
+  },
+  "copyNote": {
+    "open": "Copy a line to other trips",
+    "title": "Copy a line to other trips",
+    "description": "The line goes first in the notes of each trip you tick. A trip that has it already is left as it is.",
+    "line": "The line",
+    "lineHint": "Such as \"No single rooms from 18 Dec\".",
+    "trips": "Copy it to",
+    "none": "You have no other trips yet.",
+    "loading": "Loading your trips",
+    "loadFailed": "Your trips didn't load.",
+    "copy": "Copy",
+    "copying": "Copying",
+    "copied": "{count, plural, =0 {Copied to no trips.} one {Copied to # trip.} other {Copied to # trips.}}",
+    "alreadyThere": "Already had it: {trips}",
+    "tooLong": "Skipped, their notes are full: {trips}",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Keep it to 300 characters.",
+      "noTrip": "Tick at least one trip."
+    }
   }
 }

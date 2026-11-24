@@ -172,5 +172,11 @@ describe("PackageScreen", () => {
       expect(screen.queryByRole("button", { name: editNamed(title) })).toBeNull();
     }
     expect(screen.queryByRole("button", { name: words.addDates.title })).toBeNull();
+    expect(screen.queryByRole("button", { name: words.copyNote.open })).toBeNull();
+  });
+
+  it("Details & rules offers to copy a line to other trips", async () => {
+    await showing(groupTrip);
+    expect(section(titles.details).getByRole("button", { name: words.copyNote.open })).toBeTruthy();
   });
 });

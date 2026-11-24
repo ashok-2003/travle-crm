@@ -2,7 +2,8 @@
 
 // Details & rules (/packages/<id>): what the trip includes and leaves out, its notes and cancellation notes (printed on a
 // quote made from it), what travellers fill in for a booking and, for a group trip, its pickup points and whether its
-// prices include GST. Summed up with Edit; the form saves only these (packages.updatePart).
+// prices include GST. Summed up with Edit; the form saves only these (packages.updatePart). A line of the notes can be
+// copied to other trips (copy-note-dialog.tsx).
 import { travellerLevels } from "@travel-crm/contracts/bookings";
 import { updatePackagePartInput, type PackageDetail, type UpdatePackagePartInput } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
@@ -15,6 +16,8 @@ import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { NoteField } from "@/leads/form/note-field";
+import { useHolds } from "@/session/me-context";
+import { CopyNoteDialog } from "./copy-note-dialog";
 import { PackageSection, SectionForm, useSectionSave } from "./package-section";
 
 /** The agency's usual level: the trip sets none of its own. */
@@ -126,22 +129,28 @@ function DetailsSummary({ detail }: { detail: PackageDetail }) {
   const words = (text: string): ReactNode =>
     text.trim() === "" ? tSections("notSet") : <span className="line-clamp-2 whitespace-pre-line">{text}</span>;
   const group = detail.kind === "group";
+  const mayEdit = useHolds("quotes:edit");
   return (
-    <Details
-      rows={[
-        { label: t("inclusions"), value: words(detail.inclusions) },
-        { label: t("exclusions"), value: words(detail.exclusions) },
-        ...(group ? [{ label: t("pickupPoints"), value: words(detail.pickupPoints) }] : []),
-        { label: t("notes"), value: words(detail.notes) },
-        { label: t("cancellationNotes"), value: words(detail.cancellationNotes) },
-        {
-          label: t("level"),
-          value:
-            detail.defaultTravellerLevel === null ? t("levelDefault") : t(`levels.${detail.defaultTravellerLevel}`),
-        },
-        ...(group ? [{ label: t("pricesIncludeGst"), value: tSections(detail.pricesIncludeGst ? "yes" : "no") }] : []),
-      ]}
-    />
+    <>
+      <Details
+        rows={[
+          { label: t("inclusions"), value: words(detail.inclusions) },
+          { label: t("exclusions"), value: words(detail.exclusions) },
+          ...(group ? [{ label: t("pickupPoints"), value: words(detail.pickupPoints) }] : []),
+          { label: t("notes"), value: words(detail.notes) },
+          { label: t("cancellationNotes"), value: words(detail.cancellationNotes) },
+          {
+            label: t("level"),
+            value:
+              detail.defaultTravellerLevel === null ? t("levelDefault") : t(`levels.${detail.defaultTravellerLevel}`),
+          },
+          ...(group
+            ? [{ label: t("pricesIncludeGst"), value: tSections(detail.pricesIncludeGst ? "yes" : "no") }]
+            : []),
+        ]}
+      />
+      {mayEdit && <CopyNoteDialog detail={detail} />}
+    </>
   );
 }
 
