@@ -306,6 +306,88 @@ describe("parseMsg91Event", () => {
     expect(wordless).toMatchObject({ kind: "unsupported", text: null, referral: { headline: "Spiti" } });
   });
 
+  describe("an edit, a deletion and a message WhatsApp could not pass on", () => {
+    const base = { customerNumber: "919876543210", integratedNumber: "918888800000", uuid: "wamid.NEW" };
+    const edit = {
+      edit: { original_message_id: "wamid.OLD", message: { type: "text", text: { body: "Goa, 5 people" } } },
+    };
+    const revoke = { revoke: { original_message_id: "wamid.OLD" } };
+
+    it("reads the customer's edit and deletion from Meta's message", () => {
+      const [edited] = parseMsg91Event({
+        ...base,
+        direction: "0",
+        contentType: "edit",
+        messages: JSON.stringify([{ type: "edit", ...edit }]),
+      });
+      expect(edited).toMatchObject({
+        type: "change",
+        kind: "edit",
+        fromPhone: false,
+        originalWamid: "wamid.OLD",
+        text: "Goa, 5 people",
+        customerNumber: "+919876543210",
+      });
+      const [revoked] = parseMsg91Event({
+        ...base,
+        direction: "0",
+        contentType: "revoke",
+        messages: JSON.stringify([{ type: "revoke", ...revoke }]),
+      });
+      expect(revoked).toMatchObject({ type: "change", kind: "revoke", fromPhone: false, originalWamid: "wamid.OLD" });
+    });
+
+    it("reads the same from the phone's echo, whose content is JSON text", () => {
+      const [edited] = parseMsg91Event({ ...base, direction: "1", contentType: "edit", content: JSON.stringify(edit) });
+      expect(edited).toMatchObject({ type: "change", kind: "edit", fromPhone: true, originalWamid: "wamid.OLD" });
+      expect(edited).toMatchObject({ text: "Goa, 5 people" });
+      const [revoked] = parseMsg91Event({
+        ...base,
+        direction: "1",
+        contentType: "revoke",
+        content: JSON.stringify(revoke),
+      });
+      expect(revoked).toMatchObject({ type: "change", kind: "revoke", fromPhone: true, originalWamid: "wamid.OLD" });
+    });
+
+    it("drops an edit that names no original or carries no words, and a deletion that names no original", () => {
+      expect(
+        parseMsg91Event({ ...base, contentType: "edit", content: '{"edit":{"original_message_id":"x"}}' })[0],
+      ).toMatchObject({ type: "ignored" });
+      expect(parseMsg91Event({ ...base, contentType: "revoke", content: '{"revoke":{}}' })[0]).toMatchObject({
+        type: "ignored",
+      });
+    });
+
+    const unsupported = (extra: Record<string, unknown>) =>
+      parseMsg91Event({ ...base, direction: "0", contentType: "unsupported", ...extra })[0];
+    const asMessages = (message: Record<string, unknown>) => ({
+      messages: JSON.stringify([{ type: "unsupported", ...message }]),
+    });
+
+    it("gives the reason a message could not be shown", () => {
+      expect(
+        unsupported(asMessages({ errors: [{ code: 131060, title: "x" }], unsupported: { type: "unknown" } })),
+      ).toMatchObject({ kind: "unsupported", unsupportedReason: "unavailable" });
+      expect(unsupported(asMessages({ errors: [{ code: 131051 }], unsupported: { type: "album" } }))).toMatchObject({
+        unsupportedReason: "album",
+      });
+      expect(unsupported(asMessages({ errors: [{ code: 131051 }], unsupported: { type: "unknown" } }))).toMatchObject({
+        unsupportedReason: "unknown",
+      });
+      expect(unsupported({})).toMatchObject({ kind: "unsupported", unsupportedReason: "unknown" });
+      expect(one("inbound-text")).not.toHaveProperty("unsupportedReason");
+    });
+
+    it("keeps an ad's words and its headline on one text message", () => {
+      expect(one("inbound-ad")).toMatchObject({
+        kind: "text",
+        text: "Hi, is the Goa trip still on?",
+        referral: { headline: "Goa in December" },
+      });
+    });
+  });
+
   it("reads a batch, each event on its own", () => {
     const events = parseMsg91Event(fixture("batch"));
     expect(events.map((event) => event.type)).toEqual(["inbound", "status"]);

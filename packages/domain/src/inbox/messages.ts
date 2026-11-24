@@ -56,6 +56,8 @@ export function messageColumns(message: ParsedMessage, now: Date) {
     mediaState: media ? "pending" : "none",
     mediaUrl: media ? message.mediaUrl : null,
     // Only a reply button's tap is a booking tap; a template's quick reply stays words.
+    unsupportedReason: message.unsupportedReason ?? null,
+    adHeadline: message.referral?.headline?.slice(0, 300) ?? null,
     buttonReplyId: message.replyKind === "button" ? message.buttonReplyId : null,
   } as const;
 }

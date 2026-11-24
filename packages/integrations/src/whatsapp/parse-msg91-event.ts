@@ -2,7 +2,13 @@
 // carry JSON inside strings, and may send one object or a list. It never throws and never logs the body.
 // SPIKE(S1, S2): every field alias and the inbound/echo/status rules rest on MSG91's public samples until a real account
 // shows the payloads; fixes stay in this file and its fixtures.
-import type { ParsedEvent, ParsedMessage, WhatsAppMessageKind, WhatsAppStatus } from "./parsed-event.js";
+import type {
+  ParsedEvent,
+  ParsedMessage,
+  UnsupportedReason,
+  WhatsAppMessageKind,
+  WhatsAppStatus,
+} from "./parsed-event.js";
 
 type Bag = Record<string, unknown>;
 const isBag = (value: unknown): value is Bag => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -206,6 +212,41 @@ function referralOf(bag: Bag): ParsedMessage["referral"] {
 const typeOf = (bag: Bag): string =>
   (pick(bag, ["contentType", "content_type", "type", "messageType"]) ?? "text").toLowerCase();
 
+/** Where Meta's own fields may sit in an event: the event, its `content` (a JSON string) or Meta's raw message. */
+const holdersOf = (bag: Bag): Bag[] => [bag, unstring(bag.content), metaMessageOf(bag)].filter(isBag);
+
+/** Why WhatsApp could not pass a message on: error 131060 is unavailable, an album is one set of photos, anything else unknown. */
+function unsupportedReasonOf(bag: Bag): UnsupportedReason {
+  const codes: string[] = [];
+  let kind: string | null = null;
+  for (const holder of holdersOf(bag)) {
+    const errors = unstring(holder.errors);
+    for (const error of Array.isArray(errors) ? errors : []) {
+      const code = isBag(unstring(error)) ? pick(unstring(error) as Bag, ["code"]) : null;
+      if (code !== null) codes.push(code);
+    }
+    const unsupported = unstring(holder.unsupported);
+    if (isBag(unsupported)) kind ??= pick(unsupported, ["type"]);
+  }
+  if (codes.includes("131060")) return "unavailable";
+  return kind?.toLowerCase() === "album" ? "album" : "unknown";
+}
+
+/** An edit's or a deletion's target (and the edit's new words), wherever Meta's `edit` or `revoke` object sits; null when it names no original. */
+function changeOf(bag: Bag, kind: "edit" | "revoke"): { originalWamid: string; text: string | null } | null {
+  for (const holder of holdersOf(bag)) {
+    const change = unstring(holder[kind]);
+    if (!isBag(change)) continue;
+    const originalWamid = pick(change, ["original_message_id", "originalMessageId"]);
+    if (originalWamid === null) continue;
+    const message = unstring(change.message);
+    const text = unstring(isBag(message) ? message.text : change.text);
+    const words = isBag(text) ? pick(text, ["body"]) : typeof text === "string" ? text.trim() || null : null;
+    return { originalWamid, text: words === null ? null : words.replaceAll(String.fromCharCode(0), "") };
+  }
+  return null;
+}
+
 function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNumber: string): ParsedMessage {
   // MSG91 keeps a file's link, and the words of an echo of our own send, only in `content` (a JSON string): read after the
   // top-level names.
@@ -235,9 +276,11 @@ function messageOf(bag: Bag, wamid: string, integratedNumber: string, customerNu
   // Only an interactive or button event can be a tap: MSG91 sends empty `interactive` and `button` fields on every message.
   const tap = kind === "text" && textual ? tapOf(bag) : null;
   // Only a plain word is kept: the name goes into a log line, where nothing a customer wrote may go.
+  const unsupportedReason = kind === "unsupported" ? unsupportedReasonOf(bag) : null;
   const unknownType = kind === "unsupported" ? (/^[a-z0-9_.-]{1,40}$/.test(contentType) ? contentType : "other") : null;
   return {
     ...(unknownType === null ? {} : { unknownType }),
+    ...(unsupportedReason === null ? {} : { unsupportedReason }),
     wamid,
     integratedNumber,
     customerNumber,
@@ -289,8 +332,26 @@ function eventOf(bag: Bag): ParsedEvent {
       occurredAt: timeOf(bag),
     };
   }
-  // SPIKE(S2): an edit or a deletion is dropped; once we have seen its inner shape, it can change or hide its message.
-  if (["edit", "revoke"].includes(typeOf(bag))) return { type: "ignored", integratedNumber };
+  const changeKind = typeOf(bag);
+  if (changeKind === "edit" || changeKind === "revoke") {
+    // An edit or a deletion lands on its original; one that names none (or an edit with no words) is dropped.
+    const change = changeOf(bag, changeKind);
+    if (change === null || customerNumber === null || (changeKind === "edit" && change.text === null)) {
+      return { type: "ignored", integratedNumber };
+    }
+    return {
+      type: "change",
+      kind: changeKind,
+      fromPhone: direction === "1" || direction?.toLowerCase() === "outbound",
+      originalWamid: change.originalWamid,
+      text: changeKind === "edit" ? change.text : null,
+      wamid,
+      integratedNumber,
+      customerNumber,
+      customerName: pick(bag, ["customerName", "customer_name", "profileName", "name"]),
+      occurredAt: timeOf(bag),
+    };
+  }
   if (customerNumber === null) return { type: "unknown", integratedNumber };
   // MSG91 writes direction "0" for inbound and "1" for outbound; a message with a content type and no status name is a
   // message. An outbound one with no status name is an echo: sent from the phone app, or one of our own sends.
