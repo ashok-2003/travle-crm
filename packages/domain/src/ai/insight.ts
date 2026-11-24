@@ -26,8 +26,6 @@ import { agentAnswers } from "./may-write.js";
 import { turnUnderWay } from "./turn-under-way.js";
 import { fillLeadFromChat, FILL_MESSAGES, leadIsComplete } from "./fill/lead-fields.js";
 import { aiEnabled, aiFillLeadsOn, aiScoringOn } from "./settings.js";
-import { linesAfter } from "./chat-summary/index.js";
-import { lineWords } from "./natural/context/chat-turns.js";
 import { releaseAiCall, reserveAiCall } from "./usage.js";
 
 export const AI_SCORE_QUEUE = "ai.score";
@@ -292,7 +290,20 @@ async function prepare(
       : null;
   // With no point yet, lite's notes stand for the summary, as the summary's own refresh reads them.
   const notes = (through === null ? state?.summary : state?.chatSummary) ?? "";
-  const { lines } = await linesAfter(tx, job.conversationId, through, null, SCORE_MOST_LINES);
+  // Read here, not through the summary's own reader, which would make the agent's modules and this one import each other.
+  const rows = await tx.whatsappMessage.findMany({
+    where: {
+      conversationId: job.conversationId,
+      kind: { not: "reaction" },
+      status: { not: "superseded" },
+      ...(through === null
+        ? {}
+        : { OR: [{ occurredAt: { gt: through.at } }, { occurredAt: through.at, id: { gt: through.id } }] }),
+    },
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    take: SCORE_MOST_LINES,
+    select: { direction: true, body: true, caption: true, aiText: true, aiTextKind: true },
+  });
   const trips = await tripsOnOffer(tx, calendarDateIn(now, timeZone));
   return {
     leadId: lead.id,
@@ -312,14 +323,12 @@ async function prepare(
       ].filter((line) => line !== ""),
       trips,
       notes,
-      chat: lines.map((line) => ({
-        fromCustomer: line.from === "customer",
-        text:
-          lineWords(line, 500, { earlierWhole: true }) +
-          (line.aiText === undefined
-            ? ""
-            : ` (${line.aiText.kind === "transcript" ? "heard" : "seen"}: ${line.aiText.text})`),
-      })),
+      chat: rows.reverse().flatMap((row) => {
+        const said =
+          row.aiText === null ? "" : ` (${row.aiTextKind === "transcript" ? "heard" : "seen"}: ${row.aiText})`;
+        const text = `${row.body ?? row.caption ?? ""}${said}`.trim();
+        return text === "" ? [] : [{ fromCustomer: row.direction === "in", text }];
+      }),
     }),
   };
 }
@@ -366,8 +375,10 @@ export async function scoreLead(
     feature: "score_lead",
     messages: prepared.messages,
     json: true,
-    maxTokens: 500,
-    // Gemini's thinking counts against maxTokens: left to itself, it used all 500 on long chats and answered nothing.
+    // Room for the answer (at most about 410 tokens in four days of live scoring) and a backup Gemini's thinking, which
+    // counts against it: at 500 with its thinking left to itself it once used it all on long chats and answered nothing.
+    // The primary gpt-5-mini on Azure gets its own room (16,000) and effort whatever this asks.
+    maxTokens: 1_500,
     reasoning: { effort: "minimal" },
     user: organizationId,
   });
