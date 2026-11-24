@@ -145,6 +145,7 @@ export function TeamNoteComposer({
           <InputGroup className="rounded-xl bg-status-attention-fill">
             <InputGroupTextarea
               ref={box}
+              data-note-box
               dir="auto"
               rows={2}
               maxLength={MAX_NOTE_LENGTH}

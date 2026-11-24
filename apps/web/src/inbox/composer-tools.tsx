@@ -41,14 +41,12 @@ function Tools({ layout, ...props }: ToolsProps & { layout: "row" | "list" }) {
         aria-describedby={unavailable === undefined ? undefined : noteReason}
         type="button"
         variant="ghost"
-        className={cn("text-muted-foreground", list && "w-full justify-start gap-2 px-2.5")}
-        size={list ? "default" : "icon"}
-        aria-label={label}
+        className={cn("shrink-0 gap-1.5 px-2.5 text-muted-foreground", list && "w-full justify-start gap-2")}
         disabled={disabled || unavailable !== undefined}
         onClick={onClick}
       >
         {icon}
-        {list && label}
+        {label}
       </Button>
     );
     const reason = unavailable !== undefined && (
@@ -65,12 +63,14 @@ function Tools({ layout, ...props }: ToolsProps & { layout: "row" | "list" }) {
           {reason}
         </div>
       );
-    // An icon alone says its name in a tooltip, with a mouse and for the keyboard's focus; a disabled one can't be
-    // focused, so its tooltip hangs on a span around it.
+    if (unavailable === undefined) return button;
+    // A disabled tool can't be focused, so the reason's tooltip hangs on a span around it.
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{unavailable === undefined ? button : <span>{button}</span>}</TooltipTrigger>
-        <TooltipContent>{unavailable ?? label}</TooltipContent>
+        <TooltipTrigger asChild>
+          <span>{button}</span>
+        </TooltipTrigger>
+        <TooltipContent>{unavailable}</TooltipContent>
         {reason}
       </Tooltip>
     );

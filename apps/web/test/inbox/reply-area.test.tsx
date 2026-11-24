@@ -1,14 +1,14 @@
 // The reply box is one row (spec item 11): no Reply / Note toggle; a team note is chosen from the tools ("+" on a phone, the
 // tools row on a computer), turns the box into a note with a way back, and each box keeps its own words meanwhile.
 import type { ConversationHeader } from "@travel-crm/contracts/inbox";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ReplyArea } from "@/inbox/reply-area";
 import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 
-const header = (withLead: boolean): ConversationHeader =>
+const header = (withLead: boolean, over: Partial<ConversationHeader> = {}): ConversationHeader =>
   ({
     id: "01900000-0000-7000-8000-00000000000a",
     phone: "+919876543210",
@@ -31,9 +31,11 @@ const header = (withLead: boolean): ConversationHeader =>
     replying: [],
     number: { id: "01900000-0000-7000-8000-0000000000aa", label: "WhatsApp", status: "connected" },
     otherChats: [],
+    ...over,
   }) as ConversationHeader;
 
-const render = (withLead: boolean) => renderWithApi(<ReplyArea header={header(withLead)} />, newQueryClient());
+const render = (withLead: boolean, over: Partial<ConversationHeader> = {}) =>
+  renderWithApi(<ReplyArea header={header(withLead, over)} />, newQueryClient());
 
 describe("the one-row reply box", () => {
   beforeEach(() => {
@@ -81,13 +83,47 @@ describe("the one-row reply box", () => {
         expect(screen.queryByText(/nothing to attach a note to/, { selector: "p" })).toBeNull();
       });
 
-      it("keeps the round send button at the right of the box", async () => {
+      it("keeps the round button at the right of the box: the mic while it is empty, Send once there is text", async () => {
         render(true);
         const field = screen.getByRole("combobox", { name: "Message" });
+        const mic = screen.queryByRole("button", { name: "Record a voice note" });
+        if (mic !== null) expect(field.compareDocumentPosition(mic) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        else expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
         await userEvent.type(field, "Hi");
         const send = screen.getByRole("button", { name: "Send" });
         expect(field.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(send.closest("[data-slot=input-group]")).toBeNull();
+        expect(screen.queryByRole("button", { name: "Record a voice note" })).toBeNull();
+      });
+
+      it("writes a note where the window is closed, and where the person opted out, and goes back", async () => {
+        for (const over of [{ windowOpenUntil: null }, { windowOpenUntil: null, optedOut: true }]) {
+          const view = render(true, over);
+          await userEvent.click(screen.getByRole("button", { name: "Note" }));
+          expect(screen.getByRole("combobox", { name: "A note for your team" })).toBeInTheDocument();
+          await userEvent.click(screen.getByRole("button", { name: "Back to replying" }));
+          expect(screen.queryByRole("combobox", { name: "A note for your team" })).toBeNull();
+          view.unmount();
+        }
+      });
+
+      it("describes the disabled Note by the no-lead sentence where the window is closed", () => {
+        render(false, { windowOpenUntil: null });
+        expect(screen.getByRole("button", { name: "Note" })).toHaveAccessibleDescription(
+          "This chat has no lead yet, so there is nothing to attach a note to.",
+        );
+      });
+
+      it("moves the focus into the note, and back to the message box", async () => {
+        render(true);
+        await openNote();
+        await waitFor(() => {
+          expect(screen.getByRole("combobox", { name: "A note for your team" })).toHaveFocus();
+        });
+        await userEvent.click(screen.getByRole("button", { name: "Back to replying" }));
+        await waitFor(() => {
+          expect(screen.getByRole("combobox", { name: "Message" })).toHaveFocus();
+        });
       });
     });
   }
