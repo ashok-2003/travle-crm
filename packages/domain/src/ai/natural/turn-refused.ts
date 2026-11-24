@@ -68,7 +68,7 @@ export async function refusalNote(turn: LiveTurn, staged: StagedSet, refused: Re
   return `The seats couldn't be held: ${reasonWords(refused)}.${open} Nothing was sent; reply again.`;
 }
 
-/** The team's task: why, what the customer got and wrote, and the booking not done. */
+/** The team's task: why, what the customer wrote, and the booking not done. */
 function refusalTask(turn: LiveTurn, staged: StagedSet, refused: Refused, customerText: string): string {
   const { prepared } = turn;
   const party = partyOf(turn, staged);

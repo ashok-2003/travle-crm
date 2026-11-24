@@ -1,6 +1,6 @@
-// No silence (plan 2, Task 8): a natural turn whose model fails is sent again after two minutes, then after ten; the
-// third failure sends the fallback line with a team task, and the AI stays on. An old attempt ends quietly when the
-// customer wrote since, and five chats run at once.
+// A natural turn whose model fails is sent again after two minutes, then after ten; the third failure sends the
+// customer nothing (the owner, 2026-11-24: no automatic holding line) and leaves the team a task, and the AI stays on.
+// An old attempt ends quietly when the customer wrote since, and five chats run at once.
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { setAgent } from "../../src/ai/agent-choice.js";
@@ -71,7 +71,6 @@ describe("a failed natural turn is tried again, then left to the team", () => {
   });
 
   it("sends nothing and leaves a task after the third failure, and the AI stays on", async () => {
-    // No automatic holding line (the owner, 2026-11-24): the team's task stands for the reply.
     const on = await liveAgency(test);
     const handler = handlerOf(on);
     const from = test.queue.sent.length;
