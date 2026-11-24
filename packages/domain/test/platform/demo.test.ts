@@ -8,6 +8,7 @@ import { leadStages } from "@travel-crm/contracts/crm";
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { asOrganization } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { agentSetupOf, runAgentTurn } from "../../src/ai/index.js";
 import { createFiles } from "../../src/files/index.js";
@@ -333,7 +334,7 @@ describe("the demo reset", () => {
     expect(await canSignInByUsername(test.identity.identity, demo.code, "asha", demo.password)).toBe(true);
   });
 
-  it("purges last night's demo with an earlier agent's rows and builds it again on the lite agent", async () => {
+  it("purges last night's demo with an earlier agent's rows and builds it again on the one agent", async () => {
     const demo = demoSettings();
     const first = await resetDemoOrganization(test.services, demo);
     // What the release before the move could leave in the demo: the AI on, the autopilot on the grounded agent with a
@@ -380,7 +381,7 @@ describe("the demo reset", () => {
     expect(
       await inDemo(async (tx) => [await tx.aiLearning.count(), await tx.aiKnowledge.count(), await tx.aiMedia.count()]),
     ).toEqual([0, 0, 0]);
-    // Its chats run nothing but the lite turn, and that stops at the agent being off: no model call.
+    // Its chats run nothing but the one turn, and that stops at the agent being off: no model call.
     const chatId = await inDemo(async (tx) => {
       const connection =
         (await tx.whatsappConnection.findFirst({ select: { id: true } })) ??
@@ -412,6 +413,7 @@ describe("the demo reset", () => {
       return chat.id;
     });
     const model = createMemoryAiModel();
+    const toolAgent = createMemoryToolAgent();
     const entitlements: Entitlements = {
       status: "active",
       access: "full",
@@ -430,6 +432,7 @@ describe("the demo reset", () => {
         agencyName: () => Promise.resolve("Demo"),
         files: createFiles({ db: test.services.db, storage: test.services.storage }),
         managers: () => Promise.resolve([]),
+        toolAgent,
       },
       { organizationId, conversationId: chatId, kind: "reply", token: "demo-turn" },
       new Date(),

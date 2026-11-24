@@ -26,14 +26,14 @@ describe("an agency's agent", () => {
     return { organizationId, inOrg, admin, owner: memberOf(organizationId, "org-owner") };
   }
 
-  it("reads natural for an agency that never chose", async () => {
+  it("reads one for an agency that never chose", async () => {
     const { inOrg } = await agency();
-    expect(await inOrg((tx) => agentOf(tx))).toBe("natural");
+    expect(await inOrg((tx) => agentOf(tx))).toBe("one");
   });
 
   it("records a change in the agency's audit log under the admin's name, and nothing when unchanged", async () => {
     const { organizationId, inOrg, admin } = await agency();
-    expect(await inOrg((tx) => setAgent(tx, admin, "natural"))).toEqual({ changed: false });
+    expect(await inOrg((tx) => setAgent(tx, admin, "one"))).toEqual({ changed: false });
     expect(await inOrg((tx) => setAgent(tx, admin, "lite"))).toEqual({ changed: true });
     expect(await inOrg((tx) => setAgent(tx, admin, "lite"))).toEqual({ changed: false });
     expect(await inOrg((tx) => agentOf(tx))).toBe("lite");
@@ -44,19 +44,19 @@ describe("an agency's agent", () => {
     expect(entries[0]).toMatchObject({
       source: "platform",
       actorUserId: admin.userId,
-      before: { agent: "natural" },
+      before: { agent: "one" },
       after: { agent: "lite" },
     });
   });
 
-  it("reads one, and audits a move to it", async () => {
+  it("reads natural, and audits a move to it", async () => {
     const { organizationId, inOrg, admin } = await agency();
-    expect(await inOrg((tx) => setAgent(tx, admin, "one"))).toEqual({ changed: true });
-    expect(await inOrg((tx) => agentOf(tx))).toBe("one");
+    expect(await inOrg((tx) => setAgent(tx, admin, "natural"))).toEqual({ changed: true });
+    expect(await inOrg((tx) => agentOf(tx))).toBe("natural");
     const entries = (await auditOf(test, organizationId, organizationId)).filter(
       (entry) => entry.action === "ai-agent.agent-changed",
     );
-    expect(entries[0]).toMatchObject({ before: { agent: "natural" }, after: { agent: "one" } });
+    expect(entries[0]).toMatchObject({ before: { agent: "one" }, after: { agent: "natural" } });
   });
 
   it("leaves the agent as it was when the agency saves its own settings", async () => {
