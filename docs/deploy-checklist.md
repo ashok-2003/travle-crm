@@ -716,6 +716,15 @@ trigger's function so an edit or a deletion refreshes open chats.
 2. The web is safe whichever side deploys first: it reads the four new fields as possibly missing (`lib/older-api.ts`),
    so against the release before's api no message shows as deleted, edited or from an ad, and Forward stays offered.
 
+## Release: the installed-app icon, splash and install bar
+
+One migration, only adding: `20261220100000_member_installed_app` creates one new table (who opened the installed app).
+
+1. CI applies it before the api release; the release before keeps working while it applies, and nothing needs an undo.
+2. The web is safe whichever side deploys first: against the old api there is no server memory of the installed app, so
+   an iPhone in Safari shows the Share line. Rolling back needs no undo.
+3. Tell users: an Android install offers "Update app" for the new icon; an iPhone needs the app removed and added again.
+
 ## Still open before launch
 
 - **The deploy pipeline** (spec 12.1). CI builds the images and runs them, but publishes nothing. Still to build: a
