@@ -370,5 +370,41 @@
     "reopened": "Departure opened again",
     "viewDeparture": "Open departure",
     "specialLabel": "Special prices"
+  },
+  "specialPrices": {
+    "title": "Special prices",
+    "description": "A price for a period, per person for each room type sold, {gst, select, including {including GST} other {before GST}}. Days outside it keep the usual prices.",
+    "label": "Name",
+    "labelHint": "Such as \"Diwali week\".",
+    "startsOn": "First day",
+    "endsOn": "Last day",
+    "openEnded": "Until I change them",
+    "price": "{room}, per person",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Special prices saved",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this.",
+      "noPrice": "Give at least one room type a price."
+    }
+  },
+  "addDates": {
+    "title": "Add dates",
+    "description": "Adds a departure on each day from the first to the last day, or only on the weekdays you pick. Days that have one are left alone.",
+    "from": "First day",
+    "to": "Last day",
+    "weekdays": "Only these days of the week",
+    "weekdaysHint": "Pick none for every day.",
+    "add": "Add dates",
+    "adding": "Adding",
+    "added": "{count, plural, =0 {No dates added.} one {# date added.} other {# dates added.}}",
+    "alreadyThere": "Already there: {days}",
+    "cancelledTitle": "Cancelled departures on these days were not touched:",
+    "cancelledDay": "{day}, cancelled",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this."
+    }
   }
 }

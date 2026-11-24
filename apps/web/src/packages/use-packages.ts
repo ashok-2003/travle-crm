@@ -48,6 +48,9 @@ export function usePackageChanges() {
     saveTier: useMutation(trpc.packages.saveTier.mutationOptions(options)),
     removeTier: useMutation(trpc.packages.removeTier.mutationOptions(options)),
     saveSeason: useMutation(trpc.packages.saveSeason.mutationOptions(options)),
+    saveSpecialPrices: useMutation(trpc.packages.saveSpecialPrices.mutationOptions(options)),
+    updatePart: useMutation(trpc.packages.updatePart.mutationOptions(options)),
+    copyNote: useMutation(trpc.packages.copyNote.mutationOptions(options)),
     removeSeason: useMutation(trpc.packages.removeSeason.mutationOptions(options)),
   };
 }
