@@ -386,7 +386,7 @@
     }
   },
   "calendar": {
-    "title": "Dates and prices",
+    "title": "Price calendar",
     "seatsLeft": "{day}, {free, plural, one {# seat} other {# seats}} left",
     "full": "{day}, full",
     "cancelledDay": "{day}, cancelled",
