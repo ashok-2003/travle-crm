@@ -141,6 +141,14 @@ describe("filesNamedIn", () => {
     ]);
   });
 
+  it("leaves out the iPhone startup images, which only an iPhone's home screen uses", () => {
+    expect(
+      filesNamedIn(
+        '<link rel="apple-touch-startup-image" href="/icons/apple-startup-1290x2796-v2.png"/><link rel="icon" href="/icons/favicon.svg"/>',
+      ),
+    ).toEqual(["/icons/favicon.svg"]);
+  });
+
   it("skips legacy scripts, which a browser with service workers never runs", () => {
     expect(filesNamedIn('<script src="/_next/static/chunks/polyfills.js" noModule=""></script>')).toEqual([]);
   });
