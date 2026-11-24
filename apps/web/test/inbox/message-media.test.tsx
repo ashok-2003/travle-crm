@@ -58,6 +58,10 @@ const message = (extra: Partial<ChatMessage> = {}): ChatMessage => ({
   aiText: null,
   buttons: null,
   tapped: false,
+  editedAt: null,
+  revokedAt: null,
+  unsupportedReason: null,
+  adHeadline: null,
   ...extra,
 });
 
