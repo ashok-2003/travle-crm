@@ -146,7 +146,8 @@ describe("Try it on the natural agent, traced", () => {
     expect(next?.start.sessionId).not.toBe(failed?.start.sessionId);
     expect(failed?.generations[0]?.end).toEqual({ level: "ERROR", statusMessage: "unavailable" });
     expect(shown(on.tracing)).toMatchObject({
-      output: { role: "assistant", content: answer.messages[0] },
+      // Nothing went to the customer: the output says why.
+      output: { outcome: "fallback", fallback: "model_failed:unavailable" },
       metadata: { outcome: "fallback", fallback: "model_failed:unavailable", staged: [], toolCalls: [] },
       statusMessage: "fallback: model_failed:unavailable",
       level: "ERROR",

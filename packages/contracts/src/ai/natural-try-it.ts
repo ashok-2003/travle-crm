@@ -102,7 +102,7 @@ export const naturalDryAction = z.discriminatedUnion("tool", [
 ]);
 export type NaturalDryAction = z.infer<typeof naturalDryAction>;
 
-/** How the turn ended: words went, nothing went, a person takes the chat, or the fallback line went. */
+/** How the turn ended: words went, nothing went, a person takes the chat, or it couldn't answer (a task). */
 export const naturalTestOutcomes = ["replied", "quiet", "handed_off", "fallback"] as const;
 export type NaturalTestOutcome = (typeof naturalTestOutcomes)[number];
 

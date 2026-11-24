@@ -45,7 +45,7 @@ export function naturalTurnStart(
 export const turnInputOf = (lines: readonly NaturalChatLine[]) =>
   lines.map((line) => ({ role: "user", content: line.text === "" ? `[${line.kind}]` : line.text }));
 
-/** A model that answered nothing is an error; the fallback line, or a turn the team must look at, a warning. */
+/** A model that answered nothing is an error; the fallback, or a turn the team must look at, a warning. */
 function levelOf(outcome: string): TraceLevel {
   if (outcome === "model_failed") return "ERROR";
   return WARNINGS.has(outcome) ? "WARNING" : "DEFAULT";

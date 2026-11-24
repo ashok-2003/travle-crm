@@ -171,8 +171,10 @@ the team and keeps helping. A person answers in the chat, which the AI reads as 
 | The act refuses a booking (seats gone, a hold already there) | One more call with the refusal and open dates, else the fallback line and a task |
 | The day cap (25 replies in a chat in a day), or the month's AI limit | A fixed hand-over line and a hand-over, so a person answers (writer) |
 
-The fallback line is fixed in three languages, picked by the customer's script (writer): "Ye team se check karke yahin
-batate hain." / "Let me check this with the team; they'll reply here." / "यह टीम से पूछकर यहीं बताते हैं।". The gates
+**No fallback line (the owner, 2026-11-24).** Where this table and section 5 say "the fallback line", nothing goes to
+the customer: the team's task holds what they wrote, what wasn't done and any draft, and the AI stays on for their next
+message. The day cap and the month's limit hand the chat over with no line either. Customers had been getting the same
+fixed line again and again while the model was down. A hand-over the AI chooses still goes in its own words. The gates
 (off, paused, a person answering, outside the window) send nothing, as today.
 
 ## 4. Context

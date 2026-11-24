@@ -75,14 +75,13 @@ const clip = (text: string, most: number) => {
  */
 export function fallbackTask(input: {
   reason: FallbackReason;
-  line: string;
   customerText: string;
   dropped: readonly string[];
   draft: string | null;
 }): string {
-  const { reason, line, customerText, dropped, draft } = input;
+  const { reason, customerText, dropped, draft } = input;
   const parts = [
-    `${WHY[reason]}, so the customer got "${line}".`,
+    `${WHY[reason]}, so nothing went to the customer.`,
     customerText.trim() === "" ? "" : `They wrote: "${clip(customerText, 160)}".`,
     dropped.length === 0 ? "" : `Not done: ${dropped.join("; ")}.`,
     draft === null ? "Why on this turn shows what it tried." : `Its draft, to correct and send: "${clip(draft, 200)}"`,

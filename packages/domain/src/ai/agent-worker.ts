@@ -183,7 +183,7 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
           kind: "reply" as const,
           token: job.messageId,
         };
-        // The last try sends the fallback line with no model call; the earlier ones may fail and be tried again.
+        // The last try leaves the team a task with no model call; the earlier ones may fail and be tried again.
         const last = job.attempt >= RETRY_AFTER_MS.length;
         const outcome = last
           ? await runAgentFallback(dependencies, input, new Date())

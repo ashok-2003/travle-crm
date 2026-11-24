@@ -47,7 +47,7 @@ export type ChatAi = z.infer<typeof chatAi>;
 export const aiChatResumedEvent = z.strictObject({ conversationId: recordId });
 /**
  * The ai.reply job: the AI's turn after a customer's message, a few seconds later so a burst reads as one. `attempt` counts
- * the natural agent's tries again after its model failed: 0 the first, 2 the last, which sends the fallback line.
+ * the natural agent's tries again after its model failed: 0 the first, 2 the last, which leaves a task.
  */
 export const aiReplyJob = z.strictObject({
   organizationId: recordId,

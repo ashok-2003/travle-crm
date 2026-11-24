@@ -1,10 +1,9 @@
 // How a natural turn ends (spec 3.2 and 3.6): the reply, in at most two messages, with what was staged and its trace
-// flags; or the fallback line, with only the agency's own actions kept and a task for the team holding what the customer
-// wrote, what wasn't done and the AI's draft.
+// flags; or the fallback: nothing to the customer (the owner, 2026-11-24), only the agency's own actions kept, and a task
+// for the team holding what the customer wrote, what wasn't done and the AI's draft.
 import type { BookingTerms } from "@travel-crm/contracts/ai";
 import { formatRupees, formatShortDay, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
 import type { NaturalContext } from "../context/build.js";
-import { fallbackLine } from "../fallback-line.js";
 import { traceFlags } from "../guards/check-words.js";
 import { withStaged } from "../tools/action-tools.js";
 import type { NaturalTraceBuilder } from "../trace.js";
@@ -14,14 +13,14 @@ import { fallbackTask, splitMessages } from "./words.js";
 
 export interface TurnEnds {
   final(run: TurnRun, words: string, callsUsed: number, model: string): LoopEnd;
-  /** `handOver` is staged with the fallback line (G4's second failure). */
+  /** `handOver` is staged with the fallback (G4's second failure). */
   fallback(reason: FallbackReason, run: TurnRun, draft: string | null, handOver?: StagedAction): LoopEnd;
 }
 
 /**
- * What reaches the customer, never beside the fallback line (the lead's ruling, 2026-11-16): no seats held, no payment
- * lines or QR, no brochure, no offer they didn't read, and no silence, since the line goes. The agency's own actions stay:
- * a task, a hand-over, the lead's fields, a note, a follow-up, a suggested close.
+ * What reaches the customer, never in a fallback (the lead's ruling, 2026-11-16): no seats held, no payment lines or QR,
+ * no brochure, no offer they didn't read, and no stay_quiet, since the team's task stands for the reply. The agency's own
+ * actions stay: a task, a hand-over, the lead's fields, a note, a follow-up, a suggested close.
  */
 export const CUSTOMER_FACING = ["book", "resend_payment", "send_brochure", "offer_booking", "stay_quiet"] as const;
 
@@ -77,13 +76,11 @@ export function turnEnds(context: NaturalContext, settings: LoopSettings, trace:
         const words = staged.has(action.tool) ? null : notDone(action, tripOf, settings.flagContext.today);
         return words === null ? [] : [words];
       });
-      const line = fallbackLine(customerText);
       return {
         end: "fallback",
         reason,
-        messages: [line],
         staged,
-        task: fallbackTask({ reason, line, customerText, dropped, draft }),
+        task: fallbackTask({ reason, customerText, dropped, draft }),
         draft,
       };
     },

@@ -35,7 +35,8 @@ Non-goals:
 - Changing how a booking, a hold, a payment or a follow-up works in the CRM itself.
 
 Anti-goals: the move fails if any of these happen, even if the agent "works":
-- a customer gets silence where today they'd get a reply or the fallback line;
+- a customer gets silence where today they'd get a reply (since 2026-11-24 a fallback sends nothing, by the owner's
+  choice: the team's task stands for the reply);
 - seats are held, or a QR goes out, without the message that explains it;
 - one agency's data reaches another agency's chat;
 - a payment is confirmed by the AI.
@@ -49,7 +50,7 @@ These parts stay. The builder reuses the code; the framework only replaces the l
 - **The worker:**
   - a customer's message queues a turn 3 s later, so a burst is read as one;
   - only the newest message is answered;
-  - a turn whose model is down runs again after 1 and 5 minutes, then sends the fallback line and a task
+  - a turn whose model is down runs again after two waits, then leaves the team a task and sends nothing
     (`ai/agent-worker.ts`).
 - **The gates** before any model call:
   - the agency's "Use the AI" switch;
@@ -113,7 +114,7 @@ This is the second anti-goal.
 - **Loop:** LangGraph's default `recursion_limit` (25 steps, about 12 model calls) (owner). **No time cap** on the
   turn: a customer waiting a few minutes is fine (owner).
 - `max_tokens` stays 8,000 per call. Each call still counts against the month's AI limit.
-- When the limit is hit: the fallback line and a task (section 11).
+- When the limit is hit: a task for the team, and nothing sent (section 11).
 - **Concurrency:** the worker runs **5** turns at once, down from 6 (`AT_ONCE`), because the server is small (owner).
 
 ## 5. What the model reads
@@ -234,9 +235,9 @@ How they work (lead):
   instead. The model acts on it in the same turn, as today.
 - **A lookup fails** (the database): the tool answers "couldn't read that just now; say you'll check, and create a
   task".
-- **The model is down:** the job retries after 1 and 5 minutes. After that, the fallback line in the customer's
-  language, and a task holding what they wrote.
-- **The loop limit is hit:** the fallback line and a task.
+- **The model is down:** the job retries twice, after a wait each time. After that, a task holding what they wrote,
+  and nothing to the customer (the owner, 2026-11-24: no automatic holding line).
+- **The loop limit is hit:** a task, and nothing to the customer.
 - **The act refuses a booking** (the seats went, the price changed): nothing is held. The model answers once more
   with the trip's open dates, as `turn-refused.ts` does.
 - **Error rates:** each tool call, refusal and fallback is in the Langfuse trace and in `ai_turn_trace`. The owner

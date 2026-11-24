@@ -61,7 +61,7 @@ export function mayEndSilent(run: Pick<TurnRun, "staged" | "modelStaged">): bool
   return QUIET_ENDERS.some((tool) => run.modelStaged.has(tool)) || run.modelStaged.has("hand_over");
 }
 
-/** A guard's second failure (spec 5): the offer withdrawn and the words sent, or the fallback line (and a hand-over). */
+/** A guard's second failure (spec 5): the offer withdrawn and the words sent, or the fallback (and a hand-over). */
 function guardFallback(
   verdict: Extract<WordsVerdict, { ok: false }>,
   response: Response,

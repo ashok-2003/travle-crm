@@ -79,7 +79,7 @@ export type LoopEnd =
   | {
       end: "fallback";
       reason: FallbackReason;
-      messages: [string];
+      /** Nothing goes to the customer (the owner, 2026-11-24): only these, the agency's own actions, and the task. */
       staged: StagedSet;
       /** For the team: why, what the customer wrote, and the refused draft if there was one. */
       task: string;

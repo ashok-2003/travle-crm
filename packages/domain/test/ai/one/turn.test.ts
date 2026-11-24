@@ -1,14 +1,13 @@
 // The one agent's live turn against the real database, the memory model and the in-memory tool agent (one turn on
 // LangGraph itself): the prompt, the trace, the earlier system's lines whole, the limits and the payment screenshot
-// before the model, the one more run after a refused booking, and the ends that send nothing (a newer line, a model
-// that can't answer) or the fallback line (the steps run out).
+// before the model, the one more run after a refused booking, and the ends that send nothing: a newer line, a model
+// that can't answer, and the fallback (the steps run out), which leaves the team a task.
 import { withTracing, type AiModel } from "@travel-crm/integrations/ai";
 import { createMemoryPrompts, type ManagedPrompt } from "@travel-crm/integrations/prompts";
 import { createLangGraphToolAgent, createMemoryToolAgent, type ToolAgent } from "@travel-crm/integrations/tool-agent";
 import { createMemoryTracing, notedTurn, type MemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { replyDayOf } from "../../../src/ai/may-write.js";
-import { fallbackLine } from "../../../src/ai/natural/fallback-line.js";
 import { PAYMENT_PHOTO_TASK } from "../../../src/ai/one/before-the-model.js";
 import { offerButtons } from "../../../src/ai/one/card.js";
 import { BUILT_IN_ONE_PROMPT, ONE_PROMPT_NAME } from "../../../src/ai/one/prompt.js";
@@ -270,12 +269,12 @@ describe("the one agent's live turn", () => {
     expect(read).toContain("[sent: Kedarkantha quote ₹21,000]");
   });
 
-  it("hands over at the day's cap and a full month with the fallback line, and calls no model", async () => {
+  it("hands over at the day's cap and a full month with nothing sent, and calls no model", async () => {
     const on = await world();
     await on.atTheDayCap();
     expect(await on.turn()).toBe("handed_off");
     expect(on.model.requests).toEqual([]);
-    expect((await on.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await on.outbound()).toEqual([]);
     expect((await on.chatState())?.handoffReason).toBe("Wrote more than the AI answers in a day");
 
     const full = await world();
@@ -284,7 +283,7 @@ describe("the one agent's live turn", () => {
     );
     expect(await full.turn()).toBe("handed_off");
     expect(full.model.requests).toEqual([]);
-    expect((await full.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await full.outbound()).toEqual([]);
     expect((await full.chatState())?.handoffReason).toBe("This month's AI credits are used up");
   });
 
@@ -296,7 +295,7 @@ describe("the one agent's live turn", () => {
     on.model.answer({ toolCalls: [{ name: "get_trip", arguments: { trip_id: "T1" } }] }, { text: priceWords });
     expect(await on.turn()).toBe("handed_off");
     expect(on.model.requests).toHaveLength(1);
-    expect((await on.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await on.outbound()).toEqual([]);
     expect((await on.chatState())?.handoffReason).toBe("This month's AI credits are used up");
   });
 
@@ -366,7 +365,7 @@ describe("the one agent's live turn", () => {
   it("tries once more when the act can't hold the seats, keeping the reasoning details, then falls back", async () => {
     const on = await world();
     // The model has no answer for the one more run.
-    const { yes, outcome } = await on.refusedYes();
+    const { outcome } = await on.refusedYes();
     expect(outcome).toBe("fallback");
     const [first, , again] = on.model.requests.slice(-3);
     expect(again?.messages.at(-1)?.content).toContain("The seats couldn't be held");
@@ -376,7 +375,7 @@ describe("the one agent's live turn", () => {
     const thisTurn = again?.messages.slice(first?.messages.length) ?? [];
     expect(thisTurn.filter((message) => message.role === "assistant")).toHaveLength(2);
     expect(thisTurn.filter((m) => m.role === "assistant").every((m) => m.reasoningDetails !== undefined)).toBe(true);
-    expect(await on.sentAfterOffer()).toEqual([[`ai:${yes}`, fallbackLine("haan, kar do")]]);
+    expect(await on.sentAfterOffer()).toEqual([]);
     expect((await on.aiTask()).title).toContain("The seats couldn't be held");
     expect(await on.bookings()).toBe(0);
   });
@@ -390,13 +389,13 @@ describe("the one agent's live turn", () => {
     expect(await on.bookings()).toBe(0);
   });
 
-  it("never ends the refused booking's turn silent, nor loses the booking from the team's task", async () => {
+  it("leaves the refused booking's turn to the team, never losing the booking from its task", async () => {
     const on = await world();
-    // stay_quiet alone, after "Nothing was sent; reply again": the customer still gets a line, the team a task.
+    // stay_quiet alone, after "Nothing was sent; reply again": nothing goes to the customer, and the team gets a task.
     const quiet = { name: "stay_quiet", arguments: { reason: "nothing to add" } };
-    const { yes, outcome } = await on.refusedYes({ toolCalls: [quiet] }, "");
+    const { outcome } = await on.refusedYes({ toolCalls: [quiet] }, "");
     expect(outcome).toBe("fallback");
-    expect(await on.sentAfterOffer()).toEqual([[`ai:${yes}`, fallbackLine("haan, kar do")]]);
+    expect(await on.sentAfterOffer()).toEqual([]);
     expect((await on.aiTask()).title).toContain("The seats couldn't be held");
 
     // No words twice: the run's own fallback, whose task still names the booking not done.
@@ -447,7 +446,7 @@ describe("the one agent's live turn", () => {
     on.model.answer(...Array.from({ length: 13 }, () => lookup));
     expect(await on.turn()).toBe("fallback");
     expect(on.model.requests).toHaveLength(13);
-    expect((await on.outbound()).map((message) => message.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await on.outbound()).toEqual([]);
     expect((await on.aiTask()).title).toContain("too many steps");
   });
 

@@ -7,14 +7,13 @@ import { setAgent } from "../../src/ai/agent-choice.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { aiReplyHandler, type AgentDependencies } from "../../src/ai/index.js";
 import { replyDayOf } from "../../src/ai/may-write.js";
-import { fallbackLine } from "../../src/ai/natural/fallback-line.js";
 import { uuidFromKey } from "../../src/jobs/index.js";
 import { createTestInbox, type TestInbox } from "../inbox/support.js";
 import { FIRST_LINE, liveAgency, liveAt, liveNow, type LiveAgency } from "./natural/support/live-agency.js";
 
 const FAILED = { ok: false, reason: "unavailable" } as const;
 
-describe("a failed natural turn is tried again, never left silent", () => {
+describe("a failed natural turn is tried again, then left to the team", () => {
   let test: TestInbox;
   beforeAll(() => {
     test = createTestInbox();
@@ -71,7 +70,8 @@ describe("a failed natural turn is tried again, never left silent", () => {
     expect(await outbound(on)).toEqual([]);
   });
 
-  it("sends the fallback line and a task after the third failure, and the AI stays on", async () => {
+  it("sends nothing and leaves a task after the third failure, and the AI stays on", async () => {
+    // No automatic holding line (the owner, 2026-11-24): the team's task stands for the reply.
     const on = await liveAgency(test);
     const handler = handlerOf(on);
     const from = test.queue.sent.length;
@@ -79,14 +79,16 @@ describe("a failed natural turn is tried again, never left silent", () => {
     on.model.answer(FAILED);
     await handler.handle(jobOf(on, on.message.id, 2));
     expect(retries(from)).toEqual([]);
-    expect((await outbound(on)).map((line) => line.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await outbound(on)).toEqual([]);
     const tasks = await on.inOrg((tx) => tx.task.findMany({ where: { byAi: true } }));
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.title).toContain(FIRST_LINE);
+    expect(tasks[0]?.title).toContain("nothing went to the customer");
     expect(tasks[0]).toMatchObject({ recordType: "lead", recordId: on.leadId });
     const state = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
     expect(state).toMatchObject({ mode: "default", handedOffAt: null });
-    expect(state.lastReplyAt?.getTime()).toBe(liveNow.getTime());
+    // Nothing went, so the day's cap counts nothing.
+    expect(state.lastReplyAt).toBeNull();
     // The model was never asked: the fallback is code's.
     expect(on.model.requests).toHaveLength(0);
   });
@@ -108,12 +110,12 @@ describe("a failed natural turn is tried again, never left silent", () => {
     expect(await outbound(on)).toEqual([]);
   });
 
-  it("sends one's last try as the fallback line and a task, with no model call", async () => {
+  it("leaves one's last try to the team as a task, sending nothing and calling no model", async () => {
     const on = await liveAgency(test);
     await on.inOrg((tx) => setAgent(tx, systemActor(on.organizationId), "one"));
     clockAt(liveNow);
     await handlerOf(on).handle(jobOf(on, on.message.id, 2));
-    expect((await outbound(on)).map((line) => line.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await outbound(on)).toEqual([]);
     expect(await on.inOrg((tx) => tx.task.count({ where: { byAi: true } }))).toBe(1);
     expect(on.model.requests).toHaveLength(0);
   });
@@ -126,10 +128,10 @@ describe("a failed natural turn is tried again, never left silent", () => {
     const task = await on.inOrg((tx) => tx.task.findFirstOrThrow({ where: { byAi: true } }));
     expect(task.recordId).not.toBe(on.leadId);
     expect(task.recordType).toBe("lead");
-    expect((await outbound(on)).map((line) => line.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await outbound(on)).toEqual([]);
   });
 
-  it("still sends the fallback line, a hand-over and a task when the day's cap was reached during the waits", async () => {
+  it("still hands over and leaves a task, sending nothing, when the day's cap was reached during the waits", async () => {
     const on = await liveAgency(test);
     await on.inOrg(async (tx) => {
       const { maxRepliesPerDay } = await tx.aiAutopilot.findFirstOrThrow();
@@ -142,7 +144,7 @@ describe("a failed natural turn is tried again, never left silent", () => {
     });
     clockAt(liveNow);
     await handlerOf(on).handle(jobOf(on, on.message.id, 2));
-    expect((await outbound(on)).map((line) => line.body)).toEqual([fallbackLine(FIRST_LINE)]);
+    expect(await outbound(on)).toEqual([]);
     const state = await on.inOrg((tx) => tx.aiChat.findFirstOrThrow({ where: { conversationId: on.chat.id } }));
     expect(state.handoffReason).toBe("Wrote more than the AI answers in a day");
     const tasks = await on.inOrg((tx) => tx.task.findMany({ where: { byAi: true } }));

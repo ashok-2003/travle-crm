@@ -40,7 +40,7 @@ export interface TurnAct {
   handOver: { reason: string; summary: string } | null;
   task: { kind: NaturalTaskKind; text: string } | null;
   model: string | null;
-  /** Why the words are the fallback line (the loop's reason, a refused booking's), or null. */
+  /** Why the turn is a fallback, nothing sent and a task (the loop's reason, a refused booking's), or null. */
   fallback: string | null;
 }
 
@@ -134,7 +134,7 @@ async function actDepsOf(turn: LiveTurn, act: TurnAct): Promise<NaturalActDeps> 
 
 /**
  * What the act needs, or the turn's end when it can't be read (a database timeout): nothing was written, so the turn
- * ends `model_failed` and the worker tries again, and in the end sends the fallback line. Logged by ids and codes only.
+ * ends `model_failed` and the worker tries again, and in the end leaves the team a task. Logged by ids and codes only.
  */
 async function actDepsReadOf(
   turn: LiveTurn,

@@ -499,8 +499,8 @@ export const aiRouter = router({
 
   /**
    * Try it on the natural agent: its own strict input and answer, on the live prompt (label production). A server with
-   * no model for the agent answers AI_NOT_READY; any other model failure comes back as the fallback line and a task, as
-   * it would live. Nothing is sent or kept but the month's AI calls. When the server traces (Langfuse), each turn is one
+   * no model for the agent answers AI_NOT_READY; any other model failure comes back as nothing sent and a task, as it
+   * would live. Nothing is sent or kept but the month's AI calls. When the server traces (Langfuse), each turn is one
    * traced turn of the test chat, its session the chat's id.
    */
   testNatural: freshProcedure

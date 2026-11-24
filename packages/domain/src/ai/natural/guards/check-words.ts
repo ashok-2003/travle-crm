@@ -30,7 +30,7 @@ export interface GuardContext {
   today: CalendarDate;
 }
 
-/** What a guard's second failure does (spec 5): the fallback line and a task, the offer withdrawn, or a hand-over. */
+/** What a guard's second failure does (spec 5): the fallback (a task), the offer withdrawn, or a hand-over. */
 const FALLBACK: Record<GuardName, GuardFallback> = {
   G1: "fallback_task",
   G2: "withdraw_offer",
