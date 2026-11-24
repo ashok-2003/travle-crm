@@ -10,9 +10,11 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiClient, TRPCProvider } from "@/data/trpc";
 import { locale, messages } from "@/i18n/messages";
+import { MeProvider } from "@/session/me-context";
 import { InstallBanner } from "@/shell/install-banner";
-import { HIDDEN_UNTIL_KEY, HIDE_FOR_MS, VISIT_KEY } from "@/shell/use-install-state";
-import { stubApi, type Answer } from "../support/api-stub";
+import { HIDDEN_UNTIL_KEY, HIDE_FOR_MS, visitKey } from "@/shell/use-install-state";
+import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
+import { member } from "../support/members";
 
 const words = messages.shell.installBar;
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1";
@@ -53,7 +55,8 @@ function setPhone(phone: Phone) {
   define(window, "deferredInstallPrompt", phone.prompt ?? null);
 }
 
-function renderBar(answers: Record<string, Answer> = {}) {
+const asha = member();
+function renderBar(answers: Record<string, Answer> = {}, me = asha) {
   const sent: unknown[] = [];
   const api = stubApi({
     "usage.installedApps": { data: { platforms: [] } },
@@ -68,7 +71,9 @@ function renderBar(answers: Record<string, Answer> = {}) {
     <NextIntlClientProvider locale={locale} messages={messages}>
       <QueryClientProvider client={queryClient}>
         <TRPCProvider trpcClient={createApiClient()} queryClient={queryClient}>
-          <InstallBanner />
+          <MeProvider me={me}>
+            <InstallBanner />
+          </MeProvider>
         </TRPCProvider>
       </QueryClientProvider>
     </NextIntlClientProvider>,
@@ -103,7 +108,7 @@ describe("the install bar's states", () => {
   });
 
   it("says to open the app from the home screen on an Android phone that finds it installed", async () => {
-    setPhone({ userAgent: PIXEL, relatedApps: [{ platform: "webapp" }], prompt: installable() });
+    setPhone({ userAgent: PIXEL, relatedApps: [{ platform: "webapp" }] });
     renderBar();
     expect(await screen.findByText(homeScreenLine())).toBeVisible();
     expect(screen.queryByRole("button", { name: words.install })).toBeNull();
@@ -139,7 +144,7 @@ describe("the install bar's states", () => {
   });
 
   it("points an Android browser to the home screen when the server says the app was used on Android", async () => {
-    setPhone({ userAgent: PIXEL, prompt: installable() });
+    setPhone({ userAgent: PIXEL });
     renderBar({ "usage.installedApps": { data: { platforms: ["android"] } } });
     expect(await screen.findByText(homeScreenLine())).toBeVisible();
     expect(screen.queryByRole("button", { name: words.install })).toBeNull();
@@ -185,6 +190,34 @@ describe("the install bar's states", () => {
   });
 });
 
+describe("what wins, and what waits", () => {
+  it("offers Install when Chrome offered the prompt, even if the server remembers the app on Android", async () => {
+    // Chrome offers it only where the app isn't installed on this phone (an uninstall, a new phone).
+    setPhone({ userAgent: PIXEL, prompt: installable(), relatedApps: [{ platform: "webapp" }] });
+    renderBar({ "usage.installedApps": { data: { platforms: ["android"] } } });
+    expect(await screen.findByText(installLine())).toBeVisible();
+  });
+
+  it("shows nothing on an iPhone until the server's memory has answered, then one line, never two", async () => {
+    setPhone({ userAgent: IPHONE });
+    const held = heldAnswer({ data: { platforms: ["ios"] } });
+    renderBar({ "usage.installedApps": held.answer });
+    await act(() => Promise.resolve());
+    expect(screen.queryByText(words.ios)).toBeNull();
+    held.release();
+    expect(await screen.findByText(homeScreenLine())).toBeVisible();
+    expect(screen.queryByText(words.ios)).toBeNull();
+  });
+
+  it("gives no bar in an app's web view on an iPhone (no Safari in its user agent)", async () => {
+    setPhone({ userAgent: IPHONE.replace(" Safari/604.1", "") });
+    const { api } = renderBar();
+    await act(() => Promise.resolve());
+    expect(screen.queryByRole("button", { name: words.hide })).toBeNull();
+    expect(api.calls).toEqual([]);
+  });
+});
+
 describe("hiding the bar", () => {
   it("hides it for a week with x, and brings it back after", async () => {
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-25T10:00:00Z") });
@@ -222,10 +255,14 @@ describe("inside the installed app", () => {
       { userAgent: IPHONE, iosStandalone: true },
     ]) {
       setPhone(phone);
-      const { view } = renderBar();
-      await act(() => Promise.resolve());
+      const { view, sent } = renderBar();
+      // Let the visit's call land before this test ends, so it can't reach the next test's stub.
+      await waitFor(() => {
+        expect(sent).toHaveLength(1);
+      });
       expect(screen.queryByRole("button", { name: words.hide })).toBeNull();
       view.unmount();
+      localStorage.clear();
     }
   });
 
@@ -236,7 +273,9 @@ describe("inside the installed app", () => {
     await waitFor(() => {
       expect(first.sent).toEqual([{ platform: "ios" }]);
     });
-    expect(localStorage.getItem(VISIT_KEY)).not.toBeNull();
+    await waitFor(() => {
+      expect(localStorage.getItem(visitKey(asha.user.id))).not.toBeNull();
+    });
     first.view.unmount();
 
     const sameDay = renderBar();
@@ -248,6 +287,38 @@ describe("inside the installed app", () => {
     const nextDay = renderBar();
     await waitFor(() => {
       expect(nextDay.sent).toEqual([{ platform: "ios" }]);
+    });
+  });
+
+  it("tries again at the next open when the server could not be reached", async () => {
+    setPhone({ userAgent: IPHONE, iosStandalone: true });
+    const failing = renderBar({ "usage.installedAppSeen": { status: 500 } });
+    await waitFor(() => {
+      expect(failing.api.calls).toContain("usage.installedAppSeen");
+    });
+    await act(() => Promise.resolve());
+    expect(localStorage.getItem(visitKey(asha.user.id))).toBeNull();
+    failing.view.unmount();
+    const retry = renderBar();
+    await waitFor(() => {
+      expect(retry.sent).toEqual([{ platform: "ios" }]);
+    });
+  });
+
+  it("keeps the daily throttle per person: a second person on the same phone is noted too", async () => {
+    setPhone({ userAgent: IPHONE, iosStandalone: true });
+    const first = renderBar();
+    await waitFor(() => {
+      expect(first.sent).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(localStorage.getItem(visitKey(asha.user.id))).not.toBeNull();
+    });
+    first.view.unmount();
+    const other = member({ userId: "0199a000-0000-7000-8000-0000000000aa" });
+    const second = renderBar({}, other);
+    await waitFor(() => {
+      expect(second.sent).toEqual([{ platform: "ios" }]);
     });
   });
 

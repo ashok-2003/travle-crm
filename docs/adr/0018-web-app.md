@@ -60,7 +60,8 @@ Date: 2026-10-15 · Status: accepted · Implements spec sections 3, 11 and 12.1 
 - **`'unsafe-inline'` is an accepted risk.** Scripts and styles allow it: Next.js inlines its boot scripts, and nonces
   would make every page render per request, which the offline shell can't use. That leaves one guard against
   injected script: React escapes everything it renders, and the app never renders HTML from a string, which
-  `test/no-inner-html.test.ts` enforces. What still limits an injection: `connect-src`, `form-action` and
+  `test/no-inner-html.test.ts` enforces. The one inline script of our own is the install bar's early listener
+  (`pwa/install-prompt-capture.tsx`); the test allows it alone and checks its text is a fixed constant. What still limits an injection: `connect-src`, `form-action` and
   `base-uri` are our own origin only, `object-src` is none, and framing is refused. Revisit if the app ever needs
   to show rich text: sanitize it on the server, or move to nonces.
 - **The PWA.** A manifest from the brand package; a hand-written service worker (bundled by esbuild) keeps a shell of
