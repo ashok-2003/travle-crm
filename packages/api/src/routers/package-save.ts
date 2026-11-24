@@ -1,7 +1,7 @@
 // Saving a package and, when its schedule changed, making the departures that now fit: shared by a full save and a part.
 import type { UpdatePackageInput } from "@travel-crm/contracts/quotes";
 import { generatePackageDepartures, reconcilePackageDepartures } from "@travel-crm/domain/departures";
-import { findPackage, updatePackage, type PackageRow } from "@travel-crm/domain/quotes";
+import { findPackageForChange, updatePackage, type PackageRow } from "@travel-crm/domain/quotes";
 import type { Database } from "@travel-crm/db";
 import type { Identity, MemberAccess } from "@travel-crm/domain/identity";
 import type { Entitlements } from "@travel-crm/domain/subscriptions";
@@ -35,7 +35,7 @@ export async function savePackageWithSchedule(
   // Told of a departure the change left alone when its leads have no owner: those who manage departures.
   const managers = await ctx.identity.membersHolding(ctx.member.organizationId, "departures:edit");
   await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
-    const before = await findPackage(tx, packageId);
+    const before = await findPackageForChange(tx, packageId);
     const input = inputFor(before);
     await updatePackage(tx, ctx.member, input);
     // Making departures is departures work: skipped, silently, for a member or a plan without it.

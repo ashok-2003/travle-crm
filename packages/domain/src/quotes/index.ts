@@ -32,7 +32,7 @@ export {
 } from "./package-edit.js";
 export { exTaxSubtotal, fromPrices, onlyRoomType, priceOn, totalFor, type SeasonPrices } from "./room-prices.js";
 export { attachDraftBrochure, createGroupPackage } from "./group-package-create.js";
-export { findPackage, type PackageRow } from "./package-row.js";
+export { findPackage, findPackageForChange, type PackageRow } from "./package-row.js";
 export { removePackageSeason, savePackageSeason, seasonsByPackage, seasonsOf } from "./package-seasons.js";
 export { saveSpecialPrices } from "./special-prices.js";
 export { mergePackagePart } from "./package-part.js";

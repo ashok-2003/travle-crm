@@ -51,3 +51,12 @@ export async function findPackage(tx: OrgTx, packageId: string): Promise<Package
   if (row === null) throw notFound();
   return row;
 }
+
+/**
+ * The same, with the package's row locked until the transaction ends: two saves of different sections wait their turn, and
+ * the second merges over what the first wrote.
+ */
+export async function findPackageForChange(tx: OrgTx, packageId: string): Promise<PackageRow> {
+  await tx.$queryRaw`SELECT id FROM quote_template WHERE id = ${packageId}::uuid AND deleted_at IS NULL FOR UPDATE`;
+  return findPackage(tx, packageId);
+}
