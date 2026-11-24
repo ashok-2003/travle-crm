@@ -1,7 +1,8 @@
-// The natural turn's messages, in order (spec 3.2, 3.3): the model's words as one or two messages, a brochure's files
-// captioned with the trip's title, or the one agent's brochure name (none this chat was sent before unless the one agent sends it again, three at most), and after a hold or `resend_payment`
-// the agency's payment lines as one text, then its QR. Each carries a token made from the turn's ("ai:<t>", ":m2",
-// ":f<n>", ":pay", ":qr"), so a repeat sends none twice; a refusal throws and the turn rolls back.
+// The natural turn's messages, in order (spec 3.2, 3.3): the model's words as one or two messages, the one agent's offer
+// card and trip menu, a brochure's files captioned with the trip's title, or the one agent's brochure name (none this
+// chat was sent before unless the one agent sends it again, three at most), and after a hold or `resend_payment` the
+// agency's payment lines as one text, then its QR. Each carries a token made from the turn's ("ai:<t>", ":m2", ":card",
+// ":menu", ":f<n>", ":pay", ":qr"), so a repeat sends none twice; a refusal throws and the turn rolls back.
 import { MAX_AI_MEDIA_PER_REPLY } from "@travel-crm/contracts/ai";
 import {
   PACKAGE_BROCHURE_RECORD_TYPE,
@@ -75,9 +76,18 @@ export async function sendTurn(
   if (offered?.card === true && offered.offer.id !== undefined && !settled) {
     const body = offerCardBody(offered.offer, input.sheets, input.today);
     sent.sentIds.push(
-      await sendAiText(tx, target, `ai:${token}:card`, body, "reply", undefined, offerButtons(offered.offer.id)),
+      await sendAiText(tx, target, `ai:${token}:card`, body, "reply", undefined, {
+        buttons: offerButtons(offered.offer.id),
+      }),
     );
     sent.codes.push("card");
+  }
+  // The one agent's trip menu, as code built it from the trips; never beside held seats or a hand-over either.
+  const menu = stagedOf(input.staged, "show_trips")?.menu;
+  if (menu !== undefined && !settled) {
+    const list = { button: menu.button, rows: menu.rows };
+    sent.sentIds.push(await sendAiText(tx, target, `ai:${token}:menu`, menu.body, "reply", undefined, { list }));
+    sent.codes.push("menu");
   }
   const brochure = stagedOf(input.staged, "send_brochure");
   if (brochure !== null) {

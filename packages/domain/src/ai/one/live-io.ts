@@ -8,12 +8,12 @@ import type { LiteDependencies, LiteTurnInput } from "../lite/types.js";
 import { countedModel } from "../natural/counted-model.js";
 import { liveActionContext, newerLineIn } from "../natural/live-io.js";
 import type { NaturalPrepared } from "../natural/prepare.js";
-import { stageAction } from "../natural/tools/action-tools.js";
 import { runReadTool, type ReadContext } from "../natural/tools/read-tools.js";
 import type { ToolTurnSink } from "../traces/trace-sink.js";
 import type { OneContext } from "./context.js";
 import { lookAtImage, transcribeVoiceNote } from "./media.js";
 import type { OneLoopIO } from "./loop.js";
+import { stageOneAction } from "./tools.js";
 
 export interface OneTurnDependencies extends LiteDependencies {
   /** Langfuse's prompts: live turns run on whatsapp-agent/real-agent at label production, else the built-in text. */
@@ -54,8 +54,7 @@ export function oneLiveIO(
       return done.ok ? done.text : done.refused;
     },
     read: (name, args) => db.forOrg(organizationId, (tx) => runReadTool(readContext(tx), name, args)),
-    stage: (name, args, words, quoted) =>
-      stageAction({ ...actions, quotedThisTurn: quoted }, name, args, words, { agent: "one" }),
+    stage: (name, args, words, quoted) => stageOneAction({ ...actions, quotedThisTurn: quoted }, name, args, words),
     newerLine: () => newerLineIn(db, input, prepared.lastInboundAt),
     clock,
   };

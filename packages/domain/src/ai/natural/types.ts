@@ -1,5 +1,6 @@
 // The shapes the natural agent's parts share: the chat as it reads to the model, the lead, a trip, a quote, staged actions.
 import type { LiveOffer, BookingTerms, NaturalTaskKind, OneHandOverReason } from "@travel-crm/contracts/ai";
+import type { ChatList } from "@travel-crm/contracts/inbox";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -20,6 +21,13 @@ export interface NaturalChatLine {
   aiText?: { kind: "transcript" | "description"; text: string };
   // The one agent's name for a customer's voice note or photo ("m3"); natural sets none.
   ref?: string;
+  // The customer picked this line's words from the trip menu.
+  fromMenu?: true;
+}
+
+/** The one agent's trip menu, built by code from the trip sheets: a WhatsApp list's body, its button and its rows. */
+export interface TripMenu extends ChatList {
+  body: string;
 }
 
 /** A room price per person, in paise, for each room type that has one. */
@@ -142,7 +150,8 @@ export type StagedAction =
   | { tool: "add_note"; text: string }
   | { tool: "hand_over"; reason: OneHandOverReason; summary: string }
   | { tool: "suggest_close"; kind: "lost" | "not_a_lead"; reason: string }
-  | { tool: "stay_quiet"; reason: string };
+  | { tool: "stay_quiet"; reason: string }
+  | { tool: "show_trips"; menu: TripMenu };
 
 // A later call of one tool replaces the earlier.
 export type StagedSet = ReadonlyMap<StagedAction["tool"], StagedAction>;

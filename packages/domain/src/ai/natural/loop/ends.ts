@@ -19,10 +19,17 @@ export interface TurnEnds {
 
 /**
  * What reaches the customer, never in a fallback (the lead's ruling, 2026-11-16): no seats held, no payment lines or QR,
- * no brochure, no offer they didn't read, and no stay_quiet, since the team's task stands for the reply. The agency's own
- * actions stay: a task, a hand-over, the lead's fields, a note, a follow-up, a suggested close.
+ * no brochure, no offer they didn't read, no trip menu, and no stay_quiet, since the team's task stands for the reply.
+ * The agency's own actions stay: a task, a hand-over, the lead's fields, a note, a follow-up, a suggested close.
  */
-export const CUSTOMER_FACING = ["book", "resend_payment", "send_brochure", "offer_booking", "stay_quiet"] as const;
+export const CUSTOMER_FACING = [
+  "book",
+  "resend_payment",
+  "send_brochure",
+  "offer_booking",
+  "show_trips",
+  "stay_quiet",
+] as const;
 
 export function without(set: StagedSet, tools: readonly StagedAction["tool"][]): StagedSet {
   return new Map([...set].filter(([tool]) => !tools.includes(tool)));
@@ -46,6 +53,8 @@ export function notDone(
       return `the AI meant to send ${tripOf(action.packageId)}'s brochure`;
     case "resend_payment":
       return "the AI meant to send the payment details again";
+    case "show_trips":
+      return "the AI meant to send the trip menu";
     default:
       return null;
   }

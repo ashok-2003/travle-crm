@@ -142,5 +142,7 @@ function summaryOf(action: StagedAction): string {
       return `${action.kind}: ${action.reason}`;
     case "stay_quiet":
       return action.reason;
+    case "show_trips":
+      return action.menu.rows.map((row) => row.title).join(", ");
   }
 }
