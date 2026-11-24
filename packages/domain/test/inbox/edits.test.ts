@@ -2,6 +2,9 @@
 // on keeps its reason, and an ad's headline is kept with the words (inbox revamp spec item 12). None of them counts as a
 // new customer message: the chat's wait, the unread count, the automatic answers and the usage stay as they were.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { linesAfter } from "../../src/ai/chat-summary/lines.js";
+import { chatLines } from "../../src/ai/lite/prepare.js";
+import { naturalChatLines } from "../../src/ai/natural/chat-lines.js";
 import {
   aConnectedAgency,
   createTestInbox,
@@ -72,6 +75,22 @@ describe("edits, deletions and messages that cannot be shown", () => {
     });
   });
 
+  it("never lets an older edit replace a newer one, whatever order they are processed in", async () => {
+    const connection = await aConnectedAgency(test);
+    const customerNumber = digits(freshPhone());
+    await answeredChat(connection, customerNumber, "wamid.e2");
+    const edit = (text: string, ts: number) => ({
+      ...fromCustomer(connection, { customerNumber, contentType: "edit", ts }),
+      ...meta(editOf("wamid.e2", text)),
+    });
+    await deliver(test, edit("Goa for 6", at(-50)));
+    await deliver(test, edit("Goa for 5", at(-100)));
+    expect(await original(connection, "wamid.e2")).toMatchObject({
+      body: "Goa for 6",
+      editedAt: new Date(testNow.getTime() - 50_000),
+    });
+  });
+
   it("keeps an edit whose original was never stored as a text message marked edited", async () => {
     const connection = await aConnectedAgency(test);
     const customerNumber = digits(freshPhone());
@@ -102,12 +121,42 @@ describe("edits, deletions and messages that cannot be shown", () => {
       ...meta({ type: "revoke", revoke: { original_message_id: "wamid.r1" } }),
     };
     await deliver(test, body);
-    await deliver(test, body);
+    await deliver(test, { ...body, ts: at(-40) });
     expect(await snapshot(connection)).toEqual(before);
     expect(await original(connection, "wamid.r1")).toMatchObject({
       body: "Goa trip",
       revokedAt: new Date(testNow.getTime() + -50 * 1000),
     });
+  });
+
+  it("keeps a deleted message out of everything the AI reads of the chat", async () => {
+    const connection = await aConnectedAgency(test);
+    const customerNumber = digits(freshPhone());
+    await deliver(
+      test,
+      fromCustomer(connection, { customerNumber, wamid: "wamid.w1", text: "Withdrawn words", ts: at(-300) }),
+    );
+    await deliver(
+      test,
+      fromCustomer(connection, { customerNumber, wamid: "wamid.w2", text: "Kept words", ts: at(-250) }),
+    );
+    const reads = () =>
+      test.db.forOrg(connection.organizationId, async (tx) => {
+        const chat = await tx.whatsappConversation.findFirstOrThrow({ select: { id: true } });
+        return JSON.stringify([
+          (await naturalChatLines(tx, chat.id)).lines,
+          (await linesAfter(tx, chat.id, null)).lines,
+          (await chatLines(tx, chat.id)).messages,
+        ]);
+      });
+    expect(await reads()).toContain("Withdrawn words");
+    await deliver(test, {
+      ...fromCustomer(connection, { customerNumber, contentType: "revoke", ts: at(-100) }),
+      ...meta({ type: "revoke", revoke: { original_message_id: "wamid.w1" } }),
+    });
+    const after = await reads();
+    expect(after).not.toContain("Withdrawn words");
+    expect(after).toContain("Kept words");
   });
 
   it("ignores a deletion whose original was never stored", async () => {

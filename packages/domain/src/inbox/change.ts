@@ -55,13 +55,17 @@ export async function receiveChange(
       select: { id: true },
     });
     if (target === null) return false;
-    // A repeated deletion keeps the first time.
     if (change.kind === "edit") {
-      await tx.whatsappMessage.update({
-        where: { id: target.id },
+      // WhatsApp allows many edits and each webhook is retried on its own: an edit older than the one shown never replaces it.
+      await tx.whatsappMessage.updateMany({
+        where: {
+          id: target.id,
+          ...(change.occurredAt === null ? {} : { OR: [{ editedAt: null }, { editedAt: { lte: at } }] }),
+        },
         data: { body: boundedText(change.text), editedAt: at },
       });
     } else {
+      // A repeated deletion keeps the first time.
       await tx.whatsappMessage.updateMany({ where: { id: target.id, revokedAt: null }, data: { revokedAt: at } });
     }
     await tx.whatsappConnection.update({ where: { id: connection.id }, data: { lastEventAt: now } });
