@@ -7,6 +7,7 @@ import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { InfoHint } from "@/components/info-hint";
+import { mayBeMissing } from "@/lib/older-api";
 import { LocationCard } from "./media/location-card";
 import { MessageMedia } from "./media/message-media";
 import { WhatsAppText } from "./whatsapp-text";
@@ -16,23 +17,34 @@ export function deletedLabelKey(message: ChatMessage): "deletedFromPhone" | "del
   return message.direction === "out" ? "deletedFromPhone" : "deletedByCustomer";
 }
 
+/** What happened to a message, read as an older api may send it: the fields this release added can be missing (lib/older-api.ts). */
+export function whatHappened(message: ChatMessage) {
+  return {
+    revokedAt: mayBeMissing(message.revokedAt) ?? null,
+    editedAt: mayBeMissing(message.editedAt) ?? null,
+    adHeadline: mayBeMissing(message.adHeadline) ?? null,
+    unsupportedReason: mayBeMissing(message.unsupportedReason) ?? null,
+  };
+}
+
 // A deleted message keeps its words for the team, struck through, and screen readers hear who deleted it first; a message that
 // came from an ad names the ad's headline under its words.
 export function MessageBody({ message, after }: { message: ChatMessage; after?: ReactNode }): ReactNode {
   const t = useTranslations("inbox.chat");
-  const deleted = message.revokedAt !== null;
-  if (!deleted && message.adHeadline === null) return <MessageContent message={message} after={after} />;
+  const { revokedAt, adHeadline } = whatHappened(message);
+  const deleted = revokedAt !== null;
+  if (!deleted && adHeadline === null) return <MessageContent message={message} after={after} />;
   // Inline, never a block box: the bubble's invisible spacer for the corner's time must stay on the text's last line.
   return (
     <>
       {deleted && <span className="sr-only">{t(deletedLabelKey(message))}. </span>}
       <span className={deleted ? "line-through" : undefined}>
-        <MessageContent message={message} after={message.adHeadline === null ? after : undefined} />
+        <MessageContent message={message} after={adHeadline === null ? after : undefined} />
       </span>
-      {message.adHeadline !== null && (
+      {adHeadline !== null && (
         <>
           <br />
-          <span className="text-caption text-muted-foreground">{t("fromAd", { headline: message.adHeadline })}</span>
+          <span className="text-caption text-muted-foreground">{t("fromAd", { headline: adHeadline })}</span>
           {after}
         </>
       )}
@@ -107,9 +119,9 @@ function MessageContent({ message, after }: { message: ChatMessage; after?: Reac
     case "unsupported":
       return ended(
         t(
-          message.unsupportedReason === "unavailable"
+          whatHappened(message).unsupportedReason === "unavailable"
             ? "unavailable"
-            : message.unsupportedReason === "album"
+            : whatHappened(message).unsupportedReason === "album"
               ? "album"
               : "unsupported",
         ),

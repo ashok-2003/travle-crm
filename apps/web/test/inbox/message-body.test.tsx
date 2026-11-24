@@ -128,4 +128,30 @@ describe("a bubble's account of what happened to the message", () => {
     expect(screen.getByRole("menuitem", { name: /Star/ })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: /Forward/ })).toBeNull();
   });
+
+  it("reads a message from an older api, which leaves out the four new fields, as untouched", async () => {
+    const full = aMessage({ body: "Five nights" });
+    const older = Object.fromEntries(
+      Object.entries(full).filter(
+        ([key]) => !["revokedAt", "editedAt", "adHeadline", "unsupportedReason"].includes(key),
+      ),
+    );
+    answerApi({});
+    renderWithApi(
+      <MessageBubble
+        message={older as unknown as ChatMessage}
+        senderName={null}
+        quotedSender="Rahul"
+        first
+        showSender
+      />,
+      newQueryClient(),
+    );
+    expect(screen.getByText("Five nights").closest(".line-through")).toBeNull();
+    expect(screen.queryByText(/Deleted/)).toBeNull();
+    expect(screen.queryByText(/Edited/)).toBeNull();
+    expect(screen.queryByText(/From your ad/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "More for this message" }));
+    expect(screen.getByRole("menuitem", { name: /Forward/ })).toBeTruthy();
+  });
 });

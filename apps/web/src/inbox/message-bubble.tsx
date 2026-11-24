@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useHolds, useMe } from "@/session/me-context";
 import { useChatJump } from "./chat-jump";
 import { MessageActions, NotSent } from "./message-actions";
-import { MessageBody, deletedLabelKey } from "./message-body";
+import { MessageBody, deletedLabelKey, whatHappened } from "./message-body";
 import { QuoteBlock } from "./quote-block";
 import { Ticks } from "./ticks";
 import { useReplying } from "./use-replying";
@@ -56,6 +56,7 @@ export function MessageBubble({
         : "bg-chat-bubble-out";
   // The corner's line: who sent it (once per run), the time and our ticks. It is also drawn, invisible, at the end of the words, so the
   // last line leaves it exactly the room it takes, however long the sender's name or "From the phone" is.
+  const { revokedAt, editedAt } = whatHappened(message);
   const meta = (spacer: boolean) => (
     <>
       {showSender && ours && firstName !== undefined && <span>{firstName} ·</span>}
@@ -64,8 +65,8 @@ export function MessageBubble({
       )}
       {showSender && message.origin === "staff_phone" && <span>{t("phoneApp")} ·</span>}
       {showSender && message.origin === "automation" && <span>{message.byAi ? t("sentByAi") : t("automatic")} ·</span>}
-      {message.revokedAt !== null && <span aria-hidden="true">{t(deletedLabelKey(message))} ·</span>}
-      {message.editedAt !== null && <span>{t("edited")} ·</span>}
+      {revokedAt !== null && <span aria-hidden="true">{t(deletedLabelKey(message))} ·</span>}
+      {editedAt !== null && <span>{t("edited")} ·</span>}
       {message.starred && <StarIcon aria-label={t("starred")} role="img" className="size-3 fill-current" />}
       <span>{formatTime(new Date(message.occurredAt), { timeZone })}</span>
       {ours && !failed && <Ticks status={message.status} className="size-3.5" />}
