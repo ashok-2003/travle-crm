@@ -22,7 +22,14 @@ export {
   requestDocument,
   updateKnowledge,
 } from "./knowledge.js";
-export { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "./agency-answers.js";
+export {
+  agencyAnswersOf,
+  agencyContactOf,
+  agentBasicsOf,
+  saveAgencyAnswers,
+  saveAgentBasics,
+  type AgencyContact,
+} from "./agency-answers.js";
 export { agentOf, setAgent } from "./agent-choice.js";
 export { agentSetupOf, countHandedOver, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";

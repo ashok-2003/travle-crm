@@ -75,6 +75,7 @@ function input(overrides: Partial<OneContextInput> = {}): OneContextInput {
     today,
     now,
     answers,
+    contact: { office: "", instagramUrl: "", about: "" },
     sheets: [sheet],
     lead,
     facts: naturalFacts.parse({ agent: "natural" }),
@@ -253,6 +254,20 @@ describe("the one agent's context", () => {
       /^The app sent the brochure\.\nNew messages:\n\[Sat 14 Nov 2026, \d{1,2}:\d{2} [ap]m\] Price\?$/u,
     );
     expect(context.newLines).toHaveLength(1);
+  });
+
+  it("tells the agency's office, Instagram and about after its name, each only when given", () => {
+    const contact = {
+      office: "12 MG Road, Pune",
+      instagramUrl: "https://instagram.com/sharma",
+      about: "Treks\nsince 2015.",
+    };
+    const system = buildOneContext(input({ contact })).messages[0]?.content ?? "";
+    expect(system).toContain(
+      "Agency: Sharma Holidays. Agent: Riya. Time zone: Asia/Kolkata.\n" +
+        "Office: 12 MG Road, Pune\nInstagram: https://instagram.com/sharma\nAbout the agency: Treks since 2015.\n",
+    );
+    expect(buildOneContext(input()).messages[0]?.content).not.toMatch(/Office:|Instagram:|About the agency:/u);
   });
 
   it("says the time when no new message came, as on a follow-up", () => {

@@ -80,6 +80,7 @@ function contextOf(prepared: NaturalPrepared, prompt: NaturalPrompt, input: { nu
     today,
     now: input.now,
     answers: prepared.answers,
+    contact: prepared.contact,
     sheets: prepared.sheets,
     lead: prepared.lead,
     facts,

@@ -64,6 +64,7 @@ async function liveTurn(
     today: prepared.today,
     now,
     answers: prepared.answers,
+    contact: prepared.contact,
     sheets: prepared.sheets,
     lead: prepared.lead,
     facts: prepared.facts,

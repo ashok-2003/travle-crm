@@ -145,6 +145,7 @@ export async function naturalDryTurnInFull(
     today,
     now,
     answers: agency.answers,
+    contact: agency.contact,
     sheets,
     lead,
     facts,

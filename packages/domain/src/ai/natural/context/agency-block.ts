@@ -8,10 +8,11 @@ import {
   type AgencyQuestionTopic,
 } from "@travel-crm/contracts/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
+import type { AgencyContact } from "../../agency-answers.js";
 import { fenced } from "../../fenced.js";
 import { oneLine } from "../../lite/context/blocks.js";
 import type { AgentVoice } from "../prompt.js";
-import { tripIndexEntry, tripInFull } from "../trips/trip-text.js";
+import { isText, tripIndexEntry, tripInFull } from "../trips/trip-text.js";
 import type { TripSheet } from "../types.js";
 import { estimateTokens, NATURAL_BUDGETS } from "./tokens.js";
 
@@ -35,7 +36,12 @@ const ownerWords = (text: string) => fenced(text.trim()).replace(/^[ \t]*#+[ \t]
  * The agency, the agent and the answers; the model never reads a payment detail, even one the owner typed in an answer.
  * The tone is left out (the owner, 2026-11-24): the prompt sets how the agent writes.
  */
-export function agencyBlock(voice: AgentVoice, timeZone: string, answers: AgencyAnswers): string {
+export function agencyBlock(
+  voice: AgentVoice,
+  timeZone: string,
+  answers: AgencyAnswers,
+  contact: AgencyContact,
+): string {
   const agent = voice.agentName.trim() === "" ? "no name set" : oneLine(voice.agentName);
   const answered = agencyQuestionTopics.flatMap((topic) => {
     const answer = answers[topic];
@@ -46,6 +52,11 @@ export function agencyBlock(voice: AgentVoice, timeZone: string, answers: Agency
     AGENCY_HEADING,
     "",
     `Agency: ${oneLine(voice.agencyName)}. Agent: ${agent}. Time zone: ${timeZone}.`,
+    ...[
+      contact.office === "" ? null : `Office: ${oneLine(contact.office)}`,
+      contact.instagramUrl === "" ? null : `Instagram: ${oneLine(contact.instagramUrl)}`,
+      contact.about === "" ? null : `About the agency: ${oneLine(contact.about)}`,
+    ].filter(isText),
     "",
     "## The agency's answers",
     ...answered.flatMap(({ topic, answer }) => [

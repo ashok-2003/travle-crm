@@ -46,6 +46,7 @@ export async function oneDryTurn(
       today,
       now,
       answers: agency.answers,
+      contact: agency.contact,
       sheets,
       lead: dryLeadView(state.lead),
       facts,

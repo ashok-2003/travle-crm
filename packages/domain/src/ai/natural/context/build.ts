@@ -4,6 +4,7 @@
 import { naturalToolDefinitions, type AgencyAnswers, type NaturalFacts } from "@travel-crm/contracts/ai";
 import type { AiMessage, AiTool } from "@travel-crm/integrations/ai";
 import type { CalendarDate } from "../../../kernel/index.js";
+import type { AgencyContact } from "../../agency-answers.js";
 import { renderNaturalPrompt, type AgentVoice, type NaturalPrompt } from "../prompt.js";
 import type { NaturalChatLine, NaturalLeadView, TripSheet } from "../types.js";
 import { agencyBlock, tripsBlock } from "./agency-block.js";
@@ -18,6 +19,8 @@ export interface NaturalContextInput {
   today: CalendarDate;
   now: Date;
   answers: AgencyAnswers;
+  /** Where the agency is and its Instagram, for a customer who asks (never its registered name or GSTIN). */
+  contact: AgencyContact;
   sheets: readonly TripSheet[];
   lead: NaturalLeadView;
   facts: NaturalFacts;
@@ -44,7 +47,7 @@ export interface NaturalContext {
 
 export function buildNaturalContext(input: NaturalContextInput): NaturalContext {
   const prompt = renderNaturalPrompt(input.prompt, input.voice).trimEnd();
-  const agency = agencyBlock(input.voice, input.timeZone, input.answers);
+  const agency = agencyBlock(input.voice, input.timeZone, input.answers, input.contact);
   const trips = tripsBlock(input.sheets, input.today);
   const lastTurnAt = input.facts.lastTurnAt === null ? null : new Date(input.facts.lastTurnAt);
   const newLines = newLinesOf(input.lines, lastTurnAt);

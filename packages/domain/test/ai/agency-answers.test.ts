@@ -1,7 +1,13 @@
 // The agency's answers to the fixed questions, and the agent's name and tone: saved and read back, a blank answer removed,
 // the autopilot's other columns left alone, and the audit holding no answer text.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "../../src/ai/index.js";
+import {
+  agencyAnswersOf,
+  agencyContactOf,
+  agentBasicsOf,
+  saveAgencyAnswers,
+  saveAgentBasics,
+} from "../../src/ai/index.js";
 import { storeAutopilot } from "./support/store-autopilot.js";
 import { anAgency, auditOf, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
 
@@ -29,6 +35,36 @@ describe("the agency's answers and the agent's basics", () => {
       cancellation: "Free up to 30 days before.",
       children: "From 5.",
     });
+  });
+
+  it("reads the agency's office, Instagram and about for the agent, never its registered name, GSTIN or bank", async () => {
+    const { organizationId, inOrg } = await agency();
+    expect(await inOrg((tx) => agencyContactOf(tx, organizationId))).toEqual({
+      office: "",
+      instagramUrl: "",
+      about: "",
+    });
+    await inOrg(async (tx) => {
+      await tx.organizationProfile.create({
+        data: {
+          legalName: "Sharma Holidays Private Limited",
+          gstin: "27ABCDE1234F1Z5",
+          gstStateCode: "27",
+          address: " 12 MG Road, Pune ",
+          bankAccountNumber: "123456789012",
+        },
+      });
+      await tx.publicPageSettings.create({
+        data: { about: "Treks since 2015.", instagramUrl: "https://instagram.com/sharma" },
+      });
+    });
+    const contact = await inOrg((tx) => agencyContactOf(tx, organizationId));
+    expect(contact).toEqual({
+      office: "12 MG Road, Pune",
+      instagramUrl: "https://instagram.com/sharma",
+      about: "Treks since 2015.",
+    });
+    expect(JSON.stringify(contact)).not.toMatch(/Private Limited|27ABCDE|123456789012/u);
   });
 
   it("removes an answer that is saved blank, and a topic left out of a save", async () => {

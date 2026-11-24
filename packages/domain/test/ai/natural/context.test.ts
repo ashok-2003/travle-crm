@@ -145,6 +145,7 @@ function input(overrides: Partial<NaturalContextInput> = {}): NaturalContextInpu
     today,
     now,
     answers,
+    contact: { office: "", instagramUrl: "", about: "" },
     sheets: twoTrips,
     lead,
     facts: freshFacts,

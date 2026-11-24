@@ -45,7 +45,7 @@ function withReferences(lines: readonly NaturalChatLine[]) {
 export function buildOneContext(input: OneContextInput): OneContext {
   // Byte for byte as natural builds it: the provider caches this string.
   const prompt = renderNaturalPrompt(input.prompt, input.voice).trimEnd();
-  const agency = agencyBlock(input.voice, input.timeZone, input.answers);
+  const agency = agencyBlock(input.voice, input.timeZone, input.answers, input.contact);
   const trips = tripsBlock(input.sheets, input.today);
   const lastTurnAt = input.facts.lastTurnAt === null ? null : new Date(input.facts.lastTurnAt);
   const { named: lines, media } = withReferences(input.lines);
