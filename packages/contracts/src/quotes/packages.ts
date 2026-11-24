@@ -29,6 +29,8 @@ export const MAX_PACKAGE_PHOTOS = 6;
 /** A package holds five brochures at most. */
 export const MAX_PACKAGE_BROCHURES = 5;
 export const MAX_HIGHLIGHTS = 10;
+/** The most a package's notes may hold. */
+export const MAX_PACKAGE_NOTES = 3000;
 
 /** A tier's line: priced from a rate when it has one, else at its fixed price; neither makes a "needs a rate" line. */
 export const tierLine = z.strictObject({
@@ -102,7 +104,7 @@ export const packageFields = {
   days: z.array(quoteDay).max(MAX_QUOTE_DAYS),
   inclusions: text(3000),
   exclusions: text(3000),
-  notes: text(3000),
+  notes: text(MAX_PACKAGE_NOTES),
   taxRateBasisPoints: quoteTaxRate,
   /** The last part of the public address; null until the package has a page. */
   slug: packageSlug.nullable(),
@@ -158,6 +160,20 @@ export const updatePackagePartInput = z
     },
   );
 export type UpdatePackagePartInput = z.infer<typeof updatePackagePartInput>;
+
+/** A line put first in the notes of several packages. */
+export const copyNoteInput = z.strictObject({
+  line: text(300).min(1),
+  packageIds: z.array(recordId).min(1).max(50),
+});
+export type CopyNoteInput = z.infer<typeof copyNoteInput>;
+export const copyNoteResult = z.object({
+  copied: z.array(recordId),
+  alreadyThere: z.array(recordId),
+  /** Packages whose notes would pass the limit with the line added. */
+  tooLong: z.array(recordId),
+});
+export type CopyNoteResult = z.infer<typeof copyNoteResult>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
 export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
 export type SetPackageSellableInput = z.infer<typeof setPackageSellableInput>;

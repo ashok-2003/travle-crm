@@ -3,6 +3,8 @@
 // quotes:create; publishing a page, and changing where customers pay, are outward-facing and need settings:manage. Photos go straight from the browser to storage.
 import {
   calculatedFromPrice,
+  copyNoteInput,
+  copyNoteResult,
   madeQuotes,
   packageChoices,
   makeGroupQuoteInput,
@@ -31,6 +33,7 @@ import { presignedUpload } from "@travel-crm/contracts/files";
 import { makeGroupQuote } from "@travel-crm/domain/departures";
 import {
   calculateFromPrice,
+  copyNoteToPackages,
   confirmPackageFile,
   describeBrochure,
   confirmPackagePhoto,
@@ -84,6 +87,14 @@ export const packagesRouter = router({
   update: editor
     .input(updatePackageInput)
     .mutation(({ ctx, input }) => savePackageWithSchedule(ctx, input.packageId, () => input)),
+
+  /** Puts one line first in the notes of the chosen packages, saying which took it, had it, or had no room. */
+  copyNote: editor
+    .input(copyNoteInput)
+    .output(copyNoteResult)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => copyNoteToPackages(tx, ctx.member, input)),
+    ),
 
   /** Saves the fields one section of the page names, keeping the rest as stored; a full save's checks and departures follow. */
   updatePart: editor
