@@ -26,6 +26,7 @@ export const SLOW_DATA: readonly string[] = [
   "inbox.status",
   "inbox.tags",
   "usage.welcome",
+  "usage.installedApps",
   "me.ownPassword",
   "organization.setup.get",
   "whoAmI",
