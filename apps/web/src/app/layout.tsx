@@ -40,6 +40,8 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     startupImage: appleStartupImages.map((image) => ({ ...image })),
   },
+  // iOS reads this name, which Next 16 no longer emits for `capable` (it writes mobile-web-app-capable).
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {

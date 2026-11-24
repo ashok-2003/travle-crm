@@ -11,4 +11,9 @@ describe("root layout metadata", () => {
     expect(metadata.appleWebApp).toMatchObject({ capable: true, statusBarStyle: "default" });
     expect(metadata.appleWebApp).toMatchObject({ startupImage: appleStartupImages.map((image) => ({ ...image })) });
   });
+
+  it("tells iOS the site is a home-screen app, which its startup images need", async () => {
+    const { metadata } = await import("@/app/layout");
+    expect(metadata.other).toMatchObject({ "apple-mobile-web-app-capable": "yes" });
+  });
 });
