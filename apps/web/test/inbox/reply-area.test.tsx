@@ -114,6 +114,15 @@ describe("the one-row reply box", () => {
         );
       });
 
+      it("returns the focus to the Note button where there is no reply box", async () => {
+        render(true, { windowOpenUntil: null });
+        await userEvent.click(screen.getByRole("button", { name: "Note" }));
+        await userEvent.click(screen.getByRole("button", { name: "Back to replying" }));
+        await waitFor(() => {
+          expect(screen.getByRole("button", { name: "Note" })).toHaveFocus();
+        });
+      });
+
       it("moves the focus into the note, and back to the message box", async () => {
         render(true);
         await openNote();

@@ -48,6 +48,7 @@ function NoteButton({ onClick }: { onClick: (() => void) | null }) {
       <Button
         type="button"
         variant="outline"
+        data-note-button
         disabled={onClick === null}
         aria-describedby={onClick === null ? reason : undefined}
         onClick={onClick ?? undefined}
@@ -168,7 +169,8 @@ export function ReplyArea({ header }: { header: ConversationHeader }) {
             leadId={header.lead.id}
             onBack={() => {
               setMode("reply");
-              focusSoon("[data-reply-box]");
+              // Where no reply box stands (a closed window, an opted-out person, a paused number, the demo), the Note button is the way back.
+              focusSoon("[data-reply-box], [data-note-button]");
             }}
           />
         </div>
