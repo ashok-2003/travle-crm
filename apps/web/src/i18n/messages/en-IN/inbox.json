@@ -32,7 +32,6 @@
   "list": "Chats",
   "newNumber": "New number",
   "waiting": "Reply due",
-  "unassigned": "Unassigned",
   "pinned": "Pinned",
   "unreadCount": "{count, plural, one {# unread message} other {# unread messages}}",
   "showMore": "Show more chats",
