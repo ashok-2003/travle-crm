@@ -20,7 +20,7 @@ export function VideoThumb({ url, label, className }: { url: string; label: stri
         muted
         playsInline
         aria-label={label}
-        className="size-full object-contain"
+        className="size-full object-cover"
         onLoadedMetadata={(event) => {
           const seconds = event.currentTarget.duration;
           setLength(Number.isFinite(seconds) && seconds > 0 ? seconds : null);

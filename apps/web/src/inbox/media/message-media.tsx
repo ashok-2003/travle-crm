@@ -6,7 +6,8 @@
 import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { FileIcon, ImageIcon, MicIcon, VideoIcon, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMediaLink } from "../use-inbox";
 import { DocumentCard } from "./document-card";
 import { useOpenMedia } from "./media-viewer";
@@ -34,6 +35,56 @@ function MediaPlaceholder({ kind, children }: { kind: MediaKind; children: React
   );
 }
 
+/** The fixed frame every photo and video sits in: its size never depends on the file, so nothing shifts as it loads. */
+export const mediaFrameClass = "w-64 max-w-full aspect-[4/5]";
+
+/** A photo covering its frame; a placeholder fills the frame until it has loaded, and "not available" replaces it if it never does. */
+function Photo({ url, alt, unavailable }: { url: string; alt: string; unavailable: string }) {
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  if (state === "failed") return <MediaPlaceholder kind="image">{unavailable}</MediaPlaceholder>;
+  return (
+    <span className={`relative block overflow-hidden rounded-md ${mediaFrameClass}`}>
+      {state === "loading" && <Skeleton className="absolute inset-0" />}
+      {/* A customer's photo from storage: its size is unknown, so it is not an optimised Next image. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        className="size-full object-cover"
+        ref={(element) => {
+          if (element?.complete === true && element.naturalWidth > 0) setState("loaded");
+        }}
+        onLoad={() => {
+          setState("loaded");
+        }}
+        onError={() => {
+          setState("failed");
+        }}
+      />
+    </span>
+  );
+}
+
+/** The words for a file that was not kept: what happened, and where to find it. */
+function lostFile(message: ChatMessage, kind: MediaKind, t: ReturnType<typeof useTranslations>): ReactNode | null {
+  const gone = kind === "image" ? t("photoUnavailable") : t("fileUnavailable");
+  const titles: Record<string, string> = {
+    unavailable: gone,
+    media_expired: gone,
+    too_big: t("tooBig"),
+    bad_type: t("badType"),
+  };
+  const title = message.failureCode === null ? undefined : titles[message.failureCode];
+  const known = title ?? (message.mediaState === "expired" ? gone : undefined);
+  if (known === undefined) return null;
+  return (
+    <span className="grid">
+      <span>{known}</span>
+      <span className="text-caption">{t("openOnPhone")}</span>
+    </span>
+  );
+}
+
 export function MessageMedia({ message }: { message: ChatMessage }) {
   const t = useTranslations("inbox.chat");
   const open = useOpenMedia();
@@ -41,10 +92,10 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   const link = useMediaLink(message.id, message.mediaState === "stored");
   if (message.mediaState === "pending")
     return <MediaPlaceholder kind={kind}>{t(`mediaPending.${kind}`)}</MediaPlaceholder>;
-  if (message.mediaState === "expired")
-    return <MediaPlaceholder kind={kind}>{t(`mediaExpired.${kind}`)}</MediaPlaceholder>;
-  if (message.mediaState === "failed")
-    return <MediaPlaceholder kind={kind}>{t(`mediaFailed.${kind}`)}</MediaPlaceholder>;
+  if (message.mediaState === "expired" || message.mediaState === "failed") {
+    const lost = lostFile(message, kind, t);
+    return <MediaPlaceholder kind={kind}>{lost ?? t(`mediaFailed.${kind}`)}</MediaPlaceholder>;
+  }
   if (link.data === undefined) {
     if (kind === "sticker") return <StickerTile />;
     return (
@@ -61,16 +112,9 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   if (kind === "sticker") return <StickerImage url={url} alt={t("sticker")} />;
   const isVideo = contentType.startsWith("video/");
   const thumbnail = isVideo ? (
-    <VideoThumb url={url} label={t("video")} className="h-44 w-64 max-w-full" />
+    <VideoThumb url={url} label={t("video")} className={mediaFrameClass} />
   ) : (
-    // A customer's photo from storage: its size is unknown, so it is not an optimised Next image. The height is
-    // bounded and the shape kept, so a tall photo and a wide one both sit in the chat as they are.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={message.caption ?? t("photo")}
-      className="h-auto max-h-72 w-auto max-w-full min-w-24 rounded-md object-contain"
-    />
+    <Photo url={url} alt={message.caption ?? t("photo")} unavailable={t("photoUnavailable")} />
   );
   if (open === null) {
     return (
@@ -82,7 +126,7 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   return (
     <button
       type="button"
-      className="block text-left"
+      className="block max-w-full text-left"
       aria-label={isVideo ? t("playVideo") : t("openPhoto")}
       onClick={() => {
         open(message.id);

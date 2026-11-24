@@ -261,13 +261,11 @@
       "document": "Document, not loaded yet",
       "sticker": "Sticker, not loaded yet"
     },
-    "mediaExpired": {
-      "image": "This photo expired before we could save it.",
-      "video": "This video expired before we could save it.",
-      "audio": "This voice message expired before we could save it.",
-      "document": "This document expired before we could save it.",
-      "sticker": "This sticker expired before we could save it."
-    },
+    "photoUnavailable": "Photo not available",
+    "fileUnavailable": "File not available",
+    "tooBig": "Too big to keep",
+    "badType": "A file type we don't keep",
+    "openOnPhone": "Open it on the phone",
     "mediaFailed": {
       "image": "This photo could not be saved.",
       "video": "This video could not be saved.",
