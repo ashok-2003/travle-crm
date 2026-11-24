@@ -67,10 +67,11 @@ describe("the AI bar over the reply box", () => {
     expect(await screen.findByText(/asked to think/)).toBeVisible();
   });
 
-  it("says why it flagged a chat while it keeps answering, still violet", async () => {
+  it("says why it flagged a chat while it keeps answering, amber and bold like a hand-over (owner, 2026-11-24)", async () => {
     render({ attention: "wants to book for 4 on 12 Dec" }, "bar");
     const line = await screen.findByText("AI answering · flagged: wants to book for 4 on 12 Dec");
-    expect(line.closest("[data-slot=collapsible]")).toHaveClass(cardTints.ai);
+    expect(line.closest("[data-slot=collapsible]")).toHaveClass(cardTints.attention);
+    expect(line).toHaveClass("font-semibold");
   });
 
   it("says the AI is paused till the time because you replied, violet, with Let AI answer now", async () => {

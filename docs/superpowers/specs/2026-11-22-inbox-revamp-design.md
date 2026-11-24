@@ -90,7 +90,8 @@ The Inbox is the page sales agents live in; the goal is that they use it instead
 10. **A clear AI line, one line, highlighted** (owner, 2026-11-22 and 2026-11-24):
     - a strip above the reply box: in the AI violet while the AI answers (Take over) or is paused because you replied
       ("The AI is paused till 2:48 pm because you replied", Let AI answer now); amber and bold when the AI handed the
-      chat to a person (its reason, Let AI answer); handed-over rows in the chat list get an amber marker;
+      chat to a person (its reason, Let AI answer), and when it flagged the chat for a person while it keeps answering
+      ("wants to book"; owner, 2026-11-24); handed-over rows in the chat list get an amber marker;
     - **one line on every screen**: "AI answering · follows up 4 pm" with Take over (or Let AI answer) as a small text
       button (44px hit area); tapping the line opens the rest (the reason, the follow-up's why), so on a phone it never
       takes two or three lines;

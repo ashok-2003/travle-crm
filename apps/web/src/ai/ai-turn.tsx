@@ -73,7 +73,10 @@ export function AiTyping({ conversationId }: { conversationId: string }) {
   );
 }
 
-/** One highlighted line (violet while the AI answers, amber and bold when it handed over, quiet when off) that opens for the rest. */
+/**
+ * One highlighted line (violet while the AI answers, amber and bold when it handed over or flagged a chat for a person,
+ * quiet when off) that opens for the rest.
+ */
 function Strip(props: {
   tone: "ai" | "attention" | "quiet";
   icon: ReactNode;
@@ -169,7 +172,8 @@ export function AiReplyBar({ conversationId }: { conversationId: string }) {
           : t("barAnswering");
   return (
     <Strip
-      tone={ai.answering ? "ai" : "quiet"}
+      // A flag ("wants to book") needs a person as much as a hand-over does, so it wears the same amber (owner, 2026-11-24).
+      tone={!ai.answering ? "quiet" : ai.turn === null && ai.attention !== null ? "attention" : "ai"}
       icon={ai.turn === null ? <BotIcon aria-hidden="true" /> : <Spinner aria-hidden="true" />}
       line={line}
       more={
