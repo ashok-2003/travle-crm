@@ -27,11 +27,14 @@ const SUMMARY_CUT = 600;
 const NOTE_CUT = 300;
 const TASK_CUT = 200;
 /**
- * Words that never name one trip, past those lite's `meaningful` drops: a kind of trip ("trek"), and words that only
- * join others in English or Hinglish ("of", "in", "ka", "mein"), which titles like "Valley of Flowers" hold too.
+ * Words that never name one trip, past those lite's `meaningful` drops: a kind of trip ("trek"), a trip's length and the
+ * thing asked for ("days", "brochure": titles like "Chopta (4 days)" hold them, and "1 days ka brochure" pulled in every
+ * such trip, live on 2026-11-24), and words that only join others in English or Hinglish ("of", "in", "ka", "mein"),
+ * which titles like "Valley of Flowers" hold too.
  */
 const NAMES_NO_TRIP = new Set([
   ...["trek", "treks", "trip", "trips", "tour", "tours", "package", "packages", "yatra"],
+  ...["day", "days", "night", "nights", "din", "brochure", "brochures", "itinerary", "pdf", "details", "detail"],
   ...["a", "an", "and", "or", "of", "in", "on", "at", "to", "for", "with", "by", "from", "is", "are", "this", "that"],
   ...["ka", "ki", "ke", "ko", "se", "me", "mein", "par", "pe", "aur", "ya", "wala", "wali", "wale", "hai", "hain"],
 ]);
@@ -54,7 +57,7 @@ const hourWords = (time: string) => clockWords(new Date(`1970-01-01T${time}:00Z`
 const monthName = (year: number, month: number) =>
   new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
 
-function whenWords(lead: NaturalLeadView, today: CalendarDate): string | null {
+export function whenWords(lead: NaturalLeadView, today: CalendarDate): string | null {
   if (lead.day !== null) return formatShortDay(lead.day, today);
   if (lead.month === null) return null;
   if (!calendarMonth.safeParse(lead.month).success) return oneLine(lead.month);
@@ -84,7 +87,7 @@ function nowBlock(input: TurnBlockInput, sheetOf: (packageId: string | null) => 
   ].join("\n");
 }
 
-function offerWords(
+export function offerWords(
   offer: LiveOffer,
   clock: Pick<TurnBlockInput, "today" | "timeZone">,
   sheetOf: (packageId: string | null) => TripSheet | undefined,
@@ -113,13 +116,6 @@ export function leadBlock(
       ? "No name yet"
       : `${oneLine(lead.name)}${lead.cameFrom === "" ? "" : ` (${oneLine(lead.cameFrom)})`}`;
   const trip = sheetOf(lead.packageId);
-  const notes = [...lead.teamNotes]
-    .sort((a, b) => b.at.getTime() - a.at.getTime())
-    .map(
-      (note) =>
-        `${formatShortDay(calendarDateIn(note.at, timeZone), today)}, ${oneLine(note.by)}: ` +
-        `"${oneLine(cutText(note.text, NOTE_CUT))}"`,
-    );
   const lines = [
     [
       name,
@@ -135,9 +131,21 @@ export function leadBlock(
     lead.summary === null || lead.summary.trim() === ""
       ? null
       : `Summary: ${oneLine(cutText(lead.summary, SUMMARY_CUT))}`,
-    notes.length === 0 ? null : `Team notes, newest first: ${notes.join("; ")}`,
+    teamNotesLine(lead, today, timeZone),
   ].filter(isText);
   return `<lead>${lines.join("\n")}</lead>`;
+}
+
+/** "Team notes, newest first: …", each note cut to its budget, or null with none. */
+export function teamNotesLine(lead: NaturalLeadView, today: CalendarDate, timeZone: string): string | null {
+  const notes = [...lead.teamNotes]
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .map(
+      (note) =>
+        `${formatShortDay(calendarDateIn(note.at, timeZone), today)}, ${oneLine(note.by)}: ` +
+        `"${oneLine(cutText(note.text, NOTE_CUT))}"`,
+    );
+  return notes.length === 0 ? null : `Team notes, newest first: ${notes.join("; ")}`;
 }
 
 /**

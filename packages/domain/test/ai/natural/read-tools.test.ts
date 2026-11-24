@@ -6,7 +6,7 @@ import { fenced } from "../../../src/ai/fenced.js";
 import { findTrips } from "../../../src/ai/natural/tools/find-trips.js";
 import { quoteFor, runReadTool, type ReadContext } from "../../../src/ai/natural/tools/read-tools.js";
 import { tripSheetsOf } from "../../../src/ai/natural/trips/trip-sheets.js";
-import { tripIndexLine, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
+import { tripIndexEntry, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
 import { addDays, parseCalendarDate, type CalendarDate } from "../../../src/kernel/index.js";
 import { sellablePackages } from "../../../src/quotes/index.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
@@ -80,12 +80,12 @@ describe("the natural agent's read tools", () => {
       const { read, sheets } = await world();
       const [kedarkantha, brahmatal] = await sheets();
       expect(await read("find_trips", { query: "Bekaltal" })).toEqual({
-        result: fenced(tripIndexLine(brahmatal ?? expect.unreachable(), today)),
+        result: fenced(tripIndexEntry(brahmatal ?? expect.unreachable(), today)),
         figures: null,
       });
       // A pickup point counts as well.
       expect((await read("find_trips", { query: "ISBT pickup" })).result).toBe(
-        fenced(tripIndexLine(kedarkantha ?? expect.unreachable(), today)),
+        fenced(tripIndexEntry(kedarkantha ?? expect.unreachable(), today)),
       );
     });
 
@@ -94,7 +94,7 @@ describe("the natural agent's read tools", () => {
       const [kedarkantha] = await sheets();
       const { result } = await read("find_trips", { query: "Kedarkanta" });
       expect(result).toBe(
-        `closest, not a match:\n${fenced(tripIndexLine(kedarkantha ?? expect.unreachable(), today))}`,
+        `closest, not a match:\n${fenced(tripIndexEntry(kedarkantha ?? expect.unreachable(), today))}`,
       );
     });
 
@@ -106,17 +106,17 @@ describe("the natural agent's read tools", () => {
       });
       const [kedarkantha = expect.unreachable(), brahmatalSheet = expect.unreachable()] = await sheets();
       const answer = async (query: string) => (await read("find_trips", { query })).result;
-      expect(await answer("January treks")).toBe(fenced(tripIndexLine(brahmatalSheet, today, days("2027-01-09"))));
+      expect(await answer("January treks")).toBe(fenced(tripIndexEntry(brahmatalSheet, today, days("2027-01-09"))));
       expect(await answer("December")).toBe(
         [
-          fenced(tripIndexLine(kedarkantha, today, days("2026-12-12", "2026-12-19", "2026-12-26"))),
-          fenced(tripIndexLine(brahmatalSheet, today, days("2026-12-12", "2026-12-26"))),
-        ].join("\n"),
+          fenced(tripIndexEntry(kedarkantha, today, days("2026-12-12", "2026-12-19", "2026-12-26"))),
+          fenced(tripIndexEntry(brahmatalSheet, today, days("2026-12-12", "2026-12-26"))),
+        ].join("\n\n"),
       );
       // A trip the words name, with no date in the month: said so, with its next dates.
       expect(await answer("Kedarkantha January")).toBe(
         'none of the trips matching "kedarkantha" leaves in January 2027; their next dates:\n' +
-          fenced(tripIndexLine(kedarkantha, today)),
+          fenced(tripIndexEntry(kedarkantha, today)),
       );
       expect(await answer("March")).toBe("no trip leaves in March 2027; the trips are T1, T2");
       // "may" is a month only written "May".
@@ -131,11 +131,11 @@ describe("the natural agent's read tools", () => {
         await januarySeason(tx, brahmatal);
       });
       const { result } = await read("find_trips", { query: "trips in January?" }, midNovember);
-      expect(result).toMatch(/^T2 Brahmatal Trek · /u);
+      expect(result).toMatch(/^Trip ID: T2\nName: Brahmatal Trek\n/u);
       expect(result).toContain(
-        " · Fri 1 Jan 2027, Sat 2 Jan 2027, Sun 3 Jan 2027, Mon 4 Jan 2027, Tue 5 Jan 2027 and 26 more · ",
+        "\nDates: Fri 1 Jan 2027, Sat 2 Jan 2027, Sun 3 Jan 2027, Mon 4 Jan 2027, Tue 5 Jan 2027 and 26 more\n",
       );
-      expect(result.split("\n")).toHaveLength(1);
+      expect(result.split("\n\n")).toHaveLength(1);
       // get_trip lists the next 8, and says where the rest are.
       expect((await read("get_trip", { trip_id: "T2" }, midNovember)).result).toMatch(
         /\nOnly the next 8 dates are listed; find_trips with the trip and a month, or quote on a date, reaches later ones\.$/u,
@@ -149,7 +149,7 @@ describe("the natural agent's read tools", () => {
         await tx.packageSeason.updateMany({ where: { templateId: kedarkantha }, data: { endsOn: day("2027-02-28") } });
       });
       expect((await read("find_trips", { query: "Kedarkantha February" }, midNovember)).result).toContain(
-        " · Sat 6 Feb 2027, Sat 13 Feb 2027, Sat 20 Feb 2027, Sat 27 Feb 2027 · ",
+        "\nDates: Sat 6 Feb 2027, Sat 13 Feb 2027, Sat 20 Feb 2027, Sat 27 Feb 2027\n",
       );
       expect((await read("quote", { trip_id: "T1", date: "2027-02-13", adults: 2 }, midNovember)).result).toBe(
         "T1 Kedarkantha Trek, Sat 13 Feb 2027, 2 adults: triple ₹9,499 per person, GST included; total ₹18,998; " +
@@ -163,21 +163,21 @@ describe("the natural agent's read tools", () => {
       expect((await read("find_trips", { query: "December dates" })).result).toBe(
         'nothing matches "dates"; leaving in December:\n' +
           [
-            fenced(tripIndexLine(kedarkantha, today, days("2026-12-12", "2026-12-19", "2026-12-26"))),
-            fenced(tripIndexLine(brahmatal, today, days("2026-12-12", "2026-12-26"))),
-          ].join("\n"),
+            fenced(tripIndexEntry(kedarkantha, today, days("2026-12-12", "2026-12-19", "2026-12-26"))),
+            fenced(tripIndexEntry(brahmatal, today, days("2026-12-12", "2026-12-26"))),
+          ].join("\n\n"),
       );
       expect((await read("find_trips", { query: "family trips" })).result).toBe(
         'no title, place, stop or pickup says "family"; the trips are T1, T2',
       );
     });
 
-    it("answers at most 5 lines, the trips matching more of the words first", async () => {
+    it("answers at most 5 entries, the trips matching more of the words first", async () => {
       const { read } = await world({ trips: 7 });
-      const lines = (await read("find_trips", { query: "trek" })).result.split("\n");
-      expect(lines).toHaveLength(5);
-      expect((await read("find_trips", { query: "Brahmatal trek" })).result.split("\n")[0]).toMatch(
-        /^T2 Brahmatal Trek/u,
+      const entries = (await read("find_trips", { query: "trek" })).result.split("\n\n");
+      expect(entries).toHaveLength(5);
+      expect((await read("find_trips", { query: "Brahmatal trek" })).result).toMatch(
+        /^Trip ID: T2\nName: Brahmatal Trek\n/u,
       );
     });
   });
@@ -191,7 +191,7 @@ describe("the natural agent's read tools", () => {
         tx.quoteTemplate.update({ where: { id: kedarkantha }, data: { notes, pickupPoints: pickups.join("\n") } }),
       );
       const { result, figures } = await read("get_trip", { trip_id: "T1" });
-      expect(result.split("\n")[0]).toBe("T1 Kedarkantha Trek · Sankri, Uttarakhand · 5 nights · from Dehradun");
+      expect(result.split("\n").slice(0, 2)).toEqual(["Trip ID: T1", "Name: Kedarkantha Trek"]);
       expect(result).toContain(`Notes: ${notes}`);
       expect(result).toContain(`Pickup points: ${pickups.join("; ")}`);
       expect(figures).toBeNull();
@@ -199,7 +199,7 @@ describe("the natural agent's read tools", () => {
       const [inPrompt] = await sheets();
       expect(tripInFull(inPrompt ?? expect.unreachable(), today)).not.toContain("Summit at 3,800 m.");
       // The label is the turn's own.
-      expect((await read("get_trip", { trip_id: "T2" })).result.split("\n")[0]).toMatch(/^T2 Brahmatal Trek · /u);
+      expect((await read("get_trip", { trip_id: "T2" })).result).toMatch(/^Trip ID: T2\nName: Brahmatal Trek\n/u);
     });
   });
 

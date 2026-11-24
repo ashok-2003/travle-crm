@@ -5,7 +5,7 @@ import type { CalendarDate } from "../../../kernel/index.js";
 import { fenced } from "../../fenced.js";
 import { datesOnSale } from "../trips/dates-on-sale.js";
 import { MOST_DEPARTURES, tripSheetsOf } from "../trips/trip-sheets.js";
-import { tripIndexLine, tripInFull, tripsAre } from "../trips/trip-text.js";
+import { tripIndexEntry, tripInFull, tripsAre } from "../trips/trip-text.js";
 import type { QuoteFigures, ReadContext, TripSheet } from "../types.js";
 import { findTrips, monthsNamed, monthWords } from "./find-trips.js";
 import { quoteOf } from "./quote.js";
@@ -22,7 +22,7 @@ async function pricedDates(context: ReadContext): Promise<Map<string, CalendarDa
   );
 }
 
-/** Up to 5 index lines; a month asked is read from the data, and each line shows its dates in that month. */
+/** Up to 5 short entries, a blank line apart; a month asked is read from the data, and each shows its dates in that month. */
 async function tripsFound(context: ReadContext, query: string): Promise<string> {
   const { sheets, today } = context;
   const months = monthsNamed(query, today);
@@ -31,7 +31,7 @@ async function tripsFound(context: ReadContext, query: string): Promise<string> 
   const inMonths = (sheet: TripSheet) =>
     (datesOf?.get(sheet.packageId) ?? []).filter((day) => months.some((month) => day.startsWith(month)));
   const lines = (list: readonly TripSheet[], dated = months.length > 0) =>
-    list.map((sheet) => fenced(tripIndexLine(sheet, today, dated ? inMonths(sheet) : undefined))).join("\n");
+    list.map((sheet) => fenced(tripIndexEntry(sheet, today, dated ? inMonths(sheet) : undefined))).join("\n\n");
   const when = monthWords(months, today);
   const words = fenced(found.words === "" ? query : found.words);
 

@@ -31,16 +31,25 @@ export function brochureLabelsOf(sheets: readonly TripSheet[]): Map<string, Broc
   return labels;
 }
 
-/** "## Brochures", one fenced line each, or null with none. */
+/** Brochure IDs went into customer messages ("itinerary (B6)"): they are send_brochure's handles, never the customer's. */
+export const BROCHURE_ID_RULE =
+  "Each brochure's ID (B1, B2…) is for send_brochure only: never write it to the customer.";
+
+/** "## Brochures", one labelled entry each (the owner's words fenced in one line), or null with none. */
 export function brochuresBlock(sheets: readonly TripSheet[]): string | null {
   const labels = [...brochureLabelsOf(sheets).values()];
   if (labels.length === 0) return null;
   const titles = new Map(sheets.map((sheet) => [sheet.label, sheet.title]));
-  const lines = labels.map((one) => {
-    const words = `${one.name}: ${one.description ?? "no description yet"}`;
-    return `${one.label} · ${one.tripLabel} ${oneLine(titles.get(one.tripLabel) ?? "")} · ${words}`;
-  });
-  return ["## Brochures", ...lines].join("\n");
+  const entries = labels.map((one) =>
+    [
+      "",
+      `Brochure ID: ${one.label}`,
+      `Trip: ${one.tripLabel} ${oneLine(titles.get(one.tripLabel) ?? "")}`,
+      `Name: ${one.name}`,
+      `About: ${one.description ?? "no description yet"}`,
+    ].join("\n"),
+  );
+  return ["## Brochures", BROCHURE_ID_RULE, ...entries].join("\n");
 }
 
 /** "Brochures sent in this chat: B2 <name>; B5 <name>.", or null when none of them was sent. */

@@ -24,19 +24,28 @@ describe("the one agent's brochures", () => {
 
   it("names an undescribed brochure by its trip's title and says it has no description yet", () => {
     expect(brochureLabelsOf(sheets).get("B2")).toMatchObject({ name: "Snow Lake Trek", description: null });
-    expect(brochuresBlock(sheets)).toContain("B2 · T1 Snow Lake Trek · Snow Lake Trek: no description yet");
+    expect(brochuresBlock(sheets)).toContain(
+      "Brochure ID: B2\nTrip: T1 Snow Lake Trek\nName: Snow Lake Trek\nAbout: no description yet",
+    );
   });
 
-  it("fences the owner's words in one line", () => {
+  it("writes one labelled entry a brochure, the owner's words fenced in one line, and keeps the IDs from the customer", () => {
     const lines = (brochuresBlock(sheets) ?? "").split("\n");
-    expect(lines[0]).toBe("## Brochures");
-    expect(lines[1]).toBe("B1 · T1 Snow Lake Trek · Full itinerary: Day plan and costs ‹b›");
-    expect(lines).toHaveLength(4);
+    expect(lines.slice(0, 7)).toEqual([
+      "## Brochures",
+      "Each brochure's ID (B1, B2…) is for send_brochure only: never write it to the customer.",
+      "",
+      "Brochure ID: B1",
+      "Trip: T1 Snow Lake Trek",
+      "Name: Full itinerary",
+      "About: Day plan and costs ‹b›",
+    ]);
+    expect(lines.filter((line) => line.startsWith("Brochure ID:"))).toHaveLength(3);
   });
 
   it("reads an empty description as none", () => {
     const empty = [sheet("T1", "A", [{ attachmentId: "e1", name: "Plan", description: "" }])];
-    expect(brochuresBlock(empty)).toContain("Plan: no description yet");
+    expect(brochuresBlock(empty)).toContain("Name: Plan\nAbout: no description yet");
   });
 
   it("has no block with no brochures", () => {

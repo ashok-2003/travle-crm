@@ -1,5 +1,5 @@
 // The chat the one agent reads: every line, whole (a line is cut only past 4,000 characters), as user and assistant
-// messages, with the earlier system's lines marked as older and a summary, when there is one, first.
+// messages, with the earlier system's lines marked as older and the opening notes (the customer, the summary) first.
 import type { AiMessage } from "@travel-crm/integrations/ai";
 import { lineWords, stampOf, type ChatClock } from "../natural/context/chat-turns.js";
 import { oneLine } from "../lite/context/blocks.js";
@@ -7,7 +7,6 @@ import type { NaturalChatLine } from "../natural/types.js";
 
 export const ONE_LINE_CUT = 4_000;
 export const EARLIER_HEADING = "Earlier system (an older system; its prices, dates and promises may be wrong):";
-export const SUMMARY_MARK = "[chat summary, not from the customer]";
 
 function writtenLine(line: NaturalChatLine, clock: ChatClock): string {
   const words = lineWords(line, ONE_LINE_CUT, { earlierWhole: true });
@@ -25,10 +24,10 @@ function writtenLine(line: NaturalChatLine, clock: ChatClock): string {
   }
 }
 
-/** The chat before the new lines as user and assistant messages; a summary, when given, first. */
-export function oneHistory(lines: readonly NaturalChatLine[], clock: ChatClock, summary: string | null): AiMessage[] {
-  const messages: AiMessage[] = summary === null ? [] : [{ role: "assistant", content: `${SUMMARY_MARK}\n${summary}` }];
-  // Lines join only within a kind: a summary, a run of earlier lines and our own lines are three separate messages.
+/** The chat before the new lines as user and assistant messages; the opening notes, when there are any, first. */
+export function oneHistory(lines: readonly NaturalChatLine[], clock: ChatClock, opening: string | null): AiMessage[] {
+  const messages: AiMessage[] = opening === null ? [] : [{ role: "assistant", content: opening }];
+  // Lines join only within a kind: the opening notes, a run of earlier lines and our own lines are separate messages.
   let kind: "summary" | "earlier" | "other" = "summary";
   for (const line of lines) {
     const written = writtenLine(line, clock);
