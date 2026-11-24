@@ -2,12 +2,16 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { DepartureSummary } from "@travel-crm/contracts/departures";
+import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { usePackage } from "@/packages/use-packages";
 import { PriceCalendar } from "@/packages/price-calendar";
 import { messages } from "@/i18n/messages";
 import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { aPackage } from "./detail";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const none = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
 const peak = {
@@ -36,9 +40,18 @@ const departure = (startDate: string, changes: Partial<DepartureSummary> = {}): 
 });
 const day = (text: RegExp) => screen.getByRole("button", { name: text });
 
+/** Stands for the trip's page: it keeps packages.get open, as the page does, so a refresh of it can be seen. */
+function Page() {
+  usePackage(detail.id);
+  return null;
+}
+
 function show(departures: DepartureSummary[], onSelectRange = vi.fn()) {
   renderWithApi(
-    <PriceCalendar detail={detail} departures={departures} onSelectRange={onSelectRange} />,
+    <>
+      <Page />
+      <PriceCalendar detail={detail} departures={departures} onSelectRange={onSelectRange} />
+    </>,
     newQueryClient(),
   );
   return onSelectRange;
@@ -108,10 +121,57 @@ describe("PriceCalendar", () => {
     expect(within(legend).getByText(/Double ₹12,500/)).toBeTruthy();
   });
 
-  it("choosing a first and last day asks for special prices for that range", async () => {
+  it("tapping another day moves the selection and shows that day's actions", async () => {
+    const onSelectRange = show([departure("2027-10-20")]);
+    await userEvent.click(day(/^22 Oct/));
+    expect(screen.getByRole("button", { name: messages.packages.calendar.addDeparture })).toBeTruthy();
+    await userEvent.click(day(/^20 Oct, 4 seats left/));
+    expect(screen.queryByRole("button", { name: messages.packages.calendar.addDeparture })).toBeNull();
+    expect(screen.getByRole("link", { name: messages.packages.calendar.viewDeparture })).toBeTruthy();
+    expect(onSelectRange).not.toHaveBeenCalled();
+  });
+
+  it("Set special prices from here, then a second day, asks for special prices for that range", async () => {
     const onSelectRange = show([]);
     await userEvent.click(day(/^15 Oct/));
+    await userEvent.click(screen.getByRole("button", { name: messages.packages.calendar.rangeStart }));
     await userEvent.click(day(/^12 Oct/));
     expect(onSelectRange).toHaveBeenCalledWith({ from: "2027-10-12", to: "2027-10-15" });
+  });
+
+  it("range mode can be left without opening the dialog", async () => {
+    const onSelectRange = show([]);
+    await userEvent.click(day(/^15 Oct/));
+    await userEvent.click(screen.getByRole("button", { name: messages.packages.calendar.rangeStart }));
+    await userEvent.click(screen.getByRole("button", { name: messages.packages.calendar.rangeStop }));
+    await userEvent.click(day(/^12 Oct/));
+    expect(onSelectRange).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: messages.packages.calendar.rangeStart })).toBeTruthy();
+  });
+
+  it("cancelling from the day's actions refreshes the package and shows the confirmation", async () => {
+    const api = fakeApi();
+    show([departure("2027-10-20")]);
+    const loads = () => api.calls.filter((call) => call.path === "packages.get");
+    await waitFor(() => {
+      expect(loads()).toHaveLength(1);
+    });
+    loads()[0]?.answer(detail);
+    await userEvent.click(day(/^20 Oct, 4 seats left/));
+    await userEvent.click(screen.getByRole("button", { name: messages.departures.cancelDialog.action }));
+    await userEvent.type(screen.getByRole("textbox", { name: messages.departures.cancelDialog.reason }), "Road shut");
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.departures.cancelDialog.action }));
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.path === "departures.cancel")).toBe(true);
+    });
+    api.calls.find((call) => call.path === "departures.cancel")?.answer({});
+    await waitFor(() => {
+      expect(loads()).toHaveLength(2);
+    });
+    loads()[1]?.answer(detail);
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(messages.departures.cancelDialog.cancelled);
+    });
   });
 });

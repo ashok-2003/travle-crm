@@ -5,6 +5,8 @@
 // quote's departure loads the quotes too.
 import type { DepartureFilter } from "@travel-crm/contracts/departures";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { useTRPC } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 
@@ -61,6 +63,7 @@ export function useDepartureChanges() {
   const trpc = useTRPC();
   const refresh = useRefreshDepartures();
   const queryClient = useQueryClient();
+  const tCancel = useTranslations("departures.cancelDialog");
   const options = { onSuccess: refresh };
   // Dates added or opened again change the trip's own page too: its calendar and its "From" price.
   const withPackages = {
@@ -75,7 +78,15 @@ export function useDepartureChanges() {
     create: useMutation(trpc.departures.create.mutationOptions(options)),
     update: useMutation(trpc.departures.update.mutationOptions(options)),
     setStatus: useMutation(trpc.departures.setStatus.mutationOptions(options)),
-    cancel: useMutation(trpc.departures.cancel.mutationOptions(options)),
+    // Said here, not by the dialog: the refresh can remove the dialog (a calendar day turns cancelled) before it could.
+    cancel: useMutation(
+      trpc.departures.cancel.mutationOptions({
+        onSuccess: async () => {
+          await withPackages.onSuccess();
+          toast.success(tCancel("cancelled"));
+        },
+      }),
+    ),
     hold: useMutation(trpc.departures.hold.mutationOptions(options)),
     releaseHold: useMutation(trpc.departures.releaseHold.mutationOptions(options)),
     addToWaitlist: useMutation(trpc.departures.addToWaitlist.mutationOptions(options)),

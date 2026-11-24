@@ -2,7 +2,7 @@
 
 // A trip's price calendar: the registry Calendar with each departure's seats left on its day, cancelled and full days
 // marked, each price period (season) tinted and listed beneath with its room prices. Tapping a day shows what it offers
-// (calendar-day-actions.tsx); tapping a second day asks for special prices from the first to the second.
+// (calendar-day-actions.tsx); "Set special prices from here" makes the next day tapped the end of a range.
 import type { DepartureSummary } from "@travel-crm/contracts/departures";
 import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { XIcon } from "lucide-react";
@@ -12,6 +12,7 @@ import type { DayButton } from "react-day-picker";
 import { enIN } from "react-day-picker/locale";
 import { rupees } from "@/components/forms/money-field";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatCalendarDay } from "@/lib/format";
 import { shownRoomTypes } from "@/room-prices/room-prices";
@@ -40,8 +41,10 @@ export function PriceCalendar({
   const t = useTranslations("packages.calendar");
   const tRooms = useTranslations("packages.form.roomTypeNames");
   const days = useMemo(() => calendarDaysOf(detail.seasons, departures), [detail.seasons, departures]);
-  // The first day tapped: what it offers shows beneath, and the next day tapped closes a range with it.
+  // The day selected: what it offers shows beneath, and the next day tapped closes a range with it.
   const [first, setFirst] = useState<CalendarDate | null>(null);
+  // After "Set special prices from here": the next day tapped ends the range.
+  const [ranging, setRanging] = useState(false);
   const today = keyOf(new Date());
 
   const onDeparture = (pick: (departure: DepartureSummary) => boolean) =>
@@ -98,25 +101,49 @@ export function PriceCalendar({
         labels={{ labelDayButton: dayLabel }}
         onDayClick={(date) => {
           const tapped = keyOf(date);
-          if (first === null) {
+          if (!ranging || first === null) {
             setFirst(tapped);
             return;
           }
+          setRanging(false);
           setFirst(null);
-          if (tapped === first) return;
           onSelectRange(tapped < first ? { from: tapped, to: first } : { from: first, to: tapped });
         }}
       />
       {first !== null && (
         <div className="flex flex-col gap-3">
           <p className="font-medium">{formatCalendarDay(first)}</p>
-          <CalendarDayActions
-            packageId={detail.id}
-            day={first}
-            departure={days.get(first)?.departure ?? null}
-            ahead={first > today}
-          />
-          <p className="text-muted-foreground">{t("rangeHint")}</p>
+          {ranging ? (
+            <>
+              <p className="text-muted-foreground">{t("rangePrompt")}</p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRanging(false);
+                }}
+              >
+                {t("rangeStop")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <CalendarDayActions
+                packageId={detail.id}
+                day={first}
+                departure={days.get(first)?.departure ?? null}
+                ahead={first > today}
+              />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRanging(true);
+                }}
+              >
+                {t("rangeStart")}
+              </Button>
+              <p className="text-muted-foreground">{t("moveHint")}</p>
+            </>
+          )}
         </div>
       )}
       <Separator />
