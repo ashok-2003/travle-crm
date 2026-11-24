@@ -2,11 +2,46 @@
   "page": {
     "title": "Package",
     "back": "Packages",
-    "intro": "A ready trip a quote starts from, and, once published, a page for visitors with a form that lands in your leads.",
+    "index": "On this page",
     "loading": "Loading the package",
     "loadFailed": "The package didn't load.",
     "retry": "Try again",
     "notFound": "This package isn't here any more."
+  },
+  "header": {
+    "aiSells": "AI sells it",
+    "aiDoesNotSell": "AI doesn't sell it",
+    "pageLive": "Page live",
+    "pageNotLive": "Page not published",
+    "fromPrice": "From {price}",
+    "nextDeparture": "Next departure {day}",
+    "datesAhead": "{count, plural, =0 {No dates ahead} one {# date ahead} other {# dates ahead}}"
+  },
+  "sections": {
+    "edit": "Edit",
+    "editNamed": "Edit {section}",
+    "save": "Save",
+    "saving": "Saving",
+    "cancel": "Cancel",
+    "saved": "{section} saved",
+    "notSet": "Not set",
+    "yes": "Yes",
+    "no": "No",
+    "prices": {
+      "title": "Prices & dates",
+      "everyMonth": "Every month"
+    },
+    "itinerary": {
+      "title": "Itinerary",
+      "days": "{count, plural, =0 {No days yet} one {# day} other {# days}}"
+    },
+    "details": {
+      "title": "Details & rules"
+    },
+    "page": {
+      "title": "Page & files",
+      "photos": "Photos"
+    }
   },
   "list": {
     "title": "Packages",
@@ -42,7 +77,6 @@
     }
   },
   "form": {
-    "quoteTitle": "The trip",
     "name": "Name",
     "nameHint": "What your team calls it, such as Kedarnath 6 days.",
     "title": "Title on a quote",
@@ -69,7 +103,6 @@
     "dayTitle": "Day {day}",
     "dayDescription": "What happens",
     "removeDay": "Remove day {day}",
-    "pageTitle": "Its public page",
     "slug": "Address",
     "slugHint": "The last part of the page's address: /a/{code}/ and this. Lower-case words joined by hyphens.",
     "summary": "Summary",
@@ -87,8 +120,6 @@
     "useCalculated": "Use this price",
     "cancellationNotes": "Cancellation notes",
     "cancellationNotesHint": "Shown on the page and printed on a quote made from this package.",
-    "save": "Save package",
-    "saving": "Saving",
     "problems": {
       "required": "Fill this in.",
       "invalid": "Check this.",
@@ -100,7 +131,6 @@
       "custom": "A custom trip, quoted for each customer",
       "group": "A group trip that departs on set dates"
     },
-    "groupTitle": "The group trip",
     "roomTypes": "Room types sold",
     "roomTypeNames": {
       "single": "Single",
@@ -280,6 +310,7 @@
     "priceLine": "{room}: {price}",
     "notOffered": "Not sold",
     "add": "Add a season",
+    "addSpecialPrices": "Add special prices",
     "edit": "Change",
     "editNamed": "Change {name}",
     "remove": "Remove",
@@ -287,7 +318,7 @@
     "removeTitle": "Remove {name}?",
     "removeDescription": "Bookings already made keep their price. New ones on these dates are no longer priced from it.",
     "removed": "Season removed",
-    "noRoomTypes": "Choose the room types sold first, in the form on the left."
+    "noRoomTypes": "Choose the room types sold first: Edit Prices & dates above."
   },
   "season": {
     "addTitle": "Add a season",

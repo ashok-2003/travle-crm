@@ -1,9 +1,14 @@
-// The price calendar's pure parts: the season a day falls in, and what each day of the calendar holds.
+// The price calendar's pure parts: a date's day, the season a day falls in, and what each day of the calendar holds.
 import type { DepartureSummary } from "@travel-crm/contracts/departures";
 import type { PackageSeasonView } from "@travel-crm/contracts/quotes";
 
 /** A calendar day, yyyy-mm-dd. */
 export type CalendarDate = string;
+
+const two = (part: number) => String(part).padStart(2, "0");
+/** The day a date falls on where the browser is (the calendar's days, and today). */
+export const dayKeyOf = (date: Date): CalendarDate =>
+  `${String(date.getFullYear())}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 
 /** What a day holds: the departure that starts on it, and the index of the season it falls in. */
 export interface CalendarDay {

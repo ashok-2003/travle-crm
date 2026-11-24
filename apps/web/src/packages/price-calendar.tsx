@@ -17,15 +17,12 @@ import { Separator } from "@/components/ui/separator";
 import { formatCalendarDay } from "@/lib/format";
 import { shownRoomTypes } from "@/room-prices/room-prices";
 import { CalendarDayActions } from "./calendar-day-actions";
-import { calendarDaysOf, type CalendarDate } from "./price-calendar-days";
+import { calendarDaysOf, dayKeyOf, type CalendarDate } from "./price-calendar-days";
 
 /** One tint per season, repeating: the legend's swatch wears the same class as its days. */
 const seasonTints = ["bg-status-good-fill", "bg-status-attention-fill", "bg-status-neutral-fill"] as const;
 const tintOf = (index: number) => seasonTints[index % seasonTints.length] ?? seasonTints[0];
 
-const two = (part: number) => String(part).padStart(2, "0");
-const keyOf = (date: Date): CalendarDate =>
-  `${String(date.getFullYear())}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 const dateOf = (key: CalendarDate) =>
   new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8)));
 
@@ -45,7 +42,7 @@ export function PriceCalendar({
   const [first, setFirst] = useState<CalendarDate | null>(null);
   // After "Set special prices from here": the next day tapped ends the range.
   const [ranging, setRanging] = useState(false);
-  const today = keyOf(new Date());
+  const today = dayKeyOf(new Date());
 
   const onDeparture = (pick: (departure: DepartureSummary) => boolean) =>
     departures.filter(pick).map((departure) => dateOf(departure.startDate));
@@ -68,7 +65,7 @@ export function PriceCalendar({
   const DepartureDayButton = useMemo(
     () =>
       function DepartureDayButton(props: ComponentProps<typeof DayButton>) {
-        const departure = days.get(keyOf(props.day.date))?.departure ?? null;
+        const departure = days.get(dayKeyOf(props.day.date))?.departure ?? null;
         return (
           <CalendarDayButton locale={enIN} {...props}>
             {props.children}
@@ -81,7 +78,7 @@ export function PriceCalendar({
   );
 
   const dayLabel = (date: Date) => {
-    const key = keyOf(date);
+    const key = dayKeyOf(date);
     const day = formatCalendarDay(key);
     const departure = days.get(key)?.departure ?? null;
     if (departure === null) return day;
@@ -100,7 +97,7 @@ export function PriceCalendar({
         components={{ DayButton: DepartureDayButton }}
         labels={{ labelDayButton: dayLabel }}
         onDayClick={(date) => {
-          const tapped = keyOf(date);
+          const tapped = dayKeyOf(date);
           if (!ranging || first === null) {
             setFirst(tapped);
             return;

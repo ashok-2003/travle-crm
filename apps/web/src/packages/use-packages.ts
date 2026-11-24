@@ -1,8 +1,8 @@
 "use client";
 
-// A package's reads and changes (release 7b): the package for its editor, its tiers, its photos (three steps: ask where to put
-// the file, put it straight into storage, name it), the "From" helper, and making quotes from it. A change loads the package
-// again, and the lists of packages.
+// A package's reads and changes (release 7b): the package for its page, a section of it saved, its tiers, its photos
+// (three steps: ask where to put the file, put it straight into storage, name it), the "From" helper, and making quotes
+// from it. A change loads the package again, and the lists of packages.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { uploadFile } from "@/files/upload";
@@ -30,13 +30,6 @@ export function usePackageChanges() {
       ]),
   };
   return {
-    // A destination named anew was added to the agency's list: its pickers and Settings load it again.
-    update: useMutation(
-      trpc.packages.update.mutationOptions({
-        onSuccess: (_saved, input) =>
-          Promise.all([options.onSuccess(), input.newDestinationName === undefined ? null : refreshWork()]),
-      }),
-    ),
     setPublished: useMutation(trpc.packages.setPublished.mutationOptions(options)),
     // A refusal means what the page showed was out of date (a payment QR removed elsewhere): read it again.
     setSellable: useMutation(
@@ -49,7 +42,14 @@ export function usePackageChanges() {
     removeTier: useMutation(trpc.packages.removeTier.mutationOptions(options)),
     saveSeason: useMutation(trpc.packages.saveSeason.mutationOptions(options)),
     saveSpecialPrices: useMutation(trpc.packages.saveSpecialPrices.mutationOptions(options)),
-    updatePart: useMutation(trpc.packages.updatePart.mutationOptions(options)),
+    // One section of the trip saved; a destination named anew was added to the agency's list, so its pickers and
+    // Settings load it again.
+    updatePart: useMutation(
+      trpc.packages.updatePart.mutationOptions({
+        onSuccess: (_saved, input) =>
+          Promise.all([options.onSuccess(), input.newDestinationName === undefined ? null : refreshWork()]),
+      }),
+    ),
     copyNote: useMutation(trpc.packages.copyNote.mutationOptions(options)),
     removeSeason: useMutation(trpc.packages.removeSeason.mutationOptions(options)),
   };

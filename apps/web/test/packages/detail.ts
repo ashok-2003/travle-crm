@@ -1,4 +1,5 @@
-// A package as packages.get answers, for the editor's component tests.
+// A package as packages.get answers, and one of its departures as departures.list does, for the editor's component tests.
+import type { DepartureSummary } from "@travel-crm/contracts/departures";
 import type { PackageDetail } from "@travel-crm/contracts/quotes";
 
 export function aPackage(changes: Partial<PackageDetail> = {}): PackageDetail {
@@ -40,6 +41,25 @@ export function aPackage(changes: Partial<PackageDetail> = {}): PackageDetail {
     sellGaps: [],
     pagesEnabled: true,
     agencyCode: "acme",
+    ...changes,
+  };
+}
+
+export function aDeparture(startDate: string, changes: Partial<DepartureSummary> = {}): DepartureSummary {
+  return {
+    id: "0190a000-0000-7000-8000-0000000000d1",
+    title: "Trip",
+    destinationName: null,
+    startDate,
+    endDate: startDate,
+    pricePaise: null,
+    status: "open",
+    state: "open",
+    seatsTotal: 10,
+    sold: 6,
+    held: 0,
+    free: 4,
+    overbookedBy: 0,
     ...changes,
   };
 }
