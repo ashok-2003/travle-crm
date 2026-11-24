@@ -1,7 +1,8 @@
 // The connection's health (spec 8.4), every five minutes over connected numbers: our own sends prove the delivery-report path
 // is down without needing customers to message. Messages sent more than 20 minutes ago with no status, and no report seen since,
 // mean the webhook is probably dead or paused: the connection is `problem`, with a log line at error level. A row left `sending`
-// over two minutes is `failed/unsure`; media still pending is queued again, until it is 3 days old: then it is `failed/unavailable` and never queued. The connection returns to connected by itself when
+// over two minutes is `failed/unsure`; media still pending is queued again, until it is 24 hours old: then it is
+// `failed/unavailable` and never queued. The connection returns to connected by itself when
 // a status or an inbound event arrives (inbound.ts and statuses.ts).
 import type { InboxDependencies } from "./dependencies.js";
 import { COPY_MEDIA_QUEUE } from "./dependencies.js";
@@ -64,7 +65,8 @@ export async function checkConnection(
         data: { status: "problem", problemSince: now },
       });
     }
-    // Past the give-up age the copy job may already be dead for good, so the row is settled here, not left pending.
+    // Past the give-up age the copy job may already be dead for good, so the row is settled here, not left pending. This runs
+    // for connected numbers only, but the update covers the whole organization: only an agency with no connected number keeps stale rows.
     await tx.whatsappMessage.updateMany({
       where: { mediaState: "pending", createdAt: { lt: new Date(now.getTime() - GIVE_UP_AFTER_MS) } },
       data: { mediaState: "failed", mediaUrl: null, failureCode: "unavailable" },

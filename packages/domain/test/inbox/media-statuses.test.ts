@@ -59,7 +59,7 @@ describe("media, statuses, echoes and health", () => {
   });
 
   describe("a file MSG91 cannot serve", () => {
-    const days = (count: number) => new Date(Date.now() + count * 24 * 60 * 60 * 1000);
+    const hours = (count: number) => new Date(Date.now() + count * 60 * 60 * 1000);
     const unreachable = () => ({
       ...test.dependencies,
       provider: {
@@ -68,24 +68,24 @@ describe("media, statuses, echoes and health", () => {
       },
     });
 
-    it("keeps trying while it is young, then fails it as unavailable after 3 days", async () => {
+    it("keeps trying while it is young, then fails it as unavailable after 24 hours", async () => {
       const { connection, message } = await photo("https://media.example/stuck");
       const copy = (now: Date) => copyMedia(unreachable(), connection.organizationId, message.id, now);
-      await expect(copy(days(1))).rejects.toThrow();
+      await expect(copy(hours(2))).rejects.toThrow();
       const row = () => test.db.forOrg(connection.organizationId, (tx) => tx.whatsappMessage.findFirstOrThrow());
       expect(await row()).toMatchObject({ mediaState: "pending" });
-      expect(await copy(days(4))).toBe("failed");
+      expect(await copy(hours(25))).toBe("failed");
       expect(await row()).toMatchObject({ mediaState: "failed", failureCode: "unavailable", mediaUrl: null });
     });
 
-    it("is failed by the health check once it is past 3 days, and queued again before that", async () => {
+    it("is failed by the health check once it is past 24 hours, and queued again before that", async () => {
       const { connection, message } = await photo("https://media.example/stuck-health");
       const check = (now: Date) =>
         checkConnection(test.dependencies, connection.organizationId, connection.connectionId, now);
       const queued = () => test.queue.sent.filter((job) => job.data.messageId === message.id).length;
-      await check(days(1));
+      await check(hours(2));
       expect(queued()).toBe(1);
-      await check(days(4));
+      await check(hours(25));
       expect(queued()).toBe(1);
       expect(
         await test.db.forOrg(connection.organizationId, (tx) => tx.whatsappMessage.findFirstOrThrow()),
