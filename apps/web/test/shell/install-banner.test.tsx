@@ -218,6 +218,29 @@ describe("what wins, and what waits", () => {
   });
 });
 
+describe("the installed iPhone app and the install prompt", () => {
+  it("notes the visit from the installed iPhone app even when its user agent has no Safari", async () => {
+    setPhone({ userAgent: IPHONE.replace(" Safari/604.1", ""), iosStandalone: true });
+    const { sent } = renderBar();
+    await waitFor(() => {
+      expect(sent).toEqual([{ platform: "ios" }]);
+    });
+  });
+
+  it("survives a rejected install prompt: the saved event is cleared", async () => {
+    const saved = {
+      prompt: vi.fn(() => Promise.reject(new Error("used"))),
+      userChoice: Promise.resolve({ outcome: "dismissed" }),
+    };
+    setPhone({ userAgent: PIXEL, prompt: saved });
+    renderBar();
+    await userEvent.click(await screen.findByRole("button", { name: words.install }));
+    await waitFor(() => {
+      expect(window.deferredInstallPrompt).toBeNull();
+    });
+  });
+});
+
 describe("hiding the bar", () => {
   it("hides it for a week with x, and brings it back after", async () => {
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-25T10:00:00Z") });

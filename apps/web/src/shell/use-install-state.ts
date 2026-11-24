@@ -53,8 +53,9 @@ function store(key: string, value: string): void {
 /** The kind of phone, or null for a computer or an unknown browser. An iPad asks for the Mac site, so its touch screen gives it away. */
 function phoneType(): InstalledAppPlatform | null {
   const agent = navigator.userAgent;
-  // Safari (or a browser on its engine): an app's own web view says no Safari and has no Add to Home Screen.
-  const safari = agent.includes("Safari/");
+  // Safari (or a browser on its engine), or the installed app, whose agent may lack "Safari": an app's own web view in
+  // a browser tab says no Safari and has no Add to Home Screen, and is never `navigator.standalone`.
+  const safari = agent.includes("Safari/") || navigator.standalone === true;
   if (/iPhone|iPad|iPod/.test(agent)) return safari ? "ios" : null;
   if (agent.includes("Macintosh") && navigator.maxTouchPoints > 1) return safari ? "ios" : null;
   if (agent.includes("Android") && navigator.maxTouchPoints > 0) return "android";
@@ -79,8 +80,12 @@ export function hideInstallBar(): void {
 export async function promptInstall(): Promise<void> {
   const saved = window.deferredInstallPrompt;
   if (!saved) return;
-  await saved.prompt();
-  await saved.userChoice;
+  try {
+    await saved.prompt();
+    await saved.userChoice;
+  } catch {
+    // A prompt that can't open is spent as well.
+  }
   // A prompt can be used once; if the app was installed, `appinstalled` clears it as well.
   window.deferredInstallPrompt = null;
   window.dispatchEvent(new Event("install-prompt-saved"));
