@@ -35,16 +35,30 @@ function MediaPlaceholder({ kind, children }: { kind: MediaKind; children: React
   );
 }
 
-/** The fixed frame every photo and video sits in: its size never depends on the file, so nothing shifts as it loads. */
+/** The fixed frames a photo and a video sit in: their size never depends on the file, so nothing shifts as it loads. */
 export const mediaFrameClass = "w-64 max-w-full aspect-[4/5]";
+export const videoFrameClass = "w-64 max-w-full aspect-video";
 
-/** A photo covering its frame; a placeholder fills the frame until it has loaded, and "not available" replaces it if it never does. */
-function Photo({ url, alt, unavailable }: { url: string; alt: string; unavailable: string }) {
-  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
-  if (state === "failed") return <MediaPlaceholder kind="image">{unavailable}</MediaPlaceholder>;
+/** A photo that could not be shown keeps its frame, with the words in it, and is not tappable. */
+function PhotoUnavailable() {
+  const t = useTranslations("inbox.chat");
+  return (
+    <div
+      className={`flex flex-col items-center justify-center gap-1 rounded-md bg-background/20 p-3 text-center text-label ${mediaFrameClass}`}
+    >
+      <ImageIcon aria-hidden="true" className="size-5" />
+      <p>{t("photoUnavailable")}</p>
+      <p className="text-caption">{t("openOnPhone")}</p>
+    </div>
+  );
+}
+
+/** A photo covering its frame; a placeholder fills the frame until it has loaded. */
+function Photo({ url, alt, onFailed }: { url: string; alt: string; onFailed: () => void }) {
+  const [loaded, setLoaded] = useState(false);
   return (
     <span className={`relative block overflow-hidden rounded-md ${mediaFrameClass}`}>
-      {state === "loading" && <Skeleton className="absolute inset-0" />}
+      {!loaded && <Skeleton className="absolute inset-0" />}
       {/* A customer's photo from storage: its size is unknown, so it is not an optimised Next image. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -52,14 +66,12 @@ function Photo({ url, alt, unavailable }: { url: string; alt: string; unavailabl
         alt={alt}
         className="size-full object-cover"
         ref={(element) => {
-          if (element?.complete === true && element.naturalWidth > 0) setState("loaded");
+          if (element?.complete === true && element.naturalWidth > 0) setLoaded(true);
         }}
         onLoad={() => {
-          setState("loaded");
+          setLoaded(true);
         }}
-        onError={() => {
-          setState("failed");
-        }}
+        onError={onFailed}
       />
     </span>
   );
@@ -90,6 +102,8 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   const open = useOpenMedia();
   const kind = message.kind as MediaKind;
   const link = useMediaLink(message.id, message.mediaState === "stored");
+  // The link whose picture the browser could not load; a fresh link for the same message gets a fresh try.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   if (message.mediaState === "pending")
     return <MediaPlaceholder kind={kind}>{t(`mediaPending.${kind}`)}</MediaPlaceholder>;
   if (message.mediaState === "expired" || message.mediaState === "failed") {
@@ -111,10 +125,18 @@ export function MessageMedia({ message }: { message: ChatMessage }) {
   }
   if (kind === "sticker") return <StickerImage url={url} alt={t("sticker")} />;
   const isVideo = contentType.startsWith("video/");
+  if (!isVideo && failedUrl === url) return <PhotoUnavailable />;
   const thumbnail = isVideo ? (
-    <VideoThumb url={url} label={t("video")} className={mediaFrameClass} />
+    <VideoThumb url={url} label={t("video")} className={videoFrameClass} />
   ) : (
-    <Photo url={url} alt={message.caption ?? t("photo")} unavailable={t("photoUnavailable")} />
+    <Photo
+      key={url}
+      url={url}
+      alt={message.caption ?? t("photo")}
+      onFailed={() => {
+        setFailedUrl(url);
+      }}
+    />
   );
   if (open === null) {
     return (

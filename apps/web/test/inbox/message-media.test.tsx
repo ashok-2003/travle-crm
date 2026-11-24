@@ -1,19 +1,27 @@
 // A photo or video inside a bubble sits in a fixed frame (inbox part 2, item 14): a placeholder fills it while the file loads, the
 // picture covers it, and a file that failed or is gone says so in words, never "not loaded yet".
 import type { ChatMessage, MediaLink } from "@travel-crm/contracts/inbox";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MediaViewerProvider } from "@/inbox/media/media-viewer";
 import { MessageMedia } from "@/inbox/media/message-media";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { wantsStream, wireResponse } from "../support/trpc-wire";
 
-function answerLink(contentType: string) {
+function answerLink(contentType: string, freshEachTime = false) {
+  let asked = 0;
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init: { headers?: unknown }) => {
       const paths = decodeURIComponent(new URL(url, "http://localhost").pathname.replace("/api/trpc/", "")).split(",");
-      const link: MediaLink = { url: "https://files.example/m1", fileName: "a", contentType, sizeBytes: 2048 };
+      asked += 1;
+      const link: MediaLink = {
+        url: freshEachTime ? `https://files.example/m1?try=${String(asked)}` : "https://files.example/m1",
+        fileName: "a",
+        contentType,
+        sizeBytes: 2048,
+      };
       return Promise.resolve(
         wireResponse(
           paths.map(() => ({ result: { data: link } })),
@@ -75,19 +83,38 @@ describe("a photo or video in a bubble", () => {
     expect(container.querySelector('[data-slot="skeleton"]')).toBeNull();
   });
 
-  it("says the photo is not available when the browser cannot load it", async () => {
+  it("keeps its frame, says so and is not tappable when the browser cannot load the photo", async () => {
     answerLink("image/jpeg");
-    show();
+    renderWithApi(
+      <MediaViewerProvider messages={[message()]} customerName="Rahul" people={{}}>
+        <MessageMedia message={message()} />
+      </MediaViewerProvider>,
+      newQueryClient(),
+    );
+    expect(await screen.findByRole("button", { name: "Open the photo" })).toBeInTheDocument();
+    fireEvent.error(await screen.findByRole("img", { name: "Photo" }));
+    const words = screen.getByText("Photo not available");
+    expect(words.parentElement).toHaveClass("w-64", "max-w-full", "aspect-[4/5]");
+    expect(screen.getByText("Open it on the phone")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open the photo" })).toBeNull();
+  });
+
+  it("tries again when the same message gets a fresh link", async () => {
+    answerLink("image/jpeg", true);
+    const client = newQueryClient();
+    renderWithApi(<MessageMedia message={message()} />, client);
     fireEvent.error(await screen.findByRole("img", { name: "Photo" }));
     expect(screen.getByText("Photo not available")).toBeInTheDocument();
-    expect(screen.queryByRole("img")).toBeNull();
+    await act(() => client.invalidateQueries());
+    expect(await screen.findByRole("img", { name: "Photo" })).toHaveAttribute("src", "https://files.example/m1?try=2");
   });
 
   it("puts a video thumbnail in the same frame", async () => {
     answerLink("video/mp4");
     show({ kind: "video" });
     const video = await screen.findByLabelText("Video");
-    expect(video.parentElement).toHaveClass("w-64", "max-w-full", "aspect-[4/5]");
+    expect(video.parentElement).toHaveClass("w-64", "max-w-full", "aspect-video");
   });
 
   it.each([

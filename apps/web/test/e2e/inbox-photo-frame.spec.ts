@@ -1,5 +1,5 @@
 // Photos in a bubble sit in a fixed frame (inbox part 2, item 14): on a phone a wide photo and a tall one take the same box before
-// and after they load, and the page never grows wider than the screen. The pictures are held back and then released to see both.
+// and after they load or fail, and neither the page nor any bubble grows wider than the screen. The pictures are held back, then released.
 import { deflateSync } from "node:zlib";
 import { expect, signInToConsole, test } from "./support/console";
 import { signInByEmail } from "./support/fixtures";
@@ -39,11 +39,14 @@ function png(width: number, height: number): Buffer {
   ]);
 }
 
-for (const viewport of [
-  { width: 320, height: 640 },
-  { width: 390, height: 844 },
-]) {
-  test(`a wide and a tall photo keep their frame and the page its width at ${String(viewport.width)}px`, async ({
+const cases = [
+  { viewport: { width: 320, height: 640 }, outcome: "load" },
+  { viewport: { width: 390, height: 844 }, outcome: "load" },
+  { viewport: { width: 320, height: 640 }, outcome: "fail" },
+] as const;
+
+for (const { viewport, outcome } of cases) {
+  test(`a wide and a tall photo keep their frame and the screen's width when they ${outcome} at ${String(viewport.width)}px`, async ({
     page,
     browser,
     superAdmin,
@@ -59,7 +62,7 @@ for (const viewport of [
     const customer = newCustomerNumber();
     const chat = await openNewChat(owner, business, customer, "Meera Rao", "Here are the photos");
 
-    // Every stored picture is held until released, then answered with a wide one or a tall one.
+    // Every stored picture (a presigned storage link) is held until released, then answered or refused.
     let release: () => void = () => undefined;
     const released = new Promise<void>((resolve) => {
       release = resolve;
@@ -68,12 +71,13 @@ for (const viewport of [
     const tall = png(1000, 3000);
     let served = 0;
     await owner.route(
-      (url) => url.origin !== new URL(owner.url()).origin,
+      (url) => url.searchParams.has("X-Amz-Signature"),
       async (route) => {
         if (route.request().resourceType() !== "image") return route.continue();
         const body = served % 2 === 0 ? wide : tall;
         served += 1;
         await released;
+        if (outcome === "fail") return route.abort();
         return route.fulfill({ status: 200, contentType: "image/png", body });
       },
     );
@@ -84,19 +88,36 @@ for (const viewport of [
         ]),
       ).toBe(200);
     }
-    const frames = chat.getByRole("button", { name: "Open the photo" });
-    await expect(frames).toHaveCount(2, { timeout: 90_000 });
+    await expect(chat.getByRole("button", { name: "Open the photo" })).toHaveCount(2, { timeout: 90_000 });
 
-    const heights = () => frames.evaluateAll((all) => all.map((frame) => frame.getBoundingClientRect().height));
-    const fits = () => owner.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-    const before = await heights();
+    // The frames are the photos' boxes, whether they hold a picture or the words for a failure.
+    const frames = chat.locator(String.raw`.aspect-\[4\/5\]`);
+    const sizes = () =>
+      frames.evaluateAll((all) =>
+        all.map((frame) => {
+          const { width, height } = frame.getBoundingClientRect();
+          return [width, height];
+        }),
+      );
+    const fits = async () =>
+      (await owner.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)) &&
+      (await chat.evaluate((root) =>
+        [...root.querySelectorAll("*")].every((element) => element.getBoundingClientRect().right <= window.innerWidth),
+      ));
+    const before = await sizes();
+    expect(before).toHaveLength(2);
     expect(await fits()).toBe(true);
 
     release();
-    await expect
-      .poll(() => owner.evaluate(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0)))
-      .toBe(true);
-    expect(await heights()).toEqual(before);
+    if (outcome === "fail") await expect(chat.getByText("Photo not available")).toHaveCount(2);
+    else {
+      await expect
+        .poll(() =>
+          owner.evaluate(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0)),
+        )
+        .toBe(true);
+    }
+    expect(await sizes()).toEqual(before);
     expect(await fits()).toBe(true);
     await owner.close();
   });
