@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { messages } from "@/i18n/messages";
 import { PageSection } from "@/packages/section-page";
 import { lastInputTo, renderScreen } from "../leads/screen";
-import { stubApi } from "../support/api-stub";
+import { heldAnswer, stubApi } from "../support/api-stub";
 import { aPackage } from "./detail";
 
 const words = messages.packages.form;
@@ -46,5 +46,19 @@ describe("Page & files", () => {
       priceDisplay: "from",
       fromPricePaise: 599_900,
     });
+  });
+
+  it("holds the fields still while the section saves", async () => {
+    const save = heldAnswer({ data: null });
+    stubApi({ "packages.updatePart": save.answer });
+    renderScreen(<PageSection detail={aPackage({ slug: null })} />, { width: "wide" });
+    await userEvent.click(
+      screen.getByRole("button", { name: sections.editNamed.replace("{section}", sections.page.title) }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: sections.save }));
+    await waitFor(() => {
+      expect(screen.getByLabelText(words.summary)).toBeDisabled();
+    });
+    save.release();
   });
 });

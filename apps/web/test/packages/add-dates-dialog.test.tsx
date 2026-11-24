@@ -48,6 +48,16 @@ describe("AddDatesDialog", () => {
     expect(await screen.findByText("2 dates added.")).toBeTruthy();
   });
 
+  it("says to add at most 62 days at a time under the last day, and sends nothing", async () => {
+    const api = fakeApi();
+    renderWithApi(<Opened />, newQueryClient());
+    await userEvent.type(screen.getByRole("textbox", { name: words.from }), "01/12/2027");
+    await userEvent.type(screen.getByRole("textbox", { name: words.to }), "15/02/2028");
+    await userEvent.click(screen.getByRole("button", { name: words.add }));
+    expect(await screen.findByText(words.problems.tooMany)).toBeTruthy();
+    expect(api.calls).toHaveLength(0);
+  });
+
   it("sends no weekdays when none is picked: every day", async () => {
     const api = fakeApi();
     renderWithApi(<Opened />, newQueryClient());

@@ -4,6 +4,7 @@
 // day). Afterwards it says how many were added, which days were already there, and offers to reopen a cancelled one.
 import {
   addPackageDatesInput,
+  MAX_ADDED_DATES,
   type AddPackageDatesInput,
   type AddPackageDatesResult,
 } from "@travel-crm/contracts/departures";
@@ -20,7 +21,7 @@ import { useDepartureChanges } from "@/departures/use-departures";
 import { formatCalendarDay } from "@/lib/format";
 import { Picks, WEEKDAYS } from "./group-fields";
 
-type Problem = "required" | "invalid";
+type Problem = "required" | "invalid" | "tooMany";
 interface Values extends Record<string, unknown> {
   from: string;
   to: string;
@@ -28,6 +29,10 @@ interface Values extends Record<string, unknown> {
 }
 
 const fields = ["from", "to", "weekdays"] as const;
+
+const DAY_MS = 86_400_000;
+const spansTooMany = ({ from, to }: Values) =>
+  (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS + 1 > MAX_ADDED_DATES;
 
 function Outcome({ result, onReopened }: { result: AddPackageDatesResult; onReopened: (departureId: string) => void }) {
   const t = useTranslations("packages.addDates");
@@ -103,7 +108,7 @@ function AddDatesForm({
         }),
         typed,
         (path) => fields.find((field) => field === String(path[0])),
-        () => "invalid",
+        (field) => (field === "to" && spansTooMany(typed) ? "tooMany" : "invalid"),
       ),
     (problem) => t(`problems.${problem}`),
   );

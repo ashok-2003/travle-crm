@@ -162,9 +162,10 @@ export const updatePackagePartInput = z
 export type UpdatePackagePartInput = z.infer<typeof updatePackagePartInput>;
 
 /** A line put first in the notes of several packages. */
+export const MAX_COPY_TRIPS = 50;
 export const copyNoteInput = z.strictObject({
   line: text(300).min(1),
-  packageIds: z.array(recordId).min(1).max(50),
+  packageIds: z.array(recordId).min(1).max(MAX_COPY_TRIPS),
 });
 export type CopyNoteInput = z.infer<typeof copyNoteInput>;
 export const copyNoteResult = z.object({

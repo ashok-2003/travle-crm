@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { FormAlert, type Sending } from "@/components/forms/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldSet } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -129,7 +130,7 @@ export function SectionForm({
   const t = useTranslations("packages.sections");
   return (
     <form noValidate className="flex flex-col gap-4" onSubmit={onSubmit}>
-      {children}
+      <FieldSet disabled={sending.isPending}>{children}</FieldSet>
       <FormAlert sending={sending} problem={problem} />
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={sending.isPending}>

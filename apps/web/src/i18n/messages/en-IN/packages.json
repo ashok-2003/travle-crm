@@ -12,7 +12,7 @@
     "aiSells": "AI sells it",
     "aiDoesNotSell": "AI doesn't sell it",
     "pageLive": "Page live",
-    "pageNotLive": "Page not published",
+    "pageNotLive": "Page not live",
     "fromPrice": "From {price}",
     "nextDeparture": "Next departure {day}",
     "datesAhead": "{count, plural, =0 {No dates ahead} one {# date ahead} other {# dates ahead}}"
@@ -393,13 +393,15 @@
     "legendTitle": "Price periods",
     "legendDates": "{from} to {to}",
     "legendPrice": "{room} {price}",
-    "noSeasons": "No special prices are set.",
+    "noSeasons": "No prices are set yet.",
     "moveHint": "Tap another day to see what it offers.",
     "rangeStart": "Set special prices from here",
     "rangePrompt": "Tap the last day of the special prices.",
     "rangeStop": "Never mind",
     "addDeparture": "Add a departure",
     "added": "Departure added",
+    "alreadyThere": "A departure is already on this day.",
+    "cancelledThere": "A cancelled departure is on this day. Reopen it instead.",
     "reopen": "Reopen",
     "reopened": "Departure opened again",
     "viewDeparture": "Open departure",
@@ -438,7 +440,8 @@
     "cancelledDay": "{day}, cancelled",
     "problems": {
       "required": "Fill this in.",
-      "invalid": "Check this."
+      "invalid": "Check this.",
+      "tooMany": "Add at most 62 days at a time."
     }
   },
   "copyNote": {
@@ -459,7 +462,8 @@
     "problems": {
       "required": "Fill this in.",
       "invalid": "Keep it to 300 characters.",
-      "noTrip": "Tick at least one trip."
+      "noTrip": "Tick at least one trip.",
+      "tooManyTrips": "Tick at most 50 trips."
     }
   }
 }

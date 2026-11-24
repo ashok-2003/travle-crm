@@ -50,8 +50,10 @@ export function CalendarDayActions({
             addPackageDates.mutate(
               { packageId, from: day, to: day, weekdays: [] },
               {
-                onSuccess: () => {
-                  toast.success(t("added"));
+                // The calendar can miss a day's departure (it lists a limited number), so say what really happened.
+                onSuccess: (result) => {
+                  if (result.added.length > 0) toast.success(t("added"));
+                  else toast.info(t(result.cancelled.length > 0 ? "cancelledThere" : "alreadyThere"));
                 },
               },
             );

@@ -6,6 +6,7 @@
 // it and names those skipped and why: they had it already, or their notes had no room. No AI.
 import {
   copyNoteInput,
+  MAX_COPY_TRIPS,
   type CopyNoteInput,
   type CopyNoteResult,
   type PackageDetail,
@@ -29,7 +30,7 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { usePackageChanges } from "./use-packages";
 
-type Problem = "required" | "invalid" | "noTrip";
+type Problem = "required" | "invalid" | "noTrip" | "tooManyTrips";
 interface Values {
   line: string;
   packageIds: string[];
@@ -82,7 +83,10 @@ function CopyNoteForm({
         copyNoteInput.safeParse(typed),
         typed,
         ([key]) => (key === "line" || key === "packageIds" ? key : undefined),
-        (field) => (field === "packageIds" ? "noTrip" : "invalid"),
+        (field) => {
+          if (field !== "packageIds") return "invalid";
+          return typed.packageIds.length > MAX_COPY_TRIPS ? "tooManyTrips" : "noTrip";
+        },
       ),
     (problem) => t(`problems.${problem}`),
   );

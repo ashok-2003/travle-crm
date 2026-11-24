@@ -22,6 +22,8 @@ export function PackageHeader({ detail }: { detail: PackageDetail }) {
   // The list also holds a departure already under way; the next is the first still to start.
   const next = upcoming.data?.find((departure) => departure.startDate >= today);
   const aiSells = detail.sellable && detail.sellGaps.length === 0;
+  // A published page is live only while the agency's public pages are on.
+  const pageLive = detail.published && detail.pagesEnabled;
   const facts = [
     detail.fromPricePaise === null ? null : t("fromPrice", { price: rupees(detail.fromPricePaise) }),
     group && next !== undefined ? t("nextDeparture", { day: formatCalendarDay(next.startDate) }) : null,
@@ -33,9 +35,7 @@ export function PackageHeader({ detail }: { detail: PackageDetail }) {
       intro={
         <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <StatusBadge tone={aiSells ? "good" : "neutral"}>{t(aiSells ? "aiSells" : "aiDoesNotSell")}</StatusBadge>
-          <StatusBadge tone={detail.published ? "good" : "neutral"}>
-            {t(detail.published ? "pageLive" : "pageNotLive")}
-          </StatusBadge>
+          <StatusBadge tone={pageLive ? "good" : "neutral"}>{t(pageLive ? "pageLive" : "pageNotLive")}</StatusBadge>
           {facts.length > 0 && <span>{facts.join(" · ")}</span>}
         </span>
       }

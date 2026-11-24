@@ -77,6 +77,12 @@ describe("PackageScreen", () => {
     vi.useRealTimers();
   });
 
+  it("says the page is not live when it is published but the agency's public pages are off", async () => {
+    await showing({ ...groupTrip, pagesEnabled: false });
+    expect(screen.getByText(words.header.pageNotLive)).toBeTruthy();
+    expect(screen.queryByText(words.header.pageLive)).toBeNull();
+  });
+
   it("shows the status line and four section summaries", async () => {
     await showing(groupTrip);
     expect(screen.getByText(words.header.aiSells)).toBeTruthy();

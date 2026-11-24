@@ -81,4 +81,22 @@ describe("CopyNoteDialog", () => {
     expect(await screen.findByText(words.problems.noTrip)).toBeTruthy();
     expect(lastInputTo("packages.copyNote")).toBeUndefined();
   });
+
+  it("says to tick at most 50 trips, not to tick one, when more are ticked", async () => {
+    const many = Array.from({ length: 51 }, (_, index) =>
+      trip(`0190a000-0000-7000-8000-c${String(index).padStart(11, "0")}`, `Trip ${String(index)}`),
+    );
+    stubApi({
+      "quotes.packages": { data: [trip(editing.id, editing.name), ...many] },
+      "packages.copyNote": { data: {} },
+    });
+    renderScreen(<CopyNoteDialog detail={editing} />, { width: "wide" });
+    await userEvent.click(screen.getByRole("button", { name: words.open }));
+    await screen.findByRole("checkbox", { name: "Trip 0" });
+    for (const box of screen.getAllByRole("checkbox")) await userEvent.click(box);
+    await userEvent.click(screen.getByRole("button", { name: words.copy }));
+    expect(await screen.findByText(words.problems.tooManyTrips)).toBeTruthy();
+    expect(screen.queryByText(words.problems.noTrip)).toBeNull();
+    expect(lastInputTo("packages.copyNote")).toBeUndefined();
+  }, 20_000);
 });
