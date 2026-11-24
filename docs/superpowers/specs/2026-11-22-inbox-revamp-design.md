@@ -115,14 +115,26 @@ The Inbox is the page sales agents live in; the goal is that they use it instead
     │[+] [Type a message  ✨📎] 🎤│
     └───────────────────────────┘
     ```
-12. **Messages that looked broken:**
-    - Keep the type name of a message the parser doesn't know (a column on the message; ids and the type's name only),
-      count them, and show the common ones properly (find them from production's logs or the new column: likely polls,
-      orders, deleted messages, system notices); the rest keep a plain line, worded as "A <type> message: open it on
-      the phone" when the type is known by name.
-    - A file stuck `pending`: find why (a phone-sent photo's copy may come without a link to fetch; other sessions'
-      #64/#70 changed how phone echoes are read), fetch the file where MSG91 gives a way, a job that retries stuck ones
-      for a few days, and "Photo not available" (not "not loaded yet") when it never can be.
+12. **Messages that looked broken** (production, 2026-11-24, with the owner's decisions):
+    - **"Can't be shown here"** was ~430 messages in 8 days, and MSG91 names most of them, so each is shown for what
+      it is (owner, 2026-11-24):
+      - **an edit** (116: customers 73, staff from the phone 43; `contentType` `edit`, with the original message's id and
+        the new text): the original bubble takes the new text and a small "Edited"; no bubble of its own;
+      - **a delete for everyone** (88: customers 46, staff 42; `contentType` `revoke`, with the original's id): the
+        original bubble **keeps its text for the team**, struck through, with "Deleted by the customer" (or "Deleted from
+        the phone" for our own); no bubble of its own (owner: "yes we can keep that");
+      - **WhatsApp didn't pass it on** (216; WhatsApp's error 131060 "This message is currently unavailable"): the
+        content never reaches us, so the bubble says so honestly ("WhatsApp didn't share this message: read it on the
+        phone");
+      - **an album** (36; error 131051 with `unsupported.type` `album`): the photos arrive as messages of their own, so
+        the bubble says "Sent an album of photos";
+      - **a click on the agency's ad with a message** (2; `contentType` `referral`): a bug today, the customer's words
+        are lost; show them as text, with "From your ad: <the ad's headline>";
+      - anything else keeps the plain "open it on the phone" line.
+    - **A file stuck "not loaded yet"** (2 of 2,689, both sent from the agency's phone; their copy jobs had failed, the
+      rows still said pending): past 24 hours a file that still can't be copied becomes failed (`unavailable`) and is
+      never re-queued; the bubble words every failed file by its reason ("Photo not available", "Too big to keep", "A
+      file type we don't keep"), never "not loaded yet".
 13. **WhatsApp's formatting in every bubble** (owner, 2026-11-24: the AI's `*Jibhi…*` showed its asterisks): *bold*,
     _italic_, ~strikethrough~, ```monospace``` blocks, `inline code`, lines starting "- " or "* " as bullets, "1. " as a
     numbered list, "> " as a quote, by WhatsApp's own rules for when a marker counts (no space just inside it, at word
@@ -136,6 +148,11 @@ The Inbox is the page sales agents live in; the goal is that they use it instead
       has no width limit) and fix it there.
 15. **The lead page's chat on a phone** runs edge to edge inside its card, with the same one-line AI strip and one-row
     reply box (owner, 2026-11-24: "this should be equally responsive").
+16. **The "turn on notifications" pop-up only when they're really off** (owner, 2026-11-24): every sign-in drops this
+    browser's push subscription (a shared phone keeps nobody else's alerts), so the pop-up asked again even though the
+    browser already allowed notifications. When the browser already allows them and the subscription is missing, the
+    app subscribes again by itself, with no pop-up. The pop-up stays for a browser never asked, and once a day for
+    someone who turned push off themselves; if a browser refuses to subscribe without a tap, the pop-up shows as before.
 
 ## Not in this change
 
