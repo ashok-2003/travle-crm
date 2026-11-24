@@ -28,6 +28,7 @@ import { usePrefetchChat } from "./use-inbox";
 import { useNumbers } from "./use-numbers";
 import { useOwners } from "./use-owner-names";
 import { WaitTimer } from "./wait-timer";
+import { plainWhatsAppText } from "./whatsapp-format";
 
 /** How long the pointer rests on a row before its chat is asked for: passing over rows on the way elsewhere asks nothing. */
 export const PREFETCH_REST_MS = 150;
@@ -133,7 +134,7 @@ function Row({
               <span className={cn("flex min-w-0 items-center gap-1 text-label", fresh ? "text-foreground" : quiet)}>
                 {chat.lastDirection === "out" && chat.lastStatus !== null && <Ticks status={chat.lastStatus} />}
                 <span className="truncate script-leading" dir="auto">
-                  {chat.preview}
+                  {plainWhatsAppText(chat.preview)}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1.5">

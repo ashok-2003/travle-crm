@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { actionOf } from "./test-natural-actions";
 import { TestNaturalWhy } from "./test-natural-why";
+import { WhatsAppText } from "@/inbox/whatsapp-text";
 import { OutBubble, WhyToggle } from "./test-turn";
 
 /**
@@ -51,7 +52,7 @@ function TestCard({
     <>
       <p className="text-caption text-muted-foreground">{t("caption")}</p>
       <OutBubble>
-        <span className="block whitespace-pre-line">{card.body}</span>
+        <WhatsAppText text={card.body} />
       </OutBubble>
       <div className="flex flex-wrap justify-end gap-2">
         {card.buttons.map((title, index) => (
@@ -87,7 +88,7 @@ export function TestNaturalTurn({
         // A turn's messages never change: a message's place is its identity.
         <OutBubble key={index}>
           <span className="sr-only">{t("agent")} </span>
-          {message}
+          <WhatsAppText text={message} />
         </OutBubble>
       ))}
       {payment.length > 0 && (

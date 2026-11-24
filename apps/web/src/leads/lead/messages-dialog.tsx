@@ -17,6 +17,7 @@ import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/data/trpc";
 import { useHolds } from "@/session/me-context";
+import { WhatsAppText } from "@/inbox/whatsapp-text";
 import { whatsAppLink } from "../contact-buttons";
 
 const BLANK = /(\{[a-z]+\})/;
@@ -107,7 +108,11 @@ export function MessagesButton({ leadId, name, phone }: { leadId: string; name: 
               )
             ) : (
               <>
-                <Highlighted text={preview.data.text} />
+                {BLANK.test(preview.data.text) ? (
+                  <Highlighted text={preview.data.text} />
+                ) : (
+                  <WhatsAppText text={preview.data.text} />
+                )}
                 {message.body.includes("{link}") && <p className="text-label text-muted-foreground">{t("linkNote")}</p>}
               </>
             )}
