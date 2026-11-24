@@ -10,7 +10,7 @@ import { addLeadThroughApi, leadInput } from "./support/leads";
 
 const isPhone = (testInfo: TestInfo) => testInfo.project.name === "phone";
 
-/** Runs in the page before the app: notifications allowed, and a push manager that hands out one subscription. */
+/** Runs in the page before the app: a browser never asked (permission "default" until requestPermission() allows it), and a push manager that hands out one subscription. */
 function standInPush(): void {
   const endpoint = `https://fcm.googleapis.com/fcm/send/e2e-${crypto.randomUUID()}`;
   const keys = { p256dh: `B${"A".repeat(86)}`, auth: "A".repeat(22) };
@@ -24,8 +24,12 @@ function standInPush(): void {
       return Promise.resolve(true);
     },
   };
-  Object.defineProperty(Notification, "permission", { configurable: true, get: () => "granted" });
-  Notification.requestPermission = () => Promise.resolve("granted");
+  let permission: NotificationPermission = "default";
+  Object.defineProperty(Notification, "permission", { configurable: true, get: () => permission });
+  Notification.requestPermission = () => {
+    permission = "granted";
+    return Promise.resolve(permission);
+  };
   PushManager.prototype.subscribe = function subscribe() {
     current = subscription;
     return Promise.resolve(subscription as unknown as PushSubscription);
