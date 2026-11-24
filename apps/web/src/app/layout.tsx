@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: brand.shortName,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     startupImage: appleStartupImages.map((image) => ({ ...image })),
   },
 };

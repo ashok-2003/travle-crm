@@ -65,7 +65,7 @@ describe("strategyFor", () => {
     expect(strategyFor(request("/_next/static/media/figtree.woff2"), origin)).toBe("cache-first");
   });
 
-  it("asks the network first for the icons, whose names stay the same when they change", () => {
+  it("asks the network first for the icons, whose favicon names stay the same when the mark changes", () => {
     expect(strategyFor(request("/icons/icon-192-v2.png"), origin)).toBe("network-first");
     expect(strategyFor(request("/icons/favicon.svg"), origin)).toBe("network-first");
   });
