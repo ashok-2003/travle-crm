@@ -122,7 +122,7 @@ export function aiChatResumedListener(dependencies: {
         if (!(await aiEnabled(tx))) return null;
         if ((await agentPauseOf(tx, event.organizationId)) !== null) return null;
         const message = await tx.whatsappMessage.findFirst({
-          where: { conversationId, direction: "in" },
+          where: { conversationId, direction: "in", revokedAt: null },
           orderBy: { occurredAt: "desc" },
           select: { id: true },
         });
@@ -162,7 +162,7 @@ export function aiReplyHandler(dependencies: AgentDependencies & { logger: Logge
       const job = aiReplyJob.parse(data);
       const newest = await dependencies.db.forOrg(job.organizationId, (tx) =>
         tx.whatsappMessage.findFirst({
-          where: { conversationId: job.conversationId, direction: "in" },
+          where: { conversationId: job.conversationId, direction: "in", revokedAt: null },
           orderBy: { occurredAt: "desc" },
           select: { id: true },
         }),
