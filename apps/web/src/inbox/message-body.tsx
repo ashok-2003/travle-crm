@@ -18,40 +18,50 @@ export function deletedLabelKey(message: ChatMessage): "deletedFromPhone" | "del
 
 // A deleted message keeps its words for the team, struck through, and screen readers hear who deleted it first; a message that
 // came from an ad names the ad's headline under its words.
-export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
+export function MessageBody({ message, after }: { message: ChatMessage; after?: ReactNode }): ReactNode {
   const t = useTranslations("inbox.chat");
   const deleted = message.revokedAt !== null;
-  if (!deleted && message.adHeadline === null) return <MessageContent message={message} />;
+  if (!deleted && message.adHeadline === null) return <MessageContent message={message} after={after} />;
   // Inline, never a block box: the bubble's invisible spacer for the corner's time must stay on the text's last line.
   return (
     <>
       {deleted && <span className="sr-only">{t(deletedLabelKey(message))}. </span>}
       <span className={deleted ? "line-through" : undefined}>
-        <MessageContent message={message} />
+        <MessageContent message={message} after={message.adHeadline === null ? after : undefined} />
       </span>
       {message.adHeadline !== null && (
         <>
           <br />
           <span className="text-caption text-muted-foreground">{t("fromAd", { headline: message.adHeadline })}</span>
+          {after}
         </>
       )}
     </>
   );
 }
 
-function MessageContent({ message }: { message: ChatMessage }): ReactNode {
+// `after` (the bubble's room for the corner's time) goes at the very end of whatever the words are.
+function MessageContent({ message, after }: { message: ChatMessage; after?: ReactNode }): ReactNode {
+  const ended = (words: ReactNode) => (
+    <>
+      {words}
+      {after}
+    </>
+  );
   const t = useTranslations("inbox.chat");
   switch (message.kind) {
     case "text":
     case "template":
-      if (message.tapped) return message.body === null ? t("tappedNoWords") : t("tapped", { text: message.body });
-      if (message.body === null) return null;
-      if (message.buttons === null) return <WhatsAppText text={message.body} />;
+      if (message.tapped)
+        return ended(message.body === null ? t("tappedNoWords") : t("tapped", { text: message.body }));
+      if (message.body === null) return ended(null);
+      if (message.buttons === null) return <WhatsAppText text={message.body} after={after} />;
       return (
         <div className="flex flex-col gap-2">
           <WhatsAppText text={message.body} />
           <span className="text-caption text-muted-foreground">
             {t("cardButtons", { titles: message.buttons.map((button) => button.title).join(" · ") })}
+            {after}
           </span>
         </div>
       );
@@ -65,7 +75,7 @@ function MessageContent({ message }: { message: ChatMessage }): ReactNode {
           <MessageMedia message={message} />
           {message.caption !== null && (
             <div dir="auto">
-              <WhatsAppText text={message.caption} />
+              <WhatsAppText text={message.caption} after={after} />
             </div>
           )}
           {message.aiText !== null && (
@@ -83,19 +93,26 @@ function MessageContent({ message }: { message: ChatMessage }): ReactNode {
         </div>
       );
     case "location":
-      if (message.latitude === null || message.longitude === null) return t("unsupported");
-      return <LocationCard latitude={message.latitude} longitude={message.longitude} />;
+      if (message.latitude === null || message.longitude === null) return ended(t("unsupported"));
+      return (
+        <>
+          <LocationCard latitude={message.latitude} longitude={message.longitude} />
+          {after}
+        </>
+      );
     case "contacts":
-      return t("contacts");
+      return ended(t("contacts"));
     case "reaction":
-      return t("reactedWith", { emoji: message.reaction ?? "" });
+      return ended(t("reactedWith", { emoji: message.reaction ?? "" }));
     case "unsupported":
-      return t(
-        message.unsupportedReason === "unavailable"
-          ? "unavailable"
-          : message.unsupportedReason === "album"
-            ? "album"
-            : "unsupported",
+      return ended(
+        t(
+          message.unsupportedReason === "unavailable"
+            ? "unavailable"
+            : message.unsupportedReason === "album"
+              ? "album"
+              : "unsupported",
+        ),
       );
   }
 }

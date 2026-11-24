@@ -122,13 +122,17 @@ export function MessageBubble({
       >
         {message.quoted !== null && <QuoteBlock quoted={message.quoted} senderName={quotedSender} />}
         <div dir="auto" className={cn("break-words whitespace-pre-wrap script-leading", media && "px-1.5")}>
-          <MessageBody message={message} />
-          {/* Room for the corner's line, so the last line never runs under it. */}
-          {!media && (
-            <span aria-hidden="true" className="invisible inline-flex items-center gap-1 ps-2 text-caption">
-              {meta(true)}
-            </span>
-          )}
+          {/* Room for the corner's line, so the last line never runs under it: the body puts it on the words' last line. */}
+          <MessageBody
+            message={message}
+            after={
+              media ? undefined : (
+                <span aria-hidden="true" className="invisible inline-flex items-center gap-1 ps-2 text-caption">
+                  {meta(true)}
+                </span>
+              )
+            }
+          />
         </div>
         {message.reaction !== null && message.kind !== "reaction" && (
           <span

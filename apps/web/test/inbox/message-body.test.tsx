@@ -92,19 +92,29 @@ describe("a bubble's account of what happened to the message", () => {
     expect(screen.getByText("From your ad: Spiti in June")).toBeTruthy();
   });
 
-  it("adds no block-level box around the words, so the corner's spacer stays on the last line", () => {
-    for (const fields of [
-      { body: "Five nights", revokedAt: "2026-10-26T10:05:00.000Z" },
-      { body: "Is this trip open?", adHeadline: "Spiti in June" },
-    ]) {
+  describe("the corner's invisible spacer sits on the words' last line", () => {
+    const BLOCK = "p, li, blockquote, div, pre, ul, ol";
+    const cases: [string, Record<string, unknown>, string, boolean][] = [
+      ["a one-line text", { body: "Five nights" }, "Five nights", true],
+      ["a two-paragraph text", { body: "First part\n\nSecond part" }, "Second part", true],
+      ["a text ending in a bullet list", { body: "Includes:\n- meals\n- transport" }, "transport", false],
+      ["a quote", { body: "> as you said" }, "as you said", false],
+      ["a deleted text", { body: "Five nights", revokedAt: "2026-10-26T10:05:00.000Z" }, "Five nights", true],
+      ["an ad text", { body: "Is this trip open?", adHeadline: "Spiti in June" }, "From your ad: Spiti in June", true],
+    ];
+    it.each(cases)("for %s", (_name, fields, lastWords, inlineOnly) => {
       show(fields);
-      const line = screen.getByText(fields.body).closest("[dir=auto]");
-      const blocks = Array.from(line?.children ?? []).filter(
-        (child) => child.getAttribute("aria-hidden") !== "true" && /\b(flex|flex-col|block)\b/.test(child.className),
-      );
-      expect(blocks).toHaveLength(0);
-      cleanup();
-    }
+      const last = screen.getByText(lastWords);
+      const spacer = document.querySelector("[aria-hidden=true].invisible");
+      expect(spacer).not.toBeNull();
+      const home = last.closest(BLOCK);
+      expect(home).not.toBeNull();
+      expect(spacer?.parentElement?.closest(BLOCK)).toBe(home);
+      // The spacer comes after the last words, never before them.
+      expect(last.compareDocumentPosition(spacer as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // Only paragraphs: one inline run, with no block box of its own inside the bubble's line.
+      if (inlineOnly) expect(home?.getAttribute("dir")).toBe("auto");
+    });
   });
 
   it("offers Forward on a message but not on one deleted for everyone", async () => {

@@ -45,17 +45,43 @@ function Spans({ spans, blanks }: { spans: Span[]; blanks: boolean }) {
   });
 }
 
-/** `blanks` marks each {blank} still in the text, for a message the person must finish before sending. */
-export function WhatsAppText({ text, blanks = false }: { text: string; blanks?: boolean }) {
+/**
+ * `blanks` marks each {blank} still in the text, for a message the person must finish before sending. `after` is a node
+ * that must sit on the text's last line (a bubble's invisible room for the corner's time): given it, a text of only
+ * paragraphs is one inline run (paragraphs split by line breaks, so the caller's `whitespace-pre-wrap` shapes it), and
+ * with lists, quotes or code it goes inside the last block (a code block last gets it on a line of its own).
+ */
+export function WhatsAppText({ text, blanks = false, after }: { text: string; blanks?: boolean; after?: ReactNode }) {
+  const blocks = parseWhatsApp(blanks ? text.replace(BLANK, "\uE000$1\uE001") : text);
+  if (after !== undefined && blocks.every((block) => block.kind === "paragraph")) {
+    return (
+      <>
+        {blocks.map((block, index) => (
+          <Fragment key={String(index)}>
+            {index > 0 && (
+              <>
+                <br />
+                <br />
+              </>
+            )}
+            <Spans spans={block.spans} blanks={blanks} />
+          </Fragment>
+        ))}
+        {after}
+      </>
+    );
+  }
   return (
     <div className="flex flex-col gap-1 whitespace-pre-wrap break-words">
-      {parseWhatsApp(blanks ? text.replace(BLANK, "\uE000$1\uE001") : text).map((block, index) => {
+      {blocks.map((block, index) => {
         const key = String(index);
+        const tail = index === blocks.length - 1 ? after : undefined;
         switch (block.kind) {
           case "paragraph":
             return (
               <p key={key}>
                 <Spans spans={block.spans} blanks={blanks} />
+                {tail}
               </p>
             );
           case "quote":
@@ -66,13 +92,17 @@ export function WhatsAppText({ text, blanks = false }: { text: string; blanks?: 
                 className="relative ps-3 before:absolute before:inset-y-0 before:start-0 before:w-1 before:rounded-full before:bg-muted-foreground/40"
               >
                 <Spans spans={block.spans} blanks={blanks} />
+                {tail}
               </blockquote>
             );
           case "code":
             return (
-              <pre key={key} className="rounded-md bg-muted p-2 font-mono text-label whitespace-pre-wrap">
-                {blanks ? withBlanks(block.text) : block.text}
-              </pre>
+              <Fragment key={key}>
+                <pre className="rounded-md bg-muted p-2 font-mono text-label whitespace-pre-wrap">
+                  {blanks ? withBlanks(block.text) : block.text}
+                </pre>
+                {tail !== undefined && <div>{tail}</div>}
+              </Fragment>
             );
           case "bullets":
           case "numbered": {
@@ -82,6 +112,7 @@ export function WhatsAppText({ text, blanks = false }: { text: string; blanks?: 
                 {block.items.map((item, at) => (
                   <li key={String(at)}>
                     <Spans spans={item} blanks={blanks} />
+                    {at === block.items.length - 1 ? tail : undefined}
                   </li>
                 ))}
               </List>
