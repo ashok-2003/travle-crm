@@ -1,7 +1,9 @@
 "use client";
 
 // What a tapped day of the price calendar offers: add a departure on a day with none, open or cancel one, reopen a
-// cancelled one. Days that are not ahead (today and before) offer nothing: the api refuses changes to them.
+// cancelled one. Days that are not ahead (today and before) offer nothing: the api refuses changes to them. Each change
+// shows only to whoever holds its call's permission (adding: departures:create; cancelling and reopening:
+// departures:edit), and the way to a departure to whoever may see departures.
 import type { DepartureSummary } from "@travel-crm/contracts/departures";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
@@ -12,6 +14,7 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { departureRoute } from "@/lib/routes";
+import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 
@@ -31,12 +34,15 @@ export function CalendarDayActions({
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
   const describedBy = access.allowed ? undefined : hintId;
+  const mayAdd = useHolds("departures:create");
+  const mayChange = useHolds("departures:edit");
+  const mayView = useHolds("departures:view");
   const { addPackageDates, reopen } = useDepartureChanges();
   if (!ahead) return null;
   const sending = addPackageDates.isPending || reopen.isPending;
   return (
     <div className="flex flex-col items-start gap-2">
-      {departure === null && (
+      {departure === null && mayAdd && (
         <Button
           disabled={!access.allowed || sending}
           aria-describedby={describedBy}
@@ -56,11 +62,11 @@ export function CalendarDayActions({
       )}
       {departure !== null && departure.status !== "cancelled" && (
         <>
-          <TextLink href={departureRoute(departure.id)}>{t("viewDeparture")}</TextLink>
-          <CancelDepartureDialog departureId={departure.id} />
+          {mayView && <TextLink href={departureRoute(departure.id)}>{t("viewDeparture")}</TextLink>}
+          {mayChange && <CancelDepartureDialog departureId={departure.id} />}
         </>
       )}
-      {departure?.status === "cancelled" && (
+      {departure?.status === "cancelled" && mayChange && (
         <Button
           disabled={!access.allowed || sending}
           aria-describedby={describedBy}

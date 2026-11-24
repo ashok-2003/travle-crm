@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PackageScreen } from "@/packages/package-screen";
 import { messages } from "@/i18n/messages";
 import { inputsTo, lastInputTo, renderScreen } from "../leads/screen";
-import { stubApi } from "../support/api-stub";
+import { heldAnswer, stubApi } from "../support/api-stub";
 import { member } from "../support/members";
 import { aDeparture, aPackage } from "./detail";
 
@@ -52,7 +52,7 @@ const listed = (detail: PackageDetail, departuresAhead: number): QuotePackage =>
 
 /** Opens the trip's page over an api that has the trip, its departures and its place in the Packages list. */
 async function showing(detail: PackageDetail, me = member({ isOwner: true })) {
-  stubApi({
+  const api = stubApi({
     "packages.get": { data: detail },
     "departures.list": (input) => ({
       data:
@@ -63,6 +63,7 @@ async function showing(detail: PackageDetail, me = member({ isOwner: true })) {
   });
   renderScreen(<PackageScreen packageId={detail.id} />, { width: "wide", me });
   await screen.findByRole("heading", { level: 1, name: detail.name });
+  return api;
 }
 
 const section = (title: string) => within(screen.getByRole("region", { name: title }));
@@ -108,6 +109,29 @@ describe("PackageScreen", () => {
     const sent = lastInputTo("packages.updatePart") as Record<string, unknown>;
     expect(Object.keys(sent).sort()).toEqual(["days", "destinationId", "name", "nights", "packageId", "title"]);
     expect(sent).toMatchObject({ packageId: groupTrip.id, title: "Kedarnath by helicopter", nights: 5 });
+  });
+
+  it("a saved section closes and its summary shows what was saved, read again", async () => {
+    const api = await showing(groupTrip);
+    const save = heldAnswer({ data: null });
+    api.answer("packages.updatePart", save.answer);
+    const itinerary = section(titles.itinerary);
+    await userEvent.click(itinerary.getByRole("button", { name: editNamed(titles.itinerary) }));
+    const title = itinerary.getByLabelText(words.form.title);
+    await userEvent.clear(title);
+    await userEvent.type(title, "Kedarnath by helicopter");
+    await userEvent.click(itinerary.getByRole("button", { name: words.sections.save }));
+    expect(await itinerary.findByRole("button", { name: words.sections.saving })).toBeTruthy();
+    // The api has saved it: the trip read again holds the new title.
+    api.answer("packages.get", { data: { ...groupTrip, title: "Kedarnath by helicopter" } });
+    save.release();
+    await waitFor(() => {
+      expect(itinerary.queryByLabelText(words.form.title)).toBeNull();
+    });
+    // Closed only once the trip was read again, so the summary never shows the old title after a save.
+    expect(itinerary.getByText("Kedarnath by helicopter")).toBeTruthy();
+    expect(itinerary.queryByText(groupTrip.title)).toBeNull();
+    expect(itinerary.getByRole("button", { name: editNamed(titles.itinerary) })).toBeTruthy();
   });
 
   it("Cancel leaves the section unchanged", async () => {

@@ -2,7 +2,8 @@
 
 // A trip's price calendar: the registry Calendar with each departure's seats left on its day, cancelled and full days
 // marked, each price period (season) tinted and listed beneath with its room prices. Tapping a day shows what it offers
-// (calendar-day-actions.tsx); "Set special prices from here" makes the next day tapped the end of a range.
+// (calendar-day-actions.tsx); "Set special prices from here", for whoever may change the trip (quotes:edit), makes the
+// next day tapped the end of a range. Without a permission the calendar is there to read.
 import type { DepartureSummary } from "@travel-crm/contracts/departures";
 import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { XIcon } from "lucide-react";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatCalendarDay } from "@/lib/format";
 import { shownRoomTypes } from "@/room-prices/room-prices";
+import { useHolds } from "@/session/me-context";
 import { CalendarDayActions } from "./calendar-day-actions";
 import { calendarDaysOf, dayKeyOf, type CalendarDate } from "./price-calendar-days";
 
@@ -43,6 +45,7 @@ export function PriceCalendar({
   // After "Set special prices from here": the next day tapped ends the range.
   const [ranging, setRanging] = useState(false);
   const today = dayKeyOf(new Date());
+  const mayPrice = useHolds("quotes:edit");
 
   const onDeparture = (pick: (departure: DepartureSummary) => boolean) =>
     departures.filter(pick).map((departure) => dateOf(departure.startDate));
@@ -130,14 +133,16 @@ export function PriceCalendar({
                 departure={days.get(first)?.departure ?? null}
                 ahead={first > today}
               />
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setRanging(true);
-                }}
-              >
-                {t("rangeStart")}
-              </Button>
+              {mayPrice && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRanging(true);
+                  }}
+                >
+                  {t("rangeStart")}
+                </Button>
+              )}
               <p className="text-muted-foreground">{t("moveHint")}</p>
             </>
           )}

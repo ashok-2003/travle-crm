@@ -9,6 +9,7 @@ import { PriceCalendar } from "@/packages/price-calendar";
 import { messages } from "@/i18n/messages";
 import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
+import { member } from "../support/members";
 import { aPackage } from "./detail";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -46,16 +47,26 @@ function Page() {
   return null;
 }
 
-function show(departures: DepartureSummary[], onSelectRange = vi.fn()) {
+function show(departures: DepartureSummary[], onSelectRange = vi.fn(), me = member({ isOwner: true })) {
   renderWithApi(
     <>
       <Page />
       <PriceCalendar detail={detail} departures={departures} onSelectRange={onSelectRange} />
     </>,
     newQueryClient(),
+    me,
   );
   return onSelectRange;
 }
+
+const calendarWords = messages.packages.calendar;
+/** What a tapped day may offer that changes something. */
+const changes = () => ({
+  add: screen.queryByRole("button", { name: calendarWords.addDeparture }),
+  cancel: screen.queryByRole("button", { name: messages.departures.cancelDialog.action }),
+  reopen: screen.queryByRole("button", { name: calendarWords.reopen }),
+  specialPrices: screen.queryByRole("button", { name: calendarWords.rangeStart }),
+});
 
 describe("PriceCalendar", () => {
   beforeEach(() => {
@@ -173,5 +184,49 @@ describe("PriceCalendar", () => {
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith(messages.departures.cancelDialog.cancelled);
     });
+  });
+
+  it("a member who may only look taps a day and sees no actions, only the way to the departure", async () => {
+    show(
+      [
+        departure("2027-10-20"),
+        departure("2027-10-24", {
+          id: "0190a000-0000-7000-8000-0000000000d2",
+          status: "cancelled",
+          state: "cancelled",
+        }),
+      ],
+      vi.fn(),
+      member({ permissions: ["quotes:view", "departures:view"] }),
+    );
+    await userEvent.click(day(/^22 Oct/));
+    expect(changes()).toEqual({ add: null, cancel: null, reopen: null, specialPrices: null });
+    await userEvent.click(day(/^20 Oct, 4 seats left/));
+    expect(changes()).toEqual({ add: null, cancel: null, reopen: null, specialPrices: null });
+    expect(screen.getByRole("link", { name: calendarWords.viewDeparture })).toBeTruthy();
+    await userEvent.click(day(/^24 Oct, cancelled/));
+    expect(changes()).toEqual({ add: null, cancel: null, reopen: null, specialPrices: null });
+  });
+
+  it("offers each change only to whoever may make it", async () => {
+    show(
+      [
+        departure("2027-10-20"),
+        departure("2027-10-24", {
+          id: "0190a000-0000-7000-8000-0000000000d2",
+          status: "cancelled",
+          state: "cancelled",
+        }),
+      ],
+      vi.fn(),
+      member({ permissions: ["departures:view", "departures:create"] }),
+    );
+    await userEvent.click(day(/^22 Oct/));
+    expect(changes().add).not.toBeNull();
+    expect(changes().specialPrices).toBeNull();
+    await userEvent.click(day(/^20 Oct, 4 seats left/));
+    expect(changes().cancel).toBeNull();
+    await userEvent.click(day(/^24 Oct, cancelled/));
+    expect(changes().reopen).toBeNull();
   });
 });
