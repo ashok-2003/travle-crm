@@ -38,3 +38,15 @@ server_role() {
 runs_migrations() {
   grep -q -s -E "^DATABASE_MIGRATOR_URL='.+'\$" "$settings_file"
 }
+
+# A machine's architecture as Docker names it (amd64 or arm64), from `uname -m`'s (x86_64, aarch64; arm64 on a Mac).
+docker_architecture() {
+  case "$1" in
+    x86_64 | amd64) echo amd64 ;;
+    aarch64 | arm64) echo arm64 ;;
+    *)
+      echo "The architecture $1 is neither amd64 nor arm64" >&2
+      return 1
+      ;;
+  esac
+}
