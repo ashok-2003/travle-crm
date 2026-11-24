@@ -1,6 +1,6 @@
-// No silence (plan 2, Task 8): a natural turn whose model fails is sent again after a minute, then after five; the third
-// failure sends the fallback line with a team task, and the AI stays on. An old attempt ends quietly when the customer
-// wrote since, and five chats run at once.
+// No silence (plan 2, Task 8): a natural turn whose model fails is sent again after two minutes, then after ten; the
+// third failure sends the fallback line with a team task, and the AI stays on. An old attempt ends quietly when the
+// customer wrote since, and five chats run at once.
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { setAgent } from "../../src/ai/agent-choice.js";
