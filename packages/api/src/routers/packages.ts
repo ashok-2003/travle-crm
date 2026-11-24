@@ -25,19 +25,20 @@ import {
   setPackageSellableInput,
   tierIdInput,
   updatePackageInput,
+  updatePackagePartInput,
 } from "@travel-crm/contracts/quotes";
 import { presignedUpload } from "@travel-crm/contracts/files";
-import { generatePackageDepartures, makeGroupQuote, reconcilePackageDepartures } from "@travel-crm/domain/departures";
+import { makeGroupQuote } from "@travel-crm/domain/departures";
 import {
   calculateFromPrice,
   confirmPackageFile,
   describeBrochure,
   confirmPackagePhoto,
-  findPackage,
   getPackage,
   listPackageFiles,
   listPackagePhotos,
   makeQuotesFromPackage,
+  mergePackagePart,
   packagePhotoCount,
   removePackageFile,
   removePackagePhoto,
@@ -51,12 +52,12 @@ import {
   saveTier,
   setPackagePublished,
   setPackageSellable,
-  updatePackage,
 } from "@travel-crm/domain/quotes";
 import { z } from "zod";
-import { agencyToday, mayMakeDepartures } from "../package-departures-gate.js";
+import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
+import { savePackageWithSchedule } from "./package-save.js";
 import { quoteContext } from "./quotes.js";
 
 const editor = orgProcedure.requires("quotes:edit");
@@ -80,28 +81,16 @@ export const packagesRouter = router({
     }),
 
   /** Saves the package; when its weekly days, months, nights or seats changed, makes the departures that now fit. */
-  update: editor.input(updatePackageInput).mutation(async ({ ctx, input }) => {
-    const today = await agencyToday(ctx);
-    // Told of a departure the change left alone when its leads have no owner: those who manage departures.
-    const managers = await ctx.identity.membersHolding(ctx.member.organizationId, "departures:edit");
-    await ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
-      const before = await findPackage(tx, input.packageId);
-      await updatePackage(tx, ctx.member, input);
-      const same = (left: readonly number[], right: readonly number[]) =>
-        [...left].sort().join() === [...right].sort().join();
-      const changed =
-        before.kind !== input.kind ||
-        !same(before.weeklyDays, input.weeklyDays) ||
-        !same(before.departureMonths, input.departureMonths) ||
-        before.nights !== input.nights ||
-        before.seatsPerDeparture !== input.seatsPerDeparture;
-      // Making departures is departures work: skipped, silently, for a member or a plan without it.
-      if (changed && mayMakeDepartures(ctx)) {
-        await reconcilePackageDepartures(tx, ctx.member, input.packageId, today, managers);
-        await generatePackageDepartures(tx, ctx.member, input.packageId, today);
-      }
-    });
-  }),
+  update: editor
+    .input(updatePackageInput)
+    .mutation(({ ctx, input }) => savePackageWithSchedule(ctx, input.packageId, () => input)),
+
+  /** Saves the fields one section of the page names, keeping the rest as stored; a full save's checks and departures follow. */
+  updatePart: editor
+    .input(updatePackagePartInput)
+    .mutation(({ ctx, input }) =>
+      savePackageWithSchedule(ctx, input.packageId, (before) => mergePackagePart(before, input)),
+    ),
 
   setPublished: publisher.input(setPackagePublishedInput).mutation(async ({ ctx, input }) => {
     const photoCount = await packagePhotoCount(ctx, ctx.member, input.packageId);

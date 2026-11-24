@@ -142,6 +142,22 @@ export const updatePackageInput = z
     path: ["newDestinationName"],
   });
 export type UpdatePackageInput = z.infer<typeof updatePackageInput>;
+
+/** One section of a trip: the fields named are saved, every other field stays as stored. */
+export const updatePackagePartInput = z
+  .strictObject({
+    packageId: recordId,
+    ...z.object(packageFields).partial().shape,
+    newDestinationName: destinationName.optional(),
+  })
+  .refine(
+    (input) => Object.keys(input).some((key) => key !== "packageId" && input[key as keyof typeof input] !== undefined),
+    {
+      message: "Name at least one field to save",
+      path: ["packageId"],
+    },
+  );
+export type UpdatePackagePartInput = z.infer<typeof updatePackagePartInput>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
 export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
 export type SetPackageSellableInput = z.infer<typeof setPackageSellableInput>;
