@@ -53,8 +53,8 @@ export const MAX_PACKAGE_PHOTO_BYTES = 5 * 1024 * 1024;
 /** A package's brochure (group packages): a PDF or a picture the AI agent sends to a customer who asks for details. */
 export const PACKAGE_BROCHURE_RECORD_TYPE = "package_brochure";
 export const packageBrochureContentTypes = ["application/pdf", ...packagePhotoContentTypes] as const;
-/** A brochure is at most 10 MB. */
-export const MAX_PACKAGE_BROCHURE_BYTES = 10 * 1024 * 1024;
+/** The attachment limit: an agency's brochure is often 10 to 20 MB, and WhatsApp sends documents up to 100 MB. */
+export const MAX_PACKAGE_BROCHURE_BYTES = 25 * 1024 * 1024;
 /** A package's payment QR (group packages): one picture, sent when a customer wants to book. */
 export const PACKAGE_PAYMENT_QR_RECORD_TYPE = "package_payment_qr";
 export const packagePaymentQrContentTypes = packagePhotoContentTypes;

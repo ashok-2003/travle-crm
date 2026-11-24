@@ -107,7 +107,7 @@ describe("a package's files", () => {
     expect((await listPackageFiles(dependencies, world.manager, packageId)).brochures).toHaveLength(4);
   });
 
-  it("refuses an oversize brochure and a sixth brochure", async () => {
+  it("takes a brochure of up to 25 MB, refuses a bigger one and a sixth brochure", async () => {
     const packageId = await aPackage();
     const request = (kind: "brochure", contentType: string, sizeBytes = 8) =>
       reasonOf(
@@ -119,7 +119,8 @@ describe("a package's files", () => {
           sizeBytes,
         }),
       );
-    expect(await request("brochure", "application/pdf", 10 * 1024 * 1024 + 1)).toBe("ATTACHMENT_TOO_BIG");
+    expect(await request("brochure", "application/pdf", 25 * 1024 * 1024 + 1)).toBe("ATTACHMENT_TOO_BIG");
+    expect(await request("brochure", "application/pdf", 13 * 1024 * 1024)).not.toBe("ATTACHMENT_TOO_BIG");
     for (let count = 0; count < 5; count += 1) await add(packageId, "brochure");
     expect(await request("brochure", "application/pdf")).toBe("PACKAGE_BROCHURE_LIMIT");
   });

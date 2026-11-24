@@ -320,7 +320,7 @@
   },
   "files": {
     "title": "Brochures",
-    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each). The AI shares them with customers who ask for details. The AI picks a brochure by its name and description.",
+    "intro": "Up to {max} brochures (PDF or a picture, 25 MB each). The AI shares them with customers who ask for details. The AI picks a brochure by its name and description.",
     "brochures": "Brochures",
     "noBrochures": "No brochures yet.",
     "noName": "No name yet: the AI uses the trip's title",
