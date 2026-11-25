@@ -70,7 +70,7 @@ export function DeparturesAgenda({
       ) : (
         <ItemGroup aria-label={t("agendaTitle", { month: monthName(month) })}>
           {sorted.map((departure, index) => (
-            <div key={departure.departureId}>
+            <div key={departure.departureId} role="listitem">
               {index > 0 && <ItemSeparator />}
               <Item asChild>
                 <button
