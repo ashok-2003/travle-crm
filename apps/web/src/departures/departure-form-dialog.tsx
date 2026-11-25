@@ -32,7 +32,7 @@ import {
   gstWording,
   type RoomPriceValues,
 } from "@/room-prices/room-prices";
-import { useDepartureChanges } from "./use-departures";
+import { useDepartureChanges, useDepartureDayPrices } from "./use-departures";
 
 /** A group package a new departure is made for: what the form starts from. */
 export interface DepartureOfPackage {
@@ -153,6 +153,8 @@ function DepartureForm({
   }, [start, nights, departure, form]);
   const pricing = usePackagePricing(linked);
   const rooms = shownRoomTypes(pricing?.roomTypes, departure?.prices);
+  // An empty price means the season's: its figure for the first day sits in the box as the placeholder.
+  const seasonPrices = useDepartureDayPrices(departure).data?.prices;
   return (
     <form
       id={formId}
@@ -172,7 +174,8 @@ function DepartureForm({
       })}
     >
       <TextField control={form.control} name="title" label={t("title")} hint={t("titleHint")} disabled={busy} />
-      <DestinationField control={form.control} name="destination" label={t("destination")} />
+      {/* A trip's departure keeps the trip's destination: the field is for a departure of its own. */}
+      {!linked && <DestinationField control={form.control} name="destination" label={t("destination")} />}
       <DateField control={form.control} name="startDate" label={t("startDate")} />
       <DateField control={form.control} name="endDate" label={t("endDate")} />
       <TextField control={form.control} name="seatsTotal" label={t("seatsTotal")} inputMode="numeric" disabled={busy} />
@@ -186,6 +189,9 @@ function DepartureForm({
               control={form.control}
               name={roomPriceKey(room)}
               label={t("roomPrice", { room: tRooms(room) })}
+              {...(departure?.prices[room] == null && seasonPrices?.[room] != null
+                ? { placeholder: rupeesFieldText(seasonPrices[room]) }
+                : {})}
             />
           ))}
         </FieldSet>

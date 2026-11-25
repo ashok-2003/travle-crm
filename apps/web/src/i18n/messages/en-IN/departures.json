@@ -53,7 +53,7 @@
       "invalid": "Check this."
     },
     "roomPrices": "Prices per person{gst, select, including { (including GST)} before { (before GST)} other {}}",
-    "roomPricesHint": "This departure's own prices. Once it has any price of its own, the package's season prices are not used for it, so a room left empty has no price.",
+    "roomPricesHint": "This departure's own prices. A room left empty is priced from the season (shown in the box).",
     "roomPrice": "{room}"
   },
   "page": {
@@ -82,7 +82,10 @@
       "seats": "Seats",
       "rooming": "Rooming",
       "costs": "Costs"
-    }
+    },
+    "roomPrices": "{prices} a person",
+    "seasonPrices": "{season} prices",
+    "ownPrices": "Set for this departure only"
   },
   "cancelDialog": {
     "title": "Cancel this departure?",

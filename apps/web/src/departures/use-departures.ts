@@ -24,6 +24,21 @@ export function useDeparture(departureId: string) {
   return useQuery(trpc.departures.get.queryOptions({ departureId }));
 }
 
+/** What a trip's departure is priced at on its first day (its own prices, else its season's); nothing for a departure of no trip. */
+export function useDepartureDayPrices(departure: { id: string; templateId: string | null; startDate: string } | null) {
+  const trpc = useTRPC();
+  const linked = departure !== null && departure.templateId !== null;
+  return useQuery({
+    ...trpc.departures.calendar.queryOptions({
+      packageId: departure?.templateId ?? "",
+      from: departure?.startDate ?? "",
+      to: departure?.startDate ?? "",
+    }),
+    enabled: linked,
+    select: (days) => days.find((day) => day.departureId === departure?.id),
+  });
+}
+
 export function useDepartureMoney(departureId: string, enabled: boolean) {
   const trpc = useTRPC();
   return useQuery({ ...trpc.departures.money.queryOptions({ departureId }), enabled });
