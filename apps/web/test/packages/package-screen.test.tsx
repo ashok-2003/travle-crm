@@ -47,6 +47,8 @@ const listed = (detail: PackageDetail, departuresAhead: number): QuotePackage =>
   nights: detail.nights,
   fromPricePaise: detail.fromPricePaise,
   aiSellable: detail.sellable,
+  aiSells: detail.sellable && detail.sellGaps.length === 0,
+  aiGap: detail.sellGaps[0] ?? null,
   departuresAhead,
 });
 

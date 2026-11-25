@@ -29,6 +29,8 @@ const trip = (id: string, name: string): QuotePackage => ({
   nights: 5,
   fromPricePaise: null,
   aiSellable: false,
+  aiSells: false,
+  aiGap: null,
   departuresAhead: 0,
 });
 

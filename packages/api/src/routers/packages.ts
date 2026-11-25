@@ -21,6 +21,7 @@ import {
   requestPackagePhotoInput,
   removePackageSeasonInput,
   savePackageSeasonInput,
+  savePriceTableInput,
   saveSpecialPricesInput,
   saveTierInput,
   setPackagePublishedInput,
@@ -49,6 +50,7 @@ import {
   removePackageSeason,
   removeTier,
   savePackageSeason,
+  savePriceTable,
   saveSpecialPrices,
   requestPackagePhotoUpload,
   tiersOf,
@@ -138,6 +140,13 @@ export const packagesRouter = router({
     .output(z.object({ id: z.uuid() }))
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => saveSpecialPrices(tx, ctx.member, input)),
+    ),
+
+  /** The price table: room types and every column's prices, in one transaction. */
+  savePriceTable: editor
+    .input(savePriceTableInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => savePriceTable(tx, ctx.member, input)),
     ),
 
   removeSeason: editor

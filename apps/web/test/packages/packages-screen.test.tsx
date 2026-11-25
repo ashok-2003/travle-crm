@@ -25,6 +25,8 @@ const listed = (overrides: Partial<QuotePackage>): QuotePackage => ({
   nights: 5,
   fromPricePaise: null,
   aiSellable: false,
+  aiSells: false,
+  aiGap: null,
   departuresAhead: 0,
   ...overrides,
 });

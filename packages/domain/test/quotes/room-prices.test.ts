@@ -37,12 +37,18 @@ describe("priceOn", () => {
     expect(priceOn(day("2027-01-05"), seasons, null, all)?.label).toBe("Peak");
   });
 
-  it("a batch's own prices win whole", () => {
+  it("a batch's own price wins for its rooms and the season's fills the rest", () => {
     const departure = { title: "Premium, 27 Nov", prices: { ...none, double: 749_900 } };
     const priced = priceOn(day("2026-11-27"), seasons, departure, all);
     expect(priced).toMatchObject({ source: "departure", label: "Premium, 27 Nov" });
     expect(priced?.prices.double).toBe(749_900);
-    expect(priced?.prices.triple).toBeNull();
+    expect(priced?.prices.triple).toBe(699_900);
+  });
+
+  it("a batch with no own price takes the season's, and one on a day no season covers keeps only its own", () => {
+    expect(priceOn(day("2026-11-10"), seasons, { title: "B", prices: none }, all)).toMatchObject({ source: "season" });
+    const outside = priceOn(day("2026-12-10"), seasons, { title: "B", prices: { ...none, quad: 549_900 } }, all);
+    expect(outside).toMatchObject({ source: "departure", prices: { ...none, quad: 549_900 } });
   });
 
   it("room types not offered are not priced", () => {

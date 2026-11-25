@@ -13,13 +13,19 @@ import { recordAudit } from "../audit/index.js";
 import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { calendarDateIn, DomainError, type CalendarDate } from "../kernel/index.js";
+import { agencyPaymentDetailsOf, paymentDetailsReady } from "../profile/index.js";
+import { groupFromPrices } from "./group-from-price.js";
 import { nameTaken } from "./package-row.js";
+import { gapsOfRows } from "./package-sell-gaps.js";
 import { copyOf, daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
 import { createQuote, type QuoteContext } from "./quotes.js";
 import { quoteTaxRate } from "@travel-crm/contracts/quotes";
 
-/** The agency's packages by name; `today` (the agency's) counts a group trip's departures still to come. */
-export async function listPackages(tx: OrgTx, today: CalendarDate): Promise<QuotePackage[]> {
+/**
+ * The agency's packages by name; `today` (the agency's) counts a group trip's departures still to come, and works out
+ * its "From" price. Whether the AI sells each is read in one batch, so the list's queries stay fixed as trips grow.
+ */
+export async function listPackages(tx: OrgTx, organizationId: string, today: CalendarDate): Promise<QuotePackage[]> {
   const rows = await tx.quoteTemplate.findMany({
     orderBy: { name: "asc" },
     select: {
@@ -35,6 +41,8 @@ export async function listPackages(tx: OrgTx, today: CalendarDate): Promise<Quot
       nights: true,
       fromPricePaise: true,
       aiSellable: true,
+      roomTypes: true,
+      advancePerPersonPaise: true,
       _count: {
         select: {
           tiers: true,
@@ -43,6 +51,16 @@ export async function listPackages(tx: OrgTx, today: CalendarDate): Promise<Quot
       },
     },
   });
+  const switchedOn = rows.filter((row) => row.aiSellable);
+  const paymentReady = switchedOn.length > 0 && paymentDetailsReady(await agencyPaymentDetailsOf(tx, organizationId));
+  const gaps = new Map(
+    (await gapsOfRows(tx, switchedOn, today, paymentReady)).map(({ row, gaps: found }) => [row.id, found]),
+  );
+  const fromPrices = await groupFromPrices(
+    tx,
+    rows.filter((row) => row.kind === "group").map((row) => row.id),
+    today,
+  );
   return quotePackageList.parse(
     rows.map((row) => ({
       id: row.id,
@@ -56,8 +74,15 @@ export async function listPackages(tx: OrgTx, today: CalendarDate): Promise<Quot
       tierCount: row._count.tiers,
       kind: row.kind,
       nights: row.nights,
-      fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
+      fromPricePaise:
+        row.kind === "group"
+          ? (fromPrices.get(row.id) ?? null)
+          : row.fromPricePaise === null
+            ? null
+            : Number(row.fromPricePaise),
       aiSellable: row.aiSellable,
+      aiSells: row.aiSellable && gaps.get(row.id)?.length === 0,
+      aiGap: gaps.get(row.id)?.[0] ?? null,
       departuresAhead: row._count.departures,
     })),
   );

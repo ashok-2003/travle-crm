@@ -1,5 +1,6 @@
 // The guards on a reply's words (spec 5, G1–G5), claims first as lite's check runs them: each checks the words against
 // the agency's data and never refuses a reply just for holding a number. Also the trace's flags, which check nothing.
+import { OPEN_SEASON_END } from "@travel-crm/contracts/quotes";
 import { paymentDetailsIn, type LiveOffer, type NaturalTrace } from "@travel-crm/contracts/ai";
 import { formatRupees, formatShortDay, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
 import { sentencesOf } from "../../lite/phrase-match.js";
@@ -120,7 +121,10 @@ export function traceFlags(
   const known = new Set<string>([
     ...sheets.flatMap((sheet) => [
       ...sheet.departures.map((one) => one.startsOn),
-      ...sheet.seasons.flatMap((season) => [season.from, season.until]),
+      // A season with no end has no last day to name.
+      ...sheet.seasons.flatMap((season) =>
+        season.until === OPEN_SEASON_END ? [season.from] : [season.from, season.until],
+      ),
     ]),
     ...[context.ownerText, context.customerText, ...sheets.map(tripTextOf)].flatMap((text) => datesIn(text, today)),
   ]);

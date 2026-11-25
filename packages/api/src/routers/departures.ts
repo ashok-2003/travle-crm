@@ -10,6 +10,8 @@ import {
   cancelDepartureInput,
   createDepartureInput,
   createHoldInput,
+  calendarDeparture,
+  departureCalendarInput,
   departureDetail,
   departureIdInput,
   departureList,
@@ -26,6 +28,8 @@ import {
   roomingDocument,
   saveDepartureSettingsInput,
   saveRoomingStayInput,
+  setDeparturePricesInput,
+  setDepartureSeatsInput,
   setDepartureStatusInput,
   setRoomRequestsInput,
   setQuoteDepartureInput,
@@ -52,6 +56,7 @@ import {
   listDepartures,
   listLeadDepartures,
   makeQuoteFromHold,
+  packageCalendar,
   moveTraveller,
   releaseHold,
   reopenCancelledDeparture,
@@ -61,6 +66,8 @@ import {
   roomingCsvOf,
   saveDepartureSettings,
   saveRoomingStay,
+  setDeparturePrices,
+  setDepartureSeats,
   setDepartureStatus,
   setRoomRequests,
   setQuoteDeparture,
@@ -121,6 +128,24 @@ export const departuresRouter = router({
       const today = await agencyToday(ctx);
       return ctx.db.forOrg(ctx.member.organizationId, (tx) => addPackageDates(tx, ctx.member, input, today));
     }),
+
+  /** A trip's departures in a date range with their seats and the price that applies, for its calendar. */
+  calendar: viewer
+    .input(departureCalendarInput)
+    .output(z.array(calendarDeparture))
+    .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => packageCalendar(tx, input))),
+
+  setSeats: editor
+    .input(setDepartureSeatsInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setDepartureSeats(tx, ctx.member, input)),
+    ),
+
+  setPrices: editor
+    .input(setDeparturePricesInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setDeparturePrices(tx, ctx.member, input)),
+    ),
 
   update: editor
     .input(updateDepartureInput)

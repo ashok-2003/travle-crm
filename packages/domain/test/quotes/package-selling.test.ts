@@ -4,6 +4,7 @@ import { parseCalendarDate } from "../../src/kernel/index.js";
 import {
   createQuote,
   getPackage,
+  listPackages,
   packageSellGaps,
   savePackage,
   savePackageSeason,
@@ -383,5 +384,38 @@ describe("a package the AI may sell", () => {
       ]),
     );
     expect(entries).toHaveLength(2);
+  });
+  describe("the list says what the trip page says about the AI", () => {
+    const listed = async (id: string) =>
+      (await world.inOrg((tx) => listPackages(tx, world.organizationId, today))).find((one) => one.id === id);
+
+    it("a switched-on group trip with no departure ahead is not sold, and names the first gap", async () => {
+      const id = await aPackage({ kind: "group", roomTypes: ["double"], advancePerPersonPaise: 100_000 });
+      await world.inOrg((tx) =>
+        savePackageSeason(tx, world.manager, {
+          packageId: id,
+          label: "Winter",
+          startsOn: "2026-11-01",
+          endsOn: "2027-03-31",
+          prices: { ...noPrices, double: 2_500_000 },
+        }),
+      );
+      await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id }, data: { aiSellable: true } }));
+      expect(await listed(id)).toMatchObject({ aiSellable: true, aiSells: false, aiGap: "departures" });
+    });
+
+    it("a ready trip is sold, and a trip with the switch off is not and names no gap", async () => {
+      const id = await aPackage({ kind: "group", roomTypes: ["double"], advancePerPersonPaise: 100_000 });
+      await world.inOrg(async (tx) => {
+        const open = await aDeparture(tx, { startDate: "2026-12-12", endDate: "2026-12-17" });
+        await tx.departure.update({
+          where: { id: open.id },
+          data: { templateId: id, priceDoublePaise: 2_000_000n },
+        });
+      });
+      expect(await listed(id)).toMatchObject({ aiSellable: false, aiSells: false, aiGap: null });
+      await sell(id, true);
+      expect(await listed(id)).toMatchObject({ aiSellable: true, aiSells: true, aiGap: null });
+    });
   });
 });
