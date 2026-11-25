@@ -320,14 +320,14 @@ Secrets come from the platform's secret manager as environment variables, never 
     models (the start-up check refuses it otherwise). A model that answered 429 rests (its Retry-After, else a
     minute) without being asked, so the backup answers at once. Use a paid key or another provider's, never a second free
     account to get round a provider's limits: its terms forbid that, and its free tier may use the customers' words.
-  - **Reasoning model behind the keys** (the owner: asked first from 2026-11-24, behind the keys from 2026-11-25,
-    since Gemini answers the customers better): `AI_PRIMARY_*` (the name is from when it was first), an OpenAI reasoning
-    model on its own endpoint (all three, with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`; today gpt-5-mini on Azure AI
-    Foundry, `AI_PRIMARY_BASE_URL` `https://<resource>.services.ai.azure.com/openai/v1`, `AI_PRIMARY_MODELS` the
-    deployment's name), is asked when every key refused and before the fallback providers below, for every feature but
-    voice notes and Fill it for me, which hear recordings and stay on the keys. It gets `max_completion_tokens` of at
-    least 16,000 (its thinking counts), no temperature, medium effort on every call and a prompt cache key of the
-    feature and organization.
+  - **Reasoning model** (the owner, 2026-11-24; split 2026-11-25): `AI_PRIMARY_*`, an OpenAI reasoning model on its
+    own endpoint (all three, with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`; today gpt-5-mini on Azure AI Foundry,
+    `AI_PRIMARY_BASE_URL` `https://<resource>.services.ai.azure.com/openai/v1`, `AI_PRIMARY_MODELS` the deployment's
+    name), is asked before every key, except in the WhatsApp agent's chats with customers (its turns and what it hears,
+    sees and reads in them, and lite's autopilot), where Gemini answers customers better: there it's asked when every
+    key refused, before the fallback providers below. Voice notes and Fill it for me hear recordings and stay on the
+    keys. It gets `max_completion_tokens` of at least 16,000 (its thinking counts), no temperature, medium effort on
+    every call and a prompt cache key of the feature and organization.
   - **Fallback providers** (the owner, 2026-11-23): `AI_FALLBACK_*`, then `AI_FALLBACK_2_*`, each another provider's
     endpoint, key and models (all three, with `AI_API_KEY` or `AI_VERTEX_SERVICE_ACCOUNT`), are asked for every feature
     only when every key above refused. The owner allows free tiers there (OpenRouter's free models, Mistral's free mode)
