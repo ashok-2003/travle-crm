@@ -1,6 +1,7 @@
 "use client";
 
 // What the AI proposed: the change table, the lines it left out, and Apply N changes for the ticked ones.
+import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -32,6 +33,7 @@ export function ProposalView({
   applying,
   error,
   onApply,
+  seasons,
 }: {
   proposal: ProposedChanges;
   ticked: string[];
@@ -39,6 +41,7 @@ export function ProposalView({
   applying: boolean;
   error: unknown;
   onApply: (changes: ProposedChange[]) => void;
+  seasons: PackageDetail["seasons"] | undefined;
 }) {
   const t = useTranslations("packages.aiChanges");
   const write = useWriteAccess("change");
@@ -50,7 +53,7 @@ export function ProposalView({
         proposal.questions.length === 0 && <p className="text-sm">{t("none")}</p>
       ) : (
         <>
-          <ChangeTable changes={proposal.changes} ticked={ticked} onTickedChange={onTickedChange} />
+          <ChangeTable changes={proposal.changes} ticked={ticked} onTickedChange={onTickedChange} seasons={seasons} />
           <RefusalAlert error={error} />
           <div className="flex flex-col items-start gap-2">
             <Button

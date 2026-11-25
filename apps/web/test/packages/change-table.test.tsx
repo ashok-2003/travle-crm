@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ChangeTable, cleanChangeIds } from "@/packages/ai-changes/change-table";
 import { messages } from "@/i18n/messages";
 import { newQueryClient, renderWithApi } from "../organization/api";
+import type { ProposedChange } from "@/packages/ai-changes/use-package-changes-ai";
+import { aSeason } from "./detail";
 import { flaggedChange, priceChange, seatsChange } from "./ai-changes-support";
 
 const words = messages.packages.aiChanges;
@@ -50,5 +52,51 @@ describe("ChangeTable", () => {
     expect(onTickedChange).toHaveBeenCalledWith(["c1", "c3"]);
     await userEvent.click(screen.getByRole("checkbox", { name: "Apply: Prices for Regular" }));
     expect(onTickedChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("names a season by its dates, and says Same when no room differs", () => {
+    const sameChange = { ...priceChange, id: "c9", prices: { ...priceChange.prices, double: 1_200_000 } };
+    renderWithApi(
+      <ChangeTable
+        changes={[priceChange, sameChange]}
+        ticked={[]}
+        onTickedChange={vi.fn()}
+        seasons={[aSeason(priceChange.seasonIds[0] ?? "", "Regular", "2027-01-01", "2027-03-31")]}
+      />,
+      newQueryClient(),
+    );
+    expect(screen.getAllByText("Prices for Regular (1 Jan 2027 to 31 Mar 2027)")).toHaveLength(2);
+    expect(
+      within(screen.getByRole("row", { name: /Prices for Regular.*Same.*Same/ })).getAllByText(words.rows.noChange),
+    ).toHaveLength(2);
+  });
+
+  it("numbers the itinerary's days, adds notes, and words empty repeats", () => {
+    const changes: ProposedChange[] = [
+      {
+        id: "i1",
+        kind: "itinerary",
+        evidence: [],
+        flags: [],
+        before: [
+          { title: "Delhi", description: "" },
+          { title: "Agra", description: "" },
+        ],
+        days: [
+          { title: "Agra", description: "" },
+          { title: "Delhi", description: "" },
+        ],
+      },
+      { id: "n1", kind: "note_add", evidence: [], flags: [], line: "Carry ID" },
+      { id: "w1", kind: "trip_field", evidence: [], flags: [], field: "weeklyDays", before: [], value: [5, 1] },
+      { id: "m1", kind: "trip_field", evidence: [], flags: [], field: "departureMonths", before: [], value: [] },
+    ];
+    renderWithApi(<ChangeTable changes={changes} ticked={[]} onTickedChange={vi.fn()} />, newQueryClient());
+    expect(screen.getByText("1. Delhi")).toBeInTheDocument();
+    expect(screen.getByText("1. Agra")).toBeInTheDocument();
+    expect(screen.getByText(words.rows.notInNotes)).toBeInTheDocument();
+    expect(screen.getByText("Mon, Fri")).toBeInTheDocument();
+    expect(screen.getByText(words.rows.noRepeats)).toBeInTheDocument();
+    expect(screen.getAllByText(words.rows.everyMonth)).toHaveLength(2);
   });
 });

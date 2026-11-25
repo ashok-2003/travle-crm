@@ -3,6 +3,7 @@
 // After Apply: "N changes applied" with the list and Undo all (which asks first), and after Undo all, what was put back
 // and which departures stayed as they are.
 import type { UndoPackageChangesResult } from "@travel-crm/contracts/ai";
+import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -19,6 +20,7 @@ export function AppliedView({
   changes,
   onUndone,
   onAgain,
+  seasons,
 }: {
   runId: string;
   count: number;
@@ -26,9 +28,10 @@ export function AppliedView({
   changes: ProposedChange[] | null;
   onUndone: (result: UndoPackageChangesResult) => void;
   onAgain: () => void;
+  seasons: PackageDetail["seasons"] | undefined;
 }) {
   const t = useTranslations("packages.aiChanges");
-  const wordsOf = useChangeWords();
+  const wordsOf = useChangeWords(seasons);
   const write = useWriteAccess("change");
   const hintId = useId();
   const [asking, setAsking] = useState(false);

@@ -12,7 +12,7 @@ export const packageId = "0190a000-0000-7000-8000-000000000001";
 export const runId = "0190a000-0000-7000-8000-0000000000aa";
 const none = { double: null, single: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
 
-export const priceChange: PackageChange = {
+export const priceChange: Extract<PackageChange, { kind: "season_change" }> = {
   id: "c1",
   kind: "season_change",
   evidence: [],

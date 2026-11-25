@@ -2,6 +2,7 @@
 
 // The table of exact changes: a tick, What, Now and New for each. A change with a flag (not in the message, another trip's
 // line, a cancelled or booked departure...) starts unticked and shows its reason in red; one the role may not make can't be ticked.
+import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -28,13 +29,16 @@ export function ChangeTable({
   changes,
   ticked,
   onTickedChange,
+  seasons,
 }: {
   changes: ProposedChange[];
   ticked: string[];
   onTickedChange: (ids: string[]) => void;
+  /** The trip's seasons, to name a price change's season by its dates. */
+  seasons?: PackageDetail["seasons"] | undefined;
 }) {
   const t = useTranslations("packages.aiChanges");
-  const wordsOf = useChangeWords();
+  const wordsOf = useChangeWords(seasons);
   return (
     <Table aria-label={t("tableLabel")}>
       <TableHeader>

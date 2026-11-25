@@ -580,7 +580,7 @@
     "none": "Nothing to change on this trip.",
     "ignoredTitle": "Lines about other trips we left out",
     "notChangedTitle": "Already the way you said",
-    "brochureLeftOut": "A brochure you attached was too long to read, so it was left out.",
+    "brochureLeftOut": "This PDF looks like a brochure. Brochures aren't changed here: add it under Page and AI, Brochures.",
     "apply": "Apply {count, plural, one {# change} other {# changes}}",
     "applying": "Applying",
     "applied": "{count, plural, one {# change applied} other {# changes applied}}",
@@ -621,8 +621,7 @@
       "seasonChange": "Prices for {label}",
       "seasonAddNow": "Not there yet",
       "fromTo": "{from} to {to}",
-      "fromOnwards": "from {from} onwards",
-      "untilChanged": "{from} until changed",
+      "untilChanged": "From {from}, until you change it",
       "departuresAdd": "{count, plural, one {Add # departure} other {Add # departures}}",
       "departureCancel": "Cancel the departure on {day}",
       "departureReopen": "Reopen the departure on {day}",
@@ -642,7 +641,12 @@
       "days": "{count, plural, =0 {No days} one {# day} other {# days}}",
       "aiSelling": "The AI selling this trip",
       "on": "On",
-      "off": "Off"
+      "off": "Off",
+      "notInNotes": "Not in the notes yet",
+      "noRepeats": "No repeats",
+      "everyMonth": "Every month",
+      "allOtherDays": "all other days",
+      "seasonNamed": "{label} ({dates})"
     }
   }
 }

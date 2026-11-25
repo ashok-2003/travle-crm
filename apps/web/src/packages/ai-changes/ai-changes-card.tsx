@@ -7,6 +7,7 @@ import type { UndoPackageChangesResult } from "@travel-crm/contracts/ai";
 import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { usePackage } from "../use-packages";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cardTints } from "@/components/card-tints";
@@ -49,6 +50,7 @@ function Box({ packageId }: { packageId: string }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const uploaded = useRef(new Map<File, string>());
+  const seasons = usePackage(packageId).data?.seasons;
   const propose = useProposeChanges();
   const upload = useUploadChangeInput();
   const latest = useLatestChangeRun(packageId, true);
@@ -101,6 +103,7 @@ function Box({ packageId }: { packageId: string }) {
     if (done) {
       return (
         <AppliedView
+          seasons={seasons}
           runId={done.runId}
           count={done.count}
           changes={done.changes}
@@ -135,6 +138,7 @@ function Box({ packageId }: { packageId: string }) {
         )}
         {proposal && (
           <ProposalView
+            seasons={seasons}
             proposal={proposal}
             ticked={ticked}
             onTickedChange={setTicked}
